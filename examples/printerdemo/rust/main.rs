@@ -59,7 +59,7 @@ pub fn main() {
     });
     main_window
         .global::<PrinterQueue>()
-        .set_printer_queue(sixtyfps::ModelHandle::new(printer_queue.data.clone()));
+        .set_printer_queue(sixtyfps::ModelRc::new(printer_queue.data.clone()));
 
     main_window.on_quit(move || {
         #[cfg(not(target_arch = "wasm32"))]

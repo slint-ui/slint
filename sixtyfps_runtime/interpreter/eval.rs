@@ -7,7 +7,7 @@ use core::convert::TryInto;
 use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement};
 use corelib::items::{ItemRef, PropertyAnimation};
-use corelib::model::{Model, ModelHandle};
+use corelib::model::{Model, ModelRc};
 use corelib::rtti::AnimatedBindingKind;
 use corelib::window::{WindowHandleAccess, WindowRc};
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
@@ -568,10 +568,10 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::Array { values, .. } => Value::Model(
-            ModelHandle::new(Rc::new(corelib::model::SharedVectorModel::from(
+            ModelRc::new(Rc::new(corelib::model::SharedVectorModel::from(
                 values.iter().map(|e| eval_expression(e, local_context)).collect::<SharedVector<_>>()
-            )) as Rc<dyn corelib::model::Model<Data = Value>>)
-        ),
+            )
+        ))),
         Expression::Struct { values, .. } => Value::Struct(
             values
                 .iter()

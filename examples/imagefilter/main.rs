@@ -140,7 +140,7 @@ pub fn main() {
     ]);
     let filters = Rc::new(filters);
 
-    main_window.set_filters(sixtyfps::ModelHandle::new(filters.clone()));
+    main_window.set_filters(sixtyfps::ModelRc::new(filters.clone()));
 
     main_window.on_filter_image(move |filter_index| {
         let filter_fn = filters.0[filter_index as usize].apply_function;

@@ -78,7 +78,7 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Struct { name: Some(name), .. } => Some(struct_name_to_tokens(name)),
         Type::Array(o) => {
             let inner = rust_type(o)?;
-            Some(quote!(sixtyfps::re_exports::ModelHandle<#inner>))
+            Some(quote!(sixtyfps::re_exports::ModelRc<#inner>))
         }
         Type::Enumeration(e) => {
             let e = ident(&e.name);
@@ -536,7 +536,7 @@ fn generate_sub_component(
 
         let mut model = compile_expression(&repeated.model, &ctx);
         if repeated.model.ty(&ctx) == Type::Bool {
-            model = quote!(sixtyfps::re_exports::ModelHandle::new(sixtyfps::re_exports::Rc::<bool>::new(#model)))
+            model = quote!(sixtyfps::re_exports::ModelRc::new(sixtyfps::re_exports::Rc::<bool>::new(#model)))
         }
 
         init.push(quote! {
@@ -1273,7 +1273,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     ))
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    quote!(sixtyfps::re_exports::ModelHandle::new(sixtyfps::re_exports::Rc::<usize>::new(#f as usize)))
+                    quote!(sixtyfps::re_exports::ModelRc::new(sixtyfps::re_exports::Rc::<usize>::new(#f as usize)))
                 }
                 (Type::Float32, Type::Color) => {
                     quote!(sixtyfps::re_exports::Color::from_argb_encoded(#f as u32))
@@ -1446,7 +1446,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let base_e = compile_expression(array, ctx);
             let index_e = compile_expression(index, ctx);
             let value_e = compile_expression(value, ctx);
-            quote!((#base_e).set_row_data(#index_e as usize, #value_e as _);)
+            quote!((#base_e).set_row_data(#index_e as usize, #value_e as _))
         }
         Expression::BinaryExpression { lhs, rhs, op } => {
             let (conv1, conv2) = match crate::expression_tree::operator_class(*op) {
@@ -1536,7 +1536,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let val = values.iter().map(|e| compile_expression(e, ctx));
             if *as_model {
                 let rust_element_ty = rust_type(element_ty).unwrap();
-                quote!(sixtyfps::re_exports::ModelHandle::new(
+                quote!(sixtyfps::re_exports::ModelRc::new(
                     sixtyfps::re_exports::Rc::new(sixtyfps::re_exports::VecModel::<#rust_element_ty>::from(
                         sixtyfps::re_exports::vec![#(#val as _),*]
                     ))

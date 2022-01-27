@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-use sixtyfps::{Model, ModelHandle, Timer, VecModel};
+use sixtyfps::{Model, ModelRc, Timer, VecModel};
 use std::rc::Rc;
 use std::time::Duration;
 
@@ -30,7 +30,7 @@ pub fn main() {
 
     let tiles_model = Rc::new(VecModel::from(tiles));
 
-    main_window.set_memory_tiles(ModelHandle::new(tiles_model.clone()));
+    main_window.set_memory_tiles(ModelRc::new(tiles_model.clone()));
 
     let main_window_weak = main_window.as_weak();
 

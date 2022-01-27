@@ -181,7 +181,7 @@ The follow table summarizes the entire mapping:
 | `duration` | `i64` | At run-time, durations are always represented as signed 64-bit integers with millisecond precision. |
 | `angle` | `f32` | The value in degrees |
 | structure | `struct` of the same name | |
-| array | [`ModelHandle`] |  |
+| array | [`ModelRc`] |  |
 
 For user defined structures in the .60, an extra struct is generated.
 For example, if the `.60` contains
@@ -233,7 +233,7 @@ pub use sixtyfps_corelib::graphics::{
     Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
 pub use sixtyfps_corelib::model::{
-    Model, ModelHandle, ModelNotify, ModelPeer, ModelTracker, StandardListViewItem, VecModel,
+    Model, ModelNotify, ModelPeer, ModelRc, ModelTracker, StandardListViewItem, VecModel,
 };
 pub use sixtyfps_corelib::sharedvector::SharedVector;
 pub use sixtyfps_corelib::string::SharedString;

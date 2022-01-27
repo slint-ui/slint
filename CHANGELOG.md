@@ -21,6 +21,7 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/sixtyfps-rs/m
  - In Rust and C++, `sixtyfps::Image::size()` now returns an integer size type.
  - `sixtyfps::interpreter::CallCallbackError` was renamed to `sixtyfps::interpreter::InvokeCallbackError`
  - Some deprecation warning in .60 became hard errors
+ - Replace `ModelHandle` with `ModelRc`
 
 ### Added
 

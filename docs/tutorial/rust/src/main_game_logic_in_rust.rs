@@ -20,7 +20,7 @@ fn main() {
     // ANCHOR: game_logic
     // Assign the shuffled Vec to the model property
     let tiles_model = std::rc::Rc::new(sixtyfps::VecModel::from(tiles));
-    main_window.set_memory_tiles(sixtyfps::ModelHandle::new(tiles_model.clone()));
+    main_window.set_memory_tiles(sixtyfps::ModelRc::new(tiles_model.clone()));
 
     let main_window_weak = main_window.as_weak();
     main_window.on_check_if_pair_solved(move || {

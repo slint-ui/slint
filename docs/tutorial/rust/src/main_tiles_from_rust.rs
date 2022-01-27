@@ -20,7 +20,7 @@ fn main() {
 
     // Assign the shuffled Vec to the model property
     let tiles_model = std::rc::Rc::new(sixtyfps::VecModel::from(tiles));
-    main_window.set_memory_tiles(sixtyfps::ModelHandle::new(tiles_model));
+    main_window.set_memory_tiles(sixtyfps::ModelRc::new(tiles_model));
 
     main_window.run();
 }
