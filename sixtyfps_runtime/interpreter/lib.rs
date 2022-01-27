@@ -24,7 +24,7 @@ executor, such as the one provided by the `spin_on` crate
 This example loads a `.60` dynamically from a path and show errors if any:
 
 ```rust
-use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler};
+use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, ComponentHandle};
 
 let mut compiler = ComponentCompiler::default();
 let definition =
@@ -40,7 +40,7 @@ if let Some(definition) = definition {
 This example load a `.60` from a string and set some properties:
 
 ```rust
-use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
+use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString, ComponentHandle};
 
 let code = r#"
     MyWin := Window {

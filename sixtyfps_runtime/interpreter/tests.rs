@@ -4,7 +4,7 @@
 #[test]
 fn reuse_window() {
     sixtyfps_rendering_backend_testing::init();
-    use crate::{ComponentCompiler, SharedString, Value};
+    use crate::{ComponentCompiler, ComponentHandle, SharedString, Value};
     let code = r#"
         MainWindow := Window {
             property<string> text_text: "foo";

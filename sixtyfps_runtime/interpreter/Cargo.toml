@@ -28,6 +28,7 @@ default = ["backend-gl", "x11", "backend-qt"]
 [dependencies]
 sixtyfps-corelib = { version = "=0.2.0", path = "../corelib", features = ["rtti"] }
 sixtyfps-rendering-backend-default = { version = "=0.2.0", path = "../../sixtyfps_runtime/rendering_backends/default" }
+sixtyfps = { version = "=0.2.0", path = "../../api/sixtyfps-rs", default-features = false }
 vtable = { version = "0.1.1", path="../../helper_crates/vtable" }
 sixtyfps-compilerlib = { version = "=0.2.0", path = "../../sixtyfps_compiler" }
 lyon_path = { version = "0.17.3" }

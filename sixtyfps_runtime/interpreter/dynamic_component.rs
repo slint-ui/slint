@@ -1452,6 +1452,12 @@ impl<'id> From<ComponentBox<'id>> for ErasedComponentBox {
     }
 }
 
+impl sixtyfps_corelib::window::WindowHandleAccess for ErasedComponentBox {
+    fn window_handle(&self) -> &sixtyfps::re_exports::Rc<sixtyfps::re_exports::Window> {
+        self.window().window_handle()
+    }
+}
+
 pub fn get_repeater_by_name<'a, 'id>(
     instance_ref: InstanceRef<'a, '_>,
     name: &str,
