@@ -4,7 +4,7 @@
 TestCase := Window {
     width: 500px;
     height: 550px;
-    color: #ecedeb;
+    background: #ecedeb;
 
     property<[int]> xs: [1, 2, 3];
 
