@@ -7,6 +7,8 @@
 use std::path::Path;
 use wasm_bindgen::prelude::*;
 
+use sixtyfps_interpreter::ComponentHandle;
+
 #[cfg(feature = "wee_alloc")]
 #[global_allocator]
 static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
