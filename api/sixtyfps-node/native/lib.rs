@@ -391,8 +391,10 @@ declare_types! {
                 persistent_context::PersistentContext::from_object(&mut cx, this.downcast().unwrap())?;
 
             let value = to_eval_value(cx.argument::<JsValue>(1)?, ty, &mut cx, &persistent_context)?;
-            component.set_property(prop_name.as_str(), value)
-                .or_else(|_| cx.throw_error("Cannot assign property"))?;
+            run_scoped(&mut cx, this.downcast().unwrap(), || {
+                component.set_property(prop_name.as_str(), value)
+                    .map_err(|_| "Cannot assign property".to_string())
+            })?;
 
             Ok(JsUndefined::new().as_value(&mut cx))
         }
