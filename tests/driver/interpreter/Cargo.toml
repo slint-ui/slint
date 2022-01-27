@@ -14,7 +14,7 @@ path = "main.rs"
 name = "test-driver-interpreter"
 
 [dev-dependencies]
-sixtyfps-interpreter = { path = "../../../internal/interpreter", default-features = false, features = ["display-diagnostics"] }
+sixtyfps-interpreter = { path = "../../../internal/interpreter", default-features = false, features = ["display-diagnostics", "compat-0-2-0"] }
 sixtyfps-rendering-backend-testing = { path = "../../../internal/backends/testing" }
 
 itertools = "0.10"

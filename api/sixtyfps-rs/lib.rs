@@ -226,7 +226,15 @@ See the [documentation of the `Global` trait](Global) for an example.
 #![deny(unsafe_code)]
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 #![cfg_attr(not(feature = "std"), no_std)]
+
 extern crate alloc;
+
+#[cfg(not(feature = "compat-0-2-0"))]
+compile_error!(
+    "The feature `compat-0-2-0` must be enabled to ensure \
+    forward compatibility with future version of this crate"
+);
+
 pub use sixtyfps_macros::sixtyfps;
 
 pub use sixtyfps_corelib::api::*;

@@ -66,6 +66,12 @@ instance.run();
 #![warn(missing_docs)]
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 
+#[cfg(not(feature = "compat-0-2-0"))]
+compile_error!(
+    "The feature `compat-0-2-0` must be enabled to ensure \
+    forward compatibility with future version of this crate"
+);
+
 mod api;
 mod dynamic_component;
 mod dynamic_type;

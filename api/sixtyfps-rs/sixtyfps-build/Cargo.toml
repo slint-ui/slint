@@ -15,6 +15,9 @@ homepage = "https://sixtyfps.io"
 [lib]
 path = "lib.rs"
 
+[features]
+default = []
+
 [dependencies]
 sixtyfps-compilerlib = { version = "=0.2.0", path = "../../../internal/compiler", features = ["rust", "display-diagnostics"] }
 

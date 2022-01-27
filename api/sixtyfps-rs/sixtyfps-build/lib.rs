@@ -44,6 +44,12 @@ fn main() {
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 #![warn(missing_docs)]
 
+#[cfg(not(feature = "default"))]
+compile_error!(
+    "The feature `default` must be enabled to ensure \
+    forward compatibility with future version of this crate"
+);
+
 use std::env;
 use std::io::Write;
 use std::path::Path;
