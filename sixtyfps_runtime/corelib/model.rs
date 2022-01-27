@@ -270,6 +270,8 @@ pub struct ModelIterator<'a, T> {
 }
 
 impl<'a, T> ModelIterator<'a, T> {
+    /// Creates a new model iterator for a model reference.
+    /// This is the same as calling [`model.iter()`](Model::iter)
     pub fn new(model: &'a dyn Model<Data = T>) -> Self {
         Self { model, row: 0 }
     }

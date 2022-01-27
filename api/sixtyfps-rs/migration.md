@@ -55,3 +55,7 @@ fn model_tracker(&self) -> &dyn ModelTracker {
     &()
 }
 ```
+
+### Interpreter
+
+`Value::Array` was removed and `Value::Model` needs to be used instead.

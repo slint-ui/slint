@@ -324,7 +324,9 @@ public:
     }
 
     /// Returns a std::optional that contains a vector of values if the type of this Value is
-    /// Type::Array, otherwise an empty optional is returned.
+    /// Type::Model, otherwise an empty optional is returned.
+    ///
+    /// The vector will be constructed by serializing all the elements of the model.
     inline std::optional<sixtyfps::SharedVector<Value>> to_array() const;
 
     /// Returns a std::optional that contains a brush if the type of this Value is
@@ -371,7 +373,7 @@ public:
     }
     /// Constructs a new Value that holds the boolean \a b.
     Value(bool b) { cbindgen_private::sixtyfps_interpreter_value_new_bool(b, &inner); }
-    /// Constructs a new Value that holds the value vector \a v.
+    /// Constructs a new Value that holds the value vector \a v as a model.
     inline Value(const SharedVector<Value> &v);
     /// Constructs a new Value that holds the value model \a m.
     Value(const std::shared_ptr<sixtyfps::Model<Value>> &m);
