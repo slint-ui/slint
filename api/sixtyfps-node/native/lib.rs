@@ -4,6 +4,7 @@
 use core::cell::RefCell;
 use neon::prelude::*;
 use rand::RngCore;
+use sixtyfps::ComponentHandle;
 use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_corelib::model::{Model, ModelHandle};
 use sixtyfps_corelib::window::WindowHandleAccess;

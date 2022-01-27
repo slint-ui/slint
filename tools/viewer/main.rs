@@ -5,7 +5,7 @@
 
 use sixtyfps_corelib::model::{Model, ModelHandle};
 use sixtyfps_corelib::SharedVector;
-use sixtyfps_interpreter::{ComponentInstance, SharedString, Value};
+use sixtyfps_interpreter::{ComponentHandle, ComponentInstance, SharedString, Value};
 use std::future::Future;
 use std::pin::Pin;
 use std::rc::Rc;

@@ -16,6 +16,8 @@ use clap::Parser;
 
 use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
 
+use sixtyfps_interpreter::ComponentHandle;
+
 #[derive(PartialEq)]
 enum RequestedGuiEventLoopState {
     /// The UI event loop hasn't been started yet because no preview has been requested

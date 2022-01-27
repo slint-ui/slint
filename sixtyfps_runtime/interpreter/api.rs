@@ -17,6 +17,10 @@ pub use sixtyfps_compilerlib::diagnostics::{Diagnostic, DiagnosticLevel};
 
 pub use sixtyfps_corelib::window::api::Window;
 
+pub use sixtyfps::ComponentHandle;
+
+use crate::dynamic_component::ErasedComponentBox;
+
 /// This enum represents the different public variants of the [`Value`] enum, without
 /// the contained values.
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -778,7 +782,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
-    /// use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
+    /// use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString, ComponentHandle};
     /// use core::convert::TryInto;
     /// let code = r#"
     ///     MyWin := Window {
@@ -948,28 +952,39 @@ impl ComponentInstance {
             .invoke_callback(&normalize_identifier(callback_name), args)
             .map_err(|()| CallCallbackError::NoSuchCallback)
     }
+}
 
-    /// Marks the window of this component to be shown on the screen. This registers
-    /// the window with the windowing system. In order to react to events from the windowing system,
-    /// such as draw requests or mouse/touch input, it is still necessary to spin the event loop,
-    /// using [`crate::run_event_loop`].
-    pub fn show(&self) {
+impl sixtyfps::ComponentHandle for ComponentInstance {
+    type Inner = crate::dynamic_component::ErasedComponentBox;
+
+    fn as_weak(&self) -> sixtyfps::Weak<Self>
+    where
+        Self: Sized,
+    {
+        sixtyfps::Weak::new(&self.inner)
+    }
+
+    fn clone_strong(&self) -> Self {
+        Self { inner: self.inner.clone() }
+    }
+
+    fn from_inner(inner: vtable::VRc<sixtyfps::re_exports::ComponentVTable, Self::Inner>) -> Self {
+        Self { inner }
+    }
+
+    fn show(&self) {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.borrow_instance().window().show();
     }
 
-    /// Marks the window of this component to be hidden on the screen. This de-registers
-    /// the window from the windowing system and it will not receive any further events.
-    pub fn hide(&self) {
+    fn hide(&self) {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.borrow_instance().window().hide();
     }
 
-    /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`]
-    /// and [`Self::hide`].
-    pub fn run(&self) {
+    fn run(&self) {
         self.show();
         sixtyfps_rendering_backend_default::backend().run_event_loop(
             sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed,
@@ -977,52 +992,23 @@ impl ComponentInstance {
         self.hide();
     }
 
-    /// Clone this `ComponentInstance`.
-    ///
-    /// A `ComponentInstance` is in fact a handle to a reference counted instance.
-    /// This function is semantically the same as the one from `Clone::clone`, but
-    /// Clone is not implemented because of the danger of circular reference:
-    /// If you want to use this instance in a callback, you should capture a weak
-    /// reference given by [`Self::as_weak`].
-    #[must_use]
-    pub fn clone_strong(&self) -> Self {
-        Self { inner: self.inner.clone() }
-    }
-
-    /// Create a weak pointer to this component
-    pub fn as_weak(&self) -> WeakComponentInstance {
-        WeakComponentInstance { inner: vtable::VRc::downgrade(&self.inner) }
-    }
-
-    /// Returns the Window associated with this component. The window API can be used
-    /// to control different aspects of the integration into the windowing system,
-    /// such as the position on the screen.
-    pub fn window(&self) -> &Window {
+    fn window(&self) -> &Window {
         self.inner.window()
     }
-}
 
-/// A Weak references to a dynamic SixtyFPS components.
-#[derive(Clone)]
-pub struct WeakComponentInstance {
-    inner: vtable::VWeak<
-        sixtyfps_corelib::component::ComponentVTable,
-        crate::dynamic_component::ErasedComponentBox,
-    >,
-}
-
-impl WeakComponentInstance {
-    /// Returns a new strongly referenced component if some other instance still
-    /// holds a strong reference. Otherwise, returns None.
-    pub fn upgrade(&self) -> Option<ComponentInstance> {
-        self.inner.upgrade().map(|inner| ComponentInstance { inner })
+    fn global<'a, T: sixtyfps::Global<'a, Self>>(&'a self) -> T
+    where
+        Self: Sized,
+    {
+        unreachable!()
     }
+}
 
-    /// Convenience function that returns a new strongly referenced component if
-    /// some other instance still holds a strong reference. Otherwise, this function
-    /// panics.
-    pub fn unwrap(&self) -> ComponentInstance {
-        self.upgrade().unwrap()
+impl From<ComponentInstance>
+    for vtable::VRc<sixtyfps::re_exports::ComponentVTable, ErasedComponentBox>
+{
+    fn from(value: ComponentInstance) -> Self {
+        value.inner
     }
 }
 
@@ -1071,6 +1057,7 @@ pub fn run_event_loop() {
 
 /// This module contains a few function use by tests
 pub mod testing {
+    use super::ComponentHandle;
     use sixtyfps_corelib::window::WindowHandleAccess;
 
     /// Wrapper around [`sixtyfps_corelib::tests::sixtyfps_send_mouse_click`]
