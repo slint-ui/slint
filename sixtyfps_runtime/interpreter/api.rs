@@ -4,7 +4,7 @@
 use core::convert::TryInto;
 use sixtyfps_compilerlib::langtype::Type as LangType;
 use sixtyfps_corelib::graphics::Image;
-use sixtyfps_corelib::model::{Model, ModelHandle};
+use sixtyfps_corelib::model::{Model, ModelRc};
 use sixtyfps_corelib::{Brush, PathData, SharedString, SharedVector};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -92,7 +92,7 @@ pub enum Value {
     /// Correspond to the `image` type in .60
     Image(Image),
     /// A model (that includes array in .60)
-    Model(ModelHandle<Value>),
+    Model(ModelRc<Value>),
     /// An object
     Struct(Struct),
     /// Correspond to `brush` or `color` type in .60.  For color, this is then a [`Brush::SolidColor`]
@@ -144,11 +144,7 @@ impl PartialEq for Value {
             Value::Image(lhs) => matches!(other, Value::Image(rhs) if lhs == rhs),
             Value::Model(lhs) => {
                 if let Value::Model(rhs) = other {
-                    match (&lhs.0, &rhs.0) {
-                        (None, None) => true,
-                        (None, Some(_)) | (Some(_), None) => false,
-                        (Some(a), Some(b)) => Rc::ptr_eq(a, b),
-                    }
+                    lhs == rhs
                 } else {
                     false
                 }
@@ -1364,13 +1360,13 @@ fn component_definition_model_properties() {
 
     let instance = comp_def.create();
 
-    let int_model = Value::Model(ModelHandle::new(Rc::new(VecModel::from_slice(&[
+    let int_model = Value::Model(ModelRc::new(Rc::new(VecModel::from_slice(&[
         Value::Number(14.),
         Value::Number(15.),
         Value::Number(16.),
     ]))));
-    let empty_model = Value::Model(ModelHandle::new(Rc::new(VecModel::<Value>::default())));
-    let model_with_string = Value::Model(ModelHandle::new(Rc::new(VecModel::from_slice(&[
+    let empty_model = Value::Model(ModelRc::new(Rc::new(VecModel::<Value>::default())));
+    let model_with_string = Value::Model(ModelRc::new(Rc::new(VecModel::from_slice(&[
         Value::Number(1000.),
         Value::String("foo".into()),
         Value::Number(1111.),

@@ -180,7 +180,7 @@ pub fn main() {
         finished: false,
     }));
     state.borrow_mut().randomize();
-    main_window.set_pieces(sixtyfps::ModelHandle::new(state.borrow().pieces.clone()));
+    main_window.set_pieces(sixtyfps::ModelRc::new(state.borrow().pieces.clone()));
 
     let state_copy = state.clone();
     main_window.on_piece_clicked(move |p| {

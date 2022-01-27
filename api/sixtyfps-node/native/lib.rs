@@ -5,7 +5,7 @@ use core::cell::RefCell;
 use neon::prelude::*;
 use rand::RngCore;
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_corelib::model::{Model, ModelHandle};
+use sixtyfps_corelib::model::{Model, ModelRc};
 use sixtyfps_corelib::window::WindowHandleAccess;
 use sixtyfps_corelib::{ImageInner, SharedVector};
 use std::rc::Rc;
@@ -182,21 +182,20 @@ fn to_eval_value<'cx>(
         Type::Array(a) => match val.downcast::<JsArray>() {
             Ok(arr) => {
                 let vec = arr.to_vec(cx)?;
-                Ok(Value::Model(ModelHandle::new(Rc::new(
+                Ok(Value::Model(ModelRc::new(Rc::new(
                     sixtyfps_corelib::model::SharedVectorModel::from(
                         vec.into_iter()
                             .map(|i| to_eval_value(i, (*a).clone(), cx, persistent_context))
                             .collect::<Result<SharedVector<_>, _>>()?,
                     ),
-                )
-                    as Rc<dyn sixtyfps_corelib::model::Model<Data = Value>>)))
+                ))))
             }
             Err(_) => {
                 let obj = val.downcast_or_throw::<JsObject, _>(cx)?;
                 obj.get(cx, "rowCount")?.downcast_or_throw::<JsFunction, _>(cx)?;
                 obj.get(cx, "rowData")?.downcast_or_throw::<JsFunction, _>(cx)?;
                 let m = js_model::JsModel::new(obj, *a, cx, persistent_context)?;
-                Ok(Value::Model(ModelHandle::new(m)))
+                Ok(Value::Model(ModelRc::new(m)))
             }
         },
         Type::Image => {

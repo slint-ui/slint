@@ -239,14 +239,14 @@ pub trait Model {
 
     /// Return something that can be downcast'ed (typically self)
     ///
-    /// This is useful to get back to the actual model from a ModelHandle stored
+    /// This is useful to get back to the actual model from a `ModelRc` stored
     /// in a component.
     ///
     /// ```
     /// # use sixtyfps_corelib::model::*;
     /// # use std::rc::Rc;
     /// let vec_model = Rc::new(VecModel::from(vec![1i32, 2, 3]));
-    /// let handle = ModelHandle::from(vec_model as Rc<dyn Model<Data = i32>>);
+    /// let handle = ModelRc::new(vec_model as Rc<dyn Model<Data = i32>>);
     /// // later:
     /// handle.as_any().downcast_ref::<VecModel<i32>>().unwrap().push(4);
     /// assert_eq!(handle.row_data(3).unwrap(), 4);
@@ -305,11 +305,11 @@ pub struct VecModel<T> {
 
 impl<T: 'static> VecModel<T> {
     /// Allocate a new model from a slice
-    pub fn from_slice(slice: &[T]) -> ModelHandle<T>
+    pub fn from_slice(slice: &[T]) -> ModelRc<T>
     where
         T: Clone,
     {
-        ModelHandle(Some(Rc::<Self>::new(slice.to_vec().into())))
+        ModelRc::new(Rc::<Self>::new(slice.to_vec().into()))
     }
 
     /// Add a row at the end of the model
@@ -462,56 +462,49 @@ impl Model for bool {
     }
 }
 
-/// Properties of type array in the .60 language are represented as
-/// an [`Option`] of an [`Rc`] of something implemented the [`Model`] trait
+/// Properties of type Array in the .60 language are represented as
+/// a `ModelRc` that implements the `Model` trait.
 #[derive(derive_more::Deref, derive_more::DerefMut, derive_more::From, derive_more::Into)]
-pub struct ModelHandle<T>(pub Option<Rc<dyn Model<Data = T>>>);
+pub struct ModelRc<T>(Option<Rc<dyn Model<Data = T>>>);
 
-impl<T> core::fmt::Debug for ModelHandle<T> {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "ModelHandle({:?})", self.0.as_ref().map(|_| "dyn Model"))
+impl<T> core::fmt::Debug for ModelRc<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ModelRc(dyn Model)")
     }
 }
 
-impl<T> Clone for ModelHandle<T> {
+impl<T> Clone for ModelRc<T> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
-impl<T> Default for ModelHandle<T> {
+
+impl<T> Default for ModelRc<T> {
     fn default() -> Self {
         Self(None)
     }
 }
 
-impl<T> core::cmp::PartialEq for ModelHandle<T> {
+impl<T> core::cmp::PartialEq for ModelRc<T> {
     fn eq(&self, other: &Self) -> bool {
         match (&self.0, &other.0) {
             (None, None) => true,
-            (None, Some(_)) => false,
-            (Some(_), None) => false,
             (Some(a), Some(b)) => core::ptr::eq(
                 (&**a) as *const dyn Model<Data = T> as *const u8,
                 (&**b) as *const dyn Model<Data = T> as *const u8,
             ),
+            _ => false,
         }
     }
 }
 
-impl<T> From<Rc<dyn Model<Data = T>>> for ModelHandle<T> {
-    fn from(x: Rc<dyn Model<Data = T>>) -> Self {
-        Self(Some(x))
-    }
-}
-
-impl<T> ModelHandle<T> {
-    /// Create a new handle wrapping the given model
+impl<T> ModelRc<T> {
     pub fn new(model: Rc<dyn Model<Data = T>>) -> Self {
         Self(Some(model))
     }
 }
 
-impl<T> Model for ModelHandle<T> {
+impl<T> Model for ModelRc<T> {
     type Data = T;
 
     fn row_count(&self) -> usize {
@@ -524,7 +517,7 @@ impl<T> Model for ModelHandle<T> {
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
         if let Some(model) = self.0.as_ref() {
-            model.set_row_data(row, data)
+            model.set_row_data(row, data);
         }
     }
 
@@ -656,7 +649,7 @@ impl<C: RepeatedComponent> ErasedRepeater for Repeater<C> {
 pub struct Repeater<C: RepeatedComponent> {
     inner: RefCell<RepeaterInner<C>>,
     #[pin]
-    model: Property<ModelHandle<C::Data>>,
+    model: Property<ModelRc<C::Data>>,
     #[pin]
     is_dirty: Property<bool>,
     /// Only used for the list view to track if the scrollbar has changed and item needs to be layed out again.
@@ -694,24 +687,22 @@ impl<C: RepeatedComponent> PinnedDrop for Repeater<C> {
 }
 
 impl<C: RepeatedComponent + 'static> Repeater<C> {
-    fn model(self: Pin<&Self>) -> ModelHandle<C::Data> {
-        // Safety: Repeater does not implement drop and never let access model as mutable
+    fn model(self: Pin<&Self>) -> ModelRc<C::Data> {
+        // Safety: Repeater does not implement drop and never allows access to model as mutable
         let model = self.project_ref().model;
 
         if model.is_dirty() {
             *self.inner.borrow_mut() = RepeaterInner::default();
             self.is_dirty.set(true);
-            if let ModelHandle(Some(m)) = model.get() {
-                let peer = self.peer.get_or_init(|| {
-                    //Safety: we will reset it when we Drop the Repeater
-                    Rc::pin(DependencyNode::new(
-                        self.get_ref() as &dyn ErasedRepeater as *const dyn ErasedRepeater
-                    ))
-                });
+            let m = model.get();
+            let peer = self.peer.get_or_init(|| {
+                //Safety: we will reset it when we Drop the Repeater
+                Rc::pin(DependencyNode::new(
+                    self.get_ref() as &dyn ErasedRepeater as *const dyn ErasedRepeater
+                ))
+            });
 
-                m.model_tracker()
-                    .attach_peer(ModelPeer { inner: PinWeak::downgrade(peer.clone()) });
-            }
+            m.model_tracker().attach_peer(ModelPeer { inner: PinWeak::downgrade(peer.clone()) });
         }
         model.get()
     }
@@ -719,12 +710,9 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     /// Call this function to make sure that the model is updated.
     /// The init function is the function to create a component
     pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ComponentRc<C>) {
-        if let ModelHandle(Some(model)) = self.model() {
-            if self.project_ref().is_dirty.get() {
-                self.ensure_updated_impl(init, &model, model.row_count());
-            }
-        } else {
-            self.inner.borrow_mut().components.clear();
+        let model = self.model();
+        if self.project_ref().is_dirty.get() {
+            self.ensure_updated_impl(init, &model, model.row_count());
         }
     }
 
@@ -732,7 +720,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     fn ensure_updated_impl(
         self: Pin<&Self>,
         init: impl Fn() -> ComponentRc<C>,
-        model: &Rc<dyn Model<Data = C::Data>>,
+        model: &ModelRc<C::Data>,
         count: usize,
     ) -> bool {
         let mut inner = self.inner.borrow_mut();
@@ -769,11 +757,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
             viewport_y.set(0.);
         };
 
-        let model = if let ModelHandle(Some(model)) = self.model() {
-            model
-        } else {
-            return empty_model();
-        };
+        let model = self.model();
         let row_count = model.row_count();
         if row_count == 0 {
             return empty_model();
@@ -785,8 +769,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         let geometry_updated = listview_geometry_tracker
             .evaluate_if_dirty(|| {
                 // Fetch the model again to make sure that it is a dependency of this geometry tracker.
-                // invariant: model existence was checked earlier, so unwrap() should be safe.
-                let model = self.model().0.unwrap();
+                let model = self.model();
                 // Also register a dependency to "is_dirty"
                 let _ = self.project_ref().is_dirty.get();
 
@@ -904,14 +887,13 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 
     /// Sets the data directly in the model
     pub fn model_set_row_data(self: Pin<&Self>, row: usize, data: C::Data) {
-        if let ModelHandle(Some(model)) = self.model() {
-            model.set_row_data(row, data);
-            if let Some(c) = self.inner.borrow_mut().components.get_mut(row) {
-                if c.0 == RepeatedComponentState::Dirty {
-                    if let Some(comp) = c.1.as_ref() {
-                        comp.update(row, model.row_data(row).unwrap());
-                        c.0 = RepeatedComponentState::Clean;
-                    }
+        let model = self.model();
+        model.set_row_data(row, data);
+        if let Some(c) = self.inner.borrow_mut().components.get_mut(row) {
+            if c.0 == RepeatedComponentState::Dirty {
+                if let Some(comp) = c.1.as_ref() {
+                    comp.update(row, model.row_data(row).unwrap());
+                    c.0 = RepeatedComponentState::Clean;
                 }
             }
         }
@@ -920,7 +902,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 
 impl<C: RepeatedComponent> Repeater<C> {
     /// Set the model binding
-    pub fn set_model_binding(&self, binding: impl Fn() -> ModelHandle<C::Data> + 'static) {
+    pub fn set_model_binding(&self, binding: impl Fn() -> ModelRc<C::Data> + 'static) {
         self.model.set_binding(binding);
     }
 
@@ -991,7 +973,7 @@ pub struct StandardListViewItem {
 #[test]
 fn test_tracking_model_handle() {
     let model: Rc<VecModel<u8>> = Rc::new(Default::default());
-    let handle = ModelHandle::new(model.clone());
+    let handle = ModelRc::new(model.clone());
     let tracker = Box::pin(crate::properties::PropertyTracker::default());
     assert_eq!(
         tracker.as_ref().evaluate(|| {
@@ -1028,7 +1010,7 @@ fn test_tracking_model_handle() {
 #[test]
 fn test_data_tracking() {
     let model: Rc<VecModel<u8>> = Rc::new(VecModel::from(vec![0, 1, 2, 3, 4]));
-    let handle = ModelHandle::new(model.clone());
+    let handle = ModelRc::new(model.clone());
     let tracker = Box::pin(crate::properties::PropertyTracker::default());
     assert_eq!(
         tracker.as_ref().evaluate(|| {
