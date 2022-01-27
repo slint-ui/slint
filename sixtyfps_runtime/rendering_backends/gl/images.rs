@@ -554,15 +554,24 @@ fn image_buffer_to_image_source(
 ) -> (femtovg::ImageSource<'_>, femtovg::ImageFlags) {
     match buffer {
         SharedImageBuffer::RGB8(buffer) => (
-            { imgref::ImgRef::new(buffer.as_slice(), buffer.width(), buffer.height()).into() },
+            {
+                imgref::ImgRef::new(buffer.as_slice(), buffer.width() as _, buffer.height() as _)
+                    .into()
+            },
             femtovg::ImageFlags::empty(),
         ),
         SharedImageBuffer::RGBA8(buffer) => (
-            { imgref::ImgRef::new(buffer.as_slice(), buffer.width(), buffer.height()).into() },
+            {
+                imgref::ImgRef::new(buffer.as_slice(), buffer.width() as _, buffer.height() as _)
+                    .into()
+            },
             femtovg::ImageFlags::empty(),
         ),
         SharedImageBuffer::RGBA8Premultiplied(buffer) => (
-            { imgref::ImgRef::new(buffer.as_slice(), buffer.width(), buffer.height()).into() },
+            {
+                imgref::ImgRef::new(buffer.as_slice(), buffer.width() as _, buffer.height() as _)
+                    .into()
+            },
             femtovg::ImageFlags::PREMULTIPLIED,
         ),
     }

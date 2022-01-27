@@ -882,7 +882,7 @@ pub(crate) fn load_image_from_resource(
             };
             let width: i32 = buffer.width() as _;
             let height: i32 = buffer.height() as _;
-            let pixmap = cpp! { unsafe [format as "QImage::Format", width as "int", height as "int", bytes_per_line as "size_t", buffer_ptr as "const uchar *"] -> qttypes::QPixmap as "QPixmap" {
+            let pixmap = cpp! { unsafe [format as "QImage::Format", width as "int", height as "int", bytes_per_line as "uint32_t", buffer_ptr as "const uchar *"] -> qttypes::QPixmap as "QPixmap" {
                 QImage img(buffer_ptr, width, height, bytes_per_line, format);
                 return QPixmap::fromImage(img);
             } };
