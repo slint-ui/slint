@@ -72,6 +72,7 @@ pub mod unsafe_single_core {
 }
 
 pub mod animations;
+pub mod api;
 pub mod backend;
 pub mod callbacks;
 pub mod component;

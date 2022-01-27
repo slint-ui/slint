@@ -564,41 +564,6 @@ pub trait WindowHandleAccess {
 /// functions and generate a good signature.
 pub type WindowRc = Rc<Window>;
 
-/// Internal module to define the public Window API, for re-export in the regular Rust crate
-/// and the interpreter crate.
-pub mod api {
-    /// This type represents a window towards the windowing system, that's used to render the
-    /// scene of a component. It provides API to control windowing system specific aspects such
-    /// as the position on the screen.
-    #[repr(transparent)]
-    pub struct Window(pub(super) super::WindowRc);
-
-    #[doc(hidden)]
-    impl From<super::WindowRc> for Window {
-        fn from(window: super::WindowRc) -> Self {
-            Self(window)
-        }
-    }
-
-    impl Window {
-        /// Registers the window with the windowing system in order to make it visible on the screen.
-        pub fn show(&self) {
-            self.0.show();
-        }
-
-        /// De-registers the window from the windowing system, therefore hiding it.
-        pub fn hide(&self) {
-            self.0.hide();
-        }
-    }
-}
-
-impl WindowHandleAccess for api::Window {
-    fn window_handle(&self) -> &Rc<Window> {
-        &self.0
-    }
-}
-
 /// This module contains the functions needed to interface with the event loop and window traits
 /// from outside the Rust language.
 #[cfg(feature = "ffi")]

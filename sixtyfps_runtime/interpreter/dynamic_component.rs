@@ -11,6 +11,7 @@ use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::object_tree::ElementRc;
 use sixtyfps_compilerlib::*;
 use sixtyfps_compilerlib::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
+use sixtyfps_corelib::api::Window;
 use sixtyfps_corelib::component::{Component, ComponentRef, ComponentRefPin, ComponentVTable};
 use sixtyfps_corelib::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder, VisitChildrenResult,
@@ -23,7 +24,7 @@ use sixtyfps_corelib::model::RepeatedComponent;
 use sixtyfps_corelib::model::Repeater;
 use sixtyfps_corelib::properties::InterpolatedPropertyValue;
 use sixtyfps_corelib::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
-use sixtyfps_corelib::window::{api::Window, WindowHandleAccess, WindowRc};
+use sixtyfps_corelib::window::{WindowHandleAccess, WindowRc};
 use sixtyfps_corelib::{Brush, Color, Property, SharedString, SharedVector};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -1601,7 +1602,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         &extra_data.self_weak
     }
 
-    pub fn window(&self) -> &sixtyfps_corelib::window::api::Window {
+    pub fn window(&self) -> &sixtyfps_corelib::api::Window {
         self.component_type.window_offset.apply(self.as_ref()).as_ref().as_ref().unwrap()
     }
 

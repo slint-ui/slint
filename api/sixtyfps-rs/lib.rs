@@ -229,6 +229,7 @@ See the [documentation of the `Global` trait](Global) for an example.
 extern crate alloc;
 pub use sixtyfps_macros::sixtyfps;
 
+pub use sixtyfps_corelib::api::*;
 pub use sixtyfps_corelib::graphics::{
     Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
@@ -675,8 +676,6 @@ mod weak_handle {
 }
 
 pub use weak_handle::*;
-
-pub use sixtyfps_corelib::window::api::Window;
 
 /// This module contains functions useful for unit tests
 #[cfg(feature = "std")]
