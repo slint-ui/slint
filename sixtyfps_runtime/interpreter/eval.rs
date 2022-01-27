@@ -7,6 +7,7 @@ use core::convert::TryInto;
 use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement};
 use corelib::items::{ItemRef, PropertyAnimation};
+use corelib::model::ModelIterator;
 use corelib::rtti::AnimatedBindingKind;
 use corelib::window::{WindowHandleAccess, WindowRc};
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
@@ -862,6 +863,7 @@ pub fn store_property(
     Ok(())
 }
 
+/// Return true if the Value can be used for a property of the given type
 fn check_value_type(value: &Value, ty: &Type) -> bool {
     match ty {
         Type::Void => true,
@@ -892,8 +894,8 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
         Type::PathData => matches!(value, Value::PathData(_)),
         Type::Easing => matches!(value, Value::EasingCurve(_)),
         Type::Brush => matches!(value, Value::Brush(_)),
-        Type::Array(_) => {
-            matches!(value, Value::Model(_))
+        Type::Array(inner) => {
+            matches!(value, Value::Model(m) if ModelIterator::new(&**m).all(|v| check_value_type(&v, inner)))
         }
         Type::Struct { fields, .. } => {
             matches!(value, Value::Struct(str) if str.iter().all(|(k, v)| fields.get(k).map_or(false, |ty| check_value_type(v, ty))))
@@ -1157,14 +1159,13 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::Struct { fields, .. } => Value::Struct(
             fields.iter().map(|(n, t)| (n.clone(), default_value_for_type(t))).collect::<Struct>(),
         ),
-        Type::Array(_) => Value::Void,
+        Type::Array(_) | Type::Model => Value::Void,
         Type::Percent => Value::Number(0.),
         Type::Enumeration(e) => {
             Value::EnumerationValue(e.name.clone(), e.values.get(e.default_value).unwrap().clone())
         }
         Type::Easing => Value::EasingCurve(Default::default()),
         Type::Void | Type::Invalid => Value::Void,
-        Type::Model => Value::Void,
         Type::UnitProduct(_) => Value::Number(0.),
         Type::PathData => Value::PathData(Default::default()),
         Type::LayoutCache => Value::LayoutCache(Default::default()),
