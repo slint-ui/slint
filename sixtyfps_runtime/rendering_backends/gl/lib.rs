@@ -20,7 +20,7 @@ use std::rc::Rc;
 use euclid::approxeq::ApproxEq;
 use event_loop::WinitWindow;
 use sixtyfps_corelib::graphics::{
-    Brush, Color, Image, ImageInner, IntRect, Point, Rect, RenderingCache, Size,
+    Brush, Color, Image, ImageInner, IntRect, IntSize, Point, Rect, RenderingCache, Size,
 };
 use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
 use sixtyfps_corelib::items::{FillRule, ImageFit, ImageRendering};
@@ -546,8 +546,8 @@ impl ItemRenderer for GLItemRenderer {
                     let shadow_rect: euclid::Rect<f32, euclid::UnknownUnit> =
                         euclid::rect(0., 0., width + 2. * blur, height + 2. * blur);
 
-                    let shadow_image_width = shadow_rect.width().ceil() as usize;
-                    let shadow_image_height = shadow_rect.height().ceil() as usize;
+                    let shadow_image_width = shadow_rect.width().ceil() as u32;
+                    let shadow_image_height = shadow_rect.height().ceil() as u32;
 
                     let shadow_image = CachedImage::new_empty_on_gpu(
                         &self.canvas,
@@ -632,7 +632,12 @@ impl ItemRenderer for GLItemRenderer {
         let shadow_image_paint = shadow_image.as_paint();
 
         let mut shadow_image_rect = femtovg::Path::new();
-        shadow_image_rect.rect(0., 0., shadow_image_size.width, shadow_image_size.height);
+        shadow_image_rect.rect(
+            0.,
+            0.,
+            shadow_image_size.width as f32,
+            shadow_image_size.height as f32,
+        );
 
         self.canvas.borrow_mut().save_with(|canvas| {
             let blur = box_shadow.blur() * self.scale_factor;
@@ -844,12 +849,14 @@ impl GLItemRenderer {
             .canvas
             .borrow_mut()
             .create_image_empty(
-                image_size.width as _,
-                image_size.height as _,
+                image_size.width as usize,
+                image_size.height as usize,
                 femtovg::PixelFormat::Rgba8,
                 femtovg::ImageFlags::PREMULTIPLIED | scaling_flags,
             )
             .expect("internal error allocating temporary texture for image colorization");
+
+        let image_size: Size = image_size.cast();
 
         let mut image_rect = femtovg::Path::new();
         image_rect.rect(0., 0., image_size.width, image_size.height);
@@ -977,7 +984,7 @@ impl GLItemRenderer {
         };
 
         let image_id = cached_image.ensure_uploaded_to_gpu(self, Some(image_rendering));
-        let image_size = cached_image.size().unwrap_or_default();
+        let image_size = cached_image.size().unwrap_or_default().cast();
 
         let (source_width, source_height) = if source_clip_rect.is_empty() {
             (image_size.width, image_size.height)
@@ -1261,7 +1268,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         }
     }
 
-    fn image_size(&'static self, image: &Image) -> Size {
+    fn image_size(&'static self, image: &Image) -> IntSize {
         IMAGE_CACHE.with(|image_cache| {
             image_cache
                 .borrow_mut()

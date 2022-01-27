@@ -12,7 +12,7 @@ You should use the `sixtyfps` crate instead.
 
 use image::GenericImageView;
 use sixtyfps_corelib::component::ComponentRc;
-use sixtyfps_corelib::graphics::{Image, Point, Size};
+use sixtyfps_corelib::graphics::{Image, IntSize, Point, Size};
 use sixtyfps_corelib::window::{PlatformWindow, Window};
 use sixtyfps_corelib::ImageInner;
 use std::path::Path;
@@ -62,30 +62,22 @@ impl sixtyfps_corelib::backend::Backend for TestingBackend {
         unimplemented!("event with the testing backend");
     }
 
-    fn image_size(&'static self, image: &Image) -> Size {
+    fn image_size(&'static self, image: &Image) -> IntSize {
         let inner: &ImageInner = image.into();
         match inner {
             ImageInner::None => Default::default(),
-            ImageInner::EmbeddedImage(buffer) => {
-                Size::new(buffer.width() as _, buffer.height() as _)
-            }
+            ImageInner::EmbeddedImage(buffer) => buffer.size(),
             ImageInner::AbsoluteFilePath(path) => image::open(Path::new(path.as_str()))
-                .map(|img| {
-                    let dim = img.dimensions();
-                    Size::new(dim.0 as _, dim.1 as _)
-                })
+                .map(|img| img.dimensions().into())
                 .unwrap_or_default(),
             ImageInner::EmbeddedData { data, format } => image::load_from_memory_with_format(
                 data.as_slice(),
                 image::ImageFormat::from_extension(std::str::from_utf8(format.as_slice()).unwrap())
                     .unwrap(),
             )
-            .map(|img| {
-                let dim = img.dimensions();
-                Size::new(dim.0 as _, dim.1 as _)
-            })
+            .map(|img| img.dimensions().into())
             .unwrap_or_default(),
-            ImageInner::StaticTextures { size, .. } => size.cast(),
+            ImageInner::StaticTextures { size, .. } => size.clone(),
         }
     }
 }

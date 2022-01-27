@@ -35,6 +35,11 @@ impl<Pixel> SharedPixelBuffer<Pixel> {
         self.height
     }
 
+    /// Returns the size of the image in pixels.
+    pub fn size(&self) -> IntSize {
+        [self.width, self.height].into()
+    }
+
     /// Returns the number of pixels per line.
     pub fn stride(&self) -> u32 {
         self.stride
@@ -156,6 +161,16 @@ impl SharedImageBuffer {
             Self::RGB8(buffer) => buffer.height(),
             Self::RGBA8(buffer) => buffer.height(),
             Self::RGBA8Premultiplied(buffer) => buffer.height(),
+        }
+    }
+
+    /// Returns the size of the image in pixels.
+    #[inline]
+    pub fn size(&self) -> IntSize {
+        match self {
+            Self::RGB8(buffer) => buffer.size(),
+            Self::RGBA8(buffer) => buffer.size(),
+            Self::RGBA8Premultiplied(buffer) => buffer.size(),
         }
     }
 }
@@ -368,7 +383,7 @@ impl Image {
     }
 
     /// Returns the size of the Image in pixels.
-    pub fn size(&self) -> crate::graphics::Size {
+    pub fn size(&self) -> IntSize {
         match &self.0 {
             ImageInner::None => Default::default(),
             ImageInner::AbsoluteFilePath(_) |  ImageInner::EmbeddedData { .. } => {
@@ -377,8 +392,8 @@ impl Image {
                     None => panic!("sixtyfps::Image::size() called too early (before a graphics backend was chosen). You need to create a component first."),
                 }
             },
-            ImageInner::EmbeddedImage(buffer) => [buffer.width() as _, buffer.height() as _].into(),
-            ImageInner::StaticTextures{size, ..} => size.cast(),
+            ImageInner::EmbeddedImage(buffer) => buffer.size(),
+            ImageInner::StaticTextures{size, ..} => size.clone(),
 
         }
     }
@@ -411,7 +426,7 @@ fn test_image_size_from_buffer_without_backend() {
     {
         let buffer = SharedPixelBuffer::<Rgb8Pixel>::new(320, 200);
         let image = Image::from_rgb8(buffer);
-        assert_eq!(image.size(), [320., 200.].into())
+        assert_eq!(image.size(), [320, 200].into())
     }
 }
 
@@ -419,7 +434,7 @@ fn test_image_size_from_buffer_without_backend() {
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
 
-    use super::super::Size;
+    use super::super::IntSize;
     use super::*;
 
     /// Expand Rgb8Pixel so that cbindgen can see it. (is in fact rgb::RGB<u8>)
@@ -441,7 +456,7 @@ pub(crate) mod ffi {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_image_size(image: &Image) -> Size {
+    pub unsafe extern "C" fn sixtyfps_image_size(image: &Image) -> IntSize {
         image.size()
     }
 

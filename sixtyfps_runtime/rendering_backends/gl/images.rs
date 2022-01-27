@@ -5,7 +5,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use sixtyfps_corelib::graphics::{SharedImageBuffer, Size};
+use sixtyfps_corelib::graphics::{IntSize, SharedImageBuffer};
 #[cfg(target_arch = "wasm32")]
 use sixtyfps_corelib::Property;
 use sixtyfps_corelib::{items::ImageRendering, slice::Slice, ImageInner, SharedString};
@@ -18,11 +18,11 @@ struct Texture {
 }
 
 impl Texture {
-    fn size(&self) -> Option<Size> {
+    fn size(&self) -> Option<IntSize> {
         self.canvas
             .borrow()
             .image_info(self.id)
-            .map(|info| [info.width() as f32, info.height() as f32].into())
+            .map(|info| [info.width() as u32, info.height() as u32].into())
             .ok()
     }
 }
@@ -77,10 +77,10 @@ impl HTMLImage {
         Self { dom_element, image_load_pending }
     }
 
-    fn size(&self) -> Option<Size> {
+    fn size(&self) -> Option<IntSize> {
         match self.image_load_pending.as_ref().get() {
             true => None,
-            false => Some(Size::new(self.dom_element.width() as _, self.dom_element.height() as _)),
+            false => Some(IntSize::new(self.dom_element.width(), self.dom_element.height())),
         }
     }
 }
@@ -137,15 +137,15 @@ impl CachedImage {
         Self(RefCell::new(Texture { id: image_id, canvas: canvas.clone() }.into()))
     }
 
-    pub fn new_empty_on_gpu(canvas: &CanvasRc, width: usize, height: usize) -> Option<Self> {
+    pub fn new_empty_on_gpu(canvas: &CanvasRc, width: u32, height: u32) -> Option<Self> {
         if width == 0 || height == 0 {
             return None;
         }
         let image_id = canvas
             .borrow_mut()
             .create_image_empty(
-                width,
-                height,
+                width as usize,
+                height as usize,
                 femtovg::PixelFormat::Rgba8,
                 femtovg::ImageFlags::PREMULTIPLIED | femtovg::ImageFlags::FLIP_Y,
             )
@@ -337,23 +337,18 @@ impl CachedImage {
         }
     }
 
-    pub fn size(&self) -> Option<Size> {
+    pub fn size(&self) -> Option<IntSize> {
         use image::GenericImageView;
 
         match &*self.0.borrow() {
             ImageData::Texture(texture) => texture.size(),
-            ImageData::DecodedImage(decoded_image) => {
-                let (width, height) = decoded_image.dimensions();
-                Some([width as f32, height as f32].into())
-            }
-            ImageData::EmbeddedImage(buffer) => {
-                Some([buffer.width() as f32, buffer.height() as f32].into())
-            }
+            ImageData::DecodedImage(decoded_image) => Some(decoded_image.dimensions().into()),
+            ImageData::EmbeddedImage(buffer) => Some(buffer.size()),
 
             #[cfg(feature = "svg")]
             ImageData::Svg(tree) => {
                 let size = tree.svg_node().size.to_screen_size();
-                Some([size.width() as f32, size.height() as f32].into())
+                Some([size.width(), size.height()].into())
             }
 
             #[cfg(target_arch = "wasm32")]
@@ -377,12 +372,7 @@ impl CachedImage {
         }
         .expect("internal error: Cannot filter non-GPU images");
 
-        let filtered_image = Self::new_empty_on_gpu(
-            canvas,
-            size.width.ceil() as usize,
-            size.height.ceil() as usize,
-        )
-        .expect(
+        let filtered_image = Self::new_empty_on_gpu(canvas, size.width, size.height).expect(
             "internal error: this can only fail if the filtered image was zero width or height",
         );
 
@@ -402,7 +392,7 @@ impl CachedImage {
                 let size = tex
                     .size()
                     .expect("internal error: CachedImage::as_paint() called on zero-sized texture");
-                femtovg::Paint::image(tex.id, 0., 0., size.width, size.height, 0., 1.)
+                femtovg::Paint::image(tex.id, 0., 0., size.width as f32, size.height as f32, 0., 1.)
             }
             _ => panic!("internal error: CachedImage::as_paint() called on non-texture image"),
         }
