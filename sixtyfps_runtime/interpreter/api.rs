@@ -17,8 +17,6 @@ pub use sixtyfps_compilerlib::diagnostics::{Diagnostic, DiagnosticLevel};
 
 pub use sixtyfps_corelib::api::*;
 
-pub use sixtyfps::ComponentHandle;
-
 use crate::dynamic_component::ErasedComponentBox;
 
 /// This enum represents the different public variants of the [`Value`] enum, without
@@ -954,21 +952,23 @@ impl ComponentInstance {
     }
 }
 
-impl sixtyfps::ComponentHandle for ComponentInstance {
+impl ComponentHandle for ComponentInstance {
     type Inner = crate::dynamic_component::ErasedComponentBox;
 
-    fn as_weak(&self) -> sixtyfps::Weak<Self>
+    fn as_weak(&self) -> Weak<Self>
     where
         Self: Sized,
     {
-        sixtyfps::Weak::new(&self.inner)
+        Weak::new(&self.inner)
     }
 
     fn clone_strong(&self) -> Self {
         Self { inner: self.inner.clone() }
     }
 
-    fn from_inner(inner: vtable::VRc<sixtyfps::re_exports::ComponentVTable, Self::Inner>) -> Self {
+    fn from_inner(
+        inner: vtable::VRc<sixtyfps_corelib::component::ComponentVTable, Self::Inner>,
+    ) -> Self {
         Self { inner }
     }
 
@@ -996,7 +996,7 @@ impl sixtyfps::ComponentHandle for ComponentInstance {
         self.inner.window()
     }
 
-    fn global<'a, T: sixtyfps::Global<'a, Self>>(&'a self) -> T
+    fn global<'a, T: Global<'a, Self>>(&'a self) -> T
     where
         Self: Sized,
     {
@@ -1005,7 +1005,7 @@ impl sixtyfps::ComponentHandle for ComponentInstance {
 }
 
 impl From<ComponentInstance>
-    for vtable::VRc<sixtyfps::re_exports::ComponentVTable, ErasedComponentBox>
+    for vtable::VRc<sixtyfps_corelib::component::ComponentVTable, ErasedComponentBox>
 {
     fn from(value: ComponentInstance) -> Self {
         value.inner
