@@ -10,16 +10,16 @@
 namespace sixtyfps {
 
 #if !defined(DOXYGEN)
-using cbindgen_private::types::Size;
+using cbindgen_private::types::IntSize;
 #else
 /// The Size structure is used to represent a two-dimensional size
 /// with width and height.
-struct Size
+struct IntSize
 {
     /// The width of the size
-    float width;
+    uint32_t width;
     /// The height of the size
-    float height;
+    uint32_t height;
 };
 #endif
 
@@ -46,7 +46,7 @@ public:
     */
 
     /// Returns the size of the Image in pixels.
-    Size size() const { return cbindgen_private::types::sixtyfps_image_size(&data); }
+    IntSize size() const { return cbindgen_private::types::sixtyfps_image_size(&data); }
 
     /// Returns the path of the image on disk, if it was constructed via Image::load_from_path().
     std::optional<sixtyfps::SharedString> path() const

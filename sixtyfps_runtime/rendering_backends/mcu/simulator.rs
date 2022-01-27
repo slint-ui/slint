@@ -368,15 +368,13 @@ impl sixtyfps_corelib::backend::Backend for SimulatorBackend {
             .send_event(self::event_loop::CustomEvent::UserEvent(event));
     }
 
-    fn image_size(&'static self, image: &Image) -> sixtyfps_corelib::graphics::Size {
+    fn image_size(&'static self, image: &Image) -> sixtyfps_corelib::graphics::IntSize {
         let inner: &ImageInner = image.into();
         match inner {
             ImageInner::None => Default::default(),
             ImageInner::AbsoluteFilePath(_) | ImageInner::EmbeddedData { .. } => unimplemented!(),
-            ImageInner::EmbeddedImage(buffer) => {
-                [buffer.width() as f32, buffer.height() as f32].into()
-            }
-            ImageInner::StaticTextures { size, .. } => size.cast(),
+            ImageInner::EmbeddedImage(buffer) => buffer.size(),
+            ImageInner::StaticTextures { size, .. } => size,
         }
     }
 }

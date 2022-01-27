@@ -296,17 +296,15 @@ mod the_backend {
         fn image_size(
             &'static self,
             image: &sixtyfps_corelib::graphics::Image,
-        ) -> sixtyfps_corelib::graphics::Size {
+        ) -> sixtyfps_corelib::graphics::IntSize {
             let inner: &ImageInner = image.into();
             match inner {
                 ImageInner::None => Default::default(),
                 ImageInner::AbsoluteFilePath(_) | ImageInner::EmbeddedData { .. } => {
                     unimplemented!()
                 }
-                ImageInner::EmbeddedImage(buffer) => {
-                    [buffer.width() as f32, buffer.height() as f32].into()
-                }
-                ImageInner::StaticTextures { size, .. } => size.cast(),
+                ImageInner::EmbeddedImage(buffer) => buffer.size(),
+                ImageInner::StaticTextures { size, .. } => size,
             }
         }
 

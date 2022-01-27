@@ -16,7 +16,7 @@ only be used with `version = "=x.y.z"` in Cargo.toml.
 
 extern crate alloc;
 
-use sixtyfps_corelib::graphics::{Image, Size};
+use sixtyfps_corelib::graphics::{Image, IntSize};
 #[cfg(not(no_qt))]
 use sixtyfps_corelib::items::ImageFit;
 use sixtyfps_corelib::window::Window;
@@ -267,19 +267,17 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         };
     }
 
-    fn image_size(&'static self, _image: &Image) -> Size {
+    fn image_size(&'static self, _image: &Image) -> IntSize {
         #[cfg(not(no_qt))]
         {
             let inner: &ImageInner = _image.into();
             match inner {
                 sixtyfps_corelib::ImageInner::None => Default::default(),
-                sixtyfps_corelib::ImageInner::EmbeddedImage(buffer) => {
-                    [buffer.width() as _, buffer.height() as _].into()
-                }
+                sixtyfps_corelib::ImageInner::EmbeddedImage(buffer) => buffer.size(),
                 _ => qt_window::load_image_from_resource(inner, None, ImageFit::fill)
                     .map(|img| {
                         let qsize = img.size();
-                        euclid::size2(qsize.width as f32, qsize.height as f32)
+                        euclid::size2(qsize.width, qsize.height)
                     })
                     .unwrap_or_default(),
             }
