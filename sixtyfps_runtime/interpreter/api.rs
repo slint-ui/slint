@@ -15,7 +15,7 @@ use std::rc::Rc;
 #[doc(inline)]
 pub use sixtyfps_compilerlib::diagnostics::{Diagnostic, DiagnosticLevel};
 
-pub use sixtyfps_corelib::window::api::Window;
+pub use sixtyfps_corelib::api::*;
 
 pub use sixtyfps::ComponentHandle;
 
