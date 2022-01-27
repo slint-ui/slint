@@ -13,6 +13,8 @@ This version changes some APIs in incompatible ways. For details how to migrate 
  - `Model::row_data` will now return a `Option<T>` / `std::optional<T>` instead of a plain `T`.
  - `Model::model_tracker` no longer has a default implementation.
  - The deprecated methods `Model::attach_peer` and `ModelNotify::attach` were removed.
+ - The interpreter does not differentiate anymore between `Value::Array` and `Value::Model`
+   everything is a `Value::Model`, which now contains a `ModelHandle`
 
 ### Added
 
