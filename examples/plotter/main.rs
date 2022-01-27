@@ -25,7 +25,7 @@ fn pdf(x: f64, y: f64) -> f64 {
 
 fn render_plot(pitch: f32) -> sixtyfps::Image {
     let mut pixel_buffer = SharedPixelBuffer::new(640, 480);
-    let size = (pixel_buffer.width() as u32, pixel_buffer.height() as u32);
+    let size = (pixel_buffer.width(), pixel_buffer.height());
 
     let backend = BitMapBackend::with_buffer(pixel_buffer.make_mut_bytes(), size);
 

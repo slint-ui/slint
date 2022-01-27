@@ -18,25 +18,25 @@ use super::{IntRect, IntSize};
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct SharedPixelBuffer<Pixel> {
-    width: usize,
-    height: usize,
-    stride: usize,
+    width: u32,
+    height: u32,
+    stride: u32,
     data: SharedVector<Pixel>,
 }
 
 impl<Pixel> SharedPixelBuffer<Pixel> {
     /// Returns the width of the image in pixels.
-    pub fn width(&self) -> usize {
+    pub fn width(&self) -> u32 {
         self.width
     }
 
     /// Returns the height of the image in pixels.
-    pub fn height(&self) -> usize {
+    pub fn height(&self) -> u32 {
         self.height
     }
 
     /// Returns the number of pixels per line.
-    pub fn stride(&self) -> usize {
+    pub fn stride(&self) -> u32 {
         self.stride
     }
 }
@@ -75,12 +75,14 @@ impl<Pixel> SharedPixelBuffer<Pixel> {
 impl<Pixel: Clone + Default> SharedPixelBuffer<Pixel> {
     /// Creates a new SharedPixelBuffer with the given width and height. Each pixel will be initialized with the value
     /// that [`Default::default()`] returns for the Pixel type.
-    pub fn new(width: usize, height: usize) -> Self {
+    pub fn new(width: u32, height: u32) -> Self {
         Self {
             width,
             height,
             stride: width,
-            data: core::iter::repeat(Pixel::default()).take(width * height).collect(),
+            data: core::iter::repeat(Pixel::default())
+                .take(width as usize * height as usize)
+                .collect(),
         }
     }
 }
@@ -91,8 +93,8 @@ impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
     /// and you would like to convert it for use in SixtyFPS.
     pub fn clone_from_slice<SourcePixelType>(
         pixel_slice: &[SourcePixelType],
-        width: usize,
-        height: usize,
+        width: u32,
+        height: u32,
     ) -> Self
     where
         [SourcePixelType]: rgb::AsPixels<Pixel>,
@@ -139,7 +141,7 @@ pub enum SharedImageBuffer {
 impl SharedImageBuffer {
     /// Returns the width of the image in pixels.
     #[inline]
-    pub fn width(&self) -> usize {
+    pub fn width(&self) -> u32 {
         match self {
             Self::RGB8(buffer) => buffer.width(),
             Self::RGBA8(buffer) => buffer.width(),
@@ -149,7 +151,7 @@ impl SharedImageBuffer {
 
     /// Returns the height of the image in pixels.
     #[inline]
-    pub fn height(&self) -> usize {
+    pub fn height(&self) -> u32 {
         match self {
             Self::RGB8(buffer) => buffer.height(),
             Self::RGBA8(buffer) => buffer.height(),
@@ -271,7 +273,7 @@ pub struct LoadImageError(());
 /// ```
 /// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, Image, Rgb8Pixel};
 ///
-/// fn low_level_render(width: usize, height: usize, buffer: &mut [u8]) {
+/// fn low_level_render(width: u32, height: u32, buffer: &mut [u8]) {
 ///     // render beautiful circle or other shapes here
 /// }
 ///
@@ -297,8 +299,8 @@ pub struct LoadImageError(());
 ///
 /// let buffer = SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
 ///     cat_image.as_raw(),
-///     cat_image.width() as _,
-///     cat_image.height() as _,
+///     cat_image.width(),
+///     cat_image.height(),
 /// );
 /// let image = Image::from_rgba8(buffer);
 /// ```
@@ -311,7 +313,7 @@ pub struct LoadImageError(());
 /// let width = pixel_buffer.width();
 /// let height = pixel_buffer.height();
 /// let mut pixmap = tiny_skia::PixmapMut::from_bytes(
-///     pixel_buffer.make_mut_bytes(), width as _, height as _
+///     pixel_buffer.make_mut_bytes(), width, height
 /// ).unwrap();
 /// pixmap.fill(tiny_skia::Color::TRANSPARENT);
 ///

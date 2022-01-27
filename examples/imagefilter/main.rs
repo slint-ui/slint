@@ -95,8 +95,8 @@ pub fn main() {
     main_window.set_original_image(sixtyfps::Image::from_rgba8(
         sixtyfps::SharedPixelBuffer::clone_from_slice(
             source_image.as_raw(),
-            source_image.width() as _,
-            source_image.height() as _,
+            source_image.width(),
+            source_image.height(),
         ),
     ));
 
@@ -147,8 +147,8 @@ pub fn main() {
         let filtered_image = filter_fn(&source_image);
         sixtyfps::Image::from_rgba8(sixtyfps::SharedPixelBuffer::clone_from_slice(
             filtered_image.as_raw(),
-            filtered_image.width() as _,
-            filtered_image.height() as _,
+            filtered_image.width(),
+            filtered_image.height(),
         ))
     });
 

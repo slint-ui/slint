@@ -15,6 +15,7 @@ This version changes some APIs in incompatible ways. For details how to migrate 
  - The deprecated methods `Model::attach_peer` and `ModelNotify::attach` were removed.
  - The interpreter does not differentiate anymore between `Value::Array` and `Value::Model`
    everything is a `Value::Model`, which now contains a `ModelHandle`
+ - In Rust, `sixtyfps::SharedPixelBuffer` and `sixtyfps::SharedImageBuffer` now use a `u32` instead of `usize` for `width`, `height` and `stride`.
 
 ### Added
 
