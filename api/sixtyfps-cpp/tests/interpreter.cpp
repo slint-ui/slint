@@ -403,7 +403,7 @@ SCENARIO("Array between .60 and C++")
         REQUIRE(maybe_array->type() == Value::Type::Model);
 
         auto array = *maybe_array;
-        REQUIRE(array == sixtyfps::SharedVector<Value> { Value(1.), Value(2.), Value(3.) });
+        REQUIRE(array.to_array() == sixtyfps::SharedVector<Value> { Value(1.), Value(2.), Value(3.) });
     }
 
     SECTION("C++ to .60")
@@ -416,7 +416,7 @@ SCENARIO("Array between .60 and C++")
         REQUIRE(maybe_array->type() == Value::Type::Model);
 
         auto actual_array = *maybe_array;
-        REQUIRE(actual_array == cpp_array);
+        REQUIRE(actual_array.to_array() == cpp_array);
     }
 }
 
