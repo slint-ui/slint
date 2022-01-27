@@ -653,12 +653,13 @@ mod weak_handle {
         /// handle.run();
         /// ```
         #[cfg(feature = "std")]
-        pub fn upgrade_in_event_loop(self, func: impl FnOnce(T) + Send + 'static)
+        pub fn upgrade_in_event_loop(&self, func: impl FnOnce(T) + Send + 'static)
         where
             T: 'static,
         {
+            let weak_handle = self.clone();
             crate::invoke_from_event_loop(move || {
-                if let Some(h) = self.upgrade() {
+                if let Some(h) = weak_handle.upgrade() {
                     func(h);
                 }
             })
