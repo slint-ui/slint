@@ -7,7 +7,7 @@ use core::convert::TryInto;
 use core::pin::Pin;
 use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement};
 use corelib::items::{ItemRef, PropertyAnimation};
-use corelib::model::ModelIterator;
+use corelib::model::{Model, ModelHandle};
 use corelib::rtti::AnimatedBindingKind;
 use corelib::window::{WindowHandleAccess, WindowRc};
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
@@ -568,9 +568,9 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::Array { values, .. } => Value::Model(
-            Rc::new(corelib::model::SharedVectorModel::from(
+            ModelHandle::new(Rc::new(corelib::model::SharedVectorModel::from(
                 values.iter().map(|e| eval_expression(e, local_context)).collect::<SharedVector<_>>()
-            )) as Rc<dyn corelib::model::Model<Data = Value>>
+            )) as Rc<dyn corelib::model::Model<Data = Value>>)
         ),
         Expression::Struct { values, .. } => Value::Struct(
             values
@@ -895,7 +895,7 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
         Type::Easing => matches!(value, Value::EasingCurve(_)),
         Type::Brush => matches!(value, Value::Brush(_)),
         Type::Array(inner) => {
-            matches!(value, Value::Model(m) if ModelIterator::new(&**m).all(|v| check_value_type(&v, inner)))
+            matches!(value, Value::Model(m) if m.iter().all(|v| check_value_type(&v, inner)))
         }
         Type::Struct { fields, .. } => {
             matches!(value, Value::Struct(str) if str.iter().all(|(k, v)| fields.get(k).map_or(false, |ty| check_value_type(v, ty))))

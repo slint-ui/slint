@@ -3,6 +3,7 @@
 
 #![doc = include_str!("README.md")]
 
+use sixtyfps_corelib::model::{Model, ModelHandle};
 use sixtyfps_corelib::SharedVector;
 use sixtyfps_interpreter::{ComponentInstance, SharedString, Value};
 use std::future::Future;
@@ -266,12 +267,14 @@ fn load_data(instance: &ComponentInstance, data_path: &std::path::Path) -> Resul
                     sixtyfps_interpreter::Value::Number(n.as_f64().unwrap_or(f64::NAN))
                 }
                 serde_json::Value::String(s) => SharedString::from(s.as_str()).into(),
-                serde_json::Value::Array(array) => sixtyfps_interpreter::Value::Model(Rc::new(
-                    sixtyfps_corelib::model::SharedVectorModel::from(
+                serde_json::Value::Array(array) => sixtyfps_interpreter::Value::Model(
+                    ModelHandle::new(Rc::new(sixtyfps_corelib::model::SharedVectorModel::from(
                         array.iter().map(from_json).collect::<SharedVector<Value>>(),
-                    ),
-                )
-                    as Rc<dyn sixtyfps_corelib::model::Model<Data = sixtyfps_interpreter::Value>>),
+                    ))
+                        as Rc<
+                            dyn sixtyfps_corelib::model::Model<Data = sixtyfps_interpreter::Value>,
+                        >),
+                ),
                 serde_json::Value::Object(obj) => obj
                     .iter()
                     .map(|(k, v)| (k.clone(), from_json(v)))

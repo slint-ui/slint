@@ -4,7 +4,7 @@
 use core::convert::TryInto;
 use sixtyfps_compilerlib::langtype::Type as LangType;
 use sixtyfps_corelib::graphics::Image;
-use sixtyfps_corelib::model::SharedVectorModel;
+use sixtyfps_corelib::model::{Model, ModelHandle};
 use sixtyfps_corelib::{Brush, PathData, SharedString, SharedVector};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -92,7 +92,7 @@ pub enum Value {
     /// Correspond to the `image` type in .60
     Image(Image),
     /// A model (that includes array in .60)
-    Model(Rc<dyn sixtyfps_corelib::model::Model<Data = Value>>),
+    Model(ModelHandle<Value>),
     /// An object
     Struct(Struct),
     /// Correspond to `brush` or `color` type in .60.  For color, this is then a [`Brush::SolidColor`]
@@ -144,17 +144,14 @@ impl PartialEq for Value {
             Value::Image(lhs) => matches!(other, Value::Image(rhs) if lhs == rhs),
             Value::Model(lhs) => {
                 if let Value::Model(rhs) = other {
-                    match (
-                        lhs.as_any().downcast_ref::<SharedVectorModel<Value>>(),
-                        rhs.as_any().downcast_ref::<SharedVectorModel<Value>>(),
-                    ) {
-                        (Some(lhs_array), Some(rhs_array)) => {
-                            return lhs_array.shared_vector() == rhs_array.shared_vector()
-                        }
-                        _ => return Rc::ptr_eq(lhs, rhs),
+                    match (&lhs.0, &rhs.0) {
+                        (None, None) => true,
+                        (None, Some(_)) | (Some(_), None) => false,
+                        (Some(a), Some(b)) => Rc::ptr_eq(a, b),
                     }
+                } else {
+                    false
                 }
-                false
             }
             Value::Struct(lhs) => matches!(other, Value::Struct(rhs) if lhs == rhs),
             Value::Brush(lhs) => matches!(other, Value::Brush(rhs) if lhs == rhs),
@@ -178,9 +175,7 @@ impl std::fmt::Debug for Value {
             Value::Image(i) => write!(f, "Value::Image({:?})", i),
             Value::Model(m) => {
                 write!(f, "Value::Model(")?;
-                f.debug_list()
-                    .entries(sixtyfps_corelib::model::ModelIterator::new(&**m))
-                    .finish()?;
+                f.debug_list().entries(m.iter()).finish()?;
                 write!(f, "])")
             }
             Value::Struct(s) => write!(f, "Value::Struct({:?})", s),
@@ -1365,17 +1360,17 @@ fn component_definition_model_properties() {
 
     let instance = comp_def.create();
 
-    let int_model = Value::Model(Rc::new(VecModel::from_slice(&[
+    let int_model = Value::Model(ModelHandle::new(Rc::new(VecModel::from_slice(&[
         Value::Number(14.),
         Value::Number(15.),
         Value::Number(16.),
-    ])));
-    let empty_model = Value::Model(Rc::new(VecModel::<Value>::default()));
-    let model_with_string = Value::Model(Rc::new(VecModel::from_slice(&[
+    ]))));
+    let empty_model = Value::Model(ModelHandle::new(Rc::new(VecModel::<Value>::default())));
+    let model_with_string = Value::Model(ModelHandle::new(Rc::new(VecModel::from_slice(&[
         Value::Number(1000.),
         Value::String("foo".into()),
         Value::Number(1111.),
-    ])));
+    ]))));
 
     #[track_caller]
     fn check_model(val: Value, r: &[f64]) {
