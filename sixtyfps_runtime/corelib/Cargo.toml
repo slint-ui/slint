@@ -73,4 +73,4 @@ pin-weak = "1"
 image = { version = "0.23.14", default-features = false, features = [ "png" ] }
 tiny-skia = "0.6.1"
 sixtyfps = { version = "=0.2.0", path = "../../api/sixtyfps-rs", default-features = false, features = ["std"] }
-sixtyfps-rendering-backend-testing = { version = "=0.2.0", path="../rendering_backends/testing" }
+sixtyfps-rendering-backend-testing = { path="../rendering_backends/testing" }
