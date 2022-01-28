@@ -333,10 +333,8 @@ export Path := _ {
     property <length> width;
     property <length> height;
     property <brush> fill;
-    property <brush> fill-color <=> fill;
     property <FillRule> fill-rule;
     property <brush> stroke;
-    property <color> stroke-color <=> stroke;
     property <length> stroke-width;
     property <string> commands;
     property <float> viewbox-x;
