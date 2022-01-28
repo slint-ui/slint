@@ -596,21 +596,6 @@ impl Expression {
         let function = sub_expr.next().map_or(Self::Invalid, |n| {
             // Treat the QualifiedName separately so we can catch the uses of uncalled signal
             n.QualifiedName()
-                .or_else(|| {
-                    n.Expression().and_then(|mut e| {
-                        while let Some(e2) = e.Expression() {
-                            e = e2;
-                        }
-                        e.QualifiedName().map(|q| {
-                            ctx.diag.push_warning(
-                            "Parentheses around callable are deprecated. Remove the parentheses"
-                                .into(),
-                            &n,
-                        );
-                            q
-                        })
-                    })
-                })
                 .map(|qn| Self::from_qualified_name_node(qn, ctx))
                 .unwrap_or_else(|| Self::from_expression_node(n, ctx))
         });

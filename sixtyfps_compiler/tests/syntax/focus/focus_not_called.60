@@ -7,7 +7,7 @@ X := Rectangle {
     TouchArea {
         clicked => {
             (edit.focus)();
-//          ^warning{Parentheses around callable are deprecated. Remove the parentheses}
+//           ^error{'edit.focus' must be called. Did you forgot the '\(\)'\?}
             edit.focus;
 //          ^error{'edit.focus' must be called. Did you forgot the '\(\)'\?}
         }

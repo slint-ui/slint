@@ -19,7 +19,7 @@ TestCase := Rectangle {
     focus_input1 => { input1.focus(); }
 
     callback focus_input2();
-    focus_input2 => { (input2.focus)(); }
+    focus_input2 => { input2.focus(); }
 
     Rectangle {
         input1 := TextInput {
