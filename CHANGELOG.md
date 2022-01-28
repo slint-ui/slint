@@ -19,8 +19,11 @@ as well as the [Rust migration guide](api/sixtyfps-cpp/docs/cpp_migration.md).
  - In Rust, `sixtyfps::SharedPixelBuffer` and `sixtyfps::SharedImageBuffer` now use a `u32` instead of `usize` for `width`, `height` and `stride`.
  - In Rust and C++, `sixtyfps::Image::size()` now returns an integer size type.
  - `sixtyfps::interpreter::CallCallbackError` was renamed to `sixtyfps::interpreter::InvokeCallbackError`
+ - Some deprecation warning in .60 became hard errors
 
 ### Added
+
+ - `TextEdit::font-size` and `LineEdit::font-size` have been added to control the size of these widgets.
 
 ### Fixed
 
