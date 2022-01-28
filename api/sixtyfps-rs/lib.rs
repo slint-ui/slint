@@ -17,6 +17,7 @@ If you are already familiar with SixtyFPS, the following topics provide some
  * [Widgets](docs::widgets)
  * [Positioning and Layout of Elements](docs::layouting)
  * [Debugging Techniques](docs::debugging_techniques)
+ * [Migration from older version](docs::migration)
 
 ## How to use this crate:
 

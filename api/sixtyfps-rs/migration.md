@@ -12,9 +12,12 @@ In 0.2.0 we have increased the minimum version of rust. You need to have rust co
 
 #### `Model::row_data`
 
-`Model::row_data` now returns an `Option<T>` instead of a simple `T`.
+[`Model::row_data`] now returns an `Option<T>` instead of a simple `T`.
 
-This implies that `Model`s must handle invalid indices and may not panic when they encounter one.
+[`Model`] implementation must no longer panic when encountering invalid index in [`row_data`](Model::row_data)
+and [`set_row_data`](Model::set_row_data), they should return `None` instead.
+
+When calling `row_data` one need to unwrap the value
 
 Old code:
 
@@ -30,11 +33,14 @@ let row_five = model.row_data(5).unwrap_or_default();
 
 #### `Model::attach_peer` and `Model::model_tracker`
 
-`attach_peer()` has been removed. Instead you must implement the `fn model_tracker(&self) -> &dyn ModelTracker` function. If you have a constant model, then you can just return `&()`, otherwise you can return a reference to the `ModelNotify` instance that you previously used in `attach_peer`:
+`attach_peer()` has been removed. Instead you must implement the
+[`fn model_tracker(&self) -> &dyn ModelTracker`](Model::model_tracker) function.
+If you have a constant model, then you can just return `&()`, otherwise you can return a reference
+to the [`ModelNotify`] instance that you previously used in `attach_peer`:
 
 Old code:
 
-```rust
+```rust,ignore
 fn attach_peer(&self, peer: sixtyfps::ModelPeer) {
     self.model_notify.attach_peer(peer);
 }
@@ -42,7 +48,7 @@ fn attach_peer(&self, peer: sixtyfps::ModelPeer) {
 
 New code:
 
-```rust
+```rust,ignore
 fn model_tracker(&self) -> &dyn ModelTracker {
     &self.model_notify
 }
@@ -50,13 +56,9 @@ fn model_tracker(&self) -> &dyn ModelTracker {
 
 or if your model is constant:
 
-```rust
+```rust,ignore
 fn model_tracker(&self) -> &dyn ModelTracker {
     &()
 }
 ```
 
-### Interpreter
-
-`Value::Array` was removed and `Value::Model` needs to be used instead.
-`CallCallbackError` was renamed to `InvokeCallbackError`.
