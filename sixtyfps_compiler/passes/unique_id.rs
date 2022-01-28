@@ -59,7 +59,7 @@ pub fn check_unique_id(doc: &Document, diag: &mut BuildDiagnostics) {
 fn check_unique_id_in_component(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     struct SeenId {
         element: ElementRc,
-        warned: bool,
+        error_reported: bool,
     }
     let mut seen_ids: HashMap<String, SeenId> = HashMap::new();
 
@@ -69,14 +69,15 @@ fn check_unique_id_in_component(component: &Rc<Component>, diag: &mut BuildDiagn
         if !id.is_empty() {
             if let Some(other_loc) = seen_ids.get_mut(id) {
                 debug_assert!(!Rc::ptr_eq(&other_loc.element, elem));
-                let message = format!("duplicated element id '{}'. This used to be accepted in earlier version but will be an error in future versions", id);
-                if !other_loc.warned {
-                    diag.push_warning(message.clone(), &*other_loc.element.borrow());
-                    other_loc.warned = true;
+                let message = format!("duplicated element id '{}'", id);
+                if !other_loc.error_reported {
+                    diag.push_error(message.clone(), &*other_loc.element.borrow());
+                    other_loc.error_reported = true;
                 }
-                diag.push_warning(message, &*elem_bor);
+                diag.push_error(message, &*elem_bor);
             } else {
-                seen_ids.insert(id.clone(), SeenId { element: elem.clone(), warned: false });
+                seen_ids
+                    .insert(id.clone(), SeenId { element: elem.clone(), error_reported: false });
             }
         }
     })
