@@ -3,7 +3,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
-This version changes some APIs in incompatible ways. For details how to migrate your application code, see the [C++ migration guide](api/sixtyfps-cpp/docs/cpp_migration.md).
+This version changes some APIs in incompatible ways. For details how to migrate your application code, see the [C++ migration guide](api/sixtyfps-cpp/docs/cpp_migration.md)
+as well as the [Rust migration guide](api/sixtyfps-cpp/docs/cpp_migration.md).
 
 ### Changed
 
