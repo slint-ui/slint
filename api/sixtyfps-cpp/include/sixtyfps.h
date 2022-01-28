@@ -462,6 +462,16 @@ struct AbstractRepeaterView
 };
 using ModelPeer = std::weak_ptr<AbstractRepeaterView>;
 
+template<typename M>
+auto access_array_index(const M &model, int index) {
+    model->track_row_data_changes(index);
+    if (const auto v = model->row_data(index)) {
+        return *v;
+    } else {
+        return decltype(*v) {};
+    }
+}
+
 } // namespace private_api
 
 /// \rst
