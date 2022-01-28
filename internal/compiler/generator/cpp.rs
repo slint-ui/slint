@@ -30,7 +30,7 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Strin
             }
             parent_reference
         }
-        other @ _ => other,
+        other => other,
     };
 
     match pr {
