@@ -74,6 +74,8 @@ mod dynamic_type;
 mod eval;
 mod eval_layout;
 mod global_component;
+#[cfg(doc)]
+pub mod migration;
 mod value_model;
 
 #[doc(inline)]

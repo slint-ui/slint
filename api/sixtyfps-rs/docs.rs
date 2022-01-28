@@ -164,3 +164,8 @@ pub mod debugging_techniques {
     #![doc = include_str!("docs/debugging_techniques.md")]
     #![doc = ""]
 }
+
+pub mod migration {
+    #![doc = include_str!("migration.md")]
+    use crate::*;
+}
