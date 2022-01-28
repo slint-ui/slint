@@ -1768,8 +1768,10 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             _ => panic!("Expression::ObjectAccess's base expression is not an Object type"),
         },
         Expression::ArrayIndex { array, index } => {
-            format!("[&]<typename D>(const std::shared_ptr<sixtyfps::Model<D>> &model, const auto &index) -> D {{ model->track_row_data_changes(index); if (const auto v = model->row_data(index)) return *v; return D(); }}({}, {})",
-                compile_expression(array, ctx), compile_expression(index, ctx))
+            format!(
+                "sixtyfps::private_api::access_array_index({}, {})",
+                compile_expression(array, ctx), compile_expression(index, ctx)
+            )
         },
         Expression::Cast { from, to } => {
             let f = compile_expression(&*from, ctx);

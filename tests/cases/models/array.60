@@ -6,8 +6,10 @@ export TestCase := Rectangle {
     property<int> num_ints: ints.length;
     property<int> n: ints[ints[4] - ints[1]];
     property<int> operations: ints.length < 1 ? ints.length : ints.length + ints.length;
-    property<bool> test: num_ints == 5 && operations == 10;
+    property<bool> test: num_ints == 5 && operations == 10
+        && hello_world == (["", "world"])[1];
     property<int> third_int: ints[2];
+    property<string> hello_world: ["hello", "world"][1];
 }
 
 /*
@@ -27,6 +29,8 @@ model->push_back(8);
 assert_eq(instance.get_num_ints(), 8);
 model->set_row_data(2, 100);
 assert_eq(instance.get_third_int(), 100);
+
+assert_eq(instance.get_hello_world(), "world");
 ```
 
 
@@ -46,6 +50,8 @@ model.push(8);
 assert_eq!(instance.get_num_ints(), 8);
 model.set_row_data(2, 100);
 assert_eq!(instance.get_third_int(), 100);
+
+assert_eq!(instance.get_hello_world(), sixtyfps::SharedString::from("world"));
 ```
 
 ```js
@@ -63,5 +69,7 @@ model.push(8);
 assert.equal(instance.num_ints, 8);
 model.setRowData(2, 100);
 assert.equal(instance.third_int, 100);
+
+assert.equal(instance.hello_world, "world");
 ```
 */
