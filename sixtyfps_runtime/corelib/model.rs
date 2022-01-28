@@ -751,16 +751,14 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         listview_width: f32,
         listview_height: Pin<&Property<f32>>,
     ) {
-        let empty_model = || {
-            self.inner.borrow_mut().components.clear();
-            viewport_height.set(0.);
-            viewport_y.set(0.);
-        };
-
         let model = self.model();
         let row_count = model.row_count();
         if row_count == 0 {
-            return empty_model();
+            self.inner.borrow_mut().components.clear();
+            viewport_height.set(0.);
+            viewport_y.set(0.);
+
+            return;
         }
 
         let init = &init;
