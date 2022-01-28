@@ -1236,7 +1236,7 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Token
             }
             parent_reference
         }
-        other @ _ => other,
+        other => other,
     };
 
     match pr {

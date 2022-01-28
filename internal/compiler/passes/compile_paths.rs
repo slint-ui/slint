@@ -69,7 +69,7 @@ pub fn compile_paths(
                         return;
                     }
                 }
-                expr @ _ if expr.ty() == Type::String => Expression::PathData(
+                expr if expr.ty() == Type::String => Expression::PathData(
                     crate::expression_tree::Path::Commands(Box::new(commands_expr.expression)),
                 )
                 .into(),
