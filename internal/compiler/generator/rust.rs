@@ -117,7 +117,7 @@ pub fn generate(doc: &Document) -> TokenStream {
     let sub_compos = llr
         .sub_components
         .iter()
-        .map(|sub_compo| generate_sub_component(&sub_compo, &llr, None, quote!()))
+        .map(|sub_compo| generate_sub_component(sub_compo, &llr, None, quote!()))
         .collect::<Vec<_>>();
 
     let compo = generate_public_component(&llr);
@@ -217,7 +217,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
 
     let global_names =
         llr.globals.iter().map(|g| format_ident!("global_{}", ident(&g.name))).collect::<Vec<_>>();
-    let global_types = llr.globals.iter().map(|g| global_inner_name(g)).collect::<Vec<_>>();
+    let global_types = llr.globals.iter().map(global_inner_name).collect::<Vec<_>>();
 
     quote!(
         #component
@@ -317,7 +317,7 @@ fn handle_property_init(
 
     if let Type::Callback { args, .. } = &prop_type {
         let mut ctx2 = ctx.clone();
-        ctx2.argument_types = &args;
+        ctx2.argument_types = args;
         let tokens_for_expression = compile_expression(&binding_expression.expression, &ctx2);
         init.push(quote!({
             #[allow(unreachable_code, unused)]
@@ -331,7 +331,7 @@ fn handle_property_init(
     } else {
         let tokens_for_expression = compile_expression(&binding_expression.expression, ctx);
         init.push(if binding_expression.is_constant {
-            let t = rust_type(&prop_type).unwrap_or(quote!(_));
+            let t = rust_type(prop_type).unwrap_or(quote!(_));
 
             // When there is a `return` statement, we must use a lambda expression in the generated code so that the
             // generated code can have an actual return in it. We only want to do that if necessary because otherwise
@@ -398,8 +398,8 @@ fn public_api(
 ) -> TokenStream {
     let mut property_and_callback_accessors: Vec<TokenStream> = vec![];
     for (p, (ty, r)) in public_properties {
-        let prop_ident = ident(&p);
-        let prop = access_member(r, &ctx);
+        let prop_ident = ident(p);
+        let prop = access_member(r, ctx);
 
         if let Type::Callback { args, return_type } = ty {
             let callback_args = args.iter().map(|a| rust_type(a).unwrap()).collect::<Vec<_>>();
@@ -527,7 +527,7 @@ fn generate_sub_component(
 
     for (idx, repeated) in component.repeated.iter().enumerate() {
         extra_components.push(generate_repeated_component(
-            &repeated,
+            repeated,
             root,
             ParentCtx::new(&ctx, Some(idx)),
         ));
@@ -650,7 +650,7 @@ fn generate_sub_component(
     let root_component_id = self::inner_component_id(&root.item_tree.root);
 
     let parent_component_type = parent_ctx.iter().map(|parent| {
-        let parent_component_id = self::inner_component_id(&parent.ctx.current_sub_component.unwrap());
+        let parent_component_id = self::inner_component_id(parent.ctx.current_sub_component.unwrap());
         quote!(sixtyfps::re_exports::VWeakMapped::<sixtyfps::re_exports::ComponentVTable, #parent_component_id>)
     });
 
@@ -790,7 +790,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
         let root_component_id = self::public_component_id(&root.item_tree.root);
         let global_id = format_ident!("global_{}", public_component_id);
 
-        let aliases = global.aliases.iter().map(|name| ident(&name));
+        let aliases = global.aliases.iter().map(|name| ident(name));
         quote!(
             pub struct #public_component_id<'a>(&'a ::core::pin::Pin<sixtyfps::re_exports::Rc<#inner_component_id>>);
 
@@ -840,7 +840,7 @@ fn generate_item_tree(
     let sub_comp = generate_sub_component(&sub_tree.root, root, parent_ctx.clone(), extra_fields);
     let inner_component_id = self::inner_component_id(&sub_tree.root);
     let parent_component_type = parent_ctx.iter().map(|parent| {
-        let parent_component_id = self::inner_component_id(&parent.ctx.current_sub_component.unwrap());
+        let parent_component_id = self::inner_component_id(parent.ctx.current_sub_component.unwrap());
         quote!(sixtyfps::re_exports::VWeakMapped::<sixtyfps::re_exports::ComponentVTable, #parent_component_id>)
     }).collect::<Vec<_>>();
     let root_token = if parent_ctx.is_some() {
@@ -1131,7 +1131,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             // then this is actually a reference to the element itself
             quote!((#compo_path #item_field).apply_pin(_self))
         } else {
-            let property_name = ident(&prop_name);
+            let property_name = ident(prop_name);
             let item_ty = ident(&sub_component.items[item_index].ty.class_name);
             let flick = sub_component.items[item_index]
                 .is_flickable_viewport
@@ -1150,7 +1150,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
                 let property_field = access_component_field_offset(&component_id, &property_name);
                 quote!((#compo_path #property_field).apply_pin(_self))
             } else if let Some(current_global) = ctx.current_global {
-                let global_name = global_inner_name(&current_global);
+                let global_name = global_inner_name(current_global);
                 let property_name = ident(&current_global.properties[*property_index].name);
                 let property_field = access_component_field_offset(&global_name, &property_name);
                 quote!(#property_field.apply_pin(_self))
@@ -1314,7 +1314,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                             .map(|path_elem_expr|
                                 // Close{} is a struct with no fields in markup, and PathElement::Close has no fields, so map to an empty token stream
                                 // and thus later just unit type, which can convert into PathElement::Close.
-                                if matches!(path_elem_expr, Expression::Struct { ty: Type::Struct { fields, .. }, .. } if fields.len() == 0) {
+                                if matches!(path_elem_expr, Expression::Struct { ty: Type::Struct { fields, .. }, .. } if fields.is_empty()) {
                                     Default::default()
                                 } else {
                                     compile_expression(path_elem_expr, ctx)
@@ -1354,7 +1354,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             quote!(#access.get())
         }
         Expression::BuiltinFunctionCall { function, arguments } => {
-            compile_builtin_function_call(*function, &arguments, ctx)
+            compile_builtin_function_call(*function, arguments, ctx)
         }
         Expression::CallBackCall { callback, arguments } => {
             let f = access_member(callback, ctx);
@@ -1362,7 +1362,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             quote! { #f.call(&(#(#a.clone() as _,)*).into())}
         }
         Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
-            let f = ident(&function);
+            let f = ident(function);
             let a = arguments.iter().map(|a| {
                 let arg = compile_expression(a, ctx);
                 if matches!(a.ty(ctx), Type::Struct { .. }) {
@@ -1523,7 +1523,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::Condition { condition, true_expr, false_expr } => {
             let condition_code = compile_expression(&*condition, ctx);
             let true_code = compile_expression(&*true_expr, ctx);
-            let false_code = compile_expression(&false_expr, ctx);
+            let false_code = compile_expression(false_expr, ctx);
             quote!(
                 if #condition_code {
                     #true_code
@@ -1637,7 +1637,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             ctx,
         ),
         Expression::ComputeDialogLayoutCells { cells_variable, roles, unsorted_cells } => {
-            let cells_variable = ident(&cells_variable);
+            let cells_variable = ident(cells_variable);
             let roles = compile_expression(roles, ctx);
             let cells = match &**unsorted_cells {
                 Expression::Array { values, .. } => {

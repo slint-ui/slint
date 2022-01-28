@@ -735,8 +735,8 @@ fn eval_assignment(lhs: &Expression, op: char, rhs: Value, local_context: &mut E
             )
         }
         Expression::ArrayIndex { array, index } => {
-            let array = eval_expression(&array, local_context);
-            let index = eval_expression(&index, local_context);
+            let array = eval_expression(array, local_context);
+            let index = eval_expression(index, local_context);
             match (array, index) {
                 (Value::Model(model), Value::Number(index)) => {
                     let index = index as usize;

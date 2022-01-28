@@ -393,7 +393,7 @@ impl Image {
                 }
             },
             ImageInner::EmbeddedImage(buffer) => buffer.size(),
-            ImageInner::StaticTextures{size, ..} => size.clone(),
+            ImageInner::StaticTextures{size, ..} => *size,
 
         }
     }

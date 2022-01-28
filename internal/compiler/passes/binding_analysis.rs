@@ -168,7 +168,7 @@ fn analyse_binding(
         return depends_on_external;
     }
 
-    if context.currently_analyzing.contains(&current) {
+    if context.currently_analyzing.contains(current) {
         for it in context.currently_analyzing.iter().rev() {
             let p = &it.prop;
             let elem = p.element();
@@ -249,7 +249,7 @@ fn analyse_binding(
     let o = context.currently_analyzing.pop_back();
     assert_eq!(&o.unwrap(), current);
 
-    return depends_on_external;
+    depends_on_external
 }
 
 /// Process the property `prop`
@@ -300,7 +300,7 @@ fn process_property(
         prop.elements.push(element.into());
         prop.prop = NamedReference::new(&next, prop.prop.name());
     }
-    return depends_on_external;
+    depends_on_external
 }
 
 // Same as in crate::visit_all_named_references_in_element, but not mut

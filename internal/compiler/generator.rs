@@ -188,7 +188,7 @@ pub fn build_item_tree<T: ItemTreeBuilder>(
 
     fn visit_children<T: ItemTreeBuilder>(
         state: &T::SubComponentState,
-        children: &Vec<ElementRc>,
+        children: &[ElementRc],
         component: &Rc<Component>,
         parent_item: &ElementRc,
         parent_index: u32,

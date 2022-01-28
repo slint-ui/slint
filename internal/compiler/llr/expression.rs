@@ -291,11 +291,12 @@ impl Expression {
             Expression::BoolLiteral(_) => {}
             Expression::PropertyReference(_) => {}
             Expression::FunctionParameterReference { .. } => {}
-            Expression::StoreLocalVariable { value, .. } => visitor(&value),
+            Expression::StoreLocalVariable { value, .. } => visitor(value),
             Expression::ReadLocalVariable { .. } => {}
-            Expression::StructFieldAccess { base, .. } => visitor(&base),
+            Expression::StructFieldAccess { base, .. } => visitor(base),
             Expression::ArrayIndex { array, index } => {
-                (visitor(array), visitor(index));
+                visitor(array);
+                visitor(index);
             }
             Expression::Cast { from, .. } => visitor(from),
             Expression::CodeBlock(b) => b.iter().for_each(visitor),
@@ -304,28 +305,31 @@ impl Expression {
             Expression::ExtraBuiltinFunctionCall { arguments, .. } => {
                 arguments.iter().for_each(visitor)
             }
-            Expression::PropertyAssignment { value, .. } => visitor(&value),
-            Expression::ModelDataAssignment { value, .. } => visitor(&value),
+            Expression::PropertyAssignment { value, .. } => visitor(value),
+            Expression::ModelDataAssignment { value, .. } => visitor(value),
             Expression::ArrayIndexAssignment { array, index, value } => {
-                (visitor(array), visitor(index), visitor(value));
+                visitor(array);
+                visitor(index);
+                visitor(value);
             }
             Expression::BinaryExpression { lhs, rhs, .. } => {
-                (visitor(lhs), visitor(rhs));
+                visitor(lhs);
+                visitor(rhs);
             }
             Expression::UnaryOp { sub, .. } => {
                 visitor(sub);
             }
             Expression::ImageReference { .. } => {}
             Expression::Condition { condition, true_expr, false_expr } => {
-                visitor(&condition);
-                visitor(&true_expr);
-                visitor(&false_expr);
+                visitor(condition);
+                visitor(true_expr);
+                visitor(false_expr);
             }
             Expression::Array { values, .. } => values.iter().for_each(visitor),
             Expression::Struct { values, .. } => values.values().for_each(visitor),
             Expression::EasingCurve(_) => {}
             Expression::LinearGradient { angle, stops } => {
-                visitor(&angle);
+                visitor(angle);
                 for (a, b) in stops {
                     visitor(a);
                     visitor(b);
@@ -335,16 +339,16 @@ impl Expression {
             Expression::ReturnStatement(_) => {}
             Expression::LayoutCacheAccess { repeater_index, .. } => {
                 if let Some(repeater_index) = repeater_index {
-                    visitor(&repeater_index);
+                    visitor(repeater_index);
                 }
             }
             Expression::BoxLayoutFunction { elements, sub_expression, .. } => {
-                visitor(&sub_expression);
+                visitor(sub_expression);
                 elements.iter().filter_map(|x| x.as_ref().left()).for_each(visitor);
             }
             Expression::ComputeDialogLayoutCells { roles, unsorted_cells, .. } => {
-                visitor(&roles);
-                visitor(&unsorted_cells);
+                visitor(roles);
+                visitor(unsorted_cells);
             }
         }
     }
