@@ -179,7 +179,7 @@ pub fn generate(doc: &Document) -> TokenStream {
         #[allow(clippy::style)]
         #[allow(clippy::complexity)]
         #[allow(unused_braces)]
-        #[allow(erasing_op)]
+        #[allow(clippy::erasing_op)]
         #[allow(clippy::approx_constant)] // We may get those from .60 inputs!
         mod #compo_module {
             use sixtyfps::re_exports::*;
