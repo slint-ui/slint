@@ -19,7 +19,4 @@ SubElements := Rectangle {
     for a in 12 : Rectangle {
         clip: true || true;
     }
-
-    Clip {}
-//  ^warning{The 'Clip' element is deprecated, use the 'clip' property on a Rectangle instead}
 }

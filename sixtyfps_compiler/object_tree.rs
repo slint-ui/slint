@@ -630,9 +630,6 @@ impl Element {
         let base_type = if let Some(base_node) = node.QualifiedName() {
             let base = QualifiedTypeName::from_node(base_node.clone());
             let base_string = base.to_string();
-            if base_string == "Clip" {
-                diag.push_warning("The 'Clip' element is deprecated, use the 'clip' property on a Rectangle instead".into(), &base_node);
-            }
             match parent_type.lookup_type_for_child_element(&base_string, tr) {
                 Ok(Type::Component(c)) if c.is_global() => {
                     diag.push_error(

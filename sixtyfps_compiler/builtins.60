@@ -229,7 +229,7 @@ export Clip := _ {
     property <length> border-width;
     property <bool> clip;
     //-default_size_binding:expands_to_parent_geometry
-    // Note, this should be 'is_internal'  but isn't because it is in fact deprecated
+    //-is_internal
 }
 
 export Opacity := _ {
