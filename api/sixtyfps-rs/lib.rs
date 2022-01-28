@@ -8,9 +8,9 @@ This crate is the main entry point for embedding user interfaces designed with
 [SixtyFPS UI](https://sixtyfps.io/) in Rust programs.
 
 If you are new to SixtyFPS, start with the [Walk-through tutorial](https://sixtyfps.io/docs/tutorial/rust).
-If you are already familiar with SixtyFPS, the following topics provide some
+If you are already familiar with SixtyFPS, the following topics provide related information.
 
-## Foundation fopics
+## Related topics
 
  * [The `.60` language reference](docs::langref)
  * [Builtin Elements](docs::builtin_elements)
