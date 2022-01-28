@@ -31,7 +31,7 @@ impl sixtyfps_corelib::backend::Backend for TestingBackend {
     }
 
     fn run_event_loop(&'static self, _behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
-        unimplemented!("running an event loop with the testing backend");
+        // Nothing to spin, we return right away. Otherwise tests will hang.
     }
 
     fn quit_event_loop(&'static self) {}
@@ -59,7 +59,7 @@ impl sixtyfps_corelib::backend::Backend for TestingBackend {
     }
 
     fn post_event(&'static self, _event: Box<dyn FnOnce() + Send>) {
-        unimplemented!("event with the testing backend");
+        // The event will never be invoked
     }
 
     fn image_size(&'static self, image: &Image) -> IntSize {
