@@ -77,7 +77,7 @@ impl sixtyfps_corelib::backend::Backend for TestingBackend {
             )
             .map(|img| img.dimensions().into())
             .unwrap_or_default(),
-            ImageInner::StaticTextures { size, .. } => size.clone(),
+            ImageInner::StaticTextures { size, .. } => *size,
         }
     }
 }

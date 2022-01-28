@@ -74,10 +74,10 @@ impl LoweredSubComponentMapping {
         from: &NamedReference,
         state: &LoweringState,
     ) -> PropertyReference {
-        if let Some(x) = self.property_mapping.get(&from) {
+        if let Some(x) = self.property_mapping.get(from) {
             return x.clone();
         }
-        if let Some(x) = state.global_properties.get(&from) {
+        if let Some(x) = state.global_properties.get(from) {
             return x.clone();
         }
         let element = from.element();
@@ -121,7 +121,7 @@ pub struct LoweredSubComponent {
 
 impl LoweringState {
     pub fn map_property_reference(&self, from: &NamedReference) -> PropertyReference {
-        if let Some(x) = self.global_properties.get(&from) {
+        if let Some(x) = self.global_properties.get(from) {
             return x.clone();
         }
 
@@ -217,7 +217,7 @@ fn lower_sub_component(
             }
             let property_index = sub_component.properties.len();
             mapping.property_mapping.insert(
-                NamedReference::new(element, &p),
+                NamedReference::new(element, p),
                 PropertyReference::Local { sub_component_path: vec![], property_index },
             );
             sub_component
@@ -355,11 +355,11 @@ fn lower_repeated_component(elem: &ElementRc, ctx: &ExpressionContext) -> Repeat
     let component = e.base_type.as_component().clone();
     let repeated = e.repeated.as_ref().unwrap();
 
-    let sc = lower_sub_component(&component, &ctx.state, Some(ctx));
+    let sc = lower_sub_component(&component, ctx.state, Some(ctx));
 
     let map_inner_prop = |p| {
         sc.mapping
-            .map_property_reference(&NamedReference::new(&component.root_element, p), &ctx.state)
+            .map_property_reference(&NamedReference::new(&component.root_element, p), ctx.state)
     };
 
     let listview = repeated.is_listview.as_ref().map(|lv| ListViewInfo {
@@ -389,7 +389,7 @@ fn lower_repeated_component(elem: &ElementRc, ctx: &ExpressionContext) -> Repeat
 }
 
 fn lower_popup_component(component: &Rc<Component>, ctx: &ExpressionContext) -> ItemTree {
-    let sc = lower_sub_component(component, &ctx.state, Some(ctx));
+    let sc = lower_sub_component(component, ctx.state, Some(ctx));
     ItemTree {
         tree: make_tree(ctx.state, &component.root_element, &sc, &[]),
         root: Rc::try_unwrap(sc.sub_component).unwrap(),
@@ -419,7 +419,7 @@ fn lower_global(
 
     for (p, x) in &global.root_element.borrow().property_declarations {
         let property_index = properties.len();
-        let nr = NamedReference::new(&global.root_element, &p);
+        let nr = NamedReference::new(&global.root_element, p);
         mapping.property_mapping.insert(
             nr.clone(),
             PropertyReference::Local { sub_component_path: vec![], property_index },
@@ -458,7 +458,7 @@ fn lower_global(
         for (p, x) in &builtin.properties {
             let property_index = properties.len();
             properties.push(Property { name: p.clone(), ty: x.ty.clone() });
-            let nr = NamedReference::new(&global.root_element, &p);
+            let nr = NamedReference::new(&global.root_element, p);
             state
                 .global_properties
                 .insert(nr, PropertyReference::Global { global_index, property_index });
@@ -468,7 +468,7 @@ fn lower_global(
         false
     };
 
-    let public_properties = public_properties(global, &mapping, &state);
+    let public_properties = public_properties(global, &mapping, state);
     GlobalComponent {
         name: global.root_element.borrow().id.clone(),
         properties,
@@ -534,7 +534,7 @@ fn public_properties(
         .filter(|(_, c)| c.expose_in_public_api)
         .map(|(p, c)| {
             let property_reference = mapping
-                .map_property_reference(&NamedReference::new(&component.root_element, p), &state);
+                .map_property_reference(&NamedReference::new(&component.root_element, p), state);
             (p.clone(), (c.property_type.clone(), property_reference))
         })
         .collect()

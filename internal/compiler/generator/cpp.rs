@@ -37,7 +37,7 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Strin
         llr::PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
             assert!(prop_name.is_empty());
             let (sub_compo_path, sub_component) =
-                follow_sub_component_path(ctx.current_sub_component.unwrap(), &sub_component_path);
+                follow_sub_component_path(ctx.current_sub_component.unwrap(), sub_component_path);
             if !sub_component_path.is_empty() {
                 component_access = format!("{}->{}", &component_access, &sub_compo_path);
             }
@@ -406,7 +406,7 @@ fn handle_property_init(
     let prop_type = ctx.property_ty(prop);
     if let Type::Callback { args, .. } = &prop_type {
         let mut ctx2 = ctx.clone();
-        ctx2.argument_types = &args;
+        ctx2.argument_types = args;
 
         let mut params = args.iter().enumerate().map(|(i, ty)| {
             format!("[[maybe_unused]] {} arg_{}", ty.cpp_type().unwrap_or_default(), i)
@@ -634,9 +634,9 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
     generate_item_tree(
         &mut component_struct,
         &component.item_tree,
-        &component,
+        component,
         None,
-        component_id.clone(),
+        component_id,
         Access::Private, // Hide properties and other fields from the C++ API
         file,
     );
@@ -644,11 +644,8 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
     // Give generated sub-components, etc. access to our fields
 
     for new_decl in file.declarations.iter().skip(old_declarations) {
-        match new_decl {
-            Declaration::Struct(struc @ Struct { .. }) => {
-                component_struct.friends.push(struc.name.clone());
-            }
-            _ => {}
+        if let Declaration::Struct(struc @ Struct { .. }) = new_decl {
+            component_struct.friends.push(struc.name.clone());
         };
     }
 
@@ -1068,11 +1065,7 @@ fn generate_sub_component(
 
     target_struct.members.push((
         field_access,
-        Declaration::Var(Var {
-            ty: root_ptr_type.clone(),
-            name: "root".to_owned(),
-            ..Default::default()
-        }),
+        Declaration::Var(Var { ty: root_ptr_type, name: "root".to_owned(), ..Default::default() }),
     ));
     init.push("self->root = root;".into());
 
@@ -1124,8 +1117,8 @@ fn generate_sub_component(
         let mut popup_struct = Struct { name: component_id.clone(), ..Default::default() };
         generate_item_tree(
             &mut popup_struct,
-            &c,
-            &root,
+            c,
+            root,
             Some(ParentCtx::new(&ctx, None)),
             component_id,
             Access::Public,
@@ -1245,7 +1238,7 @@ fn generate_sub_component(
         };
 
         generate_repeated_component(
-            &repeated,
+            repeated,
             root,
             ParentCtx::new(&ctx, Some(idx)),
             &data_type,
@@ -1370,7 +1363,7 @@ fn generate_repeated_component(
         &repeated.sub_tree,
         root,
         Some(parent_ctx.clone()),
-        repeater_id.clone(),
+        repeater_id,
         Access::Public,
         file,
     );
@@ -1524,7 +1517,7 @@ fn generate_public_api_for_properties(
     for (p, (ty, r)) in public_properties.iter() {
         let prop_ident = ident(p);
 
-        let access = access_member(r, &ctx);
+        let access = access_member(r, ctx);
 
         if let Type::Callback { args, return_type } = ty {
             let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
@@ -1630,7 +1623,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             // then this is actually a reference to the element itself
             format!("{}->{}{}", path, compo_path, item_name)
         } else {
-            let property_name = ident(&prop_name);
+            let property_name = ident(prop_name);
             let flick = sub_component.items[item_index]
                 .is_flickable_viewport
                 .then(|| "viewport.")
@@ -1738,7 +1731,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             format!(r#"{}.get()"#, access)
         }
         Expression::BuiltinFunctionCall { function, arguments } => {
-            compile_builtin_function_call(*function, &arguments, ctx)
+            compile_builtin_function_call(*function, arguments, ctx)
         }
         Expression::CallBackCall{ callback, arguments } => {
             let f = access_member(callback, ctx);
@@ -1747,7 +1740,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
         }
         Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
             let mut a = arguments.iter().map(|a| compile_expression(a, ctx));
-            format!("sixtyfps::private_api::{}({})", ident(&function), a.join(","))
+            format!("sixtyfps::private_api::{}({})", ident(function), a.join(","))
         }
         Expression::FunctionParameterReference { index, .. } => format!("arg_{}", index),
         Expression::StoreLocalVariable { name, value } => {
@@ -2055,7 +2048,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             ctx,
         ),
         Expression::ComputeDialogLayoutCells { cells_variable, roles, unsorted_cells } => {
-            let cells_variable = ident(&cells_variable);
+            let cells_variable = ident(cells_variable);
             let mut cells = match &**unsorted_cells {
                 Expression::Array { values, .. } => {
                     values.iter().map(|v| compile_expression(v, ctx))
