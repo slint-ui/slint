@@ -49,6 +49,7 @@ impl crate::window::WindowHandleAccess for Window {
 /// The following example of `.60` markup defines a global singleton called `Palette`, exports
 /// it and modifies it from Rust code:
 /// ```rust
+/// # sixtyfps_rendering_backend_testing::init();
 /// sixtyfps::sixtyfps!{
 /// export global Palette := {
 ///     property<color> foreground-color;
@@ -201,6 +202,7 @@ mod weak_handle {
         ///
         /// # Example
         /// ```rust
+        /// # sixtyfps_rendering_backend_testing::init();
         /// sixtyfps::sixtyfps! { MyApp := Window { property <int> foo; /* ... */ } }
         /// let handle = MyApp::new();
         /// let handle_weak = handle.as_weak();
@@ -252,6 +254,7 @@ pub use weak_handle::*;
 /// # Example
 /// ```rust
 /// sixtyfps::sixtyfps! { MyApp := Window { property <int> foo; /* ... */ } }
+/// # sixtyfps_rendering_backend_testing::init();
 /// let handle = MyApp::new();
 /// let handle_weak = handle.as_weak();
 /// let thread = std::thread::spawn(move || {
