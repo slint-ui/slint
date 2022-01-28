@@ -155,9 +155,9 @@ struct GlyphCoverage {
 }
 
 enum GlyphCoverageCheckResult {
-    CoverageIncomplete,
-    CoverageImproved,
-    CoverageComplete,
+    Incomplete,
+    Improved,
+    Complete,
 }
 
 pub struct FontCache {
@@ -353,7 +353,7 @@ impl FontCache {
         //    reference_text, scripts_required
         //);
 
-        let fallbacks = if !matches!(coverage_result, GlyphCoverageCheckResult::CoverageComplete) {
+        let fallbacks = if !matches!(coverage_result, GlyphCoverageCheckResult::Complete) {
             self.font_fallbacks_for_request(&request, &primary_font, reference_text)
         } else {
             Vec::new()
@@ -361,7 +361,7 @@ impl FontCache {
 
         let fonts = core::iter::once(primary_font.femtovg_font_id)
             .chain(fallbacks.iter().filter_map(|fallback_request| {
-                if matches!(coverage_result, GlyphCoverageCheckResult::CoverageComplete) {
+                if matches!(coverage_result, GlyphCoverageCheckResult::Complete) {
                     return None;
                 }
 
@@ -373,7 +373,7 @@ impl FontCache {
                     fallback_font.fontdb_face_id,
                 );
 
-                if matches!(coverage_result, GlyphCoverageCheckResult::CoverageImproved) {
+                if matches!(coverage_result, GlyphCoverageCheckResult::Improved) {
                     Some(fallback_font.femtovg_font_id)
                 } else {
                     None
@@ -582,11 +582,11 @@ impl FontCache {
         if remaining_required_script_coverage < old_uncovered_scripts_count
             || remaining_required_char_coverage < old_uncovered_chars_count
         {
-            GlyphCoverageCheckResult::CoverageImproved
+            GlyphCoverageCheckResult::Improved
         } else if scripts_without_coverage.is_empty() && chars_without_coverage.is_empty() {
-            GlyphCoverageCheckResult::CoverageComplete
+            GlyphCoverageCheckResult::Complete
         } else {
-            GlyphCoverageCheckResult::CoverageIncomplete
+            GlyphCoverageCheckResult::Incomplete
         }
     }
 }
