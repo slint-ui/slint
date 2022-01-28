@@ -817,12 +817,16 @@ impl ComponentInstance {
     ///
     /// ## Examples
     /// See the documentation of [`Self::set_callback`] for an example
-    pub fn invoke_callback(&self, name: &str, args: &[Value]) -> Result<Value, CallCallbackError> {
+    pub fn invoke_callback(
+        &self,
+        name: &str,
+        args: &[Value],
+    ) -> Result<Value, InvokeCallbackError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
             .invoke_callback(comp.borrow(), &normalize_identifier(name), args)
-            .map_err(|()| CallCallbackError::NoSuchCallback)
+            .map_err(|()| InvokeCallbackError::NoSuchCallback)
     }
 
     /// Return the value for a property within an exported global singleton used by this component.
@@ -938,15 +942,15 @@ impl ComponentInstance {
         global: &str,
         callback_name: &str,
         args: &[Value],
-    ) -> Result<Value, CallCallbackError> {
+    ) -> Result<Value, InvokeCallbackError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
         comp.description()
             .get_global(comp.borrow(), &normalize_identifier(global))
-            .map_err(|()| CallCallbackError::NoSuchCallback)? // FIXME: should there be a NoSuchGlobal error?
+            .map_err(|()| InvokeCallbackError::NoSuchCallback)? // FIXME: should there be a NoSuchGlobal error?
             .as_ref()
             .invoke_callback(&normalize_identifier(callback_name), args)
-            .map_err(|()| CallCallbackError::NoSuchCallback)
+            .map_err(|()| InvokeCallbackError::NoSuchCallback)
     }
 
     /// Marks the window of this component to be shown on the screen. This registers
@@ -1055,7 +1059,7 @@ pub enum SetCallbackError {
 
 /// Error returned by [`ComponentInstance::invoke_callback`]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
-pub enum CallCallbackError {
+pub enum InvokeCallbackError {
     /// There is no callback with the given name
     #[error("no such callback")]
     NoSuchCallback,
@@ -1279,15 +1283,15 @@ fn globals() {
 
     assert_eq!(
         instance.invoke_global_callback("DontExist", "the-property", &[]),
-        Err(CallCallbackError::NoSuchCallback)
+        Err(InvokeCallbackError::NoSuchCallback)
     );
     assert_eq!(
         instance.invoke_global_callback("My_Super_Global", "the-property", &[]),
-        Err(CallCallbackError::NoSuchCallback)
+        Err(InvokeCallbackError::NoSuchCallback)
     );
     assert_eq!(
         instance.invoke_global_callback("My_Super_Global", "yoyo", &[]),
-        Err(CallCallbackError::NoSuchCallback)
+        Err(InvokeCallbackError::NoSuchCallback)
     );
 }
 
