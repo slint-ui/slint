@@ -30,7 +30,9 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
                         .iter()
                         .filter(|d| d.level() == DiagnosticLevel::Error)
                         .collect::<Vec<_>>();
-                    if !errors.is_empty() && errors.iter().all(|d| d.message().contains(&wl)) {
+                    if !errors.is_empty()
+                        && errors.iter().all(|d| wl.split(";").any(|w| d.message().contains(w)))
+                    {
                         eprintln!(
                             "{}: Ignoring Error because of the error whitelist!",
                             testcase.relative_path.display()
