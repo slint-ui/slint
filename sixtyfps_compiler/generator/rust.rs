@@ -175,9 +175,12 @@ pub fn generate(doc: &Document) -> TokenStream {
     quote! {
         #[allow(non_snake_case)]
         #[allow(non_camel_case_types)]
+         // These make code generation easier
         #[allow(clippy::style)]
         #[allow(clippy::complexity)]
         #[allow(unused_braces)]
+        #[allow(erasing_op)]
+        #[allow(clippy::approx_constant)] // We may get those from .60 inputs!
         mod #compo_module {
             use sixtyfps::re_exports::*;
             #(#structs)*
