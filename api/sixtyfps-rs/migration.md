@@ -64,4 +64,4 @@ fn model_tracker(&self) -> &dyn ModelTracker {
 
 #### Minor changes to `Model`
 
-`ModelRc` replaces `ModelHandle`.
+`ModelHandle` was renamed [`ModelRc`].
