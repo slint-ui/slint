@@ -219,9 +219,8 @@ For each callback
 The global can be accessed with the [`ComponentHandle::global()`] function, or with [`Global::get()`]
 
 See the [documentation of the `Global` trait](Global) for an example.
-
 */
-
+#![doc = document_features::document_features!()]
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]

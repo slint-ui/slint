@@ -17,14 +17,34 @@ keywords = ["gui", "toolkit", "graphics", "design", "ui"]
 path = "lib.rs"
 
 [features]
-backend-gl = ["sixtyfps-rendering-backend-selector/sixtyfps-rendering-backend-gl"]
-backend-qt = ["sixtyfps-rendering-backend-selector/sixtyfps-rendering-backend-qt"]
-display-diagnostics = ["sixtyfps-compilerlib/display-diagnostics"]
-ffi = ["spin_on", "sixtyfps-corelib/ffi"]
-wayland = ["sixtyfps-rendering-backend-selector/wayland"]
-x11 = ["sixtyfps-rendering-backend-selector/x11"]
 
 default = ["backend-gl", "x11", "backend-qt"]
+
+## enable the [`print_diagnostics`] function to show diagnostic in the console output
+display-diagnostics = ["sixtyfps-compilerlib/display-diagnostics"]
+
+# (internal) export C++ FFI functions
+ffi = ["spin_on", "sixtyfps-corelib/ffi"]
+
+## Enable use of the Rust standard library.
+std = ["sixtyfps-corelib/std"]
+
+#! ### Backends
+
+## The Qt backend feature uses Qt for the windowing system integration and rendering.
+## This backend is required to use the `native` style.
+## It requires Qt 5.15 or later to be installed. If Qt is not installed, the
+## backend will not be operational
+backend-qt = ["sixtyfps-rendering-backend-selector/sixtyfps-rendering-backend-qt", "std"]
+
+## The GL backend uses the `winit` crate for the windowing system integration,
+## and the `femtovg` crate for the rendering.
+## On unix, at least one of `x11` or `wayland` features must be enabled.
+backend-gl = ["sixtyfps-rendering-backend-selector/sixtyfps-rendering-backend-gl", "std"]
+## Same as the GL backend, with the `x11` feature of `winit` enabled
+x11 = ["sixtyfps-rendering-backend-selector/x11", "backend-gl"]
+## Same as the GL backend, with the `wayland` feature of `winit` enabled
+wayland = ["sixtyfps-rendering-backend-selector/wayland", "backend-gl"]
 
 [dependencies]
 sixtyfps-compilerlib = { version = "=0.2.0", path = "../compiler" }
@@ -38,6 +58,7 @@ generativity = "1"
 lyon_path = { version = "0.17.3" }
 once_cell = "1.5"
 thiserror = "1"
+document-features = { version = "0.1.0", path = "../../helper_crates/document-features" }
 
 [dependencies.spin_on]
 version = "0.1"
