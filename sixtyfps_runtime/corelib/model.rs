@@ -464,7 +464,6 @@ impl Model for bool {
 
 /// Properties of type Array in the .60 language are represented as
 /// a `ModelRc` that implements the [`Model`] trait.
-#[derive(derive_more::Deref, derive_more::DerefMut)]
 pub struct ModelRc<T>(Option<Rc<dyn Model<Data = T>>>);
 
 impl<T> core::fmt::Debug for ModelRc<T> {
