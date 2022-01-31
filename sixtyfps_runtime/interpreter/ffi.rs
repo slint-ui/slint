@@ -797,6 +797,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_get_diagnostics
                 sixtyfps_compilerlib::diagnostics::DiagnosticLevel::Warning => {
                     DiagnosticLevel::Warning
                 }
+                _ => DiagnosticLevel::Warning,
             },
         }
     }));
