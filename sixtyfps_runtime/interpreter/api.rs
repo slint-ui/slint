@@ -40,6 +40,7 @@ pub enum ValueType {
     /// Correspond to `image` type in .60.
     Image,
     /// The type is not a public type but something internal.
+    #[doc(hidden)]
     Other = -1,
 }
 
