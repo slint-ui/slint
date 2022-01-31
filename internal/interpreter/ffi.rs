@@ -380,15 +380,32 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_invoke_callback
 /// Wrap the user_data provided by the native code and call the drop function on Drop.
 ///
 /// Safety: user_data must be a pointer that can be destroyed by the drop_user_data function.
+/// callback must be a valid callback that initialize the `ret`
 struct CallbackUserData {
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
+    callback: extern "C" fn(user_data: *mut c_void, arg: Slice<ValueOpaque>, ret: *mut ValueOpaque),
 }
 
 impl Drop for CallbackUserData {
     fn drop(&mut self) {
         if let Some(x) = self.drop_user_data {
             x(self.user_data)
+        }
+    }
+}
+
+impl CallbackUserData {
+    fn call(&self, args: &[Value]) -> Value {
+        unsafe {
+            let args = std::mem::transmute::<&[Value], &[ValueOpaque]>(args);
+            let mut ret = std::mem::MaybeUninit::<Value>::uninit();
+            (self.callback)(
+                self.user_data,
+                Slice::from_slice(args),
+                ret.as_mut_ptr() as *mut ValueOpaque,
+            );
+            ret.assume_init()
         }
     }
 }
@@ -403,13 +420,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_set_callback(
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
 ) -> bool {
-    let ud = CallbackUserData { user_data, drop_user_data };
-    let callback = move |args: &[Value]| -> Value {
-        let args = std::mem::transmute::<&[Value], &[ValueOpaque]>(args);
-        let mut ret = std::mem::MaybeUninit::<Value>::uninit();
-        callback(ud.user_data, Slice::from_slice(args), ret.as_mut_ptr() as *mut ValueOpaque);
-        ret.assume_init()
-    };
+    let ud = CallbackUserData { user_data, drop_user_data, callback };
 
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
@@ -417,7 +428,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_set_callback(
         .set_callback_handler(
             comp.borrow(),
             &normalize_identifier(std::str::from_utf8(&name).unwrap()),
-            Box::new(callback),
+            Box::new(move |args| ud.call(args)),
         )
         .is_ok()
 }
@@ -481,14 +492,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_set_global_call
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
 ) -> bool {
-    let ud = CallbackUserData { user_data, drop_user_data };
-
-    let callback = move |args: &[Value]| -> Value {
-        let args = std::mem::transmute::<&[Value], &[ValueOpaque]>(args);
-        let mut ret = std::mem::MaybeUninit::<Value>::uninit();
-        callback(ud.user_data, Slice::from_slice(args), ret.as_mut_ptr() as *mut ValueOpaque);
-        ret.assume_init()
-    };
+    let ud = CallbackUserData { user_data, drop_user_data, callback };
 
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
@@ -497,7 +501,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_instance_set_global_call
         .and_then(|g| {
             g.as_ref().set_callback_handler(
                 &normalize_identifier(std::str::from_utf8(&name).unwrap()),
-                Box::new(callback),
+                Box::new(move |args| ud.call(args)),
             )
         })
         .is_ok()

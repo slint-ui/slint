@@ -359,16 +359,17 @@ SCENARIO("Invoke callback")
                 "export Dummy := Rectangle { callback some_callback(string, int) -> string; }", "");
         REQUIRE(result.has_value());
         auto instance = result->create();
-        REQUIRE(instance->set_callback("some_callback", [](auto args) {
+        std::string local_string = "_string_on_the_stack_";
+        REQUIRE(instance->set_callback("some_callback", [local_string](auto args) {
             SharedString arg1 = *args[0].to_string();
             int arg2 = int(*args[1].to_number());
-            std::string res = std::string(arg1) + ":" + std::to_string(arg2);
+            std::string res = std::string(arg1) + ":" + std::to_string(arg2) + local_string;
             return Value(SharedString(res));
         }));
         Value args[] = { SharedString("Hello"), 42. };
         auto res = instance->invoke_callback("some_callback", args);
         REQUIRE(res.has_value());
-        REQUIRE(*res->to_string() == SharedString("Hello:42"));
+        REQUIRE(*res->to_string() == SharedString("Hello:42_string_on_the_stack_"));
     }
 
     SECTION("invalid")
