@@ -22,22 +22,22 @@ crate-type = ["lib", "cdylib"]
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt
 [features]
-interpreter = ["sixtyfps-interpreter"]
-x11 = ["sixtyfps-rendering-backend-default/x11"]
-wayland = ["sixtyfps-rendering-backend-default/wayland"]
 backend-gl = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-gl"]
 backend-qt = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-qt"]
-# Enable some function used by the integration tests
-testing = ["sixtyfps-rendering-backend-testing"]
+interpreter = ["sixtyfps-interpreter"]
+testing = ["sixtyfps-rendering-backend-testing"] # Enable some function used by the integration tests
+wayland = ["sixtyfps-rendering-backend-default/wayland"]
+x11 = ["sixtyfps-rendering-backend-default/x11"]
+
 default = ["backend-gl", "x11", "backend-qt"]
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.2.0", path="../../sixtyfps_runtime/corelib", features = ["ffi"] }
+sixtyfps-corelib = { version = "=0.2.0", path="../../internal/core", features = ["ffi"] }
+sixtyfps-interpreter = { version = "=0.2.0", path="../../internal/interpreter", default-features = false, features = ["ffi"], optional = true }
 sixtyfps-rendering-backend-default = { version = "=0.2.0", path="../../sixtyfps_runtime/rendering_backends/default" }
 sixtyfps-rendering-backend-testing = { version = "=0.2.0", path="../../sixtyfps_runtime/rendering_backends/testing", optional = true }
-sixtyfps-interpreter = { version = "=0.2.0", path="../../sixtyfps_runtime/interpreter", default-features = false, features = ["ffi"], optional = true }
 
 [build-dependencies]
-cbindgen = "0.20"
 anyhow = "1.0"
+cbindgen = "0.20"
 proc-macro2 = "1.0.11"

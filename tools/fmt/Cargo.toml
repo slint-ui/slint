@@ -15,10 +15,11 @@ categories = ["gui", "development-tools"]
 keywords = ["formatter", "gui", "ui", "toolkit"]
 
 [dependencies]
-sixtyfps-compilerlib = { path = "../../sixtyfps_compiler", features = ["display-diagnostics"] }
+sixtyfps-compilerlib = { path = "../../internal/compiler", features = ["display-diagnostics"] }
+
 clap = { version = "3.0.5", features=["derive", "wrap_help"] }
-codemap-diagnostic = "0.1.1"
 codemap = "0.1"
+codemap-diagnostic = "0.1.1"
 
 [[bin]]
 name = "sixtyfps-fmt"

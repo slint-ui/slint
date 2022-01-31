@@ -16,5 +16,6 @@ publish = false
 path = "lib.rs"
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.2.0", path = "../../corelib" }
+sixtyfps-corelib = { version = "=0.2.0", path = "../../../internal/core" }
+
 image = { version = "0.23.14", default-features = false, features = ["png"] }

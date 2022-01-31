@@ -22,24 +22,26 @@ name = "sixtyfps-lsp"
 path = "main.rs"
 
 [features]
-sixtyfps-backend-qt = ["sixtyfps-interpreter/backend-qt"]
 sixtyfps-backend-gl = ["sixtyfps-interpreter/backend-gl"]
-x11 = ["sixtyfps-interpreter/x11"]
+sixtyfps-backend-qt = ["sixtyfps-interpreter/backend-qt"]
 wayland = ["sixtyfps-interpreter/wayland"]
+x11 = ["sixtyfps-interpreter/x11"]
+
 default = ["sixtyfps-backend-qt", "sixtyfps-backend-gl", "x11"]
 
 [dependencies]
-sixtyfps-compilerlib = { version = "=0.2.0", path = "../../sixtyfps_compiler"}
-sixtyfps-interpreter = { version = "=0.2.0", path = "../../sixtyfps_runtime/interpreter", default-features = false }
-sixtyfps-corelib = { version = "=0.2.0", path = "../../sixtyfps_runtime/corelib"}
+sixtyfps-compilerlib = { version = "=0.2.0", path = "../../internal/compiler"}
+sixtyfps-corelib = { version = "=0.2.0", path = "../../internal/core"}
+sixtyfps-interpreter = { version = "=0.2.0", path = "../../internal/interpreter", default-features = false }
 sixtyfps-rendering-backend-default = { version = "=0.2.0", path="../../sixtyfps_runtime/rendering_backends/default" }
-lsp-types = "0.91.0"
-lsp-server = "0.5"
-crossbeam-channel = "0.5"  # must match the version used by lsp-server
-euclid = "0.22"
-serde_json = "1.0.60"
-serde = "1.0.118"
-spin_on = "0.1"
-once_cell = "1"
-dunce = "1.0.1"
+
 clap = { version = "3.0.5", features=["derive", "wrap_help"] }
+crossbeam-channel = "0.5"  # must match the version used by lsp-server
+dunce = "1.0.1"
+euclid = "0.22"
+lsp-server = "0.5"
+lsp-types = "0.91.0"
+once_cell = "1"
+serde = "1.0.118"
+serde_json = "1.0.60"
+spin_on = "0.1"

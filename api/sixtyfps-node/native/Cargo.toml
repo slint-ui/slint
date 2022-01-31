@@ -20,17 +20,19 @@ crate-type = ["cdylib"]
 name = "sixtyfps_node_native"
 
 [dependencies]
-once_cell = "1.5"
-sixtyfps-compilerlib = { version = "=0.2.0", path="../../../sixtyfps_compiler" }
-sixtyfps-interpreter = { version = "=0.2.0", path="../../../sixtyfps_runtime/interpreter",  features = ["display-diagnostics"] }
-sixtyfps-corelib = { version = "=0.2.0", path="../../../sixtyfps_runtime/corelib" }
-scoped-tls-hkt = "0.1"
-neon = "0.8.0"
-css-color-parser2 = "1.0.1"
-spin_on = "0.1" #FIXME: remove and delegate to async JS instead
+sixtyfps-compilerlib = { version = "=0.2.0", path="../../../internal/compiler" }
+sixtyfps-corelib = { version = "=0.2.0", path="../../../internal/core" }
+sixtyfps-interpreter = { version = "=0.2.0", path="../../../internal/interpreter",  features = ["display-diagnostics"] }
+
 vtable = { version = "0.1.1", path="../../../helper_crates/vtable" }
+
+css-color-parser2 = "1.0.1"
 generativity = "1"
+neon = "0.8.0"
+once_cell = "1.5"
 rand = "0.8"
+scoped-tls-hkt = "0.1"
+spin_on = "0.1" #FIXME: remove and delegate to async JS instead
 
 [build-dependencies]
 neon-build = "0.8.0"

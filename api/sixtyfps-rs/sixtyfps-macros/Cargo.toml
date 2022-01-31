@@ -17,7 +17,8 @@ proc-macro = true
 path = "lib.rs"
 
 [dependencies]
-quote = "1.0"
+sixtyfps-compilerlib = { version = "=0.2.0", path = "../../../internal/compiler", features = ["proc_macro_span", "rust", "display-diagnostics"] }
+
 proc-macro2 = "1.0.17"
-sixtyfps-compilerlib = { version = "=0.2.0", path = "../../../sixtyfps_compiler", features = ["proc_macro_span", "rust", "display-diagnostics"] }
+quote = "1.0"
 spin_on = "0.1"
