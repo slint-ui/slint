@@ -31,7 +31,7 @@ impl sixtyfps_corelib::backend::Backend for TestingBackend {
     }
 
     fn run_event_loop(&'static self, _behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
-        // Nothing to spin, we return right away. Otherwise tests will hang.
+        unimplemented!("running an event loop with the testing backend");
     }
 
     fn quit_event_loop(&'static self) {}

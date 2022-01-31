@@ -40,7 +40,7 @@ pub enum TimerMode {
 /// They will not fire if used in another thread.
 ///
 /// ## Example
-/// ```rust
+/// ```rust,no_run
 /// # sixtyfps_rendering_backend_testing::init();
 /// use sixtyfps::{Timer, TimerMode};
 /// let timer = Timer::default();
