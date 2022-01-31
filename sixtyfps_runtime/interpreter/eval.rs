@@ -568,10 +568,10 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
             }
         }
         Expression::Array { values, .. } => Value::Model(
-            ModelRc::new(Rc::new(corelib::model::SharedVectorModel::from(
+            ModelRc::new(corelib::model::SharedVectorModel::from(
                 values.iter().map(|e| eval_expression(e, local_context)).collect::<SharedVector<_>>()
             )
-        ))),
+        )),
         Expression::Struct { values, .. } => Value::Struct(
             values
                 .iter()

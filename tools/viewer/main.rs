@@ -8,7 +8,6 @@ use sixtyfps_corelib::SharedVector;
 use sixtyfps_interpreter::{ComponentHandle, ComponentInstance, SharedString, Value};
 use std::future::Future;
 use std::pin::Pin;
-use std::rc::Rc;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::Wake;
@@ -268,9 +267,9 @@ fn load_data(instance: &ComponentInstance, data_path: &std::path::Path) -> Resul
                 }
                 serde_json::Value::String(s) => SharedString::from(s.as_str()).into(),
                 serde_json::Value::Array(array) => sixtyfps_interpreter::Value::Model(
-                    ModelRc::new(Rc::new(sixtyfps_corelib::model::SharedVectorModel::from(
+                    ModelRc::new(sixtyfps_corelib::model::SharedVectorModel::from(
                         array.iter().map(from_json).collect::<SharedVector<Value>>(),
-                    ))),
+                    )),
                 ),
                 serde_json::Value::Object(obj) => obj
                     .iter()

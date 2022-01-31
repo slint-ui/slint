@@ -536,7 +536,7 @@ fn generate_sub_component(
 
         let mut model = compile_expression(&repeated.model, &ctx);
         if repeated.model.ty(&ctx) == Type::Bool {
-            model = quote!(sixtyfps::re_exports::ModelRc::new(sixtyfps::re_exports::Rc::<bool>::new(#model)))
+            model = quote!(sixtyfps::re_exports::ModelRc::new(#model as bool))
         }
 
         init.push(quote! {
@@ -1273,7 +1273,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                     ))
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    quote!(sixtyfps::re_exports::ModelRc::new(sixtyfps::re_exports::Rc::<usize>::new(#f as usize)))
+                    quote!(sixtyfps::re_exports::ModelRc::new(#f as usize))
                 }
                 (Type::Float32, Type::Color) => {
                     quote!(sixtyfps::re_exports::Color::from_argb_encoded(#f as u32))
@@ -1537,9 +1537,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             if *as_model {
                 let rust_element_ty = rust_type(element_ty).unwrap();
                 quote!(sixtyfps::re_exports::ModelRc::new(
-                    sixtyfps::re_exports::Rc::new(sixtyfps::re_exports::VecModel::<#rust_element_ty>::from(
+                    sixtyfps::re_exports::VecModel::<#rust_element_ty>::from(
                         sixtyfps::re_exports::vec![#(#val as _),*]
-                    ))
+                    )
                 ))
             } else {
                 quote!(Slice::from_slice(&[#(#val),*]))

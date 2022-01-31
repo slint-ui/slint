@@ -16,7 +16,7 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/sixtyfps-rs/m
  - `Model::model_tracker` no longer has a default implementation.
  - The deprecated methods `Model::attach_peer` and `ModelNotify::attach` were removed.
  - The interpreter does not differentiate anymore between `Value::Array` and `Value::Model`
-   everything is a `Value::Model`, which now contains a `ModelHandle`
+   everything is a `Value::Model`, which now contains a `ModelRc`
  - In Rust, `sixtyfps::SharedPixelBuffer` and `sixtyfps::SharedImageBuffer` now use a `u32` instead of `usize` for `width`, `height` and `stride`.
  - In Rust and C++, `sixtyfps::Image::size()` now returns an integer size type.
  - `sixtyfps::interpreter::CallCallbackError` was renamed to `sixtyfps::interpreter::InvokeCallbackError`

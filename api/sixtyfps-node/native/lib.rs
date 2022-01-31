@@ -9,7 +9,6 @@ use sixtyfps_corelib::model::{Model, ModelRc};
 use sixtyfps_corelib::window::WindowHandleAccess;
 use sixtyfps_corelib::{ImageInner, SharedVector};
 use sixtyfps_interpreter::ComponentHandle;
-use std::rc::Rc;
 
 mod js_model;
 mod persistent_context;
@@ -183,12 +182,10 @@ fn to_eval_value<'cx>(
         Type::Array(a) => match val.downcast::<JsArray>() {
             Ok(arr) => {
                 let vec = arr.to_vec(cx)?;
-                Ok(Value::Model(ModelRc::new(Rc::new(
-                    sixtyfps_corelib::model::SharedVectorModel::from(
-                        vec.into_iter()
-                            .map(|i| to_eval_value(i, (*a).clone(), cx, persistent_context))
-                            .collect::<Result<SharedVector<_>, _>>()?,
-                    ),
+                Ok(Value::Model(ModelRc::new(sixtyfps_corelib::model::SharedVectorModel::from(
+                    vec.into_iter()
+                        .map(|i| to_eval_value(i, (*a).clone(), cx, persistent_context))
+                        .collect::<Result<SharedVector<_>, _>>()?,
                 ))))
             }
             Err(_) => {
@@ -196,7 +193,7 @@ fn to_eval_value<'cx>(
                 obj.get(cx, "rowCount")?.downcast_or_throw::<JsFunction, _>(cx)?;
                 obj.get(cx, "rowData")?.downcast_or_throw::<JsFunction, _>(cx)?;
                 let m = js_model::JsModel::new(obj, *a, cx, persistent_context)?;
-                Ok(Value::Model(ModelRc::new(m)))
+                Ok(Value::Model(m.into()))
             }
         },
         Type::Image => {

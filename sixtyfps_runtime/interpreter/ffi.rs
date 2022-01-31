@@ -85,7 +85,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_value_new_array_model(
     let vec = std::mem::transmute::<SharedVector<ValueOpaque>, SharedVector<Value>>(a.clone());
     std::ptr::write(
         val as *mut Value,
-        Value::Model(ModelRc::new(Rc::new(SharedVectorModel::<Value>::from(vec)))),
+        Value::Model(ModelRc::new(SharedVectorModel::<Value>::from(vec))),
     )
 }
 
@@ -119,10 +119,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_value_new_model(
     model: vtable::VBox<ModelAdaptorVTable>,
     val: *mut ValueOpaque,
 ) {
-    std::ptr::write(
-        val as *mut Value,
-        Value::Model(ModelRc::new(Rc::new(ModelAdaptorWrapper(model)))),
-    )
+    std::ptr::write(val as *mut Value, Value::Model(ModelRc::new(ModelAdaptorWrapper(model))))
 }
 
 #[no_mangle]

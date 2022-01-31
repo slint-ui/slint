@@ -52,7 +52,7 @@ assert(!instance.get_hover());
 use sixtyfps::Model;
 let instance = TestCase::new();
 let vec_model = std::rc::Rc::new(sixtyfps::VecModel::from(vec![1i32, 2i32]));
-instance.set_model(sixtyfps::ModelRc::new(vec_model.clone() as std::rc::Rc<dyn Model<Data = i32>>));
+instance.set_model(vec_model.clone().into());
 instance.on_clicked(move || dbg!(vec_model.remove(vec_model.row_count() - 1)));
 sixtyfps::testing::send_mouse_click(&instance, 95., 5.);
 assert_eq!(instance.get_model().row_count(), 1);

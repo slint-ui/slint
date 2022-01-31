@@ -62,7 +62,7 @@ let another_model = std::rc::Rc::new(sixtyfps::VecModel::<ModelData>::from(
         ("a3".into(), "world".into(), 333.),
     ]));
 
-instance.set_model(sixtyfps::ModelRc::new(another_model.clone()));
+instance.set_model(sixtyfps::ModelRc::from(another_model.clone()));
 
 sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 333000);

@@ -1356,7 +1356,7 @@ pub fn instantiate(
                     InstanceRef::from_pin_ref(c, guard)
                 }),
             );
-            sixtyfps_corelib::model::ModelRc::new(Rc::new(crate::value_model::ValueModel::new(m)))
+            sixtyfps_corelib::model::ModelRc::new(crate::value_model::ValueModel::new(m))
         });
     }
 

@@ -1353,17 +1353,17 @@ fn component_definition_model_properties() {
 
     let instance = comp_def.create();
 
-    let int_model = Value::Model(ModelRc::new(Rc::new(VecModel::from_slice(&[
+    let int_model = Value::Model(VecModel::from_slice(&[
         Value::Number(14.),
         Value::Number(15.),
         Value::Number(16.),
-    ]))));
-    let empty_model = Value::Model(ModelRc::new(Rc::new(VecModel::<Value>::default())));
-    let model_with_string = Value::Model(ModelRc::new(Rc::new(VecModel::from_slice(&[
+    ]));
+    let empty_model = Value::Model(ModelRc::new(VecModel::<Value>::default()));
+    let model_with_string = Value::Model(VecModel::from_slice(&[
         Value::Number(1000.),
         Value::String("foo".into()),
         Value::Number(1111.),
-    ]))));
+    ]));
 
     #[track_caller]
     fn check_model(val: Value, r: &[f64]) {
