@@ -15,7 +15,8 @@ Basic example:
 
 ```rust
 //! Normal crate documentation goes here,
-//! it will be followed by a `## Feature flag` section
+//!
+//! ## Feature flags
 #![doc = document_features::document_features!()]
 
 // rest of the crate goes here.
@@ -65,8 +66,6 @@ fusion = []
 */
 =>
     /**
-### Feature flags
-
 This comments goes on top
 * **`foo`** *(enabled by default)* —  The foo feature is enabling the `foo` functions
 * **`bar`** —  The bar feature enable the bar module
@@ -166,7 +165,7 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
     if features.is_empty() {
         return Err("Could not find features in Cargo.toml".into());
     }
-    let mut result = String::from("## Feature flags\n\n");
+    let mut result = String::new();
     for (f, top, comment) in features {
         let default = if default_features.contains(f) { " *(enabled by default)*" } else { "" };
         if !comment.trim().is_empty() {
@@ -321,7 +320,7 @@ default = ["feat1", "something_else"]
         "#
             )
             .unwrap(),
-            "## Feature flags\n\n abc\n def\n\n* **`feat1`** *(enabled by default)* —  123\n 456\n ghi\n* **`feat2`**\n klm\n end\n"
+            " abc\n def\n\n* **`feat1`** *(enabled by default)* —  123\n 456\n ghi\n* **`feat2`**\n klm\n end\n"
         );
     }
 }

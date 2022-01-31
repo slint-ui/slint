@@ -220,6 +220,7 @@ The global can be accessed with the [`ComponentHandle::global()`] function, or w
 
 See the [documentation of the `Global` trait](Global) for an example.
 */
+//! ## Feature flags
 #![doc = document_features::document_features!()]
 #![warn(missing_docs)]
 #![deny(unsafe_code)]

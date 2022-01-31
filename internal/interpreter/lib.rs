@@ -61,6 +61,7 @@ instance.set_property("my_name", Value::from(SharedString::from("World"))).unwra
 instance.run();
 ```
 */
+//! ## Feature flags
 #![doc = document_features::document_features!()]
 #![warn(missing_docs)]
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
