@@ -1,5 +1,5 @@
 # Copyright © SixtyFPS GmbH <info@sixtyfps.io>
-# SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+# SPDX-License-Identifier: MIT OR Apache-2.0
 
 [package]
 name = "document-features"
@@ -7,7 +7,12 @@ version = "0.1.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2021"
 publish = false
-license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/sixtyfpsui/sixtyfps"
+homepage = "https://sixtyfps.io"
+description = "Extract documentation for the feature flag from comments in Cargo.toml"
+categories = ["development-tools"]
+keywords = ["documentation", "features", "rustdoc", "macro"]
 
 [lib]
 proc-macro = true
