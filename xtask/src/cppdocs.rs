@@ -7,7 +7,7 @@ use anyhow::{Context, Result};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 
-#[path = "../../api/sixtyfps-cpp/cbindgen.rs"]
+#[path = "../../api/cpp/cbindgen.rs"]
 mod cbindgen;
 
 fn symlink_file<P: AsRef<Path>, Q: AsRef<Path>>(src: P, dst: Q) -> Result<()> {
@@ -61,7 +61,7 @@ fn symlink_files_in_dir<S: AsRef<Path>, T: AsRef<Path>, TS: AsRef<Path>>(
 pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
     let root = super::root_dir();
 
-    let docs_source_dir = root.join("api/sixtyfps-cpp");
+    let docs_source_dir = root.join("api/cpp");
     let docs_build_dir = root.join("target/cppdocs");
     let html_static_dir = docs_build_dir.join("_static");
 
@@ -72,14 +72,14 @@ pub fn generate(show_warnings: bool) -> Result<(), Box<dyn std::error::Error>> {
     symlink_files_in_dir(
         docs_source_dir.join("docs"),
         &docs_build_dir,
-        ["..", "..", "api", "sixtyfps-cpp", "docs"].iter().collect::<PathBuf>(),
+        ["..", "..", "api", "cpp", "docs"].iter().collect::<PathBuf>(),
     )
     .context("Error creating symlinks from docs source to docs build dir")?;
 
     symlink_dir(["..", "..", "docs"].iter().collect::<PathBuf>(), docs_build_dir.join("markdown"))?;
 
     symlink_file(
-        ["..", "..", "api", "sixtyfps-cpp", "README.md"].iter().collect::<PathBuf>(),
+        ["..", "..", "api", "cpp", "README.md"].iter().collect::<PathBuf>(),
         docs_build_dir.join("README.md"),
     )?;
 

@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "rimraf dist && wasm-pack build --target web ../../api/sixtyfps-wasm-interpreter && vite --open",
+    "start": "rimraf dist && wasm-pack build --target web ../../api/wasm-interpreter && vite --open",
     "build": "rimraf dist pkg && npx vite build"
   },
   "keywords": [],

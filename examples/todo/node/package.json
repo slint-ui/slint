@@ -3,7 +3,7 @@
     "version": "0.2.0",
     "main": "main.js",
     "dependencies": {
-        "sixtyfps": "../../../api/sixtyfps-node"
+        "sixtyfps": "../../../api/node"
     },
     "scripts": {
         "start": "node ."

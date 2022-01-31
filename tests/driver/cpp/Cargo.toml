@@ -14,7 +14,7 @@ path = "main.rs"
 name = "test-driver-cpp"
 
 [dependencies]
-sixtyfps-cpp = { path = "../../../api/sixtyfps-cpp", features = ["testing"] }
+sixtyfps-cpp = { path = "../../../api/cpp", features = ["testing"] }
 
 [dev-dependencies]
 sixtyfps-compilerlib = { path = "../../../internal/compiler", features = ["cpp", "display-diagnostics"] }

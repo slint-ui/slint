@@ -6,7 +6,7 @@ use std::{fs::File, io::Write, path::PathBuf};
 
 lazy_static::lazy_static! {
     static ref NODE_API_JS_PATH: PathBuf = {
-        let  node_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../api/sixtyfps-node");
+        let  node_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../api/node");
 
         // On Windows npm is 'npm.cmd', which Rust's process::Command doesn't look for as extension, because
          // it tries to emulate CreateProcess.

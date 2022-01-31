@@ -58,4 +58,3 @@ instance->invoke_callback("foo", args);
 #### Models
 
 The `Value::Type::Array` has been replaced by `Value::Type::Model`
-

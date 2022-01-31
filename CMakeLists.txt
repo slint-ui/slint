@@ -14,7 +14,7 @@ option(BUILD_TESTING "Build tests" OFF)
 add_feature_info(BUILD_TESTING BUILD_TESTING "configure whether to build the test suite")
 include(CTest)
 
-add_subdirectory(api/sixtyfps-cpp/)
+add_subdirectory(api/cpp/)
 
 option(SIXTYFPS_BUILD_EXAMPLES "Build SixtyFPS Examples" OFF)
 add_feature_info(SIXTYFPS_BUILD_EXAMPLES SIXTYFPS_BUILD_EXAMPLES "configure whether to build the examples")

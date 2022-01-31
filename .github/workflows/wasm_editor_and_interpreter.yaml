@@ -44,14 +44,14 @@ jobs:
       working-directory: tools/online_editor
     - name: Clean wasm build artefacts from previous editor build
       run: rm -rf pkg
-      working-directory: api/sixtyfps-wasm-interpreter      
+      working-directory: api/wasm-interpreter
     - name: Compile sixtyfps-wasm-interpreter
       run: wasm-pack build --release --target web -- --features console_error_panic_hook
-      working-directory: api/sixtyfps-wasm-interpreter
+      working-directory: api/wasm-interpreter
     - name: "Upload wasm Artifacts"
       uses: actions/upload-artifact@v2
       with:
           name: wasm
           path: |
-              api/sixtyfps-wasm-interpreter/pkg/
+              api/wasm-interpreter/pkg/
               tools/online_editor/dist/

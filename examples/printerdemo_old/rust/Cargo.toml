@@ -18,7 +18,7 @@ name = "printerdemo_old"
 sixtyfps = { path = "../../../api/sixtyfps-rs" }
 
 [build-dependencies]
-sixtyfps-build = { path = "../../../api/sixtyfps-rs/sixtyfps-build" }
+sixtyfps-build = { path = "../../../api/rs/build" }
 
 # Remove the `#wasm#` to uncomment the wasm build.
 # This is commented out by default because we don't want to build it as a library by default
