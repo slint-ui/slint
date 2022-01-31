@@ -94,11 +94,18 @@ pub fn document_features(_: TokenStream) -> TokenStream {
 
 fn document_features_impl() -> Result<TokenStream, TokenStream> {
     let path = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-    // First try "Cargo.toml.orig", because on crates.io, Cargo.toml is usually striped
-    // of all comments, but the original Cargo.toml has been renamed
-    let cargo_toml = std::fs::read_to_string(Path::new(&path).join("Cargo.toml.orig"))
-        .or_else(|_| std::fs::read_to_string(Path::new(&path).join("Cargo.toml")))
+    let mut cargo_toml = std::fs::read_to_string(Path::new(&path).join("Cargo.toml"))
         .map_err(|e| error(&format!("Can't open Cargo.toml: {:?}", e)))?;
+
+    if !cargo_toml.contains("\n##") && !cargo_toml.contains("\n#!") {
+        // On crates.io, Cargo.toml is usually "normalized" and stripped of all comments.
+        // The original Cargo.toml has been renamed Cargo.toml.orig
+        if let Ok(orig) = std::fs::read_to_string(Path::new(&path).join("Cargo.toml.orig")) {
+            if orig.contains("##") || orig.contains("#!") {
+                cargo_toml = orig;
+            }
+        }
+    }
 
     let result = process_toml(&cargo_toml).map_err(|e| error(&e))?;
     Ok(std::iter::once(proc_macro::TokenTree::from(proc_macro::Literal::string(&result))).collect())
