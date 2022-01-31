@@ -108,9 +108,9 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
     // Get all lines between the "[features]" and the next block
     let lines = cargo_toml
         .lines()
-        .skip_while(|l| l.trim() != "[features]")
-        .skip(1) // skip the [features] line
         .map(str::trim)
+        .skip_while(|l| !l.starts_with("[features]"))
+        .skip(1) // skip the [features] line
         .take_while(|l| !l.starts_with("["))
         // and skip empty lines and comments that are not docs comments
         .filter(|l| {
@@ -301,7 +301,7 @@ default = [
 [abcd]
 ## aaa
 #! aaa
-[features]
+[features]#xyz
 #! abc
 #
 ###
