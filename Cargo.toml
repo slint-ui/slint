@@ -3,12 +3,12 @@
 
 [workspace]
 members = [
-    'api/sixtyfps-cpp',
-    'api/sixtyfps-node/native',
+    'api/cpp',
+    'api/node/native',
+    'api/rs/build',
+    'api/rs/macros',
     'api/sixtyfps-rs',
-    'api/sixtyfps-rs/sixtyfps-build',
-    'api/sixtyfps-rs/sixtyfps-macros',
-    'api/sixtyfps-wasm-interpreter',
+    'api/wasm-interpreter',
     'docs/tutorial/rust/src',
     'examples/7gui',
     'examples/gallery',
@@ -49,9 +49,9 @@ members = [
 ]
 
 default-members = [
-    'api/sixtyfps-node/native',
+    'api/node/native',
+    'api/rs/build',
     'api/sixtyfps-rs',
-    'api/sixtyfps-rs/sixtyfps-build',
     'examples/gallery',
     'examples/memory',
     'examples/printerdemo_old/rust',

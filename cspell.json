@@ -112,7 +112,7 @@
     ],
     "ignorePaths": [
         "cspell.json",
-        "api/sixtyfps-cpp/docs/conf.py",
+        "api/cpp/docs/conf.py",
         ".github/workflows/*.yaml",
         "Cargo.toml"
     ],

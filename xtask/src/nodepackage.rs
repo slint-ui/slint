@@ -22,7 +22,7 @@ fn cp_r(src: &std::path::Path, dst: &std::path::Path) -> Result<(), Box<dyn std:
 
 pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
     let root = super::root_dir();
-    let node_dir = root.join("api").join("sixtyfps-node");
+    let node_dir = root.join("api").join("node");
 
     let cargo_toml_path = node_dir.join("native").join("Cargo.toml");
 

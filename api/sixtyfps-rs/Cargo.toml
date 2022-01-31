@@ -49,7 +49,7 @@ wayland = ["sixtyfps-rendering-backend-selector/wayland", "backend-gl"]
 
 [dependencies]
 sixtyfps-corelib = { version = "=0.2.0", path="../../internal/core", default-features = false }
-sixtyfps-macros = { version = "=0.2.0", path = "sixtyfps-macros" }
+sixtyfps-macros = { version = "=0.2.0", path = "../rs/macros" }
 sixtyfps-rendering-backend-selector = { version = "=0.2.0", path="../../internal/backends/selector" }
 
 const-field-offset = { version = "0.1.2", path = "../../helper_crates/const-field-offset" }

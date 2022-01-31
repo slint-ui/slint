@@ -35,10 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Path::new(&generated_include_dir).display()
     );
     let root_dir = root_dir();
-    println!(
-        "cargo:rustc-env=CPP_API_HEADERS_PATH={}/api/sixtyfps-cpp/include",
-        root_dir.display()
-    );
+    println!("cargo:rustc-env=CPP_API_HEADERS_PATH={}/api/cpp/include", root_dir.display());
 
     let tests_file_path =
         std::path::Path::new(&std::env::var_os("OUT_DIR").unwrap()).join("test_functions.rs");

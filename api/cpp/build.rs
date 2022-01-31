@@ -7,7 +7,7 @@ mod cbindgen;
 fn main() -> Result<(), anyhow::Error> {
     let manifest_dir = std::env::var_os("CARGO_MANIFEST_DIR").unwrap();
 
-    // Go from $root/api/sixtyfps-cpp down to $root
+    // Go from $root/api/cpp down to $root
     let root_dir = Path::new(&manifest_dir).ancestors().nth(2).expect(&format!(
         "Failed to locate root directory, relative to {}",
         manifest_dir.to_string_lossy()

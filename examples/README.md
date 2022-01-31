@@ -140,7 +140,7 @@ python3 -m http.server
 
 * **When compiling SixtyFPS from sources:** If you follow the [C++ build instructions](/docs/building.md#c-build), this will build the C++
 examples as well by default
-* **From [installed binary packages](/api/sixtyfps-cpp/README.md#binary-packages):** Simply run cmake in one of the example directory containing a CMakeLists.txt
+* **From [installed binary packages](/api/cpp/README.md#binary-packages):** Simply run cmake in one of the example directory containing a CMakeLists.txt
 
  ```sh
  mkdir build && cd build

@@ -22,7 +22,7 @@ FetchContent_Declare(
     SixtyFPS
     GIT_REPOSITORY https://github.com/sixtyfpsui/sixtyfps.git
     GIT_TAG v0.1.6
-    SOURCE_SUBDIR api/sixtyfps-cpp
+    SOURCE_SUBDIR api/cpp
 )
 FetchContent_MakeAvailable(SixtyFPS)
 

@@ -54,4 +54,3 @@ You can access them from to your C++ code by exporting them and using the getter
 1. {cpp:func}`sixtyfps::interpreter::ComponentInstance::get_global_property()`
 1. {cpp:func}`sixtyfps::interpreter::ComponentInstance::set_global_callback()`
 1. {cpp:func}`sixtyfps::interpreter::ComponentInstance::invoke_global_callback()`
-

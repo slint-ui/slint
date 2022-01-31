@@ -464,7 +464,7 @@ fn gen_backend(
 ) -> anyhow::Result<()> {
     let config = default_config();
     let mut crate_dir = root_dir.to_owned();
-    crate_dir.extend(["api", "sixtyfps-cpp"].iter());
+    crate_dir.extend(["api", "cpp"].iter());
 
     ensure_cargo_rerun_for_crate(&crate_dir, dependencies)?;
 
