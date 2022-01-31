@@ -263,7 +263,8 @@ enum LicenseLocation {
 lazy_static! {
     // cspell:disable
     static ref LICENSE_LOCATION_FOR_FILE: Vec<(regex::Regex, LicenseLocation)> = [
-        ("^helper_crates/const-field-offset/.*", LicenseLocation::NoLicense), // Upstream fork
+        ("^helper_crates/const-field-offset/.*", LicenseLocation::NoLicense), // liberal license
+        ("^helper_crates/document-features/.*", LicenseLocation::NoLicense), // liberal license
         (".+webpack\\..+\\.js$", LicenseLocation::NoLicense),
         (".+\\.license$", LicenseLocation::NoLicense),
         (".+\\.rs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
