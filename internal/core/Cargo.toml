@@ -66,8 +66,9 @@ wasm-bindgen = { version = "0.2" }
 web_sys = { version = "0.3", package = "web-sys", features=["console", "CanvasRenderingContext2d", "TextMetrics", "HtmlSpanElement"] }
 
 [dev-dependencies]
+sixtyfps = { version = "=0.2.0", path = "../../api/sixtyfps-rs", default-features = false, features = ["std"] }
+sixtyfps-rendering-backend-testing = { path="../backends/testing" }
+
 image = { version = "0.23.14", default-features = false, features = [ "png" ] }
 pin-weak = "1"
 tiny-skia = "0.6.1"
-sixtyfps = { version = "=0.2.0", path = "../../api/sixtyfps-rs", default-features = false, features = ["std"] }
-sixtyfps-rendering-backend-testing = { path="../rendering_backends/testing" }

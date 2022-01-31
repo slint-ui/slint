@@ -26,7 +26,7 @@ fn main() {
 
     let out_dir = std::env::var_os("OUT_DIR").unwrap();
     // out_dir is something like
-    // <target_dir>/build/sixtyfps-rendering-backend-default-1fe5c4ab61eb0584/out
+    // <target_dir>/build/sixtyfps-rendering-backend-selector-1fe5c4ab61eb0584/out
     // and we want to write to a common directory, so write in the build/ dir
     let target_path =
         Path::new(&out_dir).parent().unwrap().parent().unwrap().join("SIXTYFPS_DEFAULT_STYLE.txt");

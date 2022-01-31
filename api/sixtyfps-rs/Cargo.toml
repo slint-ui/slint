@@ -17,18 +17,18 @@ keywords = ["gui", "toolkit", "graphics", "design", "ui"]
 path = "lib.rs"
 
 [features]
-backend-gl = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-gl", "std"]
-backend-qt = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-qt", "std"]
+backend-gl = ["sixtyfps-rendering-backend-selector/sixtyfps-rendering-backend-gl", "std"]
+backend-qt = ["sixtyfps-rendering-backend-selector/sixtyfps-rendering-backend-qt", "std"]
 std = ["sixtyfps-corelib/std"]
-wayland = ["sixtyfps-rendering-backend-default/wayland", "std"]
-x11 = ["sixtyfps-rendering-backend-default/x11", "std"]
+wayland = ["sixtyfps-rendering-backend-selector/wayland", "std"]
+x11 = ["sixtyfps-rendering-backend-selector/x11", "std"]
 
 default = ["backend-gl", "x11", "backend-qt"]
 
 [dependencies]
 sixtyfps-corelib = { version = "=0.2.0", path="../../internal/core", default-features = false }
 sixtyfps-macros = { version = "=0.2.0", path = "sixtyfps-macros" }
-sixtyfps-rendering-backend-default = { version = "=0.2.0", path="../../sixtyfps_runtime/rendering_backends/default" }
+sixtyfps-rendering-backend-selector = { version = "=0.2.0", path="../../internal/backends/selector" }
 
 const-field-offset = { version = "0.1.2", path = "../../helper_crates/const-field-offset" }
 vtable = { version = "0.1.5", path = "../../helper_crates/vtable" }

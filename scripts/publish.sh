@@ -7,11 +7,11 @@ cargo publish --manifest-path internal/core-macros/Cargo.toml
 cargo publish --manifest-path internal/compiler/Cargo.toml
 cargo publish --manifest-path internal/core/Cargo.toml
 cargo publish --manifest-path api/sixtyfps-rs/sixtyfps-macros/Cargo.toml
-cargo publish --manifest-path sixtyfps_runtime/rendering_backends/gl/Cargo.toml --features x11
+cargo publish --manifest-path internal/backends/gl/Cargo.toml --features x11
 cargo publish --manifest-path api/sixtyfps-rs/sixtyfps-build/Cargo.toml
-cargo publish --manifest-path sixtyfps_runtime/rendering_backends/qt/Cargo.toml
+cargo publish --manifest-path internal/backends/qt/Cargo.toml
 sleep 30
-cargo publish --manifest-path sixtyfps_runtime/rendering_backends/default/Cargo.toml --features x11
+cargo publish --manifest-path internal/backends/selector/Cargo.toml --features x11
 sleep 30
 cargo publish --manifest-path internal/interpreter/Cargo.toml
 cargo publish --manifest-path api/sixtyfps-rs/Cargo.toml

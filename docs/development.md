@@ -10,7 +10,11 @@ The testing instructions are in the [testing.md](./testing.md) file.
 A set of crates that are somehow not strictly related to sixtyfps, and that could be moved to
 their own repository and have their own version release at some point.
 
-### `sixtyfps_compiler`
+### `internal`
+
+`internal` contains code that is not meant to be used directly by a user of sixtyfps.
+
+#### `compiler`
 
 The main library for the compiler for .60.
 
@@ -19,13 +23,13 @@ Nothing in there should depends on the runtime crates.
 There is a **`test`** subdirectory that contains the syntax tests.
 These tests allow to test the proper error conditions.
 
-### `sixtyfps_runtime`
+#### Runtime libraries
 
 The library crates that are used at runtime.
 
-* **`corelib`** is the main library. It is meant to be used for all front-ends. Ideally it should
+* **`core`** is the main library. It is meant to be used for all front-ends. Ideally it should
   be kept as small as possible. **`corelib-macros`** contains some procedural macro used by core library.
-* **`rendering_backends`** contains the different backend for the different platform, separated from
+* **`backends`** contains the different backend for the different platform, separated from
   core library.  Currently there is just the gl backend
 * **`interpreter`** is the library used by the more dynamic languages backend to compile and
   interpret .60 files. It links both against core library and the compiler lib

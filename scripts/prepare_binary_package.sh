@@ -103,5 +103,5 @@ EOT
 cargo about generate about.hbs -o $target_path/index.html
 
 if [ "$2x" == "--with-qtx" ]; then
-    cp sixtyfps_runtime/rendering_backends/qt/LICENSE.QT sixtyfps_runtime/rendering_backends/qt/QtThirdPartySoftware_Listing.txt $target_path/
+    cp internal/backends/qt/LICENSE.QT internal/backends/qt/QtThirdPartySoftware_Listing.txt $target_path/
 fi

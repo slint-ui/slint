@@ -988,7 +988,7 @@ impl ComponentHandle for ComponentInstance {
 
     fn run(&self) {
         self.show();
-        sixtyfps_rendering_backend_default::backend().run_event_loop(
+        sixtyfps_rendering_backend_selector::backend().run_event_loop(
             sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed,
         );
         self.hide();
@@ -1057,7 +1057,7 @@ pub enum InvokeCallbackError {
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
 pub fn run_event_loop() {
-    sixtyfps_rendering_backend_default::backend()
+    sixtyfps_rendering_backend_selector::backend()
         .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
 }
 

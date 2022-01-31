@@ -17,19 +17,19 @@ keywords = ["gui", "toolkit", "graphics", "design", "ui"]
 path = "lib.rs"
 
 [features]
-backend-gl = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-gl"]
-backend-qt = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-qt"]
+backend-gl = ["sixtyfps-rendering-backend-selector/sixtyfps-rendering-backend-gl"]
+backend-qt = ["sixtyfps-rendering-backend-selector/sixtyfps-rendering-backend-qt"]
 display-diagnostics = ["sixtyfps-compilerlib/display-diagnostics"]
 ffi = ["spin_on", "sixtyfps-corelib/ffi"]
-wayland = ["sixtyfps-rendering-backend-default/wayland"]
-x11 = ["sixtyfps-rendering-backend-default/x11"]
+wayland = ["sixtyfps-rendering-backend-selector/wayland"]
+x11 = ["sixtyfps-rendering-backend-selector/x11"]
 
 default = ["backend-gl", "x11", "backend-qt"]
 
 [dependencies]
 sixtyfps-compilerlib = { version = "=0.2.0", path = "../compiler" }
 sixtyfps-corelib = { version = "=0.2.0", path = "../core", features = ["rtti"] }
-sixtyfps-rendering-backend-default = { version = "=0.2.0", path = "../../sixtyfps_runtime/rendering_backends/default" }
+sixtyfps-rendering-backend-selector = { version = "=0.2.0", path = "../../internal/backends/selector" }
 
 vtable = { version = "0.1.1", path="../../helper_crates/vtable" }
 
@@ -44,10 +44,10 @@ version = "0.1"
 optional = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-sixtyfps-rendering-backend-gl = { version = "=0.2.0", path = "../../sixtyfps_runtime/rendering_backends/gl" }
+sixtyfps-rendering-backend-gl = { version = "=0.2.0", path = "../../internal/backends/gl" }
 
 [dev-dependencies]
-sixtyfps-rendering-backend-testing = { path = "../../sixtyfps_runtime/rendering_backends/testing" }
+sixtyfps-rendering-backend-testing = { path = "../../internal/backends/testing" }
 
 spin_on = "0.1"
 
