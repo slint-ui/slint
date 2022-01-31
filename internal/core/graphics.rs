@@ -193,11 +193,15 @@ pub(crate) mod ffi {
         height: f32,
     }
 
-    /// Expand Size so that cbindgen can see it. ( is in fact euclid::default::Size2D<u32>)
+    // Expand Size so that cbindgen can see it. ( is in fact euclid::default::Size2D<u32>)
+    /// The Size structure is used to represent a two-dimensional size
+    /// with width and height.
     #[cfg(cbindgen)]
     #[repr(C)]
     struct IntSize {
+        /// The width of the size
         width: u32,
+        /// The height of the size
         height: u32,
     }
 

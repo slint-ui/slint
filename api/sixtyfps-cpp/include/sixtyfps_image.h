@@ -3,25 +3,12 @@
 
 #pragma once
 #include <string_view>
+#include "sixtyfps_generated_public.h"
 #include "sixtyfps_image_internal.h"
 #include "sixtyfps_string.h"
 #include "sixtyfps_sharedvector.h"
 
 namespace sixtyfps {
-
-#if !defined(DOXYGEN)
-using cbindgen_private::types::IntSize;
-#else
-/// The Size structure is used to represent a two-dimensional size
-/// with width and height.
-struct IntSize
-{
-    /// The width of the size
-    uint32_t width;
-    /// The height of the size
-    uint32_t height;
-};
-#endif
 
 /// An image type that can be displayed by the Image element
 struct Image
