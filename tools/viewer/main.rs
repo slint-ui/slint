@@ -193,7 +193,7 @@ fn init_dialog(instance: &ComponentInstance) {
         instance
             .set_callback(&cb, move |_| {
                 EXIT_CODE.store(exit_code, std::sync::atomic::Ordering::Relaxed);
-                sixtyfps_rendering_backend_default::backend().quit_event_loop();
+                sixtyfps_rendering_backend_selector::backend().quit_event_loop();
                 Default::default()
             })
             .unwrap();
@@ -348,7 +348,7 @@ unsafe impl Sync for FutureRunner {}
 
 impl Wake for FutureRunner {
     fn wake(self: Arc<Self>) {
-        sixtyfps_rendering_backend_default::backend().post_event(Box::new(move || {
+        sixtyfps_rendering_backend_selector::backend().post_event(Box::new(move || {
             let waker = self.clone().into();
             let mut cx = std::task::Context::from_waker(&waker);
             let mut fut_opt = self.fut.lock().unwrap();

@@ -3,7 +3,7 @@
 
 /*! Generated with Qt5 and
 ```sh
-bindgen /usr/include/qt/QtCore/qnamespace.h --whitelist-type Qt::Key --whitelist-type Qt::KeyboardModifier --whitelist-type Qt::AlignmentFlag --whitelist-type Qt::TextFlag --whitelist-type Qt::FillRule --whitelist-type Qt::CursorShape -o sixtyfps_runtime/rendering_backends/qt/key_generated.rs -- -I /usr/include/qt -xc++
+bindgen /usr/include/qt/QtCore/qnamespace.h --whitelist-type Qt::Key --whitelist-type Qt::KeyboardModifier --whitelist-type Qt::AlignmentFlag --whitelist-type Qt::TextFlag --whitelist-type Qt::FillRule --whitelist-type Qt::CursorShape -o internal/backends/qt/key_generated.rs -- -I /usr/include/qt -xc++
 ```
 then add licence header and this doc
 */

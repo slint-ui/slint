@@ -107,7 +107,7 @@ pub fn instantiate(description: &CompiledGlobal) -> (String, Pin<Rc<dyn GlobalCo
                     }
                 }
             }
-            let g = sixtyfps_rendering_backend_default::NativeGlobals::instantiate(
+            let g = sixtyfps_rendering_backend_selector::NativeGlobals::instantiate(
                 element.native_class.class_name.as_ref(),
             );
             (name.clone(), g)

@@ -6,14 +6,14 @@
 use core::ffi::c_void;
 use sixtyfps_corelib::window::ffi::WindowRcOpaque;
 use sixtyfps_corelib::window::WindowRc;
-use sixtyfps_rendering_backend_default::backend;
+use sixtyfps_rendering_backend_selector::backend;
 
 #[doc(hidden)]
 #[cold]
 pub fn use_modules() -> usize {
     #[cfg(feature = "sixtyfps-interpreter")]
     sixtyfps_interpreter::use_modules();
-    sixtyfps_rendering_backend_default::use_modules();
+    sixtyfps_rendering_backend_selector::use_modules();
     sixtyfps_corelib::use_modules()
 }
 

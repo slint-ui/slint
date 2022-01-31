@@ -340,7 +340,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         CompilerConfiguration::new(sixtyfps_compilerlib::generator::OutputFormat::Rust);
 
     if std::env::var_os("SIXTYFPS_STYLE").is_none() {
-        // This file is written by the sixtyfps-rendering-backend-default's built script.
+        // This file is written by the sixtyfps-rendering-backend-selector's built script.
         // It is in the target/xxx/build directory
         let target_path = match std::env::var_os("OUT_DIR") {
             Some(out_dir) => Some(

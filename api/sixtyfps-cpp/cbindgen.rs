@@ -164,7 +164,7 @@ fn gen_corelib(
     .collect();
 
     let mut crate_dir = root_dir.to_owned();
-    crate_dir.extend(["sixtyfps_runtime", "corelib"].iter());
+    crate_dir.extend(["internal", "core"].iter());
 
     ensure_cargo_rerun_for_crate(&crate_dir, dependencies)?;
 
@@ -431,7 +431,7 @@ fn gen_backend_qt(
     );
 
     let mut crate_dir = root_dir.to_owned();
-    crate_dir.extend(["sixtyfps_runtime", "rendering_backends", "qt"].iter());
+    crate_dir.extend(["internal", "backends", "qt"].iter());
 
     ensure_cargo_rerun_for_crate(&crate_dir, dependencies)?;
 
@@ -487,7 +487,7 @@ fn gen_interpreter(
     .collect();
     let mut crate_dir = root_dir.to_owned();
 
-    crate_dir.extend(["sixtyfps_runtime", "interpreter"].iter());
+    crate_dir.extend(["internal", "interpreter"].iter());
     ensure_cargo_rerun_for_crate(&crate_dir, dependencies)?;
 
     // Generate a header file with some public API (enums, etc.)
