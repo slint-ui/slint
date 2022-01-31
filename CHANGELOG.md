@@ -22,6 +22,8 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/sixtyfps-rs/m
  - `sixtyfps::interpreter::CallCallbackError` was renamed to `sixtyfps::interpreter::InvokeCallbackError`
  - Some deprecation warning in .60 became hard errors
  - Replace `ModelHandle` with `ModelRc`
+ - `sixtyfps::interpreter::ComponentInstance` in Rust now implements `sixtyfps::ComponentHandle`. This removes `sixtyfps::interpreter::WeakComponentInstance` in favor
+   of `sixtyfps::Weak<sixtyfps::interpreter::ComponentInstance>`.
 
 ### Added
 
