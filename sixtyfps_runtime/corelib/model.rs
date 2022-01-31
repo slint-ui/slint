@@ -239,14 +239,13 @@ pub trait Model {
 
     /// Return something that can be downcast'ed (typically self)
     ///
-    /// This is useful to get back to the actual model from a `ModelRc` stored
+    /// This is useful to get back to the actual model from a [`ModelRc`] stored
     /// in a component.
     ///
     /// ```
     /// # use sixtyfps_corelib::model::*;
     /// # use std::rc::Rc;
-    /// let vec_model = Rc::new(VecModel::from(vec![1i32, 2, 3]));
-    /// let handle = ModelRc::new(vec_model as Rc<dyn Model<Data = i32>>);
+    /// let handle = ModelRc::new(VecModel::from(vec![1i32, 2, 3]));
     /// // later:
     /// handle.as_any().downcast_ref::<VecModel<i32>>().unwrap().push(4);
     /// assert_eq!(handle.row_data(3).unwrap(), 4);
@@ -309,7 +308,7 @@ impl<T: 'static> VecModel<T> {
     where
         T: Clone,
     {
-        ModelRc::new(Rc::<Self>::new(slice.to_vec().into()))
+        ModelRc::new(Self::from(slice.to_vec()))
     }
 
     /// Add a row at the end of the model
@@ -462,8 +461,17 @@ impl Model for bool {
     }
 }
 
-/// Properties of type Array in the .60 language are represented as
-/// a `ModelRc` that implements the [`Model`] trait.
+/// A Reference counted [`Model`].
+///
+/// The `ModelRc` struct holds something that implements the [`Model`] trait.
+/// This is used in `for` expressions in the .60 language.
+/// Array properties in the .60 language are holding a ModelRc.
+///
+/// An empty model can be constructed with [`ModelRc::default()`].
+/// Use [`ModelRc::new()`] To construct a ModelRc from something that implements the
+/// [`Model`] trait.
+/// It is also possible to use the [`From`] trait to convert from `Rc<dyn Model>`.
+
 pub struct ModelRc<T>(Option<Rc<dyn Model<Data = T>>>);
 
 impl<T> core::fmt::Debug for ModelRc<T> {
@@ -479,6 +487,7 @@ impl<T> Clone for ModelRc<T> {
 }
 
 impl<T> Default for ModelRc<T> {
+    /// Construct an empty model
     fn default() -> Self {
         Self(None)
     }
@@ -498,8 +507,28 @@ impl<T> core::cmp::PartialEq for ModelRc<T> {
 }
 
 impl<T> ModelRc<T> {
-    pub fn new(model: Rc<dyn Model<Data = T>>) -> Self {
+    pub fn new(model: impl Model<Data = T> + 'static) -> Self {
+        Self(Some(Rc::new(model)))
+    }
+}
+
+impl<T, M: Model<Data = T> + 'static> From<Rc<M>> for ModelRc<T> {
+    fn from(model: Rc<M>) -> Self {
         Self(Some(model))
+    }
+}
+
+impl<T> From<Rc<dyn Model<Data = T> + 'static>> for ModelRc<T> {
+    fn from(model: Rc<dyn Model<Data = T> + 'static>) -> Self {
+        Self(Some(model))
+    }
+}
+
+impl<T> TryInto<Rc<dyn Model<Data = T>>> for ModelRc<T> {
+    type Error = ();
+
+    fn try_into(self) -> Result<Rc<dyn Model<Data = T>>, Self::Error> {
+        self.0.ok_or(())
     }
 }
 
@@ -970,7 +999,7 @@ pub struct StandardListViewItem {
 #[test]
 fn test_tracking_model_handle() {
     let model: Rc<VecModel<u8>> = Rc::new(Default::default());
-    let handle = ModelRc::new(model.clone());
+    let handle = ModelRc::from(model.clone() as Rc<dyn Model<Data = u8>>);
     let tracker = Box::pin(crate::properties::PropertyTracker::default());
     assert_eq!(
         tracker.as_ref().evaluate(|| {
@@ -1007,7 +1036,7 @@ fn test_tracking_model_handle() {
 #[test]
 fn test_data_tracking() {
     let model: Rc<VecModel<u8>> = Rc::new(VecModel::from(vec![0, 1, 2, 3, 4]));
-    let handle = ModelRc::new(model.clone());
+    let handle = ModelRc::from(model.clone());
     let tracker = Box::pin(crate::properties::PropertyTracker::default());
     assert_eq!(
         tracker.as_ref().evaluate(|| {

@@ -62,6 +62,10 @@ fn model_tracker(&self) -> &dyn ModelTracker {
 }
 ```
 
-#### Minor changes to `Model`
+#### ModelHandle
 
 `ModelHandle` was renamed [`ModelRc`].
+
+[`ModelRc::new`]  no longer takes a `Rc`, but takes the structure that implements the [`Model`] trait directly.
+To construct a `ModelRc` from a Rc for your model, use the `From` trait. [`ModelRc::from`] is doing what
+`ModelHandle::new` was doing.

@@ -45,7 +45,7 @@ pub fn main() {
         }
     });
 
-    main_window.set_todo_model(sixtyfps::ModelRc::new(todo_model));
+    main_window.set_todo_model(todo_model.into());
 
     main_window.run();
 }
