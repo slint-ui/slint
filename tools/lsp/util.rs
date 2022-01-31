@@ -152,5 +152,6 @@ fn to_lsp_diag_level(
     match level {
         sixtyfps_interpreter::DiagnosticLevel::Error => lsp_types::DiagnosticSeverity::ERROR,
         sixtyfps_interpreter::DiagnosticLevel::Warning => lsp_types::DiagnosticSeverity::WARNING,
+        _ => lsp_types::DiagnosticSeverity::INFORMATION,
     }
 }

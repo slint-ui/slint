@@ -155,9 +155,13 @@ impl Spanned for Option<SourceLocation> {
     }
 }
 
+/// This enum describes the level or severity of a diagnostic message produced by the compiler.
 #[derive(Debug, PartialEq, Copy, Clone)]
+#[non_exhaustive]
 pub enum DiagnosticLevel {
+    /// The diagnostic found is an error that prevents successful compilation.
     Error,
+    /// The diagnostic found is a warning.
     Warning,
 }
 
