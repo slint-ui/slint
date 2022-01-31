@@ -186,7 +186,7 @@ macro_rules! declare_syntax {
     })
     => {
         #[repr(u16)]
-        #[derive(Debug, Copy, Clone, Eq, PartialEq, num_enum::IntoPrimitive, num_enum::TryFromPrimitive)]
+        #[derive(Debug, Copy, Clone, Eq, PartialEq, num_enum::IntoPrimitive, num_enum::TryFromPrimitive, Hash, Ord, PartialOrd)]
         pub enum SyntaxKind {
             Error,
             Eof,

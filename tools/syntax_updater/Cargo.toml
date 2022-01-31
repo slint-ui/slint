@@ -18,7 +18,6 @@ sixtyfps-compilerlib = { path = "../../sixtyfps_compiler", features = ["display-
 clap = { version = "3.0.5", features=["derive", "wrap_help"] }
 codemap-diagnostic = "0.1.1"
 codemap = "0.1"
-rowan = "0.14.1"
 
 [[bin]]
 name = "syntax_updater"
