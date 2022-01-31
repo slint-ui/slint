@@ -12,5 +12,3 @@ Test := Dialog {
 //                        ^error{The `kind` property of the StandardButton in a Dialog must be known at compile-time}
 
 }
-
-

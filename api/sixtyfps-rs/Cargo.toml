@@ -17,20 +17,23 @@ keywords = ["gui", "toolkit", "graphics", "design", "ui"]
 path = "lib.rs"
 
 [features]
-x11 = ["sixtyfps-rendering-backend-default/x11", "std"]
-wayland = ["sixtyfps-rendering-backend-default/wayland", "std"]
 backend-gl = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-gl", "std"]
 backend-qt = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-qt", "std"]
-default = ["backend-gl", "x11", "backend-qt"]
 std = ["sixtyfps-corelib/std"]
+wayland = ["sixtyfps-rendering-backend-default/wayland", "std"]
+x11 = ["sixtyfps-rendering-backend-default/x11", "std"]
+
+default = ["backend-gl", "x11", "backend-qt"]
 
 [dependencies]
-once_cell = { version = "1.5", default-features = false, features = ["alloc"] }
+sixtyfps-corelib = { version = "=0.2.0", path="../../internal/core", default-features = false }
 sixtyfps-macros = { version = "=0.2.0", path = "sixtyfps-macros" }
+sixtyfps-rendering-backend-default = { version = "=0.2.0", path="../../sixtyfps_runtime/rendering_backends/default" }
+
 const-field-offset = { version = "0.1.2", path = "../../helper_crates/const-field-offset" }
 vtable = { version = "0.1.5", path = "../../helper_crates/vtable" }
-sixtyfps-corelib = { version = "=0.2.0", path="../../sixtyfps_runtime/corelib", default-features = false }
-sixtyfps-rendering-backend-default = { version = "=0.2.0", path="../../sixtyfps_runtime/rendering_backends/default" }
+
+once_cell = { version = "1.5", default-features = false, features = ["alloc"] }
 pin-weak = { version = "1.1", default-features = false }
 
 [package.metadata.docs.rs]

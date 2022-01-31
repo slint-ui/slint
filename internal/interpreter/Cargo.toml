@@ -17,22 +17,25 @@ keywords = ["gui", "toolkit", "graphics", "design", "ui"]
 path = "lib.rs"
 
 [features]
-display-diagnostics = ["sixtyfps-compilerlib/display-diagnostics"]
-ffi = ["spin_on", "sixtyfps-corelib/ffi"]
-x11 = ["sixtyfps-rendering-backend-default/x11"]
-wayland = ["sixtyfps-rendering-backend-default/wayland"]
 backend-gl = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-gl"]
 backend-qt = ["sixtyfps-rendering-backend-default/sixtyfps-rendering-backend-qt"]
+display-diagnostics = ["sixtyfps-compilerlib/display-diagnostics"]
+ffi = ["spin_on", "sixtyfps-corelib/ffi"]
+wayland = ["sixtyfps-rendering-backend-default/wayland"]
+x11 = ["sixtyfps-rendering-backend-default/x11"]
+
 default = ["backend-gl", "x11", "backend-qt"]
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.2.0", path = "../corelib", features = ["rtti"] }
+sixtyfps-compilerlib = { version = "=0.2.0", path = "../compiler" }
+sixtyfps-corelib = { version = "=0.2.0", path = "../core", features = ["rtti"] }
 sixtyfps-rendering-backend-default = { version = "=0.2.0", path = "../../sixtyfps_runtime/rendering_backends/default" }
+
 vtable = { version = "0.1.1", path="../../helper_crates/vtable" }
-sixtyfps-compilerlib = { version = "=0.2.0", path = "../../sixtyfps_compiler" }
-lyon_path = { version = "0.17.3" }
+
 derive_more = "0.99.5"
 generativity = "1"
+lyon_path = { version = "0.17.3" }
 once_cell = "1.5"
 thiserror = "1"
 
@@ -44,8 +47,9 @@ optional = true
 sixtyfps-rendering-backend-gl = { version = "=0.2.0", path = "../../sixtyfps_runtime/rendering_backends/gl" }
 
 [dev-dependencies]
-spin_on = "0.1"
 sixtyfps-rendering-backend-testing = { path = "../../sixtyfps_runtime/rendering_backends/testing" }
+
+spin_on = "0.1"
 
 [package.metadata.docs.rs]
 features = ["display-diagnostics"]

@@ -17,12 +17,13 @@ name = "test-driver-cpp"
 sixtyfps-cpp = { path = "../../../api/sixtyfps-cpp", features = ["testing"] }
 
 [dev-dependencies]
-sixtyfps-compilerlib = { path = "../../../sixtyfps_compiler", features = ["cpp", "display-diagnostics"] }
+sixtyfps-compilerlib = { path = "../../../internal/compiler", features = ["cpp", "display-diagnostics"] }
+
 cc = "1.0.54"
-tempfile = "3"
 scopeguard = "1.1.0"
-test_driver_lib = { path = "../driverlib" }
 spin_on = "0.1"
+tempfile = "3"
+test_driver_lib = { path = "../driverlib" }
 
 [build-dependencies]
 test_driver_lib = { path = "../driverlib" }

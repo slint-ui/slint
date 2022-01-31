@@ -8,4 +8,3 @@ TestCase := Window {
     //  ^^error{Parse error}
   }
 //^error{expected Identifier}
-

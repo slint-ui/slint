@@ -53,5 +53,3 @@ Test := Rectangle {
     MyDiag3 {}
     MyDialog4 {}
 }
-
-

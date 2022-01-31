@@ -16,6 +16,7 @@ homepage = "https://sixtyfps.io"
 path = "lib.rs"
 
 [dependencies]
-sixtyfps-compilerlib = { version = "=0.2.0", path = "../../../sixtyfps_compiler", features = ["rust", "display-diagnostics"] }
-thiserror = "1"
+sixtyfps-compilerlib = { version = "=0.2.0", path = "../../../internal/compiler", features = ["rust", "display-diagnostics"] }
+
 spin_on = "0.1"
+thiserror = "1"

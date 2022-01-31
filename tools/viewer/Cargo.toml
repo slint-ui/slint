@@ -14,24 +14,27 @@ categories = ["gui", "development-tools"]
 keywords = ["viewer", "gui", "ui", "toolkit"]
 
 [features]
-sixtyfps-backend-qt = ["sixtyfps-interpreter/backend-qt"]
 sixtyfps-backend-gl = ["sixtyfps-interpreter/backend-gl"]
-x11 = ["sixtyfps-interpreter/x11"]
+sixtyfps-backend-qt = ["sixtyfps-interpreter/backend-qt"]
 wayland = ["sixtyfps-interpreter/wayland"]
+x11 = ["sixtyfps-interpreter/x11"]
+
 default = ["sixtyfps-backend-qt", "sixtyfps-backend-gl", "x11"]
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.2.0", path="../../sixtyfps_runtime/corelib" }
+sixtyfps-corelib = { version = "=0.2.0", path="../../internal/core" }
+sixtyfps-interpreter = { version = "=0.2.0", path = "../../internal/interpreter", default-features = false, features = ["display-diagnostics"] }
 sixtyfps-rendering-backend-default = { version = "=0.2.0", path="../../sixtyfps_runtime/rendering_backends/default" }
-sixtyfps-interpreter = { version = "=0.2.0", path = "../../sixtyfps_runtime/interpreter", default-features = false, features = ["display-diagnostics"] }
+
 vtable = { version = "0.1", path="../../helper_crates/vtable" }
+
 clap = { version = "3.0.5", features=["derive", "wrap_help"] }
-codemap-diagnostic = "0.1.1"
 codemap = "0.1"
-spin_on = "0.1"
+codemap-diagnostic = "0.1.1"
 notify = "4.0.15"
 serde_json = "1"
 shlex = "1"
+spin_on = "0.1"
 
 [[bin]]
 name = "sixtyfps-viewer"

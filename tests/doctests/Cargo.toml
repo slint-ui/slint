@@ -14,9 +14,10 @@ path = "main.rs"
 name = "doctests"
 
 [dev-dependencies]
-sixtyfps-interpreter = { path = "../../sixtyfps_runtime/interpreter" }
-sixtyfps-compilerlib = { path = "../../sixtyfps_compiler", features = ["display-diagnostics"] }
+sixtyfps-compilerlib = { path = "../../internal/compiler", features = ["display-diagnostics"] }
+sixtyfps-interpreter = { path = "../../internal/interpreter" }
 sixtyfps = { path = "../../api/sixtyfps-rs" }
+
 lazy_static = "1.4.0"
 spin_on = "0.1"
 rand = "0.8"

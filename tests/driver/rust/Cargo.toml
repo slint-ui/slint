@@ -21,6 +21,7 @@ sixtyfps = { path = "../../../api/sixtyfps-rs" }
 sixtyfps-rendering-backend-testing = { path = "../../../sixtyfps_runtime/rendering_backends/testing" }
 
 [build-dependencies]
-test_driver_lib = { path = "../driverlib" }
-sixtyfps-compilerlib = { path = "../../../sixtyfps_compiler", features = ["rust", "display-diagnostics"], optional = true }
+sixtyfps-compilerlib = { path = "../../../internal/compiler", features = ["rust", "display-diagnostics"], optional = true }
+
 spin_on = { version = "0.1", optional = true}
+test_driver_lib = { path = "../driverlib" }

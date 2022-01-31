@@ -17,7 +17,8 @@ name = "sixtyfps-compiler"
 path = "main.rs"
 
 [dependencies]
-sixtyfps-compilerlib = { version = "=0.2.0", path = "../../sixtyfps_compiler", features = ["display-diagnostics", "cpp", "rust"]}
+sixtyfps-compilerlib = { version = "=0.2.0", path = "../../internal/compiler", features = ["display-diagnostics", "cpp", "rust"]}
+
 clap = { version = "3.0.5", features=["derive", "wrap_help"] }
-spin_on = "0.1"
 proc-macro2 = "1.0.11"
+spin_on = "0.1"

@@ -11,4 +11,3 @@ export Demo := Window {
         }
     }
 }
-

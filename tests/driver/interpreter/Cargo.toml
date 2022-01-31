@@ -14,12 +14,13 @@ path = "main.rs"
 name = "test-driver-interpreter"
 
 [dev-dependencies]
-sixtyfps-interpreter = { path = "../../../sixtyfps_runtime/interpreter", default-features = false, features = ["display-diagnostics"] }
+sixtyfps-interpreter = { path = "../../../internal/interpreter", default-features = false, features = ["display-diagnostics"] }
 sixtyfps-rendering-backend-testing = { path = "../../../sixtyfps_runtime/rendering_backends/testing" }
-test_driver_lib = { path = "../driverlib" }
+
+itertools = "0.10"
 lazy_static = "1.4.0"
 spin_on = "0.1"
-itertools = "0.10"
+test_driver_lib = { path = "../driverlib" }
 
 [build-dependencies]
 test_driver_lib = { path = "../driverlib" }
