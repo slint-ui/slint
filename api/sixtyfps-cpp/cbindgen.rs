@@ -158,6 +158,7 @@ fn gen_corelib(
         "sixtyfps_image_size",
         "sixtyfps_image_path",
         "TimerMode", // included in generated_public.h
+        "IntSize",   // included in generated_public.h
     ]
     .iter()
     .map(|x| x.to_string())
@@ -215,7 +216,6 @@ fn gen_corelib(
                 "ImageInner",
                 "Image",
                 "Size",
-                "IntSize",
                 "sixtyfps_image_size",
                 "sixtyfps_image_path",
                 "SharedPixelBuffer",
@@ -267,6 +267,7 @@ fn gen_corelib(
             "sixtyfps_color_darker",
             "sixtyfps_image_size",
             "sixtyfps_image_path",
+            "IntSize",
         ]
         .iter()
         .filter(|exclusion| !rust_types.iter().any(|inclusion| inclusion == *exclusion))
@@ -307,13 +308,22 @@ fn gen_corelib(
     // Generate a header file with some public API (enums, etc.)
     let mut public_config = config.clone();
     public_config.namespaces = Some(vec!["sixtyfps".into()]);
-    public_config.export.item_types = vec![cbindgen::ItemType::Enums];
-    public_config.export.include = vec!["TimerMode".into()];
+    public_config.export.item_types = vec![cbindgen::ItemType::Enums, cbindgen::ItemType::Structs];
+    public_config.export.include = vec!["TimerMode".into(), "IntSize".into()];
     public_config.export.exclude.clear();
+
+    public_config.export.body.insert(
+        "IntSize".to_owned(),
+        r#"
+    /// Compares this IntSize with \a other and returns true if they are equal; false otherwise.
+    bool operator==(const IntSize &other) const = default;"#
+            .to_owned(),
+    );
 
     cbindgen::Builder::new()
         .with_config(public_config)
         .with_src(crate_dir.join("timers.rs"))
+        .with_src(crate_dir.join("graphics.rs"))
         .with_after_include(format!(
             r"
 /// This macro expands to the to the numeric value of the major version of SixtyFPS you're
