@@ -103,7 +103,7 @@ pub trait ComponentHandle {
     /// Marks the window of this component to be shown on the screen. This registers
     /// the window with the windowing system. In order to react to events from the windowing system,
     /// such as draw requests or mouse/touch input, it is still necessary to spin the event loop,
-    /// using [`crate::run_event_loop`].
+    /// using [`crate::run_event_loop`](fn.run_event_loop.html).
     fn show(&self);
 
     /// Marks the window of this component to be hidden on the screen. This de-registers
@@ -115,7 +115,7 @@ pub trait ComponentHandle {
     /// such as the position on the screen.
     fn window(&self) -> &Window;
 
-    /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`]
+    /// This is a convenience function that first calls [`Self::show`], followed by [`crate::run_event_loop()`](fn.run_event_loop.html)
     /// and [`Self::hide`].
     fn run(&self);
 
