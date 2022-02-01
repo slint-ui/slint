@@ -107,7 +107,7 @@ assert_eq!(instance.get_t6(), true);
 ```
 
 ```js
-var instance = new sixtyfps.TestCase({});
+var instance = new slint.TestCase({});
 assert.equal(instance.t1, true);
 assert.equal(instance.t2, false);
 assert.equal(instance.t3, true);

@@ -101,7 +101,7 @@ assert_eq(instance.get_binding_dep(), 125);
 ```
 
 ```js
-var instance = new sixtyfps.TestCase({});
+var instance = new slint.TestCase({});
 assert.equal(instance.hello, 40);
 assert.equal(instance.binding_dep, 100);
 instance.condition = false;
@@ -111,14 +111,14 @@ assert.equal(instance.hello, 40);
 assert.equal(instance.binding_dep, 100);
 
 // Half the animation
-sixtyfpslib.private_api.mock_elapsed_time(600);
+slintlib.private_api.mock_elapsed_time(600);
 assert.equal(instance.hello, 50);
 assert.equal(instance.binding_dep, 125);
 // Remaining half
-sixtyfpslib.private_api.mock_elapsed_time(600);
+slintlib.private_api.mock_elapsed_time(600);
 assert.equal(instance.hello, 60);
 assert.equal(instance.binding_dep, 150);
-sixtyfpslib.private_api.mock_elapsed_time(100);
+slintlib.private_api.mock_elapsed_time(100);
 assert.equal(instance.hello, 60);
 assert.equal(instance.binding_dep, 150);
 
@@ -126,7 +126,7 @@ assert.equal(instance.binding_dep, 150);
 // querying the value (because te dirty event should cause the animation to start)
 instance.condition = true;
 instance.hello = 30;
-sixtyfpslib.private_api.mock_elapsed_time(600);
+slintlib.private_api.mock_elapsed_time(600);
 assert.equal(instance.hello, 45);
 assert.equal(instance.binding_dep, 125);
 

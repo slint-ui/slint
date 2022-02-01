@@ -56,7 +56,7 @@ assert_eq!(instance.get_i2(), 50);
 ```
 
 ```js
-var instance = new sixtyfps.TestCase({});
+var instance = new slint.TestCase({});
 assert.equal(instance.untyped_d1, 100);
 assert.equal(instance.untyped_d2, 3000);
 assert.equal(instance.untyped_d3, 1500);

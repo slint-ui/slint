@@ -32,7 +32,7 @@ For the nodejs backend, the following component are needed:
 * **python**
 
 It would be nice if building the nodejs backend was optional, but right now it is part of the workspace.
-You can still not build it by doing `cargo build --workspace --exclude sixtyfps-node`. But cargo test will fail.
+You can still not build it by doing `cargo build --workspace --exclude slint-node`. But cargo test will fail.
 
 ### For the C++ dev (optional)
 
@@ -95,7 +95,7 @@ This includes for example the Raspberry Pi OS. Using the following steps you can
 pi:
 
 ```sh
-cross build --target armv7-unknown-linux-gnueabihf --workspace --exclude sixtyfps-node --release
+cross build --target armv7-unknown-linux-gnueabihf --workspace --exclude slint-node --release
 scp target/armv7-unknown-linux-gnueabihf/release/printerdemo pi@raspberrypi.local:.
 ```
 

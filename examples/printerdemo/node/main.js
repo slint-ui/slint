@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 const path = require("path");
-let sixtyfps = require("sixtyfps");
+let slint = require("slint");
 
 let demo = require("../ui/printerdemo.60");
 let window = new demo.MainWindow();

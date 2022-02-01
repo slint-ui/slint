@@ -26,7 +26,7 @@ assert!((instance.get_t4() - 1.0).abs() < 0.0001);
 ```
 
 ```js
-var instance = new sixtyfps.TestCase({});
+var instance = new slint.TestCase({});
 assert(Math.abs(instance.t1) < 0.0001);
 assert(Math.abs(instance.t2) < 0.0001);
 assert(Math.abs(instance.t3 - 0.5) < 0.0001);

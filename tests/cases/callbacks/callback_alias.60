@@ -51,7 +51,7 @@ assert_eq(instance.invoke_call_foo2(100), 188);
 
 
 ```js
-var instance = new sixtyfps.TestCase();
+var instance = new slint.TestCase();
 assert.equal(instance.foo1_alias(100), 122);
 assert.equal(instance.foo2_alias(100), 188);
 assert.equal(instance.call_foo2(100), 188);

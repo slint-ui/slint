@@ -122,7 +122,7 @@ assert_eq!(instance.get_pointer_event_test().as_str(), "downleftclickupleft");
 ```
 
 ```js
-var instance = new sixtyfps.TestCase();
+var instance = new slint.TestCase();
 // does not click on anything
 instance.send_mouse_click(5., 5.);
 assert.equal(instance.touch1, 0);

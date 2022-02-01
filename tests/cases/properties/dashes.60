@@ -32,7 +32,7 @@ assert_eq!(instance.get_this__has_6_slashes__(), 86);
 ```
 
 ```js
-var instance = new sixtyfps.Test_Case({});
+var instance = new slint.Test_Case({});
 assert.equal(instance.property_x1, 42);
 assert.equal(instance.property_x2, 42);
 assert.equal(instance.this__has_6_slashes__, 86);

@@ -56,7 +56,7 @@ assert!(instance.get_check_ok());
 ```
 
 ```js
-var instance = new sixtyfps.TestCase();
+var instance = new slint.TestCase();
 instance.send_mouse_click(1., 1.);
 assert(instance.check_ok);
 ```

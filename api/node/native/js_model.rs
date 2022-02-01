@@ -29,7 +29,7 @@ impl JsModel {
             data_type,
         });
 
-        let mut notify = SixtyFpsModelNotify::new::<_, JsValue, _>(cx, std::iter::empty())?;
+        let mut notify = SlintModelNotify::new::<_, JsValue, _>(cx, std::iter::empty())?;
         cx.borrow_mut(&mut notify, |mut notify| notify.0 = Rc::downgrade(&model));
         let notify = notify.as_value(cx);
         obj.set(cx, "notify", notify)?;
@@ -112,7 +112,7 @@ impl Model for JsModel {
 struct WrappedJsModel(Weak<JsModel>);
 
 declare_types! {
-    class SixtyFpsModelNotify for WrappedJsModel {
+    class SlintModelNotify for WrappedJsModel {
         init(_) {
             Ok(WrappedJsModel(Weak::default()))
         }

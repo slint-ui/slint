@@ -43,7 +43,7 @@ assert!(instance.get_fake_image_height_ok());
 ```
 
 ```js
-var instance = new sixtyfps.TestCase();
+var instance = new slint.TestCase();
 instance.send_mouse_click(5., 5.);
 assert(instance.fake_image_width_ok);
 assert(instance.fake_image_height_ok);

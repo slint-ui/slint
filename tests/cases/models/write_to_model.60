@@ -111,7 +111,7 @@ assert_eq(another_model->row_count(), 3);
 
 
 ```js
-var instance = new sixtyfps.TestCase({});
+var instance = new slint.TestCase({});
 instance.send_mouse_click(15., 5.);
 assert.equal(instance.clicked_score, 792);
 
@@ -119,7 +119,7 @@ assert.equal(instance.model[1].score, 792.);
 instance.manual_score_update(1, 100);
 assert.equal(instance.model[1].score, 892.);
 
-let another_model = new sixtyfpslib.ArrayModel([
+let another_model = new slintlib.ArrayModel([
     {account: "a1", name: "hello", score: 111.},
     {account: "a2", name: "cruel", score: 222.},
     {account: "a3", name: "world", score: 333.},

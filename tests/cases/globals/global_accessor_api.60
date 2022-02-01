@@ -53,7 +53,7 @@ assert_eq(instance.global<PublicGlobal>().invoke_sum(4, 5), 9);
 ```
 
 ```js
-let instance = new sixtyfps.TestCase({});
+let instance = new slint.TestCase({});
 assert(!instance.test_global_prop_value);
 // TODO
 ```

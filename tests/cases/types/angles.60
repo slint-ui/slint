@@ -30,7 +30,7 @@ assert_eq!(t.get_test(), false);
 ```
 
 ```js
-var t = new sixtyfps.Test({});
+var t = new slint.Test({});
 assert.equal(t.angle, 90);
 assert(t.test);
 t.angle = 91;

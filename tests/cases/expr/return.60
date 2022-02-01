@@ -61,7 +61,7 @@ assert!(!instance.get_signal_handled());
 
 
 ```js
-var instance = new sixtyfps.TestCase({});
+var instance = new slint.TestCase({});
 assert.equal(instance.value, 100);
 assert(instance.test);
 instance.toggle = (true);

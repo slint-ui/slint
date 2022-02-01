@@ -66,6 +66,6 @@
     "disableSources": true,
     "theme": "minimal",
     "hideGenerator": true,
-    "name": "SixtyFPS Node"
+    "name": "Slint Node"
   }
 }

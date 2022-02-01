@@ -41,7 +41,7 @@ assert_eq!(instance.get_last_clicked(), 2);
 ```
 
 ```js
-var instance = new sixtyfps.TestCase();
+var instance = new slint.TestCase();
 assert.equal(instance.last_clicked, 0);
 instance.send_mouse_click(15., 145.);
 assert.equal(instance.last_clicked, 1);

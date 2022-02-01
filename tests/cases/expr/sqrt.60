@@ -20,7 +20,7 @@ assert!((instance.get_t2() - 1.414214).abs() < 0.0001);
 ```
 
 ```js
-var instance = new sixtyfps.TestCase({});
+var instance = new slint.TestCase({});
 assert.equal(instance.t1, 10);
 assert(Math.abs(instance.t2 - 1.414214) < 0.0001);
 ```

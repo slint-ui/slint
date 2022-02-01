@@ -18,7 +18,7 @@ assert_eq!(instance.get_some_prop(), 42);
 ```
 
 ```js
-var instance = new sixtyfps.MainWindow({});
+var instance = new slint.MainWindow({});
 assert.equal(instance.some_prop, 42);
 ```
 

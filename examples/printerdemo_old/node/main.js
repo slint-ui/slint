@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 // import "sixtyfps";
-require("sixtyfps");
+require("slint");
 // import * as demo from "../ui/printerdemo.60";
 let demo = require("../ui/printerdemo.60");
 let window = new demo.MainWindow();

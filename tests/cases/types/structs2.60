@@ -27,7 +27,7 @@ assert_eq(instance.invoke_cb1(Foo2{ Foo1{ 123 } }).b, 124);
 ```
 
 ```js
-var instance = new sixtyfps.TestCase();
+var instance = new slint.TestCase();
 assert.equal(instance.cb1({a: {member: 123}}).b, 124);
 ```
 

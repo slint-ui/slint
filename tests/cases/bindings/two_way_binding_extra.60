@@ -62,7 +62,7 @@ assert_eq(instance.get_result(), 685);
 
 
 ```js
-let instance = new sixtyfps.TestCase({});
+let instance = new slint.TestCase({});
 instance.send_mouse_click(70., 5.);
 instance.send_mouse_click(85., 55.);
 assert.equal(instance.result, 345);

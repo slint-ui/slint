@@ -32,7 +32,7 @@ assert_eq(instance.get_value1(), 4+3);
 ```
 
 ```js
-let instance = new sixtyfps.TestCase({});
+let instance = new slint.TestCase({});
 assert.equal(instance.value1, 3+3);
 instance.set_a(4);
 assert.equal(instance.value1, 4+3);

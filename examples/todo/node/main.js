@@ -3,12 +3,12 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 // import "sixtyfps";
-let sixtyfps = require("sixtyfps");
+let slint = require("slint");
 // import * as demo from "../ui/todo.60";
 let demo = require("../ui/todo.60");
 let app = new demo.MainWindow();
 
-let model = new sixtyfps.ArrayModel([
+let model = new slint.ArrayModel([
     {
         title: "Implement the .60 file",
         checked: true

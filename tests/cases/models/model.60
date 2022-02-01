@@ -150,7 +150,7 @@ assert_eq(instance.get_clicked_index(), 1);
 ```
 
 ```js
-var instance = new sixtyfps.TestCase({});
+var instance = new slint.TestCase({});
 
 // there should be nothing there
 instance.send_mouse_click(25., 5.);
@@ -161,7 +161,7 @@ instance.send_mouse_click(15., 5.);
 assert.equal(instance.clicked_score, 789000);
 assert.equal(instance.clicked_internal_state, 1);
 
-let another_model = new sixtyfpslib.ArrayModel([
+let another_model = new slintlib.ArrayModel([
     {account: "a1", name: "hello", score: 111.},
     {account: "a2", name: "cruel", score: 222.},
     {account: "a3", name: "world", score: 333.},

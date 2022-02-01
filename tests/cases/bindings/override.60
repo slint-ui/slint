@@ -40,7 +40,7 @@ assert_eq(instance.get_prop_text(), sixtyfps::SharedString("world"));
 ```
 
 ```js
-let instance = new sixtyfps.TestCase({});
+let instance = new slint.TestCase({});
 assert.equal(instance.prop_a, 1);
 assert.equal(instance.prop_b, 2);
 assert.equal(instance.prop_text, "world");

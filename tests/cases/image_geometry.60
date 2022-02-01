@@ -72,7 +72,7 @@ assert!(instance.get_image_with_missing_width_ok());
 ```
 
 ```js
-var instance = new sixtyfps.TestCase();
+var instance = new slint.TestCase();
 assert(instance.fixed_image_default_image_fit_ok);
 assert(instance.fixed_image_image_fit_override_ok);
 assert(instance.image_in_layout_fit_ok);

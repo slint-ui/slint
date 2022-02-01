@@ -77,7 +77,7 @@ assert_eq(instance.get_r5(), "__abcdefghij__");
 ```
 
 ```js
-var instance = new sixtyfps.TestCase();
+var instance = new slint.TestCase();
 instance.send_mouse_click(50., 50.);
 instance.send_keyboard_string_sequence("__abcdefghij__");
 assert.equal(instance.r1, "__afghij__");

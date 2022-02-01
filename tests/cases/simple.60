@@ -15,7 +15,7 @@ TestCase::new();
 ```
 
 ```js
-var x = new sixtyfps.TestCase({});
+var x = new slint.TestCase({});
 ```
 
 */

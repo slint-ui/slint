@@ -99,7 +99,7 @@ assert_eq(instance.get_unset_property(), 100);
 ```
 
 ```js
-var instance = new sixtyfps.TestCase({});
+var instance = new slint.TestCase({});
 assert.equal(instance.hello, 40);
 assert.equal(instance.binding_dep, 100);
 assert.equal(instance.unset_property, 0);
@@ -110,16 +110,16 @@ assert.equal(instance.binding_dep, 100);
 assert.equal(instance.unset_property, 0);
 
 // Half the animation
-sixtyfpslib.private_api.mock_elapsed_time(600);
+slintlib.private_api.mock_elapsed_time(600);
 assert.equal(instance.hello, 50);
 assert.equal(instance.binding_dep, 125);
 assert.equal(instance.unset_property, 50);
 // Remaining half
-sixtyfpslib.private_api.mock_elapsed_time(600);
+slintlib.private_api.mock_elapsed_time(600);
 assert.equal(instance.hello, 60);
 assert.equal(instance.binding_dep, 150);
 assert.equal(instance.unset_property, 100);
-sixtyfpslib.private_api.mock_elapsed_time(100);
+slintlib.private_api.mock_elapsed_time(100);
 assert.equal(instance.hello, 60);
 assert.equal(instance.binding_dep, 150);
 assert.equal(instance.unset_property, 100);

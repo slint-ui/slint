@@ -23,10 +23,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let nodejs_native_lib_name = {
         let (prefix, suffix) = os_dylib_prefix_and_suffix();
-        format!("{}sixtyfps_node_native.{}", prefix, suffix)
+        format!("{}slint_node_native.{}", prefix, suffix)
     };
     println!(
-        "cargo:rustc-env=SIXTYFPS_NODE_NATIVE_LIB={}",
+        "cargo:rustc-env=SLINT_NODE_NATIVE_LIB={}",
         target_dir.join(nodejs_native_lib_name).display()
     );
 

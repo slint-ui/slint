@@ -69,7 +69,7 @@ assert_eq(instance.get_input2_text(), "Only for field 2");
 ```
 
 ```js
-var instance = new sixtyfps.TestCase();
+var instance = new slint.TestCase();
 assert(!instance.input1_focused);
 assert(!instance.input2_focused);
 

@@ -105,7 +105,7 @@ Each test is run in a different node process.
 You need to build the node integration before running the tests, even if the change was on the compiler
 
 ```
-cargo  build -p sixtyfps-node  && cargo  test -p test-driver-nodejs
+cargo  build -p slint-node  && cargo  test -p test-driver-nodejs
 ```
 
 

@@ -49,7 +49,7 @@ assert_eq(instance.invoke_test_func2("xxx", 1), sixtyfps::SharedString("xxx=3"))
 
 
 ```js
-var instance = new sixtyfps.TestCase({
+var instance = new slint.TestCase({
     test_func: function(a) { return instance.some_value * a; }
 });
 assert.equal(instance.test_prop, 4 + 16);

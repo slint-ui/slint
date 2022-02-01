@@ -122,7 +122,7 @@ assert_eq!(t.get_i1().blue(), 0);
 ```
 
 ```js
-var t = new sixtyfps.Test({});
+var t = new slint.Test({});
 assert(t.r1 == t.r2);
 assert(t.r1 == t.r3);
 assert(t.r1 == t.r4);

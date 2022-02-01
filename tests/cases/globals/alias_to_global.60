@@ -44,7 +44,7 @@ assert(instance.get_test());
 ```
 
 ```js
-let instance = new sixtyfps.TestCase({});
+let instance = new slint.TestCase({});
 assert(instance.test);
 assert.equal(instance.alias_to_global, 42);
 instance.alias_to_global = 123;

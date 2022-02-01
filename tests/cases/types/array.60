@@ -11,7 +11,7 @@ TestCase := Rectangle {
 
 /*
 ```js
-var instance = new sixtyfps.TestCase({});
+var instance = new slint.TestCase({});
 assert.deepEqual(instance.p1, [12, 13]);
 assert.deepEqual(instance.p2, [14, 15.5]);
 assert.deepEqual(instance.p3, []);

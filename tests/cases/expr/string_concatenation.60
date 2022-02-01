@@ -41,7 +41,7 @@ assert_eq!(instance.get_s4(), sixtyfps::SharedString::from("ayoxxx"));
 ```
 
 ```js
-var instance = new sixtyfps.TestCase({});
+var instance = new slint.TestCase({});
 assert.equal(instance.s1, "hello1212");
 assert.equal(instance.s2, "10hello5.1");
 instance.a = 42;

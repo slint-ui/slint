@@ -51,7 +51,7 @@ assert_eq(instance.get_otw_opacity(), 0.5);
 
 
 ```js
-let instance = new sixtyfps.TestCase({});
+let instance = new slint.TestCase({});
 assert.equal(instance.compo0_foo, 140);
 assert.equal(instance.compo2_foo, 130);
 assert.equal(instance.otw_opacity, 0.5);

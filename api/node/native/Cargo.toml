@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "sixtyfps-node"
+name = "slint-node"
 version = "0.2.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2021"
@@ -17,7 +17,7 @@ homepage = "https://sixtyfps.io"
 [lib]
 path = "lib.rs"
 crate-type = ["cdylib"]
-name = "sixtyfps_node_native"
+name = "slint_node_native"
 
 [dependencies]
 slint-compiler-internal = { version = "=0.2.0", path="../../../internal/compiler" }

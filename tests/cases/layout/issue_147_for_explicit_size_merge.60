@@ -77,7 +77,7 @@ assert_eq!(instance.get_last_clicked(), 1);
 ```
 
 ```js
-var instance = new sixtyfps.TestCase();
+var instance = new slint.TestCase();
 
 // aim at the padding
 instance.send_mouse_click(5., 100.);

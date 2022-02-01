@@ -113,7 +113,7 @@ assert_eq!(instance.get_touch_error(), 0);
 ```
 
 ```js
-var instance = new sixtyfps.TestCase();
+var instance = new slint.TestCase();
 
 instance.send_mouse_click(38., 5.);
 assert.equal(instance.touch1, 0);

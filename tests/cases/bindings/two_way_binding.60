@@ -150,7 +150,7 @@ assert_eq(instance.get_othercomp_some_value_alias2(), 1);
 
 
 ```js
-let instance = new sixtyfps.TestCase({});
+let instance = new slint.TestCase({});
 assert.equal(instance.text1, "Hello");
 assert.equal(instance.text2, "Blah");
 assert.equal(instance.ti1_text, "Hello");

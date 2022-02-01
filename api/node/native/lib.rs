@@ -49,11 +49,11 @@ fn run_with_global_context(f: &GlobalContextCallback) {
 ///
 /// The first argument of this function is a string to the .60 file
 ///
-/// The return value is a SixtyFpsComponentType
+/// The return value is a SlintComponentType
 fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
     let path = cx.argument::<JsString>(0)?.value();
     let path = std::path::Path::new(path.as_str());
-    let include_paths = match std::env::var_os("SIXTYFPS_INCLUDE_PATH") {
+    let include_paths = match std::env::var_os("SLINT_INCLUDE_PATH") {
         Some(paths) => {
             std::env::split_paths(&paths).filter(|path| !path.as_os_str().is_empty()).collect()
         }
@@ -67,7 +67,7 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
 
     let c = if let Some(c) = c { c } else { return cx.throw_error("Compilation error") };
 
-    let mut obj = SixtyFpsComponentType::new::<_, JsValue, _>(&mut cx, std::iter::empty())?;
+    let mut obj = SlintComponentType::new::<_, JsValue, _>(&mut cx, std::iter::empty())?;
     cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(c));
     Ok(obj.as_value(&mut cx))
 }
@@ -146,7 +146,7 @@ fn create<'cx>(
         }
     }
 
-    let mut obj = SixtyFpsComponent::new::<_, JsValue, _>(cx, std::iter::empty())?;
+    let mut obj = SlintComponent::new::<_, JsValue, _>(cx, std::iter::empty())?;
     persistent_context.save_to_object(cx, obj.downcast().unwrap());
     cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(component));
     Ok(obj.as_value(cx))
@@ -237,7 +237,7 @@ fn to_eval_value<'cx>(
         | Type::Component(_)
         | Type::PathData
         | Type::LayoutCache
-        | Type::ElementReference => cx.throw_error("Cannot convert to a Sixtyfps property value"),
+        | Type::ElementReference => cx.throw_error("Cannot convert to a Slint property value"),
     }
 }
 
@@ -294,7 +294,7 @@ fn to_js_value<'cx>(
 }
 
 declare_types! {
-    class SixtyFpsComponentType for WrappedComponentType {
+    class SlintComponentType for WrappedComponentType {
         init(_) {
             Ok(WrappedComponentType(None))
         }
@@ -336,7 +336,7 @@ declare_types! {
         }
     }
 
-    class SixtyFpsComponent for WrappedComponentRc {
+    class SlintComponent for WrappedComponentRc {
         init(_) {
             Ok(WrappedComponentRc(None))
         }
@@ -355,7 +355,7 @@ declare_types! {
             let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             let window = component.window().window_handle().clone();
-            let mut obj = SixtyFpsWindow::new::<_, JsValue, _>(&mut cx, std::iter::empty())?;
+            let mut obj = SlintWindow::new::<_, JsValue, _>(&mut cx, std::iter::empty())?;
             cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(window));
             Ok(obj.as_value(&mut cx))
         }
@@ -485,7 +485,7 @@ declare_types! {
         }
     }
 
-    class SixtyFpsWindow for WrappedWindow {
+    class SlintWindow for WrappedWindow {
         init(_) {
             Ok(WrappedWindow(None))
         }
@@ -509,7 +509,7 @@ declare_types! {
 }
 
 fn singleshot_timer_property(id: u32) -> String {
-    format!("$__sixtyfps_singleshot_timer_{}", id)
+    format!("$__slint_singleshot_timer_{}", id)
 }
 
 fn singleshot_timer(mut cx: FunctionContext) -> JsResult<JsValue> {

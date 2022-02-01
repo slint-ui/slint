@@ -99,7 +99,7 @@ assert!(instance.get_test5());
 ```
 
 ```js
-var instance = new sixtyfps.TestCase({});
+var instance = new slint.TestCase({});
 assert(instance.test1);
 assert(instance.test2);
 assert(instance.test3);

@@ -51,7 +51,7 @@ assert_eq(instance.get_profit(), 1000);
 ```
 
 ```js
-let instance = new sixtyfps.TestCase({
+let instance = new slint.TestCase({
     sum: function(a, b) { return a + b; },
     mul: function(a, b) { return a * b; }
 });

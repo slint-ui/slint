@@ -51,7 +51,7 @@ assert_eq!(instance.get_controlled_test_length(), 100.);
 ```
 
 ```js
-var instance = new sixtyfps.TestCase({});
+var instance = new slint.TestCase({});
 assert.equal(instance.test_length, 300.);
 assert.equal(instance.test_inner_inner_length, 300. / 4.);
 

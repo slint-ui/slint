@@ -54,7 +54,7 @@ assert_eq!(callback_3_emited.get(), 1);
 
 ```js
 var callback_3_emited = 0;
-var instance = new sixtyfps.TestCase({
+var instance = new slint.TestCase({
     test_callback3: function() { callback_3_emited++; }
 });
 instance.callback_emission_count = 0;

@@ -26,7 +26,7 @@ assert_eq!(instance.get_t4(), 42);
 ```
 
 ```js
-var instance = new sixtyfps.TestCase({});
+var instance = new slint.TestCase({});
 assert(Math.abs(instance.t1 - 42.3) < 0.0001);
 assert(Math.abs(instance.t2 - 42.3) < 0.0001);
 assert.equal(instance.t3, 42);

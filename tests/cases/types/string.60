@@ -32,7 +32,7 @@ assert!(!instance.get_e2());
 ```
 
 ```js
-var instance = new sixtyfps.TestCase({});
+var instance = new slint.TestCase({});
 assert.equal(instance.p1, "hello");
 assert.equal(instance.p2, "fox:🦊");
 assert.equal(instance.p3, "with\"quote\\\"\u0008");

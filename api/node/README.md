@@ -20,10 +20,10 @@ npm install sixtyfps
 
 ## Using SixtyFPS
 
-To initialize the API, you first need to import the `sixtyfps` module in our code:
+To initialize the API, you first need to import the `slint` module in our code:
 
 ```js
-let sixtyfps = require("sixtyfps");
+let slint = require("slint");
 ```
 
 This step also installs a hook in NodeJS that allows you to import `.60` files directly:
@@ -35,7 +35,7 @@ let ui = require("../ui/main.60");
 Combining these two steps leads us to the obligator "Hello World" example:
 
 ```js
-require("sixtyfps");
+require("slint");
 let ui = require("../ui/main.60");
 let main = new ui.Main();
 main.run();
@@ -51,7 +51,7 @@ The exported component is exposed as a type constructor. The type constructor ta
 an object which allow to initialize the value of public properties or callbacks.
 
 ```js
-require("sixtyfps");
+require("slint");
 // In this example, the main.60 file exports a module which
 // has a counter property and a clicked callback
 let ui = require("ui/main.60");

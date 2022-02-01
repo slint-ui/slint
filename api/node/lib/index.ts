@@ -9,7 +9,7 @@
  */
 function load_native_lib() {
     const os = require('os');
-    (process as any).dlopen(module, process.env.SIXTYFPS_NODE_NATIVE_LIB,
+    (process as any).dlopen(module, process.env.SLINT_NODE_NATIVE_LIB,
         os.constants.dlopen.RTLD_NOW);
     return module.exports;
 }
@@ -17,7 +17,7 @@ function load_native_lib() {
 /**
  * @hidden
  */
-let native = !process.env.SIXTYFPS_NODE_NATIVE_LIB ? require('../native/index.node') : load_native_lib();
+let native = !process.env.SLINT_NODE_NATIVE_LIB ? require('../native/index.node') : load_native_lib();
 
 /**
  * @hidden
@@ -67,7 +67,7 @@ interface Callback {
     setHandler(cb: any): void;
 }
 
-require.extensions['.60'] =
+require.extensions['.60'] = require.extensions['.slint'] =
     function (module, filename) {
         var c = native.load(filename);
         module.exports[c.name().replace(/-/g, '_')] = function (init_properties: any) {

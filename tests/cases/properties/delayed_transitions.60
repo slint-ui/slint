@@ -190,7 +190,7 @@ assert_eq(instance.get_other_prop(), 5000);
 ```
 
 ```js
-var instance = new sixtyfps.TestCase({});
+var instance = new slint.TestCase({});
 assert.equal(instance.text1_foo, 85 + 4);
 assert.equal(instance.some_prop, 5);
 assert.equal(instance.other_prop, 5000);
@@ -200,45 +200,45 @@ assert.equal(instance.text1_foo, 11);
 assert.equal(instance.some_prop, 5);
 assert.equal(instance.other_prop, 5000);
 
-sixtyfpslib.private_api.mock_elapsed_time(50); // In delay
+slintlib.private_api.mock_elapsed_time(50); // In delay
 assert.equal(instance.text1_foo, 11);
 assert.equal(instance.some_prop, 5);
 assert.equal(instance.other_prop, 5000);
 
-sixtyfpslib.private_api.mock_elapsed_time(50); // some: in delay, other: end of delay
+slintlib.private_api.mock_elapsed_time(50); // some: in delay, other: end of delay
 assert.equal(instance.text1_foo, 11);
 assert.equal(instance.some_prop, 5);
 assert.equal(instance.other_prop, 5000);
 
-sixtyfpslib.private_api.mock_elapsed_time(50); // some: in delay, other: in play for 50ms [150ms]
+slintlib.private_api.mock_elapsed_time(50); // some: in delay, other: in play for 50ms [150ms]
 assert.equal(instance.text1_foo, 11);
 assert.equal(instance.some_prop, 5);
 assert(instance.other_prop < 4760); // should be 4750
 assert(instance.other_prop > 4740);
 
-sixtyfpslib.private_api.mock_elapsed_time(800); // some: in delay, other: in play for 850ms [950ms]
+slintlib.private_api.mock_elapsed_time(800); // some: in delay, other: in play for 850ms [950ms]
 assert.equal(instance.text1_foo, 11);
 assert.equal(instance.some_prop, 5);
 assert(instance.other_prop < 760); // should be 750
 assert(instance.other_prop > 740);
 
-sixtyfpslib.private_api.mock_elapsed_time(160); // some: in delay, other: ended [111ßms]
+slintlib.private_api.mock_elapsed_time(160); // some: in delay, other: ended [111ßms]
 assert.equal(instance.text1_foo, 11);
 assert.equal(instance.some_prop, 5);
 assert.equal(instance.other_prop, 0);
 
-sixtyfpslib.private_api.mock_elapsed_time(3840); // some: in delay, other: ended [4950ms]
+slintlib.private_api.mock_elapsed_time(3840); // some: in delay, other: ended [4950ms]
 assert.equal(instance.text1_foo, 11);
 assert.equal(instance.some_prop, 5);
 assert.equal(instance.other_prop, 0);
 
-sixtyfpslib.private_api.mock_elapsed_time(60); // some: in play for 10ms, other: ended [5010ms]
+slintlib.private_api.mock_elapsed_time(60); // some: in play for 10ms, other: ended [5010ms]
 assert.equal(instance.text1_foo, 11);
 assert(instance.some_prop > 202); // should be 204,5
 assert(instance.some_prop < 207);
 assert.equal(instance.other_prop, 0);
 
-sixtyfpslib.private_api.mock_elapsed_time(100); // some: ended, other: ended [5110ms]
+slintlib.private_api.mock_elapsed_time(100); // some: ended, other: ended [5110ms]
 assert.equal(instance.text1_foo, 11);
 assert.equal(instance.some_prop, 2000);
 assert.equal(instance.other_prop, 0);
@@ -248,18 +248,18 @@ assert.equal(instance.text1_foo, 11);
 assert.equal(instance.some_prop, 5);
 assert.equal(instance.other_prop, 5000);
 
-sixtyfpslib.private_api.mock_elapsed_time(50); // In delay
+slintlib.private_api.mock_elapsed_time(50); // In delay
 assert.equal(instance.text1_foo, 11);
 assert.equal(instance.some_prop, 5);
 assert.equal(instance.other_prop, 5000);
 
-sixtyfpslib.private_api.mock_elapsed_time(440);
+slintlib.private_api.mock_elapsed_time(440);
 assert(instance.text1_foo > 70);
 assert(instance.text1_foo < 87);
 assert.equal(instance.some_prop, 5);
 assert.equal(instance.other_prop, 5000);
 
-sixtyfpslib.private_api.mock_elapsed_time(30);
+slintlib.private_api.mock_elapsed_time(30);
 assert.equal(instance.text1_foo, 85 + 4);
 assert.equal(instance.some_prop, 5);
 assert.equal(instance.other_prop, 5000);

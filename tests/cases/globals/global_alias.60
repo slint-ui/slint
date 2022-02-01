@@ -40,7 +40,7 @@ assert_eq(instance.global<GlobalAlias>().get_hello(), 100);
 ```
 
 ```js
-let instance = new sixtyfps.TestCase({});
+let instance = new slint.TestCase({});
 assert(!instance.test_global_prop_value);
 // TODO
 ```

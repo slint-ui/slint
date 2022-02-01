@@ -39,7 +39,7 @@ assert_eq!(instance.get_test_value3(), 12.);
 ```
 
 ```js
-var instance = new sixtyfps.TestCase({});
+var instance = new slint.TestCase({});
 instance.condition = true;
 assert.equal(instance.test_value, 1);
 assert.equal(instance.test_value2, 2);

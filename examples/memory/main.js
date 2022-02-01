@@ -2,7 +2,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-let sixtyfps = require("sixtyfps");
+let slint = require("slint");
 let ui = require("./memory.60");
 let window = new ui.MainWindow();
 
@@ -14,7 +14,7 @@ for (let i = tiles.length - 1; i > 0; i--) {
     [tiles[i], tiles[j]] = [tiles[j], tiles[i]];
 }
 
-let model = new sixtyfps.ArrayModel(tiles);
+let model = new slint.ArrayModel(tiles);
 window.memory_tiles = model
 
 window.check_if_pair_solved.setHandler(function () {

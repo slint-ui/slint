@@ -115,7 +115,7 @@ assert(instance.get_input3_focused());
 ```
 
 ```js
-var instance = new sixtyfps.TestCase();
+var instance = new slint.TestCase();
 assert(!instance.input1_focused);
 assert(!instance.input2_focused);
 assert(!instance.input3_focused);
