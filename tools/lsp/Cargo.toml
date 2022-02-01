@@ -22,17 +22,17 @@ name = "sixtyfps-lsp"
 path = "main.rs"
 
 [features]
-sixtyfps-backend-gl = ["sixtyfps-interpreter/backend-gl"]
-sixtyfps-backend-qt = ["sixtyfps-interpreter/backend-qt"]
-wayland = ["sixtyfps-interpreter/wayland"]
-x11 = ["sixtyfps-interpreter/x11"]
+sixtyfps-backend-gl = ["slint-interpreter/backend-gl"]
+sixtyfps-backend-qt = ["slint-interpreter/backend-qt"]
+wayland = ["slint-interpreter/wayland"]
+x11 = ["slint-interpreter/x11"]
 
 default = ["sixtyfps-backend-qt", "sixtyfps-backend-gl", "x11"]
 
 [dependencies]
 slint-compiler-internal = { version = "=0.2.0", path = "../../internal/compiler"}
 slint-core-internal = { version = "=0.2.0", path = "../../internal/core"}
-sixtyfps-interpreter = { version = "=0.2.0", path = "../../internal/interpreter", default-features = false, features = ["compat-0-2-0"] }
+slint-interpreter = { version = "=0.2.0", path = "../../internal/interpreter", default-features = false, features = ["compat-0-2-0"] }
 slint-backend-selector-internal = { version = "=0.2.0", path="../../internal/backends/selector" }
 
 clap = { version = "3.0.5", features=["derive", "wrap_help"] }

@@ -3,9 +3,9 @@
 
 #![doc = include_str!("README.md")]
 
-use sixtyfps_interpreter::{ComponentHandle, ComponentInstance, SharedString, Value};
 use slint_core_internal::model::{Model, ModelRc};
 use slint_core_internal::SharedVector;
+use slint_interpreter::{ComponentHandle, ComponentInstance, SharedString, Value};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -78,7 +78,7 @@ fn main() -> Result<()> {
     let mut compiler = init_compiler(&args, fswatcher);
 
     let c = spin_on::spin_on(compiler.build_from_path(args.path));
-    sixtyfps_interpreter::print_diagnostics(compiler.diagnostics());
+    slint_interpreter::print_diagnostics(compiler.diagnostics());
 
     let c = match c {
         Some(c) => c,
@@ -102,19 +102,19 @@ fn main() -> Result<()> {
     if let Some(data_path) = args.save_data {
         let mut obj = serde_json::Map::new();
         for (name, _) in c.properties() {
-            fn to_json(val: sixtyfps_interpreter::Value) -> Option<serde_json::Value> {
+            fn to_json(val: slint_interpreter::Value) -> Option<serde_json::Value> {
                 match val {
-                    sixtyfps_interpreter::Value::Number(x) => Some(x.into()),
-                    sixtyfps_interpreter::Value::String(x) => Some(x.as_str().into()),
-                    sixtyfps_interpreter::Value::Bool(x) => Some(x.into()),
-                    sixtyfps_interpreter::Value::Model(model) => {
+                    slint_interpreter::Value::Number(x) => Some(x.into()),
+                    slint_interpreter::Value::String(x) => Some(x.as_str().into()),
+                    slint_interpreter::Value::Bool(x) => Some(x.into()),
+                    slint_interpreter::Value::Model(model) => {
                         let mut res = Vec::with_capacity(model.row_count());
                         for i in 0..model.row_count() {
                             res.push(to_json(model.row_data(i).unwrap())?);
                         }
                         Some(serde_json::Value::Array(res))
                     }
-                    sixtyfps_interpreter::Value::Struct(st) => {
+                    slint_interpreter::Value::Struct(st) => {
                         let mut obj = serde_json::Map::new();
                         for (k, v) in st.iter() {
                             obj.insert(k.into(), to_json(v.clone())?);
@@ -141,8 +141,8 @@ fn main() -> Result<()> {
 fn init_compiler(
     args: &Cli,
     fswatcher: Option<Arc<Mutex<notify::RecommendedWatcher>>>,
-) -> sixtyfps_interpreter::ComponentCompiler {
-    let mut compiler = sixtyfps_interpreter::ComponentCompiler::default();
+) -> slint_interpreter::ComponentCompiler {
+    let mut compiler = slint_interpreter::ComponentCompiler::default();
     compiler.set_include_paths(args.include_paths.clone());
     if let Some(style) = &args.style {
         compiler.set_style(style.clone());
@@ -223,7 +223,7 @@ fn start_fswatch_thread(args: Cli) -> Result<Arc<Mutex<notify::RecommendedWatche
 async fn reload(args: Cli, fswatcher: Arc<Mutex<notify::RecommendedWatcher>>) {
     let mut compiler = init_compiler(&args, Some(fswatcher));
     let c = compiler.build_from_path(&args.path).await;
-    sixtyfps_interpreter::print_diagnostics(compiler.diagnostics());
+    slint_interpreter::print_diagnostics(compiler.diagnostics());
 
     if let Some(c) = c {
         CURRENT_INSTANCE.with(|current| {
@@ -258,23 +258,23 @@ fn load_data(instance: &ComponentInstance, data_path: &std::path::Path) -> Resul
 
     let obj = json.as_object().ok_or("The data is not a JSON object")?;
     for (name, v) in obj {
-        fn from_json(v: &serde_json::Value) -> sixtyfps_interpreter::Value {
+        fn from_json(v: &serde_json::Value) -> slint_interpreter::Value {
             match v {
-                serde_json::Value::Null => sixtyfps_interpreter::Value::Void,
+                serde_json::Value::Null => slint_interpreter::Value::Void,
                 serde_json::Value::Bool(b) => (*b).into(),
                 serde_json::Value::Number(n) => {
-                    sixtyfps_interpreter::Value::Number(n.as_f64().unwrap_or(f64::NAN))
+                    slint_interpreter::Value::Number(n.as_f64().unwrap_or(f64::NAN))
                 }
                 serde_json::Value::String(s) => SharedString::from(s.as_str()).into(),
-                serde_json::Value::Array(array) => sixtyfps_interpreter::Value::Model(
-                    ModelRc::new(slint_core_internal::model::SharedVectorModel::from(
+                serde_json::Value::Array(array) => slint_interpreter::Value::Model(ModelRc::new(
+                    slint_core_internal::model::SharedVectorModel::from(
                         array.iter().map(from_json).collect::<SharedVector<Value>>(),
-                    )),
-                ),
+                    ),
+                )),
                 serde_json::Value::Object(obj) => obj
                     .iter()
                     .map(|(k, v)| (k.clone(), from_json(v)))
-                    .collect::<sixtyfps_interpreter::Struct>()
+                    .collect::<slint_interpreter::Struct>()
                     .into(),
             }
         }

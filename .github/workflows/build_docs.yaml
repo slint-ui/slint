@@ -77,7 +77,7 @@ jobs:
       with:
           command: doc
           toolchain: nightly
-          args: -p sixtyfps -p sixtyfps-build -p sixtyfps-interpreter --no-deps --all-features
+          args: -p sixtyfps -p sixtyfps-build -p slint-interpreter --no-deps --all-features
     - name: "Rust Tutorial Docs"
       run: mdbook build
       working-directory: docs/tutorial/rust

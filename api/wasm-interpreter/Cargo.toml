@@ -16,7 +16,7 @@ homepage = "https://sixtyfps.io"
 crate-type = ["cdylib"]
 
 [dependencies]
-sixtyfps-interpreter = { path = "../../internal/interpreter" }
+slint-interpreter = { path = "../../internal/interpreter" }
 
 vtable = { version = "0.1.1", path="../../helper_crates/vtable" }
 

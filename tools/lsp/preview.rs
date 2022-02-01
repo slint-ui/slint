@@ -16,7 +16,7 @@ use clap::Parser;
 
 use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
 
-use sixtyfps_interpreter::ComponentHandle;
+use slint_interpreter::ComponentHandle;
 
 #[derive(PartialEq)]
 enum RequestedGuiEventLoopState {
@@ -202,7 +202,7 @@ async fn reload_preview(
         cache.current = preview_component.clone();
     }
 
-    let mut builder = sixtyfps_interpreter::ComponentCompiler::default();
+    let mut builder = slint_interpreter::ComponentCompiler::default();
     let cli_args = super::Cli::parse();
     if !cli_args.style.is_empty() {
         builder.set_style(cli_args.style)
@@ -229,7 +229,7 @@ async fn reload_preview(
     if let Some(compiled) = compiled {
         #[derive(Default)]
         struct PreviewState {
-            handle: Option<sixtyfps_interpreter::ComponentInstance>,
+            handle: Option<slint_interpreter::ComponentInstance>,
         }
         thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
         PREVIEW_STATE.with(|preview_state| {
@@ -256,7 +256,7 @@ async fn reload_preview(
 }
 
 fn notify_diagnostics(
-    diagnostics: &[sixtyfps_interpreter::Diagnostic],
+    diagnostics: &[slint_interpreter::Diagnostic],
     sender: &crossbeam_channel::Sender<Message>,
 ) -> Option<()> {
     let mut lsp_diags: HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> = Default::default();

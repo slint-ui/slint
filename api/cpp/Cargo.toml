@@ -24,7 +24,7 @@ crate-type = ["lib", "cdylib"]
 [features]
 backend-gl = ["slint-backend-selector-internal/slint-backend-gl-internal"]
 backend-qt = ["slint-backend-selector-internal/slint-backend-qt-internal"]
-interpreter = ["sixtyfps-interpreter"]
+interpreter = ["slint-interpreter"]
 testing = ["slint-backend-testing-internal"] # Enable some function used by the integration tests
 wayland = ["slint-backend-selector-internal/wayland"]
 x11 = ["slint-backend-selector-internal/x11"]
@@ -33,7 +33,7 @@ default = ["backend-gl", "x11", "backend-qt"]
 
 [dependencies]
 slint-core-internal = { version = "=0.2.0", path="../../internal/core", features = ["ffi"] }
-sixtyfps-interpreter = { version = "=0.2.0", path="../../internal/interpreter", default-features = false, features = ["ffi", "compat-0-2-0"], optional = true }
+slint-interpreter = { version = "=0.2.0", path="../../internal/interpreter", default-features = false, features = ["ffi", "compat-0-2-0"], optional = true }
 slint-backend-selector-internal = { version = "=0.2.0", path="../../internal/backends/selector" }
 slint-backend-testing-internal = { version = "=0.2.0", path="../../internal/backends/testing", optional = true }
 

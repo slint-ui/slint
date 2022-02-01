@@ -15,7 +15,7 @@ name = "doctests"
 
 [dev-dependencies]
 slint-compiler-internal = { path = "../../internal/compiler", features = ["display-diagnostics"] }
-sixtyfps-interpreter = { path = "../../internal/interpreter" }
+slint-interpreter = { path = "../../internal/interpreter" }
 sixtyfps = { path = "../../api/sixtyfps-rs" }
 
 lazy_static = "1.4.0"

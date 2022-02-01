@@ -26,7 +26,7 @@ of including them in Rust:
 
  - The `.60` code is [inline in a macro](#the-60-code-in-a-macro).
  - The `.60` code in [external files compiled with `build.rs`](#the-60-code-in-external-files-is-compiled-with-buildrs)
- - The `.60` code is loaded dynamically at run-time from the file system, by using the [interpreter API](https://docs.rs/sixtyfps-interpreter/latest/sixtyfps_interpreter/).
+ - The `.60` code is loaded dynamically at run-time from the file system, by using the [interpreter API](https://docs.rs/slint-interpreter/latest/slint_interpreter/).
 
 With the first two methods, the markup code is translated to Rust code and each component is turned into a Rust
 struct with functions. Use these functions to instantiate and show the component, and

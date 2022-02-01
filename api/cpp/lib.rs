@@ -11,8 +11,8 @@ use slint_core_internal::window::WindowRc;
 #[doc(hidden)]
 #[cold]
 pub fn use_modules() -> usize {
-    #[cfg(feature = "sixtyfps-interpreter")]
-    sixtyfps_interpreter::use_modules();
+    #[cfg(feature = "slint-interpreter")]
+    slint_interpreter::use_modules();
     slint_backend_selector_internal::use_modules();
     slint_core_internal::use_modules()
 }

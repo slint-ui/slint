@@ -24,13 +24,13 @@ executor, such as the one provided by the `spin_on` crate
 This example loads a `.60` dynamically from a path and show errors if any:
 
 ```rust
-use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, ComponentHandle};
+use slint_interpreter::{ComponentDefinition, ComponentCompiler, ComponentHandle};
 
 let mut compiler = ComponentCompiler::default();
 let definition =
     spin_on::spin_on(compiler.build_from_path("hello.60"));
 # #[cfg(feature="print_diagnostics")]
-sixtyfps_interpreter::print_diagnostics(&compiler.diagnostics());
+slint_interpreter::print_diagnostics(&compiler.diagnostics());
 if let Some(definition) = definition {
     let instance = definition.create();
     instance.run();
@@ -40,7 +40,7 @@ if let Some(definition) = definition {
 This example load a `.60` from a string and set some properties:
 
 ```rust
-use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString, ComponentHandle};
+use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString, ComponentHandle};
 
 let code = r#"
     MyWin := Window {

@@ -4,17 +4,17 @@
 use core::cell::RefCell;
 use neon::prelude::*;
 use rand::RngCore;
-use sixtyfps_interpreter::ComponentHandle;
 use slint_compiler_internal::langtype::Type;
 use slint_core_internal::model::{Model, ModelRc};
 use slint_core_internal::window::WindowHandleAccess;
 use slint_core_internal::{ImageInner, SharedVector};
+use slint_interpreter::ComponentHandle;
 
 mod js_model;
 mod persistent_context;
 
-struct WrappedComponentType(Option<sixtyfps_interpreter::ComponentDefinition>);
-struct WrappedComponentRc(Option<sixtyfps_interpreter::ComponentInstance>);
+struct WrappedComponentType(Option<slint_interpreter::ComponentDefinition>);
+struct WrappedComponentRc(Option<slint_interpreter::ComponentInstance>);
 struct WrappedWindow(Option<slint_core_internal::window::WindowRc>);
 
 /// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
@@ -59,11 +59,11 @@ fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
         }
         None => vec![],
     };
-    let mut compiler = sixtyfps_interpreter::ComponentCompiler::default();
+    let mut compiler = slint_interpreter::ComponentCompiler::default();
     compiler.set_include_paths(include_paths);
     let c = spin_on::spin_on(compiler.build_from_path(path));
 
-    sixtyfps_interpreter::print_diagnostics(compiler.diagnostics());
+    slint_interpreter::print_diagnostics(compiler.diagnostics());
 
     let c = if let Some(c) = c { c } else { return cx.throw_error("Compilation error") };
 
@@ -77,12 +77,12 @@ fn make_callback_handler<'cx>(
     persistent_context: &persistent_context::PersistentContext<'cx>,
     fun: Handle<'cx, JsFunction>,
     return_type: Option<Box<Type>>,
-) -> Box<dyn Fn(&[sixtyfps_interpreter::Value]) -> sixtyfps_interpreter::Value> {
+) -> Box<dyn Fn(&[slint_interpreter::Value]) -> slint_interpreter::Value> {
     let fun_value = fun.as_value(cx);
     let fun_idx = persistent_context.allocate(cx, fun_value);
     Box::new(move |args| {
         let args = args.to_vec();
-        let ret = core::cell::Cell::new(sixtyfps_interpreter::Value::Void);
+        let ret = core::cell::Cell::new(slint_interpreter::Value::Void);
         let borrow_ret = &ret;
         let return_type = &return_type;
         run_with_global_context(&move |cx, persistent_context| {
@@ -109,7 +109,7 @@ fn make_callback_handler<'cx>(
 
 fn create<'cx>(
     cx: &mut CallContext<'cx, impl neon::object::This>,
-    component_type: sixtyfps_interpreter::ComponentDefinition,
+    component_type: slint_interpreter::ComponentDefinition,
 ) -> JsResult<'cx, JsValue> {
     let component = component_type.create();
     let persistent_context = persistent_context::PersistentContext::new(cx);
@@ -157,8 +157,8 @@ fn to_eval_value<'cx>(
     ty: slint_compiler_internal::langtype::Type,
     cx: &mut impl Context<'cx>,
     persistent_context: &persistent_context::PersistentContext<'cx>,
-) -> NeonResult<sixtyfps_interpreter::Value> {
-    use sixtyfps_interpreter::Value;
+) -> NeonResult<slint_interpreter::Value> {
+    use slint_interpreter::Value;
     match ty {
         Type::Float32
         | Type::Int32
@@ -242,11 +242,11 @@ fn to_eval_value<'cx>(
 }
 
 fn to_js_value<'cx>(
-    val: sixtyfps_interpreter::Value,
+    val: slint_interpreter::Value,
     cx: &mut impl Context<'cx>,
     persistent_context: &persistent_context::PersistentContext<'cx>,
 ) -> NeonResult<Handle<'cx, JsValue>> {
-    use sixtyfps_interpreter::Value;
+    use slint_interpreter::Value;
     Ok(match val {
         Value::Void => JsUndefined::new().as_value(cx),
         Value::Number(n) => JsNumber::new(cx, n).as_value(cx),
@@ -466,7 +466,7 @@ declare_types! {
             let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             run_scoped(&mut cx,this.downcast().unwrap(), || {
-                sixtyfps_interpreter::testing::send_mouse_click(&component, x, y);
+                slint_interpreter::testing::send_mouse_click(&component, x, y);
                 Ok(())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))
@@ -478,7 +478,7 @@ declare_types! {
             let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             run_scoped(&mut cx,this.downcast().unwrap(), || {
-                sixtyfps_interpreter::testing::send_keyboard_string_sequence(&component, sequence.into());
+                slint_interpreter::testing::send_keyboard_string_sequence(&component, sequence.into());
                 Ok(())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))

@@ -74,7 +74,7 @@ impl From<LangType> for ValueType {
 /// [`From`] or [`TryInto`] traits to access the value.
 ///
 /// ```
-/// # use sixtyfps_interpreter::*;
+/// # use slint_interpreter::*;
 /// use core::convert::TryInto;
 /// // create a value containing an integer
 /// let v = Value::from(100u32);
@@ -384,7 +384,7 @@ pub(crate) fn normalize_identifier(ident: &str) -> Cow<'_, str> {
 ///
 ///
 /// ```
-/// # use sixtyfps_interpreter::*;
+/// # use slint_interpreter::*;
 /// use core::convert::TryInto;
 /// // Construct a value from a key/value iterator
 /// let value : Value = [("foo".into(), 45u32.into()), ("bar".into(), true.into())]
@@ -740,7 +740,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
-    /// use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
+    /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// let code = r#"
     ///     MyWin := Window {
     ///         property <int> my_property: 42;
@@ -778,7 +778,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
-    /// use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString, ComponentHandle};
+    /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString, ComponentHandle};
     /// use core::convert::TryInto;
     /// let code = r#"
     ///     MyWin := Window {
@@ -837,7 +837,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
-    /// use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
+    /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// let code = r#"
     ///     global Glob := {
     ///         property <int> my_property: 42;
@@ -891,7 +891,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
-    /// use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
+    /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// use core::convert::TryInto;
     /// let code = r#"
     ///     export global Logic := {

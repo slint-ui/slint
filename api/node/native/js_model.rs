@@ -47,7 +47,7 @@ impl JsModel {
 }
 
 impl Model for JsModel {
-    type Data = sixtyfps_interpreter::Value;
+    type Data = slint_interpreter::Value;
 
     fn row_count(&self) -> usize {
         let r = Cell::new(0usize);
@@ -68,7 +68,7 @@ impl Model for JsModel {
         if row >= self.row_count() {
             None
         } else {
-            let r = Cell::new(sixtyfps_interpreter::Value::default());
+            let r = Cell::new(slint_interpreter::Value::default());
             crate::run_with_global_context(&|cx, persistent_context| {
                 let row = JsNumber::new(cx, row as f64);
                 let obj = self.get_object(cx, persistent_context).unwrap();

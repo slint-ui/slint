@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 /*!
-This module contains types that are public and re-exported in the sixtyfps-rs as well as the sixtyfps-interpreter crate as public API.
+This module contains types that are public and re-exported in the sixtyfps-rs as well as the slint-interpreter crate as public API.
 */
 
 use std::rc::Rc;

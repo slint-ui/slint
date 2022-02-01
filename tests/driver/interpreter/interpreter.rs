@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 use itertools::Itertools;
-use sixtyfps_interpreter::{DiagnosticLevel, Value, ValueType};
+use slint_interpreter::{DiagnosticLevel, Value, ValueType};
 use std::error::Error;
 
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
@@ -12,7 +12,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let include_paths = test_driver_lib::extract_include_paths(&source)
         .map(std::path::PathBuf::from)
         .collect::<Vec<_>>();
-    let mut compiler = sixtyfps_interpreter::ComponentCompiler::default();
+    let mut compiler = slint_interpreter::ComponentCompiler::default();
     compiler.set_include_paths(include_paths);
     compiler.set_style(String::from("fluent")); // force to fluent style as Qt does not like multi-threaded test execution
 
@@ -21,7 +21,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     let component = match component {
         None => {
-            sixtyfps_interpreter::print_diagnostics(&compiler.diagnostics());
+            slint_interpreter::print_diagnostics(&compiler.diagnostics());
 
             match std::env::var("SIXTYFPS_INTERPRETER_ERROR_WHITELIST") {
                 Ok(wl) if !wl.is_empty() => {
