@@ -28,7 +28,7 @@ std = ["sixtyfps-corelib/std"]
 default = ["simulator"]
 
 [dependencies]
-sixtyfps-common = { version = "=0.2.0", path = "../../../internal/common", default-features = false }
+slint-common-internal = { version = "=0.2.0", path = "../../../internal/common", default-features = false }
 sixtyfps-corelib = { version = "=0.2.0", path = "../../../internal/core", default-features = false }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }

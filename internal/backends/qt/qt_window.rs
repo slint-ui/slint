@@ -1624,7 +1624,7 @@ mod key_codes {
         };
     }
 
-    sixtyfps_common::for_each_special_keys!(define_qt_key_to_string_fn);
+    slint_common_internal::for_each_special_keys!(define_qt_key_to_string_fn);
 }
 
 fn qt_key_to_string(key: key_generated::Qt_Key, event_text: String) -> SharedString {

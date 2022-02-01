@@ -31,7 +31,7 @@ unsafe_single_core = []
 default = ["std"]
 
 [dependencies]
-sixtyfps-common = { version = "=0.2.0", path = "../common" }
+slint-common-internal = { version = "=0.2.0", path = "../common" }
 sixtyfps-corelib-macros = { version = "=0.2.0", path = "../core-macros" }
 
 const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }

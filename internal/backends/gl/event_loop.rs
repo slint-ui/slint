@@ -343,7 +343,7 @@ mod key_codes {
             }
         };
     }
-    sixtyfps_common::for_each_special_keys!(winit_key_to_string_fn);
+    slint_common_internal::for_each_special_keys!(winit_key_to_string_fn);
 }
 
 fn process_window_event(

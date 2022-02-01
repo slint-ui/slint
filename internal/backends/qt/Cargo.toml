@@ -20,7 +20,7 @@ default = ["rtti"]
 path = "lib.rs"
 
 [dependencies]
-sixtyfps-common = { version = "=0.2.0", path = "../../../internal/common" }
+slint-common-internal = { version = "=0.2.0", path = "../../../internal/common" }
 sixtyfps-corelib-macros = { version = "=0.2.0", path = "../../../internal/core-macros" }
 sixtyfps-corelib = { version = "=0.2.0", path = "../../../internal/core" }
 

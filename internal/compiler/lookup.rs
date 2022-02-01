@@ -457,7 +457,7 @@ macro_rules! special_keys_lookup {
     };
 }
 
-sixtyfps_common::for_each_special_keys!(special_keys_lookup);
+slint_common_internal::for_each_special_keys!(special_keys_lookup);
 
 struct EasingSpecific;
 impl LookupObject for EasingSpecific {

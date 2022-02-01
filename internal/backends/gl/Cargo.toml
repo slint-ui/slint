@@ -25,7 +25,7 @@ default = ["svg"]
 
 [dependencies]
 sixtyfps-corelib = { version = "=0.2.0", path = "../../../internal/core" }
-sixtyfps-common = { version = "=0.2.0", path = "../../../internal/common" }
+slint-common-internal = { version = "=0.2.0", path = "../../../internal/common" }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }
