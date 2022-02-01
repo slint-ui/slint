@@ -24,6 +24,7 @@ use clap::Parser;
 
 mod from_0_0_5;
 mod from_0_0_6;
+mod from_0_1_0;
 
 #[derive(clap::Parser)]
 struct Cli {
@@ -219,11 +220,14 @@ fn fold_node(
     if args.from == "0.0.5" && from_0_0_5::fold_node(node, file, state)? {
         return Ok(true);
     }
-    if args.from.as_str() <= "0.0.6" {
-        from_0_0_6::fold_node(node, file, state)
-    } else {
-        Ok(false)
+    if args.from.as_str() <= "0.0.6" && from_0_0_6::fold_node(node, file, state)? {
+        return Ok(true);
     }
+    if args.from.as_str() <= "0.1.0" && from_0_1_0::fold_node(node, file, state)? {
+        return Ok(true);
+    }
+
+    Ok(false)
 }
 
 fn fold_token(
