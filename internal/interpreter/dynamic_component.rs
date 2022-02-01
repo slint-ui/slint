@@ -353,7 +353,7 @@ impl<'id> ComponentDescription<'id> {
         let window = {
             // Ensure that the backend is initialized
             sixtyfps_rendering_backend_selector::backend();
-            sixtyfps_rendering_backend_gl::create_gl_window_with_canvas_id(canvas_id)
+            slint_backend_gl_internal::create_gl_window_with_canvas_id(canvas_id)
         };
         self.create_with_existing_window(&window)
     }

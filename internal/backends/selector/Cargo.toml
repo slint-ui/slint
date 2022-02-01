@@ -15,12 +15,12 @@ homepage = "https://sixtyfps.io"
 path = "lib.rs"
 
 [features]
-wayland = ["sixtyfps-rendering-backend-gl/wayland"]
-x11 = ["sixtyfps-rendering-backend-gl/x11"]
+wayland = ["slint-backend-gl-internal/wayland"]
+x11 = ["slint-backend-gl-internal/x11"]
 
 [dependencies]
 slint-core-internal = { version = "=0.2.0", path = "../../../internal/core", default-features = false }
-sixtyfps-rendering-backend-gl = { version = "=0.2.0", path = "../gl", optional = true }
+slint-backend-gl-internal = { version = "=0.2.0", path = "../gl", optional = true }
 slint-backend-qt-internal = { version = "=0.2.0", path = "../qt", optional = true }
 
 cfg-if = "1"

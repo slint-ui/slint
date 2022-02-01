@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "sixtyfps-rendering-backend-gl"
+name = "slint-backend-gl-internal"
 version = "0.2.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2021"

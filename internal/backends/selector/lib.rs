@@ -20,22 +20,22 @@ In order for the crate to be available at runtime, they need to be added as feat
 */
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 #![cfg_attr(
-    not(any(feature = "slint-backend-qt-internal", feature = "sixtyfps-rendering-backend-gl")),
+    not(any(feature = "slint-backend-qt-internal", feature = "slint-backend-gl-internal")),
     no_std
 )]
 
 cfg_if::cfg_if! {
     if #[cfg(feature = "slint-backend-qt-internal")] {
         use slint_backend_qt_internal as default_backend;
-    } else if #[cfg(feature = "sixtyfps-rendering-backend-gl")] {
-        use sixtyfps_rendering_backend_gl as default_backend;
+    } else if #[cfg(feature = "slint-backend-gl-internal")] {
+        use slint_backend_gl_internal as default_backend;
     }
 }
 
 cfg_if::cfg_if! {
     if #[cfg(any(
             feature = "slint-backend-qt-internal",
-            feature = "sixtyfps-rendering-backend-gl"
+            feature = "slint-backend-gl-internal"
         ))] {
         pub fn backend() -> &'static dyn slint_core_internal::backend::Backend {
             slint_core_internal::backend::instance_or_init(|| {
@@ -45,23 +45,23 @@ cfg_if::cfg_if! {
                 if backend_config == "Qt" {
                     return Box::new(slint_backend_qt_internal::Backend);
                 }
-                #[cfg(feature = "sixtyfps-rendering-backend-gl")]
+                #[cfg(feature = "slint-backend-gl-internal")]
                 if backend_config == "GL" {
-                    return Box::new(sixtyfps_rendering_backend_gl::Backend);
+                    return Box::new(slint_backend_gl_internal::Backend);
                 }
 
                 #[cfg(any(
                     feature = "slint-backend-qt-internal",
-                    feature = "sixtyfps-rendering-backend-gl"
+                    feature = "slint-backend-gl-internal"
                 ))]
                 if !backend_config.is_empty() {
                     eprintln!("Could not load rendering backend {}, fallback to default", backend_config)
                 }
 
-                #[cfg(feature = "sixtyfps-rendering-backend-gl")]
+                #[cfg(feature = "slint-backend-gl-internal")]
                 if !default_backend::IS_AVAILABLE {
                     // If Qt is not available always fallback to Gl
-                    return Box::new(sixtyfps_rendering_backend_gl::Backend);
+                    return Box::new(slint_backend_gl_internal::Backend);
                 }
 
                 Box::new(default_backend::Backend)
@@ -89,6 +89,6 @@ pub fn use_modules() {
     slint_core_internal::use_modules();
     #[cfg(feature = "slint-backend-qt-internal")]
     slint_backend_qt_internal::use_modules();
-    #[cfg(feature = "sixtyfps-rendering-backend-gl")]
-    sixtyfps_rendering_backend_gl::use_modules();
+    #[cfg(feature = "slint-backend-gl-internal")]
+    slint_backend_gl_internal::use_modules();
 }

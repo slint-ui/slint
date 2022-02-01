@@ -46,7 +46,7 @@ backend-qt = ["sixtyfps-rendering-backend-selector/slint-backend-qt-internal", "
 ## The GL backend uses the `winit` crate for the windowing system integration,
 ## and the `femtovg` crate for the rendering.
 ## On unix, at least one of `x11` or `wayland` features must be enabled.
-backend-gl = ["sixtyfps-rendering-backend-selector/sixtyfps-rendering-backend-gl", "std"]
+backend-gl = ["sixtyfps-rendering-backend-selector/slint-backend-gl-internal", "std"]
 ## Same as the GL backend, with the `x11` feature of `winit` enabled
 x11 = ["sixtyfps-rendering-backend-selector/x11", "backend-gl"]
 ## Same as the GL backend, with the `wayland` feature of `winit` enabled
@@ -71,7 +71,7 @@ version = "0.1"
 optional = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-sixtyfps-rendering-backend-gl = { version = "=0.2.0", path = "../../internal/backends/gl" }
+slint-backend-gl-internal = { version = "=0.2.0", path = "../../internal/backends/gl" }
 
 [dev-dependencies]
 sixtyfps-rendering-backend-testing = { path = "../../internal/backends/testing" }
