@@ -303,9 +303,18 @@ impl<'a> TypeLoader<'a> {
         build_diagnostics: &'b mut BuildDiagnostics,
     ) -> core::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'b>> {
         Box::pin(async move {
+            let mut file = import.file.as_str();
+            if file == "sixtyfps_widgets.60" {
+                file = "std-widgets.slint";
+                build_diagnostics.push_warning(
+                    "\"sixtyfps_widgets.60\" was renamed \"std-widgets.slint\". Use of the old file name is deprecated".into(),
+                    &import.import_token,
+                );
+            }
+
             let doc_path = match self
                 .ensure_document_loaded(
-                    &import.file,
+                    file,
                     Some(import.import_token.clone().into()),
                     build_diagnostics,
                 )
