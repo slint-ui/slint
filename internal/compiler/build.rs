@@ -52,7 +52,8 @@ fn process_style(path: &Path) -> std::io::Result<String> {
                     .path()
                     .extension()
                     .map(|ext| {
-                        ext == std::ffi::OsStr::new("60")
+                        ext == std::ffi::OsStr::new("slint")
+                            || ext == std::ffi::OsStr::new("60")
                             || ext == std::ffi::OsStr::new("svg")
                             || ext == std::ffi::OsStr::new("svgz")
                     })
