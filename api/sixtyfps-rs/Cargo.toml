@@ -35,7 +35,7 @@ std = ["slint-core-internal/std"]
 ## This backend is required to use the `native` style.
 ## It requires Qt 5.15 or later to be installed. If Qt is not installed, the
 ## backend will not be operational
-backend-qt = ["sixtyfps-rendering-backend-selector/sixtyfps-rendering-backend-qt", "std"]
+backend-qt = ["sixtyfps-rendering-backend-selector/slint-backend-qt-internal", "std"]
 
 ## The GL backend uses the `winit` crate for the windowing system integration,
 ## and the `femtovg` crate for the rendering.

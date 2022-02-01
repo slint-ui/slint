@@ -73,7 +73,7 @@ mod ffi {
 ///          Next::do_something(/*...*/);
 ///     }
 /// }
-/// sixtyfps_rendering_backend_qt::NativeWidgets::do_something(/*...*/)
+/// slint_backend_qt_internal::NativeWidgets::do_something(/*...*/)
 /// ```
 #[cfg(not(no_qt))]
 #[rustfmt::skip]

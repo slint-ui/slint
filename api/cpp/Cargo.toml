@@ -23,7 +23,7 @@ crate-type = ["lib", "cdylib"]
 # the C++ crate's CMakeLists.txt
 [features]
 backend-gl = ["sixtyfps-rendering-backend-selector/sixtyfps-rendering-backend-gl"]
-backend-qt = ["sixtyfps-rendering-backend-selector/sixtyfps-rendering-backend-qt"]
+backend-qt = ["sixtyfps-rendering-backend-selector/slint-backend-qt-internal"]
 interpreter = ["sixtyfps-interpreter"]
 testing = ["sixtyfps-rendering-backend-testing"] # Enable some function used by the integration tests
 wayland = ["sixtyfps-rendering-backend-selector/wayland"]

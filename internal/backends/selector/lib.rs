@@ -20,16 +20,13 @@ In order for the crate to be available at runtime, they need to be added as feat
 */
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 #![cfg_attr(
-    not(any(
-        feature = "sixtyfps-rendering-backend-qt",
-        feature = "sixtyfps-rendering-backend-gl"
-    )),
+    not(any(feature = "slint-backend-qt-internal", feature = "sixtyfps-rendering-backend-gl")),
     no_std
 )]
 
 cfg_if::cfg_if! {
-    if #[cfg(feature = "sixtyfps-rendering-backend-qt")] {
-        use sixtyfps_rendering_backend_qt as default_backend;
+    if #[cfg(feature = "slint-backend-qt-internal")] {
+        use slint_backend_qt_internal as default_backend;
     } else if #[cfg(feature = "sixtyfps-rendering-backend-gl")] {
         use sixtyfps_rendering_backend_gl as default_backend;
     }
@@ -37,16 +34,16 @@ cfg_if::cfg_if! {
 
 cfg_if::cfg_if! {
     if #[cfg(any(
-            feature = "sixtyfps-rendering-backend-qt",
+            feature = "slint-backend-qt-internal",
             feature = "sixtyfps-rendering-backend-gl"
         ))] {
         pub fn backend() -> &'static dyn slint_core_internal::backend::Backend {
             slint_core_internal::backend::instance_or_init(|| {
                 let backend_config = std::env::var("SIXTYFPS_BACKEND").unwrap_or_default();
 
-                #[cfg(feature = "sixtyfps-rendering-backend-qt")]
+                #[cfg(feature = "slint-backend-qt-internal")]
                 if backend_config == "Qt" {
-                    return Box::new(sixtyfps_rendering_backend_qt::Backend);
+                    return Box::new(slint_backend_qt_internal::Backend);
                 }
                 #[cfg(feature = "sixtyfps-rendering-backend-gl")]
                 if backend_config == "GL" {
@@ -54,7 +51,7 @@ cfg_if::cfg_if! {
                 }
 
                 #[cfg(any(
-                    feature = "sixtyfps-rendering-backend-qt",
+                    feature = "slint-backend-qt-internal",
                     feature = "sixtyfps-rendering-backend-gl"
                 ))]
                 if !backend_config.is_empty() {
@@ -90,8 +87,8 @@ cfg_if::cfg_if! {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn use_modules() {
     slint_core_internal::use_modules();
-    #[cfg(feature = "sixtyfps-rendering-backend-qt")]
-    sixtyfps_rendering_backend_qt::use_modules();
+    #[cfg(feature = "slint-backend-qt-internal")]
+    slint_backend_qt_internal::use_modules();
     #[cfg(feature = "sixtyfps-rendering-backend-gl")]
     sixtyfps_rendering_backend_gl::use_modules();
 }

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "sixtyfps-rendering-backend-qt"
+name = "slint-backend-qt-internal"
 version = "0.2.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2021"
@@ -10,7 +10,7 @@ license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
 description = "Qt rendering backend for SixtyFPS"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
-links = "sixtyfps_rendering_backend_qt" # just so we can pass metadata to the dependee's build script
+links = "slint_backend_qt_internal" # just so we can pass metadata to the dependee's build script
 
 [features]
 rtti = ["slint-core-internal/rtti"]
