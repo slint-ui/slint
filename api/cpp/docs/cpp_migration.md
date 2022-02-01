@@ -10,6 +10,10 @@ In version 0.2.0 we have increased the minimum version of C++. You need to have 
 
 If you are building SixtyFPS from source, you need to make sure that your Rust installation is up-to-date. If you have installed Rust using `rustup`, then you can upgrade to the latest Version of Rust by running `rustup update`.
 
+### CMakeLists.txt
+
+ - When using `FetchContent`, the `SOURCE_SUBDIR` has changed from `api/sixtyfps-cpp` to `api/cpp` 
+
 ### Models
 
 `Model::row_data` returns now a `std::optional<ModelData>` and can thus be used with indices that are out of bounds.
