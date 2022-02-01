@@ -374,7 +374,7 @@ impl sixtyfps_corelib::backend::Backend for SimulatorBackend {
             ImageInner::None => Default::default(),
             ImageInner::AbsoluteFilePath(_) | ImageInner::EmbeddedData { .. } => unimplemented!(),
             ImageInner::EmbeddedImage(buffer) => buffer.size(),
-            ImageInner::StaticTextures { size, .. } => size,
+            ImageInner::StaticTextures { size, .. } => *size,
         }
     }
 }
