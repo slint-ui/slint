@@ -12,7 +12,7 @@ import sixtyfps_init, * as sixtyfps from "../../../wasm-interpreter/sixtyfps_was
     var loaded_documents: Map<string, string> = new Map;
 
     let main_source = `
-import { SpinBox, Button, CheckBox, Slider, GroupBox } from "sixtyfps_widgets.60";
+import { SpinBox, Button, CheckBox, Slider, GroupBox } from "std-widgets.slint";
 export Demo := Window {
     width:  300px;   // Width in logical pixels. All 'px' units are automatically scaled with screen resolution.
     height: 300px;

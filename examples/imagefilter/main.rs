@@ -8,7 +8,7 @@ use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 sixtyfps::sixtyfps! {
-    import { Slider, HorizontalBox, VerticalBox, GroupBox, ComboBox } from "sixtyfps_widgets.60";
+    import { Slider, HorizontalBox, VerticalBox, GroupBox, ComboBox } from "std-widgets.slint";
 
     export MainWindow := Window {
         title: "SixtyFPS Image Filter Integration Example";

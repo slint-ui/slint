@@ -4,7 +4,7 @@
 //include_path: ../../helper_components
 import { TestButton as RealButton } from "test_button.60";
 import { ColorButton } from "../helper_components/test_button.60";
-import { Button } from "sixtyfps_widgets.60";
+import { Button } from "std-widgets.slint";
 import { TestButton as ReExportedButton } from "re_export.60";
 import { Main_Window } from "main_window.60";
 TestCase := Rectangle {

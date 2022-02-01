@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-import { StyleMetrics } from "sixtyfps_widgets.60";
+import { StyleMetrics } from "std-widgets.slint";
 
 SubElement := Rectangle {
     property sub_color <=> sub.color;

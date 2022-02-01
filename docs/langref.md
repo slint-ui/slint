@@ -166,7 +166,7 @@ In the following example, the text of the button is automatically changed when t
 changing the `counter`  property automatically changes the text.
 
 ```60
-import { Button } from "sixtyfps_widgets.60";
+import { Button } from "std-widgets.slint";
 Example := Button {
     property <int> counter: 3;
     clicked => { counter += 3 }
@@ -893,7 +893,7 @@ these events, it must have the focus. This is visible through the `has-focus` pr
 You can manually activate the focus on an element by calling `focus()`:
 
 ```60
-import { Button } from "sixtyfps_widgets.60";
+import { Button } from "std-widgets.slint";
 
 App := Window {
     VerticalLayout {
@@ -913,7 +913,7 @@ If you have wrapped the `TextInput` in a component, then you can forward such a 
 using the `forward-focus` property to refer to the element that should receive it:
 
 ```60
-import { Button } from "sixtyfps_widgets.60";
+import { Button } from "std-widgets.slint";
 
 LabeledInput := GridLayout {
     forward-focus: input;

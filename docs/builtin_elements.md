@@ -717,7 +717,7 @@ When viewed with the `sixtyfps-viewer` program, the `ok`, `cancel`, and `close` 
 ### Example
 
 ```60
-import { StandardButton, Button } from "sixtyfps_widgets.60";
+import { StandardButton, Button } from "std-widgets.slint";
 Example := Dialog {
     Text {
       text: "This is a dialog box";

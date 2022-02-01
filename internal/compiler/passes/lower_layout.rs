@@ -25,7 +25,7 @@ pub async fn lower_layouts(
     // Ignore import errors
     let mut build_diags_to_ignore = crate::diagnostics::BuildDiagnostics::default();
     let style_metrics = type_loader
-        .import_type("sixtyfps_widgets.60", "StyleMetrics", &mut build_diags_to_ignore)
+        .import_type("std-widgets.slint", "StyleMetrics", &mut build_diags_to_ignore)
         .await;
     let style_metrics =
         style_metrics.and_then(|sm| if let Type::Component(c) = sm { Some(c) } else { None });

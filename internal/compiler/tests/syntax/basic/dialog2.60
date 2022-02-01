@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-import { StandardButton } from "sixtyfps_widgets.60";
+import { StandardButton } from "std-widgets.slint";
 
 Test := Dialog {
 //     ^error{A Dialog must have a single child element that is not StandardButton}

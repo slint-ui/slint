@@ -142,7 +142,7 @@ MdiWindow := Rectangle {
 
 //------ Widgets ------
 
-import {LineEdit, TextEdit, ComboBox, GridBox, VerticalBox, HorizontalBox, StyleMetrics} from "sixtyfps_widgets.60";
+import {LineEdit, TextEdit, ComboBox, GridBox, VerticalBox, HorizontalBox, StyleMetrics} from "std-widgets.slint";
 
 Label := Text {
     color: Palette.text-color;

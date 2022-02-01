@@ -21,17 +21,17 @@ pub async fn lower_tabwidget(
     // Ignore import errors
     let mut build_diags_to_ignore = BuildDiagnostics::default();
     let tabwidget_impl = type_loader
-        .import_type("sixtyfps_widgets.60", "TabWidgetImpl", &mut build_diags_to_ignore)
+        .import_type("std-widgets.slint", "TabWidgetImpl", &mut build_diags_to_ignore)
         .await
-        .expect("can't load TabWidgetImpl from sixtyfps_widgets.60");
+        .expect("can't load TabWidgetImpl from std-widgets.slint");
     let tab_impl = type_loader
-        .import_type("sixtyfps_widgets.60", "TabImpl", &mut build_diags_to_ignore)
+        .import_type("std-widgets.slint", "TabImpl", &mut build_diags_to_ignore)
         .await
-        .expect("can't load TabImpl from sixtyfps_widgets.60");
+        .expect("can't load TabImpl from std-widgets.slint");
     let tabbar_impl = type_loader
-        .import_type("sixtyfps_widgets.60", "TabBarImpl", &mut build_diags_to_ignore)
+        .import_type("std-widgets.slint", "TabBarImpl", &mut build_diags_to_ignore)
         .await
-        .expect("can't load TabBarImpl from sixtyfps_widgets.60");
+        .expect("can't load TabBarImpl from std-widgets.slint");
     let rectangle_type =
         type_loader.global_type_registry.borrow().lookup_element("Rectangle").unwrap();
 

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-import { ListView  } from "sixtyfps_widgets.60";
+import { ListView  } from "std-widgets.slint";
 
 TestCase := Window {
     width: 400px;

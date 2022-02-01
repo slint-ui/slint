@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-import { LineEdit, HorizontalBox } from "sixtyfps_widgets.60";
+import { LineEdit, HorizontalBox } from "std-widgets.slint";
 
 TempConv := Window {
     preferred-height: 64px;

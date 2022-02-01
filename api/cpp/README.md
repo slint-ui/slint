@@ -132,7 +132,7 @@ Hopefully this should be self explanatory. Check out the documentation of the la
 
 ```60
 // file: my_application_ui.60
-import { CheckBox, Button, ListView, LineEdit } from "sixtyfps_widgets.60";
+import { CheckBox, Button, ListView, LineEdit } from "std-widgets.slint";
 
 export struct TodoItem := {
     title: string,

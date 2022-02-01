@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "sixtyfps_widgets.60";
+import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
 
 Timer := Window {
     property <duration> total-time: slider.value * 1s;

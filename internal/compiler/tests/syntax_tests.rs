@@ -182,7 +182,7 @@ fn process_file_source(
         let source = if p.is_absolute() {
             std::fs::read_to_string(&p)?
         } else {
-            // probably sixtyfps_widgets.60
+            // probably std-widgets.slint
             String::new()
         };
         success &= process_diagnostics(&compile_diagnostics, p, &source, silent)?;

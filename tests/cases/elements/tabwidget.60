@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-import { TabWidget } from "sixtyfps_widgets.60";
+import { TabWidget } from "std-widgets.slint";
 
 TestCase := Window {
     preferred_height: 500px;

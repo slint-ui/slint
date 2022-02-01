@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox } from "./common.60";
-import { StandardListView } from "sixtyfps_widgets.60";
+import { StandardListView } from "std-widgets.slint";
 import { PrinterQueue } from "./printer_queue.60";
 
 

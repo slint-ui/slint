@@ -3,7 +3,7 @@
 
 //include_path: ../../helper_components
 
-import { StyleMetrics } from "sixtyfps_widgets.60";
+import { StyleMetrics } from "std-widgets.slint";
 import { ExportedGlobal as ReexportedGlobal } from "export_globals.60";
 
 struct MyStruct := { x:int, y: int, }

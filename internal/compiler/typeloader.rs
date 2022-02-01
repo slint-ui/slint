@@ -523,11 +523,8 @@ fn test_manual_import() {
     let mut build_diagnostics = BuildDiagnostics::default();
     let mut loader = TypeLoader::new(global_registry, &compiler_config, &mut build_diagnostics);
 
-    let maybe_button_type = spin_on::spin_on(loader.import_type(
-        "sixtyfps_widgets.60",
-        "Button",
-        &mut build_diagnostics,
-    ));
+    let maybe_button_type =
+        spin_on::spin_on(loader.import_type("std-widgets.slint", "Button", &mut build_diagnostics));
 
     assert!(!build_diagnostics.has_error());
     assert!(maybe_button_type.is_some());

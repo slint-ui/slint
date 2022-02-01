@@ -58,7 +58,7 @@ pub async fn run_passes(
         // Ignore import errors
         let mut build_diags_to_ignore = crate::diagnostics::BuildDiagnostics::default();
         let style_metrics = type_loader
-            .import_type("sixtyfps_widgets.60", "StyleMetrics", &mut build_diags_to_ignore)
+            .import_type("std-widgets.slint", "StyleMetrics", &mut build_diags_to_ignore)
             .await;
         if let Some(Type::Component(c)) = style_metrics {
             c

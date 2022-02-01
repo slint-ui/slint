@@ -9,7 +9,7 @@
 // Note: The C++ test uses the same test method, but due to its differing implementation
 // it's not testing the same code path.
 
-import { ListView } from "sixtyfps_widgets.60";
+import { ListView } from "std-widgets.slint";
 
 TestCase := Window {
     width: 100px;

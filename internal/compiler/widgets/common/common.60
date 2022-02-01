@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-import { StyleMetrics, ScrollView } from "sixtyfps_widgets_impl.60";
+import { StyleMetrics, ScrollView } from "std-widgets-impl.slint";
 
 export LineEditInner := Rectangle {
     callback accepted(string);

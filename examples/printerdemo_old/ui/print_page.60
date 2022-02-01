@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-import { SpinBox, Button, CheckBox, Slider, GroupBox, StandardListView, GridBox } from "sixtyfps_widgets.60";
+import { SpinBox, Button, CheckBox, Slider, GroupBox, StandardListView, GridBox } from "std-widgets.slint";
 import { Label, Page, Preview } from "common.60";
 
 PrintPage := Page {
