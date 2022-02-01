@@ -33,7 +33,7 @@ default = ["sixtyfps-backend-qt", "sixtyfps-backend-gl", "x11"]
 sixtyfps-compilerlib = { version = "=0.2.0", path = "../../internal/compiler"}
 slint-core-internal = { version = "=0.2.0", path = "../../internal/core"}
 sixtyfps-interpreter = { version = "=0.2.0", path = "../../internal/interpreter", default-features = false, features = ["compat-0-2-0"] }
-sixtyfps-rendering-backend-selector = { version = "=0.2.0", path="../../internal/backends/selector" }
+slint-backend-selector-internal = { version = "=0.2.0", path="../../internal/backends/selector" }
 
 clap = { version = "3.0.5", features=["derive", "wrap_help"] }
 crossbeam-channel = "0.5"  # must match the version used by lsp-server

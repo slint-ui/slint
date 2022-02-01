@@ -4,7 +4,7 @@
 /*! This crate just expose the function used by the C++ integration */
 
 use core::ffi::c_void;
-use sixtyfps_rendering_backend_selector::backend;
+use slint_backend_selector_internal::backend;
 use slint_core_internal::window::ffi::WindowRcOpaque;
 use slint_core_internal::window::WindowRc;
 
@@ -13,7 +13,7 @@ use slint_core_internal::window::WindowRc;
 pub fn use_modules() -> usize {
     #[cfg(feature = "sixtyfps-interpreter")]
     sixtyfps_interpreter::use_modules();
-    sixtyfps_rendering_backend_selector::use_modules();
+    slint_backend_selector_internal::use_modules();
     slint_core_internal::use_modules()
 }
 
@@ -93,5 +93,5 @@ pub unsafe extern "C" fn sixtyfps_register_font_from_data(
 #[cfg(feature = "testing")]
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_testing_init_backend() {
-    sixtyfps_rendering_backend_testing::init();
+    slint_backend_testing_internal::init();
 }

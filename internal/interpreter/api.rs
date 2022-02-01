@@ -988,7 +988,7 @@ impl ComponentHandle for ComponentInstance {
 
     fn run(&self) {
         self.show();
-        sixtyfps_rendering_backend_selector::backend().run_event_loop(
+        slint_backend_selector_internal::backend().run_event_loop(
             slint_core_internal::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed,
         );
         self.hide();
@@ -1057,7 +1057,7 @@ pub enum InvokeCallbackError {
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
 pub fn run_event_loop() {
-    sixtyfps_rendering_backend_selector::backend().run_event_loop(
+    slint_backend_selector_internal::backend().run_event_loop(
         slint_core_internal::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed,
     );
 }
@@ -1091,7 +1091,7 @@ pub mod testing {
 
 #[test]
 fn component_definition_properties() {
-    sixtyfps_rendering_backend_testing::init();
+    slint_backend_testing_internal::init();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(
@@ -1139,7 +1139,7 @@ fn component_definition_properties() {
 
 #[test]
 fn component_definition_properties2() {
-    sixtyfps_rendering_backend_testing::init();
+    slint_backend_testing_internal::init();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(
@@ -1169,7 +1169,7 @@ fn component_definition_properties2() {
 
 #[test]
 fn globals() {
-    sixtyfps_rendering_backend_testing::init();
+    slint_backend_testing_internal::init();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let definition = spin_on::spin_on(
@@ -1287,7 +1287,7 @@ fn globals() {
 
 #[test]
 fn component_definition_struct_properties() {
-    sixtyfps_rendering_backend_testing::init();
+    slint_backend_testing_internal::init();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(
@@ -1338,7 +1338,7 @@ fn component_definition_struct_properties() {
 #[test]
 fn component_definition_model_properties() {
     use slint_core_internal::model::*;
-    sixtyfps_rendering_backend_testing::init();
+    slint_backend_testing_internal::init();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(compiler.build_from_source(

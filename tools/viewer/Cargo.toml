@@ -24,7 +24,7 @@ default = ["sixtyfps-backend-qt", "sixtyfps-backend-gl", "x11"]
 [dependencies]
 slint-core-internal = { version = "=0.2.0", path="../../internal/core" }
 sixtyfps-interpreter = { version = "=0.2.0", path = "../../internal/interpreter", default-features = false, features = ["display-diagnostics", "compat-0-2-0"] }
-sixtyfps-rendering-backend-selector = { version = "=0.2.0", path="../../internal/backends/selector" }
+slint-backend-selector-internal = { version = "=0.2.0", path="../../internal/backends/selector" }
 
 vtable = { version = "0.1", path="../../helper_crates/vtable" }
 

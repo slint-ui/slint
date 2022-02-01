@@ -42,7 +42,7 @@ pub enum TimerMode {
 ///
 /// ## Example
 /// ```rust,no_run
-/// # sixtyfps_rendering_backend_testing::init();
+/// # slint_backend_testing_internal::init();
 /// use sixtyfps::{Timer, TimerMode};
 /// let timer = Timer::default();
 /// timer.start(TimerMode::Repeated, std::time::Duration::from_millis(200), move || {
@@ -92,7 +92,7 @@ impl Timer {
     ///
     /// ## Example
     /// ```rust
-    /// # sixtyfps_rendering_backend_testing::init();
+    /// # slint_backend_testing_internal::init();
     /// use sixtyfps::Timer;
     /// Timer::single_shot(std::time::Duration::from_millis(200), move || {
     ///    println!("This will be printed after 200ms.");

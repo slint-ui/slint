@@ -348,11 +348,11 @@ impl<'id> ComponentDescription<'id> {
         #[cfg(target_arch = "wasm32")] canvas_id: String,
     ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
         #[cfg(not(target_arch = "wasm32"))]
-        let window = sixtyfps_rendering_backend_selector::backend().create_window();
+        let window = slint_backend_selector_internal::backend().create_window();
         #[cfg(target_arch = "wasm32")]
         let window = {
             // Ensure that the backend is initialized
-            sixtyfps_rendering_backend_selector::backend();
+            slint_backend_selector_internal::backend();
             slint_backend_gl_internal::create_gl_window_with_canvas_id(canvas_id)
         };
         self.create_with_existing_window(&window)
@@ -688,7 +688,7 @@ pub async fn load(
 {
     if compiler_config.style.is_none() && std::env::var("SIXTYFPS_STYLE").is_err() {
         // Defaults to native if it exists:
-        compiler_config.style = Some(if sixtyfps_rendering_backend_selector::HAS_NATIVE_STYLE {
+        compiler_config.style = Some(if slint_backend_selector_internal::HAS_NATIVE_STYLE {
             "native".to_owned()
         } else {
             "fluent".to_owned()
@@ -758,7 +758,7 @@ pub(crate) fn generate_component<'id>(
                 Next::push(rtti);
             }
         }
-        sixtyfps_rendering_backend_selector::NativeWidgets::push(&mut rtti);
+        slint_backend_selector_internal::NativeWidgets::push(&mut rtti);
     }
 
     struct TreeBuilder<'id> {

@@ -254,7 +254,7 @@ pub use slint_core_internal::timers::{Timer, TimerMode};
 #[doc(hidden)]
 #[cfg(feature = "std")]
 pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {
-    sixtyfps_rendering_backend_selector::backend().register_font_from_memory(data)
+    slint_backend_selector_internal::backend().register_font_from_memory(data)
 }
 
 /// This function can be used to register a custom TrueType font with SixtyFPS,
@@ -265,7 +265,7 @@ pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std:
 pub fn register_font_from_path<P: AsRef<std::path::Path>>(
     path: P,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    sixtyfps_rendering_backend_selector::backend().register_font_from_path(path.as_ref())
+    slint_backend_selector_internal::backend().register_font_from_path(path.as_ref())
 }
 
 /// internal re_exports used by the macro generated
@@ -281,7 +281,7 @@ pub mod re_exports {
     pub use once_cell::race::OnceBox;
     pub use once_cell::unsync::OnceCell;
     pub use pin_weak::rc::PinWeak;
-    pub use sixtyfps_rendering_backend_selector::native_widgets::*;
+    pub use slint_backend_selector_internal::native_widgets::*;
     pub use slint_core_internal::animations::EasingCurve;
     pub use slint_core_internal::callbacks::Callback;
     pub use slint_core_internal::component::{
@@ -440,24 +440,23 @@ pub mod internal {
 /// Creates a new window to render components in.
 #[doc(hidden)]
 pub fn create_window() -> re_exports::WindowRc {
-    sixtyfps_rendering_backend_selector::backend().create_window()
+    slint_backend_selector_internal::backend().create_window()
 }
 
 /// Enters the main event loop. This is necessary in order to receive
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
 pub fn run_event_loop() {
-    sixtyfps_rendering_backend_selector::backend().run_event_loop(
+    slint_backend_selector_internal::backend().run_event_loop(
         slint_core_internal::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed,
     );
 }
-
 /// Schedules the main event loop for termination. This function is meant
 /// to be called from callbacks triggered by the UI. After calling the function,
 /// it will return immediately and once control is passed back to the event loop,
 /// the initial call to [`run_event_loop()`] will return.
 pub fn quit_event_loop() {
-    sixtyfps_rendering_backend_selector::backend().quit_event_loop();
+    slint_backend_selector_internal::backend().quit_event_loop();
 }
 
 /// This module contains functions useful for unit tests

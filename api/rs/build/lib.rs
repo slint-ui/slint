@@ -208,9 +208,9 @@ pub fn compile_with_config(
 
     if std::env::var_os("SIXTYFPS_STYLE").is_none() && compiler_config.style.is_none() {
         compiler_config.style = std::env::var_os("OUT_DIR").and_then(|path| {
-            // Same logic as in sixtyfps-rendering-backend-selector's build script to get the path
+            // Same logic as in slint-backend-selector-internal's build script to get the path
             let path = Path::new(&path).parent()?.parent()?.join("SIXTYFPS_DEFAULT_STYLE.txt");
-            // unfortunately, if for some reason the file is changed by the sixtyfps-rendering-backend-selector's build script,
+            // unfortunately, if for some reason the file is changed by the slint-backend-selector-internal's build script,
             // it is changed after cargo decide to re-run this build script or not. So that means one will need two build
             // to settle the right thing.
             rerun_if_changed = format!("cargo:rerun-if-changed={}", path.display());

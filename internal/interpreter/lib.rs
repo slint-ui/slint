@@ -91,7 +91,7 @@ pub use api::*;
 pub(crate) fn register_font_from_path<P: AsRef<std::path::Path>>(
     path: P,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    sixtyfps_rendering_backend_selector::backend().register_font_from_path(path.as_ref())
+    slint_backend_selector_internal::backend().register_font_from_path(path.as_ref())
 }
 
 /// (Re-export from corelib.)
