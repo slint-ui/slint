@@ -57,7 +57,8 @@ vtable = { version = "0.1.5", path = "../../helper_crates/vtable" }
 
 once_cell = { version = "1.5", default-features = false, features = ["alloc"] }
 pin-weak = { version = "1.1", default-features = false }
-document-features = { version = "0.1.0", path = "../../helper_crates/document-features" }
+document-features = "0.1.0"
 
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "docs/resources/sixtyfps-docs-preview.html", "--html-in-header", "docs/resources/sixtyfps-docs-highlight.html" ]
+

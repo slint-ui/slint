@@ -21,7 +21,6 @@ members = [
     'examples/todo/rust',
     'helper_crates/const-field-offset',
     'helper_crates/vtable',
-    'helper_crates/document-features',
     'helper_crates/vtable/macro',
     'internal/backends/gl',
     'internal/backends/mcu',
