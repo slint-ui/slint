@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 use crate::api::Value;
-use sixtyfps_corelib::model::{Model, ModelTracker};
+use slint_core_internal::model::{Model, ModelTracker};
 use std::cell::RefCell;
 
 pub struct ValueModel {
@@ -16,7 +16,7 @@ impl ValueModel {
 }
 
 impl ModelTracker for ValueModel {
-    fn attach_peer(&self, peer: sixtyfps_corelib::model::ModelPeer) {
+    fn attach_peer(&self, peer: slint_core_internal::model::ModelPeer) {
         if let Value::Model(ref model_ptr) = *self.value.borrow() {
             model_ptr.model_tracker().attach_peer(peer)
         }

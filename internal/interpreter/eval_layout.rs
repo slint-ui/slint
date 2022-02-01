@@ -9,11 +9,11 @@ use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutGeometry, Orientation};
 use sixtyfps_compilerlib::namedreference::NamedReference;
 use sixtyfps_compilerlib::object_tree::ElementRc;
-use sixtyfps_corelib::items::DialogButtonRole;
-use sixtyfps_corelib::layout::{self as core_layout};
-use sixtyfps_corelib::model::RepeatedComponent;
-use sixtyfps_corelib::slice::Slice;
-use sixtyfps_corelib::window::WindowRc;
+use slint_core_internal::items::DialogButtonRole;
+use slint_core_internal::layout::{self as core_layout};
+use slint_core_internal::model::RepeatedComponent;
+use slint_core_internal::slice::Slice;
+use slint_core_internal::window::WindowRc;
 use std::convert::TryInto;
 use std::str::FromStr;
 

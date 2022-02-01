@@ -33,7 +33,7 @@ pub struct RgbaColor<T> {
 /// ```
 /// # fn do_something_with_red_and_green(_:f32, _:f32) {}
 /// # fn do_something_with_red(_:u8) {}
-/// # use sixtyfps_corelib::graphics::{Color, RgbaColor};
+/// # use slint_core_internal::graphics::{Color, RgbaColor};
 /// # let some_color = Color::from_rgb_u8(0, 0, 0);
 /// let col = some_color.to_argb_f32();
 /// do_something_with_red_and_green(col.red, col.green);

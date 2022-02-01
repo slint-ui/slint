@@ -5,10 +5,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use sixtyfps_corelib::graphics::{IntSize, SharedImageBuffer};
+use slint_core_internal::graphics::{IntSize, SharedImageBuffer};
 #[cfg(target_arch = "wasm32")]
-use sixtyfps_corelib::Property;
-use sixtyfps_corelib::{items::ImageRendering, slice::Slice, ImageInner, SharedString};
+use slint_core_internal::Property;
+use slint_core_internal::{items::ImageRendering, slice::Slice, ImageInner, SharedString};
 
 use super::{CanvasRc, GLItemRenderer};
 

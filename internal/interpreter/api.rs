@@ -3,9 +3,9 @@
 
 use core::convert::TryInto;
 use sixtyfps_compilerlib::langtype::Type as LangType;
-use sixtyfps_corelib::graphics::Image;
-use sixtyfps_corelib::model::{Model, ModelRc};
-use sixtyfps_corelib::{Brush, PathData, SharedString, SharedVector};
+use slint_core_internal::graphics::Image;
+use slint_core_internal::model::{Model, ModelRc};
+use slint_core_internal::{Brush, PathData, SharedString, SharedVector};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::iter::FromIterator;
@@ -15,7 +15,7 @@ use std::rc::Rc;
 #[doc(inline)]
 pub use sixtyfps_compilerlib::diagnostics::{Diagnostic, DiagnosticLevel};
 
-pub use sixtyfps_corelib::api::*;
+pub use slint_core_internal::api::*;
 
 use crate::dynamic_component::ErasedComponentBox;
 
@@ -106,7 +106,7 @@ pub enum Value {
     PathData(PathData),
     #[doc(hidden)]
     /// An easing curve
-    EasingCurve(sixtyfps_corelib::animations::EasingCurve),
+    EasingCurve(slint_core_internal::animations::EasingCurve),
     #[doc(hidden)]
     /// An enumeration, like `TextHorizontalAlignment::align_center`, represented by `("TextHorizontalAlignment", "align_center")`.
     /// FIXME: consider representing that with a number?
@@ -224,7 +224,7 @@ declare_value_conversion!(Image => [Image] );
 declare_value_conversion!(Struct => [Struct] );
 declare_value_conversion!(Brush => [Brush] );
 declare_value_conversion!(PathData => [PathData]);
-declare_value_conversion!(EasingCurve => [sixtyfps_corelib::animations::EasingCurve]);
+declare_value_conversion!(EasingCurve => [slint_core_internal::animations::EasingCurve]);
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 
 /// Implement From / TryInto for Value that convert a `struct` to/from `Value::Object`
@@ -255,13 +255,13 @@ macro_rules! declare_value_struct_conversion {
     };
 }
 
-declare_value_struct_conversion!(struct sixtyfps_corelib::model::StandardListViewItem { text });
-declare_value_struct_conversion!(struct sixtyfps_corelib::properties::StateInfo { current_state, previous_state, change_time });
-declare_value_struct_conversion!(struct sixtyfps_corelib::input::KeyboardModifiers { control, alt, shift, meta });
-declare_value_struct_conversion!(struct sixtyfps_corelib::input::KeyEvent { event_type, text, modifiers });
-declare_value_struct_conversion!(struct sixtyfps_corelib::layout::LayoutInfo { min, max, min_percent, max_percent, preferred, stretch });
-declare_value_struct_conversion!(struct sixtyfps_corelib::graphics::Point { x, y, ..Default::default()});
-declare_value_struct_conversion!(struct sixtyfps_corelib::items::PointerEvent { kind, button });
+declare_value_struct_conversion!(struct slint_core_internal::model::StandardListViewItem { text });
+declare_value_struct_conversion!(struct slint_core_internal::properties::StateInfo { current_state, previous_state, change_time });
+declare_value_struct_conversion!(struct slint_core_internal::input::KeyboardModifiers { control, alt, shift, meta });
+declare_value_struct_conversion!(struct slint_core_internal::input::KeyEvent { event_type, text, modifiers });
+declare_value_struct_conversion!(struct slint_core_internal::layout::LayoutInfo { min, max, min_percent, max_percent, preferred, stretch });
+declare_value_struct_conversion!(struct slint_core_internal::graphics::Point { x, y, ..Default::default()});
+declare_value_struct_conversion!(struct slint_core_internal::items::PointerEvent { kind, button });
 
 /// Implement From / TryInto for Value that convert an `enum` to/from `Value::EnumerationValue`
 ///
@@ -296,38 +296,38 @@ macro_rules! declare_value_enum_conversion {
 }
 
 declare_value_enum_conversion!(
-    sixtyfps_corelib::items::TextHorizontalAlignment,
+    slint_core_internal::items::TextHorizontalAlignment,
     TextHorizontalAlignment
 );
 declare_value_enum_conversion!(
-    sixtyfps_corelib::items::TextVerticalAlignment,
+    slint_core_internal::items::TextVerticalAlignment,
     TextVerticalAlignment
 );
-declare_value_enum_conversion!(sixtyfps_corelib::items::TextOverflow, TextOverflow);
-declare_value_enum_conversion!(sixtyfps_corelib::items::TextWrap, TextWrap);
-declare_value_enum_conversion!(sixtyfps_corelib::layout::LayoutAlignment, LayoutAlignment);
-declare_value_enum_conversion!(sixtyfps_corelib::items::ImageFit, ImageFit);
-declare_value_enum_conversion!(sixtyfps_corelib::items::ImageRendering, ImageRendering);
-declare_value_enum_conversion!(sixtyfps_corelib::input::KeyEventType, KeyEventType);
-declare_value_enum_conversion!(sixtyfps_corelib::items::EventResult, EventResult);
-declare_value_enum_conversion!(sixtyfps_corelib::items::FillRule, FillRule);
-declare_value_enum_conversion!(sixtyfps_corelib::items::MouseCursor, MouseCursor);
-declare_value_enum_conversion!(sixtyfps_corelib::items::StandardButtonKind, StandardButtonKind);
-declare_value_enum_conversion!(sixtyfps_corelib::items::PointerEventKind, PointerEventKind);
-declare_value_enum_conversion!(sixtyfps_corelib::items::PointerEventButton, PointerEventButton);
-declare_value_enum_conversion!(sixtyfps_corelib::items::DialogButtonRole, DialogButtonRole);
-declare_value_enum_conversion!(sixtyfps_corelib::graphics::PathEvent, PathEvent);
+declare_value_enum_conversion!(slint_core_internal::items::TextOverflow, TextOverflow);
+declare_value_enum_conversion!(slint_core_internal::items::TextWrap, TextWrap);
+declare_value_enum_conversion!(slint_core_internal::layout::LayoutAlignment, LayoutAlignment);
+declare_value_enum_conversion!(slint_core_internal::items::ImageFit, ImageFit);
+declare_value_enum_conversion!(slint_core_internal::items::ImageRendering, ImageRendering);
+declare_value_enum_conversion!(slint_core_internal::input::KeyEventType, KeyEventType);
+declare_value_enum_conversion!(slint_core_internal::items::EventResult, EventResult);
+declare_value_enum_conversion!(slint_core_internal::items::FillRule, FillRule);
+declare_value_enum_conversion!(slint_core_internal::items::MouseCursor, MouseCursor);
+declare_value_enum_conversion!(slint_core_internal::items::StandardButtonKind, StandardButtonKind);
+declare_value_enum_conversion!(slint_core_internal::items::PointerEventKind, PointerEventKind);
+declare_value_enum_conversion!(slint_core_internal::items::PointerEventButton, PointerEventButton);
+declare_value_enum_conversion!(slint_core_internal::items::DialogButtonRole, DialogButtonRole);
+declare_value_enum_conversion!(slint_core_internal::graphics::PathEvent, PathEvent);
 
-impl From<sixtyfps_corelib::animations::Instant> for Value {
-    fn from(value: sixtyfps_corelib::animations::Instant) -> Self {
+impl From<slint_core_internal::animations::Instant> for Value {
+    fn from(value: slint_core_internal::animations::Instant) -> Self {
         Value::Number(value.0 as _)
     }
 }
-impl TryInto<sixtyfps_corelib::animations::Instant> for Value {
+impl TryInto<slint_core_internal::animations::Instant> for Value {
     type Error = ();
-    fn try_into(self) -> Result<sixtyfps_corelib::animations::Instant, ()> {
+    fn try_into(self) -> Result<slint_core_internal::animations::Instant, ()> {
         match self {
-            Value::Number(x) => Ok(sixtyfps_corelib::animations::Instant(x as _)),
+            Value::Number(x) => Ok(slint_core_internal::animations::Instant(x as _)),
             _ => Err(()),
         }
     }
@@ -347,16 +347,16 @@ impl TryInto<()> for Value {
     }
 }
 
-impl From<sixtyfps_corelib::Color> for Value {
+impl From<slint_core_internal::Color> for Value {
     #[inline]
-    fn from(c: sixtyfps_corelib::Color) -> Self {
+    fn from(c: slint_core_internal::Color) -> Self {
         Value::Brush(Brush::SolidColor(c))
     }
 }
-impl TryInto<sixtyfps_corelib::Color> for Value {
+impl TryInto<slint_core_internal::Color> for Value {
     type Error = Value;
     #[inline]
-    fn try_into(self) -> Result<sixtyfps_corelib::Color, Value> {
+    fn try_into(self) -> Result<slint_core_internal::Color, Value> {
         match self {
             Value::Brush(Brush::SolidColor(c)) => Ok(c),
             _ => Err(self),
@@ -595,7 +595,7 @@ impl ComponentDefinition {
     /// This method is internal because the WindowRc is not a public type
     #[doc(hidden)]
     pub fn create_with_existing_window(&self, window: &Window) -> ComponentInstance {
-        use sixtyfps_corelib::window::WindowHandleAccess;
+        use slint_core_internal::window::WindowHandleAccess;
         generativity::make_guard!(guard);
         ComponentInstance {
             inner: self
@@ -723,7 +723,7 @@ pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
 #[repr(C)]
 pub struct ComponentInstance {
     inner: vtable::VRc<
-        sixtyfps_corelib::component::ComponentVTable,
+        slint_core_internal::component::ComponentVTable,
         crate::dynamic_component::ErasedComponentBox,
     >,
 }
@@ -969,7 +969,7 @@ impl ComponentHandle for ComponentInstance {
     }
 
     fn from_inner(
-        inner: vtable::VRc<sixtyfps_corelib::component::ComponentVTable, Self::Inner>,
+        inner: vtable::VRc<slint_core_internal::component::ComponentVTable, Self::Inner>,
     ) -> Self {
         Self { inner }
     }
@@ -989,7 +989,7 @@ impl ComponentHandle for ComponentInstance {
     fn run(&self) {
         self.show();
         sixtyfps_rendering_backend_selector::backend().run_event_loop(
-            sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed,
+            slint_core_internal::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed,
         );
         self.hide();
     }
@@ -1007,7 +1007,7 @@ impl ComponentHandle for ComponentInstance {
 }
 
 impl From<ComponentInstance>
-    for vtable::VRc<sixtyfps_corelib::component::ComponentVTable, ErasedComponentBox>
+    for vtable::VRc<slint_core_internal::component::ComponentVTable, ErasedComponentBox>
 {
     fn from(value: ComponentInstance) -> Self {
         value.inner
@@ -1057,30 +1057,31 @@ pub enum InvokeCallbackError {
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
 pub fn run_event_loop() {
-    sixtyfps_rendering_backend_selector::backend()
-        .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
+    sixtyfps_rendering_backend_selector::backend().run_event_loop(
+        slint_core_internal::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed,
+    );
 }
 
 /// This module contains a few function use by tests
 pub mod testing {
     use super::ComponentHandle;
-    use sixtyfps_corelib::window::WindowHandleAccess;
+    use slint_core_internal::window::WindowHandleAccess;
 
-    /// Wrapper around [`sixtyfps_corelib::tests::sixtyfps_send_mouse_click`]
+    /// Wrapper around [`slint_core_internal::tests::sixtyfps_send_mouse_click`]
     pub fn send_mouse_click(comp: &super::ComponentInstance, x: f32, y: f32) {
-        sixtyfps_corelib::tests::sixtyfps_send_mouse_click(
+        slint_core_internal::tests::sixtyfps_send_mouse_click(
             &vtable::VRc::into_dyn(comp.inner.clone()),
             x,
             y,
             comp.window().window_handle(),
         );
     }
-    /// Wrapper around [`sixtyfps_corelib::tests::send_keyboard_string_sequence`]
+    /// Wrapper around [`slint_core_internal::tests::send_keyboard_string_sequence`]
     pub fn send_keyboard_string_sequence(
         comp: &super::ComponentInstance,
-        string: sixtyfps_corelib::SharedString,
+        string: slint_core_internal::SharedString,
     ) {
-        sixtyfps_corelib::tests::send_keyboard_string_sequence(
+        slint_core_internal::tests::send_keyboard_string_sequence(
             &string,
             Default::default(),
             comp.window().window_handle(),
@@ -1336,7 +1337,7 @@ fn component_definition_struct_properties() {
 
 #[test]
 fn component_definition_model_properties() {
-    use sixtyfps_corelib::model::*;
+    use slint_core_internal::model::*;
     sixtyfps_rendering_backend_testing::init();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());

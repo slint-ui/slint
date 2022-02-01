@@ -3,13 +3,13 @@
 
 use neon::prelude::*;
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_corelib::model::Model;
+use slint_core_internal::model::Model;
 use std::cell::Cell;
 use std::rc::{Rc, Weak};
 
 /// Model coming from JS
 pub struct JsModel {
-    notify: sixtyfps_corelib::model::ModelNotify,
+    notify: slint_core_internal::model::ModelNotify,
     /// The index of the value in the PersistentContext
     value_index: u32,
     data_type: Type,
@@ -87,7 +87,7 @@ impl Model for JsModel {
         }
     }
 
-    fn model_tracker(&self) -> &dyn sixtyfps_corelib::model::ModelTracker {
+    fn model_tracker(&self) -> &dyn slint_core_internal::model::ModelTracker {
         &self.notify
     }
 

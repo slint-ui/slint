@@ -216,7 +216,7 @@ impl<T: Clone> SharedVector<T> {
     /// If the array was bigger, extra elements will be discarded
     ///
     /// ```
-    /// use sixtyfps_corelib::SharedVector;
+    /// use slint_core_internal::SharedVector;
     /// let mut shared_vector = SharedVector::<u32>::from_slice(&[1, 2, 3]);
     /// shared_vector.resize(5, 8);
     /// assert_eq!(shared_vector.as_slice(), &[1, 2, 3, 8, 8]);

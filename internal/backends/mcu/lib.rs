@@ -21,13 +21,13 @@ use alloc::boxed::Box;
 use core::cell::RefCell;
 use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
-use sixtyfps_corelib::graphics::{IntRect, IntSize};
+use slint_core_internal::graphics::{IntRect, IntSize};
 
 #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
-use sixtyfps_corelib::unsafe_single_core;
+use slint_core_internal::unsafe_single_core;
 
 #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
-use sixtyfps_corelib::thread_local_ as thread_local;
+use slint_core_internal::thread_local_ as thread_local;
 
 #[cfg(feature = "simulator")]
 mod simulator;
@@ -40,7 +40,7 @@ mod renderer;
 pub trait Devices {
     fn screen_size(&self) -> IntSize;
     fn fill_region(&mut self, region: IntRect, pixels: &[Rgb888]);
-    fn read_touch_event(&mut self) -> Option<sixtyfps_corelib::input::MouseEvent> {
+    fn read_touch_event(&mut self) -> Option<slint_core_internal::input::MouseEvent> {
         None
     }
     fn debug(&mut self, _: &str);
@@ -54,12 +54,12 @@ where
     T::Error: core::fmt::Debug,
     T::Color: core::convert::From<embedded_graphics::pixelcolor::Rgb888>,
 {
-    fn screen_size(&self) -> sixtyfps_corelib::graphics::IntSize {
+    fn screen_size(&self) -> slint_core_internal::graphics::IntSize {
         let s = self.bounding_box().size;
-        sixtyfps_corelib::graphics::IntSize::new(s.width, s.height)
+        slint_core_internal::graphics::IntSize::new(s.width, s.height)
     }
 
-    fn fill_region(&mut self, region: sixtyfps_corelib::graphics::IntRect, pixels: &[Rgb888]) {
+    fn fill_region(&mut self, region: slint_core_internal::graphics::IntRect, pixels: &[Rgb888]) {
         self.color_converted()
             .fill_contiguous(
                 &embedded_graphics::primitives::Rectangle::new(
@@ -91,11 +91,11 @@ mod the_backend {
     use alloc::string::String;
     use core::cell::{Cell, RefCell};
     use core::pin::Pin;
-    use sixtyfps_corelib::component::ComponentRc;
-    use sixtyfps_corelib::graphics::{Color, Point, Size};
-    use sixtyfps_corelib::window::PlatformWindow;
-    use sixtyfps_corelib::window::Window;
-    use sixtyfps_corelib::ImageInner;
+    use slint_core_internal::component::ComponentRc;
+    use slint_core_internal::graphics::{Color, Point, Size};
+    use slint_core_internal::window::PlatformWindow;
+    use slint_core_internal::window::Window;
+    use slint_core_internal::ImageInner;
 
     thread_local! { static WINDOWS: RefCell<Option<Rc<McuWindow>>> = RefCell::new(None) }
 
@@ -120,26 +120,33 @@ mod the_backend {
         }
         fn free_graphics_resources<'a>(
             &self,
-            _items: &mut dyn Iterator<Item = Pin<sixtyfps_corelib::items::ItemRef<'a>>>,
+            _items: &mut dyn Iterator<Item = Pin<slint_core_internal::items::ItemRef<'a>>>,
         ) {
         }
-        fn show_popup(&self, _popup: &ComponentRc, _position: sixtyfps_corelib::graphics::Point) {
+        fn show_popup(
+            &self,
+            _popup: &ComponentRc,
+            _position: slint_core_internal::graphics::Point,
+        ) {
             todo!()
         }
         fn request_window_properties_update(&self) {}
-        fn apply_window_properties(&self, window_item: Pin<&sixtyfps_corelib::items::WindowItem>) {
+        fn apply_window_properties(
+            &self,
+            window_item: Pin<&slint_core_internal::items::WindowItem>,
+        ) {
             self.background_color.set(window_item.background());
         }
         fn apply_geometry_constraint(
             &self,
-            _constraints_horizontal: sixtyfps_corelib::layout::LayoutInfo,
-            _constraints_vertical: sixtyfps_corelib::layout::LayoutInfo,
+            _constraints_horizontal: slint_core_internal::layout::LayoutInfo,
+            _constraints_vertical: slint_core_internal::layout::LayoutInfo,
         ) {
         }
-        fn set_mouse_cursor(&self, _cursor: sixtyfps_corelib::items::MouseCursor) {}
+        fn set_mouse_cursor(&self, _cursor: slint_core_internal::items::MouseCursor) {}
         fn text_size(
             &self,
-            _font_request: sixtyfps_corelib::graphics::FontRequest,
+            _font_request: slint_core_internal::graphics::FontRequest,
             text: &str,
             _max_width: Option<f32>,
         ) -> Size {
@@ -148,14 +155,14 @@ mod the_backend {
 
         fn text_input_byte_offset_for_position(
             &self,
-            _text_input: Pin<&sixtyfps_corelib::items::TextInput>,
+            _text_input: Pin<&slint_core_internal::items::TextInput>,
             _pos: Point,
         ) -> usize {
             0
         }
         fn text_input_position_for_byte_offset(
             &self,
-            _text_input: Pin<&sixtyfps_corelib::items::TextInput>,
+            _text_input: Pin<&slint_core_internal::items::TextInput>,
             _byte_offset: usize,
         ) -> Point {
             Default::default()
@@ -223,9 +230,9 @@ mod the_backend {
         }
     }
 
-    impl sixtyfps_corelib::backend::Backend for MCUBackend {
-        fn create_window(&'static self) -> Rc<sixtyfps_corelib::window::Window> {
-            sixtyfps_corelib::window::Window::new(|window| {
+    impl slint_core_internal::backend::Backend for MCUBackend {
+        fn create_window(&'static self) -> Rc<slint_core_internal::window::Window> {
+            slint_core_internal::window::Window::new(|window| {
                 Rc::new(McuWindow {
                     backend: self,
                     self_weak: window.clone(),
@@ -236,10 +243,10 @@ mod the_backend {
 
         fn run_event_loop(
             &'static self,
-            behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior,
+            behavior: slint_core_internal::backend::EventLoopQuitBehavior,
         ) {
             loop {
-                sixtyfps_corelib::animations::update_animations();
+                slint_core_internal::animations::update_animations();
                 match self.with_inner(|inner| inner.event_queue.pop_front()) {
                     Some(McuEvent::Quit) => break,
                     Some(McuEvent::Custom(e)) => e(),
@@ -266,12 +273,12 @@ mod the_backend {
                     }
                 });
                 match behavior {
-                    sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
+                    slint_core_internal::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
                         if WINDOWS.with(|x| x.borrow().is_none()) {
                             break;
                         }
                     }
-                    sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => (),
+                    slint_core_internal::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => (),
                 }
             }
         }
@@ -295,8 +302,8 @@ mod the_backend {
 
         fn image_size(
             &'static self,
-            image: &sixtyfps_corelib::graphics::Image,
-        ) -> sixtyfps_corelib::graphics::IntSize {
+            image: &slint_core_internal::graphics::Image,
+        ) -> slint_core_internal::graphics::IntSize {
             let inner: &ImageInner = image.into();
             match inner {
                 ImageInner::None => Default::default(),
@@ -337,14 +344,14 @@ pub const IS_AVAILABLE: bool = true;
 
 #[cfg(feature = "simulator")]
 pub fn init_simulator() {
-    sixtyfps_corelib::backend::instance_or_init(|| {
+    slint_core_internal::backend::instance_or_init(|| {
         alloc::boxed::Box::new(simulator::SimulatorBackend)
     });
 }
 
 pub fn init_with_display<Display: Devices + 'static>(display: Display) {
     DEVICES.with(|d| *d.borrow_mut() = Some(Box::new(display)));
-    sixtyfps_corelib::backend::instance_or_init(|| {
+    slint_core_internal::backend::instance_or_init(|| {
         alloc::boxed::Box::new(the_backend::MCUBackend::default())
     });
 }

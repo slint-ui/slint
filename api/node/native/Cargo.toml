@@ -21,7 +21,7 @@ name = "sixtyfps_node_native"
 
 [dependencies]
 sixtyfps-compilerlib = { version = "=0.2.0", path="../../../internal/compiler" }
-sixtyfps-corelib = { version = "=0.2.0", path="../../../internal/core" }
+slint-core-internal = { version = "=0.2.0", path="../../../internal/core" }
 sixtyfps-interpreter = { version = "=0.2.0", path="../../../internal/interpreter",  features = ["display-diagnostics"] }
 
 vtable = { version = "0.1.1", path="../../../helper_crates/vtable" }

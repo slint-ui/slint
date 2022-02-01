@@ -6,11 +6,11 @@
 use femtovg::TextContext;
 #[cfg(target_os = "windows")]
 use font_kit::loader::Loader;
-use sixtyfps_corelib::graphics::{FontRequest, Point, Size};
-use sixtyfps_corelib::items::{
+use slint_core_internal::graphics::{FontRequest, Point, Size};
+use slint_core_internal::items::{
     TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap,
 };
-use sixtyfps_corelib::{SharedString, SharedVector};
+use slint_core_internal::{SharedString, SharedVector};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
@@ -119,7 +119,7 @@ impl Font {
 }
 
 pub(crate) fn text_size(
-    font_request: &sixtyfps_corelib::graphics::FontRequest,
+    font_request: &slint_core_internal::graphics::FontRequest,
     scale_factor: f32,
     text: &str,
     max_width: Option<f32>,

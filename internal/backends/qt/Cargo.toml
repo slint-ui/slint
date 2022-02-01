@@ -13,7 +13,7 @@ homepage = "https://sixtyfps.io"
 links = "sixtyfps_rendering_backend_qt" # just so we can pass metadata to the dependee's build script
 
 [features]
-rtti = ["sixtyfps-corelib/rtti"]
+rtti = ["slint-core-internal/rtti"]
 default = ["rtti"]
 
 [lib]
@@ -22,7 +22,7 @@ path = "lib.rs"
 [dependencies]
 slint-common-internal = { version = "=0.2.0", path = "../../../internal/common" }
 slint-core-macros-internal = { version = "=0.2.0", path = "../../../internal/core-macros" }
-sixtyfps-corelib = { version = "=0.2.0", path = "../../../internal/core" }
+slint-core-internal = { version = "=0.2.0", path = "../../../internal/core" }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }

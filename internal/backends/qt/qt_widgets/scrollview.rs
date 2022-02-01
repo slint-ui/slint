@@ -107,7 +107,7 @@ impl Item for NativeScrollView {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &WindowRc,
-        _self_rc: &sixtyfps_corelib::items::ItemRc,
+        _self_rc: &slint_core_internal::items::ItemRc,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
         let mut data = self.data();

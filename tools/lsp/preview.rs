@@ -102,7 +102,7 @@ pub fn start_ui_event_loop() {
     }
 
     sixtyfps_rendering_backend_selector::backend()
-        .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnlyExplicitly);
+        .run_event_loop(slint_core_internal::backend::EventLoopQuitBehavior::QuitOnlyExplicitly);
 }
 
 pub fn quit_ui_event_loop() {

@@ -11,21 +11,21 @@ use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::object_tree::ElementRc;
 use sixtyfps_compilerlib::*;
 use sixtyfps_compilerlib::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
-use sixtyfps_corelib::api::Window;
-use sixtyfps_corelib::component::{Component, ComponentRef, ComponentRefPin, ComponentVTable};
-use sixtyfps_corelib::item_tree::{
+use slint_core_internal::api::Window;
+use slint_core_internal::component::{Component, ComponentRef, ComponentRefPin, ComponentVTable};
+use slint_core_internal::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder, VisitChildrenResult,
 };
-use sixtyfps_corelib::items::{
+use slint_core_internal::items::{
     Flickable, ItemRc, ItemRef, ItemVTable, ItemWeak, PropertyAnimation,
 };
-use sixtyfps_corelib::layout::{BoxLayoutCellData, LayoutInfo, Orientation};
-use sixtyfps_corelib::model::RepeatedComponent;
-use sixtyfps_corelib::model::Repeater;
-use sixtyfps_corelib::properties::InterpolatedPropertyValue;
-use sixtyfps_corelib::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
-use sixtyfps_corelib::window::{WindowHandleAccess, WindowRc};
-use sixtyfps_corelib::{Brush, Color, Property, SharedString, SharedVector};
+use slint_core_internal::layout::{BoxLayoutCellData, LayoutInfo, Orientation};
+use slint_core_internal::model::RepeatedComponent;
+use slint_core_internal::model::Repeater;
+use slint_core_internal::properties::InterpolatedPropertyValue;
+use slint_core_internal::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
+use slint_core_internal::window::{WindowHandleAccess, WindowRc};
+use slint_core_internal::{Brush, Color, Property, SharedString, SharedVector};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::{pin::Pin, rc::Rc};
@@ -64,7 +64,7 @@ impl<'id> Drop for ComponentBox<'id> {
     fn drop(&mut self) {
         let instance_ref = self.borrow_instance();
         if let Some(window) = eval::window_ref(instance_ref) {
-            sixtyfps_corelib::component::init_component_items(
+            slint_core_internal::component::init_component_items(
                 instance_ref.instance,
                 instance_ref.component_type.item_tree.as_slice(),
                 window,
@@ -163,7 +163,7 @@ impl Component for ErasedComponentBox {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-    ) -> sixtyfps_corelib::layout::LayoutInfo {
+    ) -> slint_core_internal::layout::LayoutInfo {
         self.borrow().as_ref().layout_info(orientation)
     }
     fn get_item_ref(self: Pin<&Self>, index: usize) -> Pin<ItemRef> {
@@ -177,7 +177,7 @@ impl Component for ErasedComponentBox {
     }
 }
 
-sixtyfps_corelib::ComponentVTable_static!(static COMPONENT_BOX_VT for ErasedComponentBox);
+slint_core_internal::ComponentVTable_static!(static COMPONENT_BOX_VT for ErasedComponentBox);
 
 #[derive(Default)]
 pub(crate) struct ComponentExtraData {
@@ -225,7 +225,7 @@ impl<'id> ErasedRepeaterWithinComponent<'id> {
     }
 }
 
-type Callback = sixtyfps_corelib::Callback<[Value], Value>;
+type Callback = slint_core_internal::Callback<[Value], Value>;
 
 #[derive(Clone)]
 pub struct ErasedComponentDescription(Rc<ComponentDescription<'static>>);
@@ -361,7 +361,7 @@ impl<'id> ComponentDescription<'id> {
     #[doc(hidden)]
     pub fn create_with_existing_window(
         self: Rc<Self>,
-        window: &sixtyfps_corelib::window::WindowRc,
+        window: &slint_core_internal::window::WindowRc,
     ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
         let component_ref = instantiate(self, None, Some(window));
         component_ref
@@ -423,7 +423,7 @@ impl<'id> ComponentDescription<'id> {
                 .set_binding(
                     Pin::new_unchecked(&*component.as_ptr().add(x.offset)),
                     binding,
-                    sixtyfps_corelib::rtti::AnimatedBindingKind::NotAnimated,
+                    slint_core_internal::rtti::AnimatedBindingKind::NotAnimated,
                 )
                 .unwrap()
         };
@@ -582,7 +582,7 @@ extern "C" fn visit_children_item(
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let comp_rc = instance_ref.self_weak().get().unwrap().upgrade().unwrap();
-    sixtyfps_corelib::item_tree::visit_item_tree(
+    slint_core_internal::item_tree::visit_item_tree(
         instance_ref.instance,
         &vtable::VRc::into_dyn(comp_rc),
         instance_ref.component_type.item_tree.as_slice(),
@@ -718,7 +718,7 @@ pub(crate) fn generate_component<'id>(
     //dbg!(&*component.root_element.borrow());
     let mut rtti = HashMap::new();
     {
-        use sixtyfps_corelib::items::*;
+        use slint_core_internal::items::*;
         rtti.extend(
             [
                 rtti_for::<ImageItem>(),
@@ -911,7 +911,7 @@ pub(crate) fn generate_component<'id>(
             Type::Angle => animated_property_info::<f32>(),
             Type::PhysicalLength => animated_property_info::<f32>(),
             Type::LogicalLength => animated_property_info::<f32>(),
-            Type::Image => property_info::<sixtyfps_corelib::graphics::Image>(),
+            Type::Image => property_info::<slint_core_internal::graphics::Image>(),
             Type::Bool => property_info::<bool>(),
             Type::Callback { .. } => {
                 custom_callbacks
@@ -919,32 +919,38 @@ pub(crate) fn generate_component<'id>(
                 continue;
             }
             Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo") => {
-                property_info::<sixtyfps_corelib::properties::StateInfo>()
+                property_info::<slint_core_internal::properties::StateInfo>()
             }
             Type::Struct { .. } => property_info::<Value>(),
             Type::Array(_) => property_info::<Value>(),
             Type::Percent => property_info::<f32>(),
             Type::Enumeration(e) => match e.name.as_ref() {
-                "LayoutAlignment" => property_info::<sixtyfps_corelib::layout::LayoutAlignment>(),
+                "LayoutAlignment" => {
+                    property_info::<slint_core_internal::layout::LayoutAlignment>()
+                }
                 "TextHorizontalAlignment" => {
-                    property_info::<sixtyfps_corelib::items::TextHorizontalAlignment>()
+                    property_info::<slint_core_internal::items::TextHorizontalAlignment>()
                 }
                 "TextVerticalAlignment" => {
-                    property_info::<sixtyfps_corelib::items::TextVerticalAlignment>()
+                    property_info::<slint_core_internal::items::TextVerticalAlignment>()
                 }
-                "TextWrap" => property_info::<sixtyfps_corelib::items::TextWrap>(),
-                "TextOverflow" => property_info::<sixtyfps_corelib::items::TextOverflow>(),
-                "ImageFit" => property_info::<sixtyfps_corelib::items::ImageFit>(),
-                "FillRule" => property_info::<sixtyfps_corelib::items::FillRule>(),
-                "MouseCursor" => property_info::<sixtyfps_corelib::items::MouseCursor>(),
+                "TextWrap" => property_info::<slint_core_internal::items::TextWrap>(),
+                "TextOverflow" => property_info::<slint_core_internal::items::TextOverflow>(),
+                "ImageFit" => property_info::<slint_core_internal::items::ImageFit>(),
+                "FillRule" => property_info::<slint_core_internal::items::FillRule>(),
+                "MouseCursor" => property_info::<slint_core_internal::items::MouseCursor>(),
                 "StandardButtonKind" => {
-                    property_info::<sixtyfps_corelib::items::StandardButtonKind>()
+                    property_info::<slint_core_internal::items::StandardButtonKind>()
                 }
-                "DialogButtonRole" => property_info::<sixtyfps_corelib::items::DialogButtonRole>(),
+                "DialogButtonRole" => {
+                    property_info::<slint_core_internal::items::DialogButtonRole>()
+                }
                 "PointerEventButton" => {
-                    property_info::<sixtyfps_corelib::items::PointerEventButton>()
+                    property_info::<slint_core_internal::items::PointerEventButton>()
                 }
-                "PointerEventKind" => property_info::<sixtyfps_corelib::items::PointerEventKind>(),
+                "PointerEventKind" => {
+                    property_info::<slint_core_internal::items::PointerEventKind>()
+                }
                 _ => panic!("unknown enum"),
             },
             Type::LayoutCache => property_info::<SharedVector<f32>>(),
@@ -1065,7 +1071,7 @@ pub fn animation_for_property(
             let animations = animations.clone();
             let state_ref = state_ref.clone();
             AnimatedBindingKind::Transition(Box::new(
-                move || -> (PropertyAnimation, sixtyfps_corelib::animations::Instant) {
+                move || -> (PropertyAnimation, slint_core_internal::animations::Instant) {
                     generativity::make_guard!(guard);
                     let component = unsafe {
                         InstanceRef::from_pin_ref(
@@ -1079,7 +1085,7 @@ pub fn animation_for_property(
 
                     let mut context = eval::EvalLocalContext::from_component_instance(component);
                     let state = eval::eval_expression(&state_ref, &mut context);
-                    let state_info: sixtyfps_corelib::properties::StateInfo =
+                    let state_info: slint_core_internal::properties::StateInfo =
                         state.try_into().unwrap();
                     for a in &animations {
                         if (a.is_out && a.state_id == state_info.previous_state)
@@ -1105,7 +1111,7 @@ pub fn animation_for_property(
 pub fn instantiate(
     component_type: Rc<ComponentDescription>,
     parent_ctx: Option<ComponentRefPin>,
-    window: Option<&sixtyfps_corelib::window::WindowRc>,
+    window: Option<&slint_core_internal::window::WindowRc>,
 ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
     let mut instance = component_type.dynamic_type.clone().create_instance();
 
@@ -1141,7 +1147,7 @@ pub fn instantiate(
     let instance_ref = component_box.borrow_instance();
 
     if !component_type.original.is_global() {
-        sixtyfps_corelib::component::init_component_items(
+        slint_core_internal::component::init_component_items(
             instance_ref.instance,
             instance_ref.component_type.item_tree.as_slice(),
             eval::window_ref(instance_ref).unwrap(),
@@ -1230,10 +1236,10 @@ pub fn instantiate(
                 if is_state_info {
                     let prop = Pin::new_unchecked(
                         &*(instance_ref.as_ptr().add(*offset)
-                            as *const Property<sixtyfps_corelib::properties::StateInfo>),
+                            as *const Property<slint_core_internal::properties::StateInfo>),
                     );
                     let e = binding.expression.clone();
-                    sixtyfps_corelib::properties::set_state_binding(prop, move || {
+                    slint_core_internal::properties::set_state_binding(prop, move || {
                         generativity::make_guard!(guard);
                         eval::eval_expression(
                             &e,
@@ -1356,7 +1362,7 @@ pub fn instantiate(
                     InstanceRef::from_pin_ref(c, guard)
                 }),
             );
-            sixtyfps_corelib::model::ModelRc::new(crate::value_model::ValueModel::new(m))
+            slint_core_internal::model::ModelRc::new(crate::value_model::ValueModel::new(m))
         });
     }
 
@@ -1453,8 +1459,8 @@ impl<'id> From<ComponentBox<'id>> for ErasedComponentBox {
     }
 }
 
-impl sixtyfps_corelib::window::WindowHandleAccess for ErasedComponentBox {
-    fn window_handle(&self) -> &Rc<sixtyfps_corelib::window::Window> {
+impl slint_core_internal::window::WindowHandleAccess for ErasedComponentBox {
+    fn window_handle(&self) -> &Rc<slint_core_internal::window::Window> {
         self.window().window_handle()
     }
 }
@@ -1602,7 +1608,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         &extra_data.self_weak
     }
 
-    pub fn window(&self) -> &sixtyfps_corelib::api::Window {
+    pub fn window(&self) -> &slint_core_internal::api::Window {
         self.component_type.window_offset.apply(self.as_ref()).as_ref().as_ref().unwrap()
     }
 
@@ -1637,7 +1643,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
 /// Show the popup at the given location
 pub fn show_popup(
     popup: &object_tree::PopupWindow,
-    pos: sixtyfps_corelib::graphics::Point,
+    pos: slint_core_internal::graphics::Point,
     parent_comp: ComponentRefPin,
     parent_window: &WindowRc,
     parent_item: &ItemRc,

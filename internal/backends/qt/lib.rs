@@ -16,12 +16,12 @@ only be used with `version = "=x.y.z"` in Cargo.toml.
 
 extern crate alloc;
 
-use sixtyfps_corelib::graphics::{Image, IntSize};
+use slint_core_internal::graphics::{Image, IntSize};
 #[cfg(not(no_qt))]
-use sixtyfps_corelib::items::ImageFit;
-use sixtyfps_corelib::window::Window;
+use slint_core_internal::items::ImageFit;
+use slint_core_internal::window::Window;
 #[cfg(not(no_qt))]
-use sixtyfps_corelib::ImageInner;
+use slint_core_internal::ImageInner;
 
 #[cfg(not(no_qt))]
 mod qt_widgets;
@@ -49,7 +49,7 @@ pub fn use_modules() -> usize {
 mod ffi {
     #[no_mangle]
     pub extern "C" fn sixtyfps_qt_get_widget(
-        _: &sixtyfps_corelib::window::WindowRc,
+        _: &slint_core_internal::window::WindowRc,
     ) -> *mut std::ffi::c_void {
         std::ptr::null_mut()
     }
@@ -67,7 +67,7 @@ mod ffi {
 ///     }
 /// }
 /// impl DoSomething for () {}
-/// impl<T: sixtyfps_corelib::rtti::BuiltinItem, Next: DoSomething> DoSomething for (T, Next) {
+/// impl<T: slint_core_internal::rtti::BuiltinItem, Next: DoSomething> DoSomething for (T, Next) {
 ///     fn do_something(/*...*/) {
 ///          /*...*/
 ///          Next::do_something(/*...*/);
@@ -113,22 +113,25 @@ pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
 pub const IS_AVAILABLE: bool = cfg!(not(no_qt));
 
 pub struct Backend;
-impl sixtyfps_corelib::backend::Backend for Backend {
+impl slint_core_internal::backend::Backend for Backend {
     fn create_window(&'static self) -> std::rc::Rc<Window> {
         #[cfg(no_qt)]
         panic!("The Qt backend needs Qt");
         #[cfg(not(no_qt))]
         {
-            sixtyfps_corelib::window::Window::new(|window| qt_window::QtWindow::new(window))
+            slint_core_internal::window::Window::new(|window| qt_window::QtWindow::new(window))
         }
     }
 
-    fn run_event_loop(&'static self, _behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
+    fn run_event_loop(
+        &'static self,
+        _behavior: slint_core_internal::backend::EventLoopQuitBehavior,
+    ) {
         #[cfg(not(no_qt))]
         {
             let quit_on_last_window_closed = match _behavior {
-                sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => true,
-                sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => false,
+                slint_core_internal::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => true,
+                slint_core_internal::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => false,
             };
             // Schedule any timers with Qt that were set up before this event loop start.
             crate::qt_window::timer_event();
@@ -272,8 +275,8 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         {
             let inner: &ImageInner = _image.into();
             match inner {
-                sixtyfps_corelib::ImageInner::None => Default::default(),
-                sixtyfps_corelib::ImageInner::EmbeddedImage(buffer) => buffer.size(),
+                slint_core_internal::ImageInner::None => Default::default(),
+                slint_core_internal::ImageInner::EmbeddedImage(buffer) => buffer.size(),
                 _ => qt_window::load_image_from_resource(inner, None, ImageFit::fill)
                     .map(|img| {
                         let qsize = img.size();

@@ -11,8 +11,8 @@ use crate::SetPropertyError;
 use sixtyfps_compilerlib::namedreference::NamedReference;
 use sixtyfps_compilerlib::object_tree::PropertyDeclaration;
 use sixtyfps_compilerlib::{langtype::Type, object_tree::Component};
-use sixtyfps_corelib::component::ComponentVTable;
-use sixtyfps_corelib::rtti;
+use slint_core_internal::component::ComponentVTable;
+use slint_core_internal::rtti;
 
 pub enum CompiledGlobal {
     Builtin {

@@ -55,7 +55,7 @@ impl SharedString {
     /// Append a string to this string
     ///
     /// ```
-    /// # use sixtyfps_corelib::SharedString;
+    /// # use slint_core_internal::SharedString;
     /// let mut hello = SharedString::from("Hello");
     /// hello.push_str(", ");
     /// hello.push_str("World");

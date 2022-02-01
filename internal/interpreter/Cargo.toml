@@ -30,10 +30,10 @@ compat-0-2-0 = []
 display-diagnostics = ["sixtyfps-compilerlib/display-diagnostics"]
 
 # (internal) export C++ FFI functions
-ffi = ["spin_on", "sixtyfps-corelib/ffi"]
+ffi = ["spin_on", "slint-core-internal/ffi"]
 
 ## Enable use of the Rust standard library.
-std = ["sixtyfps-corelib/std"]
+std = ["slint-core-internal/std"]
 
 #! ### Backends
 
@@ -54,7 +54,7 @@ wayland = ["sixtyfps-rendering-backend-selector/wayland", "backend-gl"]
 
 [dependencies]
 sixtyfps-compilerlib = { version = "=0.2.0", path = "../compiler" }
-sixtyfps-corelib = { version = "=0.2.0", path = "../core", features = ["rtti"] }
+slint-core-internal = { version = "=0.2.0", path = "../core", features = ["rtti"] }
 sixtyfps-rendering-backend-selector = { version = "=0.2.0", path = "../../internal/backends/selector" }
 
 vtable = { version = "0.1.1", path="../../helper_crates/vtable" }

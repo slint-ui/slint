@@ -11,10 +11,10 @@ You should use the `sixtyfps` crate instead.
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 
 use image::GenericImageView;
-use sixtyfps_corelib::component::ComponentRc;
-use sixtyfps_corelib::graphics::{Image, IntSize, Point, Size};
-use sixtyfps_corelib::window::{PlatformWindow, Window};
-use sixtyfps_corelib::ImageInner;
+use slint_core_internal::component::ComponentRc;
+use slint_core_internal::graphics::{Image, IntSize, Point, Size};
+use slint_core_internal::window::{PlatformWindow, Window};
+use slint_core_internal::ImageInner;
 use std::path::Path;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -25,12 +25,15 @@ pub struct TestingBackend {
     clipboard: Mutex<Option<String>>,
 }
 
-impl sixtyfps_corelib::backend::Backend for TestingBackend {
+impl slint_core_internal::backend::Backend for TestingBackend {
     fn create_window(&'static self) -> Rc<Window> {
         Window::new(|_| Rc::new(TestingWindow::default()))
     }
 
-    fn run_event_loop(&'static self, _behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
+    fn run_event_loop(
+        &'static self,
+        _behavior: slint_core_internal::backend::EventLoopQuitBehavior,
+    ) {
         unimplemented!("running an event loop with the testing backend");
     }
 
@@ -96,32 +99,32 @@ impl PlatformWindow for TestingWindow {
 
     fn free_graphics_resources<'a>(
         &self,
-        _items: &mut dyn Iterator<Item = Pin<sixtyfps_corelib::items::ItemRef<'a>>>,
+        _items: &mut dyn Iterator<Item = Pin<slint_core_internal::items::ItemRef<'a>>>,
     ) {
     }
 
-    fn show_popup(&self, _popup: &ComponentRc, _position: sixtyfps_corelib::graphics::Point) {
+    fn show_popup(&self, _popup: &ComponentRc, _position: slint_core_internal::graphics::Point) {
         todo!()
     }
 
     fn request_window_properties_update(&self) {}
 
-    fn apply_window_properties(&self, _window_item: Pin<&sixtyfps_corelib::items::WindowItem>) {
+    fn apply_window_properties(&self, _window_item: Pin<&slint_core_internal::items::WindowItem>) {
         todo!()
     }
 
     fn apply_geometry_constraint(
         &self,
-        _constraints_horizontal: sixtyfps_corelib::layout::LayoutInfo,
-        _constraints_vertical: sixtyfps_corelib::layout::LayoutInfo,
+        _constraints_horizontal: slint_core_internal::layout::LayoutInfo,
+        _constraints_vertical: slint_core_internal::layout::LayoutInfo,
     ) {
     }
 
-    fn set_mouse_cursor(&self, _cursor: sixtyfps_corelib::items::MouseCursor) {}
+    fn set_mouse_cursor(&self, _cursor: slint_core_internal::items::MouseCursor) {}
 
     fn text_size(
         &self,
-        _font_request: sixtyfps_corelib::graphics::FontRequest,
+        _font_request: slint_core_internal::graphics::FontRequest,
         text: &str,
         _max_width: Option<f32>,
     ) -> Size {
@@ -130,7 +133,7 @@ impl PlatformWindow for TestingWindow {
 
     fn text_input_byte_offset_for_position(
         &self,
-        _text_input: Pin<&sixtyfps_corelib::items::TextInput>,
+        _text_input: Pin<&slint_core_internal::items::TextInput>,
         _pos: Point,
     ) -> usize {
         0
@@ -138,7 +141,7 @@ impl PlatformWindow for TestingWindow {
 
     fn text_input_position_for_byte_offset(
         &self,
-        _text_input: Pin<&sixtyfps_corelib::items::TextInput>,
+        _text_input: Pin<&slint_core_internal::items::TextInput>,
         _byte_offset: usize,
     ) -> Point {
         Default::default()
@@ -153,5 +156,5 @@ impl PlatformWindow for TestingWindow {
 /// Must be called before any call that would otherwise initialize the rendering backend.
 /// Calling it when the rendering backend is already initialized will have no effects
 pub fn init() {
-    sixtyfps_corelib::backend::instance_or_init(|| Box::new(TestingBackend::default()));
+    slint_core_internal::backend::instance_or_init(|| Box::new(TestingBackend::default()));
 }

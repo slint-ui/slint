@@ -3,9 +3,9 @@
 
 #![doc = include_str!("README.md")]
 
-use sixtyfps_corelib::model::{Model, ModelRc};
-use sixtyfps_corelib::SharedVector;
 use sixtyfps_interpreter::{ComponentHandle, ComponentInstance, SharedString, Value};
+use slint_core_internal::model::{Model, ModelRc};
+use slint_core_internal::SharedVector;
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -267,7 +267,7 @@ fn load_data(instance: &ComponentInstance, data_path: &std::path::Path) -> Resul
                 }
                 serde_json::Value::String(s) => SharedString::from(s.as_str()).into(),
                 serde_json::Value::Array(array) => sixtyfps_interpreter::Value::Model(
-                    ModelRc::new(sixtyfps_corelib::model::SharedVectorModel::from(
+                    ModelRc::new(slint_core_internal::model::SharedVectorModel::from(
                         array.iter().map(from_json).collect::<SharedVector<Value>>(),
                     )),
                 ),

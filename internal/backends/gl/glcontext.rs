@@ -85,7 +85,7 @@ impl OpenGLContext {
         #[cfg(not(target_arch = "wasm32"))]
         match &self.0.borrow().as_ref().unwrap() {
             OpenGLContextState::NotCurrent(_) => {
-                sixtyfps_corelib::debug_log!("internal error: cannot call OpenGLContext::ensure_resized without context being current!")
+                slint_core_internal::debug_log!("internal error: cannot call OpenGLContext::ensure_resized without context being current!")
             }
             OpenGLContextState::Current(_current) => {
                 _current.resize(_current.window().inner_size());

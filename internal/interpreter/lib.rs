@@ -96,7 +96,7 @@ pub(crate) fn register_font_from_path<P: AsRef<std::path::Path>>(
 
 /// (Re-export from corelib.)
 #[doc(inline)]
-pub use sixtyfps_corelib::{Brush, Color, SharedString, SharedVector};
+pub use slint_core_internal::{Brush, Color, SharedString, SharedVector};
 
 /// One need to use at least one function in each module in order to get them
 /// exported in the final binary.

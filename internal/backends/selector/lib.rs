@@ -40,8 +40,8 @@ cfg_if::cfg_if! {
             feature = "sixtyfps-rendering-backend-qt",
             feature = "sixtyfps-rendering-backend-gl"
         ))] {
-        pub fn backend() -> &'static dyn sixtyfps_corelib::backend::Backend {
-            sixtyfps_corelib::backend::instance_or_init(|| {
+        pub fn backend() -> &'static dyn slint_core_internal::backend::Backend {
+            slint_core_internal::backend::instance_or_init(|| {
                 let backend_config = std::env::var("SIXTYFPS_BACKEND").unwrap_or_default();
 
                 #[cfg(feature = "sixtyfps-rendering-backend-qt")]
@@ -74,8 +74,8 @@ cfg_if::cfg_if! {
             native_widgets, Backend, NativeGlobals, NativeWidgets, HAS_NATIVE_STYLE,
         };
     } else {
-        pub fn backend() -> &'static dyn sixtyfps_corelib::backend::Backend {
-            sixtyfps_corelib::backend::instance().expect("no default backend configured, the backend must be initialized manually")
+        pub fn backend() -> &'static dyn slint_core_internal::backend::Backend {
+            slint_core_internal::backend::instance().expect("no default backend configured, the backend must be initialized manually")
         }
 
         pub type NativeWidgets = ();
@@ -89,7 +89,7 @@ cfg_if::cfg_if! {
 #[cold]
 #[cfg(not(target_arch = "wasm32"))]
 pub fn use_modules() {
-    sixtyfps_corelib::use_modules();
+    slint_core_internal::use_modules();
     #[cfg(feature = "sixtyfps-rendering-backend-qt")]
     sixtyfps_rendering_backend_qt::use_modules();
     #[cfg(feature = "sixtyfps-rendering-backend-gl")]

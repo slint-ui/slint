@@ -185,12 +185,15 @@ impl Window {
 
         #[cfg(sixtyfps_debug_property)]
         {
-            window.scale_factor.debug_name.replace("sixtyfps_corelib::Window::scale_factor".into());
-            window.active.debug_name.replace("sixtyfps_corelib::Window::active".into());
-            window.active.debug_name.replace("sixtyfps_corelib::Window::active".into());
+            window
+                .scale_factor
+                .debug_name
+                .replace("slint_core_internal::Window::scale_factor".into());
+            window.active.debug_name.replace("slint_core_internal::Window::active".into());
+            window.active.debug_name.replace("slint_core_internal::Window::active".into());
             window_properties_tracker
-                .set_debug_name("sixtyfps_corelib::Window::window_properties_tracker".into());
-            redraw_tracker.set_debug_name("sixtyfps_corelib::Window::redraw_tracker".into());
+                .set_debug_name("slint_core_internal::Window::window_properties_tracker".into());
+            redraw_tracker.set_debug_name("slint_core_internal::Window::redraw_tracker".into());
         }
 
         window.window_properties_tracker.set(Box::pin(window_properties_tracker)).ok().unwrap();

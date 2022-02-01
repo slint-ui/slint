@@ -3,7 +3,7 @@
 
 /*!
     This crate contains the internal procedural macros
-    used by the sixtyfps-corelib crate
+    used by the slint-core-internal crate
 
 **NOTE**: This library is an **internal** crate for the [SixtyFPS project](https://sixtyfps.io).
 This crate should **not be used directly** by applications using SixtyFPS.

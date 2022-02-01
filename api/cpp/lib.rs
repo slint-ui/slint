@@ -4,9 +4,9 @@
 /*! This crate just expose the function used by the C++ integration */
 
 use core::ffi::c_void;
-use sixtyfps_corelib::window::ffi::WindowRcOpaque;
-use sixtyfps_corelib::window::WindowRc;
 use sixtyfps_rendering_backend_selector::backend;
+use slint_core_internal::window::ffi::WindowRcOpaque;
+use slint_core_internal::window::WindowRc;
 
 #[doc(hidden)]
 #[cold]
@@ -14,7 +14,7 @@ pub fn use_modules() -> usize {
     #[cfg(feature = "sixtyfps-interpreter")]
     sixtyfps_interpreter::use_modules();
     sixtyfps_rendering_backend_selector::use_modules();
-    sixtyfps_corelib::use_modules()
+    slint_core_internal::use_modules()
 }
 
 #[no_mangle]
@@ -25,8 +25,9 @@ pub unsafe extern "C" fn sixtyfps_windowrc_init(out: *mut WindowRcOpaque) {
 
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_run_event_loop() {
-    crate::backend()
-        .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
+    crate::backend().run_event_loop(
+        slint_core_internal::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed,
+    );
 }
 
 /// Will execute the given functor in the main thread
@@ -63,8 +64,8 @@ pub unsafe extern "C" fn sixtyfps_quit_event_loop() {
 
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_register_font_from_path(
-    path: &sixtyfps_corelib::SharedString,
-    error_str: *mut sixtyfps_corelib::SharedString,
+    path: &slint_core_internal::SharedString,
+    error_str: *mut slint_core_internal::SharedString,
 ) {
     core::ptr::write(
         error_str,
@@ -77,8 +78,8 @@ pub unsafe extern "C" fn sixtyfps_register_font_from_path(
 
 #[no_mangle]
 pub unsafe extern "C" fn sixtyfps_register_font_from_data(
-    data: sixtyfps_corelib::slice::Slice<'static, u8>,
-    error_str: *mut sixtyfps_corelib::SharedString,
+    data: slint_core_internal::slice::Slice<'static, u8>,
+    error_str: *mut slint_core_internal::SharedString,
 ) {
     core::ptr::write(
         error_str,

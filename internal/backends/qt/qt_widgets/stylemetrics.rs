@@ -131,7 +131,7 @@ impl NativeStyleMetrics {
 }
 
 #[cfg(feature = "rtti")]
-impl sixtyfps_corelib::rtti::BuiltinGlobal for NativeStyleMetrics {
+impl slint_core_internal::rtti::BuiltinGlobal for NativeStyleMetrics {
     fn new() -> Pin<Rc<Self>> {
         NativeStyleMetrics::new()
     }

@@ -5,7 +5,7 @@
 
 This module contains all the native Qt widget implementation that forwards to QStyle.
 
-Same as in sixtyfps_corelib::items, when When adding an item or a property,
+Same as in slint_core_internal::items, when When adding an item or a property,
 it needs to be kept in sync with different place.
 
  - It needs to be changed in this module
@@ -20,16 +20,16 @@ it needs to be kept in sync with different place.
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
-use sixtyfps_corelib::graphics::{Color, Rect};
-use sixtyfps_corelib::input::{
+use slint_core_internal::graphics::{Color, Rect};
+use slint_core_internal::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
 };
-use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
-use sixtyfps_corelib::items::{Item, ItemConsts, ItemRc, ItemVTable, VoidArg};
-use sixtyfps_corelib::layout::{LayoutInfo, Orientation};
-use sixtyfps_corelib::rtti::*;
-use sixtyfps_corelib::window::WindowRc;
-use sixtyfps_corelib::{
+use slint_core_internal::item_rendering::{CachedRenderingData, ItemRenderer};
+use slint_core_internal::items::{Item, ItemConsts, ItemRc, ItemVTable, VoidArg};
+use slint_core_internal::layout::{LayoutInfo, Orientation};
+use slint_core_internal::rtti::*;
+use slint_core_internal::window::WindowRc;
+use slint_core_internal::{
     declare_item_vtable, Callback, ItemVTable_static, Property, SharedString, SharedVector,
 };
 use slint_core_macros_internal::*;

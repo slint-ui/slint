@@ -141,7 +141,7 @@ impl Item for NativeGroupBox {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &WindowRc,
-        _self_rc: &sixtyfps_corelib::items::ItemRc,
+        _self_rc: &slint_core_internal::items::ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }

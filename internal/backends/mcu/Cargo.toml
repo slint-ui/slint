@@ -18,18 +18,18 @@ path = "lib.rs"
 [features]
 simulator = ["winit", "glutin", "femtovg", "embedded-graphics-simulator", "std", "imgref", "scoped-tls-hkt"]
 
-pico-st7789 = ["unsafe_single_core", "rp-pico", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "embedded-time", "cortex-m", "display-interface-spi", "st7789", "defmt", "defmt-rtt",  "sixtyfps-corelib/defmt", "shared-bus" ]
+pico-st7789 = ["unsafe_single_core", "rp-pico", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "embedded-time", "cortex-m", "display-interface-spi", "st7789", "defmt", "defmt-rtt",  "slint-core-internal/defmt", "shared-bus" ]
 
-unsafe_single_core = ["sixtyfps-corelib/unsafe_single_core"]
+unsafe_single_core = ["slint-core-internal/unsafe_single_core"]
 
 snapshot_renderer = []
-std = ["sixtyfps-corelib/std"]
+std = ["slint-core-internal/std"]
 
 default = ["simulator"]
 
 [dependencies]
 slint-common-internal = { version = "=0.2.0", path = "../../../internal/common", default-features = false }
-sixtyfps-corelib = { version = "=0.2.0", path = "../../../internal/core", default-features = false }
+slint-core-internal = { version = "=0.2.0", path = "../../../internal/core", default-features = false }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }

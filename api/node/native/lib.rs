@@ -5,17 +5,17 @@ use core::cell::RefCell;
 use neon::prelude::*;
 use rand::RngCore;
 use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_corelib::model::{Model, ModelRc};
-use sixtyfps_corelib::window::WindowHandleAccess;
-use sixtyfps_corelib::{ImageInner, SharedVector};
 use sixtyfps_interpreter::ComponentHandle;
+use slint_core_internal::model::{Model, ModelRc};
+use slint_core_internal::window::WindowHandleAccess;
+use slint_core_internal::{ImageInner, SharedVector};
 
 mod js_model;
 mod persistent_context;
 
 struct WrappedComponentType(Option<sixtyfps_interpreter::ComponentDefinition>);
 struct WrappedComponentRc(Option<sixtyfps_interpreter::ComponentInstance>);
-struct WrappedWindow(Option<sixtyfps_corelib::window::WindowRc>);
+struct WrappedWindow(Option<slint_core_internal::window::WindowRc>);
 
 /// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
 type GlobalContextCallback<'c> =
@@ -177,12 +177,12 @@ fn to_eval_value<'cx>(
                 .value()
                 .parse::<css_color_parser2::Color>()
                 .or_else(|e| cx.throw_error(&e.to_string()))?;
-            Ok((sixtyfps_corelib::Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)).into())
+            Ok((slint_core_internal::Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)).into())
         }
         Type::Array(a) => match val.downcast::<JsArray>() {
             Ok(arr) => {
                 let vec = arr.to_vec(cx)?;
-                Ok(Value::Model(ModelRc::new(sixtyfps_corelib::model::SharedVectorModel::from(
+                Ok(Value::Model(ModelRc::new(slint_core_internal::model::SharedVectorModel::from(
                     vec.into_iter()
                         .map(|i| to_eval_value(i, (*a).clone(), cx, persistent_context))
                         .collect::<Result<SharedVector<_>, _>>()?,
@@ -199,7 +199,7 @@ fn to_eval_value<'cx>(
         Type::Image => {
             let path = val.to_string(cx)?.value();
             Ok(Value::Image(
-                sixtyfps_corelib::graphics::Image::load_from_path(std::path::Path::new(&path))
+                slint_core_internal::graphics::Image::load_from_path(std::path::Path::new(&path))
                     .or_else(|_| cx.throw_error(format!("cannot load image {:?}", path)))?,
             ))
         }
@@ -284,7 +284,7 @@ fn to_js_value<'cx>(
             }
             js_object.as_value(cx)
         }
-        Value::Brush(sixtyfps_corelib::Brush::SolidColor(c)) => JsString::new(
+        Value::Brush(slint_core_internal::Brush::SolidColor(c)) => JsString::new(
             cx,
             &format!("#{:02x}{:02x}{:02x}{:02x}", c.red(), c.green(), c.blue(), c.alpha()),
         )
@@ -546,7 +546,7 @@ fn singleshot_timer(mut cx: FunctionContext) -> JsResult<JsValue> {
         });
     };
 
-    sixtyfps_corelib::timers::Timer::single_shot(
+    slint_core_internal::timers::Timer::single_shot(
         std::time::Duration::from_millis(duration_in_msecs),
         callback,
     );
@@ -564,6 +564,6 @@ register_module!(mut m, {
 /// let some time elapse for testing purposes
 fn mock_elapsed_time(mut cx: FunctionContext) -> JsResult<JsValue> {
     let ms = cx.argument::<JsNumber>(0)?.value();
-    sixtyfps_corelib::tests::sixtyfps_mock_elapsed_time(ms as _);
+    slint_core_internal::tests::sixtyfps_mock_elapsed_time(ms as _);
     Ok(JsUndefined::new().as_value(&mut cx))
 }

@@ -27,7 +27,7 @@ default = ["std", "backend-gl", "x11", "backend-qt", "compat-0-2-0"]
 compat-0-2-0 = []
 
 ## Enable use of the Rust standard library.
-std = ["sixtyfps-corelib/std"]
+std = ["slint-core-internal/std"]
 
 #! ### Backends
 
@@ -48,7 +48,7 @@ wayland = ["sixtyfps-rendering-backend-selector/wayland", "backend-gl"]
 
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.2.0", path="../../internal/core", default-features = false }
+slint-core-internal = { version = "=0.2.0", path="../../internal/core", default-features = false }
 sixtyfps-macros = { version = "=0.2.0", path = "../rs/macros" }
 sixtyfps-rendering-backend-selector = { version = "=0.2.0", path="../../internal/backends/selector" }
 

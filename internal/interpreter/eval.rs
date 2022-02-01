@@ -16,7 +16,7 @@ use sixtyfps_compilerlib::expression_tree::{
 };
 use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_compilerlib::object_tree::ElementRc;
-use sixtyfps_corelib as corelib;
+use slint_core_internal as corelib;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -336,7 +336,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
 
                     crate::dynamic_component::show_popup(
                         popup,
-                        sixtyfps_corelib::graphics::Point::new(x.try_into().unwrap(), y.try_into().unwrap()),
+                        slint_core_internal::graphics::Point::new(x.try_into().unwrap(), y.try_into().unwrap()),
                         component.borrow(),
                         window_ref(component).unwrap(),
                         &parent_item);
@@ -1082,7 +1082,7 @@ fn convert_from_lyon_path<'a>(
         .map(|point_expr| {
             let point_value = eval_expression(point_expr, local_context);
             let point_struct: Struct = point_value.try_into().unwrap();
-            let mut point = sixtyfps_corelib::graphics::Point::default();
+            let mut point = slint_core_internal::graphics::Point::default();
             let x: f64 = point_struct.get_field("x").unwrap().clone().try_into().unwrap();
             let y: f64 = point_struct.get_field("y").unwrap().clone().try_into().unwrap();
             point.x = x as _;

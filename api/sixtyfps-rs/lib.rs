@@ -237,16 +237,16 @@ compile_error!(
 
 pub use sixtyfps_macros::sixtyfps;
 
-pub use sixtyfps_corelib::api::*;
-pub use sixtyfps_corelib::graphics::{
+pub use slint_core_internal::api::*;
+pub use slint_core_internal::graphics::{
     Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
-pub use sixtyfps_corelib::model::{
+pub use slint_core_internal::model::{
     Model, ModelNotify, ModelPeer, ModelRc, ModelTracker, StandardListViewItem, VecModel,
 };
-pub use sixtyfps_corelib::sharedvector::SharedVector;
-pub use sixtyfps_corelib::string::SharedString;
-pub use sixtyfps_corelib::timers::{Timer, TimerMode};
+pub use slint_core_internal::sharedvector::SharedVector;
+pub use slint_core_internal::string::SharedString;
+pub use slint_core_internal::timers::{Timer, TimerMode};
 
 /// This function can be used to register a custom TrueType font with SixtyFPS,
 /// for use with the `font-family` property. The provided slice must be a valid TrueType
@@ -281,33 +281,33 @@ pub mod re_exports {
     pub use once_cell::race::OnceBox;
     pub use once_cell::unsync::OnceCell;
     pub use pin_weak::rc::PinWeak;
-    pub use sixtyfps_corelib::animations::EasingCurve;
-    pub use sixtyfps_corelib::callbacks::Callback;
-    pub use sixtyfps_corelib::component::{
+    pub use sixtyfps_rendering_backend_selector::native_widgets::*;
+    pub use slint_core_internal::animations::EasingCurve;
+    pub use slint_core_internal::callbacks::Callback;
+    pub use slint_core_internal::component::{
         free_component_item_graphics_resources, init_component_items, Component, ComponentRefPin,
         ComponentVTable,
     };
-    pub use sixtyfps_corelib::graphics::*;
-    pub use sixtyfps_corelib::input::{
+    pub use slint_core_internal::graphics::*;
+    pub use slint_core_internal::input::{
         FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
     };
-    pub use sixtyfps_corelib::item_tree::{
+    pub use slint_core_internal::item_tree::{
         visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder,
         VisitChildrenResult,
     };
-    pub use sixtyfps_corelib::items::*;
-    pub use sixtyfps_corelib::layout::*;
-    pub use sixtyfps_corelib::model::*;
-    pub use sixtyfps_corelib::properties::{
+    pub use slint_core_internal::items::*;
+    pub use slint_core_internal::layout::*;
+    pub use slint_core_internal::model::*;
+    pub use slint_core_internal::properties::{
         set_state_binding, Property, PropertyTracker, StateInfo,
     };
-    pub use sixtyfps_corelib::slice::Slice;
-    pub use sixtyfps_corelib::window::{Window, WindowHandleAccess, WindowRc};
-    pub use sixtyfps_corelib::Color;
-    pub use sixtyfps_corelib::ComponentVTable_static;
-    pub use sixtyfps_corelib::SharedString;
-    pub use sixtyfps_corelib::SharedVector;
-    pub use sixtyfps_rendering_backend_selector::native_widgets::*;
+    pub use slint_core_internal::slice::Slice;
+    pub use slint_core_internal::window::{Window, WindowHandleAccess, WindowRc};
+    pub use slint_core_internal::Color;
+    pub use slint_core_internal::ComponentVTable_static;
+    pub use slint_core_internal::SharedString;
+    pub use slint_core_internal::SharedVector;
     pub use vtable::{self, *};
 }
 
@@ -369,7 +369,7 @@ pub mod internal {
     }
 
     pub fn set_animated_property_binding<
-        T: Clone + sixtyfps_corelib::properties::InterpolatedPropertyValue + 'static,
+        T: Clone + slint_core_internal::properties::InterpolatedPropertyValue + 'static,
         StrongRef: StrongComponentRef + 'static,
     >(
         property: Pin<&Property<T>>,
@@ -385,7 +385,7 @@ pub mod internal {
     }
 
     pub fn set_animated_property_binding_for_transition<
-        T: Clone + sixtyfps_corelib::properties::InterpolatedPropertyValue + 'static,
+        T: Clone + slint_core_internal::properties::InterpolatedPropertyValue + 'static,
         StrongRef: StrongComponentRef + 'static,
     >(
         property: Pin<&Property<T>>,
@@ -393,8 +393,10 @@ pub mod internal {
         binding: fn(StrongRef) -> T,
         compute_animation_details: fn(
             StrongRef,
-        )
-            -> (PropertyAnimation, sixtyfps_corelib::animations::Instant),
+        ) -> (
+            PropertyAnimation,
+            slint_core_internal::animations::Instant,
+        ),
     ) {
         let weak_1 = component_strong.to_weak();
         let weak_2 = weak_1.clone();
@@ -445,8 +447,9 @@ pub fn create_window() -> re_exports::WindowRc {
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
 pub fn run_event_loop() {
-    sixtyfps_rendering_backend_selector::backend()
-        .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
+    sixtyfps_rendering_backend_selector::backend().run_event_loop(
+        slint_core_internal::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed,
+    );
 }
 
 /// Schedules the main event loop for termination. This function is meant
@@ -465,14 +468,14 @@ pub mod testing {
 
     use super::ComponentHandle;
 
-    pub use sixtyfps_corelib::tests::sixtyfps_mock_elapsed_time as mock_elapsed_time;
+    pub use slint_core_internal::tests::sixtyfps_mock_elapsed_time as mock_elapsed_time;
 
     /// Simulate a mouse click
     pub fn send_mouse_click<
-        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable>
+        X: vtable::HasStaticVTable<slint_core_internal::component::ComponentVTable>
             + crate::re_exports::WindowHandleAccess
             + 'static,
-        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + ComponentHandle,
+        Component: Into<vtable::VRc<slint_core_internal::component::ComponentVTable, X>> + ComponentHandle,
     >(
         component: &Component,
         x: f32,
@@ -480,7 +483,7 @@ pub mod testing {
     ) {
         let rc = component.clone_strong().into();
         let dyn_rc = vtable::VRc::into_dyn(rc.clone());
-        sixtyfps_corelib::tests::sixtyfps_send_mouse_click(
+        slint_core_internal::tests::sixtyfps_send_mouse_click(
             &dyn_rc,
             x,
             y,
@@ -490,9 +493,9 @@ pub mod testing {
 
     /// Simulate a change in keyboard modifiers being pressed
     pub fn set_current_keyboard_modifiers<
-        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable>
+        X: vtable::HasStaticVTable<slint_core_internal::component::ComponentVTable>
             + crate::re_exports::WindowHandleAccess,
-        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + ComponentHandle,
+        Component: Into<vtable::VRc<slint_core_internal::component::ComponentVTable, X>> + ComponentHandle,
     >(
         _component: &Component,
         modifiers: crate::re_exports::KeyboardModifiers,
@@ -502,15 +505,15 @@ pub mod testing {
 
     /// Simulate entering a sequence of ascii characters key by key.
     pub fn send_keyboard_string_sequence<
-        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable>
+        X: vtable::HasStaticVTable<slint_core_internal::component::ComponentVTable>
             + crate::re_exports::WindowHandleAccess,
-        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + ComponentHandle,
+        Component: Into<vtable::VRc<slint_core_internal::component::ComponentVTable, X>> + ComponentHandle,
     >(
         component: &Component,
         sequence: &str,
     ) {
         let component = component.clone_strong().into();
-        sixtyfps_corelib::tests::send_keyboard_string_sequence(
+        slint_core_internal::tests::send_keyboard_string_sequence(
             &super::SharedString::from(sequence),
             KEYBOARD_MODIFIERS.with(|x| x.get()),
             &component.window_handle().clone(),
@@ -520,9 +523,9 @@ pub mod testing {
     /// Applies the specified scale factor to the window that's associated with the given component.
     /// This overrides the value provided by the windowing system.
     pub fn set_window_scale_factor<
-        X: vtable::HasStaticVTable<sixtyfps_corelib::component::ComponentVTable>
+        X: vtable::HasStaticVTable<slint_core_internal::component::ComponentVTable>
             + crate::re_exports::WindowHandleAccess,
-        Component: Into<vtable::VRc<sixtyfps_corelib::component::ComponentVTable, X>> + ComponentHandle,
+        Component: Into<vtable::VRc<slint_core_internal::component::ComponentVTable, X>> + ComponentHandle,
     >(
         component: &Component,
         factor: f32,
