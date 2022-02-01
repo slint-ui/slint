@@ -23,21 +23,21 @@ on:
 
 jobs:
   sixtyfps-viewer-binary:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_tool_binary.yaml@master
+    uses: ./.github/workflows/sixtyfps_tool_binary.yaml
     with:
       program: "sixtyfps-viewer"
   sixtyfps-lsp-binary:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_tool_binary.yaml@master
+    uses: ./.github/workflows/sixtyfps_tool_binary.yaml
     with:
       program: "sixtyfps-lsp"
   docs:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/build_docs.yaml@master
+    uses: ./.github/workflows/build_docs.yaml
   wasm_demo:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_demos.yaml@master
+    uses: ./.github/workflows/wasm_demos.yaml
   wasm:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_editor_and_interpreter.yaml@master
+    uses: ./.github/workflows/wasm_editor_and_interpreter.yaml
   cpp_package:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/cpp_package.yaml@master
+    uses: ./.github/workflows/cpp_package.yaml
 
   build_vscode_lsp_linux_windows:
     env:
