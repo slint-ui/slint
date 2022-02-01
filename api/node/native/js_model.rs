@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 use neon::prelude::*;
-use sixtyfps_compilerlib::langtype::Type;
+use slint_compiler_internal::langtype::Type;
 use slint_core_internal::model::Model;
 use std::cell::Cell;
 use std::rc::{Rc, Weak};

@@ -24,12 +24,12 @@ use lsp_types::{
     SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions, ServerCapabilities,
     SymbolInformation, TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
 };
-use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
-use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
-use sixtyfps_compilerlib::typeloader::TypeLoader;
-use sixtyfps_compilerlib::typeregister::TypeRegister;
-use sixtyfps_compilerlib::CompilerConfiguration;
+use slint_compiler_internal::diagnostics::BuildDiagnostics;
+use slint_compiler_internal::langtype::Type;
+use slint_compiler_internal::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
+use slint_compiler_internal::typeloader::TypeLoader;
+use slint_compiler_internal::typeregister::TypeRegister;
+use slint_compiler_internal::CompilerConfiguration;
 
 use clap::Parser;
 
@@ -183,7 +183,7 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
     let cli_args: Cli = Cli::parse();
     let params: InitializeParams = serde_json::from_value(params).unwrap();
     let mut compiler_config =
-        CompilerConfiguration::new(sixtyfps_compilerlib::generator::OutputFormat::Interpreter);
+        CompilerConfiguration::new(slint_compiler_internal::generator::OutputFormat::Interpreter);
     compiler_config.style =
         Some(if cli_args.style.is_empty() { "fluent".into() } else { cli_args.style });
     compiler_config.include_paths = cli_args.include_paths;
@@ -400,7 +400,7 @@ fn maybe_goto_preview(
     loop {
         if let Some(component) = syntax_nodes::Component::new(node.clone()) {
             let component_name =
-                sixtyfps_compilerlib::parser::identifier_text(&component.DeclaredIdentifier())?;
+                slint_compiler_internal::parser::identifier_text(&component.DeclaredIdentifier())?;
             preview::load_preview(
                 sender,
                 preview::PreviewComponent {
@@ -518,7 +518,7 @@ fn get_code_actions(
         })?;
 
     let component_name =
-        sixtyfps_compilerlib::parser::identifier_text(&component.DeclaredIdentifier())?;
+        slint_compiler_internal::parser::identifier_text(&component.DeclaredIdentifier())?;
 
     Some(vec![CodeActionOrCommand::Command(Command::new(
         "Show preview".into(),
@@ -540,7 +540,7 @@ fn get_document_color(
         if token.kind() == SyntaxKind::ColorLiteral {
             (|| -> Option<()> {
                 let range = token.text_range();
-                let col = sixtyfps_compilerlib::literals::parse_color_literal(token.text())?;
+                let col = slint_compiler_internal::literals::parse_color_literal(token.text())?;
                 let shift = |s: u32| -> f32 { ((col >> s) & 0xff) as f32 / 255. };
                 result.push(ColorInformation {
                     range: Range::new(

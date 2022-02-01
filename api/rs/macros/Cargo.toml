@@ -17,7 +17,7 @@ proc-macro = true
 path = "lib.rs"
 
 [dependencies]
-sixtyfps-compilerlib = { version = "=0.2.0", path = "../../../internal/compiler", features = ["proc_macro_span", "rust", "display-diagnostics"] }
+slint-compiler-internal = { version = "=0.2.0", path = "../../../internal/compiler", features = ["proc_macro_span", "rust", "display-diagnostics"] }
 
 proc-macro2 = "1.0.17"
 quote = "1.0"

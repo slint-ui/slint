@@ -8,11 +8,11 @@ use super::DocumentCache;
 use lsp_types::{
     CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat,
 };
-use sixtyfps_compilerlib::diagnostics::Spanned;
-use sixtyfps_compilerlib::expression_tree::Expression;
-use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::lookup::{LookupCtx, LookupObject, LookupResult};
-use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
+use slint_compiler_internal::diagnostics::Spanned;
+use slint_compiler_internal::expression_tree::Expression;
+use slint_compiler_internal::langtype::Type;
+use slint_compiler_internal::lookup::{LookupCtx, LookupObject, LookupResult};
+use slint_compiler_internal::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
 
 pub(crate) fn completion_at(
     document_cache: &DocumentCache,
@@ -171,8 +171,9 @@ pub(crate) fn completion_at(
                     if first.as_ref().map_or(true, |f| f.token == token.token) {
                         return resolve_expression_scope(ctx);
                     }
-                    let first = sixtyfps_compilerlib::parser::normalize_identifier(first?.text());
-                    let global = sixtyfps_compilerlib::lookup::global_lookup();
+                    let first =
+                        slint_compiler_internal::parser::normalize_identifier(first?.text());
+                    let global = slint_compiler_internal::lookup::global_lookup();
                     let mut expr_it = global.lookup(ctx, &first)?;
                     let mut has_dot = false;
                     for t in it {
@@ -184,7 +185,7 @@ pub(crate) fn completion_at(
                             continue;
                         }
                         has_dot = false;
-                        let str = sixtyfps_compilerlib::parser::normalize_identifier(t.text());
+                        let str = slint_compiler_internal::parser::normalize_identifier(t.text());
                         expr_it = expr_it.lookup(ctx, &str)?;
                     }
                     has_dot.then(|| {
@@ -245,7 +246,7 @@ fn resolve_element_scope(
             })
             .chain(element.PropertyDeclaration().map(|pr| {
                 let mut c = CompletionItem::new_simple(
-                    sixtyfps_compilerlib::parser::identifier_text(&pr.DeclaredIdentifier())
+                    slint_compiler_internal::parser::identifier_text(&pr.DeclaredIdentifier())
                         .unwrap_or_default(),
                     pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
                 );
@@ -254,14 +255,14 @@ fn resolve_element_scope(
             }))
             .chain(element.CallbackDeclaration().map(|cd| {
                 let mut c = CompletionItem::new_simple(
-                    sixtyfps_compilerlib::parser::identifier_text(&cd.DeclaredIdentifier())
+                    slint_compiler_internal::parser::identifier_text(&cd.DeclaredIdentifier())
                         .unwrap_or_default(),
                     "callback".into(),
                 );
                 c.kind = Some(CompletionItemKind::METHOD);
                 c
             }))
-            .chain(sixtyfps_compilerlib::typeregister::reserved_properties().filter_map(
+            .chain(slint_compiler_internal::typeregister::reserved_properties().filter_map(
                 |(k, t)| {
                     if matches!(t, Type::Function { .. }) {
                         return None;
@@ -291,7 +292,7 @@ fn resolve_element_scope(
 
 fn resolve_expression_scope(lookup_context: &LookupCtx) -> Option<Vec<CompletionItem>> {
     let mut r = Vec::new();
-    let global = sixtyfps_compilerlib::lookup::global_lookup();
+    let global = slint_compiler_internal::lookup::global_lookup();
     global.for_each_entry(lookup_context, &mut |str, expr| -> Option<()> {
         r.push(completion_item_from_expression(str, expr));
         None

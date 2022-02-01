@@ -8,16 +8,16 @@ use std::rc::Rc;
 use crate::api::Value;
 use crate::dynamic_component::{ErasedComponentBox, ErasedComponentDescription};
 use crate::SetPropertyError;
-use sixtyfps_compilerlib::namedreference::NamedReference;
-use sixtyfps_compilerlib::object_tree::PropertyDeclaration;
-use sixtyfps_compilerlib::{langtype::Type, object_tree::Component};
+use slint_compiler_internal::namedreference::NamedReference;
+use slint_compiler_internal::object_tree::PropertyDeclaration;
+use slint_compiler_internal::{langtype::Type, object_tree::Component};
 use slint_core_internal::component::ComponentVTable;
 use slint_core_internal::rtti;
 
 pub enum CompiledGlobal {
     Builtin {
         name: String,
-        element: Rc<sixtyfps_compilerlib::langtype::BuiltinElement>,
+        element: Rc<slint_compiler_internal::langtype::BuiltinElement>,
         // dummy needed for iterator accessor
         public_properties: BTreeMap<String, PropertyDeclaration>,
     },

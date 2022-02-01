@@ -3,8 +3,8 @@
 
 use std::io::Write;
 
-use sixtyfps_compilerlib::object_tree;
-use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxNode};
+use slint_compiler_internal::object_tree;
+use slint_compiler_internal::parser::{syntax_nodes, SyntaxNode};
 
 /// Replace the 'color' type with 'brush', and the 'resource' type with 'image', and the 'logical_length' to 'length'
 pub(crate) fn fold_node(

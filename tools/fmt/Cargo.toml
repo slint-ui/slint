@@ -15,7 +15,7 @@ categories = ["gui", "development-tools"]
 keywords = ["formatter", "gui", "ui", "toolkit"]
 
 [dependencies]
-sixtyfps-compilerlib = { path = "../../internal/compiler", features = ["display-diagnostics"] }
+slint-compiler-internal = { path = "../../internal/compiler", features = ["display-diagnostics"] }
 
 clap = { version = "3.0.5", features=["derive", "wrap_help"] }
 codemap = "0.1"

@@ -27,7 +27,7 @@ default = ["std", "backend-gl", "x11", "backend-qt", "compat-0-2-0"]
 compat-0-2-0 = []
 
 ## enable the [`print_diagnostics`] function to show diagnostic in the console output
-display-diagnostics = ["sixtyfps-compilerlib/display-diagnostics"]
+display-diagnostics = ["slint-compiler-internal/display-diagnostics"]
 
 # (internal) export C++ FFI functions
 ffi = ["spin_on", "slint-core-internal/ffi"]
@@ -53,7 +53,7 @@ x11 = ["slint-backend-selector-internal/x11", "backend-gl"]
 wayland = ["slint-backend-selector-internal/wayland", "backend-gl"]
 
 [dependencies]
-sixtyfps-compilerlib = { version = "=0.2.0", path = "../compiler" }
+slint-compiler-internal = { version = "=0.2.0", path = "../compiler" }
 slint-core-internal = { version = "=0.2.0", path = "../core", features = ["rtti"] }
 slint-backend-selector-internal = { version = "=0.2.0", path = "../../internal/backends/selector" }
 

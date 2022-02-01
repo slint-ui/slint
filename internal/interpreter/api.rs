@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 use core::convert::TryInto;
-use sixtyfps_compilerlib::langtype::Type as LangType;
+use slint_compiler_internal::langtype::Type as LangType;
 use slint_core_internal::graphics::Image;
 use slint_core_internal::model::{Model, ModelRc};
 use slint_core_internal::{Brush, PathData, SharedString, SharedVector};
@@ -13,7 +13,7 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 #[doc(inline)]
-pub use sixtyfps_compilerlib::diagnostics::{Diagnostic, DiagnosticLevel};
+pub use slint_compiler_internal::diagnostics::{Diagnostic, DiagnosticLevel};
 
 pub use slint_core_internal::api::*;
 
@@ -429,15 +429,15 @@ impl FromIterator<(String, Value)> for Struct {
 /// ComponentCompiler is the entry point to the SixtyFPS interpreter that can be used
 /// to load .60 files or compile them on-the-fly from a string.
 pub struct ComponentCompiler {
-    config: sixtyfps_compilerlib::CompilerConfiguration,
+    config: slint_compiler_internal::CompilerConfiguration,
     diagnostics: Vec<Diagnostic>,
 }
 
 impl Default for ComponentCompiler {
     fn default() -> Self {
         Self {
-            config: sixtyfps_compilerlib::CompilerConfiguration::new(
-                sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
+            config: slint_compiler_internal::CompilerConfiguration::new(
+                slint_compiler_internal::generator::OutputFormat::Interpreter,
             ),
             diagnostics: vec![],
         }
@@ -516,7 +516,7 @@ impl ComponentCompiler {
         path: P,
     ) -> Option<ComponentDefinition> {
         let path = path.as_ref();
-        let source = match sixtyfps_compilerlib::diagnostics::load_from_path(path) {
+        let source = match slint_compiler_internal::diagnostics::load_from_path(path) {
             Ok(s) => s,
             Err(d) => {
                 self.diagnostics = vec![d];
@@ -612,7 +612,7 @@ impl ComponentDefinition {
     #[doc(hidden)]
     pub fn properties_and_callbacks(
         &self,
-    ) -> impl Iterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + '_ {
+    ) -> impl Iterator<Item = (String, slint_compiler_internal::langtype::Type)> + '_ {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
@@ -706,7 +706,7 @@ impl ComponentDefinition {
 /// This function is available when the `display-diagnostics` is enabled.
 #[cfg(feature = "display-diagnostics")]
 pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
-    let mut build_diagnostics = sixtyfps_compilerlib::diagnostics::BuildDiagnostics::default();
+    let mut build_diagnostics = slint_compiler_internal::diagnostics::BuildDiagnostics::default();
     for d in diagnostics {
         build_diagnostics.push_compiler_error(d.clone())
     }

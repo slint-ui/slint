@@ -6,11 +6,11 @@ use crate::{api::Value, dynamic_type, eval};
 use core::convert::TryInto;
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
-use sixtyfps_compilerlib::expression_tree::{Expression, NamedReference};
-use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::object_tree::ElementRc;
-use sixtyfps_compilerlib::*;
-use sixtyfps_compilerlib::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
+use slint_compiler_internal::expression_tree::{Expression, NamedReference};
+use slint_compiler_internal::langtype::Type;
+use slint_compiler_internal::object_tree::ElementRc;
+use slint_compiler_internal::*;
+use slint_compiler_internal::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
 use slint_core_internal::api::Window;
 use slint_core_internal::component::{Component, ComponentRef, ComponentRefPin, ComponentVTable};
 use slint_core_internal::item_tree::{
@@ -293,7 +293,7 @@ pub struct ComponentDescription<'id> {
 
 fn internal_properties_to_public<'a>(
     prop_iter: impl Iterator<Item = (&'a String, &'a PropertyDeclaration)> + 'a,
-) -> impl Iterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + 'a {
+) -> impl Iterator<Item = (String, slint_compiler_internal::langtype::Type)> + 'a {
     prop_iter.filter(|(_, v)| v.expose_in_public_api).map(|(s, v)| {
         let name = v
             .node
@@ -320,7 +320,7 @@ impl<'id> ComponentDescription<'id> {
     /// We try to preserve the dashes and underscore as written in the property declaration
     pub fn properties(
         &self,
-    ) -> impl Iterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + '_ {
+    ) -> impl Iterator<Item = (String, slint_compiler_internal::langtype::Type)> + '_ {
         internal_properties_to_public(self.public_properties.iter())
     }
 
@@ -335,7 +335,7 @@ impl<'id> ComponentDescription<'id> {
     pub fn global_properties(
         &self,
         name: &str,
-    ) -> Option<impl Iterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + '_> {
+    ) -> Option<impl Iterator<Item = (String, slint_compiler_internal::langtype::Type)> + '_> {
         self.exported_globals_by_name
             .get(crate::normalize_identifier(name).as_ref())
             .and_then(|global_idx| self.compiled_globals.get(*global_idx))
@@ -684,8 +684,10 @@ pub async fn load(
     path: std::path::PathBuf,
     mut compiler_config: CompilerConfiguration,
     guard: generativity::Guard<'_>,
-) -> (Result<Rc<ComponentDescription<'_>>, ()>, sixtyfps_compilerlib::diagnostics::BuildDiagnostics)
-{
+) -> (
+    Result<Rc<ComponentDescription<'_>>, ()>,
+    slint_compiler_internal::diagnostics::BuildDiagnostics,
+) {
     if compiler_config.style.is_none() && std::env::var("SIXTYFPS_STYLE").is_err() {
         // Defaults to native if it exists:
         compiler_config.style = Some(if slint_backend_selector_internal::HAS_NATIVE_STYLE {
@@ -1053,16 +1055,16 @@ pub(crate) fn generate_component<'id>(
 
 pub fn animation_for_property(
     component: InstanceRef,
-    animation: &Option<sixtyfps_compilerlib::object_tree::PropertyAnimation>,
+    animation: &Option<slint_compiler_internal::object_tree::PropertyAnimation>,
 ) -> AnimatedBindingKind {
     match animation {
-        Some(sixtyfps_compilerlib::object_tree::PropertyAnimation::Static(anim_elem)) => {
+        Some(slint_compiler_internal::object_tree::PropertyAnimation::Static(anim_elem)) => {
             AnimatedBindingKind::Animation(eval::new_struct_with_bindings(
                 &anim_elem.borrow().bindings,
                 &mut eval::EvalLocalContext::from_component_instance(component),
             ))
         }
-        Some(sixtyfps_compilerlib::object_tree::PropertyAnimation::Transition {
+        Some(slint_compiler_internal::object_tree::PropertyAnimation::Transition {
             animations,
             state_ref,
         }) => {

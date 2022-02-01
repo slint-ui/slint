@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 use clap::Parser;
-use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
-use sixtyfps_compilerlib::*;
+use slint_compiler_internal::diagnostics::BuildDiagnostics;
+use slint_compiler_internal::*;
 use std::io::Write;
 
 #[derive(Parser)]

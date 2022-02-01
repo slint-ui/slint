@@ -30,7 +30,7 @@ x11 = ["sixtyfps-interpreter/x11"]
 default = ["sixtyfps-backend-qt", "sixtyfps-backend-gl", "x11"]
 
 [dependencies]
-sixtyfps-compilerlib = { version = "=0.2.0", path = "../../internal/compiler"}
+slint-compiler-internal = { version = "=0.2.0", path = "../../internal/compiler"}
 slint-core-internal = { version = "=0.2.0", path = "../../internal/core"}
 sixtyfps-interpreter = { version = "=0.2.0", path = "../../internal/interpreter", default-features = false, features = ["compat-0-2-0"] }
 slint-backend-selector-internal = { version = "=0.2.0", path="../../internal/backends/selector" }

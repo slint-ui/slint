@@ -21,9 +21,9 @@ use std::path::Path;
 
 use proc_macro::{Spacing, TokenStream, TokenTree};
 use quote::quote;
-use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
-use sixtyfps_compilerlib::parser::SyntaxKind;
-use sixtyfps_compilerlib::*;
+use slint_compiler_internal::diagnostics::BuildDiagnostics;
+use slint_compiler_internal::parser::SyntaxKind;
+use slint_compiler_internal::*;
 
 /// Returns true if the two token are touching. For example the two token `foo`and `-` are touching if
 /// it was written like so in the source code: `foo-` but not when written like so `foo -`
@@ -337,7 +337,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
 
     //println!("{:#?}", syntax_node);
     let mut compiler_config =
-        CompilerConfiguration::new(sixtyfps_compilerlib::generator::OutputFormat::Rust);
+        CompilerConfiguration::new(slint_compiler_internal::generator::OutputFormat::Rust);
 
     if std::env::var_os("SIXTYFPS_STYLE").is_none() {
         // This file is written by the slint-backend-selector-internal's built script.

@@ -4,8 +4,8 @@
 use core::cell::RefCell;
 use neon::prelude::*;
 use rand::RngCore;
-use sixtyfps_compilerlib::langtype::Type;
 use sixtyfps_interpreter::ComponentHandle;
+use slint_compiler_internal::langtype::Type;
 use slint_core_internal::model::{Model, ModelRc};
 use slint_core_internal::window::WindowHandleAccess;
 use slint_core_internal::{ImageInner, SharedVector};
@@ -154,7 +154,7 @@ fn create<'cx>(
 
 fn to_eval_value<'cx>(
     val: Handle<'cx, JsValue>,
-    ty: sixtyfps_compilerlib::langtype::Type,
+    ty: slint_compiler_internal::langtype::Type,
     cx: &mut impl Context<'cx>,
     persistent_context: &persistent_context::PersistentContext<'cx>,
 ) -> NeonResult<sixtyfps_interpreter::Value> {

@@ -5,11 +5,11 @@ use std::path::Path;
 
 use super::DocumentCache;
 use lsp_types::{GotoDefinitionResponse, LocationLink, Range, Url};
-use sixtyfps_compilerlib::diagnostics::Spanned;
-use sixtyfps_compilerlib::expression_tree::Expression;
-use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::lookup::{LookupObject, LookupResult};
-use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
+use slint_compiler_internal::diagnostics::Spanned;
+use slint_compiler_internal::expression_tree::Expression;
+use slint_compiler_internal::langtype::Type;
+use slint_compiler_internal::lookup::{LookupObject, LookupResult};
+use slint_compiler_internal::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 
 pub fn goto_definition(
     document_cache: &mut DocumentCache,
@@ -21,14 +21,16 @@ pub fn goto_definition(
             let parent = n.parent()?;
             return match parent.kind() {
                 SyntaxKind::Element | SyntaxKind::Type => {
-                    let qual = sixtyfps_compilerlib::object_tree::QualifiedTypeName::from_node(n);
+                    let qual =
+                        slint_compiler_internal::object_tree::QualifiedTypeName::from_node(n);
                     let doc = document_cache.documents.get_document(node.source_file.path())?;
                     match doc.local_registry.lookup_qualified(&qual.members) {
-                        sixtyfps_compilerlib::langtype::Type::Component(c) => {
+                        slint_compiler_internal::langtype::Type::Component(c) => {
                             goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
                         }
-                        sixtyfps_compilerlib::langtype::Type::Struct {
-                            node: Some(node), ..
+                        slint_compiler_internal::langtype::Type::Struct {
+                            node: Some(node),
+                            ..
                         } => goto_node(document_cache, node.parent().as_ref()?),
                         _ => None,
                     }
@@ -44,13 +46,14 @@ pub fn goto_definition(
                             .filter(|t| t.kind() == SyntaxKind::Identifier);
                         let mut cur_tok = it.next()?;
                         let first_str =
-                            sixtyfps_compilerlib::parser::normalize_identifier(cur_tok.text());
-                        let global = sixtyfps_compilerlib::lookup::global_lookup();
+                            slint_compiler_internal::parser::normalize_identifier(cur_tok.text());
+                        let global = slint_compiler_internal::lookup::global_lookup();
                         let mut expr_it = global.lookup(ctx, &first_str)?;
                         while cur_tok.token != token.token {
                             cur_tok = it.next()?;
-                            let str =
-                                sixtyfps_compilerlib::parser::normalize_identifier(cur_tok.text());
+                            let str = slint_compiler_internal::parser::normalize_identifier(
+                                cur_tok.text(),
+                            );
                             expr_it = expr_it.lookup(ctx, &str)?;
                         }
                         Some(expr_it)
@@ -86,9 +89,9 @@ pub fn goto_definition(
             };
         } else if let Some(n) = syntax_nodes::ImportIdentifier::new(node.clone()) {
             let doc = document_cache.documents.get_document(node.source_file.path())?;
-            let imp_name = sixtyfps_compilerlib::typeloader::ImportedName::from_node(n);
+            let imp_name = slint_compiler_internal::typeloader::ImportedName::from_node(n);
             return match doc.local_registry.lookup(&imp_name.internal_name) {
-                sixtyfps_compilerlib::langtype::Type::Component(c) => {
+                slint_compiler_internal::langtype::Type::Component(c) => {
                     goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
                 }
                 _ => None,
@@ -114,7 +117,7 @@ pub fn goto_definition(
             let prop_name = token.text();
             let element = syntax_nodes::Element::new(n.parent()?)?;
             if let Some(p) = element.PropertyDeclaration().find_map(|p| {
-                (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())?
+                (slint_compiler_internal::parser::identifier_text(&p.DeclaredIdentifier())?
                     == prop_name)
                     .then(|| p)
             }) {
@@ -132,7 +135,7 @@ pub fn goto_definition(
             }
             let element = syntax_nodes::Element::new(n.parent()?)?;
             if let Some(p) = element.PropertyDeclaration().find_map(|p| {
-                (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())?
+                (slint_compiler_internal::parser::identifier_text(&p.DeclaredIdentifier())?
                     == prop_name)
                     .then(|| p)
             }) {
@@ -150,7 +153,7 @@ pub fn goto_definition(
             }
             let element = syntax_nodes::Element::new(n.parent()?)?;
             if let Some(p) = element.CallbackDeclaration().find_map(|p| {
-                (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())?
+                (slint_compiler_internal::parser::identifier_text(&p.DeclaredIdentifier())?
                     == prop_name)
                     .then(|| p)
             }) {

@@ -4,7 +4,7 @@
 use lsp_types::{
     SemanticToken, SemanticTokenModifier, SemanticTokenType, SemanticTokens, SemanticTokensResult,
 };
-use sixtyfps_compilerlib::parser::SyntaxKind;
+use slint_compiler_internal::parser::SyntaxKind;
 
 use crate::DocumentCache;
 

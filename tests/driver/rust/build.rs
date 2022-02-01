@@ -97,7 +97,7 @@ fn generate_source(
     output: &mut std::fs::File,
     testcase: test_driver_lib::TestCase,
 ) -> Result<(), std::io::Error> {
-    use sixtyfps_compilerlib::{diagnostics::BuildDiagnostics, *};
+    use slint_compiler_internal::{diagnostics::BuildDiagnostics, *};
 
     let include_paths = test_driver_lib::extract_include_paths(source)
         .map(std::path::PathBuf::from)

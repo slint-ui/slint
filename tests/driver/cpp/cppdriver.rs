@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-use sixtyfps_compilerlib::{diagnostics::BuildDiagnostics, *};
+use slint_compiler_internal::{diagnostics::BuildDiagnostics, *};
 use std::error::Error;
 use std::io::Write;
 use std::ops::Deref;

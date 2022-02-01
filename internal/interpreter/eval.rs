@@ -11,11 +11,11 @@ use corelib::model::{Model, ModelRc};
 use corelib::rtti::AnimatedBindingKind;
 use corelib::window::{WindowHandleAccess, WindowRc};
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
-use sixtyfps_compilerlib::expression_tree::{
+use slint_compiler_internal::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, Path as ExprPath, PathElement as ExprPathElement,
 };
-use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::object_tree::ElementRc;
+use slint_compiler_internal::langtype::Type;
+use slint_compiler_internal::object_tree::ElementRc;
 use slint_core_internal as corelib;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -519,13 +519,13 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         }
         Expression::ImageReference{ resource_ref, .. } => {
             Value::Image(match resource_ref {
-                sixtyfps_compilerlib::expression_tree::ImageReference::None => {
+                slint_compiler_internal::expression_tree::ImageReference::None => {
                     Ok(Default::default())
                 }
-                sixtyfps_compilerlib::expression_tree::ImageReference::AbsolutePath(path) => {
+                slint_compiler_internal::expression_tree::ImageReference::AbsolutePath(path) => {
                     corelib::graphics::Image::load_from_path(std::path::Path::new(path))
                 }
-                sixtyfps_compilerlib::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
+                slint_compiler_internal::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
                     let toplevel_instance = match local_context.component_instance {
                         ComponentInstance::InstanceRef(instance) => instance.toplevel_instance(),
                         ComponentInstance::GlobalComponent(_) => unimplemented!(),
@@ -533,7 +533,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     let extra_data = toplevel_instance.component_type.extra_data_offset.apply(toplevel_instance.as_ref());
                     let path = extra_data.embedded_file_resources.get(resource_id).expect("internal error: invalid resource id");
 
-                    let virtual_file = sixtyfps_compilerlib::fileaccess::load_file(std::path::Path::new(path)).unwrap();  // embedding pass ensured that the file exists
+                    let virtual_file = slint_compiler_internal::fileaccess::load_file(std::path::Path::new(path)).unwrap();  // embedding pass ensured that the file exists
 
                     if let (std::borrow::Cow::Borrowed(static_path), Some(static_data)) = (virtual_file.path, virtual_file.builtin_contents) {
                         let virtual_file_extension = std::path::Path::new(static_path).extension().unwrap().to_str().unwrap();
@@ -550,7 +550,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
 
                     }
                 }
-                sixtyfps_compilerlib::expression_tree::ImageReference::EmbeddedTexture { .. } => {
+                slint_compiler_internal::expression_tree::ImageReference::EmbeddedTexture { .. } => {
                     todo!()
                 }
             }.unwrap_or_else(|_| {
@@ -1054,7 +1054,7 @@ pub(crate) fn enclosing_component_instance_for_element<'a, 'old_id, 'new_id>(
 }
 
 pub fn new_struct_with_bindings<ElementType: 'static + Default + corelib::rtti::BuiltinItem>(
-    bindings: &sixtyfps_compilerlib::object_tree::BindingsMap,
+    bindings: &slint_compiler_internal::object_tree::BindingsMap,
     local_context: &mut EvalLocalContext,
 ) -> ElementType {
     let mut element = ElementType::default();
@@ -1068,8 +1068,8 @@ pub fn new_struct_with_bindings<ElementType: 'static + Default + corelib::rtti::
 }
 
 fn convert_from_lyon_path<'a>(
-    events_it: impl IntoIterator<Item = &'a sixtyfps_compilerlib::expression_tree::Expression>,
-    points_it: impl IntoIterator<Item = &'a sixtyfps_compilerlib::expression_tree::Expression>,
+    events_it: impl IntoIterator<Item = &'a slint_compiler_internal::expression_tree::Expression>,
+    points_it: impl IntoIterator<Item = &'a slint_compiler_internal::expression_tree::Expression>,
     local_context: &mut EvalLocalContext,
 ) -> PathData {
     let events = events_it

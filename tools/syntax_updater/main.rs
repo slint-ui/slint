@@ -14,9 +14,9 @@
 //! cargo run --bin syntax_updater -- --from 0.0.5 -i  **/*.md
 //! ````
 
-use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
-use sixtyfps_compilerlib::object_tree;
-use sixtyfps_compilerlib::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
+use slint_compiler_internal::diagnostics::BuildDiagnostics;
+use slint_compiler_internal::object_tree;
+use slint_compiler_internal::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 use std::io::Write;
 use std::path::Path;
 
@@ -102,7 +102,7 @@ fn process_rust_file(source: String, mut file: impl Write, args: &Cli) -> std::i
         source_slice = &source_slice[idx - 1..];
 
         let mut diag = BuildDiagnostics::default();
-        let syntax_node = sixtyfps_compilerlib::parser::parse(code.to_owned(), None, &mut diag);
+        let syntax_node = slint_compiler_internal::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.text_range().end().into();
         visit_node(syntax_node, &mut file, &mut State::default(), args)?;
         if diag.has_error() {
@@ -131,7 +131,7 @@ fn process_markdown_file(source: String, mut file: impl Write, args: &Cli) -> st
         source_slice = &source_slice[code_end..];
 
         let mut diag = BuildDiagnostics::default();
-        let syntax_node = sixtyfps_compilerlib::parser::parse(code.to_owned(), None, &mut diag);
+        let syntax_node = slint_compiler_internal::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.text_range().end().into();
         visit_node(syntax_node, &mut file, &mut State::default(), args)?;
         if diag.has_error() {
@@ -155,7 +155,7 @@ fn process_file(
     }
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = sixtyfps_compilerlib::parser::parse(source.clone(), Some(path), &mut diag);
+    let syntax_node = slint_compiler_internal::parser::parse(source.clone(), Some(path), &mut diag);
     let len = syntax_node.node.text_range().end().into();
     visit_node(syntax_node, &mut file, &mut State::default(), args)?;
     if diag.has_error() {
@@ -227,7 +227,7 @@ fn fold_node(
 }
 
 fn fold_token(
-    node: sixtyfps_compilerlib::parser::SyntaxToken,
+    node: slint_compiler_internal::parser::SyntaxToken,
     file: &mut impl Write,
     #[allow(unused)] state: &mut State,
 ) -> std::io::Result<()> {

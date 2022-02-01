@@ -54,18 +54,18 @@ use std::env;
 use std::io::Write;
 use std::path::Path;
 
-use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
+use slint_compiler_internal::diagnostics::BuildDiagnostics;
 
 /// The structure for configuring aspects of the compilation of `.60` markup files to Rust.
 pub struct CompilerConfiguration {
-    config: sixtyfps_compilerlib::CompilerConfiguration,
+    config: slint_compiler_internal::CompilerConfiguration,
 }
 
 impl Default for CompilerConfiguration {
     fn default() -> Self {
         Self {
-            config: sixtyfps_compilerlib::CompilerConfiguration::new(
-                sixtyfps_compilerlib::generator::OutputFormat::Rust,
+            config: slint_compiler_internal::CompilerConfiguration::new(
+                slint_compiler_internal::generator::OutputFormat::Rust,
             ),
         }
     }
@@ -189,7 +189,7 @@ pub fn compile_with_config(
         .join(path.as_ref());
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = sixtyfps_compilerlib::parser::parse_file(&path, &mut diag);
+    let syntax_node = slint_compiler_internal::parser::parse_file(&path, &mut diag);
 
     if diag.has_error() {
         let vec = diag.to_string_vec();
@@ -222,7 +222,7 @@ pub fn compile_with_config(
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
 
     // 'spin_on' is ok here because the compiler in single threaded and does not block if there is no blocking future
-    let (doc, diag) = spin_on::spin_on(sixtyfps_compilerlib::compile_syntax_node(
+    let (doc, diag) = spin_on::spin_on(slint_compiler_internal::compile_syntax_node(
         syntax_node,
         diag,
         compiler_config,
@@ -244,7 +244,7 @@ pub fn compile_with_config(
 
     let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
     let mut code_formatter = CodeFormatter { indentation: 0, in_string: false, sink: file };
-    let generated = sixtyfps_compilerlib::generator::rust::generate(&doc);
+    let generated = slint_compiler_internal::generator::rust::generate(&doc);
 
     for x in &diag.all_loaded_files {
         if x.is_absolute() {

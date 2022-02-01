@@ -794,8 +794,10 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_get_diagnostics
             line,
             column,
             level: match diagnostic.level() {
-                sixtyfps_compilerlib::diagnostics::DiagnosticLevel::Error => DiagnosticLevel::Error,
-                sixtyfps_compilerlib::diagnostics::DiagnosticLevel::Warning => {
+                slint_compiler_internal::diagnostics::DiagnosticLevel::Error => {
+                    DiagnosticLevel::Error
+                }
+                slint_compiler_internal::diagnostics::DiagnosticLevel::Warning => {
                     DiagnosticLevel::Warning
                 }
                 _ => DiagnosticLevel::Warning,

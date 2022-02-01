@@ -17,7 +17,7 @@ name = "sixtyfps-compiler"
 path = "main.rs"
 
 [dependencies]
-sixtyfps-compilerlib = { version = "=0.2.0", path = "../../internal/compiler", features = ["display-diagnostics", "cpp", "rust"]}
+slint-compiler-internal = { version = "=0.2.0", path = "../../internal/compiler", features = ["display-diagnostics", "cpp", "rust"]}
 
 clap = { version = "3.0.5", features=["derive", "wrap_help"] }
 proc-macro2 = "1.0.11"
