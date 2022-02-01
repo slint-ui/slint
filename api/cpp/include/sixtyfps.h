@@ -158,6 +158,8 @@ public:
         }
     }
 
+    void request_redraw() const { cbindgen_private::sixtyfps_windowrc_request_redraw(&inner); }
+
 private:
     cbindgen_private::WindowRcOpaque inner;
 };
@@ -177,7 +179,8 @@ constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset, std::uint32_t
                                                            parent_index } };
 }
 
-inline ItemRef get_item_ref(ComponentRef component, cbindgen_private::Slice<ItemTreeNode> item_tree, int index)
+inline ItemRef get_item_ref(ComponentRef component, cbindgen_private::Slice<ItemTreeNode> item_tree,
+                            int index)
 {
     const auto &item = item_tree.ptr[index].item.item;
     return ItemRef { item.vtable, reinterpret_cast<char *>(component.instance) + item.offset };
@@ -341,6 +344,9 @@ public:
         return inner.set_rendering_notifier(std::forward<F>(callback));
     }
 
+    /// This function issues a request to the windowing system to redraw the contents of the window.
+    void request_redraw() const { inner.request_redraw(); }
+
     /// \private
     private_api::WindowRc &window_handle() { return inner; }
     /// \private
@@ -429,7 +435,8 @@ inline SharedVector<float> solve_box_layout(const cbindgen_private::BoxLayoutDat
                                             cbindgen_private::Slice<int> repeater_indexes)
 {
     SharedVector<float> result;
-    cbindgen_private::Slice<uint32_t> ri { reinterpret_cast<uint32_t *>(repeater_indexes.ptr), repeater_indexes.len };
+    cbindgen_private::Slice<uint32_t> ri { reinterpret_cast<uint32_t *>(repeater_indexes.ptr),
+                                           repeater_indexes.len };
     cbindgen_private::sixtyfps_solve_box_layout(&data, ri, &result);
     return result;
 }
@@ -467,7 +474,8 @@ inline SharedVector<float> solve_path_layout(const cbindgen_private::PathLayoutD
                                              cbindgen_private::Slice<int> repeater_indexes)
 {
     SharedVector<float> result;
-    cbindgen_private::Slice<uint32_t> ri { reinterpret_cast<uint32_t *>(repeater_indexes.ptr), repeater_indexes.len };
+    cbindgen_private::Slice<uint32_t> ri { reinterpret_cast<uint32_t *>(repeater_indexes.ptr),
+                                           repeater_indexes.len };
     cbindgen_private::sixtyfps_solve_path_layout(&data, ri, &result);
     return result;
 }
@@ -490,7 +498,8 @@ struct AbstractRepeaterView
 using ModelPeer = std::weak_ptr<AbstractRepeaterView>;
 
 template<typename M>
-auto access_array_index(const M &model, int index) {
+auto access_array_index(const M &model, int index)
+{
     model->track_row_data_changes(index);
     if (const auto v = model->row_data(index)) {
         return *v;

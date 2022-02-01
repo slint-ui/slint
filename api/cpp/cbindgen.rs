@@ -268,6 +268,7 @@ fn gen_corelib(
             "sixtyfps_windowrc_set_component",
             "sixtyfps_windowrc_show_popup",
             "sixtyfps_windowrc_set_rendering_notifier",
+            "sixtyfps_windowrc_request_redraw",
             "sixtyfps_new_path_elements",
             "sixtyfps_new_path_events",
             "sixtyfps_color_brighter",

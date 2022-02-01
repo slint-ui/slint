@@ -119,6 +119,18 @@ impl Window {
     ) -> std::result::Result<(), SetRenderingNotifierError> {
         self.0.set_rendering_notifier(Box::new(callback))
     }
+
+    /// This function issues a request to the windowing system to redraw the contents of the window.
+    pub fn request_redraw(&self) {
+        self.0.request_redraw();
+
+        // When this function is called by the user, we want it to translate to a requestAnimationFrame()
+        // on the web. If called through the rendering notifier (so from within the event loop processing),
+        // unfortunately winit will only do that if set the control flow to Poll. This hack achieves that.
+        #[cfg(target_arch = "wasm32")]
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.set_has_active_animations());
+    }
 }
 
 impl crate::window::WindowHandleAccess for Window {

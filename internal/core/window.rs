@@ -729,4 +729,11 @@ pub mod ffi {
             }
         }
     }
+
+    /// This function issues a request to the windowing system to redraw the contents of the window.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_windowrc_request_redraw(handle: *const WindowRcOpaque) {
+        let window = &*(handle as *const WindowRc);
+        window.request_redraw();
+    }
 }
