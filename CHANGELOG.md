@@ -29,6 +29,7 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/sixtyfps-rs/m
 
  - `TextEdit::font-size` and `LineEdit::font-size` have been added to control the size of these widgets.
  - Added `sixtyfps::Window::set_rendering_notifier` to get a callback before and after a new frame is being rendered.
+ - Added `sixtyfps::Window::request_redraw()` to schedule redrawing of the window contents.
 
 ### Fixed
 
