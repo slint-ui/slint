@@ -299,13 +299,13 @@ jobs:
         buildWithCMakeArgs: '--config Debug'
 
   docs:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/build_docs.yaml@master
+    uses: sixtyfpsui/sixtyfps/.github/workflows/build_docs.yaml@wip/rename
 
   wasm:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_editor_and_interpreter.yaml@master
+    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_editor_and_interpreter.yaml@wip/rename
 
   wasm_demo:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_demos.yaml@master
+    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_demos.yaml@wip/rename
 
   # Checkout a old version of the tests and example, then run the syntax_updater on them
   # and check that it worked with the interpreter test.
