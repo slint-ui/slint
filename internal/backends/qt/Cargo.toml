@@ -21,7 +21,7 @@ path = "lib.rs"
 
 [dependencies]
 slint-common-internal = { version = "=0.2.0", path = "../../../internal/common" }
-sixtyfps-corelib-macros = { version = "=0.2.0", path = "../../../internal/core-macros" }
+slint-core-macros-internal = { version = "=0.2.0", path = "../../../internal/core-macros" }
 sixtyfps-corelib = { version = "=0.2.0", path = "../../../internal/core" }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }

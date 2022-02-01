@@ -32,7 +32,7 @@ use sixtyfps_corelib::window::WindowRc;
 use sixtyfps_corelib::{
     declare_item_vtable, Callback, ItemVTable_static, Property, SharedString, SharedVector,
 };
-use sixtyfps_corelib_macros::*;
+use slint_core_macros_internal::*;
 use std::rc::Rc;
 
 type ItemRendererRef<'a> = &'a mut dyn ItemRenderer;

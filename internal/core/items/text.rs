@@ -23,7 +23,7 @@ use crate::{Callback, Property, SharedString};
 use alloc::string::String;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
-use sixtyfps_corelib_macros::*;
+use slint_core_macros_internal::*;
 
 #[cfg(not(feature = "std"))]
 use num_traits::float::Float;
