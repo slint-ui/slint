@@ -4,7 +4,7 @@
 [package]
 name = "slint"
 version = "0.2.0"
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
 description = "Slint Rust API"
@@ -61,4 +61,3 @@ pin-weak = { version = "1.1", default-features = false }
 
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "docs/resources/slint-docs-preview.html", "--html-in-header", "docs/resources/slint-docs-highlight.html" ]
-

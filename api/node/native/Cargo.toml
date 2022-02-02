@@ -4,7 +4,7 @@
 [package]
 name = "slint-node"
 version = "0.2.0"
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 build = "build.rs"
 # This is not meant to be used as a library from crate.io
