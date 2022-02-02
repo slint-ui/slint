@@ -1,6 +1,6 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: sixtyfps
-Upstream-Contact: SixtyFPS GmbH <info@sixtyfps.io>
+Upstream-Name: slint
+Upstream-Contact: Slint Developers <info@slint-ui.com>
 Source: https/sixtyfps.io/
 
 Files: .clang-format .gitattributes .gitignore */.gitignore .pre-commit-config.yaml .vscode/* cspell.json rustfmt.toml
