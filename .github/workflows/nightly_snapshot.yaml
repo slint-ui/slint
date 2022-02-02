@@ -239,7 +239,7 @@ jobs:
         dryRun: ${{ github.event.inputs.private == 'true' || github.ref != 'refs/heads/master' }}
         packagePath: vscode_extension
     - name: Publish to Visual Studio Marketplace
-      if: ${{ github.event.inputs.private != 'true' || github.ref != 'refs/heads/master' }}
+      if: ${{ github.event.inputs.private != 'true' && github.ref == 'refs/heads/master' }}
       uses: HaaLeo/publish-vscode-extension@v0
       with:
         pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
