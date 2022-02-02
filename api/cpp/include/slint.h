@@ -202,9 +202,9 @@ inline vtable::Layout drop_in_place(ComponentRef component)
 // so we have a relocation to a function that returns the address we seek. That
 // relocation will be resolved to the locally linked stub library, the implementation of
 // which will be patched.
-#        define SIXTYFPS_GET_ITEM_VTABLE(VTableName) slint::private_api::slint_get_##VTableName()
+#        define SLINT_GET_ITEM_VTABLE(VTableName) slint::private_api::slint_get_##VTableName()
 #    else
-#        define SIXTYFPS_GET_ITEM_VTABLE(VTableName) (&slint::private_api::VTableName)
+#        define SLINT_GET_ITEM_VTABLE(VTableName) (&slint::private_api::VTableName)
 #    endif
 #endif // !defined(DOXYGEN)
 

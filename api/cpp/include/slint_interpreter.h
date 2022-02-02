@@ -10,10 +10,10 @@
 #include <optional>
 
 #if !defined(DOXYGEN)
-#    define SIXTYFPS_QT_INTEGRATION // In the future, should be defined by cmake only if this is
-                                    // enabled
+#    define SLINT_QT_INTEGRATION // In the future, should be defined by cmake only if this is
+                                 // enabled
 #endif
-#ifdef SIXTYFPS_QT_INTEGRATION
+#ifdef SLINT_QT_INTEGRATION
 class QWidget;
 #endif
 
@@ -569,7 +569,7 @@ public:
         cbindgen_private::slint_run_event_loop();
         hide();
     }
-#if defined(SIXTYFPS_QT_INTEGRATION) || defined(DOXYGEN)
+#if defined(SLINT_QT_INTEGRATION) || defined(DOXYGEN)
     /// Return a QWidget for this instance.
     /// This function is only available if the qt graphical backend was compiled in, and
     /// it may return nullptr if the Qt backend is not used at runtime.

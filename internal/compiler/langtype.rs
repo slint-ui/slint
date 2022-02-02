@@ -544,7 +544,7 @@ pub struct NativeClass {
 
 impl NativeClass {
     pub fn new(class_name: &str) -> Self {
-        let cpp_vtable_getter = format!("SIXTYFPS_GET_ITEM_VTABLE({}VTable)", class_name);
+        let cpp_vtable_getter = format!("SLINT_GET_ITEM_VTABLE({}VTable)", class_name);
         Self {
             class_name: class_name.into(),
             cpp_vtable_getter,
