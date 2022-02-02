@@ -49,7 +49,7 @@ fn main() -> std::io::Result<()> {
 
     // By default resources are embedded. The WASM example builds provide test coverage for that. This switch
     // provides test coverage for the non-embedding case, compiling tests without embedding the images.
-    println!("cargo:rustc-env=SIXTYFPS_EMBED_RESOURCES=false");
+    println!("cargo:rustc-env=SLINT_EMBED_RESOURCES=false");
 
     //Make sure to use a consistent style
     println!("cargo:rustc-env=SIXTYFPS_STYLE=fluent");

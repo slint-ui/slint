@@ -74,10 +74,10 @@ pub struct CompilerConfiguration {
 
 impl CompilerConfiguration {
     pub fn new(output_format: crate::generator::OutputFormat) -> Self {
-        let embed_resources = match std::env::var("SIXTYFPS_EMBED_RESOURCES") {
+        let embed_resources = match std::env::var("SLINT_EMBED_RESOURCES") {
             Ok(var) => {
                 var.parse().unwrap_or_else(|_|{
-                    panic!("SIXTYFPS_EMBED_RESOURCES has incorrect value. Must be either unset, 'true' or 'false'")
+                    panic!("SLINT_EMBED_RESOURCES has incorrect value. Must be either unset, 'true' or 'false'")
                 })
             }
             Err(_) => {

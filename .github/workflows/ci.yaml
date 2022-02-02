@@ -235,7 +235,7 @@ jobs:
     - name: Enable test coverage for resource embedding in C++ when building examples
       if: matrix.os == 'ubuntu-20.04'
       run: |
-          echo "SIXTYFPS_EMBED_RESOURCES=true" >> $GITHUB_ENV
+          echo "SLINT_EMBED_RESOURCES=true" >> $GITHUB_ENV
     - name: C++ Build
       uses: lukka/run-cmake@v3.4
       with:
