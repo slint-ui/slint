@@ -2,7 +2,7 @@
 # Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-OUTPUT=$(sixtyfps-viewer - --save-data - << EOF
+OUTPUT=$(slint-viewer - --save-data - << EOF
 import { StandardButton, GridBox, LineEdit } from "std-widgets.slint";
 _ := Dialog {
     property name <=> name-le.text;

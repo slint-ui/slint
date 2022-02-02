@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-name: Build sixtyfps-viewer or -lsp binary
+name: Build slint-viewer or -lsp binary
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ on:
         type: choice
         description: binary to build
         options:
-          - sixtyfps-viewer
+          - slint-viewer
           - slint-lsp
   workflow_call:
     inputs:

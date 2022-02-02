@@ -89,7 +89,7 @@ graph and integrate the result into SixtyFPS.
 
 ### [`bash`](./bash)
 
-Some examples of how to use the `sixtyfps-viewer` to add a GUI to shell scripts.
+Some examples of how to use the `slint-viewer` to add a GUI to shell scripts.
 
 ### External examples
 
@@ -102,7 +102,7 @@ Some examples of how to use the `sixtyfps-viewer` to add a GUI to shell scripts.
 Simply load the .slint file with the viewer application
 
 ```sh
-cargo run --release --bin sixtyfps-viewer -- examples/printerdemo/ui/printerdemo.slint
+cargo run --release --bin slint-viewer -- examples/printerdemo/ui/printerdemo.slint
 ```
 
 ## Running the Rust Examples

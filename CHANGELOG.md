@@ -117,8 +117,8 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/sixtyfps-rs/m
 ### Added
 
  - New `no-frame` property of a `Window` which changes it to borderless/frameless
- - sixtyfps-compiler and sixtyfps-viewer can read the .60 file content from stdin by passing `-`
- - sixtyfps-viewer gained ability to read or save the property values to a json file with `--save-data` and `--load-data`
+ - sixtyfps-compiler and slint-viewer can read the .60 file content from stdin by passing `-`
+ - slint-viewer gained ability to read or save the property values to a json file with `--save-data` and `--load-data`
  - New `StandardButton` widget
  - New `Dialog` element
  - `sixtyfps::Image` has now a `path()` accessor function in Rust and C++ to access the optional path
@@ -212,7 +212,7 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/sixtyfps-rs/m
    and `preferred-height` property can be used to set the initial size and the window remains resizable
    by the user, if the window manager permits.
  - Binding loops are now detected at compile-time instead of panic at runtime.
- - The `viewer` binary was renamed to `sixtyfps-viewer` and is now available via `cargo install` from crates.io.
+ - The `viewer` binary was renamed to `slint-viewer` and is now available via `cargo install` from crates.io.
  - The layout properties `minimum-width`, `maximum-height`, etc. were renamed to a shorter version `min-width`,
    `max-height`. The old names are still supported as a deprecated alias.
 

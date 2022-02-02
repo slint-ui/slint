@@ -151,7 +151,7 @@ impl slint_core_internal::backend::Backend for Backend {
             cpp! {unsafe [] {
                 // Use a quit event to avoid qApp->quit() calling
                 // [NSApp terminate:nil] and us never returning from the
-                // event loop - sixtyfps-viewer relies on the ability to
+                // event loop - slint-viewer relies on the ability to
                 // return from run().
                 QCoreApplication::postEvent(qApp, new QEvent(QEvent::Quit));
             } }

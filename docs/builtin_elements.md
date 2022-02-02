@@ -707,7 +707,7 @@ There cannot be several StandardButton of the same kind.
 If A callback `<kind>_clicked` is automatically added for each StandardButton which does not have an explicit
 callback handler, so it can be handled from the native code. (e.g. if there is a button of kind `cancel`,
 a `cancel_clicked` callback will be added)
-When viewed with the `sixtyfps-viewer` program, the `ok`, `cancel`, and `close` button will cause the dialog to close.
+When viewed with the `slint-viewer` program, the `ok`, `cancel`, and `close` button will cause the dialog to close.
 
 ### Properties
 

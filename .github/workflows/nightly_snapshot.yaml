@@ -22,10 +22,10 @@ on:
     - cron: '0 4 * * *'
 
 jobs:
-  sixtyfps-viewer-binary:
+  slint-viewer-binary:
     uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_tool_binary.yaml@wip/rename
     with:
-      program: "sixtyfps-viewer"
+      program: "slint-viewer"
   slint-lsp-binary:
     uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_tool_binary.yaml@wip/rename
     with:
