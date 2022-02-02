@@ -7,7 +7,7 @@
 
 namespace slint {
 
-/// A string type used by the SixtyFPS run-time.
+/// A string type used by the Slint run-time.
 ///
 /// SharedString uses implicit data sharing to make it efficient to pass around copies. When
 /// copying, a reference to the data is cloned, not the data itself.

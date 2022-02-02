@@ -21,7 +21,7 @@ import textwrap
 
 # -- Project information -----------------------------------------------------
 
-project = "SixtyFPS C++"
+project = "Slint C++"
 copyright = "2021, info@sixtyfps.io"
 author = "info@sixtyfps.io"
 

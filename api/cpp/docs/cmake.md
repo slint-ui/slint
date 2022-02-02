@@ -1,6 +1,6 @@
 # Installing or Building with CMake
 
-SixtyFPS comes with a CMake integration that automates the compilation step of the `.slint` markup language files and
+Slint comes with a CMake integration that automates the compilation step of the `.slint` markup language files and
 offers a CMake target for convenient linkage.
 
 *Note*: We recommend using the Ninja generator of CMake for the most efficient build and `.slint` dependency tracking.
@@ -8,7 +8,7 @@ You can select the CMake Ninja backend by passing `-GNinja` or setting the `CMAK
 
 ## Binary Packages
 
-We also provide binary packages of SixtyFPS for use with C++, which eliminates the need to have Rust installed in your development environment.
+We also provide binary packages of Slint for use with C++, which eliminates the need to have Rust installed in your development environment.
 
 You can download one of our pre-built binaries for Linux or Windows on x86-64 architectures:
 
@@ -25,7 +25,7 @@ and load `.slint` UI files.
 
 ## Building from Sources
 
-The recommended and most flexible way to use the C++ API is to build SixtyFPS from sources.
+The recommended and most flexible way to use the C++ API is to build Slint from sources.
 
 First you need to install the prerequisites:
 
@@ -35,26 +35,26 @@ First you need to install the prerequisites:
 * **[cmake](https://cmake.org/download/)** (3.19 or newer)
 * A C++ compiler that supports C++20 (e.g., **MSVC 2019 16.6** on Windows)
 
-You can include SixtyFPS in your CMake project using CMake's [`FetchContent`](https://cmake.org/cmake/help/latest/module/FetchContent.html) feature.
+You can include Slint in your CMake project using CMake's [`FetchContent`](https://cmake.org/cmake/help/latest/module/FetchContent.html) feature.
 Insert the following snippet into your `CMakeLists.txt` to make CMake download the latest release, compile it and make the CMake integration available:
 
 ```cmake
 include(FetchContent)
 FetchContent_Declare(
-    SixtyFPS
+    Slint
     GIT_REPOSITORY https://github.com/sixtyfpsui/sixtyfps.git
     GIT_TAG v0.1.6
     SOURCE_SUBDIR api/cpp
 )
-FetchContent_MakeAvailable(SixtyFPS)
+FetchContent_MakeAvailable(Slint)
 ```
 
-If you prefer to treat SixtyFPS as an external CMake package, then you can also build SixtyFPS from source like a regular
+If you prefer to treat Slint as an external CMake package, then you can also build Slint from source like a regular
 CMake project, install it into a prefix directory of your choice and use `find_package(Slint)` in your `CMakeLists.txt`.
 
 ### Features
 
-The SixtyFPS run-time library supports different features that can be toggled. You might want to enable a feature that is
+The Slint run-time library supports different features that can be toggled. You might want to enable a feature that is
 not enabled by default but that is revelant for you, or you may want to disable a feature that you know you do not need and
 therefore reduce the size of the resulting library.
 
@@ -67,17 +67,17 @@ different ways of toggling CMake options. For example on the command line using 
 Alternatively, after the configure step you can use `cmake-gui` or `ccmake` on the build directory for a list of all features
 and their description.
 
-This works when compiling SixtyFPS as a package, using `cmake --build` and `cmake --install`, or when including SixtyFPS
+This works when compiling SixtyFPS as a package, using `cmake --build` and `cmake --install`, or when including Slint
 using `FetchContent`.
 
 ### Cross-compiling
 
-It is possible to cross-compile SixtyFPS to a different target architecture when building with CMake. In order to complete
+It is possible to cross-compile Slint to a different target architecture when building with CMake. In order to complete
 that, you need to make sure that your CMake setup is ready for cross-compilation. You can find more information about
 how to set this up in the [upstream CMake documentation](https://cmake.org/cmake/help/latest/manual/cmake-toolchains.7.html#cross-compiling).
 If you are building against a Yocto SDK, it is sufficient to source the SDK's environment setup file.
 
-Since SixtyFPS is implemented using the Rust programming language, you need to determine which Rust target
+Since Slint is implemented using the Rust programming language, you need to determine which Rust target
 matches the target architecture that you're compiling to. Please consult the [upstream Rust documentation](https://doc.rust-lang.org/nightly/rustc/platform-support.html) to find the correct target name. Now you need to install the Rust toolchain:
 
 ```sh
@@ -106,7 +106,7 @@ Set up the environment and build:
 cd sixtyfps
 mkdir build
 cd build
-cmake -DRust_CARGO_TARGET=aarch64-unknown-linux-gnu -DCMAKE_INSTALL_PREFIX=/sixtyfps/install/path ..
+cmake -DRust_CARGO_TARGET=aarch64-unknown-linux-gnu -DCMAKE_INSTALL_PREFIX=/slint/install/path ..
 cmake --build .
 cmake --install .
 ```

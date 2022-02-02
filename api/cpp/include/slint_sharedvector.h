@@ -10,7 +10,7 @@
 namespace slint {
 
 /// SharedVector is a vector template class similar to std::vector that's primarily used for passing
-/// data in and out of the SixtyFPS run-time library. It uses implicit-sharing to make creating
+/// data in and out of the Slint run-time library. It uses implicit-sharing to make creating
 /// copies cheap. Only when a function changes the vector's data, a copy is is made.
 template<typename T>
 struct SharedVector

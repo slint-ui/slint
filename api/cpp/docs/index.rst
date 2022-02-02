@@ -1,9 +1,9 @@
 .. Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 .. SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-.. SixtyFPS C++ documentation master file
+.. Slint C++ documentation master file
 
-Welcome to SixtyFPS C++'s documentation!
+Welcome to Slint C++'s documentation!
 ========================================
 
 .. toctree::
@@ -49,17 +49,17 @@ Welcome to SixtyFPS C++'s documentation!
    :target: https://github.com/sixtyfpsui/sixtyfps/discussions
    :alt: GitHub Discussions
 
-`SixtyFPS <https://sixtyfps.io/>`_ is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications.
-SixtyFPS C++ is the C++ API to interact with a SixtyFPS UI from C++.
+`Slint <https://sixtyfps.io/>`_ is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications.
+Slint C++ is the C++ API to interact with a Slint UI from C++.
 
 The .slint Markup Language
 =======================
 
-SixtyFPS comes with a markup language that is specifically designed for user interfaces. This language provides a
+Slint comes with a markup language that is specifically designed for user interfaces. This language provides a
 powerful way to describe graphical elements, their placement, and the flow of data through the different states. It is a familiar syntax to describe the hierarchy
 of elements and property bindings. Here's the obligatory "Hello World":
 
-.. code-block:: 60-no-preview
+.. code-block:: slint-no-preview
 
     HelloWorld := Window {
         width: 400px;
@@ -87,10 +87,10 @@ is compiled to native code.
 Developing
 ==========
 
-You can create and edit `.60` files using our `SixtyFPS Visual Studio Code Extension <https://marketplace.visualstudio.com/items?itemName=SixtyFPS.sixtyfps-vscode>`_,
+You can create and edit `.60` files using our `Slint Visual Studio Code Extension <https://marketplace.visualstudio.com/items?itemName=SixtyFPS.sixtyfps-vscode>`_,
 which features syntax highlighting and live design preview.
 
 For a quick edit and preview cycle, you can also use the :code:`slint-viewer` command line tool, which can be installed using :code:`cargo install slint-viewer`,
 if you have `Cargo <https://marketplace.visualstudio.com/items?itemName=SixtyFPS.sixtyfps-vscode>`_ installed.
 
-In the next section you will learn how to install the SixtyFPS C++ library and the CMake build system integration.
+In the next section you will learn how to install the Slint C++ library and the CMake build system integration.

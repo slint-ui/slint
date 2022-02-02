@@ -78,7 +78,7 @@ Set up the environment and build:
 cd sixtyfps
 mkdir build
 cd build
-cmake -DRust_CARGO_TARGET=aarch64-unknown-linux-gnu -DCMAKE_INSTALL_PREFIX=/sixtyfps/install/path ..
+cmake -DRust_CARGO_TARGET=aarch64-unknown-linux-gnu -DCMAKE_INSTALL_PREFIX=/slint/install/path ..
 cmake --build .
 cmake --install .
 ```

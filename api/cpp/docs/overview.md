@@ -19,7 +19,7 @@ and lowest memory consumption.
 
 The `slint_target_sources` cmake command makes the translation automatic
 and [generated code](generated_code.md) has an API that allows setting and getting
-property values, etc. That API will use types from the {ref}`sixtyfps <namespace_sixtyfps>`
+property values, etc. That API will use types from the {ref}`slint <namespace_slint>`
 namespace, for example {cpp:class}`slint::SharedString` or {cpp:class}`slint::Color`.
 
 ## Run-time interpreted `.slint` designs

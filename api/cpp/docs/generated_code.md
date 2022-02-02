@@ -1,6 +1,6 @@
 # Generated code
 
-The SixtyFPS compiler called by the build system will generate a header file for the root `.slint`
+The Slint compiler called by the build system will generate a header file for the root `.slint`
 file. This header file will contain a `class` with the same name as the component.
 
 This class will have the following public member functions:

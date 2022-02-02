@@ -30,7 +30,7 @@ struct ErasedComponentBox : vtable::Dyn
 /// The types in this namespace allow you to load a .slint file at runtime and show its UI.
 ///
 /// You only need to use them if you do not want to use pre-compiled .slint code, which is
-/// the normal way to use SixtyFPS.
+/// the normal way to use Slint.
 ///
 /// The entry point for this namespace is the \ref ComponentCompiler, which you can
 /// use to create \ref ComponentDefinition instances with the
@@ -227,7 +227,7 @@ private:
     friend class Value;
 };
 
-/// This is a dynamically typed value used in the SixtyFPS interpreter.
+/// This is a dynamically typed value used in the Slint interpreter.
 /// It can hold a value of different types, and you should use the
 /// different overloaded constructors and the to_xxx() functions to access the
 //// value within.
@@ -881,7 +881,7 @@ public:
     }
 };
 
-/// ComponentCompiler is the entry point to the SixtyFPS interpreter that can be used
+/// ComponentCompiler is the entry point to the Slint interpreter that can be used
 /// to load .slint files or compile them on-the-fly from a string
 /// (using build_from_source()) or from a path  (using build_from_source())
 class ComponentCompiler
