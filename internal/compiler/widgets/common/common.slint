@@ -86,14 +86,17 @@ export AboutSlint := Rectangle {
         padding: 12px;
         spacing: 8px;
         alignment: start;
-        Text {
+        t := Text {
             text: "Made with";
             font-size: 24px;
             font-weight: 700;
             horizontal-alignment: center;
         }
         Image {
-            source: @image-url("slint-logo-black.svg");
+            // Hack: try to guess if we should have the logo in black or in white depending in the default text color
+            // If when we make it much brighter it saturates to white, consider the white logo
+            property <color> t_color: t.color;
+            source: t_color.brighter(100%) == Colors.white ? @image-url("slint-logo-white.svg") : @image-url("slint-logo-black.svg");
             preferred-width: 256px;
         }
         Text {
