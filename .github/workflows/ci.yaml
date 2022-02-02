@@ -319,7 +319,7 @@ jobs:
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        from_version: ['0.1.0']
+        from_version: ['0.1.0', '0.1.6']
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
