@@ -34,12 +34,12 @@ You can include Slint in your CMake project using CMake's `FetchContent` feature
 ```cmake
 include(FetchContent)
 FetchContent_Declare(
-    SixtyFPS
+    Slint
     GIT_REPOSITORY https://github.com/sixtyfpsui/sixtyfps.git
     GIT_TAG v0.1.6
-    SOURCE_SUBDIR api/sixtyfps-cpp
+    SOURCE_SUBDIR api/cpp
 )
-FetchContent_MakeAvailable(SixtyFPS)
+FetchContent_MakeAvailable(Slint)
 ```
 
 If you prefer to treat Slint as an external CMake package, then you can also build Slint from source like a regular
@@ -75,7 +75,7 @@ Set up the environment and build:
 
 ```sh
 . /path/to/yocto/sdk/environment-setup-cortexa53-crypto-poky-linux
-cd sixtyfps
+cd slint
 mkdir build
 cd build
 cmake -DRust_CARGO_TARGET=aarch64-unknown-linux-gnu -DCMAKE_INSTALL_PREFIX=/slint/install/path ..
@@ -110,12 +110,12 @@ project(my_application LANGUAGES CXX)
 # approach.
 include(FetchContent)
 FetchContent_Declare(
-    SixtyFPS
+    Slint
     GIT_REPOSITORY https://github.com/sixtyfpsui/sixtyfps.git
     GIT_TAG v0.1.6
-    SOURCE_SUBDIR api/sixtyfps-cpp
+    SOURCE_SUBDIR api/cpp
 )
-FetchContent_MakeAvailable(SixtyFPS)
+FetchContent_MakeAvailable(Slint)
 
 add_executable(my_application main.cpp)
 target_link_libraries(my_application PRIVATE Slint::Slint)
