@@ -15,7 +15,7 @@ namespace slint::private_api {
 
 using cbindgen_private::StateInfo;
 
-inline void sixtyfps_property_set_animated_binding_helper(
+inline void slint_property_set_animated_binding_helper(
         const cbindgen_private::PropertyHandleOpaque *handle, void (*binding)(void *, int32_t *),
         void *user_data, void (*drop_user_data)(void *),
         const cbindgen_private::PropertyAnimation *animation_data,
@@ -25,7 +25,7 @@ inline void sixtyfps_property_set_animated_binding_helper(
             handle, binding, user_data, drop_user_data, animation_data, transition_data);
 }
 
-inline void sixtyfps_property_set_animated_binding_helper(
+inline void slint_property_set_animated_binding_helper(
         const cbindgen_private::PropertyHandleOpaque *handle, void (*binding)(void *, float *),
         void *user_data, void (*drop_user_data)(void *),
         const cbindgen_private::PropertyAnimation *animation_data,
@@ -35,7 +35,7 @@ inline void sixtyfps_property_set_animated_binding_helper(
             handle, binding, user_data, drop_user_data, animation_data, transition_data);
 }
 
-inline void sixtyfps_property_set_animated_binding_helper(
+inline void slint_property_set_animated_binding_helper(
         const cbindgen_private::PropertyHandleOpaque *handle, void (*binding)(void *, Color *),
         void *user_data, void (*drop_user_data)(void *),
         const cbindgen_private::PropertyAnimation *animation_data,
@@ -45,7 +45,7 @@ inline void sixtyfps_property_set_animated_binding_helper(
             handle, binding, user_data, drop_user_data, animation_data, transition_data);
 }
 
-inline void sixtyfps_property_set_animated_binding_helper(
+inline void slint_property_set_animated_binding_helper(
         const cbindgen_private::PropertyHandleOpaque *handle, void (*binding)(void *, Brush *),
         void *user_data, void (*drop_user_data)(void *),
         const cbindgen_private::PropertyAnimation *animation_data,
@@ -105,7 +105,7 @@ struct Property
     inline void
     set_animated_binding(F binding, const cbindgen_private::PropertyAnimation &animation_data) const
     {
-        private_api::sixtyfps_property_set_animated_binding_helper(
+        private_api::slint_property_set_animated_binding_helper(
                 &inner,
                 [](void *user_data, T *value) {
                     *reinterpret_cast<T *>(value) = (*reinterpret_cast<F *>(user_data))();
@@ -122,7 +122,7 @@ struct Property
             F binding;
             Trans animation;
         };
-        private_api::sixtyfps_property_set_animated_binding_helper(
+        private_api::slint_property_set_animated_binding_helper(
                 &inner,
                 [](void *user_data, T *value) {
                     *reinterpret_cast<T *>(value) =
