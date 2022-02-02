@@ -81,5 +81,5 @@ jobs:
       run: |
           du -hs target
           rm -rf target/*/incremental
-          rm -rf target/*/*/*sixtyfps*
+          rm -rf target/*/*/*slint*
           du -hs target

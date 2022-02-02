@@ -46,8 +46,8 @@ jobs:
       run: |
           echo "" >> ~/.cargo/config
           echo [patch.crates-io] >> ~/.cargo/config
-          echo sixtyfps = { path = \"$GITHUB_WORKSPACE/api/sixtyfps-rs/\" } >> ~/.cargo/config
-          echo sixtyfps-build = { path = \"$GITHUB_WORKSPACE/api/sixtyfps-rs/sixtyfps-build\" }  >> ~/.cargo/config
+          echo slint = { path = \"$GITHUB_WORKSPACE/api/rs/slint\" } >> ~/.cargo/config
+          echo slint-build = { path = \"$GITHUB_WORKSPACE/api/rs/build\" }  >> ~/.cargo/config
     - name: Checkout the repo
       run: |
           cd $HOME
