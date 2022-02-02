@@ -12,4 +12,4 @@ endif()
 # so `#include<memory>` includes the generated binary when it exists
 add_executable(memory_game memory.cpp)
 target_link_libraries(memory_game PRIVATE Slint::Slint)
-slint_target_sources(memory_game memory.60)
+slint_target_sources(memory_game memory.slint)

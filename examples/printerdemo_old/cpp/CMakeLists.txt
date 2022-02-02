@@ -9,4 +9,4 @@ endif()
 
 add_executable(printerdemo_old main.cpp)
 target_link_libraries(printerdemo_old PRIVATE Slint::Slint)
-slint_target_sources(printerdemo_old ../ui/printerdemo.60)
+slint_target_sources(printerdemo_old ../ui/printerdemo.slint)

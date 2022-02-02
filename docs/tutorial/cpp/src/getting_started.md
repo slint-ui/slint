@@ -28,12 +28,12 @@ FetchContent_MakeAvailable(SixtyFPS)
 
 add_executable(memory_game main.cpp)
 target_link_libraries(memory_game PRIVATE Slint::Slint)
-slint_target_sources(memory_game memory.60)
+slint_target_sources(memory_game memory.slint)
 ```
 
 This should look familiar to people familiar with CMake. We see that this CMakeLists.txt
 references a `main.cpp`, which we will add later, and it also has a line
-`slint_target_sources(memory_game memory.60)`, which is a SixtyFPS function used to
+`slint_target_sources(memory_game memory.slint)`, which is a SixtyFPS function used to
 add the `memory.60` file to the target. We must then create, in the same directory,
 the `memory.60` file. Let's just fill it with a hello world for now:
 

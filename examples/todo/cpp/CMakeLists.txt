@@ -10,4 +10,4 @@ endif()
 
 add_executable(todo main.cpp)
 target_link_libraries(todo PRIVATE Slint::Slint)
-slint_target_sources(todo ../ui/todo.60)
+slint_target_sources(todo ../ui/todo.slint)
