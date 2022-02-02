@@ -43,7 +43,7 @@ pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
             }
         }
         if let Some(ext) = absolute_path.extension() {
-            if ext == "60" {
+            if ext == "60" || ext == "slint" {
                 results.push(TestCase { absolute_path, relative_path });
             }
         }

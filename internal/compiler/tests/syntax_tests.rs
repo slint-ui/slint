@@ -39,7 +39,7 @@ fn syntax_tests() -> std::io::Result<()> {
                 let test_entry = test_entry?;
                 let path = test_entry.path();
                 if let Some(ext) = path.extension() {
-                    if ext == "60" {
+                    if ext == "60" || ext == "slint" {
                         success &= process_file(&path)?;
                     }
                 }
