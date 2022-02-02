@@ -36,7 +36,7 @@ private:
 int main()
 {
     sixtyfps::interpreter::ComponentCompiler compiler;
-    auto definition = compiler.build_from_path(SOURCE_DIR "/../ui/printerdemo.60");
+    auto definition = compiler.build_from_path(SOURCE_DIR "/../ui/printerdemo.slint");
 
     for (auto diagnostic : compiler.diagnostics()) {
         std::cerr << (diagnostic.level == sixtyfps::interpreter::DiagnosticLevel::Warning

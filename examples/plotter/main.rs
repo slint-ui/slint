@@ -11,7 +11,7 @@ use wasm_bindgen::prelude::*;
 mod wasm_backend;
 
 sixtyfps::sixtyfps! {
-    import { MainWindow } from "plotter.60";
+    import { MainWindow } from "plotter.slint";
 }
 
 fn pdf(x: f64, y: f64) -> f64 {

@@ -4,8 +4,8 @@
 
 // import "sixtyfps";
 let slint = require("slint");
-// import * as demo from "../ui/todo.60";
-let demo = require("../ui/todo.60");
+// import * as demo from "../ui/todo.slint";
+let demo = require("../ui/todo.slint");
 let app = new demo.MainWindow();
 
 let model = new slint.ArrayModel([

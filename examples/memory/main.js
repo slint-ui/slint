@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 let slint = require("slint");
-let ui = require("./memory.60");
+let ui = require("./memory.slint");
 let window = new ui.MainWindow();
 
 let initial_tiles = window.memory_tiles;

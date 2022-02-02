@@ -4,7 +4,7 @@
 use chrono::NaiveDate;
 use sixtyfps::SharedString;
 
-sixtyfps::sixtyfps!(import { Booker } from "booker.60";);
+sixtyfps::sixtyfps!(import { Booker } from "booker.slint";);
 
 pub fn main() {
     let booker = Booker::new();

@@ -29,14 +29,14 @@ let slint = require("slint");
 This step also installs a hook in NodeJS that allows you to import `.60` files directly:
 
 ```js
-let ui = require("../ui/main.60");
+let ui = require("../ui/main.slint");
 ```
 
 Combining these two steps leads us to the obligator "Hello World" example:
 
 ```js
 require("slint");
-let ui = require("../ui/main.60");
+let ui = require("../ui/main.slint");
 let main = new ui.Main();
 main.run();
 ```
@@ -54,7 +54,7 @@ an object which allow to initialize the value of public properties or callbacks.
 require("slint");
 // In this example, the main.60 file exports a module which
 // has a counter property and a clicked callback
-let ui = require("ui/main.60");
+let ui = require("ui/main.slint");
 let component = new ui.MainWindow({
     counter: 42,
     clicked: function() { console.log("hello"); }

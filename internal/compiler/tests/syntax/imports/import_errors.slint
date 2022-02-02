@@ -1,16 +1,16 @@
  // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-import { NotThere } from "file_not_there.60";
-//                       ^error{Cannot find requested import "file_not_there.60" in the include search path}
+import { NotThere } from "file_not_there.slint";
+//                       ^error{Cannot find requested import "file_not_there.slint" in the include search path}
 
-import { NotExported } from "../../typeloader/incpath/local_helper_type.60";
+import { NotExported } from "../../typeloader/incpath/local_helper_type.slint";
 //                          ^error{No exported type called 'NotExported' found in ".*\.\./\.\./typeloader/incpath/local_helper_type.60}
 
 import { Nothing } from "";
 //                      ^error{Unexpected empty import url}
 
-import "invalid_export.60";
+import "invalid_export.slint";
 //     ^error{Import names are missing. Please specify which types you would like to import}
 
 import "myimage.png";

@@ -9,7 +9,7 @@ use std::time::Duration;
 use wasm_bindgen::prelude::*;
 
 sixtyfps::sixtyfps! {
-    import { MainWindow } from "memory.60";
+    import { MainWindow } from "memory.slint";
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]

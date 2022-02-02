@@ -111,7 +111,7 @@ export Demo := Window {
 
     function tabTitleFromURL(url: string): string {
         if (url === "") {
-            return "unnamed.60";
+            return "unnamed.slint";
         }
         try {
             let parsed_url = new URL(url);

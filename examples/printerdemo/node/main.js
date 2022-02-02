@@ -5,7 +5,7 @@
 const path = require("path");
 let slint = require("slint");
 
-let demo = require("../ui/printerdemo.60");
+let demo = require("../ui/printerdemo.slint");
 let window = new demo.MainWindow();
 
 window.ink_levels = [

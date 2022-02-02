@@ -21,12 +21,12 @@ macro_rules! test_example {
     };
 }
 
-test_example!(example_printerdemo, "printerdemo/ui/printerdemo.60");
-test_example!(example_printerdemo_old, "printerdemo_old/ui/printerdemo.60");
-test_example!(example_memory, "memory/memory.60");
-test_example!(example_slide_puzzle, "slide_puzzle/slide_puzzle.60");
-test_example!(example_todo, "todo/ui/todo.60");
-test_example!(example_gallery, "gallery/gallery.60");
+test_example!(example_printerdemo, "printerdemo/ui/printerdemo.slint");
+test_example!(example_printerdemo_old, "printerdemo_old/ui/printerdemo.slint");
+test_example!(example_memory, "memory/memory.slint");
+test_example!(example_slide_puzzle, "slide_puzzle/slide_puzzle.slint");
+test_example!(example_todo, "todo/ui/todo.slint");
+test_example!(example_gallery, "gallery/gallery.slint");
 
 fn main() {
     println!("Nothing to see here, please run me through cargo test :)");

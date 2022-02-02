@@ -28,7 +28,7 @@ In the `build.rs` file:
 
 ```ignore
 fn main() {
-    sixtyfps_build::compile("ui/hello.60").unwrap();
+    sixtyfps_build::compile("ui/hello.slint").unwrap();
 }
 ```
 

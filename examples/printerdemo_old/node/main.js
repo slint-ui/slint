@@ -4,8 +4,8 @@
 
 // import "sixtyfps";
 require("slint");
-// import * as demo from "../ui/printerdemo.60";
-let demo = require("../ui/printerdemo.60");
+// import * as demo from "../ui/printerdemo.slint";
+let demo = require("../ui/printerdemo.slint");
 let window = new demo.MainWindow();
 
 window.ink_levels = [

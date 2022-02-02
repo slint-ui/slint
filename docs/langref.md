@@ -808,7 +808,7 @@ export global Logic := {
 It's also possible to export globals from other files:
 
 ```60,ignore
-import { Logic as MathLogic } from "math.60";
+import { Logic as MathLogic } from "math.slint";
 export { MathLogic } // known as "MathLogic" when using native APIs to access globals
 ```
 
@@ -858,7 +858,7 @@ export Button := Rectangle {
 Similarly, components exported from other files can be accessed by importing them:
 
 ```60,ignore
-import { Button } from "./button.60";
+import { Button } from "./button.slint";
 
 App := Rectangle {
     // ...
@@ -872,8 +872,8 @@ In the event that two files export a type under the same name, then you have the
 of assigning a different name at import time:
 
 ```60,ignore
-import { Button } from "./button.60";
-import { Button as CoolButton } from "../other_theme/button.60";
+import { Button } from "./button.slint";
+import { Button as CoolButton } from "../other_theme/button.slint";
 
 App := Rectangle {
     // ...
