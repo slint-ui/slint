@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "sixtyfps-fmt"
+name = "slint-fmt"
 version = "0.2.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2021"
@@ -22,5 +22,5 @@ codemap = "0.1"
 codemap-diagnostic = "0.1.1"
 
 [[bin]]
-name = "sixtyfps-fmt"
+name = "slint-fmt"
 path = "main.rs"

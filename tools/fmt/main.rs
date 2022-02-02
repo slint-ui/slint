@@ -5,7 +5,7 @@
     Work in progress for a formatter.
     Use like this to format a file:
     ```sh
-        cargo run sixtyfps-fmt -- -i some_file.slint
+        cargo run --bin slint-fmt -- -i some_file.slint
     ```
 
     Some code in this main.rs file is duplicated with the syntax_updater, i guess it could
