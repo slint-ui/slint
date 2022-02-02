@@ -15,7 +15,7 @@ Files: helper_crates/const_field_offset/*
 Copyright: Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 License: MIT or APACHE-2.0
 
-Files:  api/sixtyfps-cpp/docs/* docs/* api/*/*.json api/sixtyfps-rs/migration.md
+Files:  api/cpp/docs/* docs/* api/*/*.json api/sixtyfps-rs/migration.md
 Copyright: Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 License: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
