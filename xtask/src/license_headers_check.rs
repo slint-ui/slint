@@ -582,7 +582,7 @@ impl LicenseHeaderCheck {
             return Err(anyhow::anyhow!("Missing description field"));
         }
 
-        // Check that version of sixtyfps- dependencies are matching this version
+        // Check that version of slint- dependencies are matching this version
         let expected_version = format!(
             "={}",
             doc.package()?.get("version").unwrap().as_value().unwrap().as_str().unwrap()

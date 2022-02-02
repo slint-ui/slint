@@ -3,7 +3,7 @@
 
 /*!
     This crate contains internal data structures and code that is shared between
-    the slint-core-internal and the sixtyfps-compiler(lib) crates.
+    the slint-core-internal and the slint-compiler(lib) crates.
 
 **NOTE**: This library is an **internal** crate for the [SixtyFPS project](https://sixtyfps.io).
 This crate should **not be used directly** by applications using SixtyFPS.

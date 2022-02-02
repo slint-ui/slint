@@ -14,8 +14,8 @@ You can download one of our pre-built binaries for Linux or Windows on x86-64 ar
 
 1. Open <https://github.com/sixtyfpsui/sixtyfps/releases>
 2. Click on the latest release
-3. From "Assets" download either `sixtyfps-cpp-XXX-Linux-x86_64.tar.gz` for a Linux archive
-   or `sixtyfps-cpp-XXX-win64.exe` for a Windows installer. ("XXX" refers to the version of the latest release)
+3. From "Assets" download either `slint-cpp-XXX-Linux-x86_64.tar.gz` for a Linux archive
+   or `slint-cpp-XXX-win64.exe` for a Windows installer. ("XXX" refers to the version of the latest release)
 4. Uncompress the downloaded archive or run the installer.
 
 After extracting the artifact or running the installer, you can place the `lib` sub-directory into your `CMAKE_PREFIX_PATH` and `find_package(Slint)` should succeed in locating the package.
