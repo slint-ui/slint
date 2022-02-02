@@ -102,7 +102,7 @@ jobs:
     - name: Create artifact directory
       run: |
           mkdir bin
-          cp -a target/release/bundle/osx/SixtyFPS\ Live\ Preview.app bin
+          cp -a target/release/bundle/osx/Slint\ Live\ Preview.app bin
     - name: "Upload LSP Artifact"
       uses: actions/upload-artifact@v2
       with:
@@ -151,8 +151,8 @@ jobs:
         path: bin
     - name: Add macOS AArch64 binary to bundle
       run: |
-        lipo -create -output tmp SixtyFPS\ Live\ Preview.app/Contents/MacOS/slint-lsp bin/slint-lsp-aarch64-apple-darwin
-        mv tmp SixtyFPS\ Live\ Preview.app/Contents/MacOS/slint-lsp
+        lipo -create -output tmp Slint\ Live\ Preview.app/Contents/MacOS/slint-lsp bin/slint-lsp-aarch64-apple-darwin
+        mv tmp Slint\ Live\ Preview.app/Contents/MacOS/slint-lsp
         rm -rf bin
     - name: "Upload LSP macOS bundle Artifact"
       uses: actions/upload-artifact@v2
@@ -249,7 +249,7 @@ jobs:
     - name: "Upload extension artifact"
       uses: actions/upload-artifact@v2
       with:
-          name: sixtyfps-vscode.zip
+          name: slint-vscode.zip
           path: |
               ${{ steps.publishToOpenVSX.outputs.vsixPath }}
 
