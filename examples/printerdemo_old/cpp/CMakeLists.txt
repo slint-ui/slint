@@ -3,10 +3,10 @@
 
 cmake_minimum_required(VERSION 3.14)
 
-if (NOT TARGET SixtyFPS::SixtyFPS)
-    find_package(SixtyFPS REQUIRED)
+if (NOT TARGET Slint::Slint)
+    find_package(Slint REQUIRED)
 endif()
 
 add_executable(printerdemo_old main.cpp)
-target_link_libraries(printerdemo_old PRIVATE SixtyFPS::SixtyFPS)
-sixtyfps_target_60_sources(printerdemo_old ../ui/printerdemo.60)
+target_link_libraries(printerdemo_old PRIVATE Slint::Slint)
+slint_target_sources(printerdemo_old ../ui/printerdemo.60)

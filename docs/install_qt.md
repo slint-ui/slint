@@ -1,7 +1,7 @@
 # Install Qt
 
 TLDR; If you are redirected to this document because of a link in the warning that Qt was not found and
-you want to silence the warning without installing Qt, you can set this environment variable: `SIXTYFPS_NO_QT=1`
+you want to silence the warning without installing Qt, you can set this environment variable: `SLINT_NO_QT=1`
 
 ## Do I need Qt to use SixtyFPS?
 
@@ -47,5 +47,5 @@ environment variable, in order for the build system to locate `qmake` and to fin
 
 ## How To Disable the Qt Backend
 
-By setting the `SIXTYFPS_NO_QT` environment variable when building SixtyFPS, the Qt backend will not be compiled and
+By setting the `SLINT_NO_QT` environment variable when building SixtyFPS, the Qt backend will not be compiled and
 no attempt will be made to find Qt on the system. This will also disable the warning stating that Qt was not found.

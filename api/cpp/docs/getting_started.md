@@ -2,10 +2,10 @@
 
 Once SixtyFPS is built, you can use it in your CMake application or library target in two steps:
 
-1. Associate the `.60` files that you'd like to use by calling the `sixtyfps_target_60_sources` cmake command. The first parameter is
+1. Associate the `.60` files that you'd like to use by calling the `slint_target_sources` cmake command. The first parameter is
    your application (or library) CMake target, and the parameters following are the names of the `.60` files. This will result in the
    `.60` files to be compiled into C++ source code.
-2. The generated C++ source code also needs the SixtyFPS run-time library. This dependency is satisfied by linking `SixtyFPS::SixtyFPS`
+2. The generated C++ source code also needs the SixtyFPS run-time library. This dependency is satisfied by linking `Slint::Slint`
    into your target with the `target_link_libraries` command.
 
 A typical example looks like this:
@@ -14,7 +14,7 @@ A typical example looks like this:
 cmake_minimum_required(VERSION 3.19)
 project(my_application LANGUAGES CXX)
 
-# Note: Use find_package(SixtyFPS) instead of the following three commands,
+# Note: Use find_package(Slint) instead of the following three commands,
 # if you prefer the package approach.
 include(FetchContent)
 FetchContent_Declare(
@@ -26,8 +26,8 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(SixtyFPS)
 
 add_executable(my_application main.cpp)
-sixtyfps_target_60_sources(my_application my_application_ui.60)
-target_link_libraries(my_application PRIVATE SixtyFPS::SixtyFPS)
+slint_target_sources(my_application my_application_ui.60)
+target_link_libraries(my_application PRIVATE Slint::Slint)
 ```
 
 Suppose `my_application_ui.60` was a "Hello World" like this:

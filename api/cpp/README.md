@@ -43,7 +43,7 @@ FetchContent_MakeAvailable(SixtyFPS)
 ```
 
 If you prefer to treat SixtyFPS as an external CMake package, then you can also build SixtyFPS from source like a regular
-CMake project, install it into a prefix directory of your choice and use `find_package(SixtyFPS)` in your `CMakeLists.txt`.
+CMake project, install it into a prefix directory of your choice and use `find_package(Slint)` in your `CMakeLists.txt`.
 
 #### Cross-compiling
 
@@ -96,7 +96,7 @@ You can download one of our pre-built binaries for Linux or Windows on x86-64 ar
 4. Uncompress the downloaded archive or run the installer.
 
 
-After extracting the artifact or running the installer, you can place the `lib` sub-directory into your `CMAKE_PREFIX_PATH` and `find_package(SixtyFPS)` should succeed in locating the package.
+After extracting the artifact or running the installer, you can place the `lib` sub-directory into your `CMAKE_PREFIX_PATH` and `find_package(Slint)` should succeed in locating the package.
 
 ## Usage via CMake
 
@@ -106,7 +106,7 @@ A typical example looks like this:
 cmake_minimum_required(VERSION 3.19)
 project(my_application LANGUAGES CXX)
 
-# Note: Use find_package(SixtyFPS) instead of the following three commands, if you prefer the package
+# Note: Use find_package(Slint) instead of the following three commands, if you prefer the package
 # approach.
 include(FetchContent)
 FetchContent_Declare(
@@ -118,12 +118,12 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(SixtyFPS)
 
 add_executable(my_application main.cpp)
-target_link_libraries(my_application PRIVATE SixtyFPS::SixtyFPS)
-sixtyfps_target_60_sources(my_application my_application_ui.60)
+target_link_libraries(my_application PRIVATE Slint::Slint)
+slint_target_sources(my_application my_application_ui.60)
 ```
 
-The `sixtyfps_target_60_sources` cmake command allows you to add .60 files to your build. Finally it is
-necessary to link your executable or library against the `SixtyFPS::SixtyFPS` target.
+The `slint_target_sources` cmake command allows you to add .60 files to your build. Finally it is
+necessary to link your executable or library against the `Slint::Slint` target.
 
 ## Tutorial
 
@@ -182,7 +182,7 @@ slint-compiler my_application_ui.60 > my_application_ui.h
 ```
 
 Note: You would usually not type this command yourself, this is done automatically by the build system.
-(that's what the `sixtyfps_target_60_sources` cmake function does)
+(that's what the `slint_target_sources` cmake function does)
 
 This will generate a `my_application_ui.h` header file. It basically contains the following code
 (edited for brevity)

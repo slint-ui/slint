@@ -50,7 +50,7 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: |
           echo "SIXTYFPS_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "SIXTYFPS_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
     - name: Setup Node.js
       uses: actions/setup-node@v1
       with:
@@ -127,7 +127,7 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: |
           echo "SIXTYFPS_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "SIXTYFPS_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
     - name: Cache cargo registry
       uses: actions/cache@v2
       with:
@@ -241,7 +241,7 @@ jobs:
       with:
         cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
         cmakeListsTxtPath: CMakeLists.txt
-        cmakeAppendedArgs: '-DBUILD_TESTING=ON -DSIXTYFPS_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug'
+        cmakeAppendedArgs: '-DBUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug'
         buildDirectory: ${{ runner.workspace }}/cppbuild
         buildWithCMakeArgs: '--config Debug'
     - name: ctest
@@ -254,7 +254,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
           name: cpp_bin-${{ matrix.os }}
-          path: ${{ runner.workspace }}/cppbuild/SixtyFPS-cpp-*
+          path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
 
   cpp_package_test:
     needs: [cpp_cmake]
@@ -287,14 +287,14 @@ jobs:
     - name: unpack package
       run: |
           mkdir package
-          tar xvf cpp-package/SixtyFPS-cpp-*.tar.gz -C package --strip-components=1
+          tar xvf cpp-package/Slint-cpp-*.tar.gz -C package --strip-components=1
           echo "CMAKE_PREFIX_PATH=`pwd`/package" >> $GITHUB_ENV
     - name: Build examples
       uses: lukka/run-cmake@v3.4
       with:
         cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
         cmakeListsTxtPath: examples/CMakeLists.txt
-        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=Debug -DSIXTYFPS_FEATURE_INTERPRETER=1 -DSIXTYFPS_FEATURE_BACKEND_QT=1'
+        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_INTERPRETER=1 -DSLINT_FEATURE_BACKEND_QT=1'
         buildDirectory: ${{ runner.workspace }}/examples/build
         buildWithCMakeArgs: '--config Debug'
 
@@ -311,7 +311,7 @@ jobs:
   # and check that it worked with the interpreter test.
   updater_test:
     env:
-      SIXTYFPS_NO_QT: 1
+      SLINT_NO_QT: 1
       CARGO_INCREMENTAL: false
       # There were binding loops with layout in our demo, so ignore theses errors
       # Also ignore errors that were warnings before

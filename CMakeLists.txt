@@ -16,10 +16,10 @@ include(CTest)
 
 add_subdirectory(api/cpp/)
 
-option(SIXTYFPS_BUILD_EXAMPLES "Build SixtyFPS Examples" OFF)
-add_feature_info(SIXTYFPS_BUILD_EXAMPLES SIXTYFPS_BUILD_EXAMPLES "configure whether to build the examples")
+option(SLINT_BUILD_EXAMPLES "Build SixtyFPS Examples" OFF)
+add_feature_info(SLINT_BUILD_EXAMPLES SLINT_BUILD_EXAMPLES "configure whether to build the examples")
 
-if(SIXTYFPS_BUILD_EXAMPLES)
+if(SLINT_BUILD_EXAMPLES)
     # Place all compiled examples into the same bin directory
     # on Windows, where we'll also put the dll
     if (WIN32)

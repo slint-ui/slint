@@ -58,3 +58,12 @@ instance->invoke_callback("foo", args);
 #### Models
 
 The `Value::Type::Array` has been replaced by `Value::Type::Model`
+
+
+### CMake Interface
+
+The CMake interface has changed mostly in terms of renaming `SixtyFPS` to `Slint`:
+
+  * `find_package(SixtyFPS)` becomes `find_package(Slint)`.
+  * The `SixtyFPS::SixtyFPS` CMake target was renamed to `Slint::Slint`.
+  * The `sixtyfps_target_60_sources` CMake command was renamed to `slint_target_sources`.

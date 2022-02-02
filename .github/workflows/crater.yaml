@@ -12,7 +12,7 @@ on:
 jobs:
   crater:
     env:
-      SIXTYFPS_NO_QT: 1
+      SLINT_NO_QT: 1
       CARGO_INCREMENTAL: false
       RUST_BACKTRACE: 1
     strategy:

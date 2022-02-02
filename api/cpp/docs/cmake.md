@@ -18,7 +18,7 @@ You can download one of our pre-built binaries for Linux or Windows on x86-64 ar
    or `sixtyfps-cpp-XXX-win64.exe` for a Windows installer. ("XXX" refers to the version of the latest release)
 4. Uncompress the downloaded archive or run the installer.
 
-After extracting the artifact or running the installer, you can place the `lib` sub-directory into your `CMAKE_PREFIX_PATH` and `find_package(SixtyFPS)` should succeed in locating the package.
+After extracting the artifact or running the installer, you can place the `lib` sub-directory into your `CMAKE_PREFIX_PATH` and `find_package(Slint)` should succeed in locating the package.
 
 In the next section you will learn how to use the installed library in your application
 and load `.60` UI files.
@@ -50,7 +50,7 @@ FetchContent_MakeAvailable(SixtyFPS)
 ```
 
 If you prefer to treat SixtyFPS as an external CMake package, then you can also build SixtyFPS from source like a regular
-CMake project, install it into a prefix directory of your choice and use `find_package(SixtyFPS)` in your `CMakeLists.txt`.
+CMake project, install it into a prefix directory of your choice and use `find_package(Slint)` in your `CMakeLists.txt`.
 
 ### Features
 
@@ -58,11 +58,11 @@ The SixtyFPS run-time library supports different features that can be toggled. Y
 not enabled by default but that is revelant for you, or you may want to disable a feature that you know you do not need and
 therefore reduce the size of the resulting library.
 
-The CMake configure step offers CMake options for various feature that are all prefixed with `SIXTYFPS_FEATURE_`. For example
-you can enable support for the Wayland windowing system on Linux by enabling the `SIXTYFPS_FEATURE_WAYLAND` feature. There are
+The CMake configure step offers CMake options for various feature that are all prefixed with `SLINT_FEATURE_`. For example
+you can enable support for the Wayland windowing system on Linux by enabling the `SLINT_FEATURE_WAYLAND` feature. There are
 different ways of toggling CMake options. For example on the command line using the `-D` parameter:
 
-   `cmake -DSIXTYFPS_FEATURE_WAYLAND=ON ...`
+   `cmake -DSLINT_FEATURE_WAYLAND=ON ...`
 
 Alternatively, after the configure step you can use `cmake-gui` or `ccmake` on the build directory for a list of all features
 and their description.

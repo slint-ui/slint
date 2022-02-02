@@ -4,10 +4,10 @@
 cmake_minimum_required(VERSION 3.14)
 project(sixtyfps_cpp_gallery LANGUAGES CXX)
 
-if (NOT TARGET SixtyFPS::SixtyFPS)
-    find_package(SixtyFPS REQUIRED)
+if (NOT TARGET Slint::Slint)
+    find_package(Slint REQUIRED)
 endif()
 
 add_executable(gallery main.cpp)
-target_link_libraries(gallery PRIVATE SixtyFPS::SixtyFPS)
-sixtyfps_target_60_sources(gallery gallery.60)
+target_link_libraries(gallery PRIVATE Slint::Slint)
+slint_target_sources(gallery gallery.60)

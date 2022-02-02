@@ -17,7 +17,7 @@ data models or setting up callbacks that are invoked when the user activates cer
 You can choose to compile a `.60` file to C++, which provides the best performance
 and lowest memory consumption.
 
-The `sixtyfps_target_60_sources` cmake command makes the translation automatic
+The `slint_target_sources` cmake command makes the translation automatic
 and [generated code](generated_code.md) has an API that allows setting and getting
 property values, etc. That API will use types from the {ref}`sixtyfps <namespace_sixtyfps>`
 namespace, for example {cpp:class}`sixtyfps::SharedString` or {cpp:class}`sixtyfps::Color`.

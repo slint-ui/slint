@@ -10,7 +10,7 @@ image = "ghcr.io/sixtyfpsui/sixtyfps/riscv64gc-unknown-linux-gnu"
 
 [build.env]
 passthrough = [
-    "SIXTYFPS_NO_QT",
+    "SLINT_NO_QT",
     "SIXTYFPS_STYLE",
     "SIXTYFPS_TEST_FILTER",
     "SIXTYFPS_INTERPRETER_ERROR_WHITELIST",
