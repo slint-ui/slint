@@ -23,21 +23,21 @@ on:
 
 jobs:
   sixtyfps-viewer-binary:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_tool_binary.yaml@master
+    uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_tool_binary.yaml@wip/rename
     with:
       program: "sixtyfps-viewer"
   sixtyfps-lsp-binary:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_tool_binary.yaml@master
+    uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_tool_binary.yaml@wip/rename
     with:
       program: "sixtyfps-lsp"
   docs:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/build_docs.yaml@master
+    uses: sixtyfpsui/sixtyfps/.github/workflows/build_docs.yaml@wip/rename
   wasm_demo:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_demos.yaml@master
+    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_demos.yaml@wip/rename
   wasm:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_editor_and_interpreter.yaml@master
+    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_editor_and_interpreter.yaml@wip/rename
   cpp_package:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/cpp_package.yaml@master
+    uses: sixtyfpsui/sixtyfps/.github/workflows/cpp_package.yaml@wip/rename
 
   build_vscode_lsp_linux_windows:
     env:
@@ -236,10 +236,10 @@ jobs:
       uses: HaaLeo/publish-vscode-extension@v0
       with:
         pat: ${{ secrets.OPENVSX_PAT }}
-        dryRun: ${{ github.event.inputs.private == 'true' }}
+        dryRun: ${{ github.event.inputs.private == 'true' || github.ref != 'refs/heads/master' }}
         packagePath: vscode_extension
     - name: Publish to Visual Studio Marketplace
-      if: ${{ github.event.inputs.private != 'true' }}
+      if: ${{ github.event.inputs.private != 'true' || github.ref != 'refs/heads/master' }}
       uses: HaaLeo/publish-vscode-extension@v0
       with:
         pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
@@ -254,7 +254,7 @@ jobs:
               ${{ steps.publishToOpenVSX.outputs.vsixPath }}
 
   publish_artifacts:
-    if: github.event.inputs.private != 'true' && github.ref == 'refs/heads/master'
+    if: github.event.inputs.private != 'true'
     needs: [docs, wasm_demo, wasm]
     runs-on: ubuntu-20.04
     steps:
