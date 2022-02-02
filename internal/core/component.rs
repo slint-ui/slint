@@ -95,7 +95,7 @@ pub(crate) mod ffi {
 
     /// Call init() on the ItemVTable of each item of the component.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_init_items(
+    pub unsafe extern "C" fn slint_component_init_items(
         component: ComponentRefPin,
         item_tree: Slice<ItemTreeNode<u8>>,
         window_handle: *const crate::window::ffi::WindowRcOpaque,
@@ -110,7 +110,7 @@ pub(crate) mod ffi {
 
     /// Free the backend graphics resources allocated by the component's items.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_component_free_item_graphics_resources(
+    pub unsafe extern "C" fn slint_component_free_item_graphics_resources(
         component: ComponentRefPin,
         item_tree: Slice<ItemTreeNode<u8>>,
         window_handle: *const crate::window::ffi::WindowRcOpaque,

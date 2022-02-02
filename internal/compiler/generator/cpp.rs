@@ -857,7 +857,7 @@ fn generate_item_tree(
     visit_children_statements.extend([
         "};".into(),
         format!("auto self_rc = reinterpret_cast<const {}*>(component.instance)->self_weak.lock()->into_dyn();", item_tree_class_name),
-        "return sixtyfps::cbindgen_private::sixtyfps_visit_item_tree(&self_rc, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
+        "return sixtyfps::cbindgen_private::slint_visit_item_tree(&self_rc, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
     ]);
 
     target_struct.members.push((
@@ -2056,7 +2056,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 _ => panic!("dialog layout unsorted cells not an array"),
             };
             format!("sixtyfps::cbindgen_private::GridLayoutCellData {cv}_array [] = {{ {c} }};\
-                    sixtyfps::cbindgen_private::sixtyfps_reorder_dialog_button_layout({cv}_array, {r});\
+                    sixtyfps::cbindgen_private::slint_reorder_dialog_button_layout({cv}_array, {r});\
                     sixtyfps::cbindgen_private::Slice<sixtyfps::cbindgen_private::GridLayoutCellData> {cv} {{ std::data({cv}_array), std::size({cv}_array) }}",
                     r = compile_expression(roles, ctx),
                     cv = cells_variable,

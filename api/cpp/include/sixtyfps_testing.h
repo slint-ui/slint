@@ -9,18 +9,18 @@ namespace sixtyfps::testing {
 
 inline void init()
 {
-    cbindgen_private::sixtyfps_testing_init_backend();
+    cbindgen_private::slint_testing_init_backend();
 }
 
 inline void mock_elapsed_time(int64_t time_in_ms)
 {
-    cbindgen_private::sixtyfps_mock_elapsed_time(time_in_ms);
+    cbindgen_private::slint_mock_elapsed_time(time_in_ms);
 }
 template<typename Component>
 inline void send_mouse_click(const Component *component, float x, float y)
 {
     auto crc = *component->self_weak.into_dyn().lock();
-    cbindgen_private::sixtyfps_send_mouse_click(&crc, x, y, &component->m_window.window_handle());
+    cbindgen_private::slint_send_mouse_click(&crc, x, y, &component->m_window.window_handle());
 }
 
 template<typename Component>

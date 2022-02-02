@@ -1725,7 +1725,7 @@ pub(crate) mod ffi {
     use super::QtWindow;
 
     #[no_mangle]
-    pub extern "C" fn sixtyfps_qt_get_widget(
+    pub extern "C" fn slint_qt_get_widget(
         window: &slint_core_internal::window::WindowRc,
     ) -> *mut c_void {
         <dyn std::any::Any>::downcast_ref(window.as_any())

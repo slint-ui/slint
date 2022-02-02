@@ -18,13 +18,13 @@ pub fn use_modules() -> usize {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_windowrc_init(out: *mut WindowRcOpaque) {
+pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowRcOpaque) {
     assert_eq!(core::mem::size_of::<WindowRc>(), core::mem::size_of::<WindowRcOpaque>());
     core::ptr::write(out as *mut WindowRc, crate::backend().create_window());
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_run_event_loop() {
+pub unsafe extern "C" fn slint_run_event_loop() {
     crate::backend().run_event_loop(
         slint_core_internal::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed,
     );
@@ -32,7 +32,7 @@ pub unsafe extern "C" fn sixtyfps_run_event_loop() {
 
 /// Will execute the given functor in the main thread
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_post_event(
+pub unsafe extern "C" fn slint_post_event(
     event: extern "C" fn(user_data: *mut c_void),
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
@@ -58,12 +58,12 @@ pub unsafe extern "C" fn sixtyfps_post_event(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_quit_event_loop() {
+pub unsafe extern "C" fn slint_quit_event_loop() {
     crate::backend().quit_event_loop();
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_register_font_from_path(
+pub unsafe extern "C" fn slint_register_font_from_path(
     path: &slint_core_internal::SharedString,
     error_str: *mut slint_core_internal::SharedString,
 ) {
@@ -77,7 +77,7 @@ pub unsafe extern "C" fn sixtyfps_register_font_from_path(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_register_font_from_data(
+pub unsafe extern "C" fn slint_register_font_from_data(
     data: slint_core_internal::slice::Slice<'static, u8>,
     error_str: *mut slint_core_internal::SharedString,
 ) {
@@ -92,6 +92,6 @@ pub unsafe extern "C" fn sixtyfps_register_font_from_data(
 
 #[cfg(feature = "testing")]
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_testing_init_backend() {
+pub unsafe extern "C" fn slint_testing_init_backend() {
     slint_backend_testing_internal::init();
 }

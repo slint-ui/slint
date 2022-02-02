@@ -105,7 +105,7 @@ pub use slint_core_internal::{Brush, Color, SharedString, SharedVector};
 #[cold]
 #[cfg(feature = "ffi")]
 pub fn use_modules() -> usize {
-    crate::api::ffi::sixtyfps_interpreter_value_new as usize
+    crate::api::ffi::slint_interpreter_value_new as usize
 }
 
 #[cfg(test)]

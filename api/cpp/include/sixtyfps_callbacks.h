@@ -19,9 +19,9 @@ template<typename Ret, typename... Arg>
 struct Callback<Ret(Arg...)>
 {
     /// Constructs an empty callback that contains no handler.
-    Callback() { cbindgen_private::sixtyfps_callback_init(&inner); }
+    Callback() { cbindgen_private::slint_callback_init(&inner); }
     /// Destructs the callback.
-    ~Callback() { cbindgen_private::sixtyfps_callback_drop(&inner); }
+    ~Callback() { cbindgen_private::slint_callback_drop(&inner); }
     Callback(const Callback &) = delete;
     Callback(Callback &&) = delete;
     Callback &operator=(const Callback &) = delete;
@@ -30,7 +30,7 @@ struct Callback<Ret(Arg...)>
     template<typename F>
     void set_handler(F binding) const
     {
-        cbindgen_private::sixtyfps_callback_set_handler(
+        cbindgen_private::slint_callback_set_handler(
                 &inner,
                 [](void *user_data, const void *arg, void *ret) {
                     *reinterpret_cast<Ret *>(ret) =
@@ -47,7 +47,7 @@ struct Callback<Ret(Arg...)>
     {
         Ret r {};
         Tuple tuple { arg... };
-        cbindgen_private::sixtyfps_callback_call(&inner, &tuple, &r);
+        cbindgen_private::slint_callback_call(&inner, &tuple, &r);
         return r;
     }
 
@@ -63,9 +63,9 @@ template<typename... Arg>
 struct Callback<void(Arg...)>
 {
     /// Constructs an empty callback that contains no handler.
-    Callback() { cbindgen_private::sixtyfps_callback_init(&inner); }
+    Callback() { cbindgen_private::slint_callback_init(&inner); }
     /// Destructs the callback.
-    ~Callback() { cbindgen_private::sixtyfps_callback_drop(&inner); }
+    ~Callback() { cbindgen_private::slint_callback_drop(&inner); }
     Callback(const Callback &) = delete;
     Callback(Callback &&) = delete;
     Callback &operator=(const Callback &) = delete;
@@ -74,7 +74,7 @@ struct Callback<void(Arg...)>
     template<typename F>
     void set_handler(F binding) const
     {
-        cbindgen_private::sixtyfps_callback_set_handler(
+        cbindgen_private::slint_callback_set_handler(
                 &inner,
                 [](void *user_data, const void *arg, void *) {
                     std::apply(*reinterpret_cast<F *>(user_data),
@@ -88,7 +88,7 @@ struct Callback<void(Arg...)>
     void call(const Arg &...arg) const
     {
         Tuple tuple { arg... };
-        cbindgen_private::sixtyfps_callback_call(&inner, &tuple, reinterpret_cast<void *>(0x1));
+        cbindgen_private::slint_callback_call(&inner, &tuple, reinterpret_cast<void *>(0x1));
     }
 
 private:

@@ -967,14 +967,14 @@ impl core::ops::Deref for FlickableDataBox {
 /// This must be called using a non-null pointer pointing to a chunk of memory big enough to
 /// hold a FlickableDataBox
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_flickable_data_init(data: *mut FlickableDataBox) {
+pub unsafe extern "C" fn slint_flickable_data_init(data: *mut FlickableDataBox) {
     core::ptr::write(data, FlickableDataBox::default());
 }
 
 /// # Safety
 /// This must be called using a non-null pointer pointing to an initialized FlickableDataBox
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_flickable_data_free(data: *mut FlickableDataBox) {
+pub unsafe extern "C" fn slint_flickable_data_free(data: *mut FlickableDataBox) {
     core::ptr::drop_in_place(data);
 }
 

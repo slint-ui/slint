@@ -21,7 +21,7 @@ inline void sixtyfps_property_set_animated_binding_helper(
         const cbindgen_private::PropertyAnimation *animation_data,
         cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t *))
 {
-    cbindgen_private::sixtyfps_property_set_animated_binding_int(
+    cbindgen_private::slint_property_set_animated_binding_int(
             handle, binding, user_data, drop_user_data, animation_data, transition_data);
 }
 
@@ -31,7 +31,7 @@ inline void sixtyfps_property_set_animated_binding_helper(
         const cbindgen_private::PropertyAnimation *animation_data,
         cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t *))
 {
-    cbindgen_private::sixtyfps_property_set_animated_binding_float(
+    cbindgen_private::slint_property_set_animated_binding_float(
             handle, binding, user_data, drop_user_data, animation_data, transition_data);
 }
 
@@ -41,7 +41,7 @@ inline void sixtyfps_property_set_animated_binding_helper(
         const cbindgen_private::PropertyAnimation *animation_data,
         cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t *))
 {
-    cbindgen_private::sixtyfps_property_set_animated_binding_color(
+    cbindgen_private::slint_property_set_animated_binding_color(
             handle, binding, user_data, drop_user_data, animation_data, transition_data);
 }
 
@@ -51,21 +51,21 @@ inline void sixtyfps_property_set_animated_binding_helper(
         const cbindgen_private::PropertyAnimation *animation_data,
         cbindgen_private::PropertyAnimation (*transition_data)(void *, uint64_t *))
 {
-    cbindgen_private::sixtyfps_property_set_animated_binding_brush(
+    cbindgen_private::slint_property_set_animated_binding_brush(
             handle, binding, user_data, drop_user_data, animation_data, transition_data);
 }
 
 template<typename T>
 struct Property
 {
-    Property() { cbindgen_private::sixtyfps_property_init(&inner); }
-    ~Property() { cbindgen_private::sixtyfps_property_drop(&inner); }
+    Property() { cbindgen_private::slint_property_init(&inner); }
+    ~Property() { cbindgen_private::slint_property_drop(&inner); }
     Property(const Property &) = delete;
     Property(Property &&) = delete;
     Property &operator=(const Property &) = delete;
     explicit Property(const T &value) : value(value)
     {
-        cbindgen_private::sixtyfps_property_init(&inner);
+        cbindgen_private::slint_property_init(&inner);
     }
 
     /* Should it be implicit?
@@ -77,20 +77,20 @@ struct Property
     {
         if (this->value != value) {
             this->value = value;
-            cbindgen_private::sixtyfps_property_set_changed(&inner, &this->value);
+            cbindgen_private::slint_property_set_changed(&inner, &this->value);
         }
     }
 
     const T &get() const
     {
-        cbindgen_private::sixtyfps_property_update(&inner, &value);
+        cbindgen_private::slint_property_update(&inner, &value);
         return value;
     }
 
     template<typename F>
     void set_binding(F binding) const
     {
-        cbindgen_private::sixtyfps_property_set_binding(
+        cbindgen_private::slint_property_set_binding(
                 &inner,
                 [](void *user_data, void *value) {
                     *reinterpret_cast<T *>(value) = (*reinterpret_cast<F *>(user_data))();
@@ -135,8 +135,8 @@ struct Property
                 });
     }
 
-    bool is_dirty() const { return cbindgen_private::sixtyfps_property_is_dirty(&inner); }
-    void mark_dirty() const { cbindgen_private::sixtyfps_property_mark_dirty(&inner); }
+    bool is_dirty() const { return cbindgen_private::slint_property_is_dirty(&inner); }
+    void mark_dirty() const { cbindgen_private::slint_property_mark_dirty(&inner); }
 
     static void link_two_way(const Property<T> *p1, const Property<T> *p2)
     {
@@ -161,14 +161,14 @@ struct Property
             return true;
         };
         auto intercept_binding_fn = [](void *user_data, void *value) {
-            cbindgen_private::sixtyfps_property_set_binding_internal(
+            cbindgen_private::slint_property_set_binding_internal(
                     &reinterpret_cast<TwoWayBinding *>(user_data)->common_property->inner, value);
             return true;
         };
-        cbindgen_private::sixtyfps_property_set_binding(&p1->inner, call_fn,
+        cbindgen_private::slint_property_set_binding(&p1->inner, call_fn,
                                                         new TwoWayBinding { common_property },
                                                         del_fn, intercept_fn, intercept_binding_fn);
-        cbindgen_private::sixtyfps_property_set_binding(&p2->inner, call_fn,
+        cbindgen_private::slint_property_set_binding(&p2->inner, call_fn,
                                                         new TwoWayBinding { common_property },
                                                         del_fn, intercept_fn, intercept_binding_fn);
     }
@@ -190,7 +190,7 @@ template<>
 inline void Property<int32_t>::set_animated_value(
         const int32_t &new_value, const cbindgen_private::PropertyAnimation &animation_data) const
 {
-    cbindgen_private::sixtyfps_property_set_animated_value_int(&inner, value, new_value,
+    cbindgen_private::slint_property_set_animated_value_int(&inner, value, new_value,
                                                                &animation_data);
 }
 
@@ -199,14 +199,14 @@ inline void
 Property<float>::set_animated_value(const float &new_value,
                                     const cbindgen_private::PropertyAnimation &animation_data) const
 {
-    cbindgen_private::sixtyfps_property_set_animated_value_float(&inner, value, new_value,
+    cbindgen_private::slint_property_set_animated_value_float(&inner, value, new_value,
                                                                  &animation_data);
 }
 
 template<typename F>
 void set_state_binding(const Property<StateInfo> &property, F binding)
 {
-    cbindgen_private::sixtyfps_property_set_state_binding(
+    cbindgen_private::slint_property_set_state_binding(
             &property.inner,
             [](void *user_data) -> int32_t { return (*reinterpret_cast<F *>(user_data))(); },
             new F(binding), [](void *user_data) { delete reinterpret_cast<F *>(user_data); });
@@ -227,9 +227,9 @@ void set_state_binding(const Property<StateInfo> &property, F binding)
 struct PropertyTracker
 {
     /// Constructs a new property tracker instance.
-    PropertyTracker() { cbindgen_private::sixtyfps_property_tracker_init(&inner); }
+    PropertyTracker() { cbindgen_private::slint_property_tracker_init(&inner); }
     /// Destroys the property tracker.
-    ~PropertyTracker() { cbindgen_private::sixtyfps_property_tracker_drop(&inner); }
+    ~PropertyTracker() { cbindgen_private::slint_property_tracker_drop(&inner); }
     /// The copy constructor is intentionally deleted, property trackers cannot be copied.
     PropertyTracker(const PropertyTracker &) = delete;
     /// The assignment operator is intentionally deleted, property trackers cannot be copied.
@@ -237,14 +237,14 @@ struct PropertyTracker
 
     /// Returns true if any properties accessed during the last evaluate() call have changed their
     /// value since then.
-    bool is_dirty() const { return cbindgen_private::sixtyfps_property_tracker_is_dirty(&inner); }
+    bool is_dirty() const { return cbindgen_private::slint_property_tracker_is_dirty(&inner); }
 
     /// Invokes the provided functor \a f and tracks accessed to any properties during that
     /// invocation.
     template<typename F>
     auto evaluate(const F &f) const -> std::enable_if_t<std::is_same_v<decltype(f()), void>>
     {
-        cbindgen_private::sixtyfps_property_tracker_evaluate(
+        cbindgen_private::slint_property_tracker_evaluate(
                 &inner, [](void *f) { (*reinterpret_cast<const F *>(f))(); }, const_cast<F *>(&f));
     }
 
@@ -269,7 +269,7 @@ struct PropertyTracker
     auto evaluate_as_dependency_root(const F &f) const
             -> std::enable_if_t<std::is_same_v<decltype(f()), void>>
     {
-        cbindgen_private::sixtyfps_property_tracker_evaluate_as_dependency_root(
+        cbindgen_private::slint_property_tracker_evaluate_as_dependency_root(
                 &inner, [](void *f) { (*reinterpret_cast<const F *>(f))(); }, const_cast<F *>(&f));
     }
 

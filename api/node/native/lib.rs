@@ -564,6 +564,6 @@ register_module!(mut m, {
 /// let some time elapse for testing purposes
 fn mock_elapsed_time(mut cx: FunctionContext) -> JsResult<JsValue> {
     let ms = cx.argument::<JsNumber>(0)?.value();
-    slint_core_internal::tests::sixtyfps_mock_elapsed_time(ms as _);
+    slint_core_internal::tests::slint_mock_elapsed_time(ms as _);
     Ok(JsUndefined::new().as_value(&mut cx))
 }

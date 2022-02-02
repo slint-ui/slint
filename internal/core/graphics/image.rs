@@ -456,12 +456,12 @@ pub(crate) mod ffi {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_image_size(image: &Image) -> IntSize {
+    pub unsafe extern "C" fn slint_image_size(image: &Image) -> IntSize {
         image.size()
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_image_path(image: &Image) -> Option<&SharedString> {
+    pub unsafe extern "C" fn slint_image_path(image: &Image) -> Option<&SharedString> {
         match &image.0 {
             ImageInner::AbsoluteFilePath(path) => Some(&path),
             _ => None,

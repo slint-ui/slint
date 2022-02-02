@@ -409,7 +409,7 @@ pub(crate) mod ffi {
 
     #[no_mangle]
     /// This function is used for the low-level C++ interface to allocate the backing vector for a shared path element array.
-    pub unsafe extern "C" fn sixtyfps_new_path_elements(
+    pub unsafe extern "C" fn slint_new_path_elements(
         out: *mut c_void,
         first_element: *const PathElement,
         count: usize,
@@ -420,7 +420,7 @@ pub(crate) mod ffi {
 
     #[no_mangle]
     /// This function is used for the low-level C++ interface to allocate the backing vector for a shared path event array.
-    pub unsafe extern "C" fn sixtyfps_new_path_events(
+    pub unsafe extern "C" fn slint_new_path_events(
         out_events: *mut c_void,
         out_coordinates: *mut c_void,
         first_event: *const PathEvent,

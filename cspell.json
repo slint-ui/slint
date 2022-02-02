@@ -102,7 +102,7 @@
         "untracked",
         "vtable",
         "wasm",
-        "windowrc", // used in sixtyfps_windowrc_foo FFI functions
+        "windowrc", // used in slint_windowrc_foo FFI functions
         "xtask",
         "unmapping", // present participle of unmap
         "opengl",

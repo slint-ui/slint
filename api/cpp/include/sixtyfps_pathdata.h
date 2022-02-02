@@ -49,7 +49,7 @@ private:
                                                          size_t count)
     {
         SharedVector<PathElement> tmp;
-        sixtyfps_new_path_elements(&tmp, firstElement, count);
+        slint_new_path_elements(&tmp, firstElement, count);
         return tmp;
     }
 
@@ -60,8 +60,8 @@ private:
     {
         SharedVector<PathEvent> events;
         SharedVector<Point> coordinates;
-        sixtyfps_new_path_events(&events, &coordinates, firstEvent, event_count, firstCoordinate,
-                                 coordinate_count);
+        slint_new_path_events(&events, &coordinates, firstEvent, event_count, firstCoordinate,
+                              coordinate_count);
         return Data::Events(events, coordinates);
     }
 

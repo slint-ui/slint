@@ -467,7 +467,7 @@ pub mod testing {
 
     use super::ComponentHandle;
 
-    pub use slint_core_internal::tests::sixtyfps_mock_elapsed_time as mock_elapsed_time;
+    pub use slint_core_internal::tests::slint_mock_elapsed_time as mock_elapsed_time;
 
     /// Simulate a mouse click
     pub fn send_mouse_click<
@@ -482,7 +482,7 @@ pub mod testing {
     ) {
         let rc = component.clone_strong().into();
         let dyn_rc = vtable::VRc::into_dyn(rc.clone());
-        slint_core_internal::tests::sixtyfps_send_mouse_click(
+        slint_core_internal::tests::slint_send_mouse_click(
             &dyn_rc,
             x,
             y,

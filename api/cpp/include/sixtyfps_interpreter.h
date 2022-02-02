@@ -54,26 +54,26 @@ struct Struct
 public:
     /// Constructs a new empty struct. You can add fields with set_field() and
     /// read them with get_field().
-    Struct() { cbindgen_private::sixtyfps_interpreter_struct_new(&inner); }
+    Struct() { cbindgen_private::slint_interpreter_struct_new(&inner); }
 
     /// Creates a new Struct as a copy from \a other. All fields are copied as well.
     Struct(const Struct &other)
     {
-        cbindgen_private::sixtyfps_interpreter_struct_clone(&other.inner, &inner);
+        cbindgen_private::slint_interpreter_struct_clone(&other.inner, &inner);
     }
     /// Creates a new Struct by moving all fields from \a other into this struct.
     Struct(Struct &&other)
     {
         inner = other.inner;
-        cbindgen_private::sixtyfps_interpreter_struct_new(&other.inner);
+        cbindgen_private::slint_interpreter_struct_new(&other.inner);
     }
     /// Assigns all the fields of \a other to this struct.
     Struct &operator=(const Struct &other)
     {
         if (this == &other)
             return *this;
-        cbindgen_private::sixtyfps_interpreter_struct_destructor(&inner);
-        sixtyfps_interpreter_struct_clone(&other.inner, &inner);
+        cbindgen_private::slint_interpreter_struct_destructor(&inner);
+        slint_interpreter_struct_clone(&other.inner, &inner);
         return *this;
     }
     /// Moves all the fields of \a other to this struct.
@@ -81,13 +81,13 @@ public:
     {
         if (this == &other)
             return *this;
-        cbindgen_private::sixtyfps_interpreter_struct_destructor(&inner);
+        cbindgen_private::slint_interpreter_struct_destructor(&inner);
         inner = other.inner;
-        cbindgen_private::sixtyfps_interpreter_struct_new(&other.inner);
+        cbindgen_private::slint_interpreter_struct_new(&other.inner);
         return *this;
     }
     /// Destroys this struct.
-    ~Struct() { cbindgen_private::sixtyfps_interpreter_struct_destructor(&inner); }
+    ~Struct() { cbindgen_private::slint_interpreter_struct_destructor(&inner); }
 
     /// Creates a new struct with the fields of the std::initializer_list given by args.
     inline Struct(std::initializer_list<std::pair<std::string_view, Value>> args);
@@ -159,11 +159,11 @@ public:
         iterator() = default;
         void next()
         {
-            auto next = cbindgen_private::sixtyfps_interpreter_struct_iterator_next(&inner);
+            auto next = cbindgen_private::slint_interpreter_struct_iterator_next(&inner);
             v = reinterpret_cast<const Value *>(next.v);
             k = std::string_view(reinterpret_cast<char *>(next.k.ptr), next.k.len);
             if (!v) {
-                cbindgen_private::sixtyfps_interpreter_struct_iterator_destructor(&inner);
+                cbindgen_private::slint_interpreter_struct_iterator_destructor(&inner);
             }
         }
 
@@ -172,7 +172,7 @@ public:
         ~iterator()
         {
             if (v) {
-                cbindgen_private::sixtyfps_interpreter_struct_iterator_destructor(&inner);
+                cbindgen_private::slint_interpreter_struct_iterator_destructor(&inner);
             }
         }
         // FIXME I believe iterators are supposed to be copy constructible
@@ -201,7 +201,7 @@ public:
     /// Returns an iterator over the fields of the struct.
     iterator begin() const
     {
-        return iterator(cbindgen_private::sixtyfps_interpreter_struct_make_iter(&inner));
+        return iterator(cbindgen_private::slint_interpreter_struct_make_iter(&inner));
     }
     /// Returns an iterator that when compared with an iterator returned by begin() can be
     /// used to detect when all fields have been visited.
@@ -218,7 +218,7 @@ public:
     /// \private
     Struct(const sixtyfps::cbindgen_private::StructOpaque &other)
     {
-        cbindgen_private::sixtyfps_interpreter_struct_clone(&other, &inner);
+        cbindgen_private::slint_interpreter_struct_clone(&other, &inner);
     }
 
 private:
@@ -237,8 +237,8 @@ private:
 ///
 /// Note that models are only represented in one direction: You can create a sixtyfps::Model<Value>
 /// in C++, store it in a std::shared_ptr and construct Value from it. Then you can set it on a
-/// property in your .slint code that was declared to be either an array (`property <[sometype]> foo;`)
-/// or an object literal (`property <{foo: string, bar: int}> my_prop;`). Such properties are
+/// property in your .slint code that was declared to be either an array (`property <[sometype]>
+/// foo;`) or an object literal (`property <{foo: string, bar: int}> my_prop;`). Such properties are
 /// dynamic and accept models implemented in C++.
 ///
 /// ```
@@ -253,23 +253,23 @@ class Value
 {
 public:
     /// Constructs a new value of type Value::Type::Void.
-    Value() { cbindgen_private::sixtyfps_interpreter_value_new(&inner); }
+    Value() { cbindgen_private::slint_interpreter_value_new(&inner); }
 
     /// Constructs a new value by copying \a other.
-    Value(const Value &other) { sixtyfps_interpreter_value_clone(&other.inner, &inner); }
+    Value(const Value &other) { slint_interpreter_value_clone(&other.inner, &inner); }
     /// Constructs a new value by moving \a other to this.
     Value(Value &&other)
     {
         inner = other.inner;
-        cbindgen_private::sixtyfps_interpreter_value_new(&other.inner);
+        cbindgen_private::slint_interpreter_value_new(&other.inner);
     }
     /// Assigns the value \a other to this.
     Value &operator=(const Value &other)
     {
         if (this == &other)
             return *this;
-        cbindgen_private::sixtyfps_interpreter_value_destructor(&inner);
-        sixtyfps_interpreter_value_clone(&other.inner, &inner);
+        cbindgen_private::slint_interpreter_value_destructor(&inner);
+        slint_interpreter_value_clone(&other.inner, &inner);
         return *this;
     }
     /// Moves the value \a other to this.
@@ -277,13 +277,13 @@ public:
     {
         if (this == &other)
             return *this;
-        cbindgen_private::sixtyfps_interpreter_value_destructor(&inner);
+        cbindgen_private::slint_interpreter_value_destructor(&inner);
         inner = other.inner;
-        cbindgen_private::sixtyfps_interpreter_value_new(&other.inner);
+        cbindgen_private::slint_interpreter_value_new(&other.inner);
         return *this;
     }
     /// Destroys the value.
-    ~Value() { cbindgen_private::sixtyfps_interpreter_value_destructor(&inner); }
+    ~Value() { cbindgen_private::slint_interpreter_value_destructor(&inner); }
 
     /// A convenience alias for the value type enum.
     using Type = ValueType;
@@ -294,7 +294,7 @@ public:
     /// Type::Double, otherwise an empty optional is returned.
     std::optional<double> to_number() const
     {
-        if (auto *number = cbindgen_private::sixtyfps_interpreter_value_to_number(&inner)) {
+        if (auto *number = cbindgen_private::slint_interpreter_value_to_number(&inner)) {
             return *number;
         } else {
             return {};
@@ -305,7 +305,7 @@ public:
     /// Type::String, otherwise an empty optional is returned.
     std::optional<sixtyfps::SharedString> to_string() const
     {
-        if (auto *str = cbindgen_private::sixtyfps_interpreter_value_to_string(&inner)) {
+        if (auto *str = cbindgen_private::slint_interpreter_value_to_string(&inner)) {
             return *str;
         } else {
             return {};
@@ -316,7 +316,7 @@ public:
     /// Type::Bool, otherwise an empty optional is returned.
     std::optional<bool> to_bool() const
     {
-        if (auto *b = cbindgen_private::sixtyfps_interpreter_value_to_bool(&inner)) {
+        if (auto *b = cbindgen_private::slint_interpreter_value_to_bool(&inner)) {
             return *b;
         } else {
             return {};
@@ -333,7 +333,7 @@ public:
     /// Type::Brush, otherwise an empty optional is returned.
     std::optional<sixtyfps::Brush> to_brush() const
     {
-        if (auto *brush = cbindgen_private::sixtyfps_interpreter_value_to_brush(&inner)) {
+        if (auto *brush = cbindgen_private::slint_interpreter_value_to_brush(&inner)) {
             return *brush;
         } else {
             return {};
@@ -344,7 +344,7 @@ public:
     /// Type::Struct, otherwise an empty optional is returned.
     std::optional<Struct> to_struct() const
     {
-        if (auto *opaque_struct = cbindgen_private::sixtyfps_interpreter_value_to_struct(&inner)) {
+        if (auto *opaque_struct = cbindgen_private::slint_interpreter_value_to_struct(&inner)) {
             return Struct(*opaque_struct);
         } else {
             return {};
@@ -355,7 +355,7 @@ public:
     /// Type::Image, otherwise an empty optional is returned.
     std::optional<Image> to_image() const
     {
-        if (auto *img = cbindgen_private::sixtyfps_interpreter_value_to_image(&inner)) {
+        if (auto *img = cbindgen_private::slint_interpreter_value_to_image(&inner)) {
             return *reinterpret_cast<const Image *>(img);
         } else {
             return {};
@@ -365,14 +365,14 @@ public:
     // template<typename T> std::optional<T> get() const;
 
     /// Constructs a new Value that holds the double \a value.
-    Value(double value) { cbindgen_private::sixtyfps_interpreter_value_new_double(value, &inner); }
+    Value(double value) { cbindgen_private::slint_interpreter_value_new_double(value, &inner); }
     /// Constructs a new Value that holds the string \a str.
     Value(const SharedString &str)
     {
-        cbindgen_private::sixtyfps_interpreter_value_new_string(&str, &inner);
+        cbindgen_private::slint_interpreter_value_new_string(&str, &inner);
     }
     /// Constructs a new Value that holds the boolean \a b.
-    Value(bool b) { cbindgen_private::sixtyfps_interpreter_value_new_bool(b, &inner); }
+    Value(bool b) { cbindgen_private::slint_interpreter_value_new_bool(b, &inner); }
     /// Constructs a new Value that holds the value vector \a v as a model.
     inline Value(const SharedVector<Value> &v);
     /// Constructs a new Value that holds the value model \a m.
@@ -380,27 +380,24 @@ public:
     /// Constructs a new Value that holds the brush \a b.
     Value(const sixtyfps::Brush &brush)
     {
-        cbindgen_private::sixtyfps_interpreter_value_new_brush(&brush, &inner);
+        cbindgen_private::slint_interpreter_value_new_brush(&brush, &inner);
     }
     /// Constructs a new Value that holds the Struct \a struc.
     Value(const Struct &struc)
     {
-        cbindgen_private::sixtyfps_interpreter_value_new_struct(&struc.inner, &inner);
+        cbindgen_private::slint_interpreter_value_new_struct(&struc.inner, &inner);
     }
 
     /// Constructs a new Value that holds the Image \a img.
-    Value(const Image &img)
-    {
-        cbindgen_private::sixtyfps_interpreter_value_new_image(&img, &inner);
-    }
+    Value(const Image &img) { cbindgen_private::slint_interpreter_value_new_image(&img, &inner); }
 
     /// Returns the type the variant holds.
-    Type type() const { return cbindgen_private::sixtyfps_interpreter_value_type(&inner); }
+    Type type() const { return cbindgen_private::slint_interpreter_value_type(&inner); }
 
     /// Returns true if \a and \b hold values of the same type and the underlying vales are equal.
     friend bool operator==(const Value &a, const Value &b)
     {
-        return cbindgen_private::sixtyfps_interpreter_value_eq(&a.inner, &b.inner);
+        return cbindgen_private::slint_interpreter_value_eq(&a.inner, &b.inner);
     }
 
 private:
@@ -415,14 +412,14 @@ private:
 
 inline Value::Value(const sixtyfps::SharedVector<Value> &array)
 {
-    cbindgen_private::sixtyfps_interpreter_value_new_array_model(
+    cbindgen_private::slint_interpreter_value_new_array_model(
             &reinterpret_cast<const sixtyfps::SharedVector<ValueOpaque> &>(array), &inner);
 }
 
 inline std::optional<sixtyfps::SharedVector<Value>> Value::to_array() const
 {
     sixtyfps::SharedVector<Value> array;
-    if (cbindgen_private::sixtyfps_interpreter_value_to_array(
+    if (cbindgen_private::slint_interpreter_value_to_array(
                 &inner, &reinterpret_cast<sixtyfps::SharedVector<ValueOpaque> &>(array))) {
         return array;
     } else {
@@ -440,26 +437,26 @@ inline Value::Value(const std::shared_ptr<sixtyfps::Model<Value>> &model)
         // This kind of mean that the rust code has ownership of "this" until the drop function is
         // called
         std::shared_ptr<AbstractRepeaterView> self;
-        ~ModelWrapper() { cbindgen_private::sixtyfps_interpreter_model_notify_destructor(&notify); }
+        ~ModelWrapper() { cbindgen_private::slint_interpreter_model_notify_destructor(&notify); }
 
         void row_added(int index, int count) override
         {
-            cbindgen_private::sixtyfps_interpreter_model_notify_row_added(&notify, index, count);
+            cbindgen_private::slint_interpreter_model_notify_row_added(&notify, index, count);
         }
         void row_changed(int index) override
         {
-            cbindgen_private::sixtyfps_interpreter_model_notify_row_changed(&notify, index);
+            cbindgen_private::slint_interpreter_model_notify_row_changed(&notify, index);
         }
         void row_removed(int index, int count) override
         {
-            cbindgen_private::sixtyfps_interpreter_model_notify_row_removed(&notify, index, count);
+            cbindgen_private::slint_interpreter_model_notify_row_removed(&notify, index, count);
         }
     };
 
     auto wrapper = std::make_shared<ModelWrapper>();
     wrapper->model = model;
     wrapper->self = wrapper;
-    cbindgen_private::sixtyfps_interpreter_model_notify_new(&wrapper->notify);
+    cbindgen_private::slint_interpreter_model_notify_new(&wrapper->notify);
     model->attach_peer(wrapper);
 
     auto row_count = [](VRef<ModelAdaptorVTable> self) -> uintptr_t {
@@ -470,7 +467,7 @@ inline Value::Value(const std::shared_ptr<sixtyfps::Model<Value>> &model)
                 reinterpret_cast<ModelWrapper *>(self.instance)->model->row_data(int(row));
         if (v.has_value()) {
             *out = v->inner;
-            cbindgen_private::sixtyfps_interpreter_value_new(&v->inner);
+            cbindgen_private::slint_interpreter_value_new(&v->inner);
             return true;
         }
         return false;
@@ -489,7 +486,7 @@ inline Value::Value(const std::shared_ptr<sixtyfps::Model<Value>> &model)
 
     static const ModelAdaptorVTable vt { row_count, row_data, set_row_data, get_notify, drop };
     vtable::VBox<ModelAdaptorVTable> wrap { &vt, wrapper.get() };
-    cbindgen_private::sixtyfps_interpreter_value_new_model(wrap, &inner);
+    cbindgen_private::slint_interpreter_value_new_model(wrap, &inner);
 }
 
 inline Struct::Struct(std::initializer_list<std::pair<std::string_view, Value>> args)
@@ -503,7 +500,7 @@ inline std::optional<Value> Struct::get_field(std::string_view name) const
         const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(name.data())),
         name.size()
     };
-    if (auto *value = cbindgen_private::sixtyfps_interpreter_struct_get_field(&inner, name_view)) {
+    if (auto *value = cbindgen_private::slint_interpreter_struct_get_field(&inner, name_view)) {
         return *reinterpret_cast<const Value *>(value);
     } else {
         return {};
@@ -515,7 +512,7 @@ inline void Struct::set_field(std::string_view name, const Value &value)
         const_cast<unsigned char *>(reinterpret_cast<const unsigned char *>(name.data())),
         name.size()
     };
-    cbindgen_private::sixtyfps_interpreter_struct_set_field(&inner, name_view, &value.inner);
+    cbindgen_private::slint_interpreter_struct_set_field(&inner, name_view, &value.inner);
 }
 
 /// The ComponentInstance represents a running instance of a component.
@@ -547,13 +544,13 @@ public:
     /// using sixtyfps::run_event_loop().
     void show() const
     {
-        cbindgen_private::sixtyfps_interpreter_component_instance_show(inner(), true);
+        cbindgen_private::slint_interpreter_component_instance_show(inner(), true);
     }
     /// Marks the window of this component to be hidden on the screen. This de-registers
     /// the window from the windowing system and it will not receive any further events.
     void hide() const
     {
-        cbindgen_private::sixtyfps_interpreter_component_instance_show(inner(), false);
+        cbindgen_private::slint_interpreter_component_instance_show(inner(), false);
     }
     /// Returns the Window associated with this component. The window API can be used
     /// to control different aspects of the integration into the windowing system,
@@ -561,7 +558,7 @@ public:
     const sixtyfps::Window &window()
     {
         const cbindgen_private::WindowRcOpaque *win_ptr = nullptr;
-        cbindgen_private::sixtyfps_interpreter_component_instance_window(inner(), &win_ptr);
+        cbindgen_private::slint_interpreter_component_instance_window(inner(), &win_ptr);
         return *reinterpret_cast<const sixtyfps::Window *>(win_ptr);
     }
     /// This is a convenience function that first calls show(), followed by
@@ -569,7 +566,7 @@ public:
     void run() const
     {
         show();
-        cbindgen_private::sixtyfps_run_event_loop();
+        cbindgen_private::slint_run_event_loop();
         hide();
     }
 #if defined(SIXTYFPS_QT_INTEGRATION) || defined(DOXYGEN)
@@ -579,8 +576,8 @@ public:
     QWidget *qwidget() const
     {
         const cbindgen_private::WindowRcOpaque *win_ptr = nullptr;
-        cbindgen_private::sixtyfps_interpreter_component_instance_window(inner(), &win_ptr);
-        auto wid = reinterpret_cast<QWidget *>(cbindgen_private::sixtyfps_qt_get_widget(
+        cbindgen_private::slint_interpreter_component_instance_window(inner(), &win_ptr);
+        auto wid = reinterpret_cast<QWidget *>(cbindgen_private::slint_qt_get_widget(
                 reinterpret_cast<const cbindgen_private::WindowRc *>(win_ptr)));
         return wid;
     }
@@ -600,7 +597,7 @@ public:
     bool set_property(std::string_view name, const Value &value) const
     {
         using namespace cbindgen_private;
-        return sixtyfps_interpreter_component_instance_set_property(
+        return slint_interpreter_component_instance_set_property(
                 inner(), sixtyfps::private_api::string_to_slice(name), &value.inner);
     }
     /// Returns the value behind a property declared in .slint.
@@ -608,7 +605,7 @@ public:
     {
         using namespace cbindgen_private;
         ValueOpaque out;
-        if (sixtyfps_interpreter_component_instance_get_property(
+        if (slint_interpreter_component_instance_get_property(
                     inner(), sixtyfps::private_api::string_to_slice(name), &out)) {
             return Value(out);
         } else {
@@ -637,7 +634,7 @@ public:
                                                reinterpret_cast<const ValueOpaque *>(args.data())),
                                        args.size() };
         ValueOpaque out;
-        if (sixtyfps_interpreter_component_instance_invoke_callback(
+        if (slint_interpreter_component_instance_invoke_callback(
                     inner(), sixtyfps::private_api::string_to_slice(name), args_view, &out)) {
             return Value(out);
         } else {
@@ -676,7 +673,7 @@ public:
             Value r = (*reinterpret_cast<F *>(data))(args_view);
             new (ret) Value(std::move(r));
         };
-        return cbindgen_private::sixtyfps_interpreter_component_instance_set_callback(
+        return cbindgen_private::slint_interpreter_component_instance_set_callback(
                 inner(), sixtyfps::private_api::string_to_slice(name), actual_cb,
                 new F(std::move(callback)), [](void *data) { delete reinterpret_cast<F *>(data); });
     }
@@ -696,7 +693,7 @@ public:
                              const Value &value) const
     {
         using namespace cbindgen_private;
-        return sixtyfps_interpreter_component_instance_set_global_property(
+        return slint_interpreter_component_instance_set_global_property(
                 inner(), sixtyfps::private_api::string_to_slice(global),
                 sixtyfps::private_api::string_to_slice(prop_name), &value.inner);
     }
@@ -706,7 +703,7 @@ public:
     {
         using namespace cbindgen_private;
         ValueOpaque out;
-        if (sixtyfps_interpreter_component_instance_get_global_property(
+        if (slint_interpreter_component_instance_get_global_property(
                     inner(), sixtyfps::private_api::string_to_slice(global),
                     sixtyfps::private_api::string_to_slice(prop_name), &out)) {
             return Value(out);
@@ -741,7 +738,7 @@ public:
             Value r = (*reinterpret_cast<F *>(data))(args_view);
             new (ret) Value(std::move(r));
         };
-        return cbindgen_private::sixtyfps_interpreter_component_instance_set_global_callback(
+        return cbindgen_private::slint_interpreter_component_instance_set_global_callback(
                 inner(), sixtyfps::private_api::string_to_slice(global),
                 sixtyfps::private_api::string_to_slice(name), actual_cb, new F(std::move(callback)),
                 [](void *data) { delete reinterpret_cast<F *>(data); });
@@ -757,7 +754,7 @@ public:
                                                reinterpret_cast<const ValueOpaque *>(args.data())),
                                        args.size() };
         ValueOpaque out;
-        if (sixtyfps_interpreter_component_instance_invoke_global_callback(
+        if (slint_interpreter_component_instance_invoke_global_callback(
                     inner(), sixtyfps::private_api::string_to_slice(global),
                     sixtyfps::private_api::string_to_slice(callback_name), args_view, &out)) {
             return Value(out);
@@ -790,7 +787,7 @@ public:
     /// Constructs a new ComponentDefinition as a copy of \a other.
     ComponentDefinition(const ComponentDefinition &other)
     {
-        sixtyfps_interpreter_component_definition_clone(&other.inner, &inner);
+        slint_interpreter_component_definition_clone(&other.inner, &inner);
     }
     /// Assigns \a other to this ComponentDefinition.
     ComponentDefinition &operator=(const ComponentDefinition &other)
@@ -800,13 +797,13 @@ public:
         if (this == &other)
             return *this;
 
-        sixtyfps_interpreter_component_definition_destructor(&inner);
-        sixtyfps_interpreter_component_definition_clone(&other.inner, &inner);
+        slint_interpreter_component_definition_destructor(&inner);
+        slint_interpreter_component_definition_clone(&other.inner, &inner);
 
         return *this;
     }
     /// Destroys this ComponentDefinition.
-    ~ComponentDefinition() { sixtyfps_interpreter_component_definition_destructor(&inner); }
+    ~ComponentDefinition() { slint_interpreter_component_definition_destructor(&inner); }
     /// Creates a new instance of the component and returns a shared handle to it.
     ComponentHandle<ComponentInstance> create() const
     {
@@ -816,7 +813,7 @@ public:
             ~CI() { result.~ComponentHandle(); }
             CI() { }
         } u;
-        cbindgen_private::sixtyfps_interpreter_component_instance_create(&inner, &u.i);
+        cbindgen_private::slint_interpreter_component_instance_create(&inner, &u.i);
         return u.result;
     }
 
@@ -826,7 +823,7 @@ public:
     sixtyfps::SharedVector<PropertyDescriptor> properties() const
     {
         sixtyfps::SharedVector<PropertyDescriptor> props;
-        cbindgen_private::sixtyfps_interpreter_component_definition_properties(&inner, &props);
+        cbindgen_private::slint_interpreter_component_definition_properties(&inner, &props);
         return props;
     }
 
@@ -835,7 +832,7 @@ public:
     sixtyfps::SharedVector<sixtyfps::SharedString> callbacks() const
     {
         sixtyfps::SharedVector<sixtyfps::SharedString> callbacks;
-        cbindgen_private::sixtyfps_interpreter_component_definition_callbacks(&inner, &callbacks);
+        cbindgen_private::slint_interpreter_component_definition_callbacks(&inner, &callbacks);
         return callbacks;
     }
 
@@ -843,7 +840,7 @@ public:
     sixtyfps::SharedString name() const
     {
         sixtyfps::SharedString name;
-        cbindgen_private::sixtyfps_interpreter_component_definition_name(&inner, &name);
+        cbindgen_private::slint_interpreter_component_definition_name(&inner, &name);
         return name;
     }
 
@@ -851,7 +848,7 @@ public:
     sixtyfps::SharedVector<sixtyfps::SharedString> globals() const
     {
         sixtyfps::SharedVector<sixtyfps::SharedString> names;
-        cbindgen_private::sixtyfps_interpreter_component_definition_globals(&inner, &names);
+        cbindgen_private::slint_interpreter_component_definition_globals(&inner, &names);
         return names;
     }
 
@@ -862,7 +859,7 @@ public:
     global_properties(std::string_view global_name) const
     {
         sixtyfps::SharedVector<PropertyDescriptor> properties;
-        if (cbindgen_private::sixtyfps_interpreter_component_definition_global_properties(
+        if (cbindgen_private::slint_interpreter_component_definition_global_properties(
                     &inner, sixtyfps::private_api::string_to_slice(global_name), &properties)) {
             return properties;
         }
@@ -876,7 +873,7 @@ public:
     global_callbacks(std::string_view global_name) const
     {
         sixtyfps::SharedVector<sixtyfps::SharedString> names;
-        if (cbindgen_private::sixtyfps_interpreter_component_definition_global_callbacks(
+        if (cbindgen_private::slint_interpreter_component_definition_global_callbacks(
                     &inner, sixtyfps::private_api::string_to_slice(global_name), &names)) {
             return names;
         }
@@ -896,24 +893,25 @@ class ComponentCompiler
 
 public:
     /// Constructs a new ComponentCompiler instance.
-    ComponentCompiler() { cbindgen_private::sixtyfps_interpreter_component_compiler_new(&inner); }
+    ComponentCompiler() { cbindgen_private::slint_interpreter_component_compiler_new(&inner); }
 
     /// Destroys this ComponentCompiler.
     ~ComponentCompiler()
     {
-        cbindgen_private::sixtyfps_interpreter_component_compiler_destructor(&inner);
+        cbindgen_private::slint_interpreter_component_compiler_destructor(&inner);
     }
 
-    /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
+    /// Sets the include paths used for looking up `.slint` imports to the specified vector of
+    /// paths.
     void set_include_paths(const sixtyfps::SharedVector<sixtyfps::SharedString> &paths)
     {
-        cbindgen_private::sixtyfps_interpreter_component_compiler_set_include_paths(&inner, &paths);
+        cbindgen_private::slint_interpreter_component_compiler_set_include_paths(&inner, &paths);
     }
 
     /// Sets the style to be used for widgets.
     void set_style(std::string_view style)
     {
-        cbindgen_private::sixtyfps_interpreter_component_compiler_set_style(
+        cbindgen_private::slint_interpreter_component_compiler_set_style(
                 &inner, sixtyfps::private_api::string_to_slice(style));
     }
 
@@ -921,7 +919,7 @@ public:
     sixtyfps::SharedString style() const
     {
         sixtyfps::SharedString s;
-        cbindgen_private::sixtyfps_interpreter_component_compiler_get_style(&inner, &s);
+        cbindgen_private::slint_interpreter_component_compiler_get_style(&inner, &s);
         return s;
     }
 
@@ -929,7 +927,7 @@ public:
     sixtyfps::SharedVector<sixtyfps::SharedString> include_paths() const
     {
         sixtyfps::SharedVector<sixtyfps::SharedString> paths;
-        cbindgen_private::sixtyfps_interpreter_component_compiler_get_include_paths(&inner, &paths);
+        cbindgen_private::slint_interpreter_component_compiler_get_include_paths(&inner, &paths);
         return paths;
     }
 
@@ -938,7 +936,7 @@ public:
     sixtyfps::SharedVector<Diagnostic> diagnostics() const
     {
         sixtyfps::SharedVector<Diagnostic> result;
-        cbindgen_private::sixtyfps_interpreter_component_compiler_get_diagnostics(&inner, &result);
+        cbindgen_private::slint_interpreter_component_compiler_get_diagnostics(&inner, &result);
         return result;
     }
 
@@ -955,7 +953,7 @@ public:
                                                          std::string_view path)
     {
         cbindgen_private::ComponentDefinitionOpaque result;
-        if (cbindgen_private::sixtyfps_interpreter_component_compiler_build_from_source(
+        if (cbindgen_private::slint_interpreter_component_compiler_build_from_source(
                     &inner, sixtyfps::private_api::string_to_slice(source_code),
                     sixtyfps::private_api::string_to_slice(path), &result)) {
 
@@ -978,7 +976,7 @@ public:
     std::optional<ComponentDefinition> build_from_path(std::string_view path)
     {
         cbindgen_private::ComponentDefinitionOpaque result;
-        if (cbindgen_private::sixtyfps_interpreter_component_compiler_build_from_path(
+        if (cbindgen_private::slint_interpreter_component_compiler_build_from_path(
                     &inner, sixtyfps::private_api::string_to_slice(path), &result)) {
 
             return ComponentDefinition(result);
@@ -1000,7 +998,7 @@ inline void send_keyboard_string_sequence(const sixtyfps::interpreter::Component
                                           KeyboardModifiers modifiers = {})
 {
     const cbindgen_private::WindowRcOpaque *win_ptr = nullptr;
-    cbindgen_private::sixtyfps_interpreter_component_instance_window(
+    cbindgen_private::slint_interpreter_component_instance_window(
             reinterpret_cast<const cbindgen_private::ErasedComponentBox *>(component), &win_ptr);
     cbindgen_private::send_keyboard_string_sequence(
             &str, modifiers, reinterpret_cast<const cbindgen_private::WindowRc *>(win_ptr));

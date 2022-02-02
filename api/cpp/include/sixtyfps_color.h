@@ -175,14 +175,14 @@ private:
 inline Color Color::brighter(float factor) const
 {
     Color result;
-    cbindgen_private::types::sixtyfps_color_brighter(&inner, factor, &result.inner);
+    cbindgen_private::types::slint_color_brighter(&inner, factor, &result.inner);
     return result;
 }
 
 inline Color Color::darker(float factor) const
 {
     Color result;
-    cbindgen_private::types::sixtyfps_color_darker(&inner, factor, &result.inner);
+    cbindgen_private::types::slint_color_darker(&inner, factor, &result.inner);
     return result;
 }
 
@@ -223,8 +223,8 @@ inline void
 Property<Color>::set_animated_value(const Color &new_value,
                                     const cbindgen_private::PropertyAnimation &animation_data) const
 {
-    cbindgen_private::sixtyfps_property_set_animated_value_color(&inner, value, new_value,
-                                                                 &animation_data);
+    cbindgen_private::slint_property_set_animated_value_color(&inner, value, new_value,
+                                                              &animation_data);
 }
 
 } // namespace private_api

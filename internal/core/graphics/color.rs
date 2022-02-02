@@ -309,12 +309,12 @@ pub(crate) mod ffi {
     use super::*;
 
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_color_brighter(col: &Color, factor: f32, out: *mut Color) {
+    pub unsafe extern "C" fn slint_color_brighter(col: &Color, factor: f32, out: *mut Color) {
         core::ptr::write(out, col.brighter(factor))
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_color_darker(col: &Color, factor: f32, out: *mut Color) {
+    pub unsafe extern "C" fn slint_color_darker(col: &Color, factor: f32, out: *mut Color) {
         core::ptr::write(out, col.darker(factor))
     }
 }

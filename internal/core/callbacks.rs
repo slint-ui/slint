@@ -84,14 +84,14 @@ pub(crate) mod ffi {
     /// Initialize the callback.
     /// sixtyfps_callback_drop must be called.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_callback_init(out: *mut CallbackOpaque) {
+    pub unsafe extern "C" fn slint_callback_init(out: *mut CallbackOpaque) {
         assert_eq!(core::mem::size_of::<CallbackOpaque>(), core::mem::size_of::<Callback<()>>());
         core::ptr::write(out as *mut Callback<()>, Default::default());
     }
 
     /// Emit the callback
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_callback_call(
+    pub unsafe extern "C" fn slint_callback_call(
         sig: *const CallbackOpaque,
         arg: *const c_void,
         ret: *mut c_void,
@@ -108,7 +108,7 @@ pub(crate) mod ffi {
     ///
     /// The binding has signature fn(user_data)
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_callback_set_handler(
+    pub unsafe extern "C" fn slint_callback_set_handler(
         sig: *const CallbackOpaque,
         binding: extern "C" fn(user_data: *mut c_void, arg: *const c_void, ret: *mut c_void),
         user_data: *mut c_void,
@@ -145,7 +145,7 @@ pub(crate) mod ffi {
 
     /// Destroy callback
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_callback_drop(handle: *mut CallbackOpaque) {
+    pub unsafe extern "C" fn slint_callback_drop(handle: *mut CallbackOpaque) {
         core::ptr::drop_in_place(handle as *mut Callback<()>);
     }
 }

@@ -2016,13 +2016,13 @@ pub(crate) mod ffi {
     /// Initialize the first pointer of the Property. Does not initialize the content.
     /// `out` is assumed to be uninitialized
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_init(out: *mut PropertyHandleOpaque) {
+    pub unsafe extern "C" fn slint_property_init(out: *mut PropertyHandleOpaque) {
         core::ptr::write(out, PropertyHandleOpaque(PropertyHandle::default()));
     }
 
     /// To be called before accessing the value
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_update(
+    pub unsafe extern "C" fn slint_property_update(
         handle: &PropertyHandleOpaque,
         val: *mut c_void,
     ) {
@@ -2035,7 +2035,7 @@ pub(crate) mod ffi {
     /// the dependencies marked dirty.
     /// To be called after the `value` has been changed
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_changed(
+    pub unsafe extern "C" fn slint_property_set_changed(
         handle: &PropertyHandleOpaque,
         value: *const c_void,
     ) {
@@ -2116,7 +2116,7 @@ pub(crate) mod ffi {
     /// It might be possible to reduce that by passing something with a
     /// vtable, so there is the need for less memory allocation.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_binding(
+    pub unsafe extern "C" fn slint_property_set_binding(
         handle: &PropertyHandleOpaque,
         binding: extern "C" fn(user_data: *mut c_void, pointer_to_value: *mut c_void),
         user_data: *mut c_void,
@@ -2142,7 +2142,7 @@ pub(crate) mod ffi {
     ///
     //// (take ownership of the binding)
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_binding_internal(
+    pub unsafe extern "C" fn slint_property_set_binding_internal(
         handle: &PropertyHandleOpaque,
         binding: *mut c_void,
     ) {
@@ -2151,19 +2151,19 @@ pub(crate) mod ffi {
 
     /// Returns whether the property behind this handle is marked as dirty
     #[no_mangle]
-    pub extern "C" fn sixtyfps_property_is_dirty(handle: &PropertyHandleOpaque) -> bool {
+    pub extern "C" fn slint_property_is_dirty(handle: &PropertyHandleOpaque) -> bool {
         handle.0.access(|binding| binding.map_or(false, |b| b.dirty.get()))
     }
 
     /// Marks the property as dirty and notifies dependencies.
     #[no_mangle]
-    pub extern "C" fn sixtyfps_property_mark_dirty(handle: &PropertyHandleOpaque) {
+    pub extern "C" fn slint_property_mark_dirty(handle: &PropertyHandleOpaque) {
         handle.0.mark_dirty()
     }
 
     /// Destroy handle
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_drop(handle: *mut PropertyHandleOpaque) {
+    pub unsafe extern "C" fn slint_property_drop(handle: *mut PropertyHandleOpaque) {
         core::ptr::drop_in_place(handle);
     }
 
@@ -2193,7 +2193,7 @@ pub(crate) mod ffi {
 
     /// Internal function to set up a property animation to the specified target value for an integer property.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_animated_value_int(
+    pub unsafe extern "C" fn slint_property_set_animated_value_int(
         handle: &PropertyHandleOpaque,
         from: i32,
         to: i32,
@@ -2204,7 +2204,7 @@ pub(crate) mod ffi {
 
     /// Internal function to set up a property animation to the specified target value for a float property.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_animated_value_float(
+    pub unsafe extern "C" fn slint_property_set_animated_value_float(
         handle: &PropertyHandleOpaque,
         from: f32,
         to: f32,
@@ -2215,7 +2215,7 @@ pub(crate) mod ffi {
 
     /// Internal function to set up a property animation to the specified target value for a color property.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_animated_value_color(
+    pub unsafe extern "C" fn slint_property_set_animated_value_color(
         handle: &PropertyHandleOpaque,
         from: Color,
         to: Color,
@@ -2279,7 +2279,7 @@ pub(crate) mod ffi {
 
     /// Internal function to set up a property animation between values produced by the specified binding for an integer property.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_int(
+    pub unsafe extern "C" fn slint_property_set_animated_binding_int(
         handle: &PropertyHandleOpaque,
         binding: extern "C" fn(*mut c_void, *mut i32),
         user_data: *mut c_void,
@@ -2301,7 +2301,7 @@ pub(crate) mod ffi {
 
     /// Internal function to set up a property animation between values produced by the specified binding for a float property.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_float(
+    pub unsafe extern "C" fn slint_property_set_animated_binding_float(
         handle: &PropertyHandleOpaque,
         binding: extern "C" fn(*mut c_void, *mut f32),
         user_data: *mut c_void,
@@ -2323,7 +2323,7 @@ pub(crate) mod ffi {
 
     /// Internal function to set up a property animation between values produced by the specified binding for a color property.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_color(
+    pub unsafe extern "C" fn slint_property_set_animated_binding_color(
         handle: &PropertyHandleOpaque,
         binding: extern "C" fn(*mut c_void, *mut Color),
         user_data: *mut c_void,
@@ -2345,7 +2345,7 @@ pub(crate) mod ffi {
 
     /// Internal function to set up a property animation between values produced by the specified binding for a brush property.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_brush(
+    pub unsafe extern "C" fn slint_property_set_animated_binding_brush(
         handle: &PropertyHandleOpaque,
         binding: extern "C" fn(*mut c_void, *mut Brush),
         user_data: *mut c_void,
@@ -2367,7 +2367,7 @@ pub(crate) mod ffi {
 
     /// Internal function to set up a state binding on a Property<StateInfo>.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_state_binding(
+    pub unsafe extern "C" fn slint_property_set_state_binding(
         handle: &PropertyHandleOpaque,
         binding: extern "C" fn(*mut c_void) -> i32,
         user_data: *mut c_void,
@@ -2417,14 +2417,14 @@ pub(crate) mod ffi {
     /// `out` is assumed to be uninitialized
     /// sixtyfps_property_tracker_drop need to be called after that
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_tracker_init(out: *mut PropertyTrackerOpaque) {
+    pub unsafe extern "C" fn slint_property_tracker_init(out: *mut PropertyTrackerOpaque) {
         core::ptr::write(out as *mut PropertyTracker, PropertyTracker::default());
     }
 
     /// Call the callback with the user data. Any properties access within the callback will be registered.
     /// Any currently evaluated bindings or property trackers will be notified if accessed properties are changed.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_tracker_evaluate(
+    pub unsafe extern "C" fn slint_property_tracker_evaluate(
         handle: *const PropertyTrackerOpaque,
         callback: extern "C" fn(user_data: *mut c_void),
         user_data: *mut c_void,
@@ -2435,7 +2435,7 @@ pub(crate) mod ffi {
     /// Call the callback with the user data. Any properties access within the callback will be registered.
     /// Any currently evaluated bindings or property trackers will be not notified if accessed properties are changed.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_tracker_evaluate_as_dependency_root(
+    pub unsafe extern "C" fn slint_property_tracker_evaluate_as_dependency_root(
         handle: *const PropertyTrackerOpaque,
         callback: extern "C" fn(user_data: *mut c_void),
         user_data: *mut c_void,
@@ -2445,7 +2445,7 @@ pub(crate) mod ffi {
     }
     /// Query if the property tracker is dirty
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_tracker_is_dirty(
+    pub unsafe extern "C" fn slint_property_tracker_is_dirty(
         handle: *const PropertyTrackerOpaque,
     ) -> bool {
         (*(handle as *const PropertyTracker)).is_dirty()
@@ -2453,7 +2453,7 @@ pub(crate) mod ffi {
 
     /// Destroy handle
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_tracker_drop(handle: *mut PropertyTrackerOpaque) {
+    pub unsafe extern "C" fn slint_property_tracker_drop(handle: *mut PropertyTrackerOpaque) {
         core::ptr::drop_in_place(handle as *mut PropertyTracker);
     }
 }

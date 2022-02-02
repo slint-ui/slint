@@ -264,7 +264,7 @@ pub(crate) mod ffi {
     /// Returns a nul-terminated pointer for this string.
     /// The returned value is owned by the string, and should not be used after any
     /// mutable function have been called on the string, and must not be freed.
-    pub extern "C" fn sixtyfps_shared_string_bytes(ss: &SharedString) -> *const c_char {
+    pub extern "C" fn slint_shared_string_bytes(ss: &SharedString) -> *const c_char {
         if ss.is_empty() {
             "\0".as_ptr()
         } else {
@@ -274,24 +274,21 @@ pub(crate) mod ffi {
 
     #[no_mangle]
     /// Destroy the shared string
-    pub unsafe extern "C" fn sixtyfps_shared_string_drop(ss: *const SharedString) {
+    pub unsafe extern "C" fn slint_shared_string_drop(ss: *const SharedString) {
         core::ptr::read(ss);
     }
 
     #[no_mangle]
     /// Increment the reference count of the string.
     /// The resulting structure must be passed to sixtyfps_shared_string_drop
-    pub unsafe extern "C" fn sixtyfps_shared_string_clone(
-        out: *mut SharedString,
-        ss: &SharedString,
-    ) {
+    pub unsafe extern "C" fn slint_shared_string_clone(out: *mut SharedString, ss: &SharedString) {
         core::ptr::write(out, ss.clone())
     }
 
     #[no_mangle]
     /// Safety: bytes must be a valid utf-8 string of size len without null inside.
     /// The resulting structure must be passed to sixtyfps_shared_string_drop
-    pub unsafe extern "C" fn sixtyfps_shared_string_from_bytes(
+    pub unsafe extern "C" fn slint_shared_string_from_bytes(
         out: *mut SharedString,
         bytes: *const c_char,
         len: usize,
@@ -303,7 +300,7 @@ pub(crate) mod ffi {
     /// Create a string from a number.
     /// The resulting structure must be passed to sixtyfps_shared_string_drop
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_shared_string_from_number(out: *mut SharedString, n: f64) {
+    pub unsafe extern "C" fn slint_shared_string_from_number(out: *mut SharedString, n: f64) {
         // TODO: implement Write for SharedString so this can be done without allocation
         let str = format!("{}", n);
         core::ptr::write(out, SharedString::from(str.as_str()));
@@ -334,7 +331,7 @@ pub(crate) mod ffi {
     ///
     /// bytes must be a valid utf8 array of size `len`, without null bytes inside
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_shared_string_append(
+    pub unsafe extern "C" fn slint_shared_string_append(
         self_: &mut SharedString,
         bytes: *const c_char,
         len: usize,

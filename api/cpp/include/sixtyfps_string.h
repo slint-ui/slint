@@ -23,12 +23,12 @@ namespace sixtyfps {
 struct SharedString
 {
     /// Creates an empty default constructed string.
-    SharedString() { cbindgen_private::sixtyfps_shared_string_from_bytes(this, "", 0); }
+    SharedString() { cbindgen_private::slint_shared_string_from_bytes(this, "", 0); }
     /// Creates a new SharedString from the string view \a s. The underlying string data
     /// is copied.
     SharedString(std::string_view s)
     {
-        cbindgen_private::sixtyfps_shared_string_from_bytes(this, s.data(), s.size());
+        cbindgen_private::slint_shared_string_from_bytes(this, s.data(), s.size());
     }
     /// Creates a new SharedString from the null-terminated string pointer \a s. The underlying
     /// string data is copied. It is assumed that the string is UTF-8 encoded.
@@ -42,31 +42,31 @@ struct SharedString
     /// Creates a new SharedString from the string view \a s. The underlying string data is copied.
     SharedString(std::u8string_view s)
     {
-        cbindgen_private::sixtyfps_shared_string_from_bytes(
+        cbindgen_private::slint_shared_string_from_bytes(
             this, reinterpret_cast<const char*>(s.data()), s.size());
     }
 #endif
     /// Creates a new SharedString from \a other.
     SharedString(const SharedString &other)
     {
-        cbindgen_private::sixtyfps_shared_string_clone(this, &other);
+        cbindgen_private::slint_shared_string_clone(this, &other);
     }
     /// Destroys this SharedString and frees the memory if this is the last instance
     /// referencing it.
-    ~SharedString() { cbindgen_private::sixtyfps_shared_string_drop(this); }
+    ~SharedString() { cbindgen_private::slint_shared_string_drop(this); }
     /// Assigns \a other to this string and returns a reference to this string.
     SharedString &operator=(const SharedString &other)
     {
-        cbindgen_private::sixtyfps_shared_string_drop(this);
-        cbindgen_private::sixtyfps_shared_string_clone(this, &other);
+        cbindgen_private::slint_shared_string_drop(this);
+        cbindgen_private::slint_shared_string_clone(this, &other);
         return *this;
     }
     /// Assigns the string view \a s to this string and returns a reference to this string.
     /// The underlying string data is copied.  It is assumed that the string is UTF-8 encoded.
     SharedString &operator=(std::string_view s)
     {
-        cbindgen_private::sixtyfps_shared_string_drop(this);
-        cbindgen_private::sixtyfps_shared_string_from_bytes(this, s.data(), s.size());
+        cbindgen_private::slint_shared_string_drop(this);
+        cbindgen_private::slint_shared_string_from_bytes(this, s.data(), s.size());
         return *this;
     }
     /// Assigns null-terminated string pointer \a s to this string and returns a reference
@@ -85,13 +85,13 @@ struct SharedString
     /// least this SharedString exists.
     operator std::string_view() const
     {
-        return cbindgen_private::sixtyfps_shared_string_bytes(this);
+        return cbindgen_private::slint_shared_string_bytes(this);
     }
     /// Provides a raw pointer to the string data. The returned pointer is only valid as long as at
     /// least this SharedString exists.
     auto data() const -> const char *
     {
-        return cbindgen_private::sixtyfps_shared_string_bytes(this);
+        return cbindgen_private::slint_shared_string_bytes(this);
     }
 
     /// Returns a pointer to the first character. It is only safe to dereference the pointer if the
@@ -185,7 +185,7 @@ struct SharedString
     /// Appends \a other to this string and returns a reference to this.
     SharedString &operator+=(std::string_view other)
     {
-        cbindgen_private::sixtyfps_shared_string_append(this, other.data(), other.size());
+        cbindgen_private::slint_shared_string_append(this, other.data(), other.size());
         return *this;
     }
 
@@ -193,7 +193,7 @@ private:
     /// Use SharedString::from_number
     explicit SharedString(double n)
     {
-        cbindgen_private::sixtyfps_shared_string_from_number(this, n);
+        cbindgen_private::slint_shared_string_from_number(this, n);
     }
     void *inner; // opaque
 };

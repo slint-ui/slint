@@ -18,7 +18,7 @@ struct SharedVector
     /// Creates a new, empty vector.
     SharedVector()
         : inner(const_cast<SharedVectorHeader *>(reinterpret_cast<const SharedVectorHeader *>(
-                cbindgen_private::sixtyfps_shared_vector_empty())))
+                cbindgen_private::slint_shared_vector_empty())))
     {
     }
     /// Creates a new vector that holds all the elements of the given std::initializer_list \a args.
@@ -173,7 +173,7 @@ private:
             for (auto it = b; it < e; ++it) {
                 it->~T();
             }
-            cbindgen_private::sixtyfps_shared_vector_free(reinterpret_cast<uint8_t *>(inner),
+            cbindgen_private::slint_shared_vector_free(reinterpret_cast<uint8_t *>(inner),
                                                           sizeof(SharedVectorHeader)
                                                                   + inner->capacity * sizeof(T),
                                                           alignof(SharedVectorHeader));
@@ -182,7 +182,7 @@ private:
 
     static SharedVector with_capacity(std::size_t capacity)
     {
-        auto mem = cbindgen_private::sixtyfps_shared_vector_allocate(
+        auto mem = cbindgen_private::slint_shared_vector_allocate(
                 sizeof(SharedVectorHeader) + capacity * sizeof(T), alignof(SharedVectorHeader));
         return SharedVector(new (mem) SharedVectorHeader { { 1 }, 0, capacity });
     }

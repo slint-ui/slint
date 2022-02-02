@@ -1067,9 +1067,9 @@ pub mod testing {
     use super::ComponentHandle;
     use slint_core_internal::window::WindowHandleAccess;
 
-    /// Wrapper around [`slint_core_internal::tests::sixtyfps_send_mouse_click`]
+    /// Wrapper around [`slint_core_internal::tests::slint_send_mouse_click`]
     pub fn send_mouse_click(comp: &super::ComponentInstance, x: f32, y: f32) {
-        slint_core_internal::tests::sixtyfps_send_mouse_click(
+        slint_core_internal::tests::slint_send_mouse_click(
             &vtable::VRc::into_dyn(comp.inner.clone()),
             x,
             y,

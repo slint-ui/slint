@@ -371,7 +371,7 @@ pub(crate) mod ffi {
     /// The (new) timer id is returned.
     /// The timer MUST be destroyed with sixtyfps_timer_destroy.
     #[no_mangle]
-    pub extern "C" fn sixtyfps_timer_start(
+    pub extern "C" fn slint_timer_start(
         id: i64,
         mode: TimerMode,
         duration: u64,
@@ -390,7 +390,7 @@ pub(crate) mod ffi {
 
     /// Execute a callback with a delay in millisecond
     #[no_mangle]
-    pub extern "C" fn sixtyfps_timer_singleshot(
+    pub extern "C" fn slint_timer_singleshot(
         delay: u64,
         callback: extern "C" fn(*mut c_void),
         user_data: *mut c_void,
@@ -402,7 +402,7 @@ pub(crate) mod ffi {
 
     /// Stop a timer and free its raw data
     #[no_mangle]
-    pub extern "C" fn sixtyfps_timer_destroy(id: i64) {
+    pub extern "C" fn slint_timer_destroy(id: i64) {
         if id == -1 {
             return;
         }
@@ -412,7 +412,7 @@ pub(crate) mod ffi {
 
     /// Stop a timer
     #[no_mangle]
-    pub extern "C" fn sixtyfps_timer_stop(id: i64) {
+    pub extern "C" fn slint_timer_stop(id: i64) {
         if id == -1 {
             return;
         }
@@ -423,7 +423,7 @@ pub(crate) mod ffi {
 
     /// Restart a repeated timer
     #[no_mangle]
-    pub extern "C" fn sixtyfps_timer_restart(id: i64) {
+    pub extern "C" fn slint_timer_restart(id: i64) {
         if id == -1 {
             return;
         }
@@ -434,7 +434,7 @@ pub(crate) mod ffi {
 
     /// Returns true if the timer is running; false otherwise.
     #[no_mangle]
-    pub extern "C" fn sixtyfps_timer_running(id: i64) -> bool {
+    pub extern "C" fn slint_timer_running(id: i64) -> bool {
         if id == -1 {
             return false;
         }

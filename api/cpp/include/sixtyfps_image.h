@@ -33,12 +33,12 @@ public:
     */
 
     /// Returns the size of the Image in pixels.
-    IntSize size() const { return cbindgen_private::types::sixtyfps_image_size(&data); }
+    IntSize size() const { return cbindgen_private::types::slint_image_size(&data); }
 
     /// Returns the path of the image on disk, if it was constructed via Image::load_from_path().
     std::optional<sixtyfps::SharedString> path() const
     {
-        if (auto *str = cbindgen_private::types::sixtyfps_image_path(&data)) {
+        if (auto *str = cbindgen_private::types::slint_image_path(&data)) {
             return *str;
         } else {
             return {};

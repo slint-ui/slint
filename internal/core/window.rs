@@ -585,14 +585,14 @@ pub mod ffi {
 
     /// Releases the reference to the windowrc held by handle.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_drop(handle: *mut WindowRcOpaque) {
+    pub unsafe extern "C" fn slint_windowrc_drop(handle: *mut WindowRcOpaque) {
         assert_eq!(core::mem::size_of::<WindowRc>(), core::mem::size_of::<WindowRcOpaque>());
         core::ptr::read(handle as *mut WindowRc);
     }
 
     /// Releases the reference to the component window held by handle.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_clone(
+    pub unsafe extern "C" fn slint_windowrc_clone(
         source: *const WindowRcOpaque,
         target: *mut WindowRcOpaque,
     ) {
@@ -603,23 +603,21 @@ pub mod ffi {
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_show(handle: *const WindowRcOpaque) {
+    pub unsafe extern "C" fn slint_windowrc_show(handle: *const WindowRcOpaque) {
         let window = &*(handle as *const WindowRc);
         window.show();
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_hide(handle: *const WindowRcOpaque) {
+    pub unsafe extern "C" fn slint_windowrc_hide(handle: *const WindowRcOpaque) {
         let window = &*(handle as *const WindowRc);
         window.hide();
     }
 
     /// Returns the window scale factor.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_get_scale_factor(
-        handle: *const WindowRcOpaque,
-    ) -> f32 {
+    pub unsafe extern "C" fn slint_windowrc_get_scale_factor(handle: *const WindowRcOpaque) -> f32 {
         assert_eq!(core::mem::size_of::<WindowRc>(), core::mem::size_of::<WindowRcOpaque>());
         let window = &*(handle as *const WindowRc);
         window.scale_factor()
@@ -627,7 +625,7 @@ pub mod ffi {
 
     /// Sets the window scale factor, merely for testing purposes.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_set_scale_factor(
+    pub unsafe extern "C" fn slint_windowrc_set_scale_factor(
         handle: *const WindowRcOpaque,
         value: f32,
     ) {
@@ -637,7 +635,7 @@ pub mod ffi {
 
     /// Sets the window scale factor, merely for testing purposes.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_free_graphics_resources<'a>(
+    pub unsafe extern "C" fn slint_windowrc_free_graphics_resources<'a>(
         handle: *const WindowRcOpaque,
         items: &Slice<'a, Pin<ItemRef<'a>>>,
     ) {
@@ -647,7 +645,7 @@ pub mod ffi {
 
     /// Sets the focus item.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_set_focus_item(
+    pub unsafe extern "C" fn slint_windowrc_set_focus_item(
         handle: *const WindowRcOpaque,
         focus_item: &ItemRc,
     ) {
@@ -657,7 +655,7 @@ pub mod ffi {
 
     /// Associates the window with the given component.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_set_component(
+    pub unsafe extern "C" fn slint_windowrc_set_component(
         handle: *const WindowRcOpaque,
         component: &ComponentRc,
     ) {
@@ -667,7 +665,7 @@ pub mod ffi {
 
     /// Show a popup.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_show_popup(
+    pub unsafe extern "C" fn slint_windowrc_show_popup(
         handle: *const WindowRcOpaque,
         popup: &ComponentRc,
         position: crate::graphics::Point,
@@ -677,7 +675,7 @@ pub mod ffi {
         window.show_popup(popup, position, parent_item);
     }
     /// Close the current popup
-    pub unsafe extern "C" fn sixtyfps_windowrc_close_popup(handle: *const WindowRcOpaque) {
+    pub unsafe extern "C" fn slint_windowrc_close_popup(handle: *const WindowRcOpaque) {
         let window = &*(handle as *const WindowRc);
         window.close_popup();
     }

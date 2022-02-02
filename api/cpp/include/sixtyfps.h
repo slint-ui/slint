@@ -81,12 +81,12 @@ class WindowRc
 {
 public:
     explicit WindowRc(cbindgen_private::WindowRcOpaque adopted_inner) : inner(adopted_inner) { }
-    WindowRc() { cbindgen_private::sixtyfps_windowrc_init(&inner); }
-    ~WindowRc() { cbindgen_private::sixtyfps_windowrc_drop(&inner); }
+    WindowRc() { cbindgen_private::slint_windowrc_init(&inner); }
+    ~WindowRc() { cbindgen_private::slint_windowrc_drop(&inner); }
     WindowRc(const WindowRc &other)
     {
         assert_main_thread();
-        cbindgen_private::sixtyfps_windowrc_clone(&other.inner, &inner);
+        cbindgen_private::slint_windowrc_clone(&other.inner, &inner);
     }
     WindowRc(WindowRc &&) = delete;
     WindowRc &operator=(WindowRc &&) = delete;
@@ -94,35 +94,35 @@ public:
     {
         assert_main_thread();
         if (this != &other) {
-            cbindgen_private::sixtyfps_windowrc_drop(&inner);
-            cbindgen_private::sixtyfps_windowrc_clone(&other.inner, &inner);
+            cbindgen_private::slint_windowrc_drop(&inner);
+            cbindgen_private::slint_windowrc_clone(&other.inner, &inner);
         }
         return *this;
     }
 
-    void show() const { sixtyfps_windowrc_show(&inner); }
-    void hide() const { sixtyfps_windowrc_hide(&inner); }
+    void show() const { slint_windowrc_show(&inner); }
+    void hide() const { slint_windowrc_hide(&inner); }
 
-    float scale_factor() const { return sixtyfps_windowrc_get_scale_factor(&inner); }
-    void set_scale_factor(float value) const { sixtyfps_windowrc_set_scale_factor(&inner, value); }
+    float scale_factor() const { return slint_windowrc_get_scale_factor(&inner); }
+    void set_scale_factor(float value) const { slint_windowrc_set_scale_factor(&inner, value); }
 
     template<typename Component, typename ItemTree>
     void free_graphics_resources(Component *c, ItemTree items) const
     {
-        cbindgen_private::sixtyfps_component_free_item_graphics_resources(
+        cbindgen_private::slint_component_free_item_graphics_resources(
                 vtable::VRef<ComponentVTable> { &Component::static_vtable, c }, items, &inner);
     }
 
     void set_focus_item(const ComponentRc &component_rc, uintptr_t item_index)
     {
         cbindgen_private::ItemRc item_rc { component_rc, item_index };
-        cbindgen_private::sixtyfps_windowrc_set_focus_item(&inner, &item_rc);
+        cbindgen_private::slint_windowrc_set_focus_item(&inner, &item_rc);
     }
 
     template<typename Component, typename ItemTree>
     void init_items(Component *c, ItemTree items) const
     {
-        cbindgen_private::sixtyfps_component_init_items(
+        cbindgen_private::slint_component_init_items(
                 vtable::VRef<ComponentVTable> { &Component::static_vtable, c }, items, &inner);
     }
 
@@ -130,7 +130,7 @@ public:
     void set_component(const Component &c) const
     {
         auto self_rc = c.self_weak.lock().value().into_dyn();
-        sixtyfps_windowrc_set_component(&inner, &self_rc);
+        slint_windowrc_set_component(&inner, &self_rc);
     }
 
     template<typename Component, typename Parent>
@@ -138,7 +138,7 @@ public:
                     cbindgen_private::ItemRc parent_item) const
     {
         auto popup = Component::create(parent_component).into_dyn();
-        cbindgen_private::sixtyfps_windowrc_show_popup(&inner, &popup, p, &parent_item);
+        cbindgen_private::slint_windowrc_show_popup(&inner, &popup, p, &parent_item);
     }
 
 private:
@@ -160,7 +160,8 @@ constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset, std::uint32_t
                                                            parent_index } };
 }
 
-inline ItemRef get_item_ref(ComponentRef component, cbindgen_private::Slice<ItemTreeNode> item_tree, int index)
+inline ItemRef get_item_ref(ComponentRef component, cbindgen_private::Slice<ItemTreeNode> item_tree,
+                            int index)
 {
     const auto &item = item_tree.ptr[index].item.item;
     return ItemRef { item.vtable, reinterpret_cast<char *>(component.instance) + item.offset };
@@ -338,7 +339,7 @@ struct Timer
     /// `start(sixtyfps::TimerMode::Repeated, interval, callback);` on a default constructed Timer.
     template<typename F>
     Timer(std::chrono::milliseconds interval, F callback)
-        : id(cbindgen_private::sixtyfps_timer_start(
+        : id(cbindgen_private::slint_timer_start(
                 -1, TimerMode::Repeated, interval.count(),
                 [](void *data) { (*reinterpret_cast<F *>(data))(); }, new F(std::move(callback)),
                 [](void *data) { delete reinterpret_cast<F *>(data); }))
@@ -346,7 +347,7 @@ struct Timer
     }
     Timer(const Timer &) = delete;
     Timer &operator=(const Timer &) = delete;
-    ~Timer() { cbindgen_private::sixtyfps_timer_destroy(id); }
+    ~Timer() { cbindgen_private::slint_timer_destroy(id); }
 
     /// Starts the timer with the given \a mode and \a interval, in order for the \a callback to
     /// called when the timer fires. If the timer has been started previously and not fired yet,
@@ -354,27 +355,27 @@ struct Timer
     template<typename F>
     void start(TimerMode mode, std::chrono::milliseconds interval, F callback)
     {
-        id = cbindgen_private::sixtyfps_timer_start(
+        id = cbindgen_private::slint_timer_start(
                 id, mode, interval.count(), [](void *data) { (*reinterpret_cast<F *>(data))(); },
                 new F(std::move(callback)), [](void *data) { delete reinterpret_cast<F *>(data); });
     }
     /// Stops the previously started timer. Does nothing if the timer has never been started. A
     /// stopped timer cannot be restarted with restart() -- instead you need to call start().
-    void stop() { cbindgen_private::sixtyfps_timer_stop(id); }
+    void stop() { cbindgen_private::slint_timer_stop(id); }
     /// Restarts the timer. If the timer was previously started by calling [`Self::start()`]
     /// with a duration and callback, then the time when the callback will be next invoked
     /// is re-calculated to be in the specified duration relative to when this function is called.
     ///
     /// Does nothing if the timer was never started.
-    void restart() { cbindgen_private::sixtyfps_timer_restart(id); }
+    void restart() { cbindgen_private::slint_timer_restart(id); }
     /// Returns true if the timer is running; false otherwise.
-    bool running() const { return cbindgen_private::sixtyfps_timer_running(id); }
+    bool running() const { return cbindgen_private::slint_timer_running(id); }
 
     /// Call the callback after the given duration.
     template<typename F>
     static void single_shot(std::chrono::milliseconds duration, F callback)
     {
-        cbindgen_private::sixtyfps_timer_singleshot(
+        cbindgen_private::slint_timer_singleshot(
                 duration.count(), [](void *data) { (*reinterpret_cast<F *>(data))(); },
                 new F(std::move(callback)), [](void *data) { delete reinterpret_cast<F *>(data); });
     }
@@ -402,15 +403,16 @@ inline SharedVector<float> solve_box_layout(const cbindgen_private::BoxLayoutDat
                                             cbindgen_private::Slice<int> repeater_indexes)
 {
     SharedVector<float> result;
-    cbindgen_private::Slice<uint32_t> ri { reinterpret_cast<uint32_t *>(repeater_indexes.ptr), repeater_indexes.len };
-    cbindgen_private::sixtyfps_solve_box_layout(&data, ri, &result);
+    cbindgen_private::Slice<uint32_t> ri { reinterpret_cast<uint32_t *>(repeater_indexes.ptr),
+                                           repeater_indexes.len };
+    cbindgen_private::slint_solve_box_layout(&data, ri, &result);
     return result;
 }
 
 inline SharedVector<float> solve_grid_layout(const cbindgen_private::GridLayoutData &data)
 {
     SharedVector<float> result;
-    cbindgen_private::sixtyfps_solve_grid_layout(&data, &result);
+    cbindgen_private::slint_solve_grid_layout(&data, &result);
     return result;
 }
 
@@ -418,7 +420,7 @@ inline cbindgen_private::LayoutInfo
 grid_layout_info(cbindgen_private::Slice<cbindgen_private::GridLayoutCellData> cells, float spacing,
                  const cbindgen_private::Padding &padding)
 {
-    return cbindgen_private::sixtyfps_grid_layout_info(cells, spacing, &padding);
+    return cbindgen_private::slint_grid_layout_info(cells, spacing, &padding);
 }
 
 inline cbindgen_private::LayoutInfo
@@ -426,22 +428,23 @@ box_layout_info(cbindgen_private::Slice<cbindgen_private::BoxLayoutCellData> cel
                 const cbindgen_private::Padding &padding,
                 cbindgen_private::LayoutAlignment alignment)
 {
-    return cbindgen_private::sixtyfps_box_layout_info(cells, spacing, &padding, alignment);
+    return cbindgen_private::slint_box_layout_info(cells, spacing, &padding, alignment);
 }
 
 inline cbindgen_private::LayoutInfo
 box_layout_info_ortho(cbindgen_private::Slice<cbindgen_private::BoxLayoutCellData> cells,
                       const cbindgen_private::Padding &padding)
 {
-    return cbindgen_private::sixtyfps_box_layout_info_ortho(cells, &padding);
+    return cbindgen_private::slint_box_layout_info_ortho(cells, &padding);
 }
 
 inline SharedVector<float> solve_path_layout(const cbindgen_private::PathLayoutData &data,
                                              cbindgen_private::Slice<int> repeater_indexes)
 {
     SharedVector<float> result;
-    cbindgen_private::Slice<uint32_t> ri { reinterpret_cast<uint32_t *>(repeater_indexes.ptr), repeater_indexes.len };
-    cbindgen_private::sixtyfps_solve_path_layout(&data, ri, &result);
+    cbindgen_private::Slice<uint32_t> ri { reinterpret_cast<uint32_t *>(repeater_indexes.ptr),
+                                           repeater_indexes.len };
+    cbindgen_private::slint_solve_path_layout(&data, ri, &result);
     return result;
 }
 
@@ -463,7 +466,8 @@ struct AbstractRepeaterView
 using ModelPeer = std::weak_ptr<AbstractRepeaterView>;
 
 template<typename M>
-auto access_array_index(const M &model, int index) {
+auto access_array_index(const M &model, int index)
+{
     model->track_row_data_changes(index);
     if (const auto v = model->row_data(index)) {
         return *v;
@@ -823,21 +827,21 @@ public:
 #if !defined(DOXYGEN)
 cbindgen_private::Flickable::Flickable()
 {
-    sixtyfps_flickable_data_init(&data);
+    slint_flickable_data_init(&data);
 }
 cbindgen_private::Flickable::~Flickable()
 {
-    sixtyfps_flickable_data_free(&data);
+    slint_flickable_data_free(&data);
 }
 
 cbindgen_private::NativeStyleMetrics::NativeStyleMetrics()
 {
-    sixtyfps_native_style_metrics_init(this);
+    slint_native_style_metrics_init(this);
 }
 
 cbindgen_private::NativeStyleMetrics::~NativeStyleMetrics()
 {
-    sixtyfps_native_style_metrics_deinit(this);
+    slint_native_style_metrics_deinit(this);
 }
 #endif // !defined(DOXYGEN)
 
@@ -858,7 +862,7 @@ struct VersionCheckHelper
 inline void run_event_loop()
 {
     private_api::assert_main_thread();
-    cbindgen_private::sixtyfps_run_event_loop();
+    cbindgen_private::slint_run_event_loop();
 }
 
 /// Schedules the main event loop for termination. This function is meant
@@ -867,7 +871,7 @@ inline void run_event_loop()
 /// the initial call to sixtyfps::run_event_loop() will return.
 inline void quit_event_loop()
 {
-    cbindgen_private::sixtyfps_quit_event_loop();
+    cbindgen_private::slint_quit_event_loop();
 }
 
 /// Adds the specified functor to an internal queue, notifies the event loop to wake up.
@@ -910,7 +914,7 @@ inline void quit_event_loop()
 template<typename Functor>
 void invoke_from_event_loop(Functor f)
 {
-    cbindgen_private::sixtyfps_post_event(
+    cbindgen_private::slint_post_event(
             [](void *data) { (*reinterpret_cast<Functor *>(data))(); }, new Functor(std::move(f)),
             [](void *data) { delete reinterpret_cast<Functor *>(data); });
 }
@@ -993,7 +997,7 @@ namespace private_api {
 inline std::optional<SharedString> register_font_from_path(const SharedString &path)
 {
     SharedString maybe_err;
-    cbindgen_private::sixtyfps_register_font_from_path(&path, &maybe_err);
+    cbindgen_private::slint_register_font_from_path(&path, &maybe_err);
     if (!maybe_err.empty()) {
         return maybe_err;
     } else {
@@ -1006,8 +1010,8 @@ inline std::optional<SharedString> register_font_from_path(const SharedString &p
 inline std::optional<SharedString> register_font_from_data(const uint8_t *data, std::size_t len)
 {
     SharedString maybe_err;
-    cbindgen_private::sixtyfps_register_font_from_data({ const_cast<uint8_t *>(data), len },
-                                                       &maybe_err);
+    cbindgen_private::slint_register_font_from_data({ const_cast<uint8_t *>(data), len },
+                                                    &maybe_err);
     if (!maybe_err.empty()) {
         return maybe_err;
     } else {
