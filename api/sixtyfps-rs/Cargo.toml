@@ -60,4 +60,4 @@ pin-weak = { version = "1.1", default-features = false }
 document-features = { version = "0.1.0", path = "../../helper_crates/document-features" }
 
 [package.metadata.docs.rs]
-rustdoc-args = [ "--html-in-header", "docs/resources/sixtyfps-docs-preview.html", "--html-in-header", "docs/resources/sixtyfps-docs-highlight.html" ]
+rustdoc-args = [ "--html-in-header", "docs/resources/slint-docs-preview.html", "--html-in-header", "docs/resources/slint-docs-highlight.html" ]
