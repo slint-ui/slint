@@ -24,7 +24,7 @@ self.MonacoEnvironment = {
     }
 };
 
-import slint_init, * as sixslint from "../../../wasm-interpreter/slint_wasm_interpreter.js";
+import slint_init, * as slint from "../../../wasm-interpreter/slint_wasm_interpreter.js";
 
 
 (async function () {
