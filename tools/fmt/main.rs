@@ -107,7 +107,7 @@ fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()
 /// FIXME! this is duplicated with the updater
 fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Result<()> {
     let mut source_slice = &source[..];
-    const CODE_FENCE_START: &str = "```60\n";
+    const CODE_FENCE_START: &str = "```slint\n";
     const CODE_FENCE_END: &str = "```\n";
     'l: while let Some(code_start) =
         source_slice.find(CODE_FENCE_START).map(|idx| idx + CODE_FENCE_START.len())

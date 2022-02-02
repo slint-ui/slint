@@ -12,14 +12,14 @@ check if a pair of tiles has been solved. And we need to add a property that C++
 tile interaction, to prevent the player from opening more tiles than allowed. No cheating allowed! First, we paste
 the callback and property declarations into <span class="hljs-title">MainWindow</span>:
 
-```60
+```slint
 {{#include ../../rust/src/main_game_logic_in_rust.rs:mainwindow_interface}}
 ```
 
 The last change to the `.slint` markup is to act when the <span class="hljs-title">MemoryTile</span> signals that it was clicked on.
 We add the following handler in <span class="hljs-title">MainWindow</span>:
 
-```60
+```slint
 {{#include ../../rust/src/main_game_logic_in_rust.rs:tile_click_logic}}
 ```
 

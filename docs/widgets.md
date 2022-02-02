@@ -19,7 +19,7 @@ Their appearance can change depending on the style
 
 ### Example
 
-```60
+```slint
 import { Button } from "std-widgets.slint";
 Example := Window {
     Button {
@@ -48,7 +48,7 @@ it can used one of the pre-defined `kind` and the text and icon will depend on t
 
 ### Example
 
-```60
+```slint
 import { StandardButton, VerticalBox } from "std-widgets.slint";
 Example := Window {
   VerticalBox {
@@ -72,7 +72,7 @@ Example := Window {
 
 ### Example
 
-```60
+```slint
 import { CheckBox } from "std-widgets.slint";
 Example := Window {
     width: 200px;
@@ -95,7 +95,7 @@ Example := Window {
 
 ### Example
 
-```60
+```slint
 import { SpinBox } from "std-widgets.slint";
 Example := Window {
     width: 200px;
@@ -122,7 +122,7 @@ Example := Window {
 
 ### Example
 
-```60
+```slint
 import { Slider } from "std-widgets.slint";
 Example := Window {
     width: 200px;
@@ -143,7 +143,7 @@ Example := Window {
 
 ### Example
 
-```60
+```slint
 import { GroupBox } from "std-widgets.slint";
 Example := Window {
     width: 200px;
@@ -177,7 +177,7 @@ A widget used to enter a single line of text
 
 ### Example
 
-```60
+```slint
 import { LineEdit } from "std-widgets.slint";
 Example := Window {
     width: 200px;
@@ -212,7 +212,7 @@ shortcut will be implemented in a future version: <https://github.com/sixtyfpsui
 
 ### Example
 
-```60
+```slint
 import { TextEdit } from "std-widgets.slint";
 Example := Window {
     width: 200px;
@@ -248,7 +248,7 @@ using for loops may be added in the future and is tracked in issue #407.
 
 ### Example
 
-```60
+```slint
 import { ScrollView } from "std-widgets.slint";
 Example := Window {
     width: 200px;
@@ -278,7 +278,7 @@ Same as ScrollView
 
 ### Example
 
-```60
+```slint
 import { ListView } from "std-widgets.slint";
 Example := Window {
     width: 150px;
@@ -324,7 +324,7 @@ Same as ListView, and in addition:
 
 ### Example
 
-```60
+```slint
 import { StandardListView } from "std-widgets.slint";
 Example := Window {
     width: 150px;
@@ -357,7 +357,7 @@ A button that, when clicked, opens a popup to select a value.
 
 ### Example
 
-```60
+```slint
 import { ComboBox } from "std-widgets.slint";
 Example := Window {
     width: 200px;
@@ -386,7 +386,7 @@ a time.
 
 ### Example
 
-```60
+```slint
 import { TabWidget } from "std-widgets.slint";
 Example := Window {
     width: 200px;
@@ -415,7 +415,7 @@ That's the same as `HorizontalLayout`, `VerticalLayout` or `GridLayout` but the 
 
 This element displays the a "Made with SixtyFPS" badge.
 
-```60
+```slint
 import { AboutSixtyFPS } from "std-widgets.slint";
 Example := Window {
     width: 128px;

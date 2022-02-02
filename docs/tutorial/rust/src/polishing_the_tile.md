@@ -18,7 +18,7 @@ property that can be set from the outside when instantiating the element. For th
 *solved* property that we use to animate the color to a shade of green when we've found a pair, later. We
 replace the code inside the `sixtyfps!` macro with the following:
 
-```60
+```slint
 {{#include main_polishing_the_tile.rs:tile}}
 ```
 

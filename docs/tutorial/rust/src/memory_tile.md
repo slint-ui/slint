@@ -9,7 +9,7 @@ mixing values with different units attached to them.
 
 We copy the following code inside of the `sixtyfps!` macro:
 
-```60
+```slint
 {{#include main_memory_tile.rs:tile}}
 ```
 

@@ -718,7 +718,7 @@ public:
     /// Like `set_callback()` but on a callback in the specified exported global singleton.
     ///
     /// Example: imagine the .slint file contains the given global:
-    /// ```60
+    /// ```slint
     ///    export global Logic := {
     ///         callback to_uppercase(string) -> string;
     ///    }

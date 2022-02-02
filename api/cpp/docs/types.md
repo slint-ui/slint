@@ -25,7 +25,7 @@ in lexicographic order.
 
 For example, if you have this structure in the .slint file
 
-```60,ignore
+```slint,ignore
 export struct MyStruct := {
     foo: int,
     bar: string,

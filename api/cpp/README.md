@@ -130,7 +130,7 @@ necessary to link your executable or library against the `Slint::Slint` target.
 Let's make a UI for a todo list application using the SixtyFPS UI description language.
 Hopefully this should be self explanatory. Check out the documentation of the language for help
 
-```60
+```slint
 // file: my_application_ui.slint
 import { CheckBox, Button, ListView, LineEdit } from "std-widgets.slint";
 

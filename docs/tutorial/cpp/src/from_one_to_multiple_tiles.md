@@ -14,13 +14,13 @@ index with a little bit of spacing between the tiles.
 
 First, we copy the tile data structure definition and paste it at top inside the `memory.slint` file:
 
-```60
+```slint
 {{#include ../../rust/src/main_multiple_tiles.rs:tile_data}}
 ```
 
 Next, we replace the *<span class="hljs-title">MainWindow</span> := { ... }* section at the bottom of the `memory.slint` file with the following snippet:
 
-```60
+```slint
 {{#include ../../rust/src/main_multiple_tiles.rs:main_window}}
 ```
 

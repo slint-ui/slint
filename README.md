@@ -60,7 +60,7 @@ Click on the screenshots to run the WebAssembly simulation
 SixtyFPS comes with a markup language that is specifically designed for user interfaces. This language provides a
 powerful way to describe graphical elements, their placement, and the flow of data through the different states. It is a familiar syntax to describe the hierarchy of elements and property bindings. Here's the obligatory "Hello World":
 
-```60
+```slint
 HelloWorld := Window {
     width: 400px;
     height: 400px;

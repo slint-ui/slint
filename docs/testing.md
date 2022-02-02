@@ -51,7 +51,7 @@ property equal to bool.
 
 example:
 
-```60
+```slint
 Foo := Rectangle {
    // test would fail if that property was false
    property <bool> test: 1 + 1 == 2;
@@ -115,5 +115,5 @@ cargo  build -p slint-node  && cargo  test -p test-driver-nodejs
 cargo test -p doctests
 ```
 
-The doctests extracts the ```` ```60 ````  from the files in the docs folder and make  sure that
+The doctests extracts the ```` ```slint ````  from the files in the docs folder and make  sure that
 the snippets can be build without errors

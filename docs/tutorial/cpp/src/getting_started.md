@@ -37,7 +37,7 @@ references a `main.cpp`, which we will add later, and it also has a line
 add the `memory.60` file to the target. We must then create, in the same directory,
 the `memory.60` file. Let's just fill it with a hello world for now:
 
-```60
+```slint
 {{#include memory.60:main_window}}
 ```
 

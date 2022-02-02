@@ -74,7 +74,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 ### Example
 
-```60
+```slint
 Example := Window {
     width: 270px;
     height: 100px;
@@ -153,7 +153,7 @@ An Image can be used to represent an image loaded from an image file.
 
 ### Example
 
-```60
+```slint
 Example := Window {
     VerticalLayout {
         Image {
@@ -170,7 +170,7 @@ Example := Window {
 
 Scaled while preserving the aspect ratio:
 
-```60
+```slint
 Example := Window {
     Image {
         source: @image-url("https://sixtyfps.io/resources/logo_scaled.png");
@@ -209,7 +209,7 @@ and the text itself.
 
 This example shows the text "Hello World" in red, using the default font:
 
-```60
+```slint
 Example := Window {
     width: 270px;
     height: 100px;
@@ -224,7 +224,7 @@ Example := Window {
 This example breaks a longer paragraph of text into multiple lines, by setting a `wrap`
 policy and assigning a limited `width` and enough `height` for the text to flow down:
 
-```60
+```slint
 Example := Window {
     width: 270px;
     height: 300px;
@@ -281,7 +281,7 @@ which in turn are written in a string. In `.slint` the path commands are provide
 property. The following example renders a shape consists of an arc and a rectangle, composed of `line-to`,
 `move-to` and `arc` commands:
 
-```60
+```slint
 Example := Path {
     width: 100px;
     height: 100px;
@@ -300,7 +300,7 @@ The commands are provided in a property:
 The shape of the path can also be described using elements that resemble the SVG path commands but use the
 `.slint` markup syntax. The earlier example using SVG commands can also be written like that:
 
-```60
+```slint
 Example := Path {
     width: 100px;
     height: 100px;
@@ -430,7 +430,7 @@ When not part of a layout, its width or height default to 100% of the parent ele
 
 ### Example
 
-```60
+```slint
 Example := Window {
     width: 200px;
     height: 100px;
@@ -477,7 +477,7 @@ or it will be mapped to a private unicode character. The mapping of these non-pr
 
 ### Example
 
-```60
+```slint
 Example := Window {
     forward-focus: my-key-handler;
     my-key-handler := FocusScope {
@@ -512,7 +512,7 @@ they will be computed by the layout respecting the minimum and maximum sizes and
 
 ## Example
 
-```60
+```slint
 Foo := Window {
     width: 200px;
     height: 100px;
@@ -544,7 +544,7 @@ Alternatively, the item can be put in a `Row` element.
 
 This example uses the `Row` element
 
-```60
+```slint
 Foo := Window {
     width: 200px;
     height: 200px;
@@ -564,7 +564,7 @@ Foo := Window {
 
 This example uses the `col` and `row` properties
 
-```60
+```slint
 Foo := Window {
     width: 200px;
     height: 150px;
@@ -603,7 +603,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 ### Example
 
-```60
+```slint
 Example := Window {
     width: 270px;
     height: 100px;
@@ -651,7 +651,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 
 ### Example
 
-```60
+```slint
 Example := Window {
     width: 270px;
     height: 100px;
@@ -674,7 +674,7 @@ Note: It is not allowed to access properties of elements within the popup from o
 
 ### Example
 
-```60
+```slint
 Example := Window {
     width: 100px;
     height: 100px;
@@ -716,7 +716,7 @@ When viewed with the `sixtyfps-viewer` program, the `ok`, `cancel`, and `close` 
 
 ### Example
 
-```60
+```slint
 import { StandardButton, Button } from "std-widgets.slint";
 Example := Dialog {
     Text {

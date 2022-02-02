@@ -9,7 +9,7 @@ mixing values with different units attached to them.
 
 We copy the following code into the `memory.slint` file:
 
-```60
+```slint
 {{#include memory_tile.slint:main_window}}
 ```
 

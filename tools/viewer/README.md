@@ -49,7 +49,7 @@ callback. These will be shell escaped.
 
 Example: Imagine we have a myfile.slint looking like this:
 
-```60
+```slint
 MyApp := Window {
   callback open-url(string);
   //...

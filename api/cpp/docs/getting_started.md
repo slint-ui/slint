@@ -32,7 +32,7 @@ target_link_libraries(my_application PRIVATE Slint::Slint)
 
 Suppose `my_application_ui.slint` was a "Hello World" like this:
 
-```60,ignore
+```slint,ignore
 HelloWorld := Window {
     width: 400px;
     height: 400px;

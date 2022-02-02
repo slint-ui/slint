@@ -35,7 +35,7 @@ the {cpp:class}`sixtyfps::VectorModel` provides an implementation that is backed
 
 Let's assume we have this code in our `.slint` file
 
-```60
+```slint
 SampleComponent := Window {
     property<int> counter;
     property<string> user_name;
@@ -102,7 +102,7 @@ for properties and callbacks, similar to API that's created for your `.slint` co
 
 For example the following `.slint` markup defines a global `Logic` singleton that's also exported:
 
-```60,ignore
+```slint,ignore
 export global Logic := {
     callback to_uppercase(string) -> string;
 }

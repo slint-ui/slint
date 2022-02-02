@@ -24,7 +24,7 @@ to create scalable user interfaces.
 The following example places two rectangles into a window, a blue one and
 a green one that is a child of the blue:
 
-```60
+```slint
 // Explicit positioning
 Example := Window {
     width: 200px;
@@ -136,7 +136,7 @@ alignment can be adjusted.
 The following example places the blue and yellow rectangle in a row and evenly stretched
 across the 200 logical pixels of `width`:
 
-```60
+```slint
 // Stretch by default
 Example := Window {
     width: 200px;
@@ -152,7 +152,7 @@ The example below, on the other hand, specifies that the rectangles shell be ali
 to the start of the layout (the visual left). That results in no stretching but instead
 the rectangles retain their specified minimum width:
 
-```60
+```slint
 // Unless an alignment is specified
 Example := Window {
     width: 200px;
@@ -167,7 +167,7 @@ Example := Window {
 
 The example below nests two layouts for a more complex scene:
 
-```60
+```slint
 Example := Window {
     width: 200px;
     height: 200px;
@@ -209,7 +209,7 @@ The size of elements is bigger than the minimum size only if the alignment is st
 
 This example show the different alignment possibilities
 
-```60
+```slint
 Example := Window {
     width: 300px;
     height: 200px;
@@ -272,7 +272,7 @@ factor of 0 or reached their maximum size.
 
 Examples:
 
-```60
+```slint
 Example := Window {
     width: 300px;
     height: 200px;
@@ -308,7 +308,7 @@ Example := Window {
 
 The VerticalLayout and Horizontal layout may also contain `for` or `if` expressions, and it does what one expect
 
-```60
+```slint
 Example := Window {
     width: 200px;
     height: 50px;
@@ -332,7 +332,7 @@ As of now, the use of `for` or `if` is not allowed in a grid layout.
 
 This example use the `Row` element
 
-```60
+```slint
 Foo := Window {
     width: 200px;
     height: 200px;
@@ -352,7 +352,7 @@ Foo := Window {
 
 This example use the `col` and `row` property
 
-```60
+```slint
 Foo := Window {
     width: 200px;
     height: 150px;

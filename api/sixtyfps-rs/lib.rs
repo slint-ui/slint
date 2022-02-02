@@ -111,7 +111,7 @@ as a struct with the same name as the component.
 
 For example, if you have
 
-```60
+```slint
 export MyComponent := Window { /*...*/ }
 ```
 
@@ -185,7 +185,7 @@ The follow table summarizes the entire mapping:
 
 For user defined structures in the .slint, an extra struct is generated.
 For example, if the `.slint` contains
-```60,ignore
+```slint,ignore
 export struct MyStruct := {
     foo: int,
     bar: string,
