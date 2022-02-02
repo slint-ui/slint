@@ -86,7 +86,7 @@ Each program is compiled separately. And then run.
 
 Some macro like `assert_eq` are defined to look similar o the rust equivalent.
 
-To run the test, you must make sure to first build the slint shared library:
+To run the test, you must make sure to first build the slint-cpp shared library:
 
 ```
 cargo build --lib -p slint-cpp --features testing && cargo test -p  test-driver-cpp --

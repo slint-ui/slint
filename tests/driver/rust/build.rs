@@ -64,7 +64,7 @@ fn generate_macro(
     testcase: test_driver_lib::TestCase,
 ) -> Result<bool, std::io::Error> {
     if source.contains("\\{") {
-        // Unfortunately, \{ is not valid in a rust string so it cannot be used in a sixtyfps! macro
+        // Unfortunately, \{ is not valid in a rust string so it cannot be used in a slint! macro
         output.write_all(b"#[test] #[ignore] fn ignored_because_string_template() {{}}")?;
         return Ok(false);
     }

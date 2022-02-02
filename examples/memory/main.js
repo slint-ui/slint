@@ -47,7 +47,7 @@ window.check_if_pair_solved.setHandler(function () {
             model.setRowData(tile2_index, tile2);
         } else {
             window.disable_tiles = true;
-            sixtyfps.Timer.singleShot(1000, () => {
+            slint.Timer.singleShot(1000, () => {
                 window.disable_tiles = false;
                 tile1.image_visible = false;
                 model.setRowData(tile1_index, tile1);

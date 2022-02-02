@@ -7,12 +7,12 @@ The testing instructions are in the [testing.md](./testing.md) file.
 
 ### `helper_crates`
 
-A set of crates that are somehow not strictly related to sixtyfps, and that could be moved to
+A set of crates that are somehow not strictly related to Slint, and that could be moved to
 their own repository and have their own version release at some point.
 
 ### `internal`
 
-`internal` contains code that is not meant to be used directly by a user of sixtyfps.
+`internal` contains code that is not meant to be used directly by a user of Slint.
 
 #### `compiler`
 
