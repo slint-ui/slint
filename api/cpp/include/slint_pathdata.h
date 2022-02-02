@@ -4,7 +4,7 @@
 #pragma once
 #include <initializer_list>
 #include <string_view>
-#include "sixtyfps_pathdata_internal.h"
+#include "slint_pathdata_internal.h"
 
 // The C++ code generator assumes that enums are in the cbindgen_private namespace
 namespace slint::cbindgen_private {

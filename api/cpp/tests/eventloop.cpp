@@ -4,7 +4,7 @@
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch.hpp"
 
-#include <sixtyfps.h>
+#include <slint.h>
 #include <thread>
 
 TEST_CASE("C++ Singleshot Timers")

@@ -24,9 +24,9 @@ namespace slint::cbindgen_private {
 struct ComponentVTable;
 struct ItemVTable;
 }
-#include "sixtyfps_internal.h"
-#include "sixtyfps_backend_internal.h"
-#include "sixtyfps_qt_internal.h"
+#include "slint_internal.h"
+#include "slint_backend_internal.h"
+#include "slint_qt_internal.h"
 
 /// \rst
 /// The :code:`sixtyfps` namespace is the primary entry point into the SixtyFPS C++ API.

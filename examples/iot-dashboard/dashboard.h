@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <sixtyfps_interpreter.h>
+#include <slint_interpreter.h>
 
 #include <optional>
 #include <string_view>

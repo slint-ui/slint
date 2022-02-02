@@ -3,7 +3,7 @@
 
 #pragma once
 #include <tuple>
-#include "sixtyfps_properties_internal.h"
+#include "slint_properties_internal.h"
 
 namespace slint::private_api {
 

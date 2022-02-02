@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-#include <sixtyfps_interpreter.h>
+#include <slint_interpreter.h>
 
 #include <ctime>
 

@@ -49,7 +49,7 @@ This will generate a header with the following contents (edited for documentatio
 ```cpp
 #include <array>
 #include <limits>
-#include <sixtyfps.h>
+#include <slint.h>
 
 
 class SampleComponent {

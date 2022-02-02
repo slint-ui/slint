@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 #pragma once
-#include "sixtyfps_sharedvector_internal.h"
+#include "slint_sharedvector_internal.h"
 #include <atomic>
 #include <algorithm>
 #include <initializer_list>

@@ -4,8 +4,8 @@
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch.hpp"
 
-#include <sixtyfps.h>
-#include <sixtyfps_interpreter.h>
+#include <slint.h>
+#include <slint_interpreter.h>
 
 SCENARIO("Value API")
 {

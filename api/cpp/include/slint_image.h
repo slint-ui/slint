@@ -3,10 +3,10 @@
 
 #pragma once
 #include <string_view>
-#include "sixtyfps_generated_public.h"
-#include "sixtyfps_image_internal.h"
-#include "sixtyfps_string.h"
-#include "sixtyfps_sharedvector.h"
+#include "slint_generated_public.h"
+#include "slint_image_internal.h"
+#include "slint_string.h"
+#include "slint_sharedvector.h"
 
 namespace slint {
 

@@ -3,9 +3,9 @@
 
 #pragma once
 
-#include "sixtyfps.h"
+#include "slint.h"
 
-#include "sixtyfps_interpreter_internal.h"
+#include "slint_interpreter_internal.h"
 
 #include <optional>
 

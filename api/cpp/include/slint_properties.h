@@ -9,7 +9,7 @@ namespace slint::cbindgen_private {
 struct PropertyAnimation;
 }
 
-#include "sixtyfps_properties_internal.h"
+#include "slint_properties_internal.h"
 
 namespace slint::private_api {
 

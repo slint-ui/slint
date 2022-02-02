@@ -3,7 +3,7 @@
 
 #include "dashboard.h"
 #include <chrono>
-#include <sixtyfps_interpreter.h>
+#include <slint_interpreter.h>
 
 #include <fmt/core.h>
 #include <fmt/chrono.h>

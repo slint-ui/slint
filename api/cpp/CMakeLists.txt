@@ -122,19 +122,19 @@ foreach(header IN LISTS api_headers)
 endforeach()
 
 set(generated_headers
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_string_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_brush_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_sharedvector_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_properties_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_image_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_color_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_pathdata_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_qt_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_backend_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_generated_public.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_interpreter_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_interpreter_generated_public.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_string_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_brush_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_sharedvector_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_properties_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_image_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_color_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_pathdata_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_qt_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_backend_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_generated_public.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_interpreter_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_interpreter_generated_public.h
 )
 
 foreach(header IN LISTS generated_headers)

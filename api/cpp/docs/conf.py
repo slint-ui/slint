@@ -48,12 +48,12 @@ exhale_args = {
         """
             The following sections present the C++ API Reference. All types are
             within the :ref:`slint<namespace_slint>` namespace and are accessible by including
-            the :code:`sixtyfps.h` header file.
+            the :code:`slint.h` header file.
 
             If you choose to load :code:`.slint` files dynamically at run-time, then
             you can use the classes in :ref:`slint::interpreter<namespace_slint__interpreter>`, starting at
             :cpp:class:`slint::interpreter::ComponentCompiler`. You need to include
-            the :code:`sixtyfps_interpreter.h` header file.
+            the :code:`slint_interpreter.h` header file.
         """
     ),
     "doxygenStripFromPath": "..",

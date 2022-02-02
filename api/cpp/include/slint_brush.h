@@ -3,9 +3,9 @@
 
 #pragma once
 #include <string_view>
-#include "sixtyfps_color.h"
-#include "sixtyfps_brush_internal.h"
-#include "sixtyfps_string.h"
+#include "slint_color.h"
+#include "slint_brush_internal.h"
+#include "slint_string.h"
 
 namespace slint {
 

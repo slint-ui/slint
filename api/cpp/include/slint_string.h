@@ -3,7 +3,7 @@
 
 #pragma once
 #include <string_view>
-#include "sixtyfps_string_internal.h"
+#include "slint_string_internal.h"
 
 namespace slint {
 

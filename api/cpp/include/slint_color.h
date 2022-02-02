@@ -3,8 +3,8 @@
 
 #pragma once
 
-#include "sixtyfps_color_internal.h"
-#include "sixtyfps_properties.h"
+#include "slint_color_internal.h"
+#include "slint_properties.h"
 
 #include <stdint.h>
 

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 #include <QtWidgets/QtWidgets>
-#include <sixtyfps_interpreter.h>
+#include <slint_interpreter.h>
 
 #include "ui_interface.h"
 

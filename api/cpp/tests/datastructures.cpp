@@ -5,8 +5,8 @@
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch.hpp"
 
-#include <sixtyfps.h>
-#include <sixtyfps_image.h>
+#include <slint.h>
+#include <slint_image.h>
 
 SCENARIO("SharedString API")
 {
