@@ -145,9 +145,13 @@ exists under the `language` server section:
 
 https://github.com/RustemB/sixtyfps-vim
 
+At the time of writting this plugin was not updated to .slint yet!
+
 ### Neovim
 
 https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#sixtyfps
+
+At the time of writing this information was not updated to slint yet!
 
 ## Sublime Text
 

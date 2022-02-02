@@ -27,7 +27,7 @@ sixtyfps-backend-qt = ["slint-interpreter/backend-qt"]
 wayland = ["slint-interpreter/wayland"]
 x11 = ["slint-interpreter/x11"]
 
-default = ["sixtyfps-backend-qt", "sixtyfps-backend-gl", "x11"]
+default = ["slint-backend-qt", "slint-backend-gl", "x11"]
 
 [dependencies]
 slint-compiler-internal = { version = "=0.2.0", path = "../../internal/compiler"}
