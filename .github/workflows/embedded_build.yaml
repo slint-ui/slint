@@ -17,7 +17,7 @@ jobs:
           - riscv64gc-unknown-linux-gnu
     env:
       SLINT_NO_QT: 1
-      SIXTYFPS_STYLE: fluent
+      SLINT_STYLE: fluent
     steps:
     - uses: actions/checkout@v2
     - name: Set up Docker Buildx

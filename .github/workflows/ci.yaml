@@ -45,11 +45,11 @@ jobs:
     - name: Set default style
       if: matrix.os != 'windows-latest'
       run: |
-          echo "SIXTYFPS_STYLE=native" >> $GITHUB_ENV
+          echo "SLINT_STYLE=native" >> $GITHUB_ENV
     - name: Set default style
       if: matrix.os == 'windows-latest'
       run: |
-          echo "SIXTYFPS_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
     - name: Setup Node.js
       uses: actions/setup-node@v1
@@ -122,11 +122,11 @@ jobs:
     - name: Set default style
       if: matrix.os != 'windows-latest'
       run: |
-          echo "SIXTYFPS_STYLE=native" >> $GITHUB_ENV
+          echo "SLINT_STYLE=native" >> $GITHUB_ENV
     - name: Set default style
       if: matrix.os == 'windows-latest'
       run: |
-          echo "SIXTYFPS_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
     - name: Cache cargo registry
       uses: actions/cache@v2
