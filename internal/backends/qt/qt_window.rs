@@ -69,10 +69,10 @@ cpp! {{
 
     };
 
-    struct SixtyFPSWidget : QWidget {
+    struct SlintWidget : QWidget {
         void *rust_window;
 
-        SixtyFPSWidget() {
+        SlintWidget() {
             setMouseTracking(true);
             setFocusPolicy(Qt::StrongFocus);
         }
@@ -111,7 +111,7 @@ cpp! {{
                 let button = from_qt_button(button);
                 rust_window.mouse_event(MouseEvent::MouseReleased{ pos, button })
             });
-            if (auto p = dynamic_cast<const SixtyFPSWidget*>(parent())) {
+            if (auto p = dynamic_cast<const SlintWidget*>(parent())) {
                 // FIXME: better way to close the popup
                 void *parent_window = p->rust_window;
                 rust!(SFPS_mouseReleaseEventPopup [parent_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
@@ -1105,7 +1105,7 @@ impl QtWindow {
     pub fn new(window_weak: &Weak<slint_core_internal::window::Window>) -> Rc<Self> {
         let widget_ptr = cpp! {unsafe [] -> QWidgetPtr as "std::unique_ptr<QWidget>" {
             ensure_initialized(true);
-            return std::make_unique<SixtyFPSWidget>();
+            return std::make_unique<SlintWidget>();
         }};
         let rc = Rc::new(QtWindow {
             widget_ptr,
@@ -1116,7 +1116,7 @@ impl QtWindow {
         let self_weak = Rc::downgrade(&rc);
         let widget_ptr = rc.widget_ptr();
         let rust_window = Rc::as_ptr(&rc);
-        cpp! {unsafe [widget_ptr as "SixtyFPSWidget*", rust_window as "void*"]  {
+        cpp! {unsafe [widget_ptr as "SlintWidget*", rust_window as "void*"]  {
             widget_ptr->rust_window = rust_window;
         }};
         ALL_WINDOWS.with(|aw| aw.borrow_mut().push(self_weak));
@@ -1250,7 +1250,7 @@ impl PlatformWindow for QtWindow {
 
     fn request_window_properties_update(&self) {
         let widget_ptr = self.widget_ptr();
-        cpp! {unsafe [widget_ptr as "SixtyFPSWidget*"]  {
+        cpp! {unsafe [widget_ptr as "SlintWidget*"]  {
             QCoreApplication::postEvent(widget_ptr, new QEvent(QEvent::User));
         }};
     }
