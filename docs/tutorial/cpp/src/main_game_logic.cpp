@@ -4,7 +4,7 @@
 // clang-format off
 // main.cpp
 
-#include "memory_game_logic.h" // generated header from memory_game_logic.60
+#include "memory_game_logic.h" // generated header from memory_game_logic.slint
 
 #include <random> // Added
 

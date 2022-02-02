@@ -3,7 +3,7 @@
 	"displayName": "Slint",
 	"description": "Slint Language extension",
 	"version": "0.2.0",
-	"publisher": "SixtyFPS",
+	"publisher": "Slint",
 	"icon": "extension-logo.png",
 	"license": "GPL-3.0",
 	"repository": {

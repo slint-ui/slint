@@ -6,7 +6,7 @@
 # See http://www.sublimetext.com/docs/3/syntax.html
 name: Slint
 file_extensions:
-  - '60'
+  - 'slint'
 scope: source.slint
 
 contexts:

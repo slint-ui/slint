@@ -87,10 +87,10 @@ is compiled to native code.
 Developing
 ==========
 
-You can create and edit `.60` files using our `Slint Visual Studio Code Extension <https://marketplace.visualstudio.com/items?itemName=SixtyFPS.sixtyfps-vscode>`_,
+You can create and edit `.slint` files using our `Slint Visual Studio Code Extension <https://marketplace.visualstudio.com/items?itemName=Slint.slint>`_,
 which features syntax highlighting and live design preview.
 
 For a quick edit and preview cycle, you can also use the :code:`slint-viewer` command line tool, which can be installed using :code:`cargo install slint-viewer`,
-if you have `Cargo <https://marketplace.visualstudio.com/items?itemName=SixtyFPS.sixtyfps-vscode>`_ installed.
+if you have `Cargo <https://marketplace.visualstudio.com/items?itemName=Slint.slint>`_ installed.
 
 In the next section you will learn how to install the Slint C++ library and the CMake build system integration.

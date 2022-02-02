@@ -34,11 +34,11 @@ slint_target_sources(memory_game memory.slint)
 This should look familiar to people familiar with CMake. We see that this CMakeLists.txt
 references a `main.cpp`, which we will add later, and it also has a line
 `slint_target_sources(memory_game memory.slint)`, which is a Slint function used to
-add the `memory.60` file to the target. We must then create, in the same directory,
-the `memory.60` file. Let's just fill it with a hello world for now:
+add the `memory.slint` file to the target. We must then create, in the same directory,
+the `memory.slint` file. Let's just fill it with a hello world for now:
 
 ```slint
-{{#include memory.60:main_window}}
+{{#include memory.slint:main_window}}
 ```
 
 What's still missing is the `main.cpp`:
@@ -47,7 +47,7 @@ What's still missing is the `main.cpp`:
 {{#include main_initial.cpp:main}}
 ```
 
-To recap, we now have a directory with a `CMakeLists.txt`, `memory.60` and `main.cpp`.
+To recap, we now have a directory with a `CMakeLists.txt`, `memory.slint` and `main.cpp`.
 
 We can now compile and run this program:
 

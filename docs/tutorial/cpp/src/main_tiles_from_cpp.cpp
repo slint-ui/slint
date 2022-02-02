@@ -3,7 +3,7 @@
 
 // main.cpp
 
-#include "memory_tiles_from_cpp.h" // generated header from memory_tiles_from_cpp.60
+#include "memory_tiles_from_cpp.h" // generated header from memory_tiles_from_cpp.slint
 // ANCHOR: main
 // ...
 

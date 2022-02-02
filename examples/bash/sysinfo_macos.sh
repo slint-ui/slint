@@ -22,7 +22,7 @@ swap_free_mb=`sysctl -n vm.swapusage | sed -n -e 's,.*free = \(.*\)\..*M.*$,\1,p
 swap_free_kb=$((swap_free_mb * 1024))
 partitions=`df -lk | tail -n+2 | sed 's/\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*\)  *\([^ ]*.*\)/{ "dev": "\1", "mnt": "\9", "total": \2, "free": \4 },/' | sed '$s/,$//'`
 
-slint-viewer `dirname $0`/sysinfo.60 --load-data - <<EOT
+slint-viewer `dirname $0`/sysinfo.slint --load-data - <<EOT
 {
     "os_name": "$os_name",
     "uptime": "$uptime",
