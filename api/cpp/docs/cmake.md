@@ -103,7 +103,7 @@ Set up the environment and build:
 <!-- cSpell:disable -->
 ```sh
 . /path/to/yocto/sdk/environment-setup-cortexa53-crypto-poky-linux
-cd sixtyfps
+cd slint
 mkdir build
 cd build
 cmake -DRust_CARGO_TARGET=aarch64-unknown-linux-gnu -DCMAKE_INSTALL_PREFIX=/slint/install/path ..
