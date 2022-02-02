@@ -90,7 +90,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         compiler_command.arg("-o").arg(&*binary_path);
     } else if compiler.is_like_msvc() {
         compiler_command.arg("/std:c++20");
-        compiler_command.arg("/link").arg(concat!(env!("CPP_LIB_PATH"), "\\sixtyfps_cpp.dll.lib"));
+        compiler_command.arg("/link").arg(concat!(env!("CPP_LIB_PATH"), "\\slint_cpp.dll.lib"));
         let mut out_arg = std::ffi::OsString::from("/OUT:");
         out_arg.push(&*binary_path);
         compiler_command.arg(out_arg);
