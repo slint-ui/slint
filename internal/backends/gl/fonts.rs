@@ -25,7 +25,7 @@ pub const DEFAULT_FONT_WEIGHT: i32 = 400; // CSS normal
 )))]
 mod fontconfig;
 
-/// This function can be used to register a custom TrueType font with SixtyFPS,
+/// This function can be used to register a custom TrueType font with Slint,
 /// for use with the `font-family` property. The provided slice must be a valid TrueType
 /// font.
 pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {

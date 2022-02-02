@@ -1,9 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
-// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
-
 #![warn(missing_docs)]
 /*!
     This module contains the event loop implementation using winit, as well as the

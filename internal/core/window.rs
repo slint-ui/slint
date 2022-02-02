@@ -231,7 +231,7 @@ impl Window {
     /// Arguments:
     /// * `pos`: The position of the mouse event in window physical coordinates.
     /// * `what`: The type of mouse event.
-    /// * `component`: The SixtyFPS compiled component that provides the tree of items.
+    /// * `component`: The Slint compiled component that provides the tree of items.
     pub fn process_mouse_input(self: Rc<Self>, mut event: MouseEvent) {
         crate::animations::update_animations();
 
@@ -290,7 +290,7 @@ impl Window {
     ///
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
-    /// * `component`: The SixtyFPS compiled component that provides the tree of items.
+    /// * `component`: The Slint compiled component that provides the tree of items.
     pub fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
         let mut item = self.focus_item.borrow().clone();
         while let Some(focus_item) = item.upgrade() {

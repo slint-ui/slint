@@ -331,7 +331,7 @@ impl PlatformWindow for GLWindow {
                 window_item.height() == 0. && window_item.width() == 0.,
             )
         } else {
-            ("SixtyFPS Window".to_string(), false, true)
+            ("Slint Window".to_string(), false, true)
         };
 
         let window_builder = winit::window::WindowBuilder::new()

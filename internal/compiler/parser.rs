@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-/*! The sixtyfps language parser
+/*! The Slint Language Parser
 
 This module is responsible to parse a string onto a syntax tree.
 

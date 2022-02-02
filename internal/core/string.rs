@@ -12,7 +12,7 @@ use core::fmt::{Debug, Display};
 use core::iter::FromIterator;
 use core::ops::Deref;
 
-/// A string type used by the SixtyFPS run-time.
+/// A string type used by the Slint run-time.
 ///
 /// SharedString uses implicit data sharing to make it efficient to pass around copies. When
 /// cloning, a reference to the data is cloned, not the data itself. The data itself is only copied

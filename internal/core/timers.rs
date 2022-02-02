@@ -37,7 +37,7 @@ pub enum TimerMode {
 /// [`Timer::single_shot`] if you just want to call a function with a delay and do not
 /// need to be able to stop it.
 ///
-/// Note: the timer can only be used in the thread that runs the sixtyfps event loop.
+/// Note: the timer can only be used in the thread that runs the Slint event loop.
 /// They will not fire if used in another thread.
 ///
 /// ## Example

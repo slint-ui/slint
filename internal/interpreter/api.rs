@@ -69,7 +69,7 @@ impl From<LangType> for ValueType {
     }
 }
 
-/// This is a dynamically typed value used in the SixtyFPS interpreter.
+/// This is a dynamically typed value used in the Slint interpreter.
 /// It can hold a value of different types, and you should use the
 /// [`From`] or [`TryInto`] traits to access the value.
 ///
@@ -426,7 +426,7 @@ impl FromIterator<(String, Value)> for Struct {
     }
 }
 
-/// ComponentCompiler is the entry point to the SixtyFPS interpreter that can be used
+/// ComponentCompiler is the entry point to the Slint interpreter that can be used
 /// to load .slint files or compile them on-the-fly from a string.
 pub struct ComponentCompiler {
     config: slint_compiler_internal::CompilerConfiguration,

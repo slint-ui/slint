@@ -85,7 +85,7 @@ impl FPSCounter {
         #[cfg(not(debug_assertions))]
         let build_config = "release";
 
-        eprintln!("SixtyFPS: Build config: {}; Backend: {}", build_config, winsys_info);
+        eprintln!("Slint: Build config: {}; Backend: {}", build_config, winsys_info);
 
         let this = self.clone();
         self.update_timer.stop();

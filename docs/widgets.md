@@ -411,16 +411,16 @@ Example := Window {
 That's the same as `HorizontalLayout`, `VerticalLayout` or `GridLayout` but the spacing and padding values
  depending on the style instead of defaulting to 0.
 
-## `AboutSixtyFPS`
+## `AboutSlint`
 
 This element displays the a "Made with Slint" badge.
 
 ```slint
-import { AboutSixtyFPS } from "std-widgets.slint";
+import { AboutSlint } from "std-widgets.slint";
 Example := Window {
     width: 128px;
     height: 128px;
-    AboutSixtyFPS {
+    AboutSlint {
     }
 }
 ```

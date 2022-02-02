@@ -18,7 +18,7 @@ fn main() {
     //    Qt availability
     // 4a. When using the slint-build crate from a build script, it will be able to read this file
     //     from `slint_build::compile_with_config`
-    // 4b. Same when using the `sixtyfps!` macro,
+    // 4b. Same when using the `slint!` macro,
 
     let has_native_style = std::env::var("DEP_slint_backend_qt_internal_SUPPORTS_NATIVE_STYLE")
         .unwrap_or_default()

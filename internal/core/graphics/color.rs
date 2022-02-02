@@ -27,7 +27,7 @@ pub struct RgbaColor<T> {
     pub blue: T,
 }
 
-/// Color represents a color in the SixtyFPS run-time, represented using 8-bit channels for
+/// Color represents a color in the Slint run-time, represented using 8-bit channels for
 /// red, green, blue and the alpha (opacity).
 /// It can be conveniently converted using the `to_` and `from_` (a)rgb helper functions:
 /// ```

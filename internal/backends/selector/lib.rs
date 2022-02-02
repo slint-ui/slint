@@ -3,15 +3,15 @@
 
 /*!
 
-**NOTE**: This library is an **internal** crate for the [SixtyFPS project](https://sixtyfps.io).
-This crate should **not be used directly** by applications using SixtyFPS.
-You should use the `sixtyfps` crate instead.
+**NOTE**: This library is an **internal** crate for the [Slint project](https://sixtyfps.io).
+This crate should **not be used directly** by applications using Slint.
+You should use the `slint` crate instead.
 
 **WARNING**: This crate does not follow the semver convention for versioning and can
 only be used with `version = "=x.y.z"` in Cargo.toml.
 
 
-The purpose of this crate is to select the default backend for [SixtyFPS](https://sixtyfps.io)
+The purpose of this crate is to select the default backend for [Slint](https://sixtyfps.io)
 
 The backend can either be a runtime or a build time decision.  The runtime decision is decided
 by the `SLINT_BACKEND` environment variable. The built time default depends on the platform.

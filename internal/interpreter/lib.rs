@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 /*!
-# SixtyFPS interpreter library
+# Slint interpreter library
 
 With this crate, you can load a .slint file at runtime and show its UI.
 
 You only need to use this crate if you do not want to use pre-compiled .slint
-code, which is the normal way to use SixtyFPS, using the `sixtyfps` crate
+code, which is the normal way to use Slint, using the `slint` crate
 
 The entry point for this crate is the [`ComponentCompiler`] type, which you can
 use to create [`ComponentDefinition`] with the [`ComponentCompiler::build_from_source`] or [`ComponentCompiler::build_from_path`]
@@ -85,7 +85,7 @@ mod value_model;
 #[doc(inline)]
 pub use api::*;
 
-/// This function can be used to register a custom TrueType font with SixtyFPS,
+/// This function can be used to register a custom TrueType font with Slint,
 /// for use with the `font-family` property. The provided path must refer to a valid TrueType
 /// font.
 pub(crate) fn register_font_from_path<P: AsRef<std::path::Path>>(

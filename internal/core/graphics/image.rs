@@ -14,7 +14,7 @@ use super::{IntRect, IntSize};
 /// [`SharedPixelBuffer::clone_from_slice`].
 ///
 /// See the documentation for [`Image`] for examples how to use this type to integrate
-/// SixtyFPS with external rendering functions.
+/// Slint with external rendering functions.
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct SharedPixelBuffer<Pixel> {
@@ -95,7 +95,7 @@ impl<Pixel: Clone + Default> SharedPixelBuffer<Pixel> {
 impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
     /// Creates a new SharedPixelBuffer by cloning and converting pixels from an existing
     /// slice. This function is useful when another crate was used to allocate an image
-    /// and you would like to convert it for use in SixtyFPS.
+    /// and you would like to convert it for use in Slint.
     pub fn clone_from_slice<SourcePixelType>(
         pixel_slice: &[SourcePixelType],
         width: u32,
@@ -300,7 +300,7 @@ pub struct LoadImageError(());
 /// let image = Image::from_rgb8(pixel_buffer);
 /// ```
 ///
-/// Another use-case is to import existing image data into SixtyFPS, by
+/// Another use-case is to import existing image data into Slint, by
 /// creating a new Image through cloning of another image type.
 ///
 /// The following example uses the popular [image crate](https://docs.rs/image/) to

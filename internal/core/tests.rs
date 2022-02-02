@@ -9,7 +9,7 @@ use crate::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
 use crate::window::WindowRc;
 use crate::SharedString;
 
-/// SixtyFPS animations do not use real time, but use a mocked time.
+/// Slint animations do not use real time, but use a mocked time.
 /// Normally, the event loop update the time of the animation using
 /// real time, but in tests, it is more convenient to use the fake time.
 /// This function will add some milliseconds to the fake time

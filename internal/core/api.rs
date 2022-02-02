@@ -78,7 +78,7 @@ pub trait Global<'a, Component> {
     fn get(component: &'a Component) -> Self;
 }
 
-/// This trait describes the common public API of a strongly referenced SixtyFPS component.
+/// This trait describes the common public API of a strongly referenced Slint component.
 /// It allows creating strongly-referenced clones, a conversion into/ a weak pointer as well
 /// as other convenience functions.
 ///
@@ -130,7 +130,7 @@ mod weak_handle {
 
     use super::*;
 
-    /// Struct that's used to hold weak references of [SixtyFPS component](mod@crate#generated-components)
+    /// Struct that's used to hold weak references of a [Slint component](mod@crate#generated-components)
     ///
     /// In order to create a Weak, you should use [`ComponentHandle::as_weak`].
     ///
@@ -246,7 +246,7 @@ pub use weak_handle::*;
 /// running the event loop. The provided functors will only be invoked from the thread
 /// that started the event loop.
 ///
-/// You can use this to set properties or use any other SixtyFPS APIs from other threads,
+/// You can use this to set properties or use any other Slint APIs from other threads,
 /// by collecting the code in a functor and queuing it up for invocation within the event loop.
 ///
 /// See also [`Weak::upgrade_in_event_loop`]
