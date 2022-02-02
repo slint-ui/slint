@@ -24,7 +24,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: Set up rgb crate rustdoc link
       run: |
-        rgb_version=`grep 'rgb = '  sixtyfps_runtime/corelib/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
+        rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
         echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ -Z unstable-options" >> $GITHUB_ENV
     - name: Setup Node.js
       uses: actions/setup-node@v1
