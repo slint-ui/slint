@@ -315,7 +315,7 @@ jobs:
       CARGO_INCREMENTAL: false
       # There were binding loops with layout in our demo, so ignore theses errors
       # Also ignore errors that were warnings before
-      SIXTYFPS_INTERPRETER_ERROR_WHITELIST: "is part of a binding loop;must be called;duplicated element id;Unknown type Clip;in Path"
+      SLINT_INTERPRETER_ERROR_WHITELIST: "is part of a binding loop;must be called;duplicated element id;Unknown type Clip;in Path"
       RUST_BACKTRACE: 1
     strategy:
       matrix:
