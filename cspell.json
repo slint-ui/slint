@@ -5,37 +5,37 @@
         {
             "languageId": "rust",
             "words": [
+                "ARGB",
+                "bbox",
                 "bindgen",
                 "builtins",
+                "canonicalize", // std::path::Path::canonicalize
+                "codemap",
                 "concat",
                 "Consts",
                 "evenodd",
+                "FBOs", // plural of FBO (frame buffer object)
                 "femtovg",
                 "Flickable",
-                "fullscreen",
-                "peekable",
-                "Realloc",
-                "rtti",
-                "uninit",
-                "unmap",
-                "unsync",
-                "viewbox",
-                "codemap",
-                "subspan",
                 "fontdb",
-                "canonicalize", // std::path::Path::canonicalize
+                "fullscreen",
                 "glutin",
                 "glutin's",
-                "vsync",
-                "winit",
-                "FBOs", // plural of FBO (frame buffer object)
-                "bbox",
                 "maxx",
                 "maxy",
                 "minx",
                 "miny",
+                "peekable",
+                "Realloc",
                 "Rgba",
-                "ARGB"
+                "rtti",
+                "subspan",
+                "uninit",
+                "unmap",
+                "unsync",
+                "viewbox",
+                "vsync",
+                "winit"
             ],
             "ignoreRegExpList": [
                 "/#\\[cfg\\b.+\\]/",
@@ -87,34 +87,35 @@
         "linebreak",
         "listview",
         "lvalue",
+        "microcontroller",
+        "microcontrollers",
         "MSVC",
+        "opengl",
+        "pixmap",
         "rowspan",
         "rustc",
         "rvalue",
         "SDK",
         "sixtyfps",
+        "slint",
         "SPDX",
         "streetsidesoftware",
         "testcase",
         "tmpobj",
         "toolchain",
         "uncompiled",
+        "unmapping", // present participle of unmap
         "untracked",
         "vtable",
         "wasm",
-        "windowrc", // used in slint_windowrc_foo FFI functions
-        "xtask",
-        "unmapping", // present participle of unmap
-        "opengl",
-        "pixmap",
-        "microcontroller",
-        "microcontrollers"
+        "windowrc", // use in slint_windowrc_foo FFI functions
+        "xtask"
     ],
     "ignorePaths": [
-        "cspell.json",
         "api/cpp/docs/conf.py",
-        ".github/workflows/*.yaml",
-        "Cargo.toml"
+        "Cargo.toml",
+        "cspell.json",
+        ".github/workflows/*.yaml"
     ],
     "ignoreRegExpList": [
         // Color encodings in all languages:
