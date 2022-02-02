@@ -12,7 +12,7 @@ If you are building Slint from source, you need to make sure that your Rust inst
 
 ### CMakeLists.txt
 
- - When using `FetchContent`, the `SOURCE_SUBDIR` has changed from `api/sixtyfps-cpp` to `api/cpp` 
+ - When using `FetchContent`, the `SOURCE_SUBDIR` has changed from `api/sixtyfps-cpp` to `api/cpp`
 
 ### Models
 
@@ -43,7 +43,7 @@ if (value.has_value()) {
 
 #### Callbacks
 
-Callbacks declared in `.60` markup can be invoked from C++ using  {cpp:func}`slint::interpreter::ComponentInstance::invoke_callback()` or {cpp:func}`slint::interpreter::ComponentInstance::invoke_global_callback()`. The arguments to the callback at invocation time used to require the use of `sixtyfps::Slice` type. This was changed to use the C++ 20 [`std::span`](https://en.cppreference.com/w/cpp/container/span) type, for easier passing.
+Callbacks declared in `.slint` markup can be invoked from C++ using  {cpp:func}`slint::interpreter::ComponentInstance::invoke_callback()` or {cpp:func}`slint::interpreter::ComponentInstance::invoke_global_callback()`. The arguments to the callback at invocation time used to require the use of `sixtyfps::Slice` type. This was changed to use the C++ 20 [`std::span`](https://en.cppreference.com/w/cpp/container/span) type, for easier passing.
 
 Old code:
 

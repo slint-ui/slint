@@ -85,7 +85,7 @@ DashboardBuilder::build(slint::interpreter::ComponentCompiler &compiler) const
     }
 
     if (widget_imports.size() > 0) {
-        widget_imports = fmt::format("import {{ {} }} from \"iot-dashboard.60\";", widget_imports);
+        widget_imports = fmt::format("import {{ {} }} from \"iot-dashboard.slint\";", widget_imports);
     }
 
     // Vector of name/type_name of properties forwarded through the MainContent {} element.
