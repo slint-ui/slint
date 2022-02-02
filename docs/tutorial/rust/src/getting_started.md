@@ -10,7 +10,7 @@ cargo new memory
 cd memory
 ```
 
-Then we edit `Cargo.toml` to add the sixtyfps dependency:
+Then we edit `Cargo.toml` to add the slint dependency:
 
 ```toml
 [package]
@@ -18,7 +18,7 @@ Then we edit `Cargo.toml` to add the sixtyfps dependency:
 edition = "2021"
 
 [dependencies]
-sixtyfps = "0.1.6"
+slint = "0.2.0"
 ```
 
 Finally we copy the hello world program from the [Slint documentation](https://sixtyfps.io/docs/rust/sixtyfps/) into our `src/main.rs`:

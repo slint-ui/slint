@@ -12,13 +12,13 @@ to create many instances of the same element. In `.slint` the for loop is declar
 the model changes. We instantiate all the different <span class="hljs-title">MemoryTile</span> elements and place them on a grid based on their
 index with a little bit of spacing between the tiles.
 
-First, we copy the tile data structure definition and paste it at top inside the `sixtyfps!` macro:
+First, we copy the tile data structure definition and paste it at top inside the `slint!` macro:
 
 ```slint
 {{#include main_multiple_tiles.rs:tile_data}}
 ```
 
-Next, we replace the *<span class="hljs-title">MainWindow</span> := { ... }* section at the bottom of the `sixtyfps!` macro with the following snippet:
+Next, we replace the *<span class="hljs-title">MainWindow</span> := { ... }* section at the bottom of the `slint!` macro with the following snippet:
 
 ```slint
 {{#include main_multiple_tiles.rs:main_window}}

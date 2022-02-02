@@ -6,7 +6,7 @@ language. The game rules shall enforce that at most two tiles have their curtain
 consider them solved and they remain open. Otherwise we wait for a little while, so the player can memorize
 the location of the icons, and then close them again.
 
-We'll modify the `.slint` markup inside the `sixtyfps!` macro to signal to the Rust code when the user clicks on a tile.
+We'll modify the `.slint` markup inside the `slint!` macro to signal to the Rust code when the user clicks on a tile.
 Two changes to <span class="hljs-title">MainWindow</span> are needed: We need to add a way for the MainWindow to call to the Rust code that it should
 check if a pair of tiles has been solved. And we need to add a property that Rust code can toggle to disable further
 tile interaction, to prevent the player from opening more tiles than allowed. No cheating allowed! First, we paste
