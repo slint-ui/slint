@@ -188,7 +188,7 @@ This will generate a `my_application_ui.h` header file. It basically contains th
 (edited for brevity)
 
 ```C++
-#include <sixtyfps>
+#include <sixtyfps.h>
 
 struct TodoItem {
     bool checked;
