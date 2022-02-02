@@ -338,12 +338,12 @@ impl PlatformWindow for GLWindow {
             .with_title(window_title)
             .with_resizable(is_resizable);
 
-        let scale_factor_override = std::env::var("SIXTYFPS_SCALE_FACTOR")
+        let scale_factor_override = std::env::var("SLINT_SCALE_FACTOR")
             .ok()
             .and_then(|x| x.parse::<f64>().ok())
             .filter(|f| *f > 0.);
 
-        let window_builder = if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
+        let window_builder = if std::env::var("SLINT_FULLSCREEN").is_ok() {
             window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
         } else {
             let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);

@@ -71,7 +71,7 @@ fn main() -> Result<()> {
     }
 
     if let Some(backend) = &args.backend {
-        std::env::set_var("SIXTYFPS_BACKEND", backend);
+        std::env::set_var("SLINT_BACKEND", backend);
     }
 
     let fswatcher = if args.auto_reload { Some(start_fswatch_thread(args.clone())?) } else { None };

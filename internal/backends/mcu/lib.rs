@@ -108,7 +108,7 @@ mod the_backend {
     impl PlatformWindow for McuWindow {
         fn show(self: Rc<Self>) {
             self.self_weak.upgrade().unwrap().set_scale_factor(
-                option_env!("SIXTYFPS_SCALE_FACTOR").and_then(|x| x.parse().ok()).unwrap_or(1.),
+                option_env!("SLINT_SCALE_FACTOR").and_then(|x| x.parse().ok()).unwrap_or(1.),
             );
             WINDOWS.with(|x| *x.borrow_mut() = Some(self))
         }

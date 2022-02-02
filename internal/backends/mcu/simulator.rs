@@ -99,7 +99,7 @@ impl PlatformWindow for SimulatorWindow {
             platform_window.set_decorations(!window_item.no_frame());
         };
 
-        if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
+        if std::env::var("SLINT_FULLSCREEN").is_ok() {
             platform_window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
         } else {
             let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);

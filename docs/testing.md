@@ -63,19 +63,19 @@ Foo := Rectangle {
 The rust driver will compile each snippet of code and put it in a `sixtyfps!` macro in its own module
 In addition, if there are ```` ```rust ```` blocks in a comment, they are extracted into a `#[test]`
 function in the same module. This is usefull to test the rust api.
-This is all compiled in a while program, so the `SIXTYFPS_TEST_FILTER` environment variable can be
+This is all compiled in a while program, so the `SLINT_TEST_FILTER` environment variable can be
 set while building to only build the test that matches the filter.
 Example: to test all the layout test:
 
 ```
-SIXTYFPS_TEST_FILTER=layout cargo test -p test-driver-rust
+SLINT_TEST_FILTER=layout cargo test -p test-driver-rust
 ```
 
 Instead of putting everything in a sixtyfps! macro, it is possible to tell the driver to do the
 compilation in the build.rs, with the builod-time feature:
 
 ```
-SIXTYFPS_TEST_FILTER=layout cargo test -p test-driver-rust --features build-time
+SLINT_TEST_FILTER=layout cargo test -p test-driver-rust --features build-time
 ```
 
 ### C++ driver

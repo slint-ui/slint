@@ -38,7 +38,7 @@ fn widget_library() -> &'static [(&'static str, &'static BuiltinDirectory<'stati
 
     writeln!(file, "]\n}}")?;
 
-    println!("cargo:rustc-env=SIXTYFPS_WIDGETS_LIBRARY={}", output_file_path.display());
+    println!("cargo:rustc-env=SLINT_WIDGETS_LIBRARY={}", output_file_path.display());
 
     Ok(())
 }

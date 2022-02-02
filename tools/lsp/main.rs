@@ -113,7 +113,7 @@ impl<'a> DocumentCache<'a> {
 fn main() {
     let args: Cli = Cli::parse();
     if !args.backend.is_empty() {
-        std::env::set_var("SIXTYFPS_BACKEND", &args.backend);
+        std::env::set_var("SLINT_BACKEND", &args.backend);
     }
 
     let lsp_thread = std::thread::spawn(|| {

@@ -327,7 +327,7 @@ pub fn update_animations() {
         #[allow(unused_mut)]
         let mut duration = Instant::duration_since_start().as_millis() as u64;
         #[cfg(feature = "std")]
-        if let Ok(val) = std::env::var("SIXTYFPS_SLOW_ANIMATIONS") {
+        if let Ok(val) = std::env::var("SLINT_SLOW_ANIMATIONS") {
             let factor = val.parse().unwrap_or(2);
             duration /= factor;
         };

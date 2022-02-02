@@ -23,7 +23,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         None => {
             slint_interpreter::print_diagnostics(&compiler.diagnostics());
 
-            match std::env::var("SIXTYFPS_INTERPRETER_ERROR_WHITELIST") {
+            match std::env::var("SLINT_INTERPRETER_ERROR_WHITELIST") {
                 Ok(wl) if !wl.is_empty() => {
                     let errors = compiler
                         .diagnostics()

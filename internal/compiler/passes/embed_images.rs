@@ -67,7 +67,7 @@ fn embed_image(
             if let Some(file) = crate::fileaccess::load_file(std::path::Path::new(path)) {
                 let mut kind = EmbeddedResourcesKind::RawData;
                 #[cfg(not(target_arch = "wasm32"))]
-                if std::env::var("SIXTYFPS_PROCESS_IMAGES").is_ok() {
+                if std::env::var("SLINT_PROCESS_IMAGES").is_ok() {
                     match load_image(file) {
                         Ok(img) => kind = EmbeddedResourcesKind::TextureData(generate_texture(img)),
                         Err(err) => {

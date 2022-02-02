@@ -25,8 +25,8 @@ pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
     let case_root_dir: std::path::PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "..", "..", "cases"].iter().collect();
 
-    println!("cargo:rerun-if-env-changed=SIXTYFPS_TEST_FILTER");
-    let filter = std::env::var("SIXTYFPS_TEST_FILTER").ok();
+    println!("cargo:rerun-if-env-changed=SLINT_TEST_FILTER");
+    let filter = std::env::var("SLINT_TEST_FILTER").ok();
 
     for entry in walkdir::WalkDir::new(case_root_dir.clone()).follow_links(true) {
         let entry = entry?;
