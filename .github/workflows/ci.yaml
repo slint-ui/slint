@@ -154,7 +154,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
           command: build
-          args: --lib -p sixtyfps-cpp --features testing
+          args: --lib -p slint-cpp --features testing
     - name: Run tests
       uses: actions-rs/cargo@v1
       with:
@@ -164,8 +164,8 @@ jobs:
       if: matrix.os == 'ubuntu-20.04'
       run: |
           du -hs target
-          rm -rf target/*/*/*sixtyfps*
-          rm -rf target/*/*sixtyfps*
+          rm -rf target/*/*/*slint*
+          rm -rf target/*/*slint*
           rm -rf target/*/*/test*
           rm -rf target/*/*test*
           du -hs target
@@ -174,8 +174,8 @@ jobs:
       run: |
           du -hs target
           rm -Recurse -Force target/*/incremental
-          rm -Recurse -Force target/*/*/*sixtyfps*
-          rm -Recurse -Force target/*/*sixtyfps*
+          rm -Recurse -Force target/*/*/*slint*
+          rm -Recurse -Force target/*/*slint*
           rm -Recurse -Force target/*/*/test*
           rm -Recurse -Force target/*/*test*
           du -hs target

@@ -19,10 +19,10 @@ list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
 find_package(Rust 1.56 REQUIRED MODULE)
 
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
-    CRATES slint-compiler sixtyfps-cpp)
+    CRATES slint-compiler slint-cpp)
 
 set_property(
-    TARGET sixtyfps-cpp
+    TARGET slint-cpp
     APPEND
     PROPERTY CORROSION_ENVIRONMENT_VARIABLES
     SIXTYFPS_GENERATED_INCLUDE_DIR="${CMAKE_CURRENT_BINARY_DIR}/generated_include/"
@@ -35,7 +35,7 @@ set_property(
 
 add_library(SixtyFPS INTERFACE)
 add_library(SixtyFPS::SixtyFPS ALIAS SixtyFPS)
-target_link_libraries(SixtyFPS INTERFACE sixtyfps-cpp)
+target_link_libraries(SixtyFPS INTERFACE slint-cpp)
 target_compile_features(SixtyFPS INTERFACE cxx_std_20)
 
 function(define_cargo_feature cargo-feature description default)
@@ -75,12 +75,12 @@ define_cargo_dependent_feature(wayland "Enable Wayland support when using the GL
 define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
 set_property(
-    TARGET sixtyfps-cpp
+    TARGET slint-cpp
     PROPERTY CORROSION_FEATURES
     ${features}
 )
 set_property(
-    TARGET sixtyfps-cpp
+    TARGET slint-cpp
     PROPERTY CORROSION_NO_DEFAULT_FEATURES
     ${features}
 )
@@ -96,7 +96,7 @@ if (SIXTYFPS_FEATURE_BACKEND_QT)
 endif (SIXTYFPS_FEATURE_BACKEND_QT)
 if (TARGET Qt::qmake)
     set_property(
-        TARGET sixtyfps-cpp
+        TARGET slint-cpp
         APPEND
         PROPERTY CORROSION_ENVIRONMENT_VARIABLES
         QMAKE=$<TARGET_PROPERTY:Qt::qmake,LOCATION>
@@ -104,7 +104,7 @@ if (TARGET Qt::qmake)
     set(SIXTYFPS_STYLE_DEFAULT "native")
 else()
     set_property(
-        TARGET sixtyfps-cpp
+        TARGET slint-cpp
         APPEND
         PROPERTY CORROSION_ENVIRONMENT_VARIABLES
         SIXTYFPS_NO_QT=1
@@ -150,28 +150,28 @@ target_include_directories(SixtyFPS INTERFACE
 add_executable(SixtyFPS::slint-compiler ALIAS slint-compiler)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/SixtyFPSMacro.cmake)
 
-export(TARGETS SixtyFPS sixtyfps-cpp
+export(TARGETS SixtyFPS slint-cpp
     NAMESPACE SixtyFPS:: FILE "${CMAKE_BINARY_DIR}/lib/cmake/SixtyFPS/SixtyFPSTargets.cmake")
 install(EXPORT SixtyFPSTargets NAMESPACE SixtyFPS:: DESTINATION lib/cmake/SixtyFPS)
-install(TARGETS SixtyFPS sixtyfps-cpp
+install(TARGETS SixtyFPS slint-cpp
     EXPORT SixtyFPSTargets  LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include/sixtyfps)
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
-install(FILES $<TARGET_FILE:sixtyfps-cpp-shared> TYPE LIB)
+install(FILES $<TARGET_FILE:slint-cpp-shared> TYPE LIB)
 if(WIN32)
-    install(FILES $<TARGET_LINKER_FILE:sixtyfps-cpp-shared> TYPE LIB)
+    install(FILES $<TARGET_LINKER_FILE:slint-cpp-shared> TYPE LIB)
     # Copy the dll to the top-level bin directory, where the examples will
     # will also be located, so that they can find the dll.
     get_property(GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
     if(GENERATOR_IS_MULTI_CONFIG)
         set(config_subdir_genex "$<CONFIG>/")
     endif()
-    add_custom_target(SixtyFPS_dll_convenience ALL DEPENDS sixtyfps-cpp-shared
+    add_custom_target(SixtyFPS_dll_convenience ALL DEPENDS slint-cpp-shared
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:sixtyfps-cpp-shared>
-	    ${CMAKE_BINARY_DIR}/bin/${config_subdir_genex}$<TARGET_FILE_NAME:sixtyfps-cpp-shared>)
+            $<TARGET_FILE:slint-cpp-shared>
+	    ${CMAKE_BINARY_DIR}/bin/${config_subdir_genex}$<TARGET_FILE_NAME:slint-cpp-shared>)
 endif()
 
 install(PROGRAMS $<TARGET_FILE:slint-compiler> TYPE BIN)
@@ -182,7 +182,7 @@ foreach(prop
         IMPORTED_LOCATION_RELWITHDEBINFO IMPORTED_LOCATION_MINSIZEREL
         IMPORTED_IMPLIB IMPORTED_IMPLIB_DEBUG IMPORTED_IMPLIB_RELEASE
         IMPORTED_IMPLIB_RELWITHDEBINFO IMPORTED_IMPLIB_MINSIZEREL)
-  get_target_property(value sixtyfps-cpp-shared ${prop})
+  get_target_property(value slint-cpp-shared ${prop})
   if(value)
     get_filename_component(value ${value} NAME)
     list(APPEND SIXTYFPS_LIB_PROPERTIES ${prop} "\${_IMPORT_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${value}")

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "sixtyfps-cpp"
+name = "slint-cpp"
 version = "0.2.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2021"
@@ -13,7 +13,7 @@ repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 publish = false
 # prefix used to convey path to generated includes to the C++ test driver
-links = "sixtyfps_cpp"
+links = "slint_cpp"
 
 [lib]
 path = "lib.rs"

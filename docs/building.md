@@ -57,7 +57,7 @@ C++ tests or the nodejs tests will not find the required dynamic library otherwi
 The C++ crate are not included in the workspace's default members, so it need to be build explicitly
 
 ```sh
-cargo build --lib -p sixtyfps-cpp
+cargo build --lib -p slint-cpp
 cargo test --bin test-driver-cpp
 ```
 

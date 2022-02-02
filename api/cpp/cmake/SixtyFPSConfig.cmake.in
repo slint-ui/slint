@@ -11,8 +11,8 @@ if(_IMPORT_PREFIX STREQUAL "/")
   set(_IMPORT_PREFIX "")
 endif()
 
-add_library(sixtyfps-cpp-shared SHARED IMPORTED)
-set_target_properties(sixtyfps-cpp-shared PROPERTIES @SIXTYFPS_LIB_PROPERTIES@)
+add_library(slint-cpp-shared SHARED IMPORTED)
+set_target_properties(slint-cpp-shared PROPERTIES @SIXTYFPS_LIB_PROPERTIES@)
 
 add_executable(SixtyFPS::slint-compiler IMPORTED GLOBAL)
 set_target_properties(SixtyFPS::slint-compiler PROPERTIES IMPORTED_LOCATION "${_IMPORT_PREFIX}/@CMAKE_INSTALL_BINDIR@/slint-compiler${CMAKE_EXECUTABLE_SUFFIX}")

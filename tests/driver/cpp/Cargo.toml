@@ -14,7 +14,7 @@ path = "main.rs"
 name = "test-driver-cpp"
 
 [dependencies]
-sixtyfps-cpp = { path = "../../../api/cpp", features = ["testing"] }
+slint-cpp = { path = "../../../api/cpp", features = ["testing"] }
 
 [dev-dependencies]
 slint-compiler-internal = { path = "../../../internal/compiler", features = ["cpp", "display-diagnostics"] }

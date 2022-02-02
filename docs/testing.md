@@ -89,10 +89,10 @@ Some macro like `assert_eq` are defined to look similar o the rust equivalent.
 To run the test, you must make sure to first build the sixtyfps shared library:
 
 ```
-cargo build --lib -p sixtyfps-cpp --features testing && cargo test -p  test-driver-cpp --
+cargo build --lib -p slint-cpp --features testing && cargo test -p  test-driver-cpp --
 ```
 
-You can omit the first part that compiles sixtyfps-cpp if you only want to test the compiler and
+You can omit the first part that compiles slint-cpp if you only want to test the compiler and
 the runtime library is uptodate.
 
 Note that there are also C++ unit tests that can be run by CMake

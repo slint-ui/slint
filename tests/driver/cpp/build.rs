@@ -28,8 +28,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("cargo:rustc-env=CPP_LIB_PATH={}", target_dir.display());
 
-    let generated_include_dir = std::env::var_os("DEP_SIXTYFPS_CPP_GENERATED_INCLUDE_DIR")
-        .expect("the sixtyfps-cpp crate needs to provide the meta-data that points to the directory with the generated includes");
+    let generated_include_dir = std::env::var_os("DEP_SLINT_CPP_GENERATED_INCLUDE_DIR")
+        .expect("the slint-cpp crate needs to provide the meta-data that points to the directory with the generated includes");
     println!(
         "cargo:rustc-env=GENERATED_CPP_HEADERS_PATH={}",
         Path::new(&generated_include_dir).display()
