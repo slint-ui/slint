@@ -5,7 +5,7 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, wip/rename ]
   pull_request:
     branches: [ master ]
   workflow_dispatch:
