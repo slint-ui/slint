@@ -3,7 +3,7 @@
 
 cmake_minimum_required(VERSION 3.19)
 
-project(SixtyFPS LANGUAGES CXX)
+project(Slint LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -16,7 +16,7 @@ include(CTest)
 
 add_subdirectory(api/cpp/)
 
-option(SLINT_BUILD_EXAMPLES "Build SixtyFPS Examples" OFF)
+option(SLINT_BUILD_EXAMPLES "Build Slint Examples" OFF)
 add_feature_info(SLINT_BUILD_EXAMPLES SLINT_BUILD_EXAMPLES "configure whether to build the examples")
 
 if(SLINT_BUILD_EXAMPLES)

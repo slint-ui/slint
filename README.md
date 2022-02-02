@@ -1,9 +1,9 @@
-# SixtyFPS
+# Slint
 
 [![Build Status](https://github.com/sixtyfpsui/sixtyfps/workflows/CI/badge.svg)](https://github.com/sixtyfpsui/sixtyfps/actions)
 [![Discussions](https://img.shields.io/github/discussions/sixtyfpsui/sixtyfps)](https://github.com/sixtyfpsui/sixtyfps/discussions)
 
-SixtyFPS is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications. We support multiple programming languages, such as
+Slint is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications. We support multiple programming languages, such as
 Rust, C++, and JavaScript.
 
 Our design goals are:
@@ -18,16 +18,16 @@ Our design goals are:
 
 ## Current Status
 
-SixtyFPS is in active development. Its state of development depends on the kind of application.
+Slint is in active development. Its state of development depends on the kind of application.
 
- - **Embedded**: *Ready!* SixtyFPS is already happily used by customers on embedded devices
+ - **Embedded**: *Ready!* Slint is already happily used by customers on embedded devices
    (running on an Arm processor with Linux). We are also looking into supporting microcontrollers.
- - **Desktop**: *In Progress*. SixtyFPS is usable on Windows, Linux and Mac. We plan on building
+ - **Desktop**: *In Progress*. Slint is usable on Windows, Linux and Mac. We plan on building
     up the desktop support in subsequent releases to reach the level of integration we're aiming for.
  - **Mobile** (Android/iOS): *Todo*. We haven't started supporting mobile platforms yet, but it
    is our intention to do so in the future.
  - **Web**: Our focus is on Embedded and Desktop applications. We do not intend to compete in
-   the web space as a primary platform. That said, SixtyFPS can compile to WebAssembly and the
+   the web space as a primary platform. That said, Slint can compile to WebAssembly and the
    demos are running in a web browser. But the web support is currently limited to demo purposes.
 
 ## Documentation
@@ -57,7 +57,7 @@ Click on the screenshots to run the WebAssembly simulation
 
 ## The .slint Markup Language
 
-SixtyFPS comes with a markup language that is specifically designed for user interfaces. This language provides a
+Slint comes with a markup language that is specifically designed for user interfaces. This language provides a
 powerful way to describe graphical elements, their placement, and the flow of data through the different states. It is a familiar syntax to describe the hierarchy of elements and property bindings. Here's the obligatory "Hello World":
 
 ```slint
@@ -134,7 +134,7 @@ We welcome your contributions: in the form of code, bug reports or feedback.
 This software is provided under a dual licensing scheme:
 
  - **GNU GPLv3**: Open source license ideal for free software.
- - **Commercial SixtyFPS license**: <https://sixtyfps.io/#offering>
+ - **Commercial Slint license**: <https://sixtyfps.io/#offering>
 
 See also the [Licensing FAQ](FAQ.md#licensing)
 
@@ -149,7 +149,7 @@ for Linux. Later they met while working together in a small company in Norway ca
 Here, they gained valuable experience in API design, cross-platform software development and user interface components.
 Simon continued in the Qt Company as one lead developer and maintainer of the QtQml engine, while Olivier
 co-founded [Woboq](https://woboq.com), a software consulting company. Years later, and now based in Berlin, they are starting a
-new project. With SixtyFPS they aim to make developing user interfaces fun for everyone: from JavaScript, C++, or
+new project. With Slint they aim to make developing user interfaces fun for everyone: from JavaScript, C++, or
 Rust developers all the way to UI/UX designers.
 
 ## Contact us

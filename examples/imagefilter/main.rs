@@ -11,7 +11,7 @@ slint::slint! {
     import { Slider, HorizontalBox, VerticalBox, GroupBox, ComboBox } from "std-widgets.slint";
 
     export MainWindow := Window {
-        title: "SixtyFPS Image Filter Integration Example";
+        title: "Slint Image Filter Integration Example";
         preferred-width: 800px;
         preferred-height: 600px;
 

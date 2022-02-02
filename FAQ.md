@@ -7,15 +7,15 @@
   - [Will there be API bindings to integrate with my favorite programming language?](#will-there-be-api-bindings-to-integrate-with-my-favorite-programming-language)
 - [Licensing](#licensing)
   - [What is the commercial licensing model?](#what-is-the-commercial-licensing-model)
-  - [Can I try SixtyFPS using the GPL version and then switch to the commercial license later?](#can-i-try-sixtyfps-using-the-gpl-version-and-then-switch-to-the-commercial-license-later)
+  - [Can I try Slint using the GPL version and then switch to the commercial license later?](#can-i-try-sixtyfps-using-the-gpl-version-and-then-switch-to-the-commercial-license-later)
   - [Is there a discount or reduction for independent developers or small businesses?](#is-there-a-discount-or-reduction-for-independent-developers-or-small-businesses)
-  - [I want to develop a free software product using SixtyFPS, but I don't like the GPL and prefer to use a non-copyleft license.](#i-want-to-develop-a-free-software-product-using-sixtyfps-but-i-dont-like-the-gpl-and-prefer-to-use-a-non-copyleft-license)
+  - [I want to develop a free software product using Slint, but I don't like the GPL and prefer to use a non-copyleft license.](#i-want-to-develop-a-free-software-product-using-sixtyfps-but-i-dont-like-the-gpl-and-prefer-to-use-a-non-copyleft-license)
 
 # General
 
 ## Where does the name come from?
 
-The name SixtyFPS comes from *60 frames per second*, which is the common refresh rate of screens.
+The name Slint comes from *60 frames per second*, which is the common refresh rate of screens.
 This means that the screen shows a new image 60 times per second. To the human eye, animations updating
 at this frequency look pleasantly fluid. Consequently, in games and user interfaces, 60 FPS is synonymous
 with a perfectly smooth user interface.
@@ -35,7 +35,7 @@ to declare relationships between properties, even in complex user interfaces.
 
 ## Will there be API bindings to integrate with my favorite programming language?
 
-We want to make it possible to use SixtyFPS with any programming language. We do not favor one programming
+We want to make it possible to use Slint with any programming language. We do not favor one programming
 language over another. We have chosen to start with three languages:
 
   * Rust, our implementation language.
@@ -47,7 +47,7 @@ languages.
 
 # Licensing
 
-SixtyFPS is available under two licenses:
+Slint is available under two licenses:
 
  * GPLv3, for the growing ecosystem of Free and Open Source Software.
  * Commercial, for use in closed-source projects. See <https://sixtyfps.io/#offering>
@@ -56,16 +56,16 @@ SixtyFPS is available under two licenses:
 
 The basic principle behind our commercial licensing is that you start for free and pay when you're shipping.
 
-We offer a perpetual license option and we generally deploy a per-product license, regardless of how many developers, designers, Q&A engineers are using SixtyFPS.
+We offer a perpetual license option and we generally deploy a per-product license, regardless of how many developers, designers, Q&A engineers are using Slint.
 
 If this doesn't fit you, don't hesitate to contact us and we'd be happy to work together to find a solution.
 
 You can find a more detailed overview of our commercial licensing and the pricing at <https://sixtyfps.io/pricing.html>.
 
-## Can I try SixtyFPS using the GPL version and then switch to the commercial license later?
+## Can I try Slint using the GPL version and then switch to the commercial license later?
 
 Yes. The GPL is a distribution license that applies only when you ship your application. You can
-evaluate SixtyFPS and develop your product internally using the GPL license, and only acquire a commercial
+evaluate Slint and develop your product internally using the GPL license, and only acquire a commercial
 license when you want to ship your product. If you choose a per seat licensing model, the time spent
 developing needs to be accounted for. However, support for bug fixes requires a commercial license.
 
@@ -73,8 +73,8 @@ developing needs to be accounted for. However, support for bug fixes requires a 
 
 Yes, check out our [Ambassador program](https://sixtyfps.io/ambassador-program.html)
 
-## I want to develop a free software product using SixtyFPS, but I don't like the GPL and prefer to use a non-copyleft license.
+## I want to develop a free software product using Slint, but I don't like the GPL and prefer to use a non-copyleft license.
 
 You can still publish your own source code under a permissive license compatible with the GPL, such as BSD, MIT, or Apache license.
-The distribution of a binary or a package containing SixtyFPS still needs to be licensed under the GPL.
+The distribution of a binary or a package containing Slint still needs to be licensed under the GPL.
 It is up to those who want to distribute a non-free version of the application to acquire a commercial license.

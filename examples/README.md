@@ -1,6 +1,6 @@
 # Examples
 
-These examples demonstrate the main features of SixtyFPS and how to use them in different language environments.
+These examples demonstrate the main features of Slint and how to use them in different language environments.
 
 ### [`printerdemo`](./printerdemo)
 
@@ -68,7 +68,7 @@ Also show how a way to dynamically load widgets with the interpreter from C++.
 ### [`imagefilter`](./imagefilter)
 
 A Rust-only example that shows how to use the Rust image crate to do image manipulations
-and feed the result into SixtyFPS.
+and feed the result into Slint.
 
 |  Source | Online wasm Preview |
 | --- | --- |
@@ -79,7 +79,7 @@ and feed the result into SixtyFPS.
 ### [`plotter`](./plotter)
 
 A Rust-only example that shows how to use the Rust plotters crate to do plot a
-graph and integrate the result into SixtyFPS.
+graph and integrate the result into Slint.
 
 | `.slint` Design | Rust Source | Online wasm Preview |
 | --- |  --- | --- |
@@ -138,7 +138,7 @@ python3 -m http.server
 
 ## Running the C++ Examples
 
-* **When compiling SixtyFPS from sources:** If you follow the [C++ build instructions](/docs/building.md#c-build), this will build the C++
+* **When compiling Slint from sources:** If you follow the [C++ build instructions](/docs/building.md#c-build), this will build the C++
 examples as well by default
 * **From [installed binary packages](/api/cpp/README.md#binary-packages):** Simply run cmake in one of the example directory containing a CMakeLists.txt
 

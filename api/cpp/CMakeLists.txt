@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 cmake_minimum_required(VERSION 3.19)
-project(SixtyFPS HOMEPAGE_URL "https://sixtyfps.io/" LANGUAGES CXX)
+project(Slint HOMEPAGE_URL "https://sixtyfps.io/" LANGUAGES CXX)
 
 include(FeatureSummary)
 include(CMakeDependentOption)
@@ -237,7 +237,7 @@ if(SLINT_PACKAGE_BUNDLE_QT)
 endif(SLINT_PACKAGE_BUNDLE_QT)
 
 set(CPACK_PACKAGE_NAME "Slint-cpp")
-set(CPACK_PACKAGE_VENDOR "SixtyFPS")
+set(CPACK_PACKAGE_VENDOR "Slint")
 set(CPACK_VERBATIM_VARIABLES true)
 set(CPACK_PACKAGE_VERSION_MAJOR 0)
 set(CPACK_PACKAGE_VERSION_MINOR 2)

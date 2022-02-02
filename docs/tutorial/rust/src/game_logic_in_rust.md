@@ -1,6 +1,6 @@
 # Game Logic In Rust
 
-We'll implement the rules of the game in Rust as well. The general philosophy of SixtyFPS is that merely the user
+We'll implement the rules of the game in Rust as well. The general philosophy of Slint is that merely the user
 interface is implemented in the `.slint` language and the business logic in your favorite programming
 language. The game rules shall enforce that at most two tiles have their curtain open. If the tiles match, then we
 consider them solved and they remain open. Otherwise we wait for a little while, so the player can memorize

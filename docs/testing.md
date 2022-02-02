@@ -1,6 +1,6 @@
-# SixtyFPS tests
+# Slint tests
 
-This documents describe the testing infrastructure of SixtyFPS
+This documents describe the testing infrastructure of Slint
 
 ## Syntax tests
 

@@ -62,7 +62,7 @@ int main(int argc, char **argv)
             QMessageBox::critical(
                     &main, QApplication::translate("qt_viewer", "No Qt backend"),
                     QApplication::translate("qt_viewer",
-                                            "SixtyFPS is not running with the Qt backend."),
+                                            "Slint is not running with the Qt backend."),
                     QMessageBox::StandardButton::Ok);
             return;
         }
@@ -78,8 +78,8 @@ int main(int argc, char **argv)
 
     QObject::connect(ui.load_button, &QPushButton::clicked, [&] {
         QString fileName = QFileDialog::getOpenFileName(
-                &main, QApplication::translate("qt_viewer", "Open SixtyFPS File"), {},
-                QApplication::translate("qt_viewer", "SixtyFPS File (*.slint)"));
+                &main, QApplication::translate("qt_viewer", "Open Slint File"), {},
+                QApplication::translate("qt_viewer", "Slint File (*.slint)"));
         if (fileName.isEmpty())
             return;
         load_file(fileName);

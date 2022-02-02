@@ -413,7 +413,7 @@ That's the same as `HorizontalLayout`, `VerticalLayout` or `GridLayout` but the 
 
 ## `AboutSixtyFPS`
 
-This element displays the a "Made with SixtyFPS" badge.
+This element displays the a "Made with Slint" badge.
 
 ```slint
 import { AboutSixtyFPS } from "std-widgets.slint";

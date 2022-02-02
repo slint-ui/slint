@@ -3,7 +3,7 @@ authors = ["SixtyFPS <info@sixtyfps.io>"]
 language = "en"
 multilingual = false
 src = "src"
-title = "SixtyFPS Memory Game Tutorial (Rust)"
+title = "Slint Memory Game Tutorial (Rust)"
 
 [output.html]
 theme = "../theme"

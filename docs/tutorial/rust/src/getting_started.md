@@ -21,7 +21,7 @@ edition = "2021"
 sixtyfps = "0.1.6"
 ```
 
-Finally we copy the hello world program from the [SixtyFPS documentation](https://sixtyfps.io/docs/rust/sixtyfps/) into our `src/main.rs`:
+Finally we copy the hello world program from the [Slint documentation](https://sixtyfps.io/docs/rust/sixtyfps/) into our `src/main.rs`:
 
 ```rust,noplayground
 {{#include main_initial.rs:main}}

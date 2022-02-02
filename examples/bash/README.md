@@ -1,4 +1,4 @@
-# SixtyFPS Bash example
+# Slint Bash example
 
 This shows how to use [`slint-viewer`](../../tools/viewer) to display dialog from a bash script.
 

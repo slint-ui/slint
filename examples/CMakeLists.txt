@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 cmake_minimum_required(VERSION 3.19)
-project(SixtyFPSExamples LANGUAGES CXX)
+project(SlintExamples LANGUAGES CXX)
 
 if (NOT TARGET Slint::Slint)
     find_package(Slint REQUIRED)

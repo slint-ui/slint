@@ -3,7 +3,7 @@
 Example based on the flutter slide_puzzle example:
 https://flutter.github.io/samples/slide_puzzle
 
-This will allow to compare SixtyFPS and Flutter.
+This will allow to compare Slint and Flutter.
 
 Remaining feature to implement to have parity:
 
@@ -21,7 +21,7 @@ Remaining feature to implement to have parity:
 Comparison with the flutter demo (as of commit ecd7f7d
  of this repository, and commit a23d035 of the flutter repository)
 
-| . | SixtyFPS | Flutter |
+| . | Slint | Flutter |
 | --- | ---| --- |
 | UI files | slide_puzzle.60 | src/puzzle_controls.dart src/puzzle_flow_delegate.dart src/puzzle_home_state.dart src/shared_theme.dart src/theme_plaster.dart src/themes.dart src/theme_seattle.dart src/theme_simple.dart src/widgets/decoration_image_plus.dart src/widgets/material_interior_alt.dart |
 | Line of codes for the UI | 444 | 1140 |

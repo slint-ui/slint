@@ -1,6 +1,6 @@
 # The `.slint` language reference
 
-The SixtyFPS design markup language is used to describe graphical user interfaces:
+The Slint design markup language is used to describe graphical user interfaces:
 
  * Place and compose a tree of visual elements in a window using a textual representation.
  * Configure the appearance of elements via properties. For example a `Text` element has font and text
@@ -12,7 +12,7 @@ The SixtyFPS design markup language is used to describe graphical user interface
  * Define data structures and models and access them from programming languages.
  * Build highly customized user interfaces with the [builtin elements](builtin_elements.md) provided.
 
-SixtyFPS also comes with a catalog of high-level [widgets](widgets.md), that are written in the `.slint`
+Slint also comes with a catalog of high-level [widgets](widgets.md), that are written in the `.slint`
 language.
 
 ## `.slint` files
@@ -1011,7 +1011,7 @@ values in the surrounding `Window` element apply, such as `default-font-family`.
 The fonts chosen for rendering are automatically picked up from the system. It is also possible to include custom
 fonts in your design. A custom font must be a TrueType font (`.ttf`) or a TrueType font collection (`.ttc`).
 You can select a custom font with the `import` statement: `import "./my_custom_font.ttf"` in a .slint file. This
-instructions the SixtyFPS compiler to include the font and makes the font families globally available for use with
+instructions the Slint compiler to include the font and makes the font families globally available for use with
 `font-family` properties.
 
 For example:

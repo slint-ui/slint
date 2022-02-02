@@ -67,7 +67,7 @@ different ways of toggling CMake options. For example on the command line using 
 Alternatively, after the configure step you can use `cmake-gui` or `ccmake` on the build directory for a list of all features
 and their description.
 
-This works when compiling SixtyFPS as a package, using `cmake --build` and `cmake --install`, or when including Slint
+This works when compiling Slint as a package, using `cmake --build` and `cmake --install`, or when including Slint
 using `FetchContent`.
 
 ### Cross-compiling
@@ -85,7 +85,7 @@ rustup target add <target-name>
 ```
 
 Then you're ready to invoke CMake and you need to add `-DRust_CARGO_TARGET=<target name>` to the CMake command line.
-This ensures that the SixtyFPS library is built for the correct architecture.
+This ensures that the Slint library is built for the correct architecture.
 
 For example if you are building against an embedded Linux Yocto SDK targeting an ARM64 board, the following commands
 show how to compile:

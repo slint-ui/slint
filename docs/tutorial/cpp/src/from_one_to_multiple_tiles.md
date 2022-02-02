@@ -7,7 +7,7 @@ After modeling a single tile, let's create a grid of them. For the grid to be ou
    from Rust code.
 1. A way of creating many instances of the tiles, with the above `.slint` markup code.
 
-In SixtyFPS we can declare an array of structures using brackets, to create a model. We can use the <span class="hljs-keyword">for</span> loop
+In Slint we can declare an array of structures using brackets, to create a model. We can use the <span class="hljs-keyword">for</span> loop
 to create many instances of the same element. In `.slint` the for loop is declarative and automatically updates when
 the model changes. We instantiate all the different <span class="hljs-title">MemoryTile</span> elements and place them on a grid based on their
 index with a little bit of spacing between the tiles.

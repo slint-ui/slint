@@ -1,4 +1,4 @@
-# SixtyFPS development guide
+# Slint development guide
 
 The build instructions are in the [building.md](./building.md) file.
 The testing instructions are in the [testing.md](./testing.md) file.

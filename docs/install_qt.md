@@ -3,11 +3,11 @@
 TLDR; If you are redirected to this document because of a link in the warning that Qt was not found and
 you want to silence the warning without installing Qt, you can set this environment variable: `SLINT_NO_QT=1`
 
-## Do I need Qt to use SixtyFPS?
+## Do I need Qt to use Slint?
 
 Short answer: No. Only if you want to use the Qt backend used for the native style.
 
-SixtyFPS has two backends: GL and Qt. The GL backend uses the `femtovg` and `winit` crate for the rendering.
+Slint has two backends: GL and Qt. The GL backend uses the `femtovg` and `winit` crate for the rendering.
 The Qt backend uses Qt. In addition, the Qt backend provide the implementation for the native widget
 from the `native` style.
 Qt is only needed if you want native looking widgets. Otherwise, another style will be used for widget, which does not
@@ -20,7 +20,7 @@ You will need the Qt >= 5.15
 
 You can just download and install the latest version of Qt from https://www.qt.io/download-qt-installer or any other sources
 
-Then simply make sure that `qmake` executable is in the `PATH` when you build SixtyFPS. The executable is
+Then simply make sure that `qmake` executable is in the `PATH` when you build Slint. The executable is
 typically located in the `bin` sub-directory of a Qt installation that was produced by the Qt installer.
 Alternatively, you can set the `QMAKE` environment variable to point to the `qmake` executable.
 (more info: <https://docs.rs/qttypes/*/qttypes/#finding-qt> )
@@ -31,7 +31,7 @@ Many distributions may provide Qt 5.15 in the distribution package. In that case
 and there is not much more to do. On many distributions, you also need the **-dev** packages. For distributions that
 split the packages in different modules, you just need `qtbase` (for QtWidgets) and `qtsvg` for the SVG plugin.
 
-If when running your SixtyFPS application you get an error that libQt5Core.so.5 or such cannot be found, you need to
+If when running your Slint application you get an error that libQt5Core.so.5 or such cannot be found, you need to
 adjust the `LD_LIBRARY_PATH` environment variable to contain a path that contains the Qt libraries.
 
 ### macOS
@@ -47,5 +47,5 @@ environment variable, in order for the build system to locate `qmake` and to fin
 
 ## How To Disable the Qt Backend
 
-By setting the `SLINT_NO_QT` environment variable when building SixtyFPS, the Qt backend will not be compiled and
+By setting the `SLINT_NO_QT` environment variable when building Slint, the Qt backend will not be compiled and
 no attempt will be made to find Qt on the system. This will also disable the warning stating that Qt was not found.

@@ -1,4 +1,4 @@
-# figma_import: Figma to SixtyFPS import tool
+# figma_import: Figma to Slint import tool
 
 This tool imports a design from Figma into a .slint file.
 

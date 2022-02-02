@@ -52,7 +52,7 @@ expressions for the `width` and `height` properties. The calculation results in 
 bottom left corner aligning with the corner of the window - it is updated whenever
 the `width` and `height` of the window changes.
 
-When specifying explicit values for any of the geometric properties, SixtyFPS requires
+When specifying explicit values for any of the geometric properties, Slint requires
 you to attach a unit to the number. You can choose between two different units:
 
 * Logical pixels, using the `px` unit suffix. This is the recommended unit.
@@ -82,7 +82,7 @@ do not have content and therefore default to fill their parent element:
 
 ## Automatic Placement using Layouts
 
-SixtyFPS comes with different layout elements that automatically calculate the position and size of their children:
+Slint comes with different layout elements that automatically calculate the position and size of their children:
 
 * `VerticalLayout` / `HorizontalLayout`: The children are placed along the vertical or horizontal axis.
 * `GridLayout`: The children are placed in a grid of columns and rows.

@@ -3,7 +3,7 @@
 
 /*!
 
-**NOTE**: This library is an **internal** crate for the [SixtyFPS project](https://sixtyfps.io).
+**NOTE**: This library is an **internal** crate for the [Slint project](https://sixtyfps.io).
 This crate should **not be used directly** by applications using Slint.
 You should use the `slint` crate instead.
 

@@ -28,7 +28,7 @@ git show HEAD:./package.json | jq --arg nightly_version "${nightly_version}" '
 .description += " (Nightly)"' > package.json
 
 cat >README.md <<EOT
-# SixtyFPS for Visual Studio Code Nightly
+# Slint for Visual Studio Code Nightly
 
 *Note: This is the nightly preview version of the VS Code extension.*
 
@@ -36,7 +36,7 @@ It is published a regular intervals using the latest development code, to
 preview new features and test bug fixes. This means that it can be broken
 or unstable.
 EOT
-git show HEAD:./README.md | sed '/^# SixtyFPS for Visual Studio Code$/d;/^## Building from Source$/,$d' >> README.md
+git show HEAD:./README.md | sed '/^# Slint for Visual Studio Code$/d;/^## Building from Source$/,$d' >> README.md
 
 cat > CHANGELOG.md <<EOT
 This nightly build was created from commit $last_commit

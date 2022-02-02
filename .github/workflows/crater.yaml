@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-# This workflow checks out and build a bunch of crates that uses SixtyFPS,
+# This workflow checks out and build a bunch of crates that uses Slint,
 # with the current branch
 
 name: Crater
