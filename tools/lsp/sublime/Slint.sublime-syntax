@@ -4,10 +4,10 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 # See http://www.sublimetext.com/docs/3/syntax.html
-name: SixtyFPS
+name: Slint
 file_extensions:
   - '60'
-scope: source.sixtyfps
+scope: source.slint
 
 contexts:
   # The prototype context is prepended to all contexts but those setting
@@ -29,21 +29,21 @@ contexts:
 
   property:
     - match: '[a-zA-Z_][a-zA-Z_\-0-9]*:'
-      scope: variable.sixtyfps
+      scope: variable.slint
     - match: '[a-zA-Z_][a-zA-Z_\-0-9]* *<?=>'
-      scope: variable.sixtyfps
+      scope: variable.slint
 
   color:
     - match: '#[0-9a-fA-F]+'
-      scope: constant.other.color.sixtyfps
+      scope: constant.other.color.slint
 
   types:
     - match: '\b(int|float|duration|string|image|brush|color|length|logical_length)\b'
-      scope: storage.type.sixtyfps
+      scope: storage.type.slint
 
   constants:
     - match: '\b(blue|red|green|yellow|red|black|ease|ease_in|ease_out|ease_in_out)\b'
-      scope: support.constant.sixtyfps
+      scope: support.constant.slint
 
   keywords:
     # Note that blackslashes don't need to be escaped within single quoted
@@ -51,49 +51,49 @@ contexts:
     # need to be escaped: this is done by using two single quotes next to each
     # other.
     - match: '\b(import|from)\b'
-      scope: keyword.sixtyfps
+      scope: keyword.slint
     - match: '\b(property|callback|animate|states|transitions)\b'
-      scope: keyword.other.sixtyfps
+      scope: keyword.other.slint
     - match: '\b(if|for|return)\b'
-      scope: keyword.control.sixtyfps
+      scope: keyword.control.slint
 
   numbers:
     - match: '\b[0-9]+\.?[0-9]*[a-z%]*\b'
-      scope: constant.numeric.sixtyfps
+      scope: constant.numeric.slint
 
   symbols:
     - match: '[\!\&\|]+'
-      scope: keyword.operator.logical.sixtyfps
+      scope: keyword.operator.logical.slint
     - match: '[\<\=\>]+'
-      scope: keyword.operator.comparison.sixtyfps
+      scope: keyword.operator.comparison.slint
     - match: '[\:\<\=\>]+'
-      scope: keyword.operator.assignment.sixtyfps
+      scope: keyword.operator.assignment.slint
     - match: '[\!\%\&\(\)\+\,\-\/\*\<\=\>\?\[\]\|\;]+'
-      scope: keyword.operator.sixtyfps
+      scope: keyword.operator.slint
 
   strings:
     # Strings begin and end with quotes, and use backslashes as an escape
     # character.
     - match: '"'
-      scope: punctuation.definition.string.begin.sixtyfps
+      scope: punctuation.definition.string.begin.slint
       push: inside_string
 
   inside_string:
     - meta_include_prototype: false
-    - meta_scope: string.quoted.double.sixtyfps
+    - meta_scope: string.quoted.double.slint
     - match: '\.'
-      scope: constant.character.escape.sixtyfps
+      scope: constant.character.escape.slint
     - match: '"'
-      scope: punctuation.definition.string.end.sixtyfps
+      scope: punctuation.definition.string.end.slint
       pop: true
 
   comments:
     # Comments begin with a '//' and finish at the end of the line.
     - match: '//'
-      scope: punctuation.definition.comment.sixtyfps
+      scope: punctuation.definition.comment.slint
       push:
         # This is an anonymous context push for brevity.
-        - meta_scope: comment.line.double-slash.sixtyfps
+        - meta_scope: comment.line.double-slash.slint
         - match: $\n?
           pop: true
     - match: '/\*'

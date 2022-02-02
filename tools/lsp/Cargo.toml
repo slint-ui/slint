@@ -2,23 +2,23 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "sixtyfps-lsp"
+name = "slint-lsp"
 version = "0.2.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2021"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
-description = "SixtyFPS LSP server"
+description = "Slint LSP server"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 categories = ["gui", "development-tools"]
 keywords = ["lsp"]
 
 [package.metadata.bundle]
-name = "SixtyFPS Live Preview"
+name = "Slint Live Preview"
 icon = ["../../vscode_extension/extension-logo.png"]
 
 [[bin]]
-name = "sixtyfps-lsp"
+name = "slint-lsp"
 path = "main.rs"
 
 [features]

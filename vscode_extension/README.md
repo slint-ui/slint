@@ -1,6 +1,6 @@
-# SixtyFPS for Visual Studio Code
+# Slint for Visual Studio Code
 
-This extension for VS Code adds support for the [SixtyFPS](https://sixtyfps.io) design markup language.
+This extension for VS Code adds support for the [Slint](https://sixtyfps.io) design markup language.
 
 ## Features
 
@@ -12,7 +12,7 @@ This extension for VS Code adds support for the [SixtyFPS](https://sixtyfps.io) 
 
 ## Installation
 
-You can install the extension directly from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=SixtyFPS.sixtyfps-vscode). Afterwards it is
+You can install the extension directly from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=SixtyFPS.sixtyfps). Afterwards it is
 automatically activated when editing files with the `.slint` extension.
 
 ## Live-Preview
@@ -21,21 +21,21 @@ In addition to the usual code editing features such as completion and syntax hig
 also offers the ability to view a rendering of the file you're editing and update it on-the-fly when making
 changes.
 
-You can issue the "SixtyFPS: Show Preview" command from the command palette when editing a `.slint` file. This
+You can issue the "Slint: Show Preview" command from the command palette when editing a `.slint` file. This
 will create a new top-level window that renders the file you're editing. Any changes you make are immediately
 visible, it is not necessary to save the file.
 
 ## Reporting Issues
 
 
-Issues should be reported in the [SixtyFPS issue tracker](https://github.com/sixtyfpsui/sixtyfps/labels/vscode-extension).
+Issues should be reported in the [Slint issue tracker](https://github.com/sixtyfpsui/sixtyfps/labels/vscode-extension).
 
 ## Building from Source
 
 1. Build the LSP
 
 ```sh
-cargo build --bin sixtyfps-lsp
+cargo build --bin slint-lsp
 ```
 
 2. run npm install in the vscode directory
@@ -49,7 +49,7 @@ npm install
 
 At the moment you need to load this directory in VS code and then start debugging (Run -> Start Debugging).
 That will "debug" the vs code extension and create a new VS code window. The LSP server binary will be started if previously built
-You can see the output in the output pane "SixtyFPS LSP" (that's the drop-down that usually shows "Tasks").
+You can see the output in the output pane "Slint LSP" (that's the drop-down that usually shows "Tasks").
 
 ## How to build the extension package
 
@@ -65,7 +65,7 @@ npm run local-package
 3. Install the `.vsix` file with
 
 ```sh
-code --install-extension sixtyfps-vscode-*.vsix
+code --install-extension slint-*.vsix
 ```
 
 4. Reload your VS code windows
