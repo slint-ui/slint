@@ -14,7 +14,7 @@ path = "main.rs"
 name = "imagefilter"
 
 [dependencies]
-sixtyfps = { path = "../../api/sixtyfps-rs" }
+sixtyfps = { path = "../../api/rs/slint" }
 image = { version = "0.23.12", default-features = false, features = [ "png" ] }
 
 [build-dependencies]

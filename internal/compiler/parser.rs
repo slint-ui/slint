@@ -276,7 +276,7 @@ macro_rules! declare_syntax {
 }
 declare_syntax! {
     // Tokens.
-    // WARNING: when changing this, do not forget to update the tokenizer in the sixtyfps-rs-macro crate!
+    // WARNING: when changing this, do not forget to update the tokenizer in the slint-rs-macro crate!
     // The order of token is important because the rules will be run in that order
     // and the first one matching will be chosen.
     {

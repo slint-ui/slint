@@ -15,7 +15,7 @@ path = "main.rs"
 name = "gallery"
 
 [dependencies]
-sixtyfps = { path = "../../api/sixtyfps-rs" }
+sixtyfps = { path = "../../api/rs/slint" }
 
 [build-dependencies]
 sixtyfps-build = { path = "../../api/rs/build" }

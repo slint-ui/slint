@@ -15,7 +15,7 @@ name = "slide_puzzle"
 
 [dependencies]
 rand = "0.8"
-sixtyfps = { path = "../../api/sixtyfps-rs" }
+sixtyfps = { path = "../../api/rs/slint" }
 
 [build-dependencies]
 sixtyfps-build = { path = "../../api/rs/build" }

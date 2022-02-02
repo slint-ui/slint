@@ -37,5 +37,5 @@ name = "memory_tutorial_game_logic_in_rust"
 path = "main_game_logic_in_rust.rs"
 
 [dependencies]
-sixtyfps = { path = "../../../../api/sixtyfps-rs" }
+sixtyfps = { path = "../../../../api/rs/slint" }
 rand = "0.8"
