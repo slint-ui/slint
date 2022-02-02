@@ -29,7 +29,7 @@ files at run-time. This is slower than compiling them ahead of time and requires
 however it provides more flexibility in your application design.
 
 The entry point to loading a `.slint` file is the {cpp:class}`slint::interpreter::ComponentCompiler`
-class in the {ref}`slint::interpreter <namespace_sixtyfps__interpreter>` namespace.
+class in the {ref}`slint::interpreter <namespace_slint__interpreter>` namespace.
 
 With the help of {cpp:class}`slint::interpreter::ComponentCompiler` you create a {cpp:class}`slint::interpreter::ComponentDefinition`,
 which provides you with information about properties and callbacks that are common to all instances. The

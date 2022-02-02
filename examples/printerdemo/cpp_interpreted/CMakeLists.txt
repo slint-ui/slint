@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 cmake_minimum_required(VERSION 3.14)
-project(sixtyfps_cpp_interpreter_printer_demo LANGUAGES CXX)
+project(slint_cpp_interpreter_printer_demo LANGUAGES CXX)
 
 if (NOT TARGET Slint::Slint)
     find_package(Slint REQUIRED)

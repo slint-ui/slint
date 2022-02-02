@@ -82,7 +82,7 @@ pub(crate) mod ffi {
     static_assertions::assert_eq_size!(CallbackOpaque, Callback<(alloc::string::String,)>);
 
     /// Initialize the callback.
-    /// sixtyfps_callback_drop must be called.
+    /// slint_callback_drop must be called.
     #[no_mangle]
     pub unsafe extern "C" fn slint_callback_init(out: *mut CallbackOpaque) {
         assert_eq!(core::mem::size_of::<CallbackOpaque>(), core::mem::size_of::<Callback<()>>());

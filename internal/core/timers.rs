@@ -369,7 +369,7 @@ pub(crate) mod ffi {
     /// Start a timer with the given mode, duration in millisecond and callback. A timer id may be provided (first argument).
     /// A value of -1 for the timer id means a new timer is to be allocated.
     /// The (new) timer id is returned.
-    /// The timer MUST be destroyed with sixtyfps_timer_destroy.
+    /// The timer MUST be destroyed with slint_timer_destroy.
     #[no_mangle]
     pub extern "C" fn slint_timer_start(
         id: i64,

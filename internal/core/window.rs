@@ -183,7 +183,7 @@ impl Window {
         let mut redraw_tracker =
             PropertyTracker::new_with_change_handler(WindowRedrawTracker { window_weak });
 
-        #[cfg(sixtyfps_debug_property)]
+        #[cfg(slint_debug_property)]
         {
             window
                 .scale_factor

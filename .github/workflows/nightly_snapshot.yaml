@@ -23,11 +23,11 @@ on:
 
 jobs:
   slint-viewer-binary:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_tool_binary.yaml@wip/rename
+    uses: sixtyfpsui/sixtyfps/.github/workflows/slint_tool_binary.yaml@wip/rename
     with:
       program: "slint-viewer"
   slint-lsp-binary:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_tool_binary.yaml@wip/rename
+    uses: sixtyfpsui/sixtyfps/.github/workflows/slint_tool_binary.yaml@wip/rename
     with:
       program: "slint-lsp"
   docs:

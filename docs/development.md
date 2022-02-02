@@ -87,6 +87,6 @@ The `cbindgen` xtask generates multiple header files for four different modules:
 1. The types in the core library. This is the bulk of the generated code.
 1. The entry points into the C++ library for creating backends, invoking the event loop, etc. - from `api/cpp/lib.rs`.
 1. The types specific to the Qt backend used by the Qt style, such as `NativeButton`, etc.
-1. The types used by the C++ interpreter API, written to `sixtyfps_interpreter_internal.h`.
+1. The types used by the C++ interpreter API, written to `slint_interpreter_internal.h`.
 
 Typically the input to `cbindgen` is within `ffi` sub-modules in the corresponding input crates to `cbindgen`. These `ffi` modules are gated with `#[cfg(feature = "ffi")]`.
