@@ -5,7 +5,7 @@
 #include "sixtyfps.h"
 #include <iostream>
 
-namespace sixtyfps::testing {
+namespace slint::testing {
 
 inline void init()
 {
@@ -25,7 +25,7 @@ inline void send_mouse_click(const Component *component, float x, float y)
 
 template<typename Component>
 inline void send_keyboard_string_sequence(const Component *component,
-                                          const sixtyfps::SharedString &str,
+                                          const slint::SharedString &str,
                                           cbindgen_private::KeyboardModifiers modifiers = {})
 {
     cbindgen_private::send_keyboard_string_sequence(&str, modifiers,
@@ -33,7 +33,7 @@ inline void send_keyboard_string_sequence(const Component *component,
 }
 
 #define assert_eq(A, B)                                                                            \
-    sixtyfps::testing::private_api::assert_eq_impl(A, B, #A, #B, __FILE__, __LINE__)
+    slint::testing::private_api::assert_eq_impl(A, B, #A, #B, __FILE__, __LINE__)
 
 namespace private_api {
 template<typename A, typename B>
@@ -49,4 +49,4 @@ void assert_eq_impl(const A &a, const B &b, const char *a_str, const char *b_str
 }
 }
 
-} // namespace sixtyfps
+} // namespace slint

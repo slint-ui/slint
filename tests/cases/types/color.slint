@@ -42,13 +42,13 @@ assert_eq(t.get_b1(), t.get_b5());
 assert(t.get_b1() != t.get_r5());
 assert_eq(t.get_y1(), t.get_y2());
 
-auto red = sixtyfps::Color::from_argb_float(1, 1, 0, 0);
-auto blue = sixtyfps::Color::from_rgb_float(0, 0, 1);
-auto g = sixtyfps::Color::from_rgb_uint8(0x99, 0x99, 0x99);
+auto red = slint::Color::from_argb_float(1, 1, 0, 0);
+auto blue = slint::Color::from_rgb_float(0, 0, 1);
+auto g = slint::Color::from_rgb_uint8(0x99, 0x99, 0x99);
 assert_eq(t.get_r1(), red);
 assert_eq(t.get_b1(), blue);
 assert_eq(t.get_g1(), g);
-assert_eq(t.get_y1(), sixtyfps::Color::from_argb_encoded(0xffffff00));
+assert_eq(t.get_y1(), slint::Color::from_argb_encoded(0xffffff00));
 
 t.set_g1(blue);
 assert_eq(t.get_g1(), t.get_b1());

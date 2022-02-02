@@ -17,7 +17,7 @@
 class QWidget;
 #endif
 
-namespace sixtyfps::cbindgen_private {
+namespace slint::cbindgen_private {
 //  This has to stay opaque, but VRc don't compile if it is just forward declared
 struct ErasedComponentBox : vtable::Dyn
 {
@@ -36,7 +36,7 @@ struct ErasedComponentBox : vtable::Dyn
 /// use to create \ref ComponentDefinition instances with the
 /// \ref ComponentCompiler::build_from_source() or \ref ComponentCompiler::build_from_path()
 /// functions.
-namespace sixtyfps::interpreter {
+namespace slint::interpreter {
 
 class Value;
 
@@ -216,13 +216,13 @@ public:
     inline void set_field(std::string_view name, const Value &value);
 
     /// \private
-    Struct(const sixtyfps::cbindgen_private::StructOpaque &other)
+    Struct(const slint::cbindgen_private::StructOpaque &other)
     {
         cbindgen_private::slint_interpreter_struct_clone(&other, &inner);
     }
 
 private:
-    using StructOpaque = sixtyfps::cbindgen_private::StructOpaque;
+    using StructOpaque = slint::cbindgen_private::StructOpaque;
     StructOpaque inner;
     friend class Value;
 };
@@ -235,7 +235,7 @@ private:
 /// It is also possible to query the type the value holds by calling the Value::type()
 /// function.
 ///
-/// Note that models are only represented in one direction: You can create a sixtyfps::Model<Value>
+/// Note that models are only represented in one direction: You can create a slint::Model<Value>
 /// in C++, store it in a std::shared_ptr and construct Value from it. Then you can set it on a
 /// property in your .slint code that was declared to be either an array (`property <[sometype]>
 /// foo;`) or an object literal (`property <{foo: string, bar: int}> my_prop;`). Such properties are
@@ -246,7 +246,7 @@ private:
 ///
 /// Value some_value = ...;
 /// // Check if the value has a string
-/// if (std::optional<sixtyfps::SharedString> string_value = some_value.to_string())
+/// if (std::optional<slint::SharedString> string_value = some_value.to_string())
 ///     do_something(*string_value);  // Extract the string by de-referencing
 /// ```
 class Value
@@ -303,7 +303,7 @@ public:
 
     /// Returns a std::optional that contains a string if the type of this Value is
     /// Type::String, otherwise an empty optional is returned.
-    std::optional<sixtyfps::SharedString> to_string() const
+    std::optional<slint::SharedString> to_string() const
     {
         if (auto *str = cbindgen_private::slint_interpreter_value_to_string(&inner)) {
             return *str;
@@ -327,11 +327,11 @@ public:
     /// Type::Model, otherwise an empty optional is returned.
     ///
     /// The vector will be constructed by serializing all the elements of the model.
-    inline std::optional<sixtyfps::SharedVector<Value>> to_array() const;
+    inline std::optional<slint::SharedVector<Value>> to_array() const;
 
     /// Returns a std::optional that contains a brush if the type of this Value is
     /// Type::Brush, otherwise an empty optional is returned.
-    std::optional<sixtyfps::Brush> to_brush() const
+    std::optional<slint::Brush> to_brush() const
     {
         if (auto *brush = cbindgen_private::slint_interpreter_value_to_brush(&inner)) {
             return *brush;
@@ -376,9 +376,9 @@ public:
     /// Constructs a new Value that holds the value vector \a v as a model.
     inline Value(const SharedVector<Value> &v);
     /// Constructs a new Value that holds the value model \a m.
-    Value(const std::shared_ptr<sixtyfps::Model<Value>> &m);
+    Value(const std::shared_ptr<slint::Model<Value>> &m);
     /// Constructs a new Value that holds the brush \a b.
-    Value(const sixtyfps::Brush &brush)
+    Value(const slint::Brush &brush)
     {
         cbindgen_private::slint_interpreter_value_new_brush(&brush, &inner);
     }
@@ -402,7 +402,7 @@ public:
 
 private:
     inline Value(const void *) = delete; // Avoid that for example Value("foo") turns to Value(bool)
-    using ValueOpaque = sixtyfps::cbindgen_private::ValueOpaque;
+    using ValueOpaque = slint::cbindgen_private::ValueOpaque;
     ValueOpaque inner;
     friend struct Struct;
     friend class ComponentInstance;
@@ -410,29 +410,29 @@ private:
     explicit Value(ValueOpaque &inner) : inner(inner) { }
 };
 
-inline Value::Value(const sixtyfps::SharedVector<Value> &array)
+inline Value::Value(const slint::SharedVector<Value> &array)
 {
     cbindgen_private::slint_interpreter_value_new_array_model(
-            &reinterpret_cast<const sixtyfps::SharedVector<ValueOpaque> &>(array), &inner);
+            &reinterpret_cast<const slint::SharedVector<ValueOpaque> &>(array), &inner);
 }
 
-inline std::optional<sixtyfps::SharedVector<Value>> Value::to_array() const
+inline std::optional<slint::SharedVector<Value>> Value::to_array() const
 {
-    sixtyfps::SharedVector<Value> array;
+    slint::SharedVector<Value> array;
     if (cbindgen_private::slint_interpreter_value_to_array(
-                &inner, &reinterpret_cast<sixtyfps::SharedVector<ValueOpaque> &>(array))) {
+                &inner, &reinterpret_cast<slint::SharedVector<ValueOpaque> &>(array))) {
         return array;
     } else {
         return {};
     }
 }
-inline Value::Value(const std::shared_ptr<sixtyfps::Model<Value>> &model)
+inline Value::Value(const std::shared_ptr<slint::Model<Value>> &model)
 {
     using cbindgen_private::ModelAdaptorVTable;
     using vtable::VRef;
     struct ModelWrapper : private_api::AbstractRepeaterView
     {
-        std::shared_ptr<sixtyfps::Model<Value>> model;
+        std::shared_ptr<slint::Model<Value>> model;
         cbindgen_private::ModelNotifyOpaque notify;
         // This kind of mean that the rust code has ownership of "this" until the drop function is
         // called
@@ -533,7 +533,7 @@ class ComponentInstance : vtable::Dyn
     // ComponentHandle<ComponentInstance>  is in fact a VRc<ComponentVTable, ErasedComponentBox>
     const cbindgen_private::ErasedComponentBox *inner() const
     {
-        sixtyfps::private_api::assert_main_thread();
+        slint::private_api::assert_main_thread();
         return reinterpret_cast<const cbindgen_private::ErasedComponentBox *>(this);
     }
 
@@ -541,7 +541,7 @@ public:
     /// Marks the window of this component to be shown on the screen. This registers
     /// the window with the windowing system. In order to react to events from the windowing system,
     /// such as draw requests or mouse/touch input, it is still necessary to spin the event loop,
-    /// using sixtyfps::run_event_loop().
+    /// using slint::run_event_loop().
     void show() const
     {
         cbindgen_private::slint_interpreter_component_instance_show(inner(), true);
@@ -555,14 +555,14 @@ public:
     /// Returns the Window associated with this component. The window API can be used
     /// to control different aspects of the integration into the windowing system,
     /// such as the position on the screen.
-    const sixtyfps::Window &window()
+    const slint::Window &window()
     {
         const cbindgen_private::WindowRcOpaque *win_ptr = nullptr;
         cbindgen_private::slint_interpreter_component_instance_window(inner(), &win_ptr);
-        return *reinterpret_cast<const sixtyfps::Window *>(win_ptr);
+        return *reinterpret_cast<const slint::Window *>(win_ptr);
     }
     /// This is a convenience function that first calls show(), followed by
-    /// sixtyfps::run_event_loop() and hide().
+    /// slint::run_event_loop() and hide().
     void run() const
     {
         show();
@@ -588,7 +588,7 @@ public:
     /// For example, if the component has a `property <string> hello;`,
     /// we can set this property
     /// ```
-    /// instance->set_property("hello", sixtyfps::SharedString("world"));
+    /// instance->set_property("hello", slint::SharedString("world"));
     /// ```
     ///
     /// Returns true if the property was correctly set. Returns false if the property
@@ -598,7 +598,7 @@ public:
     {
         using namespace cbindgen_private;
         return slint_interpreter_component_instance_set_property(
-                inner(), sixtyfps::private_api::string_to_slice(name), &value.inner);
+                inner(), slint::private_api::string_to_slice(name), &value.inner);
     }
     /// Returns the value behind a property declared in .slint.
     std::optional<Value> get_property(std::string_view name) const
@@ -606,7 +606,7 @@ public:
         using namespace cbindgen_private;
         ValueOpaque out;
         if (slint_interpreter_component_instance_get_property(
-                    inner(), sixtyfps::private_api::string_to_slice(name), &out)) {
+                    inner(), slint::private_api::string_to_slice(name), &out)) {
             return Value(out);
         } else {
             return {};
@@ -620,7 +620,7 @@ public:
     /// ```
     /// Then one can call it with this function
     /// ```
-    ///     sixtyfps::Value args[] = { SharedString("Hello"), 42. };
+    ///     slint::Value args[] = { SharedString("Hello"), 42. };
     ///     instance->invoke_callback("foo", { args, 2 });
     /// ```
     ///
@@ -635,7 +635,7 @@ public:
                                        args.size() };
         ValueOpaque out;
         if (slint_interpreter_component_instance_invoke_callback(
-                    inner(), sixtyfps::private_api::string_to_slice(name), args_view, &out)) {
+                    inner(), slint::private_api::string_to_slice(name), args_view, &out)) {
             return Value(out);
         } else {
             return {};
@@ -674,7 +674,7 @@ public:
             new (ret) Value(std::move(r));
         };
         return cbindgen_private::slint_interpreter_component_instance_set_callback(
-                inner(), sixtyfps::private_api::string_to_slice(name), actual_cb,
+                inner(), slint::private_api::string_to_slice(name), actual_cb,
                 new F(std::move(callback)), [](void *data) { delete reinterpret_cast<F *>(data); });
     }
 
@@ -694,8 +694,8 @@ public:
     {
         using namespace cbindgen_private;
         return slint_interpreter_component_instance_set_global_property(
-                inner(), sixtyfps::private_api::string_to_slice(global),
-                sixtyfps::private_api::string_to_slice(prop_name), &value.inner);
+                inner(), slint::private_api::string_to_slice(global),
+                slint::private_api::string_to_slice(prop_name), &value.inner);
     }
     /// Returns the value behind a property in an exported global singleton.
     std::optional<Value> get_global_property(std::string_view global,
@@ -704,8 +704,8 @@ public:
         using namespace cbindgen_private;
         ValueOpaque out;
         if (slint_interpreter_component_instance_get_global_property(
-                    inner(), sixtyfps::private_api::string_to_slice(global),
-                    sixtyfps::private_api::string_to_slice(prop_name), &out)) {
+                    inner(), slint::private_api::string_to_slice(global),
+                    slint::private_api::string_to_slice(prop_name), &out)) {
             return Value(out);
         } else {
             return {};
@@ -739,8 +739,8 @@ public:
             new (ret) Value(std::move(r));
         };
         return cbindgen_private::slint_interpreter_component_instance_set_global_callback(
-                inner(), sixtyfps::private_api::string_to_slice(global),
-                sixtyfps::private_api::string_to_slice(name), actual_cb, new F(std::move(callback)),
+                inner(), slint::private_api::string_to_slice(global),
+                slint::private_api::string_to_slice(name), actual_cb, new F(std::move(callback)),
                 [](void *data) { delete reinterpret_cast<F *>(data); });
     }
 
@@ -755,8 +755,8 @@ public:
                                        args.size() };
         ValueOpaque out;
         if (slint_interpreter_component_instance_invoke_global_callback(
-                    inner(), sixtyfps::private_api::string_to_slice(global),
-                    sixtyfps::private_api::string_to_slice(callback_name), args_view, &out)) {
+                    inner(), slint::private_api::string_to_slice(global),
+                    slint::private_api::string_to_slice(callback_name), args_view, &out)) {
             return Value(out);
         } else {
             return {};
@@ -776,7 +776,7 @@ class ComponentDefinition
 {
     friend class ComponentCompiler;
 
-    using ComponentDefinitionOpaque = sixtyfps::cbindgen_private::ComponentDefinitionOpaque;
+    using ComponentDefinitionOpaque = slint::cbindgen_private::ComponentDefinitionOpaque;
     ComponentDefinitionOpaque inner;
 
     ComponentDefinition() = delete;
@@ -792,7 +792,7 @@ public:
     /// Assigns \a other to this ComponentDefinition.
     ComponentDefinition &operator=(const ComponentDefinition &other)
     {
-        using namespace sixtyfps::cbindgen_private;
+        using namespace slint::cbindgen_private;
 
         if (this == &other)
             return *this;
@@ -820,34 +820,34 @@ public:
     /// Returns a vector of that contains PropertyDescriptor instances that describe the list of
     /// public properties that can be read and written using ComponentInstance::set_property and
     /// ComponentInstance::get_property.
-    sixtyfps::SharedVector<PropertyDescriptor> properties() const
+    slint::SharedVector<PropertyDescriptor> properties() const
     {
-        sixtyfps::SharedVector<PropertyDescriptor> props;
+        slint::SharedVector<PropertyDescriptor> props;
         cbindgen_private::slint_interpreter_component_definition_properties(&inner, &props);
         return props;
     }
 
     /// Returns a vector of strings that describe the list of public callbacks that can be invoked
     /// using ComponentInstance::invoke_callback and set using ComponentInstance::set_callback.
-    sixtyfps::SharedVector<sixtyfps::SharedString> callbacks() const
+    slint::SharedVector<slint::SharedString> callbacks() const
     {
-        sixtyfps::SharedVector<sixtyfps::SharedString> callbacks;
+        slint::SharedVector<slint::SharedString> callbacks;
         cbindgen_private::slint_interpreter_component_definition_callbacks(&inner, &callbacks);
         return callbacks;
     }
 
     /// Returns the name of this Component as written in the .slint file
-    sixtyfps::SharedString name() const
+    slint::SharedString name() const
     {
-        sixtyfps::SharedString name;
+        slint::SharedString name;
         cbindgen_private::slint_interpreter_component_definition_name(&inner, &name);
         return name;
     }
 
     /// Returns a vector of strings with the names of all exported global singletons.
-    sixtyfps::SharedVector<sixtyfps::SharedString> globals() const
+    slint::SharedVector<slint::SharedString> globals() const
     {
-        sixtyfps::SharedVector<sixtyfps::SharedString> names;
+        slint::SharedVector<slint::SharedString> names;
         cbindgen_private::slint_interpreter_component_definition_globals(&inner, &names);
         return names;
     }
@@ -855,12 +855,12 @@ public:
     /// Returns a vector of the property descriptors of the properties of the specified
     /// publicly exported global singleton. An empty optional is returned if there exists no
     /// exported global singleton under the specified name.
-    std::optional<sixtyfps::SharedVector<PropertyDescriptor>>
+    std::optional<slint::SharedVector<PropertyDescriptor>>
     global_properties(std::string_view global_name) const
     {
-        sixtyfps::SharedVector<PropertyDescriptor> properties;
+        slint::SharedVector<PropertyDescriptor> properties;
         if (cbindgen_private::slint_interpreter_component_definition_global_properties(
-                    &inner, sixtyfps::private_api::string_to_slice(global_name), &properties)) {
+                    &inner, slint::private_api::string_to_slice(global_name), &properties)) {
             return properties;
         }
         return {};
@@ -869,12 +869,12 @@ public:
     /// Returns a vector of the names of the callbacks of the specified publicly exported global
     /// singleton. An empty optional is returned if there exists no exported global singleton
     /// under the specified name.
-    std::optional<sixtyfps::SharedVector<sixtyfps::SharedString>>
+    std::optional<slint::SharedVector<slint::SharedString>>
     global_callbacks(std::string_view global_name) const
     {
-        sixtyfps::SharedVector<sixtyfps::SharedString> names;
+        slint::SharedVector<slint::SharedString> names;
         if (cbindgen_private::slint_interpreter_component_definition_global_callbacks(
-                    &inner, sixtyfps::private_api::string_to_slice(global_name), &names)) {
+                    &inner, slint::private_api::string_to_slice(global_name), &names)) {
             return names;
         }
         return {};
@@ -903,7 +903,7 @@ public:
 
     /// Sets the include paths used for looking up `.slint` imports to the specified vector of
     /// paths.
-    void set_include_paths(const sixtyfps::SharedVector<sixtyfps::SharedString> &paths)
+    void set_include_paths(const slint::SharedVector<slint::SharedString> &paths)
     {
         cbindgen_private::slint_interpreter_component_compiler_set_include_paths(&inner, &paths);
     }
@@ -912,30 +912,30 @@ public:
     void set_style(std::string_view style)
     {
         cbindgen_private::slint_interpreter_component_compiler_set_style(
-                &inner, sixtyfps::private_api::string_to_slice(style));
+                &inner, slint::private_api::string_to_slice(style));
     }
 
     /// Returns the widget style the compiler is currently using when compiling .slint files.
-    sixtyfps::SharedString style() const
+    slint::SharedString style() const
     {
-        sixtyfps::SharedString s;
+        slint::SharedString s;
         cbindgen_private::slint_interpreter_component_compiler_get_style(&inner, &s);
         return s;
     }
 
     /// Returns the include paths the component compiler is currently configured with.
-    sixtyfps::SharedVector<sixtyfps::SharedString> include_paths() const
+    slint::SharedVector<slint::SharedString> include_paths() const
     {
-        sixtyfps::SharedVector<sixtyfps::SharedString> paths;
+        slint::SharedVector<slint::SharedString> paths;
         cbindgen_private::slint_interpreter_component_compiler_get_include_paths(&inner, &paths);
         return paths;
     }
 
     /// Returns the diagnostics that were produced in the last call to build_from_path() or
     /// build_from_source().
-    sixtyfps::SharedVector<Diagnostic> diagnostics() const
+    slint::SharedVector<Diagnostic> diagnostics() const
     {
-        sixtyfps::SharedVector<Diagnostic> result;
+        slint::SharedVector<Diagnostic> result;
         cbindgen_private::slint_interpreter_component_compiler_get_diagnostics(&inner, &result);
         return result;
     }
@@ -954,8 +954,8 @@ public:
     {
         cbindgen_private::ComponentDefinitionOpaque result;
         if (cbindgen_private::slint_interpreter_component_compiler_build_from_source(
-                    &inner, sixtyfps::private_api::string_to_slice(source_code),
-                    sixtyfps::private_api::string_to_slice(path), &result)) {
+                    &inner, slint::private_api::string_to_slice(source_code),
+                    slint::private_api::string_to_slice(path), &result)) {
 
             return ComponentDefinition(result);
         } else {
@@ -977,7 +977,7 @@ public:
     {
         cbindgen_private::ComponentDefinitionOpaque result;
         if (cbindgen_private::slint_interpreter_component_compiler_build_from_path(
-                    &inner, sixtyfps::private_api::string_to_slice(path), &result)) {
+                    &inner, slint::private_api::string_to_slice(path), &result)) {
 
             return ComponentDefinition(result);
         } else {
@@ -988,13 +988,13 @@ public:
 
 }
 
-namespace sixtyfps::testing {
+namespace slint::testing {
 
 using cbindgen_private::KeyboardModifiers;
 
 /// Send a key events to the given component instance
-inline void send_keyboard_string_sequence(const sixtyfps::interpreter::ComponentInstance *component,
-                                          const sixtyfps::SharedString &str,
+inline void send_keyboard_string_sequence(const slint::interpreter::ComponentInstance *component,
+                                          const slint::SharedString &str,
                                           KeyboardModifiers modifiers = {})
 {
     const cbindgen_private::WindowRcOpaque *win_ptr = nullptr;

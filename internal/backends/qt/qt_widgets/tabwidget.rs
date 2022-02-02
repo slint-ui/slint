@@ -293,7 +293,7 @@ impl ItemConsts for NativeTabWidget {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeTabWidgetVTable() -> NativeTabWidgetVTable for NativeTabWidget
+fn slint_get_NativeTabWidgetVTable() -> NativeTabWidgetVTable for NativeTabWidget
 }
 
 #[repr(C)]
@@ -487,5 +487,5 @@ impl ItemConsts for NativeTab {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeTabVTable() -> NativeTabVTable for NativeTab
+fn slint_get_NativeTabVTable() -> NativeTabVTable for NativeTab
 }

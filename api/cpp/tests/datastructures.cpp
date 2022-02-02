@@ -10,7 +10,7 @@
 
 SCENARIO("SharedString API")
 {
-    sixtyfps::SharedString str;
+    slint::SharedString str;
 
     REQUIRE(str.empty());
     REQUIRE(str == "");
@@ -35,7 +35,7 @@ SCENARIO("SharedString API")
     {
         str = "Hello";
         str += " ";
-        str += sixtyfps::SharedString("🦊") + sixtyfps::SharedString("!");
+        str += slint::SharedString("🦊") + slint::SharedString("!");
         REQUIRE(str == "Hello 🦊!");
         REQUIRE(std::string_view(str.data()) == "Hello 🦊!");
     }
@@ -43,12 +43,12 @@ SCENARIO("SharedString API")
 
 TEST_CASE("Basic SharedVector API", "[vector]")
 {
-    sixtyfps::SharedVector<int> vec;
+    slint::SharedVector<int> vec;
     REQUIRE(vec.empty());
 
     SECTION("Initializer list")
     {
-        sixtyfps::SharedVector<int> vec({ 1, 4, 10 });
+        slint::SharedVector<int> vec({ 1, 4, 10 });
         REQUIRE(vec.size() == 3);
         REQUIRE(vec[0] == 1);
         REQUIRE(vec[1] == 4);
@@ -58,7 +58,7 @@ TEST_CASE("Basic SharedVector API", "[vector]")
 
 TEST_CASE("Property Tracker")
 {
-    using namespace sixtyfps::private_api;
+    using namespace slint::private_api;
     PropertyTracker tracker1;
     PropertyTracker tracker2;
     Property<int> prop(42);
@@ -80,9 +80,9 @@ TEST_CASE("Property Tracker")
 
 TEST_CASE("Model row changes")
 {
-    using namespace sixtyfps::private_api;
+    using namespace slint::private_api;
 
-    auto model = std::make_shared<sixtyfps::VectorModel<int>>();
+    auto model = std::make_shared<slint::VectorModel<int>>();
 
     PropertyTracker tracker;
 
@@ -109,9 +109,9 @@ TEST_CASE("Model row changes")
 
 TEST_CASE("Track model row data changes")
 {
-    using namespace sixtyfps::private_api;
+    using namespace slint::private_api;
 
-    auto model = std::make_shared<sixtyfps::VectorModel<int>>(std::vector<int> { 0, 1, 2, 3, 4 });
+    auto model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 0, 1, 2, 3, 4 });
 
     PropertyTracker tracker;
 
@@ -149,7 +149,7 @@ TEST_CASE("Track model row data changes")
 
 TEST_CASE("Image")
 {
-    using namespace sixtyfps;
+    using namespace slint;
 
     // ensure a backend exists, using private api
     private_api::WindowRc wnd;
@@ -179,7 +179,7 @@ TEST_CASE("Image")
 
 TEST_CASE("SharedVector")
 {
-    using namespace sixtyfps;
+    using namespace slint;
 
     SharedVector<SharedString> vec;
     vec.clear();

@@ -135,5 +135,5 @@ impl ItemConsts for NativeStandardListViewItem {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeStandardListViewItemVTable() -> NativeStandardListViewItemVTable for NativeStandardListViewItem
+fn slint_get_NativeStandardListViewItemVTable() -> NativeStandardListViewItemVTable for NativeStandardListViewItem
 }

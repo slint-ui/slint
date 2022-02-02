@@ -57,7 +57,7 @@ TestCase := Window {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
+slint::testing::send_mouse_click(&instance, 5., 5.);
 
 assert(instance.get_all_ok());
 ```

@@ -411,5 +411,5 @@ impl ItemConsts for NativeScrollView {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeScrollViewVTable() -> NativeScrollViewVTable for NativeScrollView
+fn slint_get_NativeScrollViewVTable() -> NativeScrollViewVTable for NativeScrollView
 }

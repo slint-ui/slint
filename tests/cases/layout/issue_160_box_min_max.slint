@@ -43,7 +43,7 @@ export TestCase := Window {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-sixtyfps::testing::send_mouse_click(&instance, 1., 1.);
+slint::testing::send_mouse_click(&instance, 1., 1.);
 assert(instance.get_check_ok());
 
 ```

@@ -35,16 +35,16 @@ assert_eq!(instance.invoke_test_func2("xxx".into(), 1), sixtyfps::SharedString::
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-instance.on_test_func([weak = sixtyfps::ComponentWeakHandle(handle)](int a) {
+instance.on_test_func([weak = slint::ComponentWeakHandle(handle)](int a) {
     return (*weak.lock())->get_some_value() * a;
 });
 assert_eq(instance.get_test_prop(), 4 + 16);
-assert_eq(instance.get_test_prop2(), sixtyfps::SharedString("hello=50"));
+assert_eq(instance.get_test_prop2(), slint::SharedString("hello=50"));
 instance.set_some_value(2);
 assert_eq(instance.get_test_prop(), 4 + 4);
-assert_eq(instance.get_test_prop2(), sixtyfps::SharedString("hello=44"));
+assert_eq(instance.get_test_prop2(), slint::SharedString("hello=44"));
 
-assert_eq(instance.invoke_test_func2("xxx", 1), sixtyfps::SharedString("xxx=3"));
+assert_eq(instance.invoke_test_func2("xxx", 1), slint::SharedString("xxx=3"));
 ```
 
 

@@ -36,11 +36,11 @@ TestCase := Rectangle {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-instance.set_binding_to_default_text_color(sixtyfps::Color::from_rgb_uint8(0, 0, 255));
-assert_eq(instance.get_default_text_color(), sixtyfps::Color::from_rgb_uint8(0, 0, 255));
-assert_eq(instance.get_color_of_initialized_text(), sixtyfps::Color::from_rgb_uint8(255, 255, 0));
-assert_eq(instance.get_color_of_sub_element_text(), sixtyfps::Color::from_rgb_uint8(255, 0, 0));
-assert_eq(instance.get_color_in_state(), sixtyfps::Color::from_rgb_uint8(0, 0, 255));
+instance.set_binding_to_default_text_color(slint::Color::from_rgb_uint8(0, 0, 255));
+assert_eq(instance.get_default_text_color(), slint::Color::from_rgb_uint8(0, 0, 255));
+assert_eq(instance.get_color_of_initialized_text(), slint::Color::from_rgb_uint8(255, 255, 0));
+assert_eq(instance.get_color_of_sub_element_text(), slint::Color::from_rgb_uint8(255, 0, 0));
+assert_eq(instance.get_color_in_state(), slint::Color::from_rgb_uint8(0, 0, 255));
 
 ```
 

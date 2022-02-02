@@ -5,7 +5,7 @@
 #include <tuple>
 #include "sixtyfps_properties_internal.h"
 
-namespace sixtyfps::private_api {
+namespace slint::private_api {
 
 /// A Callback stores a function pointer with no parameters and no return value.
 /// It's possible to set that pointer via set_handler() and it can be invoked via call(). This is
@@ -109,4 +109,4 @@ struct CallbackSignatureHelper<void, R>
 template<typename A, typename R = void>
 using CallbackHelper = Callback<typename CallbackSignatureHelper<A, R>::Result>;
 
-} // namespace sixtyfps
+} // namespace slint

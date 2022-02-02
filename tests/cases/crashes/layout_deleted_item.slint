@@ -37,13 +37,13 @@ export TestCase := Window {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-auto vec_model = std::make_shared<sixtyfps::VectorModel<int>>(std::vector<int>{1, 2});
+auto vec_model = std::make_shared<slint::VectorModel<int>>(std::vector<int>{1, 2});
 instance.set_model(vec_model);
 instance.on_clicked([vec_model] { vec_model->erase(vec_model->row_count()-1); });
-sixtyfps::testing::send_mouse_click(&instance, 95., 5.);
+slint::testing::send_mouse_click(&instance, 95., 5.);
 assert_eq(instance.get_model()->row_count(), 1);
 assert(instance.get_hover());
-sixtyfps::testing::send_mouse_click(&instance, 95., 5.);
+slint::testing::send_mouse_click(&instance, 95., 5.);
 assert_eq(instance.get_model()->row_count(), 0);
 assert(!instance.get_hover());
 ```

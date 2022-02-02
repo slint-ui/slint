@@ -13,14 +13,14 @@
 
 #if !defined(DOXYGEN)
 #    if defined(_MSC_VER)
-#        define SIXTYFPS_DLL_IMPORT __declspec(dllimport)
+#        define SLINT_DLL_IMPORT __declspec(dllimport)
 #    elif defined(__GNUC__)
 #        if defined(_WIN32) || defined(_WIN64)
-#            define SIXTYFPS_DLL_IMPORT __declspec(dllimport)
+#            define SLINT_DLL_IMPORT __declspec(dllimport)
 #        else
-#            define SIXTYFPS_DLL_IMPORT __attribute__((visibility("default")))
+#            define SLINT_DLL_IMPORT __attribute__((visibility("default")))
 #        endif
 #    else
-#        define SIXTYFPS_DLL_IMPORT
+#        define SLINT_DLL_IMPORT
 #    endif
 #endif // !defined(DOXYGEN)

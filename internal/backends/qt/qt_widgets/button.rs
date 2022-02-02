@@ -306,5 +306,5 @@ impl ItemConsts for NativeButton {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_NativeButtonVTable() -> NativeButtonVTable for NativeButton
+    fn slint_get_NativeButtonVTable() -> NativeButtonVTable for NativeButton
 }

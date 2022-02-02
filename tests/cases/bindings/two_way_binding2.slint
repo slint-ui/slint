@@ -108,31 +108,31 @@ assert_eq!(instance.get_othercomp_some_value_alias2(), 1);
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-assert_eq(instance.get_text1(), sixtyfps::SharedString("Hello"));
-assert_eq(instance.get_text2(), sixtyfps::SharedString("Blah"));
-assert_eq(instance.get_ti1_text(), sixtyfps::SharedString("Hello"));
-assert_eq(instance.get_ti2_text(), sixtyfps::SharedString("Blah"));
-assert_eq(instance.get_text_item_text(), sixtyfps::SharedString("Blah"));
+assert_eq(instance.get_text1(), slint::SharedString("Hello"));
+assert_eq(instance.get_text2(), slint::SharedString("Blah"));
+assert_eq(instance.get_ti1_text(), slint::SharedString("Hello"));
+assert_eq(instance.get_ti2_text(), slint::SharedString("Blah"));
+assert_eq(instance.get_text_item_text(), slint::SharedString("Blah"));
 assert_eq(instance.get_othercomp_t(), instance.get_othercomp_get_text());
-assert_eq(instance.get_othercomp_t(), sixtyfps::SharedString("real value"));
-assert_eq(instance.get_othercomp_get_text(), sixtyfps::SharedString("real value"));
+assert_eq(instance.get_othercomp_t(), slint::SharedString("real value"));
+assert_eq(instance.get_othercomp_get_text(), slint::SharedString("real value"));
 
 
-instance.set_text1(sixtyfps::SharedString("Text1New"));
-instance.set_text2(sixtyfps::SharedString("Text2New"));
-assert_eq(instance.get_text1(), sixtyfps::SharedString("Text1New"));
-assert_eq(instance.get_text2(), sixtyfps::SharedString("Text2New"));
-assert_eq(instance.get_ti1_text(), sixtyfps::SharedString("Text1New"));
-assert_eq(instance.get_ti2_text(), sixtyfps::SharedString("Text2New"));
-assert_eq(instance.get_text_item_text(), sixtyfps::SharedString("Text2New"));
+instance.set_text1(slint::SharedString("Text1New"));
+instance.set_text2(slint::SharedString("Text2New"));
+assert_eq(instance.get_text1(), slint::SharedString("Text1New"));
+assert_eq(instance.get_text2(), slint::SharedString("Text2New"));
+assert_eq(instance.get_ti1_text(), slint::SharedString("Text1New"));
+assert_eq(instance.get_ti2_text(), slint::SharedString("Text2New"));
+assert_eq(instance.get_text_item_text(), slint::SharedString("Text2New"));
 
-instance.invoke_set_ti1(sixtyfps::SharedString("Hallo"));
-instance.invoke_set_ti2(sixtyfps::SharedString("Bonjour"));
-assert_eq(instance.get_text1(), sixtyfps::SharedString("Hallo"));
-assert_eq(instance.get_text2(), sixtyfps::SharedString("Text2New"));
-assert_eq(instance.get_ti1_text(), sixtyfps::SharedString("Hallo"));
-assert_eq(instance.get_ti2_text(), sixtyfps::SharedString("Bonjour"));
-assert_eq(instance.get_text_item_text(), sixtyfps::SharedString("Bonjour"));
+instance.invoke_set_ti1(slint::SharedString("Hallo"));
+instance.invoke_set_ti2(slint::SharedString("Bonjour"));
+assert_eq(instance.get_text1(), slint::SharedString("Hallo"));
+assert_eq(instance.get_text2(), slint::SharedString("Text2New"));
+assert_eq(instance.get_ti1_text(), slint::SharedString("Hallo"));
+assert_eq(instance.get_ti2_text(), slint::SharedString("Bonjour"));
+assert_eq(instance.get_text_item_text(), slint::SharedString("Bonjour"));
 
 assert_eq(instance.get_othercomp_some_value(), 42);
 assert_eq(instance.get_othercomp_some_value_alias(), 42);

@@ -18,13 +18,13 @@
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-assert_eq(instance.get_s1(), sixtyfps::SharedString("hello1212"));
-assert_eq(instance.get_s2(), sixtyfps::SharedString("10hello5.1"));
+assert_eq(instance.get_s1(), slint::SharedString("hello1212"));
+assert_eq(instance.get_s2(), slint::SharedString("10hello5.1"));
 instance.set_a(42);
-assert_eq(instance.get_s1(), sixtyfps::SharedString("hello4242"));
+assert_eq(instance.get_s1(), slint::SharedString("hello4242"));
 instance.invoke_foo();
-assert_eq(instance.get_s3(), sixtyfps::SharedString("x42x42"));
-assert_eq(instance.get_s4(), sixtyfps::SharedString("ayoxxx"));
+assert_eq(instance.get_s3(), slint::SharedString("x42x42"));
+assert_eq(instance.get_s4(), slint::SharedString("ayoxxx"));
 ```
 
 

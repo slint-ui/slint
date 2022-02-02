@@ -47,18 +47,18 @@ assert_eq!(instance.get_foo_b(), 33);
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-assert_eq(instance.get_foo_a(), sixtyfps::SharedString("444"));
+assert_eq(instance.get_foo_a(), slint::SharedString("444"));
 assert_eq(instance.get_foo_b(), 12);
 instance.invoke_change_foo();
-assert_eq(instance.get_foo_a(), sixtyfps::SharedString("hello"));
+assert_eq(instance.get_foo_a(), slint::SharedString("hello"));
 assert_eq(instance.get_foo_b(), 20);
 assert_eq(instance.get_obj_cond_merge_b(), 0);
 assert_eq(instance.get_obj_binop_merge(), true);
 assert(instance.get_test());
 
 // This API to set with a tuple should maybe not be accessible?
-instance.set_foo(std::make_tuple(sixtyfps::SharedString("yo"), 33));
-assert_eq(instance.get_foo_a(), sixtyfps::SharedString("yo"));
+instance.set_foo(std::make_tuple(slint::SharedString("yo"), 33));
+assert_eq(instance.get_foo_a(), slint::SharedString("yo"));
 assert_eq(instance.get_foo_b(), 33);
 ```
 

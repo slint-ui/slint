@@ -50,29 +50,29 @@ assert_eq(instance.get_test(), true);
 assert_eq(instance.get_el1visible(), true);
 
 // el2 !visible, outside
-sixtyfps::testing::send_mouse_click(&instance, 37., 27.);
+slint::testing::send_mouse_click(&instance, 37., 27.);
 assert_eq(instance.get_touch1(), 0);
 assert_eq(instance.get_touch2(), 0);
 
 // el2 !visible, inside
-sixtyfps::testing::send_mouse_click(&instance, 37., 33.);
+slint::testing::send_mouse_click(&instance, 37., 33.);
 assert_eq(instance.get_touch1(), 0);
 assert_eq(instance.get_touch2(), 0);
 
 
 // el1 visible, outside
-sixtyfps::testing::send_mouse_click(&instance, 17., 7.);
+slint::testing::send_mouse_click(&instance, 17., 7.);
 assert_eq(instance.get_touch1(), 1);
 assert_eq(instance.get_touch2(), 0);
 
 // el1 visible, inside
-sixtyfps::testing::send_mouse_click(&instance, 17., 13.);
+slint::testing::send_mouse_click(&instance, 17., 13.);
 assert_eq(instance.get_touch1(), 2);
 assert_eq(instance.get_touch2(), 0);
 
 // now makes el invisible
 instance.set_el1visible(false);
-sixtyfps::testing::send_mouse_click(&instance, 17., 7.);
+slint::testing::send_mouse_click(&instance, 17., 7.);
 assert_eq(instance.get_touch1(), 2);
 assert_eq(instance.get_touch2(), 0);
 

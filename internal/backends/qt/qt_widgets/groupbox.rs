@@ -194,5 +194,5 @@ impl ItemConsts for NativeGroupBox {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeGroupBoxVTable() -> NativeGroupBoxVTable for NativeGroupBox
+fn slint_get_NativeGroupBoxVTable() -> NativeGroupBoxVTable for NativeGroupBox
 }

@@ -233,5 +233,5 @@ impl ItemConsts for NativeSlider {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeSliderVTable() -> NativeSliderVTable for NativeSlider
+fn slint_get_NativeSliderVTable() -> NativeSliderVTable for NativeSlider
 }

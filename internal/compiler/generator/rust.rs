@@ -1786,7 +1786,7 @@ fn compile_builtin_function_call(
 /// Return a TokenStream for a name (as in [`Type::Struct::name`])
 fn struct_name_to_tokens(name: &str) -> TokenStream {
     // the name match the C++ signature so we need to change that to the rust namespace
-    let mut name = name.replace("::private_api::", "::re_exports::").replace('-', "_");
+    let mut name = name.replace("slint::private_api::", "sixtyfps::re_exports::").replace('-', "_");
     if !name.contains("::") {
         name.insert_str(0, "r#")
     }

@@ -7,7 +7,7 @@
 #include "sixtyfps_brush_internal.h"
 #include "sixtyfps_string.h"
 
-namespace sixtyfps {
+namespace slint {
 
 namespace private_api {
 
@@ -47,7 +47,7 @@ public:
 private:
     cbindgen_private::types::LinearGradientBrush inner;
 
-    friend class sixtyfps::Brush;
+    friend class slint::Brush;
 
     static SharedVector<private_api::GradientStop>
     make_linear_gradient(float angle, const GradientStop *firstStop, int stopCount)

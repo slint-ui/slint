@@ -5,22 +5,21 @@
 
 #include <fmt/core.h>
 
-void Widget::set_property(std::string_view name, const sixtyfps::interpreter::Value &value)
+void Widget::set_property(std::string_view name, const slint::interpreter::Value &value)
 {
     if (m_ui)
         (*m_ui)->set_property(qualified_property_name(name), value);
 }
 
-std::optional<sixtyfps::interpreter::Value> Widget::property(std::string_view name) const
+std::optional<slint::interpreter::Value> Widget::property(std::string_view name) const
 {
     if (m_ui)
         return (*m_ui)->get_property(qualified_property_name(name));
     return {};
 }
 
-void Widget::connect_ui(
-        const sixtyfps::ComponentHandle<sixtyfps::interpreter::ComponentInstance> &ui,
-        std::string_view properties_prefix)
+void Widget::connect_ui(const slint::ComponentHandle<slint::interpreter::ComponentInstance> &ui,
+                        std::string_view properties_prefix)
 {
     m_ui = ui;
     m_properties_prefix = properties_prefix;
@@ -73,8 +72,8 @@ int DashboardBuilder::register_widget(WidgetPtr widget)
     return widget_id;
 }
 
-std::optional<sixtyfps::ComponentHandle<sixtyfps::interpreter::ComponentInstance>>
-DashboardBuilder::build(sixtyfps::interpreter::ComponentCompiler &compiler) const
+std::optional<slint::ComponentHandle<slint::interpreter::ComponentInstance>>
+DashboardBuilder::build(slint::interpreter::ComponentCompiler &compiler) const
 {
     std::string widget_imports;
 
@@ -189,9 +188,8 @@ MainWindow := Window {{
     auto definition = compiler.build_from_source(source_code, SOURCE_DIR);
 
     for (auto diagnostic : compiler.diagnostics()) {
-        std::cerr << (diagnostic.level == sixtyfps::interpreter::DiagnosticLevel::Warning
-                              ? "warning: "
-                              : "error: ")
+        std::cerr << (diagnostic.level == slint::interpreter::DiagnosticLevel::Warning ? "warning: "
+                                                                                       : "error: ")
                   << diagnostic.message << std::endl;
         std::cerr << "location: " << diagnostic.source_file;
         if (diagnostic.line > 0)

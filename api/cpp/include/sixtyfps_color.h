@@ -8,7 +8,7 @@
 
 #include <stdint.h>
 
-namespace sixtyfps {
+namespace slint {
 
 namespace private_api {
 class LinearGradientBrush;
@@ -229,4 +229,4 @@ Property<Color>::set_animated_value(const Color &new_value,
 
 } // namespace private_api
 
-} // namespace sixtyfps
+} // namespace slint

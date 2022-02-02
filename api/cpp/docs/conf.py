@@ -28,7 +28,7 @@ author = "info@sixtyfps.io"
 # The full version, including alpha/beta/rc tags
 version = "0.2.0"
 
-cpp_index_common_prefix = ["sixtyfps::", "sixtyfps::interpreter::"]
+cpp_index_common_prefix = ["slint::", "slint::interpreter::"]
 
 # -- General configuration ---------------------------------------------------
 
@@ -37,8 +37,8 @@ cpp_index_common_prefix = ["sixtyfps::", "sixtyfps::interpreter::"]
 # ones.
 extensions = ["breathe", "myst_parser", "exhale", "sphinx_markdown_tables"]
 
-breathe_projects = {"SixtyFPS": "./docs/xml"}
-breathe_default_project = "SixtyFPS"
+breathe_projects = {"Slint": "./docs/xml"}
+breathe_default_project = "Slint"
 
 exhale_args = {
     "containmentFolder": "./api",
@@ -47,12 +47,12 @@ exhale_args = {
     "afterTitleDescription": textwrap.dedent(
         """
             The following sections present the C++ API Reference. All types are
-            within the :ref:`sixtyfps<namespace_sixtyfps>` namespace and are accessible by including
+            within the :ref:`slint<namespace_slint>` namespace and are accessible by including
             the :code:`sixtyfps.h` header file.
 
             If you choose to load :code:`.slint` files dynamically at run-time, then
-            you can use the classes in :ref:`sixtyfps::interpreter<namespace_sixtyfps__interpreter>`, starting at
-            :cpp:class:`sixtyfps::interpreter::ComponentCompiler`. You need to include
+            you can use the classes in :ref:`slint::interpreter<namespace_slint__interpreter>`, starting at
+            :cpp:class:`slint::interpreter::ComponentCompiler`. You need to include
             the :code:`sixtyfps_interpreter.h` header file.
         """
     ),
@@ -60,7 +60,7 @@ exhale_args = {
     "createTreeView": True,
     "exhaleExecutesDoxygen": True,
     "exhaleDoxygenStdin": """INPUT = ../../api/cpp/include generated_include
-EXCLUDE_SYMBOLS = sixtyfps::cbindgen_private* sixtyfps::private_api* vtable* SIXTYFPS_DECL_ITEM
+EXCLUDE_SYMBOLS = slint::cbindgen_private* slint::private_api* vtable* SLINT_DECL_ITEM
 EXCLUDE = ../../api/cpp/include/vtable.h ../../api/sixtyfps-cpp/include/sixtyfps_testing.h
 ENABLE_PREPROCESSING = YES
 PREDEFINED += DOXYGEN

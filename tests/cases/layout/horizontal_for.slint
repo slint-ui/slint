@@ -36,13 +36,13 @@ export TestCase := Rectangle {
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
-sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
+slint::testing::send_mouse_click(&instance, 5., 5.);
 assert_eq(instance.get_value(), -10);
 
-sixtyfps::testing::send_mouse_click(&instance, 25., 25.);
+slint::testing::send_mouse_click(&instance, 25., 25.);
 assert_eq(instance.get_value(), 8);
 
-sixtyfps::testing::send_mouse_click(&instance, 45., 15.);
+slint::testing::send_mouse_click(&instance, 45., 15.);
 assert_eq(instance.get_value(), 9);
 ```
 

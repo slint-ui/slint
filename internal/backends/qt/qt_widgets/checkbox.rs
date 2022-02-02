@@ -117,5 +117,5 @@ impl ItemConsts for NativeCheckBox {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_NativeCheckBoxVTable() -> NativeCheckBoxVTable for NativeCheckBox
+    fn slint_get_NativeCheckBoxVTable() -> NativeCheckBoxVTable for NativeCheckBox
 }

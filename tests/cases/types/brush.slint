@@ -10,9 +10,9 @@ Test := Rectangle {
 ```cpp
 auto handle = Test::create();
 const Test &t = *handle;
-assert_eq(t.get_color_brush().color(), sixtyfps::Color::from_rgb_uint8(0, 0, 0xff));
+assert_eq(t.get_color_brush().color(), slint::Color::from_rgb_uint8(0, 0, 0xff));
 
-auto green = sixtyfps::Color::from_rgb_uint8(0, 0xff, 0);
+auto green = slint::Color::from_rgb_uint8(0, 0xff, 0);
 t.set_color_brush(green);
 assert_eq(t.get_color_brush().color(), green);
 ```

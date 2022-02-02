@@ -41,14 +41,14 @@ const TestCase &instance = *handle;
 
 // Send an initial click to traverse the item tree and force a listview
 // layout.
-sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
+slint::testing::send_mouse_click(&instance, 5., 5.);
 assert_eq(instance.get_viewport_height(), 100.);
 
 // Trigger the mouse area to change the model
-sixtyfps::testing::send_mouse_click(&instance, 5., 55.);
+slint::testing::send_mouse_click(&instance, 5., 55.);
 
 // Send a second click to force an item tree traversal and listview update
-sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
+slint::testing::send_mouse_click(&instance, 5., 5.);
 assert_eq(instance.get_viewport_height(), 200.);
 ```
 

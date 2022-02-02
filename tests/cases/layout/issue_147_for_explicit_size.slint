@@ -37,13 +37,13 @@ TestCase := Window {
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
-sixtyfps::testing::send_mouse_click(&instance, 5., 455.);
+slint::testing::send_mouse_click(&instance, 5., 455.);
 assert_eq(instance.get_last_clicked(), 0);
-sixtyfps::testing::send_mouse_click(&instance, 5., 305.);
+slint::testing::send_mouse_click(&instance, 5., 305.);
 assert_eq(instance.get_last_clicked(), 11);
-sixtyfps::testing::send_mouse_click(&instance, 5., 295.);
+slint::testing::send_mouse_click(&instance, 5., 295.);
 assert_eq(instance.get_last_clicked(), 3);
-sixtyfps::testing::send_mouse_click(&instance, 5., 95.);
+slint::testing::send_mouse_click(&instance, 5., 95.);
 assert_eq(instance.get_last_clicked(), 1);
 ```
 

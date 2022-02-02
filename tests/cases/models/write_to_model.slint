@@ -80,27 +80,27 @@ assert_eq!(another_model.row_count(), 3);
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-sixtyfps::testing::send_mouse_click(&instance, 15., 5.);
+slint::testing::send_mouse_click(&instance, 15., 5.);
 assert_eq(instance.get_clicked_score(), 792);
 
 assert_eq(std::get<2>(*instance.get_model()->row_data(1)), 792.);
 instance.invoke_manual_score_update(1, 100);
 assert_eq(std::get<2>(*instance.get_model()->row_data(1)), 892.);
 
-using ModelData = std::tuple<sixtyfps::SharedString, sixtyfps::SharedString, float>;
+using ModelData = std::tuple<slint::SharedString, slint::SharedString, float>;
 std::vector<ModelData> array;
 array.push_back(ModelData{"a1", "hello", 111.});
 array.push_back(ModelData{"a2", "cruel", 222.});
 array.push_back(ModelData{"a3", "world", 333.});
-auto another_model = std::make_shared<sixtyfps::VectorModel<ModelData>>(std::move(array));
+auto another_model = std::make_shared<slint::VectorModel<ModelData>>(std::move(array));
 instance.set_model(another_model);
 
-sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
+slint::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq(instance.get_clicked_score(), 336);
 assert_eq(std::get<2>(*another_model->row_data(2)), 336.);
 
 instance.invoke_manual_score_update(2, 100);
-sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
+slint::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq(instance.get_clicked_score(), 439);
 assert_eq(std::get<2>(*another_model->row_data(2)), 439.);
 assert_eq(std::get<1>(*another_model->row_data(2)), "world");

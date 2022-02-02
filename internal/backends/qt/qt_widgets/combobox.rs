@@ -140,7 +140,7 @@ impl ItemConsts for NativeComboBox {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeComboBoxVTable() -> NativeComboBoxVTable for NativeComboBox
+fn slint_get_NativeComboBoxVTable() -> NativeComboBoxVTable for NativeComboBox
 }
 
 #[repr(C)]
@@ -229,5 +229,5 @@ impl ItemConsts for NativeComboBoxPopup {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeComboBoxPopupVTable() -> NativeComboBoxPopupVTable for NativeComboBoxPopup
+fn slint_get_NativeComboBoxPopupVTable() -> NativeComboBoxPopupVTable for NativeComboBoxPopup
 }

@@ -7,10 +7,10 @@
 #include "sixtyfps_pathdata_internal.h"
 
 // The C++ code generator assumes that enums are in the cbindgen_private namespace
-namespace sixtyfps::cbindgen_private {
+namespace slint::cbindgen_private {
 using cbindgen_private::types::PathEvent;
 }
-namespace sixtyfps::private_api {
+namespace slint::private_api {
 using cbindgen_private::types::PathArcTo;
 using cbindgen_private::types::PathCubicTo;
 using cbindgen_private::types::PathElement;

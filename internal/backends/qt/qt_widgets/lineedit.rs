@@ -140,5 +140,5 @@ impl ItemConsts for NativeLineEdit {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeLineEditVTable() -> NativeLineEditVTable for NativeLineEdit
+fn slint_get_NativeLineEditVTable() -> NativeLineEditVTable for NativeLineEdit
 }

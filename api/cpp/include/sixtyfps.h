@@ -19,7 +19,7 @@
 #include <condition_variable>
 #include <span>
 
-namespace sixtyfps::cbindgen_private {
+namespace slint::cbindgen_private {
 // Workaround https://github.com/eqrion/cbindgen/issues/43
 struct ComponentVTable;
 struct ItemVTable;
@@ -35,7 +35,7 @@ struct ItemVTable;
 /// See the :doc:`Overview <../overview>` documentation for the C++ integration how
 /// to load :code:`.slint` designs.
 /// \endrst
-namespace sixtyfps {
+namespace slint {
 
 // Bring opaque structure in scope
 namespace private_api {
@@ -60,7 +60,7 @@ using cbindgen_private::StandardListViewItem;
 /// thread is indeed called from the main thread, or abort the program otherwise
 ///
 /// Most API should be called from the main thread. When using thread one must
-/// use sixtyfps::invoke_from_event_loop
+/// use slint::invoke_from_event_loop
 inline void assert_main_thread()
 {
 #ifndef NDEBUG
@@ -70,7 +70,7 @@ inline void assert_main_thread()
                      "thread."
                   << std::endl;
         std::cerr << "Most API should be called from the main thread. When using thread one must "
-                     "use sixtyfps::invoke_from_event_loop."
+                     "use slint::invoke_from_event_loop."
                   << std::endl;
         std::abort();
     }
@@ -202,10 +202,9 @@ inline vtable::Layout drop_in_place(ComponentRef component)
 // so we have a relocation to a function that returns the address we seek. That
 // relocation will be resolved to the locally linked stub library, the implementation of
 // which will be patched.
-#        define SIXTYFPS_GET_ITEM_VTABLE(VTableName)                                               \
-            sixtyfps::private_api::sixtyfps_get_##VTableName()
+#        define SIXTYFPS_GET_ITEM_VTABLE(VTableName) slint::private_api::sixtyfps_get_##VTableName()
 #    else
-#        define SIXTYFPS_GET_ITEM_VTABLE(VTableName) (&sixtyfps::private_api::VTableName)
+#        define SIXTYFPS_GET_ITEM_VTABLE(VTableName) (&slint::private_api::VTableName)
 #    endif
 #endif // !defined(DOXYGEN)
 
@@ -336,7 +335,7 @@ struct Timer
     /// the destructor of the timer is called.
     ///
     /// This is a convenience function and equivalent to calling
-    /// `start(sixtyfps::TimerMode::Repeated, interval, callback);` on a default constructed Timer.
+    /// `start(slint::TimerMode::Repeated, interval, callback);` on a default constructed Timer.
     template<typename F>
     Timer(std::chrono::milliseconds interval, F callback)
         : id(cbindgen_private::slint_timer_start(
@@ -867,7 +866,7 @@ inline void run_event_loop()
 /// Schedules the main event loop for termination. This function is meant
 /// to be called from callbacks triggered by the UI. After calling the function,
 /// it will return immediately and once control is passed back to the event loop,
-/// the initial call to sixtyfps::run_event_loop() will return.
+/// the initial call to slint::run_event_loop() will return.
 inline void quit_event_loop()
 {
     cbindgen_private::slint_quit_event_loop();
@@ -894,10 +893,10 @@ inline void quit_event_loop()
 ///     auto ui = NetworkStatusUI::create();
 ///     ui->set_status_label("Pending");
 ///
-///     sixtyfps::ComponentWeakHandle<NetworkStatusUI> weak_ui_handle(ui);
+///     slint::ComponentWeakHandle<NetworkStatusUI> weak_ui_handle(ui);
 ///     std::thread network_thread([=]{
 ///         std::string message = read_message_blocking_from_network();
-///         sixtyfps::invoke_from_event_loop([&]() {
+///         slint::invoke_from_event_loop([&]() {
 ///             if (auto ui = weak_ui_handle.lock()) {
 ///                 ui->set_status_label(message);
 ///             }
@@ -941,7 +940,7 @@ void invoke_from_event_loop(Functor f)
 ///
 ///     std::thread worker_thread([ui]{
 ///         while (...) {
-///             auto message = sixtyfps::blocking_invoke_from_event_loop([ui]() {
+///             auto message = slint::blocking_invoke_from_event_loop([ui]() {
 ///                return ui->get_message();
 ///             }
 ///             do_something(message);
@@ -1020,4 +1019,4 @@ inline std::optional<SharedString> register_font_from_data(const uint8_t *data, 
 
 }
 
-} // namespace sixtyfps
+} // namespace slint

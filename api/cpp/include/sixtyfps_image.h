@@ -8,7 +8,7 @@
 #include "sixtyfps_string.h"
 #include "sixtyfps_sharedvector.h"
 
-namespace sixtyfps {
+namespace slint {
 
 /// An image type that can be displayed by the Image element
 struct Image
@@ -36,7 +36,7 @@ public:
     IntSize size() const { return cbindgen_private::types::slint_image_size(&data); }
 
     /// Returns the path of the image on disk, if it was constructed via Image::load_from_path().
-    std::optional<sixtyfps::SharedString> path() const
+    std::optional<slint::SharedString> path() const
     {
         if (auto *str = cbindgen_private::types::slint_image_path(&data)) {
             return *str;

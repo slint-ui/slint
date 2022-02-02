@@ -17,7 +17,7 @@ struct PropertyDeclaration
 };
 
 /**
-   The Widget base class is a wrapper around sixtyfps::interpreter::ComponentInstance that allows
+   The Widget base class is a wrapper around slint::interpreter::ComponentInstance that allows
    conveniently reading and writing properties of an element of which the properties have been
    forwarded via two-way bindings.
 
@@ -50,11 +50,11 @@ public:
     virtual std::string type_name() const = 0;
     virtual std::vector<PropertyDeclaration> properties() const = 0;
 
-    void set_property(std::string_view name, const sixtyfps::interpreter::Value &value);
+    void set_property(std::string_view name, const slint::interpreter::Value &value);
 
-    std::optional<sixtyfps::interpreter::Value> property(std::string_view name) const;
+    std::optional<slint::interpreter::Value> property(std::string_view name) const;
 
-    void connect_ui(const sixtyfps::ComponentHandle<sixtyfps::interpreter::ComponentInstance> &ui,
+    void connect_ui(const slint::ComponentHandle<slint::interpreter::ComponentInstance> &ui,
                     std::string_view properties_prefix);
 
     std::pair<std::string, std::vector<PropertyDeclaration>>
@@ -63,7 +63,7 @@ public:
 private:
     std::string qualified_property_name(std::string_view name) const;
 
-    std::optional<sixtyfps::ComponentHandle<sixtyfps::interpreter::ComponentInstance>> m_ui;
+    std::optional<slint::ComponentHandle<slint::interpreter::ComponentInstance>> m_ui;
     std::string m_properties_prefix;
 };
 
@@ -89,8 +89,8 @@ struct DashboardBuilder
     void add_grid_widget(WidgetPtr widget, const WidgetLocation &location);
     void add_top_bar_widget(WidgetPtr widget);
 
-    std::optional<sixtyfps::ComponentHandle<sixtyfps::interpreter::ComponentInstance>>
-    build(sixtyfps::interpreter::ComponentCompiler &compiler) const;
+    std::optional<slint::ComponentHandle<slint::interpreter::ComponentInstance>>
+    build(slint::interpreter::ComponentCompiler &compiler) const;
 
 private:
     int register_widget(WidgetPtr widget);

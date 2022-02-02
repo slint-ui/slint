@@ -232,5 +232,5 @@ impl ItemConsts for NativeSpinBox {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeSpinBoxVTable() -> NativeSpinBoxVTable for NativeSpinBox
+fn slint_get_NativeSpinBoxVTable() -> NativeSpinBoxVTable for NativeSpinBox
 }

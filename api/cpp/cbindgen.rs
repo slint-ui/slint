@@ -25,7 +25,7 @@ fn default_config() -> cbindgen::Config {
     cbindgen::Config {
         pragma_once: true,
         include_version: true,
-        namespaces: Some(vec!["sixtyfps".into(), "cbindgen_private".into()]),
+        namespaces: Some(vec!["slint".into(), "cbindgen_private".into()]),
         line_length: 100,
         tab_width: 4,
         // Note: we might need to switch to C if we need to generate bindings for language that needs C headers
@@ -59,21 +59,21 @@ fn default_config() -> cbindgen::Config {
 fn gen_item_declarations(items: &[&str]) -> String {
     format!(
         r#"
-namespace sixtyfps::private_api {{
-#define SIXTYFPS_DECL_ITEM(ItemName) \
+namespace slint::private_api {{
+#define SLINT_DECL_ITEM(ItemName) \
     extern const cbindgen_private::ItemVTable ItemName##VTable; \
-    extern SIXTYFPS_DLL_IMPORT const cbindgen_private::ItemVTable* sixtyfps_get_##ItemName##VTable();
+    extern SLINT_DLL_IMPORT const cbindgen_private::ItemVTable* slint_get_##ItemName##VTable();
 
 extern "C" {{
 {}
 }}
 
-#undef SIXTYFPS_DECL_ITEM
+#undef SLINT_DECL_ITEM
 }}
 "#,
         items
             .iter()
-            .map(|item_name| format!("SIXTYFPS_DECL_ITEM({});", item_name))
+            .map(|item_name| format!("SLINT_DECL_ITEM({});", item_name))
             .collect::<Vec<_>>()
             .join("\n")
     )
@@ -179,7 +179,7 @@ fn gen_corelib(
         .with_config(string_config)
         .with_src(crate_dir.join("string.rs"))
         .with_src(crate_dir.join("slice.rs"))
-        .with_after_include("namespace sixtyfps { struct SharedString; }")
+        .with_after_include("namespace slint { struct SharedString; }")
         .generate()
         .context("Unable to generate bindings for sixtyfps_string_internal.h")?
         .write_to_file(include_dir.join("sixtyfps_string_internal.h"));
@@ -187,7 +187,7 @@ fn gen_corelib(
     cbindgen::Builder::new()
         .with_config(config.clone())
         .with_src(crate_dir.join("sharedvector.rs"))
-        .with_after_include("namespace sixtyfps { template<typename T> struct SharedVector; }")
+        .with_after_include("namespace slint { template<typename T> struct SharedVector; }")
         .generate()
         .context("Unable to generate bindings for sixtyfps_sharedvector_internal.h")?
         .write_to_file(include_dir.join("sixtyfps_sharedvector_internal.h"));
@@ -205,7 +205,7 @@ fn gen_corelib(
         .with_config(properties_config)
         .with_src(crate_dir.join("properties.rs"))
         .with_src(crate_dir.join("callbacks.rs"))
-        .with_after_include("namespace sixtyfps { class Color; class Brush; }")
+        .with_after_include("namespace slint { class Color; class Brush; }")
         .generate()
         .context("Unable to generate bindings for sixtyfps_properties_internal.h")?
         .write_to_file(include_dir.join("sixtyfps_properties_internal.h"));
@@ -281,9 +281,9 @@ fn gen_corelib(
         special_config.structure.derive_eq = true;
         special_config.structure.derive_neq = true;
         // Put the rust type in a deeper "types" namespace, so the use of same type in for example generated
-        // Property<> fields uses the public `sixtyfps::Blah` type
+        // Property<> fields uses the public `slint::Blah` type
         special_config.namespaces =
-            Some(vec!["sixtyfps".into(), "cbindgen_private".into(), "types".into()]);
+            Some(vec!["slint".into(), "cbindgen_private".into(), "types".into()]);
         cbindgen::Builder::new()
             .with_config(special_config)
             .with_src(crate_dir.join("graphics.rs"))
@@ -302,7 +302,7 @@ fn gen_corelib(
 
     // Generate a header file with some public API (enums, etc.)
     let mut public_config = config.clone();
-    public_config.namespaces = Some(vec!["sixtyfps".into()]);
+    public_config.namespaces = Some(vec!["slint".into()]);
     public_config.export.item_types = vec![cbindgen::ItemType::Enums, cbindgen::ItemType::Structs];
     public_config.export.include = vec!["TimerMode".into(), "IntSize".into()];
     public_config.export.exclude.clear();
@@ -321,13 +321,13 @@ fn gen_corelib(
         .with_src(crate_dir.join("graphics.rs"))
         .with_after_include(format!(
             r"
-/// This macro expands to the to the numeric value of the major version of SixtyFPS you're
+/// This macro expands to the to the numeric value of the major version of Slint you're
 /// developing against. For example if you're using version 1.5.2, this macro will expand to 1.
 #define SLINT_VERSION_MAJOR {}
-/// This macro expands to the to the numeric value of the minor version of SixtyFPS you're
+/// This macro expands to the to the numeric value of the minor version of Slint you're
 /// developing against. For example if you're using version 1.5.2, this macro will expand to 5.
 #define SLINT_VERSION_MINOR {}
-/// This macro expands to the to the numeric value of the patch version of SixtyFPS you're
+/// This macro expands to the to the numeric value of the patch version of Slint you're
 /// developing against. For example if you're using version 1.5.2, this macro will expand to 2.
 #define SLINT_VERSION_PATCH {}
 ",
@@ -386,10 +386,10 @@ fn gen_corelib(
         .with_include("sixtyfps_generated_public.h")
         .with_after_include(
             r"
-namespace sixtyfps {
+namespace slint {
     namespace private_api { class WindowRc; }
     namespace cbindgen_private {
-        using sixtyfps::private_api::WindowRc;
+        using slint::private_api::WindowRc;
         using namespace vtable;
         struct KeyEvent; struct PointerEvent;
         using private_api::Property;
@@ -497,7 +497,7 @@ fn gen_interpreter(
 
     // Generate a header file with some public API (enums, etc.)
     let mut public_config = config.clone();
-    public_config.namespaces = Some(vec!["sixtyfps".into(), "interpreter".into()]);
+    public_config.namespaces = Some(vec!["slint".into(), "interpreter".into()]);
     public_config.export.item_types = vec![cbindgen::ItemType::Enums, cbindgen::ItemType::Structs];
 
     public_config.export.exclude = IntoIterator::into_iter([
@@ -528,11 +528,11 @@ fn gen_interpreter(
         .with_include("sixtyfps_interpreter_generated_public.h")
         .with_after_include(
             r"
-            namespace sixtyfps::cbindgen_private {
+            namespace slint::cbindgen_private {
                 struct Value;
-                using sixtyfps::interpreter::ValueType;
-                using sixtyfps::interpreter::PropertyDescriptor;
-                using sixtyfps::interpreter::Diagnostic;
+                using slint::interpreter::ValueType;
+                using slint::interpreter::PropertyDescriptor;
+                using slint::interpreter::Diagnostic;
             }",
         )
         .generate()
@@ -543,7 +543,7 @@ fn gen_interpreter(
 }
 
 /// Generate the headers.
-/// `root_dir` is the root directory of the sixtyfps git repo
+/// `root_dir` is the root directory of the slint git repo
 /// `include_dir` is the output directory
 /// Returns the list of all paths that contain dependencies to the generated output. If you call this
 /// function from build.rs, feed each entry to stdout prefixed with `cargo:rerun-if-changed=`.

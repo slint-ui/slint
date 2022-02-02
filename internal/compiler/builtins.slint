@@ -91,7 +91,7 @@ export Text := _ {
 
 
 export struct PointerEvent := {
-    //-name:sixtyfps::private_api::PointerEvent
+    //-name:slint::private_api::PointerEvent
     button: PointerEventButton,
     kind: PointerEventKind,
 }
@@ -116,7 +116,7 @@ export TouchArea := _ {
 }
 
 export struct KeyboardModifiers := {
-    //-name:sixtyfps::private_api::KeyboardModifiers
+    //-name:slint::private_api::KeyboardModifiers
     alt: bool,
     control: bool,
     shift: bool,
@@ -124,7 +124,7 @@ export struct KeyboardModifiers := {
 }
 
 export struct KeyEvent := {
-    //-name:sixtyfps::private_api::KeyEvent
+    //-name:slint::private_api::KeyEvent
     text: string,
     modifiers: KeyboardModifiers,
 }
@@ -186,7 +186,7 @@ export BoxShadow := _ {
 }
 
 export struct Point := {
-    //-name:sixtyfps::private_api::Point
+    //-name:slint::private_api::Point
     x: length,
     y: length,
 }
@@ -269,7 +269,7 @@ MoveTo := _ {
     property <float> y;
 
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::MoveTo(PathMoveTo{{}})
-    //-cpp_type:sixtyfps::private_api::PathMoveTo
+    //-cpp_type:slint::private_api::PathMoveTo
     //-is_non_item_type
 }
 
@@ -278,7 +278,7 @@ LineTo := _ {
     property <float> y;
 
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::LineTo(PathLineTo{{}})
-    //-cpp_type:sixtyfps::private_api::PathLineTo
+    //-cpp_type:slint::private_api::PathLineTo
     //-is_non_item_type
 }
 
@@ -292,7 +292,7 @@ ArcTo := _ {
     property <bool> sweep;
 
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::ArcTo(PathArcTo{{}})
-    //-cpp_type:sixtyfps::private_api::PathArcTo
+    //-cpp_type:slint::private_api::PathArcTo
     //-is_non_item_type
 }
 
@@ -305,7 +305,7 @@ CubicTo := _ {
     property <float> y;
 
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::CubicTo(PathCubicTo{{}})
-    //-cpp_type:sixtyfps::private_api::PathCubicTo
+    //-cpp_type:slint::private_api::PathCubicTo
     //-is_non_item_type
 }
 
@@ -316,13 +316,13 @@ QuadraticTo := _ {
     property <float> y;
 
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::QuadraticTo(PathQuadraticTo{{}})
-    //-cpp_type:sixtyfps::private_api::PathQuadraticTo
+    //-cpp_type:slint::private_api::PathQuadraticTo
     //-is_non_item_type
 }
 
 Close := _ {
     //-rust_type_constructor:sixtyfps::re_exports::PathElement::Close
-    //-cpp_type:sixtyfps::private_api::PathClose
+    //-cpp_type:slint::private_api::PathClose
     //-is_non_item_type
     //-is_non_item_type
 }
@@ -413,12 +413,12 @@ PropertyAnimation := _ {
 }
 
 export struct StandardListViewItem := {
-    //-name:sixtyfps::private_api::StandardListViewItem
+    //-name:slint::private_api::StandardListViewItem
     text: string
 }
 
 export struct StateInfo := {
-    //-name:sixtyfps::private_api::StateInfo
+    //-name:slint::private_api::StateInfo
     current_state: int,
     previous_state: int,
     //change_time: duration,

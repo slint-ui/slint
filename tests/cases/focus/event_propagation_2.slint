@@ -67,8 +67,8 @@ assert_eq!(instance.get_r5(), "__abcdefghij__");
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-sixtyfps::testing::send_mouse_click(&instance, 50., 50.);
-sixtyfps::testing::send_keyboard_string_sequence(&instance, "__abcdefghij__");
+slint::testing::send_mouse_click(&instance, 50., 50.);
+slint::testing::send_keyboard_string_sequence(&instance, "__abcdefghij__");
 assert_eq(instance.get_r1(), "__afghij__");
 assert_eq(instance.get_r2(), "__abfghij__");
 assert_eq(instance.get_r3(), "__abcfghij__");

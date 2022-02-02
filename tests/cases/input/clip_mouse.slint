@@ -54,29 +54,29 @@ assert_eq(instance.get_test(), true);
 assert_eq(instance.get_el1clip(), false);
 
 // clip, outside
-sixtyfps::testing::send_mouse_click(&instance, 37., 27.);
+slint::testing::send_mouse_click(&instance, 37., 27.);
 assert_eq(instance.get_touch1(), 0);
 assert_eq(instance.get_touch2(), 0);
 
 // clip, inside
-sixtyfps::testing::send_mouse_click(&instance, 37., 33.);
+slint::testing::send_mouse_click(&instance, 37., 33.);
 assert_eq(instance.get_touch1(), 0);
 assert_eq(instance.get_touch2(), 1);
 
 
 // no-clip, outside
-sixtyfps::testing::send_mouse_click(&instance, 17., 7.);
+slint::testing::send_mouse_click(&instance, 17., 7.);
 assert_eq(instance.get_touch1(), 1);
 assert_eq(instance.get_touch2(), 1);
 
 // no-clip, inside
-sixtyfps::testing::send_mouse_click(&instance, 17., 13.);
+slint::testing::send_mouse_click(&instance, 17., 13.);
 assert_eq(instance.get_touch1(), 2);
 assert_eq(instance.get_touch2(), 1);
 
 // now clip also el1
 instance.set_el1clip(true);
-sixtyfps::testing::send_mouse_click(&instance, 17., 7.);
+slint::testing::send_mouse_click(&instance, 17., 7.);
 assert_eq(instance.get_touch1(), 2);
 assert_eq(instance.get_touch2(), 1);
 

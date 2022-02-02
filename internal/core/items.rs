@@ -260,7 +260,7 @@ impl ItemConsts for Rectangle {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_RectangleVTable() -> RectangleVTable for Rectangle
+    fn slint_get_RectangleVTable() -> RectangleVTable for Rectangle
 }
 
 #[repr(C)]
@@ -327,7 +327,7 @@ impl ItemConsts for BorderRectangle {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_BorderRectangleVTable() -> BorderRectangleVTable for BorderRectangle
+    fn slint_get_BorderRectangleVTable() -> BorderRectangleVTable for BorderRectangle
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
@@ -532,7 +532,7 @@ impl ItemConsts for TouchArea {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_TouchAreaVTable() -> TouchAreaVTable for TouchArea
+    fn slint_get_TouchAreaVTable() -> TouchAreaVTable for TouchArea
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
@@ -638,7 +638,7 @@ impl ItemConsts for FocusScope {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_FocusScopeVTable() -> FocusScopeVTable for FocusScope
+    fn slint_get_FocusScopeVTable() -> FocusScopeVTable for FocusScope
 }
 
 #[repr(C)]
@@ -716,7 +716,7 @@ impl ItemConsts for Clip {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_ClipVTable() -> ClipVTable for Clip
+    fn slint_get_ClipVTable() -> ClipVTable for Clip
 }
 
 #[repr(C)]
@@ -781,7 +781,7 @@ impl ItemConsts for Opacity {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_OpacityVTable() -> OpacityVTable for Opacity
+    fn slint_get_OpacityVTable() -> OpacityVTable for Opacity
 }
 
 #[repr(C)]
@@ -847,7 +847,7 @@ impl ItemConsts for Rotate {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_RotateVTable() -> RotateVTable for Rotate
+    fn slint_get_RotateVTable() -> RotateVTable for Rotate
 }
 
 /// The implementation of the `Flickable` element
@@ -933,7 +933,7 @@ impl ItemConsts for Flickable {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_FlickableVTable() -> FlickableVTable for Flickable
+    fn slint_get_FlickableVTable() -> FlickableVTable for Flickable
 }
 
 pub use crate::SharedVector;
@@ -1087,7 +1087,7 @@ impl ItemConsts for WindowItem {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_WindowItemVTable() -> WindowItemVTable for WindowItem
+    fn slint_get_WindowItemVTable() -> WindowItemVTable for WindowItem
 }
 
 /// The implementation of the `BoxShadow` element
@@ -1155,28 +1155,28 @@ impl ItemConsts for BoxShadow {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_BoxShadowVTable() -> BoxShadowVTable for BoxShadow
+    fn slint_get_BoxShadowVTable() -> BoxShadowVTable for BoxShadow
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_TextVTable() -> TextVTable for Text
+    fn slint_get_TextVTable() -> TextVTable for Text
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_TextInputVTable() -> TextInputVTable for TextInput
+    fn slint_get_TextInputVTable() -> TextInputVTable for TextInput
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_ImageItemVTable() -> ImageItemVTable for ImageItem
+    fn slint_get_ImageItemVTable() -> ImageItemVTable for ImageItem
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_ClippedImageVTable() -> ClippedImageVTable for ClippedImage
+    fn slint_get_ClippedImageVTable() -> ClippedImageVTable for ClippedImage
 }
 
 #[cfg(feature = "std")]
 declare_item_vtable! {
-    fn sixtyfps_get_PathVTable() -> PathVTable for Path
+    fn slint_get_PathVTable() -> PathVTable for Path
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]

@@ -5,7 +5,7 @@
 #include <string_view>
 #include "sixtyfps_string_internal.h"
 
-namespace sixtyfps {
+namespace slint {
 
 /// A string type used by the SixtyFPS run-time.
 ///
@@ -36,14 +36,14 @@ struct SharedString
 #if defined(__cpp_char8_t) || __cplusplus >= 202002L
     /// Creates a new SharedString from the null-terminated string pointer \a s. The underlying
     /// string data is copied.
-    SharedString(const char8_t *s) : SharedString(reinterpret_cast<const char*>(s)) { }
+    SharedString(const char8_t *s) : SharedString(reinterpret_cast<const char *>(s)) { }
 #endif
 #ifdef __cpp_lib_char8_t
     /// Creates a new SharedString from the string view \a s. The underlying string data is copied.
     SharedString(std::u8string_view s)
     {
         cbindgen_private::slint_shared_string_from_bytes(
-            this, reinterpret_cast<const char*>(s.data()), s.size());
+                this, reinterpret_cast<const char *>(s.data()), s.size());
     }
 #endif
     /// Creates a new SharedString from \a other.
@@ -83,16 +83,10 @@ struct SharedString
 
     /// Provides a view to the string data. The returned view is only valid as long as at
     /// least this SharedString exists.
-    operator std::string_view() const
-    {
-        return cbindgen_private::slint_shared_string_bytes(this);
-    }
+    operator std::string_view() const { return cbindgen_private::slint_shared_string_bytes(this); }
     /// Provides a raw pointer to the string data. The returned pointer is only valid as long as at
     /// least this SharedString exists.
-    auto data() const -> const char *
-    {
-        return cbindgen_private::slint_shared_string_bytes(this);
-    }
+    auto data() const -> const char * { return cbindgen_private::slint_shared_string_bytes(this); }
 
     /// Returns a pointer to the first character. It is only safe to dereference the pointer if the
     /// string contains at least one character.
@@ -126,8 +120,8 @@ struct SharedString
     ///
     /// For example:
     /// \code
-    ///     auto str = sixtyfps::SharedString::from_number(42); // creates "42"
-    ///     auto str2 = sixtyfps::SharedString::from_number(100.5) // creates "100.5"
+    ///     auto str = slint::SharedString::from_number(42); // creates "42"
+    ///     auto str2 = slint::SharedString::from_number(100.5) // creates "100.5"
     /// \endcode
     static SharedString from_number(double n) { return SharedString(n); }
 
@@ -191,10 +185,7 @@ struct SharedString
 
 private:
     /// Use SharedString::from_number
-    explicit SharedString(double n)
-    {
-        cbindgen_private::slint_shared_string_from_number(this, n);
-    }
+    explicit SharedString(double n) { cbindgen_private::slint_shared_string_from_number(this, n); }
     void *inner; // opaque
 };
 

@@ -63,7 +63,7 @@ assert_eq!(instance.get_recieved(), "ß");
 ```
 
 ```cpp
-sixtyfps::cbindgen_private::KeyboardModifiers ctrl_modifier{};
+slint::cbindgen_private::KeyboardModifiers ctrl_modifier{};
 ctrl_modifier.control = true;
 
 auto handle = TestCase::create();
@@ -72,12 +72,12 @@ const TestCase &instance = *handle;
 assert(!instance.get_input1_focused());
 assert(instance.get_input2_focused());
 
-sixtyfps::testing::send_keyboard_string_sequence(&instance, "Hello");
+slint::testing::send_keyboard_string_sequence(&instance, "Hello");
 assert_eq(instance.get_input2_text(), "Hello");
 assert_eq(instance.get_input1_text(), "");
 assert_eq(instance.get_recieved(), "");
 
-sixtyfps::testing::send_keyboard_string_sequence(&instance, "ß", ctrl_modifier);
+slint::testing::send_keyboard_string_sequence(&instance, "ß", ctrl_modifier);
 assert_eq(instance.get_input2_text(), "Hello");
 assert_eq(instance.get_input1_text(), "");
 assert_eq(instance.get_recieved(), "ß");

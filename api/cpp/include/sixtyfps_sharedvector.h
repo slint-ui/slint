@@ -7,7 +7,7 @@
 #include <algorithm>
 #include <initializer_list>
 
-namespace sixtyfps {
+namespace slint {
 
 /// SharedVector is a vector template class similar to std::vector that's primarily used for passing
 /// data in and out of the SixtyFPS run-time library. It uses implicit-sharing to make creating
@@ -174,9 +174,9 @@ private:
                 it->~T();
             }
             cbindgen_private::slint_shared_vector_free(reinterpret_cast<uint8_t *>(inner),
-                                                          sizeof(SharedVectorHeader)
-                                                                  + inner->capacity * sizeof(T),
-                                                          alignof(SharedVectorHeader));
+                                                       sizeof(SharedVectorHeader)
+                                                               + inner->capacity * sizeof(T),
+                                                       alignof(SharedVectorHeader));
         }
     }
 

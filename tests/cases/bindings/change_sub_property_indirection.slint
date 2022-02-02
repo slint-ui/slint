@@ -38,9 +38,9 @@ assert_eq!(instance.get_sub_text(), sixtyfps::SharedString::from("EFG"));
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-assert_eq(instance.get_sub_text(), sixtyfps::SharedString("ABC"));
-instance.set_public_alias(sixtyfps::SharedString("EFG"));
-assert_eq(instance.get_sub_text(), sixtyfps::SharedString("EFG"));
+assert_eq(instance.get_sub_text(), slint::SharedString("ABC"));
+instance.set_public_alias(slint::SharedString("EFG"));
+assert_eq(instance.get_sub_text(), slint::SharedString("EFG"));
 ```
 
 ```js

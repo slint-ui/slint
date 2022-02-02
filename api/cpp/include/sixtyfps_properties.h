@@ -5,13 +5,13 @@
 #include <string_view>
 #include <memory>
 
-namespace sixtyfps::cbindgen_private {
+namespace slint::cbindgen_private {
 struct PropertyAnimation;
 }
 
 #include "sixtyfps_properties_internal.h"
 
-namespace sixtyfps::private_api {
+namespace slint::private_api {
 
 using cbindgen_private::StateInfo;
 
@@ -166,11 +166,11 @@ struct Property
             return true;
         };
         cbindgen_private::slint_property_set_binding(&p1->inner, call_fn,
-                                                        new TwoWayBinding { common_property },
-                                                        del_fn, intercept_fn, intercept_binding_fn);
+                                                     new TwoWayBinding { common_property }, del_fn,
+                                                     intercept_fn, intercept_binding_fn);
         cbindgen_private::slint_property_set_binding(&p2->inner, call_fn,
-                                                        new TwoWayBinding { common_property },
-                                                        del_fn, intercept_fn, intercept_binding_fn);
+                                                     new TwoWayBinding { common_property }, del_fn,
+                                                     intercept_fn, intercept_binding_fn);
     }
 
     /// Internal (private) constructor used by link_two_way
@@ -191,7 +191,7 @@ inline void Property<int32_t>::set_animated_value(
         const int32_t &new_value, const cbindgen_private::PropertyAnimation &animation_data) const
 {
     cbindgen_private::slint_property_set_animated_value_int(&inner, value, new_value,
-                                                               &animation_data);
+                                                            &animation_data);
 }
 
 template<>
@@ -200,7 +200,7 @@ Property<float>::set_animated_value(const float &new_value,
                                     const cbindgen_private::PropertyAnimation &animation_data) const
 {
     cbindgen_private::slint_property_set_animated_value_float(&inner, value, new_value,
-                                                                 &animation_data);
+                                                              &animation_data);
 }
 
 template<typename F>
@@ -292,4 +292,4 @@ private:
     cbindgen_private::PropertyTrackerOpaque inner;
 };
 
-} // namespace sixtyfps::private_api
+} // namespace slint::private_api
