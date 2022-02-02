@@ -18,7 +18,7 @@ impl TestCase {
     }
 }
 
-/// Returns a list of all the `.60` files in the `tests/cases` subfolders.
+/// Returns a list of all the `.slint` files in the `tests/cases` subfolders.
 pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
     let mut results = vec![];
 

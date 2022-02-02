@@ -1,9 +1,9 @@
 # Installing or Building with CMake
 
-SixtyFPS comes with a CMake integration that automates the compilation step of the `.60` markup language files and
+SixtyFPS comes with a CMake integration that automates the compilation step of the `.slint` markup language files and
 offers a CMake target for convenient linkage.
 
-*Note*: We recommend using the Ninja generator of CMake for the most efficient build and `.60` dependency tracking.
+*Note*: We recommend using the Ninja generator of CMake for the most efficient build and `.slint` dependency tracking.
 You can select the CMake Ninja backend by passing `-GNinja` or setting the `CMAKE_GENERATOR` environment variable to `Ninja`.
 
 ## Binary Packages
@@ -21,7 +21,7 @@ You can download one of our pre-built binaries for Linux or Windows on x86-64 ar
 After extracting the artifact or running the installer, you can place the `lib` sub-directory into your `CMAKE_PREFIX_PATH` and `find_package(Slint)` should succeed in locating the package.
 
 In the next section you will learn how to use the installed library in your application
-and load `.60` UI files.
+and load `.slint` UI files.
 
 ## Building from Sources
 

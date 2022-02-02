@@ -1,4 +1,4 @@
-# The `.60` language reference
+# The `.slint` language reference
 
 The SixtyFPS design markup language is used to describe graphical user interfaces:
 
@@ -8,16 +8,16 @@ The SixtyFPS design markup language is used to describe graphical user interface
  * Assign binding expressions to properties to automatically compute values that depend on other properties.
  * Group binding expressions together with named states and conditions.
  * Declare animations on properties and states to make the user interface feel alive.
- * Build your own re-usable components and share them in `.60` module files.
+ * Build your own re-usable components and share them in `.slint` module files.
  * Define data structures and models and access them from programming languages.
  * Build highly customized user interfaces with the [builtin elements](builtin_elements.md) provided.
 
-SixtyFPS also comes with a catalog of high-level [widgets](widgets.md), that are written in the `.60`
+SixtyFPS also comes with a catalog of high-level [widgets](widgets.md), that are written in the `.slint`
 language.
 
-## `.60` files
+## `.slint` files
 
-The basic idea is that the `.60` files contains one or several components.
+The basic idea is that the `.slint` files contains one or several components.
 These components contain a tree of elements. Each declared component can be
 given a name and re-used under that name as an element later.
 
@@ -536,7 +536,7 @@ Example := Rectangle {
 The `image` type is a reference to an image. It be initialized with the `@image-url("...")` construct.
 The URL within the `@image-url` function need to be known at compile time, and it is looked up
 relative to the file. In addition, it will also be looked in the include path specified to load
-.60 files via import.
+.slint files via import.
 
 It is possible to access the `width` and `height` of an image.
 
@@ -814,8 +814,8 @@ export { MathLogic } // known as "MathLogic" when using native APIs to access gl
 
 ## Modules
 
-Components declared in a .60 file can be shared with components in other .60 files, by means of exporting and importing them.
-By default, everything declared in a .60 file is private, but it can be made accessible from the outside using the export
+Components declared in a .slint file can be shared with components in other .slint files, by means of exporting and importing them.
+By default, everything declared in a .slint file is private, but it can be made accessible from the outside using the export
 keyword:
 
 ```60
@@ -833,7 +833,7 @@ Button := Rectangle {
 export { Button }
 ```
 
-In the above example, `Button` is usable from other .60 files, but `ButtonHelper` isn't.
+In the above example, `Button` is usable from other .slint files, but `ButtonHelper` isn't.
 
 It's also possible to change the name just for the purpose of exporting, without affecting its internal use:
 
@@ -877,8 +877,8 @@ import { Button as CoolButton } from "../other_theme/button.slint";
 
 App := Rectangle {
     // ...
-    CoolButton {} // from other_theme/button.60
-    Button {} // from button.60
+    CoolButton {} // from other_theme/button.slint
+    Button {} // from button.slint
 }
 ```
 
@@ -1010,7 +1010,7 @@ values in the surrounding `Window` element apply, such as `default-font-family`.
 
 The fonts chosen for rendering are automatically picked up from the system. It is also possible to include custom
 fonts in your design. A custom font must be a TrueType font (`.ttf`) or a TrueType font collection (`.ttc`).
-You can select a custom font with the `import` statement: `import "./my_custom_font.ttf"` in a .60 file. This
+You can select a custom font with the `import` statement: `import "./my_custom_font.ttf"` in a .slint file. This
 instructions the SixtyFPS compiler to include the font and makes the font families globally available for use with
 `font-family` properties.
 

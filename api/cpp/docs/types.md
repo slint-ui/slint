@@ -1,9 +1,9 @@
 # Type Mappings
 
-The types used for properties in `.60` design markup each translate to specific types in C++.
+The types used for properties in `.slint` design markup each translate to specific types in C++.
 The follow table summarizes the entire mapping:
 
-| `.60` Type | C++ Type | Note |
+| `.slint` Type | C++ Type | Note |
 | --- | --- | --- |
 | `int` | `int` | |
 | `float` | `float` | |
@@ -20,10 +20,10 @@ The follow table summarizes the entire mapping:
 
 ## Structures
 
-For user-defined structures in the .60 code, a `class` of the same name is generated with data member
+For user-defined structures in the .slint code, a `class` of the same name is generated with data member
 in lexicographic order.
 
-For example, if you have this structure in the .60 file
+For example, if you have this structure in the .slint file
 
 ```60,ignore
 export struct MyStruct := {

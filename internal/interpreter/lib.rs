@@ -4,9 +4,9 @@
 /*!
 # SixtyFPS interpreter library
 
-With this crate, you can load a .60 file at runtime and show its UI.
+With this crate, you can load a .slint file at runtime and show its UI.
 
-You only need to use this crate if you do not want to use pre-compiled .60
+You only need to use this crate if you do not want to use pre-compiled .slint
 code, which is the normal way to use SixtyFPS, using the `sixtyfps` crate
 
 The entry point for this crate is the [`ComponentCompiler`] type, which you can
@@ -21,14 +21,14 @@ executor, such as the one provided by the `spin_on` crate
 
 ## Examples
 
-This example loads a `.60` dynamically from a path and show errors if any:
+This example loads a `.slint` dynamically from a path and show errors if any:
 
 ```rust
 use slint_interpreter::{ComponentDefinition, ComponentCompiler, ComponentHandle};
 
 let mut compiler = ComponentCompiler::default();
 let definition =
-    spin_on::spin_on(compiler.build_from_path("hello.60"));
+    spin_on::spin_on(compiler.build_from_path("hello.slint"));
 # #[cfg(feature="print_diagnostics")]
 slint_interpreter::print_diagnostics(&compiler.diagnostics());
 if let Some(definition) = definition {
@@ -37,7 +37,7 @@ if let Some(definition) = definition {
 }
 ```
 
-This example load a `.60` from a string and set some properties:
+This example load a `.slint` from a string and set some properties:
 
 ```rust
 use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString, ComponentHandle};

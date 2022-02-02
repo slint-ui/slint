@@ -180,7 +180,7 @@ pub fn generate(doc: &Document) -> TokenStream {
         #[allow(clippy::complexity)]
         #[allow(unused_braces)]
         #[allow(clippy::erasing_op)]
-        #[allow(clippy::approx_constant)] // We may get those from .60 inputs!
+        #[allow(clippy::approx_constant)] // We may get those from .slint inputs!
         mod #compo_module {
             use sixtyfps::re_exports::*;
             #(#structs)*

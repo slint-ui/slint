@@ -21,14 +21,14 @@ type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 struct Cli {
     #[clap(
         short = 'I',
-        name = "include path for other .60 files",
+        name = "include path for other .slint files",
         number_of_values = 1,
         parse(from_os_str)
     )]
     include_paths: Vec<std::path::PathBuf>,
 
-    /// The .60 file to load ('-' for stdin)
-    #[clap(name = "path to .60 file", parse(from_os_str))]
+    /// The .slint file to load ('-' for stdin)
+    #[clap(name = "path to .slint file", parse(from_os_str))]
     path: std::path::PathBuf,
 
     /// The style name ('native', 'fluent', or 'ugly')

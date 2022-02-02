@@ -6,11 +6,11 @@ On this page we're presenting different techniques and tools we've built into Si
 
 Animations in the user interface need to be carefully designed to have the correct duration and changes in element positioning or size need to follow a suitable curve.
 
-In order to inspect the animations in your application, you can can set the `SIXTYFPS_SLOW_ANIMATIONS` environment variable before running the program. The variable accepts an unsigned integer value that is interpreted as a factor to globally slow down the steps of all animations, without having to make any changes to the `.60` markup and recompiling. For example `SIXTYFPS_SLOW_ANIMATIONS=4` will slow down animations by a factor of four.
+In order to inspect the animations in your application, you can can set the `SIXTYFPS_SLOW_ANIMATIONS` environment variable before running the program. The variable accepts an unsigned integer value that is interpreted as a factor to globally slow down the steps of all animations, without having to make any changes to the `.slint` markup and recompiling. For example `SIXTYFPS_SLOW_ANIMATIONS=4` will slow down animations by a factor of four.
 
 ## User Interface Scaling
 
-The use of logical pixel lengths throughout `.60` files allows SixtyFPS to dynamically compute the correct size of physical pixels, depending on the device-pixel ratio of the screen that is reported by the windowing system. If you want to get an impression of how the individual elements look like when rendered on a screen with a different device-pixel ratio, then you can set the `SIXTYFPS_SCALE_FACTOR` environment variable before running the program. The variable accepts a floating pointer number that is used to convert logical pixel lengths to physical pixel lengths by multiplication. For example `SIXTYFPS_SCALE_FACTOR=2` will render the user interface in a way where every logical pixel will have twice the width and height.
+The use of logical pixel lengths throughout `.slint` files allows SixtyFPS to dynamically compute the correct size of physical pixels, depending on the device-pixel ratio of the screen that is reported by the windowing system. If you want to get an impression of how the individual elements look like when rendered on a screen with a different device-pixel ratio, then you can set the `SIXTYFPS_SCALE_FACTOR` environment variable before running the program. The variable accepts a floating pointer number that is used to convert logical pixel lengths to physical pixel lengths by multiplication. For example `SIXTYFPS_SCALE_FACTOR=2` will render the user interface in a way where every logical pixel will have twice the width and height.
 
 *Note*: At the moment this overriding environment variable is only supported when using the OpenGL rendering backend.
 

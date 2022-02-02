@@ -8,7 +8,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 (This is less than ideal and maybe we can have some automation later)
 
  - It needs to be changed in this module
- - In the compiler: builtins.60
+ - In the compiler: builtins.slint
  - In the interpreter (new item only): dynamic_component.rs
  - For the C++ code (new item only): the cbindgen.rs to export the new item
  - Don't forget to update the documentation
@@ -722,7 +722,7 @@ declare_item_vtable! {
 #[repr(C)]
 #[derive(FieldOffsets, Default, SixtyFPSElement)]
 #[pin]
-/// The Opacity Item is not meant to be used directly by the .60 code, instead, the `opacity: xxx` or `visible: false` should be used
+/// The Opacity Item is not meant to be used directly by the .slint code, instead, the `opacity: xxx` or `visible: false` should be used
 pub struct Opacity {
     // FIXME: this element shouldn't need these geometry property
     pub x: Property<f32>,

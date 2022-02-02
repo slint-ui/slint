@@ -18,7 +18,7 @@ Welcome to SixtyFPS C++'s documentation!
 .. toctree::
    :maxdepth: 2
    :hidden:
-   :caption: C++ / .60 Integration
+   :caption: C++ / .slint Integration
 
    Overview <overview.md>
 
@@ -52,7 +52,7 @@ Welcome to SixtyFPS C++'s documentation!
 `SixtyFPS <https://sixtyfps.io/>`_ is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications.
 SixtyFPS C++ is the C++ API to interact with a SixtyFPS UI from C++.
 
-The .60 Markup Language
+The .slint Markup Language
 =======================
 
 SixtyFPS comes with a markup language that is specifically designed for user interfaces. This language provides a
@@ -78,7 +78,7 @@ Check out the `language reference <markdown/langref.html>`_ for more details.
 Architecture
 ============
 
-An application is composed of the business logic written in C++ and the `.60` user interface design markup, which
+An application is composed of the business logic written in C++ and the `.slint` user interface design markup, which
 is compiled to native code.
 
 .. image:: https://sixtyfps.io/resources/architecture.drawio.svg

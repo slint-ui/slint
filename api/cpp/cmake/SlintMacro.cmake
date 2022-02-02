@@ -24,7 +24,7 @@ function(SLINT_TARGET_SOURCES target)
             )
         else(CMAKE_GENERATOR STREQUAL "Ninja")
             get_filename_component(_60_DIR ${_60_ABSOLUTE} DIRECTORY )
-            file(GLOB ALL_60S "${_60_DIR}/*.60")
+            file(GLOB ALL_60S "${_60_DIR}/*.slint")
             add_custom_command(
                 OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.h
                 COMMAND Slint::slint-compiler ${_60_ABSOLUTE}

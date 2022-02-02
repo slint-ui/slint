@@ -5,15 +5,15 @@ This extension for VS Code adds support for the [SixtyFPS](https://sixtyfps.io) 
 ## Features
 
  - Syntax highlighting
- - Diagnostics from .60 files
- - Live Preview of a .60 file
+ - Diagnostics from .slint files
+ - Live Preview of a .slint file
  - Completion of properties
  - Jump to definition (currently, only definition of Component)
 
 ## Installation
 
 You can install the extension directly from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=SixtyFPS.sixtyfps-vscode). Afterwards it is
-automatically activated when editing files with the `.60` extension.
+automatically activated when editing files with the `.slint` extension.
 
 ## Live-Preview
 
@@ -21,7 +21,7 @@ In addition to the usual code editing features such as completion and syntax hig
 also offers the ability to view a rendering of the file you're editing and update it on-the-fly when making
 changes.
 
-You can issue the "SixtyFPS: Show Preview" command from the command palette when editing a `.60` file. This
+You can issue the "SixtyFPS: Show Preview" command from the command palette when editing a `.slint` file. This
 will create a new top-level window that renders the file you're editing. Any changes you make are immediately
 visible, it is not necessary to save the file.
 

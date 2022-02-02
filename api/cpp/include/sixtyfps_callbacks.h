@@ -9,12 +9,12 @@ namespace sixtyfps::private_api {
 
 /// A Callback stores a function pointer with no parameters and no return value.
 /// It's possible to set that pointer via set_handler() and it can be invoked via call(). This is
-/// used to implement callbacks in the `.60` language.
+/// used to implement callbacks in the `.slint` language.
 template<typename = void()>
 struct Callback;
 /// A Callback stores a function pointer with \a Arg parameters and a return value of type \a Ret.
 /// It's possible to set that pointer via set_handler() and it can be invoked via call(). This is
-/// used to implement callbacks in the `.60` language.
+/// used to implement callbacks in the `.slint` language.
 template<typename Ret, typename... Arg>
 struct Callback<Ret(Arg...)>
 {
@@ -58,7 +58,7 @@ private:
 
 /// A Callback stores a function pointer with \a Arg parameters and no return value.
 /// It's possible to set that pointer via set_handler() and it can be invoked via call(). This is
-/// used to implement callbacks in the `.60` language.
+/// used to implement callbacks in the `.slint` language.
 template<typename... Arg>
 struct Callback<void(Arg...)>
 {

@@ -845,7 +845,7 @@ pub unsafe extern "C" fn sixtyfps_interpreter_component_compiler_build_from_path
     }
 }
 
-/// PropertyDescriptor is a simple structure that's used to describe a property declared in .60
+/// PropertyDescriptor is a simple structure that's used to describe a property declared in .slint
 /// code. It is returned from in a vector from
 /// sixtyfps::interpreter::ComponentDefinition::properties().
 #[derive(Clone)]

@@ -130,7 +130,7 @@ An Image can be used to represent an image loaded from an image file.
 ### Properties
 
 * **`source`** (*image*): The image to load. In order to reference image, one uses the `@image-url("...")` macro
-  which loads the file relative to the directory containing the .60 file.
+  which loads the file relative to the directory containing the .slint file.
 * **`source-clip-x`**, **`source-clip-y`**, **`source-clip-width`**, **`source-clip-height`** (*int*): properties in source
   image coordinates that, when specified, can be used to render only a portion of the specified image.
 * **`image-fit`** (*enum*): Specifies how the source image shall be fit into the image element. Possible values are:
@@ -248,7 +248,7 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 A path can be defined in two different ways:
 
 * Using SVG path commands as a string
-* Using path command elements in `.60` markup.
+* Using path command elements in `.slint` markup.
 
 The coordinates used in the geometric commands are within the imaginary coordinate system of the path.
 When rendering on the screen, the shape is drawn relative to the `x` and `y` properties. If the `width`
@@ -277,7 +277,7 @@ accordingly.
 
 SVG is a popular file format for defining scalable graphics, which are often composed of paths. In SVG
 paths are composed using [commands](https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/d#path_commands),
-which in turn are written in a string. In `.60` the path commands are provided to the `commands`
+which in turn are written in a string. In `.slint` the path commands are provided to the `commands`
 property. The following example renders a shape consists of an arc and a rectangle, composed of `line-to`,
 `move-to` and `arc` commands:
 
@@ -298,7 +298,7 @@ The commands are provided in a property:
 #### Path Using SVG Path Elements
 
 The shape of the path can also be described using elements that resemble the SVG path commands but use the
-`.60` markup syntax. The earlier example using SVG commands can also be written like that:
+`.slint` markup syntax. The earlier example using SVG commands can also be written like that:
 
 ```60
 Example := Path {

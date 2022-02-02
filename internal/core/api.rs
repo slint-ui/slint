@@ -40,13 +40,13 @@ impl crate::window::WindowHandleAccess for Window {
         &self.0
     }
 }
-/// This trait is used to obtain references to global singletons exported in `.60`
+/// This trait is used to obtain references to global singletons exported in `.slint`
 /// markup. Alternatively, you can use [`ComponentHandle::global`] to obtain access.
 ///
 /// This trait is implemented by the compiler for each global singleton that's exported.
 ///
 /// # Example
-/// The following example of `.60` markup defines a global singleton called `Palette`, exports
+/// The following example of `.slint` markup defines a global singleton called `Palette`, exports
 /// it and modifies it from Rust code:
 /// ```rust
 /// # slint_backend_testing_internal::init();
@@ -119,8 +119,8 @@ pub trait ComponentHandle {
     /// and [`Self::hide`].
     fn run(&self);
 
-    /// This function provides access to instances of global singletons exported in `.60`.
-    /// See [`Global`] for an example how to export and access globals from `.60` markup.
+    /// This function provides access to instances of global singletons exported in `.slint`.
+    /// See [`Global`] for an example how to export and access globals from `.slint` markup.
     fn global<'a, T: Global<'a, Self>>(&'a self) -> T
     where
         Self: Sized;

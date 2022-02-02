@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 //!
-//! Tool to change the syntax or reformat a .60 file
+//! Tool to change the syntax or reformat a .slint file
 //!
 //! As of know, it just rewrite the exact same as the input, but it can be changed
 //!
@@ -10,6 +10,7 @@
 //!
 //! ````shell
 //! cargo run --bin syntax_updater -- --from 0.0.5 -i  **/*.60
+//! cargo run --bin syntax_updater -- --from 0.0.5 -i  **/*.slint
 //! cargo run --bin syntax_updater -- --from 0.0.5 -i  **/*.rs
 //! cargo run --bin syntax_updater -- --from 0.0.5 -i  **/*.md
 //! ````
@@ -27,7 +28,7 @@ mod from_0_0_6;
 
 #[derive(clap::Parser)]
 struct Cli {
-    #[clap(name = "path to .60 file(s)", parse(from_os_str))]
+    #[clap(name = "path to .slint file(s)", parse(from_os_str))]
     paths: Vec<std::path::PathBuf>,
 
     /// modify the file inline instead of printing to stdout

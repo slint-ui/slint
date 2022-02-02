@@ -137,7 +137,7 @@ impl ModelTracker for ModelNotify {
     }
 }
 
-/// A Model is providing Data for the Repeater or ListView elements of the `.60` language
+/// A Model is providing Data for the Repeater or ListView elements of the `.slint` language
 ///
 /// If the model can be changed, the type implementing the Model trait should holds
 /// a [`ModelNotify`], and is responsible to call functions on it to let the UI know that
@@ -464,8 +464,8 @@ impl Model for bool {
 /// A Reference counted [`Model`].
 ///
 /// The `ModelRc` struct holds something that implements the [`Model`] trait.
-/// This is used in `for` expressions in the .60 language.
-/// Array properties in the .60 language are holding a ModelRc.
+/// This is used in `for` expressions in the .slint language.
+/// Array properties in the .slint language are holding a ModelRc.
 ///
 /// An empty model can be constructed with [`ModelRc::default()`].
 /// Use [`ModelRc::new()`] To construct a ModelRc from something that implements the

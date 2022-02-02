@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-//! This test is trying to compile all the *.60 files in the sub directories and check that compilation
+//! This test is trying to compile all the *.slint files in the sub directories and check that compilation
 //! errors are properly reported
 //!
-//! The .60 files can have comments like this:
+//! The .slint files can have comments like this:
 //! ```ignore
 //!  hi ho
 //!  // ^error{some_regexp}
@@ -203,7 +203,7 @@ fn process_file_source(
 #[test]
 /// Test that this actually fail when it should
 fn self_test() -> std::io::Result<()> {
-    let fake_path = std::path::Path::new("fake.60");
+    let fake_path = std::path::Path::new("fake.slint");
     let process = |str: &str| process_file_source(fake_path, str.into(), true);
 
     // this should succeed

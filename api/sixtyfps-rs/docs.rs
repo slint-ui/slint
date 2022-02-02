@@ -7,10 +7,10 @@
     the SixtyFPS documentation as part of rustdoc.
 
     - The [`generated_code`] module contains an [commented example](generated_code::SampleComponent)
-      of what is generated from the `.60` file
-    - The [`langref`] module is the reference documentation for the `.60` language.
+      of what is generated from the `.slint` file
+    - The [`langref`] module is the reference documentation for the `.slint` language.
     - The [`widgets`] and [`builtin_elements`] modules contains the documentation of elements usable
-      within the `.60` files
+      within the `.slint` files
     - The [`layouting`] module contains the documentation to position the elements.
 */
 
@@ -40,7 +40,7 @@ pub mod layouting {
     #![doc = ""]
 }
 
-/// This module exists only to explain the API of the code generated from `.60` design markup. Its described structure
+/// This module exists only to explain the API of the code generated from `.slint` design markup. Its described structure
 /// is not really contained in the compiled crate.
 pub mod generated_code {
 
@@ -50,7 +50,7 @@ pub mod generated_code {
     use crate::Weak;
     use crate::Window;
 
-    /// This an example of the API that is generated for a component in `.60` design markup. This may help you understand
+    /// This an example of the API that is generated for a component in `.slint` design markup. This may help you understand
     /// what functions you can call and how you can pass data in and out.
     /// This is the source code:
     /// ```60
@@ -72,15 +72,15 @@ pub mod generated_code {
 
         /// A getter is generated for each property declared at the root of the component.
         /// In this case, this is the getter that returns the value of the `counter`
-        /// property declared in the `.60` design markup.
+        /// property declared in the `.slint` design markup.
         pub fn get_counter(&self) -> i32 {
             unimplemented!()
         }
         /// A setter is generated for each property declared at the root of the component,
         /// In this case, this is the setter that sets the value of the `counter` property
-        /// declared in the `.60` design markup.
+        /// declared in the `.slint` design markup.
         pub fn set_counter(&self, value: i32) {}
-        /// Returns the value of the `user_name` property declared in the `.60` design markup.
+        /// Returns the value of the `user_name` property declared in the `.slint` design markup.
         pub fn get_user_name(&self) -> re_exports::SharedString {
             unimplemented!()
         }
@@ -88,7 +88,7 @@ pub mod generated_code {
         pub fn set_user_name(&self, value: re_exports::SharedString) {}
         /// For each callback declared at the root of the component, a function to call that
         /// callback is generated. This is the function that calls the `hello` callback declared
-        /// in the `.60` design markup.
+        /// in the `.slint` design markup.
         pub fn invoke_hello(&self) {}
         /// For each callback declared at the root of the component, a function connect to that callback
         /// is generated. This is the function that registers the function f as callback when the
@@ -153,7 +153,7 @@ pub mod generated_code {
             unimplemented!();
         }
 
-        /// This function provides access to instances of global singletons exported in `.60`.
+        /// This function provides access to instances of global singletons exported in `.slint`.
         fn global<'a, T: Global<'a, Self>>(&'a self) -> T {
             unimplemented!()
         }

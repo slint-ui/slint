@@ -33,7 +33,7 @@ struct ItemVTable;
 /// All available types are in this namespace.
 ///
 /// See the :doc:`Overview <../overview>` documentation for the C++ integration how
-/// to load :code:`.60` designs.
+/// to load :code:`.slint` designs.
 /// \endrst
 namespace sixtyfps {
 
@@ -225,7 +225,7 @@ class ComponentWeakHandle;
 
 /// The component handle is like a shared pointer to a component in the generated code.
 /// In order to get a component, use `T::create()` where T is the name of the component
-/// in the .60 file. This give you a `ComponentHandle<T>`
+/// in the .slint file. This give you a `ComponentHandle<T>`
 template<typename T>
 class ComponentHandle
 {
@@ -476,7 +476,7 @@ auto access_array_index(const M &model, int index) {
 
 /// \rst
 /// A Model is providing Data for |Repetition|_ repetitions or |ListView|_ elements of the
-/// :code:`.60` language
+/// :code:`.slint` language
 /// \endrst
 template<typename ModelData>
 class Model

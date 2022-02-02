@@ -45,9 +45,9 @@ fn run_with_global_context(f: &GlobalContextCallback) {
     GLOBAL_CONTEXT.with(|cx_fn| cx_fn(f))
 }
 
-/// Load a .60 files.
+/// Load a .slint files.
 ///
-/// The first argument of this function is a string to the .60 file
+/// The first argument of this function is a string to the .slint file
 ///
 /// The return value is a SlintComponentType
 fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
@@ -266,7 +266,7 @@ fn to_js_value<'cx>(
                 js_model.get_object(cx, persistent_context)?.as_value(cx)
             } else {
                 // TODO: this should probably create a proxy object instead of extracting the entire model. On the other hand
-                // we should encounter this only if the model was created in .60, which is when it'll be an array
+                // we should encounter this only if the model was created in .slint, which is when it'll be an array
                 // of values.
                 let js_array = JsArray::new(cx, model.row_count() as _);
                 for i in 0..model.row_count() {

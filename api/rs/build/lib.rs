@@ -3,7 +3,7 @@
 
 /*!
 This crate serves as a companion crate for the sixtyfps crate.
-It is meant to allow you to compile the `.60` files from your `build.rs`script.
+It is meant to allow you to compile the `.slint` files from your `build.rs` script.
 
 The main entry point of this crate is the [`compile()`] function
 
@@ -56,7 +56,7 @@ use std::path::Path;
 
 use slint_compiler_internal::diagnostics::BuildDiagnostics;
 
-/// The structure for configuring aspects of the compilation of `.60` markup files to Rust.
+/// The structure for configuring aspects of the compilation of `.slint` markup files to Rust.
 pub struct CompilerConfiguration {
     config: slint_compiler_internal::CompilerConfiguration,
 }
@@ -78,7 +78,7 @@ impl CompilerConfiguration {
     }
 
     /// Create a new configuration that includes sets the include paths used for looking up
-    /// `.60` imports to the specified vector of paths.
+    /// `.slint` imports to the specified vector of paths.
     #[must_use]
     pub fn with_include_paths(self, include_paths: Vec<std::path::PathBuf>) -> Self {
         let mut config = self.config;
@@ -156,7 +156,7 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
     }
 }
 
-/// Compile the `.60` file and generate rust code for it.
+/// Compile the `.slint` file and generate rust code for it.
 ///
 /// The generated code code will be created in the directory specified by
 /// the `OUT` environment variable as it is expected for build script.

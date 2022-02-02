@@ -26,7 +26,7 @@ To initialize the API, you first need to import the `slint` module in our code:
 let slint = require("slint");
 ```
 
-This step also installs a hook in NodeJS that allows you to import `.60` files directly:
+This step also installs a hook in NodeJS that allows you to import `.slint` files directly:
 
 ```js
 let ui = require("../ui/main.slint");
@@ -52,7 +52,7 @@ an object which allow to initialize the value of public properties or callbacks.
 
 ```js
 require("slint");
-// In this example, the main.60 file exports a module which
+// In this example, the main.slint file exports a module which
 // has a counter property and a clicked callback
 let ui = require("ui/main.slint");
 let component = new ui.MainWindow({
@@ -83,7 +83,7 @@ component.clicked();
 
 ### Type Mappings
 
-| `.60` Type | JavaScript Type | Notes |
+| `.slint` Type | JavaScript Type | Notes |
 | --- | --- | --- |
 | `int` | `Number` | |
 | `float` | `Number` | |
@@ -100,7 +100,7 @@ component.clicked();
 
 For property of array type, they can either be set using an array.
 In that case, getting the property also return an array.
-If the array was set within the .60 file, the array can be obtained
+If the array was set within the .slint file, the array can be obtained
 
 ```js
 component.model = [1, 2, 3];

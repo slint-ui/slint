@@ -29,7 +29,7 @@
 					"SixtyFPS"
 				],
 				"extensions": [
-					".60"
+					".slint"
 				],
 				"configuration": "language-configuration.json"
 			}

@@ -56,10 +56,10 @@ pub enum Type {
     Array(Box<Type>),
     Struct {
         fields: BTreeMap<String, Type>,
-        /// When declared in .60 as  `struct Foo := { }`, then the name is "Foo"
+        /// When declared in .slint as  `struct Foo := { }`, then the name is "Foo"
         /// When there is no node, but there is a name, then it is a builtin type
         name: Option<String>,
-        /// When declared in .60, this is the node of the declaration.
+        /// When declared in .slint, this is the node of the declaration.
         node: Option<syntax_nodes::ObjectType>,
     },
     Enumeration(Rc<Enumeration>),
@@ -518,9 +518,9 @@ pub struct BuiltinPropertyInfo {
     pub ty: Type,
     /// When set, this is the initial value that we will have to set if no other binding were specified
     pub default_value: Option<Expression>,
-    /// Most properties are just set from the .60 code and never modified by the native code.
+    /// Most properties are just set from the .slint code and never modified by the native code.
     /// But some properties, such as `TouchArea::pressed` are being set by the native code, these
-    /// are output properties which are meant to be read by the .60.
+    /// are output properties which are meant to be read by the .slint.
     /// `is_native_output` is true if the native item can modify the property.
     pub is_native_output: bool,
 }

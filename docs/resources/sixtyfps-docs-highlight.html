@@ -1,5 +1,5 @@
 <!--
-    This file is used to add syntax highlighting of the `.60` snippets in the generated rustdoc, sphinx and mdbook documentation.
+    This file is used to add syntax highlighting of the `.slint` snippets in the generated rustdoc, sphinx and mdbook documentation.
     It can be injected via the `--html-in-header sixtyfps-docs-highlight.html` option of rustdoc, is included via _templates/layout.html
     in sphinx and via head.hbs in mdbook.
 -->
@@ -55,7 +55,7 @@
   window.addEventListener("DOMContentLoaded", () => {
     const rustDoc = document.querySelector('meta[name="generator"]')?.content == "rustdoc";
     if (rustDoc) {
-      // Only highlight .60 blocks, leave the others to rustdoc
+      // Only highlight .slint blocks, leave the others to rustdoc
       for (dot60Block of document.querySelectorAll(".language-60")) {
         hljs.highlightElement(dot60Block)
       }

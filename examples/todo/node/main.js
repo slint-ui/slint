@@ -10,7 +10,7 @@ let app = new demo.MainWindow();
 
 let model = new slint.ArrayModel([
     {
-        title: "Implement the .60 file",
+        title: "Implement the .slint file",
         checked: true
     },
     {

@@ -50,7 +50,7 @@ exhale_args = {
             within the :ref:`sixtyfps<namespace_sixtyfps>` namespace and are accessible by including
             the :code:`sixtyfps.h` header file.
 
-            If you choose to load :code:`.60` files dynamically at run-time, then
+            If you choose to load :code:`.slint` files dynamically at run-time, then
             you can use the classes in :ref:`sixtyfps::interpreter<namespace_sixtyfps__interpreter>`, starting at
             :cpp:class:`sixtyfps::interpreter::ComponentCompiler`. You need to include
             the :code:`sixtyfps_interpreter.h` header file.

@@ -167,7 +167,7 @@ pub struct KeyEvent {
     /// The unicode representation of the key pressed.
     pub text: SharedString,
 
-    // note: this field is not exported in the .60 in the KeyEvent builtin struct
+    // note: this field is not exported in the .slint in the KeyEvent builtin struct
     /// Indicates whether the key was pressed or released
     pub event_type: KeyEventType,
 }

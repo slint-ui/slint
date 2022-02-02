@@ -66,7 +66,7 @@ endfunction()
 
 # Features that are mapped to features in the Rust crate. These and their
 # defaults need to be kept in sync with the Rust bit.
-define_cargo_feature(interpreter "Enable support for the Slint interpeter to load .60 files at run-time" ON)
+define_cargo_feature(interpreter "Enable support for the Slint interpeter to load .slint files at run-time" ON)
 
 define_cargo_feature(backend-gl "Enable OpenGL ES 2.0 based rendering backend" ON)
 define_cargo_dependent_feature(x11 "Enable X11 support when using GL backend" ON SLINT_FEATURE_BACKEND_GL OFF)

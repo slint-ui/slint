@@ -27,9 +27,9 @@ struct ErasedComponentBox : vtable::Dyn
 };
 }
 
-/// The types in this namespace allow you to load a .60 file at runtime and show its UI.
+/// The types in this namespace allow you to load a .slint file at runtime and show its UI.
 ///
-/// You only need to use them if you do not want to use pre-compiled .60 code, which is
+/// You only need to use them if you do not want to use pre-compiled .slint code, which is
 /// the normal way to use SixtyFPS.
 ///
 /// The entry point for this namespace is the \ref ComponentCompiler, which you can
@@ -40,10 +40,10 @@ namespace sixtyfps::interpreter {
 
 class Value;
 
-/// This type represents a runtime instance of structure in `.60`.
+/// This type represents a runtime instance of structure in `.slint`.
 ///
 /// This can either be an instance of a name structure introduced
-/// with the `struct` keyword in the .60 file, or an anonymous struct
+/// with the `struct` keyword in the .slint file, or an anonymous struct
 /// written with the `{ key: value, }`  notation.
 ///
 /// It can be constructed with the range constructor or initializer lst,
@@ -237,7 +237,7 @@ private:
 ///
 /// Note that models are only represented in one direction: You can create a sixtyfps::Model<Value>
 /// in C++, store it in a std::shared_ptr and construct Value from it. Then you can set it on a
-/// property in your .60 code that was declared to be either an array (`property <[sometype]> foo;`)
+/// property in your .slint code that was declared to be either an array (`property <[sometype]> foo;`)
 /// or an object literal (`property <{foo: string, bar: int}> my_prop;`). Such properties are
 /// dynamic and accept models implemented in C++.
 ///
@@ -595,7 +595,7 @@ public:
     /// ```
     ///
     /// Returns true if the property was correctly set. Returns false if the property
-    /// could not be set because it either do not exist (was not declared in .60) or if
+    /// could not be set because it either do not exist (was not declared in .slint) or if
     /// the value is not of the proper type for the property's type.
     bool set_property(std::string_view name, const Value &value) const
     {
@@ -603,7 +603,7 @@ public:
         return sixtyfps_interpreter_component_instance_set_property(
                 inner(), sixtyfps::private_api::string_to_slice(name), &value.inner);
     }
-    /// Returns the value behind a property declared in .60.
+    /// Returns the value behind a property declared in .slint.
     std::optional<Value> get_property(std::string_view name) const
     {
         using namespace cbindgen_private;
@@ -615,9 +615,9 @@ public:
             return {};
         }
     }
-    /// Invoke the specified callback declared in .60 with the given arguments
+    /// Invoke the specified callback declared in .slint with the given arguments
     ///
-    /// Example: imagine the .60 file contains the given callback declaration:
+    /// Example: imagine the .slint file contains the given callback declaration:
     /// ```
     ///     callback foo(string, int) -> string;
     /// ```
@@ -653,7 +653,7 @@ public:
     /// The \a callback parameter is a functor which takes as argument a slice of Value
     /// and must return a Value.
     ///
-    /// Example: imagine the .60 file contains the given callback declaration:
+    /// Example: imagine the .slint file contains the given callback declaration:
     /// ```
     ///     callback foo(string, int) -> string;
     /// ```
@@ -690,7 +690,7 @@ public:
     /// ```
     ///
     /// Returns true if the property was correctly set. Returns false if the property
-    /// could not be set because it either does not exist (was not declared in .60) or if
+    /// could not be set because it either does not exist (was not declared in .slint) or if
     /// the value is not of the correct type for the property's type.
     bool set_global_property(std::string_view global, std::string_view prop_name,
                              const Value &value) const
@@ -717,7 +717,7 @@ public:
 
     /// Like `set_callback()` but on a callback in the specified exported global singleton.
     ///
-    /// Example: imagine the .60 file contains the given global:
+    /// Example: imagine the .slint file contains the given global:
     /// ```60
     ///    export global Logic := {
     ///         callback to_uppercase(string) -> string;
@@ -767,9 +767,9 @@ public:
     }
 };
 
-/// ComponentDefinition is a representation of a compiled component from .60 markup.
+/// ComponentDefinition is a representation of a compiled component from .slint markup.
 ///
-/// It can be constructed from a .60 file using the ComponentCompiler::build_from_path() or
+/// It can be constructed from a .slint file using the ComponentCompiler::build_from_path() or
 /// ComponentCompiler::build_from_source() functions. And then it can be instantiated with the
 /// create() function.
 ///
@@ -839,7 +839,7 @@ public:
         return callbacks;
     }
 
-    /// Returns the name of this Component as written in the .60 file
+    /// Returns the name of this Component as written in the .slint file
     sixtyfps::SharedString name() const
     {
         sixtyfps::SharedString name;
@@ -885,7 +885,7 @@ public:
 };
 
 /// ComponentCompiler is the entry point to the SixtyFPS interpreter that can be used
-/// to load .60 files or compile them on-the-fly from a string
+/// to load .slint files or compile them on-the-fly from a string
 /// (using build_from_source()) or from a path  (using build_from_source())
 class ComponentCompiler
 {
@@ -904,7 +904,7 @@ public:
         cbindgen_private::sixtyfps_interpreter_component_compiler_destructor(&inner);
     }
 
-    /// Sets the include paths used for looking up `.60` imports to the specified vector of paths.
+    /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
     void set_include_paths(const sixtyfps::SharedVector<sixtyfps::SharedString> &paths)
     {
         cbindgen_private::sixtyfps_interpreter_component_compiler_set_include_paths(&inner, &paths);
@@ -917,7 +917,7 @@ public:
                 &inner, sixtyfps::private_api::string_to_slice(style));
     }
 
-    /// Returns the widget style the compiler is currently using when compiling .60 files.
+    /// Returns the widget style the compiler is currently using when compiling .slint files.
     sixtyfps::SharedString style() const
     {
         sixtyfps::SharedString s;
@@ -942,7 +942,7 @@ public:
         return result;
     }
 
-    /// Compile a .60 file into a ComponentDefinition
+    /// Compile a .slint file into a ComponentDefinition
     ///
     /// Returns the compiled `ComponentDefinition` if there were no errors.
     ///
@@ -965,7 +965,7 @@ public:
         }
     }
 
-    /// Compile some .60 code into a ComponentDefinition
+    /// Compile some .slint code into a ComponentDefinition
     ///
     /// The `path` argument will be used for diagnostics and to compute relative
     /// paths while importing.

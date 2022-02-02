@@ -310,7 +310,7 @@ fn internal_properties_to_public<'a>(
 }
 
 impl<'id> ComponentDescription<'id> {
-    /// The name of this Component as written in the .60 file
+    /// The name of this Component as written in the .slint file
     pub fn id(&self) -> &str {
         self.original.id.as_str()
     }

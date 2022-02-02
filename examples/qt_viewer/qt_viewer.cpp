@@ -72,7 +72,7 @@ int main(int argc, char **argv) {
     QObject::connect(ui.load_button, &QPushButton::clicked, [&] {
         QString fileName = QFileDialog::getOpenFileName(
             &main, QApplication::translate("qt_viewer", "Open SixtyFPS File"), {},
-            QApplication::translate("qt_viewer", "SixtyFPS File (*.60)"));
+            QApplication::translate("qt_viewer", "SixtyFPS File (*.slint)"));
         if (fileName.isEmpty())
             return;
         load_file(fileName);

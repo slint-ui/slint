@@ -91,7 +91,7 @@ impl<'a> TypeLoader<'a> {
         Self { global_type_registry, compiler_config, style, all_documents: Default::default() }
     }
 
-    /// Imports of files that don't have the .60 extension are returned.
+    /// Imports of files that don't have the .slint extension are returned.
     pub async fn load_dependencies_recursively(
         &mut self,
         doc: &syntax_nodes::Document,

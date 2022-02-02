@@ -12,7 +12,7 @@ If you are already familiar with SixtyFPS, the following topics provide related 
 
 ## Related topics
 
- * [The `.60` language reference](docs::langref)
+ * [The `.slint` language reference](docs::langref)
  * [Builtin Elements](docs::builtin_elements)
  * [Widgets](docs::widgets)
  * [Positioning and Layout of Elements](docs::layouting)
@@ -21,21 +21,21 @@ If you are already familiar with SixtyFPS, the following topics provide related 
 
 ## How to use this crate:
 
-Designs of user interfaces are described in the `.60` design markup language. There are three ways
+Designs of user interfaces are described in the `.slint` design markup language. There are three ways
 of including them in Rust:
 
- - The `.60` code is [inline in a macro](#the-60-code-in-a-macro).
- - The `.60` code in [external files compiled with `build.rs`](#the-60-code-in-external-files-is-compiled-with-buildrs)
- - The `.60` code is loaded dynamically at run-time from the file system, by using the [interpreter API](https://docs.rs/slint-interpreter/latest/slint_interpreter/).
+ - The `.slint` code is [inline in a macro](#the-sline-code-in-a-macro).
+ - The `.slint` code in [external files compiled with `build.rs`](#the-slint-code-in-external-files-is-compiled-with-buildrs)
+ - The `.slint` code is loaded dynamically at run-time from the file system, by using the [interpreter API](https://docs.rs/slint-interpreter).
 
 With the first two methods, the markup code is translated to Rust code and each component is turned into a Rust
 struct with functions. Use these functions to instantiate and show the component, and
 to access declared properties. Check out our [sample component](docs::generated_code::SampleComponent) for more
 information about the generation functions and how to use them.
 
-### The .60 code in a macro
+### The .slint code in a macro
 
-This method combines your Rust code with the `.60` design markup in one file, using a macro:
+This method combines your Rust code with the `.slint` design markup in one file, using a macro:
 
 ```rust
 sixtyfps::sixtyfps!{
@@ -52,12 +52,12 @@ fn main() {
 }
 ```
 
-### The .60 code in external files is compiled with `build.rs`
+### The .slint code in external files is compiled with `build.rs`
 
 When your design becomes bigger in terms of markup code, you may want move it to a dedicated
-`.60` file. It's also possible to split a `.60` file into multiple files using (modules)[docs::langref#modules].
+`.slint` file. It's also possible to split a `.slint` file into multiple files using (modules)[docs::langref#modules].
 Use a [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) to compile
-your main `.60` file:
+your main `.slint` file:
 
 In your Cargo.toml add a `build` assignment and use the `sixtyfps-build` crate in `build-dependencies`:
 
@@ -79,7 +79,7 @@ Use the API of the sixtyfps-build crate in the `build.rs` file:
 
 ```ignore
 fn main() {
-    sixtyfps_build::compile("ui/hello.60").unwrap();
+    sixtyfps_build::compile("ui/hello.slint").unwrap();
 }
 ```
 
@@ -103,7 +103,7 @@ cargo generate --git https://github.com/sixtyfpsui/sixtyfps-rust-template
 
 ## Generated components
 
-Currently, only the last component in a `.60` source file is mapped to a Rust structure that be instantiated. We are tracking the
+Currently, only the last component in a `.slint` source file is mapped to a Rust structure that be instantiated. We are tracking the
 resolution of this limitation in <https://github.com/sixtyfpsui/sixtyfps/issues/784>.
 
 The component is generated and re-exported to the location of the [`include_modules!`]  or [`sixtyfps!`] macro. It is represented
@@ -115,7 +115,7 @@ For example, if you have
 export MyComponent := Window { /*...*/ }
 ```
 
-in the .60 file, it will create a
+in the .slint file, it will create a
 ```rust
 struct MyComponent{ /*...*/ }
 ```
@@ -164,10 +164,10 @@ To run a function with a delay or with an interval use a [`Timer`].
 
 ## Type Mappings
 
-The types used for properties in `.60` design markup each translate to specific types in Rust.
+The types used for properties in `.slint` design markup each translate to specific types in Rust.
 The follow table summarizes the entire mapping:
 
-| `.60` Type | Rust Type | Note |
+| `.slint` Type | Rust Type | Note |
 | --- | --- | --- |
 | `int` | `i32` | |
 | `float` | `f32` | |
@@ -183,8 +183,8 @@ The follow table summarizes the entire mapping:
 | structure | `struct` of the same name | |
 | array | [`ModelRc`] |  |
 
-For user defined structures in the .60, an extra struct is generated.
-For example, if the `.60` contains
+For user defined structures in the .slint, an extra struct is generated.
+For example, if the `.slint` contains
 ```60,ignore
 export struct MyStruct := {
     foo: int,

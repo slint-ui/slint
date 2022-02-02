@@ -308,8 +308,8 @@ fn extract_include_paths(
     (remaining_stream, include_paths)
 }
 
-/// This macro allows you to use the `.60` design markup language inline in Rust code. Within the braces of the macro
-/// you can use place `.60` code and the named exported components will be available for instantiation.
+/// This macro allows you to use the `.slint` design markup language inline in Rust code. Within the braces of the macro
+/// you can use place `.slint` code and the named exported components will be available for instantiation.
 ///
 /// [The documentation of the `sixtyfps`](./index.html) crate contains more information about the language specification and
 /// how to use the generated code.

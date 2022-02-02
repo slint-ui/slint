@@ -5,7 +5,7 @@
     Work in progress for a formatter.
     Use like this to format a file:
     ```sh
-        cargo run sixtyfps-fmt -- -i some_file.60
+        cargo run sixtyfps-fmt -- -i some_file.slint
     ```
 
     Some code in this main.rs file is duplicated with the syntax_updater, i guess it could
@@ -25,7 +25,7 @@ mod fmt;
 
 #[derive(clap::Parser)]
 struct Cli {
-    #[clap(name = "path to .60 file(s)", parse(from_os_str))]
+    #[clap(name = "path to .slint file(s)", parse(from_os_str))]
     paths: Vec<std::path::PathBuf>,
 
     /// modify the file inline instead of printing to stdout

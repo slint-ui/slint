@@ -16,7 +16,7 @@ their own repository and have their own version release at some point.
 
 #### `compiler`
 
-The main library for the compiler for .60.
+The main library for the compiler for .slint.
 
 Nothing in there should depends on the runtime crates.
 
@@ -32,13 +32,13 @@ The library crates that are used at runtime.
 * **`backends`** contains the different backend for the different platform, separated from
   core library.  Currently there is just the gl backend
 * **`interpreter`** is the library used by the more dynamic languages backend to compile and
-  interpret .60 files. It links both against core library and the compiler lib
+  interpret .slint files. It links both against core library and the compiler lib
 
 ### `tools`
 
-* **`compiler`** is the tool to generate the target language (e.g. c++) from the .60 files for
+* **`compiler`** is the tool to generate the target language (e.g. c++) from the .slint files for
   frontend that have a compilation step and generated code.
-* **`viewer`** is a tool that allow to open and view a .60 file.
+* **`viewer`** is a tool that allow to open and view a .slint file.
 
 ### `api`
 
@@ -46,7 +46,7 @@ Here one find the frontend for different language.
 
 ### `tests`
 
-The integration test that are testing a bunch of .60 with different front-ends
+The integration test that are testing a bunch of .slint with different front-ends
 
 See [testing.md](./testing.md)
 

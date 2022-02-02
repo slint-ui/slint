@@ -181,7 +181,7 @@ impl From<DiagnosticLevel> for codemap_diagnostic::Level {
     }
 }
 
-/// This structure represent a diagnostic emitted while compiling .60 code.
+/// This structure represent a diagnostic emitted while compiling .slint code.
 ///
 /// It is basically a message, a level (warning or error), attached to a
 /// position in the code

@@ -55,7 +55,7 @@ Click on the screenshots to run the WebAssembly simulation
 |---------|-------|-------|
 | ![Screenshot of the Gallery on Windows](https://sixtyfps.io/resources/gallery_win_screenshot.png "Gallery") | ![Screenshot of the Gallery on macOS](https://sixtyfps.io/resources/gallery_mac_screenshot.png "Gallery") | ![Screenshot of the Gallery on Linux](https://sixtyfps.io/resources/gallery_linux_screenshot.png "Gallery") |
 
-## The .60 Markup Language
+## The .slint Markup Language
 
 SixtyFPS comes with a markup language that is specifically designed for user interfaces. This language provides a
 powerful way to describe graphical elements, their placement, and the flow of data through the different states. It is a familiar syntax to describe the hierarchy of elements and property bindings. Here's the obligatory "Hello World":
@@ -78,14 +78,14 @@ Check out the [language reference](docs/langref.md) for more details.
 
 ## Architecture
 
-An application is composed of the business logic written in Rust, C++, or JavaScript and the `.60` user interface design markup, which
+An application is composed of the business logic written in Rust, C++, or JavaScript and the `.slint` user interface design markup, which
 is compiled to native code.
 
 ![Architecture Overview](https://sixtyfps.io/resources/architecture.drawio.svg)
 
 ### Compiler
 
-The `.60` files are compiled ahead of time. The expressions in the `.60` are pure functions that the
+The `.slint` files are compiled ahead of time. The expressions in the `.slint` are pure functions that the
 compiler can optimize. For example, the compiler could choose to "inline" properties and remove those
 that are constant or unchanged. In the future we hope to improve rendering time on low end devices by
 pre-processing images and text. The compiler could determine that a `Text` or an `Image` element is
@@ -99,7 +99,7 @@ for dynamic languages is also included.
 
 ### Runtime
 
-The runtime library consists of an engine that supports properties declared in the `.60` language.
+The runtime library consists of an engine that supports properties declared in the `.slint` language.
 Components with their elements, items, and properties are laid out in a single memory region, to reduce
 memory allocations.
 
@@ -111,13 +111,13 @@ Rendering backends and styles are configurable at compile time. Current there ar
 
 ### Tooling
 
-We have a few tools to help with the development of .60 files:
- - A [**LSP Server**](./tools/lsp) that adds things like auto-complete and live preview of the .60 files to many editors
+We have a few tools to help with the development of .slint files:
+ - A [**LSP Server**](./tools/lsp) that adds things like auto-complete and live preview of the .slint files to many editors
  - It is bundled in a [**Visual Studio Code Extension**](./vscode_extension) accessible from the market place
- - A [**sixtyfps-viewer**](./tools/viewer) tool which display the .60 files. With the `--auto-reload` argument, makes it easy to preview
+ - A [**sixtyfps-viewer**](./tools/viewer) tool which display the .slint files. With the `--auto-reload` argument, makes it easy to preview
    your UI as you are working it (when using the LSP preview is not possible)
- - An [**online editor**](https://sixtyfps.io/editor) to try out .60 syntax without installing anything ([sources](./tools/online_editor))
- - An [**updater**](./tools/syntax_updater) to convert the .60 files from previous version to the newer version
+ - An [**online editor**](https://sixtyfps.io/editor) to try out .slint syntax without installing anything ([sources](./tools/online_editor))
+ - An [**updater**](./tools/syntax_updater) to convert the .slint files from previous version to the newer version
  - An experimental [**Figma importer**](./tools/figma_import)
 
 ## Contributions

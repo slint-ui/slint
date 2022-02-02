@@ -111,21 +111,21 @@ See the [examples](/examples) folder for examples to build, run and test.
 
 ## Running the viewer
 
-SixtyFPS also includes a viewer tool that can load `.60`files dynamically at run-time. It is a
-cargo-integrated binary and can be run directly on the `.60`files, for example:
+SixtyFPS also includes a viewer tool that can load `.slint`files dynamically at run-time. It is a
+cargo-integrated binary and can be run directly on the `.slint`files, for example:
 
 ```sh
-cargo run --release --bin sixtyfps-viewer -- examples/printerdemo/ui/printerdemo.60
+cargo run --release --bin sixtyfps-viewer -- examples/printerdemo/ui/printerdemo.slint
 ```
 
 ## Generating the documentation
 
 ### rustdoc
 
-The language reference has snippets in the .60 language which can be previewed by injecting
+The language reference has snippets in the .slint language which can be previewed by injecting
 html to the documentation with the `--html-in-header` rustdoc flag.
 
-Here is how to build the documentation to include preview of the .60 files.
+Here is how to build the documentation to include preview of the .slint files.
 
 ```sh
 RUSTDOCFLAGS="--html-in-header=$PWD/docs/resources/sixtyfps-docs-preview.html --html-in-header=$PWD/docs/resources/sixtyfps-docs-highlight.html" cargo doc --no-deps

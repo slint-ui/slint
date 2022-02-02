@@ -6,9 +6,9 @@ These examples demonstrate the main features of SixtyFPS and how to use them in 
 
 A fictional user interface for the touch screen of a printer
 
-| `.60` Design | Rust Source | C++ Source | Node Source | Online wasm Preview | Open in code editor |
+| `.slint` Design | Rust Source | C++ Source | Node Source | Online wasm Preview | Open in code editor |
 | --- | --- | --- | --- | --- | --- |
-| [`ui.60`](./printerdemo/ui/printerdemo.60) | [`main.rs`](./printerdemo/rust/main.rs) | [`main.cpp`](./printerdemo/cpp/main.cpp) | [`main.js`](./printerdemo/node/main.js) | [Online simulation](https://sixtyfps.io/snapshots/master/demos/printerdemo/) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/printerdemo/ui/printerdemo.60) |
+| [`ui.slint`](./printerdemo/ui/printerdemo.slint) | [`main.rs`](./printerdemo/rust/main.rs) | [`main.cpp`](./printerdemo/cpp/main.cpp) | [`main.js`](./printerdemo/node/main.js) | [Online simulation](https://sixtyfps.io/snapshots/master/demos/printerdemo/) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/printerdemo/ui/printerdemo.slint) |
 
 ![Screenshot of the Printer Demo](https://sixtyfps.io/resources/printerdemo_screenshot.png "Printer Demo")
 
@@ -16,9 +16,9 @@ A fictional user interface for the touch screen of a printer
 
 A simple application showing the different widgets
 
-| `.60` Design | Rust Source | C++ Source | Online wasm Preview | Open in code editor |
+| `.slint` Design | Rust Source | C++ Source | Online wasm Preview | Open in code editor |
 | --- | --- | --- | --- | --- |
-| [`gallery.60`](./gallery/gallery.60) | [`main.rs`](./gallery/main.rs) | [`main.cpp`](./gallery/main.cpp) | [Online simulation](https://sixtyfps.io/snapshots/master/demos/gallery/) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/gallery/gallery.60) |
+| [`gallery.slint`](./gallery/gallery.slint) | [`main.rs`](./gallery/main.rs) | [`main.cpp`](./gallery/main.cpp) | [Online simulation](https://sixtyfps.io/snapshots/master/demos/gallery/) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/gallery/gallery.slint) |
 
 ![Screenshot of the Gallery on Windows](https://sixtyfps.io/resources/gallery_win_screenshot.png "Gallery")
 
@@ -26,9 +26,9 @@ A simple application showing the different widgets
 
 A simple todo mvc application
 
-| `.60` Design | Rust Source | C++ Source | NodeJS | Online wasm Preview | Open in code editor |
+| `.slint` Design | Rust Source | C++ Source | NodeJS | Online wasm Preview | Open in code editor |
 | --- | --- | --- | --- | --- | --- |
-| [`todo.60`](./todo/ui/todo.60) | [`main.rs`](./todo/rust/main.rs) | [`main.cpp`](./todo/cpp/main.cpp) | [`main.js`](./todo/node/main.js) | [Online simulation](https://sixtyfps.io/snapshots/master/demos/todo/) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/todo/ui/todo.60) |
+| [`todo.slint`](./todo/ui/todo.slint) | [`main.rs`](./todo/rust/main.rs) | [`main.cpp`](./todo/cpp/main.cpp) | [`main.js`](./todo/node/main.js) | [Online simulation](https://sixtyfps.io/snapshots/master/demos/todo/) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/todo/ui/todo.slint) |
 
 ![Screenshot of the Todo Demo](https://sixtyfps.io/resources/todo_screenshot.png "Todo Demo")
 
@@ -36,9 +36,9 @@ A simple todo mvc application
 
 Puzzle game based on a Flutter example. See [Readme](./slide_puzzle)
 
-| `.60` Design | Rust Source | Online wasm Preview | Open in code editor |
+| `.slint` Design | Rust Source | Online wasm Preview | Open in code editor |
 | --- | --- | --- | --- |
-| [`slide_puzzle.60`](./slide_puzzle/slide_puzzle.60) | [`main.rs`](./todo/rust/main.rs) | [Online simulation](https://sixtyfps.io/snapshots/master/demos/slide_puzzle/) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/slide_puzzle/slide_puzzle.60) |
+| [`slide_puzzle.slint`](./slide_puzzle/slide_puzzle.slint) | [`main.rs`](./todo/rust/main.rs) | [Online simulation](https://sixtyfps.io/snapshots/master/demos/slide_puzzle/) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/slide_puzzle/slide_puzzle.slint) |
 
 ![Screenshot of the Slide Puzzle](https://sixtyfps.io/resources/puzzle_screenshot.png "Slide Puzzle")
 
@@ -49,9 +49,9 @@ A basic memory game used as an example the tutorial:
 * [Memory Game Tutorial (Rust)](https://sixtyfps.io/docs/tutorial/rust)
 * [Memory Game Tutorial (C++)](https://sixtyfps.io/docs/tutorial/cpp)
 
-| `.60` Design | Rust Source | C++ Source | Online wasm Preview | Open in code editor |
+| `.slint` Design | Rust Source | C++ Source | Online wasm Preview | Open in code editor |
 | --- | --- | --- | --- | --- |
-| [`memory.60`](./memory/memory.60) | [`main.rs`](./memory/main.rs) | [`memory.cpp`](./memory/memory.cpp) | [Online simulation](https://sixtyfps.io/snapshots/master/demos/memory/) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/memory/memory.60) |
+| [`memory.slint`](./memory/memory.slint) | [`main.rs`](./memory/main.rs) | [`memory.cpp`](./memory/memory.cpp) | [Online simulation](https://sixtyfps.io/snapshots/master/demos/memory/) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/memory/memory.slint) |
 
 ### [`iot-dashboard`](./iot-dashboard)
 
@@ -59,9 +59,9 @@ A clone of one demo from the [QSkinny framework](https://qskinny.github.io/).
 
 Also show how a way to dynamically load widgets with the interpreter from C++.
 
-| `.60` Design | C++ Source | Online wasm Preview | Open in code editor |
+| `.slint` Design | C++ Source | Online wasm Preview | Open in code editor |
 | --- | --- | --- | --- |
-| [`main.60`](./iot-dashboard/main.60) | [`main.cpp`](./iot-dashboard/main.cpp)   | [Online preview](https://sixtyfps.io/snapshots/master/editor/preview.html?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/iot-dashboard/main.60) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/iot-dashboard/main.60) |
+| [`main.slint`](./iot-dashboard/main.slint) | [`main.cpp`](./iot-dashboard/main.cpp)   | [Online preview](https://sixtyfps.io/snapshots/master/editor/preview.html?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/iot-dashboard/main.slint) | [Preview in Online Code Editor](https://sixtyfps.io/snapshots/master/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/iot-dashboard/main.slint) |
 
 ![Screenshot of the IOT Dashboard](https://sixtyfps.io/resources/iot-dashboard_screenshot.png "IOT Dashboard")
 
@@ -81,9 +81,9 @@ and feed the result into SixtyFPS.
 A Rust-only example that shows how to use the Rust plotters crate to do plot a
 graph and integrate the result into SixtyFPS.
 
-| `.60` Design | Rust Source | Online wasm Preview |
+| `.slint` Design | Rust Source | Online wasm Preview |
 | --- |  --- | --- |
-| [`plotter.60`](./plotter/plotter.60) | [`main.rs`](./plotter/main.rs) | [Online simulation](https://sixtyfps.io/snapshots/master/demos/plotter/) |
+| [`plotter.slint`](./plotter/plotter.slint) | [`main.rs`](./plotter/main.rs) | [Online simulation](https://sixtyfps.io/snapshots/master/demos/plotter/) |
 
 ![Screenshot of the plotter example](https://sixtyfps.io/resources/plotter_screenshot.png "Plotter")
 
@@ -99,10 +99,10 @@ Some examples of how to use the `sixtyfps-viewer` to add a GUI to shell scripts.
 
 ## Loading the example with the `viewer`
 
-Simply load the .60 file with the viewer application
+Simply load the .slint file with the viewer application
 
 ```sh
-cargo run --release --bin sixtyfps-viewer -- examples/printerdemo/ui/printerdemo.60
+cargo run --release --bin sixtyfps-viewer -- examples/printerdemo/ui/printerdemo.slint
 ```
 
 ## Running the Rust Examples

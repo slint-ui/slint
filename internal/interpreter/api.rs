@@ -29,17 +29,17 @@ pub enum ValueType {
     Void,
     /// An `int` or a `float` (this is also used for unit based type such as `length` or `angle`)
     Number,
-    /// Correspond to the `string` type in .60
+    /// Correspond to the `string` type in .slint
     String,
-    /// Correspond to the `bool` type in .60
+    /// Correspond to the `bool` type in .slint
     Bool,
-    /// A model (that includes array in .60)
+    /// A model (that includes array in .slint)
     Model,
     /// An object
     Struct,
-    /// Correspond to `brush` or `color` type in .60.  For color, this is then a [`Brush::SolidColor`]
+    /// Correspond to `brush` or `color` type in .slint.  For color, this is then a [`Brush::SolidColor`]
     Brush,
-    /// Correspond to `image` type in .60.
+    /// Correspond to `image` type in .slint.
     Image,
     /// The type is not a public type but something internal.
     #[doc(hidden)]
@@ -89,17 +89,17 @@ pub enum Value {
     Void,
     /// An `int` or a `float` (this is also used for unit based type such as `length` or `angle`)
     Number(f64),
-    /// Correspond to the `string` type in .60
+    /// Correspond to the `string` type in .slint
     String(SharedString),
-    /// Correspond to the `bool` type in .60
+    /// Correspond to the `bool` type in .slint
     Bool(bool),
-    /// Correspond to the `image` type in .60
+    /// Correspond to the `image` type in .slint
     Image(Image),
-    /// A model (that includes array in .60)
+    /// A model (that includes array in .slint)
     Model(ModelRc<Value>),
     /// An object
     Struct(Struct),
-    /// Correspond to `brush` or `color` type in .60.  For color, this is then a [`Brush::SolidColor`]
+    /// Correspond to `brush` or `color` type in .slint.  For color, this is then a [`Brush::SolidColor`]
     Brush(Brush),
     #[doc(hidden)]
     /// The elements of a path
@@ -373,10 +373,10 @@ pub(crate) fn normalize_identifier(ident: &str) -> Cow<'_, str> {
     }
 }
 
-/// This type represents a runtime instance of structure in `.60`.
+/// This type represents a runtime instance of structure in `.slint`.
 ///
 /// This can either be an instance of a name structure introduced
-/// with the `struct` keyword in the .60 file, or an anonymous struct
+/// with the `struct` keyword in the .slint file, or an anonymous struct
 /// written with the `{ key: value, }`  notation.
 ///
 /// It can be constructed with the [`FromIterator`] trait, and converted
@@ -427,7 +427,7 @@ impl FromIterator<(String, Value)> for Struct {
 }
 
 /// ComponentCompiler is the entry point to the SixtyFPS interpreter that can be used
-/// to load .60 files or compile them on-the-fly from a string.
+/// to load .slint files or compile them on-the-fly from a string.
 pub struct ComponentCompiler {
     config: slint_compiler_internal::CompilerConfiguration,
     diagnostics: Vec<Diagnostic>,
@@ -450,7 +450,7 @@ impl ComponentCompiler {
         Self::default()
     }
 
-    /// Sets the include paths used for looking up `.60` imports to the specified vector of paths.
+    /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
         self.config.include_paths = include_paths;
     }
@@ -465,15 +465,15 @@ impl ComponentCompiler {
         self.config.style = Some(style);
     }
 
-    /// Returns the widget style the compiler is currently using when compiling .60 files.
+    /// Returns the widget style the compiler is currently using when compiling .slint files.
     pub fn style(&self) -> Option<&String> {
         self.config.style.as_ref()
     }
 
-    /// Sets the callback that will be invoked when loading imported .60 files. The specified
+    /// Sets the callback that will be invoked when loading imported .slint files. The specified
     /// `file_loader_callback` parameter will be called with a canonical file path as argument
     /// and is expected to return a future that, when resolved, provides the source code of the
-    /// .60 file to be imported as a string.
+    /// .slint file to be imported as a string.
     /// If an error is returned, then the build will abort with that error.
     /// If None is returned, it means the normal resolution algorithm will proceed as if the hook
     /// was not in place (i.e: load from the file system following the include paths)
@@ -494,7 +494,7 @@ impl ComponentCompiler {
         &self.diagnostics
     }
 
-    /// Compile a .60 file into a ComponentDefinition
+    /// Compile a .slint file into a ComponentDefinition
     ///
     /// Returns the compiled `ComponentDefinition` if there were no errors.
     ///
@@ -531,7 +531,7 @@ impl ComponentCompiler {
         c.ok().map(|inner| ComponentDefinition { inner: inner.into() })
     }
 
-    /// Compile some .60 code into a ComponentDefinition
+    /// Compile some .slint code into a ComponentDefinition
     ///
     /// The `path` argument will be used for diagnostics and to compute relative
     /// paths while importing.
@@ -560,9 +560,9 @@ impl ComponentCompiler {
     }
 }
 
-/// ComponentDefinition is a representation of a compiled component from .60 markup.
+/// ComponentDefinition is a representation of a compiled component from .slint markup.
 ///
-/// It can be constructed from a .60 file using the [`ComponentCompiler::build_from_path`] or [`ComponentCompiler::build_from_source`] functions.
+/// It can be constructed from a .slint file using the [`ComponentCompiler::build_from_path`] or [`ComponentCompiler::build_from_source`] functions.
 /// And then it can be instantiated with the [`Self::create`] function.
 ///
 /// The ComponentDefinition acts as a factory to create new instances. When you've finished
@@ -690,7 +690,7 @@ impl ComponentDefinition {
         })
     }
 
-    /// The name of this Component as written in the .60 file
+    /// The name of this Component as written in the .slint file
     pub fn name(&self) -> &str {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type

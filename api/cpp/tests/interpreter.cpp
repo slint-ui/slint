@@ -296,7 +296,7 @@ SCENARIO("Component Compiler")
 
     SECTION("Compile failure from path")
     {
-        auto result = compiler.build_from_path(SOURCE_DIR "/file-not-there.60");
+        auto result = compiler.build_from_path(SOURCE_DIR "/file-not-there.slint");
         REQUIRE_FALSE(result.has_value());
         auto diags = compiler.diagnostics();
 
@@ -306,7 +306,7 @@ SCENARIO("Component Compiler")
 
     SECTION("Compile from path")
     {
-        auto result = compiler.build_from_path(SOURCE_DIR "/tests/test.60");
+        auto result = compiler.build_from_path(SOURCE_DIR "/tests/test.slint");
         REQUIRE(result.has_value());
     }
 }
@@ -385,7 +385,7 @@ SCENARIO("Invoke callback")
     }
 }
 
-SCENARIO("Array between .60 and C++")
+SCENARIO("Array between .slint and C++")
 {
     using namespace sixtyfps::interpreter;
     using namespace sixtyfps;
@@ -397,7 +397,7 @@ SCENARIO("Array between .60 and C++")
     REQUIRE(result.has_value());
     auto instance = result->create();
 
-    SECTION(".60 to C++")
+    SECTION(".slint to C++")
     {
         auto maybe_array = instance->get_property("array");
         REQUIRE(maybe_array.has_value());
@@ -407,7 +407,7 @@ SCENARIO("Array between .60 and C++")
         REQUIRE(array.to_array() == sixtyfps::SharedVector<Value> { Value(1.), Value(2.), Value(3.) });
     }
 
-    SECTION("C++ to .60")
+    SECTION("C++ to .slint")
     {
         sixtyfps::SharedVector<Value> cpp_array { Value(4.), Value(5.), Value(6.) };
 
@@ -421,7 +421,7 @@ SCENARIO("Array between .60 and C++")
     }
 }
 
-SCENARIO("Angle between .60 and C++")
+SCENARIO("Angle between .slint and C++")
 {
     using namespace sixtyfps::interpreter;
     using namespace sixtyfps;

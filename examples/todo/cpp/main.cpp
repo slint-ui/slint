@@ -8,7 +8,7 @@ int main()
     auto demo = MainWindow::create();
 
     auto todo_model = std::make_shared<sixtyfps::VectorModel<TodoItem>>(std::vector {
-        TodoItem { true, "Implement the .60 file" },
+        TodoItem { true, "Implement the .slint file" },
         TodoItem { false, "Do the Rust part" },
         TodoItem { true, "Make the C++ code" },
         TodoItem { false, "Write some JavaScript code" },

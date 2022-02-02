@@ -5,20 +5,20 @@ After modeling a single tile, let's create a grid of them. For the grid to be ou
 1. A data model: This shall be an array where each element describes the tile data structure, such as the
    url of the image, whether the image shall be visible and if this tile has been solved. We modify the model
    from Rust code.
-1. A way of creating many instances of the tiles, with the above `.60` markup code.
+1. A way of creating many instances of the tiles, with the above `.slint` markup code.
 
 In SixtyFPS we can declare an array of structures using brackets, to create a model. We can use the <span class="hljs-keyword">for</span> loop
-to create many instances of the same element. In `.60` the for loop is declarative and automatically updates when
+to create many instances of the same element. In `.slint` the for loop is declarative and automatically updates when
 the model changes. We instantiate all the different <span class="hljs-title">MemoryTile</span> elements and place them on a grid based on their
 index with a little bit of spacing between the tiles.
 
-First, we copy the tile data structure definition and paste it at top inside the `memory.60` file:
+First, we copy the tile data structure definition and paste it at top inside the `memory.slint` file:
 
 ```60
 {{#include ../../rust/src/main_multiple_tiles.rs:tile_data}}
 ```
 
-Next, we replace the *<span class="hljs-title">MainWindow</span> := { ... }* section at the bottom of the `memory.60` file with the following snippet:
+Next, we replace the *<span class="hljs-title">MainWindow</span> := { ... }* section at the bottom of the `memory.slint` file with the following snippet:
 
 ```60
 {{#include ../../rust/src/main_multiple_tiles.rs:main_window}}

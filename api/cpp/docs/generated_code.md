@@ -1,6 +1,6 @@
 # Generated code
 
-The SixtyFPS compiler called by the build system will generate a header file for the root `.60`
+The SixtyFPS compiler called by the build system will generate a header file for the root `.slint`
 file. This header file will contain a `class` with the same name as the component.
 
 This class will have the following public member functions:
@@ -27,13 +27,13 @@ This is a smart pointer that owns the actual instance and keeps it alive as long
 is in scope, similar to `std::shared_ptr<T>`.
 
 For more complex UIs it is common to supply data in the form of an abstract data model, that is used with
-[`for` - `in`](markdown/langref.md#repetition) repetitions or [`ListView`](markdown/widgets.md#listview) elements in the `.60` language.
+[`for` - `in`](markdown/langref.md#repetition) repetitions or [`ListView`](markdown/widgets.md#listview) elements in the `.slint` language.
 All models in C++ are sub-classes of the {cpp:class}`sixtyfps::Model` and you can sub-class it yourself. For convenience,
 the {cpp:class}`sixtyfps::VectorModel` provides an implementation that is backed by a `std::vector<T>`.
 
 ## Example
 
-Let's assume we have this code in our `.60` file
+Let's assume we have this code in our `.slint` file
 
 ```60
 SampleComponent := Window {
@@ -95,12 +95,12 @@ private:
 
 ## Global Singletons
 
-In `.60` files it is possible to declare [singletons that are globally available](markdown/langref.md#global-singletons).
+In `.slint` files it is possible to declare [singletons that are globally available](markdown/langref.md#global-singletons).
 You can access them from to your C++ code by exporting them and using the `global()` getter function in the
 C++ class generated for your entry component. Each global singleton creates a class that has getter/setter functions
-for properties and callbacks, similar to API that's created for your `.60` component, as demonstrated in the previous section.
+for properties and callbacks, similar to API that's created for your `.slint` component, as demonstrated in the previous section.
 
-For example the following `.60` markup defines a global `Logic` singleton that's also exported:
+For example the following `.slint` markup defines a global `Logic` singleton that's also exported:
 
 ```60,ignore
 export global Logic := {

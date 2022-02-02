@@ -12,11 +12,11 @@ struct Cli {
     #[clap(short = 'f', long = "format", default_value = "cpp")]
     format: generator::OutputFormat,
 
-    /// Include path for other .60 files
+    /// Include path for other .slint files
     #[clap(short = 'I', name = "include path", number_of_values = 1, parse(from_os_str))]
     include_paths: Vec<std::path::PathBuf>,
 
-    /// Path to .60 file ('-' for stdin)
+    /// Path to .slint file ('-' for stdin)
     #[clap(name = "file", parse(from_os_str))]
     path: std::path::PathBuf,
 

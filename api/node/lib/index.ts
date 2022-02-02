@@ -124,7 +124,7 @@ interface ModelPeer {
 
 /**
  * Model<T> is the interface for feeding dynamic data into
- * `.60` views.
+ * `.slint` views.
  *
  * A model is organized like a table with rows of data. The
  * fields of the data type T behave like columns.
@@ -163,7 +163,7 @@ class NullPeer implements ModelPeer {
 }
 
 /**
- * ArrayModel wraps a JavaScript array for use in `.60` views. The underlying
+ * ArrayModel wraps a JavaScript array for use in `.slint` views. The underlying
  * array can be modified with the [[ArrayModel.push]] and [[ArrayModel.remove]] methods.
  */
 class ArrayModel<T> implements Model<T> {

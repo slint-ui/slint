@@ -17,7 +17,7 @@ pub fn main() {
     console_error_panic_hook::set_once();
 
     let todo_model = Rc::new(sixtyfps::VecModel::<TodoItem>::from(vec![
-        TodoItem { checked: true, title: "Implement the .60 file".into() },
+        TodoItem { checked: true, title: "Implement the .slint file".into() },
         TodoItem { checked: true, title: "Do the Rust part".into() },
         TodoItem { checked: false, title: "Make the C++ code".into() },
         TodoItem { checked: false, title: "Write some JavaScript code".into() },

@@ -11,10 +11,10 @@ If you are new to SixtyFPS, you might also consider going through our [Walk-thro
 
 ## Installing or Building SixtyFPS
 
-SixtyFPS comes with a CMake integration that automates the compilation step of the `.60` markup language files and
+SixtyFPS comes with a CMake integration that automates the compilation step of the `.slint` markup language files and
 offers a CMake target for convenient linkage.
 
-*Note*: We recommend using the Ninja generator of CMake for the most efficient build and `.60` dependency tracking.
+*Note*: We recommend using the Ninja generator of CMake for the most efficient build and `.slint` dependency tracking.
 You can select the CMake Ninja backend by passing `-GNinja` or setting the `CMAKE_GENERATOR` environment variable to `Ninja`.
 
 ### Building from Sources
@@ -119,10 +119,10 @@ FetchContent_MakeAvailable(SixtyFPS)
 
 add_executable(my_application main.cpp)
 target_link_libraries(my_application PRIVATE Slint::Slint)
-slint_target_sources(my_application my_application_ui.60)
+slint_target_sources(my_application my_application_ui.slint)
 ```
 
-The `slint_target_sources` cmake command allows you to add .60 files to your build. Finally it is
+The `slint_target_sources` cmake command allows you to add .slint files to your build. Finally it is
 necessary to link your executable or library against the `Slint::Slint` target.
 
 ## Tutorial
@@ -131,7 +131,7 @@ Let's make a UI for a todo list application using the SixtyFPS UI description la
 Hopefully this should be self explanatory. Check out the documentation of the language for help
 
 ```60
-// file: my_application_ui.60
+// file: my_application_ui.slint
 import { CheckBox, Button, ListView, LineEdit } from "std-widgets.slint";
 
 export struct TodoItem := {
@@ -178,7 +178,7 @@ export MainWindow := Window {
 We can compile this code using the `slint-compiler` binary:
 
 ```sh
-slint-compiler my_application_ui.60 > my_application_ui.h
+slint-compiler my_application_ui.slint > my_application_ui.h
 ```
 
 Note: You would usually not type this command yourself, this is done automatically by the build system.
