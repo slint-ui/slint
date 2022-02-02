@@ -145,7 +145,7 @@ pub fn main() {
     main_window.on_filter_image(move |filter_index| {
         let filter_fn = filters.0[filter_index as usize].apply_function;
         let filtered_image = filter_fn(&source_image);
-        slint::Image::from_rgba8(sixtyfps::SharedPixelBuffer::clone_from_slice(
+        slint::Image::from_rgba8(slint::SharedPixelBuffer::clone_from_slice(
             filtered_image.as_raw(),
             filtered_image.width(),
             filtered_image.height(),

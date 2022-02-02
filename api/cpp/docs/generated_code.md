@@ -7,10 +7,10 @@ This class will have the following public member functions:
 
 * A `create` constructor function and a destructor.
 * A `show` function, which will show the component on the screen. Note that in order to render
-  and react to user input, it's still necessary to spin the event loop, by calling {cpp:func}`sixtyfps::run_event_loop()`
+  and react to user input, it's still necessary to spin the event loop, by calling {cpp:func}`slint::run_event_loop()`
   or using the convenience `fun` function in this class.
 * A `hide` function, which de-registers the component from the windowing system.
-* A `window` function that provides access to the {cpp:class}`sixtyfps::Window`, allow for further customization
+* A `window` function that provides access to the {cpp:class}`slint::Window`, allow for further customization
   towards the windowing system.
 * A `run` convenience function, which will show the component and starts the event loop.
 * for each properties:
@@ -22,14 +22,14 @@ This class will have the following public member functions:
      for this callback. the functor must accept the type parameter of the callback
 * A `global` function, to provide access to any exported global singletons.
 
-The class is instantiated with the `create` function, which returns the type wrapped in {cpp:class}`sixtyfps::ComponentHandle`.
-This is a smart pointer that owns the actual instance and keeps it alive as long as at least one {cpp:class}`sixtyfps::ComponentHandle`
+The class is instantiated with the `create` function, which returns the type wrapped in {cpp:class}`slint::ComponentHandle`.
+This is a smart pointer that owns the actual instance and keeps it alive as long as at least one {cpp:class}`slint::ComponentHandle`
 is in scope, similar to `std::shared_ptr<T>`.
 
 For more complex UIs it is common to supply data in the form of an abstract data model, that is used with
 [`for` - `in`](markdown/langref.md#repetition) repetitions or [`ListView`](markdown/widgets.md#listview) elements in the `.slint` language.
-All models in C++ are sub-classes of the {cpp:class}`sixtyfps::Model` and you can sub-class it yourself. For convenience,
-the {cpp:class}`sixtyfps::VectorModel` provides an implementation that is backed by a `std::vector<T>`.
+All models in C++ are sub-classes of the {cpp:class}`slint::Model` and you can sub-class it yourself. For convenience,
+the {cpp:class}`slint::VectorModel` provides an implementation that is backed by a `std::vector<T>`.
 
 ## Example
 
@@ -55,14 +55,14 @@ This will generate a header with the following contents (edited for documentatio
 class SampleComponent {
 public:
     /// Constructor function
-    inline auto create () -> sixtyfps::ComponentHandle<MainWindow>;
+    inline auto create () -> slint::ComponentHandle<MainWindow>;
     /// Destructor
     inline ~SampleComponent ();
 
     /// Show this component, and runs the event loop
     inline void run () const;
 
-    /// Show the window that renders this component. Call `sixtyfps::run_event_loop()`
+    /// Show the window that renders this component. Call `slint::run_event_loop()`
     /// to continuously render the contents and react to user input.
     inline void show () const;
 
@@ -75,9 +75,9 @@ public:
     inline void set_counter (const int &value) const;
 
     /// Getter for the `user_name` property
-    inline sixtyfps::SharedString get_user_name () const;
+    inline slint::SharedString get_user_name () const;
     /// Setter for the `user_name` property
-    inline void set_user_name (const sixtyfps::SharedString &value) const;
+    inline void set_user_name (const slint::SharedString &value) const;
 
     /// Call this function to call the `hello` callback
     inline void invoke_hello () const;

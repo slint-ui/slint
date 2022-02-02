@@ -192,17 +192,17 @@ This will generate a `my_application_ui.h` header file. It basically contains th
 
 struct TodoItem {
     bool checked;
-    sixtyfps::SharedString title;
+    slint::SharedString title;
 };
 
 struct MainWindow {
  public:
-    inline auto create () -> sixtyfps::ComponentHandle<MainWindow>;
+    inline auto create () -> slint::ComponentHandle<MainWindow>;
 
-    inline auto get_todo_model () const -> std::shared_ptr<sixtyfps::Model<TodoItem>>;
-    inline void set_todo_model (const std::shared_ptr<sixtyfps::Model<TodoItem>> &value) const;
+    inline auto get_todo_model () const -> std::shared_ptr<slint::Model<TodoItem>>;
+    inline void set_todo_model (const std::shared_ptr<slint::Model<TodoItem>> &value) const;
 
-    inline void invoke_todo_added (sixtyfps::SharedString arg_0) const;
+    inline void invoke_todo_added (slint::SharedString arg_0) const;
     template<typename Functor> inline void on_todo_added (Functor && callback_handler) const;
 
     //...
@@ -220,14 +220,14 @@ int main() {
     auto todo_app = MainWindow::create();
 
     // let's create a model:
-    auto todo_model = std::make_shared<sixtyfps::VectorModel<TodoItem>>(std::vector {
+    auto todo_model = std::make_shared<slint::VectorModel<TodoItem>>(std::vector {
         TodoItem { false, "Write documentation" },
     });
     // set the model as the model of our view
     todo_app->set_todo_model(todo_model);
 
     // let's connect our "add" button to add an item in the model
-    todo_app->on_todo_added([todo_model](const sixtyfps::SharedString &s) {
+    todo_app->on_todo_added([todo_model](const slint::SharedString &s) {
          todo_model->push_back(TodoItem { false, s} );
     });
 

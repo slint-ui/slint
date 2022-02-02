@@ -7,7 +7,7 @@
 
 * `Value::Array` was removed and [`Value::Model`] needs to be used instead.
 * `CallCallbackError` was renamed to [`InvokeCallbackError`].
-* `WeakComponentInstance` was removed. Use `slint::Weak<sixtyfps::interpreter::ComponentInstance>` instead.
+* `WeakComponentInstance` was removed. Use `slint::Weak<slint::interpreter::ComponentInstance>` instead.
   You might need to `use slint::ComponentHandle;` in your code to bring the trait into scope.
 
 */
