@@ -53,7 +53,7 @@ slint-macros = { version = "=0.2.0", path = "../macros" }
 slint-backend-selector-internal = { version = "=0.2.0", path="../../../internal/backends/selector" }
 
 const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }
-document-features = { version = "0.1.0", path = "../../../helper_crates/document-features" }
+document-features = "0.1.0"
 vtable = { version = "0.1.5", path = "../../../helper_crates/vtable" }
 
 once_cell = { version = "1.5", default-features = false, features = ["alloc"] }
@@ -61,3 +61,4 @@ pin-weak = { version = "1.1", default-features = false }
 
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "docs/resources/slint-docs-preview.html", "--html-in-header", "docs/resources/slint-docs-highlight.html" ]
+

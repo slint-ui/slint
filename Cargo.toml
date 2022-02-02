@@ -20,7 +20,6 @@ members = [
     'examples/slide_puzzle',
     'examples/todo/rust',
     'helper_crates/const-field-offset',
-    'helper_crates/document-features',
     'helper_crates/vtable',
     'helper_crates/vtable/macro',
     'internal/backends/gl',

@@ -64,7 +64,7 @@ generativity = "1"
 lyon_path = { version = "0.17.3" }
 once_cell = "1.5"
 thiserror = "1"
-document-features = { version = "0.1.0", path = "../../helper_crates/document-features" }
+document-features = "0.1.0"
 
 [dependencies.spin_on]
 version = "0.1"
