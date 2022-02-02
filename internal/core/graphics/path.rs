@@ -13,7 +13,7 @@ use const_field_offset::FieldOffsets;
 use slint_core_macros_internal::*;
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
+#[derive(FieldOffsets, Default, SlintElement, Clone, Debug, PartialEq)]
 #[pin]
 /// PathMoveTo describes the event of setting the cursor on the path to use as starting
 /// point for sub-sequent events, such as `LineTo`. Moving the cursor also implicitly closes
@@ -28,7 +28,7 @@ pub struct PathMoveTo {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
+#[derive(FieldOffsets, Default, SlintElement, Clone, Debug, PartialEq)]
 #[pin]
 /// PathLineTo describes the event of moving the cursor on the path to the specified location
 /// along a straight line.
@@ -42,7 +42,7 @@ pub struct PathLineTo {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
+#[derive(FieldOffsets, Default, SlintElement, Clone, Debug, PartialEq)]
 #[pin]
 /// PathArcTo describes the event of moving the cursor on the path across an arc to the specified
 /// x/y coordinates, with the specified x/y radius and additional properties.
@@ -72,7 +72,7 @@ pub struct PathArcTo {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
+#[derive(FieldOffsets, Default, SlintElement, Clone, Debug, PartialEq)]
 #[pin]
 /// PathCubicTo describes a smooth Bézier curve from the path's current position
 /// to the specified x/y location, using two control points.
@@ -98,7 +98,7 @@ pub struct PathCubicTo {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
+#[derive(FieldOffsets, Default, SlintElement, Clone, Debug, PartialEq)]
 #[pin]
 /// PathCubicTo describes a smooth Bézier curve from the path's current position
 /// to the specified x/y location, using one control points.

@@ -96,7 +96,7 @@ use standard_button::*;
 type ActualStandardButtonKind = Option<StandardButtonKind>;
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeButton {
     pub x: Property<f32>,

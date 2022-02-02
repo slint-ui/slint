@@ -22,7 +22,7 @@ struct StyleChangeListener : QWidget {
 }}
 
 #[repr(C)]
-#[derive(FieldOffsets, SixtyFPSElement)]
+#[derive(FieldOffsets, SlintElement)]
 #[pin]
 #[pin_drop]
 pub struct NativeStyleMetrics {

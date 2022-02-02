@@ -11,7 +11,7 @@ struct NativeSpinBoxData {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeSpinBox {
     pub x: Property<f32>,

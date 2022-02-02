@@ -24,7 +24,7 @@ use quote::quote;
 /// with the interpreter.
 /// In addition all `Property<T> foo` fields get a convenient getter function generated
 /// that works on a `Pin<&Self>` receiver.
-#[proc_macro_derive(SixtyFPSElement, attributes(rtti_field))]
+#[proc_macro_derive(SlintElement, attributes(rtti_field))]
 pub fn slint_element(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 

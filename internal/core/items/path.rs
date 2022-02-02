@@ -40,7 +40,7 @@ impl Default for FillRule {
 
 /// The implementation of the `Path` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct Path {
     pub x: Property<f32>,

@@ -53,7 +53,7 @@ impl Default for ImageRendering {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 /// The implementation of the `Image` element
 pub struct ImageItem {
@@ -125,7 +125,7 @@ impl ItemConsts for ImageItem {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 /// The implementation of the `ClippedImage` element
 pub struct ClippedImage {

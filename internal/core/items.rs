@@ -200,7 +200,7 @@ impl ItemWeak {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 /// The implementation of the `Rectangle` element
 pub struct Rectangle {
@@ -264,7 +264,7 @@ declare_item_vtable! {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 /// The implementation of the `BorderRectangle` element
 pub struct BorderRectangle {
@@ -379,7 +379,7 @@ impl Default for MouseCursor {
 
 /// The implementation of the `TouchArea` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct TouchArea {
     pub x: Property<f32>,
@@ -552,7 +552,7 @@ impl Default for EventResult {
 
 /// A runtime item that exposes key
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct FocusScope {
     pub x: Property<f32>,
@@ -642,7 +642,7 @@ declare_item_vtable! {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 /// The implementation of the `Clip` element
 pub struct Clip {
@@ -720,7 +720,7 @@ declare_item_vtable! {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 /// The Opacity Item is not meant to be used directly by the .slint code, instead, the `opacity: xxx` or `visible: false` should be used
 pub struct Opacity {
@@ -785,7 +785,7 @@ declare_item_vtable! {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 /// The implementation of the `Rotate` element
 pub struct Rotate {
@@ -852,7 +852,7 @@ declare_item_vtable! {
 
 /// The implementation of the `Flickable` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct Flickable {
     pub x: Property<f32>,
@@ -980,7 +980,7 @@ pub unsafe extern "C" fn slint_flickable_data_free(data: *mut FlickableDataBox) 
 
 /// The implementation of the `PropertyAnimation` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug)]
+#[derive(FieldOffsets, Default, SlintElement, Clone, Debug)]
 #[pin]
 pub struct PropertyAnimation {
     #[rtti_field]
@@ -995,7 +995,7 @@ pub struct PropertyAnimation {
 
 /// The implementation of the `Window` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct WindowItem {
     pub width: Property<f32>,
@@ -1092,7 +1092,7 @@ declare_item_vtable! {
 
 /// The implementation of the `BoxShadow` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct BoxShadow {
     // Rectangle properties

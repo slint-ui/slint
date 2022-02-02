@@ -19,7 +19,7 @@ pub(super) struct NativeSliderData {
 type FloatArg = (f32,);
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeSlider {
     pub x: Property<f32>,

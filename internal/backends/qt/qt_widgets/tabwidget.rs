@@ -4,7 +4,7 @@
 use super::*;
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeTabWidget {
     pub x: Property<f32>,
@@ -297,7 +297,7 @@ fn slint_get_NativeTabWidgetVTable() -> NativeTabWidgetVTable for NativeTabWidge
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeTab {
     pub x: Property<f32>,

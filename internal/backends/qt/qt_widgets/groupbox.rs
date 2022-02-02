@@ -3,7 +3,7 @@
 
 use super::*;
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeGroupBox {
     pub x: Property<f32>,
