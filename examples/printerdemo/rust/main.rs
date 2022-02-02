@@ -4,13 +4,13 @@
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-use sixtyfps::Model;
+use slint::Model;
 use std::rc::Rc;
 
-sixtyfps::include_modules!();
+slint::include_modules!();
 
 /// Returns the current time formated as a string
-fn current_time() -> sixtyfps::SharedString {
+fn current_time() -> slint::SharedString {
     #[cfg(not(target_arch = "wasm32"))]
     return chrono::Local::now().format("%H:%M:%S %d/%m/%Y").to_string().into();
     #[cfg(target_arch = "wasm32")]
@@ -18,12 +18,12 @@ fn current_time() -> sixtyfps::SharedString {
 }
 
 struct PrinterQueueData {
-    data: Rc<sixtyfps::VecModel<PrinterQueueItem>>,
-    print_progress_timer: sixtyfps::Timer,
+    data: Rc<slint::VecModel<PrinterQueueItem>>,
+    print_progress_timer: slint::Timer,
 }
 
 impl PrinterQueueData {
-    fn push_job(&self, title: sixtyfps::SharedString) {
+    fn push_job(&self, title: slint::SharedString) {
         self.data.push(PrinterQueueItem {
             status: "WAITING...".into(),
             progress: 0,
@@ -44,17 +44,17 @@ pub fn main() {
     console_error_panic_hook::set_once();
 
     let main_window = MainWindow::new();
-    main_window.set_ink_levels(sixtyfps::VecModel::from_slice(&[
-        InkLevel { color: sixtyfps::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
-        InkLevel { color: sixtyfps::Color::from_rgb_u8(255, 0, 255), level: 0.20 },
-        InkLevel { color: sixtyfps::Color::from_rgb_u8(255, 255, 0), level: 0.50 },
-        InkLevel { color: sixtyfps::Color::from_rgb_u8(0, 0, 0), level: 0.80 },
+    main_window.set_ink_levels(slint::VecModel::from_slice(&[
+        InkLevel { color: slint::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
+        InkLevel { color: slint::Color::from_rgb_u8(255, 0, 255), level: 0.20 },
+        InkLevel { color: slint::Color::from_rgb_u8(255, 255, 0), level: 0.50 },
+        InkLevel { color: slint::Color::from_rgb_u8(0, 0, 0), level: 0.80 },
     ]));
 
     let default_queue: Vec<PrinterQueueItem> =
         main_window.global::<PrinterQueue>().get_printer_queue().iter().collect();
     let printer_queue = Rc::new(PrinterQueueData {
-        data: Rc::new(sixtyfps::VecModel::from(default_queue)),
+        data: Rc::new(slint::VecModel::from(default_queue)),
         print_progress_timer: Default::default(),
     });
     main_window.global::<PrinterQueue>().set_printer_queue(printer_queue.data.clone().into());
@@ -76,7 +76,7 @@ pub fn main() {
 
     let printer_queue_weak = Rc::downgrade(&printer_queue);
     printer_queue.print_progress_timer.start(
-        sixtyfps::TimerMode::Repeated,
+        slint::TimerMode::Repeated,
         std::time::Duration::from_secs(1),
         move || {
             if let Some(printer_queue) = printer_queue_weak.upgrade() {

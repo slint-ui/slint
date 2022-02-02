@@ -20,9 +20,9 @@ assert_eq(t.get_color_brush().color(), green);
 
 ```rust
 let t = Test::new();
-assert_eq!(t.get_color_brush().color(), sixtyfps::Color::from_rgb_u8(0, 0, 0xff));
+assert_eq!(t.get_color_brush().color(), slint::Color::from_rgb_u8(0, 0, 0xff));
 
-let green = sixtyfps::Color::from_rgb_u8(0, 0xff, 0);
+let green = slint::Color::from_rgb_u8(0, 0xff, 0);
 t.set_color_brush(green.into());
 assert_eq!(t.get_color_brush().color(), green);
 ```

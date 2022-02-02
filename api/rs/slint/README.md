@@ -1,12 +1,12 @@
-# SixtyFPS-rs
+# Slint
 
 [![Crates.io](https://img.shields.io/crates/v/sixtyfps)](https://crates.io/crates/sixtyfps)
 [![Docs.rs](https://docs.rs/sixtyfps/badge.svg)](https://docs.rs/sixtyfps)
 
 # A Rust UI toolkit
 
-[SixtyFPS](https://sixtyfps.io/) is a UI toolkit that supports different programming languages.
-SixtyFPS-rs is the Rust API to interact with a SixtyFPS UI design from Rust.
+[Slint](https://sixtyfps.io/) is a UI toolkit that supports different programming languages.
+Slint is the Rust API to interact with a Slint UI design from Rust.
 
 The complete Rust documentation can be viewed online at https://sixtyfps.io/docs/rust/sixtyfps/.
 
@@ -22,13 +22,13 @@ In your `Cargo.toml` add:
 
 ```toml
 [dependencies]
-sixtyfps = "0.1.6"
+slint = "0.2.0"
 ```
 
 And in your `main.rs`:
 
 ```rust
-sixtyfps::sixtyfps!{
+slint::slint!{
     HelloWorld := Window {
         Text {
             text: "hello world";
@@ -41,11 +41,11 @@ fn main() {
 }
 ```
 
-The [`sixtyfps` crate documentation](https://sixtyfps.io/docs/rust/sixtyfps/)
+The [`slint` crate documentation](https://sixtyfps.io/docs/rust/sixtyfps/)
 contains more advanced examples and alternative ways to use this crate.
 
 To quickly get started, you can use the [Template Repository](https://github.com/sixtyfpsui/sixtyfps-rust-template) with
-the code of a minimal application using SixtyFPS that can be used as a starting point to your program.
+the code of a minimal application using Slint that can be used as a starting point to your program.
 
 ```bash
 cargo install cargo-generate

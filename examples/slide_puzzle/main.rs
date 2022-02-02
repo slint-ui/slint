@@ -1,14 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-use sixtyfps::Model;
+use slint::Model;
 use std::cell::RefCell;
 use std::rc::Rc;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-sixtyfps::include_modules!();
+slint::include_modules!();
 
 fn shuffle() -> Vec<i8> {
     fn is_solvable(positions: &[i8]) -> bool {
@@ -36,13 +36,13 @@ fn shuffle() -> Vec<i8> {
 }
 
 struct AppState {
-    pieces: Rc<sixtyfps::VecModel<Piece>>,
-    main_window: sixtyfps::Weak<MainWindow>,
+    pieces: Rc<slint::VecModel<Piece>>,
+    main_window: slint::Weak<MainWindow>,
     /// An array of 16 values which represent a 4x4 matrix containing the piece number in that
     /// position. -1 is no piece.
     positions: Vec<i8>,
-    auto_play_timer: sixtyfps::Timer,
-    kick_animation_timer: sixtyfps::Timer,
+    auto_play_timer: slint::Timer,
+    kick_animation_timer: slint::Timer,
     /// The speed in the x and y direction for the associated tile
     speed_for_kick_animation: [(f32, f32); 15],
     finished: bool,
@@ -171,7 +171,7 @@ pub fn main() {
 
     let main_window = MainWindow::new();
     let state = Rc::new(RefCell::new(AppState {
-        pieces: Rc::new(sixtyfps::VecModel::<Piece>::from(vec![Piece::default(); 15])),
+        pieces: Rc::new(slint::VecModel::<Piece>::from(vec![Piece::default(); 15])),
         main_window: main_window.as_weak(),
         positions: vec![],
         auto_play_timer: Default::default(),
@@ -192,7 +192,7 @@ pub fn main() {
         if !state_copy.borrow_mut().piece_clicked(p as i8) {
             let state_weak = Rc::downgrade(&state_copy);
             state_copy.borrow().kick_animation_timer.start(
-                sixtyfps::TimerMode::Repeated,
+                slint::TimerMode::Repeated,
                 std::time::Duration::from_millis(16),
                 move || {
                     if let Some(state) = state_weak.upgrade() {
@@ -215,7 +215,7 @@ pub fn main() {
         if enabled {
             let state_weak = Rc::downgrade(&state_copy);
             state_copy.borrow().auto_play_timer.start(
-                sixtyfps::TimerMode::Repeated,
+                slint::TimerMode::Repeated,
                 std::time::Duration::from_millis(200),
                 move || {
                     if let Some(state) = state_weak.upgrade() {

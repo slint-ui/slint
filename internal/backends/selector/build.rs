@@ -16,8 +16,8 @@ fn main() {
     //    has set the DEP_slint_backend_qt_internal_SUPPORTS_NATIVE_STYLE env variable.
     //    We then write a file in the build directory with the default style that depends on the
     //    Qt availability
-    // 4a. When using the sixtyfps-build crate from a build script, it will be able to read this file
-    //     from `sixtyfps_build::compile_with_config`
+    // 4a. When using the slint-build crate from a build script, it will be able to read this file
+    //     from `slint_build::compile_with_config`
     // 4b. Same when using the `sixtyfps!` macro,
 
     let has_native_style = std::env::var("DEP_slint_backend_qt_internal_SUPPORTS_NATIVE_STYLE")
@@ -29,7 +29,7 @@ fn main() {
     // <target_dir>/build/slint-backend-selector-internal-1fe5c4ab61eb0584/out
     // and we want to write to a common directory, so write in the build/ dir
     let target_path =
-        Path::new(&out_dir).parent().unwrap().parent().unwrap().join("SIXTYFPS_DEFAULT_STYLE.txt");
+        Path::new(&out_dir).parent().unwrap().parent().unwrap().join("SLINT_DEFAULT_STYLE.txt");
     std::fs::write(target_path, if has_native_style { b"native\n" as &[u8] } else { b"fluent\n" })
         .unwrap();
 }

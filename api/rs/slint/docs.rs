@@ -4,7 +4,7 @@
 #![cfg(doc)]
 /*!
     This is a pseudo module which only exist for documentation purposes as a way to show
-    the SixtyFPS documentation as part of rustdoc.
+    the Slint documentation as part of rustdoc.
 
     - The [`generated_code`] module contains an [commented example](generated_code::SampleComponent)
       of what is generated from the `.slint` file

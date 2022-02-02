@@ -16,32 +16,32 @@ TestCase := TextInput {
 
 const LEFT_CODE: char = '\u{F702}';
 
-let shift_modifier = sixtyfps::re_exports::KeyboardModifiers {
+let shift_modifier = slint::re_exports::KeyboardModifiers {
     shift: true,
     ..Default::default()
 };
 
-let control_modifier = sixtyfps::re_exports::KeyboardModifiers {
+let control_modifier = slint::re_exports::KeyboardModifiers {
     control: true,
     ..Default::default()
 };
 
 let instance = TestCase::new();
-sixtyfps::testing::send_mouse_click(&instance, 50., 50.);
+slint::testing::send_mouse_click(&instance, 50., 50.);
 assert!(instance.get_input_focused());
 assert_eq!(instance.get_test_text(), "");
-sixtyfps::testing::send_keyboard_string_sequence(&instance, "Test");
+slint::testing::send_keyboard_string_sequence(&instance, "Test");
 assert_eq!(instance.get_test_text(), "Test");
 assert!(!instance.get_has_selection());
 
-sixtyfps::testing::set_current_keyboard_modifiers(&instance, control_modifier);
-sixtyfps::testing::send_keyboard_string_sequence(&instance, "a");
-sixtyfps::testing::set_current_keyboard_modifiers(&instance, shift_modifier);
-sixtyfps::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-sixtyfps::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-sixtyfps::testing::set_current_keyboard_modifiers(&instance, control_modifier);
-sixtyfps::testing::send_keyboard_string_sequence(&instance, "x");
-sixtyfps::testing::set_current_keyboard_modifiers(&instance, sixtyfps::re_exports::KeyboardModifiers::default());
+slint::testing::set_current_keyboard_modifiers(&instance, control_modifier);
+slint::testing::send_keyboard_string_sequence(&instance, "a");
+slint::testing::set_current_keyboard_modifiers(&instance, shift_modifier);
+slint::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+slint::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+slint::testing::set_current_keyboard_modifiers(&instance, control_modifier);
+slint::testing::send_keyboard_string_sequence(&instance, "x");
+slint::testing::set_current_keyboard_modifiers(&instance, slint::re_exports::KeyboardModifiers::default());
 assert!(!instance.get_has_selection());
 assert_eq!(instance.get_test_text(), "st");
 assert_eq!(instance.get_test_cursor_pos(), 0);

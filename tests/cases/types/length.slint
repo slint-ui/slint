@@ -82,7 +82,7 @@ assert!(instance.get_test_zero());
 assert!(instance.get_test());
 
 let ratio = 2.;
-sixtyfps::testing::set_window_scale_factor(&instance, ratio);
+slint::testing::set_window_scale_factor(&instance, ratio);
 assert_eq!(instance.get_l1(), 12.);
 assert_eq!(instance.get_l2(), 12. * ratio);
 assert_eq!(instance.get_l3(), 100. + 12. * ratio);

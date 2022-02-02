@@ -389,7 +389,7 @@ impl Image {
             ImageInner::AbsoluteFilePath(_) |  ImageInner::EmbeddedData { .. } => {
                 match crate::backend::instance() {
                     Some(backend) => backend.image_size(self),
-                    None => panic!("sixtyfps::Image::size() called too early (before a graphics backend was chosen). You need to create a component first."),
+                    None => panic!("slint::Image::size() called too early (before a graphics backend was chosen). You need to create a component first."),
                 }
             },
             ImageInner::EmbeddedImage(buffer) => buffer.size(),

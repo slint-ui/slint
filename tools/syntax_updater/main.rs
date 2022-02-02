@@ -62,7 +62,7 @@ fn main() -> std::io::Result<()> {
 
 fn process_rust_file(source: String, mut file: impl Write, args: &Cli) -> std::io::Result<()> {
     let mut source_slice = &source[..];
-    let sixtyfps_macro = format!("{}!", "sixtyfps"); // in a variable so it does not appear as is
+    let sixtyfps_macro = format!("{}!", "slint"); // in a variable so it does not appear as is
     'l: while let Some(idx) = source_slice.find(&sixtyfps_macro) {
         // Note: this code ignore string literal and unbalanced comment, but that should be good enough
         let idx2 =

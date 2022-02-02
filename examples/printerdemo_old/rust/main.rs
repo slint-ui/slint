@@ -4,7 +4,7 @@
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-sixtyfps::include_modules!();
+slint::include_modules!();
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
@@ -14,11 +14,11 @@ pub fn main() {
     console_error_panic_hook::set_once();
 
     let main_window = MainWindow::new();
-    main_window.set_ink_levels(sixtyfps::VecModel::from_slice(&[
-        InkLevel { color: sixtyfps::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
-        InkLevel { color: sixtyfps::Color::from_rgb_u8(255, 0, 255), level: 0.20 },
-        InkLevel { color: sixtyfps::Color::from_rgb_u8(255, 255, 0), level: 0.50 },
-        InkLevel { color: sixtyfps::Color::from_rgb_u8(0, 0, 0), level: 0.80 },
+    main_window.set_ink_levels(slint::VecModel::from_slice(&[
+        InkLevel { color: slint::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
+        InkLevel { color: slint::Color::from_rgb_u8(255, 0, 255), level: 0.20 },
+        InkLevel { color: slint::Color::from_rgb_u8(255, 255, 0), level: 0.50 },
+        InkLevel { color: slint::Color::from_rgb_u8(0, 0, 0), level: 0.80 },
     ]));
 
     let main_weak = main_window.as_weak();
@@ -34,7 +34,7 @@ pub fn main() {
         let main_window = main_weak.upgrade().unwrap();
         let fax_number = main_window.get_fax_number().to_string();
         println!("Sending a fax to {}", fax_number);
-        main_window.set_fax_number(sixtyfps::SharedString::default());
+        main_window.set_fax_number(slint::SharedString::default());
     });
 
     main_window.on_quit(move || {

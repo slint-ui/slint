@@ -156,7 +156,7 @@ cpp! {{
             QCoreApplication::setAttribute(Qt::AA_PluginApplication, true);
         }
         static int argc  = 1;
-        static char argv[] = "sixtyfps";
+        static char argv[] = "Slint";
         static char *argv2[] = { argv };
         // Leak the QApplication, otherwise it crashes on exit
         // (because the QGuiApplication destructor access some Q_GLOBAL_STATIC which are already gone)

@@ -50,15 +50,15 @@ assert_eq(instance.get_top_level(), 92);
 ```rust
 let instance = TestCase::new();
 
-sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
+slint::testing::send_mouse_click(&instance, 5., 5.);
 assert_eq!(instance.get_top_level(), 42);
 
 instance.set_cond1(true);
-sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
+slint::testing::send_mouse_click(&instance, 5., 5.);
 assert_eq!(instance.get_top_level(), 92);
 
 instance.set_cond1(false);
-sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
+slint::testing::send_mouse_click(&instance, 5., 5.);
 assert_eq!(instance.get_top_level(), 92);
 ```
 

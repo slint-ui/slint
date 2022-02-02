@@ -46,52 +46,52 @@ TestCase := Rectangle {
 let instance = TestCase::new();
 
 // there should be nothing there
-sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
+slint::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 0);
 assert_eq!(instance.get_clicked_internal_state(), 0);
 
-sixtyfps::testing::send_mouse_click(&instance, 15., 5.);
+slint::testing::send_mouse_click(&instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 789000);
 assert_eq!(instance.get_clicked_internal_state(), 1);
 
-type ModelData = (sixtyfps::SharedString, sixtyfps::SharedString, f32);
-let another_model = std::rc::Rc::new(sixtyfps::VecModel::<ModelData>::from(
+type ModelData = (slint::SharedString, slint::SharedString, f32);
+let another_model = std::rc::Rc::new(slint::VecModel::<ModelData>::from(
     vec![
         ("a1".into(), "hello".into(), 111.),
         ("a2".into(), "cruel".into(), 222.),
         ("a3".into(), "world".into(), 333.),
     ]));
 
-instance.set_model(sixtyfps::ModelRc::from(another_model.clone()));
+instance.set_model(slint::ModelRc::from(another_model.clone()));
 
-sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
+slint::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 333000);
 assert_eq!(instance.get_clicked_internal_state(), 1);
 assert_eq!(instance.get_clicked_index(), 2);
 
-sixtyfps::testing::send_mouse_click(&instance, 15., 5.);
+slint::testing::send_mouse_click(&instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 222000);
-assert_eq!(instance.get_clicked_name(), sixtyfps::SharedString::from("cruel"));
+assert_eq!(instance.get_clicked_name(), slint::SharedString::from("cruel"));
 assert_eq!(instance.get_clicked_internal_state(), 1);
 
 another_model.push(("a4".into(), "!".into(), 444.));
-sixtyfps::testing::send_mouse_click(&instance, 35., 5.);
+slint::testing::send_mouse_click(&instance, 35., 5.);
 assert_eq!(instance.get_clicked_score(), 444000);
-assert_eq!(instance.get_clicked_name(), sixtyfps::SharedString::from("!"));
+assert_eq!(instance.get_clicked_name(), slint::SharedString::from("!"));
 assert_eq!(instance.get_clicked_internal_state(), 1);
 
-use sixtyfps::Model;
+use slint::Model;
 another_model.set_row_data(1, ("a2".into(), "idyllic".into(), 555.));
-sixtyfps::testing::send_mouse_click(&instance, 15., 5.);
+slint::testing::send_mouse_click(&instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 555000);
-assert_eq!(instance.get_clicked_name(), sixtyfps::SharedString::from("idyllic"));
+assert_eq!(instance.get_clicked_name(), slint::SharedString::from("idyllic"));
 assert_eq!(instance.get_clicked_internal_state(), 2);
 assert_eq!(instance.get_clicked_index(), 1);
 
 another_model.remove(1);
-sixtyfps::testing::send_mouse_click(&instance, 15., 5.);
+slint::testing::send_mouse_click(&instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 333000);
-assert_eq!(instance.get_clicked_name(), sixtyfps::SharedString::from("world"));
+assert_eq!(instance.get_clicked_name(), slint::SharedString::from("world"));
 assert_eq!(instance.get_clicked_internal_state(), 2);
 assert_eq!(instance.get_clicked_index(), 1);
 

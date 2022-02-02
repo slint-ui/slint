@@ -38,7 +38,7 @@ TestCase := Rectangle {
 let instance = TestCase::new();
 
 assert!(!instance.get_clicked());
-sixtyfps::testing::send_mouse_click(&instance, 20., 5.);
+slint::testing::send_mouse_click(&instance, 20., 5.);
 assert!(!instance.get_clicked());
 ```
 

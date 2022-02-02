@@ -14,5 +14,5 @@ path = "booker.rs"
 name = "booker"
 
 [dependencies]
-sixtyfps = { path = "../../api/rs/slint" }
+slint = { path = "../../api/rs/slint" }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"]}

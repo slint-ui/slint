@@ -45,13 +45,13 @@ assert_eq(instance.get_value(), 1+1+2);
 
 ```rust
 let instance = TestCase::new();
-sixtyfps::testing::send_mouse_click(&instance, -1., -1.); // FIXME: Force creation of repeater components before computing the layout
+slint::testing::send_mouse_click(&instance, -1., -1.); // FIXME: Force creation of repeater components before computing the layout
 
 
-sixtyfps::testing::send_mouse_click(&instance, 190., 190.);
+slint::testing::send_mouse_click(&instance, 190., 190.);
 assert_eq!(instance.get_value(), 1+1);
 
-sixtyfps::testing::send_mouse_click(&instance, 5., 290.);
+slint::testing::send_mouse_click(&instance, 5., 290.);
 assert_eq!(instance.get_value(), 1+1+2);
 
 ```

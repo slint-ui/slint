@@ -24,12 +24,12 @@ instance.on_test_func({
     move |a| weak.upgrade().unwrap().get_some_value() * a
 });
 assert_eq!(instance.get_test_prop(), 4 + 16);
-assert_eq!(instance.get_test_prop2(), sixtyfps::SharedString::from("hello=50"));
+assert_eq!(instance.get_test_prop2(), slint::SharedString::from("hello=50"));
 instance.set_some_value(2);
 assert_eq!(instance.get_test_prop(), 4 + 4);
-assert_eq!(instance.get_test_prop2(), sixtyfps::SharedString::from("hello=44"));
+assert_eq!(instance.get_test_prop2(), slint::SharedString::from("hello=44"));
 
-assert_eq!(instance.invoke_test_func2("xxx".into(), 1), sixtyfps::SharedString::from("xxx=3"));
+assert_eq!(instance.invoke_test_func2("xxx".into(), 1), slint::SharedString::from("xxx=3"));
 ```
 
 ```cpp

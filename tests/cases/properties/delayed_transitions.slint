@@ -46,45 +46,45 @@ assert_eq!(instance.get_text1_foo(), 11);
 assert_eq!(instance.get_some_prop(), 5);
 assert_eq!(instance.get_other_prop(), 5000);
 
-sixtyfps::testing::mock_elapsed_time(50); // In delay
+slint::testing::mock_elapsed_time(50); // In delay
 assert_eq!(instance.get_text1_foo(), 11);
 assert_eq!(instance.get_some_prop(), 5);
 assert_eq!(instance.get_other_prop(), 5000);
 
-sixtyfps::testing::mock_elapsed_time(50); // some: in delay, other: end of delay
+slint::testing::mock_elapsed_time(50); // some: in delay, other: end of delay
 assert_eq!(instance.get_text1_foo(), 11);
 assert_eq!(instance.get_some_prop(), 5);
 assert_eq!(instance.get_other_prop(), 5000);
 
-sixtyfps::testing::mock_elapsed_time(50); // some: in delay, other: in play for 50ms [150ms]
+slint::testing::mock_elapsed_time(50); // some: in delay, other: in play for 50ms [150ms]
 assert_eq!(instance.get_text1_foo(), 11);
 assert_eq!(instance.get_some_prop(), 5);
 assert!(instance.get_other_prop() < 4760); // should be 4750
 assert!(instance.get_other_prop() > 4740);
 
-sixtyfps::testing::mock_elapsed_time(800); // some: in delay, other: in play for 850ms [950ms]
+slint::testing::mock_elapsed_time(800); // some: in delay, other: in play for 850ms [950ms]
 assert_eq!(instance.get_text1_foo(), 11);
 assert_eq!(instance.get_some_prop(), 5);
 assert!(instance.get_other_prop() < 760); // should be 750
 assert!(instance.get_other_prop() > 740);
 
-sixtyfps::testing::mock_elapsed_time(160); // some: in delay, other: ended [111ßms]
+slint::testing::mock_elapsed_time(160); // some: in delay, other: ended [111ßms]
 assert_eq!(instance.get_text1_foo(), 11);
 assert_eq!(instance.get_some_prop(), 5);
 assert_eq!(instance.get_other_prop(), 0);
 
-sixtyfps::testing::mock_elapsed_time(3840); // some: in delay, other: ended [4950ms]
+slint::testing::mock_elapsed_time(3840); // some: in delay, other: ended [4950ms]
 assert_eq!(instance.get_text1_foo(), 11);
 assert_eq!(instance.get_some_prop(), 5);
 assert_eq!(instance.get_other_prop(), 0);
 
-sixtyfps::testing::mock_elapsed_time(60); // some: in play for 10ms, other: ended [5010ms]
+slint::testing::mock_elapsed_time(60); // some: in play for 10ms, other: ended [5010ms]
 assert_eq!(instance.get_text1_foo(), 11);
 assert!(instance.get_some_prop() > 202); // should be 204,5
 assert!(instance.get_some_prop() < 207);
 assert_eq!(instance.get_other_prop(), 0);
 
-sixtyfps::testing::mock_elapsed_time(100); // some: ended, other: ended [5110ms]
+slint::testing::mock_elapsed_time(100); // some: ended, other: ended [5110ms]
 assert_eq!(instance.get_text1_foo(), 11);
 assert_eq!(instance.get_some_prop(), 2000);
 assert_eq!(instance.get_other_prop(), 0);
@@ -94,18 +94,18 @@ assert_eq!(instance.get_text1_foo(), 11);
 assert_eq!(instance.get_some_prop(), 5);
 assert_eq!(instance.get_other_prop(), 5000);
 
-sixtyfps::testing::mock_elapsed_time(50); // In delay
+slint::testing::mock_elapsed_time(50); // In delay
 assert_eq!(instance.get_text1_foo(), 11);
 assert_eq!(instance.get_some_prop(), 5);
 assert_eq!(instance.get_other_prop(), 5000);
 
-sixtyfps::testing::mock_elapsed_time(440);
+slint::testing::mock_elapsed_time(440);
 assert!(instance.get_text1_foo() > 70);
 assert!(instance.get_text1_foo() < 87);
 assert_eq!(instance.get_some_prop(), 5);
 assert_eq!(instance.get_other_prop(), 5000);
 
-sixtyfps::testing::mock_elapsed_time(30);
+slint::testing::mock_elapsed_time(30);
 assert_eq!(instance.get_text1_foo(), 85 + 4);
 assert_eq!(instance.get_some_prop(), 5);
 assert_eq!(instance.get_other_prop(), 5000);

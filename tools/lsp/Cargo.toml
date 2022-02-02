@@ -22,8 +22,8 @@ name = "slint-lsp"
 path = "main.rs"
 
 [features]
-sixtyfps-backend-gl = ["slint-interpreter/backend-gl"]
-sixtyfps-backend-qt = ["slint-interpreter/backend-qt"]
+slint-backend-gl = ["slint-interpreter/backend-gl"]
+slint-backend-qt = ["slint-interpreter/backend-qt"]
 wayland = ["slint-interpreter/wayland"]
 x11 = ["slint-interpreter/x11"]
 

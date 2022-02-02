@@ -105,13 +105,13 @@ assert_eq(instance.get_value(), 3000+13+42);
 ```rust
 let instance = TestCase::new();
 
-sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
+slint::testing::send_mouse_click(&instance, 5., 5.);
 assert_eq!(instance.get_value(), 1010);
 
-sixtyfps::testing::send_mouse_click(&instance, 15., 15.);
+slint::testing::send_mouse_click(&instance, 15., 15.);
 assert_eq!(instance.get_value(), 2013);
 
-sixtyfps::testing::send_mouse_click(&instance, 5., 15.);
+slint::testing::send_mouse_click(&instance, 5., 15.);
 assert_eq!(instance.get_value(), 3000+13+42);
 
 ```

@@ -680,7 +680,7 @@ pub enum DiagnosticLevel {
 
 /// Diagnostic describes the aspects of either a warning or an error, along
 /// with its location and a description. Diagnostics are typically returned by
-/// sixtyfps::interpreter::ComponentCompiler::diagnostics() in a vector.
+/// slint::interpreter::ComponentCompiler::diagnostics() in a vector.
 #[derive(Clone)]
 #[repr(C)]
 pub struct Diagnostic {
@@ -839,7 +839,7 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_build_from_path(
 
 /// PropertyDescriptor is a simple structure that's used to describe a property declared in .slint
 /// code. It is returned from in a vector from
-/// sixtyfps::interpreter::ComponentDefinition::properties().
+/// slint::interpreter::ComponentDefinition::properties().
 #[derive(Clone)]
 #[repr(C)]
 pub struct PropertyDescriptor {

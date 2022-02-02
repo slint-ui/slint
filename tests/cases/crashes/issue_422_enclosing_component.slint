@@ -32,7 +32,7 @@ assert(instance.get_combo_has_focus());
 ```rust
 let instance = TestCase::new();
 assert!(!instance.get_combo_has_focus());
-sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
+slint::testing::send_mouse_click(&instance, 5., 5.);
 assert!(instance.get_combo_has_focus());
 ```
 

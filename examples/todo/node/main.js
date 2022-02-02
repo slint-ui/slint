@@ -2,7 +2,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-// import "sixtyfps";
+// import "slint";
 let slint = require("slint");
 // import * as demo from "../ui/todo.slint";
 let demo = require("../ui/todo.slint");

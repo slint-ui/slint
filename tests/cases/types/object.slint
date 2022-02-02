@@ -28,10 +28,10 @@ TestCase := Rectangle {
 /*
 ```rust
 let instance = TestCase::new();
-assert_eq!(instance.get_foo_a(), sixtyfps::SharedString::from("444"));
+assert_eq!(instance.get_foo_a(), slint::SharedString::from("444"));
 assert_eq!(instance.get_foo_b(), 12);
 instance.invoke_change_foo();
-assert_eq!(instance.get_foo_a(), sixtyfps::SharedString::from("hello"));
+assert_eq!(instance.get_foo_a(), slint::SharedString::from("hello"));
 assert_eq!(instance.get_foo_b(), 20);
 assert_eq!(instance.get_obj_cond_merge_b(), 0);
 assert!(instance.get_obj_binop_merge());
@@ -39,7 +39,7 @@ assert!(instance.get_test());
 
 // This API to set with a tuple should maybe not be accessible?
 instance.set_foo(("yo".into(), 33));
-assert_eq!(instance.get_foo_a(), sixtyfps::SharedString::from("yo"));
+assert_eq!(instance.get_foo_a(), slint::SharedString::from("yo"));
 assert_eq!(instance.get_foo_b(), 33);
 
 ```

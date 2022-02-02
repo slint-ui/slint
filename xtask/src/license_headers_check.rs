@@ -593,18 +593,18 @@ impl LicenseHeaderCheck {
             .iter()
             .chain(doc.dependencies("build-dependencies").iter())
         {
-            if dep_name.starts_with("sixtyfps") {
+            if dep_name.starts_with("slint") {
                 match dep {
                     CargoDependency::Simple { .. } => {
                         return Err(anyhow::anyhow!(
-                            "sixtyfps package '{}' outside of the repository?",
+                            "slint package '{}' outside of the repository?",
                             dep_name
                         ))
                     }
                     CargoDependency::Full { path, version } => {
                         if path.is_empty() {
                             return Err(anyhow::anyhow!(
-                                "sixtyfps package '{}' outside of the repository?",
+                                "slint package '{}' outside of the repository?",
                                 dep_name
                             ));
                         }

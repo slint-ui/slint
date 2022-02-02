@@ -50,7 +50,7 @@ impl crate::window::WindowHandleAccess for Window {
 /// it and modifies it from Rust code:
 /// ```rust
 /// # slint_backend_testing_internal::init();
-/// sixtyfps::sixtyfps!{
+/// slint::slint!{
 /// export global Palette := {
 ///     property<color> foreground-color;
 ///     property<color> background-color;
@@ -66,10 +66,10 @@ impl crate::window::WindowHandleAccess for Window {
 /// }
 /// }
 /// let app = App::new();
-/// app.global::<Palette>().set_background_color(sixtyfps::Color::from_rgb_u8(0, 0, 0));
+/// app.global::<Palette>().set_background_color(slint::Color::from_rgb_u8(0, 0, 0));
 ///
 /// // alternate way to access the global singleton:
-/// Palette::get(&app).set_foreground_color(sixtyfps::Color::from_rgb_u8(255, 255, 255));
+/// Palette::get(&app).set_foreground_color(slint::Color::from_rgb_u8(255, 255, 255));
 /// ```
 ///
 /// See also the [language reference for global singletons](docs/langref/index.html#global-singletons) for more information.
@@ -203,7 +203,7 @@ mod weak_handle {
         /// # Example
         /// ```rust
         /// # slint_backend_testing_internal::init();
-        /// sixtyfps::sixtyfps! { MyApp := Window { property <int> foo; /* ... */ } }
+        /// slint::slint! { MyApp := Window { property <int> foo; /* ... */ } }
         /// let handle = MyApp::new();
         /// let handle_weak = handle.as_weak();
         /// let thread = std::thread::spawn(move || {
@@ -253,7 +253,7 @@ pub use weak_handle::*;
 ///
 /// # Example
 /// ```rust
-/// sixtyfps::sixtyfps! { MyApp := Window { property <int> foo; /* ... */ } }
+/// slint::slint! { MyApp := Window { property <int> foo; /* ... */ } }
 /// # slint_backend_testing_internal::init();
 /// let handle = MyApp::new();
 /// let handle_weak = handle.as_weak();
@@ -262,7 +262,7 @@ pub use weak_handle::*;
 ///     let foo = 42;
 ///      // now forward the data to the main thread using invoke_from_event_loop
 ///     let handle_copy = handle_weak.clone();
-///     sixtyfps::invoke_from_event_loop(move || handle_copy.unwrap().set_foo(foo));
+///     slint::invoke_from_event_loop(move || handle_copy.unwrap().set_foo(foo));
 /// });
 /// # thread.join().unwrap(); return; // don't run the event loop in examples
 /// handle.run();
@@ -271,6 +271,6 @@ pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) {
     if let Some(backend) = crate::backend::instance() {
         backend.post_event(alloc::boxed::Box::new(func))
     } else {
-        panic!("sixtyfps::invoke_from_event_loop() must be called after the SixtyFPS backend is initialized.")
+        panic!("slint::invoke_from_event_loop() must be called after the Slint backend is initialized.")
     }
 }

@@ -101,12 +101,12 @@ assert_eq(instance.get_touch_error(), 0);
 
 ```rust
 let instance = TestCase::new();
-sixtyfps::testing::send_mouse_click(&instance, 38., 5.);
+slint::testing::send_mouse_click(&instance, 38., 5.);
 assert_eq!(instance.get_touch1(), 0);
 assert_eq!(instance.get_value(), 10);
 assert_eq!(instance.get_touch_error(), 0);
 
-sixtyfps::testing::send_mouse_click(&instance, 95., 5.);
+slint::testing::send_mouse_click(&instance, 95., 5.);
 assert_eq!(instance.get_touch1(), 1);
 assert_eq!(instance.get_value(), 10);
 assert_eq!(instance.get_touch_error(), 0);

@@ -53,26 +53,26 @@ assert_eq!(instance.get_o3_val(), 1000, "o3 - 0");
 assert_eq!(instance.get_o4_val(), 1000, "o4 - 0");
 
 
-sixtyfps::testing::mock_elapsed_time(1000); // 1s
+slint::testing::mock_elapsed_time(1000); // 1s
 assert_eq!(instance.get_o1_val(), 1000 + 600, "o1 - 1"); // done
 assert_eq!(instance.get_o2_val(), 1000 + 600/2, "o2 - 1"); // ½
 assert_eq!(instance.get_o3_val(), 1000 + 600/3, "o3 - 1"); // ⅓
 assert_eq!(instance.get_o4_val(), 1000 + 600/4, "o4 - 1"); // ¼
 
-sixtyfps::testing::mock_elapsed_time(1000);
+slint::testing::mock_elapsed_time(1000);
 assert_eq!(instance.get_o1_val(), 1600, "o1 - 2");
 assert_eq!(instance.get_o2_val(), 1600, "o2 - 2");
 assert_eq!(instance.get_o3_val(), 1000 + 2*600/3, "o3 - 2");
 assert_eq!(instance.get_o4_val(), 1000 + 600/2, "o4 - 2");
 
-sixtyfps::testing::mock_elapsed_time(1000);
+slint::testing::mock_elapsed_time(1000);
 assert_eq!(instance.get_o1_val(), 1600, "o1 - 3");
 assert_eq!(instance.get_o2_val(), 1600, "o2 - 3");
 assert_eq!(instance.get_o3_val(), 1600, "o3 - 3");
 assert_eq!(instance.get_o4_val(), 1000 + 3*600/4, "o4 - 3");
 
 
-sixtyfps::testing::mock_elapsed_time(1000);
+slint::testing::mock_elapsed_time(1000);
 assert_eq!(instance.get_o1_val(), 1600, "o1 - 4");
 assert_eq!(instance.get_o2_val(), 1600, "o2 - 4");
 assert_eq!(instance.get_o3_val(), 1600, "o3 - 4");

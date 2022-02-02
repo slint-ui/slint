@@ -36,12 +36,12 @@ TestCase := Rectangle {
 
 ```rust
 let instance = TestCase::new();
-sixtyfps::testing::send_mouse_click(&instance, 70., 5.);
-sixtyfps::testing::send_mouse_click(&instance, 85., 55.);
+slint::testing::send_mouse_click(&instance, 70., 5.);
+slint::testing::send_mouse_click(&instance, 85., 55.);
 assert_eq!(instance.get_result(), 345);
 instance.set_xx(0.);
-sixtyfps::testing::send_mouse_click(&instance, 5., 10.);
-sixtyfps::testing::send_mouse_click(&instance, 5., 60.);
+slint::testing::send_mouse_click(&instance, 5., 10.);
+slint::testing::send_mouse_click(&instance, 5., 60.);
 assert_eq!(instance.get_result(), 685);
 
 ```

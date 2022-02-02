@@ -94,28 +94,28 @@ assert_eq(instance.get_value(), 2);
 ```rust
 let instance = TestCase::new();
 
-sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
+slint::testing::send_mouse_click(&instance, 5., 5.);
 assert_eq!(instance.get_value(), 0);
 
-sixtyfps::testing::send_mouse_click(&instance, 5., 52.);
+slint::testing::send_mouse_click(&instance, 5., 52.);
 assert_eq!(instance.get_value(), 2);
 
-sixtyfps::testing::send_mouse_click(&instance, 5., 30.);
+slint::testing::send_mouse_click(&instance, 5., 30.);
 assert_eq!(instance.get_value(), 1);
 
-sixtyfps::testing::send_mouse_click(&instance, 5., 80.);
+slint::testing::send_mouse_click(&instance, 5., 80.);
 assert_eq!(instance.get_value(), 4);
 
 instance.set_cond(false);
-sixtyfps::testing::send_mouse_click(&instance, 5., 35.);
+slint::testing::send_mouse_click(&instance, 5., 35.);
 assert_eq!(instance.get_value(), 1);
-sixtyfps::testing::send_mouse_click(&instance, 5., 30.);
+slint::testing::send_mouse_click(&instance, 5., 30.);
 assert_eq!(instance.get_value(), 0);
-sixtyfps::testing::send_mouse_click(&instance, 5., 67.);
+slint::testing::send_mouse_click(&instance, 5., 67.);
 assert_eq!(instance.get_value(), 4);
 
 instance.set_cond(true);
-sixtyfps::testing::send_mouse_click(&instance, 5., 70.);
+slint::testing::send_mouse_click(&instance, 5., 70.);
 assert_eq!(instance.get_value(), 2);
 
 

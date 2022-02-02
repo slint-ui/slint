@@ -5,7 +5,7 @@
 fn main() {
     MainWindow::new().run();
 }
-sixtyfps::sixtyfps! {
+slint::slint! {
 // ANCHOR: tile
 MemoryTile := Rectangle {
     callback clicked;

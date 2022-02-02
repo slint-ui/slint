@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 /*!
-# SixtyFPS
+# Slint
 
 This crate is the main entry point for embedding user interfaces designed with
-[SixtyFPS UI](https://sixtyfps.io/) in Rust programs.
+[Slint UI](https://sixtyfps.io/) in Rust programs.
 
-If you are new to SixtyFPS, start with the [Walk-through tutorial](https://sixtyfps.io/docs/tutorial/rust).
-If you are already familiar with SixtyFPS, the following topics provide related information.
+If you are new to Slint, start with the [Walk-through tutorial](https://sixtyfps.io/docs/tutorial/rust).
+If you are already familiar with Slint, the following topics provide related information.
 
 ## Related topics
 
@@ -38,7 +38,7 @@ information about the generation functions and how to use them.
 This method combines your Rust code with the `.slint` design markup in one file, using a macro:
 
 ```rust
-sixtyfps::sixtyfps!{
+slint::slint!{
     HelloWorld := Window {
         Text {
             text: "hello world";
@@ -59,7 +59,7 @@ When your design becomes bigger in terms of markup code, you may want move it to
 Use a [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) to compile
 your main `.slint` file:
 
-In your Cargo.toml add a `build` assignment and use the `sixtyfps-build` crate in `build-dependencies`:
+In your Cargo.toml add a `build` assignment and use the `slint-build` crate in `build-dependencies`:
 
 ```toml
 [package]
@@ -68,25 +68,25 @@ build = "build.rs"
 edition = "2021"
 
 [dependencies]
-sixtyfps = "0.1.6"
+slint = "0.1.6"
 ...
 
 [build-dependencies]
-sixtyfps-build = "0.1.6"
+slint-build = "0.1.6"
 ```
 
-Use the API of the sixtyfps-build crate in the `build.rs` file:
+Use the API of the slint-build crate in the `build.rs` file:
 
 ```ignore
 fn main() {
-    sixtyfps_build::compile("ui/hello.slint").unwrap();
+    slint::compile("ui/hello.slint").unwrap();
 }
 ```
 
 Finally, use the [`include_modules!`] macro in your `main.rs`:
 
 ```ignore
-sixtyfps::include_modules!();
+slint::include_modules!();
 fn main() {
     HelloWorld::new().run();
 }
@@ -106,7 +106,7 @@ cargo generate --git https://github.com/sixtyfpsui/sixtyfps-rust-template
 Currently, only the last component in a `.slint` source file is mapped to a Rust structure that be instantiated. We are tracking the
 resolution of this limitation in <https://github.com/sixtyfpsui/sixtyfps/issues/784>.
 
-The component is generated and re-exported to the location of the [`include_modules!`]  or [`sixtyfps!`] macro. It is represented
+The component is generated and re-exported to the location of the [`include_modules!`]  or [`slint!`] macro. It is represented
 as a struct with the same name as the component.
 
 For example, if you have
@@ -198,7 +198,7 @@ The following struct would be generated:
 #[derive(Default, Clone, Debug, PartialEq)]
 struct MyStruct {
     foo : i32,
-    bar: sixtyfps::SharedString,
+    bar: slint::SharedString,
 }
 ```
 
@@ -235,7 +235,7 @@ compile_error!(
     forward compatibility with future version of this crate"
 );
 
-pub use sixtyfps_macros::sixtyfps;
+pub use slint_macros::slint;
 
 pub use slint_core_internal::api::*;
 pub use slint_core_internal::graphics::{
@@ -248,7 +248,7 @@ pub use slint_core_internal::sharedvector::SharedVector;
 pub use slint_core_internal::string::SharedString;
 pub use slint_core_internal::timers::{Timer, TimerMode};
 
-/// This function can be used to register a custom TrueType font with SixtyFPS,
+/// This function can be used to register a custom TrueType font with Slint,
 /// for use with the `font-family` property. The provided slice must be a valid TrueType
 /// font.
 #[doc(hidden)]
@@ -257,7 +257,7 @@ pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std:
     slint_backend_selector_internal::backend().register_font_from_memory(data)
 }
 
-/// This function can be used to register a custom TrueType font with SixtyFPS,
+/// This function can be used to register a custom TrueType font with Slint,
 /// for use with the `font-family` property. The provided path must refer to a valid TrueType
 /// font.
 #[doc(hidden)]
@@ -534,15 +534,15 @@ pub mod testing {
     }
 }
 
-/// Include the code generated with the sixtyfps-build crate from the build script. After calling `sixtyfps_build::compile`
+/// Include the code generated with the slint-build crate from the build script. After calling `slint_build::compile`
 /// in your `build.rs` build script, the use of this macro includes the generated Rust code and makes the exported types
 /// available for you to instantiate.
 ///
-/// Check the documentation of the `sixtyfps-build` crate for more information.
+/// Check the documentation of the `slint-build` crate for more information.
 #[macro_export]
 macro_rules! include_modules {
     () => {
-        include!(env!("SIXTYFPS_INCLUDE_GENERATED"));
+        include!(env!("SLINT_INCLUDE_GENERATED"));
     };
 }
 

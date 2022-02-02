@@ -688,7 +688,7 @@ pub async fn load(
     Result<Rc<ComponentDescription<'_>>, ()>,
     slint_compiler_internal::diagnostics::BuildDiagnostics,
 ) {
-    if compiler_config.style.is_none() && std::env::var("SIXTYFPS_STYLE").is_err() {
+    if compiler_config.style.is_none() && std::env::var("SLINT_STYLE").is_err() {
         // Defaults to native if it exists:
         compiler_config.style = Some(if slint_backend_selector_internal::HAS_NATIVE_STYLE {
             "native".to_owned()

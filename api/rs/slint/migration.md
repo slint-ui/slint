@@ -41,7 +41,7 @@ to the [`ModelNotify`] instance that you previously used in `attach_peer`:
 Old code:
 
 ```rust,ignore
-fn attach_peer(&self, peer: sixtyfps::ModelPeer) {
+fn attach_peer(&self, peer: slint::ModelPeer) {
     self.model_notify.attach_peer(peer);
 }
 ```

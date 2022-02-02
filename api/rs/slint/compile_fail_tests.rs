@@ -8,8 +8,8 @@ This should work:
 
 ```
 mod x {
-    use sixtyfps::*;
-    sixtyfps!{ Hello := Rectangle { } }
+    use slint::*;
+    slint!{ Hello := Rectangle { } }
 }
 ```
 
@@ -17,8 +17,8 @@ But his not:
 
 ```compile_fail
 mod x {
-    use sixtyfps::*;
-    sixtyfps!{ Hello : = Rectangle { } }
+    use slint::*;
+    slint!{ Hello : = Rectangle { } }
 }
 ```
 

@@ -75,12 +75,12 @@ impl<'a> TypeLoader<'a> {
         .style
         .as_ref()
         .map(Cow::from)
-        .or_else(|| std::env::var("SIXTYFPS_STYLE").map(Cow::from).ok())
+        .or_else(|| std::env::var("SLINT_STYLE").map(Cow::from).ok())
         .unwrap_or_else(|| {
             let is_wasm = cfg!(target_arch = "wasm32")
                 || std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm"));
             if !is_wasm {
-                diag.push_diagnostic_with_span("SIXTYFPS_STYLE not defined, defaulting to 'fluent', see https://github.com/sixtyfpsui/sixtyfps/issues/83 for more info".to_owned(),
+                diag.push_diagnostic_with_span("SLINT_STYLE not defined, defaulting to 'fluent', see https://github.com/sixtyfpsui/sixtyfps/issues/83 for more info".to_owned(),
                     Default::default(),
                     crate::diagnostics::DiagnosticLevel::Warning
                 );

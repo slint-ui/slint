@@ -30,13 +30,13 @@ assert_eq(instance.get_s4(), slint::SharedString("ayoxxx"));
 
 ```rust
 let instance = TestCase::new();
-assert_eq!(instance.get_s1(), sixtyfps::SharedString::from("hello1212"));
-assert_eq!(instance.get_s2(), sixtyfps::SharedString::from("10hello5.1"));
+assert_eq!(instance.get_s1(), slint::SharedString::from("hello1212"));
+assert_eq!(instance.get_s2(), slint::SharedString::from("10hello5.1"));
 instance.set_a(42);
-assert_eq!(instance.get_s1(), sixtyfps::SharedString::from("hello4242"));
+assert_eq!(instance.get_s1(), slint::SharedString::from("hello4242"));
 instance.invoke_foo();
-assert_eq!(instance.get_s3(), sixtyfps::SharedString::from("x42x42"));
-assert_eq!(instance.get_s4(), sixtyfps::SharedString::from("ayoxxx"));
+assert_eq!(instance.get_s3(), slint::SharedString::from("x42x42"));
+assert_eq!(instance.get_s4(), slint::SharedString::from("ayoxxx"));
 ```
 
 ```js

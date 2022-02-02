@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 use plotters::prelude::*;
-use sixtyfps::SharedPixelBuffer;
+use slint::SharedPixelBuffer;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -10,7 +10,7 @@ use wasm_bindgen::prelude::*;
 #[cfg(target_arch = "wasm32")]
 mod wasm_backend;
 
-sixtyfps::sixtyfps! {
+slint::slint! {
     import { MainWindow } from "plotter.slint";
 }
 
@@ -23,7 +23,7 @@ fn pdf(x: f64, y: f64) -> f64 {
     A * (-x * x / 2.0 / SDX / SDX - y * y / 2.0 / SDY / SDY).exp()
 }
 
-fn render_plot(pitch: f32) -> sixtyfps::Image {
+fn render_plot(pitch: f32) -> slint::Image {
     let mut pixel_buffer = SharedPixelBuffer::new(640, 480);
     let size = (pixel_buffer.width(), pixel_buffer.height());
 
@@ -66,7 +66,7 @@ fn render_plot(pitch: f32) -> sixtyfps::Image {
     drop(chart);
     drop(root);
 
-    sixtyfps::Image::from_rgb8(pixel_buffer)
+    slint::Image::from_rgb8(pixel_buffer)
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]

@@ -161,7 +161,7 @@ WindowItem := _ {
     property <length> height: native_output;
     property <color> background; // StyleMetrics.window_background  set in apply_default_properties_from_style
     property <color> color <=> background;
-    property <string> title: "SixtyFPS Window";
+    property <string> title: "Slint Window";
     property <bool> no-frame;
     property <string> default-font-family;
     property <length> default-font-size;
@@ -268,7 +268,7 @@ MoveTo := _ {
     property <float> x;
     property <float> y;
 
-    //-rust_type_constructor:sixtyfps::re_exports::PathElement::MoveTo(PathMoveTo{{}})
+    //-rust_type_constructor:slint::re_exports::PathElement::MoveTo(PathMoveTo{{}})
     //-cpp_type:slint::private_api::PathMoveTo
     //-is_non_item_type
 }
@@ -277,7 +277,7 @@ LineTo := _ {
     property <float> x;
     property <float> y;
 
-    //-rust_type_constructor:sixtyfps::re_exports::PathElement::LineTo(PathLineTo{{}})
+    //-rust_type_constructor:slint::re_exports::PathElement::LineTo(PathLineTo{{}})
     //-cpp_type:slint::private_api::PathLineTo
     //-is_non_item_type
 }
@@ -291,7 +291,7 @@ ArcTo := _ {
     property <bool> large_arc;
     property <bool> sweep;
 
-    //-rust_type_constructor:sixtyfps::re_exports::PathElement::ArcTo(PathArcTo{{}})
+    //-rust_type_constructor:slint::re_exports::PathElement::ArcTo(PathArcTo{{}})
     //-cpp_type:slint::private_api::PathArcTo
     //-is_non_item_type
 }
@@ -304,7 +304,7 @@ CubicTo := _ {
     property <float> x;
     property <float> y;
 
-    //-rust_type_constructor:sixtyfps::re_exports::PathElement::CubicTo(PathCubicTo{{}})
+    //-rust_type_constructor:slint::re_exports::PathElement::CubicTo(PathCubicTo{{}})
     //-cpp_type:slint::private_api::PathCubicTo
     //-is_non_item_type
 }
@@ -315,13 +315,13 @@ QuadraticTo := _ {
     property <float> x;
     property <float> y;
 
-    //-rust_type_constructor:sixtyfps::re_exports::PathElement::QuadraticTo(PathQuadraticTo{{}})
+    //-rust_type_constructor:slint::re_exports::PathElement::QuadraticTo(PathQuadraticTo{{}})
     //-cpp_type:slint::private_api::PathQuadraticTo
     //-is_non_item_type
 }
 
 Close := _ {
-    //-rust_type_constructor:sixtyfps::re_exports::PathElement::Close
+    //-rust_type_constructor:slint::re_exports::PathElement::Close
     //-cpp_type:slint::private_api::PathClose
     //-is_non_item_type
     //-is_non_item_type

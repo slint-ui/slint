@@ -43,35 +43,35 @@ TestCase := Rectangle {
 
 /*
 ```rust
-use sixtyfps::Model;
+use slint::Model;
 let instance = TestCase::new();
 
-sixtyfps::testing::send_mouse_click(&instance, 15., 5.);
+slint::testing::send_mouse_click(&instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 792);
 
 assert_eq!(instance.get_model().row_data(1).unwrap().2, 792.);
 instance.invoke_manual_score_update(1, 100);
 assert_eq!(instance.get_model().row_data(1).unwrap().2, 892.);
 
-type ModelData = (sixtyfps::SharedString, sixtyfps::SharedString, f32);
-let another_model = std::rc::Rc::new(sixtyfps::VecModel::<ModelData>::from(
+type ModelData = (slint::SharedString, slint::SharedString, f32);
+let another_model = std::rc::Rc::new(slint::VecModel::<ModelData>::from(
     vec![
         ("a1".into(), "hello".into(), 111.),
         ("a2".into(), "cruel".into(), 222.),
         ("a3".into(), "world".into(), 333.),
     ]));
 
-instance.set_model(sixtyfps::ModelRc::from(another_model.clone()));
+instance.set_model(slint::ModelRc::from(another_model.clone()));
 
-sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
+slint::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 336);
 assert_eq!(another_model.row_data(2).unwrap().2, 336.);
 
 instance.invoke_manual_score_update(2, 100);
-sixtyfps::testing::send_mouse_click(&instance, 25., 5.);
+slint::testing::send_mouse_click(&instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 439);
 assert_eq!(another_model.row_data(2).unwrap().2, 439.);
-assert_eq!(another_model.row_data(2).unwrap().1, sixtyfps::SharedString::from("world"));
+assert_eq!(another_model.row_data(2).unwrap().1, slint::SharedString::from("world"));
 
 instance.invoke_manual_score_update(200, 100);
 assert_eq!(another_model.row_count(), 3);

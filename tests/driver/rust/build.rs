@@ -52,7 +52,7 @@ fn main() -> std::io::Result<()> {
     println!("cargo:rustc-env=SLINT_EMBED_RESOURCES=false");
 
     //Make sure to use a consistent style
-    println!("cargo:rustc-env=SIXTYFPS_STYLE=fluent");
+    println!("cargo:rustc-env=SLINT_STYLE=fluent");
 
     Ok(())
 }
@@ -69,7 +69,7 @@ fn generate_macro(
         return Ok(false);
     }
     let include_paths = test_driver_lib::extract_include_paths(source);
-    output.write_all(b"sixtyfps::sixtyfps!{")?;
+    output.write_all(b"slint::slint!{")?;
     for path in include_paths {
         let mut abs_path = testcase.absolute_path.clone();
         abs_path.pop();

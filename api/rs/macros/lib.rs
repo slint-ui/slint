@@ -4,8 +4,8 @@
 /*!
 
 **NOTE**: This library is an **internal** crate for the [SixtyFPS project](https://sixtyfps.io).
-This crate should **not be used directly** by applications using SixtyFPS.
-You should use the `sixtyfps` crate instead.
+This crate should **not be used directly** by applications using Slint.
+You should use the `slint` crate instead.
 
 **WARNING**: This crate does not follow the semver convention for versioning and can
 only be used with `version = "=x.y.z"` in Cargo.toml.
@@ -311,10 +311,10 @@ fn extract_include_paths(
 /// This macro allows you to use the `.slint` design markup language inline in Rust code. Within the braces of the macro
 /// you can use place `.slint` code and the named exported components will be available for instantiation.
 ///
-/// [The documentation of the `sixtyfps`](./index.html) crate contains more information about the language specification and
+/// [The documentation of the `slint`](./index.html) crate contains more information about the language specification and
 /// how to use the generated code.
 #[proc_macro]
-pub fn sixtyfps(stream: TokenStream) -> TokenStream {
+pub fn slint(stream: TokenStream) -> TokenStream {
     let token_iter = stream.into_iter();
 
     let (token_iter, include_paths) = extract_include_paths(token_iter);
@@ -339,7 +339,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
     let mut compiler_config =
         CompilerConfiguration::new(slint_compiler_internal::generator::OutputFormat::Rust);
 
-    if std::env::var_os("SIXTYFPS_STYLE").is_none() {
+    if std::env::var_os("SLINT_STYLE").is_none() {
         // This file is written by the slint-backend-selector-internal's built script.
         // It is in the target/xxx/build directory
         let target_path = match std::env::var_os("OUT_DIR") {
@@ -349,7 +349,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
                     .unwrap()
                     .parent()
                     .unwrap()
-                    .join("SIXTYFPS_DEFAULT_STYLE.txt"),
+                    .join("SLINT_DEFAULT_STYLE.txt"),
             ),
             None => {
                 // OUT_DIR is only defined when the crate having the macro has a build.rs script
@@ -363,7 +363,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
                     }
                 }
                 out_dir.map(|out_dir| {
-                    Path::new(&out_dir).parent().unwrap().join("build/SIXTYFPS_DEFAULT_STYLE.txt")
+                    Path::new(&out_dir).parent().unwrap().join("build/SLINT_DEFAULT_STYLE.txt")
                 })
             }
         };
@@ -392,7 +392,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         .map(|p| quote! {const _ : &'static [u8] = ::core::include_bytes!(#p);});
 
     result.extend(reload);
-    result.extend(quote! {const _ : Option<&'static str> = ::core::option_env!("SIXTYFPS_STYLE");});
+    result.extend(quote! {const _ : Option<&'static str> = ::core::option_env!("SLINT_STYLE");});
 
     result.into()
 }

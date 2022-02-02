@@ -88,13 +88,13 @@ assert_eq!(t.get_b1(), t.get_b5());
 assert_ne!(t.get_b1(), t.get_r5());
 assert_eq!(t.get_y1(), t.get_y2());
 
-let red = sixtyfps::Color::from_argb_f32(1., 1., 0., 0.);
-let blue = sixtyfps::Color::from_rgb_f32(0., 0., 1.);
-let g = sixtyfps::Color::from_rgb_u8(0x99, 0x99, 0x99);
+let red = slint::Color::from_argb_f32(1., 1., 0., 0.);
+let blue = slint::Color::from_rgb_f32(0., 0., 1.);
+let g = slint::Color::from_rgb_u8(0x99, 0x99, 0x99);
 assert_eq!(t.get_r1(), red);
 assert_eq!(t.get_b1(), blue);
 assert_eq!(t.get_g1(), g);
-assert_eq!(t.get_y1(), sixtyfps::Color::from_argb_encoded(0xffffff00));
+assert_eq!(t.get_y1(), slint::Color::from_argb_encoded(0xffffff00));
 
 t.set_g1(blue);
 assert_eq!(t.get_g1(), t.get_b1());

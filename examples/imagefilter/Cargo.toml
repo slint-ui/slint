@@ -14,11 +14,11 @@ path = "main.rs"
 name = "imagefilter"
 
 [dependencies]
-sixtyfps = { path = "../../api/rs/slint" }
+slint = { path = "../../api/rs/slint" }
 image = { version = "0.23.12", default-features = false, features = [ "png" ] }
 
 [build-dependencies]
-sixtyfps-build = { path = "../../api/rs/build" }
+slint-build = { path = "../../api/rs/build" }
 
 # Remove the `#wasm#` to uncomment the wasm build.
 # This is commented out by default because we don't want to build it as a library by default

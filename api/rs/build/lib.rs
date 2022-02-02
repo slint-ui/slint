@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 /*!
-This crate serves as a companion crate for the sixtyfps crate.
+This crate serves as a companion crate for the slint crate.
 It is meant to allow you to compile the `.slint` files from your `build.rs` script.
 
 The main entry point of this crate is the [`compile()`] function
@@ -17,25 +17,25 @@ In your Cargo.toml:
 build = "build.rs"
 
 [dependencies]
-sixtyfps = "0.1.6"
+slint = "0.2.0"
 ...
 
 [build-dependencies]
-sixtyfps-build = "0.1.6"
+slint-build = "0.2.0"
 ```
 
 In the `build.rs` file:
 
 ```ignore
 fn main() {
-    sixtyfps_build::compile("ui/hello.slint").unwrap();
+    slint_build::compile("ui/hello.slint").unwrap();
 }
 ```
 
 Then in your main file
 
 ```ignore
-sixtyfps::include_modules!();
+slint::include_modules!();
 fn main() {
     HelloWorld::new().run();
 }
@@ -164,7 +164,7 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
 /// The following line need to be added within your crate in order to include
 /// the generated code.
 /// ```ignore
-/// sixtyfps::include_modules!();
+/// slint::include_modules!();
 /// ```
 ///
 /// The path is relative to the `CARGO_MANIFEST_DIR`.
@@ -174,7 +174,7 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
 /// result to make sure that cargo make the compilation fail in case there were
 /// errors when generating the code.
 ///
-/// Please check out the documentation of the `sixtyfps` crate for more information
+/// Please check out the documentation of the `slint` crate for more information
 /// about how to use the generated code.
 pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
     compile_with_config(path, CompilerConfiguration::default())
@@ -206,10 +206,10 @@ pub fn compile_with_config(
     };
     let mut rerun_if_changed = String::new();
 
-    if std::env::var_os("SIXTYFPS_STYLE").is_none() && compiler_config.style.is_none() {
+    if std::env::var_os("SLINT_STYLE").is_none() && compiler_config.style.is_none() {
         compiler_config.style = std::env::var_os("OUT_DIR").and_then(|path| {
             // Same logic as in slint-backend-selector-internal's build script to get the path
-            let path = Path::new(&path).parent()?.parent()?.join("SIXTYFPS_DEFAULT_STYLE.txt");
+            let path = Path::new(&path).parent()?.parent()?.join("SLINT_DEFAULT_STYLE.txt");
             // unfortunately, if for some reason the file is changed by the slint-backend-selector-internal's build script,
             // it is changed after cargo decide to re-run this build script or not. So that means one will need two build
             // to settle the right thing.
@@ -238,7 +238,7 @@ pub fn compile_with_config(
         .join(
             path.file_stem()
                 .map(Path::new)
-                .unwrap_or_else(|| Path::new("sixtyfps_out"))
+                .unwrap_or_else(|| Path::new("slint_out"))
                 .with_extension("rs"),
         );
 
@@ -267,8 +267,8 @@ pub fn compile_with_config(
             println!("cargo:rerun-if-changed={}", resource);
         }
     }
-    println!("cargo:rerun-if-env-changed=SIXTYFPS_STYLE");
+    println!("cargo:rerun-if-env-changed=SLINT_STYLE");
 
-    println!("cargo:rustc-env=SIXTYFPS_INCLUDE_GENERATED={}", output_file_path.display());
+    println!("cargo:rustc-env=SLINT_INCLUDE_GENERATED={}", output_file_path.display());
     Ok(())
 }

@@ -1,14 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-use sixtyfps::{Model, Timer, VecModel};
+use slint::{Model, Timer, VecModel};
 use std::rc::Rc;
 use std::time::Duration;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-sixtyfps::sixtyfps! {
+slint::slint! {
     import { MainWindow } from "memory.slint";
 }
 

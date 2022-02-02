@@ -33,13 +33,13 @@ assert_eq!(instance.get_some_prop(), 5);
 instance.set_active_index(1);
 assert_eq!(instance.get_text1_foo(), 0);
 assert_eq!(instance.get_some_prop(), 5);
-sixtyfps::testing::mock_elapsed_time(75); // 75% the animation
+slint::testing::mock_elapsed_time(75); // 75% the animation
 assert!(instance.get_some_prop() > 1500);
 assert!(instance.get_some_prop() < 1999);
 assert!(instance.get_text1_foo() > 2000);
 assert!(instance.get_text1_foo() < 2999);
 
-sixtyfps::testing::mock_elapsed_time(30); // more than 100% the animation
+slint::testing::mock_elapsed_time(30); // more than 100% the animation
 assert_eq!(instance.get_text1_foo(), 3000);
 assert_eq!(instance.get_some_prop(), 2000);
 
@@ -47,7 +47,7 @@ instance.set_active_index(2);
 assert_eq!(instance.get_text1_foo(), 3000);
 assert_eq!(instance.get_some_prop(), 2000);
 
-sixtyfps::testing::mock_elapsed_time(100);
+slint::testing::mock_elapsed_time(100);
 assert_eq!(instance.get_text1_foo(), 0);
 assert_eq!(instance.get_some_prop(), 5);
 

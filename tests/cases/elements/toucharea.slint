@@ -94,25 +94,25 @@ assert_eq(instance.get_pointer_event_test(), "downleftclickupleft");
 ```rust
 let instance = TestCase::new();
 // does not click on anything
-sixtyfps::testing::send_mouse_click(&instance, 5., 5.);
+slint::testing::send_mouse_click(&instance, 5., 5.);
 assert_eq!(instance.get_touch1(), 0);
 assert_eq!(instance.get_touch2(), 0);
 assert_eq!(instance.get_touch3(), 0);
 
 // click on second one
-sixtyfps::testing::send_mouse_click(&instance, 101., 101.);
+slint::testing::send_mouse_click(&instance, 101., 101.);
 assert_eq!(instance.get_touch1(), 0);
 assert_eq!(instance.get_touch2(), 1);
 assert_eq!(instance.get_touch3(), 0);
 
 // click on first one only
-sixtyfps::testing::send_mouse_click(&instance, 108., 108.);
+slint::testing::send_mouse_click(&instance, 108., 108.);
 assert_eq!(instance.get_touch1(), 1);
 assert_eq!(instance.get_touch2(), 1);
 assert_eq!(instance.get_touch3(), 0);
 
 // click on the third
-sixtyfps::testing::send_mouse_click(&instance, 106., 103.);
+slint::testing::send_mouse_click(&instance, 106., 103.);
 assert_eq!(instance.get_touch1(), 1);
 assert_eq!(instance.get_touch2(), 1);
 assert_eq!(instance.get_touch3(), 1);

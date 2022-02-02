@@ -34,9 +34,9 @@ assert_eq(instance.get_last_clicked(), 2);
 ```rust
 let instance = TestCase::new();
 assert_eq!(instance.get_last_clicked(), 0);
-sixtyfps::testing::send_mouse_click(&instance, 15., 145.);
+slint::testing::send_mouse_click(&instance, 15., 145.);
 assert_eq!(instance.get_last_clicked(), 1);
-sixtyfps::testing::send_mouse_click(&instance, 15., 155.);
+slint::testing::send_mouse_click(&instance, 15., 155.);
 assert_eq!(instance.get_last_clicked(), 2);
 ```
 
