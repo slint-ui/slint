@@ -6,9 +6,9 @@
 #include <cstdint>
 
 #if UINTPTR_MAX == 0xFFFFFFFF
-#    define SIXTYFPS_TARGET_32
+#    define SLINT_TARGET_32
 #elif UINTPTR_MAX == 0xFFFFFFFFFFFFFFFFu
-#    define SIXTYFPS_TARGET_64
+#    define SLINT_TARGET_64
 #endif
 
 #if !defined(DOXYGEN)

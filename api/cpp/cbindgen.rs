@@ -46,8 +46,8 @@ fn default_config() -> cbindgen::Config {
             ..Default::default()
         },
         defines: [
-            ("target_pointer_width = 64".into(), "SIXTYFPS_TARGET_64".into()),
-            ("target_pointer_width = 32".into(), "SIXTYFPS_TARGET_32".into()),
+            ("target_pointer_width = 64".into(), "SLINT_TARGET_64".into()),
+            ("target_pointer_width = 32".into(), "SLINT_TARGET_32".into()),
         ]
         .iter()
         .cloned()
@@ -323,13 +323,13 @@ fn gen_corelib(
             r"
 /// This macro expands to the to the numeric value of the major version of SixtyFPS you're
 /// developing against. For example if you're using version 1.5.2, this macro will expand to 1.
-#define SIXTYFPS_VERSION_MAJOR {}
+#define SLINT_VERSION_MAJOR {}
 /// This macro expands to the to the numeric value of the minor version of SixtyFPS you're
 /// developing against. For example if you're using version 1.5.2, this macro will expand to 5.
-#define SIXTYFPS_VERSION_MINOR {}
+#define SLINT_VERSION_MINOR {}
 /// This macro expands to the to the numeric value of the patch version of SixtyFPS you're
 /// developing against. For example if you're using version 1.5.2, this macro will expand to 2.
-#define SIXTYFPS_VERSION_PATCH {}
+#define SLINT_VERSION_PATCH {}
 ",
             env!("CARGO_PKG_VERSION_MAJOR"),
             env!("CARGO_PKG_VERSION_MINOR"),
