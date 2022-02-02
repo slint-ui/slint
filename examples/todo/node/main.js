@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 // import "slint";
-let slint = require("slint");
+let slint = require("slint-ui");
 // import * as demo from "../ui/todo.slint";
 let demo = require("../ui/todo.slint");
 let app = new demo.MainWindow();

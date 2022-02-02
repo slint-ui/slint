@@ -2,7 +2,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-let slint = require("slint");
+let slint = require("slint-ui");
 let ui = require("./memory.slint");
 let window = new ui.MainWindow();
 
