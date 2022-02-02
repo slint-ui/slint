@@ -26,10 +26,10 @@ jobs:
     uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_tool_binary.yaml@wip/rename
     with:
       program: "sixtyfps-viewer"
-  sixtyfps-lsp-binary:
+  slint-lsp-binary:
     uses: sixtyfpsui/sixtyfps/.github/workflows/sixtyfps_tool_binary.yaml@wip/rename
     with:
-      program: "sixtyfps-lsp"
+      program: "slint-lsp"
   docs:
     uses: sixtyfpsui/sixtyfps/.github/workflows/build_docs.yaml@wip/rename
   wasm_demo:
@@ -47,14 +47,14 @@ jobs:
         include:
           - os: ubuntu-latest
             toolchain: x86_64-unknown-linux-gnu
-            binary_built: sixtyfps-lsp
+            binary_built: slint-lsp
             target_dir:
-            artifact_name: sixtyfps-lsp-x86_64-unknown-linux-gnu
+            artifact_name: slint-lsp-x86_64-unknown-linux-gnu
           - os: windows-latest
             toolchain: x86_64-pc-windows-gnu
-            binary_built: sixtyfps-lsp.exe
+            binary_built: slint-lsp.exe
             target_dir:
-            artifact_name: sixtyfps-lsp-x86_64-pc-windows-gnu.exe
+            artifact_name: slint-lsp-x86_64-pc-windows-gnu.exe
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
@@ -71,7 +71,7 @@ jobs:
       with:
           command: build
           toolchain: stable
-          args: --target ${{ matrix.toolchain }} --release -p sixtyfps-lsp
+          args: --target ${{ matrix.toolchain }} --release -p slint-lsp
     - name: Create artifact directory
       run: |
           mkdir bin
@@ -126,11 +126,11 @@ jobs:
       with:
           command: build
           toolchain: stable
-          args: --target aarch64-apple-darwin --release -p sixtyfps-lsp
+          args: --target aarch64-apple-darwin --release -p slint-lsp
     - name: Create artifact directory
       run: |
           mkdir bin
-          cp -a target/aarch64-apple-darwin/release/sixtyfps-lsp bin/sixtyfps-lsp-aarch64-apple-darwin
+          cp -a target/aarch64-apple-darwin/release/slint-lsp bin/slint-lsp-aarch64-apple-darwin
     - name: "Upload LSP Artifact"
       uses: actions/upload-artifact@v2
       with:
@@ -151,8 +151,8 @@ jobs:
         path: bin
     - name: Add macOS AArch64 binary to bundle
       run: |
-        lipo -create -output tmp SixtyFPS\ Live\ Preview.app/Contents/MacOS/sixtyfps-lsp bin/sixtyfps-lsp-aarch64-apple-darwin
-        mv tmp SixtyFPS\ Live\ Preview.app/Contents/MacOS/sixtyfps-lsp
+        lipo -create -output tmp SixtyFPS\ Live\ Preview.app/Contents/MacOS/slint-lsp bin/slint-lsp-aarch64-apple-darwin
+        mv tmp SixtyFPS\ Live\ Preview.app/Contents/MacOS/slint-lsp
         rm -rf bin
     - name: "Upload LSP macOS bundle Artifact"
       uses: actions/upload-artifact@v2
@@ -181,11 +181,11 @@ jobs:
       with:
           use-cross: true
           command: build
-          args: --target ${{ matrix.target }} --release -p sixtyfps-lsp
+          args: --target ${{ matrix.target }} --release -p slint-lsp
     - name: Create artifact directory
       run: |
           mkdir bin
-          cp target/${{ matrix.target }}/release/sixtyfps-lsp bin/sixtyfps-lsp-${{ matrix.target }}
+          cp target/${{ matrix.target }}/release/slint-lsp bin/slint-lsp-${{ matrix.target }}
     - name: "Upload LSP Artifact"
       uses: actions/upload-artifact@v2
       with:

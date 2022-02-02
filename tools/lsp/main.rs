@@ -343,7 +343,7 @@ fn handle_notification(
                 document_cache,
             )?;
         }
-        "sixtyfps/showPreview" => {
+        "slint/showPreview" => {
             show_preview_command(
                 req.params.as_array().map_or(&[], |x| x.as_slice()),
                 connection,

@@ -9,7 +9,7 @@
    <key>name</key>
    <string>Miscellaneous</string>
    <key>scope</key>
-   <string>source.sixtyfps</string>
+   <string>source.slint</string>
    <key>settings</key>
    <dict>
       <key>shellVariables</key>

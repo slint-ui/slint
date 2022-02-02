@@ -133,9 +133,9 @@ exists under the `language` server section:
 ```json
 {
   "languageserver": {
-    "sixtyfps": {
+    "slint": {
       "command": "slint-lsp",
-      "filetypes": ["sixtyfps"]
+      "filetypes": ["slint"]
     }
   }
 }

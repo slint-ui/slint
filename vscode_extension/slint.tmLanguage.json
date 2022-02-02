@@ -1,6 +1,6 @@
 {
-    "name": "sixtyfps",
-    "scopeName": "source.sixtyfps",
+    "name": "slint",
+    "scopeName": "source.slint",
     "patterns": [
         {
             "include": "#document"

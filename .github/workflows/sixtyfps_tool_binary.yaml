@@ -11,7 +11,7 @@ on:
         description: binary to build
         options:
           - sixtyfps-viewer
-          - sixtyfps-lsp
+          - slint-lsp
   workflow_call:
     inputs:
       program:
