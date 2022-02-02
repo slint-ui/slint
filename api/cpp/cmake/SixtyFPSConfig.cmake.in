@@ -14,8 +14,8 @@ endif()
 add_library(sixtyfps-cpp-shared SHARED IMPORTED)
 set_target_properties(sixtyfps-cpp-shared PROPERTIES @SIXTYFPS_LIB_PROPERTIES@)
 
-add_executable(SixtyFPS::sixtyfps-compiler IMPORTED GLOBAL)
-set_target_properties(SixtyFPS::sixtyfps-compiler PROPERTIES IMPORTED_LOCATION "${_IMPORT_PREFIX}/@CMAKE_INSTALL_BINDIR@/sixtyfps-compiler${CMAKE_EXECUTABLE_SUFFIX}")
+add_executable(SixtyFPS::slint-compiler IMPORTED GLOBAL)
+set_target_properties(SixtyFPS::slint-compiler PROPERTIES IMPORTED_LOCATION "${_IMPORT_PREFIX}/@CMAKE_INSTALL_BINDIR@/slint-compiler${CMAKE_EXECUTABLE_SUFFIX}")
 
 set(_IMPORT_PREFIX)
 

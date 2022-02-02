@@ -19,7 +19,7 @@ list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
 find_package(Rust 1.56 REQUIRED MODULE)
 
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
-    CRATES sixtyfps-compiler sixtyfps-cpp)
+    CRATES slint-compiler sixtyfps-cpp)
 
 set_property(
     TARGET sixtyfps-cpp
@@ -29,7 +29,7 @@ set_property(
 )
 
 set_property(
-    TARGET sixtyfps-compiler
+    TARGET slint-compiler
     PROPERTY CORROSION_USE_HOST_BUILD 1
 )
 
@@ -147,7 +147,7 @@ target_include_directories(SixtyFPS INTERFACE
     $<INSTALL_INTERFACE:include/sixtyfps>
 )
 
-add_executable(SixtyFPS::sixtyfps-compiler ALIAS sixtyfps-compiler)
+add_executable(SixtyFPS::slint-compiler ALIAS slint-compiler)
 include(${CMAKE_CURRENT_LIST_DIR}/cmake/SixtyFPSMacro.cmake)
 
 export(TARGETS SixtyFPS sixtyfps-cpp
@@ -174,7 +174,7 @@ if(WIN32)
 	    ${CMAKE_BINARY_DIR}/bin/${config_subdir_genex}$<TARGET_FILE_NAME:sixtyfps-cpp-shared>)
 endif()
 
-install(PROGRAMS $<TARGET_FILE:sixtyfps-compiler> TYPE BIN)
+install(PROGRAMS $<TARGET_FILE:slint-compiler> TYPE BIN)
 
 set(SIXTYFPS_LIB_PROPERTIES "")
 foreach(prop

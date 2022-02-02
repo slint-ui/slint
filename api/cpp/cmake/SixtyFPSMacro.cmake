@@ -14,10 +14,10 @@ function(SIXTYFPS_TARGET_60_SOURCES target)
 
             add_custom_command(
                 OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.h
-                COMMAND SixtyFPS::sixtyfps-compiler ${_60_ABSOLUTE}
+                COMMAND SixtyFPS::slint-compiler ${_60_ABSOLUTE}
                     -o ${_60_BASE_NAME_REL}.h  --depfile ${_60_BASE_NAME_REL}.d
                     --style ${SIXTYFPS_STYLE}
-                DEPENDS SixtyFPS::sixtyfps-compiler ${_60_ABSOLUTE}
+                DEPENDS SixtyFPS::slint-compiler ${_60_ABSOLUTE}
                 COMMENT "Generating ${_60_BASE_NAME}.h"
                 DEPFILE ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.d
                 WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
@@ -27,10 +27,10 @@ function(SIXTYFPS_TARGET_60_SOURCES target)
             file(GLOB ALL_60S "${_60_DIR}/*.60")
             add_custom_command(
                 OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.h
-                COMMAND SixtyFPS::sixtyfps-compiler ${_60_ABSOLUTE}
+                COMMAND SixtyFPS::slint-compiler ${_60_ABSOLUTE}
                     -o ${CMAKE_CURRENT_BINARY_DIR}/${_60_BASE_NAME}.h
                     --style ${SIXTYFPS_STYLE}
-                DEPENDS SixtyFPS::sixtyfps-compiler ${_60_ABSOLUTE} ${ALL_60S}
+                DEPENDS SixtyFPS::slint-compiler ${_60_ABSOLUTE} ${ALL_60S}
                 COMMENT "Generating ${_60_BASE_NAME}.h"
             )
         endif(CMAKE_GENERATOR STREQUAL "Ninja")
