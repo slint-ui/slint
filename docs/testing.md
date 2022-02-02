@@ -60,7 +60,7 @@ Foo := Rectangle {
 
 ### Rust driver
 
-The rust driver will compile each snippet of code and put it in a `sixtyfps!` macro in its own module
+The rust driver will compile each snippet of code and put it in a `slint!` macro in its own module
 In addition, if there are ```` ```rust ```` blocks in a comment, they are extracted into a `#[test]`
 function in the same module. This is usefull to test the rust api.
 This is all compiled in a while program, so the `SLINT_TEST_FILTER` environment variable can be
@@ -71,7 +71,7 @@ Example: to test all the layout test:
 SLINT_TEST_FILTER=layout cargo test -p test-driver-rust
 ```
 
-Instead of putting everything in a sixtyfps! macro, it is possible to tell the driver to do the
+Instead of putting everything in a slint! macro, it is possible to tell the driver to do the
 compilation in the build.rs, with the builod-time feature:
 
 ```
@@ -86,7 +86,7 @@ Each program is compiled separately. And then run.
 
 Some macro like `assert_eq` are defined to look similar o the rust equivalent.
 
-To run the test, you must make sure to first build the sixtyfps shared library:
+To run the test, you must make sure to first build the slint shared library:
 
 ```
 cargo build --lib -p slint-cpp --features testing && cargo test -p  test-driver-cpp --
