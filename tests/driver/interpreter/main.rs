@@ -11,12 +11,16 @@ macro_rules! test_example {
         #[test]
         fn $id() {
             let relative_path = std::path::PathBuf::from(concat!("../../../examples/", $path));
-            interpreter::test(&test_driver_lib::TestCase {
-                absolute_path: std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join(&relative_path),
-                relative_path,
-            })
-            .unwrap();
+            let mut absolute_path =
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(&relative_path);
+            if !absolute_path.exists() {
+                // Try with .60 instead (for the updater_test)
+                let legacy = absolute_path.to_string_lossy().replace(".slint", ".60");
+                if std::path::Path::new(&legacy).exists() {
+                    absolute_path = legacy.into();
+                }
+            }
+            interpreter::test(&test_driver_lib::TestCase { absolute_path, relative_path }).unwrap();
         }
     };
 }
