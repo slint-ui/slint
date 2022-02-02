@@ -7,23 +7,15 @@
   - [Will there be API bindings to integrate with my favorite programming language?](#will-there-be-api-bindings-to-integrate-with-my-favorite-programming-language)
 - [Licensing](#licensing)
   - [What is the commercial licensing model?](#what-is-the-commercial-licensing-model)
-  - [Can I try Slint using the GPL version and then switch to the commercial license later?](#can-i-try-sixtyfps-using-the-gpl-version-and-then-switch-to-the-commercial-license-later)
+  - [Can I try Slint using the GPL version and then switch to the commercial license later?](#can-i-try-slint-using-the-gpl-version-and-then-switch-to-the-commercial-license-later)
   - [Is there a discount or reduction for independent developers or small businesses?](#is-there-a-discount-or-reduction-for-independent-developers-or-small-businesses)
-  - [I want to develop a free software product using Slint, but I don't like the GPL and prefer to use a non-copyleft license.](#i-want-to-develop-a-free-software-product-using-sixtyfps-but-i-dont-like-the-gpl-and-prefer-to-use-a-non-copyleft-license)
+  - [I want to develop a free software product using Slint, but I don't like the GPL and prefer to use a non-copyleft license.](#i-want-to-develop-a-free-software-product-using-slint-but-i-dont-like-the-gpl-and-prefer-to-use-a-non-copyleft-license)
 
 # General
 
 ## Where does the name come from?
 
-The name Slint comes from *60 frames per second*, which is the common refresh rate of screens.
-This means that the screen shows a new image 60 times per second. To the human eye, animations updating
-at this frequency look pleasantly fluid. Consequently, in games and user interfaces, 60 FPS is synonymous
-with a perfectly smooth user interface.
-
-## Is that name not going to be obsolete soon?
-
-While newer screens are able to provide higher refresh rates, 60 is still a well accepted threshold
-that has this historical value.
+The name *Slint* is derived from our design goals: **S**traightforward, **Li**ghtweight **N**ative **T**oolkit.
 
 ## Why are you creating a new markup language?
 
