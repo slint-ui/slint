@@ -4,7 +4,7 @@
 import * as monaco from 'monaco-editor';
 
 
-export const sixtyfps_language = <monaco.languages.IMonarchLanguage>{
+export const slint_language = <monaco.languages.IMonarchLanguage>{
     defaultToken: 'invalid',
 
     root_keywords: [

@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-import { sixtyfps_language } from "./highlighting";
+import { slint_language } from "./highlighting";
 
 import 'monaco-editor/esm/vs/editor/editor.all.js';
 import 'monaco-editor/esm/vs/editor/standalone/browser/accessibilityHelp/accessibilityHelp.js';
@@ -24,20 +24,20 @@ self.MonacoEnvironment = {
     }
 };
 
-import sixtyfps_init, * as sixtyfps from "../../../wasm-interpreter/sixtyfps_wasm_interpreter.js";
+import slint_init, * as sixslint from "../../../wasm-interpreter/slint_wasm_interpreter.js";
 
 
 (async function () {
-    await sixtyfps_init();
+    await slint_init();
 
     monaco.languages.register({
-        id: 'sixtyfps'
+        id: 'slint'
     });
-    monaco.languages.onLanguage('sixtyfps', () => {
-        monaco.languages.setMonarchTokensProvider('sixtyfps', sixtyfps_language);
+    monaco.languages.onLanguage('slint', () => {
+        monaco.languages.setMonarchTokensProvider('slint', slint_language);
     });
     var editor = monaco.editor.create(document.getElementById("editor"), {
-        language: 'sixtyfps'
+        language: 'slint'
     });
     var base_url = "";
 
@@ -132,7 +132,7 @@ export Demo := Window {
     }
 
     function createMainModel(source: string, url: string): monaco.editor.ITextModel {
-        let model = monaco.editor.createModel(source, "sixtyfps");
+        let model = monaco.editor.createModel(source, "slint");
         model.onDidChangeContent(function () {
             let permalink = (<HTMLAnchorElement>document.getElementById("permalink"));
             let params = new URLSearchParams();
@@ -216,12 +216,12 @@ export Demo := Window {
         div.innerHTML = "";
         div.appendChild(canvas);
         var markers = [];
-        let { component, diagnostics, error_string } = await sixtyfps.compile_from_string_with_style(source, base_url, style_combo.value, async (url: string): Promise<string> => {
+        let { component, diagnostics, error_string } = await slint.compile_from_string_with_style(source, base_url, style_combo.value, async (url: string): Promise<string> => {
             let model_and_state = editor_documents.get(url);
             if (model_and_state === undefined) {
                 const response = await fetch(url);
                 let doc = await response.text();
-                let model = monaco.editor.createModel(doc, "sixtyfps");
+                let model = monaco.editor.createModel(doc, "slint");
                 model.onDidChangeContent(function () {
                     maybe_update_preview_automatically();
                 });
@@ -251,7 +251,7 @@ export Demo := Window {
                 endColumn: -1,
             }
         });
-        monaco.editor.setModelMarkers(editor.getModel(), "sixtyfps", markers);
+        monaco.editor.setModelMarkers(editor.getModel(), "slint", markers);
 
         if (component !== undefined) {
             component.run(canvas_id)

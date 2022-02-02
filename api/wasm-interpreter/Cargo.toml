@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "sixtyfps-wasm-interpreter"
+name = "slint-wasm-interpreter"
 version = "0.2.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2021"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
 publish = false
-description = "SixtyFPS wasm glue"
+description = "Slint wasm glue"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 
