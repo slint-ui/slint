@@ -42,8 +42,8 @@ struct Cli {
 
 fn main() -> std::io::Result<()> {
     let args = Cli::parse();
-    if !matches!(args.from.as_str(), "0.0.5" | "0.0.6" | "0.1.0") {
-        eprintln!("Invalid from version is supported, use `--from 0.0.5`");
+    if !matches!(args.from.as_str(), "0.0.5" | "0.0.6") && !args.from.starts_with("0.1.") {
+        eprintln!("Invalid from version is supported, use `--from 0.1.x`");
         std::process::exit(1);
     }
 
