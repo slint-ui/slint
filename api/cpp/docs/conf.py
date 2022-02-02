@@ -61,7 +61,7 @@ exhale_args = {
     "exhaleExecutesDoxygen": True,
     "exhaleDoxygenStdin": """INPUT = ../../api/cpp/include generated_include
 EXCLUDE_SYMBOLS = sixtyfps::cbindgen_private* sixtyfps::private_api* vtable* SIXTYFPS_DECL_ITEM
-EXCLUDE = ../../api/cpp/include/vtable.h ../../api/sixtyfps-cpp/include/sixtyfps_testing.h
+EXCLUDE = ../../api/cpp/include/vtable.h ../../api/cpp/include/sixtyfps_testing.h
 ENABLE_PREPROCESSING = YES
 PREDEFINED += DOXYGEN
 WARN_AS_ERROR = YES""",
