@@ -13,9 +13,45 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Slint UI Widget Gallery Demo (Web Assembly version)</title>
+  <title>Slint Widget Gallery Demo (Web Assembly version)</title>
 </head>
 <style>
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    background: radial-gradient(108.19% 165.77% at 1.67% -32.72%, #2C2F36 10%, #040708 96.35%);
+    color: white;
+    text-align: center;
+    max-width: 1100px;
+    margin: 0px auto;
+    min-height: 100vh;
+  }
+
+  p:not(.links) {
+    text-align: left;
+    padding: 1ex 5ex;
+  }
+
+  h1 {
+    text-align: left;
+    padding: 0.5ex 1ex
+  }
+
+  a {
+    color: #DBFF00
+  }
+
+  a:not(:hover) {
+    text-decoration: none;
+  }
+
+  canvas:focus {
+    outline: none;
+    touch-action: none;
+  }
+
   canvas:focus {
     outline: none;
     touch-action: none;
@@ -35,13 +71,15 @@
 </style>
 
 <body>
-  <p>This is the <a href="https://sixtyfps.io">Slint</a> UI Widget Gallery Demo compiled to WebAssembly. It demonstrates different re-usable graphical
+  <h1>Slint Gallery</h1>
+  <p>This is the <a href="https://sixtyfps.io">Slint</a> UI Widget Gallery Demo compiled to WebAssembly. It demonstrates
+    different re-usable graphical
     elements.</p>
   <div id="spinner" style="position: relative;">
     <div class="spinner">Loading...</div>
   </div>
   <canvas id="canvas" width="640" height="480"></canvas>
-  <p>
+  <p class="links">
     <a href="https://github.com/sixtyfpsui/sixtyfps/blob/master/examples/gallery/gallery.slint">
       View Source Code on GitHub</a> -
     <a

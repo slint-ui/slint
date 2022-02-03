@@ -13,11 +13,39 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>Slint UI Printer Demo (Web Assembly version)</title>
+  <title>Slint Printer Demo (Old)</title>
   <style>
-    canvas {
+    * {
       box-sizing: border-box;
     }
+
+    body {
+      background: radial-gradient(108.19% 165.77% at 1.67% -32.72%, #2C2F36 10%, #040708 96.35%);
+      color: white;
+      text-align: center;
+      max-width: 1100px;
+      margin: 0px auto;
+      min-height: 100vh;
+    }
+
+    p:not(.links) {
+      text-align: left;
+      padding: 1ex 5ex;
+    }
+
+    h1 {
+      text-align: left;
+      padding: 0.5ex 1ex
+    }
+
+    a {
+      color: #DBFF00
+    }
+
+    a:not(:hover) {
+      text-decoration: none;
+    }
+
 
     canvas:focus {
       outline: none;
@@ -57,14 +85,16 @@
 </head>
 
 <body>
-  <p class="hide-in-mobile-landscape">This is the <a href="https://sixtyfps.io">Slint</a> UI Printer Demo compiled to WebAssembly. It simulates the
+  <h1 class="hide-in-mobile-landscape">Old Printer Demo</h1>
+  <p class="hide-in-mobile-landscape">This is the <a href="https://sixtyfps.io">Slint</a> Printer Demo compiled to
+    WebAssembly. It simulates the
     touch user interface of
     the advanced "Print Machine 2000", without actually printing anything.</p>
   <div id="spinner" style="position: relative;">
     <div class="spinner">Loading...</div>
   </div>
   <canvas id="canvas" width="640" height="480" unselectable="on"></canvas>
-  <p class="hide-in-mobile-landscape">
+  <p class="hide-in-mobile-landscape links">
     <a href="https://github.com/sixtyfpsui/sixtyfps/blob/master/examples/printerdemo_old/ui/printerdemo.slint">
       View Source Code on GitHub</a> -
     <a

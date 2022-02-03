@@ -10,6 +10,23 @@
   <title>Slint Slide Puzzle Demo (Web Assembly version)</title>
 </head>
 <style>
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    background: radial-gradient(108.19% 165.77% at 1.67% -32.72%, #2C2F36 10%, #040708 96.35%);
+    color: white;
+  }
+
+  a {
+    color: #DBFF00
+  }
+
+  a:not(:hover) {
+    text-decoration: none;
+  }
+
   canvas:focus {
     outline: none;
     touch-action: none;
@@ -56,7 +73,7 @@
       build is done for demonstration purposes. Native applications are the real target of the toolkit.
     </p>
     <canvas id="canvas"></canvas>
-    <p>
+    <p class="links">
       <a href="https://github.com/sixtyfpsui/sixtyfps/blob/master/examples/slide_puzzle/">
         View Source Code on GitHub</a> -
       <a
