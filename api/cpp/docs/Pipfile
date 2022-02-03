@@ -17,4 +17,4 @@ myst_parser = "*"
 sphinx-markdown-tables = "*"
 
 [requires]
-python_version = "3.8"
+python_version = "3"

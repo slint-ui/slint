@@ -103,7 +103,7 @@ html_static_path = ["_static"]
 
 html_show_sourcelink = False
 
-html_logo = "logo.drawio.svg"
+html_logo = "../../logo/slint-logo-small-light.svg"  # relative to target/cppdocs!
 
 myst_enable_extensions = [
     "html_image",
