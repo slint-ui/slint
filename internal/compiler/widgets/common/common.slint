@@ -96,7 +96,7 @@ export AboutSlint := Rectangle {
             // Hack: try to guess if we should have the logo in black or in white depending in the default text color
             // If when we make it much brighter it saturates to white, consider the white logo
             property <color> t_color: t.color;
-            source: t_color.brighter(100%) == Colors.white ? @image-url("slint-logo-white.svg") : @image-url("slint-logo-black.svg");
+            source: t_color.brighter(100%) == Colors.white ? @image-url("slint-logo-dark.svg") : @image-url("slint-logo-light.svg");
             preferred-width: 256px;
         }
         Text {
