@@ -74,6 +74,8 @@ default-members = [
     'tools/viewer',
 ]
 
+resolver="2"
+
 [profile.release]
 lto = true
 panic = "abort"
