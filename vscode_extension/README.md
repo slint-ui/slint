@@ -12,7 +12,7 @@ This extension for VS Code adds support for the [Slint](https://sixtyfps.io) des
 
 ## Installation
 
-You can install the extension directly from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=SixtyFPS.sixtyfps). Afterwards it is
+You can install the extension directly from the [Visual Studio Code Marketplace](https://marketplace.visualstudio.com/items?itemName=Slint.slint). Afterwards it is
 automatically activated when editing files with the `.slint` extension.
 
 ## Live-Preview
