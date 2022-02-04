@@ -1260,6 +1260,8 @@ impl PlatformWindow for QtWindow {
         let widget_ptr = self.widget_ptr();
         let title: qttypes::QString = window_item.title().as_str().into();
         let no_frame = window_item.no_frame();
+        let runtime_window = self.self_weak.upgrade().unwrap();
+        let opaque = runtime_window.opaque_background();
         let mut size = qttypes::QSize {
             width: window_item.width().ceil() as _,
             height: window_item.height().ceil() as _,
@@ -1297,7 +1299,7 @@ impl PlatformWindow for QtWindow {
             }
         };
 
-        cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QRgb", no_frame as "bool"] {
+        cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QRgb", no_frame as "bool", opaque as "bool"] {
             if (size != widget_ptr->size()) {
                 widget_ptr->resize(size.expandedTo({1, 1}));
             }
@@ -1318,6 +1320,7 @@ impl PlatformWindow for QtWindow {
             #endif
             pal.setColor(QPalette::Window, QColor::fromRgba(background));
             widget_ptr->setPalette(pal);
+            widget_ptr->setAttribute(Qt::WA_TranslucentBackground, !opaque);
         }};
     }
 

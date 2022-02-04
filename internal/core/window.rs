@@ -152,6 +152,8 @@ pub struct Window {
     scale_factor: Pin<Box<Property<f32>>>,
     active: Pin<Box<Property<bool>>>,
     active_popup: RefCell<Option<PopupWindow>>,
+    /// specify whether the window's background is opaque or not. A value of `None` means it should depend on the `WindowItem`'s `background` property's alpha channel.
+    opaque_background: Cell<Option<bool>>,
 }
 
 impl Drop for Window {
@@ -180,6 +182,7 @@ impl Window {
             scale_factor: Box::pin(Property::new(1.)),
             active: Box::pin(Property::new(false)),
             active_popup: Default::default(),
+            opaque_background: Default::default(),
         });
         let window_weak = Rc::downgrade(&window);
         window.platform_window.set(platform_window_fn(&window_weak)).ok().unwrap();
@@ -553,6 +556,28 @@ impl Window {
             }
         }
     }
+
+    /// A window can be translucent if the scene's `Window` root element has a color set on the `background` property
+    /// that provides transluceny. Transluceny requires the allocation of a graphics surface that is more expensive
+    /// that one that is entirel opaque. Use this function to override the behavior of depending on the `background`
+    /// property. Use `false` as value for the `opaque` parameter to force the allocation of a surface that supports transluceny.
+    pub fn set_opaque_background(&self, opaque: bool) {
+        self.opaque_background.set(Some(opaque))
+    }
+
+    /// Returns whether the background of the window is opaque.
+    pub fn opaque_background(&self) -> bool {
+        self.opaque_background.get().unwrap_or_else(|| {
+            self.try_component()
+                .and_then(|component_rc| {
+                    let component = ComponentRc::borrow_pin(&component_rc);
+                    let root_item = component.as_ref().get_item_ref(0);
+                    ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
+                        .map(|window_item| window_item.background().alpha() == 255)
+                })
+                .unwrap_or(true)
+        })
+    }
 }
 
 impl core::ops::Deref for Window {
@@ -753,5 +778,27 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_windowrc_request_redraw(handle: *const WindowRcOpaque) {
         let window = &*(handle as *const WindowRc);
         window.request_redraw();
+    }
+
+    /// A window can be translucent if the scene's `Window` root element has a color set on the `background` property
+    /// that provides transluceny. Transluceny requires the allocation of a graphics surface that is more expensive
+    /// that one that is entirel opaque. Use this function to override the behavior of depending on the `background`
+    /// property. Use `false` as value for the `opaque` parameter to force the allocation of a surface that supports transluceny.
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_set_opaque_background(
+        handle: *const WindowRcOpaque,
+        opaque: bool,
+    ) {
+        let window = &*(handle as *const WindowRc);
+        window.set_opaque_background(opaque)
+    }
+
+    /// Returns whether the background of the window is opaque.
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_opaque_background(
+        handle: *const WindowRcOpaque,
+    ) -> bool {
+        let window = &*(handle as *const WindowRc);
+        window.opaque_background()
     }
 }

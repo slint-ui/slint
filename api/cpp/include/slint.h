@@ -160,6 +160,19 @@ public:
 
     void request_redraw() const { cbindgen_private::slint_windowrc_request_redraw(&inner); }
 
+    /// A window can be translucent if the scene's `Window` root element has a color set on the
+    /// `background` property that provides transluceny. Transluceny requires the allocation of a
+    /// graphics surface that is more expensive that one that is entirel opaque. Use this function
+    /// to override the behavior of depending on the `background` property. Use `false` as value for
+    /// the `opaque` parameter to force the allocation of a surface that supports transluceny.
+    void set_opaque_background(bool opaque) const
+    {
+        slint_windowrc_set_opaque_background(&inner, opaque);
+    }
+
+    /// Returns whether the background of the window is opaque.
+    bool opaque_background() const { return slint_windowrc_opaque_background(&inner); }
+
 private:
     cbindgen_private::WindowRcOpaque inner;
 };
@@ -345,6 +358,16 @@ public:
 
     /// This function issues a request to the windowing system to redraw the contents of the window.
     void request_redraw() const { inner.request_redraw(); }
+
+    /// A window can be translucent if the scene's `Window` root element has a color set on the
+    /// `background` property that provides transluceny. Transluceny requires the allocation of a
+    /// graphics surface that is more expensive that one that is entirel opaque. Use this function
+    /// to override the behavior of depending on the `background` property. Use `false` as value for
+    /// the `opaque` parameter to force the allocation of a surface that supports transluceny.
+    void set_opaque_background(bool opaque) const { inner.set_opaque_background(opaque); }
+
+    /// Returns whether the background of the window is opaque.
+    bool opaque_background() const { return inner.opaque_background(); }
 
     /// \private
     private_api::WindowRc &window_handle() { return inner; }

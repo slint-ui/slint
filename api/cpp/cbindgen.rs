@@ -260,6 +260,8 @@ fn gen_corelib(
             "slint_windowrc_show_popup",
             "slint_windowrc_set_rendering_notifier",
             "slint_windowrc_request_redraw",
+            "slint_windowrc_set_opaque_background",
+            "slint_windowrc_opaque_background",
             "slint_new_path_elements",
             "slint_new_path_events",
             "slint_color_brighter",

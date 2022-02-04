@@ -112,6 +112,19 @@ impl Window {
         self.0.hide();
     }
 
+    /// A window can be translucent if the scene's `Window` root element has a color set on the `background` property
+    /// that provides transluceny. Transluceny requires the allocation of a graphics surface that is more expensive
+    /// that one that is entirel opaque. Use this function to override the behavior of depending on the `background`
+    /// property. Use `false` as value for the `opaque` parameter to force the allocation of a surface that supports transluceny.
+    pub fn set_opaque_background(&self, opaque: bool) {
+        self.0.set_opaque_background(opaque)
+    }
+
+    /// Returns whether the background of the window is opaque.
+    pub fn opaque_background(&self) -> bool {
+        self.0.opaque_background()
+    }
+
     /// This function allows registering a callback that's invoked during the different phases of
     /// rendering. This allows custom rendering on top or below of the scene.
     pub fn set_rendering_notifier(
