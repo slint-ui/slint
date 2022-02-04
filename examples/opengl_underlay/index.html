@@ -16,6 +16,38 @@
   <title>SixtyFPS OpenGL Underlay Example (Web Assembly version)</title>
 </head>
 <style>
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    background: radial-gradient(108.19% 165.77% at 1.67% -32.72%, #2C2F36 10%, #040708 96.35%);
+    color: white;
+    text-align: center;
+    max-width: 1100px;
+    margin: 0px auto;
+    min-height: 100vh;
+  }
+
+  p:not(.links) {
+    text-align: left;
+    padding: 1ex 5ex;
+  }
+
+  h1 {
+    text-align: left;
+    padding: 0.5ex 1ex
+  }
+
+  a {
+    color: #DBFF00
+  }
+
+  a:not(:hover) {
+    text-decoration: none;
+  }
+
+
   canvas:focus {
     outline: none;
     touch-action: none;
@@ -35,18 +67,15 @@
 </style>
 
 <body>
-  <p>This is the <a href="https://sixtyfps.io">SixtyFPS</a> OpenGL Underlay example compiled to WebAssembly. It demonstrates an OpenGL rendered scene under a SixtyFPS scene.</p>
+  <p>This is the <a href="https://sixtyfps.io">Slint</a> OpenGL Underlay example compiled to WebAssembly. It
+    demonstrates an OpenGL rendered scene under a Slint scene.</p>
   <div id="spinner" style="position: relative;">
     <div class="spinner">Loading...</div>
   </div>
   <canvas id="canvas" width="640" height="480"></canvas>
-  <p>
-    <a href="https://github.com/sixtyfpsui/sixtyfps/blob/master/examples/opengl_underlay/scene.60">
-      View Source Code on GitHub</a> -
-    <a
-      href="https://sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/opengl_underlay/scene.60">
-      Edit in the online code editor
-    </a>
+  <p class="links">
+    <a href="https://github.com/sixtyfpsui/sixtyfps/blob/master/examples/opengl_underlay/">
+      View Source Code on GitHub</a>
   </p>
   <script type="module">
     import init from './pkg/opengl_underlay.js';
