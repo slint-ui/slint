@@ -2,13 +2,13 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 import { ScrollView, Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView,
-    ComboBox, HorizontalBox, VerticalBox, GridBox, TabWidget, TextEdit, AboutSixtyFPS } from "sixtyfps_widgets.60";
+    ComboBox, HorizontalBox, VerticalBox, GridBox, TabWidget, TextEdit, AboutSixtyFPS } from "std-widgets.slint";
 
 App := Window {
     preferred-width: 500px;
     preferred-height: 600px;
-    title: "SixtyFPS OpenGL Underlay Example";
-    icon: @image-url("../../vscode_extension/extension-logo.png");
+    title: "Slnt OpenGL Underlay Example";
+    icon: @image-url("../../logo/slint-logo-square-light-128x128.png");
 
     property <bool> rotation-enabled <=> apply-rotation.checked;
 
@@ -17,7 +17,7 @@ App := Window {
             background: #ffffff92;
             HorizontalBox {
                 Text {
-                    text: "This text is rendered using SixtyFPS. The animation below is rendered using OpenGL code.";
+                    text: "This text is rendered using Slint. The animation below is rendered using OpenGL code.";
                     wrap: word-wrap;
                 }
 

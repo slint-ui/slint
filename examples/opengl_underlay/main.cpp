@@ -42,23 +42,23 @@ static GLint compile_shader(GLuint program, GLuint shader_type, const GLchar *co
 class OpenGLUnderlay
 {
 public:
-    OpenGLUnderlay(sixtyfps::ComponentWeakHandle<App> app) : app_weak(app) { }
+    OpenGLUnderlay(slint::ComponentWeakHandle<App> app) : app_weak(app) { }
 
-    void operator()(sixtyfps::RenderingState state)
+    void operator()(slint::RenderingState state)
     {
         switch (state) {
-        case sixtyfps::RenderingState::RenderingSetup:
+        case slint::RenderingState::RenderingSetup:
             setup();
             break;
-        case sixtyfps::RenderingState::BeforeRendering:
+        case slint::RenderingState::BeforeRendering:
             if (auto app = app_weak.lock()) {
                 render((*app)->get_rotation_enabled());
                 (*app)->window().request_redraw();
             }
             break;
-        case sixtyfps::RenderingState::AfterRendering:
+        case slint::RenderingState::AfterRendering:
             break;
-        case sixtyfps::RenderingState::RenderingTeardown:
+        case slint::RenderingState::RenderingTeardown:
             teardown();
             break;
         }
@@ -153,7 +153,7 @@ private:
 
     void teardown() { glDeleteProgram(program); }
 
-    sixtyfps::ComponentWeakHandle<App> app_weak;
+    slint::ComponentWeakHandle<App> app_weak;
     GLuint program = 0;
     GLuint position_location = 0;
     GLuint effect_time_location = 0;
@@ -167,7 +167,7 @@ int main()
     auto app = App::create();
 
     if (auto error = app->window().set_rendering_notifier(OpenGLUnderlay(app))) {
-        if (*error == sixtyfps::SetRenderingNotifierError::Unsupported) {
+        if (*error == slint::SetRenderingNotifierError::Unsupported) {
             fprintf(stderr,
                     "This example requires the use of the GL backend. Please run with the "
                     "environment variable SIXTYFPS_BACKEND=GL set.\n");

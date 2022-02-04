@@ -4,10 +4,10 @@
 cmake_minimum_required(VERSION 3.14)
 project(opengl_cpp_underlay LANGUAGES CXX)
 
-if (NOT TARGET SixtyFPS::SixtyFPS)
-    find_package(SixtyFPS REQUIRED)
+if (NOT TARGET Slint::Slint)
+    find_package(Slint REQUIRED)
 endif()
 
 add_executable(opengl_underlay main.cpp)
-target_link_libraries(opengl_underlay PRIVATE SixtyFPS::SixtyFPS OpenGLES2::OpenGLES2)
-sixtyfps_target_60_sources(opengl_underlay scene.60)
+target_link_libraries(opengl_underlay PRIVATE Slint::Slint OpenGLES2::OpenGLES2)
+slint_target_sources(opengl_underlay scene.slint)
