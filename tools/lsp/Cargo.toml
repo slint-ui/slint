@@ -15,7 +15,7 @@ keywords = ["lsp"]
 
 [package.metadata.bundle]
 name = "Slint Live Preview"
-icon = ["../../vscode_extension/extension-logo.png"]
+icon = ["../../logo/slint-logo-square-light-128x128.png"]
 
 [[bin]]
 name = "slint-lsp"
