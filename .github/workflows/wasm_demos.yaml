@@ -82,6 +82,7 @@ jobs:
               examples/slide_puzzle/
               examples/imagefilter/
               examples/plotter/
+              examples/opengl_underlay/
     - name: Clean cache # Otherwise the cache is much too big
       run: |
           du -hs target
