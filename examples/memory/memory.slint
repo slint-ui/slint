@@ -14,7 +14,7 @@ MemoryTile := Rectangle {
     property <bool> solved;
     property <image> icon;
 
-    background: solved ? #34CE57 : #3960D5;
+    background: solved ? #70ff00 : #858585;
     animate background { duration: 800ms; }
 
     Image {
@@ -27,7 +27,7 @@ MemoryTile := Rectangle {
 
     // Left curtain
     Rectangle {
-        background: #193076;
+        background: #0025ff;
         border-radius: 4px;
         width: open-curtain ? 0px : parent.width / 2 + 4px;
         height: parent.height;
@@ -45,7 +45,7 @@ MemoryTile := Rectangle {
 
     // Right curtain
     right-curtain := Rectangle {
-        background: #193076;
+        background: #0025ff;
         border-radius: 4px;
         x: open-curtain ? parent.width : parent.width / 2 - 4px;
         width: open-curtain ? 0px : parent.width / 2 + 4px;
