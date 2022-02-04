@@ -369,7 +369,7 @@ declare_syntax! {
         AtLinearGradient -> [*Expression],
         /// expression()
         FunctionCallExpression -> [*Expression],
-        /// expression[index]
+        /// `expression[index]`
         IndexExpression -> [2 Expression],
         /// `expression += expression`
         SelfAssignment -> [2 Expression],

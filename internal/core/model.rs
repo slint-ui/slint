@@ -29,7 +29,8 @@ type ComponentRc<C> = vtable::VRc<crate::component::ComponentVTable, C>;
 
 /// Represent a handle to a view that listens to changes to a model.
 ///
-/// See [`Model::attach_peer`] and [`ModelNotify`]
+/// One should normally not use this class directly, it is just
+/// used internally by via [`ModelTracker::attach_peer`] and [`ModelNotify`]
 #[derive(Clone)]
 pub struct ModelPeer {
     // FIXME: add a lifetime to ModelPeer so we can put the DependencyNode directly in the Repeater
