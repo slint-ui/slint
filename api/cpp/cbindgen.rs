@@ -128,6 +128,9 @@ fn gen_corelib(
     .map(|x| x.to_string())
     .collect();
 
+    let mut private_exported_types: std::collections::HashSet<String> =
+        config.export.include.iter().cloned().collect();
+
     config.export.exclude = [
         "SharedString",
         "SharedVector",
@@ -157,8 +160,10 @@ fn gen_corelib(
         "slint_color_darker",
         "slint_image_size",
         "slint_image_path",
-        "TimerMode", // included in generated_public.h
-        "IntSize",   // included in generated_public.h
+        "TimerMode",                 // included in generated_public.h
+        "IntSize",                   // included in generated_public.h
+        "RenderingState",            // included in generated_public.h
+        "SetRenderingNotifierError", // included in generated_public.h
     ]
     .iter()
     .map(|x| x.to_string())
@@ -201,6 +206,7 @@ fn gen_corelib(
         .insert("StateInfo".to_owned(), "    using Instant = uint64_t;".into());
     properties_config.structure.derive_eq = true;
     properties_config.structure.derive_neq = true;
+    private_exported_types.extend(properties_config.export.include.iter().cloned());
     cbindgen::Builder::new()
         .with_config(properties_config)
         .with_src(crate_dir.join("properties.rs"))
@@ -252,6 +258,8 @@ fn gen_corelib(
             "slint_windowrc_set_focus_item",
             "slint_windowrc_set_component",
             "slint_windowrc_show_popup",
+            "slint_windowrc_set_rendering_notifier",
+            "slint_windowrc_request_redraw",
             "slint_new_path_elements",
             "slint_new_path_events",
             "slint_color_brighter",
@@ -280,6 +288,9 @@ fn gen_corelib(
         // Property<> fields uses the public `slint::Blah` type
         special_config.namespaces =
             Some(vec!["slint".into(), "cbindgen_private".into(), "types".into()]);
+
+        private_exported_types.extend(special_config.export.include.iter().cloned());
+
         cbindgen::Builder::new()
             .with_config(special_config)
             .with_src(crate_dir.join("graphics.rs"))
@@ -300,8 +311,15 @@ fn gen_corelib(
     let mut public_config = config.clone();
     public_config.namespaces = Some(vec!["slint".into()]);
     public_config.export.item_types = vec![cbindgen::ItemType::Enums, cbindgen::ItemType::Structs];
-    public_config.export.include = vec!["TimerMode".into(), "IntSize".into()];
-    public_config.export.exclude.clear();
+    // Previously included types are now excluded (to avoid duplicates)
+    public_config.export.exclude = private_exported_types.into_iter().collect();
+    public_config.export.exclude.push("Point".into());
+    public_config.export.include = vec![
+        "TimerMode".into(),
+        "IntSize".into(),
+        "RenderingState".into(),
+        "SetRenderingNotifierError".into(),
+    ];
 
     public_config.export.body.insert(
         "IntSize".to_owned(),
@@ -315,6 +333,8 @@ fn gen_corelib(
         .with_config(public_config)
         .with_src(crate_dir.join("timers.rs"))
         .with_src(crate_dir.join("graphics.rs"))
+        .with_src(crate_dir.join("window.rs"))
+        .with_src(crate_dir.join("api.rs"))
         .with_after_include(format!(
             r"
 /// This macro expands to the to the numeric value of the major version of Slint you're

@@ -678,7 +678,8 @@ Animation can be configured with the following parameter:
 
 * `delay`: the amount of time to wait before starting the animation
 * `duration`: the amount of time it takes for the animation to complete
-* `loop-count`: FIXME
+* `iteration-count`: The number of times a animation should run. A negative value specifies
+    infinite reruns. Fractual values are possible.
 * `easing`: can be `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`, `cubic-bezier(a, b, c, d)` as in CSS
 
 It is also possible to animate several properties with the same animation:

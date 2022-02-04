@@ -11,7 +11,9 @@ use std::rc::{Rc, Weak};
 
 use super::{ItemGraphicsCache, TextureCache};
 use crate::event_loop::WinitWindow;
+use crate::glcontext::OpenGLContext;
 use const_field_offset::FieldOffsets;
+use corelib::api::{GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use corelib::component::ComponentRc;
 use corelib::graphics::*;
 use corelib::input::KeyboardModifiers;
@@ -38,6 +40,8 @@ pub struct GLWindow {
 
     fps_counter: Option<Rc<FPSCounter>>,
 
+    rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
+
     #[cfg(target_arch = "wasm32")]
     canvas_id: String,
 }
@@ -61,16 +65,17 @@ impl GLWindow {
             graphics_cache: Default::default(),
             texture_cache: Default::default(),
             fps_counter: FPSCounter::new(),
+            rendering_notifier: Default::default(),
             #[cfg(target_arch = "wasm32")]
             canvas_id,
         })
     }
 
-    fn with_current_context<T>(&self, cb: impl FnOnce() -> T) -> T {
+    fn with_current_context<T>(&self, cb: impl FnOnce(&OpenGLContext) -> T) -> Option<T> {
         match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped => cb(),
+            GraphicsWindowBackendState::Unmapped => None,
             GraphicsWindowBackendState::Mapped(window) => {
-                window.opengl_context.with_current_context(cb)
+                Some(window.opengl_context.with_current_context(cb))
             }
         }
     }
@@ -108,6 +113,38 @@ impl GLWindow {
     pub fn default_font_properties(&self) -> FontRequest {
         self.self_weak.upgrade().unwrap().default_font_properties()
     }
+
+    fn release_graphics_resources(&self) {
+        // Release GL textures and other GPU bound resources.
+        self.with_current_context(|context| {
+            self.graphics_cache.borrow_mut().clear();
+            self.texture_cache.borrow_mut().clear();
+
+            self.invoke_rendering_notifier(RenderingState::RenderingTeardown, context);
+        });
+    }
+
+    /// Invoke any registered rendering notifiers about the state the backend renderer is currently in.
+    fn invoke_rendering_notifier(&self, state: RenderingState, opengl_context: &OpenGLContext) {
+        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+            #[cfg(not(target_arch = "wasm32"))]
+            let api = GraphicsAPI::NativeOpenGL {
+                get_proc_address: &|name| opengl_context.get_proc_address(name),
+            };
+            #[cfg(target_arch = "wasm32")]
+            let canvas_element_id = opengl_context.html_canvas_element().id();
+            #[cfg(target_arch = "wasm32")]
+            let api = GraphicsAPI::WebGL {
+                canvas_element_id: canvas_element_id.as_str(),
+                context_type: "webgl",
+            };
+            callback.notify(state, &api)
+        }
+    }
+
+    fn has_rendering_notifier(&self) -> bool {
+        self.rendering_notifier.borrow().is_some()
+    }
 }
 
 impl WinitWindow for GLWindow {
@@ -127,7 +164,7 @@ impl WinitWindow for GLWindow {
     fn draw(self: Rc<Self>) {
         let runtime_window = self.self_weak.upgrade().unwrap();
         let scale_factor = runtime_window.scale_factor();
-        runtime_window.draw_contents(|components| {
+        runtime_window.clone().draw_contents(|components| {
             let window = match self.borrow_mapped_window() {
                 Some(window) => window,
                 None => return, // caller bug, doesn't make sense to call draw() when not mapped
@@ -151,6 +188,18 @@ impl WinitWindow for GLWindow {
                     size.height,
                     crate::to_femtovg_color(&window.clear_color),
                 );
+                // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
+                // the back buffer, in order to allow the callback to provide its own rendering of the background.
+                // femtovg's clear_rect() will merely schedule a clear call, so flush right away to make it immediate.
+                if self.has_rendering_notifier() {
+                    canvas.flush();
+                    canvas.set_size(size.width, size.height, 1.0);
+
+                    self.invoke_rendering_notifier(
+                        RenderingState::BeforeRendering,
+                        &window.opengl_context,
+                    );
+                }
             }
 
             let mut renderer = crate::GLItemRenderer {
@@ -183,6 +232,8 @@ impl WinitWindow for GLWindow {
             renderer.graphics_window.texture_cache.borrow_mut().drain();
 
             drop(renderer);
+
+            self.invoke_rendering_notifier(RenderingState::AfterRendering, &window.opengl_context);
 
             window.opengl_context.swap_buffers();
             window.opengl_context.make_not_current();
@@ -250,11 +301,25 @@ impl PlatformWindow for GLWindow {
                     })
                     .peekable();
                 if cache_entries_to_clear.peek().is_some() {
-                    self.with_current_context(|| {
+                    self.with_current_context(|_| {
                         cache_entries_to_clear.for_each(drop);
                     });
                 }
             }
+        }
+    }
+
+    /// This function is called through the public API to register a callback that the backend needs to invoke during
+    /// different phases of rendering.
+    fn set_rendering_notifier(
+        &self,
+        callback: Box<dyn RenderingNotifier>,
+    ) -> std::result::Result<(), SetRenderingNotifierError> {
+        let mut notifier = self.rendering_notifier.borrow_mut();
+        if notifier.replace(callback).is_some() {
+            Err(SetRenderingNotifierError::AlreadySet)
+        } else {
+            Ok(())
         }
     }
 
@@ -383,6 +448,8 @@ impl PlatformWindow for GLWindow {
         )
         .unwrap();
 
+        self.invoke_rendering_notifier(RenderingState::RenderingSetup, &opengl_context);
+
         opengl_context.make_not_current();
 
         let canvas = Rc::new(RefCell::new(canvas));
@@ -443,10 +510,7 @@ impl PlatformWindow for GLWindow {
 
     fn hide(self: Rc<Self>) {
         // Release GL textures and other GPU bound resources.
-        self.with_current_context(|| {
-            self.graphics_cache.borrow_mut().clear();
-            self.texture_cache.borrow_mut().clear();
-        });
+        self.release_graphics_resources();
 
         self.map_state.replace(GraphicsWindowBackendState::Unmapped);
         /* FIXME:
@@ -621,6 +685,12 @@ impl PlatformWindow for GLWindow {
     }
 }
 
+impl Drop for GLWindow {
+    fn drop(&mut self) {
+        self.release_graphics_resources();
+    }
+}
+
 struct MappedWindow {
     canvas: Option<CanvasRc>,
     opengl_context: crate::OpenGLContext,
@@ -632,7 +702,7 @@ impl Drop for MappedWindow {
     fn drop(&mut self) {
         if let Some(canvas) = self.canvas.take().map(|canvas| Rc::try_unwrap(canvas).ok()) {
             // The canvas must be destructed with a GL context current, in order to clean up correctly
-            self.opengl_context.with_current_context(|| {
+            self.opengl_context.with_current_context(|_| {
                 drop(canvas);
             });
         } else {

@@ -10,6 +10,83 @@ use std::rc::Rc;
 use crate::component::ComponentVTable;
 use crate::window::WindowRc;
 
+/// This enum describes a low-level access to specific graphcis APIs used
+/// by the renderer.
+#[derive(Clone)]
+#[non_exhaustive]
+pub enum GraphicsAPI<'a> {
+    /// The rendering is done using OpenGL.
+    NativeOpenGL {
+        /// Use this function pointer to obtain access to the OpenGL implementation - similar to `eglGetProcAddress`.
+        get_proc_address: &'a dyn Fn(&str) -> *const std::ffi::c_void,
+    },
+    /// The rendering is done on a HTML Canvas element using WebGL.
+    WebGL {
+        /// The DOM element id of the HTML Canvas element used for rendering.
+        canvas_element_id: &'a str,
+        /// The drawing context type used on the HTML Canvas element for rendering. This is the argument to the
+        /// `getContext` function on the HTML Canvas element.
+        context_type: &'a str,
+    },
+}
+
+impl<'a> std::fmt::Debug for GraphicsAPI<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            GraphicsAPI::NativeOpenGL { .. } => write!(f, "GraphicsAPI::NativeOpenGL"),
+            GraphicsAPI::WebGL { context_type, .. } => {
+                write!(f, "GraphicsAPI::WebGL(context_type = {})", context_type)
+            }
+        }
+    }
+}
+
+/// This enum describes the different rendering states, that will be provided
+/// to the parameter of the callback for `set_rendering_notifier` on the `Window`.
+#[derive(Debug, Clone)]
+#[repr(C)]
+#[non_exhaustive]
+pub enum RenderingState {
+    /// The window has been created and the graphics adapter/context initialized. When OpenGL
+    /// is used for rendering, the context will be current.
+    RenderingSetup,
+    /// The scene of items is about to be rendered.  When OpenGL
+    /// is used for rendering, the context will be current.
+    BeforeRendering,
+    /// The scene of items was rendered, but the back buffer was not sent for display presentation
+    /// yet (for example GL swap buffers). When OpenGL is used for rendering, the context will be current.
+    AfterRendering,
+    /// The window will be destroyed and/or graphics resources need to be released due to other
+    /// constraints.
+    RenderingTeardown,
+}
+
+/// Internal trait that's used to map rendering state callbacks to either a Rust-API provided
+/// impl FnMut or a struct that invokes a C callback and implements Drop to release the closure
+/// on the C++ side.
+pub trait RenderingNotifier {
+    /// Called to notify that rendering has reached a certain state.
+    fn notify(&mut self, state: RenderingState, graphics_api: &GraphicsAPI);
+}
+
+impl<F: FnMut(RenderingState, &GraphicsAPI)> RenderingNotifier for F {
+    fn notify(&mut self, state: RenderingState, graphics_api: &GraphicsAPI) {
+        self(state, graphics_api)
+    }
+}
+
+/// This enum describes the different error scenarios that may occur when the applicaton
+/// registers a rendering notifier on a [`sixtyfps::Window`].
+#[derive(Debug, Clone)]
+#[repr(C)]
+#[non_exhaustive]
+pub enum SetRenderingNotifierError {
+    /// The rendering backend does not support rendering notifiers.
+    Unsupported,
+    /// There is already a rendering notifier set, multiple notifiers are not supported.
+    AlreadySet,
+}
+
 /// This type represents a window towards the windowing system, that's used to render the
 /// scene of a component. It provides API to control windowing system specific aspects such
 /// as the position on the screen.
@@ -32,6 +109,27 @@ impl Window {
     /// De-registers the window from the windowing system, therefore hiding it.
     pub fn hide(&self) {
         self.0.hide();
+    }
+
+    /// This function allows registering a callback that's invoked during the different phases of
+    /// rendering. This allows custom rendering on top or below of the scene.
+    pub fn set_rendering_notifier(
+        &self,
+        callback: impl FnMut(RenderingState, &GraphicsAPI) + 'static,
+    ) -> std::result::Result<(), SetRenderingNotifierError> {
+        self.0.set_rendering_notifier(Box::new(callback))
+    }
+
+    /// This function issues a request to the windowing system to redraw the contents of the window.
+    pub fn request_redraw(&self) {
+        self.0.request_redraw();
+
+        // When this function is called by the user, we want it to translate to a requestAnimationFrame()
+        // on the web. If called through the rendering notifier (so from within the event loop processing),
+        // unfortunately winit will only do that if set the control flow to Poll. This hack achieves that.
+        #[cfg(target_arch = "wasm32")]
+        crate::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| driver.set_has_active_animations());
     }
 }
 

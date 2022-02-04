@@ -14,16 +14,15 @@ slint::slint! {
     import { MainWindow } from "plotter.slint";
 }
 
-fn pdf(x: f64, y: f64) -> f64 {
+fn pdf(x: f64, y: f64, a: f64) -> f64 {
     const SDX: f64 = 0.1;
     const SDY: f64 = 0.1;
-    const A: f64 = 5.0;
     let x = x as f64 / 10.0;
     let y = y as f64 / 10.0;
-    A * (-x * x / 2.0 / SDX / SDX - y * y / 2.0 / SDY / SDY).exp()
+    a * (-x * x / 2.0 / SDX / SDX - y * y / 2.0 / SDY / SDY).exp()
 }
 
-fn render_plot(pitch: f32) -> slint::Image {
+fn render_plot(pitch: f32, yaw: f32, amplitude: f32) -> slint::Image {
     let mut pixel_buffer = SharedPixelBuffer::new(640, 480);
     let size = (pixel_buffer.width(), pixel_buffer.height());
 
@@ -42,7 +41,8 @@ fn render_plot(pitch: f32) -> slint::Image {
         .build_cartesian_3d(-3.0..3.0, 0.0..6.0, -3.0..3.0)
         .expect("error building coordinate system");
     chart.with_projection(|mut p| {
-        p.pitch = 1.57 - (1.57 - pitch as f64 / 50.0).abs();
+        p.pitch = pitch as f64;
+        p.yaw = yaw as f64;
         p.scale = 0.7;
         p.into_matrix() // build the projection matrix
     });
@@ -54,7 +54,7 @@ fn render_plot(pitch: f32) -> slint::Image {
             SurfaceSeries::xoz(
                 (-15..=15).map(|x| x as f64 / 5.0),
                 (-15..=15).map(|x| x as f64 / 5.0),
-                pdf,
+                |x, y| pdf(x, y, amplitude as f64),
             )
             .style_func(&|&v| {
                 (&HSLColor(240.0 / 360.0 - 240.0 / 360.0 * v / 5.0, 1.0, 0.7)).into()

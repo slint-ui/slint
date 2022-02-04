@@ -13,7 +13,7 @@ enum OpenGLContextState {
     #[cfg(not(target_arch = "wasm32"))]
     Current(glutin::WindowedContext<glutin::PossiblyCurrent>),
     #[cfg(target_arch = "wasm32")]
-    Current(Rc<winit::window::Window>),
+    Current { window: Rc<winit::window::Window>, canvas: web_sys::HtmlCanvasElement },
 }
 
 pub struct OpenGLContext(RefCell<Option<OpenGLContextState>>);
@@ -26,7 +26,14 @@ impl OpenGLContext {
             #[cfg(not(target_arch = "wasm32"))]
             OpenGLContextState::Current(context) => context.window(),
             #[cfg(target_arch = "wasm32")]
-            OpenGLContextState::Current(window) => window.as_ref(),
+            OpenGLContextState::Current { window, .. } => window.as_ref(),
+        })
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn html_canvas_element(&self) -> std::cell::Ref<web_sys::HtmlCanvasElement> {
+        std::cell::Ref::map(self.0.borrow(), |state| match state.as_ref().unwrap() {
+            OpenGLContextState::Current { canvas, .. } => canvas,
         })
     }
 
@@ -38,7 +45,7 @@ impl OpenGLContext {
                 let current_ctx = unsafe { not_current_ctx.make_current().unwrap() };
                 OpenGLContextState::Current(current_ctx)
             }
-            state @ OpenGLContextState::Current(_) => state,
+            state @ OpenGLContextState::Current { .. } => state,
         });
     }
 
@@ -57,12 +64,12 @@ impl OpenGLContext {
         }
     }
 
-    pub fn with_current_context<T>(&self, cb: impl FnOnce() -> T) -> T {
-        if matches!(self.0.borrow().as_ref().unwrap(), OpenGLContextState::Current(_)) {
-            cb()
+    pub fn with_current_context<T>(&self, cb: impl FnOnce(&Self) -> T) -> T {
+        if matches!(self.0.borrow().as_ref().unwrap(), OpenGLContextState::Current { .. }) {
+            cb(self)
         } else {
             self.make_current();
-            let result = cb();
+            let result = cb(self);
             self.make_not_current();
             result
         }
@@ -258,7 +265,15 @@ impl OpenGLContext {
 
             let renderer =
                 femtovg::renderer::OpenGl::new_from_html_canvas(&window.canvas()).unwrap();
-            (Self(RefCell::new(Some(OpenGLContextState::Current(window)))), renderer)
+            (Self(RefCell::new(Some(OpenGLContextState::Current { window, canvas }))), renderer)
+        }
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn get_proc_address(&self, name: &str) -> *const std::ffi::c_void {
+        match &self.0.borrow().as_ref().unwrap() {
+            OpenGLContextState::NotCurrent(_) => std::ptr::null(),
+            OpenGLContextState::Current(current_ctx) => current_ctx.get_proc_address(name),
         }
     }
 }

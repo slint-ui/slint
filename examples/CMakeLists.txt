@@ -3,8 +3,12 @@
 cmake_minimum_required(VERSION 3.19)
 project(SlintExamples LANGUAGES CXX)
 
+list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../cmake")
+
+find_package(OpenGLES2 QUIET)
+
 if (NOT TARGET Slint::Slint)
-    find_package(Slint REQUIRED)
+    find_package(SixtyFPS REQUIRED)
     include(FetchContent)
 endif()
 
@@ -21,4 +25,7 @@ if (SLINT_FEATURE_INTERPRETER AND SLINT_FEATURE_BACKEND_QT)
 endif()
 if (SLINT_FEATURE_INTERPRETER)
     add_subdirectory(iot-dashboard/)
+endif()
+if (OpenGLES2_FOUND AND SIXTYFPS_FEATURE_BACKEND_GL)
+    add_subdirectory(opengl_underlay)
 endif()

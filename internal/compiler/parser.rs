@@ -369,7 +369,7 @@ declare_syntax! {
         AtLinearGradient -> [*Expression],
         /// expression()
         FunctionCallExpression -> [*Expression],
-        /// expression[index]
+        /// `expression[index]`
         IndexExpression -> [2 Expression],
         /// `expression += expression`
         SelfAssignment -> [2 Expression],
@@ -693,6 +693,31 @@ impl SyntaxToken {
     pub fn parent(&self) -> SyntaxNode {
         SyntaxNode { node: self.token.parent().unwrap(), source_file: self.source_file.clone() }
     }
+    pub fn next_token(&self) -> Option<SyntaxToken> {
+        // Due to a bug (as of rowan 0.15.3), rowan::SyntaxToken::next_token doesn't work if a
+        // sibling don't have tokens.
+        // For example, if we have an expression like  `if (true) {}`  the
+        // ConditionalExpression has an empty Expression/CodeBlock  for the else part,
+        // and next_token doesn't go into that.
+        // So re-implement
+
+        let token = self
+            .token
+            .next_sibling_or_token()
+            .and_then(|e| match e {
+                rowan::NodeOrToken::Node(n) => n.first_token(),
+                rowan::NodeOrToken::Token(t) => Some(t),
+            })
+            .or_else(|| {
+                self.token.ancestors().find_map(|it| it.next_sibling_or_token()).and_then(|e| {
+                    match e {
+                        rowan::NodeOrToken::Node(n) => n.first_token(),
+                        rowan::NodeOrToken::Token(t) => Some(t),
+                    }
+                })
+            })?;
+        Some(SyntaxToken { token, source_file: self.source_file.clone() })
+    }
 }
 
 impl std::fmt::Display for SyntaxToken {
@@ -744,6 +769,11 @@ impl SyntaxNode {
     }
     pub fn parent(&self) -> Option<SyntaxNode> {
         self.node.parent().map(|node| SyntaxNode { node, source_file: self.source_file.clone() })
+    }
+    pub fn first_token(&self) -> Option<SyntaxToken> {
+        self.node
+            .first_token()
+            .map(|token| SyntaxToken { token, source_file: self.source_file.clone() })
     }
 }
 

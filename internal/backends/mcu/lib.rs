@@ -123,6 +123,7 @@ mod the_backend {
             _items: &mut dyn Iterator<Item = Pin<slint_core_internal::items::ItemRef<'a>>>,
         ) {
         }
+
         fn show_popup(
             &self,
             _popup: &ComponentRc,

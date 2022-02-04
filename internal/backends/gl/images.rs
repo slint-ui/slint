@@ -98,7 +98,6 @@ enum ImageData {
 
 impl std::fmt::Debug for ImageData {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use image::GenericImageView;
         match self {
             ImageData::Texture(t) => {
                 write!(f, "ImageData::Texture({:?})", t.id.0)

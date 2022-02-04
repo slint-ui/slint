@@ -30,6 +30,15 @@ pub trait PlatformWindow {
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
     fn free_graphics_resources<'a>(&self, items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>);
 
+    /// This function is called through the public API to register a callback that the backend needs to invoke during
+    /// different phases of rendering.
+    fn set_rendering_notifier(
+        &self,
+        _callback: Box<dyn crate::api::RenderingNotifier>,
+    ) -> std::result::Result<(), crate::api::SetRenderingNotifierError> {
+        Err(crate::api::SetRenderingNotifierError::Unsupported)
+    }
+
     /// Show a popup at the given position
     fn show_popup(&self, popup: &ComponentRc, position: Point);
 
@@ -574,6 +583,7 @@ pub mod ffi {
     #![allow(unsafe_code)]
 
     use super::*;
+    use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
     use crate::slice::Slice;
 
     #[allow(non_camel_case_types)]
@@ -678,5 +688,53 @@ pub mod ffi {
     pub unsafe extern "C" fn slint_windowrc_close_popup(handle: *const WindowRcOpaque) {
         let window = &*(handle as *const WindowRc);
         window.close_popup();
+    }
+
+    /// C binding to the set_rendering_notifier() API of Window
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_windowrc_set_rendering_notifier(
+        handle: *const WindowRcOpaque,
+        callback: extern "C" fn(rendering_state: RenderingState, user_data: *mut c_void),
+        drop_user_data: extern "C" fn(user_data: *mut c_void),
+        user_data: *mut c_void,
+        error: *mut SetRenderingNotifierError,
+    ) -> bool {
+        struct CNotifier {
+            callback: extern "C" fn(rendering_state: RenderingState, user_data: *mut c_void),
+            drop_user_data: extern "C" fn(*mut c_void),
+            user_data: *mut c_void,
+        }
+
+        impl Drop for CNotifier {
+            fn drop(&mut self) {
+                (self.drop_user_data)(self.user_data)
+            }
+        }
+
+        impl RenderingNotifier for CNotifier {
+            fn notify(&mut self, state: RenderingState, _graphics_api: &crate::api::GraphicsAPI) {
+                (self.callback)(state, self.user_data)
+            }
+        }
+
+        let window = &*(handle as *const WindowRc);
+        match window.set_rendering_notifier(Box::new(CNotifier {
+            callback,
+            drop_user_data,
+            user_data,
+        })) {
+            Ok(()) => true,
+            Err(err) => {
+                *error = err;
+                false
+            }
+        }
+    }
+
+    /// This function issues a request to the windowing system to redraw the contents of the window.
+    #[no_mangle]
+    pub unsafe extern "C" fn sixtyfps_windowrc_request_redraw(handle: *const WindowRcOpaque) {
+        let window = &*(handle as *const WindowRc);
+        window.request_redraw();
     }
 }

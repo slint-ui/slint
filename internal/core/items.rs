@@ -988,7 +988,7 @@ pub struct PropertyAnimation {
     #[rtti_field]
     pub duration: i32,
     #[rtti_field]
-    pub loop_count: i32,
+    pub iteration_count: f32,
     #[rtti_field]
     pub easing: crate::animations::EasingCurve,
 }

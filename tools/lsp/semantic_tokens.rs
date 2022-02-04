@@ -44,7 +44,7 @@ pub fn get_semantic_tokens(
             SyntaxKind::StringLiteral => Some((self::STRING, 0)),
             SyntaxKind::NumberLiteral => Some((self::NUMBER, 0)),
             SyntaxKind::ColorLiteral => Some((self::NUMBER, 0)),
-            SyntaxKind::Identifier => match token.parent()?.kind() {
+            SyntaxKind::Identifier => match token.parent().kind() {
                 SyntaxKind::Component => Some((self::KEYWORD, 0)),
                 // the id of the element
                 SyntaxKind::SubElement => Some((self::VARIABLE, 1 << self::DEFINITION)),
@@ -55,7 +55,7 @@ pub fn get_semantic_tokens(
                 SyntaxKind::CallbackConnection => Some((self::FUNCTION, 0)),
                 SyntaxKind::PropertyDeclaration => Some((self::KEYWORD, 0)),
                 SyntaxKind::PropertyAnimation => Some((self::KEYWORD, 0)),
-                SyntaxKind::QualifiedName => match token.parent()?.parent()?.kind() {
+                SyntaxKind::QualifiedName => match token.parent().parent()?.kind() {
                     SyntaxKind::Type => Some((self::TYPE, 0)),
                     // the base type
                     SyntaxKind::Element => Some((self::TYPE, 0)),
@@ -66,7 +66,7 @@ pub fn get_semantic_tokens(
                     _ => None,
                 },
                 SyntaxKind::DeclaredIdentifier => {
-                    match token.parent()?.parent()?.kind() {
+                    match token.parent().parent()?.kind() {
                         SyntaxKind::Component => Some((self::TYPE, 1 << self::DEFINITION)),
                         SyntaxKind::RepeatedElement => {
                             Some((self::PROPERTY, 1 << self::DEFINITION))
@@ -104,7 +104,7 @@ pub fn get_semantic_tokens(
                 SyntaxKind::ExportIdentifier => {
                     Some((
                         self::TYPE,
-                        if token.parent()?.parent().map_or(false, |p| {
+                        if token.parent().parent().map_or(false, |p| {
                             p.children().any(|n| n.kind() == SyntaxKind::ExportName)
                         }) {
                             0
@@ -118,7 +118,7 @@ pub fn get_semantic_tokens(
                 SyntaxKind::ImportIdentifier => Some((self::KEYWORD, 0)),
                 SyntaxKind::ExternalName => Some((
                     self::TYPE,
-                    if token.parent()?.parent().map_or(false, |p| {
+                    if token.parent().parent().map_or(false, |p| {
                         p.children().any(|n| n.kind() == SyntaxKind::InternalName)
                     }) {
                         0
@@ -141,7 +141,7 @@ pub fn get_semantic_tokens(
             | SyntaxKind::NotEqual
             | SyntaxKind::OrOr
             | SyntaxKind::AndAnd => Some((self::OPERATOR, 0)),
-            SyntaxKind::LAngle | SyntaxKind::RAngle => (token.parent()?.kind()
+            SyntaxKind::LAngle | SyntaxKind::RAngle => (token.parent().kind()
                 == SyntaxKind::PropertyDeclaration)
                 .then(|| (self::OPERATOR, 0)),
             SyntaxKind::Plus
