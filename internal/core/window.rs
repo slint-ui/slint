@@ -692,7 +692,7 @@ pub mod ffi {
 
     /// C binding to the set_rendering_notifier() API of Window
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_set_rendering_notifier(
+    pub unsafe extern "C" fn slint_windowrc_set_rendering_notifier(
         handle: *const WindowRcOpaque,
         callback: extern "C" fn(rendering_state: RenderingState, user_data: *mut c_void),
         drop_user_data: extern "C" fn(user_data: *mut c_void),
@@ -733,7 +733,7 @@ pub mod ffi {
 
     /// This function issues a request to the windowing system to redraw the contents of the window.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_request_redraw(handle: *const WindowRcOpaque) {
+    pub unsafe extern "C" fn slint_windowrc_request_redraw(handle: *const WindowRcOpaque) {
         let window = &*(handle as *const WindowRc);
         window.request_redraw();
     }

@@ -10,7 +10,7 @@ use std::rc::Rc;
 use crate::component::ComponentVTable;
 use crate::window::WindowRc;
 
-/// This enum describes a low-level access to specific graphcis APIs used
+/// This enum describes a low-level access to specific graphics APIs used
 /// by the renderer.
 #[derive(Clone)]
 #[non_exhaustive]
@@ -76,7 +76,7 @@ impl<F: FnMut(RenderingState, &GraphicsAPI)> RenderingNotifier for F {
 }
 
 /// This enum describes the different error scenarios that may occur when the applicaton
-/// registers a rendering notifier on a [`sixtyfps::Window`].
+/// registers a rendering notifier on a [`slint::Window`].
 #[derive(Debug, Clone)]
 #[repr(C)]
 #[non_exhaustive]

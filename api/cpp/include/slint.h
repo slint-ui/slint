@@ -148,7 +148,7 @@ public:
             (*reinterpret_cast<F *>(data))(state);
         };
         SetRenderingNotifierError err;
-        if (cbindgen_private::sixtyfps_windowrc_set_rendering_notifier(
+        if (cbindgen_private::slint_windowrc_set_rendering_notifier(
                     &inner, actual_cb,
                     [](void *user_data) { delete reinterpret_cast<F *>(user_data); },
                     new F(std::move(callback)), &err)) {
@@ -158,7 +158,7 @@ public:
         }
     }
 
-    void request_redraw() const { cbindgen_private::sixtyfps_windowrc_request_redraw(&inner); }
+    void request_redraw() const { cbindgen_private::slint_windowrc_request_redraw(&inner); }
 
 private:
     cbindgen_private::WindowRcOpaque inner;
