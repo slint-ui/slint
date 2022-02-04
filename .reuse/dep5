@@ -3,7 +3,7 @@ Upstream-Name: slint
 Upstream-Contact: Slint Developers <info@slint-ui.com>
 Source: https/sixtyfps.io/
 
-Files: */slint-logo-*.svg
+Files: */slint-logo-*.svg */slint-logo-*.png
 Copyright: Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 License: CC-BY-ND-4.0
 
@@ -54,7 +54,3 @@ License: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 Files: vscode_extension/*.json vscode_extension/README.md
 Copyright: Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 License: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
-
-Files: vscode_extension/extension-logo.png
-Copyright: Copyright © SixtyFPS GmbH <info@sixtyfps.io>
-License: CC-BY-ND-4.0
