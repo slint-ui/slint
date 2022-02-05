@@ -315,16 +315,21 @@ fn handle_property_init(
         quote!(let _self = self_rc.as_pin_ref();)
     };
 
-    if let Type::Callback { args, .. } = &prop_type {
+    if let Type::Callback { args, return_type } = &prop_type {
         let mut ctx2 = ctx.clone();
         ctx2.argument_types = args;
         let tokens_for_expression = compile_expression(&binding_expression.expression, &ctx2);
+        let as_ = if return_type.as_deref().map_or(true, |t| matches!(t, Type::Void)) {
+            quote!(;)
+        } else {
+            quote!(as _)
+        };
         init.push(quote!({
             #[allow(unreachable_code, unused)]
             sixtyfps::internal::set_callback_handler(#rust_property, &self_rc, {
                 move |self_rc, args| {
                     #init_self_pin_ref
-                    (#tokens_for_expression) as _
+                    (#tokens_for_expression) #as_
                 }
             });
         }));

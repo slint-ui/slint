@@ -12,6 +12,8 @@ TestCase := Rectangle {
 
     callback dummy() -> int;
     dummy => { 4.4 }
+    callback returns_void;
+    returns_void => { test_func2("haha", 8) }
 
     property <bool> test: test_prop == 4 && test_prop2 == "hello=50";
 }
