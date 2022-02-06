@@ -241,7 +241,10 @@ impl Expression {
                 Type::Struct { fields, .. } => fields[name].clone(),
                 _ => unreachable!(),
             },
-            Self::ArrayIndex { array, .. } => array.ty(ctx),
+            Self::ArrayIndex { array, .. } => match array.ty(ctx) {
+                Type::Array(ty) => *ty,
+                _ => unreachable!(),
+            },
             Self::Cast { to, .. } => to.clone(),
             Self::CodeBlock(sub) => sub.last().map_or(Type::Void, |e| e.ty(ctx)),
             Self::BuiltinFunctionCall { function, .. } => match function.ty() {

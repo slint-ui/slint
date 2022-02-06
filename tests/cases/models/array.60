@@ -9,7 +9,7 @@ export TestCase := Rectangle {
     property<bool> test: num_ints == 5 && operations == 10
         && hello_world == (["", "world"])[1];
     property<int> third_int: ints[2];
-    property<string> hello_world: ["hello", "world"][1];
+    property<string> hello_world: [{t: "hello"}, {t: "world"}][1].t;
 }
 
 /*

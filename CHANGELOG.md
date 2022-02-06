@@ -34,6 +34,7 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/sixtyfps-rs/m
 ### Fixed
 
  - Models initialized from arrays are now also mutable when run in the interpreter.
+ - Fixed compilation error when accessing object members of array through the array index syntax
 
 ## [0.1.6] - 2022-01-21
 
