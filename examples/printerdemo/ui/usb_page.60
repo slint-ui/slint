@@ -5,21 +5,37 @@ import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox } fro
 import { StandardListView } from "sixtyfps_widgets.60";
 import { PrinterQueue } from "./printer_queue.60";
 
+struct File := { name: string, preview: image }
 
 export UsbPage := Page {
     has-back-button: true;
     header: "USB";
+
+    property <[File]> files: [
+        { name: ".." },
+        { name: "cat.png", preview: @image-url("images/cat_preview_round.png") },
+        { name: "dog.png", preview: @image-url("images/dog.jpg") },
+        { name: "elephant.png",preview: @image-url("images/elephant.jpg") },
+        { name: "snake.png", preview: @image-url("images/snake.jpg") },
+    ];
 
     GridLayout {
         padding-top: 46px /* header line height in design */
                      + /* extra top-padding in design */ 27px;
         spacing: 24px;
 
-        Image {
+        Rectangle {
             width: 50%;
-            source: @image-url("images/cat_preview_round.png");
-            image-fit: contain;
             rowspan: 5;
+            border-radius: 30px;
+            clip: true;
+            Image {
+                height: 100%;
+                width: 100%;
+                source: files[list-view.current-item].preview;
+                image-fit: cover;
+            }
+
         }
 
         Label {
@@ -31,11 +47,13 @@ export UsbPage := Page {
         }
 
         list-view := StandardListView {
+            current-item: 1;
             col: 1;
             row: 1;
             colspan: 2;
             horizontal-stretch: 1;
             vertical-stretch: 1;
+            // TODO: maybe we want something like `model: files.map(item => { text: item.preview })`
             model: [
                 { text: ".." },
                 { text: "cat.png" },
@@ -72,16 +90,7 @@ export UsbPage := Page {
                 icon: @image-url("images/print.svg");
                 text: "Start printing";
                 clicked => {
-                    //FIXME!
-                    if (list-view.current-item == 2) {
-                        PrinterQueue.start-job("dog.png");
-                    } else if (list-view.current-item == 3) {
-                        PrinterQueue.start-job("elephant.png");
-                    } else if (list-view.current-item == 4) {
-                        PrinterQueue.start-job("snake.png");
-                    } else {
-                        PrinterQueue.start-job("cat.png");
-                    }
+                    PrinterQueue.start-job(files[list-view.current-item].name);
                 }
             }
             Rectangle {
