@@ -81,7 +81,7 @@ Check out the [language reference](docs/langref.md) for more details.
 An application is composed of the business logic written in Rust, C++, or JavaScript and the `.slint` user interface design markup, which
 is compiled to native code.
 
-![Architecture Overview](https://sixtyfps.io/resources/architecture.drawio.svg)
+![Architecture Overview](https://slint-ui.com/resources/architecture.drawio.svg)
 
 ### Compiler
 
