@@ -4,7 +4,7 @@
 //include_path: ../../../examples/printerdemo/ui/images/
 TestCase := Rectangle {
     property <image> empty_image: @image-url("");
-    property <image> cat: @image-url("cat_preview_round.png");
+    property <image> cat: @image-url("cat.jpg");
 
     property <int> empty_width: empty_image.width;
     property <int> empty_height: empty_image.height;

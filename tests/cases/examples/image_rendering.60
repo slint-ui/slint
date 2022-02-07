@@ -8,11 +8,11 @@ export MainWindow := Window {
 
     HorizontalLayout {
         Image {
-            source: @image-url("../../../examples/printerdemo/ui/images/cat_preview_round.png");
+            source: @image-url("../../../examples/printerdemo/ui/images/cat.jpg");
             image-rendering: smooth;
         }
         Image {
-            source: @image-url("../../../examples/printerdemo/ui/images/cat_preview_round.png");
+            source: @image-url("../../../examples/printerdemo/ui/images/cat.jpg");
             image-rendering: pixelated;
         }
     }

@@ -4,19 +4,19 @@
 Win := Window {
     GridLayout {
         Image {
-            source: @image-url("../../../examples/printerdemo/ui/images/cat_preview_round.png");
+            source: @image-url("../../../examples/printerdemo/ui/images/cat.jpg");
         }
         Image {
-            source: @image-url("../../../examples/printerdemo/ui/images/cat_preview_round.png");
+            source: @image-url("../../../examples/printerdemo/ui/images/cat.jpg");
             image-fit: contain;
         }
         Image {
             row: 1;
-            source: @image-url("../../../examples/printerdemo/ui/images/cat_preview_round.png");
+            source: @image-url("../../../examples/printerdemo/ui/images/cat.jpg");
             image-fit: cover;
         }
         Image {
-            source: @image-url("../../../examples/printerdemo/ui/images/cat_preview_round.png");
+            source: @image-url("../../../examples/printerdemo/ui/images/cat.jpg");
             image-fit: fill;
         }
     }

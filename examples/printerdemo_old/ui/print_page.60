@@ -26,10 +26,10 @@ PrintPage := Page {
                     StandardListView {
                         model: [
                             { text: ".." },
-                            { text: "cat.png" },
-                            { text: "dog.png" },
-                            { text: "elephant.png" },
-                            { text: "snake.png" },
+                            { text: "cat.jpg" },
+                            { text: "dog.jpg" },
+                            { text: "elephant.jpg" },
+                            { text: "snake.jpg" },
                         ];
                     }
                 }

@@ -13,10 +13,10 @@ export UsbPage := Page {
 
     property <[File]> files: [
         { name: ".." },
-        { name: "cat.png", preview: @image-url("images/cat_preview_round.png") },
-        { name: "dog.png", preview: @image-url("images/dog.jpg") },
-        { name: "elephant.png",preview: @image-url("images/elephant.jpg") },
-        { name: "snake.png", preview: @image-url("images/snake.jpg") },
+        { name: "cat.jpg", preview: @image-url("images/cat.jpg") },
+        { name: "dog.jpg", preview: @image-url("images/dog.jpg") },
+        { name: "elephant.jpg",preview: @image-url("images/elephant.jpg") },
+        { name: "snake.jpg", preview: @image-url("images/snake.jpg") },
     ];
 
     GridLayout {
@@ -56,10 +56,10 @@ export UsbPage := Page {
             // TODO: maybe we want something like `model: files.map(item => { text: item.preview })`
             model: [
                 { text: ".." },
-                { text: "cat.png" },
-                { text: "dog.png" },
-                { text: "elephant.png" },
-                { text: "snake.png" },
+                { text: "cat.jpg" },
+                { text: "dog.jpg" },
+                { text: "elephant.jpg" },
+                { text: "snake.jpg" },
             ];
         }
 

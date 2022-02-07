@@ -83,12 +83,11 @@ pub fn main() {
     let main_window = MainWindow::new();
 
     #[cfg(target_arch = "wasm32")]
-    let source_image =
-        { image::load_from_memory(include_bytes!("cat_preview_round.png")).unwrap().into_rgba8() };
+    let source_image = image::load_from_memory(include_bytes!("cat.jpg")).unwrap().into_rgba8();
     #[cfg(not(target_arch = "wasm32"))]
     let source_image = {
         let mut cat_path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        cat_path.push("cat_preview_round.png");
+        cat_path.push("cat.jpg");
         image::open(&cat_path).expect("Error loading cat image").into_rgba8()
     };
 
