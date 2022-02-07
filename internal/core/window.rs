@@ -583,6 +583,14 @@ pub mod ffi {
     use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
     use crate::slice::Slice;
 
+    /// This enum describes a low-level access to specific graphcis APIs used
+    /// by the renderer.
+    #[repr(C)]
+    pub enum GraphicsAPI {
+        /// The rendering is done using OpenGL.
+        NativeOpenGL,
+    }
+
     #[allow(non_camel_case_types)]
     type c_void = ();
 
@@ -693,13 +701,21 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn sixtyfps_windowrc_set_rendering_notifier(
         handle: *const WindowRcOpaque,
-        callback: extern "C" fn(rendering_state: RenderingState, user_data: *mut c_void),
+        callback: extern "C" fn(
+            rendering_state: RenderingState,
+            graphics_api: GraphicsAPI,
+            user_data: *mut c_void,
+        ),
         drop_user_data: extern "C" fn(user_data: *mut c_void),
         user_data: *mut c_void,
         error: *mut SetRenderingNotifierError,
     ) -> bool {
         struct CNotifier {
-            callback: extern "C" fn(rendering_state: RenderingState, user_data: *mut c_void),
+            callback: extern "C" fn(
+                rendering_state: RenderingState,
+                graphics_api: GraphicsAPI,
+                user_data: *mut c_void,
+            ),
             drop_user_data: extern "C" fn(*mut c_void),
             user_data: *mut c_void,
         }
@@ -711,8 +727,12 @@ pub mod ffi {
         }
 
         impl RenderingNotifier for CNotifier {
-            fn notify(&mut self, state: RenderingState, _graphics_api: &crate::api::GraphicsAPI) {
-                (self.callback)(state, self.user_data)
+            fn notify(&mut self, state: RenderingState, graphics_api: &crate::api::GraphicsAPI) {
+                let cpp_graphics_api = match graphics_api {
+                    crate::api::GraphicsAPI::NativeOpenGL { .. } => GraphicsAPI::NativeOpenGL,
+                    crate::api::GraphicsAPI::WebGL { .. } => unreachable!(), // We don't support wasm with C++
+                };
+                (self.callback)(state, cpp_graphics_api, self.user_data)
             }
         }
 

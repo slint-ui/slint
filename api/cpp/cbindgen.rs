@@ -164,6 +164,7 @@ fn gen_corelib(
         "IntSize",                   // included in generated_public.h
         "RenderingState",            // included in generated_public.h
         "SetRenderingNotifierError", // included in generated_public.h
+        "GraphicsAPI",               // included in generated_public.h
     ]
     .iter()
     .map(|x| x.to_string())
@@ -328,6 +329,7 @@ fn gen_corelib(
         "IntSize".into(),
         "RenderingState".into(),
         "SetRenderingNotifierError".into(),
+        "GraphicsAPI".into(),
     ];
 
     public_config.export.body.insert(

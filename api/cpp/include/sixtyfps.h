@@ -144,8 +144,8 @@ public:
     template<typename F>
     std::optional<SetRenderingNotifierError> set_rendering_notifier(F callback) const
     {
-        auto actual_cb = [](RenderingState state, void *data) {
-            (*reinterpret_cast<F *>(data))(state);
+        auto actual_cb = [](RenderingState state, GraphicsAPI graphics_api, void *data) {
+            (*reinterpret_cast<F *>(data))(state, graphics_api);
         };
         SetRenderingNotifierError err;
         if (cbindgen_private::sixtyfps_windowrc_set_rendering_notifier(
