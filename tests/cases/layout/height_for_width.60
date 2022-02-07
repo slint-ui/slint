@@ -10,7 +10,7 @@ TestCase := Rectangle {
         padding: 0px;
         spacing: 0px;
         top_image := Image {
-            source: @image-url("cat_preview_round.png");
+            source: @image-url("cat.jpg");
         }
         HorizontalLayout {
             padding: 0px;
@@ -20,7 +20,7 @@ TestCase := Rectangle {
                 width: 300phx;
             }
             second_image := Image {
-                source: @image-url("cat_preview_round.png");
+                source: @image-url("cat.jpg");
             }
         }
         Rectangle {

@@ -406,7 +406,7 @@ impl Image {
     /// # use std::path::Path;
     /// # use sixtyfps_corelib::graphics::*;
     /// let path_buf = Path::new(env!("CARGO_MANIFEST_DIR"))
-    ///     .join("../../examples/printerdemo/ui/images/cat_preview_round.png");
+    ///     .join("../../examples/printerdemo/ui/images/cat.jpg");
     /// let image = Image::load_from_path(&path_buf).unwrap();
     /// assert_eq!(image.path(), Some(path_buf.as_path()));
     /// ```

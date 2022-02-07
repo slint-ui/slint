@@ -5,7 +5,7 @@
 
 TestCase := Rectangle {
     img := Image {
-        source: @image-url("cat_preview_round.png");
+        source: @image-url("cat.jpg");
     }
     property <length> img_width: img.width;
     property <length> img_height: img.height;
