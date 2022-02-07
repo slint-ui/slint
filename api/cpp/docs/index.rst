@@ -49,7 +49,7 @@ Welcome to Slint C++'s documentation!
    :target: https://github.com/sixtyfpsui/sixtyfps/discussions
    :alt: GitHub Discussions
 
-`Slint <https://sixtyfps.io/>`_ is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications.
+`Slint <https://slint-ui.com/>`_ is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications.
 Slint C++ is the C++ API to interact with a Slint UI from C++.
 
 The .slint Markup Language
@@ -81,7 +81,7 @@ Architecture
 An application is composed of the business logic written in C++ and the `.slint` user interface design markup, which
 is compiled to native code.
 
-.. image:: https://sixtyfps.io/resources/architecture.drawio.svg
+.. image:: https://slint-ui.com/resources/architecture.drawio.svg
   :alt: Architecture Overview
 
 Developing
