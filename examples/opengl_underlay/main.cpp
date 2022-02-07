@@ -44,7 +44,7 @@ class OpenGLUnderlay
 public:
     OpenGLUnderlay(sixtyfps::ComponentWeakHandle<App> app) : app_weak(app) { }
 
-    void operator()(sixtyfps::RenderingState state)
+    void operator()(sixtyfps::RenderingState state, sixtyfps::GraphicsAPI)
     {
         switch (state) {
         case sixtyfps::RenderingState::RenderingSetup:
