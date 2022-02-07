@@ -76,6 +76,17 @@ impl<'a> TypeLoader<'a> {
         .as_ref()
         .map(Cow::from)
         .or_else(|| std::env::var("SLINT_STYLE").map(Cow::from).ok())
+        .or_else(|| {
+            let legacy_fallback = std::env::var("SIXTYFPS_STYLE").map(Cow::from).ok();
+            if legacy_fallback.is_some() {
+                diag.push_diagnostic_with_span(
+                    "Using `SIXTYFPS_STYLE` environment variable for dynamic backend selection. This is deprecated, use `SLINT_STYLE` instead".to_owned(),
+                    Default::default(),
+                    crate::diagnostics::DiagnosticLevel::Warning
+                )
+            }
+            legacy_fallback
+        })
         .unwrap_or_else(|| {
             let is_wasm = cfg!(target_arch = "wasm32")
                 || std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm"));
