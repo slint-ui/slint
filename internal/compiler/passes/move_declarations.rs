@@ -3,7 +3,6 @@
 
 //! This pass moves all declaration of properties or callback to the root
 
-use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::NamedReference;
 use crate::langtype::Type;
 use crate::object_tree::*;
@@ -21,11 +20,14 @@ impl Declarations {
     }
 }
 
-pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
-    simplify_optimized_items(component.optimized_elements.borrow().as_slice());
+pub fn move_declarations(component: &Rc<Component>) {
+    simplify_optimized_items_recursive(component);
+    do_move_declarations(component);
+}
 
+fn do_move_declarations(component: &Rc<Component>) {
     let mut decl = Declarations::take_from_element(&mut *component.root_element.borrow_mut());
-    component.popup_windows.borrow().iter().for_each(|f| move_declarations(&f.component, diag));
+    component.popup_windows.borrow().iter().for_each(|f| do_move_declarations(&f.component));
 
     let mut new_root_bindings = HashMap::new();
     let mut new_root_property_analysis = HashMap::new();
@@ -35,7 +37,7 @@ pub fn move_declarations(component: &Rc<Component>, diag: &mut BuildDiagnostics)
 
         if elem.borrow().repeated.is_some() {
             if let Type::Component(base) = &elem.borrow().base_type {
-                move_declarations(base, diag);
+                do_move_declarations(base);
             } else {
                 panic!("Repeated element should have a component as base because of the repeater_component.rs pass")
             }
@@ -121,6 +123,22 @@ fn fixup_reference(nr: &mut NamedReference) {
 
 fn map_name(e: &ElementRc, s: &str) -> String {
     format!("{}-{}", e.borrow().id, s)
+}
+
+fn simplify_optimized_items_recursive(component: &Rc<Component>) {
+    simplify_optimized_items(component.optimized_elements.borrow().as_slice());
+    component
+        .popup_windows
+        .borrow()
+        .iter()
+        .for_each(|f| simplify_optimized_items_recursive(&f.component));
+    recurse_elem(&component.root_element, &(), &mut |elem, _| {
+        if elem.borrow().repeated.is_some() {
+            if let Type::Component(base) = &elem.borrow().base_type {
+                simplify_optimized_items_recursive(base);
+            }
+        }
+    });
 }
 
 /// Optimized item are not used for the fact that they are items, but their properties

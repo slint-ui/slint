@@ -14,7 +14,16 @@ export TestCase := Window {
             opacity: 1;
         }
     }
+
+    // issue #915
+    layout3 := HorizontalLayout {
+        for _ in 3 : Rectangle {
+            width: 10px;
+            opacity: 0.5;
+        }
+    }
     property <length> layout1_height : layout1.min-height;
     property <length> layout2_width : layout2.max-width;
-    property<bool> test: layout1_height == 55px && layout2_width == 88px;
+    property <length> layout3_width : layout3.preferred-width;
+    property<bool> test: layout1_height == 55px && layout2_width == 88px && layout3_width == 30px;
 }

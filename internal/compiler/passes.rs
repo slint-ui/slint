@@ -144,7 +144,7 @@ pub async fn run_passes(
     {
         deduplicate_property_read::deduplicate_property_read(component);
         optimize_useless_rectangles::optimize_useless_rectangles(component);
-        move_declarations::move_declarations(component, diag);
+        move_declarations::move_declarations(component);
         remove_aliases::remove_aliases(component, diag);
         if !diag.has_error() {
             // binding loop causes panics in const_propagation
