@@ -4,12 +4,12 @@
 use std::path::Path;
 
 use super::DocumentCache;
+use i_slint_compiler::diagnostics::Spanned;
+use i_slint_compiler::expression_tree::Expression;
+use i_slint_compiler::langtype::Type;
+use i_slint_compiler::lookup::{LookupObject, LookupResult};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 use lsp_types::{GotoDefinitionResponse, LocationLink, Range, Url};
-use slint_compiler_internal::diagnostics::Spanned;
-use slint_compiler_internal::expression_tree::Expression;
-use slint_compiler_internal::langtype::Type;
-use slint_compiler_internal::lookup::{LookupObject, LookupResult};
-use slint_compiler_internal::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 
 pub fn goto_definition(
     document_cache: &mut DocumentCache,
@@ -21,17 +21,15 @@ pub fn goto_definition(
             let parent = n.parent()?;
             return match parent.kind() {
                 SyntaxKind::Element | SyntaxKind::Type => {
-                    let qual =
-                        slint_compiler_internal::object_tree::QualifiedTypeName::from_node(n);
+                    let qual = i_slint_compiler::object_tree::QualifiedTypeName::from_node(n);
                     let doc = document_cache.documents.get_document(node.source_file.path())?;
                     match doc.local_registry.lookup_qualified(&qual.members) {
-                        slint_compiler_internal::langtype::Type::Component(c) => {
+                        i_slint_compiler::langtype::Type::Component(c) => {
                             goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
                         }
-                        slint_compiler_internal::langtype::Type::Struct {
-                            node: Some(node),
-                            ..
-                        } => goto_node(document_cache, node.parent().as_ref()?),
+                        i_slint_compiler::langtype::Type::Struct { node: Some(node), .. } => {
+                            goto_node(document_cache, node.parent().as_ref()?)
+                        }
                         _ => None,
                     }
                 }
@@ -46,14 +44,13 @@ pub fn goto_definition(
                             .filter(|t| t.kind() == SyntaxKind::Identifier);
                         let mut cur_tok = it.next()?;
                         let first_str =
-                            slint_compiler_internal::parser::normalize_identifier(cur_tok.text());
-                        let global = slint_compiler_internal::lookup::global_lookup();
+                            i_slint_compiler::parser::normalize_identifier(cur_tok.text());
+                        let global = i_slint_compiler::lookup::global_lookup();
                         let mut expr_it = global.lookup(ctx, &first_str)?;
                         while cur_tok.token != token.token {
                             cur_tok = it.next()?;
-                            let str = slint_compiler_internal::parser::normalize_identifier(
-                                cur_tok.text(),
-                            );
+                            let str =
+                                i_slint_compiler::parser::normalize_identifier(cur_tok.text());
                             expr_it = expr_it.lookup(ctx, &str)?;
                         }
                         Some(expr_it)
@@ -89,9 +86,9 @@ pub fn goto_definition(
             };
         } else if let Some(n) = syntax_nodes::ImportIdentifier::new(node.clone()) {
             let doc = document_cache.documents.get_document(node.source_file.path())?;
-            let imp_name = slint_compiler_internal::typeloader::ImportedName::from_node(n);
+            let imp_name = i_slint_compiler::typeloader::ImportedName::from_node(n);
             return match doc.local_registry.lookup(&imp_name.internal_name) {
-                slint_compiler_internal::langtype::Type::Component(c) => {
+                i_slint_compiler::langtype::Type::Component(c) => {
                     goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
                 }
                 _ => None,
@@ -117,8 +114,7 @@ pub fn goto_definition(
             let prop_name = token.text();
             let element = syntax_nodes::Element::new(n.parent()?)?;
             if let Some(p) = element.PropertyDeclaration().find_map(|p| {
-                (slint_compiler_internal::parser::identifier_text(&p.DeclaredIdentifier())?
-                    == prop_name)
+                (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
                     .then(|| p)
             }) {
                 return goto_node(document_cache, &p);
@@ -135,8 +131,7 @@ pub fn goto_definition(
             }
             let element = syntax_nodes::Element::new(n.parent()?)?;
             if let Some(p) = element.PropertyDeclaration().find_map(|p| {
-                (slint_compiler_internal::parser::identifier_text(&p.DeclaredIdentifier())?
-                    == prop_name)
+                (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
                     .then(|| p)
             }) {
                 return goto_node(document_cache, &p);
@@ -153,8 +148,7 @@ pub fn goto_definition(
             }
             let element = syntax_nodes::Element::new(n.parent()?)?;
             if let Some(p) = element.CallbackDeclaration().find_map(|p| {
-                (slint_compiler_internal::parser::identifier_text(&p.DeclaredIdentifier())?
-                    == prop_name)
+                (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
                     .then(|| p)
             }) {
                 return goto_node(document_cache, &p);

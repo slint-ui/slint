@@ -5,7 +5,7 @@
 
 This module contains all the native Qt widget implementation that forwards to QStyle.
 
-Same as in slint_core_internal::items, when When adding an item or a property,
+Same as in i_slint_core::items, when When adding an item or a property,
 it needs to be kept in sync with different place.
 
  - It needs to be changed in this module
@@ -20,19 +20,19 @@ it needs to be kept in sync with different place.
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
-use slint_core_internal::graphics::{Color, Rect};
-use slint_core_internal::input::{
+use i_slint_core::graphics::{Color, Rect};
+use i_slint_core::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
 };
-use slint_core_internal::item_rendering::{CachedRenderingData, ItemRenderer};
-use slint_core_internal::items::{Item, ItemConsts, ItemRc, ItemVTable, VoidArg};
-use slint_core_internal::layout::{LayoutInfo, Orientation};
-use slint_core_internal::rtti::*;
-use slint_core_internal::window::WindowRc;
-use slint_core_internal::{
+use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
+use i_slint_core::items::{Item, ItemConsts, ItemRc, ItemVTable, VoidArg};
+use i_slint_core::layout::{LayoutInfo, Orientation};
+use i_slint_core::rtti::*;
+use i_slint_core::window::WindowRc;
+use i_slint_core::{
     declare_item_vtable, Callback, ItemVTable_static, Property, SharedString, SharedVector,
 };
-use slint_core_macros_internal::*;
+use i_slint_core_macros::*;
 use std::rc::Rc;
 
 type ItemRendererRef<'a> = &'a mut dyn ItemRenderer;

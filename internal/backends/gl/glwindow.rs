@@ -21,7 +21,7 @@ use corelib::items::{ItemRef, MouseCursor};
 use corelib::layout::Orientation;
 use corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation};
 use corelib::Property;
-use slint_core_internal as corelib;
+use i_slint_core as corelib;
 use winit::dpi::LogicalSize;
 
 use crate::CanvasRc;
@@ -360,7 +360,7 @@ impl PlatformWindow for GLWindow {
         }
     }
 
-    fn apply_window_properties(&self, window_item: Pin<&slint_core_internal::items::WindowItem>) {
+    fn apply_window_properties(&self, window_item: Pin<&i_slint_core::items::WindowItem>) {
         // Make the unwrap() calls on self.borrow_mapped_window*() safe
         if !self.is_mapped() {
             return;
@@ -574,7 +574,7 @@ impl PlatformWindow for GLWindow {
 
     fn text_input_byte_offset_for_position(
         &self,
-        text_input: Pin<&slint_core_internal::items::TextInput>,
+        text_input: Pin<&i_slint_core::items::TextInput>,
         pos: Point,
     ) -> usize {
         let scale_factor = self.self_weak.upgrade().unwrap().scale_factor();
@@ -607,7 +607,7 @@ impl PlatformWindow for GLWindow {
             Size::new(width, height),
             (text_input.horizontal_alignment(), text_input.vertical_alignment()),
             text_input.wrap(),
-            slint_core_internal::items::TextOverflow::clip,
+            i_slint_core::items::TextOverflow::clip,
             text_input.single_line(),
             paint,
             |line_text, line_pos, start, metrics| {
@@ -659,7 +659,7 @@ impl PlatformWindow for GLWindow {
             Size::new(width, height),
             (text_input.horizontal_alignment(), text_input.vertical_alignment()),
             text_input.wrap(),
-            slint_core_internal::items::TextOverflow::clip,
+            i_slint_core::items::TextOverflow::clip,
             text_input.single_line(),
             paint,
             |line_text, line_pos, start, metrics| {

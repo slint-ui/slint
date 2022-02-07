@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 use core::cell::RefCell;
+use i_slint_compiler::langtype::Type;
+use i_slint_core::model::{Model, ModelRc};
+use i_slint_core::window::WindowHandleAccess;
+use i_slint_core::{ImageInner, SharedVector};
 use neon::prelude::*;
 use rand::RngCore;
-use slint_compiler_internal::langtype::Type;
-use slint_core_internal::model::{Model, ModelRc};
-use slint_core_internal::window::WindowHandleAccess;
-use slint_core_internal::{ImageInner, SharedVector};
 use slint_interpreter::ComponentHandle;
 
 mod js_model;
@@ -15,7 +15,7 @@ mod persistent_context;
 
 struct WrappedComponentType(Option<slint_interpreter::ComponentDefinition>);
 struct WrappedComponentRc(Option<slint_interpreter::ComponentInstance>);
-struct WrappedWindow(Option<slint_core_internal::window::WindowRc>);
+struct WrappedWindow(Option<i_slint_core::window::WindowRc>);
 
 /// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
 type GlobalContextCallback<'c> =
@@ -154,7 +154,7 @@ fn create<'cx>(
 
 fn to_eval_value<'cx>(
     val: Handle<'cx, JsValue>,
-    ty: slint_compiler_internal::langtype::Type,
+    ty: i_slint_compiler::langtype::Type,
     cx: &mut impl Context<'cx>,
     persistent_context: &persistent_context::PersistentContext<'cx>,
 ) -> NeonResult<slint_interpreter::Value> {
@@ -177,12 +177,12 @@ fn to_eval_value<'cx>(
                 .value()
                 .parse::<css_color_parser2::Color>()
                 .or_else(|e| cx.throw_error(&e.to_string()))?;
-            Ok((slint_core_internal::Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)).into())
+            Ok((i_slint_core::Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)).into())
         }
         Type::Array(a) => match val.downcast::<JsArray>() {
             Ok(arr) => {
                 let vec = arr.to_vec(cx)?;
-                Ok(Value::Model(ModelRc::new(slint_core_internal::model::SharedVectorModel::from(
+                Ok(Value::Model(ModelRc::new(i_slint_core::model::SharedVectorModel::from(
                     vec.into_iter()
                         .map(|i| to_eval_value(i, (*a).clone(), cx, persistent_context))
                         .collect::<Result<SharedVector<_>, _>>()?,
@@ -199,7 +199,7 @@ fn to_eval_value<'cx>(
         Type::Image => {
             let path = val.to_string(cx)?.value();
             Ok(Value::Image(
-                slint_core_internal::graphics::Image::load_from_path(std::path::Path::new(&path))
+                i_slint_core::graphics::Image::load_from_path(std::path::Path::new(&path))
                     .or_else(|_| cx.throw_error(format!("cannot load image {:?}", path)))?,
             ))
         }
@@ -284,7 +284,7 @@ fn to_js_value<'cx>(
             }
             js_object.as_value(cx)
         }
-        Value::Brush(slint_core_internal::Brush::SolidColor(c)) => JsString::new(
+        Value::Brush(i_slint_core::Brush::SolidColor(c)) => JsString::new(
             cx,
             &format!("#{:02x}{:02x}{:02x}{:02x}", c.red(), c.green(), c.blue(), c.alpha()),
         )
@@ -546,7 +546,7 @@ fn singleshot_timer(mut cx: FunctionContext) -> JsResult<JsValue> {
         });
     };
 
-    slint_core_internal::timers::Timer::single_shot(
+    i_slint_core::timers::Timer::single_shot(
         std::time::Duration::from_millis(duration_in_msecs),
         callback,
     );
@@ -564,6 +564,6 @@ register_module!(mut m, {
 /// let some time elapse for testing purposes
 fn mock_elapsed_time(mut cx: FunctionContext) -> JsResult<JsValue> {
     let ms = cx.argument::<JsNumber>(0)?.value();
-    slint_core_internal::tests::slint_mock_elapsed_time(ms as _);
+    i_slint_core::tests::slint_mock_elapsed_time(ms as _);
     Ok(JsUndefined::new().as_value(&mut cx))
 }

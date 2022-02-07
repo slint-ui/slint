@@ -1,27 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-/*!
-
-**NOTE**: This library is an **internal** crate for the [Slint project](https://sixtyfps.io).
-This crate should **not be used directly** by applications using Slint.
-You should use the `slint` crate instead.
-
-**WARNING**: This crate does not follow the semver convention for versioning and can
-only be used with `version = "=x.y.z"` in Cargo.toml.
-
-*/
+#![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 #![recursion_limit = "1024"]
 
 extern crate alloc;
 
-use slint_core_internal::graphics::{Image, IntSize};
+use i_slint_core::graphics::{Image, IntSize};
 #[cfg(not(no_qt))]
-use slint_core_internal::items::ImageFit;
-use slint_core_internal::window::Window;
+use i_slint_core::items::ImageFit;
+use i_slint_core::window::Window;
 #[cfg(not(no_qt))]
-use slint_core_internal::ImageInner;
+use i_slint_core::ImageInner;
 
 #[cfg(not(no_qt))]
 mod qt_widgets;
@@ -49,7 +40,7 @@ pub fn use_modules() -> usize {
 mod ffi {
     #[no_mangle]
     pub extern "C" fn slint_qt_get_widget(
-        _: &slint_core_internal::window::WindowRc,
+        _: &i_slint_core::window::WindowRc,
     ) -> *mut std::ffi::c_void {
         std::ptr::null_mut()
     }
@@ -67,13 +58,13 @@ mod ffi {
 ///     }
 /// }
 /// impl DoSomething for () {}
-/// impl<T: slint_core_internal::rtti::BuiltinItem, Next: DoSomething> DoSomething for (T, Next) {
+/// impl<T: i_slint_core::rtti::BuiltinItem, Next: DoSomething> DoSomething for (T, Next) {
 ///     fn do_something(/*...*/) {
 ///          /*...*/
 ///          Next::do_something(/*...*/);
 ///     }
 /// }
-/// slint_backend_qt_internal::NativeWidgets::do_something(/*...*/)
+/// i_slint_backend_qt::NativeWidgets::do_something(/*...*/)
 /// ```
 #[cfg(not(no_qt))]
 #[rustfmt::skip]
@@ -113,25 +104,22 @@ pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
 pub const IS_AVAILABLE: bool = cfg!(not(no_qt));
 
 pub struct Backend;
-impl slint_core_internal::backend::Backend for Backend {
+impl i_slint_core::backend::Backend for Backend {
     fn create_window(&'static self) -> std::rc::Rc<Window> {
         #[cfg(no_qt)]
         panic!("The Qt backend needs Qt");
         #[cfg(not(no_qt))]
         {
-            slint_core_internal::window::Window::new(|window| qt_window::QtWindow::new(window))
+            i_slint_core::window::Window::new(|window| qt_window::QtWindow::new(window))
         }
     }
 
-    fn run_event_loop(
-        &'static self,
-        _behavior: slint_core_internal::backend::EventLoopQuitBehavior,
-    ) {
+    fn run_event_loop(&'static self, _behavior: i_slint_core::backend::EventLoopQuitBehavior) {
         #[cfg(not(no_qt))]
         {
             let quit_on_last_window_closed = match _behavior {
-                slint_core_internal::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => true,
-                slint_core_internal::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => false,
+                i_slint_core::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => true,
+                i_slint_core::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => false,
             };
             // Schedule any timers with Qt that were set up before this event loop start.
             crate::qt_window::timer_event();
@@ -275,8 +263,8 @@ impl slint_core_internal::backend::Backend for Backend {
         {
             let inner: &ImageInner = _image.into();
             match inner {
-                slint_core_internal::ImageInner::None => Default::default(),
-                slint_core_internal::ImageInner::EmbeddedImage(buffer) => buffer.size(),
+                i_slint_core::ImageInner::None => Default::default(),
+                i_slint_core::ImageInner::EmbeddedImage(buffer) => buffer.size(),
                 _ => qt_window::load_image_from_resource(inner, None, ImageFit::fill)
                     .map(|img| {
                         let qsize = img.size();

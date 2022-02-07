@@ -37,7 +37,7 @@ fn main() -> std::io::Result<()> {
                 output,
                 r"
 #[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{
-    slint_backend_testing_internal::init();
+    i_slint_backend_testing::init();
     {}
     Ok(())
 }}",
@@ -97,7 +97,7 @@ fn generate_source(
     output: &mut std::fs::File,
     testcase: test_driver_lib::TestCase,
 ) -> Result<(), std::io::Error> {
-    use slint_compiler_internal::{diagnostics::BuildDiagnostics, *};
+    use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 
     let include_paths = test_driver_lib::extract_include_paths(source)
         .map(std::path::PathBuf::from)

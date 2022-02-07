@@ -14,14 +14,14 @@ path = "main.rs"
 name = "test-driver-rust"
 
 [features]
-build-time = ["slint-compiler-internal", "spin_on"]
+build-time = ["i-slint-compiler", "spin_on"]
 
 [dependencies]
 slint = { path = "../../../api/rs/slint" }
-slint-backend-testing-internal = { path = "../../../internal/backends/testing" }
+i-slint-backend-testing = { path = "../../../internal/backends/testing" }
 
 [build-dependencies]
-slint-compiler-internal = { path = "../../../internal/compiler", features = ["rust", "display-diagnostics"], optional = true }
+i-slint-compiler = { path = "../../../internal/compiler", features = ["rust", "display-diagnostics"], optional = true }
 
 spin_on = { version = "0.1", optional = true}
 test_driver_lib = { path = "../driverlib" }

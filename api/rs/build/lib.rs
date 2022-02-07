@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 /*!
-This crate serves as a companion crate for the slint crate.
+This crate serves as a companion crate of the slint crate.
 It is meant to allow you to compile the `.slint` files from your `build.rs` script.
 
 The main entry point of this crate is the [`compile()`] function
@@ -54,18 +54,18 @@ use std::env;
 use std::io::Write;
 use std::path::Path;
 
-use slint_compiler_internal::diagnostics::BuildDiagnostics;
+use i_slint_compiler::diagnostics::BuildDiagnostics;
 
 /// The structure for configuring aspects of the compilation of `.slint` markup files to Rust.
 pub struct CompilerConfiguration {
-    config: slint_compiler_internal::CompilerConfiguration,
+    config: i_slint_compiler::CompilerConfiguration,
 }
 
 impl Default for CompilerConfiguration {
     fn default() -> Self {
         Self {
-            config: slint_compiler_internal::CompilerConfiguration::new(
-                slint_compiler_internal::generator::OutputFormat::Rust,
+            config: i_slint_compiler::CompilerConfiguration::new(
+                i_slint_compiler::generator::OutputFormat::Rust,
             ),
         }
     }
@@ -189,7 +189,7 @@ pub fn compile_with_config(
         .join(path.as_ref());
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = slint_compiler_internal::parser::parse_file(&path, &mut diag);
+    let syntax_node = i_slint_compiler::parser::parse_file(&path, &mut diag);
 
     if diag.has_error() {
         let vec = diag.to_string_vec();
@@ -208,9 +208,9 @@ pub fn compile_with_config(
 
     if std::env::var_os("SLINT_STYLE").is_none() && compiler_config.style.is_none() {
         compiler_config.style = std::env::var_os("OUT_DIR").and_then(|path| {
-            // Same logic as in slint-backend-selector-internal's build script to get the path
+            // Same logic as in i-slint-backend-selector's build script to get the path
             let path = Path::new(&path).parent()?.parent()?.join("SLINT_DEFAULT_STYLE.txt");
-            // unfortunately, if for some reason the file is changed by the slint-backend-selector-internal's build script,
+            // unfortunately, if for some reason the file is changed by the i-slint-backend-selector's build script,
             // it is changed after cargo decide to re-run this build script or not. So that means one will need two build
             // to settle the right thing.
             rerun_if_changed = format!("cargo:rerun-if-changed={}", path.display());
@@ -222,11 +222,8 @@ pub fn compile_with_config(
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
 
     // 'spin_on' is ok here because the compiler in single threaded and does not block if there is no blocking future
-    let (doc, diag) = spin_on::spin_on(slint_compiler_internal::compile_syntax_node(
-        syntax_node,
-        diag,
-        compiler_config,
-    ));
+    let (doc, diag) =
+        spin_on::spin_on(i_slint_compiler::compile_syntax_node(syntax_node, diag, compiler_config));
 
     if diag.has_error() {
         let vec = diag.to_string_vec();
@@ -244,7 +241,7 @@ pub fn compile_with_config(
 
     let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
     let mut code_formatter = CodeFormatter { indentation: 0, in_string: false, sink: file };
-    let generated = slint_compiler_internal::generator::rust::generate(&doc);
+    let generated = i_slint_compiler::generator::rust::generate(&doc);
 
     for x in &diag.all_loaded_files {
         if x.is_absolute() {

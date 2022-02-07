@@ -1,16 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-/*!
-
-**NOTE**: This library is an **internal** crate for the [Slint project](https://sixtyfps.io).
-This crate should **not be used directly** by applications using Slint.
-You should use the `slint` crate instead.
-
-**WARNING**: This crate does not follow the semver convention for versioning and can
-only be used with `version = "=x.y.z"` in Cargo.toml.
-
-*/
+#![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 
 use std::cell::RefCell;
@@ -19,13 +10,13 @@ use std::rc::Rc;
 
 use euclid::approxeq::ApproxEq;
 use event_loop::WinitWindow;
-use slint_core_internal::graphics::{
+use i_slint_core::graphics::{
     Brush, Color, Image, ImageInner, IntRect, IntSize, Point, Rect, RenderingCache, Size,
 };
-use slint_core_internal::item_rendering::{CachedRenderingData, ItemRenderer};
-use slint_core_internal::items::{FillRule, ImageFit, ImageRendering};
-use slint_core_internal::properties::Property;
-use slint_core_internal::window::{Window, WindowRc};
+use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
+use i_slint_core::items::{FillRule, ImageFit, ImageRendering};
+use i_slint_core::properties::Property;
+use i_slint_core::window::{Window, WindowRc};
 
 mod glwindow;
 use glwindow::*;
@@ -125,13 +116,13 @@ fn adjust_rect_and_border_for_inner_drawing(rect: &mut Rect, border_width: &mut 
     rect.size.height -= *border_width;
 }
 
-fn item_rect<Item: slint_core_internal::items::Item>(item: Pin<&Item>, scale_factor: f32) -> Rect {
+fn item_rect<Item: i_slint_core::items::Item>(item: Pin<&Item>, scale_factor: f32) -> Rect {
     let geometry = item.geometry();
     euclid::rect(0., 0., geometry.width() * scale_factor, geometry.height() * scale_factor)
 }
 
 impl ItemRenderer for GLItemRenderer {
-    fn draw_rectangle(&mut self, rect: std::pin::Pin<&slint_core_internal::items::Rectangle>) {
+    fn draw_rectangle(&mut self, rect: std::pin::Pin<&i_slint_core::items::Rectangle>) {
         let geometry = item_rect(rect, self.scale_factor);
         if geometry.is_empty() {
             return;
@@ -147,7 +138,7 @@ impl ItemRenderer for GLItemRenderer {
 
     fn draw_border_rectangle(
         &mut self,
-        rect: std::pin::Pin<&slint_core_internal::items::BorderRectangle>,
+        rect: std::pin::Pin<&i_slint_core::items::BorderRectangle>,
     ) {
         let mut geometry = item_rect(rect, self.scale_factor);
         if geometry.is_empty() {
@@ -179,13 +170,13 @@ impl ItemRenderer for GLItemRenderer {
         }
     }
 
-    fn draw_image(&mut self, image: std::pin::Pin<&slint_core_internal::items::ImageItem>) {
+    fn draw_image(&mut self, image: std::pin::Pin<&i_slint_core::items::ImageItem>) {
         self.draw_image_impl(
             &image.cached_rendering_data,
-            slint_core_internal::items::ImageItem::FIELD_OFFSETS.source.apply_pin(image),
+            i_slint_core::items::ImageItem::FIELD_OFFSETS.source.apply_pin(image),
             IntRect::default(),
-            slint_core_internal::items::ImageItem::FIELD_OFFSETS.width.apply_pin(image),
-            slint_core_internal::items::ImageItem::FIELD_OFFSETS.height.apply_pin(image),
+            i_slint_core::items::ImageItem::FIELD_OFFSETS.width.apply_pin(image),
+            i_slint_core::items::ImageItem::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
             None,
             image.image_rendering(),
@@ -194,7 +185,7 @@ impl ItemRenderer for GLItemRenderer {
 
     fn draw_clipped_image(
         &mut self,
-        clipped_image: std::pin::Pin<&slint_core_internal::items::ClippedImage>,
+        clipped_image: std::pin::Pin<&i_slint_core::items::ClippedImage>,
     ) {
         let source_clip_rect = IntRect::new(
             [clipped_image.source_clip_x(), clipped_image.source_clip_y()].into(),
@@ -203,21 +194,19 @@ impl ItemRenderer for GLItemRenderer {
 
         self.draw_image_impl(
             &clipped_image.cached_rendering_data,
-            slint_core_internal::items::ClippedImage::FIELD_OFFSETS.source.apply_pin(clipped_image),
+            i_slint_core::items::ClippedImage::FIELD_OFFSETS.source.apply_pin(clipped_image),
             source_clip_rect,
-            slint_core_internal::items::ClippedImage::FIELD_OFFSETS.width.apply_pin(clipped_image),
-            slint_core_internal::items::ClippedImage::FIELD_OFFSETS.height.apply_pin(clipped_image),
+            i_slint_core::items::ClippedImage::FIELD_OFFSETS.width.apply_pin(clipped_image),
+            i_slint_core::items::ClippedImage::FIELD_OFFSETS.height.apply_pin(clipped_image),
             clipped_image.image_fit(),
             Some(
-                slint_core_internal::items::ClippedImage::FIELD_OFFSETS
-                    .colorize
-                    .apply_pin(clipped_image),
+                i_slint_core::items::ClippedImage::FIELD_OFFSETS.colorize.apply_pin(clipped_image),
             ),
             clipped_image.image_rendering(),
         );
     }
 
-    fn draw_text(&mut self, text: std::pin::Pin<&slint_core_internal::items::Text>) {
+    fn draw_text(&mut self, text: std::pin::Pin<&i_slint_core::items::Text>) {
         let max_width = text.width() * self.scale_factor;
         let max_height = text.height() * self.scale_factor;
 
@@ -259,10 +248,7 @@ impl ItemRenderer for GLItemRenderer {
         );
     }
 
-    fn draw_text_input(
-        &mut self,
-        text_input: std::pin::Pin<&slint_core_internal::items::TextInput>,
-    ) {
+    fn draw_text_input(&mut self, text_input: std::pin::Pin<&i_slint_core::items::TextInput>) {
         let width = text_input.width() * self.scale_factor;
         let height = text_input.height() * self.scale_factor;
         if width <= 0. || height <= 0. {
@@ -302,7 +288,7 @@ impl ItemRenderer for GLItemRenderer {
             Size::new(width, height),
             (text_input.horizontal_alignment(), text_input.vertical_alignment()),
             text_input.wrap(),
-            slint_core_internal::items::TextOverflow::clip,
+            i_slint_core::items::TextOverflow::clip,
             text_input.single_line(),
             paint,
             |to_draw, pos, start, metrics| {
@@ -414,9 +400,9 @@ impl ItemRenderer for GLItemRenderer {
         }
     }
 
-    fn draw_path(&mut self, path: std::pin::Pin<&slint_core_internal::items::Path>) {
+    fn draw_path(&mut self, path: std::pin::Pin<&i_slint_core::items::Path>) {
         let elements = path.elements();
-        if matches!(elements, slint_core_internal::PathData::None) {
+        if matches!(elements, i_slint_core::PathData::None) {
             return;
         }
 
@@ -528,10 +514,7 @@ impl ItemRenderer for GLItemRenderer {
     ///  * Blur the image
     ///  * Fill the image with the shadow color and SourceIn as composition mode
     ///  * Draw the shadow image
-    fn draw_box_shadow(
-        &mut self,
-        box_shadow: std::pin::Pin<&slint_core_internal::items::BoxShadow>,
-    ) {
+    fn draw_box_shadow(&mut self, box_shadow: std::pin::Pin<&i_slint_core::items::BoxShadow>) {
         if box_shadow.color().alpha() == 0
             || (box_shadow.blur() == 0.0
                 && box_shadow.offset_x() == 0.
@@ -1080,7 +1063,7 @@ impl GLItemRenderer {
                 let transform = euclid::Transform2D::scale(path_width, path_height)
                     .then_translate(euclid::Vector2D::new(path_bounds.minx, path_bounds.miny));
 
-                let (start, end) = slint_core_internal::graphics::line_for_angle(gradient.angle());
+                let (start, end) = i_slint_core::graphics::line_for_angle(gradient.angle());
 
                 let start: Point = transform.transform_point(start);
                 let end: Point = transform.transform_point(end);
@@ -1160,7 +1143,7 @@ fn to_femtovg_color(col: &Color) -> femtovg::Color {
 
 #[cfg(target_arch = "wasm32")]
 pub fn create_gl_window_with_canvas_id(canvas_id: String) -> Rc<Window> {
-    slint_core_internal::window::Window::new(|window| GLWindow::new(window, canvas_id))
+    i_slint_core::window::Window::new(|window| GLWindow::new(window, canvas_id))
 }
 
 #[doc(hidden)]
@@ -1198,9 +1181,9 @@ thread_local!(pub(crate) static CLIPBOARD : RefCell<ClipboardBackend> = std::cel
 thread_local!(pub(crate) static IMAGE_CACHE: RefCell<images::ImageCache> = Default::default());
 
 pub struct Backend;
-impl slint_core_internal::backend::Backend for Backend {
+impl i_slint_core::backend::Backend for Backend {
     fn create_window(&'static self) -> Rc<Window> {
-        slint_core_internal::window::Window::new(|window| {
+        i_slint_core::window::Window::new(|window| {
             GLWindow::new(
                 window,
                 #[cfg(target_arch = "wasm32")]
@@ -1209,10 +1192,7 @@ impl slint_core_internal::backend::Backend for Backend {
         })
     }
 
-    fn run_event_loop(
-        &'static self,
-        behavior: slint_core_internal::backend::EventLoopQuitBehavior,
-    ) {
+    fn run_event_loop(&'static self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {
         crate::event_loop::run(behavior);
     }
 

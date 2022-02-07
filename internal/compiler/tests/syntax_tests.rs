@@ -59,7 +59,7 @@ fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
 }
 
 fn process_diagnostics(
-    compile_diagnostics: &slint_compiler_internal::diagnostics::BuildDiagnostics,
+    compile_diagnostics: &i_slint_compiler::diagnostics::BuildDiagnostics,
     path: &Path,
     source: &str,
     silent: bool,
@@ -108,8 +108,8 @@ fn process_diagnostics(
         } + column;
 
         let expected_diag_level = match warning_or_error {
-            "warning" => slint_compiler_internal::diagnostics::DiagnosticLevel::Warning,
-            "error" => slint_compiler_internal::diagnostics::DiagnosticLevel::Error,
+            "warning" => i_slint_compiler::diagnostics::DiagnosticLevel::Warning,
+            "error" => i_slint_compiler::diagnostics::DiagnosticLevel::Error,
             _ => panic!("Unsupported diagnostic level {}", warning_or_error),
         };
 
@@ -135,7 +135,7 @@ fn process_diagnostics(
 
         #[cfg(feature = "display-diagnostics")]
         if !silent {
-            let mut to_report = slint_compiler_internal::diagnostics::BuildDiagnostics::default();
+            let mut to_report = i_slint_compiler::diagnostics::BuildDiagnostics::default();
             for d in diags {
                 to_report.push_compiler_error(d.clone());
             }
@@ -156,16 +156,16 @@ fn process_file_source(
     source: String,
     silent: bool,
 ) -> std::io::Result<bool> {
-    let mut parse_diagnostics = slint_compiler_internal::diagnostics::BuildDiagnostics::default();
+    let mut parse_diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
     let syntax_node =
-        slint_compiler_internal::parser::parse(source.clone(), Some(path), &mut parse_diagnostics);
+        i_slint_compiler::parser::parse(source.clone(), Some(path), &mut parse_diagnostics);
     let has_parse_error = parse_diagnostics.has_error();
-    let mut compiler_config = slint_compiler_internal::CompilerConfiguration::new(
-        slint_compiler_internal::generator::OutputFormat::Interpreter,
+    let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(
+        i_slint_compiler::generator::OutputFormat::Interpreter,
     );
     compiler_config.style = Some("fluent".into());
     let compile_diagnostics = if !parse_diagnostics.has_error() {
-        let (_, build_diags) = spin_on::spin_on(slint_compiler_internal::compile_syntax_node(
+        let (_, build_diags) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(
             syntax_node.clone(),
             parse_diagnostics,
             compiler_config.clone(),
@@ -190,7 +190,7 @@ fn process_file_source(
 
     if has_parse_error {
         // Still try to compile to make sure it doesn't panic
-        spin_on::spin_on(slint_compiler_internal::compile_syntax_node(
+        spin_on::spin_on(i_slint_compiler::compile_syntax_node(
             syntax_node,
             compile_diagnostics,
             compiler_config,

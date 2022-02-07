@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "slint-backend-testing-internal"
+name = "i-slint-backend-testing"
 version = "0.2.0"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
@@ -16,6 +16,6 @@ publish = false
 path = "lib.rs"
 
 [dependencies]
-slint-core-internal = { version = "=0.2.0", path = "../../../internal/core" }
+i-slint-core = { version = "=0.2.0", path = "../../../internal/core" }
 
 image = { version = "0.24.0", default-features = false, features = ["png"] }

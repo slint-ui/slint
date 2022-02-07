@@ -237,16 +237,16 @@ compile_error!(
 
 pub use slint_macros::slint;
 
-pub use slint_core_internal::api::*;
-pub use slint_core_internal::graphics::{
+pub use i_slint_core::api::*;
+pub use i_slint_core::graphics::{
     Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
-pub use slint_core_internal::model::{
+pub use i_slint_core::model::{
     Model, ModelNotify, ModelPeer, ModelRc, ModelTracker, StandardListViewItem, VecModel,
 };
-pub use slint_core_internal::sharedvector::SharedVector;
-pub use slint_core_internal::string::SharedString;
-pub use slint_core_internal::timers::{Timer, TimerMode};
+pub use i_slint_core::sharedvector::SharedVector;
+pub use i_slint_core::string::SharedString;
+pub use i_slint_core::timers::{Timer, TimerMode};
 
 /// This function can be used to register a custom TrueType font with Slint,
 /// for use with the `font-family` property. The provided slice must be a valid TrueType
@@ -254,7 +254,7 @@ pub use slint_core_internal::timers::{Timer, TimerMode};
 #[doc(hidden)]
 #[cfg(feature = "std")]
 pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {
-    slint_backend_selector_internal::backend().register_font_from_memory(data)
+    i_slint_backend_selector::backend().register_font_from_memory(data)
 }
 
 /// This function can be used to register a custom TrueType font with Slint,
@@ -265,7 +265,7 @@ pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std:
 pub fn register_font_from_path<P: AsRef<std::path::Path>>(
     path: P,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    slint_backend_selector_internal::backend().register_font_from_path(path.as_ref())
+    i_slint_backend_selector::backend().register_font_from_path(path.as_ref())
 }
 
 /// internal re_exports used by the macro generated
@@ -278,36 +278,34 @@ pub mod re_exports {
     pub use alloc::{vec, vec::Vec};
     pub use const_field_offset::{self, FieldOffsets, PinnedDrop};
     pub use core::iter::FromIterator;
-    pub use once_cell::race::OnceBox;
-    pub use once_cell::unsync::OnceCell;
-    pub use pin_weak::rc::PinWeak;
-    pub use slint_backend_selector_internal::native_widgets::*;
-    pub use slint_core_internal::animations::EasingCurve;
-    pub use slint_core_internal::callbacks::Callback;
-    pub use slint_core_internal::component::{
+    pub use i_slint_backend_selector::native_widgets::*;
+    pub use i_slint_core::animations::EasingCurve;
+    pub use i_slint_core::callbacks::Callback;
+    pub use i_slint_core::component::{
         free_component_item_graphics_resources, init_component_items, Component, ComponentRefPin,
         ComponentVTable,
     };
-    pub use slint_core_internal::graphics::*;
-    pub use slint_core_internal::input::{
+    pub use i_slint_core::graphics::*;
+    pub use i_slint_core::input::{
         FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
     };
-    pub use slint_core_internal::item_tree::{
+    pub use i_slint_core::item_tree::{
         visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder,
         VisitChildrenResult,
     };
-    pub use slint_core_internal::items::*;
-    pub use slint_core_internal::layout::*;
-    pub use slint_core_internal::model::*;
-    pub use slint_core_internal::properties::{
-        set_state_binding, Property, PropertyTracker, StateInfo,
-    };
-    pub use slint_core_internal::slice::Slice;
-    pub use slint_core_internal::window::{Window, WindowHandleAccess, WindowRc};
-    pub use slint_core_internal::Color;
-    pub use slint_core_internal::ComponentVTable_static;
-    pub use slint_core_internal::SharedString;
-    pub use slint_core_internal::SharedVector;
+    pub use i_slint_core::items::*;
+    pub use i_slint_core::layout::*;
+    pub use i_slint_core::model::*;
+    pub use i_slint_core::properties::{set_state_binding, Property, PropertyTracker, StateInfo};
+    pub use i_slint_core::slice::Slice;
+    pub use i_slint_core::window::{Window, WindowHandleAccess, WindowRc};
+    pub use i_slint_core::Color;
+    pub use i_slint_core::ComponentVTable_static;
+    pub use i_slint_core::SharedString;
+    pub use i_slint_core::SharedVector;
+    pub use once_cell::race::OnceBox;
+    pub use once_cell::unsync::OnceCell;
+    pub use pin_weak::rc::PinWeak;
     pub use vtable::{self, *};
 }
 
@@ -369,7 +367,7 @@ pub mod internal {
     }
 
     pub fn set_animated_property_binding<
-        T: Clone + slint_core_internal::properties::InterpolatedPropertyValue + 'static,
+        T: Clone + i_slint_core::properties::InterpolatedPropertyValue + 'static,
         StrongRef: StrongComponentRef + 'static,
     >(
         property: Pin<&Property<T>>,
@@ -385,7 +383,7 @@ pub mod internal {
     }
 
     pub fn set_animated_property_binding_for_transition<
-        T: Clone + slint_core_internal::properties::InterpolatedPropertyValue + 'static,
+        T: Clone + i_slint_core::properties::InterpolatedPropertyValue + 'static,
         StrongRef: StrongComponentRef + 'static,
     >(
         property: Pin<&Property<T>>,
@@ -393,10 +391,8 @@ pub mod internal {
         binding: fn(StrongRef) -> T,
         compute_animation_details: fn(
             StrongRef,
-        ) -> (
-            PropertyAnimation,
-            slint_core_internal::animations::Instant,
-        ),
+        )
+            -> (PropertyAnimation, i_slint_core::animations::Instant),
     ) {
         let weak_1 = component_strong.to_weak();
         let weak_2 = weak_1.clone();
@@ -440,23 +436,22 @@ pub mod internal {
 /// Creates a new window to render components in.
 #[doc(hidden)]
 pub fn create_window() -> re_exports::WindowRc {
-    slint_backend_selector_internal::backend().create_window()
+    i_slint_backend_selector::backend().create_window()
 }
 
 /// Enters the main event loop. This is necessary in order to receive
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
 pub fn run_event_loop() {
-    slint_backend_selector_internal::backend().run_event_loop(
-        slint_core_internal::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed,
-    );
+    i_slint_backend_selector::backend()
+        .run_event_loop(i_slint_core::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
 }
 /// Schedules the main event loop for termination. This function is meant
 /// to be called from callbacks triggered by the UI. After calling the function,
 /// it will return immediately and once control is passed back to the event loop,
 /// the initial call to [`run_event_loop()`] will return.
 pub fn quit_event_loop() {
-    slint_backend_selector_internal::backend().quit_event_loop();
+    i_slint_backend_selector::backend().quit_event_loop();
 }
 
 /// This module contains functions useful for unit tests
@@ -467,14 +462,14 @@ pub mod testing {
 
     use super::ComponentHandle;
 
-    pub use slint_core_internal::tests::slint_mock_elapsed_time as mock_elapsed_time;
+    pub use i_slint_core::tests::slint_mock_elapsed_time as mock_elapsed_time;
 
     /// Simulate a mouse click
     pub fn send_mouse_click<
-        X: vtable::HasStaticVTable<slint_core_internal::component::ComponentVTable>
+        X: vtable::HasStaticVTable<i_slint_core::component::ComponentVTable>
             + crate::re_exports::WindowHandleAccess
             + 'static,
-        Component: Into<vtable::VRc<slint_core_internal::component::ComponentVTable, X>> + ComponentHandle,
+        Component: Into<vtable::VRc<i_slint_core::component::ComponentVTable, X>> + ComponentHandle,
     >(
         component: &Component,
         x: f32,
@@ -482,19 +477,14 @@ pub mod testing {
     ) {
         let rc = component.clone_strong().into();
         let dyn_rc = vtable::VRc::into_dyn(rc.clone());
-        slint_core_internal::tests::slint_send_mouse_click(
-            &dyn_rc,
-            x,
-            y,
-            &rc.window_handle().clone(),
-        );
+        i_slint_core::tests::slint_send_mouse_click(&dyn_rc, x, y, &rc.window_handle().clone());
     }
 
     /// Simulate a change in keyboard modifiers being pressed
     pub fn set_current_keyboard_modifiers<
-        X: vtable::HasStaticVTable<slint_core_internal::component::ComponentVTable>
+        X: vtable::HasStaticVTable<i_slint_core::component::ComponentVTable>
             + crate::re_exports::WindowHandleAccess,
-        Component: Into<vtable::VRc<slint_core_internal::component::ComponentVTable, X>> + ComponentHandle,
+        Component: Into<vtable::VRc<i_slint_core::component::ComponentVTable, X>> + ComponentHandle,
     >(
         _component: &Component,
         modifiers: crate::re_exports::KeyboardModifiers,
@@ -504,15 +494,15 @@ pub mod testing {
 
     /// Simulate entering a sequence of ascii characters key by key.
     pub fn send_keyboard_string_sequence<
-        X: vtable::HasStaticVTable<slint_core_internal::component::ComponentVTable>
+        X: vtable::HasStaticVTable<i_slint_core::component::ComponentVTable>
             + crate::re_exports::WindowHandleAccess,
-        Component: Into<vtable::VRc<slint_core_internal::component::ComponentVTable, X>> + ComponentHandle,
+        Component: Into<vtable::VRc<i_slint_core::component::ComponentVTable, X>> + ComponentHandle,
     >(
         component: &Component,
         sequence: &str,
     ) {
         let component = component.clone_strong().into();
-        slint_core_internal::tests::send_keyboard_string_sequence(
+        i_slint_core::tests::send_keyboard_string_sequence(
             &super::SharedString::from(sequence),
             KEYBOARD_MODIFIERS.with(|x| x.get()),
             &component.window_handle().clone(),
@@ -522,9 +512,9 @@ pub mod testing {
     /// Applies the specified scale factor to the window that's associated with the given component.
     /// This overrides the value provided by the windowing system.
     pub fn set_window_scale_factor<
-        X: vtable::HasStaticVTable<slint_core_internal::component::ComponentVTable>
+        X: vtable::HasStaticVTable<i_slint_core::component::ComponentVTable>
             + crate::re_exports::WindowHandleAccess,
-        Component: Into<vtable::VRc<slint_core_internal::component::ComponentVTable, X>> + ComponentHandle,
+        Component: Into<vtable::VRc<i_slint_core::component::ComponentVTable, X>> + ComponentHandle,
     >(
         component: &Component,
         factor: f32,

@@ -3,7 +3,7 @@
 
 #[test]
 fn reuse_window() {
-    slint_backend_testing_internal::init();
+    i_slint_backend_testing::init();
     use crate::{ComponentCompiler, ComponentHandle, SharedString, Value};
     let code = r#"
         MainWindow := Window {

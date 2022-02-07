@@ -22,20 +22,20 @@ crate-type = ["lib", "cdylib"]
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt
 [features]
-backend-gl = ["slint-backend-selector-internal/slint-backend-gl-internal"]
-backend-qt = ["slint-backend-selector-internal/slint-backend-qt-internal"]
+backend-gl = ["i-slint-backend-selector/i-slint-backend-gl"]
+backend-qt = ["i-slint-backend-selector/i-slint-backend-qt"]
 interpreter = ["slint-interpreter"]
-testing = ["slint-backend-testing-internal"] # Enable some function used by the integration tests
-wayland = ["slint-backend-selector-internal/wayland"]
-x11 = ["slint-backend-selector-internal/x11"]
+testing = ["i-slint-backend-testing"] # Enable some function used by the integration tests
+wayland = ["i-slint-backend-selector/wayland"]
+x11 = ["i-slint-backend-selector/x11"]
 
 default = ["backend-gl", "x11", "backend-qt"]
 
 [dependencies]
-slint-core-internal = { version = "=0.2.0", path="../../internal/core", features = ["ffi"] }
+i-slint-backend-selector = { version = "=0.2.0", path="../../internal/backends/selector" }
+i-slint-backend-testing = { version = "=0.2.0", path="../../internal/backends/testing", optional = true }
+i-slint-core = { version = "=0.2.0", path="../../internal/core", features = ["ffi"] }
 slint-interpreter = { version = "=0.2.0", path="../../internal/interpreter", default-features = false, features = ["ffi", "compat-0-2-0"], optional = true }
-slint-backend-selector-internal = { version = "=0.2.0", path="../../internal/backends/selector" }
-slint-backend-testing-internal = { version = "=0.2.0", path="../../internal/backends/testing", optional = true }
 
 [build-dependencies]
 anyhow = "1.0"

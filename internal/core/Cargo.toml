@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "slint-core-internal"
+name = "i-slint-core"
 version = "0.2.0"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
@@ -31,8 +31,8 @@ unsafe_single_core = []
 default = ["std"]
 
 [dependencies]
-slint-common-internal = { version = "=0.2.0", path = "../common" }
-slint-core-macros-internal = { version = "=0.2.0", path = "../core-macros" }
+i-slint-common = { version = "=0.2.0", path = "../common" }
+i-slint-core-macros = { version = "=0.2.0", path = "../core-macros" }
 
 const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
 vtable = { version="0.1.1", path = "../../helper_crates/vtable" }
@@ -68,7 +68,7 @@ web_sys = { version = "0.3", package = "web-sys", features=["console", "CanvasRe
 
 [dev-dependencies]
 slint = { version = "=0.2.0", path = "../../api/rs/slint", default-features = false, features = ["std"] }
-slint-backend-testing-internal = { path="../backends/testing" }
+i-slint-backend-testing = { path="../backends/testing" }
 
 image = { version = "0.24.0", default-features = false, features = [ "png" ] }
 pin-weak = "1"

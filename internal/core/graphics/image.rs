@@ -286,7 +286,7 @@ pub struct LoadImageError(());
 /// low_level_render() function to draw a shape into it. Finally the result is
 /// stored in an Image with [`Self::from_rgb8()`]:
 /// ```
-/// # use slint_core_internal::graphics::{SharedPixelBuffer, Image, Rgb8Pixel};
+/// # use i_slint_core::graphics::{SharedPixelBuffer, Image, Rgb8Pixel};
 ///
 /// fn low_level_render(width: u32, height: u32, buffer: &mut [u8]) {
 ///     // render beautiful circle or other shapes here
@@ -307,7 +307,7 @@ pub struct LoadImageError(());
 /// load a `.png` file from disk, apply brightening filter on it and then import
 /// it into an [`Image`]:
 /// ```no_run
-/// # use slint_core_internal::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
+/// # use i_slint_core::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
 /// let mut cat_image = image::open("cat.png").expect("Error loading cat image").into_rgba8();
 ///
 /// image::imageops::colorops::brighten_in_place(&mut cat_image, 20);
@@ -323,7 +323,7 @@ pub struct LoadImageError(());
 /// A popular software (CPU) rendering library in Rust is tiny-skia. The following example shows
 /// how to use tiny-skia to render into a [`SharedPixelBuffer`]:
 /// ```
-/// # use slint_core_internal::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
+/// # use i_slint_core::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
 /// let mut pixel_buffer = SharedPixelBuffer::<Rgba8Pixel>::new(640, 480);
 /// let width = pixel_buffer.width();
 /// let height = pixel_buffer.height();
@@ -404,7 +404,7 @@ impl Image {
     /// For example:
     /// ```
     /// # use std::path::Path;
-    /// # use slint_core_internal::graphics::*;
+    /// # use i_slint_core::graphics::*;
     /// let path_buf = Path::new(env!("CARGO_MANIFEST_DIR"))
     ///     .join("../../examples/printerdemo/ui/images/cat_preview_round.png");
     /// let image = Image::load_from_path(&path_buf).unwrap();

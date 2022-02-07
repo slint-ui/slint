@@ -147,7 +147,7 @@ impl crate::window::WindowHandleAccess for Window {
 /// The following example of `.slint` markup defines a global singleton called `Palette`, exports
 /// it and modifies it from Rust code:
 /// ```rust
-/// # slint_backend_testing_internal::init();
+/// # i_slint_backend_testing::init();
 /// slint::slint!{
 /// export global Palette := {
 ///     property<color> foreground-color;
@@ -300,7 +300,7 @@ mod weak_handle {
         ///
         /// # Example
         /// ```rust
-        /// # slint_backend_testing_internal::init();
+        /// # i_slint_backend_testing::init();
         /// slint::slint! { MyApp := Window { property <int> foo; /* ... */ } }
         /// let handle = MyApp::new();
         /// let handle_weak = handle.as_weak();
@@ -352,7 +352,7 @@ pub use weak_handle::*;
 /// # Example
 /// ```rust
 /// slint::slint! { MyApp := Window { property <int> foo; /* ... */ } }
-/// # slint_backend_testing_internal::init();
+/// # i_slint_backend_testing::init();
 /// let handle = MyApp::new();
 /// let handle_weak = handle.as_weak();
 /// let thread = std::thread::spawn(move || {

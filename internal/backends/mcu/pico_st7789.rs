@@ -106,20 +106,20 @@ pub fn init_board() {
 struct PicoDevices<Display, Touch> {
     display: Display,
     touch: Touch,
-    last_touch: Option<slint_core_internal::graphics::Point>,
+    last_touch: Option<i_slint_core::graphics::Point>,
     timer: Timer,
 }
 
 impl<Display: Devices, IRQ: InputPin, CS: OutputPin<Error = IRQ::Error>, SPI: Transfer<u8>> Devices
     for PicoDevices<Display, xpt2046::XPT2046<IRQ, CS, SPI>>
 {
-    fn screen_size(&self) -> slint_core_internal::graphics::IntSize {
+    fn screen_size(&self) -> i_slint_core::graphics::IntSize {
         self.display.screen_size()
     }
 
     fn fill_region(
         &mut self,
-        region: slint_core_internal::graphics::IntRect,
+        region: i_slint_core::graphics::IntRect,
         pixels: &[embedded_graphics::pixelcolor::Rgb888],
     ) {
         self.display.fill_region(region, pixels)
@@ -129,8 +129,8 @@ impl<Display: Devices, IRQ: InputPin, CS: OutputPin<Error = IRQ::Error>, SPI: Tr
         self.display.debug(text)
     }
 
-    fn read_touch_event(&mut self) -> Option<slint_core_internal::input::MouseEvent> {
-        let button = slint_core_internal::items::PointerEventButton::left;
+    fn read_touch_event(&mut self) -> Option<i_slint_core::input::MouseEvent> {
+        let button = i_slint_core::items::PointerEventButton::left;
         self.touch
             .read()
             .map_err(|_| ())
@@ -140,14 +140,14 @@ impl<Display: Devices, IRQ: InputPin, CS: OutputPin<Error = IRQ::Error>, SPI: Tr
                 let size = self.display.screen_size().to_f32();
                 let pos = euclid::point2(point.x * size.width, point.y * size.height);
                 match self.last_touch.replace(pos) {
-                    Some(_) => slint_core_internal::input::MouseEvent::MouseMoved { pos },
-                    None => slint_core_internal::input::MouseEvent::MousePressed { pos, button },
+                    Some(_) => i_slint_core::input::MouseEvent::MouseMoved { pos },
+                    None => i_slint_core::input::MouseEvent::MousePressed { pos, button },
                 }
             })
             .or_else(|| {
-                self.last_touch.take().map(|pos| {
-                    slint_core_internal::input::MouseEvent::MouseReleased { pos, button }
-                })
+                self.last_touch
+                    .take()
+                    .map(|pos| i_slint_core::input::MouseEvent::MouseReleased { pos, button })
             })
     }
 

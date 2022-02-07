@@ -46,7 +46,7 @@ unsafe impl Sync for FutureRunner {}
 
 impl Wake for FutureRunner {
     fn wake(self: Arc<Self>) {
-        slint_backend_selector_internal::backend().post_event(Box::new(move || {
+        i_slint_backend_selector::backend().post_event(Box::new(move || {
             let waker = self.clone().into();
             let mut cx = std::task::Context::from_waker(&waker);
             let mut fut_opt = self.fut.lock().unwrap();
@@ -91,7 +91,7 @@ pub fn start_ui_event_loop() {
 
         if *state_requested == RequestedGuiEventLoopState::StartLoop {
             // Send an event so that once the loop is started, we notify the LSP thread that it can send more events
-            slint_backend_selector_internal::backend().post_event(Box::new(|| {
+            i_slint_backend_selector::backend().post_event(Box::new(|| {
                 let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
                 if *state_request == RequestedGuiEventLoopState::StartLoop {
                     *state_request = RequestedGuiEventLoopState::LoopStated;
@@ -101,8 +101,8 @@ pub fn start_ui_event_loop() {
         }
     }
 
-    slint_backend_selector_internal::backend()
-        .run_event_loop(slint_core_internal::backend::EventLoopQuitBehavior::QuitOnlyExplicitly);
+    i_slint_backend_selector::backend()
+        .run_event_loop(i_slint_core::backend::EventLoopQuitBehavior::QuitOnlyExplicitly);
 }
 
 pub fn quit_ui_event_loop() {
@@ -114,8 +114,8 @@ pub fn quit_ui_event_loop() {
         GUI_EVENT_LOOP_NOTIFIER.notify_one();
     }
 
-    slint_backend_selector_internal::backend().post_event(Box::new(|| {
-        slint_backend_selector_internal::backend().quit_event_loop();
+    i_slint_backend_selector::backend().post_event(Box::new(|| {
+        i_slint_backend_selector::backend().quit_event_loop();
     }));
 
     // Make sure then sender channel gets dropped

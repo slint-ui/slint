@@ -149,7 +149,7 @@ impl ModelTracker for ModelNotify {
 /// As an example, let's see the implementation of [`VecModel`].
 ///
 /// ```
-/// # use slint_core_internal::model::{Model, ModelNotify, ModelPeer, ModelTracker};
+/// # use i_slint_core::model::{Model, ModelNotify, ModelPeer, ModelTracker};
 /// pub struct VecModel<T> {
 ///     // the backing data, stored in a `RefCell` as this model can be modified
 ///     array: std::cell::RefCell<Vec<T>>,
@@ -244,7 +244,7 @@ pub trait Model {
     /// in a component.
     ///
     /// ```
-    /// # use slint_core_internal::model::*;
+    /// # use i_slint_core::model::*;
     /// # use std::rc::Rc;
     /// let handle = ModelRc::new(VecModel::from(vec![1i32, 2, 3]));
     /// // later:

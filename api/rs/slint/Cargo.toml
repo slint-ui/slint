@@ -27,7 +27,7 @@ default = ["std", "backend-gl", "x11", "backend-qt", "compat-0-2-0"]
 compat-0-2-0 = []
 
 ## Enable use of the Rust standard library.
-std = ["slint-core-internal/std"]
+std = ["i-slint-core/std"]
 
 #! ### Backends
 
@@ -35,22 +35,22 @@ std = ["slint-core-internal/std"]
 ## This backend is required to use the `native` style.
 ## It requires Qt 5.15 or later to be installed. If Qt is not installed, the
 ## backend will not be operational
-backend-qt = ["slint-backend-selector-internal/slint-backend-qt-internal", "std"]
+backend-qt = ["i-slint-backend-selector/i-slint-backend-qt", "std"]
 
 ## The GL backend uses the `winit` crate for the windowing system integration,
 ## and the `femtovg` crate for the rendering.
 ## On unix, at least one of `x11` or `wayland` features must be enabled.
-backend-gl = ["slint-backend-selector-internal/slint-backend-gl-internal", "std"]
+backend-gl = ["i-slint-backend-selector/i-slint-backend-gl", "std"]
 ## Same as the GL backend, with the `x11` feature of `winit` enabled
-x11 = ["slint-backend-selector-internal/x11", "backend-gl"]
+x11 = ["i-slint-backend-selector/x11", "backend-gl"]
 ## Same as the GL backend, with the `wayland` feature of `winit` enabled
-wayland = ["slint-backend-selector-internal/wayland", "backend-gl"]
+wayland = ["i-slint-backend-selector/wayland", "backend-gl"]
 
 
 [dependencies]
-slint-core-internal = { version = "=0.2.0", path="../../../internal/core", default-features = false }
+i-slint-core = { version = "=0.2.0", path="../../../internal/core", default-features = false }
 slint-macros = { version = "=0.2.0", path = "../macros" }
-slint-backend-selector-internal = { version = "=0.2.0", path="../../../internal/backends/selector" }
+i-slint-backend-selector = { version = "=0.2.0", path="../../../internal/backends/selector" }
 
 const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }
 document-features = "0.1.0"

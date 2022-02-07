@@ -731,7 +731,7 @@ impl<T: Clone> Property<T> {
     /// ## Example
     /// ```
     /// use std::rc::Rc;
-    /// use slint_core_internal::Property;
+    /// use i_slint_core::Property;
     /// let prop1 = Rc::pin(Property::new(100));
     /// let prop2 = Rc::pin(Property::<i32>::default());
     /// prop2.as_ref().set_binding({
@@ -800,7 +800,7 @@ impl<T: Clone> Property<T> {
     /// ## Example
     /// ```
     /// use std::rc::Rc;
-    /// use slint_core_internal::Property;
+    /// use i_slint_core::Property;
     /// let prop1 = Rc::pin(Property::new(100));
     /// let prop2 = Rc::pin(Property::<i32>::default());
     /// prop2.as_ref().set_binding({

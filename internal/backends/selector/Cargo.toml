@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "slint-backend-selector-internal"
+name = "i-slint-backend-selector"
 version = "0.2.0"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
@@ -15,12 +15,12 @@ homepage = "https://sixtyfps.io"
 path = "lib.rs"
 
 [features]
-wayland = ["slint-backend-gl-internal/wayland"]
-x11 = ["slint-backend-gl-internal/x11"]
+wayland = ["i-slint-backend-gl/wayland"]
+x11 = ["i-slint-backend-gl/x11"]
 
 [dependencies]
-slint-core-internal = { version = "=0.2.0", path = "../../../internal/core", default-features = false }
-slint-backend-gl-internal = { version = "=0.2.0", path = "../gl", optional = true }
-slint-backend-qt-internal = { version = "=0.2.0", path = "../qt", optional = true }
+i-slint-core = { version = "=0.2.0", path = "../../../internal/core", default-features = false }
+i-slint-backend-gl = { version = "=0.2.0", path = "../gl", optional = true }
+i-slint-backend-qt = { version = "=0.2.0", path = "../qt", optional = true }
 
 cfg-if = "1"

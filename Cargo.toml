@@ -30,7 +30,7 @@ members = [
     'internal/backends/testing',
     'internal/common',
     'internal/compiler',
-    'internal/compiler/parser_test_macro',
+    'internal/compiler/parser-test-macro',
     'internal/core',
     'internal/core-macros',
     'internal/interpreter',

@@ -8,16 +8,16 @@ use std::rc::Rc;
 use crate::api::Value;
 use crate::dynamic_component::{ErasedComponentBox, ErasedComponentDescription};
 use crate::SetPropertyError;
-use slint_compiler_internal::namedreference::NamedReference;
-use slint_compiler_internal::object_tree::PropertyDeclaration;
-use slint_compiler_internal::{langtype::Type, object_tree::Component};
-use slint_core_internal::component::ComponentVTable;
-use slint_core_internal::rtti;
+use i_slint_compiler::namedreference::NamedReference;
+use i_slint_compiler::object_tree::PropertyDeclaration;
+use i_slint_compiler::{langtype::Type, object_tree::Component};
+use i_slint_core::component::ComponentVTable;
+use i_slint_core::rtti;
 
 pub enum CompiledGlobal {
     Builtin {
         name: String,
-        element: Rc<slint_compiler_internal::langtype::BuiltinElement>,
+        element: Rc<i_slint_compiler::langtype::BuiltinElement>,
         // dummy needed for iterator accessor
         public_properties: BTreeMap<String, PropertyDeclaration>,
     },
@@ -107,7 +107,7 @@ pub fn instantiate(description: &CompiledGlobal) -> (String, Pin<Rc<dyn GlobalCo
                     }
                 }
             }
-            let g = slint_backend_selector_internal::NativeGlobals::instantiate(
+            let g = i_slint_backend_selector::NativeGlobals::instantiate(
                 element.native_class.class_name.as_ref(),
             );
             (name.clone(), g)

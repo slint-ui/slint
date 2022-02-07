@@ -7,14 +7,14 @@ use std::rc::{Rc, Weak};
 use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
 use embedded_graphics_simulator::SimulatorDisplay;
+use i_slint_core::component::ComponentRc;
+use i_slint_core::graphics::{Image, ImageInner};
+use i_slint_core::input::KeyboardModifiers;
+use i_slint_core::items::ItemRef;
+use i_slint_core::layout::Orientation;
+use i_slint_core::window::{PlatformWindow, Window};
+use i_slint_core::Color;
 use rgb::FromSlice;
-use slint_core_internal::component::ComponentRc;
-use slint_core_internal::graphics::{Image, ImageInner};
-use slint_core_internal::input::KeyboardModifiers;
-use slint_core_internal::items::ItemRef;
-use slint_core_internal::layout::Orientation;
-use slint_core_internal::window::{PlatformWindow, Window};
-use slint_core_internal::Color;
 
 use self::event_loop::WinitWindow;
 
@@ -26,19 +26,18 @@ mod glcontext;
 use glcontext::*;
 
 pub struct SimulatorWindow {
-    self_weak: Weak<slint_core_internal::window::Window>,
+    self_weak: Weak<i_slint_core::window::Window>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
     canvas: CanvasRc,
     opengl_context: OpenGLContext,
-    constraints:
-        Cell<(slint_core_internal::layout::LayoutInfo, slint_core_internal::layout::LayoutInfo)>,
+    constraints: Cell<(i_slint_core::layout::LayoutInfo, i_slint_core::layout::LayoutInfo)>,
     visible: Cell<bool>,
     background_color: Cell<Color>,
 }
 
 impl SimulatorWindow {
-    pub(crate) fn new(window_weak: &Weak<slint_core_internal::window::Window>) -> Rc<Self> {
+    pub(crate) fn new(window_weak: &Weak<i_slint_core::window::Window>) -> Rc<Self> {
         let window_builder = winit::window::WindowBuilder::new().with_visible(false);
 
         #[cfg(target_arch = "wasm32")]
@@ -93,7 +92,7 @@ impl PlatformWindow for SimulatorWindow {
         let platform_window = self.opengl_context.window();
 
         if let Some(window_item) =
-            ItemRef::downcast_pin::<slint_core_internal::items::WindowItem>(root_item)
+            ItemRef::downcast_pin::<i_slint_core::items::WindowItem>(root_item)
         {
             platform_window.set_title(&window_item.title());
             platform_window.set_decorations(!window_item.no_frame());
@@ -136,15 +135,15 @@ impl PlatformWindow for SimulatorWindow {
 
     fn free_graphics_resources<'a>(
         &self,
-        _items: &mut dyn Iterator<Item = std::pin::Pin<slint_core_internal::items::ItemRef<'a>>>,
+        _items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'a>>>,
     ) {
         // Nothing to do until we start caching stuff that needs freeing
     }
 
     fn show_popup(
         &self,
-        _popup: &slint_core_internal::component::ComponentRc,
-        _position: slint_core_internal::graphics::Point,
+        _popup: &i_slint_core::component::ComponentRc,
+        _position: i_slint_core::graphics::Point,
     ) {
         todo!()
     }
@@ -161,44 +160,44 @@ impl PlatformWindow for SimulatorWindow {
 
     fn apply_window_properties(
         &self,
-        window_item: std::pin::Pin<&slint_core_internal::items::WindowItem>,
+        window_item: std::pin::Pin<&i_slint_core::items::WindowItem>,
     ) {
         WinitWindow::apply_window_properties(self as &dyn WinitWindow, window_item);
     }
 
     fn apply_geometry_constraint(
         &self,
-        constraints_horizontal: slint_core_internal::layout::LayoutInfo,
-        constraints_vertical: slint_core_internal::layout::LayoutInfo,
+        constraints_horizontal: i_slint_core::layout::LayoutInfo,
+        constraints_vertical: i_slint_core::layout::LayoutInfo,
     ) {
         self.apply_constraints(constraints_horizontal, constraints_vertical)
     }
 
-    fn set_mouse_cursor(&self, _cursor: slint_core_internal::items::MouseCursor) {}
+    fn set_mouse_cursor(&self, _cursor: i_slint_core::items::MouseCursor) {}
 
     fn text_size(
         &self,
-        _font_request: slint_core_internal::graphics::FontRequest,
+        _font_request: i_slint_core::graphics::FontRequest,
         _text: &str,
         _max_width: Option<f32>,
-    ) -> slint_core_internal::graphics::Size {
+    ) -> i_slint_core::graphics::Size {
         // TODO
         Default::default()
     }
 
     fn text_input_byte_offset_for_position(
         &self,
-        _text_input: std::pin::Pin<&slint_core_internal::items::TextInput>,
-        _pos: slint_core_internal::graphics::Point,
+        _text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
+        _pos: i_slint_core::graphics::Point,
     ) -> usize {
         todo!()
     }
 
     fn text_input_position_for_byte_offset(
         &self,
-        _text_input: std::pin::Pin<&slint_core_internal::items::TextInput>,
+        _text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
         _byte_offset: usize,
-    ) -> slint_core_internal::graphics::Point {
+    ) -> i_slint_core::graphics::Point {
         todo!()
     }
 
@@ -208,7 +207,7 @@ impl PlatformWindow for SimulatorWindow {
 }
 
 impl WinitWindow for SimulatorWindow {
-    fn runtime_window(&self) -> Rc<slint_core_internal::window::Window> {
+    fn runtime_window(&self) -> Rc<i_slint_core::window::Window> {
         self.self_weak.upgrade().unwrap()
     }
 
@@ -303,17 +302,12 @@ impl WinitWindow for SimulatorWindow {
         callback(&*self.opengl_context.window())
     }
 
-    fn constraints(
-        &self,
-    ) -> (slint_core_internal::layout::LayoutInfo, slint_core_internal::layout::LayoutInfo) {
+    fn constraints(&self) -> (i_slint_core::layout::LayoutInfo, i_slint_core::layout::LayoutInfo) {
         self.constraints.get()
     }
     fn set_constraints(
         &self,
-        constraints: (
-            slint_core_internal::layout::LayoutInfo,
-            slint_core_internal::layout::LayoutInfo,
-        ),
+        constraints: (i_slint_core::layout::LayoutInfo, i_slint_core::layout::LayoutInfo),
     ) {
         self.constraints.set(constraints)
     }
@@ -321,20 +315,17 @@ impl WinitWindow for SimulatorWindow {
     fn set_background_color(&self, color: Color) {
         self.background_color.set(color);
     }
-    fn set_icon(&self, _icon: slint_core_internal::graphics::Image) {}
+    fn set_icon(&self, _icon: i_slint_core::graphics::Image) {}
 }
 
 pub struct SimulatorBackend;
 
-impl slint_core_internal::backend::Backend for SimulatorBackend {
+impl i_slint_core::backend::Backend for SimulatorBackend {
     fn create_window(&'static self) -> Rc<Window> {
-        slint_core_internal::window::Window::new(|window| SimulatorWindow::new(window))
+        i_slint_core::window::Window::new(|window| SimulatorWindow::new(window))
     }
 
-    fn run_event_loop(
-        &'static self,
-        behavior: slint_core_internal::backend::EventLoopQuitBehavior,
-    ) {
+    fn run_event_loop(&'static self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {
         event_loop::run(behavior);
     }
 
@@ -375,7 +366,7 @@ impl slint_core_internal::backend::Backend for SimulatorBackend {
             .send_event(self::event_loop::CustomEvent::UserEvent(event));
     }
 
-    fn image_size(&'static self, image: &Image) -> slint_core_internal::graphics::IntSize {
+    fn image_size(&'static self, image: &Image) -> i_slint_core::graphics::IntSize {
         let inner: &ImageInner = image.into();
         match inner {
             ImageInner::None => Default::default(),

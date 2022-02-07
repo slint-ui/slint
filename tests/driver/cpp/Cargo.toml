@@ -17,7 +17,7 @@ name = "test-driver-cpp"
 slint-cpp = { path = "../../../api/cpp", features = ["testing"] }
 
 [dev-dependencies]
-slint-compiler-internal = { path = "../../../internal/compiler", features = ["cpp", "display-diagnostics"] }
+i-slint-compiler = { path = "../../../internal/compiler", features = ["cpp", "display-diagnostics"] }
 
 cc = "1.0.54"
 scopeguard = "1.1.0"

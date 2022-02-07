@@ -13,7 +13,7 @@ use core::{cmp::PartialEq, fmt::Debug, marker::PhantomData, ptr::NonNull};
 /// Can be constructed from a slice using the from trait.
 ///
 /// ```
-/// use slint_core_internal::slice::Slice;
+/// use i_slint_core::slice::Slice;
 /// let x = Slice::from_slice(&[1, 2, 3]);
 /// assert_eq!(x.len(), 3);
 /// assert_eq!(x[1], 2);
@@ -22,7 +22,7 @@ use core::{cmp::PartialEq, fmt::Debug, marker::PhantomData, ptr::NonNull};
 ///
 /// Comparing two Slice compare their pointer, not the content.
 /// ```
-/// use slint_core_internal::slice::Slice;
+/// use i_slint_core::slice::Slice;
 /// let a = Slice::from_slice(&[1, 2, 3]);
 /// let slice = [1, 2, 3, 4];
 /// let b = Slice::from(&slice[..3]);

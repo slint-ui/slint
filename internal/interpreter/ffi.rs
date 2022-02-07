@@ -4,9 +4,9 @@
 use crate::dynamic_component::ErasedComponentBox;
 
 use super::*;
-use slint_core_internal::model::{Model, ModelNotify, SharedVectorModel};
-use slint_core_internal::slice::Slice;
-use slint_core_internal::window::{WindowHandleAccess, WindowRc};
+use i_slint_core::model::{Model, ModelNotify, SharedVectorModel};
+use i_slint_core::slice::Slice;
+use i_slint_core::window::{WindowHandleAccess, WindowRc};
 use std::ffi::c_void;
 use vtable::VRef;
 
@@ -552,11 +552,11 @@ pub extern "C" fn slint_interpreter_component_instance_show(
 #[no_mangle]
 pub unsafe extern "C" fn slint_interpreter_component_instance_window(
     inst: &ErasedComponentBox,
-    out: *mut *const slint_core_internal::window::ffi::WindowRcOpaque,
+    out: *mut *const i_slint_core::window::ffi::WindowRcOpaque,
 ) {
     assert_eq!(
         core::mem::size_of::<WindowRc>(),
-        core::mem::size_of::<slint_core_internal::window::ffi::WindowRcOpaque>()
+        core::mem::size_of::<i_slint_core::window::ffi::WindowRcOpaque>()
     );
     core::ptr::write(out as *mut *const WindowRc, inst.window().window_handle() as *const _)
 }
@@ -603,7 +603,7 @@ impl Model for ModelAdaptorWrapper {
         }
     }
 
-    fn model_tracker(&self) -> &dyn slint_core_internal::model::ModelTracker {
+    fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {
         self.0.get_notify().as_model_notify()
     }
 
@@ -786,12 +786,8 @@ pub unsafe extern "C" fn slint_interpreter_component_compiler_get_diagnostics(
             line,
             column,
             level: match diagnostic.level() {
-                slint_compiler_internal::diagnostics::DiagnosticLevel::Error => {
-                    DiagnosticLevel::Error
-                }
-                slint_compiler_internal::diagnostics::DiagnosticLevel::Warning => {
-                    DiagnosticLevel::Warning
-                }
+                i_slint_compiler::diagnostics::DiagnosticLevel::Error => DiagnosticLevel::Error,
+                i_slint_compiler::diagnostics::DiagnosticLevel::Warning => DiagnosticLevel::Warning,
                 _ => DiagnosticLevel::Warning,
             },
         }

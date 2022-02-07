@@ -34,7 +34,7 @@ use alloc::boxed::Box;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::pin::Pin;
-use slint_core_macros_internal::*;
+use i_slint_core_macros::*;
 use vtable::*;
 
 mod text;

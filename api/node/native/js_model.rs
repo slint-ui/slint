@@ -1,15 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
+use i_slint_compiler::langtype::Type;
+use i_slint_core::model::Model;
 use neon::prelude::*;
-use slint_compiler_internal::langtype::Type;
-use slint_core_internal::model::Model;
 use std::cell::Cell;
 use std::rc::{Rc, Weak};
 
 /// Model coming from JS
 pub struct JsModel {
-    notify: slint_core_internal::model::ModelNotify,
+    notify: i_slint_core::model::ModelNotify,
     /// The index of the value in the PersistentContext
     value_index: u32,
     data_type: Type,
@@ -87,7 +87,7 @@ impl Model for JsModel {
         }
     }
 
-    fn model_tracker(&self) -> &dyn slint_core_internal::model::ModelTracker {
+    fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {
         &self.notify
     }
 

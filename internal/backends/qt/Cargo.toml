@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "slint-backend-qt-internal"
+name = "i-slint-backend-qt"
 version = "0.2.0"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
@@ -10,19 +10,19 @@ license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
 description = "Qt rendering backend for Slint"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
-links = "slint_backend_qt_internal" # just so we can pass metadata to the dependee's build script
+links = "i_slint_backend_qt" # just so we can pass metadata to the dependee's build script
 
 [features]
-rtti = ["slint-core-internal/rtti"]
+rtti = ["i-slint-core/rtti"]
 default = ["rtti"]
 
 [lib]
 path = "lib.rs"
 
 [dependencies]
-slint-common-internal = { version = "=0.2.0", path = "../../../internal/common" }
-slint-core-macros-internal = { version = "=0.2.0", path = "../../../internal/core-macros" }
-slint-core-internal = { version = "=0.2.0", path = "../../../internal/core" }
+i-slint-common = { version = "=0.2.0", path = "../../../internal/common" }
+i-slint-core-macros = { version = "=0.2.0", path = "../../../internal/core-macros" }
+i-slint-core = { version = "=0.2.0", path = "../../../internal/core" }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }

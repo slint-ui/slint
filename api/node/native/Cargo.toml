@@ -20,8 +20,8 @@ crate-type = ["cdylib"]
 name = "slint_node_native"
 
 [dependencies]
-slint-compiler-internal = { version = "=0.2.0", path="../../../internal/compiler" }
-slint-core-internal = { version = "=0.2.0", path="../../../internal/core" }
+i-slint-compiler = { version = "=0.2.0", path="../../../internal/compiler" }
+i-slint-core = { version = "=0.2.0", path="../../../internal/core" }
 slint-interpreter = { version = "=0.2.0", path="../../../internal/interpreter",  features = ["display-diagnostics"] }
 
 vtable = { version = "0.1.1", path="../../../helper_crates/vtable" }

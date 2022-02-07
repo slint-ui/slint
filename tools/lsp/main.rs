@@ -10,6 +10,12 @@ mod util;
 
 use std::collections::HashMap;
 
+use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::langtype::Type;
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
+use i_slint_compiler::typeloader::TypeLoader;
+use i_slint_compiler::typeregister::TypeRegister;
+use i_slint_compiler::CompilerConfiguration;
 use lsp_server::{Connection, Message, Request, RequestId, Response};
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification};
 use lsp_types::request::{
@@ -24,12 +30,6 @@ use lsp_types::{
     SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions, ServerCapabilities,
     SymbolInformation, TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
 };
-use slint_compiler_internal::diagnostics::BuildDiagnostics;
-use slint_compiler_internal::langtype::Type;
-use slint_compiler_internal::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
-use slint_compiler_internal::typeloader::TypeLoader;
-use slint_compiler_internal::typeregister::TypeRegister;
-use slint_compiler_internal::CompilerConfiguration;
 
 use clap::Parser;
 
@@ -183,7 +183,7 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
     let cli_args: Cli = Cli::parse();
     let params: InitializeParams = serde_json::from_value(params).unwrap();
     let mut compiler_config =
-        CompilerConfiguration::new(slint_compiler_internal::generator::OutputFormat::Interpreter);
+        CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
     compiler_config.style =
         Some(if cli_args.style.is_empty() { "fluent".into() } else { cli_args.style });
     compiler_config.include_paths = cli_args.include_paths;
@@ -400,7 +400,7 @@ fn maybe_goto_preview(
     loop {
         if let Some(component) = syntax_nodes::Component::new(node.clone()) {
             let component_name =
-                slint_compiler_internal::parser::identifier_text(&component.DeclaredIdentifier())?;
+                i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())?;
             preview::load_preview(
                 sender,
                 preview::PreviewComponent {
@@ -518,7 +518,7 @@ fn get_code_actions(
         })?;
 
     let component_name =
-        slint_compiler_internal::parser::identifier_text(&component.DeclaredIdentifier())?;
+        i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())?;
 
     Some(vec![CodeActionOrCommand::Command(Command::new(
         "Show preview".into(),
@@ -540,7 +540,7 @@ fn get_document_color(
         if token.kind() == SyntaxKind::ColorLiteral {
             (|| -> Option<()> {
                 let range = token.text_range();
-                let col = slint_compiler_internal::literals::parse_color_literal(token.text())?;
+                let col = i_slint_compiler::literals::parse_color_literal(token.text())?;
                 let shift = |s: u32| -> f32 { ((col >> s) & 0xff) as f32 / 255. };
                 result.push(ColorInformation {
                     range: Range::new(

@@ -5,10 +5,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use slint_core_internal::graphics::{IntSize, SharedImageBuffer};
+use i_slint_core::graphics::{IntSize, SharedImageBuffer};
 #[cfg(target_arch = "wasm32")]
-use slint_core_internal::Property;
-use slint_core_internal::{items::ImageRendering, slice::Slice, ImageInner, SharedString};
+use i_slint_core::Property;
+use i_slint_core::{items::ImageRendering, slice::Slice, ImageInner, SharedString};
 
 use super::{CanvasRc, GLItemRenderer};
 

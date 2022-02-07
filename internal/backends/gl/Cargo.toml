@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "slint-backend-gl-internal"
+name = "i-slint-backend-gl"
 version = "0.2.0"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
@@ -24,8 +24,8 @@ x11 = ["winit/x11", "glutin/x11", "copypasta/x11"]
 default = ["svg"]
 
 [dependencies]
-slint-core-internal = { version = "=0.2.0", path = "../../../internal/core" }
-slint-common-internal = { version = "=0.2.0", path = "../../../internal/common" }
+i-slint-core = { version = "=0.2.0", path = "../../../internal/core" }
+i-slint-common = { version = "=0.2.0", path = "../../../internal/common" }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }

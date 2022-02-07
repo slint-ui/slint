@@ -227,7 +227,7 @@ impl Item for NativeTabWidget {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &WindowRc,
-        _self_rc: &slint_core_internal::items::ItemRc,
+        _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -305,7 +305,7 @@ pub struct NativeTab {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub title: Property<SharedString>,
-    pub icon: Property<slint_core_internal::graphics::Image>,
+    pub icon: Property<i_slint_core::graphics::Image>,
     pub enabled: Property<bool>,
     pub pressed: Property<bool>,
     pub current: Property<i32>,
@@ -383,7 +383,7 @@ impl Item for NativeTab {
         self: Pin<&Self>,
         event: MouseEvent,
         window: &WindowRc,
-        self_rc: &slint_core_internal::items::ItemRc,
+        self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let enabled = self.enabled();
         if !enabled {

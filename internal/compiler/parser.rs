@@ -28,7 +28,7 @@ mod prelude {
     pub use super::{syntax_nodes, SyntaxNode, SyntaxNodeVerify};
     pub use super::{DefaultParser, Parser, SyntaxKind};
     #[cfg(test)]
-    pub use parser_test_macro::parser_test;
+    pub use i_slint_parser_test_macro::parser_test;
 }
 
 #[cfg(test)]

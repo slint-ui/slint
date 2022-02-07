@@ -27,13 +27,13 @@ default = ["std", "backend-gl", "x11", "backend-qt", "compat-0-2-0"]
 compat-0-2-0 = []
 
 ## enable the [`print_diagnostics`] function to show diagnostic in the console output
-display-diagnostics = ["slint-compiler-internal/display-diagnostics"]
+display-diagnostics = ["i-slint-compiler/display-diagnostics"]
 
 # (internal) export C++ FFI functions
-ffi = ["spin_on", "slint-core-internal/ffi"]
+ffi = ["spin_on", "i-slint-core/ffi"]
 
 ## Enable use of the Rust standard library.
-std = ["slint-core-internal/std"]
+std = ["i-slint-core/std"]
 
 #! ### Backends
 
@@ -41,21 +41,21 @@ std = ["slint-core-internal/std"]
 ## This backend is required to use the `native` style.
 ## It requires Qt 5.15 or later to be installed. If Qt is not installed, the
 ## backend will not be operational
-backend-qt = ["slint-backend-selector-internal/slint-backend-qt-internal", "std"]
+backend-qt = ["i-slint-backend-selector/i-slint-backend-qt", "std"]
 
 ## The GL backend uses the `winit` crate for the windowing system integration,
 ## and the `femtovg` crate for the rendering.
 ## On unix, at least one of `x11` or `wayland` features must be enabled.
-backend-gl = ["slint-backend-selector-internal/slint-backend-gl-internal", "std"]
+backend-gl = ["i-slint-backend-selector/i-slint-backend-gl", "std"]
 ## Same as the GL backend, with the `x11` feature of `winit` enabled
-x11 = ["slint-backend-selector-internal/x11", "backend-gl"]
+x11 = ["i-slint-backend-selector/x11", "backend-gl"]
 ## Same as the GL backend, with the `wayland` feature of `winit` enabled
-wayland = ["slint-backend-selector-internal/wayland", "backend-gl"]
+wayland = ["i-slint-backend-selector/wayland", "backend-gl"]
 
 [dependencies]
-slint-compiler-internal = { version = "=0.2.0", path = "../compiler" }
-slint-core-internal = { version = "=0.2.0", path = "../core", features = ["rtti"] }
-slint-backend-selector-internal = { version = "=0.2.0", path = "../../internal/backends/selector" }
+i-slint-compiler = { version = "=0.2.0", path = "../compiler" }
+i-slint-core = { version = "=0.2.0", path = "../core", features = ["rtti"] }
+i-slint-backend-selector = { version = "=0.2.0", path = "../../internal/backends/selector" }
 
 vtable = { version = "0.1.1", path="../../helper_crates/vtable" }
 
@@ -71,10 +71,10 @@ version = "0.1"
 optional = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-slint-backend-gl-internal = { version = "=0.2.0", path = "../../internal/backends/gl" }
+i-slint-backend-gl = { version = "=0.2.0", path = "../../internal/backends/gl" }
 
 [dev-dependencies]
-slint-backend-testing-internal = { path = "../../internal/backends/testing" }
+i-slint-backend-testing = { path = "../../internal/backends/testing" }
 
 spin_on = "0.1"
 

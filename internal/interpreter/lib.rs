@@ -91,12 +91,12 @@ pub use api::*;
 pub(crate) fn register_font_from_path<P: AsRef<std::path::Path>>(
     path: P,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    slint_backend_selector_internal::backend().register_font_from_path(path.as_ref())
+    i_slint_backend_selector::backend().register_font_from_path(path.as_ref())
 }
 
 /// (Re-export from corelib.)
 #[doc(inline)]
-pub use slint_core_internal::{Brush, Color, SharedString, SharedVector};
+pub use i_slint_core::{Brush, Color, SharedString, SharedVector};
 
 /// One need to use at least one function in each module in order to get them
 /// exported in the final binary.

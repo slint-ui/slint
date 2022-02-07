@@ -10,7 +10,7 @@
 use corelib::component::ComponentRc;
 use corelib::items::PointerEventButton;
 use corelib::layout::Orientation;
-use slint_core_internal as corelib;
+use i_slint_core as corelib;
 
 use corelib::graphics::Point;
 use corelib::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
@@ -99,7 +99,7 @@ pub trait WinitWindow: PlatformWindow {
 
     fn apply_window_properties(
         &self,
-        window_item: core::pin::Pin<&slint_core_internal::items::WindowItem>,
+        window_item: core::pin::Pin<&i_slint_core::items::WindowItem>,
     ) {
         let background = window_item.background();
         let title = window_item.title();
@@ -330,23 +330,23 @@ fn redraw_all_windows() {
 mod key_codes {
     macro_rules! winit_key_to_string_fn {
         ($($char:literal # $name:ident # $($_qt:ident)|* # $($winit:ident)|* ;)*) => {
-            pub fn winit_key_to_string(virtual_keycode: winit::event::VirtualKeyCode) -> Option<slint_core_internal::SharedString> {
+            pub fn winit_key_to_string(virtual_keycode: winit::event::VirtualKeyCode) -> Option<i_slint_core::SharedString> {
                 let char = match(virtual_keycode) {
                     $($(winit::event::VirtualKeyCode::$winit => $char,)*)*
                     _ => return None,
                 };
                 let mut buffer = [0; 6];
-                Some(slint_core_internal::SharedString::from(char.encode_utf8(&mut buffer) as &str))
+                Some(i_slint_core::SharedString::from(char.encode_utf8(&mut buffer) as &str))
             }
         };
     }
-    slint_common_internal::for_each_special_keys!(winit_key_to_string_fn);
+    i_slint_common::for_each_special_keys!(winit_key_to_string_fn);
 }
 
 fn process_window_event(
     window: Rc<dyn WinitWindow>,
     event: WindowEvent,
-    quit_behavior: slint_core_internal::backend::EventLoopQuitBehavior,
+    quit_behavior: i_slint_core::backend::EventLoopQuitBehavior,
     control_flow: &mut winit::event_loop::ControlFlow,
     cursor_pos: &mut Point,
     pressed: &mut bool,
@@ -523,7 +523,7 @@ fn process_window_event(
 /// Runs the event loop and renders the items in the provided `component` in its
 /// own window.
 #[allow(unused_mut)] // mut need changes for wasm
-pub fn run(quit_behavior: slint_core_internal::backend::EventLoopQuitBehavior) {
+pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
     use winit::event::Event;
     use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
 

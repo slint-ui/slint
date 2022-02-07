@@ -21,7 +21,7 @@ use crate::window::WindowRc;
 use crate::{Brush, Property};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
-use slint_core_macros_internal::*;
+use i_slint_core_macros::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
 #[repr(C)]

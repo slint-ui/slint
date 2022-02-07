@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 use core::convert::TryInto;
-use slint_compiler_internal::langtype::Type as LangType;
-use slint_core_internal::graphics::Image;
-use slint_core_internal::model::{Model, ModelRc};
-use slint_core_internal::{Brush, PathData, SharedString, SharedVector};
+use i_slint_compiler::langtype::Type as LangType;
+use i_slint_core::graphics::Image;
+use i_slint_core::model::{Model, ModelRc};
+use i_slint_core::{Brush, PathData, SharedString, SharedVector};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::iter::FromIterator;
@@ -13,9 +13,9 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 #[doc(inline)]
-pub use slint_compiler_internal::diagnostics::{Diagnostic, DiagnosticLevel};
+pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
 
-pub use slint_core_internal::api::*;
+pub use i_slint_core::api::*;
 
 use crate::dynamic_component::ErasedComponentBox;
 
@@ -106,7 +106,7 @@ pub enum Value {
     PathData(PathData),
     #[doc(hidden)]
     /// An easing curve
-    EasingCurve(slint_core_internal::animations::EasingCurve),
+    EasingCurve(i_slint_core::animations::EasingCurve),
     #[doc(hidden)]
     /// An enumeration, like `TextHorizontalAlignment::align_center`, represented by `("TextHorizontalAlignment", "align_center")`.
     /// FIXME: consider representing that with a number?
@@ -224,7 +224,7 @@ declare_value_conversion!(Image => [Image] );
 declare_value_conversion!(Struct => [Struct] );
 declare_value_conversion!(Brush => [Brush] );
 declare_value_conversion!(PathData => [PathData]);
-declare_value_conversion!(EasingCurve => [slint_core_internal::animations::EasingCurve]);
+declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]);
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 
 /// Implement From / TryInto for Value that convert a `struct` to/from `Value::Object`
@@ -255,13 +255,13 @@ macro_rules! declare_value_struct_conversion {
     };
 }
 
-declare_value_struct_conversion!(struct slint_core_internal::model::StandardListViewItem { text });
-declare_value_struct_conversion!(struct slint_core_internal::properties::StateInfo { current_state, previous_state, change_time });
-declare_value_struct_conversion!(struct slint_core_internal::input::KeyboardModifiers { control, alt, shift, meta });
-declare_value_struct_conversion!(struct slint_core_internal::input::KeyEvent { event_type, text, modifiers });
-declare_value_struct_conversion!(struct slint_core_internal::layout::LayoutInfo { min, max, min_percent, max_percent, preferred, stretch });
-declare_value_struct_conversion!(struct slint_core_internal::graphics::Point { x, y, ..Default::default()});
-declare_value_struct_conversion!(struct slint_core_internal::items::PointerEvent { kind, button });
+declare_value_struct_conversion!(struct i_slint_core::model::StandardListViewItem { text });
+declare_value_struct_conversion!(struct i_slint_core::properties::StateInfo { current_state, previous_state, change_time });
+declare_value_struct_conversion!(struct i_slint_core::input::KeyboardModifiers { control, alt, shift, meta });
+declare_value_struct_conversion!(struct i_slint_core::input::KeyEvent { event_type, text, modifiers });
+declare_value_struct_conversion!(struct i_slint_core::layout::LayoutInfo { min, max, min_percent, max_percent, preferred, stretch });
+declare_value_struct_conversion!(struct i_slint_core::graphics::Point { x, y, ..Default::default()});
+declare_value_struct_conversion!(struct i_slint_core::items::PointerEvent { kind, button });
 
 /// Implement From / TryInto for Value that convert an `enum` to/from `Value::EnumerationValue`
 ///
@@ -296,38 +296,35 @@ macro_rules! declare_value_enum_conversion {
 }
 
 declare_value_enum_conversion!(
-    slint_core_internal::items::TextHorizontalAlignment,
+    i_slint_core::items::TextHorizontalAlignment,
     TextHorizontalAlignment
 );
-declare_value_enum_conversion!(
-    slint_core_internal::items::TextVerticalAlignment,
-    TextVerticalAlignment
-);
-declare_value_enum_conversion!(slint_core_internal::items::TextOverflow, TextOverflow);
-declare_value_enum_conversion!(slint_core_internal::items::TextWrap, TextWrap);
-declare_value_enum_conversion!(slint_core_internal::layout::LayoutAlignment, LayoutAlignment);
-declare_value_enum_conversion!(slint_core_internal::items::ImageFit, ImageFit);
-declare_value_enum_conversion!(slint_core_internal::items::ImageRendering, ImageRendering);
-declare_value_enum_conversion!(slint_core_internal::input::KeyEventType, KeyEventType);
-declare_value_enum_conversion!(slint_core_internal::items::EventResult, EventResult);
-declare_value_enum_conversion!(slint_core_internal::items::FillRule, FillRule);
-declare_value_enum_conversion!(slint_core_internal::items::MouseCursor, MouseCursor);
-declare_value_enum_conversion!(slint_core_internal::items::StandardButtonKind, StandardButtonKind);
-declare_value_enum_conversion!(slint_core_internal::items::PointerEventKind, PointerEventKind);
-declare_value_enum_conversion!(slint_core_internal::items::PointerEventButton, PointerEventButton);
-declare_value_enum_conversion!(slint_core_internal::items::DialogButtonRole, DialogButtonRole);
-declare_value_enum_conversion!(slint_core_internal::graphics::PathEvent, PathEvent);
+declare_value_enum_conversion!(i_slint_core::items::TextVerticalAlignment, TextVerticalAlignment);
+declare_value_enum_conversion!(i_slint_core::items::TextOverflow, TextOverflow);
+declare_value_enum_conversion!(i_slint_core::items::TextWrap, TextWrap);
+declare_value_enum_conversion!(i_slint_core::layout::LayoutAlignment, LayoutAlignment);
+declare_value_enum_conversion!(i_slint_core::items::ImageFit, ImageFit);
+declare_value_enum_conversion!(i_slint_core::items::ImageRendering, ImageRendering);
+declare_value_enum_conversion!(i_slint_core::input::KeyEventType, KeyEventType);
+declare_value_enum_conversion!(i_slint_core::items::EventResult, EventResult);
+declare_value_enum_conversion!(i_slint_core::items::FillRule, FillRule);
+declare_value_enum_conversion!(i_slint_core::items::MouseCursor, MouseCursor);
+declare_value_enum_conversion!(i_slint_core::items::StandardButtonKind, StandardButtonKind);
+declare_value_enum_conversion!(i_slint_core::items::PointerEventKind, PointerEventKind);
+declare_value_enum_conversion!(i_slint_core::items::PointerEventButton, PointerEventButton);
+declare_value_enum_conversion!(i_slint_core::items::DialogButtonRole, DialogButtonRole);
+declare_value_enum_conversion!(i_slint_core::graphics::PathEvent, PathEvent);
 
-impl From<slint_core_internal::animations::Instant> for Value {
-    fn from(value: slint_core_internal::animations::Instant) -> Self {
+impl From<i_slint_core::animations::Instant> for Value {
+    fn from(value: i_slint_core::animations::Instant) -> Self {
         Value::Number(value.0 as _)
     }
 }
-impl TryInto<slint_core_internal::animations::Instant> for Value {
+impl TryInto<i_slint_core::animations::Instant> for Value {
     type Error = ();
-    fn try_into(self) -> Result<slint_core_internal::animations::Instant, ()> {
+    fn try_into(self) -> Result<i_slint_core::animations::Instant, ()> {
         match self {
-            Value::Number(x) => Ok(slint_core_internal::animations::Instant(x as _)),
+            Value::Number(x) => Ok(i_slint_core::animations::Instant(x as _)),
             _ => Err(()),
         }
     }
@@ -347,16 +344,16 @@ impl TryInto<()> for Value {
     }
 }
 
-impl From<slint_core_internal::Color> for Value {
+impl From<i_slint_core::Color> for Value {
     #[inline]
-    fn from(c: slint_core_internal::Color) -> Self {
+    fn from(c: i_slint_core::Color) -> Self {
         Value::Brush(Brush::SolidColor(c))
     }
 }
-impl TryInto<slint_core_internal::Color> for Value {
+impl TryInto<i_slint_core::Color> for Value {
     type Error = Value;
     #[inline]
-    fn try_into(self) -> Result<slint_core_internal::Color, Value> {
+    fn try_into(self) -> Result<i_slint_core::Color, Value> {
         match self {
             Value::Brush(Brush::SolidColor(c)) => Ok(c),
             _ => Err(self),
@@ -429,15 +426,15 @@ impl FromIterator<(String, Value)> for Struct {
 /// ComponentCompiler is the entry point to the Slint interpreter that can be used
 /// to load .slint files or compile them on-the-fly from a string.
 pub struct ComponentCompiler {
-    config: slint_compiler_internal::CompilerConfiguration,
+    config: i_slint_compiler::CompilerConfiguration,
     diagnostics: Vec<Diagnostic>,
 }
 
 impl Default for ComponentCompiler {
     fn default() -> Self {
         Self {
-            config: slint_compiler_internal::CompilerConfiguration::new(
-                slint_compiler_internal::generator::OutputFormat::Interpreter,
+            config: i_slint_compiler::CompilerConfiguration::new(
+                i_slint_compiler::generator::OutputFormat::Interpreter,
             ),
             diagnostics: vec![],
         }
@@ -516,7 +513,7 @@ impl ComponentCompiler {
         path: P,
     ) -> Option<ComponentDefinition> {
         let path = path.as_ref();
-        let source = match slint_compiler_internal::diagnostics::load_from_path(path) {
+        let source = match i_slint_compiler::diagnostics::load_from_path(path) {
             Ok(s) => s,
             Err(d) => {
                 self.diagnostics = vec![d];
@@ -595,7 +592,7 @@ impl ComponentDefinition {
     /// This method is internal because the WindowRc is not a public type
     #[doc(hidden)]
     pub fn create_with_existing_window(&self, window: &Window) -> ComponentInstance {
-        use slint_core_internal::window::WindowHandleAccess;
+        use i_slint_core::window::WindowHandleAccess;
         generativity::make_guard!(guard);
         ComponentInstance {
             inner: self
@@ -612,7 +609,7 @@ impl ComponentDefinition {
     #[doc(hidden)]
     pub fn properties_and_callbacks(
         &self,
-    ) -> impl Iterator<Item = (String, slint_compiler_internal::langtype::Type)> + '_ {
+    ) -> impl Iterator<Item = (String, i_slint_compiler::langtype::Type)> + '_ {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
@@ -706,7 +703,7 @@ impl ComponentDefinition {
 /// This function is available when the `display-diagnostics` is enabled.
 #[cfg(feature = "display-diagnostics")]
 pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
-    let mut build_diagnostics = slint_compiler_internal::diagnostics::BuildDiagnostics::default();
+    let mut build_diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
     for d in diagnostics {
         build_diagnostics.push_compiler_error(d.clone())
     }
@@ -723,7 +720,7 @@ pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
 #[repr(C)]
 pub struct ComponentInstance {
     inner: vtable::VRc<
-        slint_core_internal::component::ComponentVTable,
+        i_slint_core::component::ComponentVTable,
         crate::dynamic_component::ErasedComponentBox,
     >,
 }
@@ -969,7 +966,7 @@ impl ComponentHandle for ComponentInstance {
     }
 
     fn from_inner(
-        inner: vtable::VRc<slint_core_internal::component::ComponentVTable, Self::Inner>,
+        inner: vtable::VRc<i_slint_core::component::ComponentVTable, Self::Inner>,
     ) -> Self {
         Self { inner }
     }
@@ -988,9 +985,8 @@ impl ComponentHandle for ComponentInstance {
 
     fn run(&self) {
         self.show();
-        slint_backend_selector_internal::backend().run_event_loop(
-            slint_core_internal::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed,
-        );
+        i_slint_backend_selector::backend()
+            .run_event_loop(i_slint_core::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
         self.hide();
     }
 
@@ -1007,7 +1003,7 @@ impl ComponentHandle for ComponentInstance {
 }
 
 impl From<ComponentInstance>
-    for vtable::VRc<slint_core_internal::component::ComponentVTable, ErasedComponentBox>
+    for vtable::VRc<i_slint_core::component::ComponentVTable, ErasedComponentBox>
 {
     fn from(value: ComponentInstance) -> Self {
         value.inner
@@ -1057,31 +1053,30 @@ pub enum InvokeCallbackError {
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
 pub fn run_event_loop() {
-    slint_backend_selector_internal::backend().run_event_loop(
-        slint_core_internal::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed,
-    );
+    i_slint_backend_selector::backend()
+        .run_event_loop(i_slint_core::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
 }
 
 /// This module contains a few function use by tests
 pub mod testing {
     use super::ComponentHandle;
-    use slint_core_internal::window::WindowHandleAccess;
+    use i_slint_core::window::WindowHandleAccess;
 
-    /// Wrapper around [`slint_core_internal::tests::slint_send_mouse_click`]
+    /// Wrapper around [`i_slint_core::tests::slint_send_mouse_click`]
     pub fn send_mouse_click(comp: &super::ComponentInstance, x: f32, y: f32) {
-        slint_core_internal::tests::slint_send_mouse_click(
+        i_slint_core::tests::slint_send_mouse_click(
             &vtable::VRc::into_dyn(comp.inner.clone()),
             x,
             y,
             comp.window().window_handle(),
         );
     }
-    /// Wrapper around [`slint_core_internal::tests::send_keyboard_string_sequence`]
+    /// Wrapper around [`i_slint_core::tests::send_keyboard_string_sequence`]
     pub fn send_keyboard_string_sequence(
         comp: &super::ComponentInstance,
-        string: slint_core_internal::SharedString,
+        string: i_slint_core::SharedString,
     ) {
-        slint_core_internal::tests::send_keyboard_string_sequence(
+        i_slint_core::tests::send_keyboard_string_sequence(
             &string,
             Default::default(),
             comp.window().window_handle(),
@@ -1091,7 +1086,7 @@ pub mod testing {
 
 #[test]
 fn component_definition_properties() {
-    slint_backend_testing_internal::init();
+    i_slint_backend_testing::init();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(
@@ -1139,7 +1134,7 @@ fn component_definition_properties() {
 
 #[test]
 fn component_definition_properties2() {
-    slint_backend_testing_internal::init();
+    i_slint_backend_testing::init();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(
@@ -1169,7 +1164,7 @@ fn component_definition_properties2() {
 
 #[test]
 fn globals() {
-    slint_backend_testing_internal::init();
+    i_slint_backend_testing::init();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let definition = spin_on::spin_on(
@@ -1287,7 +1282,7 @@ fn globals() {
 
 #[test]
 fn component_definition_struct_properties() {
-    slint_backend_testing_internal::init();
+    i_slint_backend_testing::init();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(
@@ -1337,8 +1332,8 @@ fn component_definition_struct_properties() {
 
 #[test]
 fn component_definition_model_properties() {
-    use slint_core_internal::model::*;
-    slint_backend_testing_internal::init();
+    use i_slint_core::model::*;
+    i_slint_backend_testing::init();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(compiler.build_from_source(

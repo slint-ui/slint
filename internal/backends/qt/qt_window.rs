@@ -5,22 +5,22 @@
 
 use cpp::*;
 use euclid::approxeq::ApproxEq;
-use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
-use qttypes::QPainter;
-use slint_core_internal::graphics::{
+use i_slint_core::graphics::{
     Brush, Color, FPSCounter, FontRequest, Image, Point, Rect, RenderingCache, SharedImageBuffer,
     Size,
 };
-use slint_core_internal::input::{KeyEvent, KeyEventType, MouseEvent};
-use slint_core_internal::item_rendering::{CachedRenderingData, ItemRenderer};
-use slint_core_internal::items::{
+use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
+use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
+use i_slint_core::items::{
     self, FillRule, ImageRendering, ItemRef, MouseCursor, PointerEventButton, TextOverflow,
     TextWrap,
 };
-use slint_core_internal::layout::Orientation;
-use slint_core_internal::window::{PlatformWindow, PopupWindow, PopupWindowLocation, WindowRc};
-use slint_core_internal::{component::ComponentRc, SharedString};
-use slint_core_internal::{ImageInner, PathData, Property};
+use i_slint_core::layout::Orientation;
+use i_slint_core::window::{PlatformWindow, PopupWindow, PopupWindowLocation, WindowRc};
+use i_slint_core::{component::ComponentRc, SharedString};
+use i_slint_core::{ImageInner, PathData, Property};
+use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
+use qttypes::QPainter;
 
 use std::cell::RefCell;
 use std::pin::Pin;
@@ -280,16 +280,16 @@ impl QPainterPath {
     }
 }
 
-fn into_qbrush(brush: slint_core_internal::Brush) -> qttypes::QBrush {
+fn into_qbrush(brush: i_slint_core::Brush) -> qttypes::QBrush {
     match brush {
-        slint_core_internal::Brush::SolidColor(color) => {
+        i_slint_core::Brush::SolidColor(color) => {
             let color: u32 = color.as_argb_encoded();
             cpp!(unsafe [color as "QRgb"] -> qttypes::QBrush as "QBrush" {
                 return QBrush(QColor::fromRgba(color));
             })
         }
-        slint_core_internal::Brush::LinearGradient(g) => {
-            let (start, end) = slint_core_internal::graphics::line_for_angle(g.angle());
+        i_slint_core::Brush::LinearGradient(g) => {
+            let (start, end) = i_slint_core::graphics::line_for_angle(g.angle());
             let p1 = qttypes::QPointF { x: start.x as _, y: start.y as _ };
             let p2 = qttypes::QPointF { x: end.x as _, y: end.y as _ };
             cpp_class!(unsafe struct QLinearGradient as "QLinearGradient");
@@ -795,7 +795,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
     fn draw_cached_pixmap(
         &mut self,
-        _item_cache: &slint_core_internal::item_rendering::CachedRenderingData,
+        _item_cache: &i_slint_core::item_rendering::CachedRenderingData,
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
         update_fn(&mut |width: u32, height: u32, data: &[u8]| {
@@ -942,8 +942,8 @@ fn adjust_to_image_fit(
     dest_rect: &mut qttypes::QRectF,
 ) {
     match image_fit {
-        slint_core_internal::items::ImageFit::fill => (),
-        slint_core_internal::items::ImageFit::cover => {
+        i_slint_core::items::ImageFit::fill => (),
+        i_slint_core::items::ImageFit::cover => {
             let ratio = qttypes::qreal::max(
                 dest_rect.width / source_rect.width,
                 dest_rect.height / source_rect.height,
@@ -957,7 +957,7 @@ fn adjust_to_image_fit(
                 source_rect.height = dest_rect.height / ratio;
             }
         }
-        slint_core_internal::items::ImageFit::contain => {
+        i_slint_core::items::ImageFit::contain => {
             let ratio = qttypes::qreal::min(
                 dest_rect.width / source_rect.width,
                 dest_rect.height / source_rect.height,
@@ -1094,7 +1094,7 @@ cpp_class!(unsafe struct QWidgetPtr as "std::unique_ptr<QWidget>");
 
 pub struct QtWindow {
     widget_ptr: QWidgetPtr,
-    pub(crate) self_weak: Weak<slint_core_internal::window::Window>,
+    pub(crate) self_weak: Weak<i_slint_core::window::Window>,
 
     fps_counter: Option<Rc<FPSCounter>>,
 
@@ -1102,7 +1102,7 @@ pub struct QtWindow {
 }
 
 impl QtWindow {
-    pub fn new(window_weak: &Weak<slint_core_internal::window::Window>) -> Rc<Self> {
+    pub fn new(window_weak: &Weak<i_slint_core::window::Window>) -> Rc<Self> {
         let widget_ptr = cpp! {unsafe [] -> QWidgetPtr as "std::unique_ptr<QWidget>" {
             ensure_initialized(true);
             return std::make_unique<SlintWidget>();
@@ -1131,7 +1131,7 @@ impl QtWindow {
     fn paint_event(&self, painter: &mut QPainter) {
         let runtime_window = self.self_weak.upgrade().unwrap();
         runtime_window.clone().draw_contents(|components| {
-            slint_core_internal::animations::update_animations();
+            i_slint_core::animations::update_animations();
             let cache = self.cache.clone();
             let mut renderer = QtItemRenderer {
                 painter,
@@ -1141,7 +1141,7 @@ impl QtWindow {
             };
 
             for (component, origin) in components {
-                slint_core_internal::item_rendering::render_component_items(
+                i_slint_core::item_rendering::render_component_items(
                     component,
                     &mut renderer,
                     *origin,
@@ -1152,7 +1152,7 @@ impl QtWindow {
                 fps_counter.measure_frame_rendered(&mut renderer);
             }
 
-            slint_core_internal::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+            i_slint_core::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
                 if !driver.has_active_animations() {
                     return;
                 }
@@ -1182,9 +1182,9 @@ impl QtWindow {
     }
 
     fn key_event(&self, key: i32, text: qttypes::QString, qt_modifiers: u32, released: bool) {
-        slint_core_internal::animations::update_animations();
+        i_slint_core::animations::update_animations();
         let text: String = text.into();
-        let modifiers = slint_core_internal::input::KeyboardModifiers {
+        let modifiers = i_slint_core::input::KeyboardModifiers {
             control: (qt_modifiers & key_generated::Qt_KeyboardModifier_ControlModifier) != 0,
             alt: (qt_modifiers & key_generated::Qt_KeyboardModifier_AltModifier) != 0,
             shift: (qt_modifiers & key_generated::Qt_KeyboardModifier_ShiftModifier) != 0,
@@ -1324,8 +1324,8 @@ impl PlatformWindow for QtWindow {
     /// Set the min/max sizes on the QWidget
     fn apply_geometry_constraint(
         &self,
-        constraints_h: slint_core_internal::layout::LayoutInfo,
-        constraints_v: slint_core_internal::layout::LayoutInfo,
+        constraints_h: i_slint_core::layout::LayoutInfo,
+        constraints_v: i_slint_core::layout::LayoutInfo,
     ) {
         let widget_ptr = self.widget_ptr();
         let min_width: f32 = constraints_h.min.min(constraints_h.max);
@@ -1349,8 +1349,8 @@ impl PlatformWindow for QtWindow {
         }
     }
 
-    fn show_popup(&self, popup: &slint_core_internal::component::ComponentRc, position: Point) {
-        let window = slint_core_internal::window::Window::new(|window| QtWindow::new(window));
+    fn show_popup(&self, popup: &i_slint_core::component::ComponentRc, position: Point) {
+        let window = i_slint_core::window::Window::new(|window| QtWindow::new(window));
         let popup_window: &QtWindow =
             <dyn std::any::Any>::downcast_ref(window.as_ref().as_any()).unwrap();
         window.set_component(popup);
@@ -1413,7 +1413,7 @@ impl PlatformWindow for QtWindow {
 
     fn text_size(
         &self,
-        font_request: slint_core_internal::graphics::FontRequest,
+        font_request: i_slint_core::graphics::FontRequest,
         text: &str,
         max_width: Option<f32>,
     ) -> Size {
@@ -1422,7 +1422,7 @@ impl PlatformWindow for QtWindow {
 
     fn text_input_byte_offset_for_position(
         &self,
-        text_input: Pin<&slint_core_internal::items::TextInput>,
+        text_input: Pin<&i_slint_core::items::TextInput>,
         pos: Point,
     ) -> usize {
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
@@ -1469,7 +1469,7 @@ impl PlatformWindow for QtWindow {
 
     fn text_input_position_for_byte_offset(
         &self,
-        text_input: Pin<&slint_core_internal::items::TextInput>,
+        text_input: Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
     ) -> Point {
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
@@ -1547,7 +1547,7 @@ fn get_font(request: FontRequest) -> QFont {
 cpp_class! {pub unsafe struct QFont as "QFont"}
 
 impl QFont {
-    fn text_size(&self, text: &str, max_width: Option<f32>) -> slint_core_internal::graphics::Size {
+    fn text_size(&self, text: &str, max_width: Option<f32>) -> i_slint_core::graphics::Size {
         let string = qttypes::QString::from(text);
         let mut r = qttypes::QRectF::default();
         if let Some(max) = max_width {
@@ -1558,7 +1558,7 @@ impl QFont {
                 -> qttypes::QSizeF as "QSizeF"{
             return QFontMetricsF(*self).boundingRect(r, r.isEmpty() ? 0 : Qt::TextWordWrap , string).size();
         }};
-        slint_core_internal::graphics::Size::new(size.width as _, size.height as _)
+        i_slint_core::graphics::Size::new(size.width as _, size.height as _)
     }
 }
 
@@ -1569,10 +1569,10 @@ thread_local! {
 
 /// Called by C++'s TimerHandler::timerEvent, or every time a timer might have been started
 pub(crate) fn timer_event() {
-    slint_core_internal::animations::update_animations();
-    slint_core_internal::timers::TimerList::maybe_activate_timers();
+    i_slint_core::animations::update_animations();
+    i_slint_core::timers::TimerList::maybe_activate_timers();
 
-    slint_core_internal::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+    i_slint_core::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
         if !driver.has_active_animations() {
             return;
         }
@@ -1586,7 +1586,7 @@ pub(crate) fn timer_event() {
         });
     });
 
-    let mut timeout = slint_core_internal::timers::TimerList::next_timeout().map(|instant| {
+    let mut timeout = i_slint_core::timers::TimerList::next_timeout().map(|instant| {
         let now = std::time::Instant::now();
         let instant: std::time::Instant = instant.into();
         if instant > now {
@@ -1595,7 +1595,7 @@ pub(crate) fn timer_event() {
             0
         }
     });
-    if slint_core_internal::animations::CURRENT_ANIMATION_DRIVER
+    if i_slint_core::animations::CURRENT_ANIMATION_DRIVER
         .with(|driver| driver.has_active_animations())
     {
         timeout = timeout.map(|x| x.max(16)).or(Some(16));
@@ -1612,19 +1612,19 @@ mod key_codes {
     macro_rules! define_qt_key_to_string_fn {
         ($($char:literal # $name:ident # $($qt:ident)|* # $($winit:ident)|* ;)*) => {
             use crate::key_generated;
-            pub fn qt_key_to_string(key: key_generated::Qt_Key) -> Option<slint_core_internal::SharedString> {
+            pub fn qt_key_to_string(key: key_generated::Qt_Key) -> Option<i_slint_core::SharedString> {
 
                 let char = match(key) {
                     $($(key_generated::$qt => $char,)*)*
                     _ => return None,
                 };
                 let mut buffer = [0; 6];
-                Some(slint_core_internal::SharedString::from(char.encode_utf8(&mut buffer) as &str))
+                Some(i_slint_core::SharedString::from(char.encode_utf8(&mut buffer) as &str))
             }
         };
     }
 
-    slint_common_internal::for_each_special_keys!(define_qt_key_to_string_fn);
+    i_slint_common::for_each_special_keys!(define_qt_key_to_string_fn);
 }
 
 fn qt_key_to_string(key: key_generated::Qt_Key, event_text: String) -> SharedString {
@@ -1725,9 +1725,7 @@ pub(crate) mod ffi {
     use super::QtWindow;
 
     #[no_mangle]
-    pub extern "C" fn slint_qt_get_widget(
-        window: &slint_core_internal::window::WindowRc,
-    ) -> *mut c_void {
+    pub extern "C" fn slint_qt_get_widget(window: &i_slint_core::window::WindowRc) -> *mut c_void {
         <dyn std::any::Any>::downcast_ref(window.as_any())
             .map_or(std::ptr::null_mut(), |win: &QtWindow| {
                 win.widget_ptr().cast::<c_void>().as_ptr()

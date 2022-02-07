@@ -10,7 +10,7 @@ use super::{Point, Rect, Size};
 use crate::rtti::*;
 use auto_enums::auto_enum;
 use const_field_offset::FieldOffsets;
-use slint_core_macros_internal::*;
+use i_slint_core_macros::*;
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement, Clone, Debug, PartialEq)]

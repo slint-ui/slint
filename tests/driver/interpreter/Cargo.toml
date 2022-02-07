@@ -15,7 +15,7 @@ name = "test-driver-interpreter"
 
 [dev-dependencies]
 slint-interpreter = { path = "../../../internal/interpreter", default-features = false, features = ["display-diagnostics", "compat-0-2-0"] }
-slint-backend-testing-internal = { path = "../../../internal/backends/testing" }
+i-slint-backend-testing = { path = "../../../internal/backends/testing" }
 
 itertools = "0.10"
 lazy_static = "1.4.0"

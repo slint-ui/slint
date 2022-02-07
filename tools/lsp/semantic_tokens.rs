@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
+use i_slint_compiler::parser::SyntaxKind;
 use lsp_types::{
     SemanticToken, SemanticTokenModifier, SemanticTokenType, SemanticTokens, SemanticTokensResult,
 };
-use slint_compiler_internal::parser::SyntaxKind;
 
 use crate::DocumentCache;
 

@@ -15,8 +15,8 @@
     LSP wants just the edits , not the full file
 */
 
-use slint_compiler_internal::diagnostics::BuildDiagnostics;
-use slint_compiler_internal::parser::{syntax_nodes, SyntaxNode, SyntaxToken};
+use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::parser::{syntax_nodes, SyntaxNode, SyntaxToken};
 use std::io::Write;
 
 use clap::Parser;
@@ -93,7 +93,7 @@ fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()
         source_slice = &source_slice[idx - 1..];
 
         let mut diag = BuildDiagnostics::default();
-        let syntax_node = slint_compiler_internal::parser::parse(code.to_owned(), None, &mut diag);
+        let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.text_range().end().into();
         visit_node(syntax_node, &mut file, &mut State::default())?;
         if diag.has_error() {
@@ -123,7 +123,7 @@ fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Resul
         source_slice = &source_slice[code_end..];
 
         let mut diag = BuildDiagnostics::default();
-        let syntax_node = slint_compiler_internal::parser::parse(code.to_owned(), None, &mut diag);
+        let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.text_range().end().into();
         visit_node(syntax_node, &mut file, &mut State::default())?;
         if diag.has_error() {
@@ -146,8 +146,7 @@ fn process_file(
     }
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node =
-        slint_compiler_internal::parser::parse(source.clone(), Some(&path), &mut diag);
+    let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(&path), &mut diag);
     let len = syntax_node.node.text_range().end().into();
     visit_node(syntax_node, &mut file, &mut State::default())?;
     if diag.has_error() {

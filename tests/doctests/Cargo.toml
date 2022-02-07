@@ -14,7 +14,7 @@ path = "main.rs"
 name = "doctests"
 
 [dev-dependencies]
-slint-compiler-internal = { path = "../../internal/compiler", features = ["display-diagnostics"] }
+i-slint-compiler = { path = "../../internal/compiler", features = ["display-diagnostics"] }
 slint-interpreter = { path = "../../internal/interpreter" }
 slint = { path = "../../api/rs/slint" }
 

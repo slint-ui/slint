@@ -1,29 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-/*!
-
-**NOTE**: This library is an **internal** crate for the [Slint project](https://sixtyfps.io).
-This crate should **not be used directly** by applications using Slint.
-You should use the `slint` crate instead.
-
-**WARNING**: This crate does not follow the semver convention for versioning and can
-only be used with `version = "=x.y.z"` in Cargo.toml.
-
-*/
-
 // cSpell:ignore punct
 
+#![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 
 extern crate proc_macro;
 use std::path::Path;
 
+use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::parser::SyntaxKind;
+use i_slint_compiler::*;
 use proc_macro::{Spacing, TokenStream, TokenTree};
 use quote::quote;
-use slint_compiler_internal::diagnostics::BuildDiagnostics;
-use slint_compiler_internal::parser::SyntaxKind;
-use slint_compiler_internal::*;
 
 /// Returns true if the two token are touching. For example the two token `foo`and `-` are touching if
 /// it was written like so in the source code: `foo-` but not when written like so `foo -`
@@ -337,10 +327,10 @@ pub fn slint(stream: TokenStream) -> TokenStream {
 
     //println!("{:#?}", syntax_node);
     let mut compiler_config =
-        CompilerConfiguration::new(slint_compiler_internal::generator::OutputFormat::Rust);
+        CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
 
     if std::env::var_os("SLINT_STYLE").is_none() {
-        // This file is written by the slint-backend-selector-internal's built script.
+        // This file is written by the i-slint-backend-selector's built script.
         // It is in the target/xxx/build directory
         let target_path = match std::env::var_os("OUT_DIR") {
             Some(out_dir) => Some(

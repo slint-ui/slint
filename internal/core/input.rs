@@ -120,7 +120,7 @@ pub mod key_codes {
         };
     }
 
-    slint_common_internal::for_each_special_keys!(declare_consts_for_special_keys);
+    i_slint_common::for_each_special_keys!(declare_consts_for_special_keys);
 }
 
 /// KeyboardModifier provides booleans to indicate possible modifier keys

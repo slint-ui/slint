@@ -11,7 +11,7 @@ pub struct NativeStandardListViewItem {
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
-    pub item: Property<slint_core_internal::model::StandardListViewItem>,
+    pub item: Property<i_slint_core::model::StandardListViewItem>,
     pub index: Property<i32>,
     pub is_selected: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
@@ -68,7 +68,7 @@ impl Item for NativeStandardListViewItem {
         self: Pin<&Self>,
         _event: MouseEvent,
         _window: &WindowRc,
-        _self_rc: &slint_core_internal::items::ItemRc,
+        _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }

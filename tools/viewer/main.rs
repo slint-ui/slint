@@ -3,8 +3,8 @@
 
 #![doc = include_str!("README.md")]
 
-use slint_core_internal::model::{Model, ModelRc};
-use slint_core_internal::SharedVector;
+use i_slint_core::model::{Model, ModelRc};
+use i_slint_core::SharedVector;
 use slint_interpreter::{ComponentHandle, ComponentInstance, SharedString, Value};
 use std::future::Future;
 use std::pin::Pin;
@@ -193,7 +193,7 @@ fn init_dialog(instance: &ComponentInstance) {
         instance
             .set_callback(&cb, move |_| {
                 EXIT_CODE.store(exit_code, std::sync::atomic::Ordering::Relaxed);
-                slint_backend_selector_internal::backend().quit_event_loop();
+                i_slint_backend_selector::backend().quit_event_loop();
                 Default::default()
             })
             .unwrap();
@@ -267,7 +267,7 @@ fn load_data(instance: &ComponentInstance, data_path: &std::path::Path) -> Resul
                 }
                 serde_json::Value::String(s) => SharedString::from(s.as_str()).into(),
                 serde_json::Value::Array(array) => slint_interpreter::Value::Model(ModelRc::new(
-                    slint_core_internal::model::SharedVectorModel::from(
+                    i_slint_core::model::SharedVectorModel::from(
                         array.iter().map(from_json).collect::<SharedVector<Value>>(),
                     ),
                 )),
@@ -348,7 +348,7 @@ unsafe impl Sync for FutureRunner {}
 
 impl Wake for FutureRunner {
     fn wake(self: Arc<Self>) {
-        slint_backend_selector_internal::backend().post_event(Box::new(move || {
+        i_slint_backend_selector::backend().post_event(Box::new(move || {
             let waker = self.clone().into();
             let mut cx = std::task::Context::from_waker(&waker);
             let mut fut_opt = self.fut.lock().unwrap();
