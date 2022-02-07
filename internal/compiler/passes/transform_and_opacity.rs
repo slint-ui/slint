@@ -58,6 +58,7 @@ pub(crate) fn handle_transform_and_opacity(
                 }
             } else if has_opacity_binding(&child) {
                 let new_child = create_opacity_element(&child, type_register);
+                crate::object_tree::adjust_geometry_for_injected_parent(&new_child, &child);
                 new_child.borrow_mut().children.push(child);
                 child = new_child;
             }

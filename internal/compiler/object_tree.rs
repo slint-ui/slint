@@ -1876,25 +1876,7 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
     debug_assert_eq!(Rc::strong_count(&component), 2);
     let old_root = &component.root_element;
 
-    // The values for properties that affect the geometry may be supplied in two different ways:
-    //
-    //   * When coming from the outside, for example by the repeater being inside a layout, we need
-    //     the values to apply to the new root element and the old root just needs to follow.
-    //   * When coming from the inside, for example when the repeater just creates rectangles that
-    //     calculate their own position, we need to move those bindings as well to the new root.
-    //
-    //  Finally, the default geometry pass lowering following the passes that call this function
-    //  will apply a binding to the width and height of the inner to follow the size of the parent
-    //  (the new root).
-    {
-        let mut old_root = old_root.borrow_mut();
-        for (binding_to_move, _) in crate::typeregister::RESERVED_GEOMETRY_PROPERTIES.iter() {
-            let binding_to_move = binding_to_move.to_string();
-            if let Some(binding) = old_root.bindings.remove(&binding_to_move) {
-                new_root.borrow_mut().bindings.insert(binding_to_move, binding);
-            }
-        }
-    }
+    adjust_geometry_for_injected_parent(&new_root, old_root);
 
     // Any elements with a weak reference to the repeater's component will need fixing later.
     let mut elements_with_enclosing_component_reference = Vec::new();
@@ -1912,10 +1894,6 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
     new_root.borrow_mut().child_of_layout =
         std::mem::replace(&mut old_root.borrow_mut().child_of_layout, false);
     new_root.borrow_mut().layout_info_prop = old_root.borrow().layout_info_prop.clone();
-    new_root
-        .borrow_mut()
-        .bindings
-        .extend(["x", "y"].iter().filter_map(|x| old_root.borrow_mut().bindings.remove_entry(*x)));
 
     // Replace the repeated component's element with our shadow element. That requires a bit of reference counting
     // surgery and relies on nobody having a strong reference left to the component, which we take out of the Rc.
@@ -1934,4 +1912,27 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
     for elem in elements_with_enclosing_component_reference {
         elem.borrow_mut().enclosing_component = Rc::downgrade(&component);
     }
+}
+
+/// Make the geometry of the `injected_parent` that of the old_elem. And the old_elem
+/// will cover the `injected_parent`
+pub fn adjust_geometry_for_injected_parent(injected_parent: &ElementRc, old_elem: &ElementRc) {
+    // The values for properties that affect the geometry may be supplied in two different ways:
+    //
+    //   * When coming from the outside, for example by the repeater being inside a layout, we need
+    //     the values to apply to the new root element and the old root just needs to follow.
+    //   * When coming from the inside, for example when the repeater just creates rectangles that
+    //     calculate their own position, we need to move those bindings as well to the new root.
+    injected_parent.borrow_mut().bindings.extend(Iterator::chain(
+        ["x", "y", "z"].iter().filter_map(|x| old_elem.borrow_mut().bindings.remove_entry(*x)),
+        ["width", "height"].iter().map(|x| {
+            (
+                x.to_string(),
+                BindingExpression::from(Expression::PropertyReference(NamedReference::new(
+                    old_elem, x,
+                )))
+                .into(),
+            )
+        }),
+    ));
 }

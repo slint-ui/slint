@@ -113,6 +113,7 @@ pub async fn run_passes(
         repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         lower_layout::lower_layouts(component, type_loader, diag).await;
+        default_geometry::default_geometry(component, diag);
         z_order::reorder_by_z_order(component, diag);
         transform_and_opacity::handle_transform_and_opacity(
             component,
@@ -121,11 +122,6 @@ pub async fn run_passes(
         );
         lower_shadows::lower_shadow_properties(component, &doc.local_registry, diag);
         clip::handle_clip(component, &global_type_registry.borrow(), diag);
-        // Apply the default geometry after any synthetic elements may have been injected
-        // as root in repeaters(opacity, box shadow, etc.).
-        // The geometry bindings are moved to the new injected roots, but the previous elements
-        // rely on the default geometry pass to size them correctly relative to the new root.
-        default_geometry::default_geometry(component, diag);
         visible::handle_visible(component, &global_type_registry.borrow());
         materialize_fake_properties::materialize_fake_properties(component);
     }
