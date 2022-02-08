@@ -28,7 +28,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/work/slint/Qt
-        key: ${{ runner.os }}-${{ github.job }}-cpp-qt
+        key: ${{ runner.os }}-${{ github.job }}-cpp-Qt
     - name: Install Qt (Ubuntu)
       uses: jurplel/install-qt-action@v2
       if: matrix.os == 'ubuntu-20.04'

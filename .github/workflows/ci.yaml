@@ -35,7 +35,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/work/slint/Qt
-        key: ${{ runner.os }}-${{ github.job }}-Qt5.15.2
+        key: ${{ runner.os }}-${{ github.job }}-qt5.15.2
     - name: Install Qt
       if: matrix.os != 'windows-latest'
       uses: jurplel/install-qt-action@v2
@@ -112,7 +112,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/work/slint/Qt
-        key: ${{ runner.os }}-${{ github.job }}-Qt5.15.2
+        key: ${{ runner.os }}-${{ github.job }}-qt5.15.2
     - name: Install Qt
       if: matrix.os != 'windows-latest'
       uses: jurplel/install-qt-action@v2
@@ -202,7 +202,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/work/slint/Qt
-        key: ${{ runner.os }}-${{ github.job }}-cpp-qt
+        key: ${{ runner.os }}-${{ github.job }}-cpp-Qt
     - name: Install Qt (Ubuntu)
       uses: jurplel/install-qt-action@v2
       if: matrix.os == 'ubuntu-20.04'
@@ -274,7 +274,7 @@ jobs:
       uses: actions/cache@v2
       with:
         path: ~/work/slint/Qt
-        key: ${{ runner.os }}-${{ github.job }}-cpp-qt
+        key: ${{ runner.os }}-${{ github.job }}-cpp-Qt
     - name: Install Qt (Ubuntu)
       uses: jurplel/install-qt-action@v2
       with:

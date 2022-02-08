@@ -83,7 +83,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~/work/slint/Qt
-          key: ${{ runner.os }}-${{ github.job }}-Qt
+          key: ${{ runner.os }}-${{ github.job }}-qt
       - name: Install Qt
         uses: jurplel/install-qt-action@v2
         with:
