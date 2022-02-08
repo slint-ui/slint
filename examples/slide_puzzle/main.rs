@@ -14,6 +14,8 @@ fn shuffle() -> Vec<i8> {
     fn is_solvable(positions: &[i8]) -> bool {
         // Same source as the flutter's slide_puzzle:
         // https://www.cs.bham.ac.uk/~mdr/teaching/modules04/java2/TilesSolvability.html
+        // This page seems to be no longer available, a copy can be found here:
+        // https://horatiuvlad.com/unitbv/inteligenta_artificiala/2015/TilesSolvability.html
 
         let mut inversions = 0;
         for x in 0..positions.len() - 1 {

@@ -1,7 +1,7 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: slint
 Upstream-Contact: Slint Developers <info@slint-ui.com>
-Source: https/sixtyfps.io/
+Source: https://slint-ui.com/
 
 Files: */slint-logo-*.svg */slint-logo-*.png
 Copyright: Copyright © SixtyFPS GmbH <info@sixtyfps.io>
