@@ -1,7 +1,7 @@
 # Slint
 
-[![Build Status](https://github.com/sixtyfpsui/sixtyfps/workflows/CI/badge.svg)](https://github.com/sixtyfpsui/sixtyfps/actions)
-[![Discussions](https://img.shields.io/github/discussions/sixtyfpsui/sixtyfps)](https://github.com/sixtyfpsui/sixtyfps/discussions)
+[![Build Status](https://github.com/slint-ui/slint/workflows/CI/badge.svg)](https://github.com/slint-ui/slint/actions)
+[![Discussions](https://img.shields.io/github/discussions/slint-ui/slint)](https://github.com/slint-ui/slint/discussions)
 
 Slint is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications. We support multiple programming languages, such as
 Rust, C++, and JavaScript.
@@ -124,7 +124,7 @@ We have a few tools to help with the development of .slint files:
 
 We welcome your contributions: in the form of code, bug reports or feedback.
 
- * If you see an [RFC tag](https://github.com/sixtyfpsui/sixtyfps/labels/rfc) on an issue, feel free to
+ * If you see an [RFC tag](https://github.com/slint-ui/slint/labels/rfc) on an issue, feel free to
    chime in.
  * For contribution guidelines see [CONTRIBUTING.md](CONTRIBUTING.md). The dual-licensing requires the
    contributor to accept a CLA.
@@ -154,7 +154,7 @@ Rust developers all the way to UI/UX designers.
 
 ## Contact us
 
-Feel free to join [Github discussions](https://github.com/sixtyfpsui/sixtyfps/discussions) for general chat or questions. Use [Github issues](https://github.com/sixtyfpsui/sixtyfps/issues) to report public suggestions or bugs.
+Feel free to join [Github discussions](https://github.com/slint-ui/slint/discussions) for general chat or questions. Use [Github issues](https://github.com/slint-ui/slint/issues) to report public suggestions or bugs.
 
 To contact us privately send an email to info@sixtyfps.io
 

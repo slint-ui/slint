@@ -99,7 +99,7 @@ pub fn compile_paths(
 
                     if child.borrow().repeated.is_some() {
                         diag.push_error(
-                            "Path elements are not supported with `for`-`in` syntax, yet (https://github.com/sixtyfpsui/sixtyfps/issues/754)".into(),
+                            "Path elements are not supported with `for`-`in` syntax, yet (https://github.com/slint-ui/slint/issues/754)".into(),
                             &*child.borrow(),
                         );
                     } else {

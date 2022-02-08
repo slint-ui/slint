@@ -19,7 +19,7 @@ project(my_application LANGUAGES CXX)
 include(FetchContent)
 FetchContent_Declare(
     Slint
-    GIT_REPOSITORY https://github.com/sixtyfpsui/sixtyfps.git
+    GIT_REPOSITORY https://github.com/slint-ui/slint.git
     GIT_TAG v0.1.6
     SOURCE_SUBDIR api/cpp
 )

@@ -13,7 +13,7 @@ fn main() {
         println!("cargo:rustc-cfg=no_qt");
         println!(
             "cargo:warning=Could not find a Qt installation. The Qt backend will not be functional. \
-            See https://github.com/sixtyfpsui/sixtyfps/blob/master/docs/install_qt.md for more info"
+            See https://github.com/slint-ui/slint/blob/master/docs/install_qt.md for more info"
         );
         return;
     }
@@ -22,7 +22,7 @@ fn main() {
         println!("cargo:rustc-cfg=no_qt");
         println!(
             "cargo:warning=Qt {} is not supported, you need at least Qt 5.15. The Qt backend will not be functional. \
-             See https://github.com/sixtyfpsui/sixtyfps/blob/master/docs/install_qt.md for more info",
+             See https://github.com/slint-ui/slint/blob/master/docs/install_qt.md for more info",
             qt_version
         );
         return;

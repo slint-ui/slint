@@ -41,12 +41,12 @@ Welcome to Slint C++'s documentation!
 
    cpp_migration.md
 
-.. image:: https://github.com/sixtyfpsui/sixtyfps/workflows/CI/badge.svg
-   :target: https://github.com/sixtyfpsui/sixtyfps/actions
+.. image:: https://github.com/slint-ui/slint/workflows/CI/badge.svg
+   :target: https://github.com/slint-ui/slint/actions
    :alt: GitHub CI Build Status
 
-.. image:: https://img.shields.io/github/discussions/sixtyfpsui/sixtyfps
-   :target: https://github.com/sixtyfpsui/sixtyfps/discussions
+.. image:: https://img.shields.io/github/discussions/slint-ui/slint
+   :target: https://github.com/slint-ui/slint/discussions
    :alt: GitHub Discussions
 
 `Slint <https://slint-ui.com/>`_ is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications.

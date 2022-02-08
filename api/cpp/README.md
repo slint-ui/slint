@@ -35,7 +35,7 @@ You can include Slint in your CMake project using CMake's `FetchContent` feature
 include(FetchContent)
 FetchContent_Declare(
     Slint
-    GIT_REPOSITORY https://github.com/sixtyfpsui/sixtyfps.git
+    GIT_REPOSITORY https://github.com/slint-ui/slint.git
     GIT_TAG v0.1.6
     SOURCE_SUBDIR api/cpp
 )
@@ -89,7 +89,7 @@ We also provide binary packages of Slint for use with C++, which eliminates the 
 
 You can download one of our pre-built binaries for Linux or Windows on x86-64 architectures:
 
-1. Open <https://github.com/sixtyfpsui/sixtyfps/releases>
+1. Open <https://github.com/slint-ui/slint/releases>
 2. Click on the latest release
 3. From "Assets" download either `slint-cpp-XXX-Linux-x86_64.tar.gz` for a Linux x86-64 archive
    or `slint-cpp-XXX-win64.exe` for a Windows x86-64 installer. ("XXX" refers to the version of the latest release)
@@ -111,7 +111,7 @@ project(my_application LANGUAGES CXX)
 include(FetchContent)
 FetchContent_Declare(
     Slint
-    GIT_REPOSITORY https://github.com/sixtyfpsui/sixtyfps.git
+    GIT_REPOSITORY https://github.com/slint-ui/slint.git
     GIT_TAG v0.1.6
     SOURCE_SUBDIR api/cpp
 )

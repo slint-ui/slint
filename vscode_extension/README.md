@@ -28,7 +28,7 @@ visible, it is not necessary to save the file.
 ## Reporting Issues
 
 
-Issues should be reported in the [Slint issue tracker](https://github.com/sixtyfpsui/sixtyfps/labels/vscode-extension).
+Issues should be reported in the [Slint issue tracker](https://github.com/slint-ui/slint/labels/vscode-extension).
 
 ## Building from Source
 

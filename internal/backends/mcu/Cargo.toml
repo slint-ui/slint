@@ -9,7 +9,7 @@ edition = "2021"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
 publish = false
 description = "Rendering backend for Slint for use on Microcontrollers"
-repository = "https://github.com/sixtyfpsui/sixtyfps"
+repository = "https://github.com/slint-ui/slint"
 homepage = "https://sixtyfps.io"
 
 [lib]

@@ -12,7 +12,7 @@ cargo install slint-viewer
 
 Alternatively, you can download one of our pre-built binaries for Linux or Windows:
 
-1. Open <https://github.com/sixtyfpsui/sixtyfps/releases>
+1. Open <https://github.com/slint-ui/slint/releases>
 2. Click on the latest release
 3. From "Assets" download either `slint-viewer-linux.tar.gz` for a Linux x86-64 binary
    or `slint-viewer-windows.zip` for a Windows x86-64 binary.
@@ -87,4 +87,4 @@ The program returns with the following error code:
 ## Examples
 
 `slint-viewer` can be used to display an GUI from a shell script. For examples check out the
-[examples/bash](https://github.com/sixtyfpsui/sixtyfps/tree/master/examples/bash) folder in our repository.
+[examples/bash](https://github.com/slint-ui/slint/tree/master/examples/bash) folder in our repository.

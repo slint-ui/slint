@@ -91,7 +91,7 @@ impl<'a> TypeLoader<'a> {
             let is_wasm = cfg!(target_arch = "wasm32")
                 || std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm"));
             if !is_wasm {
-                diag.push_diagnostic_with_span("SLINT_STYLE not defined, defaulting to 'fluent', see https://github.com/sixtyfpsui/sixtyfps/issues/83 for more info".to_owned(),
+                diag.push_diagnostic_with_span("SLINT_STYLE not defined, defaulting to 'fluent', see https://github.com/slint-ui/slint/issues/83 for more info".to_owned(),
                     Default::default(),
                     crate::diagnostics::DiagnosticLevel::Warning
                 );

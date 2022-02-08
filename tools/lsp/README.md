@@ -20,13 +20,13 @@ This makes the latest released version available in `$HOME/.cargo/bin`. If you w
 for the released version. Or, to install the develoment version:
 
 ```sh
-cargo install slint-lsp --git https://github.com/sixtyfpsui/sixtyfps --force
+cargo install slint-lsp --git https://github.com/slint-ui/slint --force
 ```
 
 
 Alternatively, you can download one of our pre-built binaries for Linux or Windows:
 
-1. Open <https://github.com/sixtyfpsui/sixtyfps/releases>
+1. Open <https://github.com/slint-ui/slint/releases>
 2. Click on the latest release
 3. From "Assets" download either `slint-lsp-linux.tar.gz` for a Linux x86-64 binary
    or `slint-lsp-windows.zip` for a Windows x86-64 binary.
@@ -54,7 +54,7 @@ On Linux, this can be done by running this command
 
 ```
 mkdir -p ~/.local/share/org.kde.syntax-highlighting/syntax/
-wget https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/tools/lsp/slint.ksyntaxhighlighter.xml -O ~/.local/share/org.kde.syntax-highlighting/syntax/sixtyfps.xml
+wget https://raw.githubusercontent.com/slint-ui/slint/master/tools/lsp/slint.ksyntaxhighlighter.xml -O ~/.local/share/org.kde.syntax-highlighting/syntax/sixtyfps.xml
 ```
 
 On Windows, download [slint.ksyntaxhighlighter.xml](./slint.ksyntaxhighlighter.xml) in `%USERPROFILE%\AppData\Local\org.kde.syntax-highlighting\syntax`
@@ -160,10 +160,10 @@ To setup the LSP:
 2. Using Package Control in Sublime Text, install the LSP package (sublimelsp/LSP)
 3. Download the Slint syntax highlighting files into your User Package folder,
    e.g. on macOS `~/Library/Application Support/Sublime Text/Packages/User/` :
-   https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/tools/lsp/sublime/Slint.sublime-syntax
-   https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/tools/lsp/sublime/Slint.tmPreferences
+   https://raw.githubusercontent.com/slint-ui/slint/master/tools/lsp/sublime/Slint.sublime-syntax
+   https://raw.githubusercontent.com/slint-ui/slint/master/tools/lsp/sublime/Slint.tmPreferences
 4. Download the LSP package settings file into your User Package folder:
-   https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/tools/lsp/sublime/LSP.sublime-settings
+   https://raw.githubusercontent.com/slint-ui/slint/master/tools/lsp/sublime/LSP.sublime-settings
 5. Modify the slint-lsp command path in `LSP.sublime-settings` to point to the cargo instalation path in your home folder (**Replace YOUR_USER by your username**):
    `"command": ["/home/YOUR_USER/.cargo/bin/slint-lsp"]`
 6. Run "LSP: Enable Language Server Globally" or "LSP: Enable Lanuage Server in Project" from Sublime's Command Palette to allow the server to start.

@@ -1,11 +1,11 @@
 {
     "name": "slint-ui",
     "version": "0.2.0",
-    "homepage": "https://github.com/sixtyfpsui/sixtyfps",
+    "homepage": "https://github.com/slint-ui/slint",
     "license": "SEE LICENSE IN LICENSE.md",
     "repository": {
         "type": "git",
-        "url": "https://github.com/sixtyfpsui/sixtyfps"
+        "url": "https://github.com/slint-ui/slint"
     },
     "main": "dist/index.js",
     "types": "dist/index.d.ts",

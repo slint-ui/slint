@@ -93,18 +93,18 @@ fn main() {
 ```
 
 The [cargo-generate](https://github.com/cargo-generate/cargo-generate) tool is a great tool to up and running quickly with a new
-Rust project. You can use it in combination with our [Template Repository](https://github.com/sixtyfpsui/sixtyfps-rust-template) to
+Rust project. You can use it in combination with our [Template Repository](https://github.com/slint-ui/slint-rust-template) to
 create a skeleton file hierarchy that uses this method:
 
 ```bash
 cargo install cargo-generate
-cargo generate --git https://github.com/sixtyfpsui/sixtyfps-rust-template
+cargo generate --git https://github.com/slint-ui/slint-rust-template
 ```
 
 ## Generated components
 
 Currently, only the last component in a `.slint` source file is mapped to a Rust structure that be instantiated. We are tracking the
-resolution of this limitation in <https://github.com/sixtyfpsui/sixtyfps/issues/784>.
+resolution of this limitation in <https://github.com/slint-ui/slint/issues/784>.
 
 The component is generated and re-exported to the location of the [`include_modules!`]  or [`slint!`] macro. It is represented
 as a struct with the same name as the component.

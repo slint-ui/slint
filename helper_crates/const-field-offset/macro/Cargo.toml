@@ -8,7 +8,7 @@ authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Procedural macro to generate constant field offset from repr(c) struct"
-repository = "https://github.com/sixtyfpsui/sixtyfps"
+repository = "https://github.com/slint-ui/slint"
 homepage = "https://sixtyfps.io"
 
 [lib]

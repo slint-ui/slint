@@ -196,7 +196,7 @@ Example := Window {
 Similar to LineEdit, but can be used to enter several lines of text
 
 *Note:* The current implementation only implement very few basic shortcut. More
-shortcut will be implemented in a future version: <https://github.com/sixtyfpsui/sixtyfps/issues/474>
+shortcut will be implemented in a future version: <https://github.com/slint-ui/slint/issues/474>
 
 ### Properties
 

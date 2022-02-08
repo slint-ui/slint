@@ -84,7 +84,7 @@ export Demo := Window {
             if (found = window.location.pathname.match(/releases\/([^\/]*)\/editor/)) {
                 tag = "v" + found[1];
             }
-            load_from_url(`https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/${tag}/${select.value}`);
+            load_from_url(`https://raw.githubusercontent.com/slint-ui/slint/${tag}/${select.value}`);
         } else {
             clearTabs();
             base_url = "";
