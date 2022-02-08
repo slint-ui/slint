@@ -15,6 +15,7 @@ homepage = "https://slint-ui.com"
 path = "lib.rs"
 
 [features]
+backend-gl-all = ["backend-gl-x11", "backend-gl-wayland"]
 backend-gl-wayland = ["i-slint-backend-gl/wayland"]
 backend-gl-x11 = ["i-slint-backend-gl/x11"]
 

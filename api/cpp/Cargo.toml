@@ -22,14 +22,14 @@ crate-type = ["lib", "cdylib"]
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt
 [features]
-backend-gl = ["i-slint-backend-selector/i-slint-backend-gl"]
 backend-qt = ["i-slint-backend-selector/i-slint-backend-qt"]
 interpreter = ["slint-interpreter"]
 testing = ["i-slint-backend-testing"] # Enable some function used by the integration tests
+backend-gl-all = ["i-slint-backend-selector/backend-gl-all"]
 backend-gl-wayland = ["i-slint-backend-selector/backend-gl-wayland"]
 backend-gl-x11 = ["i-slint-backend-selector/backend-gl-x11"]
 
-default = ["backend-gl", "backend-gl-x11", "backend-qt"]
+default = ["backend-gl-all", "backend-qt"]
 
 [dependencies]
 i-slint-backend-selector = { version = "=0.2.0", path="../../internal/backends/selector" }
