@@ -1,0 +1,83 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+import { LineEdit, Button, Slider, StandardListView, VerticalBox } from "std-widgets.slint";
+
+struct Circle := { x: float, y: float, r: float }
+
+CircleDraw := Window {
+    preferred-width: 500px;
+    preferred-height: 400px;
+
+    property <[Circle]> model: [
+        { x: 0.1, y:0.1, r: 5  },
+        { x: 0.03, y:0.4, r:8  },
+        { x: 0.82, y:0.2, r:10 },
+        { x: 0.5, y:0.31, r:2  },
+    ];
+
+    property<int> clicked-idx: -1;
+    property<Circle> selected-circle;
+
+    VerticalBox {
+        HorizontalLayout {
+            alignment: center;
+            spacing: 12px;
+            Button { text: "Undo"; }
+            Button { text: "Redo"; }
+        }
+        Rectangle {
+            background: white;
+            border-color: black;
+            border-width: 2px;
+
+            for circle[idx] in model : Rectangle {
+                background: clicked-idx == idx ? gray : white;
+                border-color: black;
+                border-width: 2px;
+                border-radius: width / 2;
+                height: width;
+                width: circle.r / 50 * parent.width;
+                x: (parent.width - width)  * circle.x;
+                y: (parent.height - height) * circle.y;
+                TouchArea {
+                    height: 100%;
+                    width: 100%;
+                    clicked => {
+                        selected-circle = circle;
+                        clicked-idx = idx;
+                    }
+                }
+            }
+
+        }
+    }
+
+    if (clicked-idx != -1) : TouchArea {
+        height: 100%;
+        width: 100%;
+        clicked => { clicked-idx = -1; }
+    }
+    if (clicked-idx != -1) : Rectangle {
+        background: lightgray;
+        height: 30%;
+        width: 70%;
+        x: (parent.width - width) / 2;
+        y: parent.height - height - parent.height * 5%;
+        TouchArea {
+            height: 100%;
+            width: 100%;
+        }
+
+        VerticalBox {
+            Text {
+                text: "Adjust diameter of cercle at (" + selected-circle.x + ", " +  selected-circle.y + ").";
+                wrap: word-wrap;
+            }
+            Slider {
+                maximum: 100;
+                value: selected-circle.r;
+            }
+        }
+    }
+}

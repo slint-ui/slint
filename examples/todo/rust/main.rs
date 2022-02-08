@@ -1,13 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-use sixtyfps::Model;
+use slint::Model;
 use std::rc::Rc;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-sixtyfps::include_modules!();
+slint::include_modules!();
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
@@ -16,8 +16,8 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let todo_model = Rc::new(sixtyfps::VecModel::<TodoItem>::from(vec![
-        TodoItem { checked: true, title: "Implement the .60 file".into() },
+    let todo_model = Rc::new(slint::VecModel::<TodoItem>::from(vec![
+        TodoItem { checked: true, title: "Implement the .slint file".into() },
         TodoItem { checked: true, title: "Do the Rust part".into() },
         TodoItem { checked: false, title: "Make the C++ code".into() },
         TodoItem { checked: false, title: "Write some JavaScript code".into() },

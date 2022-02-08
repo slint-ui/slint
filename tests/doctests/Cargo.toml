@@ -4,7 +4,7 @@
 [package]
 name = "doctests"
 version = "0.2.0"
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 publish = false
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
@@ -14,9 +14,9 @@ path = "main.rs"
 name = "doctests"
 
 [dev-dependencies]
-sixtyfps-compilerlib = { path = "../../internal/compiler", features = ["display-diagnostics"] }
-sixtyfps-interpreter = { path = "../../internal/interpreter" }
-sixtyfps = { path = "../../api/sixtyfps-rs" }
+i-slint-compiler = { path = "../../internal/compiler", features = ["display-diagnostics"] }
+slint-interpreter = { path = "../../internal/interpreter" }
+slint = { path = "../../api/rs/slint" }
 
 lazy_static = "1.4.0"
 spin_on = "0.1"

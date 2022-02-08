@@ -1,12 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-use sixtyfps_compilerlib::diagnostics::Spanned;
-use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::lookup::LookupCtx;
-use sixtyfps_compilerlib::object_tree;
-use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
-use sixtyfps_compilerlib::typeregister::TypeRegister;
+use i_slint_compiler::diagnostics::Spanned;
+use i_slint_compiler::langtype::Type;
+use i_slint_compiler::lookup::LookupCtx;
+use i_slint_compiler::object_tree;
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
+use i_slint_compiler::typeregister::TypeRegister;
 
 use crate::DocumentCache;
 
@@ -58,7 +58,7 @@ pub fn with_lookup_ctx<R>(
     let ty = element
         .PropertyDeclaration()
         .find_map(|p| {
-            (sixtyfps_compilerlib::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
+            (i_slint_compiler::parser::identifier_text(&p.DeclaredIdentifier())? == prop_name)
                 .then(|| p)
         })
         .and_then(|p| p.Type())
@@ -79,7 +79,7 @@ pub fn with_lookup_ctx<R>(
         }
     };
 
-    let component = sixtyfps_compilerlib::parser::identifier_text(&component.DeclaredIdentifier())
+    let component = i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())
         .map(|component_name| tr.lookup(&component_name))?;
     let scope =
         if let Type::Component(c) = component { vec![c.root_element.clone()] } else { Vec::new() };
@@ -96,8 +96,7 @@ pub fn with_lookup_ctx<R>(
 fn lookup_expression_context(mut n: SyntaxNode) -> Option<(syntax_nodes::Element, String)> {
     let (element, prop_name) = loop {
         if let Some(decl) = syntax_nodes::PropertyDeclaration::new(n.clone()) {
-            let prop_name =
-                sixtyfps_compilerlib::parser::identifier_text(&decl.DeclaredIdentifier())?;
+            let prop_name = i_slint_compiler::parser::identifier_text(&decl.DeclaredIdentifier())?;
             let element = syntax_nodes::Element::new(n.parent()?)?;
             break (element, prop_name);
         }
@@ -106,7 +105,7 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<(syntax_nodes::Element
             | SyntaxKind::TwoWayBinding
             // FIXME: arguments of the callback
             | SyntaxKind::CallbackConnection => {
-                let prop_name = sixtyfps_compilerlib::parser::identifier_text(&n)?;
+                let prop_name = i_slint_compiler::parser::identifier_text(&n)?;
                 let element = syntax_nodes::Element::new(n.parent()?)?;
                 break (element, prop_name);
             }
@@ -126,7 +125,7 @@ fn lookup_expression_context(mut n: SyntaxNode) -> Option<(syntax_nodes::Element
     Some((element, prop_name))
 }
 
-pub fn to_lsp_diag(d: &sixtyfps_compilerlib::diagnostics::Diagnostic) -> lsp_types::Diagnostic {
+pub fn to_lsp_diag(d: &i_slint_compiler::diagnostics::Diagnostic) -> lsp_types::Diagnostic {
     lsp_types::Diagnostic::new(
         to_range(d.line_column()),
         Some(to_lsp_diag_level(d.level())),
@@ -147,11 +146,11 @@ fn to_range(span: (usize, usize)) -> lsp_types::Range {
 }
 
 fn to_lsp_diag_level(
-    level: sixtyfps_compilerlib::diagnostics::DiagnosticLevel,
+    level: i_slint_compiler::diagnostics::DiagnosticLevel,
 ) -> lsp_types::DiagnosticSeverity {
     match level {
-        sixtyfps_interpreter::DiagnosticLevel::Error => lsp_types::DiagnosticSeverity::ERROR,
-        sixtyfps_interpreter::DiagnosticLevel::Warning => lsp_types::DiagnosticSeverity::WARNING,
+        slint_interpreter::DiagnosticLevel::Error => lsp_types::DiagnosticSeverity::ERROR,
+        slint_interpreter::DiagnosticLevel::Warning => lsp_types::DiagnosticSeverity::WARNING,
         _ => lsp_types::DiagnosticSeverity::INFORMATION,
     }
 }

@@ -12,7 +12,7 @@ use crate::object_tree::{Component, ElementRc};
 ///
 /// For sub-components the structure of the tree becomes a little complicated, which is best
 /// illustrated using an example:
-/// ```60
+/// ```slint
 /// SubCompo := Rectangle { Image {} }
 /// MainCompo := Window {
 ///     TouchArea {}

@@ -1,25 +1,25 @@
 # Game Logic In C++
 
-We'll implement the rules of the game in C++ as well. The general philosophy of SixtyFPS is that merely the user
-interface is implemented in the `.60` language and the business logic in your favorite programming
+We'll implement the rules of the game in C++ as well. The general philosophy of Slint is that merely the user
+interface is implemented in the `.slint` language and the business logic in your favorite programming
 language. The game rules shall enforce that at most two tiles have their curtain open. If the tiles match, then we
 consider them solved and they remain open. Otherwise we wait for a little while, so the player can memorize
 the location of the icons, and then close them again.
 
-We'll modify the `.60` markup in the `memory.60` file to signal to the C++ code when the user clicks on a tile.
+We'll modify the `.slint` markup in the `memory.slint` file to signal to the C++ code when the user clicks on a tile.
 Two changes to <span class="hljs-title">MainWindow</span> are needed: We need to add a way for the MainWindow to call to the C++ code that it should
 check if a pair of tiles has been solved. And we need to add a property that C++ code can toggle to disable further
 tile interaction, to prevent the player from opening more tiles than allowed. No cheating allowed! First, we paste
 the callback and property declarations into <span class="hljs-title">MainWindow</span>:
 
-```60
+```slint
 {{#include ../../rust/src/main_game_logic_in_rust.rs:mainwindow_interface}}
 ```
 
-The last change to the `.60` markup is to act when the <span class="hljs-title">MemoryTile</span> signals that it was clicked on.
+The last change to the `.slint` markup is to act when the <span class="hljs-title">MemoryTile</span> signals that it was clicked on.
 We add the following handler in <span class="hljs-title">MainWindow</span>:
 
-```60
+```slint
 {{#include ../../rust/src/main_game_logic_in_rust.rs:tile_click_logic}}
 ```
 

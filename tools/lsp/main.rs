@@ -10,6 +10,12 @@ mod util;
 
 use std::collections::HashMap;
 
+use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::langtype::Type;
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
+use i_slint_compiler::typeloader::TypeLoader;
+use i_slint_compiler::typeregister::TypeRegister;
+use i_slint_compiler::CompilerConfiguration;
 use lsp_server::{Connection, Message, Request, RequestId, Response};
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification};
 use lsp_types::request::{
@@ -24,12 +30,6 @@ use lsp_types::{
     SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions, ServerCapabilities,
     SymbolInformation, TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
 };
-use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
-use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
-use sixtyfps_compilerlib::typeloader::TypeLoader;
-use sixtyfps_compilerlib::typeregister::TypeRegister;
-use sixtyfps_compilerlib::CompilerConfiguration;
 
 use clap::Parser;
 
@@ -113,7 +113,7 @@ impl<'a> DocumentCache<'a> {
 fn main() {
     let args: Cli = Cli::parse();
     if !args.backend.is_empty() {
-        std::env::set_var("SIXTYFPS_BACKEND", &args.backend);
+        std::env::set_var("SLINT_BACKEND", &args.backend);
     }
 
     let lsp_thread = std::thread::spawn(|| {
@@ -183,7 +183,7 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
     let cli_args: Cli = Cli::parse();
     let params: InitializeParams = serde_json::from_value(params).unwrap();
     let mut compiler_config =
-        CompilerConfiguration::new(sixtyfps_compilerlib::generator::OutputFormat::Interpreter);
+        CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
     compiler_config.style =
         Some(if cli_args.style.is_empty() { "fluent".into() } else { cli_args.style });
     compiler_config.include_paths = cli_args.include_paths;
@@ -343,7 +343,7 @@ fn handle_notification(
                 document_cache,
             )?;
         }
-        "sixtyfps/showPreview" => {
+        "slint/showPreview" => {
             show_preview_command(
                 req.params.as_array().map_or(&[], |x| x.as_slice()),
                 connection,
@@ -400,7 +400,7 @@ fn maybe_goto_preview(
     loop {
         if let Some(component) = syntax_nodes::Component::new(node.clone()) {
             let component_name =
-                sixtyfps_compilerlib::parser::identifier_text(&component.DeclaredIdentifier())?;
+                i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())?;
             preview::load_preview(
                 sender,
                 preview::PreviewComponent {
@@ -518,7 +518,7 @@ fn get_code_actions(
         })?;
 
     let component_name =
-        sixtyfps_compilerlib::parser::identifier_text(&component.DeclaredIdentifier())?;
+        i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())?;
 
     Some(vec![CodeActionOrCommand::Command(Command::new(
         "Show preview".into(),
@@ -540,7 +540,7 @@ fn get_document_color(
         if token.kind() == SyntaxKind::ColorLiteral {
             (|| -> Option<()> {
                 let range = token.text_range();
-                let col = sixtyfps_compilerlib::literals::parse_color_literal(token.text())?;
+                let col = i_slint_compiler::literals::parse_color_literal(token.text())?;
                 let shift = |s: u32| -> f32 { ((col >> s) & 0xff) as f32 / 255. };
                 result.push(ColorInformation {
                     range: Range::new(

@@ -1,0 +1,43 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+// Test that the
+
+global SomeGlobal := {
+    property <string> intermediate_alias <=> intermediate_prop;
+    property <string> intermediate_prop;
+    property <string> text: intermediate_prop;
+}
+
+TestCase := Window {
+    width: 100phx;
+    height: 100phx;
+    VerticalLayout {
+        padding: 0;
+        spacing: 0;
+        ti := TextInput {
+            property <string> foo <=> SomeGlobal.intermediate_alias;
+            text <=> foo;
+            property <bool> bar <=> has_focus;
+
+        }
+        t := Text {
+            text <=> SomeGlobal.text;
+        }
+        Rectangle { }
+    }
+
+    property <string> text <=> t.text;
+    property <bool> input_focused: ti.bar;
+}
+
+/*
+```rust
+let instance = TestCase::new();
+slint::testing::send_mouse_click(&instance, 5., 5.);
+assert!(instance.get_input_focused());
+assert_eq!(instance.get_text(), "");
+slint::testing::send_keyboard_string_sequence(&instance, "Hallo");
+assert_eq!(instance.get_text(), "Hallo");
+```
+*/

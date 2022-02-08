@@ -1,0 +1,617 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+/**
+   This file contains the definition off all builtin items
+   It is parsed with the normal .slint parser, but the semantic.
+
+   `_` means that that this is a langtype::NativeClass with no parent.
+   Exported components are added to the as BuiltinElement.
+
+   comments starting by `//-` have some meanings
+
+   Properties with two way bindings (aliases) are deprecated in favor of the property they point to
+
+   Properties can have default binding which must be an expression without any reference to
+   another properties. These binding will be then set by the compiler.
+   Or they can have a binding `native_output` which mean that the property can be modified
+   by the native Item. If they don't have that, it is assumed the native item don't write
+   to that property.
+ */
+
+import { _ } from ""; // just to silence many errorin the LSP
+
+Rectangle := _ {
+    property <brush> background;
+    property <brush> color <=> background;
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+}
+
+BorderRectangle := Rectangle {
+    property <length> border-width;
+    property <length> border-radius;
+    property <brush> border-color;
+    //-default_size_binding:expands_to_parent_geometry
+}
+
+export { BorderRectangle as Rectangle }
+
+ImageItem := _ {
+    property <image> source;
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <ImageFit> image-fit;
+    property <ImageRendering> image-rendering;
+}
+
+export ClippedImage := ImageItem {
+    property <int> source-clip-x;
+    property <int> source-clip-y;
+    property <int> source-clip-width;
+    property <int> source-clip-height;
+    property <brush> colorize;
+    property <ImageRendering> image-rendering;
+    //-default_size_binding:implicit_size
+}
+
+export { ClippedImage as Image }
+
+export Rotate := _ {
+    property <angle> angle;
+    property <length> origin-x;
+    property <length> origin-y;
+    property <length> width;
+    property <length> height;
+    //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
+}
+
+export Text := _ {
+    property <string> text;
+    property <string> font-family;
+    property <length> font-size;
+    property <int> font-weight;
+    property <brush> color;  // StyleMetrics.default-text-color  set in apply_default_properties_from_style
+    property <TextHorizontalAlignment> horizontal-alignment;
+    property <TextVerticalAlignment> vertical-alignment;
+    property <TextOverflow> overflow;
+    property <TextWrap> wrap;
+    property <length> letter-spacing;
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    //-default_size_binding:implicit_size
+}
+
+
+export struct PointerEvent := {
+    //-name:slint::private_api::PointerEvent
+    button: PointerEventButton,
+    kind: PointerEventKind,
+}
+
+export TouchArea := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <bool> enabled: true;
+    property <bool> pressed: native_output;
+    property <bool> has_hover: native_output;
+    property <length> mouse_x: native_output;
+    property <length> mouse_y: native_output;
+    property <length> pressed_x: native_output;
+    property <length> pressed_y: native_output;
+    property <MouseCursor> mouse-cursor;
+    callback clicked;
+    callback moved;
+    callback pointer-event(PointerEvent);
+    //-default_size_binding:expands_to_parent_geometry
+}
+
+export struct KeyboardModifiers := {
+    //-name:slint::private_api::KeyboardModifiers
+    alt: bool,
+    control: bool,
+    shift: bool,
+    meta: bool,
+}
+
+export struct KeyEvent := {
+    //-name:slint::private_api::KeyEvent
+    text: string,
+    modifiers: KeyboardModifiers,
+}
+
+export FocusScope := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <bool> has-focus: native_output;
+    callback key_pressed(KeyEvent) -> EventResult;
+    callback key_released(KeyEvent) -> EventResult;
+    //-default_size_binding:expands_to_parent_geometry
+    //-accepts_focus
+}
+
+export Flickable := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+                // These properties are actually going to be forwarded to the viewport by the
+                // code generator
+    property <length> viewport-height;
+    property <length> viewport-width;
+    property <length> viewport-x: native_output;
+    property <length> viewport-y: native_output;
+    property <bool> interactive: true;
+    //-default_size_binding:expands_to_parent_geometry
+}
+
+WindowItem := _ {
+    property <length> width: native_output;
+    property <length> height: native_output;
+    property <color> background; // StyleMetrics.window_background  set in apply_default_properties_from_style
+    property <color> color <=> background;
+    property <string> title: "Slint Window";
+    property <bool> no-frame;
+    property <string> default-font-family;
+    property <length> default-font-size;
+    property <int> default-font-weight;
+    property <image> icon;
+}
+
+export Window := WindowItem {}
+
+export BoxShadow := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <length> border_radius;
+    property <length> offset_x;
+    property <length> offset_y;
+    property <color> color;
+    property <float> blur;
+    //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
+}
+
+export struct Point := {
+    //-name:slint::private_api::Point
+    x: length,
+    y: length,
+}
+
+export TextInput := _ {
+    property <string> text: native_output;
+    property <string> font-family;
+    property <length> font-size;
+    property <int> font-weight;
+    property <brush> color; // StyleMetrics.default-text-color  set in apply_default_properties_from_style
+    property <color> selection-foreground-color: #000;
+    property <color> selection-background-color: #808080;
+    property <TextHorizontalAlignment> horizontal-alignment;
+    property <TextVerticalAlignment> vertical-alignment;
+    property <TextWrap> wrap;
+    property <length> letter-spacing;
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <length> text-cursor-width; // StyleMetrics.text-cursor-width  set in apply_default_properties_from_style
+    property <int> cursor-position: native_output;
+    property <int> anchor-position: native_output;
+    property <bool> has-focus: native_output;
+    callback accepted;
+    callback edited;
+    callback cursor_position_changed(Point);
+    property <bool> enabled: true;
+    property <bool> single-line: true;
+    //-default_size_binding:expands_to_parent_geometry
+    //-accepts_focus
+}
+
+export Clip := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <length> border-radius;
+    property <length> border-width;
+    property <bool> clip;
+    //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
+}
+
+export Opacity := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <float> opacity: 1;
+    //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
+}
+
+Row := _ {
+    //-is_non_item_type
+}
+
+// Note: layouts are not NativeClass, but this is lowerd in lower_layout
+export GridLayout := _ {
+    property <length> spacing;
+
+    // Additional accepted child
+    Row { }
+}
+
+export VerticalLayout := _ {
+    property <length> spacing;
+    property <LayoutAlignment> alignment;
+}
+
+export HorizontalLayout := _ {
+    property <length> spacing;
+    property <LayoutAlignment> alignment;
+}
+
+MoveTo := _ {
+    property <float> x;
+    property <float> y;
+
+    //-rust_type_constructor:slint::re_exports::PathElement::MoveTo(PathMoveTo{{}})
+    //-cpp_type:slint::private_api::PathMoveTo
+    //-is_non_item_type
+}
+
+LineTo := _ {
+    property <float> x;
+    property <float> y;
+
+    //-rust_type_constructor:slint::re_exports::PathElement::LineTo(PathLineTo{{}})
+    //-cpp_type:slint::private_api::PathLineTo
+    //-is_non_item_type
+}
+
+ArcTo := _ {
+    property <float> x;
+    property <float> y;
+    property <float> radius-x;
+    property <float> radius-y;
+    property <float> x-rotation;
+    property <bool> large_arc;
+    property <bool> sweep;
+
+    //-rust_type_constructor:slint::re_exports::PathElement::ArcTo(PathArcTo{{}})
+    //-cpp_type:slint::private_api::PathArcTo
+    //-is_non_item_type
+}
+
+CubicTo := _ {
+    property <float> control-1-x;
+    property <float> control-1-y;
+    property <float> control-2-x;
+    property <float> control-2-y;
+    property <float> x;
+    property <float> y;
+
+    //-rust_type_constructor:slint::re_exports::PathElement::CubicTo(PathCubicTo{{}})
+    //-cpp_type:slint::private_api::PathCubicTo
+    //-is_non_item_type
+}
+
+QuadraticTo := _ {
+    property <float> control-x;
+    property <float> control-y;
+    property <float> x;
+    property <float> y;
+
+    //-rust_type_constructor:slint::re_exports::PathElement::QuadraticTo(PathQuadraticTo{{}})
+    //-cpp_type:slint::private_api::PathQuadraticTo
+    //-is_non_item_type
+}
+
+Close := _ {
+    //-rust_type_constructor:slint::re_exports::PathElement::Close
+    //-cpp_type:slint::private_api::PathClose
+    //-is_non_item_type
+    //-is_non_item_type
+}
+
+export Path := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <brush> fill;
+    property <FillRule> fill-rule;
+    property <brush> stroke;
+    property <length> stroke-width;
+    property <string> commands;
+    property <float> viewbox-x;
+    property <float> viewbox-y;
+    property <float> viewbox-width;
+    property <float> viewbox-height;
+    property <bool> clip;
+
+    //-disallow_global_types_as_child_elements
+    MoveTo {}
+    LineTo {}
+    ArcTo {}
+    CubicTo {}
+    QuadraticTo {}
+    Close {}
+
+    //-default_size_binding:expands_to_parent_geometry
+}
+
+export PathLayout := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <string> commands;
+    property <float> offset;
+
+    MoveTo {}
+    LineTo {}
+    ArcTo {}
+    CubicTo {}
+    QuadraticTo {}
+    Close {}
+}
+
+Tab := _ {
+    property <string> title;
+}
+
+// Note: not a native class, handled in the lower_tabs pass
+export TabWidget := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+
+    property <int> current_index;
+
+    //-disallow_global_types_as_child_elements
+    Tab {}
+    //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
+}
+
+// Note: not a native class, handled in the lower_popups pass
+export PopupWindow := _ {
+    //property <length> x;
+    //property <length> y;
+    property <length> width;
+    property <length> height;
+    /*property <length> anchor_x;
+    property <length> anchor_y;
+    property <length> anchor_height;
+    property <length> anchor_width;*/
+    //show() is hardcoded in typeregister.rs
+}
+
+export Dialog := WindowItem {}
+
+PropertyAnimation := _ {
+    property <duration> delay;
+    property <duration> duration;
+    property <easing> easing;
+    property <float> iteration-count: 1.0;
+    //-is_non_item_type
+}
+
+export struct StandardListViewItem := {
+    //-name:slint::private_api::StandardListViewItem
+    text: string
+}
+
+export struct StateInfo := {
+    //-name:slint::private_api::StateInfo
+    current_state: int,
+    previous_state: int,
+    //change_time: duration,
+    //-is_internal
+}
+
+export NativeButton := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <string> text;
+    property <image> icon;
+    property <bool> pressed: native_output;
+    callback clicked;
+    property <bool> enabled: true;
+    property <StandardButtonKind> standard-button-kind;
+    property <bool> is-standard-button;
+    //-is_internal
+}
+
+export NativeCheckBox := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <bool> enabled: true;
+    property <string> text;
+    property <bool> checked: native_output;
+    callback toggled;
+    //-is_internal
+}
+
+export NativeSpinBox := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <bool> enabled: true;
+    property <int> value: native_output;
+    property <int> minimum;
+    property <int> maximum: 100;
+    //-is_internal
+}
+
+export NativeSlider := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <bool> enabled: true;
+    property <float> value: native_output;
+    property <float> minimum;
+    property <float> maximum: 100;
+    callback changed(float);
+    //-is_internal
+}
+
+export NativeGroupBox := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <bool> enabled: true;
+    property <string> title;
+    property <length> native-padding-left: native_output;
+    property <length> native-padding-right: native_output;
+    property <length> native-padding-top: native_output;
+    property <length> native-padding-bottom: native_output;
+    //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
+}
+
+export NativeLineEdit := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <length> native-padding-left: native_output;
+    property <length> native-padding-right: native_output;
+    property <length> native-padding-top: native_output;
+    property <length> native-padding-bottom: native_output;
+    property <bool> has-focus;
+    property <bool> enabled: true;
+    //-is_internal
+}
+
+export NativeScrollView := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <length> horizontal-max;
+    property <length> horizontal-page-size;
+    property <length> horizontal-value;
+    property <length> vertical-max;
+    property <length> vertical-page-size;
+    property <length> vertical-value: native_output;
+    property <length> native-padding-left: native_output;
+    property <length> native-padding-right: native_output;
+    property <length> native-padding-top: native_output;
+    property <length> native-padding-bottom: native_output;
+    property <bool> has_focus: native_output;
+    property <bool> enabled: true;
+    //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
+}
+
+export NativeStandardListViewItem := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <int> index;
+    property <StandardListViewItem> item;
+    property <bool> is_selected: native_output;
+    property <bool> has_hover;
+    //-is_internal
+}
+
+export NativeComboBox := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <string> current_value;
+    property <bool> is_open: native_output;
+    property <bool> enabled: true;
+    callback open_popup;
+    //-is_internal
+}
+
+export NativeComboBoxPopup := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    //-is_internal
+}
+
+export NativeTabWidget := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+
+    property <length> content-x: native_output;
+    property <length> content-y: native_output;
+    property <length> content-height: native_output;
+    property <length> content-width: native_output;
+    property <length> tabbar-x: native_output;
+    property <length> tabbar-y: native_output;
+    property <length> tabbar-height: native_output;
+    property <length> tabbar-width: native_output;
+    property <length> tabbar-preferred-height;
+    property <length> tabbar-preferred-width;
+    property <length> content-min-height;
+    property <length> content-min-width;
+    //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
+}
+
+export NativeTab := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+
+    property<string> title;
+    property<image> icon;
+    property<bool> enabled : true;
+    property<bool> pressed : native_output;
+    property<int> current: native_output; // supposed to be a binding to the tab
+    property<int> tab_index;
+    property<int> num_tabs;
+    //-is_internal
+}
+
+export global NativeStyleMetrics := {
+    property <length> layout-spacing : native_output;
+    property <length> layout-padding : native_output;
+    property <length> text-cursor-width : native_output;
+    property <color> window-background : native_output;
+    property <color> default-text-color : native_output;
+    property <color> textedit-background : native_output;
+    property <color> textedit-text-color : native_output;
+    property <color> textedit-background-disabled : native_output;
+    property <color> textedit-text-color-disabled : native_output;
+
+    // specific to the Native one
+    property <color> placeholder-color : native_output;
+    property <color> placeholder-color-disabled : native_output;
+
+    //-is_non_item_type
+    //-is_internal
+}

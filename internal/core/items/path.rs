@@ -22,7 +22,7 @@ use crate::window::WindowRc;
 use crate::Property;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
-use sixtyfps_corelib_macros::*;
+use i_slint_core_macros::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
 #[repr(C)]
@@ -40,7 +40,7 @@ impl Default for FillRule {
 
 /// The implementation of the `Path` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct Path {
     pub x: Property<f32>,

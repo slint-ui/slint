@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+TestCase := TextInput {
+    width: 100phx;
+    height: 100phx;
+    property<string> test_text: self.text;
+    property<int> test_cursor_pos: self.cursor_position;
+    property<int> test_anchor_pos: self.anchor_position;
+    property<bool> has_selection: self.cursor_position != self.anchor_position;
+    property<bool> input_focused: self.has_focus;
+}
+
+/*
+```rust
+
+const LEFT_CODE: char = '\u{F702}';
+const BACK_CODE: char = '\u{0008}'; // backspace \b
+
+let shift_modifier = slint::re_exports::KeyboardModifiers {
+    shift: true,
+    ..Default::default()
+};
+
+let instance = TestCase::new();
+slint::testing::send_mouse_click(&instance, 50., 50.);
+assert!(instance.get_input_focused());
+assert_eq!(instance.get_test_text(), "");
+slint::testing::send_keyboard_string_sequence(&instance, "e\u{0301}");
+assert_eq!(instance.get_test_text(), "e\u{0301}");
+assert!(!instance.get_has_selection());
+
+// Test that selecting the grapheme works
+slint::testing::set_current_keyboard_modifiers(&instance, shift_modifier);
+slint::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+slint::testing::set_current_keyboard_modifiers(&instance, slint::re_exports::KeyboardModifiers::default());
+assert!(instance.get_has_selection());
+slint::testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
+
+assert_eq!(instance.get_test_text(), "");
+
+slint::testing::send_keyboard_string_sequence(&instance, "e\u{0301}");
+
+// Test that backspace does not operate on the grapheme and just removes the
+// diacritic.
+slint::testing::send_keyboard_string_sequence(&instance, &BACK_CODE.to_string());
+assert_eq!(instance.get_test_cursor_pos(), 1);
+assert_eq!(instance.get_test_text(), "e");
+```
+*/

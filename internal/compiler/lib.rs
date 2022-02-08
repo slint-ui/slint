@@ -1,18 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-/*!
-# The SixtyFPS compiler library
-
-**NOTE**: This library is an **internal** crate for the [SixtyFPS project](https://sixtyfps.io).
-This crate should **not be used directly** by applications using SixtyFPS.
-You should use the `sixtyfps` crate instead.
-
-**WARNING**: This crate does not follow the semver convention for versioning and can
-only be used with `version = "=x.y.z"` in Cargo.toml.
-
-*/
-
+#![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 // It would be nice to keep the compiler free of unsafe code
 #![deny(unsafe_code)]
@@ -74,10 +63,10 @@ pub struct CompilerConfiguration {
 
 impl CompilerConfiguration {
     pub fn new(output_format: crate::generator::OutputFormat) -> Self {
-        let embed_resources = match std::env::var("SIXTYFPS_EMBED_RESOURCES") {
+        let embed_resources = match std::env::var("SLINT_EMBED_RESOURCES") {
             Ok(var) => {
                 var.parse().unwrap_or_else(|_|{
-                    panic!("SIXTYFPS_EMBED_RESOURCES has incorrect value. Must be either unset, 'true' or 'false'")
+                    panic!("SLINT_EMBED_RESOURCES has incorrect value. Must be either unset, 'true' or 'false'")
                 })
             }
             Err(_) => {
@@ -89,12 +78,12 @@ impl CompilerConfiguration {
             }
         };
 
-        let inline_all_elements = match std::env::var("SIXTYFPS_INLINING") {
-            Ok(var) => {
-                var.parse::<bool>().unwrap_or_else(|_|{
-                    panic!("SIXTYFPS_INLINING has incorrect value. Must be either unset, 'true' or 'false'")
-                })
-            }
+        let inline_all_elements = match std::env::var("SLINT_INLINING") {
+            Ok(var) => var.parse::<bool>().unwrap_or_else(|_| {
+                panic!(
+                    "SLINT_INLINING has incorrect value. Must be either unset, 'true' or 'false'"
+                )
+            }),
             // Currently, the interpreter needs the inlining to be on.
             Err(_) => output_format == crate::generator::OutputFormat::Interpreter,
         };

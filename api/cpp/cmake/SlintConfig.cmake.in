@@ -1,0 +1,25 @@
+# Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+# SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+@PACKAGE_INIT@
+
+get_filename_component(_IMPORT_PREFIX "${CMAKE_CURRENT_LIST_FILE}" PATH)
+get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)
+get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)
+get_filename_component(_IMPORT_PREFIX "${_IMPORT_PREFIX}" PATH)
+if(_IMPORT_PREFIX STREQUAL "/")
+  set(_IMPORT_PREFIX "")
+endif()
+
+add_library(slint-cpp-shared SHARED IMPORTED)
+set_target_properties(slint-cpp-shared PROPERTIES @SLINT_LIB_PROPERTIES@)
+
+add_executable(Slint::slint-compiler IMPORTED GLOBAL)
+set_target_properties(Slint::slint-compiler PROPERTIES IMPORTED_LOCATION "${_IMPORT_PREFIX}/@CMAKE_INSTALL_BINDIR@/slint-compiler${CMAKE_EXECUTABLE_SUFFIX}")
+
+set(_IMPORT_PREFIX)
+
+include("${CMAKE_CURRENT_LIST_DIR}/SlintTargets.cmake")
+include("${CMAKE_CURRENT_LIST_DIR}/SlintMacro.cmake")
+
+set(SLINT_STYLE @SLINT_STYLE_DEFAULT@ CACHE STRING "The Slint widget style")

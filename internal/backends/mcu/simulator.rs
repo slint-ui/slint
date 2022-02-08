@@ -7,14 +7,14 @@ use std::rc::{Rc, Weak};
 use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
 use embedded_graphics_simulator::SimulatorDisplay;
+use i_slint_core::component::ComponentRc;
+use i_slint_core::graphics::{Image, ImageInner};
+use i_slint_core::input::KeyboardModifiers;
+use i_slint_core::items::ItemRef;
+use i_slint_core::layout::Orientation;
+use i_slint_core::window::{PlatformWindow, Window};
+use i_slint_core::Color;
 use rgb::FromSlice;
-use sixtyfps_corelib::component::ComponentRc;
-use sixtyfps_corelib::graphics::{Image, ImageInner};
-use sixtyfps_corelib::input::KeyboardModifiers;
-use sixtyfps_corelib::items::ItemRef;
-use sixtyfps_corelib::layout::Orientation;
-use sixtyfps_corelib::window::{PlatformWindow, Window};
-use sixtyfps_corelib::Color;
 
 use self::event_loop::WinitWindow;
 
@@ -26,18 +26,18 @@ mod glcontext;
 use glcontext::*;
 
 pub struct SimulatorWindow {
-    self_weak: Weak<sixtyfps_corelib::window::Window>,
+    self_weak: Weak<i_slint_core::window::Window>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
     canvas: CanvasRc,
     opengl_context: OpenGLContext,
-    constraints: Cell<(sixtyfps_corelib::layout::LayoutInfo, sixtyfps_corelib::layout::LayoutInfo)>,
+    constraints: Cell<(i_slint_core::layout::LayoutInfo, i_slint_core::layout::LayoutInfo)>,
     visible: Cell<bool>,
     background_color: Cell<Color>,
 }
 
 impl SimulatorWindow {
-    pub(crate) fn new(window_weak: &Weak<sixtyfps_corelib::window::Window>) -> Rc<Self> {
+    pub(crate) fn new(window_weak: &Weak<i_slint_core::window::Window>) -> Rc<Self> {
         let window_builder = winit::window::WindowBuilder::new().with_visible(false);
 
         #[cfg(target_arch = "wasm32")]
@@ -92,13 +92,13 @@ impl PlatformWindow for SimulatorWindow {
         let platform_window = self.opengl_context.window();
 
         if let Some(window_item) =
-            ItemRef::downcast_pin::<sixtyfps_corelib::items::WindowItem>(root_item)
+            ItemRef::downcast_pin::<i_slint_core::items::WindowItem>(root_item)
         {
             platform_window.set_title(&window_item.title());
             platform_window.set_decorations(!window_item.no_frame());
         };
 
-        if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
+        if std::env::var("SLINT_FULLSCREEN").is_ok() {
             platform_window.set_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
         } else {
             let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
@@ -135,15 +135,15 @@ impl PlatformWindow for SimulatorWindow {
 
     fn free_graphics_resources<'a>(
         &self,
-        _items: &mut dyn Iterator<Item = std::pin::Pin<sixtyfps_corelib::items::ItemRef<'a>>>,
+        _items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'a>>>,
     ) {
         // Nothing to do until we start caching stuff that needs freeing
     }
 
     fn show_popup(
         &self,
-        _popup: &sixtyfps_corelib::component::ComponentRc,
-        _position: sixtyfps_corelib::graphics::Point,
+        _popup: &i_slint_core::component::ComponentRc,
+        _position: i_slint_core::graphics::Point,
     ) {
         todo!()
     }
@@ -160,44 +160,44 @@ impl PlatformWindow for SimulatorWindow {
 
     fn apply_window_properties(
         &self,
-        window_item: std::pin::Pin<&sixtyfps_corelib::items::WindowItem>,
+        window_item: std::pin::Pin<&i_slint_core::items::WindowItem>,
     ) {
         WinitWindow::apply_window_properties(self as &dyn WinitWindow, window_item);
     }
 
     fn apply_geometry_constraint(
         &self,
-        constraints_horizontal: sixtyfps_corelib::layout::LayoutInfo,
-        constraints_vertical: sixtyfps_corelib::layout::LayoutInfo,
+        constraints_horizontal: i_slint_core::layout::LayoutInfo,
+        constraints_vertical: i_slint_core::layout::LayoutInfo,
     ) {
         self.apply_constraints(constraints_horizontal, constraints_vertical)
     }
 
-    fn set_mouse_cursor(&self, _cursor: sixtyfps_corelib::items::MouseCursor) {}
+    fn set_mouse_cursor(&self, _cursor: i_slint_core::items::MouseCursor) {}
 
     fn text_size(
         &self,
-        _font_request: sixtyfps_corelib::graphics::FontRequest,
+        _font_request: i_slint_core::graphics::FontRequest,
         _text: &str,
         _max_width: Option<f32>,
-    ) -> sixtyfps_corelib::graphics::Size {
+    ) -> i_slint_core::graphics::Size {
         // TODO
         Default::default()
     }
 
     fn text_input_byte_offset_for_position(
         &self,
-        _text_input: std::pin::Pin<&sixtyfps_corelib::items::TextInput>,
-        _pos: sixtyfps_corelib::graphics::Point,
+        _text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
+        _pos: i_slint_core::graphics::Point,
     ) -> usize {
         todo!()
     }
 
     fn text_input_position_for_byte_offset(
         &self,
-        _text_input: std::pin::Pin<&sixtyfps_corelib::items::TextInput>,
+        _text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
         _byte_offset: usize,
-    ) -> sixtyfps_corelib::graphics::Point {
+    ) -> i_slint_core::graphics::Point {
         todo!()
     }
 
@@ -207,7 +207,7 @@ impl PlatformWindow for SimulatorWindow {
 }
 
 impl WinitWindow for SimulatorWindow {
-    fn runtime_window(&self) -> Rc<sixtyfps_corelib::window::Window> {
+    fn runtime_window(&self) -> Rc<i_slint_core::window::Window> {
         self.self_weak.upgrade().unwrap()
     }
 
@@ -302,14 +302,12 @@ impl WinitWindow for SimulatorWindow {
         callback(&*self.opengl_context.window())
     }
 
-    fn constraints(
-        &self,
-    ) -> (sixtyfps_corelib::layout::LayoutInfo, sixtyfps_corelib::layout::LayoutInfo) {
+    fn constraints(&self) -> (i_slint_core::layout::LayoutInfo, i_slint_core::layout::LayoutInfo) {
         self.constraints.get()
     }
     fn set_constraints(
         &self,
-        constraints: (sixtyfps_corelib::layout::LayoutInfo, sixtyfps_corelib::layout::LayoutInfo),
+        constraints: (i_slint_core::layout::LayoutInfo, i_slint_core::layout::LayoutInfo),
     ) {
         self.constraints.set(constraints)
     }
@@ -317,17 +315,17 @@ impl WinitWindow for SimulatorWindow {
     fn set_background_color(&self, color: Color) {
         self.background_color.set(color);
     }
-    fn set_icon(&self, _icon: sixtyfps_corelib::graphics::Image) {}
+    fn set_icon(&self, _icon: i_slint_core::graphics::Image) {}
 }
 
 pub struct SimulatorBackend;
 
-impl sixtyfps_corelib::backend::Backend for SimulatorBackend {
+impl i_slint_core::backend::Backend for SimulatorBackend {
     fn create_window(&'static self) -> Rc<Window> {
-        sixtyfps_corelib::window::Window::new(|window| SimulatorWindow::new(window))
+        i_slint_core::window::Window::new(|window| SimulatorWindow::new(window))
     }
 
-    fn run_event_loop(&'static self, behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
+    fn run_event_loop(&'static self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {
         event_loop::run(behavior);
     }
 
@@ -368,7 +366,7 @@ impl sixtyfps_corelib::backend::Backend for SimulatorBackend {
             .send_event(self::event_loop::CustomEvent::UserEvent(event));
     }
 
-    fn image_size(&'static self, image: &Image) -> sixtyfps_corelib::graphics::IntSize {
+    fn image_size(&'static self, image: &Image) -> i_slint_core::graphics::IntSize {
         let inner: &ImageInner = image.into();
         match inner {
             ImageInner::None => Default::default(),

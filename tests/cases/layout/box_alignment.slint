@@ -1,0 +1,106 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+MyWid := Rectangle {
+    min-width: 20phx;
+    min-height: 20phx;
+    horizontal-stretch:0;
+    vertical-stretch:0;
+}
+
+
+TestCase := Rectangle {
+    width: 300phx;
+    height: 300phx;
+
+    VerticalLayout {
+        alignment: end;
+        padding: 0phx;
+        spacing: 5phx;
+        ls := HorizontalLayout {
+            padding: 0phx;
+            spacing: 2phx;
+            alignment: start;
+            rs1 := MyWid { background: blue; }
+            rs2 := MyWid { background: red; }
+            rs3 := MyWid { background: yellow; }
+        }
+        lb := HorizontalLayout {
+            padding: 0phx;
+            spacing: 2phx;
+            alignment: space-between;
+            rb1 := MyWid { background: green; }
+            rb2 := MyWid { background: black; }
+            rb3 := MyWid { background: orange; }
+        }
+        la := HorizontalLayout {
+            padding: 0phx;
+            spacing: 2phx;
+            alignment: space-around;
+            ra1 := MyWid { background: pink; }
+            ra2 := MyWid { background: lightblue; }
+            ra3 := MyWid { background: gray; }
+        }
+        lc := HorizontalLayout {
+            padding: 0phx;
+            spacing: 2phx;
+            alignment: center;
+            rc1 := MyWid { background: violet; }
+            rc2 := MyWid { background: lightgreen; }
+            rc3 := MyWid { background: purple; }
+        }
+    }
+
+    // check the vertical layout
+    property <bool> v1: ls.y == height - (4*20phx + 15phx) && rs1.y == 0 && rs1.y == rs2.y && rs1.y == rs3.y;
+    property <bool> v2: lb.y == height - (3*20phx + 10phx) && rb1.y == 0 && rb1.y == rb2.y && rb1.y == rb3.y;
+    property <bool> v3: la.y == height - (2*20phx + 5phx) && ra1.y == 0 && ra1.y == ra2.y && ra1.y == ra3.y;
+    property <bool> v4: lc.y == height - (1*20phx + 0phx) && rc1.y == 0 && rc1.y == rc2.y && rc1.y == rc3.y;
+
+    // check the horizontal layout
+    property <bool> s1: rs1.x == 0phx && rs2.x == 22phx && rs3.x == 44phx;
+    property <bool> c1: rc1.x == (width - 64phx)/2 && rc2.x == (width - rc2.width)/2 && rc3.x == (width + 64phx)/2 - ra3.width;
+    property <bool> b1: rb1.x == 0phx && rb2.x == (width - rb2.width)/2 && rb3.x == width - rb3.width;
+
+    property <bool> test: v1 && v2 && v3 && v4 && s1 && c1 && b1;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_v1());
+assert(instance.get_v2());
+assert(instance.get_v3());
+assert(instance.get_v4());
+assert(instance.get_s1());
+assert(instance.get_b1());
+assert(instance.get_c1());
+```
+
+
+```rust
+let instance = TestCase::new();
+assert!(instance.get_v1());
+assert!(instance.get_v2());
+assert!(instance.get_v3());
+assert!(instance.get_v4());
+assert!(instance.get_s1());
+assert!(instance.get_b1());
+assert!(instance.get_c1());
+```
+
+```js
+var instance = new slint.TestCase();
+instance.send_mouse_click(5., 5.);
+assert(instance.v1);
+assert(instance.v2);
+assert(instance.v3);
+assert(instance.v4);
+assert(instance.s1);
+assert(instance.b1);
+assert(instance.c1);
+```
+
+*/

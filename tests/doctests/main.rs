@@ -3,15 +3,15 @@
 
 #[cfg(test)]
 fn do_test(snippet: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let mut compiler = sixtyfps_interpreter::ComponentCompiler::default();
+    let mut compiler = slint_interpreter::ComponentCompiler::default();
     let component =
         spin_on::spin_on(compiler.build_from_source(snippet.into(), Default::default()));
 
     #[cfg(feature = "display-diagnostics")]
-    sixtyfps_interpreter::print_diagnostics(&compiler.diagnostics());
+    slint_interpreter::print_diagnostics(&compiler.diagnostics());
 
     for d in compiler.diagnostics() {
-        if d.level() == sixtyfps_interpreter::DiagnosticLevel::Error {
+        if d.level() == slint_interpreter::DiagnosticLevel::Error {
             return Err(d.message().to_owned().into());
         }
     }

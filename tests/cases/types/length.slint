@@ -1,0 +1,120 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+TestCase := Rectangle {
+    property<physical_length> l1: 12phx;
+    property<physical_length> l2: 12px;
+    property<physical_length> l3: 100phx + 12px;
+    property<physical_length> l4: 120 * 1phx;
+
+    property<length> ll1: 12phx;
+    property<length> ll2: 12px;
+    property<length> ll3: 100phx + 12px;
+    property<length> ll4: 120 * 1phx;
+
+    property<bool> value: l1 == 10phx + 2phx;
+
+    property<length> zero1: 0;
+    property<length> zero2: 0 + 1phx - 0 - 1phx;
+    property<bool> test_zero: zero2 == 0;
+
+    property <float> ratio: 1px / 1phx;
+
+    property<bool> test: (8phx * 5px * 3ms / 2phx)  == (8px * (3ms / 2phx) * 5px) / ratio
+        && l1*l2 - ll1*ll2 == 0cm*0phx && value;
+
+}
+
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+float ratio = 1.;
+assert_eq(instance.get_l1(), 12.);
+assert_eq(instance.get_l2(), 12. * ratio);
+assert_eq(instance.get_l3(), 100. + 12. * ratio);
+assert_eq(instance.get_l4(), 120.);
+
+assert_eq(instance.get_ll1() * ratio, 12.);
+assert_eq(instance.get_ll2() * ratio, 12. * ratio);
+assert_eq(instance.get_ll3() * ratio, 100. + 12. * ratio);
+assert_eq(instance.get_ll4() * ratio, 120.);
+
+assert(instance.get_value());
+assert(instance.get_test_zero());
+assert(instance.get_test());
+
+ratio = 2.;
+instance.m_window.window_handle().set_scale_factor(ratio);
+assert_eq(instance.get_l1(), 12.);
+assert_eq(instance.get_l2(), 12. * ratio);
+assert_eq(instance.get_l3(), 100. + 12. * ratio);
+assert_eq(instance.get_l4(), 120.);
+
+assert_eq(instance.get_ll1() * ratio, 12.);
+assert_eq(instance.get_ll2() * ratio, 12. * ratio);
+assert_eq(instance.get_ll3() * ratio, 100. + 12. * ratio);
+assert_eq(instance.get_ll4() * ratio, 120.);
+
+assert(instance.get_value());
+assert(instance.get_test_zero());
+assert(instance.get_test());
+```
+
+
+```rust
+let ratio = 1.;
+let instance = TestCase::new();
+assert_eq!(instance.get_l1(), 12.);
+assert_eq!(instance.get_l2(), 12. * ratio);
+assert_eq!(instance.get_l3(), 100. + 12. * ratio);
+assert_eq!(instance.get_l4(), 120.);
+
+assert_eq!(instance.get_ll1() * ratio, 12.);
+assert_eq!(instance.get_ll2() * ratio, 12. * ratio);
+assert_eq!(instance.get_ll3() * ratio, 100. + 12. * ratio);
+assert_eq!(instance.get_ll4() * ratio, 120.);
+
+assert!(instance.get_value());
+assert!(instance.get_test_zero());
+assert!(instance.get_test());
+
+let ratio = 2.;
+slint::testing::set_window_scale_factor(&instance, ratio);
+assert_eq!(instance.get_l1(), 12.);
+assert_eq!(instance.get_l2(), 12. * ratio);
+assert_eq!(instance.get_l3(), 100. + 12. * ratio);
+assert_eq!(instance.get_l4(), 120.);
+
+assert_eq!(instance.get_ll1() * ratio, 12.);
+assert_eq!(instance.get_ll2() * ratio, 12. * ratio);
+assert_eq!(instance.get_ll3() * ratio, 100. + 12. * ratio);
+assert_eq!(instance.get_ll4() * ratio, 120.);
+
+assert!(instance.get_value());
+assert!(instance.get_test_zero());
+assert!(instance.get_test());
+```
+
+```js
+// FIXME: test with different ratio
+var ratio = 1;
+var instance = new slint.TestCase({});
+assert.equal(instance.l1, 12.);
+assert.equal(instance.l2, 12. * ratio);
+assert.equal(instance.l3, 100. + 12 * ratio);
+assert.equal(instance.l4, 120.);
+
+assert.equal(instance.ll1 * ratio, 12.);
+assert.equal(instance.ll2 * ratio, 12. * ratio);
+assert.equal(instance.ll3 * ratio, 100. + 12. * ratio);
+assert.equal(instance.ll4 * ratio, 120.);
+
+assert(instance.value);
+assert(instance.test_zero);
+assert(instance.test);
+```
+
+*/

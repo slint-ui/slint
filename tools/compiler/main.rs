@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 use clap::Parser;
-use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
-use sixtyfps_compilerlib::*;
+use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::*;
 use std::io::Write;
 
 #[derive(Parser)]
@@ -12,11 +12,11 @@ struct Cli {
     #[clap(short = 'f', long = "format", default_value = "cpp")]
     format: generator::OutputFormat,
 
-    /// Include path for other .60 files
+    /// Include path for other .slint files
     #[clap(short = 'I', name = "include path", number_of_values = 1, parse(from_os_str))]
     include_paths: Vec<std::path::PathBuf>,
 
-    /// Path to .60 file ('-' for stdin)
+    /// Path to .slint file ('-' for stdin)
     #[clap(name = "file", parse(from_os_str))]
     path: std::path::PathBuf,
 

@@ -1,16 +1,16 @@
 # Generated code
 
-The SixtyFPS compiler called by the build system will generate a header file for the root `.60`
+The Slint compiler called by the build system will generate a header file for the root `.slint`
 file. This header file will contain a `class` with the same name as the component.
 
 This class will have the following public member functions:
 
 * A `create` constructor function and a destructor.
 * A `show` function, which will show the component on the screen. Note that in order to render
-  and react to user input, it's still necessary to spin the event loop, by calling {cpp:func}`sixtyfps::run_event_loop()`
+  and react to user input, it's still necessary to spin the event loop, by calling {cpp:func}`slint::run_event_loop()`
   or using the convenience `fun` function in this class.
 * A `hide` function, which de-registers the component from the windowing system.
-* A `window` function that provides access to the {cpp:class}`sixtyfps::Window`, allow for further customization
+* A `window` function that provides access to the {cpp:class}`slint::Window`, allow for further customization
   towards the windowing system.
 * A `run` convenience function, which will show the component and starts the event loop.
 * for each properties:
@@ -22,20 +22,20 @@ This class will have the following public member functions:
      for this callback. the functor must accept the type parameter of the callback
 * A `global` function, to provide access to any exported global singletons.
 
-The class is instantiated with the `create` function, which returns the type wrapped in {cpp:class}`sixtyfps::ComponentHandle`.
-This is a smart pointer that owns the actual instance and keeps it alive as long as at least one {cpp:class}`sixtyfps::ComponentHandle`
+The class is instantiated with the `create` function, which returns the type wrapped in {cpp:class}`slint::ComponentHandle`.
+This is a smart pointer that owns the actual instance and keeps it alive as long as at least one {cpp:class}`slint::ComponentHandle`
 is in scope, similar to `std::shared_ptr<T>`.
 
 For more complex UIs it is common to supply data in the form of an abstract data model, that is used with
-[`for` - `in`](markdown/langref.md#repetition) repetitions or [`ListView`](markdown/widgets.md#listview) elements in the `.60` language.
-All models in C++ are sub-classes of the {cpp:class}`sixtyfps::Model` and you can sub-class it yourself. For convenience,
-the {cpp:class}`sixtyfps::VectorModel` provides an implementation that is backed by a `std::vector<T>`.
+[`for` - `in`](markdown/langref.md#repetition) repetitions or [`ListView`](markdown/widgets.md#listview) elements in the `.slint` language.
+All models in C++ are sub-classes of the {cpp:class}`slint::Model` and you can sub-class it yourself. For convenience,
+the {cpp:class}`slint::VectorModel` provides an implementation that is backed by a `std::vector<T>`.
 
 ## Example
 
-Let's assume we have this code in our `.60` file
+Let's assume we have this code in our `.slint` file
 
-```60
+```slint
 SampleComponent := Window {
     property<int> counter;
     property<string> user_name;
@@ -49,20 +49,20 @@ This will generate a header with the following contents (edited for documentatio
 ```cpp
 #include <array>
 #include <limits>
-#include <sixtyfps.h>
+#include <slint.h>
 
 
 class SampleComponent {
 public:
     /// Constructor function
-    inline auto create () -> sixtyfps::ComponentHandle<MainWindow>;
+    inline auto create () -> slint::ComponentHandle<MainWindow>;
     /// Destructor
     inline ~SampleComponent ();
 
     /// Show this component, and runs the event loop
     inline void run () const;
 
-    /// Show the window that renders this component. Call `sixtyfps::run_event_loop()`
+    /// Show the window that renders this component. Call `slint::run_event_loop()`
     /// to continuously render the contents and react to user input.
     inline void show () const;
 
@@ -75,9 +75,9 @@ public:
     inline void set_counter (const int &value) const;
 
     /// Getter for the `user_name` property
-    inline sixtyfps::SharedString get_user_name () const;
+    inline slint::SharedString get_user_name () const;
     /// Setter for the `user_name` property
-    inline void set_user_name (const sixtyfps::SharedString &value) const;
+    inline void set_user_name (const slint::SharedString &value) const;
 
     /// Call this function to call the `hello` callback
     inline void invoke_hello () const;
@@ -95,14 +95,14 @@ private:
 
 ## Global Singletons
 
-In `.60` files it is possible to declare [singletons that are globally available](markdown/langref.md#global-singletons).
+In `.slint` files it is possible to declare [singletons that are globally available](markdown/langref.md#global-singletons).
 You can access them from to your C++ code by exporting them and using the `global()` getter function in the
 C++ class generated for your entry component. Each global singleton creates a class that has getter/setter functions
-for properties and callbacks, similar to API that's created for your `.60` component, as demonstrated in the previous section.
+for properties and callbacks, similar to API that's created for your `.slint` component, as demonstrated in the previous section.
 
-For example the following `.60` markup defines a global `Logic` singleton that's also exported:
+For example the following `.slint` markup defines a global `Logic` singleton that's also exported:
 
-```60,ignore
+```slint,ignore
 export global Logic := {
     callback to_uppercase(string) -> string;
 }

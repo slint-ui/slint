@@ -1,6 +1,6 @@
-# The `.60` language reference
+# The `.slint` language reference
 
-The SixtyFPS design markup language is used to describe graphical user interfaces:
+The Slint design markup language is used to describe graphical user interfaces:
 
  * Place and compose a tree of visual elements in a window using a textual representation.
  * Configure the appearance of elements via properties. For example a `Text` element has font and text
@@ -8,22 +8,22 @@ The SixtyFPS design markup language is used to describe graphical user interface
  * Assign binding expressions to properties to automatically compute values that depend on other properties.
  * Group binding expressions together with named states and conditions.
  * Declare animations on properties and states to make the user interface feel alive.
- * Build your own re-usable components and share them in `.60` module files.
+ * Build your own re-usable components and share them in `.slint` module files.
  * Define data structures and models and access them from programming languages.
  * Build highly customized user interfaces with the [builtin elements](builtin_elements.md) provided.
 
-SixtyFPS also comes with a catalog of high-level [widgets](widgets.md), that are written in the `.60`
+Slint also comes with a catalog of high-level [widgets](widgets.md), that are written in the `.slint`
 language.
 
-## `.60` files
+## `.slint` files
 
-The basic idea is that the `.60` files contains one or several components.
+The basic idea is that the `.slint` files contains one or several components.
 These components contain a tree of elements. Each declared component can be
 given a name and re-used under that name as an element later.
 
 Below is an example of components and elements:
 
-```60
+```slint
 
 MyButton := Text {
     color: black;
@@ -54,7 +54,7 @@ used by `MyApp`. `MyApp` also re-uses the `MyButton` component.
 
 You can assign a name to the elements using the `:=`  syntax in front an element:
 
-```60
+```slint
 MyButton := Text {
     // ...
 }
@@ -81,7 +81,7 @@ When creating components, it may sometimes be useful to influence where child el
 are placed when they are used. For example, imagine a component that draws a label above
 whatever element the user places inside:
 
-```60,ignore
+```slint,ignore
 MyApp := Window {
 
     BoxWithLabel {
@@ -99,7 +99,7 @@ the `Text` element become children of the `BoxWithLabel`, when they would have t
 else, inside the layout. For this purpose, you can change the default child placement by using
 the `@children` expression inside the element hierarchy of a component:
 
-```60
+```slint
 BoxWithLabel := GridLayout {
     Row {
         Text { text: "label text here"; }
@@ -135,7 +135,7 @@ The underscores are normalized to dashes. Which means that these two identifiers
 The elements can have properties. Built-in elements come with common properties such
 as color or dimensional properties. You can assign values or entire [expressions](#expressions) to them:
 
-```60
+```slint
 Example := Window {
     // Simple expression: ends with a semi colon
     width: 42px;
@@ -148,7 +148,7 @@ You can also declare your own properties. The properties declared at the top lev
 component are public and can be accessed by the component using it as an element, or using the
 language bindings:
 
-```60
+```slint
 Example := Rectangle {
     // declare a property of type int with the name `my-property`
     property<int> my-property;
@@ -165,8 +165,8 @@ The expression on the right of a binding is automatically re-evaluated when the 
 In the following example, the text of the button is automatically changed when the button is pressed, because
 changing the `counter`  property automatically changes the text.
 
-```60
-import { Button } from "sixtyfps_widgets.60";
+```slint
+import { Button } from "std-widgets.slint";
 Example := Button {
     property <int> counter: 3;
     clicked => { counter += 3 }
@@ -186,7 +186,7 @@ together.
 The right hand side of the `<=>` must be a reference to a property of the same type.
 The type can be omitted in a property declaration to have the type automatically inferred.
 
-```60
+```slint
 Example := Window {
     property<brush> rect-color <=> r.background;
     // it is allowed to omit the type to have it automatically inferred
@@ -227,7 +227,7 @@ Anonymous structs type can be declared with curly braces: `{ identifier1: type2,
 The trailing semicolon is optional.
 They can be initialized with a struct literal: `{ identifier1: expression1, identifier2: expression2  }`
 
-```60
+```slint
 Example := Window {
     property<{name: string, score: int}> player: { name: "Foo", score: 100 };
     property<{a: int, }> foo: { a: 3 };
@@ -238,7 +238,7 @@ Example := Window {
 
 It is possible to define a named struct using the `struct` keyword,
 
-```60
+```slint
 export struct Player := {
     name: string,
     score: int,
@@ -254,7 +254,7 @@ Example := Window {
 The type array is using square brackets for example  `[int]` is an array of `int`. In the runtime, they are
 basically used as models for the `for` expression.
 
-```60
+```slint
 Example := Window {
     property<[int]> list-of-int: [1,2,3];
     property<[{a: int, b: string}]> list-of-structs: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
@@ -280,7 +280,7 @@ Example := Window {
 * String can be converted to float by using the `to-float` function. That function returns 0 if the string is not
    a valid number. you can check with `is-float` if the string contains a valid number
 
-```60
+```slint
 Example := Window {
     // ok: int converts to string
     property<{a: string, b: int}> prop1: {a: 12, b: 12 };
@@ -302,7 +302,7 @@ Example := Window {
 Sometimes it is convenient to express the relationships of length properties in terms of relative percentages.
 For example the following inner blue rectangle has half the size of the outer green one:
 
-```60
+```slint
 Example := Rectangle {
     background: green;
     Rectangle {
@@ -322,7 +322,7 @@ common. For convenience, a short-hand syntax exists for this scenario:
 If these conditions are met, then it is not necessary to specify the parent property, instead you can simply
 use the percentage. The earlier example then looks like this:
 
-```60
+```slint
 Example := Rectangle {
     background: green;
     Rectangle {
@@ -341,7 +341,7 @@ element comes with a `clicked` callback, that's emitted when the user touches th
 it with the mouse. In the example below, the emission of that callback is forwarded to another custom callback (`hello`) by declaring a
 handler and emitting our custom callback:
 
-```60
+```slint
 Example := Rectangle {
     // declare a callback
     callback hello;
@@ -358,7 +358,7 @@ Example := Rectangle {
 
 It is also possible to add parameters to the callback.
 
-```60
+```slint
 Example := Rectangle {
     // declares a callback
     callback hello(int, string);
@@ -368,7 +368,7 @@ Example := Rectangle {
 
 And return value.
 
-```60
+```slint
 Example := Rectangle {
     // declares a callback with a return value
     callback hello(int, int) -> int;
@@ -380,7 +380,7 @@ Example := Rectangle {
 
 It is possible to declare callback aliases in a similar way to two-way bindings:
 
-```60
+```slint
 Example := Rectangle {
     callback clicked <=> area.clicked;
     area := TouchArea {}
@@ -394,7 +394,7 @@ are typically used to combine basic arithmetic with access to properties of othe
 these properties change, the expression is automatically re-evaluated and a new value is assigned
 to the property the expression is associated with:
 
-```60
+```slint
 Example := Rectangle {
     // declare a property of type int
     property<int> my-property;
@@ -409,7 +409,7 @@ If something changes `my-property`, the width will be updated automatically.
 
 Arithmetic in expression with numbers works like in most programming language with the operators `*`, `+`, `-`, `/`:
 
-```60
+```slint
 Example := Rectangle {
     property <int> p: 1 * 2 + 3 * 4; // same as (1 * 2) + (3 * 4)
 }
@@ -422,7 +422,7 @@ There are also the operators `&&` and `||` for logical *and* and *or* between bo
 
 You can access properties by addressing the associated element, followed by a `.` and the property name:
 
-```60
+```slint
 Example := Rectangle {
     foo := Rectangle {
         x: 42px;
@@ -433,7 +433,7 @@ Example := Rectangle {
 
 The ternary operator `... ? ... : ...`  is also supported, like in C or JavaScript:
 
-```60
+```slint
 Example := Rectangle {
     touch := TouchArea {}
     background: touch.pressed ? #111 : #eee;
@@ -463,7 +463,7 @@ Anything else after a `\` is an error.
 
 (TODO: translations: `tr!"Hello"`)
 
-```60
+```slint
 Example := Text {
     text: "hello";
 }
@@ -473,7 +473,7 @@ Example := Text {
 
 Color literals follow the syntax of CSS:
 
-```60
+```slint
 Example := Rectangle {
     background: blue;
     property<color> c1: #ffaaff;
@@ -523,7 +523,7 @@ reach at the specified percentage along the axis of the gradient.
 The following example shows a rectangle that's filled with a linear gradient that starts with a light blue
 color, interpolates to a very light shade in the center and finishes with an orange tone:
 
-```60
+```slint
 Example := Rectangle {
     width: 100px;
     height: 100px;
@@ -536,11 +536,11 @@ Example := Rectangle {
 The `image` type is a reference to an image. It be initialized with the `@image-url("...")` construct.
 The URL within the `@image-url` function need to be known at compile time, and it is looked up
 relative to the file. In addition, it will also be looked in the include path specified to load
-.60 files via import.
+.slint files via import.
 
 It is possible to access the `width` and `height` of an image.
 
-```60
+```slint
 Example := Text {
     property <image> some_image: @image-url("https://sixtyfps.io/resources/logo_scaled.png");
     text: "The image is " + some_image.width + "x" + some_image.height;
@@ -614,7 +614,7 @@ The *id* is also optional.
 
 ### Examples
 
-```60
+```slint
 Example := Window {
     height: 100px;
     width: 300px;
@@ -627,7 +627,7 @@ Example := Window {
 }
 ```
 
-```60
+```slint
 Example := Window {
     height: 50px;
     width: 50px;
@@ -649,7 +649,7 @@ Example := Window {
 Similar to `for`, the `if` construct can instantiate element only if a given condition is true.
 The syntax is `if condition : id := Element { ... }`
 
-```60
+```slint
 Example := Window {
     height: 50px;
     width: 50px;
@@ -662,7 +662,7 @@ Example := Window {
 
 Simple animation that animates a property can be declared with `animate` like this:
 
-```60
+```slint
 Example := Rectangle {
     property<bool> pressed;
     background: pressed ? blue : red;
@@ -697,7 +697,7 @@ animate y { duration: 100ms; }
 
 The `states` statement allow to declare states like this:
 
-```60
+```slint
 Example := Rectangle {
     text := Text { text: "hello"; }
     property<bool> pressed;
@@ -722,7 +722,7 @@ This will change the color of the Rectangle and of the Text.
 
 Complex animations can be declared on state transitions:
 
-```60
+```slint
 Example := Rectangle {
     text := Text { text: "hello"; }
     property<bool> pressed;
@@ -755,7 +755,7 @@ You can declare global singleton for properties that are available in the entire
 The syntax is `global Name := { /* .. properties or callbacks .. */ }`.
 Then can be then used using the `Name.property` syntax.
 
-```60
+```slint
 global Palette := {
     property<color> primary: blue;
     property<color> secondary: green;
@@ -770,7 +770,7 @@ Example := Rectangle {
 
 It is possible to re-expose a callback or properties from a global using the two way binding syntax.
 
-```60
+```slint
 global Logic := {
     property <int> the-value;
     callback magic-operation(int) -> int;
@@ -798,7 +798,7 @@ such as Rust or C++. In order to access them, it is necessary to mark them as ex
 in the file that exports your main application component. In the above example it is
 sufficient to directly export the `Logic` global:
 
-```60,ignore
+```slint,ignore
 export global Logic := {
     property <int> the-value;
     callback magic-operation(int) -> int;
@@ -808,18 +808,18 @@ export global Logic := {
 
 It's also possible to export globals from other files:
 
-```60,ignore
-import { Logic as MathLogic } from "math.60";
+```slint,ignore
+import { Logic as MathLogic } from "math.slint";
 export { MathLogic } // known as "MathLogic" when using native APIs to access globals
 ```
 
 ## Modules
 
-Components declared in a .60 file can be shared with components in other .60 files, by means of exporting and importing them.
-By default, everything declared in a .60 file is private, but it can be made accessible from the outside using the export
+Components declared in a .slint file can be shared with components in other .slint files, by means of exporting and importing them.
+By default, everything declared in a .slint file is private, but it can be made accessible from the outside using the export
 keyword:
 
-```60
+```slint
 ButtonHelper := Rectangle {
     // ...
 }
@@ -834,11 +834,11 @@ Button := Rectangle {
 export { Button }
 ```
 
-In the above example, `Button` is usable from other .60 files, but `ButtonHelper` isn't.
+In the above example, `Button` is usable from other .slint files, but `ButtonHelper` isn't.
 
 It's also possible to change the name just for the purpose of exporting, without affecting its internal use:
 
-```60
+```slint
 Button := Rectangle {
     // ...
 }
@@ -850,7 +850,7 @@ In the above example, ```Button``` is not accessible from the outside, but inste
 
 For convenience, a third way of exporting a component is to declare it exported right away:
 
-```60
+```slint
 export Button := Rectangle {
     // ...
 }
@@ -858,8 +858,8 @@ export Button := Rectangle {
 
 Similarly, components exported from other files can be accessed by importing them:
 
-```60,ignore
-import { Button } from "./button.60";
+```slint,ignore
+import { Button } from "./button.slint";
 
 App := Rectangle {
     // ...
@@ -872,14 +872,14 @@ App := Rectangle {
 In the event that two files export a type under the same name, then you have the option
 of assigning a different name at import time:
 
-```60,ignore
-import { Button } from "./button.60";
-import { Button as CoolButton } from "../other_theme/button.60";
+```slint,ignore
+import { Button } from "./button.slint";
+import { Button as CoolButton } from "../other_theme/button.slint";
 
 App := Rectangle {
     // ...
-    CoolButton {} // from other_theme/button.60
-    Button {} // from button.60
+    CoolButton {} // from other_theme/button.slint
+    Button {} // from button.slint
 }
 ```
 
@@ -893,8 +893,8 @@ these events, it must have the focus. This is visible through the `has-focus` pr
 
 You can manually activate the focus on an element by calling `focus()`:
 
-```60
-import { Button } from "sixtyfps_widgets.60";
+```slint
+import { Button } from "std-widgets.slint";
 
 App := Window {
     VerticalLayout {
@@ -913,8 +913,8 @@ App := Window {
 If you have wrapped the `TextInput` in a component, then you can forward such a focus activation
 using the `forward-focus` property to refer to the element that should receive it:
 
-```60
-import { Button } from "sixtyfps_widgets.60";
+```slint
+import { Button } from "std-widgets.slint";
 
 LabeledInput := GridLayout {
     forward-focus: input;
@@ -1011,13 +1011,13 @@ values in the surrounding `Window` element apply, such as `default-font-family`.
 
 The fonts chosen for rendering are automatically picked up from the system. It is also possible to include custom
 fonts in your design. A custom font must be a TrueType font (`.ttf`) or a TrueType font collection (`.ttc`).
-You can select a custom font with the `import` statement: `import "./my_custom_font.ttf"` in a .60 file. This
-instructions the SixtyFPS compiler to include the font and makes the font families globally available for use with
+You can select a custom font with the `import` statement: `import "./my_custom_font.ttf"` in a .slint file. This
+instructions the Slint compiler to include the font and makes the font families globally available for use with
 `font-family` properties.
 
 For example:
 
-```60,notest
+```slint,notest
 import "./NotoSans-Regular.ttf";
 
 Example := Window {

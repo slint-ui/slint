@@ -14,8 +14,39 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>SixtyFPS Todo Demo (Web Assembly version)</title>
+  <title>Slint Todo Demo (Web Assembly version)</title>
   <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      background: radial-gradient(108.19% 165.77% at 1.67% -32.72%, #2C2F36 10%, #040708 96.35%);
+      color: white;
+      text-align: center;
+      max-width: 1100px;
+      margin: 0px auto;
+      min-height: 100vh;
+    }
+
+    p:not(.links) {
+      text-align: left;
+      padding: 1ex 5ex;
+    }
+
+    h1 {
+      text-align: left;
+      padding: 0.5ex 1ex
+    }
+
+    a {
+      color: #DBFF00
+    }
+
+    a:not(:hover) {
+      text-decoration: none;
+    }
+
     canvas:focus {
       outline: none;
       touch-action: none;
@@ -36,16 +67,16 @@
 </head>
 
 <body>
-  <p>This is the <a href="https://sixtyfps.io">SixtyFPS</a> Todo Demo compiled to WebAssembly.</p>
+  <p>This is the <a href="https://sixtyfps.io">Slint</a> Todo Demo compiled to WebAssembly.</p>
   <div id="spinner" style="position: relative;">
     <div class="spinner">Loading...</div>
   </div>
   <canvas id="canvas" width="640" height="480" unselectable="on"></canvas>
-  <p>
+  <p class="links">
     <a href="https://github.com/sixtyfpsui/sixtyfps/blob/master/examples/todo/">
       View Source Code on GitHub</a> -
     <a
-      href="https://sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/todo/ui/todo.60">
+      href="https://sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/todo/ui/todo.slint">
       Edit in the online code editor
     </a>
   </p>

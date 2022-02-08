@@ -4,7 +4,7 @@
 [package]
 name = "const-field-offset"
 version = "0.1.2"
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Wrapper around field-offset crate and const-field-offset-macro"

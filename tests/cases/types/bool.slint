@@ -1,0 +1,28 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+TestCase := Rectangle {
+    property<bool> truevar: true;
+    property<bool> falsevar: false;
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_truevar());
+assert(!instance.get_falsevar());
+```
+
+
+```rust
+let instance = TestCase::new();
+assert!(instance.get_truevar());
+assert!(!instance.get_falsevar());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.truevar);
+assert(!instance.falsevar);
+```
+*/

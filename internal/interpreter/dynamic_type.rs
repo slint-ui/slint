@@ -9,7 +9,7 @@
 
 use core::alloc::Layout;
 use generativity::Id;
-use sixtyfps_corelib::rtti::FieldOffset;
+use i_slint_core::rtti::FieldOffset;
 use std::rc::Rc;
 
 unsafe fn construct_fn<T: Default>(ptr: *mut u8) {

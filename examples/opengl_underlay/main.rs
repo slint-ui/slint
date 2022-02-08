@@ -4,7 +4,7 @@
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-sixtyfps::include_modules!();
+slint::include_modules!();
 
 use glow::HasContext;
 
@@ -169,14 +169,14 @@ pub fn main() {
         // eprintln!("rendering state {:#?}", state);
 
         match state {
-            sixtyfps::RenderingState::RenderingSetup => {
+            slint::RenderingState::RenderingSetup => {
                 let context = match graphics_api {
                     #[cfg(not(target_arch = "wasm32"))]
-                    sixtyfps::GraphicsAPI::NativeOpenGL { get_proc_address } => unsafe {
+                    slint::GraphicsAPI::NativeOpenGL { get_proc_address } => unsafe {
                         glow::Context::from_loader_function(|s| get_proc_address(s))
                     },
                     #[cfg(target_arch = "wasm32")]
-                    sixtyfps::GraphicsAPI::WebGL { canvas_element_id, context_type } => {
+                    slint::GraphicsAPI::WebGL { canvas_element_id, context_type } => {
                         use wasm_bindgen::JsCast;
 
                         let canvas = web_sys::window()
@@ -201,21 +201,21 @@ pub fn main() {
                 };
                 underlay = Some(EGLUnderlay::new(context))
             }
-            sixtyfps::RenderingState::BeforeRendering => {
+            slint::RenderingState::BeforeRendering => {
                 if let (Some(underlay), Some(app)) = (underlay.as_mut(), app_weak.upgrade()) {
                     underlay.render(app.get_rotation_enabled());
                     app.window().request_redraw();
                 }
             }
-            sixtyfps::RenderingState::AfterRendering => {}
-            sixtyfps::RenderingState::RenderingTeardown => {
+            slint::RenderingState::AfterRendering => {}
+            slint::RenderingState::RenderingTeardown => {
                 drop(underlay.take());
             }
             _ => {}
         }
     }) {
         match error {
-            sixtyfps::SetRenderingNotifierError::Unsupported => eprintln!("This example requires the use of the GL backend. Please run with the environment variable SIXTYFPS_BACKEND=GL set."),
+            slint::SetRenderingNotifierError::Unsupported => eprintln!("This example requires the use of the GL backend. Please run with the environment variable SLINT_BACKEND=GL set."),
             _ => unreachable!()
         }
         std::process::exit(1);

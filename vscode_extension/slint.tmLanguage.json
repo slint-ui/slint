@@ -1,0 +1,84 @@
+{
+    "name": "slint",
+    "scopeName": "source.slint",
+    "patterns": [
+        {
+            "include": "#document"
+        }
+    ],
+    "repository": {
+        "document": {
+            "patterns": [
+                {
+                    "include": "#general"
+                },
+                {
+                    "match": "\\b(import|from)\\b",
+                    "name": "keyword"
+                },
+                {
+                    "match": "\\b(property|callback|animate|states|transitions)\\b",
+                    "name": "keyword.other"
+                },
+                {
+                    "match": "\\b(if|for|return)\\b",
+                    "name": "keyword.control"
+                },
+                {
+                    "match": "\\b(root|parent|this)\\b",
+                    "name": "variable.language"
+                },
+                {
+                    "match": "[a-zA-Z_][a-zA-Z_\\-0-9]* *:",
+                    "name": "variable.parameter"
+                },
+                {
+                    "match": "[a-zA-Z_][a-zA-Z_\\-0-9]* *:=",
+                    "name": "storage.type"
+                },
+                {
+                    "match": "\\b(blue|red|green|yellow|red|black|ease|ease_in|ease_out|ease_in_out)\\b",
+                    "name": "support.constant"
+                }
+            ]
+        },
+        "general": {
+            "patterns": [
+                {
+                    "include": "#block-comments"
+                },
+                {
+                    "match": "//.*$",
+                    "name": "comment.line"
+                },
+                {
+                    "match": "\"[^\"]*\"",
+                    "name": "string"
+                },
+                {
+                    "match": "\\b#[0-9a-fA-F]+",
+                    "name": "constant.other"
+                },
+                {
+                    "match": "\\b\\d+(\\.\\d+)?\\w*",
+                    "name": "constant.numeric"
+                }
+            ]
+        },
+        "block-comments": {
+            "patterns": [
+                {
+                    "name": "comment.block",
+                    "begin": "/\\*",
+                    "end": "\\*/",
+                    "comment": "Block comment.",
+                    "patterns": [
+                        {
+                            "include": "#block-comments"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}

@@ -12,7 +12,7 @@ use core::fmt::{Debug, Display};
 use core::iter::FromIterator;
 use core::ops::Deref;
 
-/// A string type used by the SixtyFPS run-time.
+/// A string type used by the Slint run-time.
 ///
 /// SharedString uses implicit data sharing to make it efficient to pass around copies. When
 /// cloning, a reference to the data is cloned, not the data itself. The data itself is only copied
@@ -55,7 +55,7 @@ impl SharedString {
     /// Append a string to this string
     ///
     /// ```
-    /// # use sixtyfps_corelib::SharedString;
+    /// # use i_slint_core::SharedString;
     /// let mut hello = SharedString::from("Hello");
     /// hello.push_str(", ");
     /// hello.push_str("World");
@@ -264,7 +264,7 @@ pub(crate) mod ffi {
     /// Returns a nul-terminated pointer for this string.
     /// The returned value is owned by the string, and should not be used after any
     /// mutable function have been called on the string, and must not be freed.
-    pub extern "C" fn sixtyfps_shared_string_bytes(ss: &SharedString) -> *const c_char {
+    pub extern "C" fn slint_shared_string_bytes(ss: &SharedString) -> *const c_char {
         if ss.is_empty() {
             "\0".as_ptr()
         } else {
@@ -274,24 +274,21 @@ pub(crate) mod ffi {
 
     #[no_mangle]
     /// Destroy the shared string
-    pub unsafe extern "C" fn sixtyfps_shared_string_drop(ss: *const SharedString) {
+    pub unsafe extern "C" fn slint_shared_string_drop(ss: *const SharedString) {
         core::ptr::read(ss);
     }
 
     #[no_mangle]
     /// Increment the reference count of the string.
-    /// The resulting structure must be passed to sixtyfps_shared_string_drop
-    pub unsafe extern "C" fn sixtyfps_shared_string_clone(
-        out: *mut SharedString,
-        ss: &SharedString,
-    ) {
+    /// The resulting structure must be passed to slint_shared_string_drop
+    pub unsafe extern "C" fn slint_shared_string_clone(out: *mut SharedString, ss: &SharedString) {
         core::ptr::write(out, ss.clone())
     }
 
     #[no_mangle]
     /// Safety: bytes must be a valid utf-8 string of size len without null inside.
-    /// The resulting structure must be passed to sixtyfps_shared_string_drop
-    pub unsafe extern "C" fn sixtyfps_shared_string_from_bytes(
+    /// The resulting structure must be passed to slint_shared_string_drop
+    pub unsafe extern "C" fn slint_shared_string_from_bytes(
         out: *mut SharedString,
         bytes: *const c_char,
         len: usize,
@@ -301,31 +298,31 @@ pub(crate) mod ffi {
     }
 
     /// Create a string from a number.
-    /// The resulting structure must be passed to sixtyfps_shared_string_drop
+    /// The resulting structure must be passed to slint_shared_string_drop
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_shared_string_from_number(out: *mut SharedString, n: f64) {
+    pub unsafe extern "C" fn slint_shared_string_from_number(out: *mut SharedString, n: f64) {
         // TODO: implement Write for SharedString so this can be done without allocation
         let str = format!("{}", n);
         core::ptr::write(out, SharedString::from(str.as_str()));
     }
 
     #[test]
-    fn test_sixtyfps_shared_string_from_number() {
+    fn test_slint_shared_string_from_number() {
         unsafe {
             let mut s = core::mem::MaybeUninit::uninit();
-            sixtyfps_shared_string_from_number(s.as_mut_ptr(), 45.);
+            slint_shared_string_from_number(s.as_mut_ptr(), 45.);
             assert_eq!(s.assume_init(), "45");
 
             let mut s = core::mem::MaybeUninit::uninit();
-            sixtyfps_shared_string_from_number(s.as_mut_ptr(), 45.12);
+            slint_shared_string_from_number(s.as_mut_ptr(), 45.12);
             assert_eq!(s.assume_init(), "45.12");
 
             let mut s = core::mem::MaybeUninit::uninit();
-            sixtyfps_shared_string_from_number(s.as_mut_ptr(), -1325466.);
+            slint_shared_string_from_number(s.as_mut_ptr(), -1325466.);
             assert_eq!(s.assume_init(), "-1325466");
 
             let mut s = core::mem::MaybeUninit::uninit();
-            sixtyfps_shared_string_from_number(s.as_mut_ptr(), 0.);
+            slint_shared_string_from_number(s.as_mut_ptr(), 0.);
             assert_eq!(s.assume_init(), "0");
         }
     }
@@ -334,7 +331,7 @@ pub(crate) mod ffi {
     ///
     /// bytes must be a valid utf8 array of size `len`, without null bytes inside
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_shared_string_append(
+    pub unsafe extern "C" fn slint_shared_string_append(
         self_: &mut SharedString,
         bytes: *const c_char,
         len: usize,
@@ -343,10 +340,10 @@ pub(crate) mod ffi {
         self_.push_str(str);
     }
     #[test]
-    fn test_sixtyfps_shared_string_append() {
+    fn test_slint_shared_string_append() {
         let mut s = SharedString::default();
         let mut append = |x: &str| unsafe {
-            sixtyfps_shared_string_append(&mut s, x.as_bytes().as_ptr(), x.len());
+            slint_shared_string_append(&mut s, x.as_bytes().as_ptr(), x.len());
         };
         append("Hello");
         append(", ");

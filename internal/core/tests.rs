@@ -9,12 +9,12 @@ use crate::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
 use crate::window::WindowRc;
 use crate::SharedString;
 
-/// SixtyFPS animations do not use real time, but use a mocked time.
+/// Slint animations do not use real time, but use a mocked time.
 /// Normally, the event loop update the time of the animation using
 /// real time, but in tests, it is more convenient to use the fake time.
 /// This function will add some milliseconds to the fake time
 #[no_mangle]
-pub extern "C" fn sixtyfps_mock_elapsed_time(time_in_ms: u64) {
+pub extern "C" fn slint_mock_elapsed_time(time_in_ms: u64) {
     crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
         let mut tick = driver.current_tick();
         tick += core::time::Duration::from_millis(time_in_ms);
@@ -24,7 +24,7 @@ pub extern "C" fn sixtyfps_mock_elapsed_time(time_in_ms: u64) {
 
 /// Simulate a click on a position within the component.
 #[no_mangle]
-pub extern "C" fn sixtyfps_send_mouse_click(
+pub extern "C" fn slint_send_mouse_click(
     component: &crate::component::ComponentRc,
     x: f32,
     y: f32,
@@ -45,7 +45,7 @@ pub extern "C" fn sixtyfps_send_mouse_click(
         window,
         state,
     );
-    sixtyfps_mock_elapsed_time(50);
+    slint_mock_elapsed_time(50);
     crate::input::process_mouse_input(
         component.clone(),
         MouseEvent::MouseReleased { pos, button: crate::items::PointerEventButton::left },

@@ -2,13 +2,13 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "sixtyfps-wasm-interpreter"
+name = "slint-wasm-interpreter"
 version = "0.2.0"
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
 publish = false
-description = "SixtyFPS wasm glue"
+description = "Slint wasm glue"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 
@@ -16,7 +16,7 @@ homepage = "https://sixtyfps.io"
 crate-type = ["cdylib"]
 
 [dependencies]
-sixtyfps-interpreter = { path = "../../internal/interpreter" }
+slint-interpreter = { path = "../../internal/interpreter" }
 
 vtable = { version = "0.1.1", path="../../helper_crates/vtable" }
 

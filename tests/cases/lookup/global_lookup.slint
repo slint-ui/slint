@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+global MyGlobal := {
+    property<int> bar: 5;
+    property<int> foo: 3;
+    callback glob_callback;
+}
+
+Foo := Rectangle {
+    property<int> foo_prop: MyGlobal.foo;
+    for ha in 3: Rectangle {
+        x: (ha + MyGlobal.bar) * 1px;
+    }
+}
+
+TestCase := Rectangle {
+
+    callback invoke_glob;
+    invoke_glob => {
+        MyGlobal.glob_callback();
+    }
+    Foo {}
+    foo := Foo {}
+    Foo {}
+    property<int> p1: 10 * MyGlobal.bar + 1;
+    property<int> p2: foo.foo_prop;
+
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_p1(), 51);
+assert_eq(instance.get_p2(), 3);
+```
+
+```rust
+let instance = TestCase::new();
+assert_eq!(instance.get_p1(), 51);
+assert_eq!(instance.get_p2(), 3);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.p1, 51);
+assert.equal(instance.p2, 3);
+```
+*/

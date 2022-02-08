@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+export MainWindow := Window {
+    title: "Slint Image Scaling Example";
+    preferred-width: 800px;
+    preferred-height: 600px;
+
+    HorizontalLayout {
+        Image {
+            source: @image-url("../../../examples/printerdemo/ui/images/cat.jpg");
+            image-rendering: smooth;
+        }
+        Image {
+            source: @image-url("../../../examples/printerdemo/ui/images/cat.jpg");
+            image-rendering: pixelated;
+        }
+    }
+}

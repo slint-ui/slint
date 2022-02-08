@@ -1,7 +1,7 @@
 # Running In A Browser Using WebAssembly
 
 Right now, we used `cargo run` to build and run our program as a native application.
-Native applications are the primary target of the SixtyFPS framework, but we also support WebAssembly
+Native applications are the primary target of the Slint framework, but we also support WebAssembly
 for demonstration purposes. So in this section we'll use the standard rust tool `wasm-bindgen` and
 `wasm-pack` to run the game in the browser. The [wasm-bindgen](https://rustwasm.github.io/docs/wasm-bindgen/examples/without-a-bundler.html)
 documentation explains all you need to know about using wasm and rust.
@@ -50,13 +50,13 @@ Now, we can compile our program with `wasm-pack build --release --target web`. T
 will create a `pkg` directory containing a few files, including a `.js` file
 named after your program name. We just have to import that from a HTML file. So let's create a minimal
 `index.html` that declares a `<canvas>` element for rendering and loads our generated wasm
-file. The SixtyFPS runtime expects the `<canvas>` element to have the id `id = "canvas"`.
+file. The Slint runtime expects the `<canvas>` element to have the id `id = "canvas"`.
 (Replace `memory.js` by the correct file name).
 
 ```html
 <html>
   <body>
-    <!-- canvas required by the SixtyFPS runtime -->
+    <!-- canvas required by the Slint runtime -->
     <canvas id="canvas">>/canvas>
     <script type="module">
       // import the generated file.

@@ -4,7 +4,7 @@
 use super::*;
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeScrollView {
     pub x: Property<f32>,
@@ -107,7 +107,7 @@ impl Item for NativeScrollView {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &WindowRc,
-        _self_rc: &sixtyfps_corelib::items::ItemRc,
+        _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
         let mut data = self.data();
@@ -411,5 +411,5 @@ impl ItemConsts for NativeScrollView {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeScrollViewVTable() -> NativeScrollViewVTable for NativeScrollView
+fn slint_get_NativeScrollViewVTable() -> NativeScrollViewVTable for NativeScrollView
 }

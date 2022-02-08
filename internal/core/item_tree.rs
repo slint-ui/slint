@@ -297,7 +297,7 @@ pub(crate) mod ffi {
     ///
     /// Safety: Assume a correct implementation of the item_tree array
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_visit_item_tree(
+    pub unsafe extern "C" fn slint_visit_item_tree(
         component: &ComponentRc,
         item_tree: Slice<ItemTreeNode<u8>>,
         index: isize,

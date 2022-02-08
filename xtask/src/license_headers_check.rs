@@ -308,6 +308,8 @@ lazy_static! {
         (".+\\.sh$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         (".+\\.60$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         (".+\\.60\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        (".+\\.slint$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        (".+\\.slint\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         (".*README$", LicenseLocation::NoLicense),
         ("LICENSE\\..*", LicenseLocation::NoLicense),
         (".+\\.txt$", LicenseLocation::NoLicense),
@@ -580,7 +582,7 @@ impl LicenseHeaderCheck {
             return Err(anyhow::anyhow!("Missing description field"));
         }
 
-        // Check that version of sixtyfps- dependencies are matching this version
+        // Check that version of slint- dependencies are matching this version
         let expected_version = format!(
             "={}",
             doc.package()?.get("version").unwrap().as_value().unwrap().as_str().unwrap()
@@ -591,18 +593,18 @@ impl LicenseHeaderCheck {
             .iter()
             .chain(doc.dependencies("build-dependencies").iter())
         {
-            if dep_name.starts_with("sixtyfps") {
+            if dep_name.starts_with("slint") {
                 match dep {
                     CargoDependency::Simple { .. } => {
                         return Err(anyhow::anyhow!(
-                            "sixtyfps package '{}' outside of the repository?",
+                            "slint package '{}' outside of the repository?",
                             dep_name
                         ))
                     }
                     CargoDependency::Full { path, version } => {
                         if path.is_empty() {
                             return Err(anyhow::anyhow!(
-                                "sixtyfps package '{}' outside of the repository?",
+                                "slint package '{}' outside of the repository?",
                                 dep_name
                             ));
                         }

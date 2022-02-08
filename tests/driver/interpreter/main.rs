@@ -11,22 +11,26 @@ macro_rules! test_example {
         #[test]
         fn $id() {
             let relative_path = std::path::PathBuf::from(concat!("../../../examples/", $path));
-            interpreter::test(&test_driver_lib::TestCase {
-                absolute_path: std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-                    .join(&relative_path),
-                relative_path,
-            })
-            .unwrap();
+            let mut absolute_path =
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(&relative_path);
+            if !absolute_path.exists() {
+                // Try with .60 instead (for the updater_test)
+                let legacy = absolute_path.to_string_lossy().replace(".slint", ".60");
+                if std::path::Path::new(&legacy).exists() {
+                    absolute_path = legacy.into();
+                }
+            }
+            interpreter::test(&test_driver_lib::TestCase { absolute_path, relative_path }).unwrap();
         }
     };
 }
 
-test_example!(example_printerdemo, "printerdemo/ui/printerdemo.60");
-test_example!(example_printerdemo_old, "printerdemo_old/ui/printerdemo.60");
-test_example!(example_memory, "memory/memory.60");
-test_example!(example_slide_puzzle, "slide_puzzle/slide_puzzle.60");
-test_example!(example_todo, "todo/ui/todo.60");
-test_example!(example_gallery, "gallery/gallery.60");
+test_example!(example_printerdemo, "printerdemo/ui/printerdemo.slint");
+test_example!(example_printerdemo_old, "printerdemo_old/ui/printerdemo.slint");
+test_example!(example_memory, "memory/memory.slint");
+test_example!(example_slide_puzzle, "slide_puzzle/slide_puzzle.slint");
+test_example!(example_todo, "todo/ui/todo.slint");
+test_example!(example_gallery, "gallery/gallery.slint");
 
 fn main() {
     println!("Nothing to see here, please run me through cargo test :)");

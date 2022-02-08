@@ -1,0 +1,13 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+import { Rec1 } from "./recursive_import1.slint";
+//                   ^error{Recursive import of .*recursive_import1.slint}
+
+export Rec2 := Rectangle {
+    property <int> Foo: 44;
+}
+
+export Rect21 := Rec1 {
+    property <int> Bar: 45;
+}

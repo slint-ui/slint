@@ -1,6 +1,6 @@
 # Introduction
 
-This tutorial will introduce you to the SixtyFPS UI framework in a playful way by implementing a little memory game. We are going to combine the `.60` language for the graphics with the game rules implemented in the Rust programming language.
+This tutorial will introduce you to the Slint UI framework in a playful way by implementing a little memory game. We are going to combine the `.slint` language for the graphics with the game rules implemented in the Rust programming language.
 
 The game consists of a grid of 16 rectangular tiles. When clicking on a tile, an icon underneath is uncovered.
 We know that there are 8 different icons in total, so each tile has a sibling somewhere in the grid with the

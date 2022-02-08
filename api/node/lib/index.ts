@@ -9,7 +9,7 @@
  */
 function load_native_lib() {
     const os = require('os');
-    (process as any).dlopen(module, process.env.SIXTYFPS_NODE_NATIVE_LIB,
+    (process as any).dlopen(module, process.env.SLINT_NODE_NATIVE_LIB,
         os.constants.dlopen.RTLD_NOW);
     return module.exports;
 }
@@ -17,7 +17,7 @@ function load_native_lib() {
 /**
  * @hidden
  */
-let native = !process.env.SIXTYFPS_NODE_NATIVE_LIB ? require('../native/index.node') : load_native_lib();
+let native = !process.env.SLINT_NODE_NATIVE_LIB ? require('../native/index.node') : load_native_lib();
 
 /**
  * @hidden
@@ -67,7 +67,7 @@ interface Callback {
     setHandler(cb: any): void;
 }
 
-require.extensions['.60'] =
+require.extensions['.60'] = require.extensions['.slint'] =
     function (module, filename) {
         var c = native.load(filename);
         module.exports[c.name().replace(/-/g, '_')] = function (init_properties: any) {
@@ -124,7 +124,7 @@ interface ModelPeer {
 
 /**
  * Model<T> is the interface for feeding dynamic data into
- * `.60` views.
+ * `.slint` views.
  *
  * A model is organized like a table with rows of data. The
  * fields of the data type T behave like columns.
@@ -163,7 +163,7 @@ class NullPeer implements ModelPeer {
 }
 
 /**
- * ArrayModel wraps a JavaScript array for use in `.60` views. The underlying
+ * ArrayModel wraps a JavaScript array for use in `.slint` views. The underlying
  * array can be modified with the [[ArrayModel.push]] and [[ArrayModel.remove]] methods.
  */
 class ArrayModel<T> implements Model<T> {

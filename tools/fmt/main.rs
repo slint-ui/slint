@@ -5,7 +5,7 @@
     Work in progress for a formatter.
     Use like this to format a file:
     ```sh
-        cargo run sixtyfps-fmt -- -i some_file.60
+        cargo run --bin slint-fmt -- -i some_file.slint
     ```
 
     Some code in this main.rs file is duplicated with the syntax_updater, i guess it could
@@ -15,8 +15,8 @@
     LSP wants just the edits , not the full file
 */
 
-use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
-use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxNode, SyntaxToken};
+use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::parser::{syntax_nodes, SyntaxNode, SyntaxToken};
 use std::io::Write;
 
 use clap::Parser;
@@ -25,7 +25,7 @@ mod fmt;
 
 #[derive(clap::Parser)]
 struct Cli {
-    #[clap(name = "path to .60 file(s)", parse(from_os_str))]
+    #[clap(name = "path to .slint file(s)", parse(from_os_str))]
     paths: Vec<std::path::PathBuf>,
 
     /// modify the file inline instead of printing to stdout
@@ -52,8 +52,8 @@ fn main() -> std::io::Result<()> {
 /// FIXME! this is duplicated with the updater
 fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()> {
     let mut source_slice = &source[..];
-    let sixtyfps_macro = format!("{}!", "sixtyfps"); // in a variable so it does not appear as is
-    'l: while let Some(idx) = source_slice.find(&sixtyfps_macro) {
+    let slint_macro = format!("{}!", "slint"); // in a variable so it does not appear as is
+    'l: while let Some(idx) = source_slice.find(&slint_macro) {
         // Note: this code ignore string literal and unbalanced comment, but that should be good enough
         let idx2 =
             if let Some(idx2) = source_slice[idx..].find(|c| c == '{' || c == '(' || c == '[') {
@@ -93,7 +93,7 @@ fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()
         source_slice = &source_slice[idx - 1..];
 
         let mut diag = BuildDiagnostics::default();
-        let syntax_node = sixtyfps_compilerlib::parser::parse(code.to_owned(), None, &mut diag);
+        let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.text_range().end().into();
         visit_node(syntax_node, &mut file, &mut State::default())?;
         if diag.has_error() {
@@ -107,7 +107,7 @@ fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()
 /// FIXME! this is duplicated with the updater
 fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Result<()> {
     let mut source_slice = &source[..];
-    const CODE_FENCE_START: &str = "```60\n";
+    const CODE_FENCE_START: &str = "```slint\n";
     const CODE_FENCE_END: &str = "```\n";
     'l: while let Some(code_start) =
         source_slice.find(CODE_FENCE_START).map(|idx| idx + CODE_FENCE_START.len())
@@ -123,7 +123,7 @@ fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Resul
         source_slice = &source_slice[code_end..];
 
         let mut diag = BuildDiagnostics::default();
-        let syntax_node = sixtyfps_compilerlib::parser::parse(code.to_owned(), None, &mut diag);
+        let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.text_range().end().into();
         visit_node(syntax_node, &mut file, &mut State::default())?;
         if diag.has_error() {
@@ -146,7 +146,7 @@ fn process_file(
     }
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = sixtyfps_compilerlib::parser::parse(source.clone(), Some(&path), &mut diag);
+    let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(&path), &mut diag);
     let len = syntax_node.node.text_range().end().into();
     visit_node(syntax_node, &mut file, &mut State::default())?;
     if diag.has_error() {

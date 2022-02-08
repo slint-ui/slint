@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 /*!
-    Parse the contents of builtins.60 and fill the builtin type registry
+    Parse the contents of builtins.slint and fill the builtin type registry
 */
 
 use std::cell::RefCell;
@@ -15,12 +15,12 @@ use crate::object_tree::{self, *};
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
 use crate::typeregister::TypeRegister;
 
-/// Parse the contents of builtins.60 and fill the builtin type registry
+/// Parse the contents of builtins.slint and fill the builtin type registry
 /// `register` is the register to fill with the builtin types.
 /// At this point, it really should already contain the basic Types (string, int, ...)
 pub fn load_builtins(register: &mut TypeRegister) {
     let mut diag = crate::diagnostics::BuildDiagnostics::default();
-    let node = crate::parser::parse(include_str!("builtins.60").into(), None, &mut diag);
+    let node = crate::parser::parse(include_str!("builtins.slint").into(), None, &mut diag);
     if !diag.is_empty() {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]

@@ -7,9 +7,26 @@
 
 <head>
   <meta charset="UTF-8">
-  <title>SixtyFPS Slide Puzzle Demo (Web Assembly version)</title>
+  <title>Slint Slide Puzzle Demo (Web Assembly version)</title>
 </head>
 <style>
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    background: radial-gradient(108.19% 165.77% at 1.67% -32.72%, #2C2F36 10%, #040708 96.35%);
+    color: white;
+  }
+
+  a {
+    color: #DBFF00
+  }
+
+  a:not(:hover) {
+    text-decoration: none;
+  }
+
   canvas:focus {
     outline: none;
     touch-action: none;
@@ -52,15 +69,15 @@
     <div class="spinner">Loading...</div>
   </div>
   <div id="container">
-    <p>This is the <a href="https://sixtyfps.io">SixtyFPS</a> Slide Puzzle compiled to WebAssembly. Note that the wasm
+    <p>This is the <a href="https://sixtyfps.io">Slint</a> Slide Puzzle compiled to WebAssembly. Note that the wasm
       build is done for demonstration purposes. Native applications are the real target of the toolkit.
     </p>
     <canvas id="canvas"></canvas>
-    <p>
+    <p class="links">
       <a href="https://github.com/sixtyfpsui/sixtyfps/blob/master/examples/slide_puzzle/">
         View Source Code on GitHub</a> -
       <a
-        href="https://sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/slide_puzzle/slide_puzzle.60">
+        href="https://sixtyfps.io/editor?load_url=https://raw.githubusercontent.com/sixtyfpsui/sixtyfps/master/examples/slide_puzzle/slide_puzzle.slint">
         Edit in the online code editor
       </a>
     </p>

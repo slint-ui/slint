@@ -75,12 +75,23 @@ impl<'a> TypeLoader<'a> {
         .style
         .as_ref()
         .map(Cow::from)
-        .or_else(|| std::env::var("SIXTYFPS_STYLE").map(Cow::from).ok())
+        .or_else(|| std::env::var("SLINT_STYLE").map(Cow::from).ok())
+        .or_else(|| {
+            let legacy_fallback = std::env::var("SIXTYFPS_STYLE").map(Cow::from).ok();
+            if legacy_fallback.is_some() {
+                diag.push_diagnostic_with_span(
+                    "Using `SIXTYFPS_STYLE` environment variable for dynamic backend selection. This is deprecated, use `SLINT_STYLE` instead".to_owned(),
+                    Default::default(),
+                    crate::diagnostics::DiagnosticLevel::Warning
+                )
+            }
+            legacy_fallback
+        })
         .unwrap_or_else(|| {
             let is_wasm = cfg!(target_arch = "wasm32")
                 || std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm"));
             if !is_wasm {
-                diag.push_diagnostic_with_span("SIXTYFPS_STYLE not defined, defaulting to 'fluent', see https://github.com/sixtyfpsui/sixtyfps/issues/83 for more info".to_owned(),
+                diag.push_diagnostic_with_span("SLINT_STYLE not defined, defaulting to 'fluent', see https://github.com/sixtyfpsui/sixtyfps/issues/83 for more info".to_owned(),
                     Default::default(),
                     crate::diagnostics::DiagnosticLevel::Warning
                 );
@@ -91,7 +102,7 @@ impl<'a> TypeLoader<'a> {
         Self { global_type_registry, compiler_config, style, all_documents: Default::default() }
     }
 
-    /// Imports of files that don't have the .60 extension are returned.
+    /// Imports of files that don't have the .slint extension are returned.
     pub async fn load_dependencies_recursively(
         &mut self,
         doc: &syntax_nodes::Document,
@@ -101,7 +112,7 @@ impl<'a> TypeLoader<'a> {
         let dependencies = self.collect_dependencies(doc, diagnostics).await;
         let mut foreign_imports = vec![];
         for mut import in dependencies {
-            if import.file.ends_with(".60") {
+            if import.file.ends_with(".60") || import.file.ends_with(".slint") {
                 if let Some(imported_types) =
                     ImportedName::extract_imported_names(&import.imported_types)
                 {
@@ -303,9 +314,18 @@ impl<'a> TypeLoader<'a> {
         build_diagnostics: &'b mut BuildDiagnostics,
     ) -> core::pin::Pin<Box<dyn std::future::Future<Output = ()> + 'b>> {
         Box::pin(async move {
+            let mut file = import.file.as_str();
+            if file == "sixtyfps_widgets.60" {
+                file = "std-widgets.slint";
+                build_diagnostics.push_warning(
+                    "\"sixtyfps_widgets.60\" was renamed \"std-widgets.slint\". Use of the old file name is deprecated".into(),
+                    &import.import_token,
+                );
+            }
+
             let doc_path = match self
                 .ensure_document_loaded(
-                    &import.file,
+                    file,
                     Some(import.import_token.clone().into()),
                     build_diagnostics,
                 )
@@ -444,7 +464,7 @@ fn test_dependency_loading() {
     compiler_config.style = Some("fluent".into());
 
     let mut main_test_path = test_source_path;
-    main_test_path.push("dependency_test_main.60");
+    main_test_path.push("dependency_test_main.slint");
 
     let mut test_diags = crate::diagnostics::BuildDiagnostics::default();
     let doc_node = crate::parser::parse_file(main_test_path, &mut test_diags).unwrap();
@@ -480,7 +500,7 @@ fn test_load_from_callback_ok() {
     compiler_config.open_import_fallback = Some(Rc::new(move |path| {
         let ok_ = ok_.clone();
         Box::pin(async move {
-            assert_eq!(path, "../FooBar.60");
+            assert_eq!(path, "../FooBar.slint");
             assert!(!ok_.get());
             ok_.set(true);
             Some(Ok("export XX := Rectangle {} ".to_owned()))
@@ -491,7 +511,7 @@ fn test_load_from_callback_ok() {
     let doc_node = crate::parser::parse(
         r#"
 /* ... */
-import { XX } from "../FooBar.60";
+import { XX } from "../FooBar.slint";
 X := XX {}
 "#
         .into(),
@@ -523,11 +543,8 @@ fn test_manual_import() {
     let mut build_diagnostics = BuildDiagnostics::default();
     let mut loader = TypeLoader::new(global_registry, &compiler_config, &mut build_diagnostics);
 
-    let maybe_button_type = spin_on::spin_on(loader.import_type(
-        "sixtyfps_widgets.60",
-        "Button",
-        &mut build_diagnostics,
-    ));
+    let maybe_button_type =
+        spin_on::spin_on(loader.import_type("std-widgets.slint", "Button", &mut build_diagnostics));
 
     assert!(!build_diagnostics.has_error());
     assert!(maybe_button_type.is_some());

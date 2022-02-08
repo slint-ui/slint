@@ -16,9 +16,9 @@ more in detail:
 In order to make our tile extensible, the hard-coded icon name is replaced with an *icon*
 property that can be set from the outside when instantiating the element. For the final polish, we add a
 *solved* property that we use to animate the color to a shade of green when we've found a pair, later. We
-replace the code inside the `memory.60` file with the following:
+replace the code inside the `memory.slint` file with the following:
 
-```60
+```slint
 {{#include ../../rust/src/main_polishing_the_tile.rs:tile}}
 ```
 

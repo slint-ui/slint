@@ -2,38 +2,38 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "sixtyfps-lsp"
+name = "slint-lsp"
 version = "0.2.0"
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
-description = "SixtyFPS LSP server"
+description = "Slint LSP server"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 categories = ["gui", "development-tools"]
 keywords = ["lsp"]
 
 [package.metadata.bundle]
-name = "SixtyFPS Live Preview"
-icon = ["../../vscode_extension/extension-logo.png"]
+name = "Slint Live Preview"
+icon = ["../../logo/slint-logo-square-light-128x128.png"]
 
 [[bin]]
-name = "sixtyfps-lsp"
+name = "slint-lsp"
 path = "main.rs"
 
 [features]
-sixtyfps-backend-gl = ["sixtyfps-interpreter/backend-gl"]
-sixtyfps-backend-qt = ["sixtyfps-interpreter/backend-qt"]
-wayland = ["sixtyfps-interpreter/wayland"]
-x11 = ["sixtyfps-interpreter/x11"]
+backend-gl = ["slint-interpreter/backend-gl"]
+backend-qt = ["slint-interpreter/backend-qt"]
+wayland = ["slint-interpreter/wayland"]
+x11 = ["slint-interpreter/x11"]
 
-default = ["sixtyfps-backend-qt", "sixtyfps-backend-gl", "x11"]
+default = ["backend-qt", "backend-gl", "x11"]
 
 [dependencies]
-sixtyfps-compilerlib = { version = "=0.2.0", path = "../../internal/compiler"}
-sixtyfps-corelib = { version = "=0.2.0", path = "../../internal/core"}
-sixtyfps-interpreter = { version = "=0.2.0", path = "../../internal/interpreter", default-features = false, features = ["compat-0-2-0"] }
-sixtyfps-rendering-backend-selector = { version = "=0.2.0", path="../../internal/backends/selector" }
+i-slint-compiler = { version = "=0.2.0", path = "../../internal/compiler"}
+i-slint-core = { version = "=0.2.0", path = "../../internal/core"}
+slint-interpreter = { version = "=0.2.0", path = "../../internal/interpreter", default-features = false, features = ["compat-0-2-0"] }
+i-slint-backend-selector = { version = "=0.2.0", path="../../internal/backends/selector" }
 
 clap = { version = "3.0.5", features=["derive", "wrap_help"] }
 crossbeam-channel = "0.5"  # must match the version used by lsp-server

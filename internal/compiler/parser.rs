@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-/*! The sixtyfps language parser
+/*! The Slint Language Parser
 
 This module is responsible to parse a string onto a syntax tree.
 
@@ -28,7 +28,7 @@ mod prelude {
     pub use super::{syntax_nodes, SyntaxNode, SyntaxNodeVerify};
     pub use super::{DefaultParser, Parser, SyntaxKind};
     #[cfg(test)]
-    pub use parser_test_macro::parser_test;
+    pub use i_slint_parser_test_macro::parser_test;
 }
 
 #[cfg(test)]
@@ -276,7 +276,7 @@ macro_rules! declare_syntax {
 }
 declare_syntax! {
     // Tokens.
-    // WARNING: when changing this, do not forget to update the tokenizer in the sixtyfps-rs-macro crate!
+    // WARNING: when changing this, do not forget to update the tokenizer in the slint-rs-macro crate!
     // The order of token is important because the rules will be run in that order
     // and the first one matching will be chosen.
     {

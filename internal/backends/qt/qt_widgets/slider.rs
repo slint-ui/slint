@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-use sixtyfps_corelib::items::PointerEventButton;
+use i_slint_core::items::PointerEventButton;
 
 use super::*;
 
@@ -19,7 +19,7 @@ pub(super) struct NativeSliderData {
 type FloatArg = (f32,);
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeSlider {
     pub x: Property<f32>,
@@ -112,7 +112,7 @@ impl Item for NativeSlider {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &WindowRc,
-        _self_rc: &sixtyfps_corelib::items::ItemRc,
+        _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
         let enabled = self.enabled();
@@ -233,5 +233,5 @@ impl ItemConsts for NativeSlider {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeSliderVTable() -> NativeSliderVTable for NativeSlider
+fn slint_get_NativeSliderVTable() -> NativeSliderVTable for NativeSlider
 }

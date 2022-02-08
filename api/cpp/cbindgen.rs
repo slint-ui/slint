@@ -25,7 +25,7 @@ fn default_config() -> cbindgen::Config {
     cbindgen::Config {
         pragma_once: true,
         include_version: true,
-        namespaces: Some(vec!["sixtyfps".into(), "cbindgen_private".into()]),
+        namespaces: Some(vec!["slint".into(), "cbindgen_private".into()]),
         line_length: 100,
         tab_width: 4,
         // Note: we might need to switch to C if we need to generate bindings for language that needs C headers
@@ -46,8 +46,8 @@ fn default_config() -> cbindgen::Config {
             ..Default::default()
         },
         defines: [
-            ("target_pointer_width = 64".into(), "SIXTYFPS_TARGET_64".into()),
-            ("target_pointer_width = 32".into(), "SIXTYFPS_TARGET_32".into()),
+            ("target_pointer_width = 64".into(), "SLINT_TARGET_64".into()),
+            ("target_pointer_width = 32".into(), "SLINT_TARGET_32".into()),
         ]
         .iter()
         .cloned()
@@ -59,21 +59,21 @@ fn default_config() -> cbindgen::Config {
 fn gen_item_declarations(items: &[&str]) -> String {
     format!(
         r#"
-namespace sixtyfps::private_api {{
-#define SIXTYFPS_DECL_ITEM(ItemName) \
+namespace slint::private_api {{
+#define SLINT_DECL_ITEM(ItemName) \
     extern const cbindgen_private::ItemVTable ItemName##VTable; \
-    extern SIXTYFPS_DLL_IMPORT const cbindgen_private::ItemVTable* sixtyfps_get_##ItemName##VTable();
+    extern SLINT_DLL_IMPORT const cbindgen_private::ItemVTable* slint_get_##ItemName##VTable();
 
 extern "C" {{
 {}
 }}
 
-#undef SIXTYFPS_DECL_ITEM
+#undef SLINT_DECL_ITEM
 }}
 "#,
         items
             .iter()
-            .map(|item_name| format!("SIXTYFPS_DECL_ITEM({});", item_name))
+            .map(|item_name| format!("SLINT_DECL_ITEM({});", item_name))
             .collect::<Vec<_>>()
             .join("\n")
     )
@@ -140,14 +140,14 @@ fn gen_corelib(
         "PathData",
         "PathElement",
         "Brush",
-        "sixtyfps_new_path_elements",
-        "sixtyfps_new_path_events",
+        "slint_new_path_elements",
+        "slint_new_path_events",
         "Property",
         "Slice",
         "PropertyHandleOpaque",
         "Callback",
-        "sixtyfps_property_listener_scope_evaluate",
-        "sixtyfps_property_listener_scope_is_dirty",
+        "slint_property_listener_scope_evaluate",
+        "slint_property_listener_scope_is_dirty",
         "PropertyTrackerOpaque",
         "CallbackOpaque",
         "WindowRc",
@@ -156,10 +156,10 @@ fn gen_corelib(
         "PointerEventArg",
         "PointArg",
         "Point",
-        "sixtyfps_color_brighter",
-        "sixtyfps_color_darker",
-        "sixtyfps_image_size",
-        "sixtyfps_image_path",
+        "slint_color_brighter",
+        "slint_color_darker",
+        "slint_image_size",
+        "slint_image_path",
         "TimerMode",                 // included in generated_public.h
         "IntSize",                   // included in generated_public.h
         "RenderingState",            // included in generated_public.h
@@ -185,18 +185,18 @@ fn gen_corelib(
         .with_config(string_config)
         .with_src(crate_dir.join("string.rs"))
         .with_src(crate_dir.join("slice.rs"))
-        .with_after_include("namespace sixtyfps { struct SharedString; }")
+        .with_after_include("namespace slint { struct SharedString; }")
         .generate()
-        .context("Unable to generate bindings for sixtyfps_string_internal.h")?
-        .write_to_file(include_dir.join("sixtyfps_string_internal.h"));
+        .context("Unable to generate bindings for slint_string_internal.h")?
+        .write_to_file(include_dir.join("slint_string_internal.h"));
 
     cbindgen::Builder::new()
         .with_config(config.clone())
         .with_src(crate_dir.join("sharedvector.rs"))
-        .with_after_include("namespace sixtyfps { template<typename T> struct SharedVector; }")
+        .with_after_include("namespace slint { template<typename T> struct SharedVector; }")
         .generate()
-        .context("Unable to generate bindings for sixtyfps_sharedvector_internal.h")?
-        .write_to_file(include_dir.join("sixtyfps_sharedvector_internal.h"));
+        .context("Unable to generate bindings for slint_sharedvector_internal.h")?
+        .write_to_file(include_dir.join("slint_sharedvector_internal.h"));
 
     let mut properties_config = config.clone();
     properties_config.export.exclude.clear();
@@ -212,10 +212,10 @@ fn gen_corelib(
         .with_config(properties_config)
         .with_src(crate_dir.join("properties.rs"))
         .with_src(crate_dir.join("callbacks.rs"))
-        .with_after_include("namespace sixtyfps { class Color; class Brush; }")
+        .with_after_include("namespace slint { class Color; class Brush; }")
         .generate()
-        .context("Unable to generate bindings for sixtyfps_properties_internal.h")?
-        .write_to_file(include_dir.join("sixtyfps_properties_internal.h"));
+        .context("Unable to generate bindings for slint_properties_internal.h")?
+        .write_to_file(include_dir.join("slint_properties_internal.h"));
 
     for (rust_types, extra_excluded_types, internal_header) in [
         (
@@ -223,59 +223,50 @@ fn gen_corelib(
                 "ImageInner",
                 "Image",
                 "Size",
-                "sixtyfps_image_size",
-                "sixtyfps_image_path",
+                "slint_image_size",
+                "slint_image_path",
                 "SharedPixelBuffer",
                 "SharedImageBuffer",
             ],
             vec!["Color"],
-            "sixtyfps_image_internal.h",
+            "slint_image_internal.h",
         ),
         (
-            vec!["Color", "sixtyfps_color_brighter", "sixtyfps_color_darker"],
+            vec!["Color", "slint_color_brighter", "slint_color_darker"],
             vec![],
-            "sixtyfps_color_internal.h",
+            "slint_color_internal.h",
         ),
         (
-            vec![
-                "PathData",
-                "PathElement",
-                "sixtyfps_new_path_elements",
-                "sixtyfps_new_path_events",
-            ],
+            vec!["PathData", "PathElement", "slint_new_path_elements", "slint_new_path_events"],
             vec![],
-            "sixtyfps_pathdata_internal.h",
+            "slint_pathdata_internal.h",
         ),
-        (
-            vec!["Brush", "LinearGradient", "GradientStop"],
-            vec!["Color"],
-            "sixtyfps_brush_internal.h",
-        ),
+        (vec!["Brush", "LinearGradient", "GradientStop"], vec!["Color"], "slint_brush_internal.h"),
     ]
     .iter()
     {
         let mut special_config = config.clone();
         special_config.export.include = rust_types.iter().map(|s| s.to_string()).collect();
         special_config.export.exclude = [
-            "sixtyfps_visit_item_tree",
-            "sixtyfps_windowrc_drop",
-            "sixtyfps_windowrc_clone",
-            "sixtyfps_windowrc_show",
-            "sixtyfps_windowrc_hide",
-            "sixtyfps_windowrc_get_scale_factor",
-            "sixtyfps_windowrc_set_scale_factor",
-            "sixtyfps_windowrc_free_graphics_resources",
-            "sixtyfps_windowrc_set_focus_item",
-            "sixtyfps_windowrc_set_component",
-            "sixtyfps_windowrc_show_popup",
-            "sixtyfps_windowrc_set_rendering_notifier",
-            "sixtyfps_windowrc_request_redraw",
-            "sixtyfps_new_path_elements",
-            "sixtyfps_new_path_events",
-            "sixtyfps_color_brighter",
-            "sixtyfps_color_darker",
-            "sixtyfps_image_size",
-            "sixtyfps_image_path",
+            "slint_visit_item_tree",
+            "slint_windowrc_drop",
+            "slint_windowrc_clone",
+            "slint_windowrc_show",
+            "slint_windowrc_hide",
+            "slint_windowrc_get_scale_factor",
+            "slint_windowrc_set_scale_factor",
+            "slint_windowrc_free_graphics_resources",
+            "slint_windowrc_set_focus_item",
+            "slint_windowrc_set_component",
+            "slint_windowrc_show_popup",
+            "slint_windowrc_set_rendering_notifier",
+            "slint_windowrc_request_redraw",
+            "slint_new_path_elements",
+            "slint_new_path_events",
+            "slint_color_brighter",
+            "slint_color_darker",
+            "slint_image_size",
+            "slint_image_path",
             "IntSize",
         ]
         .iter()
@@ -295,9 +286,9 @@ fn gen_corelib(
         special_config.structure.derive_eq = true;
         special_config.structure.derive_neq = true;
         // Put the rust type in a deeper "types" namespace, so the use of same type in for example generated
-        // Property<> fields uses the public `sixtyfps::Blah` type
+        // Property<> fields uses the public `slint::Blah` type
         special_config.namespaces =
-            Some(vec!["sixtyfps".into(), "cbindgen_private".into(), "types".into()]);
+            Some(vec!["slint".into(), "cbindgen_private".into(), "types".into()]);
 
         private_exported_types.extend(special_config.export.include.iter().cloned());
 
@@ -319,7 +310,7 @@ fn gen_corelib(
 
     // Generate a header file with some public API (enums, etc.)
     let mut public_config = config.clone();
-    public_config.namespaces = Some(vec!["sixtyfps".into()]);
+    public_config.namespaces = Some(vec!["slint".into()]);
     public_config.export.item_types = vec![cbindgen::ItemType::Enums, cbindgen::ItemType::Structs];
     // Previously included types are now excluded (to avoid duplicates)
     public_config.export.exclude = private_exported_types.into_iter().collect();
@@ -348,23 +339,23 @@ fn gen_corelib(
         .with_src(crate_dir.join("api.rs"))
         .with_after_include(format!(
             r"
-/// This macro expands to the to the numeric value of the major version of SixtyFPS you're
+/// This macro expands to the to the numeric value of the major version of Slint you're
 /// developing against. For example if you're using version 1.5.2, this macro will expand to 1.
-#define SIXTYFPS_VERSION_MAJOR {}
-/// This macro expands to the to the numeric value of the minor version of SixtyFPS you're
+#define SLINT_VERSION_MAJOR {}
+/// This macro expands to the to the numeric value of the minor version of Slint you're
 /// developing against. For example if you're using version 1.5.2, this macro will expand to 5.
-#define SIXTYFPS_VERSION_MINOR {}
-/// This macro expands to the to the numeric value of the patch version of SixtyFPS you're
+#define SLINT_VERSION_MINOR {}
+/// This macro expands to the to the numeric value of the patch version of Slint you're
 /// developing against. For example if you're using version 1.5.2, this macro will expand to 2.
-#define SIXTYFPS_VERSION_PATCH {}
+#define SLINT_VERSION_PATCH {}
 ",
             env!("CARGO_PKG_VERSION_MAJOR"),
             env!("CARGO_PKG_VERSION_MINOR"),
             env!("CARGO_PKG_VERSION_PATCH"),
         ))
         .generate()
-        .context("Unable to generate bindings for sixtyfps_generated_public.h")?
-        .write_to_file(include_dir.join("sixtyfps_generated_public.h"));
+        .context("Unable to generate bindings for slint_generated_public.h")?
+        .write_to_file(include_dir.join("slint_generated_public.h"));
 
     config.export.body.insert(
         "ItemTreeNode".to_owned(),
@@ -400,23 +391,23 @@ fn gen_corelib(
     cbindgen::Builder::new()
         .with_config(config)
         .with_src(crate_dir.join("lib.rs"))
-        .with_include("sixtyfps_config.h")
+        .with_include("slint_config.h")
         .with_include("vtable.h")
-        .with_include("sixtyfps_string.h")
-        .with_include("sixtyfps_sharedvector.h")
-        .with_include("sixtyfps_properties.h")
-        .with_include("sixtyfps_callbacks.h")
-        .with_include("sixtyfps_color.h")
-        .with_include("sixtyfps_image.h")
-        .with_include("sixtyfps_pathdata.h")
-        .with_include("sixtyfps_brush.h")
-        .with_include("sixtyfps_generated_public.h")
+        .with_include("slint_string.h")
+        .with_include("slint_sharedvector.h")
+        .with_include("slint_properties.h")
+        .with_include("slint_callbacks.h")
+        .with_include("slint_color.h")
+        .with_include("slint_image.h")
+        .with_include("slint_pathdata.h")
+        .with_include("slint_brush.h")
+        .with_include("slint_generated_public.h")
         .with_after_include(
             r"
-namespace sixtyfps {
+namespace slint {
     namespace private_api { class WindowRc; }
     namespace cbindgen_private {
-        using sixtyfps::private_api::WindowRc;
+        using slint::private_api::WindowRc;
         using namespace vtable;
         struct KeyEvent; struct PointerEvent;
         using private_api::Property;
@@ -428,7 +419,7 @@ namespace sixtyfps {
         .with_trailer(gen_item_declarations(&items))
         .generate()
         .expect("Unable to generate bindings")
-        .write_to_file(include_dir.join("sixtyfps_internal.h"));
+        .write_to_file(include_dir.join("slint_internal.h"));
 
     Ok(())
 }
@@ -470,11 +461,11 @@ fn gen_backend_qt(
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
-        .with_include("sixtyfps_internal.h")
+        .with_include("slint_internal.h")
         .with_trailer(gen_item_declarations(&items))
         .generate()
-        .context("Unable to generate bindings for sixtyfps_qt_internal.h")?
-        .write_to_file(include_dir.join("sixtyfps_qt_internal.h"));
+        .context("Unable to generate bindings for slint_qt_internal.h")?
+        .write_to_file(include_dir.join("slint_qt_internal.h"));
 
     Ok(())
 }
@@ -493,10 +484,10 @@ fn gen_backend(
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
-        .with_header("#include <sixtyfps_internal.h>")
+        .with_header("#include <slint_internal.h>")
         .generate()
-        .context("Unable to generate bindings for sixtyfps_backend_internal.h")?
-        .write_to_file(include_dir.join("sixtyfps_backend_internal.h"));
+        .context("Unable to generate bindings for slint_backend_internal.h")?
+        .write_to_file(include_dir.join("slint_backend_internal.h"));
 
     Ok(())
 }
@@ -524,7 +515,7 @@ fn gen_interpreter(
 
     // Generate a header file with some public API (enums, etc.)
     let mut public_config = config.clone();
-    public_config.namespaces = Some(vec!["sixtyfps".into(), "interpreter".into()]);
+    public_config.namespaces = Some(vec!["slint".into(), "interpreter".into()]);
     public_config.export.item_types = vec![cbindgen::ItemType::Enums, cbindgen::ItemType::Structs];
 
     public_config.export.exclude = IntoIterator::into_iter([
@@ -545,32 +536,32 @@ fn gen_interpreter(
         .with_config(public_config)
         .with_crate(crate_dir.clone())
         .generate()
-        .context("Unable to generate bindings for sixtyfps_interpreter_generated_public.h")?
-        .write_to_file(include_dir.join("sixtyfps_interpreter_generated_public.h"));
+        .context("Unable to generate bindings for slint_interpreter_generated_public.h")?
+        .write_to_file(include_dir.join("slint_interpreter_generated_public.h"));
 
     cbindgen::Builder::new()
         .with_config(config)
         .with_crate(crate_dir)
-        .with_include("sixtyfps_internal.h")
-        .with_include("sixtyfps_interpreter_generated_public.h")
+        .with_include("slint_internal.h")
+        .with_include("slint_interpreter_generated_public.h")
         .with_after_include(
             r"
-            namespace sixtyfps::cbindgen_private {
+            namespace slint::cbindgen_private {
                 struct Value;
-                using sixtyfps::interpreter::ValueType;
-                using sixtyfps::interpreter::PropertyDescriptor;
-                using sixtyfps::interpreter::Diagnostic;
+                using slint::interpreter::ValueType;
+                using slint::interpreter::PropertyDescriptor;
+                using slint::interpreter::Diagnostic;
             }",
         )
         .generate()
-        .context("Unable to generate bindings for sixtyfps_interpreter_internal.h")?
-        .write_to_file(include_dir.join("sixtyfps_interpreter_internal.h"));
+        .context("Unable to generate bindings for slint_interpreter_internal.h")?
+        .write_to_file(include_dir.join("slint_interpreter_internal.h"));
 
     Ok(())
 }
 
 /// Generate the headers.
-/// `root_dir` is the root directory of the sixtyfps git repo
+/// `root_dir` is the root directory of the slint git repo
 /// `include_dir` is the output directory
 /// Returns the list of all paths that contain dependencies to the generated output. If you call this
 /// function from build.rs, feed each entry to stdout prefixed with `cargo:rerun-if-changed=`.

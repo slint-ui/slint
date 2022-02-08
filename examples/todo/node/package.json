@@ -3,7 +3,7 @@
     "version": "0.2.0",
     "main": "main.js",
     "dependencies": {
-        "sixtyfps": "../../../api/node"
+        "slint-ui": "../../../api/node"
     },
     "scripts": {
         "start": "node ."

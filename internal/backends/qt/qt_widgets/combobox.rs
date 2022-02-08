@@ -4,7 +4,7 @@
 use super::*;
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeComboBox {
     pub x: Property<f32>,
@@ -57,7 +57,7 @@ impl Item for NativeComboBox {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &WindowRc,
-        _self_rc: &sixtyfps_corelib::items::ItemRc,
+        _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let enabled = self.enabled();
         if !enabled {
@@ -140,11 +140,11 @@ impl ItemConsts for NativeComboBox {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeComboBoxVTable() -> NativeComboBoxVTable for NativeComboBox
+fn slint_get_NativeComboBoxVTable() -> NativeComboBoxVTable for NativeComboBox
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeComboBoxPopup {
     pub x: Property<f32>,
@@ -178,7 +178,7 @@ impl Item for NativeComboBoxPopup {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &WindowRc,
-        _self_rc: &sixtyfps_corelib::items::ItemRc,
+        _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -229,5 +229,5 @@ impl ItemConsts for NativeComboBoxPopup {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeComboBoxPopupVTable() -> NativeComboBoxPopupVTable for NativeComboBoxPopup
+fn slint_get_NativeComboBoxPopupVTable() -> NativeComboBoxPopupVTable for NativeComboBoxPopup
 }

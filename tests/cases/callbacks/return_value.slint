@@ -1,0 +1,65 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+TestCase := Rectangle {
+    callback test_func(int) -> int;
+    callback test_func2(string, int) -> string;
+    test_func2(str, val) => { str + "=" + (val + some_value) }
+
+    property <int> test_prop: 4 + test_func(2);
+    property <string> test_prop2: test_func2("hello", 42);
+    property <int> some_value: 8;
+
+    callback dummy() -> int;
+    dummy => { 4.4 }
+    callback returns_void;
+    returns_void => { test_func2("haha", 8) }
+
+    property <bool> test: test_prop == 4 && test_prop2 == "hello=50";
+}
+
+/*
+```rust
+let instance = TestCase::new();
+instance.on_test_func({
+    let weak = instance.as_weak();
+    move |a| weak.upgrade().unwrap().get_some_value() * a
+});
+assert_eq!(instance.get_test_prop(), 4 + 16);
+assert_eq!(instance.get_test_prop2(), slint::SharedString::from("hello=50"));
+instance.set_some_value(2);
+assert_eq!(instance.get_test_prop(), 4 + 4);
+assert_eq!(instance.get_test_prop2(), slint::SharedString::from("hello=44"));
+
+assert_eq!(instance.invoke_test_func2("xxx".into(), 1), slint::SharedString::from("xxx=3"));
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+instance.on_test_func([weak = slint::ComponentWeakHandle(handle)](int a) {
+    return (*weak.lock())->get_some_value() * a;
+});
+assert_eq(instance.get_test_prop(), 4 + 16);
+assert_eq(instance.get_test_prop2(), slint::SharedString("hello=50"));
+instance.set_some_value(2);
+assert_eq(instance.get_test_prop(), 4 + 4);
+assert_eq(instance.get_test_prop2(), slint::SharedString("hello=44"));
+
+assert_eq(instance.invoke_test_func2("xxx", 1), slint::SharedString("xxx=3"));
+```
+
+
+```js
+var instance = new slint.TestCase({
+    test_func: function(a) { return instance.some_value * a; }
+});
+assert.equal(instance.test_prop, 4 + 16);
+assert.equal(instance.test_prop2, "hello=50");
+instance.some_value = 2;
+assert.equal(instance.test_prop, 4 + 4);
+assert.equal(instance.test_prop2, "hello=44");
+
+assert.equal(instance.test_func2("xxx", 1), "xxx=3");
+```
+*/

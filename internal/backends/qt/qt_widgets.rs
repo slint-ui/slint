@@ -5,13 +5,13 @@
 
 This module contains all the native Qt widget implementation that forwards to QStyle.
 
-Same as in sixtyfps_corelib::items, when When adding an item or a property,
+Same as in i_slint_core::items, when When adding an item or a property,
 it needs to be kept in sync with different place.
 
  - It needs to be changed in this module
  - the Widget list in lib.rs
- - In the compiler: builtins.60
- - For the C++ code (new item only): the build.rs to export the new item, and the `using` declaration in sixtyfps.h
+ - In the compiler: builtins.slint
+ - For the C++ code (new item only): the build.rs to export the new item, and the `using` declaration in slint.h
  - Don't forget to update the documentation
 */
 
@@ -20,19 +20,19 @@ it needs to be kept in sync with different place.
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
-use sixtyfps_corelib::graphics::{Color, Rect};
-use sixtyfps_corelib::input::{
+use i_slint_core::graphics::{Color, Rect};
+use i_slint_core::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
 };
-use sixtyfps_corelib::item_rendering::{CachedRenderingData, ItemRenderer};
-use sixtyfps_corelib::items::{Item, ItemConsts, ItemRc, ItemVTable, VoidArg};
-use sixtyfps_corelib::layout::{LayoutInfo, Orientation};
-use sixtyfps_corelib::rtti::*;
-use sixtyfps_corelib::window::WindowRc;
-use sixtyfps_corelib::{
+use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
+use i_slint_core::items::{Item, ItemConsts, ItemRc, ItemVTable, VoidArg};
+use i_slint_core::layout::{LayoutInfo, Orientation};
+use i_slint_core::rtti::*;
+use i_slint_core::window::WindowRc;
+use i_slint_core::{
     declare_item_vtable, Callback, ItemVTable_static, Property, SharedString, SharedVector,
 };
-use sixtyfps_corelib_macros::*;
+use i_slint_core_macros::*;
 use std::rc::Rc;
 
 type ItemRendererRef<'a> = &'a mut dyn ItemRenderer;
@@ -156,7 +156,7 @@ cpp! {{
             QCoreApplication::setAttribute(Qt::AA_PluginApplication, true);
         }
         static int argc  = 1;
-        static char argv[] = "sixtyfps";
+        static char argv[] = "Slint";
         static char *argv2[] = { argv };
         // Leak the QApplication, otherwise it crashes on exit
         // (because the QGuiApplication destructor access some Q_GLOBAL_STATIC which are already gone)

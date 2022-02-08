@@ -1,42 +1,42 @@
-# SixtyFPS-node
+# Slint-node
 
-[![npm](https://img.shields.io/npm/v/sixtyfps)](https://www.npmjs.com/package/sixtyfps)
+[![npm](https://img.shields.io/npm/v/slint-ui)](https://www.npmjs.com/package/slint-ui)
 
-[SixtyFPS](https://sixtyfps.io/) is a UI toolkit that supports different programming languages.
-SixtyFPS-node is the integration with node.
+[Slint](https://sixtyfps.io/) is a UI toolkit that supports different programming languages.
+Slint-node is the integration with node.
 
-The complete C++ documentation can be viewed online at https://sixtyfps.io/docs/node/.
+The complete Node documentation can be viewed online at https://sixtyfps.io/docs/node/.
 
 **Warning: Pre-Alpha**
-SixtyFPS is still in the early stages of development: APIs will change and important features are still being developed.
+Slint is still in the early stages of development: APIs will change and important features are still being developed.
 
-## Installing SixtyFPS
+## Installing Slint
 
-SixtyFPS is available via NPM, so you can install by running the following command:
+Slint is available via NPM, so you can install by running the following command:
 
 ```sh
-npm install sixtyfps
+npm install slint-ui
 ```
 
-## Using SixtyFPS
+## Using Slint
 
-To initialize the API, you first need to import the `sixtyfps` module in our code:
+To initialize the API, you first need to import the `slint-ui` module in our code:
 
 ```js
-let sixtyfps = require("sixtyfps");
+let slint = require("slint-ui");
 ```
 
-This step also installs a hook in NodeJS that allows you to import `.60` files directly:
+This step also installs a hook in NodeJS that allows you to import `.slint` files directly:
 
 ```js
-let ui = require("../ui/main.60");
+let ui = require("../ui/main.slint");
 ```
 
-Combining these two steps leads us to the obligator "Hello World" example:
+Combining these two steps leads us to the obligatory "Hello World" example:
 
 ```js
-require("sixtyfps");
-let ui = require("../ui/main.60");
+require("slint-ui");
+let ui = require("../ui/main.slint");
 let main = new ui.Main();
 main.run();
 ```
@@ -51,10 +51,10 @@ The exported component is exposed as a type constructor. The type constructor ta
 an object which allow to initialize the value of public properties or callbacks.
 
 ```js
-require("sixtyfps");
-// In this example, the main.60 file exports a module which
+require("slint-ui");
+// In this example, the main.slint file exports a module which
 // has a counter property and a clicked callback
-let ui = require("ui/main.60");
+let ui = require("ui/main.slint");
 let component = new ui.MainWindow({
     counter: 42,
     clicked: function() { console.log("hello"); }
@@ -83,7 +83,7 @@ component.clicked();
 
 ### Type Mappings
 
-| `.60` Type | JavaScript Type | Notes |
+| `.slint` Type | JavaScript Type | Notes |
 | --- | --- | --- |
 | `int` | `Number` | |
 | `float` | `Number` | |
@@ -100,12 +100,12 @@ component.clicked();
 
 For property of array type, they can either be set using an array.
 In that case, getting the property also return an array.
-If the array was set within the .60 file, the array can be obtained
+If the array was set within the .slint file, the array can be obtained
 
 ```js
 component.model = [1, 2, 3];
 // component.model.push(4); // does not work, because it operate on a copy
-// but re-assigning work
+// but re-assigning works
 component.model = component.model.concat(4);
 ```
 
@@ -121,7 +121,7 @@ When such an object is set to a model property, it gets a new `notify` object wi
 * `rowAdded(index, count)`: notify the view that rows were added.
 * `rowRemoved(index, count)`: notify the view that a row were removed.
 
-As an example, here is the implementation of the `ArrayModel` (which is available on `sixtyfps.ArrayModel`)
+As an example, here is the implementation of the `ArrayModel` (which is available as `slint.ArrayModel`)
 
 ```js
 let array = [1, 2, 3];

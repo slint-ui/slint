@@ -1,0 +1,101 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+TestCase := Rectangle {
+    callback test_callback(int);
+    callback test_callback2(string);
+    callback test_callback3(int, string);
+    property<int> callback_emission_count;
+    test_callback => { callback_emission_count += 1; }
+    test_callback2(xx) => { callback_emission_count = 88; root.test_callback3(55, xx); }
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+int callback_3_emited = 0;
+std::string callback_3_string_value;
+int callback_3_int_value = 0;
+instance.on_test_callback3([&](int a, auto b) {
+    callback_3_int_value = a;
+    callback_3_string_value = b;
+    callback_3_emited ++;
+});
+instance.set_callback_emission_count(0);
+assert_eq(instance.get_callback_emission_count(), 0);
+instance.invoke_test_callback(42);
+assert_eq(instance.get_callback_emission_count(), 1);
+assert_eq(callback_3_emited, 0);
+instance.invoke_test_callback2("hello");
+assert_eq(instance.get_callback_emission_count(), 88);
+assert_eq(callback_3_emited, 1);
+assert_eq(callback_3_int_value, 55);
+assert_eq(callback_3_string_value, "hello");
+```
+
+```rust
+let instance = TestCase::new();
+let callback_3_emited = std::rc::Rc::new(std::cell::RefCell::new((0, String::new())));
+instance.on_test_callback3({
+    let callback_3_emited = callback_3_emited.clone();
+    move |a, b|  *callback_3_emited.borrow_mut() = (a, b.into())
+});
+instance.set_callback_emission_count(0);
+assert_eq!(instance.get_callback_emission_count(), 0);
+instance.invoke_test_callback(42);
+assert_eq!(instance.get_callback_emission_count(), 1);
+assert_eq!(*callback_3_emited.borrow(), (0, "".into()));
+instance.invoke_test_callback2("hello".into());
+assert_eq!(instance.get_callback_emission_count(), 88);
+assert_eq!(*callback_3_emited.borrow(), (55, "hello".into()));
+```
+
+
+```js
+var callback_3_emited = 0;
+var callback_3_string_value;
+var callback_3_int_value;
+var instance = new slint.TestCase({
+    test_callback3: function(a, b) {
+        callback_3_emited++;
+        callback_3_string_value = b;
+        callback_3_int_value = a;
+    }
+});
+instance.callback_emission_count = 0;
+assert.equal(instance.callback_emission_count, 0);
+instance.test_callback(42);
+assert.equal(instance.callback_emission_count, 1);
+instance.test_callback2("hello");
+assert.equal(instance.callback_emission_count, 88);
+assert.equal(callback_3_emited, 1);
+assert.equal(callback_3_string_value, "hello");
+assert.equal(callback_3_int_value, 55);
+instance.callback_emission_count = 0;
+// Calling a callback with a wrong number of arg
+try {
+    instance.test_callback();
+    assert(false);
+} catch(e) {
+    assert.equal(e.toString(), "Error: test_callback expect 1 arguments, but 0 where provided");
+}
+assert.equal(instance.callback_emission_count, 0);
+
+
+/// also test setHandler
+instance.test_callback2.setHandler(function(a) {
+    callback_3_emited += 100;
+    callback_3_string_value = a;
+});
+instance.test_callback2("salùt")
+assert.equal(callback_3_emited, 101);
+assert.equal(callback_3_string_value, "salùt");
+assert.equal(callback_3_int_value, 55); // same as before
+
+```
+
+
+
+*/

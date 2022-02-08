@@ -1,0 +1,85 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+TestCase := Rectangle {
+    width: 400phx;
+    height: 400phx;
+    forward-focus: input2;
+
+    input1 := TextInput {
+        width: parent.width;
+        height: 200phx;
+        Rectangle {
+            FocusScope {
+                width: 75%;
+                key-pressed(event) => {
+                    recieved += event.text;
+                    accept
+                }
+
+                if (false) : Rectangle { FocusScope {} }
+
+                input2 := TextInput {
+                    width: 75%;
+                    height: 100%;
+                }
+            }
+        }
+        Rectangle {
+            width: 0%;
+            FocusScope {  }
+        }
+    }
+
+    property<bool> input1_focused: input1.has_focus;
+    property<string> input1_text: input1.text;
+    property<bool> input2_focused: input2.has_focus;
+    property<string> input2_text: input2.text;
+    property<string> recieved;
+}
+
+/*
+```rust
+let ctrl_modifier = slint::re_exports::KeyboardModifiers {
+    control: true,
+    ..Default::default()
+};
+
+let instance = TestCase::new();
+
+assert!(!instance.get_input1_focused());
+assert!(instance.get_input2_focused());
+
+slint::testing::send_keyboard_string_sequence(&instance, "Hello");
+assert_eq!(instance.get_input2_text(), "Hello");
+assert_eq!(instance.get_input1_text(), "");
+assert_eq!(instance.get_recieved(), "");
+
+slint::testing::set_current_keyboard_modifiers(&instance, ctrl_modifier);
+slint::testing::send_keyboard_string_sequence(&instance, "ß");
+assert_eq!(instance.get_input2_text(), "Hello");
+assert_eq!(instance.get_input1_text(), "");
+assert_eq!(instance.get_recieved(), "ß");
+```
+
+```cpp
+slint::cbindgen_private::KeyboardModifiers ctrl_modifier{};
+ctrl_modifier.control = true;
+
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert(!instance.get_input1_focused());
+assert(instance.get_input2_focused());
+
+slint::testing::send_keyboard_string_sequence(&instance, "Hello");
+assert_eq(instance.get_input2_text(), "Hello");
+assert_eq(instance.get_input1_text(), "");
+assert_eq(instance.get_recieved(), "");
+
+slint::testing::send_keyboard_string_sequence(&instance, "ß", ctrl_modifier);
+assert_eq(instance.get_input2_text(), "Hello");
+assert_eq(instance.get_input1_text(), "");
+assert_eq(instance.get_recieved(), "ß");
+```
+*/

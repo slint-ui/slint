@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 //!
-//! Tool to change the syntax or reformat a .60 file
+//! Tool to change the syntax or reformat a .slint file
 //!
 //! As of know, it just rewrite the exact same as the input, but it can be changed
 //!
@@ -10,13 +10,14 @@
 //!
 //! ````shell
 //! cargo run --bin syntax_updater -- --from 0.0.5 -i  **/*.60
+//! cargo run --bin syntax_updater -- --from 0.0.5 -i  **/*.slint
 //! cargo run --bin syntax_updater -- --from 0.0.5 -i  **/*.rs
 //! cargo run --bin syntax_updater -- --from 0.0.5 -i  **/*.md
 //! ````
 
-use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
-use sixtyfps_compilerlib::object_tree;
-use sixtyfps_compilerlib::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
+use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::object_tree;
+use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 use std::io::Write;
 use std::path::Path;
 
@@ -28,7 +29,7 @@ mod from_0_1_0;
 
 #[derive(clap::Parser)]
 struct Cli {
-    #[clap(name = "path to .60 file(s)", parse(from_os_str))]
+    #[clap(name = "path to .slint file(s)", parse(from_os_str))]
     paths: Vec<std::path::PathBuf>,
 
     /// modify the file inline instead of printing to stdout
@@ -42,8 +43,8 @@ struct Cli {
 
 fn main() -> std::io::Result<()> {
     let args = Cli::parse();
-    if !matches!(args.from.as_str(), "0.0.5" | "0.0.6" | "0.1.0") {
-        eprintln!("Invalid from version is supported, use `--from 0.0.5`");
+    if !matches!(args.from.as_str(), "0.0.5" | "0.0.6") && !args.from.starts_with("0.1.") {
+        eprintln!("Invalid from version is supported, use `--from 0.1.x`");
         std::process::exit(1);
     }
 
@@ -62,8 +63,8 @@ fn main() -> std::io::Result<()> {
 
 fn process_rust_file(source: String, mut file: impl Write, args: &Cli) -> std::io::Result<()> {
     let mut source_slice = &source[..];
-    let sixtyfps_macro = format!("{}!", "sixtyfps"); // in a variable so it does not appear as is
-    'l: while let Some(idx) = source_slice.find(&sixtyfps_macro) {
+    let slint_macro = format!("{}!", "slint"); // in a variable so it does not appear as is
+    'l: while let Some(idx) = source_slice.find(&slint_macro) {
         // Note: this code ignore string literal and unbalanced comment, but that should be good enough
         let idx2 =
             if let Some(idx2) = source_slice[idx..].find(|c| c == '{' || c == '(' || c == '[') {
@@ -103,7 +104,7 @@ fn process_rust_file(source: String, mut file: impl Write, args: &Cli) -> std::i
         source_slice = &source_slice[idx - 1..];
 
         let mut diag = BuildDiagnostics::default();
-        let syntax_node = sixtyfps_compilerlib::parser::parse(code.to_owned(), None, &mut diag);
+        let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.text_range().end().into();
         visit_node(syntax_node, &mut file, &mut State::default(), args)?;
         if diag.has_error() {
@@ -116,7 +117,7 @@ fn process_rust_file(source: String, mut file: impl Write, args: &Cli) -> std::i
 
 fn process_markdown_file(source: String, mut file: impl Write, args: &Cli) -> std::io::Result<()> {
     let mut source_slice = &source[..];
-    const CODE_FENCE_START: &str = "```60\n";
+    const CODE_FENCE_START: &str = "```slint\n";
     const CODE_FENCE_END: &str = "```\n";
     'l: while let Some(code_start) =
         source_slice.find(CODE_FENCE_START).map(|idx| idx + CODE_FENCE_START.len())
@@ -132,7 +133,7 @@ fn process_markdown_file(source: String, mut file: impl Write, args: &Cli) -> st
         source_slice = &source_slice[code_end..];
 
         let mut diag = BuildDiagnostics::default();
-        let syntax_node = sixtyfps_compilerlib::parser::parse(code.to_owned(), None, &mut diag);
+        let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.text_range().end().into();
         visit_node(syntax_node, &mut file, &mut State::default(), args)?;
         if diag.has_error() {
@@ -156,7 +157,7 @@ fn process_file(
     }
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = sixtyfps_compilerlib::parser::parse(source.clone(), Some(path), &mut diag);
+    let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(path), &mut diag);
     let len = syntax_node.node.text_range().end().into();
     visit_node(syntax_node, &mut file, &mut State::default(), args)?;
     if diag.has_error() {
@@ -223,15 +224,14 @@ fn fold_node(
     if args.from.as_str() <= "0.0.6" && from_0_0_6::fold_node(node, file, state)? {
         return Ok(true);
     }
-    if args.from.as_str() <= "0.1.0" && from_0_1_0::fold_node(node, file, state)? {
+    if args.from.as_str() <= "0.1.6" && from_0_1_0::fold_node(node, file, state)? {
         return Ok(true);
     }
-
     Ok(false)
 }
 
 fn fold_token(
-    node: sixtyfps_compilerlib::parser::SyntaxToken,
+    node: i_slint_compiler::parser::SyntaxToken,
     file: &mut impl Write,
     #[allow(unused)] state: &mut State,
 ) -> std::io::Result<()> {

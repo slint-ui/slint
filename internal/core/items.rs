@@ -8,7 +8,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 (This is less than ideal and maybe we can have some automation later)
 
  - It needs to be changed in this module
- - In the compiler: builtins.60
+ - In the compiler: builtins.slint
  - In the interpreter (new item only): dynamic_component.rs
  - For the C++ code (new item only): the cbindgen.rs to export the new item
  - Don't forget to update the documentation
@@ -34,7 +34,7 @@ use alloc::boxed::Box;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::pin::Pin;
-use sixtyfps_corelib_macros::*;
+use i_slint_core_macros::*;
 use vtable::*;
 
 mod text;
@@ -200,7 +200,7 @@ impl ItemWeak {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 /// The implementation of the `Rectangle` element
 pub struct Rectangle {
@@ -260,11 +260,11 @@ impl ItemConsts for Rectangle {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_RectangleVTable() -> RectangleVTable for Rectangle
+    fn slint_get_RectangleVTable() -> RectangleVTable for Rectangle
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 /// The implementation of the `BorderRectangle` element
 pub struct BorderRectangle {
@@ -327,7 +327,7 @@ impl ItemConsts for BorderRectangle {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_BorderRectangleVTable() -> BorderRectangleVTable for BorderRectangle
+    fn slint_get_BorderRectangleVTable() -> BorderRectangleVTable for BorderRectangle
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
@@ -379,7 +379,7 @@ impl Default for MouseCursor {
 
 /// The implementation of the `TouchArea` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct TouchArea {
     pub x: Property<f32>,
@@ -532,7 +532,7 @@ impl ItemConsts for TouchArea {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_TouchAreaVTable() -> TouchAreaVTable for TouchArea
+    fn slint_get_TouchAreaVTable() -> TouchAreaVTable for TouchArea
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
@@ -552,7 +552,7 @@ impl Default for EventResult {
 
 /// A runtime item that exposes key
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct FocusScope {
     pub x: Property<f32>,
@@ -638,11 +638,11 @@ impl ItemConsts for FocusScope {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_FocusScopeVTable() -> FocusScopeVTable for FocusScope
+    fn slint_get_FocusScopeVTable() -> FocusScopeVTable for FocusScope
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 /// The implementation of the `Clip` element
 pub struct Clip {
@@ -716,13 +716,13 @@ impl ItemConsts for Clip {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_ClipVTable() -> ClipVTable for Clip
+    fn slint_get_ClipVTable() -> ClipVTable for Clip
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
-/// The Opacity Item is not meant to be used directly by the .60 code, instead, the `opacity: xxx` or `visible: false` should be used
+/// The Opacity Item is not meant to be used directly by the .slint code, instead, the `opacity: xxx` or `visible: false` should be used
 pub struct Opacity {
     // FIXME: this element shouldn't need these geometry property
     pub x: Property<f32>,
@@ -781,11 +781,11 @@ impl ItemConsts for Opacity {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_OpacityVTable() -> OpacityVTable for Opacity
+    fn slint_get_OpacityVTable() -> OpacityVTable for Opacity
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 /// The implementation of the `Rotate` element
 pub struct Rotate {
@@ -847,12 +847,12 @@ impl ItemConsts for Rotate {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_RotateVTable() -> RotateVTable for Rotate
+    fn slint_get_RotateVTable() -> RotateVTable for Rotate
 }
 
 /// The implementation of the `Flickable` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct Flickable {
     pub x: Property<f32>,
@@ -933,7 +933,7 @@ impl ItemConsts for Flickable {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_FlickableVTable() -> FlickableVTable for Flickable
+    fn slint_get_FlickableVTable() -> FlickableVTable for Flickable
 }
 
 pub use crate::SharedVector;
@@ -967,20 +967,20 @@ impl core::ops::Deref for FlickableDataBox {
 /// This must be called using a non-null pointer pointing to a chunk of memory big enough to
 /// hold a FlickableDataBox
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_flickable_data_init(data: *mut FlickableDataBox) {
+pub unsafe extern "C" fn slint_flickable_data_init(data: *mut FlickableDataBox) {
     core::ptr::write(data, FlickableDataBox::default());
 }
 
 /// # Safety
 /// This must be called using a non-null pointer pointing to an initialized FlickableDataBox
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_flickable_data_free(data: *mut FlickableDataBox) {
+pub unsafe extern "C" fn slint_flickable_data_free(data: *mut FlickableDataBox) {
     core::ptr::drop_in_place(data);
 }
 
 /// The implementation of the `PropertyAnimation` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug)]
+#[derive(FieldOffsets, Default, SlintElement, Clone, Debug)]
 #[pin]
 pub struct PropertyAnimation {
     #[rtti_field]
@@ -995,7 +995,7 @@ pub struct PropertyAnimation {
 
 /// The implementation of the `Window` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct WindowItem {
     pub width: Property<f32>,
@@ -1087,12 +1087,12 @@ impl ItemConsts for WindowItem {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_WindowItemVTable() -> WindowItemVTable for WindowItem
+    fn slint_get_WindowItemVTable() -> WindowItemVTable for WindowItem
 }
 
 /// The implementation of the `BoxShadow` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct BoxShadow {
     // Rectangle properties
@@ -1155,28 +1155,28 @@ impl ItemConsts for BoxShadow {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_BoxShadowVTable() -> BoxShadowVTable for BoxShadow
+    fn slint_get_BoxShadowVTable() -> BoxShadowVTable for BoxShadow
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_TextVTable() -> TextVTable for Text
+    fn slint_get_TextVTable() -> TextVTable for Text
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_TextInputVTable() -> TextInputVTable for TextInput
+    fn slint_get_TextInputVTable() -> TextInputVTable for TextInput
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_ImageItemVTable() -> ImageItemVTable for ImageItem
+    fn slint_get_ImageItemVTable() -> ImageItemVTable for ImageItem
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_ClippedImageVTable() -> ClippedImageVTable for ClippedImage
+    fn slint_get_ClippedImageVTable() -> ClippedImageVTable for ClippedImage
 }
 
 #[cfg(feature = "std")]
 declare_item_vtable! {
-    fn sixtyfps_get_PathVTable() -> PathVTable for Path
+    fn slint_get_PathVTable() -> PathVTable for Path
 }
 
 #[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]

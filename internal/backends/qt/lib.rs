@@ -1,27 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-/*!
-
-**NOTE**: This library is an **internal** crate for the [SixtyFPS project](https://sixtyfps.io).
-This crate should **not be used directly** by applications using SixtyFPS.
-You should use the `sixtyfps` crate instead.
-
-**WARNING**: This crate does not follow the semver convention for versioning and can
-only be used with `version = "=x.y.z"` in Cargo.toml.
-
-*/
+#![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 #![recursion_limit = "1024"]
 
 extern crate alloc;
 
-use sixtyfps_corelib::graphics::{Image, IntSize};
+use i_slint_core::graphics::{Image, IntSize};
 #[cfg(not(no_qt))]
-use sixtyfps_corelib::items::ImageFit;
-use sixtyfps_corelib::window::Window;
+use i_slint_core::items::ImageFit;
+use i_slint_core::window::Window;
 #[cfg(not(no_qt))]
-use sixtyfps_corelib::ImageInner;
+use i_slint_core::ImageInner;
 
 #[cfg(not(no_qt))]
 mod qt_widgets;
@@ -36,11 +27,11 @@ mod key_generated;
 pub fn use_modules() -> usize {
     #[cfg(no_qt)]
     {
-        ffi::sixtyfps_qt_get_widget as usize
+        ffi::slint_qt_get_widget as usize
     }
     #[cfg(not(no_qt))]
     {
-        qt_window::ffi::sixtyfps_qt_get_widget as usize
+        qt_window::ffi::slint_qt_get_widget as usize
             + (&qt_widgets::NativeButtonVTable) as *const _ as usize
     }
 }
@@ -48,8 +39,8 @@ pub fn use_modules() -> usize {
 #[cfg(no_qt)]
 mod ffi {
     #[no_mangle]
-    pub extern "C" fn sixtyfps_qt_get_widget(
-        _: &sixtyfps_corelib::window::WindowRc,
+    pub extern "C" fn slint_qt_get_widget(
+        _: &i_slint_core::window::WindowRc,
     ) -> *mut std::ffi::c_void {
         std::ptr::null_mut()
     }
@@ -67,13 +58,13 @@ mod ffi {
 ///     }
 /// }
 /// impl DoSomething for () {}
-/// impl<T: sixtyfps_corelib::rtti::BuiltinItem, Next: DoSomething> DoSomething for (T, Next) {
+/// impl<T: i_slint_core::rtti::BuiltinItem, Next: DoSomething> DoSomething for (T, Next) {
 ///     fn do_something(/*...*/) {
 ///          /*...*/
 ///          Next::do_something(/*...*/);
 ///     }
 /// }
-/// sixtyfps_rendering_backend_qt::NativeWidgets::do_something(/*...*/)
+/// i_slint_backend_qt::NativeWidgets::do_something(/*...*/)
 /// ```
 #[cfg(not(no_qt))]
 #[rustfmt::skip]
@@ -113,22 +104,22 @@ pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
 pub const IS_AVAILABLE: bool = cfg!(not(no_qt));
 
 pub struct Backend;
-impl sixtyfps_corelib::backend::Backend for Backend {
+impl i_slint_core::backend::Backend for Backend {
     fn create_window(&'static self) -> std::rc::Rc<Window> {
         #[cfg(no_qt)]
         panic!("The Qt backend needs Qt");
         #[cfg(not(no_qt))]
         {
-            sixtyfps_corelib::window::Window::new(|window| qt_window::QtWindow::new(window))
+            i_slint_core::window::Window::new(|window| qt_window::QtWindow::new(window))
         }
     }
 
-    fn run_event_loop(&'static self, _behavior: sixtyfps_corelib::backend::EventLoopQuitBehavior) {
+    fn run_event_loop(&'static self, _behavior: i_slint_core::backend::EventLoopQuitBehavior) {
         #[cfg(not(no_qt))]
         {
             let quit_on_last_window_closed = match _behavior {
-                sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => true,
-                sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => false,
+                i_slint_core::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => true,
+                i_slint_core::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => false,
             };
             // Schedule any timers with Qt that were set up before this event loop start.
             crate::qt_window::timer_event();
@@ -148,7 +139,7 @@ impl sixtyfps_corelib::backend::Backend for Backend {
             cpp! {unsafe [] {
                 // Use a quit event to avoid qApp->quit() calling
                 // [NSApp terminate:nil] and us never returning from the
-                // event loop - sixtyfps-viewer relies on the ability to
+                // event loop - slint-viewer relies on the ability to
                 // return from run().
                 QCoreApplication::postEvent(qApp, new QEvent(QEvent::Quit));
             } }
@@ -272,8 +263,8 @@ impl sixtyfps_corelib::backend::Backend for Backend {
         {
             let inner: &ImageInner = _image.into();
             match inner {
-                sixtyfps_corelib::ImageInner::None => Default::default(),
-                sixtyfps_corelib::ImageInner::EmbeddedImage(buffer) => buffer.size(),
+                i_slint_core::ImageInner::None => Default::default(),
+                i_slint_core::ImageInner::EmbeddedImage(buffer) => buffer.size(),
                 _ => qt_window::load_image_from_resource(inner, None, ImageFit::fill)
                     .map(|img| {
                         let qsize = img.size();

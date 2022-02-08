@@ -10,10 +10,10 @@ use super::{Point, Rect, Size};
 use crate::rtti::*;
 use auto_enums::auto_enum;
 use const_field_offset::FieldOffsets;
-use sixtyfps_corelib_macros::*;
+use i_slint_core_macros::*;
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
+#[derive(FieldOffsets, Default, SlintElement, Clone, Debug, PartialEq)]
 #[pin]
 /// PathMoveTo describes the event of setting the cursor on the path to use as starting
 /// point for sub-sequent events, such as `LineTo`. Moving the cursor also implicitly closes
@@ -28,7 +28,7 @@ pub struct PathMoveTo {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
+#[derive(FieldOffsets, Default, SlintElement, Clone, Debug, PartialEq)]
 #[pin]
 /// PathLineTo describes the event of moving the cursor on the path to the specified location
 /// along a straight line.
@@ -42,7 +42,7 @@ pub struct PathLineTo {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
+#[derive(FieldOffsets, Default, SlintElement, Clone, Debug, PartialEq)]
 #[pin]
 /// PathArcTo describes the event of moving the cursor on the path across an arc to the specified
 /// x/y coordinates, with the specified x/y radius and additional properties.
@@ -72,7 +72,7 @@ pub struct PathArcTo {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
+#[derive(FieldOffsets, Default, SlintElement, Clone, Debug, PartialEq)]
 #[pin]
 /// PathCubicTo describes a smooth Bézier curve from the path's current position
 /// to the specified x/y location, using two control points.
@@ -98,7 +98,7 @@ pub struct PathCubicTo {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement, Clone, Debug, PartialEq)]
+#[derive(FieldOffsets, Default, SlintElement, Clone, Debug, PartialEq)]
 #[pin]
 /// PathCubicTo describes a smooth Bézier curve from the path's current position
 /// to the specified x/y location, using one control points.
@@ -409,7 +409,7 @@ pub(crate) mod ffi {
 
     #[no_mangle]
     /// This function is used for the low-level C++ interface to allocate the backing vector for a shared path element array.
-    pub unsafe extern "C" fn sixtyfps_new_path_elements(
+    pub unsafe extern "C" fn slint_new_path_elements(
         out: *mut c_void,
         first_element: *const PathElement,
         count: usize,
@@ -420,7 +420,7 @@ pub(crate) mod ffi {
 
     #[no_mangle]
     /// This function is used for the low-level C++ interface to allocate the backing vector for a shared path event array.
-    pub unsafe extern "C" fn sixtyfps_new_path_events(
+    pub unsafe extern "C" fn slint_new_path_events(
         out_events: *mut c_void,
         out_coordinates: *mut c_void,
         first_event: *const PathEvent,

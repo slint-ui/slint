@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "sixtyfps-common"
+name = "i-slint-common"
 version = "0.2.0"
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
-description = "Helper crate for sharing code & data structures between sixtyfps-corelib and sixtyfps-compiler"
+description = "Helper crate for sharing code & data structures between i-slint-core and slint-compiler"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 

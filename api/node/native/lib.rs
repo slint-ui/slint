@@ -2,20 +2,20 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 use core::cell::RefCell;
+use i_slint_compiler::langtype::Type;
+use i_slint_core::model::{Model, ModelRc};
+use i_slint_core::window::WindowHandleAccess;
+use i_slint_core::{ImageInner, SharedVector};
 use neon::prelude::*;
 use rand::RngCore;
-use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_corelib::model::{Model, ModelRc};
-use sixtyfps_corelib::window::WindowHandleAccess;
-use sixtyfps_corelib::{ImageInner, SharedVector};
-use sixtyfps_interpreter::ComponentHandle;
+use slint_interpreter::ComponentHandle;
 
 mod js_model;
 mod persistent_context;
 
-struct WrappedComponentType(Option<sixtyfps_interpreter::ComponentDefinition>);
-struct WrappedComponentRc(Option<sixtyfps_interpreter::ComponentInstance>);
-struct WrappedWindow(Option<sixtyfps_corelib::window::WindowRc>);
+struct WrappedComponentType(Option<slint_interpreter::ComponentDefinition>);
+struct WrappedComponentRc(Option<slint_interpreter::ComponentInstance>);
+struct WrappedWindow(Option<i_slint_core::window::WindowRc>);
 
 /// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
 type GlobalContextCallback<'c> =
@@ -45,29 +45,29 @@ fn run_with_global_context(f: &GlobalContextCallback) {
     GLOBAL_CONTEXT.with(|cx_fn| cx_fn(f))
 }
 
-/// Load a .60 files.
+/// Load a .slint files.
 ///
-/// The first argument of this function is a string to the .60 file
+/// The first argument of this function is a string to the .slint file
 ///
-/// The return value is a SixtyFpsComponentType
+/// The return value is a SlintComponentType
 fn load(mut cx: FunctionContext) -> JsResult<JsValue> {
     let path = cx.argument::<JsString>(0)?.value();
     let path = std::path::Path::new(path.as_str());
-    let include_paths = match std::env::var_os("SIXTYFPS_INCLUDE_PATH") {
+    let include_paths = match std::env::var_os("SLINT_INCLUDE_PATH") {
         Some(paths) => {
             std::env::split_paths(&paths).filter(|path| !path.as_os_str().is_empty()).collect()
         }
         None => vec![],
     };
-    let mut compiler = sixtyfps_interpreter::ComponentCompiler::default();
+    let mut compiler = slint_interpreter::ComponentCompiler::default();
     compiler.set_include_paths(include_paths);
     let c = spin_on::spin_on(compiler.build_from_path(path));
 
-    sixtyfps_interpreter::print_diagnostics(compiler.diagnostics());
+    slint_interpreter::print_diagnostics(compiler.diagnostics());
 
     let c = if let Some(c) = c { c } else { return cx.throw_error("Compilation error") };
 
-    let mut obj = SixtyFpsComponentType::new::<_, JsValue, _>(&mut cx, std::iter::empty())?;
+    let mut obj = SlintComponentType::new::<_, JsValue, _>(&mut cx, std::iter::empty())?;
     cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(c));
     Ok(obj.as_value(&mut cx))
 }
@@ -77,12 +77,12 @@ fn make_callback_handler<'cx>(
     persistent_context: &persistent_context::PersistentContext<'cx>,
     fun: Handle<'cx, JsFunction>,
     return_type: Option<Box<Type>>,
-) -> Box<dyn Fn(&[sixtyfps_interpreter::Value]) -> sixtyfps_interpreter::Value> {
+) -> Box<dyn Fn(&[slint_interpreter::Value]) -> slint_interpreter::Value> {
     let fun_value = fun.as_value(cx);
     let fun_idx = persistent_context.allocate(cx, fun_value);
     Box::new(move |args| {
         let args = args.to_vec();
-        let ret = core::cell::Cell::new(sixtyfps_interpreter::Value::Void);
+        let ret = core::cell::Cell::new(slint_interpreter::Value::Void);
         let borrow_ret = &ret;
         let return_type = &return_type;
         run_with_global_context(&move |cx, persistent_context| {
@@ -109,7 +109,7 @@ fn make_callback_handler<'cx>(
 
 fn create<'cx>(
     cx: &mut CallContext<'cx, impl neon::object::This>,
-    component_type: sixtyfps_interpreter::ComponentDefinition,
+    component_type: slint_interpreter::ComponentDefinition,
 ) -> JsResult<'cx, JsValue> {
     let component = component_type.create();
     let persistent_context = persistent_context::PersistentContext::new(cx);
@@ -146,7 +146,7 @@ fn create<'cx>(
         }
     }
 
-    let mut obj = SixtyFpsComponent::new::<_, JsValue, _>(cx, std::iter::empty())?;
+    let mut obj = SlintComponent::new::<_, JsValue, _>(cx, std::iter::empty())?;
     persistent_context.save_to_object(cx, obj.downcast().unwrap());
     cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(component));
     Ok(obj.as_value(cx))
@@ -154,11 +154,11 @@ fn create<'cx>(
 
 fn to_eval_value<'cx>(
     val: Handle<'cx, JsValue>,
-    ty: sixtyfps_compilerlib::langtype::Type,
+    ty: i_slint_compiler::langtype::Type,
     cx: &mut impl Context<'cx>,
     persistent_context: &persistent_context::PersistentContext<'cx>,
-) -> NeonResult<sixtyfps_interpreter::Value> {
-    use sixtyfps_interpreter::Value;
+) -> NeonResult<slint_interpreter::Value> {
+    use slint_interpreter::Value;
     match ty {
         Type::Float32
         | Type::Int32
@@ -177,12 +177,12 @@ fn to_eval_value<'cx>(
                 .value()
                 .parse::<css_color_parser2::Color>()
                 .or_else(|e| cx.throw_error(&e.to_string()))?;
-            Ok((sixtyfps_corelib::Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)).into())
+            Ok((i_slint_core::Color::from_argb_u8((c.a * 255.) as u8, c.r, c.g, c.b)).into())
         }
         Type::Array(a) => match val.downcast::<JsArray>() {
             Ok(arr) => {
                 let vec = arr.to_vec(cx)?;
-                Ok(Value::Model(ModelRc::new(sixtyfps_corelib::model::SharedVectorModel::from(
+                Ok(Value::Model(ModelRc::new(i_slint_core::model::SharedVectorModel::from(
                     vec.into_iter()
                         .map(|i| to_eval_value(i, (*a).clone(), cx, persistent_context))
                         .collect::<Result<SharedVector<_>, _>>()?,
@@ -199,7 +199,7 @@ fn to_eval_value<'cx>(
         Type::Image => {
             let path = val.to_string(cx)?.value();
             Ok(Value::Image(
-                sixtyfps_corelib::graphics::Image::load_from_path(std::path::Path::new(&path))
+                i_slint_core::graphics::Image::load_from_path(std::path::Path::new(&path))
                     .or_else(|_| cx.throw_error(format!("cannot load image {:?}", path)))?,
             ))
         }
@@ -237,16 +237,16 @@ fn to_eval_value<'cx>(
         | Type::Component(_)
         | Type::PathData
         | Type::LayoutCache
-        | Type::ElementReference => cx.throw_error("Cannot convert to a Sixtyfps property value"),
+        | Type::ElementReference => cx.throw_error("Cannot convert to a Slint property value"),
     }
 }
 
 fn to_js_value<'cx>(
-    val: sixtyfps_interpreter::Value,
+    val: slint_interpreter::Value,
     cx: &mut impl Context<'cx>,
     persistent_context: &persistent_context::PersistentContext<'cx>,
 ) -> NeonResult<Handle<'cx, JsValue>> {
-    use sixtyfps_interpreter::Value;
+    use slint_interpreter::Value;
     Ok(match val {
         Value::Void => JsUndefined::new().as_value(cx),
         Value::Number(n) => JsNumber::new(cx, n).as_value(cx),
@@ -266,7 +266,7 @@ fn to_js_value<'cx>(
                 js_model.get_object(cx, persistent_context)?.as_value(cx)
             } else {
                 // TODO: this should probably create a proxy object instead of extracting the entire model. On the other hand
-                // we should encounter this only if the model was created in .60, which is when it'll be an array
+                // we should encounter this only if the model was created in .slint, which is when it'll be an array
                 // of values.
                 let js_array = JsArray::new(cx, model.row_count() as _);
                 for i in 0..model.row_count() {
@@ -284,7 +284,7 @@ fn to_js_value<'cx>(
             }
             js_object.as_value(cx)
         }
-        Value::Brush(sixtyfps_corelib::Brush::SolidColor(c)) => JsString::new(
+        Value::Brush(i_slint_core::Brush::SolidColor(c)) => JsString::new(
             cx,
             &format!("#{:02x}{:02x}{:02x}{:02x}", c.red(), c.green(), c.blue(), c.alpha()),
         )
@@ -294,7 +294,7 @@ fn to_js_value<'cx>(
 }
 
 declare_types! {
-    class SixtyFpsComponentType for WrappedComponentType {
+    class SlintComponentType for WrappedComponentType {
         init(_) {
             Ok(WrappedComponentType(None))
         }
@@ -336,7 +336,7 @@ declare_types! {
         }
     }
 
-    class SixtyFpsComponent for WrappedComponentRc {
+    class SlintComponent for WrappedComponentRc {
         init(_) {
             Ok(WrappedComponentRc(None))
         }
@@ -355,7 +355,7 @@ declare_types! {
             let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             let window = component.window().window_handle().clone();
-            let mut obj = SixtyFpsWindow::new::<_, JsValue, _>(&mut cx, std::iter::empty())?;
+            let mut obj = SlintWindow::new::<_, JsValue, _>(&mut cx, std::iter::empty())?;
             cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(window));
             Ok(obj.as_value(&mut cx))
         }
@@ -466,7 +466,7 @@ declare_types! {
             let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             run_scoped(&mut cx,this.downcast().unwrap(), || {
-                sixtyfps_interpreter::testing::send_mouse_click(&component, x, y);
+                slint_interpreter::testing::send_mouse_click(&component, x, y);
                 Ok(())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))
@@ -478,14 +478,14 @@ declare_types! {
             let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
             run_scoped(&mut cx,this.downcast().unwrap(), || {
-                sixtyfps_interpreter::testing::send_keyboard_string_sequence(&component, sequence.into());
+                slint_interpreter::testing::send_keyboard_string_sequence(&component, sequence.into());
                 Ok(())
             })?;
             Ok(JsUndefined::new().as_value(&mut cx))
         }
     }
 
-    class SixtyFpsWindow for WrappedWindow {
+    class SlintWindow for WrappedWindow {
         init(_) {
             Ok(WrappedWindow(None))
         }
@@ -509,7 +509,7 @@ declare_types! {
 }
 
 fn singleshot_timer_property(id: u32) -> String {
-    format!("$__sixtyfps_singleshot_timer_{}", id)
+    format!("$__slint_singleshot_timer_{}", id)
 }
 
 fn singleshot_timer(mut cx: FunctionContext) -> JsResult<JsValue> {
@@ -546,7 +546,7 @@ fn singleshot_timer(mut cx: FunctionContext) -> JsResult<JsValue> {
         });
     };
 
-    sixtyfps_corelib::timers::Timer::single_shot(
+    i_slint_core::timers::Timer::single_shot(
         std::time::Duration::from_millis(duration_in_msecs),
         callback,
     );
@@ -564,6 +564,6 @@ register_module!(mut m, {
 /// let some time elapse for testing purposes
 fn mock_elapsed_time(mut cx: FunctionContext) -> JsResult<JsValue> {
     let ms = cx.argument::<JsNumber>(0)?.value();
-    sixtyfps_corelib::tests::sixtyfps_mock_elapsed_time(ms as _);
+    i_slint_core::tests::slint_mock_elapsed_time(ms as _);
     Ok(JsUndefined::new().as_value(&mut cx))
 }

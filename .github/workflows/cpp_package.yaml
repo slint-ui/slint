@@ -72,7 +72,7 @@ jobs:
       with:
         cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
         cmakeListsTxtPath: CMakeLists.txt
-        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=RelWithDebInfo -DSIXTYFPS_PACKAGE_BUNDLE_QT=ON'
+        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=RelWithDebInfo -DSLINT_PACKAGE_BUNDLE_QT=ON'
         buildDirectory: ${{ runner.workspace }}/cppbuild
         buildWithCMakeArgs: '--config Release'
     - name: cpack
@@ -82,4 +82,4 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
           name: cpp_bin
-          path: ${{ runner.workspace }}/cppbuild/SixtyFPS-cpp-*
+          path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*

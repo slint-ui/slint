@@ -11,7 +11,7 @@ use crate::langtype::Type;
 use crate::object_tree::Component;
 use std::rc::Rc;
 
-/// Ideally we would be able to write this in builtin.60,  but the StyleMetrics is not available there
+/// Ideally we would be able to write this in builtin.slint, but the StyleMetrics is not available there
 pub fn apply_default_properties_from_style(
     root_component: &Rc<Component>,
     style_metrics: &Rc<Component>,

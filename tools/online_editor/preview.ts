@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-import sixtyfps_init, * as sixtyfps from "../../../wasm-interpreter/sixtyfps_wasm_interpreter.js";
+import slint_init, * as slint from "../../../wasm-interpreter/slint_wasm_interpreter.js";
 
 (async function () {
-    await sixtyfps_init();
+    await slint_init();
 
     var base_url = "";
 
@@ -12,7 +12,7 @@ import sixtyfps_init, * as sixtyfps from "../../../wasm-interpreter/sixtyfps_was
     var loaded_documents: Map<string, string> = new Map;
 
     let main_source = `
-import { SpinBox, Button, CheckBox, Slider, GroupBox } from "sixtyfps_widgets.60";
+import { SpinBox, Button, CheckBox, Slider, GroupBox } from "std-widgets.slint";
 export Demo := Window {
     width:  300px;   // Width in logical pixels. All 'px' units are automatically scaled with screen resolution.
     height: 300px;
@@ -41,7 +41,7 @@ export Demo := Window {
         div.innerHTML = "";
         div.appendChild(canvas);
 
-        let { component, error_string } = await sixtyfps.compile_from_string_with_style(source, base_url, style, async (url: string): Promise<string> => {
+        let { component, error_string } = await slint.compile_from_string_with_style(source, base_url, style, async (url: string): Promise<string> => {
             let file_source = loaded_documents.get(url);
             if (file_source === undefined) {
                 const response = await fetch(url);

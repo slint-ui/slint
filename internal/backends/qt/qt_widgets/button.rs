@@ -90,13 +90,13 @@ mod standard_button {
     pub type QStyle_StandardPixmap = ::std::os::raw::c_uint;
 }
 
-use sixtyfps_corelib::items::StandardButtonKind;
+use i_slint_core::items::StandardButtonKind;
 use standard_button::*;
 
 type ActualStandardButtonKind = Option<StandardButtonKind>;
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeButton {
     pub x: Property<f32>,
@@ -104,7 +104,7 @@ pub struct NativeButton {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub text: Property<SharedString>,
-    pub icon: Property<sixtyfps_corelib::graphics::Image>,
+    pub icon: Property<i_slint_core::graphics::Image>,
     pub enabled: Property<bool>,
     pub pressed: Property<bool>,
     pub clicked: Callback<VoidArg>,
@@ -226,7 +226,7 @@ impl Item for NativeButton {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &WindowRc,
-        _self_rc: &sixtyfps_corelib::items::ItemRc,
+        _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let enabled = self.enabled();
         if !enabled {
@@ -306,5 +306,5 @@ impl ItemConsts for NativeButton {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_NativeButtonVTable() -> NativeButtonVTable for NativeButton
+    fn slint_get_NativeButtonVTable() -> NativeButtonVTable for NativeButton
 }

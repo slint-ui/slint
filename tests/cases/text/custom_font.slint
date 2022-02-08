@@ -1,0 +1,29 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+// This test imports a custom font and declares it for use, to ensure at least that the generated init code for
+// the custom font setup compiles.
+
+import "../../../examples/printerdemo/ui/fonts/NotoSans-Regular.ttf";
+import "../../../examples/printerdemo/ui/fonts/NotoSans-Bold.ttf";
+
+
+TestCase := Window {
+    preferred-width: 100phx;
+    preferred-height: 100phx;
+    default-font-family: "Noto Sans";
+}
+
+/*
+```rust
+let _instance = TestCase::new();
+```
+
+```cpp
+auto handle = TestCase::create();
+```
+
+```js
+var instance = new slint.TestCase({});
+```
+*/

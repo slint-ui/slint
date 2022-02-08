@@ -1,0 +1,108 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+import { StyleMetrics, ScrollView } from "std-widgets-impl.slint";
+
+export LineEditInner := Rectangle {
+    callback accepted(string);
+    callback edited(string);
+    property <string> placeholder-text;
+    property font-size <=> input.font-size;
+    property text <=> input.text;
+    property placeholder-color <=> placeholder.color;
+    property enabled <=> input.enabled;
+    property has-focus <=> input.has-focus;
+    min-height: input.preferred-height;
+    min-width: max(50px, placeholder.min-width);
+    clip: true;
+    forward-focus: input;
+    input := TextInput {
+        property <length> computed_x;
+        x: min(0px, max(parent.width - width, computed_x));
+        width: max(parent.width, preferred-width);
+        height: 100%;
+        color: enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
+        cursor-position-changed(cpos) => {
+            if (cpos.x + computed_x < StyleMetrics.layout-padding) {
+                computed_x = - cpos.x + StyleMetrics.layout-padding;
+            } else if (cpos.x + computed_x > parent.width - StyleMetrics.layout-padding) {
+                computed_x = parent.width - cpos.x - StyleMetrics.layout-padding;
+            }
+        }
+        accepted => { root.accepted(self.text); }
+        edited => { root.edited(self.text); }
+        vertical-alignment: center;
+        single-line: true;
+    }
+    placeholder := Text {
+        height: 100%; width: 100%;
+        vertical-alignment: center;
+        text: root.text == "" ? root.placeholder-text : "";
+    }
+}
+
+export TextEdit := ScrollView {
+    property <length> font-size <=> input.font-size;
+    property <string> text <=> input.text;
+    has-focus <=> input.has-focus;
+    enabled <=> input.enabled;
+    property <TextWrap> wrap <=> input.wrap;
+    callback edited(string);
+    forward-focus: input;
+
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    viewport-width: wrap == TextWrap.word-wrap ? root.visible-width : max(root.visible-width, input.preferred-width);
+    viewport-height: max(self.visible-height, input.preferred-height);
+
+    Rectangle {
+        background: enabled ? StyleMetrics.textedit-background : StyleMetrics.textedit-background-disabled;
+    }
+
+    input := TextInput {
+        edited => { root.edited(self.text); }
+        color: enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
+        single-line: false;
+        wrap: word-wrap;
+        cursor-position-changed(cpos) => {
+            if (cpos.x + viewport-x < StyleMetrics.layout-padding) {
+                viewport-x = min(0px, max(parent.visible-width - width,  - cpos.x + StyleMetrics.layout-padding ));
+            } else if (cpos.x + viewport-x > parent.visible-width - StyleMetrics.layout-padding) {
+                viewport-x = min(0px, max(parent.visible-width - width,  parent.visible-width - cpos.x - StyleMetrics.layout-padding ));
+            }
+            if (cpos.y + viewport-y < StyleMetrics.layout-padding) {
+                viewport-y = min(0px, max(parent.visible-height - height,  - cpos.y + StyleMetrics.layout-padding ));
+            } else if (cpos.y + viewport-y > parent.visible-height - StyleMetrics.layout-padding - 20px) {
+                // FIXME: font-height hardcoded to 20px
+                viewport-y = min(0px, max(parent.visible-height - height,  parent.visible-height - cpos.y - StyleMetrics.layout-padding - 20px));
+            }
+        }
+    }
+}
+
+export AboutSlint := Rectangle {
+    VerticalLayout {
+        padding: 12px;
+        spacing: 8px;
+        alignment: start;
+        t := Text {
+            text: "Made with";
+            font-size: 24px;
+            font-weight: 700;
+            horizontal-alignment: center;
+        }
+        Image {
+            // Hack: try to guess if we should have the logo in black or in white depending in the default text color
+            // If when we make it much brighter it saturates to white, consider the white logo
+            property <color> t_color: t.color;
+            source: t_color.brighter(100%) == Colors.white ? @image-url("slint-logo-dark.svg") : @image-url("slint-logo-light.svg");
+            preferred-width: 256px;
+        }
+        Text {
+            text: "Version 0.2.0\nhttps://sixtyfps.io/";
+            font-size: 10px;
+            horizontal-alignment: center;
+        }
+    }
+}

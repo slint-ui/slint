@@ -1,0 +1,75 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+import { DemoPalette, Page } from "common.slint";
+
+export struct InkLevel := {
+    color: color,
+    level: float,
+}
+
+export InkPage := Page {
+    header: "Ink Level";
+
+    property <[InkLevel]> ink-levels;
+    property <bool> page-visible;
+
+
+    Rectangle {
+        x: (parent.width - width) / 2;
+        y: (parent.height - height) / 2;
+        height: 75%;
+        width: 50%;
+
+        HorizontalLayout {
+            spacing: root.width * 5%;
+            for color-info in ink-levels : Rectangle {
+                ink := Rectangle {
+                    width: parent.width;
+                    height: parent.height * color-info.level;
+                    y: parent.height - self.height;
+                    clip: true;
+                    Rectangle {
+                        background: color-info.color;
+                        border-radius: width / 2;
+                        border-width: 2px;
+                        height: parent.height + parent.y;
+                        y: -parent.y;
+                    }
+                    states [
+                        innactive when !root.page-visible : {
+                            height: 0;
+                        }
+                    ]
+                    transitions [
+                        out innactive : {
+                            animate height { duration: 750ms; easing: ease-in-out; }
+                        }
+                        in innactive : {
+                            animate height { duration: 200ms; easing: ease-in; }
+                        }
+                    ]
+                }
+
+                Rectangle {
+                    y: max(ink.y - height, 0phx);
+                    height: 2px;
+                    // w = 2*sqrt(r² - (max(0, min(r-y , y-h+r)))²)
+                    property <length> r: (parent.width - height) / 2;
+                    property <length> y2: max(0phx, max(r - y, y - parent.height + r));
+                    width: 2*sqrt((r*r - y2*y2)/(1phx * 1phx))*1phx;  // FIXME: it would be nice if sqrt could do proper unit handling
+                    x: (parent.width - width) / 2;
+                    background: DemoPalette.neutral-box;
+                }
+
+                Rectangle {
+                    border-radius: width / 2;
+                    border-color: DemoPalette.neutral-box;
+                    border-width: 2px;
+                }
+            }
+        }
+
+    }
+
+}

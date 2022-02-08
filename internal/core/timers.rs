@@ -37,19 +37,19 @@ pub enum TimerMode {
 /// [`Timer::single_shot`] if you just want to call a function with a delay and do not
 /// need to be able to stop it.
 ///
-/// Note: the timer can only be used in the thread that runs the sixtyfps event loop.
+/// Note: the timer can only be used in the thread that runs the Slint event loop.
 /// They will not fire if used in another thread.
 ///
 /// ## Example
 /// ```rust,no_run
-/// # sixtyfps_rendering_backend_testing::init();
-/// use sixtyfps::{Timer, TimerMode};
+/// # i_slint_backend_testing::init();
+/// use slint::{Timer, TimerMode};
 /// let timer = Timer::default();
 /// timer.start(TimerMode::Repeated, std::time::Duration::from_millis(200), move || {
 ///    println!("This will be printed every 200ms.");
 /// });
 /// // ... more initialization ...
-/// sixtyfps::run_event_loop();
+/// slint::run_event_loop();
 /// ```
 #[derive(Default)]
 pub struct Timer {
@@ -92,8 +92,8 @@ impl Timer {
     ///
     /// ## Example
     /// ```rust
-    /// # sixtyfps_rendering_backend_testing::init();
-    /// use sixtyfps::Timer;
+    /// # i_slint_backend_testing::init();
+    /// use slint::Timer;
     /// Timer::single_shot(std::time::Duration::from_millis(200), move || {
     ///    println!("This will be printed after 200ms.");
     /// });
@@ -369,9 +369,9 @@ pub(crate) mod ffi {
     /// Start a timer with the given mode, duration in millisecond and callback. A timer id may be provided (first argument).
     /// A value of -1 for the timer id means a new timer is to be allocated.
     /// The (new) timer id is returned.
-    /// The timer MUST be destroyed with sixtyfps_timer_destroy.
+    /// The timer MUST be destroyed with slint_timer_destroy.
     #[no_mangle]
-    pub extern "C" fn sixtyfps_timer_start(
+    pub extern "C" fn slint_timer_start(
         id: i64,
         mode: TimerMode,
         duration: u64,
@@ -390,7 +390,7 @@ pub(crate) mod ffi {
 
     /// Execute a callback with a delay in millisecond
     #[no_mangle]
-    pub extern "C" fn sixtyfps_timer_singleshot(
+    pub extern "C" fn slint_timer_singleshot(
         delay: u64,
         callback: extern "C" fn(*mut c_void),
         user_data: *mut c_void,
@@ -402,7 +402,7 @@ pub(crate) mod ffi {
 
     /// Stop a timer and free its raw data
     #[no_mangle]
-    pub extern "C" fn sixtyfps_timer_destroy(id: i64) {
+    pub extern "C" fn slint_timer_destroy(id: i64) {
         if id == -1 {
             return;
         }
@@ -412,7 +412,7 @@ pub(crate) mod ffi {
 
     /// Stop a timer
     #[no_mangle]
-    pub extern "C" fn sixtyfps_timer_stop(id: i64) {
+    pub extern "C" fn slint_timer_stop(id: i64) {
         if id == -1 {
             return;
         }
@@ -423,7 +423,7 @@ pub(crate) mod ffi {
 
     /// Restart a repeated timer
     #[no_mangle]
-    pub extern "C" fn sixtyfps_timer_restart(id: i64) {
+    pub extern "C" fn slint_timer_restart(id: i64) {
         if id == -1 {
             return;
         }
@@ -434,7 +434,7 @@ pub(crate) mod ffi {
 
     /// Returns true if the timer is running; false otherwise.
     #[no_mangle]
-    pub extern "C" fn sixtyfps_timer_running(id: i64) -> bool {
+    pub extern "C" fn slint_timer_running(id: i64) -> bool {
         if id == -1 {
             return false;
         }

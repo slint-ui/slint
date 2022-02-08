@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "sixtyfps-corelib-macros"
+name = "i-slint-core-macros"
 version = "0.2.0"
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
-description = "Helper macro for sixtyfps-corelib"
+description = "Helper macro for i-slint-core"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 

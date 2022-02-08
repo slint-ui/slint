@@ -4,10 +4,10 @@
 [package]
 name = "src"
 version = "0.2.0"
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
-description = "Binaries for Rust version of Memory Tutorial of SixtyFPS"
+description = "Binaries for Rust version of Memory Tutorial of Slint"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 publish = false
@@ -37,5 +37,5 @@ name = "memory_tutorial_game_logic_in_rust"
 path = "main_game_logic_in_rust.rs"
 
 [dependencies]
-sixtyfps = { path = "../../../../api/sixtyfps-rs" }
+slint = { path = "../../../../api/rs/slint" }
 rand = "0.8"

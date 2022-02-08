@@ -5,19 +5,20 @@
 
 #include <ctime>
 
-struct InkLevelModel : sixtyfps::Model<InkLevel>
+struct InkLevelModel : slint::Model<InkLevel>
 {
     int row_count() const override { return m_data.size(); }
-    std::optional<InkLevel> row_data(int i) const override {
+    std::optional<InkLevel> row_data(int i) const override
+    {
         if (i < row_count())
             return { m_data[i] };
         return {};
     }
 
-    std::vector<InkLevel> m_data = { { sixtyfps::Color::from_rgb_uint8(255, 255, 0), 0.9 },
-                                     { sixtyfps::Color::from_rgb_uint8(0, 255, 255), 0.5 },
-                                     { sixtyfps::Color::from_rgb_uint8(255, 0, 255), 0.8 },
-                                     { sixtyfps::Color::from_rgb_uint8(0, 0, 0), 0.1 } };
+    std::vector<InkLevel> m_data = { { slint::Color::from_rgb_uint8(255, 255, 0), 0.9 },
+                                     { slint::Color::from_rgb_uint8(0, 255, 255), 0.5 },
+                                     { slint::Color::from_rgb_uint8(255, 0, 255), 0.8 },
+                                     { slint::Color::from_rgb_uint8(0, 0, 0), 0.1 } };
 };
 
 int main()
@@ -26,15 +27,14 @@ int main()
     printer_demo->set_ink_levels(std::make_shared<InkLevelModel>());
     printer_demo->on_quit([] { std::exit(0); });
 
-
-    auto printer_queue = std::make_shared<sixtyfps::VectorModel<PrinterQueueItem>>();
+    auto printer_queue = std::make_shared<slint::VectorModel<PrinterQueueItem>>();
     auto default_queue = printer_demo->global<PrinterQueue>().get_printer_queue();
     for (int i = 0; i < default_queue->row_count(); ++i) {
         printer_queue->push_back(*default_queue->row_data(i));
     }
     printer_demo->global<PrinterQueue>().set_printer_queue(printer_queue);
 
-    printer_demo->global<PrinterQueue>().on_start_job([=](sixtyfps::SharedString name) {
+    printer_demo->global<PrinterQueue>().on_start_job([=](slint::SharedString name) {
         std::time_t now = std::chrono::system_clock::to_time_t(std::chrono::system_clock::now());
         char time_buf[100] = { 0 };
         std::strftime(time_buf, sizeof(time_buf), "%H:%M:%S %d/%m/%Y", std::localtime(&now));
@@ -52,7 +52,7 @@ int main()
     printer_demo->global<PrinterQueue>().on_cancel_job(
             [=](int index) { printer_queue->erase(int(index)); });
 
-    sixtyfps::Timer printer_queue_progress_timer(std::chrono::seconds(1), [=]() {
+    slint::Timer printer_queue_progress_timer(std::chrono::seconds(1), [=]() {
         if (printer_queue->row_count() > 0) {
             auto top_item = *printer_queue->row_data(0);
             top_item.progress += 1;

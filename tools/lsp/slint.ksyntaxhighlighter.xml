@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- Copyright © SixtyFPS GmbH <info@sixtyfps.io> -->
+<!-- # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial) -->
+
+<language name="Slint" version="1" kateversion="5.0" section="Sources" extensions="*.slint" mimetype="text/sixtyfps" indenter="cstyle" license="GPL" author="info@sixtyfps.io" priority="6">
+<highlighting>
+    <list name="types">
+      <item>int</item>
+      <item>float</item>
+      <item>duration</item>
+      <item>string</item>
+      <item>image</item>
+      <item>brush</item>
+      <item>color</item>
+      <item>length</item>
+      <item>logical_length</item>
+    </list>
+    <list name="keywords">
+      <item>import</item>
+      <item>from</item>
+      <item>export</item>
+      <item>global</item>
+      <item>property</item>
+      <item>callback</item>
+      <item>animate</item>
+      <item>states</item>
+      <item>transitions</item>
+      <item>if</item>
+      <item>for</item>
+      <item>return</item>
+    </list>
+  <contexts>
+    <context attribute="Normal Text" lineEndContext="#stay" name="Normal Text">
+      <RegExpr attribute="Property" context="#stay" String="[a-zA-Z_][a-zA-Z_\-0-9]*:" />
+      <RegExpr attribute="Property" context="#stay" String="[a-zA-Z_][a-zA-Z_\-0-9]* *&lt;?=>" />
+      <RegExpr attribute="Color" context="#stay" String="#[0-9a-fA-F]+" />
+      <keyword attribute="Types" context="#stay" String="types" />
+      <keyword attribute="Keyword" context="#stay" String="keywords" />
+      <DetectSpaces/>
+      <IncludeRules context="Comments"/>
+      <DetectChar attribute="String" context="string" char="&quot;" />
+      <RegExpr attribute="Number" context="#stay" String="[0-9]+\.?[0-9]*[a-z%]*" />
+      <AnyChar attribute="Symbol" context="#stay" String="!%&amp;()+,-/*&lt;=&gt;?[]&amp;|;"/>
+
+
+    </context>
+
+    <context attribute="String" lineEndContext="#stay" name="string" >
+      <IncludeRules context="EscapeString" />
+      <DetectChar attribute="String" context="#pop" char="&quot;" />
+    </context>
+    <context attribute="Normal Text" lineEndContext="#stay" name="EscapeString">
+        <LineContinue attribute="String" context="#stay" />
+        <DetectChar attribute="String" context="Character Escape" char="\" />
+      </context>
+      <context attribute="String" lineEndContext="#pop" name="Character Escape">
+        <RegExpr attribute="String" context="#pop" String="." />
+      </context>
+
+
+    <context attribute="Normal Text" lineEndContext="#stay" name="Comments">
+      <Detect2Chars char="/" char1="/" attribute="Comment" context="CommentsLine"/>
+      <Detect2Chars char="/" char1="*" attribute="Comment" context="CommentsBlock" beginRegion="Comment"/>
+    </context>
+    <context attribute="Comment" lineEndContext="#pop" name="CommentsLine">
+      <DetectSpaces/>
+    </context>
+    <context attribute="Comment" lineEndContext="#stay" name="CommentsBlock">
+      <DetectSpaces/>
+      <Detect2Chars char="/" char1="*" attribute="Comment" context="CommentsBlock" beginRegion="Comment"/>
+      <Detect2Chars char="*" char1="/" attribute="Comment" context="#pop" endRegion="Comment"/>
+    </context>
+  </contexts>
+   <itemDatas>
+      <itemData name="Normal Text" defStyleNum="dsNormal" />
+      <itemData name="Keyword" defStyleNum="dsKeyword" />
+      <itemData name="String" defStyleNum="dsString" />
+      <itemData name="Types" defStyleNum="dsDataType" />
+      <itemData name="Comment" defStyleNum="dsComment" />
+      <itemData name="Number" defStyleNum="dsFloat" />
+      <itemData name="Symbol" defStyleNum="dsOperator" />
+      <itemData name="Property" defStyleNum="dsVariable" />
+      <itemData name="Color" defStyleNum="dsConstant" />
+
+    </itemDatas>
+</highlighting>
+<general>
+  <comments>
+    <comment name="singleLine" start="//" />
+    <comment name="multiLine" start="/*" end="*/" region="Comment"/>
+  </comments>
+  <keywords casesensitive="1" />
+</general>
+</language>

@@ -1,18 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-/*!
-    This crate contains the internal procedural macros
-    used by the sixtyfps-corelib crate
-
-**NOTE**: This library is an **internal** crate for the [SixtyFPS project](https://sixtyfps.io).
-This crate should **not be used directly** by applications using SixtyFPS.
-You should use the `sixtyfps` crate instead.
-
-**WARNING**: This crate does not follow the semver convention for versioning and can
-only be used with `version = "=x.y.z"` in Cargo.toml.
-
-*/
+#![doc = include_str!("README.md")]
+#![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 
 extern crate proc_macro;
 use proc_macro::TokenStream;
@@ -24,8 +14,8 @@ use quote::quote;
 /// with the interpreter.
 /// In addition all `Property<T> foo` fields get a convenient getter function generated
 /// that works on a `Pin<&Self>` receiver.
-#[proc_macro_derive(SixtyFPSElement, attributes(rtti_field))]
-pub fn sixtyfps_element(input: TokenStream) -> TokenStream {
+#[proc_macro_derive(SlintElement, attributes(rtti_field))]
+pub fn slint_element(input: TokenStream) -> TokenStream {
     let input = syn::parse_macro_input!(input as syn::DeriveInput);
 
     let fields = match &input.data {

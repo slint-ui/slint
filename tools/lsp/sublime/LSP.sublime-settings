@@ -1,20 +1,20 @@
 {
 	"clients":
 	{
-		"sixtyfps":
+		"slint":
 		{
 			"command":
 			[
-				"/home/YOUR_USER/.cargo/bin/sixtyfps-lsp"
+				"/home/YOUR_USER/.cargo/bin/slint-lsp"
 			],
-			"languageId": "sixtyfps",
+			"languageId": "slint",
 			"scopes":
 			[
-				"source.sixtyfps"
+				"source.slint"
 			],
 			"syntaxes":
 			[
-				"Packages/User/SixtyFPS.sublime-syntax"
+				"Packages/User/Slint.sublime-syntax"
 			]
 		}
 	}

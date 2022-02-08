@@ -1,13 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-//! This wasm library can be loaded from JS to load and display the content of .60 files
+//! This wasm library can be loaded from JS to load and display the content of .slint files
 #![cfg(target_arch = "wasm32")]
 
 use std::path::Path;
 use wasm_bindgen::prelude::*;
 
-use sixtyfps_interpreter::ComponentHandle;
+use slint_interpreter::ComponentHandle;
 
 #[cfg(feature = "wee_alloc")]
 #[global_allocator]
@@ -60,7 +60,7 @@ pub async fn compile_from_string_with_style(
     #[cfg(feature = "console_error_panic_hook")]
     console_error_panic_hook::set_once();
 
-    let mut compiler = sixtyfps_interpreter::ComponentCompiler::default();
+    let mut compiler = slint_interpreter::ComponentCompiler::default();
     if !style.is_empty() {
         compiler.set_style(style)
     }
@@ -105,7 +105,7 @@ pub async fn compile_from_string_with_style(
         let filename_js = JsValue::from_str(&filename);
         let (line, column) = d.line_column();
 
-        if d.level() == sixtyfps_interpreter::DiagnosticLevel::Error {
+        if d.level() == slint_interpreter::DiagnosticLevel::Error {
             if !error_as_string.is_empty() {
                 error_as_string.push_str("\n");
             }
@@ -132,7 +132,7 @@ pub async fn compile_from_string_with_style(
 
 #[wasm_bindgen]
 #[derive(Clone)]
-pub struct WrappedCompiledComp(sixtyfps_interpreter::ComponentDefinition);
+pub struct WrappedCompiledComp(slint_interpreter::ComponentDefinition);
 
 #[wasm_bindgen]
 impl WrappedCompiledComp {

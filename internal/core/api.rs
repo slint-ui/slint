@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 /*!
-This module contains types that are public and re-exported in the sixtyfps-rs as well as the sixtyfps-interpreter crate as public API.
+This module contains types that are public and re-exported in the slint-rs as well as the slint-interpreter crate as public API.
 */
 
 use std::rc::Rc;
@@ -10,7 +10,7 @@ use std::rc::Rc;
 use crate::component::ComponentVTable;
 use crate::window::WindowRc;
 
-/// This enum describes a low-level access to specific graphcis APIs used
+/// This enum describes a low-level access to specific graphics APIs used
 /// by the renderer.
 #[derive(Clone)]
 #[non_exhaustive]
@@ -76,7 +76,7 @@ impl<F: FnMut(RenderingState, &GraphicsAPI)> RenderingNotifier for F {
 }
 
 /// This enum describes the different error scenarios that may occur when the applicaton
-/// registers a rendering notifier on a [`sixtyfps::Window`].
+/// registers a rendering notifier on a [`slint::Window`].
 #[derive(Debug, Clone)]
 #[repr(C)]
 #[non_exhaustive]
@@ -139,17 +139,17 @@ impl crate::window::WindowHandleAccess for Window {
         &self.0
     }
 }
-/// This trait is used to obtain references to global singletons exported in `.60`
+/// This trait is used to obtain references to global singletons exported in `.slint`
 /// markup. Alternatively, you can use [`ComponentHandle::global`] to obtain access.
 ///
 /// This trait is implemented by the compiler for each global singleton that's exported.
 ///
 /// # Example
-/// The following example of `.60` markup defines a global singleton called `Palette`, exports
+/// The following example of `.slint` markup defines a global singleton called `Palette`, exports
 /// it and modifies it from Rust code:
 /// ```rust
-/// # sixtyfps_rendering_backend_testing::init();
-/// sixtyfps::sixtyfps!{
+/// # i_slint_backend_testing::init();
+/// slint::slint!{
 /// export global Palette := {
 ///     property<color> foreground-color;
 ///     property<color> background-color;
@@ -165,10 +165,10 @@ impl crate::window::WindowHandleAccess for Window {
 /// }
 /// }
 /// let app = App::new();
-/// app.global::<Palette>().set_background_color(sixtyfps::Color::from_rgb_u8(0, 0, 0));
+/// app.global::<Palette>().set_background_color(slint::Color::from_rgb_u8(0, 0, 0));
 ///
 /// // alternate way to access the global singleton:
-/// Palette::get(&app).set_foreground_color(sixtyfps::Color::from_rgb_u8(255, 255, 255));
+/// Palette::get(&app).set_foreground_color(slint::Color::from_rgb_u8(255, 255, 255));
 /// ```
 ///
 /// See also the [language reference for global singletons](docs/langref/index.html#global-singletons) for more information.
@@ -177,7 +177,7 @@ pub trait Global<'a, Component> {
     fn get(component: &'a Component) -> Self;
 }
 
-/// This trait describes the common public API of a strongly referenced SixtyFPS component.
+/// This trait describes the common public API of a strongly referenced Slint component.
 /// It allows creating strongly-referenced clones, a conversion into/ a weak pointer as well
 /// as other convenience functions.
 ///
@@ -218,8 +218,8 @@ pub trait ComponentHandle {
     /// and [`Self::hide`].
     fn run(&self);
 
-    /// This function provides access to instances of global singletons exported in `.60`.
-    /// See [`Global`] for an example how to export and access globals from `.60` markup.
+    /// This function provides access to instances of global singletons exported in `.slint`.
+    /// See [`Global`] for an example how to export and access globals from `.slint` markup.
     fn global<'a, T: Global<'a, Self>>(&'a self) -> T
     where
         Self: Sized;
@@ -229,7 +229,7 @@ mod weak_handle {
 
     use super::*;
 
-    /// Struct that's used to hold weak references of [SixtyFPS component](mod@crate#generated-components)
+    /// Struct that's used to hold weak references of a [Slint component](mod@crate#generated-components)
     ///
     /// In order to create a Weak, you should use [`ComponentHandle::as_weak`].
     ///
@@ -301,8 +301,8 @@ mod weak_handle {
         ///
         /// # Example
         /// ```rust
-        /// # sixtyfps_rendering_backend_testing::init();
-        /// sixtyfps::sixtyfps! { MyApp := Window { property <int> foo; /* ... */ } }
+        /// # i_slint_backend_testing::init();
+        /// slint::slint! { MyApp := Window { property <int> foo; /* ... */ } }
         /// let handle = MyApp::new();
         /// let handle_weak = handle.as_weak();
         /// let thread = std::thread::spawn(move || {
@@ -345,15 +345,15 @@ pub use weak_handle::*;
 /// running the event loop. The provided functors will only be invoked from the thread
 /// that started the event loop.
 ///
-/// You can use this to set properties or use any other SixtyFPS APIs from other threads,
+/// You can use this to set properties or use any other Slint APIs from other threads,
 /// by collecting the code in a functor and queuing it up for invocation within the event loop.
 ///
 /// See also [`Weak::upgrade_in_event_loop`]
 ///
 /// # Example
 /// ```rust
-/// sixtyfps::sixtyfps! { MyApp := Window { property <int> foo; /* ... */ } }
-/// # sixtyfps_rendering_backend_testing::init();
+/// slint::slint! { MyApp := Window { property <int> foo; /* ... */ } }
+/// # i_slint_backend_testing::init();
 /// let handle = MyApp::new();
 /// let handle_weak = handle.as_weak();
 /// let thread = std::thread::spawn(move || {
@@ -361,7 +361,7 @@ pub use weak_handle::*;
 ///     let foo = 42;
 ///      // now forward the data to the main thread using invoke_from_event_loop
 ///     let handle_copy = handle_weak.clone();
-///     sixtyfps::invoke_from_event_loop(move || handle_copy.unwrap().set_foo(foo));
+///     slint::invoke_from_event_loop(move || handle_copy.unwrap().set_foo(foo));
 /// });
 /// # thread.join().unwrap(); return; // don't run the event loop in examples
 /// handle.run();
@@ -370,6 +370,6 @@ pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) {
     if let Some(backend) = crate::backend::instance() {
         backend.post_event(alloc::boxed::Box::new(func))
     } else {
-        panic!("sixtyfps::invoke_from_event_loop() must be called after the SixtyFPS backend is initialized.")
+        panic!("slint::invoke_from_event_loop() must be called after the Slint backend is initialized.")
     }
 }

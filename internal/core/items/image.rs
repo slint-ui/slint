@@ -21,7 +21,7 @@ use crate::window::WindowRc;
 use crate::{Brush, Property};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
-use sixtyfps_corelib_macros::*;
+use i_slint_core_macros::*;
 
 #[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
 #[repr(C)]
@@ -53,7 +53,7 @@ impl Default for ImageRendering {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 /// The implementation of the `Image` element
 pub struct ImageItem {
@@ -125,7 +125,7 @@ impl ItemConsts for ImageItem {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 /// The implementation of the `ClippedImage` element
 pub struct ClippedImage {

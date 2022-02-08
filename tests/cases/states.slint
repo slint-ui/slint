@@ -1,0 +1,105 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+
+
+SubSubComp := Rectangle {
+    property <bool> active;
+    property <int> value: 10;
+    states [
+        active when active : {
+            value: 150;
+        }
+    ]
+}
+
+SubComp := SubSubComp {
+    states [
+        foobar when active : {
+            r.background: red;
+        }
+    ]
+
+    r := Rectangle {}
+}
+
+TestCase := Rectangle {
+    property<int> top_level: 4;
+    property<int> active_index: 0;
+    property<int> some_prop: 5;
+    text1 := Text {
+        text: "hello";
+        property<int> foo: 85 + top_level;
+    }
+
+    states [
+        xxx when active_index == 1 : {
+            text1.text: "world";
+            text1.foo: 3 + 2 * top_level;
+            some_prop: 8;
+        }
+        yyy when active_index == 2 : {
+            text1.foo: 9;
+        }
+    ]
+
+    property<int> text1_foo: text1.foo;
+
+    for xx in [1, 2] : Rectangle {
+        states [
+            foo when xx == 1 : {
+                height: top_level * 1phx;
+            }
+        ]
+
+    }
+
+    sc := SubComp {
+        active: active_index == 1;
+    }
+    property <int> subcomp: sc.value;
+
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_text1_foo(), 85 + 4);
+assert_eq(instance.get_some_prop(), 5);
+assert_eq(instance.get_subcomp(), 10);
+instance.set_active_index(1);
+assert_eq(instance.get_text1_foo(), 3 + 2 * 4);
+assert_eq(instance.get_some_prop(), 8);
+instance.set_top_level(1);
+assert_eq(instance.get_text1_foo(), 3 + 2);
+assert_eq(instance.get_subcomp(), 150);
+```
+
+
+```rust
+let instance = TestCase::new();
+assert_eq!(instance.get_text1_foo(), 85 + 4);
+assert_eq!(instance.get_some_prop(), 5);
+assert_eq!(instance.get_subcomp(), 10);
+instance.set_active_index(1);
+assert_eq!(instance.get_text1_foo(), 3 + 2 * 4);
+assert_eq!(instance.get_some_prop(), 8);
+instance.set_top_level(1);
+assert_eq!(instance.get_text1_foo(), 3 + 2);
+assert_eq!(instance.get_subcomp(), 150);
+
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.text1_foo, 85 + 4);
+assert.equal(instance.some_prop, 5);
+instance.active_index = 1;
+assert.equal(instance.text1_foo, 3 + 2 * 4);
+assert.equal(instance.some_prop, 8);
+instance.top_level = 1;
+assert.equal(instance.text1_foo, 3 + 2);
+```
+*/

@@ -4,7 +4,7 @@
 use super::*;
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeCheckBox {
     pub x: Property<f32>,
@@ -61,7 +61,7 @@ impl Item for NativeCheckBox {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &WindowRc,
-        _self_rc: &sixtyfps_corelib::items::ItemRc,
+        _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
@@ -117,5 +117,5 @@ impl ItemConsts for NativeCheckBox {
 }
 
 declare_item_vtable! {
-    fn sixtyfps_get_NativeCheckBoxVTable() -> NativeCheckBoxVTable for NativeCheckBox
+    fn slint_get_NativeCheckBoxVTable() -> NativeCheckBoxVTable for NativeCheckBox
 }

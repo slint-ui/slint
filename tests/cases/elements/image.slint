@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+//include_path: ../../../examples/printerdemo/ui/images/
+
+TestCase := Rectangle {
+    img := Image {
+        source: @image-url("cat.jpg");
+    }
+    property <length> img_width: img.width;
+    property <length> img_height: img.height;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_img_width(), 320.);
+assert_eq(instance.get_img_height(), 480.);
+```
+
+
+```rust
+let instance = TestCase::new();
+
+assert_eq!(instance.get_img_width(), 320.);
+assert_eq!(instance.get_img_height(), 480.);
+```
+
+```js
+var instance = new slint.TestCase();
+
+
+assert.equal(instance.img_width, 320);
+assert.equal(instance.img_height, 480);
+```
+*/

@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+ TestCase := Rectangle {
+    property<angle> t1: atan(0);
+    property<angle> t2: atan((1/3) * sqrt(3));
+    property<angle> t3: atan(1);
+    property<angle> t4: atan(sqrt(3));
+}
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(std::abs(instance.get_t1()) < 0.0001);
+assert(std::abs(instance.get_t2() - 30.0) < 0.0001);
+assert(std::abs(instance.get_t3() - 45.0) < 0.0001);
+assert(std::abs(instance.get_t4() - 60.0) < 0.0001);
+```
+
+```rust
+let instance = TestCase::new();
+assert!(instance.get_t1().abs() < 0.0001);
+assert!((instance.get_t2() - 30.0).abs() < 0.0001);
+assert!((instance.get_t3() - 45.0).abs() < 0.0001);
+assert!((instance.get_t4() - 60.0).abs() < 0.0001);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.t1, 0);
+assert.equal(instance.t2, 30);
+assert.equal(instance.t3, 45);
+assert.equal(instance.t4, 60);
+```
+*/

@@ -21,7 +21,7 @@ use corelib::items::{ItemRef, MouseCursor};
 use corelib::layout::Orientation;
 use corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation};
 use corelib::Property;
-use sixtyfps_corelib as corelib;
+use i_slint_core as corelib;
 use winit::dpi::LogicalSize;
 
 use crate::CanvasRc;
@@ -360,7 +360,7 @@ impl PlatformWindow for GLWindow {
         }
     }
 
-    fn apply_window_properties(&self, window_item: Pin<&sixtyfps_corelib::items::WindowItem>) {
+    fn apply_window_properties(&self, window_item: Pin<&i_slint_core::items::WindowItem>) {
         // Make the unwrap() calls on self.borrow_mapped_window*() safe
         if !self.is_mapped() {
             return;
@@ -396,19 +396,19 @@ impl PlatformWindow for GLWindow {
                 window_item.height() == 0. && window_item.width() == 0.,
             )
         } else {
-            ("SixtyFPS Window".to_string(), false, true)
+            ("Slint Window".to_string(), false, true)
         };
 
         let window_builder = winit::window::WindowBuilder::new()
             .with_title(window_title)
             .with_resizable(is_resizable);
 
-        let scale_factor_override = std::env::var("SIXTYFPS_SCALE_FACTOR")
+        let scale_factor_override = std::env::var("SLINT_SCALE_FACTOR")
             .ok()
             .and_then(|x| x.parse::<f64>().ok())
             .filter(|f| *f > 0.);
 
-        let window_builder = if std::env::var("SIXTYFPS_FULLSCREEN").is_ok() {
+        let window_builder = if std::env::var("SLINT_FULLSCREEN").is_ok() {
             window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
         } else {
             let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
@@ -574,7 +574,7 @@ impl PlatformWindow for GLWindow {
 
     fn text_input_byte_offset_for_position(
         &self,
-        text_input: Pin<&sixtyfps_corelib::items::TextInput>,
+        text_input: Pin<&i_slint_core::items::TextInput>,
         pos: Point,
     ) -> usize {
         let scale_factor = self.self_weak.upgrade().unwrap().scale_factor();
@@ -607,7 +607,7 @@ impl PlatformWindow for GLWindow {
             Size::new(width, height),
             (text_input.horizontal_alignment(), text_input.vertical_alignment()),
             text_input.wrap(),
-            sixtyfps_corelib::items::TextOverflow::clip,
+            i_slint_core::items::TextOverflow::clip,
             text_input.single_line(),
             paint,
             |line_text, line_pos, start, metrics| {
@@ -659,7 +659,7 @@ impl PlatformWindow for GLWindow {
             Size::new(width, height),
             (text_input.horizontal_alignment(), text_input.vertical_alignment()),
             text_input.wrap(),
-            sixtyfps_corelib::items::TextOverflow::clip,
+            i_slint_core::items::TextOverflow::clip,
             text_input.single_line(),
             paint,
             |line_text, line_pos, start, metrics| {

@@ -1,0 +1,28 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+import { LineEdit, HorizontalBox } from "std-widgets.slint";
+
+TempConv := Window {
+    preferred-height: 64px;
+    layout := HorizontalBox {
+        c := LineEdit {
+            text: "0";
+            edited(text) => {
+                if (text.is-float()) {
+                    f.text = (text.to-float() * 9 / 5) + 32;
+                }
+            }
+        }
+        Text { text: "Celcius = "; }
+        f := LineEdit {
+            text: "32";
+            edited(text) => {
+                if (text.is-float()) {
+                    c.text = (text.to-float() - 32) * (5 / 9);
+                }
+            }
+        }
+        Text { text: "Fahrenheit"; }
+    }
+}

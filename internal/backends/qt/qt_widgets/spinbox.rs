@@ -11,7 +11,7 @@ struct NativeSpinBoxData {
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeSpinBox {
     pub x: Property<f32>,
@@ -111,7 +111,7 @@ impl Item for NativeSpinBox {
         self: Pin<&Self>,
         event: MouseEvent,
         _window: &WindowRc,
-        _self_rc: &sixtyfps_corelib::items::ItemRc,
+        _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
         let enabled = self.enabled();
@@ -232,5 +232,5 @@ impl ItemConsts for NativeSpinBox {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeSpinBoxVTable() -> NativeSpinBoxVTable for NativeSpinBox
+fn slint_get_NativeSpinBoxVTable() -> NativeSpinBoxVTable for NativeSpinBox
 }

@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+import { LineEdit, Button, ComboBox, VerticalBox } from "std-widgets.slint";
+
+Booker := Window {
+    // returns true if the string parameter is a valid date
+    callback validate-date(string) -> bool;
+    validate-date(_) => { true }
+    // returns true if the first date is before the second date and they are both valid
+    callback compare-date(string, string) -> bool;
+    compare-date(a, b) => { a <= b }
+    property <bool> message-visible;
+    VerticalBox {
+        combo := ComboBox {
+            model: ["one-way flight", "return flight"];
+            current-value: "one-way flight";
+            current-index: 0;
+        }
+        t1 := LineEdit {
+            text: "27.03.2014";
+            Rectangle {
+                width: 100%;
+                height: 100%;
+                background: validate-date(t1.text) ? transparent : #f008;
+            }
+        }
+        t2 := LineEdit {
+            text: "27.03.2014";
+            enabled: combo.current-index == 1;
+            Rectangle {
+                width: 100%;
+                height: 100%;
+                background: validate-date(t2.text) ? transparent : #f008;
+            }
+        }
+        Button {
+            text: "Book";
+            clicked() => { message-visible = true; }
+            enabled: combo.current-index != 1 ? validate-date(t1.text) : compare-date(t1.text, t2.text);
+        }
+    }
+    if (message-visible) : Rectangle {
+        width: 100%;
+        height: 100%;
+        background: #ee8;
+        Text {
+            width: 100%;
+            height: 100%;
+            text: "You have booked a " + combo.current-value + " on " + t1.text;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+        }
+        TouchArea {
+            width: 100%;
+            height: 100%;
+            clicked => { message-visible = false; }
+        }
+    }
+}

@@ -1,0 +1,32 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+import { LineEdit, Button, Slider, StandardListView, GridBox, HorizontalBox } from "std-widgets.slint";
+
+Crud := Window {
+
+    GridBox {
+        Text { text: "Filter prefix:"; }
+        LineEdit {}
+
+        StandardListView {
+            row: 1;
+            rowspan: 3;
+            colspan: 2;
+            model: [{ text: "Emil, Hans"}, {text: "Mustermann, Max"}, {text: "Tisch Roman"}];
+        }
+
+        Text { col: 2; row: 1; text: "Name: "; }
+        LineEdit { text: "John"; }
+        Text { col: 2; row: 2; text: "Surename: "; }
+        LineEdit { text: "Romba"; }
+
+        HorizontalBox {
+            alignment: start;
+            Button { text: "Create"; }
+            Button { text: "Update"; }
+            Button { text: "Delete"; }
+        }
+
+    }
+}

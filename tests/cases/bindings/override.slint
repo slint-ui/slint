@@ -1,0 +1,49 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+Compo := Text {
+    property <int> prop_a: 10;
+    property <int> prop_b;
+    prop_b: 20;
+    text: "hello";
+}
+
+TestCase := Rectangle {
+    property <string> text: "ignore_me";
+    c := Compo {
+        prop_a: 1;
+        prop_b: 2;
+        text: "world";
+    }
+
+    property<int> prop_a: c.prop_a;
+    property<int> prop_b: c.prop_b;
+    property<string> prop_text: c.text;
+
+    property<bool> test: prop_a == 1 && prop_b == 2 && prop_text == "world";
+}
+
+/*
+```rust
+let instance = TestCase::new();
+assert_eq!(instance.get_prop_a(), 1);
+assert_eq!(instance.get_prop_b(), 2);
+assert_eq!(instance.get_prop_text(), slint::SharedString::from("world"));
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_prop_a(), 1);
+assert_eq(instance.get_prop_b(), 2);
+assert_eq(instance.get_prop_text(), slint::SharedString("world"));
+```
+
+```js
+let instance = new slint.TestCase({});
+assert.equal(instance.prop_a, 1);
+assert.equal(instance.prop_b, 2);
+assert.equal(instance.prop_text, "world");
+```
+
+*/

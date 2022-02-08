@@ -1,0 +1,117 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+
+MaybeVisible := Rectangle {
+    width: 10phx;
+    height: 10phx;
+    property <int> touch;
+    Rectangle {
+        background: red;
+        x: 5phx;
+        y: -10phx;
+        width: 15phx;
+        height: 15phx;
+        TouchArea {
+            clicked => { touch+=1; }
+        }
+    }
+}
+
+TestCase := Rectangle {
+    height: 100phx;
+    width: 100phx;
+    property <int> touch1 <=> el1.touch;
+    property <int> touch2 <=> el2.touch;
+    property <bool> el1visible;
+
+    el1 := MaybeVisible {
+        visible <=> el1visible;
+        x: 10phx;
+        y: 10phx;
+    }
+
+    el2 := MaybeVisible {
+        visible: false;
+        x: 30phx;
+        y: 30phx;
+    }
+
+    test_rect := Rectangle { }
+    property <bool> test: test_rect.visible && !el2.visible && el1.visible;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_test(), true);
+assert_eq(instance.get_el1visible(), true);
+
+// el2 !visible, outside
+slint::testing::send_mouse_click(&instance, 37., 27.);
+assert_eq(instance.get_touch1(), 0);
+assert_eq(instance.get_touch2(), 0);
+
+// el2 !visible, inside
+slint::testing::send_mouse_click(&instance, 37., 33.);
+assert_eq(instance.get_touch1(), 0);
+assert_eq(instance.get_touch2(), 0);
+
+
+// el1 visible, outside
+slint::testing::send_mouse_click(&instance, 17., 7.);
+assert_eq(instance.get_touch1(), 1);
+assert_eq(instance.get_touch2(), 0);
+
+// el1 visible, inside
+slint::testing::send_mouse_click(&instance, 17., 13.);
+assert_eq(instance.get_touch1(), 2);
+assert_eq(instance.get_touch2(), 0);
+
+// now makes el invisible
+instance.set_el1visible(false);
+slint::testing::send_mouse_click(&instance, 17., 7.);
+assert_eq(instance.get_touch1(), 2);
+assert_eq(instance.get_touch2(), 0);
+
+```
+
+
+```rust
+let instance = TestCase::new();
+
+
+assert_eq!(instance.get_test(), true);
+assert_eq!(instance.get_el1visible(), true);
+
+// el2 !visible, outside
+slint::testing::send_mouse_click(&instance, 37., 27.);
+assert_eq!(instance.get_touch1(), 0);
+assert_eq!(instance.get_touch2(), 0);
+
+// el2 !visible, inside
+slint::testing::send_mouse_click(&instance, 37., 33.);
+assert_eq!(instance.get_touch1(), 0);
+assert_eq!(instance.get_touch2(), 0);
+
+
+// el1 visible, outside
+slint::testing::send_mouse_click(&instance, 17., 7.);
+assert_eq!(instance.get_touch1(), 1);
+assert_eq!(instance.get_touch2(), 0);
+
+// el1 visible, inside
+slint::testing::send_mouse_click(&instance, 17., 13.);
+assert_eq!(instance.get_touch1(), 2);
+assert_eq!(instance.get_touch2(), 0);
+
+// now makes el invisible
+instance.set_el1visible(false);
+slint::testing::send_mouse_click(&instance, 17., 7.);
+assert_eq!(instance.get_touch1(), 2);
+assert_eq!(instance.get_touch2(), 0);
+```
+
+*/

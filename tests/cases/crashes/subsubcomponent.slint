@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+SubSubCompo := Rectangle { }
+SubCompo := SubSubCompo {}
+
+export TestCase := Window {
+    SubCompo {}
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint::testing::send_mouse_click(&instance, 5., 5.);
+```
+
+```rust
+let instance = TestCase::new();
+slint::testing::send_mouse_click(&instance, 5., 5.);
+```
+
+*/

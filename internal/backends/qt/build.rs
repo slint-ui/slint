@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 fn main() {
-    println!("cargo:rerun-if-env-changed=SIXTYFPS_NO_QT");
+    println!("cargo:rerun-if-env-changed=SLINT_NO_QT");
     if std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm"))
-        || std::env::var("SIXTYFPS_NO_QT").is_ok()
+        || std::env::var("SLINT_NO_QT").is_ok()
     {
         println!("cargo:rustc-cfg=no_qt");
         return;

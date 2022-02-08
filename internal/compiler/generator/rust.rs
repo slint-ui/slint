@@ -38,8 +38,8 @@ fn ident(ident: &str) -> proc_macro2::Ident {
 impl quote::ToTokens for Orientation {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let tks = match self {
-            Orientation::Horizontal => quote!(sixtyfps::re_exports::Orientation::Horizontal),
-            Orientation::Vertical => quote!(sixtyfps::re_exports::Orientation::Vertical),
+            Orientation::Horizontal => quote!(slint::re_exports::Orientation::Horizontal),
+            Orientation::Vertical => quote!(slint::re_exports::Orientation::Vertical),
         };
         tokens.extend(tks);
     }
@@ -49,9 +49,9 @@ impl quote::ToTokens for crate::embedded_resources::PixelFormat {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         use crate::embedded_resources::PixelFormat::*;
         let tks = match self {
-            Rgb => quote!(sixtyfps::re_exports::PixelFormat::Rgb),
-            Rgba => quote!(sixtyfps::re_exports::PixelFormat::Rgba),
-            AlphaMap(_) => quote!(sixtyfps::re_exports::PixelFormat::AlphaMap),
+            Rgb => quote!(slint::re_exports::PixelFormat::Rgb),
+            Rgba => quote!(slint::re_exports::PixelFormat::Rgba),
+            AlphaMap(_) => quote!(slint::re_exports::PixelFormat::AlphaMap),
         };
         tokens.extend(tks);
     }
@@ -61,15 +61,15 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
     match ty {
         Type::Int32 => Some(quote!(i32)),
         Type::Float32 => Some(quote!(f32)),
-        Type::String => Some(quote!(sixtyfps::re_exports::SharedString)),
-        Type::Color => Some(quote!(sixtyfps::re_exports::Color)),
+        Type::String => Some(quote!(slint::re_exports::SharedString)),
+        Type::Color => Some(quote!(slint::re_exports::Color)),
         Type::Duration => Some(quote!(i64)),
         Type::Angle => Some(quote!(f32)),
         Type::PhysicalLength => Some(quote!(f32)),
         Type::LogicalLength => Some(quote!(f32)),
         Type::Percent => Some(quote!(f32)),
         Type::Bool => Some(quote!(bool)),
-        Type::Image => Some(quote!(sixtyfps::re_exports::Image)),
+        Type::Image => Some(quote!(slint::re_exports::Image)),
         Type::Struct { fields, name: None, .. } => {
             let elem = fields.values().map(rust_type).collect::<Option<Vec<_>>>()?;
             // This will produce a tuple
@@ -78,13 +78,13 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Struct { name: Some(name), .. } => Some(struct_name_to_tokens(name)),
         Type::Array(o) => {
             let inner = rust_type(o)?;
-            Some(quote!(sixtyfps::re_exports::ModelRc<#inner>))
+            Some(quote!(slint::re_exports::ModelRc<#inner>))
         }
         Type::Enumeration(e) => {
             let e = ident(&e.name);
-            Some(quote!(sixtyfps::re_exports::#e))
+            Some(quote!(slint::re_exports::#e))
         }
-        Type::Brush => Some(quote!(sixtyfps::Brush)),
+        Type::Brush => Some(quote!(slint::Brush)),
         Type::LayoutCache => Some(quote!(SharedVector<f32>)),
         _ => None,
     }
@@ -122,7 +122,7 @@ pub fn generate(doc: &Document) -> TokenStream {
 
     let compo = generate_public_component(&llr);
     let compo_id = public_component_id(&llr.item_tree.root);
-    let compo_module = format_ident!("sixtyfps_generated_{}", compo_id);
+    let compo_module = format_ident!("slint_generated{}", compo_id);
     let version_check = format_ident!(
         "VersionCheck_{}_{}_{}",
         env!("CARGO_PKG_VERSION_MAJOR"),
@@ -150,17 +150,17 @@ pub fn generate(doc: &Document) -> TokenStream {
                 crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture { data, format, rect, total_size: crate::embedded_resources::Size{width, height} }) => {
                     let (r_x, r_y, r_w, r_h) = (rect.x(), rect.y(), rect.width(), rect.height());
                     let color = if let crate::embedded_resources::PixelFormat::AlphaMap([r, g, b]) = format {
-                        quote!(sixtyfps::re_exports::Color::from_rgb_u8(#r, #g, #b))
+                        quote!(slint::re_exports::Color::from_rgb_u8(#r, #g, #b))
                     } else {
-                        quote!(sixtyfps::re_exports::Color::from_argb_encoded(0))
+                        quote!(slint::re_exports::Color::from_argb_encoded(0))
                     };
                     quote!(
-                        const #symbol: sixtyfps::re_exports::ImageInner = sixtyfps::re_exports::ImageInner::StaticTextures {
-                            size: sixtyfps::re_exports::IntSize::new(#width as _, #height as _),
+                        const #symbol: slint::re_exports::ImageInner = slint::re_exports::ImageInner::StaticTextures {
+                            size: slint::re_exports::IntSize::new(#width as _, #height as _),
                             data: Slice::from_slice(&[#(#data),*]),
                             textures: Slice::from_slice(&[
-                                sixtyfps::re_exports::StaticTexture {
-                                    rect: sixtyfps::re_exports::euclid::rect(#r_x as _, #r_y as _, #r_w as _, #r_h as _),
+                                slint::re_exports::StaticTexture {
+                                    rect: slint::re_exports::euclid::rect(#r_x as _, #r_y as _, #r_w as _, #r_h as _),
                                     format: #format,
                                     color: #color,
                                     index: 0,
@@ -180,18 +180,18 @@ pub fn generate(doc: &Document) -> TokenStream {
         #[allow(clippy::complexity)]
         #[allow(unused_braces)]
         #[allow(clippy::erasing_op)]
-        #[allow(clippy::approx_constant)] // We may get those from .60 inputs!
+        #[allow(clippy::approx_constant)] // We may get those from .slint inputs!
         mod #compo_module {
-            use sixtyfps::re_exports::*;
+            use slint::re_exports::*;
             #(#structs)*
             #(#globals)*
             #(#sub_compos)*
             #compo
             #(#resource_symbols)*
-            const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : sixtyfps::#version_check = sixtyfps::#version_check;
+            const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
         }
         pub use #compo_module::{#compo_id #(,#structs_ids)* #(,#globals_ids)* };
-        pub use sixtyfps::{ComponentHandle, Global};
+        pub use slint::{ComponentHandle, Global};
     }
 }
 
@@ -221,7 +221,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
 
     quote!(
         #component
-        pub struct #public_component_id(vtable::VRc<sixtyfps::re_exports::ComponentVTable, #inner_component_id>);
+        pub struct #public_component_id(vtable::VRc<slint::re_exports::ComponentVTable, #inner_component_id>);
 
         impl #public_component_id {
             pub fn new() -> Self {
@@ -231,29 +231,29 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
             #property_and_callback_accessors
         }
 
-        impl From<#public_component_id> for vtable::VRc<sixtyfps::re_exports::ComponentVTable, #inner_component_id> {
+        impl From<#public_component_id> for vtable::VRc<slint::re_exports::ComponentVTable, #inner_component_id> {
             fn from(value: #public_component_id) -> Self {
                 value.0
             }
         }
 
-        impl sixtyfps::ComponentHandle for #public_component_id {
+        impl slint::ComponentHandle for #public_component_id {
             type Inner = #inner_component_id;
-            fn as_weak(&self) -> sixtyfps::Weak<Self> {
-                sixtyfps::Weak::new(&self.0)
+            fn as_weak(&self) -> slint::Weak<Self> {
+                slint::Weak::new(&self.0)
             }
 
             fn clone_strong(&self) -> Self {
                 Self(self.0.clone())
             }
 
-            fn from_inner(inner: vtable::VRc<sixtyfps::re_exports::ComponentVTable, #inner_component_id>) -> Self {
+            fn from_inner(inner: vtable::VRc<slint::re_exports::ComponentVTable, #inner_component_id>) -> Self {
                 Self(inner)
             }
 
             fn run(&self) {
                 self.show();
-                sixtyfps::run_event_loop();
+                slint::run_event_loop();
                 self.hide();
             }
 
@@ -265,17 +265,17 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
                 self.window().hide()
             }
 
-            fn window(&self) -> &sixtyfps::Window {
+            fn window(&self) -> &slint::Window {
                 vtable::VRc::as_pin_ref(&self.0).get_ref().window.get().unwrap()
             }
 
-            fn global<'a, T: sixtyfps::Global<'a, Self>>(&'a self) -> T {
+            fn global<'a, T: slint::Global<'a, Self>>(&'a self) -> T {
                 T::get(&self)
             }
         }
 
         struct #global_container_id {
-            #(#global_names : ::core::pin::Pin<sixtyfps::re_exports::Rc<#global_types>>,)*
+            #(#global_names : ::core::pin::Pin<slint::re_exports::Rc<#global_types>>,)*
         }
         impl Default for #global_container_id {
             fn default() -> Self {
@@ -326,7 +326,7 @@ fn handle_property_init(
         };
         init.push(quote!({
             #[allow(unreachable_code, unused)]
-            sixtyfps::internal::set_callback_handler(#rust_property, &self_rc, {
+            slint::internal::set_callback_handler(#rust_property, &self_rc, {
                 move |self_rc, args| {
                     #init_self_pin_ref
                     (#tokens_for_expression) #as_
@@ -362,7 +362,7 @@ fn handle_property_init(
             let is_state_info = matches!(prop_type, Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo"));
             if is_state_info {
                 quote! { {
-                    sixtyfps::internal::set_property_state_binding(#rust_property, &self_rc, #binding_tokens);
+                    slint::internal::set_property_state_binding(#rust_property, &self_rc, #binding_tokens);
                 } }
             } else {
                 match &binding_expression.animation {
@@ -370,13 +370,13 @@ fn handle_property_init(
                         let anim = compile_expression(anim, ctx);
                         quote! { {
                             #init_self_pin_ref
-                            sixtyfps::internal::set_animated_property_binding(#rust_property, &self_rc, #binding_tokens, #anim);
+                            slint::internal::set_animated_property_binding(#rust_property, &self_rc, #binding_tokens, #anim);
                         } }
                     }
                     Some(llr::Animation::Transition(anim)) => {
                         let anim = compile_expression(anim, ctx);
                         quote! {
-                            sixtyfps::internal::set_animated_property_binding_for_transition(
+                            slint::internal::set_animated_property_binding_for_transition(
                                 #rust_property, &self_rc, #binding_tokens, move |self_rc| {
                                     #init_self_pin_ref
                                     #anim
@@ -386,7 +386,7 @@ fn handle_property_init(
                     }
                     None => {
                         quote! { {
-                            sixtyfps::internal::set_property_binding(#rust_property, &self_rc, #binding_tokens);
+                            slint::internal::set_property_binding(#rust_property, &self_rc, #binding_tokens);
                         } }
                     }
                 }
@@ -441,7 +441,7 @@ fn public_api(
                 #[allow(dead_code)]
                 pub fn #getter_ident(&self) -> #rust_property_type {
                     #[allow(unused_imports)]
-                    use sixtyfps::re_exports::*;
+                    use slint::re_exports::*;
                     let _self = #self_init;
                     #prop.get()
                 }
@@ -452,7 +452,7 @@ fn public_api(
                 #[allow(dead_code)]
                 pub fn #setter_ident(&self, value: #rust_property_type) {
                     #[allow(unused_imports)]
-                    use sixtyfps::re_exports::*;
+                    use slint::re_exports::*;
                     let _self = #self_init;
                     #set_value
                 }
@@ -515,7 +515,7 @@ fn generate_sub_component(
         }
         item_names.push(ident(&item.name));
         item_types.push(ident(&item.ty.class_name));
-        #[cfg(sixtyfps_debug_property)]
+        #[cfg(slint_debug_property)]
         for (prop, info) in &item.ty.properties {
             if info.ty.is_property_type() && !prop.starts_with("viewport") && prop != "commands" {
                 let name = format!("{}::{}.{}", component.name, item.name, prop);
@@ -541,12 +541,12 @@ fn generate_sub_component(
 
         let mut model = compile_expression(&repeated.model, &ctx);
         if repeated.model.ty(&ctx) == Type::Bool {
-            model = quote!(sixtyfps::re_exports::ModelRc::new(#model as bool))
+            model = quote!(slint::re_exports::ModelRc::new(#model as bool))
         }
 
         init.push(quote! {
             _self.#repeater_id.set_model_binding({
-                let self_weak = sixtyfps::re_exports::VRcMapped::downgrade(&self_rc);
+                let self_weak = slint::re_exports::VRcMapped::downgrade(&self_rc);
                 move || {
                     let self_rc = self_weak.upgrade().unwrap();
                     let _self = self_rc.as_pin_ref();
@@ -630,7 +630,7 @@ fn generate_sub_component(
         sub_component_types.push(sub_component_id);
     }
 
-    #[cfg(sixtyfps_debug_property)]
+    #[cfg(slint_debug_property)]
     builder.init.push(quote!(
         #(self_rc.#declared_property_vars.debug_name.replace(
             concat!(stringify!(#inner_component_id), ".", stringify!(#declared_property_vars)).into());)*
@@ -656,7 +656,7 @@ fn generate_sub_component(
 
     let parent_component_type = parent_ctx.iter().map(|parent| {
         let parent_component_id = self::inner_component_id(parent.ctx.current_sub_component.unwrap());
-        quote!(sixtyfps::re_exports::VWeakMapped::<sixtyfps::re_exports::ComponentVTable, #parent_component_id>)
+        quote!(slint::re_exports::VWeakMapped::<slint::re_exports::ComponentVTable, #parent_component_id>)
     });
 
     init.extend(component.init_code.iter().map(|e| compile_expression(e, &ctx)));
@@ -669,30 +669,30 @@ fn generate_sub_component(
         core::ptr::eq(&root.item_tree.root as *const _, component as *const _).then(|| quote!(pub));
 
     quote!(
-        #[derive(sixtyfps::re_exports::FieldOffsets, Default)]
-        #[const_field_offset(sixtyfps::re_exports::const_field_offset)]
+        #[derive(slint::re_exports::FieldOffsets, Default)]
+        #[const_field_offset(slint::re_exports::const_field_offset)]
         #[repr(C)]
         #[pin]
         #visibility
         struct #inner_component_id {
-            #(#item_names : sixtyfps::re_exports::#item_types,)*
+            #(#item_names : slint::re_exports::#item_types,)*
             #(#sub_component_names : #sub_component_types,)*
-            #(#declared_property_vars : sixtyfps::re_exports::Property<#declared_property_types>,)*
-            #(#declared_callbacks : sixtyfps::re_exports::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
-            #(#repeated_element_names : sixtyfps::re_exports::Repeater<#repeated_element_components>,)*
-            self_weak : sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::VWeakMapped<sixtyfps::re_exports::ComponentVTable, #inner_component_id>>,
+            #(#declared_property_vars : slint::re_exports::Property<#declared_property_types>,)*
+            #(#declared_callbacks : slint::re_exports::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
+            #(#repeated_element_names : slint::re_exports::Repeater<#repeated_element_components>,)*
+            self_weak : slint::re_exports::OnceCell<slint::re_exports::VWeakMapped<slint::re_exports::ComponentVTable, #inner_component_id>>,
             #(parent : #parent_component_type,)*
             // FIXME: Do we really need a window all the time?
-            window: sixtyfps::re_exports::OnceCell<sixtyfps::Window>,
-            root : sixtyfps::re_exports::OnceCell<sixtyfps::re_exports::VWeak<sixtyfps::re_exports::ComponentVTable, #root_component_id>>,
+            window: slint::re_exports::OnceCell<slint::Window>,
+            root : slint::re_exports::OnceCell<slint::re_exports::VWeak<slint::re_exports::ComponentVTable, #root_component_id>>,
             tree_index: ::core::cell::Cell<u32>,
             tree_index_of_first_child: ::core::cell::Cell<u32>,
             #extra_fields
         }
 
         impl #inner_component_id {
-            pub fn init(self_rc: sixtyfps::re_exports::VRcMapped<sixtyfps::re_exports::ComponentVTable, Self>,
-                    root : &sixtyfps::re_exports::VRc<sixtyfps::re_exports::ComponentVTable, #root_component_id>,
+            pub fn init(self_rc: slint::re_exports::VRcMapped<slint::re_exports::ComponentVTable, Self>,
+                    root : &slint::re_exports::VRc<slint::re_exports::ComponentVTable, #root_component_id>,
                     tree_index: u32, tree_index_of_first_child: u32) {
                 #![allow(unused)]
                 let _self = self_rc.as_pin_ref();
@@ -707,11 +707,11 @@ fn generate_sub_component(
             fn visit_dynamic_children(
                 self: ::core::pin::Pin<&Self>,
                 dyn_index: usize,
-                order: sixtyfps::re_exports::TraversalOrder,
-                visitor: sixtyfps::re_exports::ItemVisitorRefMut
-            ) -> sixtyfps::re_exports::VisitChildrenResult {
+                order: slint::re_exports::TraversalOrder,
+                visitor: slint::re_exports::ItemVisitorRefMut
+            ) -> slint::re_exports::VisitChildrenResult {
                 #![allow(unused)]
-                use sixtyfps::re_exports::*;
+                use slint::re_exports::*;
                 let _self = self;
                 match dyn_index {
                     #(#repeated_visit_branch)*
@@ -719,13 +719,13 @@ fn generate_sub_component(
                 }
             }
 
-            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sixtyfps::re_exports::Orientation) -> sixtyfps::re_exports::LayoutInfo {
+            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: slint::re_exports::Orientation) -> slint::re_exports::LayoutInfo {
                 #![allow(unused)]
-                use sixtyfps::re_exports::*;
+                use slint::re_exports::*;
                 let _self = self;
                 match orientation {
-                    sixtyfps::re_exports::Orientation::Horizontal => #layout_info_h,
-                    sixtyfps::re_exports::Orientation::Vertical => #layout_info_v,
+                    slint::re_exports::Orientation::Horizontal => #layout_info_h,
+                    slint::re_exports::Orientation::Vertical => #layout_info_v,
                 }
             }
         }
@@ -797,7 +797,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
 
         let aliases = global.aliases.iter().map(|name| ident(name));
         quote!(
-            pub struct #public_component_id<'a>(&'a ::core::pin::Pin<sixtyfps::re_exports::Rc<#inner_component_id>>);
+            pub struct #public_component_id<'a>(&'a ::core::pin::Pin<slint::re_exports::Rc<#inner_component_id>>);
 
             impl<'a> #public_component_id<'a> {
                 #property_and_callback_accessors
@@ -805,7 +805,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
 
             #(pub type #aliases<'a> = #public_component_id<'a>;)*
 
-            impl<'a> sixtyfps::Global<'a, #root_component_id> for #public_component_id<'a> {
+            impl<'a> slint::Global<'a, #root_component_id> for #public_component_id<'a> {
                 fn get(component: &'a #root_component_id) -> Self {
                     Self(&component.0 .globals.#global_id)
                 }
@@ -814,18 +814,18 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
     });
 
     quote!(
-        #[derive(sixtyfps::re_exports::FieldOffsets, Default)]
-        #[const_field_offset(sixtyfps::re_exports::const_field_offset)]
+        #[derive(slint::re_exports::FieldOffsets, Default)]
+        #[const_field_offset(slint::re_exports::const_field_offset)]
         #[repr(C)]
         #[pin]
         struct #inner_component_id {
-            #(#declared_property_vars: sixtyfps::re_exports::Property<#declared_property_types>,)*
-            #(#declared_callbacks: sixtyfps::re_exports::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
+            #(#declared_property_vars: slint::re_exports::Property<#declared_property_types>,)*
+            #(#declared_callbacks: slint::re_exports::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
         }
 
         impl #inner_component_id {
-            fn new() -> ::core::pin::Pin<sixtyfps::re_exports::Rc<Self>> {
-                let self_rc = sixtyfps::re_exports::Rc::pin(Self::default());
+            fn new() -> ::core::pin::Pin<slint::re_exports::Rc<Self>> {
+                let self_rc = slint::re_exports::Rc::pin(Self::default());
                 let _self = self_rc.as_ref();
                 #(#init)*
                 self_rc
@@ -846,7 +846,7 @@ fn generate_item_tree(
     let inner_component_id = self::inner_component_id(&sub_tree.root);
     let parent_component_type = parent_ctx.iter().map(|parent| {
         let parent_component_id = self::inner_component_id(parent.ctx.current_sub_component.unwrap());
-        quote!(sixtyfps::re_exports::VWeakMapped::<sixtyfps::re_exports::ComponentVTable, #parent_component_id>)
+        quote!(slint::re_exports::VWeakMapped::<slint::re_exports::ComponentVTable, #parent_component_id>)
     }).collect::<Vec<_>>();
     let root_token = if parent_ctx.is_some() {
         quote!(&parent.upgrade().unwrap().root.get().unwrap().upgrade().unwrap())
@@ -855,7 +855,7 @@ fn generate_item_tree(
     };
     let maybe_create_window = parent_ctx.is_none().then(|| {
         quote!(
-            _self.window.set(sixtyfps::create_window().into());
+            _self.window.set(slint::create_window().into());
             _self.window.get().unwrap().window_handle().set_component(&VRc::into_dyn(self_rc.clone()));
         )
     });
@@ -879,7 +879,7 @@ fn generate_item_tree(
                 sub_component = &sub_component.sub_components[*i].ty;
             }
             item_tree_array.push(quote!(
-                sixtyfps::re_exports::ItemTreeNode::DynamicTree {
+                slint::re_exports::ItemTreeNode::DynamicTree {
                     index: #repeater_index,
                     parent_index: #parent_index,
                 }
@@ -888,7 +888,7 @@ fn generate_item_tree(
             let item = &component.items[node.item_index];
             let flick = item
                 .is_flickable_viewport
-                .then(|| quote!(+ sixtyfps::re_exports::Flickable::FIELD_OFFSETS.viewport));
+                .then(|| quote!(+ slint::re_exports::Flickable::FIELD_OFFSETS.viewport));
 
             let field = access_component_field_offset(
                 &self::inner_component_id(component),
@@ -898,7 +898,7 @@ fn generate_item_tree(
             let children_count = node.children.len() as u32;
             let children_index = children_offset as u32;
             item_tree_array.push(quote!(
-                sixtyfps::re_exports::ItemTreeNode::Item{
+                slint::re_exports::ItemTreeNode::Item{
                     item: VOffset::new(#path #field #flick),
                     children_count: #children_count,
                     children_index: #children_index,
@@ -915,51 +915,51 @@ fn generate_item_tree(
 
         impl #inner_component_id {
             pub fn new(#(parent: #parent_component_type)*)
-                -> vtable::VRc<sixtyfps::re_exports::ComponentVTable, Self>
+                -> vtable::VRc<slint::re_exports::ComponentVTable, Self>
             {
                 #![allow(unused)]
-                use sixtyfps::re_exports::*;
+                use slint::re_exports::*;
                 let mut _self = Self::default();
                 #(_self.parent = parent.clone() as #parent_component_type;)*
                 let self_rc = VRc::new(_self);
                 let _self = self_rc.as_pin_ref();
                 #maybe_create_window;
-                sixtyfps::re_exports::init_component_items(_self, Self::item_tree(), #root_token.window.get().unwrap().window_handle());
-                Self::init(sixtyfps::re_exports::VRc::map(self_rc.clone(), |x| x), #root_token, 0, 1);
+                slint::re_exports::init_component_items(_self, Self::item_tree(), #root_token.window.get().unwrap().window_handle());
+                Self::init(slint::re_exports::VRc::map(self_rc.clone(), |x| x), #root_token, 0, 1);
                 self_rc
             }
 
-            fn item_tree() -> &'static [sixtyfps::re_exports::ItemTreeNode<Self>] {
-                use sixtyfps::re_exports::*;
+            fn item_tree() -> &'static [slint::re_exports::ItemTreeNode<Self>] {
+                use slint::re_exports::*;
                 ComponentVTable_static!(static VT for #inner_component_id);
                 // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
-                static ITEM_TREE : sixtyfps::re_exports::OnceBox<
-                    [sixtyfps::re_exports::ItemTreeNode<#inner_component_id>; #item_tree_array_len]
-                > = sixtyfps::re_exports::OnceBox::new();
+                static ITEM_TREE : slint::re_exports::OnceBox<
+                    [slint::re_exports::ItemTreeNode<#inner_component_id>; #item_tree_array_len]
+                > = slint::re_exports::OnceBox::new();
                 &*ITEM_TREE.get_or_init(|| Box::new([#(#item_tree_array),*]))
             }
         }
 
-        impl sixtyfps::re_exports::PinnedDrop for #inner_component_id {
+        impl slint::re_exports::PinnedDrop for #inner_component_id {
             fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
-                sixtyfps::re_exports::free_component_item_graphics_resources(self.as_ref(), Self::item_tree(), self.window.get().unwrap().window_handle());
+                slint::re_exports::free_component_item_graphics_resources(self.as_ref(), Self::item_tree(), self.window.get().unwrap().window_handle());
             }
         }
 
-        impl sixtyfps::re_exports::WindowHandleAccess for #inner_component_id {
-            fn window_handle(&self) -> &sixtyfps::re_exports::Rc<sixtyfps::re_exports::Window> {
+        impl slint::re_exports::WindowHandleAccess for #inner_component_id {
+            fn window_handle(&self) -> &slint::re_exports::Rc<slint::re_exports::Window> {
                 self.window.get().unwrap().window_handle()
             }
         }
 
-        impl sixtyfps::re_exports::Component for #inner_component_id {
-            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: sixtyfps::re_exports::TraversalOrder, visitor: sixtyfps::re_exports::ItemVisitorRefMut)
-                -> sixtyfps::re_exports::VisitChildrenResult
+        impl slint::re_exports::Component for #inner_component_id {
+            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: slint::re_exports::TraversalOrder, visitor: slint::re_exports::ItemVisitorRefMut)
+                -> slint::re_exports::VisitChildrenResult
             {
-                use sixtyfps::re_exports::*;
-                return sixtyfps::re_exports::visit_item_tree(self, &VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), Self::item_tree(), index, order, visitor, visit_dynamic);
+                use slint::re_exports::*;
+                return slint::re_exports::visit_item_tree(self, &VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), Self::item_tree(), index, order, visitor, visit_dynamic);
                 #[allow(unused)]
-                fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: sixtyfps::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
+                fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: slint::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
                     _self.visit_dynamic_children(dyn_index, order, visitor)
                 }
             }
@@ -972,21 +972,21 @@ fn generate_item_tree(
                 }
             }
 
-            fn parent_item(self: ::core::pin::Pin<&Self>, index: usize, result: &mut sixtyfps::re_exports::ItemWeak) {
+            fn parent_item(self: ::core::pin::Pin<&Self>, index: usize, result: &mut slint::re_exports::ItemWeak) {
                 if index == 0 {
                     #(
                         if let Some(parent) = self.parent.clone().upgrade().map(|sc| VRcMapped::origin(&sc)) {
-                            *result = sixtyfps::re_exports::ItemRc::new(parent, #parent_item_index).parent_item();
+                            *result = slint::re_exports::ItemRc::new(parent, #parent_item_index).parent_item();
                         }
                     )*
                     return;
                 }
                 let parent_index = Self::item_tree()[index].parent_index();
-                let self_rc = sixtyfps::re_exports::VRcMapped::origin(&self.self_weak.get().unwrap().upgrade().unwrap());
+                let self_rc = slint::re_exports::VRcMapped::origin(&self.self_weak.get().unwrap().upgrade().unwrap());
                 *result = ItemRc::new(self_rc, parent_index).downgrade();
             }
 
-            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: sixtyfps::re_exports::Orientation) -> sixtyfps::re_exports::LayoutInfo {
+            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: slint::re_exports::Orientation) -> slint::re_exports::LayoutInfo {
                 self.layout_info(orientation)
             }
         }
@@ -1025,9 +1025,9 @@ fn generate_repeated_component(
             fn listview_layout(
                 self: core::pin::Pin<&Self>,
                 offset_y: &mut f32,
-                viewport_width: core::pin::Pin<&sixtyfps::re_exports::Property<f32>>,
+                viewport_width: core::pin::Pin<&slint::re_exports::Property<f32>>,
             ) {
-                use sixtyfps::re_exports::*;
+                use slint::re_exports::*;
                 let _self = self;
                 let vp_w = viewport_width.get();
                 #p_y.set(*offset_y);
@@ -1041,10 +1041,10 @@ fn generate_repeated_component(
     } else {
         // TODO: we could generate this code only if we know that this component is in a box layout
         quote! {
-            fn box_layout_data(self: ::core::pin::Pin<&Self>, o: sixtyfps::re_exports::Orientation)
-                -> sixtyfps::re_exports::BoxLayoutCellData
+            fn box_layout_data(self: ::core::pin::Pin<&Self>, o: slint::re_exports::Orientation)
+                -> slint::re_exports::BoxLayoutCellData
             {
-                use sixtyfps::re_exports::*;
+                use slint::re_exports::*;
                 BoxLayoutCellData { constraint: self.as_ref().layout_info(o) }
             }
         }
@@ -1068,7 +1068,7 @@ fn generate_repeated_component(
     quote!(
         #component
 
-        impl sixtyfps::re_exports::RepeatedComponent for #inner_component_id {
+        impl slint::re_exports::RepeatedComponent for #inner_component_id {
             type Data = #data_type;
             fn update(&self, _index: usize, _data: Self::Data) {
                 let self_rc = self.self_weak.get().unwrap().upgrade().unwrap();
@@ -1140,7 +1140,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             let item_ty = ident(&sub_component.items[item_index].ty.class_name);
             let flick = sub_component.items[item_index]
                 .is_flickable_viewport
-                .then(|| quote!(+ sixtyfps::re_exports::Flickable::FIELD_OFFSETS.viewport));
+                .then(|| quote!(+ slint::re_exports::Flickable::FIELD_OFFSETS.viewport));
             quote!((#compo_path #item_field #flick + #item_ty::FIELD_OFFSETS.#property_name).apply_pin(#path))
         }
     }
@@ -1266,25 +1266,25 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Token
 
 fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     match expr {
-        Expression::StringLiteral(s) => quote!(sixtyfps::re_exports::SharedString::from(#s)),
+        Expression::StringLiteral(s) => quote!(slint::re_exports::SharedString::from(#s)),
         Expression::NumberLiteral(n) => quote!(#n),
         Expression::BoolLiteral(b) => quote!(#b),
         Expression::Cast { from, to } => {
             let f = compile_expression(&*from, ctx);
             match (from.ty(ctx), to) {
                 (from, Type::String) if from.as_unit_product().is_some() => {
-                    quote!(sixtyfps::re_exports::SharedString::from(
-                        sixtyfps::re_exports::format!("{}", #f).as_str()
+                    quote!(slint::re_exports::SharedString::from(
+                        slint::re_exports::format!("{}", #f).as_str()
                     ))
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    quote!(sixtyfps::re_exports::ModelRc::new(#f as usize))
+                    quote!(slint::re_exports::ModelRc::new(#f as usize))
                 }
                 (Type::Float32, Type::Color) => {
-                    quote!(sixtyfps::re_exports::Color::from_argb_encoded(#f as u32))
+                    quote!(slint::re_exports::Color::from_argb_encoded(#f as u32))
                 }
                 (Type::Color, Type::Brush) => {
-                    quote!(sixtyfps::Brush::SolidColor(#f))
+                    quote!(slint::Brush::SolidColor(#f))
                 }
                 (Type::Brush, Type::Color) => {
                     quote!(#f.color())
@@ -1329,7 +1329,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                             unreachable!()
                         }
                     };
-                    quote!(sixtyfps::re_exports::PathData::Elements(sixtyfps::re_exports::SharedVector::<_>::from_slice(&[#((#path_elements).into()),*])))
+                    quote!(slint::re_exports::PathData::Elements(slint::re_exports::SharedVector::<_>::from_slice(&[#((#path_elements).into()),*])))
                 }
                 (Type::Struct { .. }, Type::PathData)
                     if matches!(
@@ -1346,10 +1346,10 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                             unreachable!()
                         }
                     };
-                    quote!(sixtyfps::re_exports::PathData::Events(sixtyfps::re_exports::SharedVector::<_>::from_slice(&#events), sixtyfps::re_exports::SharedVector::<_>::from_slice(&#points)))
+                    quote!(slint::re_exports::PathData::Events(slint::re_exports::SharedVector::<_>::from_slice(&#events), slint::re_exports::SharedVector::<_>::from_slice(&#points)))
                 }
                 (Type::String, Type::PathData) => {
-                    quote!(sixtyfps::re_exports::PathData::Commands(#f))
+                    quote!(slint::re_exports::PathData::Commands(#f))
                 }
                 _ => f,
             }
@@ -1504,24 +1504,24 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         Expression::ImageReference { resource_ref, .. } => match resource_ref {
             crate::expression_tree::ImageReference::None => {
-                quote!(sixtyfps::re_exports::Image::default())
+                quote!(slint::re_exports::Image::default())
             }
             crate::expression_tree::ImageReference::AbsolutePath(path) => {
-                quote!(sixtyfps::re_exports::Image::load_from_path(::std::path::Path::new(#path)).unwrap())
+                quote!(slint::re_exports::Image::load_from_path(::std::path::Path::new(#path)).unwrap())
             }
             crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
                 let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
                 let format = proc_macro2::Literal::byte_string(extension.as_bytes());
                 quote!(
-                    sixtyfps::re_exports::Image::from(
-                        sixtyfps::re_exports::ImageInner::EmbeddedData{ data: #symbol.into(), format: Slice::from_slice(#format) }
+                    slint::re_exports::Image::from(
+                        slint::re_exports::ImageInner::EmbeddedData{ data: #symbol.into(), format: Slice::from_slice(#format) }
                     )
                 )
             }
             crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
                 let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
                 quote!(
-                    sixtyfps::re_exports::Image::from(#symbol)
+                    slint::re_exports::Image::from(#symbol)
                 )
             }
         },
@@ -1541,9 +1541,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let val = values.iter().map(|e| compile_expression(e, ctx));
             if *as_model {
                 let rust_element_ty = rust_type(element_ty).unwrap();
-                quote!(sixtyfps::re_exports::ModelRc::new(
-                    sixtyfps::re_exports::VecModel::<#rust_element_ty>::from(
-                        sixtyfps::re_exports::vec![#(#val as _),*]
+                quote!(slint::re_exports::ModelRc::new(
+                    slint::re_exports::VecModel::<#rust_element_ty>::from(
+                        slint::re_exports::vec![#(#val as _),*]
                     )
                 ))
             } else {
@@ -1590,26 +1590,26 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             quote!(#name)
         }
         Expression::EasingCurve(EasingCurve::Linear) => {
-            quote!(sixtyfps::re_exports::EasingCurve::Linear)
+            quote!(slint::re_exports::EasingCurve::Linear)
         }
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => {
-            quote!(sixtyfps::re_exports::EasingCurve::CubicBezier([#a, #b, #c, #d]))
+            quote!(slint::re_exports::EasingCurve::CubicBezier([#a, #b, #c, #d]))
         }
         Expression::LinearGradient { angle, stops } => {
             let angle = compile_expression(angle, ctx);
             let stops = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
-                quote!(sixtyfps::re_exports::GradientStop{ color: #color, position: #position as _ })
+                quote!(slint::re_exports::GradientStop{ color: #color, position: #position as _ })
             });
-            quote!(sixtyfps::Brush::LinearGradient(
-                sixtyfps::re_exports::LinearGradientBrush::new(#angle as _, [#(#stops),*].iter().cloned())
+            quote!(slint::Brush::LinearGradient(
+                slint::re_exports::LinearGradientBrush::new(#angle as _, [#(#stops),*].iter().cloned())
             ))
         }
         Expression::EnumerationValue(value) => {
             let base_ident = ident(&value.enumeration.name);
             let value_ident = ident(&value.to_string());
-            quote!(sixtyfps::re_exports::#base_ident::#value_ident)
+            quote!(slint::re_exports::#base_ident::#value_ident)
         }
         Expression::ReturnStatement(expr) => {
             let return_expr = expr.as_ref().map(|expr| compile_expression(expr, ctx));
@@ -1652,8 +1652,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             };
             quote! {
                 let mut #cells_variable = [#(#cells),*];
-                sixtyfps::re_exports::reorder_dialog_button_layout(&mut #cells_variable, &#roles);
-                let #cells_variable = sixtyfps::re_exports::Slice::from_slice(&#cells_variable);
+                slint::re_exports::reorder_dialog_button_layout(&mut #cells_variable, &#roles);
+                let #cells_variable = slint::re_exports::Slice::from_slice(&#cells_variable);
             }
         }
     }
@@ -1713,7 +1713,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::RegisterCustomFontByPath => {
             if let [Expression::StringLiteral(path)] = arguments {
-                quote!(sixtyfps::register_font_from_path(&std::path::PathBuf::from(#path));)
+                quote!(slint::register_font_from_path(&std::path::PathBuf::from(#path));)
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByPath {:?}", arguments)
             }
@@ -1722,7 +1722,7 @@ fn compile_builtin_function_call(
             if let [Expression::NumberLiteral(resource_id)] = &arguments {
                 let resource_id: usize = *resource_id as _;
                 let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
-                quote!(sixtyfps::register_font_from_memory(#symbol.into());)
+                quote!(slint::register_font_from_memory(#symbol.into());)
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByMemory {:?}", arguments)
             }
@@ -1782,7 +1782,7 @@ fn compile_builtin_function_call(
                 let g: u8 = (#g as u32).max(0).min(255) as u8;
                 let b: u8 = (#b as u32).max(0).min(255) as u8;
                 let a: u8 = (255. * (#a as f32)).max(0.).min(255.) as u8;
-                sixtyfps::re_exports::Color::from_argb_u8(a, r, g, b)
+                slint::re_exports::Color::from_argb_u8(a, r, g, b)
             })
         }
     }
@@ -1791,7 +1791,7 @@ fn compile_builtin_function_call(
 /// Return a TokenStream for a name (as in [`Type::Struct::name`])
 fn struct_name_to_tokens(name: &str) -> TokenStream {
     // the name match the C++ signature so we need to change that to the rust namespace
-    let mut name = name.replace("::private_api::", "::re_exports::").replace('-', "_");
+    let mut name = name.replace("slint::private_api::", "slint::re_exports::").replace('-', "_");
     if !name.contains("::") {
         name.insert_str(0, "r#")
     }
@@ -1848,15 +1848,15 @@ fn box_layout_function(
 
     let ri = repeated_indices.as_ref().map(|ri| quote!(let mut #ri = [0u32; 2 * #repeater_idx];));
     let ri2 =
-        repeated_indices.map(|ri| quote!(let #ri = sixtyfps::re_exports::Slice::from_slice(&#ri);));
+        repeated_indices.map(|ri| quote!(let #ri = slint::re_exports::Slice::from_slice(&#ri);));
     let cells_variable = ident(cells_variable);
     let sub_expression = compile_expression(sub_expression, ctx);
 
     quote! { {
         #ri
-        let mut items_vec = sixtyfps::re_exports::Vec::with_capacity(#fixed_count #repeated_count);
+        let mut items_vec = slint::re_exports::Vec::with_capacity(#fixed_count #repeated_count);
         #(#push_code)*
-        let #cells_variable = sixtyfps::re_exports::Slice::from_slice(&items_vec);
+        let #cells_variable = slint::re_exports::Slice::from_slice(&items_vec);
         #ri2
         #sub_expression
     } }

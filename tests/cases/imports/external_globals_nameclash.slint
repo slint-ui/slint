@@ -1,0 +1,48 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+//include_path: ../../helper_components
+import { UseGlobal, ExportedGlobal as FromExport } from "export_globals.slint";
+
+global NotExported := {
+    property<int> abc: 1000;
+    property<string> prop: "_";
+}
+
+global ExportedGlobal := {
+    property<int> abc: 1001;
+}
+
+TestCase := Rectangle {
+    ug := UseGlobal {}
+    property<int> p1: ug.used42;
+    property<int> p2: ug.used44;
+    property<int> p3: NotExported.abc + ExportedGlobal.abc;
+
+    property <bool> test: p1 == 42 && p2 == 44 && p3 == 2001 ;//&& NotExported.prop == "_";
+}
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_p1(), 42);
+assert_eq(instance.get_p2(), 44);
+assert_eq(instance.get_p3(), 2001);
+```
+
+```rust
+let instance = TestCase::new();
+assert_eq!(instance.get_p1(), 42);
+assert_eq!(instance.get_p2(), 44);
+assert_eq!(instance.get_p3(), 2001);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.p1, 42);
+assert.equal(instance.p2, 44);
+assert.equal(instance.p3, 2001);
+```
+
+*/

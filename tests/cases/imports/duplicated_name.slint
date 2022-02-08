@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+//include_path: ../../helper_components
+import { ColorButton } from "test_button.slint";
+import { TestButton as TheRealTestButton  } from "re_export.slint";
+
+// ColorButton uses TestButtonImpl
+TestButtonImpl := Rectangle {
+    property <int> abc: 12;
+}
+
+// Testbutton is another name for TestButtonImpl
+TestButton := Rectangle {
+    property <string> abc: "hello";
+}
+
+TestCase := Rectangle {
+    ColorButton { button_color: red; }
+    TestButtonImpl { abc: 4; }
+    TestButton { abc: "world"; }
+    TheRealTestButton{ button-text: "yo"; }
+}

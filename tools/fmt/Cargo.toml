@@ -2,25 +2,25 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "sixtyfps-fmt"
+name = "slint-fmt"
 version = "0.2.0"
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
 publish = false
-description = "Tool used to update .60 files when we do syntax upgrade"
+description = "Tool used to update .slint files when we do syntax upgrade"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 categories = ["gui", "development-tools"]
 keywords = ["formatter", "gui", "ui", "toolkit"]
 
 [dependencies]
-sixtyfps-compilerlib = { path = "../../internal/compiler", features = ["display-diagnostics"] }
+i-slint-compiler = { path = "../../internal/compiler", features = ["display-diagnostics"] }
 
 clap = { version = "3.0.5", features=["derive", "wrap_help"] }
 codemap = "0.1"
 codemap-diagnostic = "0.1.1"
 
 [[bin]]
-name = "sixtyfps-fmt"
+name = "slint-fmt"
 path = "main.rs"

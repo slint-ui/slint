@@ -23,7 +23,7 @@ use crate::{Callback, Property, SharedString};
 use alloc::string::String;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
-use sixtyfps_corelib_macros::*;
+use i_slint_core_macros::*;
 
 #[cfg(not(feature = "std"))]
 use num_traits::float::Float;
@@ -88,7 +88,7 @@ impl Default for TextOverflow {
 
 /// The implementation of the `Text` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct Text {
     pub text: Property<SharedString>,
@@ -220,7 +220,7 @@ impl Text {
 
 /// The implementation of the `TextInput` element
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct TextInput {
     pub text: Property<SharedString>,

@@ -1,10 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-//! This test is trying to compile all the *.60 files in the sub directories and check that compilation
+//! This test is trying to compile all the *.slint files in the sub directories and check that compilation
 //! errors are properly reported
 //!
-//! The .60 files can have comments like this:
+//! The .slint files can have comments like this:
 //! ```ignore
 //!  hi ho
 //!  // ^error{some_regexp}
@@ -39,7 +39,7 @@ fn syntax_tests() -> std::io::Result<()> {
                 let test_entry = test_entry?;
                 let path = test_entry.path();
                 if let Some(ext) = path.extension() {
-                    if ext == "60" {
+                    if ext == "60" || ext == "slint" {
                         success &= process_file(&path)?;
                     }
                 }
@@ -59,7 +59,7 @@ fn process_file(path: &std::path::Path) -> std::io::Result<bool> {
 }
 
 fn process_diagnostics(
-    compile_diagnostics: &sixtyfps_compilerlib::diagnostics::BuildDiagnostics,
+    compile_diagnostics: &i_slint_compiler::diagnostics::BuildDiagnostics,
     path: &Path,
     source: &str,
     silent: bool,
@@ -108,8 +108,8 @@ fn process_diagnostics(
         } + column;
 
         let expected_diag_level = match warning_or_error {
-            "warning" => sixtyfps_compilerlib::diagnostics::DiagnosticLevel::Warning,
-            "error" => sixtyfps_compilerlib::diagnostics::DiagnosticLevel::Error,
+            "warning" => i_slint_compiler::diagnostics::DiagnosticLevel::Warning,
+            "error" => i_slint_compiler::diagnostics::DiagnosticLevel::Error,
             _ => panic!("Unsupported diagnostic level {}", warning_or_error),
         };
 
@@ -135,7 +135,7 @@ fn process_diagnostics(
 
         #[cfg(feature = "display-diagnostics")]
         if !silent {
-            let mut to_report = sixtyfps_compilerlib::diagnostics::BuildDiagnostics::default();
+            let mut to_report = i_slint_compiler::diagnostics::BuildDiagnostics::default();
             for d in diags {
                 to_report.push_compiler_error(d.clone());
             }
@@ -156,16 +156,16 @@ fn process_file_source(
     source: String,
     silent: bool,
 ) -> std::io::Result<bool> {
-    let mut parse_diagnostics = sixtyfps_compilerlib::diagnostics::BuildDiagnostics::default();
+    let mut parse_diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
     let syntax_node =
-        sixtyfps_compilerlib::parser::parse(source.clone(), Some(path), &mut parse_diagnostics);
+        i_slint_compiler::parser::parse(source.clone(), Some(path), &mut parse_diagnostics);
     let has_parse_error = parse_diagnostics.has_error();
-    let mut compiler_config = sixtyfps_compilerlib::CompilerConfiguration::new(
-        sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
+    let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(
+        i_slint_compiler::generator::OutputFormat::Interpreter,
     );
     compiler_config.style = Some("fluent".into());
     let compile_diagnostics = if !parse_diagnostics.has_error() {
-        let (_, build_diags) = spin_on::spin_on(sixtyfps_compilerlib::compile_syntax_node(
+        let (_, build_diags) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(
             syntax_node.clone(),
             parse_diagnostics,
             compiler_config.clone(),
@@ -182,7 +182,7 @@ fn process_file_source(
         let source = if p.is_absolute() {
             std::fs::read_to_string(&p)?
         } else {
-            // probably sixtyfps_widgets.60
+            // probably std-widgets.slint
             String::new()
         };
         success &= process_diagnostics(&compile_diagnostics, p, &source, silent)?;
@@ -190,7 +190,7 @@ fn process_file_source(
 
     if has_parse_error {
         // Still try to compile to make sure it doesn't panic
-        spin_on::spin_on(sixtyfps_compilerlib::compile_syntax_node(
+        spin_on::spin_on(i_slint_compiler::compile_syntax_node(
             syntax_node,
             compile_diagnostics,
             compiler_config,
@@ -203,7 +203,7 @@ fn process_file_source(
 #[test]
 /// Test that this actually fail when it should
 fn self_test() -> std::io::Result<()> {
-    let fake_path = std::path::Path::new("fake.60");
+    let fake_path = std::path::Path::new("fake.slint");
     let process = |str: &str| process_file_source(fake_path, str.into(), true);
 
     // this should succeed

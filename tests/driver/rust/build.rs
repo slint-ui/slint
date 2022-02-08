@@ -37,7 +37,7 @@ fn main() -> std::io::Result<()> {
                 output,
                 r"
 #[test] fn t_{}() -> Result<(), Box<dyn std::error::Error>> {{
-    sixtyfps_rendering_backend_testing::init();
+    i_slint_backend_testing::init();
     {}
     Ok(())
 }}",
@@ -49,10 +49,10 @@ fn main() -> std::io::Result<()> {
 
     // By default resources are embedded. The WASM example builds provide test coverage for that. This switch
     // provides test coverage for the non-embedding case, compiling tests without embedding the images.
-    println!("cargo:rustc-env=SIXTYFPS_EMBED_RESOURCES=false");
+    println!("cargo:rustc-env=SLINT_EMBED_RESOURCES=false");
 
     //Make sure to use a consistent style
-    println!("cargo:rustc-env=SIXTYFPS_STYLE=fluent");
+    println!("cargo:rustc-env=SLINT_STYLE=fluent");
 
     Ok(())
 }
@@ -64,12 +64,12 @@ fn generate_macro(
     testcase: test_driver_lib::TestCase,
 ) -> Result<bool, std::io::Error> {
     if source.contains("\\{") {
-        // Unfortunately, \{ is not valid in a rust string so it cannot be used in a sixtyfps! macro
+        // Unfortunately, \{ is not valid in a rust string so it cannot be used in a slint! macro
         output.write_all(b"#[test] #[ignore] fn ignored_because_string_template() {{}}")?;
         return Ok(false);
     }
     let include_paths = test_driver_lib::extract_include_paths(source);
-    output.write_all(b"sixtyfps::sixtyfps!{")?;
+    output.write_all(b"slint::slint!{")?;
     for path in include_paths {
         let mut abs_path = testcase.absolute_path.clone();
         abs_path.pop();
@@ -97,7 +97,7 @@ fn generate_source(
     output: &mut std::fs::File,
     testcase: test_driver_lib::TestCase,
 ) -> Result<(), std::io::Error> {
-    use sixtyfps_compilerlib::{diagnostics::BuildDiagnostics, *};
+    use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 
     let include_paths = test_driver_lib::extract_include_paths(source)
         .map(std::path::PathBuf::from)

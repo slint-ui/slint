@@ -89,7 +89,7 @@ accepted = [
     "CC0-1.0",
     "BSL-1.0",
     "ISC",
-    "GPL-3.0", # That's only for SixtyFPS
+    "GPL-3.0", # That's only for Slint
 ]
 targets = [
     "x86_64-unknown-linux-gnu",

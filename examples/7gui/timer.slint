@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
+
+Timer := Window {
+    property <duration> total-time: slider.value * 1s;
+    property <float> progress: 0.5;
+    animate progress { duration: total-time; }
+    VerticalBox {
+        HorizontalBox {
+            Text { text: "Elapsed Time:"; }
+            Rectangle {
+                max-height: 30px;
+                background: gray;
+                Rectangle {
+                    height: 100%;
+                    width: parent.width * progress;
+                    background: lightblue;
+                }
+            }
+        }
+        Text{
+            text: (total-time / 1s) + "s";
+        }
+        HorizontalBox {
+            Text { text: "Duration:"; }
+            slider := Slider {
+                maximum: 30s / 1s;
+                value: 10s / 1s;
+            }
+        }
+        Button {
+            text: "Reset";
+            clicked => {
+                if (progress > 0.5) {
+                    progress = 0;
+                } else {
+                    progress = 1;
+                }
+            }
+        }
+    }
+}

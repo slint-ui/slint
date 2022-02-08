@@ -1,0 +1,144 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+
+TestCase := Rectangle {
+    width: 300phx;
+    height: 300phx;
+    property<[{name: string, account: string, score: float}]> model: [
+        {
+            name: "Olivier",
+            account: "ogoffart",
+            score: 456,
+        },
+        {
+            name: "Simon",
+            account: "tronical",
+            score: 789,
+        }
+    ];
+
+    property <int> clicked_score;
+
+    for person[i] in model: TouchArea {
+        x: i*10phx;
+        width: 10phx;
+        height: 10phx;
+        property <int> score: person.score;
+        clicked => {
+            person.score += 1;
+            person.score = person.score + 1;
+            person.score += 1;
+            clicked_score = score;
+        }
+    }
+
+    callback manual_score_update(int, int);
+    manual_score_update(i, val) => {
+        model[i].score += val;
+    }
+
+
+}
+
+/*
+```rust
+use slint::Model;
+let instance = TestCase::new();
+
+slint::testing::send_mouse_click(&instance, 15., 5.);
+assert_eq!(instance.get_clicked_score(), 792);
+
+assert_eq!(instance.get_model().row_data(1).unwrap().2, 792.);
+instance.invoke_manual_score_update(1, 100);
+assert_eq!(instance.get_model().row_data(1).unwrap().2, 892.);
+
+type ModelData = (slint::SharedString, slint::SharedString, f32);
+let another_model = std::rc::Rc::new(slint::VecModel::<ModelData>::from(
+    vec![
+        ("a1".into(), "hello".into(), 111.),
+        ("a2".into(), "cruel".into(), 222.),
+        ("a3".into(), "world".into(), 333.),
+    ]));
+
+instance.set_model(slint::ModelRc::from(another_model.clone()));
+
+slint::testing::send_mouse_click(&instance, 25., 5.);
+assert_eq!(instance.get_clicked_score(), 336);
+assert_eq!(another_model.row_data(2).unwrap().2, 336.);
+
+instance.invoke_manual_score_update(2, 100);
+slint::testing::send_mouse_click(&instance, 25., 5.);
+assert_eq!(instance.get_clicked_score(), 439);
+assert_eq!(another_model.row_data(2).unwrap().2, 439.);
+assert_eq!(another_model.row_data(2).unwrap().1, slint::SharedString::from("world"));
+
+instance.invoke_manual_score_update(200, 100);
+assert_eq!(another_model.row_count(), 3);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint::testing::send_mouse_click(&instance, 15., 5.);
+assert_eq(instance.get_clicked_score(), 792);
+
+assert_eq(std::get<2>(*instance.get_model()->row_data(1)), 792.);
+instance.invoke_manual_score_update(1, 100);
+assert_eq(std::get<2>(*instance.get_model()->row_data(1)), 892.);
+
+using ModelData = std::tuple<slint::SharedString, slint::SharedString, float>;
+std::vector<ModelData> array;
+array.push_back(ModelData{"a1", "hello", 111.});
+array.push_back(ModelData{"a2", "cruel", 222.});
+array.push_back(ModelData{"a3", "world", 333.});
+auto another_model = std::make_shared<slint::VectorModel<ModelData>>(std::move(array));
+instance.set_model(another_model);
+
+slint::testing::send_mouse_click(&instance, 25., 5.);
+assert_eq(instance.get_clicked_score(), 336);
+assert_eq(std::get<2>(*another_model->row_data(2)), 336.);
+
+instance.invoke_manual_score_update(2, 100);
+slint::testing::send_mouse_click(&instance, 25., 5.);
+assert_eq(instance.get_clicked_score(), 439);
+assert_eq(std::get<2>(*another_model->row_data(2)), 439.);
+assert_eq(std::get<1>(*another_model->row_data(2)), "world");
+
+instance.invoke_manual_score_update(200, 100);
+assert_eq(another_model->row_count(), 3);
+```
+
+
+```js
+var instance = new slint.TestCase({});
+instance.send_mouse_click(15., 5.);
+assert.equal(instance.clicked_score, 792);
+
+assert.equal(instance.model[1].score, 792.);
+instance.manual_score_update(1, 100);
+assert.equal(instance.model[1].score, 892.);
+
+let another_model = new slintlib.ArrayModel([
+    {account: "a1", name: "hello", score: 111.},
+    {account: "a2", name: "cruel", score: 222.},
+    {account: "a3", name: "world", score: 333.},
+]);
+instance.model = another_model;
+
+instance.send_mouse_click(25., 5.);
+assert.equal(instance.clicked_score, 336);
+assert.equal(another_model.rowData(2).score, 336.);
+
+instance.manual_score_update(2, 100);
+instance.send_mouse_click(25., 5.);
+assert.equal(instance.clicked_score, 439);
+assert.equal(another_model.rowData(2).score, 439.);
+assert.equal(another_model.rowData(2).name, "world");
+
+instance.manual_score_update(200, 100); // should do nothing
+assert.equal(another_model.length, 3);
+```
+
+
+*/

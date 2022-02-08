@@ -1,9 +1,9 @@
 [book]
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 language = "en"
 multilingual = false
 src = "src"
-title = "SixtyFPS Memory Game Tutorial (C++)"
+title = "Slint Memory Game Tutorial (C++)"
 
 [output.html]
 theme = "../theme"

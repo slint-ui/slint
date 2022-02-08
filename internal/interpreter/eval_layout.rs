@@ -4,16 +4,16 @@
 use crate::dynamic_component::InstanceRef;
 use crate::eval::{self, ComponentInstance, EvalLocalContext};
 use crate::Value;
-use sixtyfps_compilerlib::expression_tree::Expression;
-use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::layout::{Layout, LayoutConstraints, LayoutGeometry, Orientation};
-use sixtyfps_compilerlib::namedreference::NamedReference;
-use sixtyfps_compilerlib::object_tree::ElementRc;
-use sixtyfps_corelib::items::DialogButtonRole;
-use sixtyfps_corelib::layout::{self as core_layout};
-use sixtyfps_corelib::model::RepeatedComponent;
-use sixtyfps_corelib::slice::Slice;
-use sixtyfps_corelib::window::WindowRc;
+use i_slint_compiler::expression_tree::Expression;
+use i_slint_compiler::langtype::Type;
+use i_slint_compiler::layout::{Layout, LayoutConstraints, LayoutGeometry, Orientation};
+use i_slint_compiler::namedreference::NamedReference;
+use i_slint_compiler::object_tree::ElementRc;
+use i_slint_core::items::DialogButtonRole;
+use i_slint_core::layout::{self as core_layout};
+use i_slint_core::model::RepeatedComponent;
+use i_slint_core::slice::Slice;
+use i_slint_core::window::WindowRc;
 use std::convert::TryInto;
 use std::str::FromStr;
 
@@ -174,7 +174,7 @@ fn padding_and_spacing(
 
 /// return the celldata, the padding, and the spacing of a grid layout
 fn grid_layout_data(
-    grid_layout: &sixtyfps_compilerlib::layout::GridLayout,
+    grid_layout: &i_slint_compiler::layout::GridLayout,
     orientation: Orientation,
     component: InstanceRef,
     expr_eval: &impl Fn(&NamedReference) -> f32,
@@ -203,7 +203,7 @@ fn grid_layout_data(
 }
 
 fn box_layout_data(
-    box_layout: &sixtyfps_compilerlib::layout::BoxLayout,
+    box_layout: &i_slint_compiler::layout::BoxLayout,
     orientation: Orientation,
     component: InstanceRef,
     expr_eval: &impl Fn(&NamedReference) -> f32,

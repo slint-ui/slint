@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+TestCase := Rectangle {
+    background: green;
+    width: 300phx;
+    height: 50phx;
+
+    HorizontalLayout {
+        padding: 0px;
+        fake-image := Rectangle {
+            background: blue;
+            preferred-width: 25phx;
+            // Don't apply the preferred height for the horizontal layout.
+            preferred-height: 500phx;
+            horizontal-stretch: 0;
+            vertical-stretch: 0;
+        }
+        Rectangle {
+            background: green;
+            // implicit: horizontal-stretch: 1
+        }
+    }
+
+    property <bool> fake-image-width-ok: fake-image.width == 25phx;
+    property <bool> fake-image-height-ok: fake-image.height == 50phx;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_fake_image_width_ok());
+assert(instance.get_fake_image_height_ok());
+```
+
+
+```rust
+let instance = TestCase::new();
+assert!(instance.get_fake_image_width_ok());
+assert!(instance.get_fake_image_height_ok());
+```
+
+```js
+var instance = new slint.TestCase();
+instance.send_mouse_click(5., 5.);
+assert(instance.fake_image_width_ok);
+assert(instance.fake_image_height_ok);
+```
+
+*/

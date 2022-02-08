@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+// Test the propagation of maximum and minimum size through nested grid layouts
+
+TestCase := Rectangle {
+    min-width: 500px;
+    max-width: min-width;
+
+    property xxx <=> preferred-height;
+    HorizontalLayout {
+        Rectangle { height: 88px; }
+    }
+
+    property <bool> test: min-width == 500px && max-width == 500px && xxx == 88px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/
+
+

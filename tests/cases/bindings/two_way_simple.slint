@@ -1,0 +1,98 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+TestCase := Rectangle {
+    property<brush> extra_background <=> background;
+    property<length> sub_width1 <=> sub.width;
+    property<length> sub_width2: sub.width;
+
+    property<int> sub_foo1: 44;
+    property<int> sub_foo2: sub.foo;
+
+
+    sub := Rectangle {
+        width: 80phx;
+        property<int> foo <=> root.sub_foo1;
+    }
+
+    if (true) : Rectangle { background: root.extra_background; }
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new();
+assert_eq!(instance.get_sub_width1(), 80.);
+assert_eq!(instance.get_sub_width2(), 80.);
+instance.set_sub_width1(99.);
+assert_eq!(instance.get_sub_width1(), 99.);
+assert_eq!(instance.get_sub_width2(), 99.);
+
+// breaks the binding
+instance.set_sub_width2(23.);
+assert_eq!(instance.get_sub_width1(), 99.);
+assert_eq!(instance.get_sub_width2(), 23.);
+instance.set_sub_width1(88.);
+assert_eq!(instance.get_sub_width1(), 88.);
+assert_eq!(instance.get_sub_width2(), 23.);
+
+
+assert_eq!(instance.get_sub_foo1(), 44);
+assert_eq!(instance.get_sub_foo2(), 44);
+instance.set_sub_foo1(15);
+assert_eq!(instance.get_sub_foo1(), 15);
+assert_eq!(instance.get_sub_foo2(), 15);
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_sub_width1(), 80.);
+assert_eq(instance.get_sub_width2(), 80.);
+instance.set_sub_width1(99.);
+assert_eq(instance.get_sub_width1(), 99.);
+assert_eq(instance.get_sub_width2(), 99.);
+
+// breaks the binding
+instance.set_sub_width2(23.);
+assert_eq(instance.get_sub_width1(), 99.);
+assert_eq(instance.get_sub_width2(), 23.);
+instance.set_sub_width1(88.);
+assert_eq(instance.get_sub_width1(), 88.);
+assert_eq(instance.get_sub_width2(), 23.);
+
+
+assert_eq(instance.get_sub_foo1(), 44);
+assert_eq(instance.get_sub_foo2(), 44);
+instance.set_sub_foo1(15);
+assert_eq(instance.get_sub_foo1(), 15);
+assert_eq(instance.get_sub_foo2(), 15);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.sub_width1, 80.);
+assert.equal(instance.sub_width2, 80.);
+instance.sub_width1 = (99.);
+assert.equal(instance.sub_width1, 99.);
+assert.equal(instance.sub_width2, 99.);
+
+// breaks the binding
+instance.sub_width2 = (23.);
+assert.equal(instance.sub_width1, 99.);
+assert.equal(instance.sub_width2, 23.);
+instance.sub_width1 = (88.);
+assert.equal(instance.sub_width1, 88.);
+assert.equal(instance.sub_width2, 23.);
+
+
+assert.equal(instance.sub_foo1, 44);
+assert.equal(instance.sub_foo2, 44);
+instance.sub_foo1 = (15);
+assert.equal(instance.sub_foo1, 15);
+assert.equal(instance.sub_foo2, 15);
+```
+
+*/

@@ -1,0 +1,77 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+export TestCase := Rectangle {
+    width: 100phx;
+    height: 100phx;
+    property<int> value: -10;
+
+    HorizontalLayout {
+
+        Rectangle { background: orange; }
+
+        for i in [
+            {color: #0f0, value: 8, },
+            {color: #00f, value: 9, },
+            {color: #f00, value: 10, },
+        ] : Rectangle {
+            background: i.color;
+            TouchArea {
+                width: 100%;
+                height: 100%;
+                clicked => {
+                    root.value = i.value;
+                }
+            }
+        }
+
+        Rectangle { background: pink; }
+    }
+}
+
+// There should be 5 rectangle: so 100 devided by 5 is 20.
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint::testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_value(), -10);
+
+slint::testing::send_mouse_click(&instance, 25., 25.);
+assert_eq(instance.get_value(), 8);
+
+slint::testing::send_mouse_click(&instance, 45., 15.);
+assert_eq(instance.get_value(), 9);
+```
+
+
+```rust
+let instance = TestCase::new();
+
+slint::testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_value(), -10);
+
+slint::testing::send_mouse_click(&instance, 25., 25.);
+assert_eq!(instance.get_value(), 8);
+
+slint::testing::send_mouse_click(&instance, 45., 15.);
+assert_eq!(instance.get_value(), 9);
+
+```
+
+```js
+var instance = new slint.TestCase();
+instance.send_mouse_click(5., 5.);
+assert.equal(instance.value, -10);
+
+instance.cond1 = true;
+instance.send_mouse_click(25., 25.);
+assert.equal(instance.value, 8);
+
+instance.cond1 = false;
+instance.send_mouse_click(45., 15.);
+assert.equal(instance.value, 9);
+```
+*/

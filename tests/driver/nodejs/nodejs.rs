@@ -38,7 +38,7 @@ lazy_static::lazy_static! {
 }
 
 pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> {
-    let sixtyfpspath = NODE_API_JS_PATH.clone();
+    let slintpath = NODE_API_JS_PATH.clone();
 
     let dir = tempfile::tempdir()?;
 
@@ -47,10 +47,10 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         main_js,
         r#"
                 const assert = require('assert').strict;
-                let sixtyfpslib = require(String.raw`{sixtyfpspath}`);
-                let sixtyfps = require(String.raw`{path}`);
+                let slintlib = require(String.raw`{slintpath}`);
+                let slint = require(String.raw`{path}`);
         "#,
-        sixtyfpspath = sixtyfpspath.to_string_lossy(),
+        slintpath = slintpath.to_string_lossy(),
         path = testcase.absolute_path.to_string_lossy()
     )?;
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
@@ -62,8 +62,8 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let output = std::process::Command::new("node")
         .arg(dir.path().join("main.js"))
         .current_dir(dir.path())
-        .env("SIXTYFPS_NODE_NATIVE_LIB", std::env::var_os("SIXTYFPS_NODE_NATIVE_LIB").unwrap())
-        .env("SIXTYFPS_INCLUDE_PATH", std::env::join_paths(include_paths).unwrap())
+        .env("SLINT_NODE_NATIVE_LIB", std::env::var_os("SLINT_NODE_NATIVE_LIB").unwrap())
+        .env("SLINT_INCLUDE_PATH", std::env::join_paths(include_paths).unwrap())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .output()

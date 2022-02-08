@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 use core::convert::TryInto;
-use sixtyfps_compilerlib::langtype::Type as LangType;
-use sixtyfps_corelib::graphics::Image;
-use sixtyfps_corelib::model::{Model, ModelRc};
-use sixtyfps_corelib::{Brush, PathData, SharedString, SharedVector};
+use i_slint_compiler::langtype::Type as LangType;
+use i_slint_core::graphics::Image;
+use i_slint_core::model::{Model, ModelRc};
+use i_slint_core::{Brush, PathData, SharedString, SharedVector};
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::iter::FromIterator;
@@ -13,9 +13,9 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 #[doc(inline)]
-pub use sixtyfps_compilerlib::diagnostics::{Diagnostic, DiagnosticLevel};
+pub use i_slint_compiler::diagnostics::{Diagnostic, DiagnosticLevel};
 
-pub use sixtyfps_corelib::api::*;
+pub use i_slint_core::api::*;
 
 use crate::dynamic_component::ErasedComponentBox;
 
@@ -29,17 +29,17 @@ pub enum ValueType {
     Void,
     /// An `int` or a `float` (this is also used for unit based type such as `length` or `angle`)
     Number,
-    /// Correspond to the `string` type in .60
+    /// Correspond to the `string` type in .slint
     String,
-    /// Correspond to the `bool` type in .60
+    /// Correspond to the `bool` type in .slint
     Bool,
-    /// A model (that includes array in .60)
+    /// A model (that includes array in .slint)
     Model,
     /// An object
     Struct,
-    /// Correspond to `brush` or `color` type in .60.  For color, this is then a [`Brush::SolidColor`]
+    /// Correspond to `brush` or `color` type in .slint.  For color, this is then a [`Brush::SolidColor`]
     Brush,
-    /// Correspond to `image` type in .60.
+    /// Correspond to `image` type in .slint.
     Image,
     /// The type is not a public type but something internal.
     #[doc(hidden)]
@@ -69,12 +69,12 @@ impl From<LangType> for ValueType {
     }
 }
 
-/// This is a dynamically typed value used in the SixtyFPS interpreter.
+/// This is a dynamically typed value used in the Slint interpreter.
 /// It can hold a value of different types, and you should use the
 /// [`From`] or [`TryInto`] traits to access the value.
 ///
 /// ```
-/// # use sixtyfps_interpreter::*;
+/// # use slint_interpreter::*;
 /// use core::convert::TryInto;
 /// // create a value containing an integer
 /// let v = Value::from(100u32);
@@ -89,24 +89,24 @@ pub enum Value {
     Void,
     /// An `int` or a `float` (this is also used for unit based type such as `length` or `angle`)
     Number(f64),
-    /// Correspond to the `string` type in .60
+    /// Correspond to the `string` type in .slint
     String(SharedString),
-    /// Correspond to the `bool` type in .60
+    /// Correspond to the `bool` type in .slint
     Bool(bool),
-    /// Correspond to the `image` type in .60
+    /// Correspond to the `image` type in .slint
     Image(Image),
-    /// A model (that includes array in .60)
+    /// A model (that includes array in .slint)
     Model(ModelRc<Value>),
     /// An object
     Struct(Struct),
-    /// Correspond to `brush` or `color` type in .60.  For color, this is then a [`Brush::SolidColor`]
+    /// Correspond to `brush` or `color` type in .slint.  For color, this is then a [`Brush::SolidColor`]
     Brush(Brush),
     #[doc(hidden)]
     /// The elements of a path
     PathData(PathData),
     #[doc(hidden)]
     /// An easing curve
-    EasingCurve(sixtyfps_corelib::animations::EasingCurve),
+    EasingCurve(i_slint_core::animations::EasingCurve),
     #[doc(hidden)]
     /// An enumeration, like `TextHorizontalAlignment::align_center`, represented by `("TextHorizontalAlignment", "align_center")`.
     /// FIXME: consider representing that with a number?
@@ -224,7 +224,7 @@ declare_value_conversion!(Image => [Image] );
 declare_value_conversion!(Struct => [Struct] );
 declare_value_conversion!(Brush => [Brush] );
 declare_value_conversion!(PathData => [PathData]);
-declare_value_conversion!(EasingCurve => [sixtyfps_corelib::animations::EasingCurve]);
+declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]);
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 
 /// Implement From / TryInto for Value that convert a `struct` to/from `Value::Object`
@@ -255,13 +255,13 @@ macro_rules! declare_value_struct_conversion {
     };
 }
 
-declare_value_struct_conversion!(struct sixtyfps_corelib::model::StandardListViewItem { text });
-declare_value_struct_conversion!(struct sixtyfps_corelib::properties::StateInfo { current_state, previous_state, change_time });
-declare_value_struct_conversion!(struct sixtyfps_corelib::input::KeyboardModifiers { control, alt, shift, meta });
-declare_value_struct_conversion!(struct sixtyfps_corelib::input::KeyEvent { event_type, text, modifiers });
-declare_value_struct_conversion!(struct sixtyfps_corelib::layout::LayoutInfo { min, max, min_percent, max_percent, preferred, stretch });
-declare_value_struct_conversion!(struct sixtyfps_corelib::graphics::Point { x, y, ..Default::default()});
-declare_value_struct_conversion!(struct sixtyfps_corelib::items::PointerEvent { kind, button });
+declare_value_struct_conversion!(struct i_slint_core::model::StandardListViewItem { text });
+declare_value_struct_conversion!(struct i_slint_core::properties::StateInfo { current_state, previous_state, change_time });
+declare_value_struct_conversion!(struct i_slint_core::input::KeyboardModifiers { control, alt, shift, meta });
+declare_value_struct_conversion!(struct i_slint_core::input::KeyEvent { event_type, text, modifiers });
+declare_value_struct_conversion!(struct i_slint_core::layout::LayoutInfo { min, max, min_percent, max_percent, preferred, stretch });
+declare_value_struct_conversion!(struct i_slint_core::graphics::Point { x, y, ..Default::default()});
+declare_value_struct_conversion!(struct i_slint_core::items::PointerEvent { kind, button });
 
 /// Implement From / TryInto for Value that convert an `enum` to/from `Value::EnumerationValue`
 ///
@@ -296,38 +296,35 @@ macro_rules! declare_value_enum_conversion {
 }
 
 declare_value_enum_conversion!(
-    sixtyfps_corelib::items::TextHorizontalAlignment,
+    i_slint_core::items::TextHorizontalAlignment,
     TextHorizontalAlignment
 );
-declare_value_enum_conversion!(
-    sixtyfps_corelib::items::TextVerticalAlignment,
-    TextVerticalAlignment
-);
-declare_value_enum_conversion!(sixtyfps_corelib::items::TextOverflow, TextOverflow);
-declare_value_enum_conversion!(sixtyfps_corelib::items::TextWrap, TextWrap);
-declare_value_enum_conversion!(sixtyfps_corelib::layout::LayoutAlignment, LayoutAlignment);
-declare_value_enum_conversion!(sixtyfps_corelib::items::ImageFit, ImageFit);
-declare_value_enum_conversion!(sixtyfps_corelib::items::ImageRendering, ImageRendering);
-declare_value_enum_conversion!(sixtyfps_corelib::input::KeyEventType, KeyEventType);
-declare_value_enum_conversion!(sixtyfps_corelib::items::EventResult, EventResult);
-declare_value_enum_conversion!(sixtyfps_corelib::items::FillRule, FillRule);
-declare_value_enum_conversion!(sixtyfps_corelib::items::MouseCursor, MouseCursor);
-declare_value_enum_conversion!(sixtyfps_corelib::items::StandardButtonKind, StandardButtonKind);
-declare_value_enum_conversion!(sixtyfps_corelib::items::PointerEventKind, PointerEventKind);
-declare_value_enum_conversion!(sixtyfps_corelib::items::PointerEventButton, PointerEventButton);
-declare_value_enum_conversion!(sixtyfps_corelib::items::DialogButtonRole, DialogButtonRole);
-declare_value_enum_conversion!(sixtyfps_corelib::graphics::PathEvent, PathEvent);
+declare_value_enum_conversion!(i_slint_core::items::TextVerticalAlignment, TextVerticalAlignment);
+declare_value_enum_conversion!(i_slint_core::items::TextOverflow, TextOverflow);
+declare_value_enum_conversion!(i_slint_core::items::TextWrap, TextWrap);
+declare_value_enum_conversion!(i_slint_core::layout::LayoutAlignment, LayoutAlignment);
+declare_value_enum_conversion!(i_slint_core::items::ImageFit, ImageFit);
+declare_value_enum_conversion!(i_slint_core::items::ImageRendering, ImageRendering);
+declare_value_enum_conversion!(i_slint_core::input::KeyEventType, KeyEventType);
+declare_value_enum_conversion!(i_slint_core::items::EventResult, EventResult);
+declare_value_enum_conversion!(i_slint_core::items::FillRule, FillRule);
+declare_value_enum_conversion!(i_slint_core::items::MouseCursor, MouseCursor);
+declare_value_enum_conversion!(i_slint_core::items::StandardButtonKind, StandardButtonKind);
+declare_value_enum_conversion!(i_slint_core::items::PointerEventKind, PointerEventKind);
+declare_value_enum_conversion!(i_slint_core::items::PointerEventButton, PointerEventButton);
+declare_value_enum_conversion!(i_slint_core::items::DialogButtonRole, DialogButtonRole);
+declare_value_enum_conversion!(i_slint_core::graphics::PathEvent, PathEvent);
 
-impl From<sixtyfps_corelib::animations::Instant> for Value {
-    fn from(value: sixtyfps_corelib::animations::Instant) -> Self {
+impl From<i_slint_core::animations::Instant> for Value {
+    fn from(value: i_slint_core::animations::Instant) -> Self {
         Value::Number(value.0 as _)
     }
 }
-impl TryInto<sixtyfps_corelib::animations::Instant> for Value {
+impl TryInto<i_slint_core::animations::Instant> for Value {
     type Error = ();
-    fn try_into(self) -> Result<sixtyfps_corelib::animations::Instant, ()> {
+    fn try_into(self) -> Result<i_slint_core::animations::Instant, ()> {
         match self {
-            Value::Number(x) => Ok(sixtyfps_corelib::animations::Instant(x as _)),
+            Value::Number(x) => Ok(i_slint_core::animations::Instant(x as _)),
             _ => Err(()),
         }
     }
@@ -347,16 +344,16 @@ impl TryInto<()> for Value {
     }
 }
 
-impl From<sixtyfps_corelib::Color> for Value {
+impl From<i_slint_core::Color> for Value {
     #[inline]
-    fn from(c: sixtyfps_corelib::Color) -> Self {
+    fn from(c: i_slint_core::Color) -> Self {
         Value::Brush(Brush::SolidColor(c))
     }
 }
-impl TryInto<sixtyfps_corelib::Color> for Value {
+impl TryInto<i_slint_core::Color> for Value {
     type Error = Value;
     #[inline]
-    fn try_into(self) -> Result<sixtyfps_corelib::Color, Value> {
+    fn try_into(self) -> Result<i_slint_core::Color, Value> {
         match self {
             Value::Brush(Brush::SolidColor(c)) => Ok(c),
             _ => Err(self),
@@ -373,10 +370,10 @@ pub(crate) fn normalize_identifier(ident: &str) -> Cow<'_, str> {
     }
 }
 
-/// This type represents a runtime instance of structure in `.60`.
+/// This type represents a runtime instance of structure in `.slint`.
 ///
 /// This can either be an instance of a name structure introduced
-/// with the `struct` keyword in the .60 file, or an anonymous struct
+/// with the `struct` keyword in the .slint file, or an anonymous struct
 /// written with the `{ key: value, }`  notation.
 ///
 /// It can be constructed with the [`FromIterator`] trait, and converted
@@ -384,7 +381,7 @@ pub(crate) fn normalize_identifier(ident: &str) -> Cow<'_, str> {
 ///
 ///
 /// ```
-/// # use sixtyfps_interpreter::*;
+/// # use slint_interpreter::*;
 /// use core::convert::TryInto;
 /// // Construct a value from a key/value iterator
 /// let value : Value = [("foo".into(), 45u32.into()), ("bar".into(), true.into())]
@@ -426,18 +423,18 @@ impl FromIterator<(String, Value)> for Struct {
     }
 }
 
-/// ComponentCompiler is the entry point to the SixtyFPS interpreter that can be used
-/// to load .60 files or compile them on-the-fly from a string.
+/// ComponentCompiler is the entry point to the Slint interpreter that can be used
+/// to load .slint files or compile them on-the-fly from a string.
 pub struct ComponentCompiler {
-    config: sixtyfps_compilerlib::CompilerConfiguration,
+    config: i_slint_compiler::CompilerConfiguration,
     diagnostics: Vec<Diagnostic>,
 }
 
 impl Default for ComponentCompiler {
     fn default() -> Self {
         Self {
-            config: sixtyfps_compilerlib::CompilerConfiguration::new(
-                sixtyfps_compilerlib::generator::OutputFormat::Interpreter,
+            config: i_slint_compiler::CompilerConfiguration::new(
+                i_slint_compiler::generator::OutputFormat::Interpreter,
             ),
             diagnostics: vec![],
         }
@@ -450,7 +447,7 @@ impl ComponentCompiler {
         Self::default()
     }
 
-    /// Sets the include paths used for looking up `.60` imports to the specified vector of paths.
+    /// Sets the include paths used for looking up `.slint` imports to the specified vector of paths.
     pub fn set_include_paths(&mut self, include_paths: Vec<std::path::PathBuf>) {
         self.config.include_paths = include_paths;
     }
@@ -465,15 +462,15 @@ impl ComponentCompiler {
         self.config.style = Some(style);
     }
 
-    /// Returns the widget style the compiler is currently using when compiling .60 files.
+    /// Returns the widget style the compiler is currently using when compiling .slint files.
     pub fn style(&self) -> Option<&String> {
         self.config.style.as_ref()
     }
 
-    /// Sets the callback that will be invoked when loading imported .60 files. The specified
+    /// Sets the callback that will be invoked when loading imported .slint files. The specified
     /// `file_loader_callback` parameter will be called with a canonical file path as argument
     /// and is expected to return a future that, when resolved, provides the source code of the
-    /// .60 file to be imported as a string.
+    /// .slint file to be imported as a string.
     /// If an error is returned, then the build will abort with that error.
     /// If None is returned, it means the normal resolution algorithm will proceed as if the hook
     /// was not in place (i.e: load from the file system following the include paths)
@@ -494,7 +491,7 @@ impl ComponentCompiler {
         &self.diagnostics
     }
 
-    /// Compile a .60 file into a ComponentDefinition
+    /// Compile a .slint file into a ComponentDefinition
     ///
     /// Returns the compiled `ComponentDefinition` if there were no errors.
     ///
@@ -516,7 +513,7 @@ impl ComponentCompiler {
         path: P,
     ) -> Option<ComponentDefinition> {
         let path = path.as_ref();
-        let source = match sixtyfps_compilerlib::diagnostics::load_from_path(path) {
+        let source = match i_slint_compiler::diagnostics::load_from_path(path) {
             Ok(s) => s,
             Err(d) => {
                 self.diagnostics = vec![d];
@@ -531,7 +528,7 @@ impl ComponentCompiler {
         c.ok().map(|inner| ComponentDefinition { inner: inner.into() })
     }
 
-    /// Compile some .60 code into a ComponentDefinition
+    /// Compile some .slint code into a ComponentDefinition
     ///
     /// The `path` argument will be used for diagnostics and to compute relative
     /// paths while importing.
@@ -560,9 +557,9 @@ impl ComponentCompiler {
     }
 }
 
-/// ComponentDefinition is a representation of a compiled component from .60 markup.
+/// ComponentDefinition is a representation of a compiled component from .slint markup.
 ///
-/// It can be constructed from a .60 file using the [`ComponentCompiler::build_from_path`] or [`ComponentCompiler::build_from_source`] functions.
+/// It can be constructed from a .slint file using the [`ComponentCompiler::build_from_path`] or [`ComponentCompiler::build_from_source`] functions.
 /// And then it can be instantiated with the [`Self::create`] function.
 ///
 /// The ComponentDefinition acts as a factory to create new instances. When you've finished
@@ -595,7 +592,7 @@ impl ComponentDefinition {
     /// This method is internal because the WindowRc is not a public type
     #[doc(hidden)]
     pub fn create_with_existing_window(&self, window: &Window) -> ComponentInstance {
-        use sixtyfps_corelib::window::WindowHandleAccess;
+        use i_slint_core::window::WindowHandleAccess;
         generativity::make_guard!(guard);
         ComponentInstance {
             inner: self
@@ -612,7 +609,7 @@ impl ComponentDefinition {
     #[doc(hidden)]
     pub fn properties_and_callbacks(
         &self,
-    ) -> impl Iterator<Item = (String, sixtyfps_compilerlib::langtype::Type)> + '_ {
+    ) -> impl Iterator<Item = (String, i_slint_compiler::langtype::Type)> + '_ {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
         let guard = unsafe { generativity::Guard::new(generativity::Id::new()) };
@@ -690,7 +687,7 @@ impl ComponentDefinition {
         })
     }
 
-    /// The name of this Component as written in the .60 file
+    /// The name of this Component as written in the .slint file
     pub fn name(&self) -> &str {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type
@@ -706,7 +703,7 @@ impl ComponentDefinition {
 /// This function is available when the `display-diagnostics` is enabled.
 #[cfg(feature = "display-diagnostics")]
 pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
-    let mut build_diagnostics = sixtyfps_compilerlib::diagnostics::BuildDiagnostics::default();
+    let mut build_diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
     for d in diagnostics {
         build_diagnostics.push_compiler_error(d.clone())
     }
@@ -723,7 +720,7 @@ pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
 #[repr(C)]
 pub struct ComponentInstance {
     inner: vtable::VRc<
-        sixtyfps_corelib::component::ComponentVTable,
+        i_slint_core::component::ComponentVTable,
         crate::dynamic_component::ErasedComponentBox,
     >,
 }
@@ -740,7 +737,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
-    /// use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
+    /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// let code = r#"
     ///     MyWin := Window {
     ///         property <int> my_property: 42;
@@ -778,7 +775,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
-    /// use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString, ComponentHandle};
+    /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString, ComponentHandle};
     /// use core::convert::TryInto;
     /// let code = r#"
     ///     MyWin := Window {
@@ -837,7 +834,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
-    /// use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
+    /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// let code = r#"
     ///     global Glob := {
     ///         property <int> my_property: 42;
@@ -891,7 +888,7 @@ impl ComponentInstance {
     /// ## Examples
     ///
     /// ```
-    /// use sixtyfps_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
+    /// use slint_interpreter::{ComponentDefinition, ComponentCompiler, Value, SharedString};
     /// use core::convert::TryInto;
     /// let code = r#"
     ///     export global Logic := {
@@ -969,7 +966,7 @@ impl ComponentHandle for ComponentInstance {
     }
 
     fn from_inner(
-        inner: vtable::VRc<sixtyfps_corelib::component::ComponentVTable, Self::Inner>,
+        inner: vtable::VRc<i_slint_core::component::ComponentVTable, Self::Inner>,
     ) -> Self {
         Self { inner }
     }
@@ -988,9 +985,8 @@ impl ComponentHandle for ComponentInstance {
 
     fn run(&self) {
         self.show();
-        sixtyfps_rendering_backend_selector::backend().run_event_loop(
-            sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed,
-        );
+        i_slint_backend_selector::backend()
+            .run_event_loop(i_slint_core::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
         self.hide();
     }
 
@@ -1007,7 +1003,7 @@ impl ComponentHandle for ComponentInstance {
 }
 
 impl From<ComponentInstance>
-    for vtable::VRc<sixtyfps_corelib::component::ComponentVTable, ErasedComponentBox>
+    for vtable::VRc<i_slint_core::component::ComponentVTable, ErasedComponentBox>
 {
     fn from(value: ComponentInstance) -> Self {
         value.inner
@@ -1057,30 +1053,30 @@ pub enum InvokeCallbackError {
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
 pub fn run_event_loop() {
-    sixtyfps_rendering_backend_selector::backend()
-        .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
+    i_slint_backend_selector::backend()
+        .run_event_loop(i_slint_core::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
 }
 
 /// This module contains a few function use by tests
 pub mod testing {
     use super::ComponentHandle;
-    use sixtyfps_corelib::window::WindowHandleAccess;
+    use i_slint_core::window::WindowHandleAccess;
 
-    /// Wrapper around [`sixtyfps_corelib::tests::sixtyfps_send_mouse_click`]
+    /// Wrapper around [`i_slint_core::tests::slint_send_mouse_click`]
     pub fn send_mouse_click(comp: &super::ComponentInstance, x: f32, y: f32) {
-        sixtyfps_corelib::tests::sixtyfps_send_mouse_click(
+        i_slint_core::tests::slint_send_mouse_click(
             &vtable::VRc::into_dyn(comp.inner.clone()),
             x,
             y,
             comp.window().window_handle(),
         );
     }
-    /// Wrapper around [`sixtyfps_corelib::tests::send_keyboard_string_sequence`]
+    /// Wrapper around [`i_slint_core::tests::send_keyboard_string_sequence`]
     pub fn send_keyboard_string_sequence(
         comp: &super::ComponentInstance,
-        string: sixtyfps_corelib::SharedString,
+        string: i_slint_core::SharedString,
     ) {
-        sixtyfps_corelib::tests::send_keyboard_string_sequence(
+        i_slint_core::tests::send_keyboard_string_sequence(
             &string,
             Default::default(),
             comp.window().window_handle(),
@@ -1090,7 +1086,7 @@ pub mod testing {
 
 #[test]
 fn component_definition_properties() {
-    sixtyfps_rendering_backend_testing::init();
+    i_slint_backend_testing::init();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(
@@ -1138,7 +1134,7 @@ fn component_definition_properties() {
 
 #[test]
 fn component_definition_properties2() {
-    sixtyfps_rendering_backend_testing::init();
+    i_slint_backend_testing::init();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(
@@ -1168,7 +1164,7 @@ fn component_definition_properties2() {
 
 #[test]
 fn globals() {
-    sixtyfps_rendering_backend_testing::init();
+    i_slint_backend_testing::init();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let definition = spin_on::spin_on(
@@ -1286,7 +1282,7 @@ fn globals() {
 
 #[test]
 fn component_definition_struct_properties() {
-    sixtyfps_rendering_backend_testing::init();
+    i_slint_backend_testing::init();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(
@@ -1336,8 +1332,8 @@ fn component_definition_struct_properties() {
 
 #[test]
 fn component_definition_model_properties() {
-    use sixtyfps_corelib::model::*;
-    sixtyfps_rendering_backend_testing::init();
+    use i_slint_core::model::*;
+    i_slint_backend_testing::init();
     let mut compiler = ComponentCompiler::default();
     compiler.set_style("fluent".into());
     let comp_def = spin_on::spin_on(compiler.build_from_source(

@@ -1,0 +1,90 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+TestCase := Window {
+    width: 100phx;
+    height: 100phx;
+    FocusScope {
+        key-pressed(event) => {
+            r1 += event.text;
+            return event.text == "a" ? accept : reject;
+        }
+
+        FocusScope {
+            key-pressed(event) => {
+                r2 += event.text;
+                return event.text == "b" ? accept : reject;
+            }
+            Rectangle {
+                FocusScope {
+                    key-pressed(event) => {
+                        r3 += event.text;
+                        return event.text == "c" ? accept : reject;
+                    }
+
+                    if (toggle) : FocusScope {
+                        key-pressed(event) => {
+                            r4 += event.text;
+                            return event.text == "d" ? accept : reject;
+                        }
+                        FocusScope {
+                            key-pressed(event) => {
+                                r5 += event.text;
+                                return event.text == "e" ? accept : reject;
+                            }
+                            TouchArea {
+                                clicked => {
+                                    parent.focus();
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    property<bool> toggle: true;
+    property<string> r1;
+    property<string> r2;
+    property<string> r3;
+    property<string> r4;
+    property<string> r5;
+}
+
+/*
+```rust
+let instance = TestCase::new();
+slint::testing::send_mouse_click(&instance, 50., 50.);
+slint::testing::send_keyboard_string_sequence(&instance, "__abcdefghij__");
+assert_eq!(instance.get_r1(), "__afghij__");
+assert_eq!(instance.get_r2(), "__abfghij__");
+assert_eq!(instance.get_r3(), "__abcfghij__");
+assert_eq!(instance.get_r4(), "__abcdfghij__");
+assert_eq!(instance.get_r5(), "__abcdefghij__");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint::testing::send_mouse_click(&instance, 50., 50.);
+slint::testing::send_keyboard_string_sequence(&instance, "__abcdefghij__");
+assert_eq(instance.get_r1(), "__afghij__");
+assert_eq(instance.get_r2(), "__abfghij__");
+assert_eq(instance.get_r3(), "__abcfghij__");
+assert_eq(instance.get_r4(), "__abcdfghij__");
+assert_eq(instance.get_r5(), "__abcdefghij__");
+```
+
+```js
+var instance = new slint.TestCase();
+instance.send_mouse_click(50., 50.);
+instance.send_keyboard_string_sequence("__abcdefghij__");
+assert.equal(instance.r1, "__afghij__");
+assert.equal(instance.r2, "__abfghij__");
+assert.equal(instance.r3, "__abcfghij__");
+assert.equal(instance.r4, "__abcdfghij__");
+assert.equal(instance.r5, "__abcdefghij__");
+
+```
+*/

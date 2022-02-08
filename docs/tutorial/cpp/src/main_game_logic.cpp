@@ -4,7 +4,7 @@
 // clang-format off
 // main.cpp
 
-#include "memory_game_logic.h" // generated header from memory_game_logic.60
+#include "memory_game_logic.h" // generated header from memory_game_logic.slint
 
 #include <random> // Added
 
@@ -23,11 +23,11 @@ int main()
 
     // ANCHOR: game_logic
 
-    auto tiles_model = std::make_shared<sixtyfps::VectorModel<TileData>>(new_tiles);
+    auto tiles_model = std::make_shared<slint::VectorModel<TileData>>(new_tiles);
     main_window->set_memory_tiles(tiles_model);
 
     main_window->on_check_if_pair_solved(
-            [main_window_weak = sixtyfps::ComponentWeakHandle(main_window)] {
+            [main_window_weak = slint::ComponentWeakHandle(main_window)] {
                 auto main_window = *main_window_weak.lock();
                 auto tiles_model = main_window->get_memory_tiles();
                 int first_visible_index = -1;
@@ -52,7 +52,7 @@ int main()
                     }
                     main_window->set_disable_tiles(true);
 
-                    sixtyfps::Timer::single_shot(std::chrono::seconds(1),
+                    slint::Timer::single_shot(std::chrono::seconds(1),
                         [=]() mutable {
                             main_window->set_disable_tiles(false);
                             first_visible_tile.image_visible = false;

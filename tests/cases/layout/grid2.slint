@@ -1,0 +1,82 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+TestCase := Window {
+    width: 200phx;
+    height: 500phx;
+
+    layout := GridLayout {
+        spacing: 0phx;
+        padding: 0phx;
+        Row { }
+        Row {
+            rect1 := Rectangle { background: red; }
+            rect2 := Rectangle { background: orange; }
+        }
+        rect3 := Rectangle { background: blue; }
+        rect4 := Rectangle { background: yellow; }
+        Row {
+            rect5 := Rectangle { background: green; }
+            rect6 := Rectangle { background: pink; }
+        }
+        Row { }
+        rect7 := Rectangle { background: gray; }
+        rect8 := Rectangle { background: cyan; }
+        Row { }
+        rect9 := Rectangle { background: magenta; }
+        rect10 := Rectangle { background: purple; }
+    }
+
+    // there should be 5 rows
+    property <bool> size_ok:
+        rect1.width == 100phx && rect1.height == 100phx &&
+        rect2.width == 100phx && rect2.height == 100phx &&
+        rect3.width == 100phx && rect3.height == 100phx &&
+        rect4.width == 100phx && rect4.height == 100phx &&
+        rect5.width == 100phx && rect5.height == 100phx &&
+        rect6.width == 100phx && rect6.height == 100phx &&
+        rect7.width == 100phx && rect7.height == 100phx &&
+        rect8.width == 100phx && rect8.height == 100phx &&
+        rect9.width == 100phx && rect9.height == 100phx &&
+        rect10.width == 100phx && rect10.height == 100phx;
+    property <bool> x_ok:
+        rect1.x == 0phx && rect2.x == 100phx &&
+        rect3.x == 0phx && rect4.x == 100phx &&
+        rect5.x == 0phx && rect6.x == 100phx &&
+        rect7.x == 0phx && rect8.x == 100phx &&
+        rect9.x == 0phx && rect10.x == 100phx;
+
+    property <bool> y_ok:
+        rect1.y == 0phx && rect2.y == 0phx &&
+        rect3.y == 100phx && rect4.y == 100phx &&
+        rect5.y == 200phx && rect6.y == 200phx &&
+        rect7.y == 300phx && rect8.y == 300phx &&
+        rect9.y == 400phx && rect9.y == 400phx;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_size_ok());
+assert(instance.get_x_ok());
+assert(instance.get_y_ok());
+```
+
+
+```rust
+let instance = TestCase::new();
+assert!(instance.get_size_ok());
+assert!(instance.get_x_ok());
+assert!(instance.get_y_ok());
+```
+
+```js
+var instance = new slint.TestCase();
+instance.send_mouse_click(5., 5.);
+assert(instance.size_ok);
+assert(instance.x_ok);
+assert(instance.y_ok);
+```
+*/

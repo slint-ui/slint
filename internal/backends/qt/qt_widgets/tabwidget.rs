@@ -4,7 +4,7 @@
 use super::*;
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeTabWidget {
     pub x: Property<f32>,
@@ -227,7 +227,7 @@ impl Item for NativeTabWidget {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &WindowRc,
-        _self_rc: &sixtyfps_corelib::items::ItemRc,
+        _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -293,11 +293,11 @@ impl ItemConsts for NativeTabWidget {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeTabWidgetVTable() -> NativeTabWidgetVTable for NativeTabWidget
+fn slint_get_NativeTabWidgetVTable() -> NativeTabWidgetVTable for NativeTabWidget
 }
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeTab {
     pub x: Property<f32>,
@@ -305,7 +305,7 @@ pub struct NativeTab {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub title: Property<SharedString>,
-    pub icon: Property<sixtyfps_corelib::graphics::Image>,
+    pub icon: Property<i_slint_core::graphics::Image>,
     pub enabled: Property<bool>,
     pub pressed: Property<bool>,
     pub current: Property<i32>,
@@ -383,7 +383,7 @@ impl Item for NativeTab {
         self: Pin<&Self>,
         event: MouseEvent,
         window: &WindowRc,
-        self_rc: &sixtyfps_corelib::items::ItemRc,
+        self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let enabled = self.enabled();
         if !enabled {
@@ -487,5 +487,5 @@ impl ItemConsts for NativeTab {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeTabVTable() -> NativeTabVTable for NativeTab
+fn slint_get_NativeTabVTable() -> NativeTabVTable for NativeTab
 }

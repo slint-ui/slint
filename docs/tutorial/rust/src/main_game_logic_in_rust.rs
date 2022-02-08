@@ -3,7 +3,7 @@
 
 #[allow(dead_code)]
 fn main() {
-    use sixtyfps::Model;
+    use slint::Model;
 
     let main_window = MainWindow::new();
 
@@ -19,7 +19,7 @@ fn main() {
 
     // ANCHOR: game_logic
     // Assign the shuffled Vec to the model property
-    let tiles_model = std::rc::Rc::new(sixtyfps::VecModel::from(tiles));
+    let tiles_model = std::rc::Rc::new(slint::VecModel::from(tiles));
     main_window.set_memory_tiles(tiles_model.clone().into());
 
     let main_window_weak = main_window.as_weak();
@@ -40,7 +40,7 @@ fn main() {
                 let main_window = main_window_weak.unwrap();
                 main_window.set_disable_tiles(true);
                 let tiles_model = tiles_model.clone();
-                sixtyfps::Timer::single_shot(std::time::Duration::from_secs(1), move || {
+                slint::Timer::single_shot(std::time::Duration::from_secs(1), move || {
                     main_window.set_disable_tiles(false);
                     t1.image_visible = false;
                     tiles_model.set_row_data(t1_idx, t1);
@@ -54,7 +54,8 @@ fn main() {
     main_window.run();
     // ANCHOR_END: game_logic
 }
-sixtyfps::sixtyfps! {
+
+slint::slint! {
     struct TileData := {
         image: image,
         image_visible: bool,

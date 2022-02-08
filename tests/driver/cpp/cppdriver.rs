@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-use sixtyfps_compilerlib::{diagnostics::BuildDiagnostics, *};
+use i_slint_compiler::{diagnostics::BuildDiagnostics, *};
 use std::error::Error;
 use std::io::Write;
 use std::ops::Deref;
@@ -35,9 +35,9 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     }
 
     generated_cpp.write_all(
-        b"#ifdef NDEBUG\n#undef NDEBUG\n#endif\n#include <assert.h>\n#include <cmath>\n#include <iostream>\n#include <sixtyfps_testing.h>\n",
+        b"#ifdef NDEBUG\n#undef NDEBUG\n#endif\n#include <assert.h>\n#include <cmath>\n#include <iostream>\n#include <slint_testing.h>\n",
     )?;
-    generated_cpp.write_all(b"int main() {\n    sixtyfps::testing::init();\n")?;
+    generated_cpp.write_all(b"int main() {\n    slint::testing::init();\n")?;
     for x in test_driver_lib::extract_test_functions(&source).filter(|x| x.language_id == "cpp") {
         write!(generated_cpp, "  {{\n    {}\n  }}\n", x.source.replace("\n", "\n    "))?;
     }
@@ -86,11 +86,11 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         compiler_command.arg("-g");
         compiler_command.arg("-Werror").arg("-Wall").arg("-Wextra");
         compiler_command.arg(concat!("-L", env!("CPP_LIB_PATH")));
-        compiler_command.arg("-lsixtyfps_cpp");
+        compiler_command.arg("-lslint_cpp");
         compiler_command.arg("-o").arg(&*binary_path);
     } else if compiler.is_like_msvc() {
         compiler_command.arg("/std:c++20");
-        compiler_command.arg("/link").arg(concat!(env!("CPP_LIB_PATH"), "\\sixtyfps_cpp.dll.lib"));
+        compiler_command.arg("/link").arg(concat!(env!("CPP_LIB_PATH"), "\\slint_cpp.dll.lib"));
         let mut out_arg = std::ffi::OsString::from("/OUT:");
         out_arg.push(&*binary_path);
         compiler_command.arg(out_arg);

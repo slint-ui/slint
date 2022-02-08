@@ -1,0 +1,14 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+Foo := Rectangle {}
+Bar := Rectangle {}
+
+export { Foo }
+//      ^error{Duplicated export 'Foo'}
+export { Foo }
+//      ^error{Duplicated export 'Foo'}
+export { Bar }
+//      ^error{Duplicated export 'Bar'}
+export { Foo as Bar }
+//             ^error{Duplicated export 'Bar'}

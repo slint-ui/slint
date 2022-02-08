@@ -1,0 +1,41 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+// Regression test for a bug in which an alias to a model property was not
+// properly set because it was thought as constant
+
+MenuItem := Rectangle {
+    property <length> h <=> root.val;
+    height: val;
+    property <length> val;
+}
+
+export TestCase := Rectangle {
+    VerticalLayout {
+        for entry[idx] in [
+            { val: 12px },
+        ] : MenuItem {
+            h: entry.val;
+        }
+        Rectangle {}
+    }
+    property <bool> test: root.preferred_height == 12px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+```rust
+let instance = TestCase::new();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

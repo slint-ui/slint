@@ -4,7 +4,7 @@
 use super::*;
 
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeLineEdit {
     pub x: Property<f32>,
@@ -93,7 +93,7 @@ impl Item for NativeLineEdit {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &WindowRc,
-        _self_rc: &sixtyfps_corelib::items::ItemRc,
+        _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -140,5 +140,5 @@ impl ItemConsts for NativeLineEdit {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeLineEditVTable() -> NativeLineEditVTable for NativeLineEdit
+fn slint_get_NativeLineEditVTable() -> NativeLineEditVTable for NativeLineEdit
 }

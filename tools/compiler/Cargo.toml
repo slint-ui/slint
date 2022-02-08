@@ -2,22 +2,22 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "sixtyfps-compiler"
+name = "slint-compiler"
 version = "0.2.0"
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
-description = "SixtyFPS compiler binary"
+description = "Slint compiler binary"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 publish = false
 
 [[bin]]
-name = "sixtyfps-compiler"
+name = "slint-compiler"
 path = "main.rs"
 
 [dependencies]
-sixtyfps-compilerlib = { version = "=0.2.0", path = "../../internal/compiler", features = ["display-diagnostics", "cpp", "rust"]}
+i-slint-compiler = { version = "=0.2.0", path = "../../internal/compiler", features = ["display-diagnostics", "cpp", "rust"]}
 
 clap = { version = "3.0.5", features=["derive", "wrap_help"] }
 proc-macro2 = "1.0.11"

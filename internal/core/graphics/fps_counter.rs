@@ -39,14 +39,14 @@ pub struct FPSCounter {
 }
 
 impl FPSCounter {
-    /// Returns a new instance of the counter if requested by the user (via `SIXTYFPS_DEBUG_PERFORMANCE` environment variable).
+    /// Returns a new instance of the counter if requested by the user (via `SLINT_DEBUG_PERFORMANCE` environment variable).
     /// The environment variable holds a comma separated list of options:
     ///     * `refresh_lazy`: selects the lazy refresh mode, where measurements are only taken when a frame is rendered (due to user input or animations)
     ///     * `refresh_full_speed`: frames are continuously rendered
     ///     * `console`: the measurement is printed to the console
     ///     * `overlay`: the measurement is drawn as overlay on top of the scene
     pub fn new() -> Option<Rc<Self>> {
-        let options = match std::env::var("SIXTYFPS_DEBUG_PERFORMANCE") {
+        let options = match std::env::var("SLINT_DEBUG_PERFORMANCE") {
             Ok(var) => var,
             _ => return None,
         };
@@ -55,7 +55,7 @@ impl FPSCounter {
         let refresh_mode = match RefreshMode::try_from(&options) {
             Ok(mode) => mode,
             Err(_) => {
-                eprintln!("Missing refresh mode in SIXTYFPS_DEBUG_PERFORMANCE. Please specify either refresh_full_speed or refresh_lazy");
+                eprintln!("Missing refresh mode in SLINT_DEBUG_PERFORMANCE. Please specify either refresh_full_speed or refresh_lazy");
                 return None;
             }
         };
@@ -64,7 +64,7 @@ impl FPSCounter {
         let output_overlay = options.contains(&"overlay");
 
         if !output_console && !output_overlay {
-            eprintln!("Missing output mode in SIXTYFPS_DEBUG_PERFORMANCE. Please specify either console or overlay (or both)");
+            eprintln!("Missing output mode in SLINT_DEBUG_PERFORMANCE. Please specify either console or overlay (or both)");
             return None;
         }
 
@@ -85,7 +85,7 @@ impl FPSCounter {
         #[cfg(not(debug_assertions))]
         let build_config = "release";
 
-        eprintln!("SixtyFPS: Build config: {}; Backend: {}", build_config, winsys_info);
+        eprintln!("Slint: Build config: {}; Backend: {}", build_config, winsys_info);
 
         let this = self.clone();
         self.update_timer.stop();

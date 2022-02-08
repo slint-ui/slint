@@ -1,0 +1,128 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+TestCase := Rectangle {
+    width: 100phx;
+    height: 100phx;
+
+    property <int> touch_error;
+    property <int> touch1;
+    property <int> value;
+
+
+    HorizontalLayout {
+        spacing: 0;
+        padding: 0;
+        Rectangle {
+            background: orange;
+            z: 400;
+            TouchArea {
+                clicked => { touch_error+=78 }
+            }
+        }
+
+        Rectangle {
+            background: green;
+            z: 3;
+
+            TouchArea {
+                clicked => { touch_error+=1 }
+            }
+
+            for i in [
+                {color: #0f0, value: 8, },
+                {color: #00f, value: 9, },
+                {color: #f00, value: 10, },
+            ] : Rectangle {
+                z: 78;
+                background: i.color;
+                TouchArea {
+                    clicked => {
+                        root.value = i.value;
+                    }
+                }
+            }
+
+            TouchArea {
+                clicked => { touch_error+=5 }
+            }
+
+            TouchArea {
+                z: 4;
+                clicked => { touch_error+=8 }
+            }
+
+        }
+
+        Rectangle {
+            background: pink;
+            z: -43;
+
+            TouchArea {
+                clicked => { touch_error+=1 }
+            }
+
+            TouchArea {
+                clicked => { touch_error+=180 }
+            }
+
+            TouchArea {
+                clicked => {
+                debug("HI");
+                touch1+=1
+                }
+            }
+
+            TouchArea {
+                z: -1;
+                clicked => { touch_error+=12 }
+            }
+        }
+    }
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint::testing::send_mouse_click(&instance, 38, 5.);
+assert_eq(instance.get_touch1(), 0);
+assert_eq(instance.get_value(), 10);
+assert_eq(instance.get_touch_error(), 0);
+
+slint::testing::send_mouse_click(&instance, 95, 5.);
+assert_eq(instance.get_touch1(), 1);
+assert_eq(instance.get_value(), 10);
+assert_eq(instance.get_touch_error(), 0);
+
+```
+
+
+```rust
+let instance = TestCase::new();
+slint::testing::send_mouse_click(&instance, 38., 5.);
+assert_eq!(instance.get_touch1(), 0);
+assert_eq!(instance.get_value(), 10);
+assert_eq!(instance.get_touch_error(), 0);
+
+slint::testing::send_mouse_click(&instance, 95., 5.);
+assert_eq!(instance.get_touch1(), 1);
+assert_eq!(instance.get_value(), 10);
+assert_eq!(instance.get_touch_error(), 0);
+```
+
+```js
+var instance = new slint.TestCase();
+
+instance.send_mouse_click(38., 5.);
+assert.equal(instance.touch1, 0);
+assert.equal(instance.value, 10);
+assert.equal(instance.touch_error, 0);
+
+instance.send_mouse_click(95., 5.);
+assert.equal(instance.touch1, 1);
+assert.equal(instance.value, 10);
+assert.equal(instance.touch_error, 0);
+```
+*/

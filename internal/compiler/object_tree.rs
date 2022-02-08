@@ -291,7 +291,7 @@ impl Component {
     }
 
     /// Returns the names of aliases to global singletons, exactly as
-    /// specified in the .60 markup (not normalized).
+    /// specified in the .slint markup (not normalized).
     pub fn global_aliases(&self) -> Vec<String> {
         self.exported_global_names
             .borrow()
@@ -423,7 +423,7 @@ pub type BindingsMap = BTreeMap<String, RefCell<BindingExpression>>;
 /// An Element is an instantiation of a Component
 #[derive(Default)]
 pub struct Element {
-    /// The id as named in the original .60 file.
+    /// The id as named in the original .slint file.
     ///
     /// Note that it can only be used for lookup before inlining.
     /// After inlining there can be duplicated id in the component.

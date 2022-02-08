@@ -4,7 +4,7 @@
 // ANCHOR: main
 // main.cpp
 
-#include "memory.h" // generated header from memory.60
+#include "memory.h" // generated header from memory.slint
 
 int main()
 {

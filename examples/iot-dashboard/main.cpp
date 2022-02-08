@@ -3,7 +3,7 @@
 
 #include "dashboard.h"
 #include <chrono>
-#include <sixtyfps_interpreter.h>
+#include <slint_interpreter.h>
 
 #include <fmt/core.h>
 #include <fmt/chrono.h>
@@ -35,7 +35,7 @@ public:
 private:
     void update_clock();
 
-    sixtyfps::Timer clock_update_timer;
+    slint::Timer clock_update_timer;
 };
 
 ClockWidget::ClockWidget() : clock_update_timer(std::chrono::seconds(1), [this] { update_clock(); })
@@ -45,7 +45,7 @@ ClockWidget::ClockWidget() : clock_update_timer(std::chrono::seconds(1), [this] 
 void ClockWidget::update_clock()
 {
     std::string current_time = fmt::format("{:%H:%M:%S}", fmt::localtime(std::time(nullptr)));
-    set_property("time", sixtyfps::SharedString(current_time));
+    set_property("time", slint::SharedString(current_time));
 }
 
 class HumidityWidget : public Widget
@@ -60,7 +60,7 @@ public:
 
 private:
     void update_fake_humidity();
-    sixtyfps::Timer fake_humidity_update_timer;
+    slint::Timer fake_humidity_update_timer;
     std::default_random_engine rng;
 };
 
@@ -91,7 +91,7 @@ int main()
     builder.add_grid_widget(std::make_shared<PlaceholderWidget>("UsageDiagram"), { 2, 0, {}, 2 });
     builder.add_grid_widget(std::make_shared<PlaceholderWidget>("LightIntensity"), { 2, 2 });
 
-    sixtyfps::interpreter::ComponentCompiler compiler;
+    slint::interpreter::ComponentCompiler compiler;
     compiler.set_include_paths({ SOURCE_DIR });
     auto dashboard = builder.build(compiler);
 

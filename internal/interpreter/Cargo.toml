@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "sixtyfps-interpreter"
+name = "slint-interpreter"
 version = "0.2.0"
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
-description = "Interpreter library for SixtyFPS"
+description = "Interpreter library for Slint"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 categories = ["gui", "rendering::engine"]
@@ -21,19 +21,19 @@ path = "lib.rs"
 default = ["std", "backend-gl", "x11", "backend-qt", "compat-0-2-0"]
 
 ## Mandatory feature:
-## This feature is required to keep the compatibility with SixtyFPS 0.2.0
+## This feature is required to keep the compatibility with Slint 0.2.0
 ## Newer patch version may put current functionality behind a new feature
 ## that would be enabled by default only if this feature was added
 compat-0-2-0 = []
 
 ## enable the [`print_diagnostics`] function to show diagnostic in the console output
-display-diagnostics = ["sixtyfps-compilerlib/display-diagnostics"]
+display-diagnostics = ["i-slint-compiler/display-diagnostics"]
 
 # (internal) export C++ FFI functions
-ffi = ["spin_on", "sixtyfps-corelib/ffi"]
+ffi = ["spin_on", "i-slint-core/ffi"]
 
 ## Enable use of the Rust standard library.
-std = ["sixtyfps-corelib/std"]
+std = ["i-slint-core/std"]
 
 #! ### Backends
 
@@ -41,21 +41,21 @@ std = ["sixtyfps-corelib/std"]
 ## This backend is required to use the `native` style.
 ## It requires Qt 5.15 or later to be installed. If Qt is not installed, the
 ## backend will not be operational
-backend-qt = ["sixtyfps-rendering-backend-selector/sixtyfps-rendering-backend-qt", "std"]
+backend-qt = ["i-slint-backend-selector/i-slint-backend-qt", "std"]
 
 ## The GL backend uses the `winit` crate for the windowing system integration,
 ## and the `femtovg` crate for the rendering.
 ## On unix, at least one of `x11` or `wayland` features must be enabled.
-backend-gl = ["sixtyfps-rendering-backend-selector/sixtyfps-rendering-backend-gl", "std"]
+backend-gl = ["i-slint-backend-selector/i-slint-backend-gl", "std"]
 ## Same as the GL backend, with the `x11` feature of `winit` enabled
-x11 = ["sixtyfps-rendering-backend-selector/x11", "backend-gl"]
+x11 = ["i-slint-backend-selector/x11", "backend-gl"]
 ## Same as the GL backend, with the `wayland` feature of `winit` enabled
-wayland = ["sixtyfps-rendering-backend-selector/wayland", "backend-gl"]
+wayland = ["i-slint-backend-selector/wayland", "backend-gl"]
 
 [dependencies]
-sixtyfps-compilerlib = { version = "=0.2.0", path = "../compiler" }
-sixtyfps-corelib = { version = "=0.2.0", path = "../core", features = ["rtti"] }
-sixtyfps-rendering-backend-selector = { version = "=0.2.0", path = "../../internal/backends/selector" }
+i-slint-compiler = { version = "=0.2.0", path = "../compiler" }
+i-slint-core = { version = "=0.2.0", path = "../core", features = ["rtti"] }
+i-slint-backend-selector = { version = "=0.2.0", path = "../../internal/backends/selector" }
 
 vtable = { version = "0.1.1", path="../../helper_crates/vtable" }
 
@@ -71,10 +71,10 @@ version = "0.1"
 optional = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-sixtyfps-rendering-backend-gl = { version = "=0.2.0", path = "../../internal/backends/gl" }
+i-slint-backend-gl = { version = "=0.2.0", path = "../../internal/backends/gl" }
 
 [dev-dependencies]
-sixtyfps-rendering-backend-testing = { path = "../../internal/backends/testing" }
+i-slint-backend-testing = { path = "../../internal/backends/testing" }
 
 spin_on = "0.1"
 

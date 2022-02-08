@@ -328,7 +328,7 @@ pub enum Expression {
     /// These should be transformed to other expression before reaching generation
     BuiltinMacroReference(BuiltinMacroFunction, Option<NodeOrToken>),
 
-    /// A reference to a specific element. This isn't possible to create in .60 syntax itself, but intermediate passes may generate this
+    /// A reference to a specific element. This isn't possible to create in .slint syntax itself, but intermediate passes may generate this
     /// type of expression.
     ElementReference(Weak<RefCell<Element>>),
 
@@ -1243,7 +1243,7 @@ pub enum ImageReference {
     EmbeddedTexture { resource_id: usize },
 }
 
-/// Print the expression as a .60 code (not necessarily valid .60)
+/// Print the expression as a .slint code (not necessarily valid .slint)
 pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std::fmt::Result {
     match expression {
         Expression::Invalid => write!(f, "<invalid>"),

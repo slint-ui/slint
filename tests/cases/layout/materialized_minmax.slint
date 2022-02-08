@@ -1,0 +1,99 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+// Test the propagation of maximum and minimum size through nested grid layouts
+
+TestCase := Rectangle {
+    width: 300phx;
+    height: 300phx;
+
+    rect := Rectangle {
+
+        layout := HorizontalLayout {
+            spacing: 0phx;
+            padding: 0phx;
+            Rectangle {
+                background: blue;
+                max-height: 300phx;
+                max-width: 300phx;
+                min-height: 25phx;
+            }
+            VerticalLayout {
+                spacing: 0phx;
+                padding: 0phx;
+                Rectangle {
+                    background: red;
+                    min-width: 50phx;
+                }
+                Rectangle {
+                    background: green;
+                }
+            }
+        }
+    }
+
+    property<int> materialized_max_width: layout.max-width / 1phx;
+    property<int> materialized_max_height: layout.max-height / 1phx;
+    property<int> materialized_min_width: layout.min-width / 1phx;
+    property<int> materialized_min_height: layout.min-height / 1phx;
+
+    property<int> materialized_rect_max_width: rect.max-width / 1phx;
+    property<int> materialized_rect_max_height: rect.max-height / 1phx;
+    property<int> materialized_rect_min_width: rect.min-width / 1phx;
+    property<int> materialized_rect_min_height: rect.min-height / 1phx;
+
+    property <bool> test:
+        materialized_max_height == 300 && materialized_min_width == 50 && materialized_min_height == 25 && materialized_max_width > 100000 &&
+        materialized_rect_max_height == 300 && materialized_rect_min_width == 50 && materialized_rect_min_height == 25 && materialized_rect_max_width > 100000;
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint::testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_materialized_max_height(), 300);
+assert_eq(instance.get_materialized_min_width(), 50);
+assert_eq(instance.get_materialized_min_height(), 25);
+// FIXME! float max is overflowing on int
+assert_eq(uint32_t(instance.get_materialized_max_width()), uint32_t(std::numeric_limits<int>::max()) + 1);
+
+assert_eq(instance.get_materialized_rect_max_height(), 300);
+assert_eq(instance.get_materialized_rect_min_width(), 50);
+assert_eq(instance.get_materialized_rect_min_height(), 25);
+// FIXME! float max is overflowing on int
+assert_eq(uint32_t(instance.get_materialized_rect_max_width()), uint32_t(std::numeric_limits<int>::max()) + 1);
+```
+
+
+```rust
+let instance = TestCase::new();
+slint::testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_materialized_max_height(), 300);
+assert_eq!(instance.get_materialized_min_width(), 50);
+assert_eq!(instance.get_materialized_min_height(), 25);
+assert_eq!(instance.get_materialized_max_width(), i32::MAX);
+
+assert_eq!(instance.get_materialized_rect_max_height(), 300);
+assert_eq!(instance.get_materialized_rect_min_width(), 50);
+assert_eq!(instance.get_materialized_rect_min_height(), 25);
+assert_eq!(instance.get_materialized_rect_max_width(), i32::MAX);
+
+```
+
+```js
+var instance = new slint.TestCase();
+instance.send_mouse_click(5., 5.);
+assert.equal(instance.materialized_max_height, 300);
+assert.equal(instance.materialized_min_width, 50);
+assert.equal(instance.materialized_min_height, 25);
+assert.equal(instance.materialized_max_width, Math.pow(2, 31) - 1);
+
+assert.equal(instance.materialized_rect_max_height, 300);
+assert.equal(instance.materialized_rect_min_width, 50);
+assert.equal(instance.materialized_rect_min_height, 25);
+assert.equal(instance.materialized_rect_max_width, Math.pow(2, 31) - 1);
+```
+
+*/

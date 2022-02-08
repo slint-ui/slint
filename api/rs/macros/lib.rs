@@ -1,29 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-/*!
-
-**NOTE**: This library is an **internal** crate for the [SixtyFPS project](https://sixtyfps.io).
-This crate should **not be used directly** by applications using SixtyFPS.
-You should use the `sixtyfps` crate instead.
-
-**WARNING**: This crate does not follow the semver convention for versioning and can
-only be used with `version = "=x.y.z"` in Cargo.toml.
-
-*/
-
 // cSpell:ignore punct
 
+#![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 
 extern crate proc_macro;
 use std::path::Path;
 
+use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::parser::SyntaxKind;
+use i_slint_compiler::*;
 use proc_macro::{Spacing, TokenStream, TokenTree};
 use quote::quote;
-use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
-use sixtyfps_compilerlib::parser::SyntaxKind;
-use sixtyfps_compilerlib::*;
 
 /// Returns true if the two token are touching. For example the two token `foo`and `-` are touching if
 /// it was written like so in the source code: `foo-` but not when written like so `foo -`
@@ -308,13 +298,13 @@ fn extract_include_paths(
     (remaining_stream, include_paths)
 }
 
-/// This macro allows you to use the `.60` design markup language inline in Rust code. Within the braces of the macro
-/// you can use place `.60` code and the named exported components will be available for instantiation.
+/// This macro allows you to use the `.slint` design markup language inline in Rust code. Within the braces of the macro
+/// you can use place `.slint` code and the named exported components will be available for instantiation.
 ///
-/// [The documentation of the `sixtyfps`](./index.html) crate contains more information about the language specification and
+/// [The documentation of the `slint`](./index.html) crate contains more information about the language specification and
 /// how to use the generated code.
 #[proc_macro]
-pub fn sixtyfps(stream: TokenStream) -> TokenStream {
+pub fn slint(stream: TokenStream) -> TokenStream {
     let token_iter = stream.into_iter();
 
     let (token_iter, include_paths) = extract_include_paths(token_iter);
@@ -337,10 +327,10 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
 
     //println!("{:#?}", syntax_node);
     let mut compiler_config =
-        CompilerConfiguration::new(sixtyfps_compilerlib::generator::OutputFormat::Rust);
+        CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Rust);
 
-    if std::env::var_os("SIXTYFPS_STYLE").is_none() {
-        // This file is written by the sixtyfps-rendering-backend-selector's built script.
+    if std::env::var_os("SLINT_STYLE").is_none() && std::env::var_os("SIXTYFPS_STYLE").is_none() {
+        // This file is written by the i-slint-backend-selector's built script.
         // It is in the target/xxx/build directory
         let target_path = match std::env::var_os("OUT_DIR") {
             Some(out_dir) => Some(
@@ -349,7 +339,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
                     .unwrap()
                     .parent()
                     .unwrap()
-                    .join("SIXTYFPS_DEFAULT_STYLE.txt"),
+                    .join("SLINT_DEFAULT_STYLE.txt"),
             ),
             None => {
                 // OUT_DIR is only defined when the crate having the macro has a build.rs script
@@ -363,7 +353,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
                     }
                 }
                 out_dir.map(|out_dir| {
-                    Path::new(&out_dir).parent().unwrap().join("build/SIXTYFPS_DEFAULT_STYLE.txt")
+                    Path::new(&out_dir).parent().unwrap().join("build/SLINT_DEFAULT_STYLE.txt")
                 })
             }
         };
@@ -392,6 +382,7 @@ pub fn sixtyfps(stream: TokenStream) -> TokenStream {
         .map(|p| quote! {const _ : &'static [u8] = ::core::include_bytes!(#p);});
 
     result.extend(reload);
+    result.extend(quote! {const _ : Option<&'static str> = ::core::option_env!("SLINT_STYLE");});
     result.extend(quote! {const _ : Option<&'static str> = ::core::option_env!("SIXTYFPS_STYLE");});
 
     result.into()

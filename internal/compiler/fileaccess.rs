@@ -33,7 +33,7 @@ pub fn load_file<'a>(path: &'a std::path::Path) -> Option<VirtualFile<'static>> 
 }
 
 mod builtin_library {
-    include!(env!("SIXTYFPS_WIDGETS_LIBRARY"));
+    include!(env!("SLINT_WIDGETS_LIBRARY"));
 
     pub type BuiltinDirectory<'a> = [&'a BuiltinFile<'a>];
 

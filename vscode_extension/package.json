@@ -1,9 +1,9 @@
 {
-	"name": "sixtyfps-vscode",
-	"displayName": "SixtyFPS-vscode",
-	"description": "SixtyFPS Language extension",
+	"name": "slint",
+	"displayName": "Slint",
+	"description": "Slint Language extension",
 	"version": "0.2.0",
-	"publisher": "SixtyFPS",
+	"publisher": "Slint",
 	"icon": "extension-logo.png",
 	"license": "GPL-3.0",
 	"repository": {
@@ -18,17 +18,18 @@
 	],
 	"preview": true,
 	"activationEvents": [
-		"onLanguage:sixtyfps"
+		"onLanguage:slint"
 	],
 	"main": "./out/extension.js",
 	"contributes": {
 		"languages": [
 			{
-				"id": "sixtyfps",
+				"id": "slint",
 				"aliases": [
-					"SixtyFPS"
+					"Slint"
 				],
 				"extensions": [
+					".slint",
 					".60"
 				],
 				"configuration": "language-configuration.json"
@@ -36,44 +37,44 @@
 		],
 		"grammars": [
 			{
-				"language": "sixtyfps",
-				"scopeName": "source.sixtyfps",
-				"path": "./sixtyfps.tmLanguage.json"
+				"language": "slint",
+				"scopeName": "source.slint",
+				"path": "./slint.tmLanguage.json"
 			}
 		],
 		"commands": [
 			{
-				"command": "sixtyfps.showPreview",
+				"command": "slint.showPreview",
 				"title": "Show Preview",
-				"category": "SixtyFPS"
+				"category": "Slint"
 			},
 			{
-				"command": "sixtyfps.reload",
+				"command": "slint.reload",
 				"title": "Restart server",
-				"category": "SixtyFPS"
+				"category": "Slint"
 			}
 		],
 		"menus": {
 			"commandPalette": [
 				{
-					"command": "sixtyfps.showPreview",
-					"when": "editorLangId == sixtyfps"
+					"command": "slint.showPreview",
+					"when": "editorLangId == slint"
 				},
 				{
-					"command": "sixtyfps.reload"
+					"command": "slint.reload"
 				}
 			]
 		},
 		"configuration": {
 			"type": "object",
-			"title": "SixtyFPS",
+			"title": "Slint",
 			"properties": {
-				"sixtyfps.lsp-args": {
+				"slint.lsp-args": {
 					"type": "array",
 					"items": {
 						"type": "string"
 					},
-					"description": "The command line arguments passed to the SixtyFPS LSP server"
+					"description": "The command line arguments passed to the Slint LSP server"
 				}
 			}
 		}
@@ -82,12 +83,12 @@
 		"vscode-languageclient": "^7"
 	},
 	"files": [
-		"bin/sixtyfps-lsp-*"
+		"bin/slint-lsp-*"
 	],
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p ./",
-		"local-package": "mkdir -p bin && cp ../target/debug/sixtyfps-lsp bin/ && npx vsce package",
+		"local-package": "mkdir -p bin && cp ../target/debug/slint-lsp bin/ && npx vsce package",
 		"watch": "tsc -watch -p ./",
 		"pretest": "npm run compile && npm run lint",
 		"lint": "eslint src --ext ts",

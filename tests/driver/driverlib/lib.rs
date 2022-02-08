@@ -18,15 +18,15 @@ impl TestCase {
     }
 }
 
-/// Returns a list of all the `.60` files in the `tests/cases` subfolders.
+/// Returns a list of all the `.slint` files in the `tests/cases` subfolders.
 pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
     let mut results = vec![];
 
     let case_root_dir: std::path::PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "..", "..", "cases"].iter().collect();
 
-    println!("cargo:rerun-if-env-changed=SIXTYFPS_TEST_FILTER");
-    let filter = std::env::var("SIXTYFPS_TEST_FILTER").ok();
+    println!("cargo:rerun-if-env-changed=SLINT_TEST_FILTER");
+    let filter = std::env::var("SLINT_TEST_FILTER").ok();
 
     for entry in walkdir::WalkDir::new(case_root_dir.clone()).follow_links(true) {
         let entry = entry?;
@@ -43,7 +43,7 @@ pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
             }
         }
         if let Some(ext) = absolute_path.extension() {
-            if ext == "60" {
+            if ext == "60" || ext == "slint" {
                 results.push(TestCase { absolute_path, relative_path });
             }
         }

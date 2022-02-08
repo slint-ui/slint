@@ -1,6 +1,6 @@
-# SixtyFPS build guide
+# Slint build guide
 
-This page explains how to build and test SixtyFPS.
+This page explains how to build and test Slint.
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ For the nodejs backend, the following component are needed:
 * **python**
 
 It would be nice if building the nodejs backend was optional, but right now it is part of the workspace.
-You can still not build it by doing `cargo build --workspace --exclude sixtyfps-node`. But cargo test will fail.
+You can still not build it by doing `cargo build --workspace --exclude slint-node`. But cargo test will fail.
 
 ### For the C++ dev (optional)
 
@@ -57,7 +57,7 @@ C++ tests or the nodejs tests will not find the required dynamic library otherwi
 The C++ crate are not included in the workspace's default members, so it need to be build explicitly
 
 ```sh
-cargo build --lib -p sixtyfps-cpp
+cargo build --lib -p slint-cpp
 cargo test --bin test-driver-cpp
 ```
 
@@ -86,7 +86,7 @@ You can pass `-DCMAKE_INSTALL_PREFIX` in the first cmake command in order to cho
 
 ## Cross-Compiling
 
-SixtyFPS can be cross-compiled to different target architectures and environments. For the Rust build we
+Slint can be cross-compiled to different target architectures and environments. For the Rust build we
 have had a good experience using [`cross`](https://github.com/rust-embedded/cross). For convenience we're
 including a `Cross.toml` configuration file for `cross` in the source tree along with Docker containers that
 allow targeting a Debian ARMv7 and ARMv8 based Distribution with X11 or Wayland, out of the box.
@@ -95,7 +95,7 @@ This includes for example the Raspberry Pi OS. Using the following steps you can
 pi:
 
 ```sh
-cross build --target armv7-unknown-linux-gnueabihf --workspace --exclude sixtyfps-node --release
+cross build --target armv7-unknown-linux-gnueabihf --workspace --exclude slint-node --release
 scp target/armv7-unknown-linux-gnueabihf/release/printerdemo pi@raspberrypi.local:.
 ```
 
@@ -111,24 +111,24 @@ See the [examples](/examples) folder for examples to build, run and test.
 
 ## Running the viewer
 
-SixtyFPS also includes a viewer tool that can load `.60`files dynamically at run-time. It is a
-cargo-integrated binary and can be run directly on the `.60`files, for example:
+Slint also includes a viewer tool that can load `.slint`files dynamically at run-time. It is a
+cargo-integrated binary and can be run directly on the `.slint`files, for example:
 
 ```sh
-cargo run --release --bin sixtyfps-viewer -- examples/printerdemo/ui/printerdemo.60
+cargo run --release --bin slint-viewer -- examples/printerdemo/ui/printerdemo.slint
 ```
 
 ## Generating the documentation
 
 ### rustdoc
 
-The language reference has snippets in the .60 language which can be previewed by injecting
+The language reference has snippets in the .slint language which can be previewed by injecting
 html to the documentation with the `--html-in-header` rustdoc flag.
 
-Here is how to build the documentation to include preview of the .60 files.
+Here is how to build the documentation to include preview of the .slint files.
 
 ```sh
-RUSTDOCFLAGS="--html-in-header=$PWD/docs/resources/sixtyfps-docs-preview.html --html-in-header=$PWD/docs/resources/sixtyfps-docs-highlight.html" cargo doc --no-deps
+RUSTDOCFLAGS="--html-in-header=$PWD/docs/resources/slint-docs-preview.html --html-in-header=$PWD/docs/resources/slint-docs-highlight.html" cargo doc --no-deps
 ```
 
 ### C++ doc

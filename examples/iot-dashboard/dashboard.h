@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include <sixtyfps_interpreter.h>
+#include <slint_interpreter.h>
 
 #include <optional>
 #include <string_view>
@@ -17,15 +17,15 @@ struct PropertyDeclaration
 };
 
 /**
-   The Widget base class is a wrapper around sixtyfps::interpreter::ComponentInstance that allows
+   The Widget base class is a wrapper around slint::interpreter::ComponentInstance that allows
    conveniently reading and writing properties of an element of which the properties have been
    forwarded via two-way bindings.
 
    When an instance of a Widget sub-class is added to the DashboardBuilder, the value of
-   type_name() is used to create an element declaration in the generated .60 code ("SomeElement {
+   type_name() is used to create an element declaration in the generated .slint code ("SomeElement {
    ... }"), the element is given an automatically generated name and all properties returned by the
    properties() function are forwarded. For example two instances of a "Clock" element become this
-   in .60:
+   in .slint:
 
    export MainWindow := Window {
        ...
@@ -50,11 +50,11 @@ public:
     virtual std::string type_name() const = 0;
     virtual std::vector<PropertyDeclaration> properties() const = 0;
 
-    void set_property(std::string_view name, const sixtyfps::interpreter::Value &value);
+    void set_property(std::string_view name, const slint::interpreter::Value &value);
 
-    std::optional<sixtyfps::interpreter::Value> property(std::string_view name) const;
+    std::optional<slint::interpreter::Value> property(std::string_view name) const;
 
-    void connect_ui(const sixtyfps::ComponentHandle<sixtyfps::interpreter::ComponentInstance> &ui,
+    void connect_ui(const slint::ComponentHandle<slint::interpreter::ComponentInstance> &ui,
                     std::string_view properties_prefix);
 
     std::pair<std::string, std::vector<PropertyDeclaration>>
@@ -63,7 +63,7 @@ public:
 private:
     std::string qualified_property_name(std::string_view name) const;
 
-    std::optional<sixtyfps::ComponentHandle<sixtyfps::interpreter::ComponentInstance>> m_ui;
+    std::optional<slint::ComponentHandle<slint::interpreter::ComponentInstance>> m_ui;
     std::string m_properties_prefix;
 };
 
@@ -80,7 +80,7 @@ struct WidgetLocation
 };
 
 /**
-   The DashboardBuilder is dynamically builds the .60 code that represents the IOT-Dashboard demo
+   The DashboardBuilder is dynamically builds the .slint code that represents the IOT-Dashboard demo
    and allows placing widgets into the top-bar or the main grid. All the properties of the added
    widgets are forwarded and their name prefix is registered with the individual widget instances.
 */
@@ -89,8 +89,8 @@ struct DashboardBuilder
     void add_grid_widget(WidgetPtr widget, const WidgetLocation &location);
     void add_top_bar_widget(WidgetPtr widget);
 
-    std::optional<sixtyfps::ComponentHandle<sixtyfps::interpreter::ComponentInstance>>
-    build(sixtyfps::interpreter::ComponentCompiler &compiler) const;
+    std::optional<slint::ComponentHandle<slint::interpreter::ComponentInstance>>
+    build(slint::interpreter::ComponentCompiler &compiler) const;
 
 private:
     int register_widget(WidgetPtr widget);

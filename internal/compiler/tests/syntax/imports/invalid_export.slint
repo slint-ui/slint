@@ -1,0 +1,15 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+export { Foo as Bar }
+//      ^error{'Foo' not found}
+
+export { Image as Plop }
+//      ^error{Cannot export 'Image' because it is not a component}
+
+export { string as Boob }
+//      ^error{Cannot export 'string' because it is not a component}
+
+Hello := Plop {
+//      ^error{Unknown type Plop}
+}

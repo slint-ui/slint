@@ -38,7 +38,7 @@ fn widget_library() -> &'static [(&'static str, &'static BuiltinDirectory<'stati
 
     writeln!(file, "]\n}}")?;
 
-    println!("cargo:rustc-env=SIXTYFPS_WIDGETS_LIBRARY={}", output_file_path.display());
+    println!("cargo:rustc-env=SLINT_WIDGETS_LIBRARY={}", output_file_path.display());
 
     Ok(())
 }
@@ -52,7 +52,8 @@ fn process_style(path: &Path) -> std::io::Result<String> {
                     .path()
                     .extension()
                     .map(|ext| {
-                        ext == std::ffi::OsStr::new("60")
+                        ext == std::ffi::OsStr::new("slint")
+                            || ext == std::ffi::OsStr::new("60")
                             || ext == std::ffi::OsStr::new("svg")
                             || ext == std::ffi::OsStr::new("svgz")
                     })

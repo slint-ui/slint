@@ -4,34 +4,34 @@
 /*! This crate just expose the function used by the C++ integration */
 
 use core::ffi::c_void;
-use sixtyfps_corelib::window::ffi::WindowRcOpaque;
-use sixtyfps_corelib::window::WindowRc;
-use sixtyfps_rendering_backend_selector::backend;
+use i_slint_backend_selector::backend;
+use i_slint_core::window::ffi::WindowRcOpaque;
+use i_slint_core::window::WindowRc;
 
 #[doc(hidden)]
 #[cold]
 pub fn use_modules() -> usize {
-    #[cfg(feature = "sixtyfps-interpreter")]
-    sixtyfps_interpreter::use_modules();
-    sixtyfps_rendering_backend_selector::use_modules();
-    sixtyfps_corelib::use_modules()
+    #[cfg(feature = "slint-interpreter")]
+    slint_interpreter::use_modules();
+    i_slint_backend_selector::use_modules();
+    i_slint_core::use_modules()
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_windowrc_init(out: *mut WindowRcOpaque) {
+pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowRcOpaque) {
     assert_eq!(core::mem::size_of::<WindowRc>(), core::mem::size_of::<WindowRcOpaque>());
     core::ptr::write(out as *mut WindowRc, crate::backend().create_window());
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_run_event_loop() {
+pub unsafe extern "C" fn slint_run_event_loop() {
     crate::backend()
-        .run_event_loop(sixtyfps_corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
+        .run_event_loop(i_slint_core::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
 }
 
 /// Will execute the given functor in the main thread
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_post_event(
+pub unsafe extern "C" fn slint_post_event(
     event: extern "C" fn(user_data: *mut c_void),
     user_data: *mut c_void,
     drop_user_data: Option<extern "C" fn(*mut c_void)>,
@@ -57,14 +57,14 @@ pub unsafe extern "C" fn sixtyfps_post_event(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_quit_event_loop() {
+pub unsafe extern "C" fn slint_quit_event_loop() {
     crate::backend().quit_event_loop();
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_register_font_from_path(
-    path: &sixtyfps_corelib::SharedString,
-    error_str: *mut sixtyfps_corelib::SharedString,
+pub unsafe extern "C" fn slint_register_font_from_path(
+    path: &i_slint_core::SharedString,
+    error_str: *mut i_slint_core::SharedString,
 ) {
     core::ptr::write(
         error_str,
@@ -76,9 +76,9 @@ pub unsafe extern "C" fn sixtyfps_register_font_from_path(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_register_font_from_data(
-    data: sixtyfps_corelib::slice::Slice<'static, u8>,
-    error_str: *mut sixtyfps_corelib::SharedString,
+pub unsafe extern "C" fn slint_register_font_from_data(
+    data: i_slint_core::slice::Slice<'static, u8>,
+    error_str: *mut i_slint_core::SharedString,
 ) {
     core::ptr::write(
         error_str,
@@ -91,6 +91,6 @@ pub unsafe extern "C" fn sixtyfps_register_font_from_data(
 
 #[cfg(feature = "testing")]
 #[no_mangle]
-pub unsafe extern "C" fn sixtyfps_testing_init_backend() {
-    sixtyfps_rendering_backend_testing::init();
+pub unsafe extern "C" fn slint_testing_init_backend() {
+    i_slint_backend_testing::init();
 }

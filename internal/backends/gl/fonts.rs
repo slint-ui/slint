@@ -6,11 +6,9 @@
 use femtovg::TextContext;
 #[cfg(target_os = "windows")]
 use font_kit::loader::Loader;
-use sixtyfps_corelib::graphics::{FontRequest, Point, Size};
-use sixtyfps_corelib::items::{
-    TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap,
-};
-use sixtyfps_corelib::{SharedString, SharedVector};
+use i_slint_core::graphics::{FontRequest, Point, Size};
+use i_slint_core::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
+use i_slint_core::{SharedString, SharedVector};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
@@ -25,7 +23,7 @@ pub const DEFAULT_FONT_WEIGHT: i32 = 400; // CSS normal
 )))]
 mod fontconfig;
 
-/// This function can be used to register a custom TrueType font with SixtyFPS,
+/// This function can be used to register a custom TrueType font with Slint,
 /// for use with the `font-family` property. The provided slice must be a valid TrueType
 /// font.
 pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {
@@ -119,7 +117,7 @@ impl Font {
 }
 
 pub(crate) fn text_size(
-    font_request: &sixtyfps_corelib::graphics::FontRequest,
+    font_request: &i_slint_core::graphics::FontRequest,
     scale_factor: f32,
     text: &str,
     max_width: Option<f32>,

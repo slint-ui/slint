@@ -1,6 +1,6 @@
 # Widgets
 
-Widgets are not imported by default, and need to be imported from `"sixtyfps_widgets.60"`
+Widgets are not imported by default, and need to be imported from `"std-widgets.slint"`
 
 Their appearance can change depending on the style
 
@@ -19,8 +19,8 @@ Their appearance can change depending on the style
 
 ### Example
 
-```60
-import { Button } from "sixtyfps_widgets.60";
+```slint
+import { Button } from "std-widgets.slint";
 Example := Window {
     Button {
         width: parent.width;
@@ -48,8 +48,8 @@ it can used one of the pre-defined `kind` and the text and icon will depend on t
 
 ### Example
 
-```60
-import { StandardButton, VerticalBox } from "sixtyfps_widgets.60";
+```slint
+import { StandardButton, VerticalBox } from "std-widgets.slint";
 Example := Window {
   VerticalBox {
     StandardButton { kind: ok; }
@@ -72,8 +72,8 @@ Example := Window {
 
 ### Example
 
-```60
-import { CheckBox } from "sixtyfps_widgets.60";
+```slint
+import { CheckBox } from "std-widgets.slint";
 Example := Window {
     width: 200px;
     height: 25px;
@@ -95,8 +95,8 @@ Example := Window {
 
 ### Example
 
-```60
-import { SpinBox } from "sixtyfps_widgets.60";
+```slint
+import { SpinBox } from "std-widgets.slint";
 Example := Window {
     width: 200px;
     height: 25px;
@@ -122,8 +122,8 @@ Example := Window {
 
 ### Example
 
-```60
-import { Slider } from "sixtyfps_widgets.60";
+```slint
+import { Slider } from "std-widgets.slint";
 Example := Window {
     width: 200px;
     height: 25px;
@@ -143,8 +143,8 @@ Example := Window {
 
 ### Example
 
-```60
-import { GroupBox } from "sixtyfps_widgets.60";
+```slint
+import { GroupBox } from "std-widgets.slint";
 Example := Window {
     width: 200px;
     height: 100px;
@@ -177,8 +177,8 @@ A widget used to enter a single line of text
 
 ### Example
 
-```60
-import { LineEdit } from "sixtyfps_widgets.60";
+```slint
+import { LineEdit } from "std-widgets.slint";
 Example := Window {
     width: 200px;
     height: 25px;
@@ -212,8 +212,8 @@ shortcut will be implemented in a future version: <https://github.com/sixtyfpsui
 
 ### Example
 
-```60
-import { TextEdit } from "sixtyfps_widgets.60";
+```slint
+import { TextEdit } from "std-widgets.slint";
 Example := Window {
     width: 200px;
     height: 200px;
@@ -248,8 +248,8 @@ using for loops may be added in the future and is tracked in issue #407.
 
 ### Example
 
-```60
-import { ScrollView } from "sixtyfps_widgets.60";
+```slint
+import { ScrollView } from "std-widgets.slint";
 Example := Window {
     width: 200px;
     height: 200px;
@@ -278,8 +278,8 @@ Same as ScrollView
 
 ### Example
 
-```60
-import { ListView } from "sixtyfps_widgets.60";
+```slint
+import { ListView } from "std-widgets.slint";
 Example := Window {
     width: 150px;
     height: 150px;
@@ -324,8 +324,8 @@ Same as ListView, and in addition:
 
 ### Example
 
-```60
-import { StandardListView } from "sixtyfps_widgets.60";
+```slint
+import { StandardListView } from "std-widgets.slint";
 Example := Window {
     width: 150px;
     height: 150px;
@@ -357,8 +357,8 @@ A button that, when clicked, opens a popup to select a value.
 
 ### Example
 
-```60
-import { ComboBox } from "sixtyfps_widgets.60";
+```slint
+import { ComboBox } from "std-widgets.slint";
 Example := Window {
     width: 200px;
     height: 25px;
@@ -386,8 +386,8 @@ a time.
 
 ### Example
 
-```60
-import { TabWidget } from "sixtyfps_widgets.60";
+```slint
+import { TabWidget } from "std-widgets.slint";
 Example := Window {
     width: 200px;
     height: 200px;
@@ -411,16 +411,16 @@ Example := Window {
 That's the same as `HorizontalLayout`, `VerticalLayout` or `GridLayout` but the spacing and padding values
  depending on the style instead of defaulting to 0.
 
-## `AboutSixtyFPS`
+## `AboutSlint`
 
-This element displays the a "Made with SixtyFPS" badge.
+This element displays the a "Made with Slint" badge.
 
-```60
-import { AboutSixtyFPS } from "sixtyfps_widgets.60";
+```slint
+import { AboutSlint } from "std-widgets.slint";
 Example := Window {
     width: 128px;
     height: 128px;
-    AboutSixtyFPS {
+    AboutSlint {
     }
 }
 ```

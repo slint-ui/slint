@@ -14,6 +14,6 @@ sleep 30
 cargo publish --manifest-path internal/backends/selector/Cargo.toml --features x11
 sleep 30
 cargo publish --manifest-path internal/interpreter/Cargo.toml
-cargo publish --manifest-path api/sixtyfps-rs/Cargo.toml
+cargo publish --manifest-path api/rs/slint/Cargo.toml
 cargo publish --manifest-path tools/lsp/Cargo.toml
 cargo publish --manifest-path tools/viewer/Cargo.toml

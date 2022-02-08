@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+TestCase := Rectangle {
+    property <[int]> p1 : [ 12, 13 ];
+    property <[float]> p2 : [ 14, 15.5 ];
+    property <[string]> p3 : [ ];
+    property <[{a: int, b: int}]> p4 : [ { a: 1 }, { a: 42, b: 10 } ];
+}
+
+
+/*
+```js
+var instance = new slint.TestCase({});
+assert.deepEqual(instance.p1, [12, 13]);
+assert.deepEqual(instance.p2, [14, 15.5]);
+assert.deepEqual(instance.p3, []);
+assert.deepEqual(instance.p4, [{a: 1, b: 0}, {a: 42, b: 10}]);
+
+instance.p3 = ["Hello", "World"];
+assert.deepEqual(instance.p3, ["Hello", "World"]);
+```
+*/

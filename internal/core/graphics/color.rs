@@ -27,13 +27,13 @@ pub struct RgbaColor<T> {
     pub blue: T,
 }
 
-/// Color represents a color in the SixtyFPS run-time, represented using 8-bit channels for
+/// Color represents a color in the Slint run-time, represented using 8-bit channels for
 /// red, green, blue and the alpha (opacity).
 /// It can be conveniently converted using the `to_` and `from_` (a)rgb helper functions:
 /// ```
 /// # fn do_something_with_red_and_green(_:f32, _:f32) {}
 /// # fn do_something_with_red(_:u8) {}
-/// # use sixtyfps_corelib::graphics::{Color, RgbaColor};
+/// # use i_slint_core::graphics::{Color, RgbaColor};
 /// # let some_color = Color::from_rgb_u8(0, 0, 0);
 /// let col = some_color.to_argb_f32();
 /// do_something_with_red_and_green(col.red, col.green);
@@ -309,12 +309,12 @@ pub(crate) mod ffi {
     use super::*;
 
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_color_brighter(col: &Color, factor: f32, out: *mut Color) {
+    pub unsafe extern "C" fn slint_color_brighter(col: &Color, factor: f32, out: *mut Color) {
         core::ptr::write(out, col.brighter(factor))
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_color_darker(col: &Color, factor: f32, out: *mut Color) {
+    pub unsafe extern "C" fn slint_color_darker(col: &Color, factor: f32, out: *mut Color) {
         core::ptr::write(out, col.darker(factor))
     }
 }

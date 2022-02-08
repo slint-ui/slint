@@ -1,0 +1,60 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+// Regression test for a panic in the compiler
+
+TestCase := Rectangle {
+    width: 300phx;
+    height: 300phx;
+    property<int> value: 1;
+
+    for c[index] in [#f00, #00f, #0a0]: Rectangle {
+        y: index * height;
+        width: parent.width;
+        height: 100phx;
+        GridLayout {
+            Rectangle {
+                background: c;
+
+                TouchArea {
+                    width: parent.width;
+                    height: parent.height;
+                    clicked => {
+                        value += index;
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint::testing::send_mouse_click(&instance, -1., -1.); // FIXME: Force creation of repeater components before computing the layout
+
+slint::testing::send_mouse_click(&instance, 190., 190.);
+assert_eq(instance.get_value(), 1+1);
+
+slint::testing::send_mouse_click(&instance, 5., 290.);
+assert_eq(instance.get_value(), 1+1+2);
+```
+
+
+```rust
+let instance = TestCase::new();
+slint::testing::send_mouse_click(&instance, -1., -1.); // FIXME: Force creation of repeater components before computing the layout
+
+
+slint::testing::send_mouse_click(&instance, 190., 190.);
+assert_eq!(instance.get_value(), 1+1);
+
+slint::testing::send_mouse_click(&instance, 5., 290.);
+assert_eq!(instance.get_value(), 1+1+2);
+
+```
+
+// FIXME: JS test because layout are not computed
+*/

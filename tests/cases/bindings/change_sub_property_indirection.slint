@@ -1,0 +1,53 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+// hello, hello2 and alias are aliases
+SubElem := Rectangle {
+    property <string> hello <=> hello2;
+    property <string> hello2;
+    t := Text {
+        text <=> hello;
+    }
+    property <string> alias <=> t.text;
+
+    property <string> binding: hello2;
+}
+
+TestCase := Rectangle {
+    property <string> public_alias: "ABC";
+
+    sub_alias := SubElem {
+        hello <=> public_alias;
+        property <string> indirection: binding;
+    }
+
+    property <string> sub_text <=> sub_alias.indirection;
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new();
+assert_eq!(instance.get_sub_text(), slint::SharedString::from("ABC"));
+instance.set_public_alias(slint::SharedString::from("EFG"));
+assert_eq!(instance.get_sub_text(), slint::SharedString::from("EFG"));
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_sub_text(), slint::SharedString("ABC"));
+instance.set_public_alias(slint::SharedString("EFG"));
+assert_eq(instance.get_sub_text(), slint::SharedString("EFG"));
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.sub_text, "ABC");
+instance.public_alias = "EFG";
+assert.equal(instance.sub_text, "EFG");
+```
+
+*/

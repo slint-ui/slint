@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 cmake_minimum_required(VERSION 3.19)
-project(SixtyFPS HOMEPAGE_URL "https://sixtyfps.io/" LANGUAGES CXX)
+project(Slint HOMEPAGE_URL "https://sixtyfps.io/" LANGUAGES CXX)
 
 include(FeatureSummary)
 include(CMakeDependentOption)
@@ -19,30 +19,30 @@ list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
 find_package(Rust 1.56 REQUIRED MODULE)
 
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
-    CRATES sixtyfps-compiler sixtyfps-cpp)
+    CRATES slint-compiler slint-cpp)
 
 set_property(
-    TARGET sixtyfps-cpp
+    TARGET slint-cpp
     APPEND
     PROPERTY CORROSION_ENVIRONMENT_VARIABLES
-    SIXTYFPS_GENERATED_INCLUDE_DIR="${CMAKE_CURRENT_BINARY_DIR}/generated_include/"
+    SLINT_GENERATED_INCLUDE_DIR="${CMAKE_CURRENT_BINARY_DIR}/generated_include/"
 )
 
 set_property(
-    TARGET sixtyfps-compiler
+    TARGET slint-compiler
     PROPERTY CORROSION_USE_HOST_BUILD 1
 )
 
-add_library(SixtyFPS INTERFACE)
-add_library(SixtyFPS::SixtyFPS ALIAS SixtyFPS)
-target_link_libraries(SixtyFPS INTERFACE sixtyfps-cpp)
-target_compile_features(SixtyFPS INTERFACE cxx_std_20)
+add_library(Slint INTERFACE)
+add_library(Slint::Slint ALIAS Slint)
+target_link_libraries(Slint INTERFACE slint-cpp)
+target_compile_features(Slint INTERFACE cxx_std_20)
 
 function(define_cargo_feature cargo-feature description default)
-    # turn foo-bar into SIXTYFPS_FEATURE_FOO_BAR
+    # turn foo-bar into SLINT_FEATURE_FOO_BAR
     string(TOUPPER "${cargo-feature}" cmake_option)
     string(REPLACE "-"  "_" cmake_option "${cmake_option}")
-    set(cmake_option "SIXTYFPS_FEATURE_${cmake_option}")
+    set(cmake_option "SLINT_FEATURE_${cmake_option}")
     option("${cmake_option}" "${description}" ${default})
     if(${cmake_option})
         list(APPEND features ${cargo-feature})
@@ -52,10 +52,10 @@ function(define_cargo_feature cargo-feature description default)
 endfunction()
 
 function(define_cargo_dependent_feature cargo-feature description default depends_condition)
-    # turn foo-bar into SIXTYFPS_FEATURE_FOO_BAR
+    # turn foo-bar into SLINT_FEATURE_FOO_BAR
     string(TOUPPER "${cargo-feature}" cmake_option)
     string(REPLACE "-"  "_" cmake_option "${cmake_option}")
-    set(cmake_option "SIXTYFPS_FEATURE_${cmake_option}")
+    set(cmake_option "SLINT_FEATURE_${cmake_option}")
     cmake_dependent_option("${cmake_option}" "${description}" ${default} ${depends_condition} OFF)
     if(${cmake_option})
         list(APPEND features ${cargo-feature})
@@ -66,148 +66,148 @@ endfunction()
 
 # Features that are mapped to features in the Rust crate. These and their
 # defaults need to be kept in sync with the Rust bit.
-define_cargo_feature(interpreter "Enable support for the SixtyFPS interpeter to load .60 files at run-time" ON)
+define_cargo_feature(interpreter "Enable support for the Slint interpeter to load .slint files at run-time" ON)
 
 define_cargo_feature(backend-gl "Enable OpenGL ES 2.0 based rendering backend" ON)
-define_cargo_dependent_feature(x11 "Enable X11 support when using GL backend" ON SIXTYFPS_FEATURE_BACKEND_GL OFF)
-define_cargo_dependent_feature(wayland "Enable Wayland support when using the GL backend" OFF SIXTYFPS_FEATURE_BACKEND_GL OFF)
+define_cargo_dependent_feature(x11 "Enable X11 support when using GL backend" ON SLINT_FEATURE_BACKEND_GL OFF)
+define_cargo_dependent_feature(wayland "Enable Wayland support when using the GL backend" OFF SLINT_FEATURE_BACKEND_GL OFF)
 
 define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
 set_property(
-    TARGET sixtyfps-cpp
+    TARGET slint-cpp
     PROPERTY CORROSION_FEATURES
     ${features}
 )
 set_property(
-    TARGET sixtyfps-cpp
+    TARGET slint-cpp
     PROPERTY CORROSION_NO_DEFAULT_FEATURES
     ${features}
 )
 
 
-if (SIXTYFPS_FEATURE_BACKEND_QT)
+if (SLINT_FEATURE_BACKEND_QT)
     # For the CMake build don't rely on qmake being in PATH but use CMake to locate Qt. This
     # means usually CMAKE_PREFIX_PATH is set.
     find_package(Qt6 6.0 QUIET COMPONENTS Core Widgets)
     if (NOT TARGET Qt::qmake)
         find_package(Qt5 5.15 QUIET COMPONENTS Core Widgets)
     endif()
-endif (SIXTYFPS_FEATURE_BACKEND_QT)
+endif (SLINT_FEATURE_BACKEND_QT)
 if (TARGET Qt::qmake)
     set_property(
-        TARGET sixtyfps-cpp
+        TARGET slint-cpp
         APPEND
         PROPERTY CORROSION_ENVIRONMENT_VARIABLES
         QMAKE=$<TARGET_PROPERTY:Qt::qmake,LOCATION>
     )
-    set(SIXTYFPS_STYLE_DEFAULT "native")
+    set(SLINT_STYLE_DEFAULT "native")
 else()
     set_property(
-        TARGET sixtyfps-cpp
+        TARGET slint-cpp
         APPEND
         PROPERTY CORROSION_ENVIRONMENT_VARIABLES
-        SIXTYFPS_NO_QT=1
+        SLINT_NO_QT=1
     )
-    set(SIXTYFPS_STYLE_DEFAULT "fluent")
+    set(SLINT_STYLE_DEFAULT "fluent")
 endif()
 
-set(SIXTYFPS_STYLE ${SIXTYFPS_STYLE_DEFAULT} CACHE STRING "The SixtyFPS widget style" FORCE)
+set(SLINT_STYLE ${SLINT_STYLE_DEFAULT} CACHE STRING "The Slint widget style" FORCE)
 
 file(GLOB api_headers RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/include/"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
 
 foreach(header IN LISTS api_headers)
-    set_property(TARGET SixtyFPS APPEND PROPERTY PUBLIC_HEADER include/${header})
+    set_property(TARGET Slint APPEND PROPERTY PUBLIC_HEADER include/${header})
 endforeach()
 
 set(generated_headers
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_string_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_brush_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_sharedvector_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_properties_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_image_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_color_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_pathdata_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_qt_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_backend_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_generated_public.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_interpreter_internal.h
-    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/sixtyfps_interpreter_generated_public.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_string_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_brush_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_sharedvector_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_properties_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_image_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_color_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_pathdata_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_qt_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_backend_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_generated_public.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_interpreter_internal.h
+    ${CMAKE_CURRENT_BINARY_DIR}/generated_include/slint_interpreter_generated_public.h
 )
 
 foreach(header IN LISTS generated_headers)
-    set_property(TARGET SixtyFPS APPEND PROPERTY PUBLIC_HEADER ${header})
+    set_property(TARGET Slint APPEND PROPERTY PUBLIC_HEADER ${header})
 endforeach()
 
-target_include_directories(SixtyFPS INTERFACE
+target_include_directories(Slint INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/generated_include>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include/sixtyfps>
+    $<INSTALL_INTERFACE:include/slint>
 )
 
-add_executable(SixtyFPS::sixtyfps-compiler ALIAS sixtyfps-compiler)
-include(${CMAKE_CURRENT_LIST_DIR}/cmake/SixtyFPSMacro.cmake)
+add_executable(Slint::slint-compiler ALIAS slint-compiler)
+include(${CMAKE_CURRENT_LIST_DIR}/cmake/SlintMacro.cmake)
 
-export(TARGETS SixtyFPS sixtyfps-cpp
-    NAMESPACE SixtyFPS:: FILE "${CMAKE_BINARY_DIR}/lib/cmake/SixtyFPS/SixtyFPSTargets.cmake")
-install(EXPORT SixtyFPSTargets NAMESPACE SixtyFPS:: DESTINATION lib/cmake/SixtyFPS)
-install(TARGETS SixtyFPS sixtyfps-cpp
-    EXPORT SixtyFPSTargets  LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include/sixtyfps)
+export(TARGETS Slint slint-cpp
+    NAMESPACE Slint:: FILE "${CMAKE_BINARY_DIR}/lib/cmake/Slint/SlintTargets.cmake")
+install(EXPORT SlintTargets NAMESPACE Slint:: DESTINATION lib/cmake/Slint)
+install(TARGETS Slint slint-cpp
+    EXPORT SlintTargets  LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include/slint)
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
-install(FILES $<TARGET_FILE:sixtyfps-cpp-shared> TYPE LIB)
+install(FILES $<TARGET_FILE:slint-cpp-shared> TYPE LIB)
 if(WIN32)
-    install(FILES $<TARGET_LINKER_FILE:sixtyfps-cpp-shared> TYPE LIB)
+    install(FILES $<TARGET_LINKER_FILE:slint-cpp-shared> TYPE LIB)
     # Copy the dll to the top-level bin directory, where the examples will
     # will also be located, so that they can find the dll.
     get_property(GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
     if(GENERATOR_IS_MULTI_CONFIG)
         set(config_subdir_genex "$<CONFIG>/")
     endif()
-    add_custom_target(SixtyFPS_dll_convenience ALL DEPENDS sixtyfps-cpp-shared
+    add_custom_target(Slint_dll_convenience ALL DEPENDS slint-cpp-shared
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:sixtyfps-cpp-shared>
-	    ${CMAKE_BINARY_DIR}/bin/${config_subdir_genex}$<TARGET_FILE_NAME:sixtyfps-cpp-shared>)
+            $<TARGET_FILE:slint-cpp-shared>
+	    ${CMAKE_BINARY_DIR}/bin/${config_subdir_genex}$<TARGET_FILE_NAME:slint-cpp-shared>)
 endif()
 
-install(PROGRAMS $<TARGET_FILE:sixtyfps-compiler> TYPE BIN)
+install(PROGRAMS $<TARGET_FILE:slint-compiler> TYPE BIN)
 
-set(SIXTYFPS_LIB_PROPERTIES "")
+set(SLINT_LIB_PROPERTIES "")
 foreach(prop
         IMPORTED_LOCATION IMPORTED_LOCATION_DEBUG IMPORTED_LOCATION_RELEASE
         IMPORTED_LOCATION_RELWITHDEBINFO IMPORTED_LOCATION_MINSIZEREL
         IMPORTED_IMPLIB IMPORTED_IMPLIB_DEBUG IMPORTED_IMPLIB_RELEASE
         IMPORTED_IMPLIB_RELWITHDEBINFO IMPORTED_IMPLIB_MINSIZEREL)
-  get_target_property(value sixtyfps-cpp-shared ${prop})
+  get_target_property(value slint-cpp-shared ${prop})
   if(value)
     get_filename_component(value ${value} NAME)
-    list(APPEND SIXTYFPS_LIB_PROPERTIES ${prop} "\${_IMPORT_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${value}")
+    list(APPEND SLINT_LIB_PROPERTIES ${prop} "\${_IMPORT_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${value}")
   endif()
 endforeach()
 
 
 
-configure_package_config_file("cmake/SixtyFPSConfig.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SixtyFPS/SixtyFPSConfig.cmake" INSTALL_DESTINATION lib/cmake/SixtyFPS)
+configure_package_config_file("cmake/SlintConfig.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake" INSTALL_DESTINATION lib/cmake/Slint)
 
 write_basic_package_version_file(
-  ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SixtyFPS/SixtyFPSConfigVersion.cmake
+  ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfigVersion.cmake
   VERSION 0.2.0
   COMPATIBILITY SameMinorVersion
 )
 
 install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SixtyFPS/SixtyFPSConfig.cmake"
-    "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/SixtyFPS/SixtyFPSConfigVersion.cmake"
-    "${CMAKE_CURRENT_LIST_DIR}/cmake/SixtyFPSMacro.cmake"
-    DESTINATION lib/cmake/SixtyFPS
+    "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake"
+    "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfigVersion.cmake"
+    "${CMAKE_CURRENT_LIST_DIR}/cmake/SlintMacro.cmake"
+    DESTINATION lib/cmake/Slint
 )
 
-option(SIXTYFPS_PACKAGE_BUNDLE_QT "Internal setting to install Qt binary in the packages" OFF)
-if(SIXTYFPS_PACKAGE_BUNDLE_QT)
+option(SLINT_PACKAGE_BUNDLE_QT "Internal setting to install Qt binary in the packages" OFF)
+if(SLINT_PACKAGE_BUNDLE_QT)
     if(WIN32)
         find_package(Qt6 6.0 COMPONENTS Core Gui Widgets Svg)
         install(
@@ -234,10 +234,10 @@ if(SIXTYFPS_PACKAGE_BUNDLE_QT)
         include(InstallRequiredSystemLibraries)
         install(FILES ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS} TYPE LIB)
     endif()
-endif(SIXTYFPS_PACKAGE_BUNDLE_QT)
+endif(SLINT_PACKAGE_BUNDLE_QT)
 
-set(CPACK_PACKAGE_NAME "SixtyFPS-cpp")
-set(CPACK_PACKAGE_VENDOR "SixtyFPS")
+set(CPACK_PACKAGE_NAME "Slint-cpp")
+set(CPACK_PACKAGE_VENDOR "Slint")
 set(CPACK_VERBATIM_VARIABLES true)
 set(CPACK_PACKAGE_VERSION_MAJOR 0)
 set(CPACK_PACKAGE_VERSION_MINOR 2)
@@ -264,9 +264,9 @@ if(BUILD_TESTING)
 
     find_package(Threads REQUIRED)
 
-    macro(sixtyfps_test NAME)
+    macro(slint_test NAME)
         add_executable(test_${NAME} tests/${NAME}.cpp)
-        target_link_libraries(test_${NAME} PRIVATE SixtyFPS Catch2::Catch2)
+        target_link_libraries(test_${NAME} PRIVATE Slint Catch2::Catch2)
         target_compile_definitions(test_${NAME} PRIVATE
             SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/\"
         )
@@ -286,11 +286,11 @@ if(BUILD_TESTING)
             target_compile_options(test_${NAME} PRIVATE -Wno-maybe-uninitialized)
         endif()
 
-    endmacro(sixtyfps_test)
-    sixtyfps_test(datastructures)
-    if(SIXTYFPS_FEATURE_INTERPRETER)
-        sixtyfps_test(interpreter)
+    endmacro(slint_test)
+    slint_test(datastructures)
+    if(SLINT_FEATURE_INTERPRETER)
+        slint_test(interpreter)
     endif()
-    sixtyfps_test(eventloop)
+    slint_test(eventloop)
     target_link_libraries(test_eventloop PRIVATE Threads::Threads)
 endif()

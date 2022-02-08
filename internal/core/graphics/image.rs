@@ -14,7 +14,7 @@ use super::{IntRect, IntSize};
 /// [`SharedPixelBuffer::clone_from_slice`].
 ///
 /// See the documentation for [`Image`] for examples how to use this type to integrate
-/// SixtyFPS with external rendering functions.
+/// Slint with external rendering functions.
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct SharedPixelBuffer<Pixel> {
@@ -95,7 +95,7 @@ impl<Pixel: Clone + Default> SharedPixelBuffer<Pixel> {
 impl<Pixel: Clone> SharedPixelBuffer<Pixel> {
     /// Creates a new SharedPixelBuffer by cloning and converting pixels from an existing
     /// slice. This function is useful when another crate was used to allocate an image
-    /// and you would like to convert it for use in SixtyFPS.
+    /// and you would like to convert it for use in Slint.
     pub fn clone_from_slice<SourcePixelType>(
         pixel_slice: &[SourcePixelType],
         width: u32,
@@ -286,7 +286,7 @@ pub struct LoadImageError(());
 /// low_level_render() function to draw a shape into it. Finally the result is
 /// stored in an Image with [`Self::from_rgb8()`]:
 /// ```
-/// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, Image, Rgb8Pixel};
+/// # use i_slint_core::graphics::{SharedPixelBuffer, Image, Rgb8Pixel};
 ///
 /// fn low_level_render(width: u32, height: u32, buffer: &mut [u8]) {
 ///     // render beautiful circle or other shapes here
@@ -300,14 +300,14 @@ pub struct LoadImageError(());
 /// let image = Image::from_rgb8(pixel_buffer);
 /// ```
 ///
-/// Another use-case is to import existing image data into SixtyFPS, by
+/// Another use-case is to import existing image data into Slint, by
 /// creating a new Image through cloning of another image type.
 ///
 /// The following example uses the popular [image crate](https://docs.rs/image/) to
 /// load a `.png` file from disk, apply brightening filter on it and then import
 /// it into an [`Image`]:
 /// ```no_run
-/// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
+/// # use i_slint_core::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
 /// let mut cat_image = image::open("cat.png").expect("Error loading cat image").into_rgba8();
 ///
 /// image::imageops::colorops::brighten_in_place(&mut cat_image, 20);
@@ -323,7 +323,7 @@ pub struct LoadImageError(());
 /// A popular software (CPU) rendering library in Rust is tiny-skia. The following example shows
 /// how to use tiny-skia to render into a [`SharedPixelBuffer`]:
 /// ```
-/// # use sixtyfps_corelib::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
+/// # use i_slint_core::graphics::{SharedPixelBuffer, Image, Rgba8Pixel};
 /// let mut pixel_buffer = SharedPixelBuffer::<Rgba8Pixel>::new(640, 480);
 /// let width = pixel_buffer.width();
 /// let height = pixel_buffer.height();
@@ -389,7 +389,7 @@ impl Image {
             ImageInner::AbsoluteFilePath(_) |  ImageInner::EmbeddedData { .. } => {
                 match crate::backend::instance() {
                     Some(backend) => backend.image_size(self),
-                    None => panic!("sixtyfps::Image::size() called too early (before a graphics backend was chosen). You need to create a component first."),
+                    None => panic!("slint::Image::size() called too early (before a graphics backend was chosen). You need to create a component first."),
                 }
             },
             ImageInner::EmbeddedImage(buffer) => buffer.size(),
@@ -404,7 +404,7 @@ impl Image {
     /// For example:
     /// ```
     /// # use std::path::Path;
-    /// # use sixtyfps_corelib::graphics::*;
+    /// # use i_slint_core::graphics::*;
     /// let path_buf = Path::new(env!("CARGO_MANIFEST_DIR"))
     ///     .join("../../examples/printerdemo/ui/images/cat.jpg");
     /// let image = Image::load_from_path(&path_buf).unwrap();
@@ -456,12 +456,12 @@ pub(crate) mod ffi {
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_image_size(image: &Image) -> IntSize {
+    pub unsafe extern "C" fn slint_image_size(image: &Image) -> IntSize {
         image.size()
     }
 
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_image_path(image: &Image) -> Option<&SharedString> {
+    pub unsafe extern "C" fn slint_image_path(image: &Image) -> Option<&SharedString> {
         match &image.0 {
             ImageInner::AbsoluteFilePath(path) => Some(&path),
             _ => None,

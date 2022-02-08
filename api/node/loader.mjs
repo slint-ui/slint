@@ -3,7 +3,7 @@
 
 import { URL, pathToFileURL } from 'url';
 
-const extensionsRegex = /\.60$/;
+const extensionsRegex = /\.(60|slint)$/;
 const baseURL = pathToFileURL(`${process.cwd()}/`).href;
 
 export function resolve(specifier, context, defaultResolve) {

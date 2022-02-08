@@ -15,8 +15,8 @@ jobs:
       # allow deprecated warning because we are using nightly and some things might be deprecated in nightly
       # for which the stable alternative is not yet available
       RUSTFLAGS: -D warnings -W deprecated
-      RUSTDOCFLAGS: --html-in-header=/home/runner/work/sixtyfps/sixtyfps/docs/resources/sixtyfps-docs-preview.html --html-in-header=/home/runner/work/sixtyfps/sixtyfps/docs/resources/sixtyfps-docs-highlight.html -D warnings -W deprecated
-      SIXTYFPS_NO_QT: 1
+      RUSTDOCFLAGS: --html-in-header=/home/runner/work/sixtyfps/sixtyfps/docs/resources/slint-docs-preview.html --html-in-header=/home/runner/work/sixtyfps/sixtyfps/docs/resources/slint-docs-highlight.html -D warnings -W deprecated
+      SLINT_NO_QT: 1
       CARGO_INCREMENTAL: false
       MDBOOK_VERSION: 0.4.10
       MDBOOK_LINKCHECK_VERSION: 0.7.4
@@ -77,7 +77,7 @@ jobs:
       with:
           command: doc
           toolchain: nightly
-          args: -p sixtyfps -p sixtyfps-build -p sixtyfps-interpreter --no-deps --all-features
+          args: -p slint -p slint-build -p slint-interpreter --no-deps --all-features
     - name: "Rust Tutorial Docs"
       run: mdbook build
       working-directory: docs/tutorial/rust

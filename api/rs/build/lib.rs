@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 /*!
-This crate serves as a companion crate for the sixtyfps crate.
-It is meant to allow you to compile the `.60` files from your `build.rs`script.
+This crate serves as a companion crate of the slint crate.
+It is meant to allow you to compile the `.slint` files from your `build.rs` script.
 
 The main entry point of this crate is the [`compile()`] function
 
@@ -17,25 +17,25 @@ In your Cargo.toml:
 build = "build.rs"
 
 [dependencies]
-sixtyfps = "0.1.6"
+slint = "0.2.0"
 ...
 
 [build-dependencies]
-sixtyfps-build = "0.1.6"
+slint-build = "0.2.0"
 ```
 
 In the `build.rs` file:
 
 ```ignore
 fn main() {
-    sixtyfps_build::compile("ui/hello.60").unwrap();
+    slint_build::compile("ui/hello.slint").unwrap();
 }
 ```
 
 Then in your main file
 
 ```ignore
-sixtyfps::include_modules!();
+slint::include_modules!();
 fn main() {
     HelloWorld::new().run();
 }
@@ -54,18 +54,18 @@ use std::env;
 use std::io::Write;
 use std::path::Path;
 
-use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
+use i_slint_compiler::diagnostics::BuildDiagnostics;
 
-/// The structure for configuring aspects of the compilation of `.60` markup files to Rust.
+/// The structure for configuring aspects of the compilation of `.slint` markup files to Rust.
 pub struct CompilerConfiguration {
-    config: sixtyfps_compilerlib::CompilerConfiguration,
+    config: i_slint_compiler::CompilerConfiguration,
 }
 
 impl Default for CompilerConfiguration {
     fn default() -> Self {
         Self {
-            config: sixtyfps_compilerlib::CompilerConfiguration::new(
-                sixtyfps_compilerlib::generator::OutputFormat::Rust,
+            config: i_slint_compiler::CompilerConfiguration::new(
+                i_slint_compiler::generator::OutputFormat::Rust,
             ),
         }
     }
@@ -78,7 +78,7 @@ impl CompilerConfiguration {
     }
 
     /// Create a new configuration that includes sets the include paths used for looking up
-    /// `.60` imports to the specified vector of paths.
+    /// `.slint` imports to the specified vector of paths.
     #[must_use]
     pub fn with_include_paths(self, include_paths: Vec<std::path::PathBuf>) -> Self {
         let mut config = self.config;
@@ -156,7 +156,7 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
     }
 }
 
-/// Compile the `.60` file and generate rust code for it.
+/// Compile the `.slint` file and generate rust code for it.
 ///
 /// The generated code code will be created in the directory specified by
 /// the `OUT` environment variable as it is expected for build script.
@@ -164,7 +164,7 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
 /// The following line need to be added within your crate in order to include
 /// the generated code.
 /// ```ignore
-/// sixtyfps::include_modules!();
+/// slint::include_modules!();
 /// ```
 ///
 /// The path is relative to the `CARGO_MANIFEST_DIR`.
@@ -174,7 +174,7 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
 /// result to make sure that cargo make the compilation fail in case there were
 /// errors when generating the code.
 ///
-/// Please check out the documentation of the `sixtyfps` crate for more information
+/// Please check out the documentation of the `slint` crate for more information
 /// about how to use the generated code.
 pub fn compile(path: impl AsRef<std::path::Path>) -> Result<(), CompileError> {
     compile_with_config(path, CompilerConfiguration::default())
@@ -189,7 +189,7 @@ pub fn compile_with_config(
         .join(path.as_ref());
 
     let mut diag = BuildDiagnostics::default();
-    let syntax_node = sixtyfps_compilerlib::parser::parse_file(&path, &mut diag);
+    let syntax_node = i_slint_compiler::parser::parse_file(&path, &mut diag);
 
     if diag.has_error() {
         let vec = diag.to_string_vec();
@@ -206,11 +206,14 @@ pub fn compile_with_config(
     };
     let mut rerun_if_changed = String::new();
 
-    if std::env::var_os("SIXTYFPS_STYLE").is_none() && compiler_config.style.is_none() {
+    if std::env::var_os("SLINT_STYLE").is_none()
+        && std::env::var_os("SIXTYFPS_STYLE").is_none()
+        && compiler_config.style.is_none()
+    {
         compiler_config.style = std::env::var_os("OUT_DIR").and_then(|path| {
-            // Same logic as in sixtyfps-rendering-backend-selector's build script to get the path
-            let path = Path::new(&path).parent()?.parent()?.join("SIXTYFPS_DEFAULT_STYLE.txt");
-            // unfortunately, if for some reason the file is changed by the sixtyfps-rendering-backend-selector's build script,
+            // Same logic as in i-slint-backend-selector's build script to get the path
+            let path = Path::new(&path).parent()?.parent()?.join("SLINT_DEFAULT_STYLE.txt");
+            // unfortunately, if for some reason the file is changed by the i-slint-backend-selector's build script,
             // it is changed after cargo decide to re-run this build script or not. So that means one will need two build
             // to settle the right thing.
             rerun_if_changed = format!("cargo:rerun-if-changed={}", path.display());
@@ -222,11 +225,8 @@ pub fn compile_with_config(
     let syntax_node = syntax_node.expect("diags contained no compilation errors");
 
     // 'spin_on' is ok here because the compiler in single threaded and does not block if there is no blocking future
-    let (doc, diag) = spin_on::spin_on(sixtyfps_compilerlib::compile_syntax_node(
-        syntax_node,
-        diag,
-        compiler_config,
-    ));
+    let (doc, diag) =
+        spin_on::spin_on(i_slint_compiler::compile_syntax_node(syntax_node, diag, compiler_config));
 
     if diag.has_error() {
         let vec = diag.to_string_vec();
@@ -238,13 +238,13 @@ pub fn compile_with_config(
         .join(
             path.file_stem()
                 .map(Path::new)
-                .unwrap_or_else(|| Path::new("sixtyfps_out"))
+                .unwrap_or_else(|| Path::new("slint_out"))
                 .with_extension("rs"),
         );
 
     let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
     let mut code_formatter = CodeFormatter { indentation: 0, in_string: false, sink: file };
-    let generated = sixtyfps_compilerlib::generator::rust::generate(&doc);
+    let generated = i_slint_compiler::generator::rust::generate(&doc);
 
     for x in &diag.all_loaded_files {
         if x.is_absolute() {
@@ -267,8 +267,9 @@ pub fn compile_with_config(
             println!("cargo:rerun-if-changed={}", resource);
         }
     }
+    println!("cargo:rerun-if-env-changed=SLINT_STYLE");
     println!("cargo:rerun-if-env-changed=SIXTYFPS_STYLE");
 
-    println!("cargo:rustc-env=SIXTYFPS_INCLUDE_GENERATED={}", output_file_path.display());
+    println!("cargo:rustc-env=SLINT_INCLUDE_GENERATED={}", output_file_path.display());
     Ok(())
 }

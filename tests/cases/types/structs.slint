@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+export struct Player := {
+    name: string,
+    score: int,
+    energy_level: float,
+}
+
+TestCase := Rectangle {
+    property<Player> player_1: {name : "Player1", score: 12, energy_level: 80% };
+    property<Player> player_2: {name : "Player2", score: 24, energy_level: 40% };
+
+    property<[Player]> players: [player_1, player_2];
+    property<[Player]> player_list: [
+        {name : "Simon", score: 1, energy_level: 50% },
+        {name : "Olivier", score: 10 },
+        {name : "NoScore", }
+    ];
+
+    property player_2_alias <=> player_2;
+    property<int> player_2_score: player_2_alias.score;
+
+    property <bool> test: player_2_score == 24;
+}
+
+/*
+```rust
+let instance = TestCase::new();
+
+assert_eq!(instance.get_player_1().score, 12);
+assert_eq!(instance.get_player_1(), Player{ name: "Player1".into(), score: 12, energy_level: 0.8 });
+assert_eq!(instance.get_player_2(), Player{ name: "Player2".into(), score: 24, energy_level: 0.4 });
+let super_player = Player{ name: "Super Player".into(), score: 99, energy_level: 0.4 };
+instance.set_player_2(super_player.clone());
+assert_eq!(instance.get_player_2(), super_player);
+
+assert_eq!(instance.get_player_2_score(), 99);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_player_1().score, 12.);
+auto [ energy_level, name, score ] = instance.get_player_2();
+assert_eq(name, "Player2");
+assert_eq(score, 24);
+auto super_player = Player{ 0.4, "Super Player", 99 };
+instance.set_player_2(super_player);
+assert_eq(instance.get_player_2().name, "Super Player");
+
+assert_eq(instance.get_player_2_score(), 99);
+```
+
+```js
+var instance = new slint.TestCase();
+assert.equal(instance.player_1.score, 12.);
+let player2 = instance.player_2
+assert.equal(player2.name, "Player2");
+let super_player = { name: "Super Player", score: 99, energy_level: 0.4 };
+instance.player_2 = super_player;
+assert.equal(instance.player_2.name, "Super Player");
+assert.equal(instance.player_2_score, 99);
+assert.equal(instance.player_2.energy_level, 0.4);
+```
+
+*/

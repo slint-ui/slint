@@ -3,7 +3,7 @@
 
 use std::io::Write;
 
-use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxNode};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxNode};
 
 /// Rename `loop-count` to `iteration-count` in `PropertyAnimation`s
 pub(crate) fn fold_node(

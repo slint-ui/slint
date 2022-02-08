@@ -208,7 +208,7 @@ impl LayoutConstraints {
             || self.vertical_stretch.is_some()
     }
 
-    // Iterate over the constraint with a reference to a property, and the corresponding member in the sixtyfps_corelib::layout::LayoutInfo struct
+    // Iterate over the constraint with a reference to a property, and the corresponding member in the i_slint_core::layout::LayoutInfo struct
     pub fn for_each_restrictions<'a>(
         &'a self,
         orientation: Orientation,
@@ -420,7 +420,7 @@ pub struct GridLayout {
     pub geometry: LayoutGeometry,
 
     /// When this GridLyout is actually the layout of a Dialog, then the cells start with all the buttons,
-    /// and this variable contains their roles. The string is actually one of the values from the sixtyfps_corelib::layout::DialogButtonRole
+    /// and this variable contains their roles. The string is actually one of the values from the i_slint_core::layout::DialogButtonRole
     pub dialog_button_roles: Option<Vec<String>>,
 }
 

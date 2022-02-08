@@ -192,14 +192,14 @@ impl Window {
         let mut redraw_tracker =
             PropertyTracker::new_with_change_handler(WindowRedrawTracker { window_weak });
 
-        #[cfg(sixtyfps_debug_property)]
+        #[cfg(slint_debug_property)]
         {
-            window.scale_factor.debug_name.replace("sixtyfps_corelib::Window::scale_factor".into());
-            window.active.debug_name.replace("sixtyfps_corelib::Window::active".into());
-            window.active.debug_name.replace("sixtyfps_corelib::Window::active".into());
+            window.scale_factor.debug_name.replace("i_slint_core::Window::scale_factor".into());
+            window.active.debug_name.replace("i_slint_core::Window::active".into());
+            window.active.debug_name.replace("i_slint_core::Window::active".into());
             window_properties_tracker
-                .set_debug_name("sixtyfps_corelib::Window::window_properties_tracker".into());
-            redraw_tracker.set_debug_name("sixtyfps_corelib::Window::redraw_tracker".into());
+                .set_debug_name("i_slint_core::Window::window_properties_tracker".into());
+            redraw_tracker.set_debug_name("i_slint_core::Window::redraw_tracker".into());
         }
 
         window.window_properties_tracker.set(Box::pin(window_properties_tracker)).ok().unwrap();
@@ -237,7 +237,7 @@ impl Window {
     /// Arguments:
     /// * `pos`: The position of the mouse event in window physical coordinates.
     /// * `what`: The type of mouse event.
-    /// * `component`: The SixtyFPS compiled component that provides the tree of items.
+    /// * `component`: The Slint compiled component that provides the tree of items.
     pub fn process_mouse_input(self: Rc<Self>, mut event: MouseEvent) {
         crate::animations::update_animations();
 
@@ -296,7 +296,7 @@ impl Window {
     ///
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
-    /// * `component`: The SixtyFPS compiled component that provides the tree of items.
+    /// * `component`: The Slint compiled component that provides the tree of items.
     pub fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
         let mut item = self.focus_item.borrow().clone();
         while let Some(focus_item) = item.upgrade() {
@@ -600,14 +600,14 @@ pub mod ffi {
 
     /// Releases the reference to the windowrc held by handle.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_drop(handle: *mut WindowRcOpaque) {
+    pub unsafe extern "C" fn slint_windowrc_drop(handle: *mut WindowRcOpaque) {
         assert_eq!(core::mem::size_of::<WindowRc>(), core::mem::size_of::<WindowRcOpaque>());
         core::ptr::read(handle as *mut WindowRc);
     }
 
     /// Releases the reference to the component window held by handle.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_clone(
+    pub unsafe extern "C" fn slint_windowrc_clone(
         source: *const WindowRcOpaque,
         target: *mut WindowRcOpaque,
     ) {
@@ -618,23 +618,21 @@ pub mod ffi {
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_show(handle: *const WindowRcOpaque) {
+    pub unsafe extern "C" fn slint_windowrc_show(handle: *const WindowRcOpaque) {
         let window = &*(handle as *const WindowRc);
         window.show();
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_hide(handle: *const WindowRcOpaque) {
+    pub unsafe extern "C" fn slint_windowrc_hide(handle: *const WindowRcOpaque) {
         let window = &*(handle as *const WindowRc);
         window.hide();
     }
 
     /// Returns the window scale factor.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_get_scale_factor(
-        handle: *const WindowRcOpaque,
-    ) -> f32 {
+    pub unsafe extern "C" fn slint_windowrc_get_scale_factor(handle: *const WindowRcOpaque) -> f32 {
         assert_eq!(core::mem::size_of::<WindowRc>(), core::mem::size_of::<WindowRcOpaque>());
         let window = &*(handle as *const WindowRc);
         window.scale_factor()
@@ -642,7 +640,7 @@ pub mod ffi {
 
     /// Sets the window scale factor, merely for testing purposes.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_set_scale_factor(
+    pub unsafe extern "C" fn slint_windowrc_set_scale_factor(
         handle: *const WindowRcOpaque,
         value: f32,
     ) {
@@ -652,7 +650,7 @@ pub mod ffi {
 
     /// Sets the window scale factor, merely for testing purposes.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_free_graphics_resources<'a>(
+    pub unsafe extern "C" fn slint_windowrc_free_graphics_resources<'a>(
         handle: *const WindowRcOpaque,
         items: &Slice<'a, Pin<ItemRef<'a>>>,
     ) {
@@ -662,7 +660,7 @@ pub mod ffi {
 
     /// Sets the focus item.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_set_focus_item(
+    pub unsafe extern "C" fn slint_windowrc_set_focus_item(
         handle: *const WindowRcOpaque,
         focus_item: &ItemRc,
     ) {
@@ -672,7 +670,7 @@ pub mod ffi {
 
     /// Associates the window with the given component.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_set_component(
+    pub unsafe extern "C" fn slint_windowrc_set_component(
         handle: *const WindowRcOpaque,
         component: &ComponentRc,
     ) {
@@ -682,7 +680,7 @@ pub mod ffi {
 
     /// Show a popup.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_show_popup(
+    pub unsafe extern "C" fn slint_windowrc_show_popup(
         handle: *const WindowRcOpaque,
         popup: &ComponentRc,
         position: crate::graphics::Point,
@@ -692,14 +690,14 @@ pub mod ffi {
         window.show_popup(popup, position, parent_item);
     }
     /// Close the current popup
-    pub unsafe extern "C" fn sixtyfps_windowrc_close_popup(handle: *const WindowRcOpaque) {
+    pub unsafe extern "C" fn slint_windowrc_close_popup(handle: *const WindowRcOpaque) {
         let window = &*(handle as *const WindowRc);
         window.close_popup();
     }
 
     /// C binding to the set_rendering_notifier() API of Window
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_set_rendering_notifier(
+    pub unsafe extern "C" fn slint_windowrc_set_rendering_notifier(
         handle: *const WindowRcOpaque,
         callback: extern "C" fn(
             rendering_state: RenderingState,
@@ -752,7 +750,7 @@ pub mod ffi {
 
     /// This function issues a request to the windowing system to redraw the contents of the window.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_windowrc_request_redraw(handle: *const WindowRcOpaque) {
+    pub unsafe extern "C" fn slint_windowrc_request_redraw(handle: *const WindowRcOpaque) {
         let window = &*(handle as *const WindowRc);
         window.request_redraw();
     }

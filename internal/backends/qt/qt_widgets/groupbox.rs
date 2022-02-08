@@ -3,7 +3,7 @@
 
 use super::*;
 #[repr(C)]
-#[derive(FieldOffsets, Default, SixtyFPSElement)]
+#[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeGroupBox {
     pub x: Property<f32>,
@@ -141,7 +141,7 @@ impl Item for NativeGroupBox {
         self: Pin<&Self>,
         _: MouseEvent,
         _window: &WindowRc,
-        _self_rc: &sixtyfps_corelib::items::ItemRc,
+        _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
@@ -194,5 +194,5 @@ impl ItemConsts for NativeGroupBox {
 }
 
 declare_item_vtable! {
-fn sixtyfps_get_NativeGroupBoxVTable() -> NativeGroupBoxVTable for NativeGroupBox
+fn slint_get_NativeGroupBoxVTable() -> NativeGroupBoxVTable for NativeGroupBox
 }

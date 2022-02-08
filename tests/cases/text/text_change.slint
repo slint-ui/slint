@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+TestCase := Window {
+    width: 100phx;
+    height: 100phx;
+    VerticalLayout {
+        padding: 0;
+        spacing: 0;
+        ti := TextInput { }
+        Rectangle { }
+    }
+
+    property <string> text <=> ti.text;
+    property <bool> input_focused: ti.has_focus;
+    property<int> test_cursor_pos: ti.cursor_position;
+}
+
+/*
+```rust
+
+const LEFT_CODE: char = '\u{F702}';
+
+let instance = TestCase::new();
+slint::testing::send_mouse_click(&instance, 5., 5.);
+assert!(instance.get_input_focused());
+assert_eq!(instance.get_text(), "");
+slint::testing::send_keyboard_string_sequence(&instance, "Hallo");
+assert_eq!(instance.get_text(), "Hallo");
+instance.set_text("Yo".into());
+assert_eq!(instance.get_text(), "Yo");
+slint::testing::send_keyboard_string_sequence(&instance, "Hello Again");
+assert_eq!(instance.get_text(), "YoHello Again");
+instance.set_text("Yo".into());
+// Issue #331: assert_eq!(instance.get_test_cursor_pos(), 2);
+slint::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
+assert_eq!(instance.get_test_cursor_pos(), 1);
+```
+*/

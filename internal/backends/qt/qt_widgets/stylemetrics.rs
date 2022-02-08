@@ -22,7 +22,7 @@ struct StyleChangeListener : QWidget {
 }}
 
 #[repr(C)]
-#[derive(FieldOffsets, SixtyFPSElement)]
+#[derive(FieldOffsets, SlintElement)]
 #[pin]
 #[pin_drop]
 pub struct NativeStyleMetrics {
@@ -44,7 +44,7 @@ pub struct NativeStyleMetrics {
 
 impl const_field_offset::PinnedDrop for NativeStyleMetrics {
     fn drop(self: Pin<&mut Self>) {
-        sixtyfps_native_style_metrics_deinit(self);
+        slint_native_style_metrics_deinit(self);
     }
 }
 
@@ -131,20 +131,20 @@ impl NativeStyleMetrics {
 }
 
 #[cfg(feature = "rtti")]
-impl sixtyfps_corelib::rtti::BuiltinGlobal for NativeStyleMetrics {
+impl i_slint_core::rtti::BuiltinGlobal for NativeStyleMetrics {
     fn new() -> Pin<Rc<Self>> {
         NativeStyleMetrics::new()
     }
 }
 
 #[no_mangle]
-pub extern "C" fn sixtyfps_native_style_metrics_init(self_: Pin<&NativeStyleMetrics>) {
+pub extern "C" fn slint_native_style_metrics_init(self_: Pin<&NativeStyleMetrics>) {
     self_.style_change_listener.set(core::ptr::null()); // because the C++ code don't initialize it
     self_.init();
 }
 
 #[no_mangle]
-pub extern "C" fn sixtyfps_native_style_metrics_deinit(self_: Pin<&mut NativeStyleMetrics>) {
+pub extern "C" fn slint_native_style_metrics_deinit(self_: Pin<&mut NativeStyleMetrics>) {
     let scl = self_.style_change_listener.get();
     cpp!(unsafe [scl as "StyleChangeListener*"] { delete scl; });
     self_.style_change_listener.set(core::ptr::null());

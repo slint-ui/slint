@@ -1,0 +1,71 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+TestCase := Rectangle {
+    property<duration> d1: 100ms;
+    property<duration> d2: 3s;
+    property<duration> d3: 1.5s;
+    property<duration> d4: 30 * 1ms;
+    property<duration> d5: 8ms + 3s;
+    property<duration> d6: d1 - d2;
+    property<duration> d7: -0.5s;
+    property<duration> d8: -0.5s / 2 * 1px / 1px;
+    property<int> i1: d1 / 1ms;
+    property<int> i2: d1 / (2ms + 0);
+
+    property<int> untyped_d1: self.d1 / 1ms;
+    property<int> untyped_d2: self.d2 / 1ms;
+    property<int> untyped_d3: self.d3 / 1ms;
+    property<int> untyped_d4: self.d4 / 1ms;
+    property<int> untyped_d5: self.d5 / 1ms;
+    property<int> untyped_d6: self.d6 / 1ms;
+    property<int> untyped_d7: self.d7 / 1ms;
+    property<int> untyped_d8: self.d8 / 1ms;
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_untyped_d1(), 100);
+assert_eq(instance.get_untyped_d2(), 3000);
+assert_eq(instance.get_untyped_d3(), 1500);
+assert_eq(instance.get_untyped_d4(), 30);
+assert_eq(instance.get_untyped_d5(), 3008);
+assert_eq(instance.get_untyped_d6(), -2900);
+assert_eq(instance.get_untyped_d7(), -500);
+assert_eq(instance.get_untyped_d8(), -250);
+assert_eq(instance.get_i1(), 100);
+assert_eq(instance.get_i2(), 50);
+```
+
+
+```rust
+let instance = TestCase::new();
+assert_eq!(instance.get_untyped_d1(), 100);
+assert_eq!(instance.get_untyped_d2(), 3000);
+assert_eq!(instance.get_untyped_d3(), 1500);
+assert_eq!(instance.get_untyped_d4(), 30);
+assert_eq!(instance.get_untyped_d5(), 3008);
+assert_eq!(instance.get_untyped_d6(), -2900);
+assert_eq!(instance.get_untyped_d7(), -500);
+assert_eq!(instance.get_untyped_d8(), -250);
+assert_eq!(instance.get_i1(), 100);
+assert_eq!(instance.get_i2(), 50);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert.equal(instance.untyped_d1, 100);
+assert.equal(instance.untyped_d2, 3000);
+assert.equal(instance.untyped_d3, 1500);
+assert.equal(instance.untyped_d4, 30);
+assert.equal(instance.untyped_d5, 3008);
+assert.equal(instance.untyped_d6, -2900);
+assert.equal(instance.untyped_d7, -500);
+assert.equal(instance.untyped_d8, -250);
+assert.equal(instance.i1, 100);
+assert.equal(instance.i2, 50);
+```
+*/

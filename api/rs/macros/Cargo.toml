@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "sixtyfps-macros"
+name = "slint-macros"
 version = "0.2.0"
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
-description = "Macro helper for sixtyfps crate"
+description = "Macro helper for slint crate"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 
@@ -17,7 +17,7 @@ proc-macro = true
 path = "lib.rs"
 
 [dependencies]
-sixtyfps-compilerlib = { version = "=0.2.0", path = "../../../internal/compiler", features = ["proc_macro_span", "rust", "display-diagnostics"] }
+i-slint-compiler = { version = "=0.2.0", path = "../../../internal/compiler", features = ["proc_macro_span", "rust", "display-diagnostics"] }
 
 proc-macro2 = "1.0.17"
 quote = "1.0"

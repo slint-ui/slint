@@ -49,7 +49,7 @@ impl Brush {
     /// Returns true if this brush contains a fully transparent color (alpha value is zero)
     ///
     /// ```
-    /// # use sixtyfps_corelib::graphics::*;
+    /// # use i_slint_core::graphics::*;
     /// assert!(Brush::default().is_transparent());
     /// assert!(Brush::SolidColor(Color::from_argb_u8(0, 255, 128, 140)).is_transparent());
     /// assert!(!Brush::SolidColor(Color::from_argb_u8(25, 128, 140, 210)).is_transparent());

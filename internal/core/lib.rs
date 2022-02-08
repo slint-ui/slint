@@ -1,18 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-/*!
-
-# SixtyFPS runtime library
-
-**NOTE**: This library is an **internal** crate for the [SixtyFPS project](https://sixtyfps.io).
-This crate should **not be used directly** by applications using SixtyFPS.
-You should use the `sixtyfps` crate instead.
-
-**WARNING**: This crate does not follow the semver convention for versioning and can
-only be used with `version = "=x.y.z"` in Cargo.toml.
-
-*/
+#![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
 #![deny(unsafe_code)]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -132,19 +121,19 @@ pub use graphics::PathData;
 pub fn use_modules() -> usize {
     #[cfg(feature = "ffi")]
     {
-        tests::sixtyfps_mock_elapsed_time as usize
-            + callbacks::ffi::sixtyfps_callback_init as usize
-            + sharedvector::ffi::sixtyfps_shared_vector_empty as usize
-            + layout::ffi::sixtyfps_solve_grid_layout as usize
-            + item_tree::ffi::sixtyfps_visit_item_tree as usize
-            + graphics::ffi::sixtyfps_new_path_elements as usize
-            + properties::ffi::sixtyfps_property_init as usize
-            + string::ffi::sixtyfps_shared_string_bytes as usize
-            + window::ffi::sixtyfps_windowrc_drop as usize
-            + component::ffi::sixtyfps_component_init_items as usize
-            + timers::ffi::sixtyfps_timer_start as usize
-            + graphics::color::ffi::sixtyfps_color_brighter as usize
-            + graphics::image::ffi::sixtyfps_image_size as usize
+        tests::slint_mock_elapsed_time as usize
+            + callbacks::ffi::slint_callback_init as usize
+            + sharedvector::ffi::slint_shared_vector_empty as usize
+            + layout::ffi::slint_solve_grid_layout as usize
+            + item_tree::ffi::slint_visit_item_tree as usize
+            + graphics::ffi::slint_new_path_elements as usize
+            + properties::ffi::slint_property_init as usize
+            + string::ffi::slint_shared_string_bytes as usize
+            + window::ffi::slint_windowrc_drop as usize
+            + component::ffi::slint_component_init_items as usize
+            + timers::ffi::slint_timer_start as usize
+            + graphics::color::ffi::slint_color_brighter as usize
+            + graphics::image::ffi::slint_image_size as usize
     }
     #[cfg(not(feature = "ffi"))]
     {

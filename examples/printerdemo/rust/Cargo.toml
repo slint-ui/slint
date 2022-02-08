@@ -4,7 +4,7 @@
 [package]
 name = "printerdemo"
 version = "0.2.0"
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 build = "build.rs"
 publish = false
@@ -15,11 +15,12 @@ path = "main.rs"
 name = "printerdemo"
 
 [dependencies]
-sixtyfps = { path = "../../../api/sixtyfps-rs" }
+slint = { path = "../../../api/rs/slint" }
+
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"]}
 
 [build-dependencies]
-sixtyfps-build = { path = "../../../api/rs/build" }
+slint-build = { path = "../../../api/rs/build" }
 
 # Remove the `#wasm#` to uncomment the wasm build.
 # This is commented out by default because we don't want to build it as a library by default

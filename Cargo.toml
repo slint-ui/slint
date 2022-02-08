@@ -7,7 +7,7 @@ members = [
     'api/node/native',
     'api/rs/build',
     'api/rs/macros',
-    'api/sixtyfps-rs',
+    'api/rs/slint',
     'api/wasm-interpreter',
     'docs/tutorial/rust/src',
     'examples/7gui',
@@ -30,7 +30,7 @@ members = [
     'internal/backends/testing',
     'internal/common',
     'internal/compiler',
-    'internal/compiler/parser_test_macro',
+    'internal/compiler/parser-test-macro',
     'internal/core',
     'internal/core-macros',
     'internal/interpreter',
@@ -51,7 +51,7 @@ members = [
 default-members = [
     'api/node/native',
     'api/rs/build',
-    'api/sixtyfps-rs',
+    'api/rs/slint',
     'examples/gallery',
     'examples/memory',
     'examples/printerdemo_old/rust',
@@ -74,6 +74,8 @@ default-members = [
     'tools/syntax_updater',
     'tools/viewer',
 ]
+
+resolver="2"
 
 [profile.release]
 lto = true

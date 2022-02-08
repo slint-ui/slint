@@ -1,0 +1,108 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox } from "./common.slint";
+import { PrinterQueue } from "./printer_queue.slint";
+
+
+export CopyPage := Page {
+    has-back-button: true;
+    header: "Copy";
+
+    GridLayout {
+        padding-top: 46px /* header line height in design */
+                     + /* extra top-padding in design */ 27px;
+        spacing: 24px;
+        Row {
+            Text {
+                text: "Choose Settings";
+                color: DemoPalette.secondary-foreground-color;
+                font-size: DemoPalette.base-font-size * 1.125;
+                font-weight: 800;
+            }
+        }
+        Row {
+            Label { text: "Copies"; }
+            SpinBox {
+                value: 1;
+                minimum: 1;
+            }
+
+            Rectangle {}
+
+            Label { text: "Size"; }
+            ComboBox {
+                value: "DIN A4";
+                choices: ["DIN A4", "DIN A3", "Letter"];
+            }
+        }
+        Row {
+            Label { text: "Layout"; }
+            ComboBox {
+                value: "Portrait";
+                choices: ["Portrait", "Landscape"];
+            }
+
+            Rectangle {}
+
+            Label { text: "Paper Tray"; }
+            ComboBox {
+                value: "Special Tray";
+                choices: ["Special Tray", "Normal Tray"];
+            }
+        }
+        Row {
+            Label { text: "Quality"; }
+            ComboBox {
+                value: "Best";
+                choices: ["Best", "Medium", "Draft"];
+            }
+
+            Rectangle {}
+
+            Label { text: "Paper Type"; }
+            ComboBox {
+                value: "Standard";
+                choices: ["Standard", "Non-standard"];
+            }
+        }
+        Row {
+            Label { text: "Color"; }
+            ComboBox {
+                value: "Grayscale";
+                choices: ["Grayscale", "Color"];
+            }
+
+            Rectangle {}
+
+            Label { text: "Paper Handling"; }
+            CheckBox {
+                checked: true;
+                text: "sort page";
+            }
+        }
+        Row {
+            HorizontalLayout {
+                col: 3;
+                colspan: 2;
+
+                Rectangle {
+                    horizontal-stretch: 0;
+                    width: 10%;
+                }
+                PushButton {
+                    icon: @image-url("images/copy.svg");
+                    text: "Start copying";
+                    clicked => {
+                        PrinterQueue.start-job("Copy");
+                    }
+                }
+                Rectangle {
+                    horizontal-stretch: 0;
+                    width: 10%;
+                }
+            }
+        }
+        Row { Rectangle {} }
+    }
+}

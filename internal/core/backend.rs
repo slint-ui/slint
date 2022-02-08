@@ -40,7 +40,7 @@ pub trait Backend: Send + Sync {
     fn quit_event_loop(&'static self);
 
     #[cfg(feature = "std")] // FIXME: just because of the Error
-    /// This function can be used to register a custom TrueType font with SixtyFPS,
+    /// This function can be used to register a custom TrueType font with Slint,
     /// for use with the `font-family` property. The provided slice must be a valid TrueType
     /// font.
     fn register_font_from_memory(
@@ -49,7 +49,7 @@ pub trait Backend: Send + Sync {
     ) -> Result<(), Box<dyn std::error::Error>>;
 
     #[cfg(feature = "std")]
-    /// This function can be used to register a custom TrueType font with SixtyFPS,
+    /// This function can be used to register a custom TrueType font with Slint,
     /// for use with the `font-family` property. The provided path must refer to a valid TrueType
     /// font.
     fn register_font_from_path(

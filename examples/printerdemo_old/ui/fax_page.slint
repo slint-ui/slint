@@ -1,0 +1,90 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+import { SpinBox, Button, CheckBox, Slider, GroupBox, StandardListView } from "std-widgets.slint";
+import { Label, Page, Preview } from "common.slint";
+
+export FaxPage := Page {
+
+    property<string> fax-number <=> text.text;
+    callback fax-number-erase;
+    callback fax-send;
+
+    layout := GridLayout {
+        padding-left: 40px;
+        padding-right: 40px;
+        spacing: 20px;
+        padding-top: 20px;
+        padding-bottom: 20px;
+
+        preview := Preview {
+            rowspan: 5;
+        }
+
+        text := Text {
+            col: 1;
+            colspan: 2;
+            horizontal-alignment: center;
+            font-size: 40px;
+            horizontal-stretch: 1;
+            overflow: elide;
+            min-width: 0;
+            preferred-width: 0;
+        }
+
+        Rectangle {
+            col: 1;
+            row: 2;
+            colspan: 2;
+            background: #333;
+            height: 50%;
+            border-radius: 4px;
+
+            for row-model[r] in [
+                [ 7, 8, 9 ],
+                [ 4, 5, 6 ],
+                [ 1, 2, 3 ],
+                [ 0, -1 ],
+            ] : Rectangle {
+                width: 100%;
+                height: 25% * (parent.height - 5*10px);
+                y: r * (self.height + 10px) + 10px;
+
+                for num[c] in row-model : Rectangle {
+                    height: parent.height;
+                    width: (parent.width - 4*10px) / 3;
+                    x: c * (self.width + 10px) + 10px;
+                    border-radius: 4px;
+                    background: key-area.pressed ? #566 : #555 ;
+                    Text {
+                        width: 100%;
+                        height: 100%;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                        color: white;
+                        text: num >= 0 ? num : "⌫";
+                    }
+                    key-area := TouchArea {
+                        width: 100%;
+                        height: 100%;
+                        clicked => {
+                            if (num >= 0) {
+                                fax-number += num;
+                            } else {
+                                fax-number-erase();
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        send := Button {
+            row: 4;
+            col: 2;
+            text: "Send";
+            font-size: 28px;
+            clicked => { root.fax-send(); }
+        }
+    }
+}

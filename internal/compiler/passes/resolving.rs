@@ -19,7 +19,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 /// This represents a scope for the Component, where Component is the repeated component, but
-/// does not represent a component in the .60 file
+/// does not represent a component in the .slint file
 #[derive(Clone)]
 struct ComponentScope(Vec<ElementRc>);
 

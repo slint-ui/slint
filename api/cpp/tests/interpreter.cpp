@@ -4,12 +4,12 @@
 #define CATCH_CONFIG_MAIN
 #include "catch2/catch.hpp"
 
-#include <sixtyfps.h>
-#include <sixtyfps_interpreter.h>
+#include <slint.h>
+#include <slint_interpreter.h>
 
 SCENARIO("Value API")
 {
-    using namespace sixtyfps::interpreter;
+    using namespace slint::interpreter;
     Value value;
 
     REQUIRE(value.type() == Value::Type::Void);
@@ -17,7 +17,7 @@ SCENARIO("Value API")
     SECTION("Construct a string")
     {
         REQUIRE(!value.to_string().has_value());
-        sixtyfps::SharedString cpp_str("Hello World");
+        slint::SharedString cpp_str("Hello World");
         value = Value(cpp_str);
         REQUIRE(value.type() == Value::Type::String);
 
@@ -52,7 +52,7 @@ SCENARIO("Value API")
     SECTION("Construct an array")
     {
         REQUIRE(!value.to_array().has_value());
-        sixtyfps::SharedVector<Value> array { Value(42.0), Value(true) };
+        slint::SharedVector<Value> array { Value(42.0), Value(true) };
         value = Value(array);
         REQUIRE(value.type() == Value::Type::Model);
 
@@ -68,7 +68,7 @@ SCENARIO("Value API")
     SECTION("Construct a brush")
     {
         REQUIRE(!value.to_brush().has_value());
-        sixtyfps::Brush brush(sixtyfps::Color::from_rgb_uint8(255, 0, 255));
+        slint::Brush brush(slint::Color::from_rgb_uint8(255, 0, 255));
         value = Value(brush);
         REQUIRE(value.type() == Value::Type::Brush);
 
@@ -80,7 +80,7 @@ SCENARIO("Value API")
     SECTION("Construct a struct")
     {
         REQUIRE(!value.to_struct().has_value());
-        sixtyfps::interpreter::Struct struc;
+        slint::interpreter::Struct struc;
         value = Value(struc);
         REQUIRE(value.type() == Value::Type::Struct);
 
@@ -91,11 +91,11 @@ SCENARIO("Value API")
     SECTION("Construct an image")
     {
         // ensure a backend exists, using private api
-        sixtyfps::private_api::WindowRc wnd;
+        slint::private_api::WindowRc wnd;
 
         REQUIRE(!value.to_image().has_value());
-        sixtyfps::Image image = sixtyfps::Image::load_from_path(
-                SOURCE_DIR "/../../vscode_extension/extension-logo.png");
+        slint::Image image = slint::Image::load_from_path(
+                SOURCE_DIR "/../../logo/slint-logo-square-light-128x128.png");
         REQUIRE(image.size().width == 128);
         value = Value(image);
         REQUIRE(value.type() == Value::Type::Image);
@@ -109,7 +109,7 @@ SCENARIO("Value API")
     SECTION("Construct a model")
     {
         // And test that it is properly destroyed when the value is destroyed
-        struct M : sixtyfps::VectorModel<Value>
+        struct M : slint::VectorModel<Value>
         {
             bool *destroyed;
             explicit M(bool *destroyed) : destroyed(destroyed) { }
@@ -139,8 +139,8 @@ SCENARIO("Value API")
 
     SECTION("Compare Values")
     {
-        Value str1 { sixtyfps::SharedString("Hello1") };
-        Value str2 { sixtyfps::SharedString("Hello2") };
+        Value str1 { slint::SharedString("Hello1") };
+        Value str2 { slint::SharedString("Hello2") };
         Value fl1 { 10. };
         Value fl2 { 12. };
 
@@ -151,22 +151,22 @@ SCENARIO("Value API")
         REQUIRE(fl1 != fl2);
         REQUIRE(Value() == Value());
         REQUIRE(Value() != str1);
-        REQUIRE(str1 == sixtyfps::SharedString("Hello1"));
-        REQUIRE(str1 != sixtyfps::SharedString("Hello2"));
-        REQUIRE(sixtyfps::SharedString("Hello2") == str2);
-        REQUIRE(fl1 != sixtyfps::SharedString("Hello2"));
+        REQUIRE(str1 == slint::SharedString("Hello1"));
+        REQUIRE(str1 != slint::SharedString("Hello2"));
+        REQUIRE(slint::SharedString("Hello2") == str2);
+        REQUIRE(fl1 != slint::SharedString("Hello2"));
         REQUIRE(fl2 == 12.);
     }
 }
 
 SCENARIO("Struct API")
 {
-    using namespace sixtyfps::interpreter;
+    using namespace slint::interpreter;
     Struct struc;
 
     REQUIRE(!struc.get_field("not_there"));
 
-    struc.set_field("field_a", Value(sixtyfps::SharedString("Hallo")));
+    struc.set_field("field_a", Value(slint::SharedString("Hallo")));
 
     auto value_opt = struc.get_field("field_a");
     REQUIRE(value_opt.has_value());
@@ -182,20 +182,20 @@ SCENARIO("Struct API")
         REQUIRE(value.to_string().value() == "Hallo");
     }
 
-    struc.set_field("field_b", Value(sixtyfps::SharedString("World")));
-    std::map<std::string, sixtyfps::SharedString> map;
+    struc.set_field("field_b", Value(slint::SharedString("World")));
+    std::map<std::string, slint::SharedString> map;
     for (auto [k, value] : struc)
         map[std::string(k)] = *value.to_string();
 
     REQUIRE(map
-            == std::map<std::string, sixtyfps::SharedString> {
-                    { "field-a", sixtyfps::SharedString("Hallo") },
-                    { "field-b", sixtyfps::SharedString("World") } });
+            == std::map<std::string, slint::SharedString> {
+                    { "field-a", slint::SharedString("Hallo") },
+                    { "field-b", slint::SharedString("World") } });
 }
 
 SCENARIO("Struct Iterator Constructor")
 {
-    using namespace sixtyfps::interpreter;
+    using namespace slint::interpreter;
 
     std::vector<std::pair<std::string_view, Value>> values = { { "field_a", Value(true) },
                                                                { "field_b", Value(42.0) } };
@@ -210,7 +210,7 @@ SCENARIO("Struct Iterator Constructor")
 
 SCENARIO("Struct Initializer List Constructor")
 {
-    using namespace sixtyfps::interpreter;
+    using namespace slint::interpreter;
 
     Struct struc({ { "field_a", Value(true) }, { "field_b", Value(42.0) } });
 
@@ -222,14 +222,14 @@ SCENARIO("Struct Initializer List Constructor")
 
 SCENARIO("Struct empty field iteration")
 {
-    using namespace sixtyfps::interpreter;
+    using namespace slint::interpreter;
     Struct struc;
     REQUIRE(struc.begin() == struc.end());
 }
 
 SCENARIO("Struct field iteration")
 {
-    using namespace sixtyfps::interpreter;
+    using namespace slint::interpreter;
 
     Struct struc({ { "field_a", Value(true) }, { "field_b", Value(42.0) } });
 
@@ -257,8 +257,8 @@ SCENARIO("Struct field iteration")
 
 SCENARIO("Component Compiler")
 {
-    using namespace sixtyfps::interpreter;
-    using namespace sixtyfps;
+    using namespace slint::interpreter;
+    using namespace slint;
 
     ComponentCompiler compiler;
 
@@ -296,7 +296,7 @@ SCENARIO("Component Compiler")
 
     SECTION("Compile failure from path")
     {
-        auto result = compiler.build_from_path(SOURCE_DIR "/file-not-there.60");
+        auto result = compiler.build_from_path(SOURCE_DIR "/file-not-there.slint");
         REQUIRE_FALSE(result.has_value());
         auto diags = compiler.diagnostics();
 
@@ -306,15 +306,15 @@ SCENARIO("Component Compiler")
 
     SECTION("Compile from path")
     {
-        auto result = compiler.build_from_path(SOURCE_DIR "/tests/test.60");
+        auto result = compiler.build_from_path(SOURCE_DIR "/tests/test.slint");
         REQUIRE(result.has_value());
     }
 }
 
 SCENARIO("Component Definition Properties")
 {
-    using namespace sixtyfps::interpreter;
-    using namespace sixtyfps;
+    using namespace slint::interpreter;
+    using namespace slint;
 
     ComponentCompiler compiler;
     auto comp_def = *compiler.build_from_source(
@@ -331,8 +331,8 @@ SCENARIO("Component Definition Properties")
 
 SCENARIO("Component Definition Properties / Two-way bindings")
 {
-    using namespace sixtyfps::interpreter;
-    using namespace sixtyfps;
+    using namespace slint::interpreter;
+    using namespace slint;
 
     ComponentCompiler compiler;
     auto comp_def = *compiler.build_from_source(
@@ -348,8 +348,8 @@ SCENARIO("Component Definition Properties / Two-way bindings")
 
 SCENARIO("Invoke callback")
 {
-    using namespace sixtyfps::interpreter;
-    using namespace sixtyfps;
+    using namespace slint::interpreter;
+    using namespace slint;
 
     ComponentCompiler compiler;
 
@@ -385,10 +385,10 @@ SCENARIO("Invoke callback")
     }
 }
 
-SCENARIO("Array between .60 and C++")
+SCENARIO("Array between .slint and C++")
 {
-    using namespace sixtyfps::interpreter;
-    using namespace sixtyfps;
+    using namespace slint::interpreter;
+    using namespace slint;
 
     ComponentCompiler compiler;
 
@@ -397,19 +397,19 @@ SCENARIO("Array between .60 and C++")
     REQUIRE(result.has_value());
     auto instance = result->create();
 
-    SECTION(".60 to C++")
+    SECTION(".slint to C++")
     {
         auto maybe_array = instance->get_property("array");
         REQUIRE(maybe_array.has_value());
         REQUIRE(maybe_array->type() == Value::Type::Model);
 
         auto array = *maybe_array;
-        REQUIRE(array.to_array() == sixtyfps::SharedVector<Value> { Value(1.), Value(2.), Value(3.) });
+        REQUIRE(array.to_array() == slint::SharedVector<Value> { Value(1.), Value(2.), Value(3.) });
     }
 
-    SECTION("C++ to .60")
+    SECTION("C++ to .slint")
     {
-        sixtyfps::SharedVector<Value> cpp_array { Value(4.), Value(5.), Value(6.) };
+        slint::SharedVector<Value> cpp_array { Value(4.), Value(5.), Value(6.) };
 
         instance->set_property("array", Value(cpp_array));
         auto maybe_array = instance->get_property("array");
@@ -421,10 +421,10 @@ SCENARIO("Array between .60 and C++")
     }
 }
 
-SCENARIO("Angle between .60 and C++")
+SCENARIO("Angle between .slint and C++")
 {
-    using namespace sixtyfps::interpreter;
-    using namespace sixtyfps;
+    using namespace slint::interpreter;
+    using namespace slint;
 
     ComponentCompiler compiler;
 
@@ -456,8 +456,8 @@ SCENARIO("Angle between .60 and C++")
 
 SCENARIO("Component Definition Name")
 {
-    using namespace sixtyfps::interpreter;
-    using namespace sixtyfps;
+    using namespace slint::interpreter;
+    using namespace slint;
 
     ComponentCompiler compiler;
     auto comp_def = *compiler.build_from_source("export IHaveAName := Rectangle { }", "");
@@ -466,8 +466,8 @@ SCENARIO("Component Definition Name")
 
 SCENARIO("Send key events")
 {
-    using namespace sixtyfps::interpreter;
-    using namespace sixtyfps;
+    using namespace slint::interpreter;
+    using namespace slint;
 
     ComponentCompiler compiler;
     auto comp_def = compiler.build_from_source(R"(
@@ -485,14 +485,14 @@ SCENARIO("Send key events")
                                                "");
     REQUIRE(comp_def.has_value());
     auto instance = comp_def->create();
-    sixtyfps::testing::send_keyboard_string_sequence(&*instance, "Hello keys!", {});
+    slint::testing::send_keyboard_string_sequence(&*instance, "Hello keys!", {});
     REQUIRE(*instance->get_property("result")->to_string() == "Hello keys!");
 }
 
 SCENARIO("Global properties")
 {
-    using namespace sixtyfps::interpreter;
-    using namespace sixtyfps;
+    using namespace slint::interpreter;
+    using namespace slint;
 
     ComponentCompiler compiler;
 

@@ -1,0 +1,19 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+import { Button, LineEdit, HorizontalBox } from "std-widgets.slint";
+
+Counter := Window {
+    property <int> value: 0;
+    preferred-height: 30px;
+    layout := HorizontalBox {
+        LineEdit {
+            enabled: false;
+            text: value;
+        }
+        Button {
+            text: "Count";
+            clicked => { value += 1; }
+        }
+    }
+}

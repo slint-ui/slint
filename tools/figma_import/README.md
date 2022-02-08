@@ -1,6 +1,6 @@
-# figma_import: Figma to SixtyFPS import tool
+# figma_import: Figma to Slint import tool
 
-This tool imports a design from Figma into a .60 file.
+This tool imports a design from Figma into a .slint file.
 
 ## Get a Token from figma
 
@@ -17,7 +17,7 @@ The file ID is the string of character that is in the URL when you have an open 
 
 and the File ID is that `XxxxxxXXXxxXX` string.
 
-Then you can export that file to a .60 by running the command
+Then you can export that file to a .slint by running the command
 
 ```sh
 cargo run -- --token aaaaaa-bbbbbbbb-cccc-dddd-eeee-ffffffffffff XxxxxxXXXxxXX
@@ -25,7 +25,7 @@ cargo run -- --token aaaaaa-bbbbbbbb-cccc-dddd-eeee-ffffffffffff XxxxxxXXXxxXX
 
 With the right token and file id.
 
-This will create a `figma_output` directory with a `main.60` file and some images.
+This will create a `figma_output` directory with a `main.slint` file and some images.
 
 Other options:
 * `--node <id>` to generate a specific node (eg: "123:12")

@@ -1,15 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
+use i_slint_compiler::langtype::Type;
+use i_slint_core::model::Model;
 use neon::prelude::*;
-use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_corelib::model::Model;
 use std::cell::Cell;
 use std::rc::{Rc, Weak};
 
 /// Model coming from JS
 pub struct JsModel {
-    notify: sixtyfps_corelib::model::ModelNotify,
+    notify: i_slint_core::model::ModelNotify,
     /// The index of the value in the PersistentContext
     value_index: u32,
     data_type: Type,
@@ -29,7 +29,7 @@ impl JsModel {
             data_type,
         });
 
-        let mut notify = SixtyFpsModelNotify::new::<_, JsValue, _>(cx, std::iter::empty())?;
+        let mut notify = SlintModelNotify::new::<_, JsValue, _>(cx, std::iter::empty())?;
         cx.borrow_mut(&mut notify, |mut notify| notify.0 = Rc::downgrade(&model));
         let notify = notify.as_value(cx);
         obj.set(cx, "notify", notify)?;
@@ -47,7 +47,7 @@ impl JsModel {
 }
 
 impl Model for JsModel {
-    type Data = sixtyfps_interpreter::Value;
+    type Data = slint_interpreter::Value;
 
     fn row_count(&self) -> usize {
         let r = Cell::new(0usize);
@@ -68,7 +68,7 @@ impl Model for JsModel {
         if row >= self.row_count() {
             None
         } else {
-            let r = Cell::new(sixtyfps_interpreter::Value::default());
+            let r = Cell::new(slint_interpreter::Value::default());
             crate::run_with_global_context(&|cx, persistent_context| {
                 let row = JsNumber::new(cx, row as f64);
                 let obj = self.get_object(cx, persistent_context).unwrap();
@@ -87,7 +87,7 @@ impl Model for JsModel {
         }
     }
 
-    fn model_tracker(&self) -> &dyn sixtyfps_corelib::model::ModelTracker {
+    fn model_tracker(&self) -> &dyn i_slint_core::model::ModelTracker {
         &self.notify
     }
 
@@ -112,7 +112,7 @@ impl Model for JsModel {
 struct WrappedJsModel(Weak<JsModel>);
 
 declare_types! {
-    class SixtyFpsModelNotify for WrappedJsModel {
+    class SlintModelNotify for WrappedJsModel {
         init(_) {
             Ok(WrappedJsModel(Weak::default()))
         }

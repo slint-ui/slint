@@ -4,7 +4,7 @@
 [package]
 name = "test-driver-cpp"
 version = "0.2.0"
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 publish = false
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
@@ -14,10 +14,10 @@ path = "main.rs"
 name = "test-driver-cpp"
 
 [dependencies]
-sixtyfps-cpp = { path = "../../../api/cpp", features = ["testing"] }
+slint-cpp = { path = "../../../api/cpp", features = ["testing"] }
 
 [dev-dependencies]
-sixtyfps-compilerlib = { path = "../../../internal/compiler", features = ["cpp", "display-diagnostics"] }
+i-slint-compiler = { path = "../../../internal/compiler", features = ["cpp", "display-diagnostics"] }
 
 cc = "1.0.54"
 scopeguard = "1.1.0"

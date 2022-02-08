@@ -17,7 +17,7 @@ export default defineConfig(({ command, mode }) => {
     // For development builds, serve the wasm interpreter straight out of the local file system.
     base_config.resolve = {
       alias: {
-        '../../../wasm-interpreter/sixtyfps_wasm_interpreter.js': "../../api/sixtyfps-wasm-interpreter/pkg/sixtyfps_wasm_interpreter.js"
+        '../../../wasm-interpreter/slint_wasm_interpreter.js': "../../api/wasm-interpreter/pkg/slint_wasm_interpreter.js"
       }
     }
   } else {
@@ -26,7 +26,7 @@ export default defineConfig(({ command, mode }) => {
     // relative path to the interpreter is as below.
     base_config.build = {}
     base_config.build.rollupOptions = {
-      external: ['../../../wasm-interpreter/sixtyfps_wasm_interpreter.js'],
+      external: ['../../../wasm-interpreter/slint_wasm_interpreter.js'],
       input: ["index.html", "preview.html"],
     }
   }

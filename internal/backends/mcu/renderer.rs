@@ -8,16 +8,14 @@ use core::pin::Pin;
 
 use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
-use sixtyfps_corelib::graphics::{
-    IntRect, PixelFormat, Point as PointF, Rect as RectF, Size as SizeF,
-};
-use sixtyfps_corelib::items::Item;
-use sixtyfps_corelib::{Color, ImageInner};
+use i_slint_core::graphics::{IntRect, PixelFormat, Point as PointF, Rect as RectF, Size as SizeF};
+use i_slint_core::items::Item;
+use i_slint_core::{Color, ImageInner};
 
 use crate::Devices;
 
 pub fn render_window_frame(
-    runtime_window: Rc<sixtyfps_corelib::window::Window>,
+    runtime_window: Rc<i_slint_core::window::Window>,
     background: Rgb888,
     devices: &mut dyn Devices,
 ) {
@@ -271,11 +269,11 @@ enum SceneCommand {
     },
 }
 
-fn prepare_scene(runtime_window: Rc<sixtyfps_corelib::window::Window>, size: SizeF) -> Scene {
+fn prepare_scene(runtime_window: Rc<i_slint_core::window::Window>, size: SizeF) -> Scene {
     let mut prepare_scene = PrepareScene::new(size, ScaleFactor(runtime_window.scale_factor()));
     runtime_window.draw_contents(|components| {
         for (component, origin) in components {
-            sixtyfps_corelib::item_rendering::render_component_items(
+            i_slint_core::item_rendering::render_component_items(
                 component,
                 &mut prepare_scene,
                 origin.clone(),
@@ -327,7 +325,7 @@ impl PrepareScene {
     fn draw_image_impl(
         &mut self,
         geom: RectF,
-        source: &sixtyfps_corelib::graphics::Image,
+        source: &i_slint_core::graphics::Image,
         source_clip: IntRect,
         colorize: Color,
     ) {
@@ -377,8 +375,8 @@ struct RenderState {
     clip: RectF,
 }
 
-impl sixtyfps_corelib::item_rendering::ItemRenderer for PrepareScene {
-    fn draw_rectangle(&mut self, rect: Pin<&sixtyfps_corelib::items::Rectangle>) {
+impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
+    fn draw_rectangle(&mut self, rect: Pin<&i_slint_core::items::Rectangle>) {
         let geom = RectF::new(PointF::default(), rect.geometry().size);
         if self.should_draw(&geom) {
             let geom = match geom.intersection(&self.current_state.clip) {
@@ -395,7 +393,7 @@ impl sixtyfps_corelib::item_rendering::ItemRenderer for PrepareScene {
         }
     }
 
-    fn draw_border_rectangle(&mut self, rect: Pin<&sixtyfps_corelib::items::BorderRectangle>) {
+    fn draw_border_rectangle(&mut self, rect: Pin<&i_slint_core::items::BorderRectangle>) {
         let geom = RectF::new(PointF::default(), rect.geometry().size);
         if self.should_draw(&geom) {
             let border = rect.border_width();
@@ -432,7 +430,7 @@ impl sixtyfps_corelib::item_rendering::ItemRenderer for PrepareScene {
         }
     }
 
-    fn draw_image(&mut self, image: Pin<&sixtyfps_corelib::items::ImageItem>) {
+    fn draw_image(&mut self, image: Pin<&i_slint_core::items::ImageItem>) {
         let geom = RectF::new(PointF::default(), image.geometry().size);
         if self.should_draw(&geom) {
             self.draw_image_impl(
@@ -444,7 +442,7 @@ impl sixtyfps_corelib::item_rendering::ItemRenderer for PrepareScene {
         }
     }
 
-    fn draw_clipped_image(&mut self, image: Pin<&sixtyfps_corelib::items::ClippedImage>) {
+    fn draw_clipped_image(&mut self, image: Pin<&i_slint_core::items::ClippedImage>) {
         // when the source_clip size is empty, make it full
         let a = |v| if v == 0 { i32::MAX } else { v };
 
@@ -464,20 +462,20 @@ impl sixtyfps_corelib::item_rendering::ItemRenderer for PrepareScene {
         }
     }
 
-    fn draw_text(&mut self, _text: Pin<&sixtyfps_corelib::items::Text>) {
+    fn draw_text(&mut self, _text: Pin<&i_slint_core::items::Text>) {
         // TODO
     }
 
-    fn draw_text_input(&mut self, _text_input: Pin<&sixtyfps_corelib::items::TextInput>) {
+    fn draw_text_input(&mut self, _text_input: Pin<&i_slint_core::items::TextInput>) {
         // TODO
     }
 
     #[cfg(feature = "simulator")]
-    fn draw_path(&mut self, _path: Pin<&sixtyfps_corelib::items::Path>) {
+    fn draw_path(&mut self, _path: Pin<&i_slint_core::items::Path>) {
         // TODO
     }
 
-    fn draw_box_shadow(&mut self, _box_shadow: Pin<&sixtyfps_corelib::items::BoxShadow>) {
+    fn draw_box_shadow(&mut self, _box_shadow: Pin<&i_slint_core::items::BoxShadow>) {
         // TODO
     }
 
@@ -493,7 +491,7 @@ impl sixtyfps_corelib::item_rendering::ItemRenderer for PrepareScene {
         // TODO: handle radius and border
     }
 
-    fn get_current_clip(&self) -> sixtyfps_corelib::graphics::Rect {
+    fn get_current_clip(&self) -> i_slint_core::graphics::Rect {
         self.current_state.clip
     }
 
@@ -525,7 +523,7 @@ impl sixtyfps_corelib::item_rendering::ItemRenderer for PrepareScene {
 
     fn draw_cached_pixmap(
         &mut self,
-        _item_cache: &sixtyfps_corelib::item_rendering::CachedRenderingData,
+        _item_cache: &i_slint_core::item_rendering::CachedRenderingData,
         _update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
         todo!()
@@ -535,7 +533,7 @@ impl sixtyfps_corelib::item_rendering::ItemRenderer for PrepareScene {
         todo!()
     }
 
-    fn window(&self) -> sixtyfps_corelib::window::WindowRc {
+    fn window(&self) -> i_slint_core::window::WindowRc {
         unreachable!("this backend don't query the window")
     }
 

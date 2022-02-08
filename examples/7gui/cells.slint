@@ -1,0 +1,38 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+import { LineEdit, ScrollView} from "std-widgets.slint";
+
+
+Cells := Window {
+
+    property<length> cell-height: 32px;
+    property<length> cell-width: 80px;
+
+    ScrollView {
+        width: 100%;
+        height: 100%;
+        viewport-width: 20px + 26 * cell-width;
+        viewport-height: 100 * cell-height;
+
+        for letter[idx] in ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z" ] : Rectangle {
+            x: 20px + idx * cell-width;
+            height: cell-height;
+            width: cell-width;
+            Text { text: letter; }
+        }
+        for __[idx] in 100 : Rectangle {
+            y: cell-height + idx * cell-height;
+            height: cell-height;
+            Text { text: idx; }
+            for ___[idx-x] in 26 :   LineEdit {
+                height: cell-height - 1px;
+                width: cell-width - 2px;
+                x: 20px + idx-x * cell-width;
+            }
+
+        }
+
+    }
+
+}

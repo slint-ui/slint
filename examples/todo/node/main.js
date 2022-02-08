@@ -2,15 +2,15 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
-// import "sixtyfps";
-let sixtyfps = require("sixtyfps");
-// import * as demo from "../ui/todo.60";
-let demo = require("../ui/todo.60");
+// import "slint";
+let slint = require("slint-ui");
+// import * as demo from "../ui/todo.slint";
+let demo = require("../ui/todo.slint");
 let app = new demo.MainWindow();
 
-let model = new sixtyfps.ArrayModel([
+let model = new slint.ArrayModel([
     {
-        title: "Implement the .60 file",
+        title: "Implement the .slint file",
         checked: true
     },
     {

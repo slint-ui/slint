@@ -1,0 +1,120 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+
+MaybeClip := Rectangle {
+    width: 10phx;
+    height: 10phx;
+    property <int> touch;
+    Rectangle {
+        background: red;
+        x: 5phx;
+        y: -10phx;
+        width: 15phx;
+        height: 15phx;
+        TouchArea {
+            clicked => { touch+=1; }
+        }
+    }
+}
+
+TestCase := Rectangle {
+    height: 100phx;
+    width: 100phx;
+    property <int> touch1 <=> el1.touch;
+    property <int> touch2 <=> el2.touch;
+    property <bool> el1clip;
+
+    el1 := MaybeClip {
+        clip <=> el1clip;
+        x: 10phx;
+        y: 10phx;
+    }
+
+    el2 := MaybeClip {
+        clip: true;
+        x: 30phx;
+        y: 30phx;
+    }
+
+    // MaybeClip must be inlined when "clip" is set, but not when it isn't. Test that we can have
+    // a combinaison of inlined and non inlined item
+    MaybeClip { x: 5000px; }
+
+    test_rect := Rectangle { clip: true; }
+    property <bool> test: test_rect.clip;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.get_test(), true);
+assert_eq(instance.get_el1clip(), false);
+
+// clip, outside
+slint::testing::send_mouse_click(&instance, 37., 27.);
+assert_eq(instance.get_touch1(), 0);
+assert_eq(instance.get_touch2(), 0);
+
+// clip, inside
+slint::testing::send_mouse_click(&instance, 37., 33.);
+assert_eq(instance.get_touch1(), 0);
+assert_eq(instance.get_touch2(), 1);
+
+
+// no-clip, outside
+slint::testing::send_mouse_click(&instance, 17., 7.);
+assert_eq(instance.get_touch1(), 1);
+assert_eq(instance.get_touch2(), 1);
+
+// no-clip, inside
+slint::testing::send_mouse_click(&instance, 17., 13.);
+assert_eq(instance.get_touch1(), 2);
+assert_eq(instance.get_touch2(), 1);
+
+// now clip also el1
+instance.set_el1clip(true);
+slint::testing::send_mouse_click(&instance, 17., 7.);
+assert_eq(instance.get_touch1(), 2);
+assert_eq(instance.get_touch2(), 1);
+
+
+```
+
+
+```rust
+let instance = TestCase::new();
+
+assert_eq!(instance.get_test(), true);
+assert_eq!(instance.get_el1clip(), false);
+
+// clip, outside
+slint::testing::send_mouse_click(&instance, 37., 27.);
+assert_eq!(instance.get_touch1(), 0, "a. touch1");
+assert_eq!(instance.get_touch2(), 0, "a. touch2");
+
+// clip, inside
+slint::testing::send_mouse_click(&instance, 37., 33.);
+assert_eq!(instance.get_touch1(), 0, "b. touch1");
+assert_eq!(instance.get_touch2(), 1, "b. touch2");
+
+// no-clip, outside
+slint::testing::send_mouse_click(&instance, 17., 7.);
+assert_eq!(instance.get_touch1(), 1, "c. touch1");
+assert_eq!(instance.get_touch2(), 1, "c. touch2");
+
+// no-clip, inside
+slint::testing::send_mouse_click(&instance, 17., 13.);
+assert_eq!(instance.get_touch1(), 2, "d. touch1");
+assert_eq!(instance.get_touch2(), 1, "d. touch2");
+
+// now clip also el1
+instance.set_el1clip(true);
+slint::testing::send_mouse_click(&instance, 17., 7.);
+assert_eq!(instance.get_touch1(), 2, "e. touch1");
+assert_eq!(instance.get_touch2(), 1, "e. touch2");
+```
+
+*/

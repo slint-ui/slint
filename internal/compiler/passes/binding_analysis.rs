@@ -422,7 +422,7 @@ fn visit_implicit_layout_info_dependencies(
 /// to a property that is, itself, is set
 ///
 /// Example:
-/// ```60
+/// ```slint
 /// Xx := TouchArea {
 ///    property <int> bar <=> foo;
 ///    clicked => { bar+=1; }

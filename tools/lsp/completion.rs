@@ -5,14 +5,14 @@ use std::path::Path;
 
 use super::util::lookup_current_element_type;
 use super::DocumentCache;
+use i_slint_compiler::diagnostics::Spanned;
+use i_slint_compiler::expression_tree::Expression;
+use i_slint_compiler::langtype::Type;
+use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
 use lsp_types::{
     CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat,
 };
-use sixtyfps_compilerlib::diagnostics::Spanned;
-use sixtyfps_compilerlib::expression_tree::Expression;
-use sixtyfps_compilerlib::langtype::Type;
-use sixtyfps_compilerlib::lookup::{LookupCtx, LookupObject, LookupResult};
-use sixtyfps_compilerlib::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
 
 pub(crate) fn completion_at(
     document_cache: &DocumentCache,
@@ -171,8 +171,8 @@ pub(crate) fn completion_at(
                     if first.as_ref().map_or(true, |f| f.token == token.token) {
                         return resolve_expression_scope(ctx);
                     }
-                    let first = sixtyfps_compilerlib::parser::normalize_identifier(first?.text());
-                    let global = sixtyfps_compilerlib::lookup::global_lookup();
+                    let first = i_slint_compiler::parser::normalize_identifier(first?.text());
+                    let global = i_slint_compiler::lookup::global_lookup();
                     let mut expr_it = global.lookup(ctx, &first)?;
                     let mut has_dot = false;
                     for t in it {
@@ -184,7 +184,7 @@ pub(crate) fn completion_at(
                             continue;
                         }
                         has_dot = false;
-                        let str = sixtyfps_compilerlib::parser::normalize_identifier(t.text());
+                        let str = i_slint_compiler::parser::normalize_identifier(t.text());
                         expr_it = expr_it.lookup(ctx, &str)?;
                     }
                     has_dot.then(|| {
@@ -245,7 +245,7 @@ fn resolve_element_scope(
             })
             .chain(element.PropertyDeclaration().map(|pr| {
                 let mut c = CompletionItem::new_simple(
-                    sixtyfps_compilerlib::parser::identifier_text(&pr.DeclaredIdentifier())
+                    i_slint_compiler::parser::identifier_text(&pr.DeclaredIdentifier())
                         .unwrap_or_default(),
                     pr.Type().map(|t| t.text().into()).unwrap_or_else(|| "property".to_owned()),
                 );
@@ -254,27 +254,25 @@ fn resolve_element_scope(
             }))
             .chain(element.CallbackDeclaration().map(|cd| {
                 let mut c = CompletionItem::new_simple(
-                    sixtyfps_compilerlib::parser::identifier_text(&cd.DeclaredIdentifier())
+                    i_slint_compiler::parser::identifier_text(&cd.DeclaredIdentifier())
                         .unwrap_or_default(),
                     "callback".into(),
                 );
                 c.kind = Some(CompletionItemKind::METHOD);
                 c
             }))
-            .chain(sixtyfps_compilerlib::typeregister::reserved_properties().filter_map(
-                |(k, t)| {
-                    if matches!(t, Type::Function { .. }) {
-                        return None;
-                    }
-                    let mut c = CompletionItem::new_simple(k.into(), t.to_string());
-                    c.kind = Some(if matches!(t, Type::InferredCallback | Type::Callback { .. }) {
-                        CompletionItemKind::METHOD
-                    } else {
-                        CompletionItemKind::PROPERTY
-                    });
-                    Some(c)
-                },
-            ))
+            .chain(i_slint_compiler::typeregister::reserved_properties().filter_map(|(k, t)| {
+                if matches!(t, Type::Function { .. }) {
+                    return None;
+                }
+                let mut c = CompletionItem::new_simple(k.into(), t.to_string());
+                c.kind = Some(if matches!(t, Type::InferredCallback | Type::Callback { .. }) {
+                    CompletionItemKind::METHOD
+                } else {
+                    CompletionItemKind::PROPERTY
+                });
+                Some(c)
+            }))
             .chain(tr.all_types().into_iter().filter_map(|(k, t)| {
                 match t {
                     Type::Component(c) if !c.is_global() => (),
@@ -291,7 +289,7 @@ fn resolve_element_scope(
 
 fn resolve_expression_scope(lookup_context: &LookupCtx) -> Option<Vec<CompletionItem>> {
     let mut r = Vec::new();
-    let global = sixtyfps_compilerlib::lookup::global_lookup();
+    let global = i_slint_compiler::lookup::global_lookup();
     global.for_each_entry(lookup_context, &mut |str, expr| -> Option<()> {
         r.push(completion_item_from_expression(str, expr));
         None

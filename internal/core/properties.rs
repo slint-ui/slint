@@ -335,7 +335,7 @@ struct BindingHolder<B = ()> {
     /// The binding is dirty and need to be re_evaluated
     dirty: Cell<bool>,
     pinned: PhantomPinned,
-    #[cfg(sixtyfps_debug_property)]
+    #[cfg(slint_debug_property)]
     pub debug_name: String,
 
     binding: B,
@@ -345,7 +345,7 @@ impl BindingHolder {
     fn register_self_as_dependency(
         self: Pin<&Self>,
         property_that_will_notify: *mut DependencyListHead,
-        #[cfg(sixtyfps_debug_property)] other_debug_name: &str,
+        #[cfg(slint_debug_property)] other_debug_name: &str,
     ) {
         let node = DependencyNode::new(self.get_ref() as *const _);
         let mut dep_nodes = self.dep_nodes.borrow_mut();
@@ -412,7 +412,7 @@ fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut Bindin
         vtable: <B as HasBindingVTable>::VT,
         dirty: Cell::new(true), // starts dirty so it evaluates the property when used
         pinned: PhantomPinned,
-        #[cfg(sixtyfps_debug_property)]
+        #[cfg(slint_debug_property)]
         debug_name: Default::default(),
         binding,
     };
@@ -486,10 +486,10 @@ impl PropertyHandle {
     unsafe fn set_binding<B: BindingCallable + 'static>(
         &self,
         binding: B,
-        #[cfg(sixtyfps_debug_property)] debug_name: &str,
+        #[cfg(slint_debug_property)] debug_name: &str,
     ) {
         let binding = alloc_binding_holder::<B>(binding);
-        #[cfg(sixtyfps_debug_property)]
+        #[cfg(slint_debug_property)]
         {
             (*binding).debug_name = debug_name.into();
         }
@@ -563,7 +563,7 @@ impl PropertyHandle {
     /// Register this property as a dependency to the current binding being evaluated
     fn register_as_dependency_to_current_binding(
         self: Pin<&Self>,
-        #[cfg(sixtyfps_debug_property)] debug_name: &str,
+        #[cfg(slint_debug_property)] debug_name: &str,
     ) {
         if CURRENT_BINDING.is_set() {
             let dependencies = self.dependencies();
@@ -574,7 +574,7 @@ impl PropertyHandle {
                 CURRENT_BINDING.with(|cur_binding| {
                     cur_binding.register_self_as_dependency(
                         dependencies,
-                        #[cfg(sixtyfps_debug_property)]
+                        #[cfg(slint_debug_property)]
                         debug_name,
                     );
                 });
@@ -659,16 +659,16 @@ pub struct Property<T> {
     /// This is only safe to access when the lock flag is not set on the handle.
     value: UnsafeCell<T>,
     pinned: PhantomPinned,
-    /// Enabled only if compiled with `RUSTFLAGS='--cfg sixtyfps_debug_property'`
+    /// Enabled only if compiled with `RUSTFLAGS='--cfg slint_debug_property'`
     /// Note that adding this flag will also tell the rust compiler to set this
     /// and that this will not work with C++ because of binary incompatibility
-    #[cfg(sixtyfps_debug_property)]
+    #[cfg(slint_debug_property)]
     pub debug_name: RefCell<String>,
 }
 
 impl<T: core::fmt::Debug + Clone> core::fmt::Debug for Property<T> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        #[cfg(sixtyfps_debug_property)]
+        #[cfg(slint_debug_property)]
         write!(f, "[{}]=", self.debug_name.borrow())?;
         write!(
             f,
@@ -685,7 +685,7 @@ impl<T: Default> Default for Property<T> {
             handle: Default::default(),
             value: Default::default(),
             pinned: PhantomPinned,
-            #[cfg(sixtyfps_debug_property)]
+            #[cfg(slint_debug_property)]
             debug_name: Default::default(),
         }
     }
@@ -698,7 +698,7 @@ impl<T: Clone> Property<T> {
             handle: Default::default(),
             value: UnsafeCell::new(value),
             pinned: PhantomPinned,
-            #[cfg(sixtyfps_debug_property)]
+            #[cfg(slint_debug_property)]
             debug_name: Default::default(),
         }
     }
@@ -716,7 +716,7 @@ impl<T: Clone> Property<T> {
         unsafe { self.handle.update(self.value.get()) };
         let handle = unsafe { Pin::new_unchecked(&self.handle) };
         handle.register_as_dependency_to_current_binding(
-            #[cfg(sixtyfps_debug_property)]
+            #[cfg(slint_debug_property)]
             self.debug_name.borrow().as_str(),
         );
         self.get_internal()
@@ -731,7 +731,7 @@ impl<T: Clone> Property<T> {
     /// ## Example
     /// ```
     /// use std::rc::Rc;
-    /// use sixtyfps_corelib::Property;
+    /// use i_slint_core::Property;
     /// let prop1 = Rc::pin(Property::new(100));
     /// let prop2 = Rc::pin(Property::<i32>::default());
     /// prop2.as_ref().set_binding({
@@ -800,7 +800,7 @@ impl<T: Clone> Property<T> {
     /// ## Example
     /// ```
     /// use std::rc::Rc;
-    /// use sixtyfps_corelib::Property;
+    /// use i_slint_core::Property;
     /// let prop1 = Rc::pin(Property::new(100));
     /// let prop2 = Rc::pin(Property::<i32>::default());
     /// prop2.as_ref().set_binding({
@@ -822,7 +822,7 @@ impl<T: Clone> Property<T> {
                     *val = binding.evaluate(val);
                     BindingResult::KeepBinding
                 },
-                #[cfg(sixtyfps_debug_property)]
+                #[cfg(slint_debug_property)]
                 self.debug_name.borrow().as_str(),
             )
         }
@@ -875,7 +875,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
                         BindingResult::KeepBinding
                     }
                 },
-                #[cfg(sixtyfps_debug_property)]
+                #[cfg(slint_debug_property)]
                 self.debug_name.borrow().as_str(),
             );
         }
@@ -913,7 +913,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         unsafe {
             self.handle.set_binding(
                 binding_callable,
-                #[cfg(sixtyfps_debug_property)]
+                #[cfg(slint_debug_property)]
                 self.debug_name.borrow().as_str(),
             )
         };
@@ -952,7 +952,7 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
         unsafe {
             self.handle.set_binding(
                 binding_callable,
-                #[cfg(sixtyfps_debug_property)]
+                #[cfg(slint_debug_property)]
                 self.debug_name.borrow().as_str(),
             )
         };
@@ -1034,25 +1034,25 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         } else {
             PropertyHandle::default()
         };
-        #[cfg(sixtyfps_debug_property)]
+        #[cfg(slint_debug_property)]
         let debug_name = format!("<{}<=>{}>", prop1.debug_name.borrow(), prop2.debug_name.borrow());
         let common_property = Rc::pin(Property {
             handle,
             value: UnsafeCell::new(value),
             pinned: PhantomPinned,
-            #[cfg(sixtyfps_debug_property)]
+            #[cfg(slint_debug_property)]
             debug_name: debug_name.clone().into(),
         });
         // Safety: TwoWayBinding's T is the same as the type for both properties
         unsafe {
             prop1.handle.set_binding(
                 TwoWayBinding { common_property: common_property.clone() },
-                #[cfg(sixtyfps_debug_property)]
+                #[cfg(slint_debug_property)]
                 debug_name.as_str(),
             );
             prop2.handle.set_binding(
                 TwoWayBinding { common_property },
-                #[cfg(sixtyfps_debug_property)]
+                #[cfg(slint_debug_property)]
                 debug_name.as_str(),
             );
         }
@@ -1220,7 +1220,7 @@ impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCa
     unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
         let original_binding = Pin::new_unchecked(&self.original_binding);
         original_binding.register_as_dependency_to_current_binding(
-            #[cfg(sixtyfps_debug_property)]
+            #[cfg(slint_debug_property)]
             "<AnimatedBindingCallable>",
         );
         match self.state.get() {
@@ -1993,7 +1993,7 @@ pub fn set_state_binding(property: Pin<&Property<StateInfo>>, binding: impl Fn()
     unsafe {
         property.handle.set_binding(
             bind_callable,
-            #[cfg(sixtyfps_debug_property)]
+            #[cfg(slint_debug_property)]
             property.debug_name.borrow().as_str(),
         )
     }
@@ -2037,7 +2037,7 @@ impl Default for PropertyTracker<()> {
             dirty: Cell::new(true), // starts dirty so it evaluates the property when used
             pinned: PhantomPinned,
             binding: (),
-            #[cfg(sixtyfps_debug_property)]
+            #[cfg(slint_debug_property)]
             debug_name: "<PropertyTracker<()>>".into(),
         };
         Self { holder }
@@ -2053,8 +2053,8 @@ impl<ChangeHandler> Drop for PropertyTracker<ChangeHandler> {
 }
 
 impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
-    #[cfg(sixtyfps_debug_property)]
-    /// set the debug name when `cfg(sixtyfps_debug_property`
+    #[cfg(slint_debug_property)]
+    /// set the debug name when `cfg(slint_debug_property`
     pub fn set_debug_name(&mut self, debug_name: String) {
         self.holder.debug_name = debug_name;
     }
@@ -2065,7 +2065,7 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
             CURRENT_BINDING.with(|cur_binding| {
                 cur_binding.register_self_as_dependency(
                     self.holder.dependencies.as_ptr() as *mut DependencyListHead,
-                    #[cfg(sixtyfps_debug_property)]
+                    #[cfg(slint_debug_property)]
                     &self.holder.debug_name,
                 );
             });
@@ -2150,7 +2150,7 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
             dirty: Cell::new(true), // starts dirty so it evaluates the property when used
             pinned: PhantomPinned,
             binding: handler,
-            #[cfg(sixtyfps_debug_property)]
+            #[cfg(slint_debug_property)]
             debug_name: "<PropertyTracker>".into(),
         };
         Self { holder }
@@ -2307,13 +2307,13 @@ pub(crate) mod ffi {
     /// Initialize the first pointer of the Property. Does not initialize the content.
     /// `out` is assumed to be uninitialized
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_init(out: *mut PropertyHandleOpaque) {
+    pub unsafe extern "C" fn slint_property_init(out: *mut PropertyHandleOpaque) {
         core::ptr::write(out, PropertyHandleOpaque(PropertyHandle::default()));
     }
 
     /// To be called before accessing the value
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_update(
+    pub unsafe extern "C" fn slint_property_update(
         handle: &PropertyHandleOpaque,
         val: *mut c_void,
     ) {
@@ -2326,7 +2326,7 @@ pub(crate) mod ffi {
     /// the dependencies marked dirty.
     /// To be called after the `value` has been changed
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_changed(
+    pub unsafe extern "C" fn slint_property_set_changed(
         handle: &PropertyHandleOpaque,
         value: *const c_void,
     ) {
@@ -2407,7 +2407,7 @@ pub(crate) mod ffi {
     /// It might be possible to reduce that by passing something with a
     /// vtable, so there is the need for less memory allocation.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_binding(
+    pub unsafe extern "C" fn slint_property_set_binding(
         handle: &PropertyHandleOpaque,
         binding: extern "C" fn(user_data: *mut c_void, pointer_to_value: *mut c_void),
         user_data: *mut c_void,
@@ -2433,7 +2433,7 @@ pub(crate) mod ffi {
     ///
     //// (take ownership of the binding)
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_binding_internal(
+    pub unsafe extern "C" fn slint_property_set_binding_internal(
         handle: &PropertyHandleOpaque,
         binding: *mut c_void,
     ) {
@@ -2442,19 +2442,19 @@ pub(crate) mod ffi {
 
     /// Returns whether the property behind this handle is marked as dirty
     #[no_mangle]
-    pub extern "C" fn sixtyfps_property_is_dirty(handle: &PropertyHandleOpaque) -> bool {
+    pub extern "C" fn slint_property_is_dirty(handle: &PropertyHandleOpaque) -> bool {
         handle.0.access(|binding| binding.map_or(false, |b| b.dirty.get()))
     }
 
     /// Marks the property as dirty and notifies dependencies.
     #[no_mangle]
-    pub extern "C" fn sixtyfps_property_mark_dirty(handle: &PropertyHandleOpaque) {
+    pub extern "C" fn slint_property_mark_dirty(handle: &PropertyHandleOpaque) {
         handle.0.mark_dirty()
     }
 
     /// Destroy handle
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_drop(handle: *mut PropertyHandleOpaque) {
+    pub unsafe extern "C" fn slint_property_drop(handle: *mut PropertyHandleOpaque) {
         core::ptr::drop_in_place(handle);
     }
 
@@ -2484,7 +2484,7 @@ pub(crate) mod ffi {
 
     /// Internal function to set up a property animation to the specified target value for an integer property.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_animated_value_int(
+    pub unsafe extern "C" fn slint_property_set_animated_value_int(
         handle: &PropertyHandleOpaque,
         from: i32,
         to: i32,
@@ -2495,7 +2495,7 @@ pub(crate) mod ffi {
 
     /// Internal function to set up a property animation to the specified target value for a float property.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_animated_value_float(
+    pub unsafe extern "C" fn slint_property_set_animated_value_float(
         handle: &PropertyHandleOpaque,
         from: f32,
         to: f32,
@@ -2506,7 +2506,7 @@ pub(crate) mod ffi {
 
     /// Internal function to set up a property animation to the specified target value for a color property.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_animated_value_color(
+    pub unsafe extern "C" fn slint_property_set_animated_value_color(
         handle: &PropertyHandleOpaque,
         from: Color,
         to: Color,
@@ -2570,7 +2570,7 @@ pub(crate) mod ffi {
 
     /// Internal function to set up a property animation between values produced by the specified binding for an integer property.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_int(
+    pub unsafe extern "C" fn slint_property_set_animated_binding_int(
         handle: &PropertyHandleOpaque,
         binding: extern "C" fn(*mut c_void, *mut i32),
         user_data: *mut c_void,
@@ -2592,7 +2592,7 @@ pub(crate) mod ffi {
 
     /// Internal function to set up a property animation between values produced by the specified binding for a float property.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_float(
+    pub unsafe extern "C" fn slint_property_set_animated_binding_float(
         handle: &PropertyHandleOpaque,
         binding: extern "C" fn(*mut c_void, *mut f32),
         user_data: *mut c_void,
@@ -2614,7 +2614,7 @@ pub(crate) mod ffi {
 
     /// Internal function to set up a property animation between values produced by the specified binding for a color property.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_color(
+    pub unsafe extern "C" fn slint_property_set_animated_binding_color(
         handle: &PropertyHandleOpaque,
         binding: extern "C" fn(*mut c_void, *mut Color),
         user_data: *mut c_void,
@@ -2636,7 +2636,7 @@ pub(crate) mod ffi {
 
     /// Internal function to set up a property animation between values produced by the specified binding for a brush property.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_animated_binding_brush(
+    pub unsafe extern "C" fn slint_property_set_animated_binding_brush(
         handle: &PropertyHandleOpaque,
         binding: extern "C" fn(*mut c_void, *mut Brush),
         user_data: *mut c_void,
@@ -2658,7 +2658,7 @@ pub(crate) mod ffi {
 
     /// Internal function to set up a state binding on a Property<StateInfo>.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_set_state_binding(
+    pub unsafe extern "C" fn slint_property_set_state_binding(
         handle: &PropertyHandleOpaque,
         binding: extern "C" fn(*mut c_void) -> i32,
         user_data: *mut c_void,
@@ -2706,16 +2706,16 @@ pub(crate) mod ffi {
 
     /// Initialize the first pointer of the PropertyTracker.
     /// `out` is assumed to be uninitialized
-    /// sixtyfps_property_tracker_drop need to be called after that
+    /// slint_property_tracker_drop need to be called after that
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_tracker_init(out: *mut PropertyTrackerOpaque) {
+    pub unsafe extern "C" fn slint_property_tracker_init(out: *mut PropertyTrackerOpaque) {
         core::ptr::write(out as *mut PropertyTracker, PropertyTracker::default());
     }
 
     /// Call the callback with the user data. Any properties access within the callback will be registered.
     /// Any currently evaluated bindings or property trackers will be notified if accessed properties are changed.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_tracker_evaluate(
+    pub unsafe extern "C" fn slint_property_tracker_evaluate(
         handle: *const PropertyTrackerOpaque,
         callback: extern "C" fn(user_data: *mut c_void),
         user_data: *mut c_void,
@@ -2726,7 +2726,7 @@ pub(crate) mod ffi {
     /// Call the callback with the user data. Any properties access within the callback will be registered.
     /// Any currently evaluated bindings or property trackers will be not notified if accessed properties are changed.
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_tracker_evaluate_as_dependency_root(
+    pub unsafe extern "C" fn slint_property_tracker_evaluate_as_dependency_root(
         handle: *const PropertyTrackerOpaque,
         callback: extern "C" fn(user_data: *mut c_void),
         user_data: *mut c_void,
@@ -2736,7 +2736,7 @@ pub(crate) mod ffi {
     }
     /// Query if the property tracker is dirty
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_tracker_is_dirty(
+    pub unsafe extern "C" fn slint_property_tracker_is_dirty(
         handle: *const PropertyTrackerOpaque,
     ) -> bool {
         (*(handle as *const PropertyTracker)).is_dirty()
@@ -2744,7 +2744,7 @@ pub(crate) mod ffi {
 
     /// Destroy handle
     #[no_mangle]
-    pub unsafe extern "C" fn sixtyfps_property_tracker_drop(handle: *mut PropertyTrackerOpaque) {
+    pub unsafe extern "C" fn slint_property_tracker_drop(handle: *mut PropertyTrackerOpaque) {
         core::ptr::drop_in_place(handle as *mut PropertyTracker);
     }
 }

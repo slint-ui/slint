@@ -1,0 +1,9 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+// Cannot be put in the easing.slint test because it is in a different pass
+
+X := Rectangle {
+    property <int> g; animate g { easing: cubic-bezier; }
+    //                                    ^error{must be called}
+}

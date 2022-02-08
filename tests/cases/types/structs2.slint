@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+// Test that structs work if they are only referrenced by callbacks
+
+struct Foo1 := { member: int, }
+struct Foo2 := { a: Foo1 }
+struct Foo3 := { b: int }
+
+TestCase := Rectangle {
+    callback cb1(Foo2) -> Foo3;
+    cb1(foo) => { return { b: foo.a.member+1 }; }
+}
+
+/*
+```rust
+let instance = TestCase::new();
+
+assert_eq!(instance.invoke_cb1(Foo2{ a: Foo1{ member: 123 } }).b, 124);
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+assert_eq(instance.invoke_cb1(Foo2{ Foo1{ 123 } }).b, 124);
+```
+
+```js
+var instance = new slint.TestCase();
+assert.equal(instance.cb1({a: {member: 123}}).b, 124);
+```
+
+*/

@@ -1,0 +1,78 @@
+// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+
+
+
+TestCase := Rectangle {
+    width: 100phx;
+    height: 100phx;
+    background: white;
+    property<int> top_level: 42;
+
+    property<bool> cond1;
+
+    Rectangle {
+        property <string> blah: "ddd";
+        Rectangle {
+            property <bool> cc <=> cond1;
+            property <bool> blah: false;
+            if (cc || self.blah) : TouchArea {
+                property <int> cc: 0;
+                clicked => {
+                    root.top_level += 50;
+                }
+            }
+        }
+    }
+
+}
+
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// condition is false
+slint::testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_top_level(), 42);
+
+instance.set_cond1(true);
+slint::testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_top_level(), 92);
+
+instance.set_cond1(false);
+slint::testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.get_top_level(), 92);
+```
+
+
+```rust
+let instance = TestCase::new();
+
+slint::testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_top_level(), 42);
+
+instance.set_cond1(true);
+slint::testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_top_level(), 92);
+
+instance.set_cond1(false);
+slint::testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.get_top_level(), 92);
+```
+
+```js
+var instance = new slint.TestCase();
+instance.send_mouse_click(5., 5.);
+assert.equal(instance.top_level, 42);
+
+instance.cond1 = true;
+instance.send_mouse_click(5., 5.);
+assert.equal(instance.top_level, 92);
+
+instance.cond1 = false;
+instance.send_mouse_click(5., 5.);
+assert.equal(instance.top_level, 92);
+```
+*/

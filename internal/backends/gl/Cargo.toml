@@ -2,12 +2,12 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "sixtyfps-rendering-backend-gl"
+name = "i-slint-backend-gl"
 version = "0.2.0"
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
-description = "OpenGL rendering backend for SixtyFPS"
+description = "OpenGL rendering backend for Slint"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 
@@ -24,8 +24,8 @@ x11 = ["winit/x11", "glutin/x11", "copypasta/x11"]
 default = ["svg"]
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.2.0", path = "../../../internal/core" }
-sixtyfps-common = { version = "=0.2.0", path = "../../../internal/common" }
+i-slint-core = { version = "=0.2.0", path = "../../../internal/core" }
+i-slint-common = { version = "=0.2.0", path = "../../../internal/common" }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { version = "0.1", path = "../../../helper_crates/vtable" }

@@ -2,18 +2,18 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 [package]
-name = "sixtyfps-cpp"
+name = "slint-cpp"
 version = "0.2.0"
-authors = ["SixtyFPS <info@sixtyfps.io>"]
+authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 build = "build.rs"
 license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
-description = "SixtyFPS C++ integration"
+description = "Slint C++ integration"
 repository = "https://github.com/sixtyfpsui/sixtyfps"
 homepage = "https://sixtyfps.io"
 publish = false
 # prefix used to convey path to generated includes to the C++ test driver
-links = "sixtyfps_cpp"
+links = "slint_cpp"
 
 [lib]
 path = "lib.rs"
@@ -22,20 +22,20 @@ crate-type = ["lib", "cdylib"]
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt
 [features]
-backend-gl = ["sixtyfps-rendering-backend-selector/sixtyfps-rendering-backend-gl"]
-backend-qt = ["sixtyfps-rendering-backend-selector/sixtyfps-rendering-backend-qt"]
-interpreter = ["sixtyfps-interpreter"]
-testing = ["sixtyfps-rendering-backend-testing"] # Enable some function used by the integration tests
-wayland = ["sixtyfps-rendering-backend-selector/wayland"]
-x11 = ["sixtyfps-rendering-backend-selector/x11"]
+backend-gl = ["i-slint-backend-selector/i-slint-backend-gl"]
+backend-qt = ["i-slint-backend-selector/i-slint-backend-qt"]
+interpreter = ["slint-interpreter"]
+testing = ["i-slint-backend-testing"] # Enable some function used by the integration tests
+wayland = ["i-slint-backend-selector/wayland"]
+x11 = ["i-slint-backend-selector/x11"]
 
 default = ["backend-gl", "x11", "backend-qt"]
 
 [dependencies]
-sixtyfps-corelib = { version = "=0.2.0", path="../../internal/core", features = ["ffi"] }
-sixtyfps-interpreter = { version = "=0.2.0", path="../../internal/interpreter", default-features = false, features = ["ffi", "compat-0-2-0"], optional = true }
-sixtyfps-rendering-backend-selector = { version = "=0.2.0", path="../../internal/backends/selector" }
-sixtyfps-rendering-backend-testing = { version = "=0.2.0", path="../../internal/backends/testing", optional = true }
+i-slint-backend-selector = { version = "=0.2.0", path="../../internal/backends/selector" }
+i-slint-backend-testing = { version = "=0.2.0", path="../../internal/backends/testing", optional = true }
+i-slint-core = { version = "=0.2.0", path="../../internal/core", features = ["ffi"] }
+slint-interpreter = { version = "=0.2.0", path="../../internal/interpreter", default-features = false, features = ["ffi", "compat-0-2-0"], optional = true }
 
 [build-dependencies]
 anyhow = "1.0"

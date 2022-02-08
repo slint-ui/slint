@@ -3,7 +3,7 @@
 
 // main.cpp
 
-#include "memory_tiles_from_cpp.h" // generated header from memory_tiles_from_cpp.60
+#include "memory_tiles_from_cpp.h" // generated header from memory_tiles_from_cpp.slint
 // ANCHOR: main
 // ...
 
@@ -21,7 +21,7 @@ int main()
     }
     std::default_random_engine rng {};
     std::shuffle(new_tiles.begin(), new_tiles.end(), rng);
-    auto tiles_model = std::make_shared<sixtyfps::VectorModel<TileData>>(new_tiles);
+    auto tiles_model = std::make_shared<slint::VectorModel<TileData>>(new_tiles);
     main_window->set_memory_tiles(tiles_model);
 
     main_window->run();
