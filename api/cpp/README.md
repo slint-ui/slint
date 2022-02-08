@@ -2,12 +2,12 @@
 
 ## A C++ UI toolkit
 
-[Slint](https://sixtyfps.io/) is a UI toolkit that supports different programming languages.
+[Slint](https://slint-ui.com/) is a UI toolkit that supports different programming languages.
 Slint.cpp is the C++ API to interact with a Slint UI from C++.
 
-The complete C++ documentation can be viewed online at https://sixtyfps.io/docs/cpp/.
+The complete C++ documentation can be viewed online at https://slint-ui.com/docs/cpp/.
 
-If you are new to Slint, you might also consider going through our [Walk-through tutorial](https://sixtyfps.io/docs/tutorial/cpp).
+If you are new to Slint, you might also consider going through our [Walk-through tutorial](https://slint-ui.com/docs/tutorial/cpp).
 
 ## Installing or Building Slint
 
@@ -238,7 +238,7 @@ int main() {
 
 That's it.
 
-For more details, check the [Online documentation](https://sixtyfps.io/docs/cpp) and the full
-  [Walk-through tutorial](https://sixtyfps.io/docs/tutorial/cpp).
+For more details, check the [Online documentation](https://slint-ui.com/docs/cpp) and the full
+  [Walk-through tutorial](https://slint-ui.com/docs/tutorial/cpp).
 We also have a [Getting Started Template](https://github.com/sixtyfpsui/sixtyfps-cpp-template) repository with
 the code of a minimal C++ application using Slint that can be used as a starting point to your program.

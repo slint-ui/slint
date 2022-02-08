@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 cmake_minimum_required(VERSION 3.19)
-project(Slint HOMEPAGE_URL "https://sixtyfps.io/" LANGUAGES CXX)
+project(Slint HOMEPAGE_URL "https://slint-ui.com/" LANGUAGES CXX)
 
 include(FeatureSummary)
 include(CMakeDependentOption)
@@ -242,7 +242,7 @@ set(CPACK_VERBATIM_VARIABLES true)
 set(CPACK_PACKAGE_VERSION_MAJOR 0)
 set(CPACK_PACKAGE_VERSION_MINOR 2)
 set(CPACK_PACKAGE_VERSION_PATCH 0)
-set(CPACK_PACKAGE_HOMEPAGE_URL "https://sixtyfps.io")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://slint-ui.com")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_LIST_DIR}/../../LICENSE.md")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_LIST_DIR}/README.md")
 set(CPACK_STRIP_FILES ON)

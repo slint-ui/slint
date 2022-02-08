@@ -1,6 +1,6 @@
 # Slint for Visual Studio Code
 
-This extension for VS Code adds support for the [Slint](https://sixtyfps.io) design markup language.
+This extension for VS Code adds support for the [Slint](https://slint-ui.com) design markup language.
 
 ## Features
 

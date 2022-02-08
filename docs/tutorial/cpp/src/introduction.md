@@ -10,7 +10,7 @@ graphics are hiding. If two tiles with the same icon are uncovered, then they re
 
 This is how the game looks like in action:
 
-<video autoplay loop muted playsinline src="https://sixtyfps.io/blog/memory-game-tutorial/memory_clip.mp4"
+<video autoplay loop muted playsinline src="https://slint-ui.com/blog/memory-game-tutorial/memory_clip.mp4"
         class="img-fluid img-thumbnail rounded"></video>
 
 A video-recording of this tutorial is also available on YouTube. After introducing the `.slint` language the video

@@ -10,7 +10,7 @@ license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
 publish = false
 description = "Slint wasm glue"
 repository = "https://github.com/slint-ui/slint"
-homepage = "https://sixtyfps.io"
+homepage = "https://slint-ui.com"
 
 [lib]
 crate-type = ["cdylib"]

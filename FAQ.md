@@ -42,7 +42,7 @@ languages.
 Slint is available under two licenses:
 
  * GPLv3, for the growing ecosystem of Free and Open Source Software.
- * Commercial, for use in closed-source projects. See <https://sixtyfps.io/#offering>
+ * Commercial, for use in closed-source projects. See <https://slint-ui.com/#offering>
 
 ## What is the commercial licensing model?
 
@@ -52,7 +52,7 @@ We offer a perpetual license option and we generally deploy a per-product licens
 
 If this doesn't fit you, don't hesitate to contact us and we'd be happy to work together to find a solution.
 
-You can find a more detailed overview of our commercial licensing and the pricing at <https://sixtyfps.io/pricing.html>.
+You can find a more detailed overview of our commercial licensing and the pricing at <https://slint-ui.com/pricing.html>.
 
 ## Can I try Slint using the GPL version and then switch to the commercial license later?
 
@@ -63,7 +63,7 @@ developing needs to be accounted for. However, support for bug fixes requires a 
 
 ## Is there a discount or reduction for independent developers or small businesses?
 
-Yes, check out our [Ambassador program](https://sixtyfps.io/ambassador-program.html)
+Yes, check out our [Ambassador program](https://slint-ui.com/ambassador-program.html)
 
 ## I want to develop a free software product using Slint, but I don't like the GPL and prefer to use a non-copyleft license.
 

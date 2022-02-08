@@ -10,11 +10,11 @@ the C++ QSkinny code to self-contained .slint.
 
 ## Online preview:
 
-https://sixtyfps.io/snapshots/master/editor/preview.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/iot-dashboard/main.slint
+https://slint-ui.com/snapshots/master/editor/preview.html?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/iot-dashboard/main.slint
 
 ## Screenshot
 
-![Screenshot of the IOT Dashboard](https://sixtyfps.io/resources/iot-dashboard_screenshot.png "IOT Dashboard")
+![Screenshot of the IOT Dashboard](https://slint-ui.com/resources/iot-dashboard_screenshot.png "IOT Dashboard")
 
 ## Loading dynamic widgets from C++
 

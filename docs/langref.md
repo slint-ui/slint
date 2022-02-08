@@ -542,7 +542,7 @@ It is possible to access the `width` and `height` of an image.
 
 ```slint
 Example := Text {
-    property <image> some_image: @image-url("https://sixtyfps.io/resources/logo_scaled.png");
+    property <image> some_image: @image-url("https://slint-ui.com/resources/logo_scaled.png");
     text: "The image is " + some_image.width + "x" + some_image.height;
 }
 ```

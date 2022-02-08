@@ -10,7 +10,7 @@ license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
 publish = false
 description = "Tool used to update .slint files when we do syntax upgrade"
 repository = "https://github.com/slint-ui/slint"
-homepage = "https://sixtyfps.io"
+homepage = "https://slint-ui.com"
 
 
 [dependencies]

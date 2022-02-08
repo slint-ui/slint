@@ -41,7 +41,7 @@ fn main() {
 }
 ```
 */
-#![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
+#![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 #![warn(missing_docs)]
 
 #[cfg(not(feature = "default"))]

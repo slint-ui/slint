@@ -5,9 +5,9 @@
 # Slint
 
 This crate is the main entry point for embedding user interfaces designed with
-[Slint UI](https://sixtyfps.io/) in Rust programs.
+[Slint UI](https://slint-ui.com/) in Rust programs.
 
-If you are new to Slint, start with the [Walk-through tutorial](https://sixtyfps.io/docs/tutorial/rust).
+If you are new to Slint, start with the [Walk-through tutorial](https://slint-ui.com/docs/tutorial/rust).
 If you are already familiar with Slint, the following topics provide related information.
 
 ## Related topics
@@ -224,7 +224,7 @@ See the [documentation of the `Global` trait](Global) for an example.
 #![doc = document_features::document_features!()]
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
-#![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
+#![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;

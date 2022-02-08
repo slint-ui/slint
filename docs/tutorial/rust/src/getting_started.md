@@ -21,7 +21,7 @@ edition = "2021"
 slint = "0.2.0"
 ```
 
-Finally we copy the hello world program from the [Slint documentation](https://sixtyfps.io/docs/rust/sixtyfps/) into our `src/main.rs`:
+Finally we copy the hello world program from the [Slint documentation](https://slint-ui.com/docs/rust/sixtyfps/) into our `src/main.rs`:
 
 ```rust,noplayground
 {{#include main_initial.rs:main}}
@@ -29,4 +29,4 @@ Finally we copy the hello world program from the [Slint documentation](https://s
 
 We run this example with `cargo run` and a window will appear with the green "Hello World" greeting.
 
-![Screenshot of initial tutorial app showing Hello World](https://sixtyfps.io/blog/memory-game-tutorial/getting-started.png "Hello World")
+![Screenshot of initial tutorial app showing Hello World](https://slint-ui.com/blog/memory-game-tutorial/getting-started.png "Hello World")

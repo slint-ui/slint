@@ -1,7 +1,7 @@
 # Getting Started
 
 In this tutorial, we use C++ as the host programming language. We also support other programming languages like
-[Rust](https://sixtyfps.io/docs/rust/sixtyfps/) or [JavaScript](https://sixtyfps.io/docs/node/).
+[Rust](https://slint-ui.com/docs/rust/sixtyfps/) or [JavaScript](https://slint-ui.com/docs/node/).
 
 You will need a development environment that can compile C++20 with CMake 3.19.
 We do not provide binaries of Slint yet, so we will use the CMake integration that will automatically build
@@ -59,7 +59,7 @@ cmake --build .
 
 and a window will appear with the green "Hello World" greeting.
 
-![Screenshot of initial tutorial app showing Hello World](https://sixtyfps.io/blog/memory-game-tutorial/getting-started.png "Hello World")
+![Screenshot of initial tutorial app showing Hello World](https://slint-ui.com/blog/memory-game-tutorial/getting-started.png "Hello World")
 
 Feel free to use your favorite IDE for this purpose, or use out-of-tree build, or Ninja, ...
 We just keep it simple here for the purpose of this blog.

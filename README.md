@@ -34,9 +34,9 @@ Slint is in active development. Its state of development depends on the kind of 
 
 Refer to the README of each language directory in the `api` sub-folder:
 
- * [SixtyFPS-cpp](api/cpp) ([Documentation](https://sixtyfps.io/docs/cpp) | [Tutorial](https://sixtyfps.io/docs/tutorial/cpp) | [Tutorial Video](https://youtu.be/_-Hxr6ZrHyo) | [Getting Started Template](https://github.com/sixtyfpsui/sixtyfps-cpp-template))
- * [SixtyFPS-rs](api/sixtyfps-rs) [![Crates.io](https://img.shields.io/crates/v/sixtyfps)](https://crates.io/crates/sixtyfps) ([Documentation](https://sixtyfps.io/docs/rust/sixtyfps/) | [Tutorial](https://sixtyfps.io/docs/tutorial/rust) | [Tutorial Video](https://youtu.be/_-Hxr6ZrHyo) | [Getting Started Template](https://github.com/sixtyfpsui/sixtyfps-rust-template))
- * [SixtyFPS-node](api/node) [![npm](https://img.shields.io/npm/v/sixtyfps)](https://www.npmjs.com/package/sixtyfps) ([Documentation](https://sixtyfps.io/docs/node))
+ * [SixtyFPS-cpp](api/cpp) ([Documentation](https://slint-ui.com/docs/cpp) | [Tutorial](https://slint-ui.com/docs/tutorial/cpp) | [Tutorial Video](https://youtu.be/_-Hxr6ZrHyo) | [Getting Started Template](https://github.com/sixtyfpsui/sixtyfps-cpp-template))
+ * [SixtyFPS-rs](api/sixtyfps-rs) [![Crates.io](https://img.shields.io/crates/v/sixtyfps)](https://crates.io/crates/sixtyfps) ([Documentation](https://slint-ui.com/docs/rust/sixtyfps/) | [Tutorial](https://slint-ui.com/docs/tutorial/rust) | [Tutorial Video](https://youtu.be/_-Hxr6ZrHyo) | [Getting Started Template](https://github.com/sixtyfpsui/sixtyfps-rust-template))
+ * [SixtyFPS-node](api/node) [![npm](https://img.shields.io/npm/v/sixtyfps)](https://www.npmjs.com/package/sixtyfps) ([Documentation](https://slint-ui.com/docs/node))
 
 The [examples](/examples) folder contains examples and demos. The `docs` folder contains [build instructions](docs/building.md) and [internal developer docs](docs/development.md).
 
@@ -47,13 +47,13 @@ Click on the screenshots to run the WebAssembly simulation
 
 | Printer Demo | Slide Puzzle | Todo | Widget Gallery |
 |--------------|----------------|----------------|----------------|
-| [![Screenshot of the Printer Demo](https://sixtyfps.io/resources/printerdemo_screenshot.png "Printer Demo")](https://sixtyfps.io/demos/printerdemo/) | [![Screenshot of the Slide Puzzle](https://sixtyfps.io/resources/puzzle_screenshot.png "Slide Puzzle")](https://sixtyfps.io/demos/slide_puzzle/) | [![Screenshot of the Todo Demo](https://sixtyfps.io/resources/todo_screenshot.png "Todo Demo")](https://sixtyfps.io/demos/todo/) | [![Screenshot of the Gallery Demo](https://sixtyfps.io/resources/gallery_screenshot.png "Gallery Demo")](https://sixtyfps.io/demos/gallery/) |
+| [![Screenshot of the Printer Demo](https://slint-ui.com/resources/printerdemo_screenshot.png "Printer Demo")](https://slint-ui.com/demos/printerdemo/) | [![Screenshot of the Slide Puzzle](https://slint-ui.com/resources/puzzle_screenshot.png "Slide Puzzle")](https://slint-ui.com/demos/slide_puzzle/) | [![Screenshot of the Todo Demo](https://slint-ui.com/resources/todo_screenshot.png "Todo Demo")](https://slint-ui.com/demos/todo/) | [![Screenshot of the Gallery Demo](https://slint-ui.com/resources/gallery_screenshot.png "Gallery Demo")](https://slint-ui.com/demos/gallery/) |
 
 ## Desktop Native Widgets
 
 | Windows | macOS | Linux |
 |---------|-------|-------|
-| ![Screenshot of the Gallery on Windows](https://sixtyfps.io/resources/gallery_win_screenshot.png "Gallery") | ![Screenshot of the Gallery on macOS](https://sixtyfps.io/resources/gallery_mac_screenshot.png "Gallery") | ![Screenshot of the Gallery on Linux](https://sixtyfps.io/resources/gallery_linux_screenshot.png "Gallery") |
+| ![Screenshot of the Gallery on Windows](https://slint-ui.com/resources/gallery_win_screenshot.png "Gallery") | ![Screenshot of the Gallery on macOS](https://slint-ui.com/resources/gallery_mac_screenshot.png "Gallery") | ![Screenshot of the Gallery on Linux](https://slint-ui.com/resources/gallery_linux_screenshot.png "Gallery") |
 
 ## The .slint Markup Language
 
@@ -116,7 +116,7 @@ We have a few tools to help with the development of .slint files:
  - It is bundled in a [**Visual Studio Code Extension**](./vscode_extension) accessible from the market place
  - A [**slint-viewer**](./tools/viewer) tool which display the .slint files. With the `--auto-reload` argument, makes it easy to preview
    your UI as you are working it (when using the LSP preview is not possible)
- - An [**online editor**](https://sixtyfps.io/editor) to try out .slint syntax without installing anything ([sources](./tools/online_editor))
+ - An [**online editor**](https://slint-ui.com/editor) to try out .slint syntax without installing anything ([sources](./tools/online_editor))
  - An [**updater**](./tools/syntax_updater) to convert the .slint files from previous version to the newer version
  - An experimental [**Figma importer**](./tools/figma_import)
 
@@ -134,7 +134,7 @@ We welcome your contributions: in the form of code, bug reports or feedback.
 This software is provided under a dual licensing scheme:
 
  - **GNU GPLv3**: Open source license ideal for free software.
- - **Commercial Slint license**: <https://sixtyfps.io/#offering>
+ - **Commercial Slint license**: <https://slint-ui.com/#offering>
 
 See also the [Licensing FAQ](FAQ.md#licensing)
 

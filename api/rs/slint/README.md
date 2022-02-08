@@ -5,14 +5,14 @@
 
 # A Rust UI toolkit
 
-[Slint](https://sixtyfps.io/) is a UI toolkit that supports different programming languages.
+[Slint](https://slint-ui.com/) is a UI toolkit that supports different programming languages.
 Slint is the Rust API to interact with a Slint UI design from Rust.
 
-The complete Rust documentation can be viewed online at https://sixtyfps.io/docs/rust/sixtyfps/.
+The complete Rust documentation can be viewed online at https://slint-ui.com/docs/rust/sixtyfps/.
 
 ## Getting Started
 
-The [crate documentation](https://sixtyfps.io/docs/rust/sixtyfps/) shows how to use this crate.
+The [crate documentation](https://slint-ui.com/docs/rust/sixtyfps/) shows how to use this crate.
 
 ### Hello World
 
@@ -41,7 +41,7 @@ fn main() {
 }
 ```
 
-The [`slint` crate documentation](https://sixtyfps.io/docs/rust/sixtyfps/)
+The [`slint` crate documentation](https://slint-ui.com/docs/rust/sixtyfps/)
 contains more advanced examples and alternative ways to use this crate.
 
 To quickly get started, you can use the [Template Repository](https://github.com/sixtyfpsui/sixtyfps-rust-template) with

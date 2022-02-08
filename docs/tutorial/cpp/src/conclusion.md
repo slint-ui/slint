@@ -6,4 +6,4 @@ at the [examples](https://github.com/slint-ui/slint/tree/master/examples) in the
 see how these look like and can be used, such as the [todo example](https://github.com/slint-ui/slint/tree/master/examples/todo).
 
 A slightly more polished version of this memory puzzle game is [available in the Slint repository](
-https://github.com/slint-ui/slint/tree/master/examples/memory). And you can <a href="https://sixtyfps.io/demos/memory/" target="_blank">play the wasm version</a> in your browser.
+https://github.com/slint-ui/slint/tree/master/examples/memory). And you can <a href="https://slint-ui.com/demos/memory/" target="_blank">play the wasm version</a> in your browser.

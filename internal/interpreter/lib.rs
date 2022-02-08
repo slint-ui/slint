@@ -64,7 +64,7 @@ instance.run();
 //! ## Feature flags
 #![doc = document_features::document_features!()]
 #![warn(missing_docs)]
-#![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
+#![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 
 #[cfg(not(feature = "compat-0-2-0"))]
 compile_error!(

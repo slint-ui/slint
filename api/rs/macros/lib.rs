@@ -4,7 +4,7 @@
 // cSpell:ignore punct
 
 #![doc = include_str!("README.md")]
-#![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
+#![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 
 extern crate proc_macro;
 use std::path::Path;

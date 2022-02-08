@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
 
 #![doc = include_str!("README.md")]
-#![doc(html_logo_url = "https://sixtyfps.io/resources/logo.drawio.svg")]
+#![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 #![cfg_attr(not(feature = "simulator"), no_std)]
 #![cfg_attr(feature = "pico-st7789", feature(alloc_error_handler))]
 

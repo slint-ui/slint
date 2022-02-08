@@ -9,7 +9,7 @@ edition = "2021"
 license = "MIT OR Apache-2.0"
 description = "Wrapper around field-offset crate and const-field-offset-macro"
 repository = "https://github.com/slint-ui/slint"
-homepage = "https://sixtyfps.io"
+homepage = "https://slint-ui.com"
 
 [features]
 field-offset-trait = ["const-field-offset-macro/field-offset-trait"]

@@ -346,7 +346,7 @@ const EXPECTED_SPDX_ID: &str =
 const EXPECTED_HEADER: LicenseHeader<'static> =
     LicenseHeader(&["Copyright © SixtyFPS GmbH <info@sixtyfps.io>", EXPECTED_SPDX_ID]);
 
-const EXPECTED_HOMEPAGE: &str = "https://sixtyfps.io";
+const EXPECTED_HOMEPAGE: &str = "https://slint-ui.com";
 const EXPECTED_REPOSITORY: &str = "https://github.com/slint-ui/slint";
 
 fn collect_files() -> Result<Vec<PathBuf>> {

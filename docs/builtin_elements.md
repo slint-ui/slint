@@ -157,11 +157,11 @@ An Image can be used to represent an image loaded from an image file.
 Example := Window {
     VerticalLayout {
         Image {
-            source: @image-url("https://sixtyfps.io/resources/logo_scaled.png");
+            source: @image-url("https://slint-ui.com/resources/logo_scaled.png");
             // image-fit default is `contain` when in layout, preserving aspect ratio
         }
         Image {
-            source: @image-url("https://sixtyfps.io/resources/logo_scaled.png");
+            source: @image-url("https://slint-ui.com/resources/logo_scaled.png");
             colorize: red;
         }
     }
@@ -173,7 +173,7 @@ Scaled while preserving the aspect ratio:
 ```slint
 Example := Window {
     Image {
-        source: @image-url("https://sixtyfps.io/resources/logo_scaled.png");
+        source: @image-url("https://slint-ui.com/resources/logo_scaled.png");
         width: 270px;
         // implicit default, preserving aspect ratio: height: self.width * natural_height / natural_width;
     }

@@ -6,7 +6,7 @@ function, checking that no error are reported, and that everything was consumed
 
 A parser function must have the signature `fn(&mut impl Parser)`
 
-**NOTE**: This library is an **internal** crate of the [Slint project](https://sixtyfps.io).
+**NOTE**: This library is an **internal** crate of the [Slint project](https://slint-ui.com).
 This crate should **not be used directly** by applications using Slint.
 You should use the `slint` crate instead.
 

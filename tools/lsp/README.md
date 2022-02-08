@@ -1,6 +1,6 @@
 # LSP (Language Server Protocol) Server for Slint
 
-This directory contains the implementation of the LSP server for [Slint](https://sixtyfps.io)
+This directory contains the implementation of the LSP server for [Slint](https://slint-ui.com)
 featuring diagnostics, code
 completion, goto definition, and more importantly, live-preview
 
