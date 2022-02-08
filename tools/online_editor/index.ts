@@ -60,7 +60,7 @@ export Demo := Window {
     }
     Image {
         y: 50px;
-        source: @image-url("https://slint-ui.com/resources/logo_scaled.png");
+        source: @image-url("https://slint-ui.com/logo/slint-logo-full-light.svg");
     }
 }
 `
