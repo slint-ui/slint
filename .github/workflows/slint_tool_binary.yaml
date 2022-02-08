@@ -33,6 +33,8 @@ jobs:
         with:
           version: 6.2.1
       - uses: Swatinem/rust-cache@v1
+        with:
+          key: x
       - uses: actions-rs/install@v0.1
         with:
           crate: cargo-about
