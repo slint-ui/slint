@@ -14,12 +14,12 @@ categories = ["gui", "development-tools"]
 keywords = ["viewer", "gui", "ui", "toolkit"]
 
 [features]
-backend-gl = ["slint-interpreter/backend-gl"]
 backend-qt = ["slint-interpreter/backend-qt"]
+backend-gl-all = ["slint-interpreter/backend-gl-all"]
 backend-gl-wayland = ["slint-interpreter/backend-gl-wayland"]
 backend-gl-x11 = ["slint-interpreter/backend-gl-x11"]
 
-default = ["backend-qt", "backend-gl", "backend-gl-x11"]
+default = ["backend-qt", "backend-gl-all"]
 
 [dependencies]
 i-slint-core = { version = "=0.2.0", path="../../internal/core" }

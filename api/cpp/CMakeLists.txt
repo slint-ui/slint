@@ -68,9 +68,9 @@ endfunction()
 # defaults need to be kept in sync with the Rust bit.
 define_cargo_feature(interpreter "Enable support for the Slint interpeter to load .slint files at run-time" ON)
 
-define_cargo_feature(backend-gl "Enable OpenGL ES 2.0 based rendering backend" ON)
-define_cargo_dependent_feature(backend-gl-x11 "Enable the OpenGL ES 2.0 backend with X11 support" ON SLINT_FEATURE_BACKEND_GL OFF)
-define_cargo_dependent_feature(backend-gl-wayland "Enable the OpenGL ES 2.0 backend with wayland support" OFF SLINT_FEATURE_BACKEND_GL OFF)
+define_cargo_feature(backend-gl-all "Enable OpenGL ES 2.0 based rendering backend with support for all windowing systems." ON)
+define_cargo_feature(backend-gl-x11 "Enable the OpenGL ES 2.0 backend with only X11 support. Enable this option and turn off SLINT_FEATURE_BACKEND_GL_ALL for a smaller build with just X11 support." OFF)
+define_cargo_feature(backend-gl-wayland "Enable the OpenGL ES 2.0 backend with wayland support. Enable this option and turn off SLINT_FEATURE_BACKEND_GL_ALL for a smaller build with just wayland support." OFF)
 
 define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
