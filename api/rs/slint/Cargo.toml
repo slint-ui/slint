@@ -18,7 +18,7 @@ path = "lib.rs"
 
 [features]
 
-default = ["std", "backend-gl", "x11", "backend-qt", "compat-0-2-0"]
+default = ["std", "backend-gl", "backend-gl-x11", "backend-qt", "compat-0-2-0"]
 
 ## Mandatory feature:
 ## This feature is required to keep the compatibility with Slint 0.2.0
@@ -42,9 +42,9 @@ backend-qt = ["i-slint-backend-selector/i-slint-backend-qt", "std"]
 ## On unix, at least one of `x11` or `wayland` features must be enabled.
 backend-gl = ["i-slint-backend-selector/i-slint-backend-gl", "std"]
 ## Same as the GL backend, with the `x11` feature of `winit` enabled
-x11 = ["i-slint-backend-selector/x11", "backend-gl"]
+backend-gl-x11 = ["i-slint-backend-selector/backend-gl-x11", "backend-gl"]
 ## Same as the GL backend, with the `wayland` feature of `winit` enabled
-wayland = ["i-slint-backend-selector/wayland", "backend-gl"]
+backend-gl-wayland = ["i-slint-backend-selector/backend-gl-wayland", "backend-gl"]
 
 
 [dependencies]

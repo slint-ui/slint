@@ -24,10 +24,10 @@ path = "main.rs"
 [features]
 backend-gl = ["slint-interpreter/backend-gl"]
 backend-qt = ["slint-interpreter/backend-qt"]
-wayland = ["slint-interpreter/wayland"]
-x11 = ["slint-interpreter/x11"]
+backend-gl-wayland = ["slint-interpreter/backend-gl-wayland"]
+backend-gl-x11 = ["slint-interpreter/backend-gl-x11"]
 
-default = ["backend-qt", "backend-gl", "x11"]
+default = ["backend-qt", "backend-gl", "backend-gl-x11"]
 
 [dependencies]
 i-slint-compiler = { version = "=0.2.0", path = "../../internal/compiler"}

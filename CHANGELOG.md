@@ -24,6 +24,8 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
  - Replace `ModelHandle` with `ModelRc`
  - `sixtyfps::interpreter::ComponentInstance` in Rust now implements `sixtyfps::ComponentHandle`. This removes `sixtyfps::interpreter::WeakComponentInstance` in favor
    of `sixtyfps::Weak<sixtyfps::interpreter::ComponentInstance>`.
+ - For the Rust API crate, the Rust Interpreter API crate, the `x11` and `wayland` features were renamed to `backend-gl-x11` and `backend-gl-wayland`.
+ - For the C++ CMake interface, the `SIXTYFPS_FEATURE_X11` and `SIXTYFPS_FEATURE_WAYLAND` options were renamed to `SLINT_FEATURE_BACKEND_GL_X11` and `SLINT_FEATURE_BACKEND_GL_WAYLAND`.
 
 ### Added
 

@@ -26,10 +26,10 @@ backend-gl = ["i-slint-backend-selector/i-slint-backend-gl"]
 backend-qt = ["i-slint-backend-selector/i-slint-backend-qt"]
 interpreter = ["slint-interpreter"]
 testing = ["i-slint-backend-testing"] # Enable some function used by the integration tests
-wayland = ["i-slint-backend-selector/wayland"]
-x11 = ["i-slint-backend-selector/x11"]
+backend-gl-wayland = ["i-slint-backend-selector/backend-gl-wayland"]
+backend-gl-x11 = ["i-slint-backend-selector/backend-gl-x11"]
 
-default = ["backend-gl", "x11", "backend-qt"]
+default = ["backend-gl", "backend-gl-x11", "backend-qt"]
 
 [dependencies]
 i-slint-backend-selector = { version = "=0.2.0", path="../../internal/backends/selector" }
