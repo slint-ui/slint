@@ -1,4 +1,6 @@
-# ![Slint](./logo/slint-logo-full-light.svg)
+# ![Slint](./logo/slint-logo-full-light.svg) 
+
+<table border="0" style="border:none"><tr><td valign="center">Formerly known as </td><td><img height="40" src="https://sixtyfps.io/resources/logo.drawio.svg" style="vertical-alignment: middle"></td></tr></table>
 
 [![Build Status](https://github.com/slint-ui/slint/workflows/CI/badge.svg)](https://github.com/slint-ui/slint/actions)
 [![Discussions](https://img.shields.io/github/discussions/slint-ui/slint)](https://github.com/slint-ui/slint/discussions)
