@@ -10,9 +10,12 @@ In version 0.2.0 we have increased the minimum version of C++. You need to have 
 
 If you are building Slint from source, you need to make sure that your Rust installation is up-to-date. If you have installed Rust using `rustup`, then you can upgrade to the latest Version of Rust by running `rustup update`.
 
-### CMakeLists.txt
+### CMake interface
 
  - When using `FetchContent`, the `SOURCE_SUBDIR` has changed from `api/sixtyfps-cpp` to `api/cpp`
+ - `find_package(SixtyFPS)` becomes `find_package(Slint)`.
+ - The `SixtyFPS::SixtyFPS` CMake target was renamed to `Slint::Slint`.
+ - The `sixtyfps_target_60_sources` CMake command was renamed to `slint_target_sources`.
 
 ### Models
 
@@ -63,11 +66,3 @@ instance->invoke_callback("foo", args);
 
 The `Value::Type::Array` has been replaced by `Value::Type::Model`
 
-
-### CMake Interface
-
-The CMake interface has changed mostly in terms of renaming `SixtyFPS` to `Slint`:
-
-  * `find_package(SixtyFPS)` becomes `find_package(Slint)`.
-  * The `SixtyFPS::SixtyFPS` CMake target was renamed to `Slint::Slint`.
-  * The `sixtyfps_target_60_sources` CMake command was renamed to `slint_target_sources`.
