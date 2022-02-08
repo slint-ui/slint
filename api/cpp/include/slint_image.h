@@ -4,6 +4,7 @@
 #pragma once
 #include <string_view>
 #include "slint_generated_public.h"
+#include "slint_size.h"
 #include "slint_image_internal.h"
 #include "slint_string.h"
 #include "slint_sharedvector.h"
@@ -33,7 +34,7 @@ public:
     */
 
     /// Returns the size of the Image in pixels.
-    IntSize size() const { return cbindgen_private::types::slint_image_size(&data); }
+    Size<unsigned int> size() const { return cbindgen_private::types::slint_image_size(&data); }
 
     /// Returns the path of the image on disk, if it was constructed via Image::load_from_path().
     std::optional<slint::SharedString> path() const

@@ -161,7 +161,6 @@ fn gen_corelib(
         "slint_image_size",
         "slint_image_path",
         "TimerMode",                 // included in generated_public.h
-        "IntSize",                   // included in generated_public.h
         "RenderingState",            // included in generated_public.h
         "SetRenderingNotifierError", // included in generated_public.h
         "GraphicsAPI",               // included in generated_public.h
@@ -267,7 +266,6 @@ fn gen_corelib(
             "slint_color_darker",
             "slint_image_size",
             "slint_image_path",
-            "IntSize",
         ]
         .iter()
         .filter(|exclusion| !rust_types.iter().any(|inclusion| inclusion == *exclusion))
@@ -317,19 +315,10 @@ fn gen_corelib(
     public_config.export.exclude.push("Point".into());
     public_config.export.include = vec![
         "TimerMode".into(),
-        "IntSize".into(),
         "RenderingState".into(),
         "SetRenderingNotifierError".into(),
         "GraphicsAPI".into(),
     ];
-
-    public_config.export.body.insert(
-        "IntSize".to_owned(),
-        r#"
-    /// Compares this IntSize with \a other and returns true if they are equal; false otherwise.
-    bool operator==(const IntSize &other) const = default;"#
-            .to_owned(),
-    );
 
     cbindgen::Builder::new()
         .with_config(public_config)
