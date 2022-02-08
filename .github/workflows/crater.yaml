@@ -19,7 +19,7 @@ jobs:
       fail-fast: false
       matrix:
         git_url:
-          - "https://github.com/sixtyfpsui/cargo-ui"
+          - "https://github.com/slint-ui/cargo-ui"
           - "https://github.com/Futsch1/image-sieve"
           - "https://github.com/samyak-jain/nitroshot"
           - "https://github.com/lukas-jung/sixty-mines"

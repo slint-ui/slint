@@ -10,7 +10,7 @@ on:
 jobs:
   cmake_package:
     env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/6.2.1/clang_64/lib
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.1/clang_64/lib
       QT_QPA_PLATFORM: offscreen
       CARGO_INCREMENTAL: false
     strategy:
@@ -27,7 +27,7 @@ jobs:
       id: cache-qt
       uses: actions/cache@v2
       with:
-        path: ~/work/sixtyfps/Qt
+        path: ~/work/slint/Qt
         key: ${{ runner.os }}-${{ github.job }}-cpp-qt
     - name: Install Qt (Ubuntu)
       uses: jurplel/install-qt-action@v2

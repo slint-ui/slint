@@ -34,7 +34,7 @@ jobs:
         context: .
         file: ./docker/Dockerfile.${{ matrix.target }}
         push: true
-        tags: ghcr.io/sixtyfpsui/sixtyfps/${{matrix.target}}:latest
+        tags: ghcr.io/slint-ui/slint/${{matrix.target}}:latest
 
   build:
     needs: [build_containers]

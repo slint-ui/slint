@@ -82,7 +82,7 @@ jobs:
         id: cache-qt
         uses: actions/cache@v2
         with:
-          path: ~/work/sixtyfps/Qt
+          path: ~/work/slint/Qt
           key: ${{ runner.os }}-${{ github.job }}-Qt
       - name: Install Qt
         uses: jurplel/install-qt-action@v2
@@ -129,7 +129,7 @@ jobs:
         id: cache-qt
         uses: actions/cache@v2
         with:
-          path: ~/work/sixtyfps/Qt
+          path: ~/work/slint/Qt
           key: ${{ runner.os }}-${{ github.job }}-Qt
       - name: Install Qt
         uses: jurplel/install-qt-action@v2
@@ -156,14 +156,14 @@ jobs:
             cd ${{ github.event.inputs.program || inputs.program }}
             lipo -create -output ./${{ github.event.inputs.program || inputs.program }} ../target/x86_64-apple-darwin/release/${{ github.event.inputs.program || inputs.program }} ../target/aarch64-apple-darwin/release/${{ github.event.inputs.program || inputs.program }}
             install_name_tool -add_rpath @executable_path/. ./${{ github.event.inputs.program || inputs.program }}
-            cp -a ~/work/sixtyfps/Qt/6.2.1/macos/lib/QtCore.framework ./
-            cp -a ~/work/sixtyfps/Qt/6.2.1/macos/lib/QtGui.framework ./
-            cp -a ~/work/sixtyfps/Qt/6.2.1/macos/lib/QtWidgets.framework ./
-            cp -a ~/work/sixtyfps/Qt/6.2.1/macos/lib/QtDBus.framework ./
-            cp -a ~/work/sixtyfps/Qt/6.2.1/macos/lib/QtSvg.framework ./
+            cp -a ~/work/slint/Qt/6.2.1/macos/lib/QtCore.framework ./
+            cp -a ~/work/slint/Qt/6.2.1/macos/lib/QtGui.framework ./
+            cp -a ~/work/slint/Qt/6.2.1/macos/lib/QtWidgets.framework ./
+            cp -a ~/work/slint/Qt/6.2.1/macos/lib/QtDBus.framework ./
+            cp -a ~/work/slint/Qt/6.2.1/macos/lib/QtSvg.framework ./
             mkdir -p ./plugins/platforms ./plugins/imageformats
-            cp -a ~/work/sixtyfps/Qt/6.2.1/macos/plugins/platforms/libqcocoa.dylib ./plugins/platforms
-            cp -a ~/work/sixtyfps/Qt/6.2.1/macos/plugins/imageformats/libqsvg.dylib ./plugins/imageformats
+            cp -a ~/work/slint/Qt/6.2.1/macos/plugins/platforms/libqcocoa.dylib ./plugins/platforms
+            cp -a ~/work/slint/Qt/6.2.1/macos/plugins/imageformats/libqsvg.dylib ./plugins/imageformats
             cd ..
             ./scripts/prepare_binary_package.sh ${{ github.event.inputs.program || inputs.program }} --with-qt
       - name: Tar artifacts to preserve permissions

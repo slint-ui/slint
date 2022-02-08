@@ -13,7 +13,7 @@ on:
 jobs:
   build_and_test:
     env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.15.2/clang_64/lib
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
       QT_QPA_PLATFORM: offscreen
       RUSTFLAGS: -D warnings
       CARGO_INCREMENTAL: false
@@ -34,7 +34,7 @@ jobs:
       id: cache-qt
       uses: actions/cache@v2
       with:
-        path: ~/work/sixtyfps/Qt
+        path: ~/work/slint/Qt
         key: ${{ runner.os }}-${{ github.job }}-Qt5.15.2
     - name: Install Qt
       if: matrix.os != 'windows-latest'
@@ -89,7 +89,7 @@ jobs:
           args: --verbose
   cpp_test_driver:
     env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/5.15.2/clang_64/lib
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
       QT_QPA_PLATFORM: offscreen
       RUSTFLAGS: -D warnings
       CARGO_INCREMENTAL: false
@@ -111,7 +111,7 @@ jobs:
       id: cache-qt
       uses: actions/cache@v2
       with:
-        path: ~/work/sixtyfps/Qt
+        path: ~/work/slint/Qt
         key: ${{ runner.os }}-${{ github.job }}-Qt5.15.2
     - name: Install Qt
       if: matrix.os != 'windows-latest'
@@ -182,7 +182,7 @@ jobs:
 
   cpp_cmake:
     env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/6.2.1/clang_64/lib
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.1/clang_64/lib
       QT_QPA_PLATFORM: offscreen
       CARGO_INCREMENTAL: false
     strategy:
@@ -201,7 +201,7 @@ jobs:
       id: cache-qt
       uses: actions/cache@v2
       with:
-        path: ~/work/sixtyfps/Qt
+        path: ~/work/slint/Qt
         key: ${{ runner.os }}-${{ github.job }}-cpp-qt
     - name: Install Qt (Ubuntu)
       uses: jurplel/install-qt-action@v2
@@ -260,7 +260,7 @@ jobs:
     needs: [cpp_cmake]
     runs-on: ubuntu-20.04
     env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/sixtyfps/Qt/6.2.1/clang_64/lib
+      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.1/clang_64/lib
       QT_QPA_PLATFORM: offscreen
       CARGO_INCREMENTAL: false
     steps:
@@ -273,7 +273,7 @@ jobs:
       id: cache-qt
       uses: actions/cache@v2
       with:
-        path: ~/work/sixtyfps/Qt
+        path: ~/work/slint/Qt
         key: ${{ runner.os }}-${{ github.job }}-cpp-qt
     - name: Install Qt (Ubuntu)
       uses: jurplel/install-qt-action@v2
