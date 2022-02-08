@@ -88,7 +88,10 @@ impl HTMLImage {
 #[derive(derive_more::From)]
 enum ImageData {
     Texture(Texture),
-    DecodedImage(image::DynamicImage),
+    DecodedImage {
+        image: image::DynamicImage,
+        premultiplied_alpha: bool,
+    },
     EmbeddedImage(SharedImageBuffer),
     #[cfg(feature = "svg")]
     Svg(usvg::Tree),
@@ -102,8 +105,14 @@ impl std::fmt::Debug for ImageData {
             ImageData::Texture(t) => {
                 write!(f, "ImageData::Texture({:?})", t.id.0)
             }
-            ImageData::DecodedImage(i) => {
-                write!(f, "ImageData::DecodedImage({}x{})", i.width(), i.height())
+            ImageData::DecodedImage { image, premultiplied_alpha } => {
+                write!(
+                    f,
+                    "ImageData::DecodedImage({}x{}; premultiplied_alpha = {})",
+                    image.width(),
+                    image.height(),
+                    premultiplied_alpha
+                )
             }
             ImageData::EmbeddedImage(buffer) => {
                 write!(f, "ImageData::EmbeddedImage({}x{})", buffer.width(), buffer.height())
@@ -128,8 +137,8 @@ impl std::fmt::Debug for ImageData {
 pub(crate) struct CachedImage(RefCell<ImageData>);
 
 impl CachedImage {
-    fn new_on_cpu(decoded_image: image::DynamicImage) -> Self {
-        Self(RefCell::new(ImageData::DecodedImage(decoded_image)))
+    fn new_on_cpu(decoded_image: image::DynamicImage, premultiplied_alpha: bool) -> Self {
+        Self(RefCell::new(ImageData::DecodedImage { image: decoded_image, premultiplied_alpha }))
     }
 
     pub fn new_on_gpu(canvas: &CanvasRc, image_id: femtovg::ImageId) -> Self {
@@ -184,13 +193,16 @@ impl CachedImage {
                     )?,
                 ));
             }
-            Some(Self::new_on_cpu(image::open(std::path::Path::new(&path.as_str())).map_or_else(
-                |decode_err| {
-                    eprintln!("Error loading image from {}: {}", &path, decode_err);
-                    None
-                },
-                Some,
-            )?))
+            Some(Self::new_on_cpu(
+                image::open(std::path::Path::new(&path.as_str())).map_or_else(
+                    |decode_err| {
+                        eprintln!("Error loading image from {}: {}", &path, decode_err);
+                        None
+                    },
+                    Some,
+                )?,
+                false, // We don't really really know if it's pre-multiplied, but let's assume not
+            ))
         }
         #[cfg(target_arch = "wasm32")]
         Some(Self(RefCell::new(ImageData::HTMLImage(HTMLImage::new(path)))))
@@ -217,13 +229,16 @@ impl CachedImage {
         } else {
             image::load_from_memory(data.as_slice())
         };
-        Some(CachedImage::new_on_cpu(image.map_or_else(
-            |decode_err| {
-                eprintln!("Error decoding image: {}", decode_err);
-                None
-            },
-            Some,
-        )?))
+        Some(CachedImage::new_on_cpu(
+            image.map_or_else(
+                |decode_err| {
+                    eprintln!("Error decoding image: {}", decode_err);
+                    None
+                },
+                Some,
+            )?,
+            false, // We don't really really know if it's pre-multiplied, but let's assume not
+        ))
     }
 
     // Upload the image to the GPU? if that hasn't happened yet. This function could take just a canvas
@@ -242,12 +257,17 @@ impl CachedImage {
         };
 
         let img = &mut *self.0.borrow_mut();
-        if let ImageData::DecodedImage(decoded_image) = img {
+        if let ImageData::DecodedImage { image: decoded_image, premultiplied_alpha } = img {
             let image_id = match femtovg::ImageSource::try_from(&*decoded_image) {
                 Ok(image_source) => canvas.borrow_mut().create_image(image_source, image_flags),
                 Err(_) => {
                     let converted = image::DynamicImage::ImageRgba8(decoded_image.to_rgba8());
                     let image_source = femtovg::ImageSource::try_from(&converted).unwrap();
+                    let image_flags = if *premultiplied_alpha {
+                        image_flags | femtovg::ImageFlags::PREMULTIPLIED
+                    } else {
+                        image_flags
+                    };
                     canvas.borrow_mut().create_image(image_source, image_flags)
                 }
             }
@@ -293,12 +313,17 @@ impl CachedImage {
 
         match &*self.0.borrow() {
             ImageData::Texture(_) => None, // internal error: Cannot call upload_to_gpu on previously uploaded image,
-            ImageData::DecodedImage(decoded_image) => {
+            ImageData::DecodedImage { image: decoded_image, premultiplied_alpha } => {
                 let image_id = match femtovg::ImageSource::try_from(&*decoded_image) {
                     Ok(image_source) => canvas.borrow_mut().create_image(image_source, image_flags),
                     Err(_) => {
                         let converted = image::DynamicImage::ImageRgba8(decoded_image.to_rgba8());
                         let image_source = femtovg::ImageSource::try_from(&converted).unwrap();
+                        let image_flags = if *premultiplied_alpha {
+                            image_flags | femtovg::ImageFlags::PREMULTIPLIED
+                        } else {
+                            image_flags
+                        };
                         canvas.borrow_mut().create_image(image_source, image_flags)
                     }
                 }
@@ -313,24 +338,35 @@ impl CachedImage {
                 None
             }
             #[cfg(feature = "svg")]
-            ImageData::Svg(svg_tree) => match super::svg::render(
-                svg_tree,
-                target_size_for_scalable_source.unwrap_or_default(),
-            ) {
-                Ok(rendered_svg_image) => Self::new_on_cpu(rendered_svg_image).upload_to_gpu(
-                    current_renderer,
-                    None,
-                    scaling,
-                ),
-                Err(err) => {
-                    eprintln!("Error rendering SVG: {}", err);
-                    None
+            ImageData::Svg(svg_tree) => {
+                match super::svg::render(
+                    svg_tree,
+                    target_size_for_scalable_source.unwrap_or_default(),
+                ) {
+                    Ok(rendered_svg_image) => Self::new_on_cpu(
+                        rendered_svg_image,
+                        // resvg creates images with pre-multipled alpha
+                        true,
+                    )
+                    .upload_to_gpu(current_renderer, None, scaling),
+                    Err(err) => {
+                        eprintln!("Error rendering SVG: {}", err);
+                        None
+                    }
                 }
-            },
+            }
             #[cfg(target_arch = "wasm32")]
             ImageData::HTMLImage(html_image) => html_image.size().map(|_| {
-                let image_id =
-                    canvas.borrow_mut().create_image(&html_image.dom_element, image_flags).unwrap();
+                let image_id = canvas
+                    .borrow_mut()
+                    .create_image(
+                        &html_image.dom_element,
+                        // Anecdotal evidence suggests that HTMLImageElement converts to a texture with
+                        // pre-multipled alpha. It's possible that this is not generally applicable, but it
+                        // is the case for SVGs.
+                        image_flags | femtovg::ImageFlags::PREMULTIPLIED,
+                    )
+                    .unwrap();
                 Self::new_on_gpu(canvas, image_id)
             }),
         }
@@ -341,7 +377,9 @@ impl CachedImage {
 
         match &*self.0.borrow() {
             ImageData::Texture(texture) => texture.size(),
-            ImageData::DecodedImage(decoded_image) => Some(decoded_image.dimensions().into()),
+            ImageData::DecodedImage { image: decoded_image, .. } => {
+                Some(decoded_image.dimensions().into())
+            }
             ImageData::EmbeddedImage(buffer) => Some(buffer.size()),
 
             #[cfg(feature = "svg")]
@@ -402,8 +440,8 @@ impl CachedImage {
     }
 
     pub(crate) fn to_rgba(&self) -> Option<image::RgbaImage> {
-        if let ImageData::DecodedImage(img) = &*self.0.borrow() {
-            Some(img.to_rgba8())
+        if let ImageData::DecodedImage { image, .. } = &*self.0.borrow() {
+            Some(image.to_rgba8())
         } else {
             None
         }
