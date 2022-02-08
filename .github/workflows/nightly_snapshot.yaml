@@ -23,21 +23,21 @@ on:
 
 jobs:
   slint-viewer-binary:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/slint_tool_binary.yaml@wip/rename
+    uses: sixtyfpsui/sixtyfps/.github/workflows/slint_tool_binary.yaml@master
     with:
       program: "slint-viewer"
   slint-lsp-binary:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/slint_tool_binary.yaml@wip/rename
+    uses: sixtyfpsui/sixtyfps/.github/workflows/slint_tool_binary.yaml@master
     with:
       program: "slint-lsp"
   docs:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/build_docs.yaml@wip/rename
+    uses: sixtyfpsui/sixtyfps/.github/workflows/build_docs.yaml@master
   wasm_demo:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_demos.yaml@wip/rename
+    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_demos.yaml@master
   wasm:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_editor_and_interpreter.yaml@wip/rename
+    uses: sixtyfpsui/sixtyfps/.github/workflows/wasm_editor_and_interpreter.yaml@master
   cpp_package:
-    uses: sixtyfpsui/sixtyfps/.github/workflows/cpp_package.yaml@wip/rename
+    uses: sixtyfpsui/sixtyfps/.github/workflows/cpp_package.yaml@master
 
   build_vscode_lsp_linux_windows:
     env:
@@ -247,7 +247,7 @@ jobs:
     #     extensionFile: ${{ steps.publishToOpenVSX.outputs.vsixPath }}
     #     packagePath: ''
     - name: Publish to Visual Studio Marketplace
-      if: ${{ github.event.inputs.private != 'true' && github.ref == 'refs/heads/wip/rename' }}
+      if: ${{ github.event.inputs.private != 'true' && github.ref == 'refs/heads/master' }}
       uses: HaaLeo/publish-vscode-extension@v0
       with:
         pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
