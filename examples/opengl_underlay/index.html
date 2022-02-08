@@ -14,57 +14,8 @@
 <head>
   <meta charset="UTF-8">
   <title>SixtyFPS OpenGL Underlay Example (Web Assembly version)</title>
+  <link rel="stylesheet" href="https://slint-ui.com/css/demos-v1.css">
 </head>
-<style>
-  * {
-    box-sizing: border-box;
-  }
-
-  body {
-    background: radial-gradient(108.19% 165.77% at 1.67% -32.72%, #2C2F36 10%, #040708 96.35%);
-    color: white;
-    text-align: center;
-    max-width: 1100px;
-    margin: 0px auto;
-    min-height: 100vh;
-  }
-
-  p:not(.links) {
-    text-align: left;
-    padding: 1ex 5ex;
-  }
-
-  h1 {
-    text-align: left;
-    padding: 0.5ex 1ex
-  }
-
-  a {
-    color: #DBFF00
-  }
-
-  a:not(:hover) {
-    text-decoration: none;
-  }
-
-
-  canvas:focus {
-    outline: none;
-    touch-action: none;
-  }
-
-  /* beautify ignore:start */
-  .spinner:before {
-    content: ''; box-sizing: border-box; position: absolute;
-    top: 50%; left: 50%; width: 100px; height: 100px;
-    margin-top: -10px; margin-left: -10px;
-    border-radius: 50%;  border: 2px solid transparent;
-    border-top-color: #07d; border-bottom-color: #07d;
-    animation: spinner 1s ease infinite;
-  }
-  @keyframes spinner { to { transform: rotate(360deg); } }
-  /* beautify ignore:end */
-</style>
 
 <body>
   <p>This is the <a href="https://slint-ui.com">Slint</a> OpenGL Underlay example compiled to WebAssembly. It

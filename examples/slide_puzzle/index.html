@@ -9,32 +9,12 @@
   <meta charset="UTF-8">
   <title>Slint Slide Puzzle Demo (Web Assembly version)</title>
 </head>
+<link rel="stylesheet" href="https://slint-ui.com/css/demos-v1.css">
 <style>
-  * {
-    box-sizing: border-box;
-  }
-
-  body {
-    background: radial-gradient(108.19% 165.77% at 1.67% -32.72%, #2C2F36 10%, #040708 96.35%);
-    color: white;
-  }
-
-  a {
-    color: #DBFF00
-  }
-
-  a:not(:hover) {
-    text-decoration: none;
-  }
-
-  canvas:focus {
-    outline: none;
-    touch-action: none;
-  }
-
   body {
     padding: 0px;
     margin: 0px;
+    max-width: none;
   }
 
   #container {
@@ -50,18 +30,6 @@
     grid-template-columns: auto;
     grid-template-rows: max-content auto max-content;
   }
-
-  /* beautify ignore:start */
-  .spinner:before {
-    content: ''; box-sizing: border-box; position: absolute;
-    top: 50%; left: 50%; width: 100px; height: 100px;
-    margin-top: -10px; margin-left: -10px;
-    border-radius: 50%;  border: 2px solid transparent;
-    border-top-color: #07d; border-bottom-color: #07d;
-    animation: spinner 1s ease infinite;
-  }
-  @keyframes spinner { to { transform: rotate(360deg); } }
-  /* beautify ignore:end */
 </style>
 
 <body>
