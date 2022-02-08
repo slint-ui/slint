@@ -300,14 +300,14 @@ mod the_backend {
         #[cfg(feature = "std")]
         fn register_font_from_memory(
             &'static self,
-            data: &'static [u8],
+            _data: &'static [u8],
         ) -> Result<(), Box<dyn std::error::Error>> {
             unimplemented!()
         }
         #[cfg(feature = "std")]
         fn register_font_from_path(
             &'static self,
-            path: &std::path::Path,
+            _path: &std::path::Path,
         ) -> Result<(), Box<dyn std::error::Error>> {
             unimplemented!()
         }
