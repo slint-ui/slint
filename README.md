@@ -1,4 +1,4 @@
-# Slint
+# ![Slint](./logo/slint-logo-full-light.svg)
 
 [![Build Status](https://github.com/slint-ui/slint/workflows/CI/badge.svg)](https://github.com/slint-ui/slint/actions)
 [![Discussions](https://img.shields.io/github/discussions/slint-ui/slint)](https://github.com/slint-ui/slint/discussions)
