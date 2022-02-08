@@ -3,7 +3,7 @@
 
 # Use cross-image once https://github.com/rust-embedded/cross/pull/591 is merged & released
 #FROM rustembedded/cross:riscv64gc-unknown-linux-gnu-0.2.1
-FROM ghcr.io/sixtyfpsui/cross-riscv64-base:1.0
+FROM ghcr.io/slint-ui/cross-riscv64-base:1.0
 
 RUN dpkg --add-architecture riscv64 && \
     apt-get update && \
