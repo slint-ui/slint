@@ -69,3 +69,13 @@ fn model_tracker(&self) -> &dyn ModelTracker {
 [`ModelRc::new`]  no longer takes a `Rc`, but takes the structure that implements the [`Model`] trait directly.
 To construct a `ModelRc` from a Rc for your model, use the `From` trait. [`ModelRc::from`] is doing what
 `ModelHandle::new` was doing.
+
+## Crate features
+
+Some crate features have been renamed:
+
+| Old Feature Name                    | New Feature Name                   | Note                                                                          |
+| ------------------------------------| ---------------------------------- | ----------------------------------------------------------------------------- |
+| `backend-gl` | `backend-gl-all`     | Enable this feature if you want to use the OpenGL ES 2.0 rendering backend with support for all windowing systems. |
+| `x11`        | `backend-gl-x11`     | Enable this feature and switch off `backend-gl-all` if you want a smaller build with just X11 support.             |
+| `wayland`    | `backend-gl-wayland` | Enable this feature and switch off `backend-gl-all` if you want a smaller build with just wayland support.         |

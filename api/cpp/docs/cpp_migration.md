@@ -17,6 +17,14 @@ If you are building Slint from source, you need to make sure that your Rust inst
  - The `SixtyFPS::SixtyFPS` CMake target was renamed to `Slint::Slint`.
  - The `sixtyfps_target_60_sources` CMake command was renamed to `slint_target_sources`.
 
+Some CMake options have been renamed:
+
+| Old Option                    | New Option                         | Note                                                                                                                     |
+| ------------------------------| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `SIXTYFPS_FEATURE_BACKEND_GL` | `SLINT_FEATURE_BACKEND_GL_ALL`     | Enable this feature if you want to use the OpenGL ES 2.0 rendering backend with support for all windowing systems.       |
+| `SIXTYFPS_FEATURE_X11`        | `SLINT_FEATURE_BACKEND_GL_X11`     | Enable this feature and switch off `SLINT_FEATURE_BACKEND_GL_ALL` if you want a smaller build with just X11 support.     |
+| `SIXTYFPS_FEATURE_WAYLAND`    | `SLINT_FEATURE_BACKEND_GL_WAYLAND` | Enable this feature and switch off `SLINT_FEATURE_BACKEND_GL_ALL` if you want a smaller build with just wayland support. |
+
 ### Models
 
 `Model::row_data` returns now a `std::optional<ModelData>` and can thus be used with indices that are out of bounds.
