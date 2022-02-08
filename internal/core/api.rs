@@ -42,7 +42,7 @@ impl<'a> std::fmt::Debug for GraphicsAPI<'a> {
 }
 
 /// This enum describes the different rendering states, that will be provided
-/// to the parameter of the callback for `set_rendering_notifier` on the `Window`.
+/// to the parameter of the callback for `set_rendering_notifier` on the `slint::Window`.
 #[derive(Debug, Clone)]
 #[repr(C)]
 #[non_exhaustive]
@@ -76,7 +76,7 @@ impl<F: FnMut(RenderingState, &GraphicsAPI)> RenderingNotifier for F {
 }
 
 /// This enum describes the different error scenarios that may occur when the applicaton
-/// registers a rendering notifier on a [`slint::Window`].
+/// registers a rendering notifier on a [`crate::Window`](struct.Window.html).
 #[derive(Debug, Clone)]
 #[repr(C)]
 #[non_exhaustive]
