@@ -44,10 +44,10 @@ backend-qt = ["i-slint-backend-selector/i-slint-backend-qt", "std"]
 backend-gl-all = ["i-slint-backend-selector/backend-gl-all", "std"]
 ## Simliar to `backend-gl-all` this enables the GL backend but only with support for the
 ## X Window System.
-backend-gl-x11 = ["i-slint-backend-selector/backend-gl-x11"]
+backend-gl-x11 = ["i-slint-backend-selector/backend-gl-x11", "std"]
 ## Simliar to `backend-gl-all` this enables the GL backend but only with support for the
 ## Wayland window system.
-backend-gl-wayland = ["i-slint-backend-selector/backend-gl-wayland"]
+backend-gl-wayland = ["i-slint-backend-selector/backend-gl-wayland", "std"]
 
 
 [dependencies]
