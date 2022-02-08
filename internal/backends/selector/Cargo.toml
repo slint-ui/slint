@@ -15,8 +15,8 @@ homepage = "https://slint-ui.com"
 path = "lib.rs"
 
 [features]
-wayland = ["i-slint-backend-gl/wayland"]
-x11 = ["i-slint-backend-gl/x11"]
+backend-gl-wayland = ["i-slint-backend-gl/wayland"]
+backend-gl-x11 = ["i-slint-backend-gl/x11"]
 
 [dependencies]
 i-slint-core = { version = "=0.2.0", path = "../../../internal/core", default-features = false }

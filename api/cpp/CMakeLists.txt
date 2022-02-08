@@ -69,8 +69,8 @@ endfunction()
 define_cargo_feature(interpreter "Enable support for the Slint interpeter to load .slint files at run-time" ON)
 
 define_cargo_feature(backend-gl "Enable OpenGL ES 2.0 based rendering backend" ON)
-define_cargo_dependent_feature(x11 "Enable X11 support when using GL backend" ON SLINT_FEATURE_BACKEND_GL OFF)
-define_cargo_dependent_feature(wayland "Enable Wayland support when using the GL backend" OFF SLINT_FEATURE_BACKEND_GL OFF)
+define_cargo_dependent_feature(backend-gl-x11 "Enable the OpenGL ES 2.0 backend with X11 support" ON SLINT_FEATURE_BACKEND_GL OFF)
+define_cargo_dependent_feature(backend-gl-wayland "Enable the OpenGL ES 2.0 backend with wayland support" OFF SLINT_FEATURE_BACKEND_GL OFF)
 
 define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
