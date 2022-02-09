@@ -1,5 +1,5 @@
-# Copyright © SixtyFPS GmbH <info@sixtyfps.io>
-# SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 [package]
 name = "opengl_underlay"
@@ -7,7 +7,7 @@ version = "0.1.6"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
 edition = "2021"
 build = "build.rs"
-license = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)"
+license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
 publish = false
 
 [[bin]]
@@ -35,4 +35,3 @@ slint-build = { path = "../../api/rs/build" }
 #wasm# web-sys = { version = "0.3", features=["console"] }
 #wasm# console_error_panic_hook = "0.1.5"
 #wasm# instant = { version = "0.1", features = [ "wasm-bindgen" ] }
-

@@ -1,12 +1,12 @@
-// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
-// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 // Test that the correct item indices are computed when focusing
 // children of sub-components or their roots.
 
 SubComponentWithFocusableChild := Rectangle {
     property has-focus <=> input.has-focus;
-    
+
     callback activate();
     activate => {
         input.focus();
@@ -18,7 +18,7 @@ SubComponentWithFocusableChild := Rectangle {
     }
 }
 
-SubComponentWithRootFocusable := TextInput {    
+SubComponentWithRootFocusable := TextInput {
     callback activate();
     activate => {
         root.focus();
@@ -41,11 +41,11 @@ TestCase := Rectangle {
     height: 400phx;
 
     callback focus_subcompo1();
-    focus_subcompo1 => { input1.activate(); } 
+    focus_subcompo1 => { input1.activate(); }
     callback focus_subcompo2();
-    focus_subcompo2 => { input2.activate(); } 
+    focus_subcompo2 => { input2.activate(); }
     callback focus_subcompo3();
-    focus_subcompo3 => { input3.activate(); } 
+    focus_subcompo3 => { input3.activate(); }
 
     input1 := SubComponentWithFocusableChild {
         y: 0phx;

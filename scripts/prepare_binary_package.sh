@@ -1,6 +1,6 @@
 #!/bin/bash -e
-# Copyright © SixtyFPS GmbH <info@sixtyfps.io>
-# SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 if [ $# -lt 1 ]; then
     echo "usage: $0 path/to/target/binary_package --with-qt"

@@ -4,28 +4,28 @@ Upstream-Contact: Slint Developers <info@slint-ui.com>
 Source: https://slint-ui.com/
 
 Files: */slint-logo-*.svg */slint-logo-*.png
-Copyright: Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: CC-BY-ND-4.0
 
 Files: .clang-format .gitattributes .gitignore */.gitignore .pre-commit-config.yaml .vscode/* cspell.json rustfmt.toml
-Copyright: Copyright © SixtyFPS GmbH <info@sixtyfps.io>
-License: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 Files: CHANGELOG.md CONTRIBUTING.md FAQ.md README.md */CHANGELOG.md */README.md
-Copyright: Copyright © SixtyFPS GmbH <info@sixtyfps.io>
-License: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 Files: helper_crates/const_field_offset/*
-Copyright: Copyright © SixtyFPS GmbH <info@sixtyfps.io>
+Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: MIT or APACHE-2.0
 
 Files:  api/cpp/docs/* docs/* api/*/*.json api/rs/slint/migration.md
-Copyright: Copyright © SixtyFPS GmbH <info@sixtyfps.io>
-License: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 Files: examples/README.md examples/*/README.md examples/*.json examples/*/README examples/*/README.txt examples/qt_viewer/interface.ui
-Copyright: Copyright © SixtyFPS GmbH <info@sixtyfps.io>
-License: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 Files: examples/memory/icons/*.svg examples/memory/icons/*.png
 Copyright: Fontawesome project <https://fontawesome.com/license/free>
@@ -44,13 +44,13 @@ Copyright: The Qt Company <https://qt.io/>
 License: LGPL-3.0-only
 
 Files: tools/lsp/sublime/LSP.sublime-settings
-Copyright: Copyright © SixtyFPS GmbH <info@sixtyfps.io>
-License: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 Files: tools/online_editor/*.html tools/online_editor/*.json
-Copyright: Copyright © SixtyFPS GmbH <info@sixtyfps.io>
-License: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 Files: vscode_extension/*.json vscode_extension/README.md
-Copyright: Copyright © SixtyFPS GmbH <info@sixtyfps.io>
-License: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
+License: GPL-3.0-only OR LicenseRef-Slint-commercial

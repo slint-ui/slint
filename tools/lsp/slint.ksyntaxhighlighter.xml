@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- Copyright © SixtyFPS GmbH <info@sixtyfps.io> -->
-<!-- # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial) -->
+<!-- Copyright © SixtyFPS GmbH <info@slint-ui.com> -->
+<!-- # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial -->
 
 <language name="Slint" version="1" kateversion="5.0" section="Sources" extensions="*.slint" mimetype="text/sixtyfps" indenter="cstyle" license="GPL" author="info@sixtyfps.io" priority="6">
 <highlighting>

@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 
-<!-- Copyright © SixtyFPS GmbH <info@sixtyfps.io> -->
-<!-- # SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial) -->
+<!-- Copyright © SixtyFPS GmbH <info@slint-ui.com> -->
+<!-- # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial -->
 
 <plist version="1.0">
 <dict>

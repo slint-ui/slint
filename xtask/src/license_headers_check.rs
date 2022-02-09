@@ -1,5 +1,5 @@
-// Copyright © SixtyFPS GmbH <info@sixtyfps.io>
-// SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use anyhow::Context;
 use anyhow::Result;
@@ -339,12 +339,12 @@ impl<'a> LicenseHeader<'a> {
     }
 }
 
-const EXPECTED_SPDX_EXPRESSION: &str = "(GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)";
+const EXPECTED_SPDX_EXPRESSION: &str = "GPL-3.0-only OR LicenseRef-Slint-commercial";
 const EXPECTED_SPDX_ID: &str =
     const_format::concatcp!("SP", "DX-License-Identifier: ", EXPECTED_SPDX_EXPRESSION); // Do not confuse the reuse tool
 
 const EXPECTED_HEADER: LicenseHeader<'static> =
-    LicenseHeader(&["Copyright © SixtyFPS GmbH <info@sixtyfps.io>", EXPECTED_SPDX_ID]);
+    LicenseHeader(&["Copyright © SixtyFPS GmbH <info@slint-ui.com>", EXPECTED_SPDX_ID]);
 
 const EXPECTED_HOMEPAGE: &str = "https://slint-ui.com";
 const EXPECTED_REPOSITORY: &str = "https://github.com/slint-ui/slint";
