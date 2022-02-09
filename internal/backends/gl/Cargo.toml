@@ -35,7 +35,7 @@ cfg-if = "1"
 copypasta = { version = "0.7.0", default-features = false }
 derive_more = "0.99.5"
 euclid = "0.22.1"
-femtovg = { version = "0.3.0" }
+femtovg = { version = "0.3.2" }
 fontdb = { version = "0.7.0", default-features = false }
 image = { version = "0.24.0", default-features = false, features = [ "png", "jpeg" ] }
 imgref = "1.6.1"
