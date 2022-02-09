@@ -23,7 +23,8 @@
             div.innerHTML = "<pre style='color: red; background-color:#fee; margin:0'>" + p.innerHTML + "</pre>";
         }
         if (component !== undefined) {
-            component.run(canvas_id)
+            let instance = component.create(canvas_id);
+            instance.show();
         }
     }
 
@@ -35,8 +36,9 @@
             let div = document.createElement("div");
             div.style = "float: right; padding:0; margin:0;";
             elements[i].prepend(div);
-            setTimeout(function () { render_or_error(source, div); }, 1);
+            await render_or_error(source, div);
         }
+        slint.run_event_loop();
     }
     run();
 

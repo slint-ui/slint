@@ -144,4 +144,45 @@ impl WrappedCompiledComp {
         let component = self.0.create_with_canvas_id(&canvas_id);
         component.run();
     }
+    /// Creates this compiled component in a canvas.
+    /// The HTML must contains a <canvas> element with the given `canvas_id`
+    /// where the result is gonna be rendered.
+    /// You need to call `show()` on the returned instance for rendering and
+    /// `slint.run_event_loop()` loop to make it interactive.
+    #[wasm_bindgen]
+    pub fn create(&self, canvas_id: String) -> Result<WrappedInstance, JsValue> {
+        Ok(WrappedInstance(self.0.create_with_canvas_id(&canvas_id)))
+    }
+}
+
+#[wasm_bindgen]
+pub struct WrappedInstance(slint_interpreter::ComponentInstance);
+
+impl Clone for WrappedInstance {
+    fn clone(&self) -> Self {
+        Self(self.0.clone_strong())
+    }
+}
+
+#[wasm_bindgen]
+impl WrappedInstance {
+    /// Marks this instance for rendering and input handling.
+    #[wasm_bindgen]
+    pub fn show(&self) {
+        self.0.show();
+    }
+    /// Hides this instance and prevents further updates of the canvas element.
+    #[wasm_bindgen]
+    pub fn hide(&self) {
+        self.0.hide();
+    }
+}
+
+/// Register DOM event handlers on all instance and set up the event loop for that.
+/// You can call this function only once. It will throw an exception but that is safe
+/// to ignore.
+#[wasm_bindgen]
+pub fn run_event_loop() -> Result<(), JsValue> {
+    slint_interpreter::run_event_loop();
+    Ok(())
 }
