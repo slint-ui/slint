@@ -231,28 +231,21 @@ jobs:
     - name: "npm install"
       working-directory: vscode_extension
       run: npm install
-    # - name: Build package and optionally publish to Open VSX Registry
-    #   id: publishToOpenVSX
-    #   uses: HaaLeo/publish-vscode-extension@v0
-    #   with:
-    #     pat: ${{ secrets.OPENVSX_PAT }}
-    #     dryRun: ${{ github.event.inputs.private == 'true' || github.ref != 'refs/heads/master' }}
-    #     packagePath: vscode_extension
-    # - name: Publish to Visual Studio Marketplace
-    #   if: ${{ github.event.inputs.private != 'true' && github.ref == 'refs/heads/master' }}
-    #   uses: HaaLeo/publish-vscode-extension@v0
-    #   with:
-    #     pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
-    #     registryUrl: https://marketplace.visualstudio.com
-    #     extensionFile: ${{ steps.publishToOpenVSX.outputs.vsixPath }}
-    #     packagePath: ''
+    - name: Build package and optionally publish to Open VSX Registry
+      id: publishToOpenVSX
+      uses: HaaLeo/publish-vscode-extension@v0
+      with:
+        pat: ${{ secrets.OPENVSX_PAT }}
+        dryRun: ${{ github.event.inputs.private == 'true' || github.ref != 'refs/heads/master' }}
+        packagePath: vscode_extension
     - name: Publish to Visual Studio Marketplace
       if: ${{ github.event.inputs.private != 'true' && github.ref == 'refs/heads/master' }}
       uses: HaaLeo/publish-vscode-extension@v0
       with:
         pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
         registryUrl: https://marketplace.visualstudio.com
-        packagePath: vscode_extension
+        extensionFile: ${{ steps.publishToOpenVSX.outputs.vsixPath }}
+        packagePath: ''
     - name: "Upload extension artifact"
       uses: actions/upload-artifact@v2
       with:
