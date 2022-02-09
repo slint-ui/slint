@@ -20,7 +20,7 @@ include(FetchContent)
 FetchContent_Declare(
     Slint
     GIT_REPOSITORY https://github.com/slint-ui/slint.git
-    GIT_TAG v0.1.6
+    GIT_TAG v0.2.0
     SOURCE_SUBDIR api/cpp
 )
 FetchContent_MakeAvailable(Slint)
@@ -77,5 +77,5 @@ It will guide you through the `.slint` mark-up language and the C++ API by build
 
 ## Template
 
-You can clone the [Template Repository](https://github.com/sixtyfpsui/sixtyfps-cpp-template) repository with
+You can clone the [Template Repository](https://github.com/slint-ui/slint-cpp-template) repository with
 the code of a minimal C++ application using Slint that can be used as a starting point to your program.

@@ -1,7 +1,7 @@
 # Slint
 
-[![Crates.io](https://img.shields.io/crates/v/sixtyfps)](https://crates.io/crates/sixtyfps)
-[![Docs.rs](https://docs.rs/sixtyfps/badge.svg)](https://docs.rs/sixtyfps)
+[![Crates.io](https://img.shields.io/crates/v/slint)](https://crates.io/crates/slint)
+[![Docs.rs](https://docs.rs/slint/badge.svg)](https://docs.rs/slint)
 
 # A Rust UI toolkit
 
@@ -44,12 +44,12 @@ fn main() {
 The [`slint` crate documentation](https://slint-ui.com/docs/rust/slint/)
 contains more advanced examples and alternative ways to use this crate.
 
-To quickly get started, you can use the [Template Repository](https://github.com/slint-ui/sixtyfps-rust-template) with
+To quickly get started, you can use the [Template Repository](https://github.com/slint-ui/slint-rust-template) with
 the code of a minimal application using Slint that can be used as a starting point to your program.
 
 ```bash
 cargo install cargo-generate
-cargo generate --git https://github.com/slint-ui/sixtyfps-rust-template
+cargo generate --git https://github.com/slint-ui/slint-rust-template
 ```
 
 ## More examples
