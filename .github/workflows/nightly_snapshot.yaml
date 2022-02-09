@@ -249,7 +249,7 @@ jobs:
     - name: "Upload extension artifact"
       uses: actions/upload-artifact@v2
       with:
-          name: slint-vscode*.zip
+          name: slint.zip
           path: |
               ${{ steps.publishToOpenVSX.outputs.vsixPath }}
 
