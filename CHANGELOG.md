@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+## [0.2.0] - 2022-02-10
+
 This version changes some APIs in incompatible ways. For details how to migrate your application code, see the [C++ migration guide](api/cpp/docs/cpp_migration.md)
 as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migration.md) and for the
 [`slint-interpreter` crate](internal/interpreter/migration.rs).
@@ -17,21 +19,22 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
  - The deprecated methods `Model::attach_peer` and `ModelNotify::attach` were removed.
  - The interpreter does not differentiate anymore between `Value::Array` and `Value::Model`
    everything is a `Value::Model`, which now contains a `ModelRc`
- - In Rust, `sixtyfps::SharedPixelBuffer` and `sixtyfps::SharedImageBuffer` now use a `u32` instead of `usize` for `width`, `height` and `stride`.
- - In Rust and C++, `sixtyfps::Image::size()` now returns an integer size type.
- - `sixtyfps::interpreter::CallCallbackError` was renamed to `sixtyfps::interpreter::InvokeCallbackError`
+ - In Rust, `slint::SharedPixelBuffer` and `slint::SharedImageBuffer` now use a `u32` instead of `usize` for `width`, `height` and `stride`.
+ - In Rust and C++, `slint::Image::size()` now returns an integer size type.
+ - `sixtyfps::interpreter::CallCallbackError` was renamed to `slint::interpreter::InvokeCallbackError`
  - Some deprecation warning in .60 became hard errors
  - Replace `ModelHandle` with `ModelRc`
- - `sixtyfps::interpreter::ComponentInstance` in Rust now implements `sixtyfps::ComponentHandle`. This removes `sixtyfps::interpreter::WeakComponentInstance` in favor
-   of `sixtyfps::Weak<sixtyfps::interpreter::ComponentInstance>`.
+ - `slint::interpreter::ComponentInstance` in Rust now implements `slint::ComponentHandle`. This removes `sixtyfps_interpreter::WeakComponentInstance` in favor
+   of `slint_interpreter::Weak<slint_interpreter::ComponentInstance>`.
  - For the Rust API crate, the Rust Interpreter API crate, the `backend-gl`, `x11`, and `wayland` features were renamed to `backend-gl-all`, `backend-gl-x11`, and `backend-gl-wayland`.
  - For the C++ CMake interface, the `SIXTYFPS_BACKEND_GL`, `SIXTYFPS_FEATURE_X11`, and `SIXTYFPS_FEATURE_WAYLAND` options were renamed to `SLINT_BACKEND_GL_ALL`, `SLINT_FEATURE_BACKEND_GL_X11`, and `SLINT_FEATURE_BACKEND_GL_WAYLAND`.
+ - The animation `loop-count` property was replaced by `iteration-count` (which is the same as `loop-count` plus one)
 
 ### Added
 
  - `TextEdit::font-size` and `LineEdit::font-size` have been added to control the size of these widgets.
- - Added `sixtyfps::Window::set_rendering_notifier` to get a callback before and after a new frame is being rendered.
- - Added `sixtyfps::Window::request_redraw()` to schedule redrawing of the window contents.
+ - Added `slint::Window::set_rendering_notifier` to get a callback before and after a new frame is being rendered.
+ - Added `slint::Window::request_redraw()` to schedule redrawing of the window contents.
 
 ### Fixed
 
@@ -371,16 +374,17 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 ## [0.0.1] - 2020-10-13
  - Initial release.
 
-[0.0.1]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.1
-[0.0.2]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.2
-[0.0.3]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.3
-[0.0.4]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.4
-[0.0.5]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.5
-[0.0.6]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.0.6
-[0.1.0]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.0
-[0.1.1]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.1
-[0.1.2]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.2
-[0.1.3]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.3
-[0.1.4]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.4
-[0.1.5]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.5
-[0.1.6]: https://github.com/sixtyfpsui/sixtyfps/releases/tag/v0.1.6
+[0.0.1]: https://github.com/slant-ui/slant/releases/tag/v0.0.1
+[0.0.2]: https://github.com/slant-ui/slant/releases/tag/v0.0.2
+[0.0.3]: https://github.com/slant-ui/slant/releases/tag/v0.0.3
+[0.0.4]: https://github.com/slant-ui/slant/releases/tag/v0.0.4
+[0.0.5]: https://github.com/slant-ui/slant/releases/tag/v0.0.5
+[0.0.6]: https://github.com/slant-ui/slant/releases/tag/v0.0.6
+[0.1.0]: https://github.com/slant-ui/slant/releases/tag/v0.1.0
+[0.1.1]: https://github.com/slant-ui/slant/releases/tag/v0.1.1
+[0.1.2]: https://github.com/slant-ui/slant/releases/tag/v0.1.2
+[0.1.3]: https://github.com/slant-ui/slant/releases/tag/v0.1.3
+[0.1.4]: https://github.com/slant-ui/slant/releases/tag/v0.1.4
+[0.1.5]: https://github.com/slant-ui/slant/releases/tag/v0.1.5
+[0.1.6]: https://github.com/slant-ui/slant/releases/tag/v0.1.6
+[0.2.0]: https://github.com/slant-ui/slant/releases/tag/v0.0.2
