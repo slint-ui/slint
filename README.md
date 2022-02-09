@@ -1,6 +1,6 @@
 # ![Slint](./logo/slint-logo-full-light.svg) 
 
-<table border="0" style="border:none"><tr><td valign="center">Formerly known as </td><td><img height="40" src="https://sixtyfps.io/resources/logo.drawio.svg" style="vertical-alignment: middle"></td></tr></table>
+<table border="0" style="border:none"><tr><td valign="center">Formerly known as </td><td><img height="40" src="https://slint-ui.com/resources/logo.drawio.svg" style="vertical-alignment: middle"></td></tr></table>
 
 [![Build Status](https://github.com/slint-ui/slint/workflows/CI/badge.svg)](https://github.com/slint-ui/slint/actions)
 [![Discussions](https://img.shields.io/github/discussions/slint-ui/slint)](https://github.com/slint-ui/slint/discussions)
@@ -158,6 +158,6 @@ Rust developers all the way to UI/UX designers.
 
 Feel free to join [Github discussions](https://github.com/slint-ui/slint/discussions) for general chat or questions. Use [Github issues](https://github.com/slint-ui/slint/issues) to report public suggestions or bugs.
 
-To contact us privately send an email to info@sixtyfps.io
+To contact us privately send an email to info@slint-ui.com
 
-For chat, we also have [our Mattermost instance](https://chat.sixtyfps.io)
+For chat, we also have [our Mattermost instance](https://chat.slint-ui.com)
