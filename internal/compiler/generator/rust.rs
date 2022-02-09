@@ -853,12 +853,17 @@ fn generate_item_tree(
     } else {
         quote!(&self_rc)
     };
-    let maybe_create_window = parent_ctx.is_none().then(|| {
-        quote!(
-            _self.window.set(slint::create_window().into());
-            _self.window.get().unwrap().window_handle().set_component(&VRc::into_dyn(self_rc.clone()));
+    let (create_window, init_window) = if parent_ctx.is_none() {
+        (
+            Some(quote!(let window = slint::create_window().into();)),
+            Some(quote! {
+                _self.window.set(window);
+                _self.window.get().unwrap().window_handle().set_component(&VRc::into_dyn(self_rc.clone()));
+            }),
         )
-    });
+    } else {
+        (None, None)
+    };
 
     let parent_item_index = parent_ctx.and_then(|parent| {
         parent
@@ -919,11 +924,12 @@ fn generate_item_tree(
             {
                 #![allow(unused)]
                 use slint::re_exports::*;
+                #create_window // We must create the window first to initialize the backend before using the style
                 let mut _self = Self::default();
                 #(_self.parent = parent.clone() as #parent_component_type;)*
                 let self_rc = VRc::new(_self);
                 let _self = self_rc.as_pin_ref();
-                #maybe_create_window;
+                #init_window
                 slint::re_exports::init_component_items(_self, Self::item_tree(), #root_token.window.get().unwrap().window_handle());
                 Self::init(slint::re_exports::VRc::map(self_rc.clone(), |x| x), #root_token, 0, 1);
                 self_rc
