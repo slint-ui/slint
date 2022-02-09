@@ -95,9 +95,9 @@ Some examples of how to use the `slint-viewer` to add a GUI to shell scripts.
 
 A Rust and C++ example that shows how render SixtyFPS on top of graphical effect rendered using custom OpenGL code. For more details check out the [Readme](./opengl_underlay).
 
-| `.60` Design | Rust Source | C++ Source | Online wasm Preview |
+| `.slint` Design | Rust Source | C++ Source | Online wasm Preview |
 | --- | --- | --- | --- |
-| [`scene.60`](./opengl_underlay/scene.60) | [`main.rs`](./opengl_underlay/main.rs) | [`main.cpp`](./opengl_underlay/main.cpp) | [Online simulation](https://slint-ui.com/snapshots/master/demos/opengl_underlay/) |
+| [`scene.slint`](./opengl_underlay/scene.slint) | [`main.rs`](./opengl_underlay/main.rs) | [`main.cpp`](./opengl_underlay/main.cpp) | [Online simulation](https://slint-ui.com/snapshots/master/demos/opengl_underlay/) |
 
 ![Screenshot of the OpenGL Underlay Example on Windows](https://slint-ui.com/resources/opengl_underlay_screenshot.png "OpenGL Underlay")
 
