@@ -1,6 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@sixtyfps.io>
 // SPDX-License-Identifier: (GPL-3.0-only OR LicenseRef-SixtyFPS-commercial)
-use sixtyfps_compilerlib::parser::SyntaxToken;
+use i_slint_compiler::parser::SyntaxToken;
 use std::io::Write;
 
 /// The idea is that each token need to go through this, either with no changes,
