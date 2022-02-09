@@ -43,9 +43,9 @@ std::string WidgetLocation::location_bindings() const
     };
 
     return fmt::format(
-            R"60(row: {};
+            R"slint(row: {};
                col: {};
-{}{})60",
+{}{})slint",
             row, column, maybe_binding("rowspan", row_span), maybe_binding("colspan", col_span));
 }
 
@@ -85,7 +85,8 @@ DashboardBuilder::build(slint::interpreter::ComponentCompiler &compiler) const
     }
 
     if (widget_imports.size() > 0) {
-        widget_imports = fmt::format("import {{ {} }} from \"iot-dashboard.slint\";", widget_imports);
+        widget_imports =
+                fmt::format("import {{ {} }} from \"iot-dashboard.slint\";", widget_imports);
     }
 
     // Vector of name/type_name of properties forwarded through the MainContent {} element.
@@ -98,11 +99,11 @@ DashboardBuilder::build(slint::interpreter::ComponentCompiler &compiler) const
         const auto &[widget_name, widget_ptr] = widgets[widget_id];
 
         main_grid.append(fmt::format(
-                R"60(
+                R"slint(
             {0} := {1} {{
                 {2}
             }}
-        )60",
+        )slint",
                 widget_name, widget_ptr->type_name(), location.location_bindings()));
 
         std::string properties_prefix = widget_name;
@@ -125,10 +126,10 @@ DashboardBuilder::build(slint::interpreter::ComponentCompiler &compiler) const
         const auto &[widget_name, widget_ptr] = widgets[widget_id];
 
         top_bar.append(fmt::format(
-                R"60(
+                R"slint(
             {0} := {1} {{
             }}
-        )60",
+        )slint",
                 widget_name, widget_ptr->type_name()));
 
         std::string properties_prefix = widget_name;
@@ -145,7 +146,7 @@ DashboardBuilder::build(slint::interpreter::ComponentCompiler &compiler) const
     }
 
     auto source_code = fmt::format(
-            R"60(
+            R"slint(
 
 {0}
 
@@ -182,7 +183,7 @@ MainWindow := Window {{
         }}
     }}
 }}
-)60",
+)slint",
             widget_imports, top_bar, main_grid, exposed_properties, main_content_properties);
 
     auto definition = compiler.build_from_source(source_code, SOURCE_DIR);
