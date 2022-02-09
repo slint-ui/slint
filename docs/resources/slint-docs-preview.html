@@ -6,6 +6,8 @@
     "use strict";
     //import * as slint from 'https://slint-ui.com/releases/0.x.0/wasm-interpreter/slint_wasm_interpreter.js';
     import * as slint from 'https://slint-ui.com/snapshots/rename/wasm-interpreter/slint_wasm_interpreter.js';
+    // keep them alive
+    var all_instances = new Array;
 
     async function render_or_error(source, div) {
         let canvas_id = 'canvas_' + Math.random().toString(36).substr(2, 9);
@@ -25,6 +27,7 @@
         if (component !== undefined) {
             let instance = component.create(canvas_id);
             instance.show();
+            all_instances.push(instance);
         }
     }
 
