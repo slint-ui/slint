@@ -357,16 +357,16 @@ impl CachedImage {
             }
             #[cfg(target_arch = "wasm32")]
             ImageData::HTMLImage(html_image) => html_image.size().map(|_| {
-                let image_id = canvas
-                    .borrow_mut()
-                    .create_image(
-                        &html_image.dom_element,
-                        // Anecdotal evidence suggests that HTMLImageElement converts to a texture with
-                        // pre-multipled alpha. It's possible that this is not generally applicable, but it
-                        // is the case for SVGs.
-                        image_flags | femtovg::ImageFlags::PREMULTIPLIED,
-                    )
-                    .unwrap();
+                // Anecdotal evidence suggests that HTMLImageElement converts to a texture with
+                // pre-multipled alpha. It's possible that this is not generally applicable, but it
+                // is the case for SVGs.
+                let image_flags = if html_image.dom_element.current_src().ends_with(".svg") {
+                    image_flags | femtovg::ImageFlags::PREMULTIPLIED
+                } else {
+                    image_flags
+                };
+                let image_id =
+                    canvas.borrow_mut().create_image(&html_image.dom_element, image_flags).unwrap();
                 Self::new_on_gpu(canvas, image_id)
             }),
         }
