@@ -20,9 +20,8 @@ fn main() {
     //     from `slint_build::compile_with_config`
     // 4b. Same when using the `slint!` macro,
 
-    let has_native_style = std::env::var("DEP_SLINT_BACKEND_QT_INTERNAL_SUPPORTS_NATIVE_STYLE")
-        .unwrap_or_default()
-        == "1";
+    let has_native_style =
+        std::env::var("DEP_I_SLINT_BACKEND_QT_SUPPORTS_NATIVE_STYLE").unwrap_or_default() == "1";
 
     let out_dir = std::env::var_os("OUT_DIR").unwrap();
     // out_dir is something like
