@@ -54,7 +54,7 @@ On Linux, this can be done by running this command
 
 ```
 mkdir -p ~/.local/share/org.kde.syntax-highlighting/syntax/
-wget https://raw.githubusercontent.com/slint-ui/slint/master/tools/lsp/slint.ksyntaxhighlighter.xml -O ~/.local/share/org.kde.syntax-highlighting/syntax/sixtyfps.xml
+wget https://raw.githubusercontent.com/slint-ui/slint/master/tools/lsp/slint.ksyntaxhighlighter.xml -O ~/.local/share/org.kde.syntax-highlighting/syntax/slint.xml
 ```
 
 On Windows, download [slint.ksyntaxhighlighter.xml](./slint.ksyntaxhighlighter.xml) in `%USERPROFILE%\AppData\Local\org.kde.syntax-highlighting\syntax`

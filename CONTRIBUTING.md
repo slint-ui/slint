@@ -26,6 +26,6 @@ All changes submitted to the repository are automatically built and tested via G
 
 ## Contributor License Agreement
 
-When opening a pull request, you will be asked to sign a [Contributor License Agreement (CLA)](https://cla-assistant.io/sixtyfpsui/sixtyfps) which
+When opening a pull request, you will be asked to sign a [Contributor License Agreement (CLA)](https://cla-assistant.io/slint-ui/slint) which
 will allow us to relicense your contribution.
 Please contact us for any concerns.

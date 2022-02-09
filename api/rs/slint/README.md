@@ -8,11 +8,11 @@
 [Slint](https://slint-ui.com/) is a UI toolkit that supports different programming languages.
 Slint is the Rust API to interact with a Slint UI design from Rust.
 
-The complete Rust documentation can be viewed online at https://slint-ui.com/docs/rust/sixtyfps/.
+The complete Rust documentation can be viewed online at https://slint-ui.com/docs/rust/slint/.
 
 ## Getting Started
 
-The [crate documentation](https://slint-ui.com/docs/rust/sixtyfps/) shows how to use this crate.
+The [crate documentation](https://slint-ui.com/docs/rust/slint/) shows how to use this crate.
 
 ### Hello World
 
@@ -41,15 +41,15 @@ fn main() {
 }
 ```
 
-The [`slint` crate documentation](https://slint-ui.com/docs/rust/sixtyfps/)
+The [`slint` crate documentation](https://slint-ui.com/docs/rust/slint/)
 contains more advanced examples and alternative ways to use this crate.
 
-To quickly get started, you can use the [Template Repository](https://github.com/sixtyfpsui/sixtyfps-rust-template) with
+To quickly get started, you can use the [Template Repository](https://github.com/slint-ui/sixtyfps-rust-template) with
 the code of a minimal application using Slint that can be used as a starting point to your program.
 
 ```bash
 cargo install cargo-generate
-cargo generate --git https://github.com/sixtyfpsui/sixtyfps-rust-template
+cargo generate --git https://github.com/slint-ui/sixtyfps-rust-template
 ```
 
 ## More examples
