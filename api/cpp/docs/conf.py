@@ -22,8 +22,8 @@ import textwrap
 # -- Project information -----------------------------------------------------
 
 project = "Slint C++"
-copyright = "2021, info@sixtyfps.io"
-author = "info@sixtyfps.io"
+copyright = "2022, info@slint-ui.com"
+author = "info@slint-ui.com"
 
 # The full version, including alpha/beta/rc tags
 version = "0.2.0"
