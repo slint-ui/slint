@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use crate::TokenWriter;
+use crate::writer::TokenWriter;
 use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
 
 pub(crate) fn format_document(
@@ -72,6 +72,9 @@ fn format_node(
         SyntaxKind::Element => {
             return format_element(node, writer, state);
         }
+        SyntaxKind::SubElement => {
+            return format_sub_element(node, writer, state);
+        }
         SyntaxKind::PropertyDeclaration => {
             return format_property_declaration(node, writer, state);
         }
@@ -86,6 +89,12 @@ fn format_node(
         }
         SyntaxKind::QualifiedName => {
             return format_qualified_name(node, writer, state);
+        }
+        SyntaxKind::BinaryExpression => {
+            return format_binary_expression(node, writer, state);
+        }
+        SyntaxKind::Expression => {
+            return format_expression(node, writer, state);
         }
 
         _ => (),
@@ -130,25 +139,35 @@ fn whitespace_to(
     element: SyntaxKind,
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
-    arg: &str,
+    prefix_whitespace: &str,
 ) -> Result<bool, std::io::Error> {
-    state.insert_whitespace(arg);
+    whitespace_to_one_of(sub, &[element], writer, state, prefix_whitespace)
+}
+
+fn whitespace_to_one_of(
+    sub: &mut impl Iterator<Item = NodeOrToken>,
+    elements: &[SyntaxKind],
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+    prefix_whitespace: &str,
+) -> Result<bool, std::io::Error> {
+    state.insert_whitespace(prefix_whitespace);
     for n in sub {
         match n.kind() {
             SyntaxKind::Whitespace | SyntaxKind::Comment => (),
-            x if x == element => {
+            x if elements.contains(&x) => {
                 fold(n, writer, state)?;
                 return Ok(true);
             }
             _ => {
-                eprintln!("Inconsistency: expected {:?},  found {:?}", element, n);
+                eprintln!("Inconsistency: expected {:?},  found {:?}", elements, n);
                 fold(n, writer, state)?;
                 return Ok(false);
             }
         }
         fold(n, writer, state)?;
     }
-    eprintln!("Inconsistency: expected {:?},  not found", element);
+    eprintln!("Inconsistency: expected {:?},  not found", elements);
     Ok(false)
 }
 
@@ -169,7 +188,6 @@ fn format_component(
     writer: &mut impl TokenWriter,
     state: &mut FormatState,
 ) -> Result<(), std::io::Error> {
-    //let mut sub = node.first_child_or_token();
     let mut sub = node.children_with_tokens();
     let _ok = whitespace_to(&mut sub, SyntaxKind::DeclaredIdentifier, writer, state, "")?
         && whitespace_to(&mut sub, SyntaxKind::ColonEqual, writer, state, " ")?
@@ -188,9 +206,9 @@ fn format_element(
 ) -> Result<(), std::io::Error> {
     let mut sub = node.children_with_tokens();
     if !(whitespace_to(&mut sub, SyntaxKind::QualifiedName, writer, state, "")?
-        // note: QualifiedName is already adding one space
-        && whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, "")?)
+        && whitespace_to(&mut sub, SyntaxKind::LBrace, writer, state, " ")?)
     {
+        // There is an error finding the QualifiedName and LBrace when we do this branch.
         finish_node(sub, writer, state)?;
         return Ok(());
     }
@@ -215,6 +233,41 @@ fn format_element(
         }
     }
     Ok(())
+}
+
+fn format_sub_element(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens().peekable();
+
+    // Let's decide based on the first child
+    match sub.peek() {
+        Some(first_node_or_token) => {
+            if first_node_or_token.kind() == SyntaxKind::Identifier {
+                // In this branch the sub element starts with an identifier, eg.
+                // Something := Text {...}
+                if !(whitespace_to(&mut sub, SyntaxKind::Identifier, writer, state, "")?
+                    && whitespace_to(&mut sub, SyntaxKind::ColonEqual, writer, state, " ")?)
+                {
+                    // There is an error finding the Identifier and := when we do this branch.
+                    finish_node(sub, writer, state)?;
+                    return Ok(());
+                }
+                state.insert_whitespace(" ");
+            }
+            // If the first child was not an identifier, we just fold it
+            // (it might be an element, eg. Text {...})
+            for s in sub {
+                fold(s, writer, state)?;
+            }
+            state.new_line();
+            Ok(())
+        }
+        // No children found -> we ignore this node
+        None => Ok(()),
+    }
 }
 
 fn format_property_declaration(
@@ -267,10 +320,6 @@ fn format_callback_declaration(
     while let Some(n) = sub.next() {
         state.skip_all_whitespace = true;
         match n.kind() {
-            // SyntaxKind::LParent => {
-            //     fold(n, writer, state)?;
-            //     state.skip_all_whitespace = true;
-            // }
             SyntaxKind::Comma => {
                 fold(n, writer, state)?;
                 state.insert_whitespace(" ");
@@ -344,4 +393,212 @@ fn format_qualified_name(
         state.skip_all_whitespace = true;
     }*/
     Ok(())
+}
+
+fn format_binary_expression(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    let mut sub = node.children_with_tokens();
+
+    let _ok = whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, "")?
+        && whitespace_to_one_of(
+            &mut sub,
+            &[
+                SyntaxKind::Plus,
+                SyntaxKind::Minus,
+                SyntaxKind::Star,
+                SyntaxKind::Div,
+                SyntaxKind::AndAnd,
+                SyntaxKind::OrOr,
+                SyntaxKind::EqualEqual,
+                SyntaxKind::NotEqual,
+                SyntaxKind::LAngle,
+                SyntaxKind::LessEqual,
+                SyntaxKind::RAngle,
+                SyntaxKind::GreaterEqual,
+            ],
+            writer,
+            state,
+            " ",
+        )?
+        && whitespace_to(&mut sub, SyntaxKind::Expression, writer, state, " ")?;
+
+    Ok(())
+}
+
+fn format_expression(
+    node: &SyntaxNode,
+    writer: &mut impl TokenWriter,
+    state: &mut FormatState,
+) -> Result<(), std::io::Error> {
+    // For expressions, we skip whitespace.
+    // Since state.skip_all_whitespace is reset every time we find something that is not a whitespace,
+    // we need to set it all the time.
+
+    for n in node.children_with_tokens() {
+        state.skip_all_whitespace = true;
+        fold(n, writer, state)?;
+    }
+
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::writer::FileWriter;
+    use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
+    use sixtyfps_compilerlib::parser::syntax_nodes;
+
+    // FIXME more descriptive errors when an assertion fails
+    fn assert_formatting(unformatted: &str, formatted: &str) {
+        // Parse the unformatted string
+        let syntax_node = sixtyfps_compilerlib::parser::parse(
+            String::from(unformatted),
+            None,
+            &mut BuildDiagnostics::default(),
+        );
+        // Turn the syntax node into a document
+        let doc = syntax_nodes::Document::new(syntax_node).unwrap();
+        let mut file = Vec::new();
+        format_document(doc, &mut FileWriter { file: &mut file }).unwrap();
+        assert_eq!(String::from_utf8(file).unwrap(), formatted);
+    }
+
+    #[test]
+    fn basic_formatting() {
+        assert_formatting("A:=Text{}", "A := Text { }");
+    }
+
+    #[test]
+    fn complex_formatting() {
+        assert_formatting(
+            r#"
+Main :=Window{callback some-fn(string,string)->bool;some-fn(a, b)=>{a<=b} property<bool>prop-x;
+    VerticalBox {      combo:=ComboBox{}    }}
+            "#,
+            r#"
+Main := Window {
+    callback some-fn(string, string) -> bool;
+    some-fn(a, b) => {a <= b}
+    property <bool> prop-x;
+    VerticalBox {
+        combo := ComboBox { }
+    }
+}"#,
+        );
+    }
+
+    #[test]
+    fn parent_access() {
+        assert_formatting(
+            r#"
+Main := Parent{            Child{
+    some-prop: parent.foo - 60px;
+}}"#,
+            r#"
+Main := Parent {
+    Child {
+        some-prop: parent.foo - 60px;
+    }
+}"#,
+        );
+    }
+
+    #[test]
+    fn space_with_braces() {
+        assert_formatting(r#"Main := Window{}"#, r#"Main := Window { }"#);
+        // Also in a child
+        assert_formatting(
+            r#"
+Main := Window{Child{}}"#,
+            r#"
+Main := Window {
+    Child { }
+}"#,
+        );
+        assert_formatting(
+            r#"
+Main := VerticalLayout{HorizontalLayout{prop:3;}}"#,
+            r#"
+Main := VerticalLayout {
+    HorizontalLayout {
+        prop: 3;
+    }
+}"#,
+        );
+    }
+
+    #[test]
+    fn binary_expressions() {
+        assert_formatting(
+            r#"
+Main := Some{
+    a:3+2;  b:4-7;  c:3*7;  d:3/9;
+    e:3==4; f:3!=4; g:3<4;  h:3<=4;
+    i:3>4;  j:3>=4; k:3&&4; l:3||4;
+}"#,
+            r#"
+Main := Some {
+    a: 3 + 2;
+    b: 4 - 7;
+    c: 3 * 7;
+    d: 3 / 9;
+    e: 3 == 4;
+    f: 3 != 4;
+    g: 3 < 4;
+    h: 3 <= 4;
+    i: 3 > 4;
+    j: 3 >= 4;
+    k: 3 && 4;
+    l: 3 || 4;
+}"#,
+        );
+
+        assert_formatting(
+            r#"
+Main := Some{
+    m: 3 + 8;
+    m:3 + 8;
+    m: 3+ 8;
+    m:3+ 8;
+    m: 3 +8;
+    m:3 +8;
+    m: 3+8;
+    m:3+8;
+}"#,
+            r#"
+Main := Some {
+    m: 3 + 8;
+    m: 3 + 8;
+    m: 3 + 8;
+    m: 3 + 8;
+    m: 3 + 8;
+    m: 3 + 8;
+    m: 3 + 8;
+    m: 3 + 8;
+}"#,
+        );
+    }
+
+    #[test]
+    fn file_with_an_import() {
+        assert_formatting(
+            r#"
+import { Some } from "./here.60";
+
+A := Some{    padding-left: 10px;    Text{        x: 3px;    }}"#,
+            r#"
+import { Some } from "./here.60";
+
+A := Some {
+    padding-left: 10px;
+    Text {
+        x: 3px;
+    }
+}"#,
+        );
+    }
 }
