@@ -172,6 +172,9 @@ impl crate::window::WindowHandleAccess for Window {
 /// ```
 ///
 /// See also the [language reference for global singletons](docs/langref/index.html#global-singletons) for more information.
+///
+/// **Note:** Only globals that are exported or re-exported from the main .slint file will
+/// be exposed in the API
 pub trait Global<'a, Component> {
     /// Returns a reference that's tied to the life time of the provided component.
     fn get(component: &'a Component) -> Self;

@@ -680,8 +680,8 @@ public:
 
     /// Set the value for a property within an exported global singleton.
     ///
-    /// For example, if the main file has an exported global `TheGlobal` with a `property <int>
-    /// hello`, we can set this property
+    /// For example, if the main file has an exported global `TheGlobal` with a
+    /// `property <int> hello`, we can set this property
     /// ```
     /// instance->set_global_property("TheGlobal", "hello", 42);
     /// ```
@@ -689,6 +689,9 @@ public:
     /// Returns true if the property was correctly set. Returns false if the property
     /// could not be set because it either does not exist (was not declared in .slint) or if
     /// the value is not of the correct type for the property's type.
+    ///
+    /// **Note:** Only globals that are exported or re-exported from the main .slint file will
+    /// be accessible
     bool set_global_property(std::string_view global, std::string_view prop_name,
                              const Value &value) const
     {
@@ -728,6 +731,9 @@ public:
     ///        return SharedString(arg1);
     ///    })
     /// ```
+    ///
+    /// **Note:** Only globals that are exported or re-exported from the main .slint file will
+    /// be accessible
     template<typename F>
     bool set_global_callback(std::string_view global, std::string_view name, F callback) const
     {

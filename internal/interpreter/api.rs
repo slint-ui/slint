@@ -645,6 +645,9 @@ impl ComponentDefinition {
     }
 
     /// Returns the names of all exported global singletons
+    ///
+    /// **Note:** Only globals that are exported or re-exported from the main .slint file will
+    /// be exposed in the API
     pub fn globals(&self) -> impl Iterator<Item = String> + '_ {
         // We create here a 'static guard, because unfortunately the returned type would be restricted to the guard lifetime
         // which is not required, but this is safe because there is only one instance of the unerased type

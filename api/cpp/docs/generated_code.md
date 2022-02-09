@@ -84,7 +84,10 @@ public:
     /// Sets the callback handler for the `hello` callback.
     template<typename Functor> inline void on_hello (Functor && callback_handler) const;
 
-    // Returns a reference to a global singleton that's exported.
+    /// Returns a reference to a global singleton that's exported.
+    ///
+    /// **Note:** Only globals that are exported or re-exported from the main .slint file will
+    /// be exposed in the API
     inline template<typename T>
     const T &global() const;
 
