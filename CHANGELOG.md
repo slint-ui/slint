@@ -374,17 +374,17 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 ## [0.0.1] - 2020-10-13
  - Initial release.
 
-[0.0.1]: https://github.com/slant-ui/slant/releases/tag/v0.0.1
-[0.0.2]: https://github.com/slant-ui/slant/releases/tag/v0.0.2
-[0.0.3]: https://github.com/slant-ui/slant/releases/tag/v0.0.3
-[0.0.4]: https://github.com/slant-ui/slant/releases/tag/v0.0.4
-[0.0.5]: https://github.com/slant-ui/slant/releases/tag/v0.0.5
-[0.0.6]: https://github.com/slant-ui/slant/releases/tag/v0.0.6
-[0.1.0]: https://github.com/slant-ui/slant/releases/tag/v0.1.0
-[0.1.1]: https://github.com/slant-ui/slant/releases/tag/v0.1.1
-[0.1.2]: https://github.com/slant-ui/slant/releases/tag/v0.1.2
-[0.1.3]: https://github.com/slant-ui/slant/releases/tag/v0.1.3
-[0.1.4]: https://github.com/slant-ui/slant/releases/tag/v0.1.4
-[0.1.5]: https://github.com/slant-ui/slant/releases/tag/v0.1.5
-[0.1.6]: https://github.com/slant-ui/slant/releases/tag/v0.1.6
-[0.2.0]: https://github.com/slant-ui/slant/releases/tag/v0.0.2
+[0.0.1]: https://github.com/slint-ui/slint/releases/tag/v0.0.1
+[0.0.2]: https://github.com/slint-ui/slint/releases/tag/v0.0.2
+[0.0.3]: https://github.com/slint-ui/slint/releases/tag/v0.0.3
+[0.0.4]: https://github.com/slint-ui/slint/releases/tag/v0.0.4
+[0.0.5]: https://github.com/slint-ui/slint/releases/tag/v0.0.5
+[0.0.6]: https://github.com/slint-ui/slint/releases/tag/v0.0.6
+[0.1.0]: https://github.com/slint-ui/slint/releases/tag/v0.1.0
+[0.1.1]: https://github.com/slint-ui/slint/releases/tag/v0.1.1
+[0.1.2]: https://github.com/slint-ui/slint/releases/tag/v0.1.2
+[0.1.3]: https://github.com/slint-ui/slint/releases/tag/v0.1.3
+[0.1.4]: https://github.com/slint-ui/slint/releases/tag/v0.1.4
+[0.1.5]: https://github.com/slint-ui/slint/releases/tag/v0.1.5
+[0.1.6]: https://github.com/slint-ui/slint/releases/tag/v0.1.6
+[0.2.0]: https://github.com/slint-ui/slint/releases/tag/v0.0.2
