@@ -35,3 +35,6 @@ slint-build = { path = "../../api/rs/build" }
 #wasm# web-sys = { version = "0.3", features=["console"] }
 #wasm# console_error_panic_hook = "0.1.5"
 #wasm# instant = { version = "0.1", features = [ "wasm-bindgen" ] }
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false

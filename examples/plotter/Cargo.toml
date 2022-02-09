@@ -33,3 +33,6 @@ slint-build = { path = "../../api/rs/build" }
 #wasm# web-sys = { version = "0.3", features=["console"] }
 #wasm# console_error_panic_hook = "0.1.5"
 #wasm# plotters-backend = { version = "0.3.1" }
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = false
