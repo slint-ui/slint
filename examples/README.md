@@ -103,9 +103,9 @@ A Rust and C++ example that shows how render SixtyFPS on top of graphical effect
 
 ### External examples
 
-* [Cargo UI](https://github.com/sixtyfpsui/cargo-ui): A rust application that makes use of threads in the background.
+* [Cargo UI](https://github.com/slint-ui/cargo-ui): A rust application that makes use of threads in the background.
 
-![Screenshot of Cargo UI](https://raw.githubusercontent.com/sixtyfpsui/cargo-ui/master/screenshots/deptree.png "Cargo UI")
+![Screenshot of Cargo UI](https://raw.githubusercontent.com/slint-ui/cargo-ui/master/screenshots/deptree.png "Cargo UI")
 
 ## Loading the example with the `viewer`
 
