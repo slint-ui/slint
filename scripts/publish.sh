@@ -11,7 +11,7 @@ cargo publish --manifest-path internal/backends/gl/Cargo.toml --features x11
 cargo publish --manifest-path api/rs/build/Cargo.toml
 cargo publish --manifest-path internal/backends/qt/Cargo.toml
 sleep 30
-cargo publish --manifest-path internal/backends/selector/Cargo.toml --features x11
+cargo publish --manifest-path internal/backends/selector/Cargo.toml --features backend-gl-x11
 sleep 30
 cargo publish --manifest-path internal/interpreter/Cargo.toml
 cargo publish --manifest-path api/rs/slint/Cargo.toml
