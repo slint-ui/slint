@@ -21,7 +21,7 @@ edition = "2021"
 slint = "0.2.0"
 ```
 
-Finally we copy the hello world program from the [Slint documentation](https://slint-ui.com/docs/rust/sixtyfps/) into our `src/main.rs`:
+Finally we copy the hello world program from the [Slint documentation](https://slint-ui.com/docs/rust/slint/) into our `src/main.rs`:
 
 ```rust,noplayground
 {{#include main_initial.rs:main}}
