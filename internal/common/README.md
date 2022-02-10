@@ -1,5 +1,5 @@
-    This crate contains internal data structures and code that is shared between
-    the i-slint-core and the i-slint-compiler crates.
+This crate contains internal data structures and code that is shared between
+the i-slint-core and the i-slint-compiler crates.
 
 **NOTE**: This library is an **internal** crate of the [Slint project](https://slint-ui.com).
 This crate should **not be used directly** by applications using Slint.
