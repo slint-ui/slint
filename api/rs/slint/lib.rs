@@ -55,7 +55,7 @@ fn main() {
 ### The .slint code in external files is compiled with `build.rs`
 
 When your design becomes bigger in terms of markup code, you may want move it to a dedicated
-`.slint` file. It's also possible to split a `.slint` file into multiple files using (modules)[docs::langref#modules].
+`.slint` file. It's also possible to split a `.slint` file into multiple files using [modules](docs::langref#modules).
 Use a [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) to compile
 your main `.slint` file:
 
@@ -79,7 +79,7 @@ Use the API of the slint-build crate in the `build.rs` file:
 
 ```ignore
 fn main() {
-    slint::compile("ui/hello.slint").unwrap();
+    slint_build::compile("ui/hello.slint").unwrap();
 }
 ```
 
