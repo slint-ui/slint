@@ -71,8 +71,7 @@ impl<'a> TypeLoader<'a> {
         compiler_config: &'a CompilerConfiguration,
         diag: &mut BuildDiagnostics,
     ) -> Self {
-        let style = compiler_config
-        .style
+        let style = dbg!(&compiler_config.style)
         .as_ref()
         .map(Cow::from)
         .or_else(|| std::env::var("SLINT_STYLE").map(Cow::from).ok())

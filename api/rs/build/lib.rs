@@ -217,7 +217,7 @@ pub fn compile_with_config(
             // it is changed after cargo decide to re-run this build script or not. So that means one will need two build
             // to settle the right thing.
             rerun_if_changed = format!("cargo:rerun-if-changed={}", path.display());
-            let style = std::fs::read_to_string(path).ok()?;
+            let style = dbg!(std::fs::read_to_string(path)).ok()?;
             Some(style.trim().into())
         });
     }
