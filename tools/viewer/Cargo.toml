@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-viewer"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -22,9 +22,9 @@ backend-gl-x11 = ["slint-interpreter/backend-gl-x11"]
 default = ["backend-qt", "backend-gl-all"]
 
 [dependencies]
-i-slint-core = { version = "=0.2.0", path="../../internal/core" }
-slint-interpreter = { version = "=0.2.0", path = "../../internal/interpreter", default-features = false, features = ["display-diagnostics", "compat-0-2-0"] }
-i-slint-backend-selector = { version = "=0.2.0", path="../../internal/backends/selector" }
+i-slint-core = { version = "=0.2.1", path="../../internal/core" }
+slint-interpreter = { version = "=0.2.1", path = "../../internal/interpreter", default-features = false, features = ["display-diagnostics", "compat-0-2-0"] }
+i-slint-backend-selector = { version = "=0.2.1", path="../../internal/backends/selector" }
 
 vtable = { version = "0.1", path="../../helper_crates/vtable" }
 
