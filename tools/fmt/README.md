@@ -1,4 +1,4 @@
-# SixtyFPS-fmt
+# Slint-fmt
 
 This tool for formatting .slint syntax is in a very early stage.
 There might be certain parts of the language that are not yet supported.
