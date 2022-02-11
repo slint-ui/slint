@@ -12,16 +12,18 @@
     be refactored in a separate utility crate or module or something.
 
     The [`TokenWriter`] trait is meant to be able to support the LSP later as the
-    LSP wants just the edits , not the full file
+    LSP wants just the edits, not the full file
 */
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
-use i_slint_compiler::parser::{syntax_nodes, SyntaxNode, SyntaxToken};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxNode};
 use std::io::Write;
+use std::path::Path;
 
 use clap::Parser;
 
 mod fmt;
+mod writer;
 
 #[derive(clap::Parser)]
 struct Cli {
@@ -95,7 +97,7 @@ fn process_rust_file(source: String, mut file: impl Write) -> std::io::Result<()
         let mut diag = BuildDiagnostics::default();
         let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.text_range().end().into();
-        visit_node(syntax_node, &mut file, &mut State::default())?;
+        visit_node(syntax_node, &mut file)?;
         if diag.has_error() {
             file.write_all(&code.as_bytes()[len..])?;
             diag.print();
@@ -125,13 +127,29 @@ fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Resul
         let mut diag = BuildDiagnostics::default();
         let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.text_range().end().into();
-        visit_node(syntax_node, &mut file, &mut State::default())?;
+        visit_node(syntax_node, &mut file)?;
         if diag.has_error() {
             file.write_all(&code.as_bytes()[len..])?;
             diag.print();
         }
     }
     return file.write_all(source_slice.as_bytes());
+}
+
+fn process_slint_file(
+    source: String,
+    path: std::path::PathBuf,
+    mut file: impl Write,
+) -> std::io::Result<()> {
+    let mut diag = BuildDiagnostics::default();
+    let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(&path), &mut diag);
+    let len = syntax_node.node.text_range().end().into();
+    visit_node(syntax_node, &mut file)?;
+    if diag.has_error() {
+        file.write_all(&source.as_bytes()[len..])?;
+        diag.print();
+    }
+    Ok(())
 }
 
 fn process_file(
@@ -142,55 +160,26 @@ fn process_file(
     match path.extension() {
         Some(ext) if ext == "rs" => return process_rust_file(source, file),
         Some(ext) if ext == "md" => return process_markdown_file(source, file),
-        _ => {}
+        // Formatting .60 files because of backwards compatibility (project was recently renamed)
+        Some(ext) if ext == "slint" || ext == ".60" => {
+            return process_slint_file(source, path, file)
+        }
+        _ => {
+            // This allows usage like `cat x.slint | slint-fmt /dev/stdin`
+            if path.as_path() == Path::new("/dev/stdin") {
+                return process_slint_file(source, path, file);
+            }
+            // With other file types, we just output them in their original form.
+            return file.write_all(source.as_bytes());
+        }
     }
-
-    let mut diag = BuildDiagnostics::default();
-    let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(&path), &mut diag);
-    let len = syntax_node.node.text_range().end().into();
-    visit_node(syntax_node, &mut file, &mut State::default())?;
-    if diag.has_error() {
-        file.write_all(&source.as_bytes()[len..])?;
-        diag.print();
-    }
-    Ok(())
 }
 
-type State = ();
-
-fn visit_node(node: SyntaxNode, file: &mut impl Write, _state: &mut State) -> std::io::Result<()> {
+fn visit_node(node: SyntaxNode, file: &mut impl Write) -> std::io::Result<()> {
     if let Some(doc) = syntax_nodes::Document::new(node) {
-        let mut writer = FileWriter { file };
+        let mut writer = writer::FileWriter { file };
         fmt::format_document(doc, &mut writer)
     } else {
         Err(std::io::Error::new(std::io::ErrorKind::Other, "Not a Document"))
-    }
-}
-
-/// The idea is that each token need to go through this, either with no changes,
-/// or with a new content.
-trait TokenWriter {
-    fn no_change(&mut self, token: SyntaxToken) -> std::io::Result<()>;
-    fn with_new_content(&mut self, token: SyntaxToken, contents: &str) -> std::io::Result<()>;
-    fn insert_before(&mut self, token: SyntaxToken, contents: &str) -> std::io::Result<()>;
-}
-
-/// Just write the token stream to a file
-struct FileWriter<'a, W> {
-    file: &'a mut W,
-}
-
-impl<'a, W: Write> TokenWriter for FileWriter<'a, W> {
-    fn no_change(&mut self, token: SyntaxToken) -> std::io::Result<()> {
-        self.file.write_all(token.text().as_bytes())
-    }
-
-    fn with_new_content(&mut self, _token: SyntaxToken, contents: &str) -> std::io::Result<()> {
-        self.file.write_all(contents.as_bytes())
-    }
-
-    fn insert_before(&mut self, token: SyntaxToken, contents: &str) -> std::io::Result<()> {
-        self.file.write_all(contents.as_bytes())?;
-        self.file.write_all(token.text().as_bytes())
     }
 }
