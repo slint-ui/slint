@@ -700,13 +700,14 @@ And the window can have any number of `StandardButton` widgets or other button
 with the `dialog-button-role` property.
 The button will be layed out in an order that depends on the platform.
 
-The `kind` property of the `StandardButton`s and the ``dialog-button-role` properties needs to be set to a specific value,
+The `kind` property of the `StandardButton`s and the `dialog-button-role` properties needs to be set to a specific value,
 it cannot be a complex expression.
 There cannot be several StandardButton of the same kind.
 
-If A callback `<kind>_clicked` is automatically added for each StandardButton which does not have an explicit
+A callback `<kind>_clicked` is automatically added for each StandardButton which does not have an explicit
 callback handler, so it can be handled from the native code. (e.g. if there is a button of kind `cancel`,
-a `cancel_clicked` callback will be added)
+a `cancel_clicked` callback will be added).
+
 When viewed with the `slint-viewer` program, the `ok`, `cancel`, and `close` button will cause the dialog to close.
 
 ### Properties
