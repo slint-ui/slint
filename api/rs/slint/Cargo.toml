@@ -62,5 +62,8 @@ vtable = { version = "0.1.5", path = "../../../helper_crates/vtable" }
 once_cell = { version = "1.5", default-features = false, features = ["alloc"] }
 pin-weak = { version = "1.1", default-features = false }
 
+[dev-dependencies]
+slint-build = { path = "../build" }
+
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "docs/resources/slint-docs-preview.html", "--html-in-header", "docs/resources/slint-docs-highlight.html" ]

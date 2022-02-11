@@ -77,7 +77,7 @@ slint-build = "0.2.0"
 
 Use the API of the slint-build crate in the `build.rs` file:
 
-```ignore
+```rust,no_run
 fn main() {
     slint_build::compile("ui/hello.slint").unwrap();
 }
