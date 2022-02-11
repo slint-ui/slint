@@ -2,7 +2,6 @@
 
 - [General](#general)
   - [Where does the name come from?](#where-does-the-name-come-from)
-  - [Is that name not going to be obsolete soon?](#is-that-name-not-going-to-be-obsolete-soon)
   - [Why are you creating a new markup language?](#why-are-you-creating-a-new-markup-language)
   - [Will there be API bindings to integrate with my favorite programming language?](#will-there-be-api-bindings-to-integrate-with-my-favorite-programming-language)
 - [Licensing](#licensing)
