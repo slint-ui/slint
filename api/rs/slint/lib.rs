@@ -24,7 +24,7 @@ If you are already familiar with Slint, the following topics provide related inf
 Designs of user interfaces are described in the `.slint` design markup language. There are three ways
 of including them in Rust:
 
- - The `.slint` code is [inline in a macro](#the-sline-code-in-a-macro).
+ - The `.slint` code is [inline in a macro](#the-slint-code-in-a-macro).
  - The `.slint` code in [external files compiled with `build.rs`](#the-slint-code-in-external-files-is-compiled-with-buildrs)
  - The `.slint` code is loaded dynamically at run-time from the file system, by using the [interpreter API](https://docs.rs/slint-interpreter).
 
