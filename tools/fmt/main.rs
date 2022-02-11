@@ -136,7 +136,7 @@ fn process_markdown_file(source: String, mut file: impl Write) -> std::io::Resul
     return file.write_all(source_slice.as_bytes());
 }
 
-fn process_60_file(
+fn process_slint_file(
     source: String,
     path: std::path::PathBuf,
     mut file: impl Write,
@@ -160,11 +160,11 @@ fn process_file(
     match path.extension() {
         Some(ext) if ext == "rs" => return process_rust_file(source, file),
         Some(ext) if ext == "md" => return process_markdown_file(source, file),
-        Some(ext) if ext == "60" => return process_60_file(source, path, file),
+        Some(ext) if ext == "slint" => return process_slint_file(source, path, file),
         _ => {
-            // This allows usage like `cat x.60 | sixtyfps-fmt /dev/stdin`
+            // This allows usage like `cat x.slint | slint-fmt /dev/stdin`
             if path.as_path() == Path::new("/dev/stdin") {
-                return process_60_file(source, path, file);
+                return process_slint_file(source, path, file);
             }
             // With other file types, we just output them in their original form.
             return file.write_all(source.as_bytes());

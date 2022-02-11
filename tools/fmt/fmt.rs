@@ -449,13 +449,13 @@ fn format_expression(
 mod tests {
     use super::*;
     use crate::writer::FileWriter;
-    use sixtyfps_compilerlib::diagnostics::BuildDiagnostics;
-    use sixtyfps_compilerlib::parser::syntax_nodes;
+    use i_slint_compiler::diagnostics::BuildDiagnostics;
+    use i_slint_compiler::parser::syntax_nodes;
 
     // FIXME more descriptive errors when an assertion fails
     fn assert_formatting(unformatted: &str, formatted: &str) {
         // Parse the unformatted string
-        let syntax_node = sixtyfps_compilerlib::parser::parse(
+        let syntax_node = i_slint_compiler::parser::parse(
             String::from(unformatted),
             None,
             &mut BuildDiagnostics::default(),
@@ -587,11 +587,11 @@ Main := Some {
     fn file_with_an_import() {
         assert_formatting(
             r#"
-import { Some } from "./here.60";
+import { Some } from "./here.slint";
 
 A := Some{    padding-left: 10px;    Text{        x: 3px;    }}"#,
             r#"
-import { Some } from "./here.60";
+import { Some } from "./here.slint";
 
 A := Some {
     padding-left: 10px;
