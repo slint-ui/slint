@@ -221,7 +221,7 @@ The global can be accessed with the [`ComponentHandle::global()`] function, or w
 See the [documentation of the `Global` trait](Global) for an example.
 */
 //! ## Feature flags
-#![doc = document_features::document_features!()]
+#![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 #![warn(missing_docs)]
 #![deny(unsafe_code)]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]

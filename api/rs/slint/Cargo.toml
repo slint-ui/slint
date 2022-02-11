@@ -56,7 +56,7 @@ slint-macros = { version = "=0.2.1", path = "../macros" }
 i-slint-backend-selector = { version = "=0.2.1", path="../../../internal/backends/selector" }
 
 const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }
-document-features = "0.1.0"
+document-features = { version = "0.2.0", optional = true }
 vtable = { version = "0.1.5", path = "../../../helper_crates/vtable" }
 
 once_cell = { version = "1.5", default-features = false, features = ["alloc"] }
@@ -67,3 +67,4 @@ slint-build = { path = "../build" }
 
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "docs/resources/slint-docs-preview.html", "--html-in-header", "docs/resources/slint-docs-highlight.html" ]
+features = ["document-features"]
