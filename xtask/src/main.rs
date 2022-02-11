@@ -9,6 +9,7 @@ use std::path::PathBuf;
 mod cppdocs;
 mod license_headers_check;
 mod nodepackage;
+mod reuse_compliance_check;
 
 #[derive(Debug, clap::Parser)]
 pub enum TaskCommand {
@@ -18,6 +19,8 @@ pub enum TaskCommand {
     CppDocs(CppDocsCommand),
     #[clap(name = "node_package")]
     NodePackage,
+    #[clap(name = "check_reuse_compliance")]
+    ReuseComplianceCheck(reuse_compliance_check::ReuseComplianceCheck),
 }
 
 #[derive(Debug, clap::Parser)]
@@ -80,6 +83,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         TaskCommand::CheckLicenseHeaders(cmd) => cmd.check_license_headers()?,
         TaskCommand::CppDocs(cmd) => cppdocs::generate(cmd.show_warnings)?,
         TaskCommand::NodePackage => nodepackage::generate()?,
+        TaskCommand::ReuseComplianceCheck(cmd) => cmd.check_reuse_compliance()?,
     };
 
     Ok(())
