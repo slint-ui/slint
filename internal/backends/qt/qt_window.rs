@@ -64,7 +64,7 @@ cpp! {{
                 return;
             }
             timer.stop();
-            rust!(SFPS_timerEvent [] { timer_event() });
+            rust!(Slint_timerEvent [] { timer_event() });
         }
 
     };
@@ -82,14 +82,14 @@ cpp! {{
             painter.setClipRect(rect());
             painter.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
             auto painter_ptr = &painter;
-            rust!(SFPS_paintEvent [rust_window: &QtWindow as "void*", painter_ptr: &mut QPainter as "QPainter*"] {
+            rust!(Slint_paintEvent [rust_window: &QtWindow as "void*", painter_ptr: &mut QPainter as "QPainter*"] {
                 rust_window.paint_event(painter_ptr)
             });
         }
 
         void resizeEvent(QResizeEvent *event) override {
             QSize size = event->size();
-            rust!(SFPS_resizeEvent [rust_window: &QtWindow as "void*", size: qttypes::QSize as "QSize"] {
+            rust!(Slint_resizeEvent [rust_window: &QtWindow as "void*", size: qttypes::QSize as "QSize"] {
                 rust_window.resize_event(size)
             });
         }
@@ -97,7 +97,7 @@ cpp! {{
         void mousePressEvent(QMouseEvent *event) override {
             QPoint pos = event->pos();
             int button = event->button();
-            rust!(SFPS_mousePressEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
+            rust!(Slint_mousePressEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let pos = Point::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
                 rust_window.mouse_event(MouseEvent::MousePressed{ pos, button })
@@ -106,7 +106,7 @@ cpp! {{
         void mouseReleaseEvent(QMouseEvent *event) override {
             QPoint pos = event->pos();
             int button = event->button();
-            rust!(SFPS_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
+            rust!(Slint_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let pos = Point::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
                 rust_window.mouse_event(MouseEvent::MouseReleased{ pos, button })
@@ -114,14 +114,14 @@ cpp! {{
             if (auto p = dynamic_cast<const SlintWidget*>(parent())) {
                 // FIXME: better way to close the popup
                 void *parent_window = p->rust_window;
-                rust!(SFPS_mouseReleaseEventPopup [parent_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
+                rust!(Slint_mouseReleaseEventPopup [parent_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
                     parent_window.close_popup();
                 });
             }
         }
         void mouseMoveEvent(QMouseEvent *event) override {
             QPoint pos = event->pos();
-            rust!(SFPS_mouseMoveEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
+            rust!(Slint_mouseMoveEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
                 let pos = Point::new(pos.x as _, pos.y as _);
                 rust_window.mouse_event(MouseEvent::MouseMoved{pos})
             });
@@ -132,7 +132,7 @@ cpp! {{
             if (delta.isNull()) {
                 delta = event->angleDelta();
             }
-            rust!(SFPS_mouseWheelEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPointF as "QPointF", delta: qttypes::QPoint as "QPoint"] {
+            rust!(Slint_mouseWheelEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPointF as "QPointF", delta: qttypes::QPoint as "QPoint"] {
                 let pos = Point::new(pos.x as _, pos.y as _);
                 let delta = Point::new(delta.x as _, delta.y as _);
                 rust_window.mouse_event(MouseEvent::MouseWheel{pos, delta})
@@ -143,7 +143,7 @@ cpp! {{
             uint modifiers = uint(event->modifiers());
             QString text =  event->text();
             int key = event->key();
-            rust!(SFPS_keyPress [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", modifiers: u32 as "uint"] {
+            rust!(Slint_keyPress [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", modifiers: u32 as "uint"] {
                 rust_window.key_event(key, text.clone(), modifiers, false);
             });
         }
@@ -151,14 +151,14 @@ cpp! {{
             uint modifiers = uint(event->modifiers());
             QString text =  event->text();
             int key = event->key();
-            rust!(SFPS_keyRelease [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", modifiers: u32 as "uint"] {
+            rust!(Slint_keyRelease [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", modifiers: u32 as "uint"] {
                 rust_window.key_event(key, text.clone(), modifiers, true);
             });
         }
 
         void customEvent(QEvent *event) override {
             if (event->type() == QEvent::User) {
-                rust!(SFPS_updateWindowProps [rust_window: &QtWindow as "void*"]{
+                rust!(Slint_updateWindowProps [rust_window: &QtWindow as "void*"]{
                    if let Some(window) = rust_window.self_weak.upgrade() { window.update_window_properties() }
                 });
             } else {
@@ -169,7 +169,7 @@ cpp! {{
         void changeEvent(QEvent *event) override {
             if (event->type() == QEvent::ActivationChange) {
                 bool active = isActiveWindow();
-                rust!(SFPS_updateWindowActivation [rust_window: &QtWindow as "void*", active: bool as "bool"]{
+                rust!(Slint_updateWindowActivation [rust_window: &QtWindow as "void*", active: bool as "bool"]{
                     if let Some(window) = rust_window.self_weak.upgrade() { window.set_active(active) }
                  });
             }
@@ -177,7 +177,7 @@ cpp! {{
         }
 
         QSize sizeHint() const override {
-            auto preferred_size = rust!(SFPS_sizeHint [rust_window: &QtWindow as "void*"] -> qttypes::QSize as "QSize" {
+            auto preferred_size = rust!(Slint_sizeHint [rust_window: &QtWindow as "void*"] -> qttypes::QSize as "QSize" {
                 let component_rc = rust_window.self_weak.upgrade().unwrap().component();
                 let component = ComponentRc::borrow_pin(&component_rc);
                 let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);

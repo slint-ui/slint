@@ -228,7 +228,7 @@ impl i_slint_core::backend::Backend for Backend {
                    TraitObject fnbox = {nullptr, nullptr};
                    ~EventHolder() {
                        if (fnbox.a != nullptr || fnbox.b != nullptr) {
-                           rust!(SFPS_delete_event_holder [fnbox: *mut dyn FnOnce() as "TraitObject"] {
+                           rust!(Slint_delete_event_holder [fnbox: *mut dyn FnOnce() as "TraitObject"] {
                                drop(Box::from_raw(fnbox))
                            });
                        }
@@ -243,7 +243,7 @@ impl i_slint_core::backend::Backend for Backend {
                         if (fnbox.a != nullptr || fnbox.b != nullptr) {
                             TraitObject fnbox = std::move(this->fnbox);
                             this->fnbox = {nullptr, nullptr};
-                            rust!(SFPS_call_event_holder [fnbox: *mut dyn FnOnce() as "TraitObject"] {
+                            rust!(Slint_call_event_holder [fnbox: *mut dyn FnOnce() as "TraitObject"] {
                                let b = Box::from_raw(fnbox);
                                b();
                             });

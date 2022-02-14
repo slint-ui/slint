@@ -11,7 +11,7 @@ struct StyleChangeListener : QWidget {
     bool event(QEvent *event) override {
         auto ty = event->type();
         if (ty == QEvent::StyleChange || ty == QEvent::PaletteChange || ty == QEvent::FontChange) {
-            rust!(SFPS_style_change_event [nativeStyleMetrics: Pin<&NativeStyleMetrics> as "const void*"] {
+            rust!(Slint_style_change_event [nativeStyleMetrics: Pin<&NativeStyleMetrics> as "const void*"] {
                 nativeStyleMetrics.init();
             });
         }
