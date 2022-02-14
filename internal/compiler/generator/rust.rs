@@ -141,7 +141,7 @@ pub fn generate(doc: &Document) -> TokenStream {
         .borrow()
         .iter()
         .map(|(path, er)| {
-            let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", er.id);
+            let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", er.id);
             match &er.kind {
                 crate::embedded_resources::EmbeddedResourcesKind::RawData => {
                     let data = embedded_file_tokens(path);
@@ -1516,7 +1516,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 quote!(slint::re_exports::Image::load_from_path(::std::path::Path::new(#path)).unwrap())
             }
             crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
-                let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
+                let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
                 let format = proc_macro2::Literal::byte_string(extension.as_bytes());
                 quote!(
                     slint::re_exports::Image::from(
@@ -1525,7 +1525,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 )
             }
             crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
-                let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
+                let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
                 quote!(
                     slint::re_exports::Image::from(#symbol)
                 )
@@ -1727,7 +1727,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::RegisterCustomFontByMemory => {
             if let [Expression::NumberLiteral(resource_id)] = &arguments {
                 let resource_id: usize = *resource_id as _;
-                let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
+                let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
                 quote!(slint::register_font_from_memory(#symbol.into());)
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByMemory {:?}", arguments)

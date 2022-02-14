@@ -502,7 +502,7 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
 
                     Declaration::Var(Var {
                         ty: "inline uint8_t".into(),
-                        name: format!("sfps_embedded_resource_{}", er.id),
+                        name: format!("slint_embedded_resource_{}", er.id),
                         array_size: Some(data.len()),
                         init: Some(init),
                     })
@@ -1936,7 +1936,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 crate::expression_tree::ImageReference::None => r#"slint::Image()"#.to_string(),
                 crate::expression_tree::ImageReference::AbsolutePath(path) => format!(r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#, escape_string(path.as_str())),
                 crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
-                    let symbol = format!("sfps_embedded_resource_{}", resource_id);
+                    let symbol = format!("slint_embedded_resource_{}", resource_id);
                     format!(
                         r#"slint::Image(slint::cbindgen_private::types::ImageInner::EmbeddedData(slint::cbindgen_private::Slice<uint8_t>{{std::data({}), std::size({})}}, slint::cbindgen_private::Slice<uint8_t>{{const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(u8"{}")), {}}}))"#,
                         symbol, symbol, escape_string(extension), extension.as_bytes().len()
@@ -2180,7 +2180,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::RegisterCustomFontByMemory => {
             if let [llr::Expression::NumberLiteral(resource_id)] = &arguments {
                 let resource_id: usize = *resource_id as _;
-                let symbol = format!("sfps_embedded_resource_{}", resource_id);
+                let symbol = format!("slint_embedded_resource_{}", resource_id);
                 format!(
                     "slint::private_api::register_font_from_data({}, std::size({}));",
                     symbol, symbol
