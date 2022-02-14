@@ -35,7 +35,7 @@ pub trait PlatformWindow {
     fn set_rendering_notifier(
         &self,
         _callback: Box<dyn crate::api::RenderingNotifier>,
-    ) -> std::result::Result<(), crate::api::SetRenderingNotifierError> {
+    ) -> Result<(), crate::api::SetRenderingNotifierError> {
         Err(crate::api::SetRenderingNotifierError::Unsupported)
     }
 
