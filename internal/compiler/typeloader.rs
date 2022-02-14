@@ -99,11 +99,22 @@ impl<'a> TypeLoader<'a> {
             Cow::from("fluent")
         });
 
+        let myself = Self {
+            global_type_registry,
+            compiler_config,
+            style: style.clone(),
+            all_documents: Default::default(),
+        };
+
         let known_styles = fileaccess::styles();
-        if !known_styles.contains(&style.as_ref()) {
+        if !known_styles.contains(&style.as_ref())
+            && myself
+                .find_file_in_include_path(None, &format!("{}/std-widgets.slint", style))
+                .is_none()
+        {
             diag.push_diagnostic_with_span(
                 format!(
-                    "Style {} in not known. Use one of [{}] instead",
+                    "Style {} in not known. Use one of the builtin styles [{}] or make sure your custom style is found in the include directories",
                     &style,
                     known_styles.join(", ")
                 ),
@@ -112,7 +123,7 @@ impl<'a> TypeLoader<'a> {
             );
         }
 
-        Self { global_type_registry, compiler_config, style, all_documents: Default::default() }
+        myself
     }
 
     /// Imports of files that don't have the .slint extension are returned.
