@@ -298,6 +298,24 @@ jobs:
         buildDirectory: ${{ runner.workspace }}/examples/build
         buildWithCMakeArgs: '--config Debug'
 
+  # test to compile the mcu backend with nightly and for the armv6 target (no_std)
+  mcu:
+    runs-on: ubuntu-20.04
+    steps:
+    - uses: actions/checkout@v2
+    - name: Install nightly rust
+      uses: actions-rs/toolchain@v1
+      with:
+          toolchain: nightly
+          override: true
+          target: thumbv6m-none-eabi
+    - uses: Swatinem/rust-cache@v1
+    - name: Check
+      uses: actions-rs/cargo@v1
+      with:
+          command: check
+          args: --target=thumbv6m-none-eabi -p i-slint-backend-mcu --no-default-features --features pico-st7789
+
   docs:
     uses: slint-ui/slint/.github/workflows/build_docs.yaml@master
 
