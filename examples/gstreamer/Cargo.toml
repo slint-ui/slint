@@ -1,0 +1,30 @@
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+[package]
+name = "gstreamer"
+version = "0.2.1"
+authors = ["Slint Developers <info@slint-ui.com>"]
+edition = "2021"
+build = "build.rs"
+license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
+publish = false
+
+[[bin]]
+path = "main.rs"
+name = "gstreamer"
+
+[dependencies]
+slint = { path = "../../api/rs/slint" }
+
+gstreamer = "0.18.0"
+gstreamer-app = "0.18.0"
+gstreamer-gl = "0.18.0"
+gstreamer-gl-egl = "0.18.0"
+gstreamer-video = "0.18.0"
+
+anyhow = "1.0"
+glutin_egl_sys = "0.1.5"
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }
