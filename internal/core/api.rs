@@ -5,7 +5,8 @@
 This module contains types that are public and re-exported in the slint-rs as well as the slint-interpreter crate as public API.
 */
 
-use std::rc::Rc;
+use alloc::boxed::Box;
+use alloc::rc::Rc;
 
 use crate::component::ComponentVTable;
 use crate::window::WindowRc;
@@ -18,7 +19,7 @@ pub enum GraphicsAPI<'a> {
     /// The rendering is done using OpenGL.
     NativeOpenGL {
         /// Use this function pointer to obtain access to the OpenGL implementation - similar to `eglGetProcAddress`.
-        get_proc_address: &'a dyn Fn(&str) -> *const std::ffi::c_void,
+        get_proc_address: &'a dyn Fn(&str) -> *const core::ffi::c_void,
     },
     /// The rendering is done on a HTML Canvas element using WebGL.
     WebGL {
@@ -30,8 +31,8 @@ pub enum GraphicsAPI<'a> {
     },
 }
 
-impl<'a> std::fmt::Debug for GraphicsAPI<'a> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<'a> core::fmt::Debug for GraphicsAPI<'a> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         match self {
             GraphicsAPI::NativeOpenGL { .. } => write!(f, "GraphicsAPI::NativeOpenGL"),
             GraphicsAPI::WebGL { context_type, .. } => {
@@ -116,7 +117,7 @@ impl Window {
     pub fn set_rendering_notifier(
         &self,
         callback: impl FnMut(RenderingState, &GraphicsAPI) + 'static,
-    ) -> std::result::Result<(), SetRenderingNotifierError> {
+    ) -> Result<(), SetRenderingNotifierError> {
         self.0.set_rendering_notifier(Box::new(callback))
     }
 
