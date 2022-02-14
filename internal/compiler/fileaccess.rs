@@ -52,7 +52,7 @@ mod builtin_library {
         widget_library()
             .iter()
             .filter_map(|(style, directory)| {
-                if directory.iter().any(|f| f.path == "sixtyfps_widgets.60") {
+                if directory.iter().any(|f| f.path == "std-widgets.slint") {
                     Some(*style)
                 } else {
                     None
