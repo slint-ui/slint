@@ -234,17 +234,13 @@ mod xpt2046 {
 #[inline(never)]
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
-    // Safety: it's ok to steal here since we are in the manic handler, and the rest of the code will not be run anymore
+    // Safety: it's ok to steal here since we are in the panic handler, and the rest of the code will not be run anymore
     let (mut pac, core) = unsafe { (pac::Peripherals::steal(), pac::CorePeripherals::steal()) };
 
     let sio = hal::sio::Sio::new(pac.SIO);
-
     let pins = rp_pico::Pins::new(pac.IO_BANK0, pac.PADS_BANK0, sio.gpio_bank0, &mut pac.RESETS);
     let mut led = pins.led.into_push_pull_output();
     led.set_high().unwrap();
-
-    // Reset the heap so we can allocate the format string
-    unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
 
     // Re-init the display
     let mut watchdog = hal::watchdog::Watchdog::new(pac.WATCHDOG);
@@ -288,33 +284,60 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
         bl.set_high().unwrap();
     }
 
-    display.init(&mut delay).unwrap();
-    display.set_orientation(st7789::Orientation::Landscape).unwrap();
-    display
-        .fill_solid(&display.bounding_box(), embedded_graphics::pixelcolor::Rgb565::WHITE)
-        .unwrap();
+    use core::fmt::Write;
     use embedded_graphics::{
         draw_target::DrawTarget,
         mono_font::{ascii::FONT_6X10, MonoTextStyle},
+        pixelcolor::Rgb565,
         prelude::*,
         text::Text,
     };
-    let style = MonoTextStyle::new(&FONT_6X10, embedded_graphics::pixelcolor::Rgb565::RED);
-    let mut y = 1;
-    let mut x = 0;
-    let width = display.bounding_box().size.width / 6 - 2;
-    for line in alloc::format!("{}", info).split_inclusive(|c| {
-        if c == '\n' || x > width {
-            x = 0;
-            true
-        } else {
-            x += 1;
-            false
-        }
-    }) {
-        Text::new(line, Point::new(0, y * 10), style).draw(&mut display).unwrap();
-        y += 1;
+
+    display.init(&mut delay).unwrap();
+    display.set_orientation(st7789::Orientation::Landscape).unwrap();
+    display.fill_solid(&display.bounding_box(), Rgb565::new(0x00, 0x25, 0xff)).unwrap();
+
+    struct WriteToScreen<'a, D> {
+        x: i32,
+        y: i32,
+        width: i32,
+        style: MonoTextStyle<'a, Rgb565>,
+        display: &'a mut D,
     }
+    let mut writer = WriteToScreen {
+        x: 0,
+        y: 1,
+        width: display.bounding_box().size.width as i32 / 6 - 1,
+        style: MonoTextStyle::new(&FONT_6X10, Rgb565::WHITE),
+        display: &mut display,
+    };
+    impl<'a, D: DrawTarget<Color = Rgb565>> Write for WriteToScreen<'a, D> {
+        fn write_str(&mut self, mut s: &str) -> Result<(), core::fmt::Error> {
+            while !s.is_empty() {
+                let (x, y) = (self.x, self.y);
+                let end_of_line = s
+                    .find(|c| {
+                        if c == '\n' || self.x > self.width {
+                            self.x = 0;
+                            self.y += 1;
+                            true
+                        } else {
+                            self.x += 1;
+                            false
+                        }
+                    })
+                    .unwrap_or(s.len());
+                let (line, rest) = s.split_at(end_of_line);
+                let sz = self.style.font.character_size;
+                Text::new(line, Point::new(x * sz.width as i32, y * sz.height as i32), self.style)
+                    .draw(self.display)
+                    .map_err(|_| core::fmt::Error)?;
+                s = rest.strip_prefix('\n').unwrap_or(rest);
+            }
+            Ok(())
+        }
+    }
+    write!(writer, "{}", info).unwrap();
 
     loop {
         delay.delay_ms(100);
