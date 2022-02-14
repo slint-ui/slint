@@ -70,6 +70,8 @@ jobs:
           args: -- --check
     - name: Check license headers
       run: cargo xtask check_license_headers --show-all
+    - name: Check reuse compliance
+      run: cargo xtask check_reuse_compliance
     - name: Build Cpp docs
       run: cargo xtask cppdocs --show-warnings
     - name: "Rust docs"
