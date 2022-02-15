@@ -268,14 +268,6 @@ pub fn register_font_from_path<P: AsRef<std::path::Path>>(
     i_slint_backend_selector::backend().register_font_from_path(path.as_ref())
 }
 
-/// This function can be used to register a pre-rendered, embedded bitmap font with Slint,
-/// for use with the `font-family` property.
-#[doc(hidden)]
-#[cfg(not(feature = "std"))]
-pub fn register_bitmap_font(font_data: &'static self::re_exports::BitmapFont) {
-    i_slint_backend_selector::backend().register_bitmap_font(font_data)
-}
-
 /// internal re_exports used by the macro generated
 #[doc(hidden)]
 pub mod re_exports {
@@ -439,6 +431,13 @@ pub mod internal {
         callback.set_handler(move |arg| {
             handler(<StrongRef as StrongComponentRef>::from_weak(&weak).unwrap(), arg)
         })
+    }
+
+    /// This function can be used to register a pre-rendered, embedded bitmap font with Slint,
+    /// for use with the `font-family` property.
+    #[doc(hidden)]
+    pub fn register_bitmap_font(font_data: &'static super::re_exports::BitmapFont) {
+        i_slint_backend_selector::backend().register_bitmap_font(font_data)
     }
 }
 

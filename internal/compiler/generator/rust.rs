@@ -1774,7 +1774,7 @@ fn compile_builtin_function_call(
             if let [Expression::NumberLiteral(resource_id)] = &arguments {
                 let resource_id: usize = *resource_id as _;
                 let symbol = format_ident!("SFPS_EMBEDDED_RESOURCE_{}", resource_id);
-                quote!(slint::register_bitmap_font(&#symbol);)
+                quote!(slint::internal::register_bitmap_font(&#symbol);)
             } else {
                 panic!("internal error: invalid args to RegisterBitmapFont must be a number")
             }
