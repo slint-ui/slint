@@ -26,3 +26,46 @@ TestCase := Window {
     property<length> offset_x: -f.viewport_x;
     property<length> offset_y: -f.viewport_y;
 }
+
+/*
+
+```rust
+// Test that basic scrolling works, and that releasing the mouse animates
+use slint::re_exports::{MouseEvent, PointerEventButton, euclid::point2, vtable, WindowHandleAccess};
+let instance = TestCase::new();
+let window = vtable::VRc::from(instance.clone_strong()).window_handle().clone();
+window.clone().process_mouse_input(MouseEvent::MouseMoved { pos: point2(300.0, 100.0) });
+slint::testing::mock_elapsed_time(5000);
+window.clone().process_mouse_input(MouseEvent::MousePressed { pos: point2(300.0, 100.0), button: PointerEventButton::left });
+assert_eq!(instance.get_offset_x(), 0.);
+assert_eq!(instance.get_offset_y(), 0.);
+window.clone().process_mouse_input(MouseEvent::MouseMoved { pos: point2(200.0, 50.0) });
+assert_eq!(instance.get_offset_x(), 100.);
+assert_eq!(instance.get_offset_y(), 50.);
+slint::testing::mock_elapsed_time(200);
+assert_eq!(instance.get_offset_x(), 100.);
+assert_eq!(instance.get_offset_y(), 50.);
+window.clone().process_mouse_input(MouseEvent::MouseMoved { pos: point2(100.0, 50.0) });
+assert_eq!(instance.get_offset_x(), 200.);
+assert_eq!(instance.get_offset_y(), 50.);
+window.clone().process_mouse_input(MouseEvent::MouseReleased { pos: point2(100.0, 50.0), button: PointerEventButton::left });
+// Start of the animation, the position is still unchanged
+assert_eq!(instance.get_offset_x(), 200.);
+assert_eq!(instance.get_offset_y(), 50.);
+slint::testing::mock_elapsed_time(50);
+// middle of the animation
+assert!(instance.get_offset_x() > 210.);
+assert!(instance.get_offset_y() > 60.);
+assert!(instance.get_offset_x() < 290.);
+assert!(instance.get_offset_y() < 70.);
+
+slint::testing::mock_elapsed_time(50);
+// end of the animation
+assert_eq!(instance.get_offset_x(), 300.);
+assert_eq!(instance.get_offset_y(), 75.);
+slint::testing::mock_elapsed_time(50);
+assert_eq!(instance.get_offset_x(), 300.);
+assert_eq!(instance.get_offset_y(), 75.);
+```
+
+*/
