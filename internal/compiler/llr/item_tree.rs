@@ -3,12 +3,31 @@
 
 use super::Expression;
 use crate::langtype::{NativeClass, Type};
+use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
 use std::num::NonZeroUsize;
 use std::rc::Rc;
 
 // Index in the `SubComponent::properties`
 pub type PropertyIndex = usize;
+
+#[derive(Debug, Clone, derive_more::Deref)]
+pub struct MutExpression(RefCell<Expression>);
+
+impl From<Expression> for MutExpression {
+    fn from(e: Expression) -> Self {
+        Self(e.into())
+    }
+}
+
+impl MutExpression {
+    pub fn visit_recursive(&self, visitor: &mut dyn FnMut(&Expression)) {
+        self.0.borrow().visit_recursive(visitor)
+    }
+    pub fn ty(&self, ctx: &dyn super::TypeResolutionContext) -> Type {
+        self.0.borrow().ty(ctx)
+    }
+}
 
 #[derive(Debug, Clone)]
 pub enum Animation {
@@ -19,7 +38,7 @@ pub enum Animation {
 
 #[derive(Debug, Clone)]
 pub struct BindingExpression {
-    pub expression: Expression,
+    pub expression: MutExpression,
     pub animation: Option<Animation>,
     /// When true, we can initialize the property with `set` otherwise, `set_binding` must be used
     pub is_constant: bool,
@@ -83,7 +102,7 @@ pub struct ListViewInfo {
 
 #[derive(Debug)]
 pub struct RepeatedElement {
-    pub model: Expression,
+    pub model: MutExpression,
     /// Within the sub_tree's root component
     pub index_prop: Option<PropertyIndex>,
     /// Within the sub_tree's root component
@@ -185,10 +204,10 @@ pub struct SubComponent {
     pub two_way_bindings: Vec<(PropertyReference, PropertyReference)>,
     pub const_properties: Vec<PropertyReference>,
     // Code that is run in the sub component constructor, after property initializations
-    pub init_code: Vec<Expression>,
+    pub init_code: Vec<MutExpression>,
 
-    pub layout_info_h: Expression,
-    pub layout_info_v: Expression,
+    pub layout_info_h: MutExpression,
+    pub layout_info_v: MutExpression,
 }
 
 impl SubComponent {
