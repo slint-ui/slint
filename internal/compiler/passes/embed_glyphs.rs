@@ -2,12 +2,23 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use crate::diagnostics::BuildDiagnostics;
+#[cfg(not(target_arch = "wasm32"))]
 use crate::embedded_resources::{BitmapFont, BitmapGlyph, BitmapGlyphs, CharacterMapEntry};
+#[cfg(not(target_arch = "wasm32"))]
 use crate::expression_tree::{BuiltinFunction, Expression, Unit};
 use crate::object_tree::*;
-use std::convert::TryFrom;
 use std::rc::Rc;
 
+#[cfg(target_arch = "wasm32")]
+pub fn embed_glyphs<'a>(
+    _component: &Rc<Component>,
+    _all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
+    _diag: &mut BuildDiagnostics,
+) -> bool {
+    false
+}
+
+#[cfg(not(target_arch = "wasm32"))]
 pub fn embed_glyphs<'a>(
     component: &Rc<Component>,
     all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
@@ -108,6 +119,7 @@ pub fn embed_glyphs<'a>(
     true
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn embed_font(family_name: String, font: fontdue::Font) -> BitmapFont {
     let mut pixel_sizes = std::env::var("SLINT_FONT_SIZES")
         .map(|sizes_str| {
