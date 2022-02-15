@@ -171,7 +171,7 @@ struct Scene {
 
 impl Scene {
     fn new(mut items: Vec<SceneItem>) -> Self {
-        items.sort_by(|a, b| compare_scene_item(a, b).reverse());
+        items.sort_unstable_by(|a, b| compare_scene_item(a, b).reverse());
         Self {
             future_items: items,
             current_line: 0,
