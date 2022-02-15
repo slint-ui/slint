@@ -287,7 +287,7 @@ impl Expression {
     }
 
     /// Call the visitor for each sub-expression (not recursive)
-    fn visit(&self, mut visitor: impl FnMut(&Self)) {
+    pub fn visit(&self, mut visitor: impl FnMut(&Self)) {
         match self {
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_) => {}

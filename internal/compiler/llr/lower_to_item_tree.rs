@@ -187,8 +187,8 @@ fn lower_sub_component(
         const_properties: Default::default(),
         init_code: Default::default(),
         // just initialize to dummy expression right now and it will be set later
-        layout_info_h: super::Expression::BoolLiteral(false),
-        layout_info_v: super::Expression::BoolLiteral(false),
+        layout_info_h: super::Expression::BoolLiteral(false).into(),
+        layout_info_v: super::Expression::BoolLiteral(false).into(),
     };
     let mut mapping = LoweredSubComponentMapping::default();
     let mut repeated = vec![];
@@ -279,7 +279,8 @@ fn lower_sub_component(
             sub_component.two_way_bindings.push((prop.clone(), ctx.map_property_reference(tw)))
         }
         if !matches!(binding.expression, tree_Expression::Invalid) {
-            let expression = super::lower_expression::lower_expression(&binding.expression, &ctx);
+            let expression =
+                super::lower_expression::lower_expression(&binding.expression, &ctx).into();
 
             let is_constant = binding.analysis.as_ref().map_or(false, |a| a.is_const);
             let animation = binding
@@ -331,7 +332,7 @@ fn lower_sub_component(
         .setup_code
         .borrow()
         .iter()
-        .map(|e| super::lower_expression::lower_expression(e, &ctx))
+        .map(|e| super::lower_expression::lower_expression(e, &ctx).into())
         .collect();
 
     sub_component.layout_info_h = super::lower_expression::get_layout_info(
@@ -339,13 +340,15 @@ fn lower_sub_component(
         &ctx,
         &component.root_constraints.borrow(),
         crate::layout::Orientation::Horizontal,
-    );
+    )
+    .into();
     sub_component.layout_info_v = super::lower_expression::get_layout_info(
         &component.root_element,
         &ctx,
         &component.root_constraints.borrow(),
         crate::layout::Orientation::Vertical,
-    );
+    )
+    .into();
 
     LoweredSubComponent { sub_component: Rc::new(sub_component), mapping }
 }
@@ -375,7 +378,7 @@ fn lower_repeated_component(elem: &ElementRc, ctx: &ExpressionContext) -> Repeat
     });
 
     RepeatedElement {
-        model: super::lower_expression::lower_expression(&repeated.model, ctx),
+        model: super::lower_expression::lower_expression(&repeated.model, ctx).into(),
         sub_tree: ItemTree {
             tree: make_tree(ctx.state, &component.root_element, &sc, &[]),
             root: Rc::try_unwrap(sc.sub_component).unwrap(),
@@ -441,7 +444,7 @@ fn lower_global(
         assert!(binding.borrow().two_way_bindings.is_empty());
         assert!(binding.borrow().animation.is_none());
         let expression =
-            super::lower_expression::lower_expression(&binding.borrow().expression, &ctx);
+            super::lower_expression::lower_expression(&binding.borrow().expression, &ctx).into();
 
         let nr = NamedReference::new(&global.root_element, prop);
         let property_index = match mapping.property_mapping[&nr] {

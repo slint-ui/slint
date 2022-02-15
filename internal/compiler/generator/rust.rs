@@ -355,7 +355,8 @@ fn handle_property_init(
     if let Type::Callback { args, return_type } = &prop_type {
         let mut ctx2 = ctx.clone();
         ctx2.argument_types = args;
-        let tokens_for_expression = compile_expression(&binding_expression.expression, &ctx2);
+        let tokens_for_expression =
+            compile_expression(&binding_expression.expression.borrow(), &ctx2);
         let as_ = if return_type.as_deref().map_or(true, |t| matches!(t, Type::Void)) {
             quote!(;)
         } else {
@@ -371,7 +372,8 @@ fn handle_property_init(
             });
         }));
     } else {
-        let tokens_for_expression = compile_expression(&binding_expression.expression, ctx);
+        let tokens_for_expression =
+            compile_expression(&binding_expression.expression.borrow(), ctx);
         init.push(if binding_expression.is_constant {
             let t = rust_type(prop_type).unwrap_or(quote!(_));
 
@@ -576,7 +578,7 @@ fn generate_sub_component(
         let repeater_id = format_ident!("repeater{}", idx);
         let rep_inner_component_id = self::inner_component_id(&repeated.sub_tree.root);
 
-        let mut model = compile_expression(&repeated.model, &ctx);
+        let mut model = compile_expression(&repeated.model.borrow(), &ctx);
         if repeated.model.ty(&ctx) == Type::Bool {
             model = quote!(slint::re_exports::ModelRc::new(#model as bool))
         }
@@ -696,10 +698,10 @@ fn generate_sub_component(
         quote!(slint::re_exports::VWeakMapped::<slint::re_exports::ComponentVTable, #parent_component_id>)
     });
 
-    init.extend(component.init_code.iter().map(|e| compile_expression(e, &ctx)));
+    init.extend(component.init_code.iter().map(|e| compile_expression(&e.borrow(), &ctx)));
 
-    let layout_info_h = compile_expression(&component.layout_info_h, &ctx);
-    let layout_info_v = compile_expression(&component.layout_info_v, &ctx);
+    let layout_info_h = compile_expression(&component.layout_info_h.borrow(), &ctx);
+    let layout_info_v = compile_expression(&component.layout_info_v.borrow(), &ctx);
 
     // FIXME! this is only public because of the ComponentHandle::Inner. we should find another way
     let visibility =

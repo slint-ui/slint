@@ -420,10 +420,11 @@ fn handle_property_init(
                     }});",
             prop_access = prop_access,
             params = params.join(", "),
-            code = compile_expression_wrap_return(&binding_expression.expression, &ctx2)
+            code = compile_expression_wrap_return(&binding_expression.expression.borrow(), &ctx2)
         ));
     } else {
-        let init_expr = compile_expression_wrap_return(&binding_expression.expression, ctx);
+        let init_expr =
+            compile_expression_wrap_return(&binding_expression.expression.borrow(), ctx);
 
         init.push(if binding_expression.is_constant {
             format!("{}.set({});", prop_access, init_expr)
@@ -1248,7 +1249,7 @@ fn generate_sub_component(
 
         let repeater_id = format!("repeater_{}", idx);
 
-        let mut model = compile_expression(&repeated.model, &ctx);
+        let mut model = compile_expression(&repeated.model.borrow(), &ctx);
         if repeated.model.ty(&ctx) == Type::Bool {
             // bool converts to int
             // FIXME: don't do a heap allocation here
@@ -1303,7 +1304,7 @@ fn generate_sub_component(
 
     init.extend(subcomponent_init_code);
     init.extend(properties_init_code);
-    init.extend(component.init_code.iter().map(|e| compile_expression(e, &ctx)));
+    init.extend(component.init_code.iter().map(|e| compile_expression(&e.borrow(), &ctx)));
 
     target_struct.members.push((
         field_access,
@@ -1325,8 +1326,8 @@ fn generate_sub_component(
                 "[[maybe_unused]] auto self = this;".into(),
                 format!(
                     "return o == slint::cbindgen_private::Orientation::Horizontal ? {} : {};",
-                    compile_expression(&component.layout_info_h, &ctx),
-                    compile_expression(&component.layout_info_v, &ctx)
+                    compile_expression(&component.layout_info_h.borrow(), &ctx),
+                    compile_expression(&component.layout_info_v.borrow(), &ctx)
                 ),
             ]),
             ..Default::default()
