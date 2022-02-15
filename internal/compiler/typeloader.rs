@@ -629,4 +629,8 @@ fn test_unknown_style() {
     let _loader = TypeLoader::new(global_registry, &compiler_config, &mut build_diagnostics);
 
     assert!(build_diagnostics.has_error());
+    let diags = build_diagnostics.to_string_vec();
+    assert_eq!(diags.len(), 1);
+    assert!(diags[0].contains("Style custom_style in not known. Use one of the builtin styles [fluent, native, ugly] or make sure your custom style is found in the include directories",
+))
 }
