@@ -159,7 +159,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
           command: test
-          args: --verbose -p  test-driver-cpp
+          args: --verbose -p  test-driver-cpp --features slint-cpp/backend-qt
     - name: Clean cache # Otherwise the cache is much too big
       if: matrix.os == 'ubuntu-20.04'
       run: |
