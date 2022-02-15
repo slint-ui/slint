@@ -995,6 +995,8 @@ pub struct PropertyAnimation {
 
 impl Default for PropertyAnimation {
     fn default() -> Self {
+        // Defaults for PropertyAnimation are defined here (for internal Rust code doing programmatic animations)
+        // as well as in `builtins.slint` (for generated C++ and Rust code)
         Self { delay: 0, duration: 0, iteration_count: 1., easing: Default::default() }
     }
 }
