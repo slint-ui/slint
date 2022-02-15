@@ -18,4 +18,4 @@ path = "lib.rs"
 [dependencies]
 i-slint-core = { version = "=0.2.1", path = "../../../internal/core" }
 
-image = { version = "0.24.0", default-features = false, features = ["png"] }
+image = { version = "0.24.0", default-features = false, features = ["png", "jpeg"] }
