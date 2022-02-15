@@ -70,7 +70,8 @@ pub fn render_window_frame(
         let line = scene.process_line();
         for span in line.spans.iter().rev() {
             match span.command {
-                SceneCommand::Rectangle { color } => {
+                SceneCommand::Rectangle => {
+                    let color = scene.rectangles[span.data_index];
                     let alpha = color.alpha();
                     if alpha == u8::MAX {
                         line_buffer[(span.x) as usize..(span.x + span.width) as usize]
@@ -89,14 +90,10 @@ pub fn render_window_frame(
                         }
                     }
                 }
-                SceneCommand::Texture {
-                    data,
-                    format,
-                    stride,
-                    source_width,
-                    source_height,
-                    color,
-                } => {
+                SceneCommand::Texture => {
+                    let SceneTexture { data, format, stride, source_width, source_height, color } =
+                        scene.textures[span.data_index];
+
                     let sx = span.width as f32 / source_width as f32;
                     let sy = span.height as f32 / source_height as f32;
                     let bpp = bpp(format) as usize;
@@ -167,16 +164,21 @@ struct Scene {
 
     /// Some staging buffer of scene item
     next_items: VecDeque<SceneItem>,
+
+    rectangles: Vec<Color>,
+    textures: Vec<SceneTexture>,
 }
 
 impl Scene {
-    fn new(mut items: Vec<SceneItem>) -> Self {
+    fn new(mut items: Vec<SceneItem>, rectangles: Vec<Color>, textures: Vec<SceneTexture>) -> Self {
         items.sort_unstable_by(|a, b| compare_scene_item(a, b).reverse());
         Self {
             future_items: items,
             current_line: 0,
             current_items: Default::default(),
             next_items: Default::default(),
+            rectangles,
+            textures,
         }
     }
 
@@ -231,6 +233,7 @@ struct SceneItem {
     // this is the order of the item from which it is in the item tree
     z: u16,
     command: SceneCommand,
+    data_index: usize, // SceneCommand specific index in textures, etc. arrays for additional data
 }
 
 struct LineCommand {
@@ -256,19 +259,20 @@ fn compare_scene_item(a: &SceneItem, b: &SceneItem) -> core::cmp::Ordering {
 }
 
 #[derive(Clone, Copy)]
+#[repr(u8)]
 enum SceneCommand {
-    Rectangle {
-        color: Color,
-    },
-    Texture {
-        data: &'static [u8],
-        format: PixelFormat,
-        /// bytes between two lines in the source
-        stride: u16,
-        source_width: u16,
-        source_height: u16,
-        color: Color,
-    },
+    Rectangle,
+    Texture,
+}
+
+struct SceneTexture {
+    data: &'static [u8],
+    format: PixelFormat,
+    /// bytes between two lines in the source
+    stride: u16,
+    source_width: u16,
+    source_height: u16,
+    color: Color,
 }
 
 fn prepare_scene(runtime_window: Rc<i_slint_core::window::Window>, size: SizeF) -> Scene {
@@ -286,11 +290,13 @@ fn prepare_scene(runtime_window: Rc<i_slint_core::window::Window>, size: SizeF) 
             );
         }
     });
-    Scene::new(prepare_scene.items)
+    Scene::new(prepare_scene.items, prepare_scene.rectangles, prepare_scene.textures)
 }
 
 struct PrepareScene {
     items: Vec<SceneItem>,
+    rectangles: Vec<Color>,
+    textures: Vec<SceneTexture>,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     scale_factor: ScaleFactor,
@@ -301,6 +307,8 @@ impl PrepareScene {
     fn new(size: SizeF, scale_factor: ScaleFactor, default_font: FontRequest) -> Self {
         Self {
             items: vec![],
+            rectangles: vec![],
+            textures: vec![],
             state_stack: vec![],
             current_state: RenderState {
                 alpha: 1.,
@@ -318,7 +326,17 @@ impl PrepareScene {
             && self.current_state.clip.intersects(rect)
     }
 
-    fn new_scene_item(&mut self, geometry: RectF, command: SceneCommand) {
+    fn new_scene_rectangle(&mut self, geometry: RectF, color: Color) {
+        self.rectangles.push(color);
+        self.new_scene_item(geometry, SceneCommand::Rectangle, self.rectangles.len() - 1);
+    }
+
+    fn new_scene_texture(&mut self, geometry: RectF, texture: SceneTexture) {
+        self.textures.push(texture);
+        self.new_scene_item(geometry, SceneCommand::Texture, self.textures.len() - 1);
+    }
+
+    fn new_scene_item(&mut self, geometry: RectF, command: SceneCommand, data_index: usize) {
         let z = self.items.len() as u16;
         self.items.push(SceneItem {
             x: (self.current_state.offset.x + geometry.origin.x) * self.scale_factor,
@@ -327,6 +345,7 @@ impl PrepareScene {
             height: geometry.size.height * self.scale_factor,
             z,
             command,
+            data_index,
         });
     }
 
@@ -356,9 +375,9 @@ impl PrepareScene {
                         let actual_x = dest_rect.origin.x - t.rect.origin.x;
                         let actual_y = dest_rect.origin.y - t.rect.origin.y;
                         let stride = t.rect.width() as u16 * bpp(t.format);
-                        self.new_scene_item(
+                        self.new_scene_texture(
                             dest_rect.cast().scale(sx, sy),
-                            SceneCommand::Texture {
+                            SceneTexture {
                                 data: &data.as_slice()[(t.index
                                     + (stride as usize) * (actual_y as usize)
                                     + (bpp(t.format) as usize) * (actual_x as usize))..],
@@ -397,7 +416,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
             if color.alpha() == 0 {
                 return;
             }
-            self.new_scene_item(geom, SceneCommand::Rectangle { color });
+            self.new_scene_rectangle(geom, color);
         }
     }
 
@@ -411,7 +430,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
                 if let Some(r) =
                     geom.inflate(-border, -border).intersection(&self.current_state.clip)
                 {
-                    self.new_scene_item(r, SceneCommand::Rectangle { color });
+                    self.new_scene_rectangle(r, color);
                 }
             }
             if border > 0.01 {
@@ -421,7 +440,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
                 if border_color.alpha() > 0 {
                     let mut add_border = |r: RectF| {
                         if let Some(r) = r.intersection(&self.current_state.clip) {
-                            self.new_scene_item(r, SceneCommand::Rectangle { color: border_color });
+                            self.new_scene_rectangle(r, border_color);
                         }
                     };
                     add_border(euclid::rect(0., 0., geom.width(), border));
@@ -489,9 +508,9 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
             {
                 let stride = glyph.width;
 
-                self.new_scene_item(
+                self.new_scene_texture(
                     dest_rect,
-                    SceneCommand::Texture {
+                    SceneTexture {
                         data: glyph.data.as_slice(),
                         stride,
                         source_width: glyph.width,
