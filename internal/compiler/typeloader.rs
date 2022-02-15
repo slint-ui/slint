@@ -573,3 +573,60 @@ fn test_manual_import() {
     assert!(!build_diagnostics.has_error());
     assert!(maybe_button_type.is_some());
 }
+
+#[test]
+fn test_builtin_style() {
+    let test_source_path: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader"].iter().collect();
+
+    let incdir = test_source_path.join("custom_style");
+
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.include_paths = vec![incdir];
+    compiler_config.style = Some("fluent".into());
+
+    let global_registry = TypeRegister::builtin();
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let _loader = TypeLoader::new(global_registry, &compiler_config, &mut build_diagnostics);
+
+    assert!(!build_diagnostics.has_error());
+}
+
+#[test]
+fn test_user_style() {
+    let test_source_path: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader"].iter().collect();
+
+    let incdir = test_source_path.join("custom_style");
+
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.include_paths = vec![incdir];
+    compiler_config.style = Some("TestStyle".into());
+
+    let global_registry = TypeRegister::builtin();
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let _loader = TypeLoader::new(global_registry, &compiler_config, &mut build_diagnostics);
+
+    assert!(!build_diagnostics.has_error());
+}
+
+#[test]
+fn test_unknown_style() {
+    let test_source_path: std::path::PathBuf =
+        [env!("CARGO_MANIFEST_DIR"), "tests", "typeloader"].iter().collect();
+
+    let incdir = test_source_path.join("custom_style");
+
+    let mut compiler_config =
+        CompilerConfiguration::new(crate::generator::OutputFormat::Interpreter);
+    compiler_config.include_paths = vec![incdir];
+    compiler_config.style = Some("FooBar".into());
+
+    let global_registry = TypeRegister::builtin();
+    let mut build_diagnostics = BuildDiagnostics::default();
+    let _loader = TypeLoader::new(global_registry, &compiler_config, &mut build_diagnostics);
+
+    assert!(build_diagnostics.has_error());
+}
