@@ -214,7 +214,7 @@ impl Scene {
 }
 
 #[derive(Clone, Copy)]
-struct ScaleFactor(pub f32);
+pub struct ScaleFactor(pub f32);
 impl core::ops::Mul<ScaleFactor> for f32 {
     type Output = u16;
     fn mul(self, rhs: ScaleFactor) -> Self::Output {
@@ -472,7 +472,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
 
     fn draw_text(&mut self, text: Pin<&i_slint_core::items::Text>) {
         let font_request = text.unresolved_font_request().merge(&self.default_font);
-        let (font, glyphs) = crate::fonts::match_font(&font_request);
+        let (font, glyphs) = crate::fonts::match_font(&font_request, self.scale_factor);
 
         let color = text.color().color();
 

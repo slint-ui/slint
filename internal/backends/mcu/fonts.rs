@@ -3,20 +3,23 @@
 
 use alloc::vec::Vec;
 use core::cell::RefCell;
-use core::convert::TryFrom;
 
 #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
 use i_slint_core::thread_local_ as thread_local;
 
+use super::renderer::ScaleFactor;
 use i_slint_core::graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, FontRequest, Size};
 
 thread_local! {
     static FONTS: RefCell<Vec<&'static BitmapFont>> = RefCell::default()
 }
 
-pub const DEFAULT_FONT_SIZE: u16 = 12;
+pub const DEFAULT_FONT_SIZE: f32 = 12.;
 
-pub fn match_font(request: &FontRequest) -> (&'static BitmapFont, &'static BitmapGlyphs) {
+pub fn match_font(
+    request: &FontRequest,
+    scale_factor: ScaleFactor,
+) -> (&'static BitmapFont, &'static BitmapGlyphs) {
     let font = FONTS.with(|fonts| {
         let fonts = fonts.borrow();
         let fallback_font =
@@ -33,10 +36,7 @@ pub fn match_font(request: &FontRequest) -> (&'static BitmapFont, &'static Bitma
         })
     });
 
-    let requested_pixel_size = request
-        .pixel_size
-        .and_then(|size| u16::try_from(size as i64).ok())
-        .unwrap_or(DEFAULT_FONT_SIZE);
+    let requested_pixel_size = request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE) * scale_factor;
 
     let nearest_pixel_size = font
         .glyphs
@@ -76,8 +76,13 @@ pub fn glyphs_for_text<'a>(
     })
 }
 
-pub fn text_size(font_request: FontRequest, text: &str, _max_width: Option<f32>) -> Size {
-    let (font, glyphs) = match_font(&font_request);
+pub fn text_size(
+    font_request: FontRequest,
+    text: &str,
+    _max_width: Option<f32>,
+    scale_factor: ScaleFactor,
+) -> Size {
+    let (font, glyphs) = match_font(&font_request, scale_factor);
 
     let width = glyphs_for_text(font, glyphs, text)
         .last()

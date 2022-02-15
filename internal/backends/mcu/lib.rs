@@ -136,10 +136,12 @@ mod the_backend {
             text: &str,
             max_width: Option<f32>,
         ) -> Size {
+            let runtime_window = self.self_weak.upgrade().unwrap();
             crate::fonts::text_size(
-                font_request.merge(&self.self_weak.upgrade().unwrap().default_font_properties()),
+                font_request.merge(&runtime_window.default_font_properties()),
                 text,
                 max_width,
+                renderer::ScaleFactor(runtime_window.scale_factor()),
             )
         }
 
