@@ -154,7 +154,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
           command: build
-          args: --lib -p slint-cpp --features testing
+          args: --lib -p slint-cpp --features testing,backend-qt
     - name: Run tests
       uses: actions-rs/cargo@v1
       with:
