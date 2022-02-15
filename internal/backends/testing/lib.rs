@@ -74,6 +74,11 @@ impl i_slint_core::backend::Backend for TestingBackend {
             ImageInner::StaticTextures { size, .. } => *size,
         }
     }
+
+    fn duration_since_start(&'static self) -> core::time::Duration {
+        // The slint::testing::mock_elapsed_time updates the animation tick directly
+        core::time::Duration::from_millis(i_slint_core::animations::current_tick().0)
+    }
 }
 
 #[derive(Default)]
