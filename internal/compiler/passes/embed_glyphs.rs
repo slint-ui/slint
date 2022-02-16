@@ -121,11 +121,19 @@ pub fn embed_glyphs<'a>(
 
 #[cfg(not(target_arch = "wasm32"))]
 fn embed_font(family_name: String, font: fontdue::Font) -> BitmapFont {
+    let scale_factor = std::env::var("SLINT_SCALE_FACTOR")
+        .ok()
+        .and_then(|x| x.parse::<f64>().ok())
+        .filter(|f| *f > 0.)
+        .unwrap_or(1.);
+
     let mut pixel_sizes = std::env::var("SLINT_FONT_SIZES")
         .map(|sizes_str| {
             sizes_str
                 .split(',')
-                .map(|size_str| size_str.parse::<u16>().expect("invalid font size"))
+                .map(|size_str| {
+                    (size_str.parse::<f64>().expect("invalid font size") * scale_factor) as i16
+                })
                 .collect::<Vec<_>>()
         })
         .expect("please specify SLINT_FONT_SIZES");
@@ -156,8 +164,8 @@ fn embed_font(family_name: String, font: fontdue::Font) -> BitmapFont {
                 let glyph = BitmapGlyph {
                     x: i16::try_from(metrics.xmin).expect("large glyph x coordinate"),
                     y: i16::try_from(metrics.ymin).expect("large glyph y coordinate"),
-                    width: u16::try_from(metrics.width).expect("large width"),
-                    height: u16::try_from(metrics.height).expect("large height"),
+                    width: i16::try_from(metrics.width).expect("large width"),
+                    height: i16::try_from(metrics.height).expect("large height"),
                     x_advance: i16::try_from(metrics.advance_width as i64)
                         .expect("large advance width"),
                     data: bitmap,

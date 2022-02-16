@@ -23,7 +23,7 @@ fn oom(layout: core::alloc::Layout) -> ! {
 }
 use alloc_cortex_m::CortexMHeap;
 
-use crate::Devices;
+use crate::{Devices, PhysicalRect, PhysicalSize};
 
 const HEAP_SIZE: usize = 128 * 1024;
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
@@ -113,13 +113,13 @@ struct PicoDevices<Display, Touch> {
 impl<Display: Devices, IRQ: InputPin, CS: OutputPin<Error = IRQ::Error>, SPI: Transfer<u8>> Devices
     for PicoDevices<Display, xpt2046::XPT2046<IRQ, CS, SPI>>
 {
-    fn screen_size(&self) -> i_slint_core::graphics::IntSize {
+    fn screen_size(&self) -> PhysicalSize {
         self.display.screen_size()
     }
 
     fn fill_region(
         &mut self,
-        region: i_slint_core::graphics::IntRect,
+        region: PhysicalRect,
         pixels: &[embedded_graphics::pixelcolor::Rgb888],
     ) {
         self.display.fill_region(region, pixels)

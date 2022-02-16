@@ -186,8 +186,9 @@ impl PlatformWindow for SimulatorWindow {
             font_request.merge(&self.self_weak.upgrade().unwrap().default_font_properties()),
             text,
             max_width,
-            crate::renderer::ScaleFactor(runtime_window.scale_factor()),
+            crate::ScaleFactor::new(runtime_window.scale_factor()),
         )
+        .to_untyped()
     }
 
     fn text_input_byte_offset_for_position(
