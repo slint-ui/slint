@@ -390,8 +390,21 @@ fn process_window_event(
             corelib::animations::update_animations();
             // On Windows, X11 and Wayland sequences like Ctrl+C will send a ReceivedCharacter after the pressed keyboard input event,
             // with a control character. We choose not to forward those but try to use the current key code instead.
+            //
+            // We do not want to change the text to the value of the key press when that was a
+            // control key itself: We already sent that event when handling the KeyboardInput.
             let text: Option<SharedString> = if ch.is_control() {
-                window.currently_pressed_key_code().take().and_then(winit_key_code_to_string)
+                window
+                    .currently_pressed_key_code()
+                    .take()
+                    .and_then(winit_key_code_to_string)
+                    .and_then(|key_text| {
+                        if key_text.chars().next().map_or(false, char::is_control) {
+                            None
+                        } else {
+                            Some(key_text)
+                        }
+                    })
             } else {
                 Some(ch.to_string().into())
             };
