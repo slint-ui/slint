@@ -1733,7 +1733,7 @@ fn compile_builtin_function_call(
                 quote!(
                     #window_tokens.show_popup(
                         &VRc::into_dyn(#popup_window_id::new(_self.self_weak.get().unwrap().clone()).into()),
-                        Point::new(#x, #y),
+                        Point::new(#x as f32, #y as f32),
                         #parent_component
                     );
                 )
