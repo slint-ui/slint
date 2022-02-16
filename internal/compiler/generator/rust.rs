@@ -797,14 +797,11 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
 
     let mut init = vec![];
 
-    let ctx = EvaluationContext {
-        public_component: root,
-        current_sub_component: None,
-        current_global: Some(global),
-        generator_state: quote!(compilation_error("can't access root from global")),
-        parent: None,
-        argument_types: &[],
-    };
+    let ctx = EvaluationContext::new_global(
+        root,
+        global,
+        quote!(compilation_error("can't access root from global")),
+    );
 
     for (property_index, expression) in global.init_values.iter().enumerate() {
         if let Some(expression) = expression.as_ref() {
