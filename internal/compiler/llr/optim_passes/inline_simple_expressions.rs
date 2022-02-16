@@ -221,12 +221,10 @@ fn property_binding_and_analysis<'a>(
         }
     }
 }
-/*
-fn global_index(public_component: &PublicComponent, g: &crate::llr::GlobalComponent) -> usize {
-    // ideally there should be a better way to do this
-    public_component.globals.iter().position(|g2| g2.name == g.name).unwrap()
-}*/
 
+/// Maps between two evaluation context.
+/// This allows to go from the current subcomponent's context, to the context
+/// relative to the binding we want to inline
 #[derive(Debug, Clone)]
 enum ContextMap {
     Identity,
