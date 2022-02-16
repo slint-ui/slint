@@ -61,9 +61,7 @@ usvg = "0.23"
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
 libc = { version = "0.2" }
-# Require font-config from the system on Linux. Issue #88 indicates that the copy provided by servo-fontconfig may be incompatible
-# with distros at times.
-servo-fontconfig = { version = "0.5", features = [ "force_system_lib" ] }
+yeslogic-fontconfig-sys = "3.2.0"
 
 [dev-dependencies]
 i-slint-parser-test-macro = { path = "./parser-test-macro" }

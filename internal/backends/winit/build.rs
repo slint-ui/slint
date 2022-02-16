@@ -11,4 +11,10 @@ fn main() {
        skia_backend_metal: { all(target_os = "macos", not(feature = "renderer-winit-skia-opengl")) },
        skia_backend_d3d: { all(target_family = "windows", not(feature = "renderer-winit-skia-opengl")) },
     }
+
+    println!("cargo:rerun-if-env-changed=RUST_FONTCONFIG_DLOPEN");
+    let dlopen = std::env::var("RUST_FONTCONFIG_DLOPEN").is_ok();
+    if dlopen {
+        println!("cargo:rustc-cfg=feature=\"fontconfig-dlopen\"");
+    }
 }
