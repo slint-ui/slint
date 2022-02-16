@@ -285,75 +285,90 @@ impl Expression {
             }
         }
     }
+}
 
-    /// Call the visitor for each sub-expression (not recursive)
-    pub fn visit(&self, mut visitor: impl FnMut(&Self)) {
-        match self {
+macro_rules! visit_impl {
+    ($self:ident, $visitor:ident, $as_ref:ident, $iter:ident, $values:ident) => {
+        match $self {
             Expression::StringLiteral(_) => {}
             Expression::NumberLiteral(_) => {}
             Expression::BoolLiteral(_) => {}
             Expression::PropertyReference(_) => {}
             Expression::FunctionParameterReference { .. } => {}
-            Expression::StoreLocalVariable { value, .. } => visitor(value),
+            Expression::StoreLocalVariable { value, .. } => $visitor(value),
             Expression::ReadLocalVariable { .. } => {}
-            Expression::StructFieldAccess { base, .. } => visitor(base),
+            Expression::StructFieldAccess { base, .. } => $visitor(base),
             Expression::ArrayIndex { array, index } => {
-                visitor(array);
-                visitor(index);
+                $visitor(array);
+                $visitor(index);
             }
-            Expression::Cast { from, .. } => visitor(from),
-            Expression::CodeBlock(b) => b.iter().for_each(visitor),
-            Expression::BuiltinFunctionCall { arguments, .. } => arguments.iter().for_each(visitor),
-            Expression::CallBackCall { arguments, .. } => arguments.iter().for_each(visitor),
+            Expression::Cast { from, .. } => $visitor(from),
+            Expression::CodeBlock(b) => b.$iter().for_each($visitor),
+            Expression::BuiltinFunctionCall { arguments, .. } => {
+                arguments.$iter().for_each($visitor)
+            }
+            Expression::CallBackCall { arguments, .. } => arguments.$iter().for_each($visitor),
             Expression::ExtraBuiltinFunctionCall { arguments, .. } => {
-                arguments.iter().for_each(visitor)
+                arguments.$iter().for_each($visitor)
             }
-            Expression::PropertyAssignment { value, .. } => visitor(value),
-            Expression::ModelDataAssignment { value, .. } => visitor(value),
+            Expression::PropertyAssignment { value, .. } => $visitor(value),
+            Expression::ModelDataAssignment { value, .. } => $visitor(value),
             Expression::ArrayIndexAssignment { array, index, value } => {
-                visitor(array);
-                visitor(index);
-                visitor(value);
+                $visitor(array);
+                $visitor(index);
+                $visitor(value);
             }
             Expression::BinaryExpression { lhs, rhs, .. } => {
-                visitor(lhs);
-                visitor(rhs);
+                $visitor(lhs);
+                $visitor(rhs);
             }
             Expression::UnaryOp { sub, .. } => {
-                visitor(sub);
+                $visitor(sub);
             }
             Expression::ImageReference { .. } => {}
             Expression::Condition { condition, true_expr, false_expr } => {
-                visitor(condition);
-                visitor(true_expr);
-                visitor(false_expr);
+                $visitor(condition);
+                $visitor(true_expr);
+                $visitor(false_expr);
             }
-            Expression::Array { values, .. } => values.iter().for_each(visitor),
-            Expression::Struct { values, .. } => values.values().for_each(visitor),
+            Expression::Array { values, .. } => values.$iter().for_each($visitor),
+            Expression::Struct { values, .. } => values.$values().for_each($visitor),
             Expression::EasingCurve(_) => {}
             Expression::LinearGradient { angle, stops } => {
-                visitor(angle);
+                $visitor(angle);
                 for (a, b) in stops {
-                    visitor(a);
-                    visitor(b);
+                    $visitor(a);
+                    $visitor(b);
                 }
             }
             Expression::EnumerationValue(_) => {}
             Expression::ReturnStatement(_) => {}
             Expression::LayoutCacheAccess { repeater_index, .. } => {
                 if let Some(repeater_index) = repeater_index {
-                    visitor(repeater_index);
+                    $visitor(repeater_index);
                 }
             }
             Expression::BoxLayoutFunction { elements, sub_expression, .. } => {
-                visitor(sub_expression);
-                elements.iter().filter_map(|x| x.as_ref().left()).for_each(visitor);
+                $visitor(sub_expression);
+                elements.$iter().filter_map(|x| x.$as_ref().left()).for_each($visitor);
             }
             Expression::ComputeDialogLayoutCells { roles, unsorted_cells, .. } => {
-                visitor(roles);
-                visitor(unsorted_cells);
+                $visitor(roles);
+                $visitor(unsorted_cells);
             }
         }
+    };
+}
+
+impl Expression {
+    /// Call the visitor for each sub-expression (not recursive)
+    pub fn visit(&self, mut visitor: impl FnMut(&Self)) {
+        visit_impl!(self, visitor, as_ref, iter, values)
+    }
+
+    /// Call the visitor for each sub-expression (not recursive)
+    pub fn visit_mut(&mut self, mut visitor: impl FnMut(&mut Self)) {
+        visit_impl!(self, visitor, as_mut, iter_mut, values_mut)
     }
 
     /// Visit itself and each sub expression recursively
@@ -372,7 +387,7 @@ pub trait TypeResolutionContext {
 }
 
 #[derive(Clone, Copy)]
-pub struct ParentCtx<'a, T> {
+pub struct ParentCtx<'a, T = ()> {
     pub ctx: &'a EvaluationContext<'a, T>,
     // Index of the repeater within the ctx.current_sub_component
     pub repeater_index: Option<usize>,
@@ -385,7 +400,7 @@ impl<'a, T> ParentCtx<'a, T> {
 }
 
 #[derive(Clone)]
-pub struct EvaluationContext<'a, T> {
+pub struct EvaluationContext<'a, T = ()> {
     pub public_component: &'a super::PublicComponent,
     pub current_sub_component: Option<&'a super::SubComponent>,
     pub current_global: Option<&'a super::GlobalComponent>,
