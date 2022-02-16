@@ -311,6 +311,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
             }
         }
 
+        #[allow(dead_code)] // FIXME: some global are unused because of optimization, we should then remove them completely
         struct #global_container_id {
             #(#global_names : ::core::pin::Pin<slint::re_exports::Rc<#global_types>>,)*
         }
