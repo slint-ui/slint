@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use super::Expression;
+use super::{EvaluationContext, Expression, ParentCtx};
 use crate::langtype::{NativeClass, Type};
 use std::cell::RefCell;
 use std::collections::{BTreeMap, HashMap};
@@ -270,6 +270,54 @@ pub struct PublicComponent {
     pub item_tree: ItemTree,
     pub sub_components: Vec<Rc<SubComponent>>,
     pub globals: Vec<GlobalComponent>,
+}
+
+impl PublicComponent {
+    pub fn for_each_sub_components<'a>(
+        &'a self,
+        visitor: &mut dyn FnMut(&'a SubComponent, &EvaluationContext<'_>),
+    ) {
+        fn visit_component<'a>(
+            root: &'a PublicComponent,
+            c: &'a SubComponent,
+            visitor: &mut dyn FnMut(&'a SubComponent, &EvaluationContext<'_>),
+            parent: Option<ParentCtx<'_>>,
+        ) {
+            let ctx = EvaluationContext::new_sub_component(root, c, (), parent);
+            visitor(c, &ctx);
+            for (idx, r) in c.repeated.iter().enumerate() {
+                visit_component(
+                    root,
+                    &r.sub_tree.root,
+                    visitor,
+                    Some(ParentCtx::new(&ctx, Some(idx))),
+                );
+            }
+            for x in &c.popup_windows {
+                visit_component(root, &x.root, visitor, Some(ParentCtx::new(&ctx, None)));
+            }
+        }
+        for c in &self.sub_components {
+            visit_component(self, c, visitor, None);
+        }
+        visit_component(self, &self.item_tree.root, visitor, None);
+    }
+
+    pub fn for_each_expression<'a>(
+        &'a self,
+        visitor: &mut dyn FnMut(&'a super::MutExpression, &EvaluationContext<'_>),
+    ) {
+        self.for_each_sub_components(&mut |sc, ctx| {
+            for e in &sc.init_code {
+                visitor(e, ctx);
+            }
+            for (_, e) in &sc.property_init {
+                visitor(&e.expression, ctx);
+            }
+            visitor(&sc.layout_info_h, ctx);
+            visitor(&sc.layout_info_v, ctx);
+        })
+    }
 }
 
 pub type PublicProperties = BTreeMap<String, (Type, PropertyReference)>;
