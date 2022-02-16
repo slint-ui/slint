@@ -121,11 +121,19 @@ pub fn embed_glyphs<'a>(
 
 #[cfg(not(target_arch = "wasm32"))]
 fn embed_font(family_name: String, font: fontdue::Font) -> BitmapFont {
+    let scale_factor = std::env::var("SLINT_SCALE_FACTOR")
+        .ok()
+        .and_then(|x| x.parse::<f64>().ok())
+        .filter(|f| *f > 0.)
+        .unwrap_or(1.);
+
     let mut pixel_sizes = std::env::var("SLINT_FONT_SIZES")
         .map(|sizes_str| {
             sizes_str
                 .split(',')
-                .map(|size_str| size_str.parse::<u16>().expect("invalid font size"))
+                .map(|size_str| {
+                    (size_str.parse::<f64>().expect("invalid font size") * scale_factor) as u16
+                })
                 .collect::<Vec<_>>()
         })
         .expect("please specify SLINT_FONT_SIZES");
