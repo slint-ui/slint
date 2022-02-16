@@ -33,7 +33,7 @@ pub fn lower_to_item_tree(component: &Rc<Component>) -> PublicComponent {
         root: Rc::try_unwrap(sc.sub_component).unwrap(),
         parent_context: None,
     };
-    PublicComponent {
+    let root = PublicComponent {
         item_tree,
         globals,
         sub_components: component
@@ -46,7 +46,9 @@ pub fn lower_to_item_tree(component: &Rc<Component>) -> PublicComponent {
             })
             .collect(),
         public_properties,
-    }
+    };
+    super::optim_passes::run_passes(&root);
+    root
 }
 
 #[derive(Default)]

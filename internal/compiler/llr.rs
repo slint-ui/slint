@@ -10,3 +10,12 @@ pub use item_tree::*;
 pub mod lower_expression;
 pub mod lower_to_item_tree;
 pub mod pretty_print;
+
+/// The optimisation passes over the LLR
+pub mod optim_passes {
+    mod inline_simple_expressions;
+
+    pub fn run_passes(root: &super::PublicComponent) {
+        inline_simple_expressions::inline_simple_expressions(root);
+    }
+}
