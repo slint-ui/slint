@@ -189,6 +189,7 @@ fn lower_sub_component(
         // just initialize to dummy expression right now and it will be set later
         layout_info_h: super::Expression::BoolLiteral(false).into(),
         layout_info_v: super::Expression::BoolLiteral(false).into(),
+        prop_analysis: Default::default(),
     };
     let mut mapping = LoweredSubComponentMapping::default();
     let mut repeated = vec![];
@@ -288,6 +289,30 @@ fn lower_sub_component(
                 .as_ref()
                 .filter(|_| !is_constant)
                 .map(|a| super::lower_expression::lower_animation(a, &ctx));
+
+            sub_component.prop_analysis.insert(
+                prop.clone(),
+                PropAnalysis {
+                    property_init: Some(sub_component.property_init.len()),
+                    analysis: e
+                        .borrow()
+                        .property_analysis
+                        .borrow()
+                        .get(p)
+                        .cloned()
+                        .map(|mut a| {
+                            if e.borrow()
+                                .native_class()
+                                .and_then(|n| n.properties.get(p).map(|p| p.is_native_output))
+                                .unwrap_or(false)
+                            {
+                                a.is_set = true;
+                            }
+                            a
+                        })
+                        .unwrap_or_default(),
+                },
+            );
             sub_component
                 .property_init
                 .push((prop.clone(), BindingExpression { expression, animation, is_constant }));
@@ -419,6 +444,7 @@ fn lower_global(
     let mut mapping = LoweredSubComponentMapping::default();
     let mut properties = vec![];
     let mut const_properties = vec![];
+    let mut prop_analysis = vec![];
 
     for (p, x) in &global.root_element.borrow().property_declarations {
         let property_index = properties.len();
@@ -431,7 +457,19 @@ fn lower_global(
         properties.push(Property { name: p.clone(), ty: x.property_type.clone() });
         if !matches!(x.property_type, Type::Callback { .. }) {
             const_properties.push(nr.is_constant());
+        } else {
+            const_properties.push(false);
         }
+        prop_analysis.push(
+            global
+                .root_element
+                .borrow()
+                .property_analysis
+                .borrow()
+                .get(p)
+                .cloned()
+                .unwrap_or_default(),
+        );
         state
             .global_properties
             .insert(nr.clone(), PropertyReference::Global { global_index, property_index });
@@ -481,6 +519,7 @@ fn lower_global(
         exported: !global.exported_global_names.borrow().is_empty(),
         aliases: global.global_aliases(),
         is_builtin,
+        prop_analysis,
     }
 }
 

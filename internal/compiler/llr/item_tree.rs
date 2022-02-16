@@ -59,6 +59,9 @@ pub struct GlobalComponent {
     pub aliases: Vec<String>,
     /// True when this is a built-in global that does not need to be generated
     pub is_builtin: bool,
+
+    /// Analysis for each properties
+    pub prop_analysis: Vec<crate::object_tree::PropertyAnalysis>,
 }
 
 /// a Reference to a property, in the context of a SubComponent
@@ -208,6 +211,15 @@ pub struct SubComponent {
 
     pub layout_info_h: MutExpression,
     pub layout_info_v: MutExpression,
+
+    pub prop_analysis: HashMap<PropertyReference, PropAnalysis>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PropAnalysis {
+    /// Index in SubComponent::property_init for this property
+    pub property_init: Option<usize>,
+    pub analysis: crate::object_tree::PropertyAnalysis,
 }
 
 impl SubComponent {
