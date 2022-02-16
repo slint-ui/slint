@@ -398,13 +398,7 @@ fn process_window_event(
                     .currently_pressed_key_code()
                     .take()
                     .and_then(winit_key_code_to_string)
-                    .and_then(|key_text| {
-                        if key_text.chars().next().map_or(false, char::is_control) {
-                            None
-                        } else {
-                            Some(key_text)
-                        }
-                    })
+                    .filter(|key_text| !key_text.starts_with(char::is_control))
             } else {
                 Some(ch.to_string().into())
             };
