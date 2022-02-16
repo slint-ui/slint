@@ -42,6 +42,9 @@ pub struct BindingExpression {
     pub animation: Option<Animation>,
     /// When true, we can initialize the property with `set` otherwise, `set_binding` must be used
     pub is_constant: bool,
+    /// When true, the expression is a "state binding".  Despite the type of the expression being a integer
+    /// the property is of type StateInfo and the `set_state_binding` ned to be used on the property
+    pub is_state_info: bool,
 }
 
 #[derive(Debug)]
