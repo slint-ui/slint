@@ -406,18 +406,27 @@ impl<'a, T> EvaluationContext<'a, T> {
         generator_state: T,
         parent: Option<ParentCtx<'a, T>>,
     ) -> Self {
-        /*let generator_state = if let Some(parent) = &parent {
-            let p = &parent.ctx.generator_state;
-            quote!(parent.)
-        } else {
-            quote!(_self)
-        };*/
         Self {
             public_component,
             current_sub_component: Some(sub_component),
             current_global: None,
             generator_state,
             parent,
+            argument_types: &[],
+        }
+    }
+
+    pub fn new_global(
+        public_component: &'a super::PublicComponent,
+        global: &'a super::GlobalComponent,
+        generator_state: T,
+    ) -> Self {
+        Self {
+            public_component,
+            current_sub_component: None,
+            current_global: Some(global),
+            generator_state,
+            parent: None,
             argument_types: &[],
         }
     }

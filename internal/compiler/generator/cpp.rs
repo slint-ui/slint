@@ -1473,14 +1473,11 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::P
 
     let mut init = vec![];
 
-    let ctx = EvaluationContext {
-        public_component: root,
-        current_sub_component: None,
-        current_global: Some(global),
-        generator_state: "\n#error can't access root from global\n".into(),
-        parent: None,
-        argument_types: &[],
-    };
+    let ctx = EvaluationContext::new_global(
+        root,
+        global,
+        "\n#error can't access root from global\n".into(),
+    );
 
     for (property_index, expression) in global.init_values.iter().enumerate() {
         if let Some(expression) = expression.as_ref() {
