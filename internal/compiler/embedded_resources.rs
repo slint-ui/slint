@@ -46,8 +46,8 @@ impl Texture {
 pub struct BitmapGlyph {
     pub x: i16,
     pub y: i16,
-    pub width: u16,
-    pub height: u16,
+    pub width: i16,
+    pub height: i16,
     pub x_advance: i16,
     pub data: Vec<u8>, // 8bit alpha map
 }
@@ -55,7 +55,7 @@ pub struct BitmapGlyph {
 #[cfg(not(target_arch = "wasm32"))]
 #[derive(Debug, Clone)]
 pub struct BitmapGlyphs {
-    pub pixel_size: u16,
+    pub pixel_size: i16,
     pub glyph_data: Vec<BitmapGlyph>,
 }
 

@@ -132,7 +132,7 @@ fn embed_font(family_name: String, font: fontdue::Font) -> BitmapFont {
             sizes_str
                 .split(',')
                 .map(|size_str| {
-                    (size_str.parse::<f64>().expect("invalid font size") * scale_factor) as u16
+                    (size_str.parse::<f64>().expect("invalid font size") * scale_factor) as i16
                 })
                 .collect::<Vec<_>>()
         })
@@ -164,8 +164,8 @@ fn embed_font(family_name: String, font: fontdue::Font) -> BitmapFont {
                 let glyph = BitmapGlyph {
                     x: i16::try_from(metrics.xmin).expect("large glyph x coordinate"),
                     y: i16::try_from(metrics.ymin).expect("large glyph y coordinate"),
-                    width: u16::try_from(metrics.width).expect("large width"),
-                    height: u16::try_from(metrics.height).expect("large height"),
+                    width: i16::try_from(metrics.width).expect("large width"),
+                    height: i16::try_from(metrics.height).expect("large height"),
                     x_advance: i16::try_from(metrics.advance_width as i64)
                         .expect("large advance width"),
                     data: bitmap,

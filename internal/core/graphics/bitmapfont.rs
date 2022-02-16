@@ -12,9 +12,9 @@ pub struct BitmapGlyph {
     /// The starting y-coordinate for the glyph, relative to the base line
     pub y: i16,
     /// The width of the glyph in pixels
-    pub width: u16,
+    pub width: i16,
     /// The height of the glyph in pixels
-    pub height: u16,
+    pub height: i16,
     /// The horizontal distance to the next glyph
     pub x_advance: i16,
     /// The 8-bit alpha map that's to be blended with the current text color
@@ -27,7 +27,7 @@ pub struct BitmapGlyph {
 pub struct BitmapGlyphs {
     /// The font size in pixels at which the glyphs were pre-rendered. The boundaries of glyphs may exceed this
     /// size, if the font designer has chosen so. This is only used for matching.
-    pub pixel_size: u16,
+    pub pixel_size: i16,
     /// The data of the pre-rendered glyphs
     pub glyph_data: Slice<'static, BitmapGlyph>,
 }

@@ -7,14 +7,66 @@ use core::cell::RefCell;
 #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
 use i_slint_core::thread_local_ as thread_local;
 
-use super::renderer::ScaleFactor;
-use i_slint_core::graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, FontRequest, Size};
+use crate::{LogicalLength, LogicalSize, PhysicalLength, PhysicalSize, ScaleFactor};
+use euclid::num::Zero;
+use i_slint_core::{
+    graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, FontRequest},
+    slice::Slice,
+};
 
 thread_local! {
     static FONTS: RefCell<Vec<&'static BitmapFont>> = RefCell::default()
 }
 
-pub const DEFAULT_FONT_SIZE: f32 = 12.;
+#[derive(Copy, Clone)]
+pub struct Glyph(&'static BitmapGlyph);
+
+impl Glyph {
+    pub fn x(&self) -> PhysicalLength {
+        PhysicalLength::new(self.0.x)
+    }
+    pub fn y(&self) -> PhysicalLength {
+        PhysicalLength::new(self.0.y)
+    }
+    pub fn width(&self) -> PhysicalLength {
+        PhysicalLength::new(self.0.width)
+    }
+    pub fn height(&self) -> PhysicalLength {
+        PhysicalLength::new(self.0.height)
+    }
+    pub fn size(&self) -> PhysicalSize {
+        PhysicalSize::from_lengths(self.width(), self.height())
+    }
+    pub fn x_advance(&self) -> PhysicalLength {
+        PhysicalLength::new(self.0.x_advance)
+    }
+    pub fn data(&self) -> &Slice<'static, u8> {
+        &self.0.data
+    }
+}
+
+pub trait FontMetrics {
+    fn ascent(&self, font: &BitmapFont) -> PhysicalLength;
+    fn height(&self, font: &BitmapFont) -> PhysicalLength;
+    fn pixel_size(&self) -> PhysicalLength;
+}
+
+impl FontMetrics for BitmapGlyphs {
+    fn ascent(&self, font: &BitmapFont) -> PhysicalLength {
+        (PhysicalLength::new(self.pixel_size).cast() * font.ascent / font.units_per_em).cast()
+    }
+    fn height(&self, font: &BitmapFont) -> PhysicalLength {
+        // The descent is negative (relative to the baseline)
+        (PhysicalLength::new(self.pixel_size).cast() * (font.ascent - font.descent)
+            / font.units_per_em)
+            .cast()
+    }
+    fn pixel_size(&self) -> PhysicalLength {
+        PhysicalLength::new(self.pixel_size)
+    }
+}
+
+pub const DEFAULT_FONT_SIZE: f32 = 12.0;
 
 pub fn match_font(
     request: &FontRequest,
@@ -36,11 +88,12 @@ pub fn match_font(
         })
     });
 
-    let requested_pixel_size = request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE) * scale_factor;
+    let requested_pixel_size: PhysicalLength =
+        (LogicalLength::new(request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE)) * scale_factor).cast();
 
     let nearest_pixel_size = font
         .glyphs
-        .partition_point(|glyphs| glyphs.pixel_size <= requested_pixel_size)
+        .partition_point(|glyphs| glyphs.pixel_size() <= requested_pixel_size)
         .saturating_sub(1);
 
     let matching_glyphs = &font.glyphs[nearest_pixel_size];
@@ -56,8 +109,8 @@ pub fn glyphs_for_text<'a>(
     font: &'static BitmapFont,
     glyphs: &'static BitmapGlyphs,
     text: &'a str,
-) -> impl Iterator<Item = (f32, &'static BitmapGlyph)> + 'a {
-    let mut x: f32 = 0.;
+) -> impl Iterator<Item = (PhysicalLength, Glyph)> + 'a {
+    let mut x: PhysicalLength = PhysicalLength::zero();
     text.chars().filter_map(move |char| {
         if let Some(glyph_index) = font
             .character_map
@@ -65,12 +118,12 @@ pub fn glyphs_for_text<'a>(
             .ok()
             .map(|char_map_index| font.character_map[char_map_index].glyph_index)
         {
-            let glyph = &glyphs.glyph_data[glyph_index as usize];
+            let glyph = Glyph(&glyphs.glyph_data[glyph_index as usize]);
             let glyph_x = x;
-            x += glyph.x_advance as f32;
+            x += glyph.x_advance();
             Some((glyph_x, glyph))
         } else {
-            x += glyphs.pixel_size as f32;
+            x += glyphs.pixel_size();
             None
         }
     })
@@ -81,14 +134,12 @@ pub fn text_size(
     text: &str,
     _max_width: Option<f32>,
     scale_factor: ScaleFactor,
-) -> Size {
+) -> LogicalSize {
     let (font, glyphs) = match_font(&font_request, scale_factor);
 
     let width = glyphs_for_text(font, glyphs, text)
         .last()
-        .map_or(0., |(last_x, last_glyph)| last_x + last_glyph.x_advance as f32);
+        .map_or(PhysicalLength::zero(), |(last_x, last_glyph)| last_x + last_glyph.x_advance());
 
-    let height = font.ascent * (glyphs.pixel_size as f32) / font.units_per_em;
-
-    Size::new(width, height)
+    PhysicalSize::from_lengths(width, glyphs.height(font)).cast() * scale_factor.inverse()
 }

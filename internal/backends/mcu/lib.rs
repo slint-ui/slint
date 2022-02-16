@@ -12,7 +12,6 @@ use alloc::boxed::Box;
 use core::cell::RefCell;
 use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
-use i_slint_core::graphics::{IntRect, IntSize};
 
 #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
 use i_slint_core::unsafe_single_core;
@@ -27,11 +26,14 @@ mod simulator;
 use simulator::event_loop;
 
 mod fonts;
+mod lengths;
 mod renderer;
 
+use lengths::*;
+
 pub trait Devices {
-    fn screen_size(&self) -> IntSize;
-    fn fill_region(&mut self, region: IntRect, pixels: &[Rgb888]);
+    fn screen_size(&self) -> PhysicalSize;
+    fn fill_region(&mut self, region: PhysicalRect, pixels: &[Rgb888]);
     fn read_touch_event(&mut self) -> Option<i_slint_core::input::MouseEvent> {
         None
     }
@@ -46,16 +48,16 @@ where
     T::Error: core::fmt::Debug,
     T::Color: core::convert::From<embedded_graphics::pixelcolor::Rgb888>,
 {
-    fn screen_size(&self) -> i_slint_core::graphics::IntSize {
+    fn screen_size(&self) -> PhysicalSize {
         let s = self.bounding_box().size;
-        i_slint_core::graphics::IntSize::new(s.width, s.height)
+        PhysicalSize::new(s.width as i16, s.height as i16)
     }
 
-    fn fill_region(&mut self, region: i_slint_core::graphics::IntRect, pixels: &[Rgb888]) {
+    fn fill_region(&mut self, region: PhysicalRect, pixels: &[Rgb888]) {
         self.color_converted()
             .fill_contiguous(
                 &embedded_graphics::primitives::Rectangle::new(
-                    Point::new(region.origin.x, region.origin.y),
+                    Point::new(region.origin.x as i32, region.origin.y as i32),
                     Size::new(region.size.width as u32, region.size.height as u32),
                 ),
                 pixels.iter().copied(),
@@ -141,8 +143,9 @@ mod the_backend {
                 font_request.merge(&runtime_window.default_font_properties()),
                 text,
                 max_width,
-                renderer::ScaleFactor(runtime_window.scale_factor()),
+                ScaleFactor::new(runtime_window.scale_factor()),
             )
+            .to_untyped()
         }
 
         fn text_input_byte_offset_for_position(
