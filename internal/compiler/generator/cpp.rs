@@ -437,8 +437,7 @@ fn handle_property_init(
                 init = init_expr
             );
 
-            let is_state_info = matches!(prop_type, Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo"));
-            if is_state_info {
+            if binding_expression.is_state_info {
                 format!("slint::private_api::set_state_binding({}, {});", prop_access, binding_code)
             } else {
                 match &binding_expression.animation {

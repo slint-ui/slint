@@ -398,8 +398,7 @@ fn handle_property_init(
                 (#tokens_for_expression) as _
             });
 
-            let is_state_info = matches!(prop_type, Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo"));
-            if is_state_info {
+            if binding_expression.is_state_info {
                 quote! { {
                     slint::internal::set_property_state_binding(#rust_property, &self_rc, #binding_tokens);
                 } }

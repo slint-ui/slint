@@ -313,9 +313,16 @@ fn lower_sub_component(
                         .unwrap_or_default(),
                 },
             );
-            sub_component
-                .property_init
-                .push((prop.clone(), BindingExpression { expression, animation, is_constant }));
+
+            let is_state_info = matches!(
+                e.borrow().lookup_property(p).property_type,
+                Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo")
+            );
+
+            sub_component.property_init.push((
+                prop.clone(),
+                BindingExpression { expression, animation, is_constant, is_state_info },
+            ));
         }
 
         if e.borrow()
@@ -490,8 +497,12 @@ fn lower_global(
             _ => unreachable!(),
         };
         let is_constant = binding.borrow().analysis.as_ref().map_or(false, |a| a.is_const);
-        init_values[property_index] =
-            Some(BindingExpression { expression, animation: None, is_constant });
+        init_values[property_index] = Some(BindingExpression {
+            expression,
+            animation: None,
+            is_constant,
+            is_state_info: false,
+        });
     }
 
     let is_builtin = if let Some(builtin) = global.root_element.borrow().native_class() {
