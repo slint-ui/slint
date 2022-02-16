@@ -196,8 +196,9 @@ fn property_binding_and_analysis<'a>(
             let g = &ctx.public_component.globals[*global_index];
             return (
                 Some(&g.prop_analysis[*property_index]),
-                g.init_values[*property_index]
-                    .as_ref()
+                g.init_values
+                    .get(*property_index)
+                    .and_then(Option::as_ref)
                     .map(|b| (b, ContextMap::InGlobal(*global_index))),
             );
         }

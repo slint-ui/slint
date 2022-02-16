@@ -516,6 +516,16 @@ fn lower_global(
             state
                 .global_properties
                 .insert(nr, PropertyReference::Global { global_index, property_index });
+            prop_analysis.push(
+                global
+                    .root_element
+                    .borrow()
+                    .property_analysis
+                    .borrow()
+                    .get(p)
+                    .cloned()
+                    .unwrap_or_default(),
+            );
         }
         true
     } else {
