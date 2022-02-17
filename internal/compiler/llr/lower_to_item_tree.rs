@@ -303,23 +303,7 @@ fn lower_sub_component(
                 prop.clone(),
                 PropAnalysis {
                     property_init: Some(sub_component.property_init.len()),
-                    analysis: e
-                        .borrow()
-                        .property_analysis
-                        .borrow()
-                        .get(p)
-                        .cloned()
-                        .map(|mut a| {
-                            if e.borrow()
-                                .native_class()
-                                .and_then(|n| n.properties.get(p).map(|p| p.is_native_output))
-                                .unwrap_or(false)
-                            {
-                                a.is_set = true;
-                            }
-                            a
-                        })
-                        .unwrap_or_default(),
+                    analysis: get_property_analysis(e, p),
                 },
             );
 
@@ -398,6 +382,30 @@ fn lower_sub_component(
     .into();
 
     LoweredSubComponent { sub_component: Rc::new(sub_component), mapping }
+}
+
+fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::PropertyAnalysis {
+    let mut a = elem.borrow().property_analysis.borrow().get(p).cloned().unwrap_or_default();
+    let mut elem = elem.clone();
+    loop {
+        let base = elem.borrow().base_type.clone();
+        match base {
+            Type::Native(n) => {
+                if n.properties.get(p).map_or(false, |p| p.is_native_output) {
+                    a.is_set = true;
+                }
+            }
+            Type::Component(c) => {
+                elem = c.root_element.clone();
+                if let Some(a2) = elem.borrow().property_analysis.borrow().get(p) {
+                    a.merge_with_base(a2);
+                }
+                continue;
+            }
+            _ => (),
+        };
+        return a;
+    }
 }
 
 fn lower_repeated_component(elem: &ElementRc, ctx: &ExpressionContext) -> RepeatedElement {
