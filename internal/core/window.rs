@@ -578,6 +578,7 @@ pub type WindowRc = Rc<Window>;
 #[cfg(feature = "ffi")]
 pub mod ffi {
     #![allow(unsafe_code)]
+    #![allow(clippy::missing_safety_doc)]
 
     use super::*;
     use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
