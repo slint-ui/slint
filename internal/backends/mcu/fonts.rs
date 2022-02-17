@@ -141,5 +141,5 @@ pub fn text_size(
         .last()
         .map_or(PhysicalLength::zero(), |(last_x, last_glyph)| last_x + last_glyph.x_advance());
 
-    PhysicalSize::from_lengths(width, glyphs.height(font)).cast() * scale_factor.inverse()
+    PhysicalSize::from_lengths(width, glyphs.height(font)).cast() / scale_factor
 }
