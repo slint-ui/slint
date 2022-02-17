@@ -10,7 +10,8 @@ Lookup the [`crate::items`] module documentation.
 use super::{Item, ItemConsts, ItemRc};
 use crate::graphics::Rect;
 use crate::input::{
-    FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
+    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
+    KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
 use crate::item_rendering::ItemRenderer;
@@ -110,7 +111,9 @@ impl Item for ImageItem {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+        FocusEventResult::EventIgnored
+    }
 
     fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
         (*backend).draw_image(self)
@@ -187,7 +190,9 @@ impl Item for ClippedImage {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+        FocusEventResult::EventIgnored
+    }
 
     fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
         (*backend).draw_clipped_image(self)

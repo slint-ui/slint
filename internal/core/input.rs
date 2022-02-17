@@ -183,6 +183,17 @@ pub enum KeyEventResult {
     EventIgnored,
 }
 
+/// Represents how an item's focus_event handler dealt with a focus event.
+/// An accepted event results in no further event propagation.
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum FocusEventResult {
+    /// The event was handled.
+    EventAccepted,
+    /// The event was not handled and should be sent to other items.
+    EventIgnored,
+}
+
 /// This event is sent to a component and items when they receive or loose
 /// the keyboard focus.
 #[derive(Debug, Clone, Copy, PartialEq)]
