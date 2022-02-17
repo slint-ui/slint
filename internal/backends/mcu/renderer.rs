@@ -78,12 +78,12 @@ pub fn render_window_frame(
                     let color = scene.rectangles[span.data_index];
                     let alpha = color.alpha();
                     if alpha == u8::MAX {
-                        line_buffer[span.x.get() as usize
-                            ..(span.x + span.size.width_length()).get() as usize]
+                        line_buffer[span.pos.x as usize
+                            ..(span.pos.x_length() + span.size.width_length()).get() as usize]
                             .fill(to_rgb888_color_discard_alpha(color))
                     } else {
-                        for pix in &mut line_buffer[span.x.get() as usize
-                            ..(span.x + span.size.width_length()).get() as usize]
+                        for pix in &mut line_buffer[span.pos.x as usize
+                            ..(span.pos.x_length() + span.size.width_length()).get() as usize]
                         {
                             let a = (u8::MAX - alpha) as u16;
                             let b = alpha as u16;
@@ -106,10 +106,10 @@ pub fn render_window_frame(
                         span.size.height_length().cast::<f32>()
                             / source_size.height_length().cast::<f32>();
                     let bpp = bpp(format) as usize;
-                    let y = (line.line - span.y).cast::<f32>();
+                    let y = (line.line - span.pos.y_length()).cast::<f32>();
 
-                    for (x, pix) in line_buffer[(span.x).get() as usize
-                        ..(span.x + span.size.width_length()).get() as usize]
+                    for (x, pix) in line_buffer[span.pos.x as usize
+                        ..(span.pos.x_length() + span.size.width_length()).get() as usize]
                         .iter_mut()
                         .enumerate()
                         .map(|(x, pix)| (PhysicalLength::new(x as i16).cast::<f32>(), pix))
@@ -198,8 +198,11 @@ impl Scene {
         let mut command = vec![];
         // Take the next element from current_items or future_items
         loop {
-            let a_next_z =
-                self.future_items.last().filter(|i| i.y == self.current_line).map(|i| i.z);
+            let a_next_z = self
+                .future_items
+                .last()
+                .filter(|i| i.pos.y_length() == self.current_line)
+                .map(|i| i.z);
             let b_next_z = self.current_items.front().map(|i| i.z);
             let item = match (a_next_z, b_next_z) {
                 (Some(a), Some(b)) => {
@@ -214,7 +217,9 @@ impl Scene {
                 _ => break,
             };
             let item = item.unwrap();
-            if item.y + item.size.height_length() > self.current_line + PhysicalLength::new(1) {
+            if item.pos.y_length() + item.size.height_length()
+                > self.current_line + PhysicalLength::new(1)
+            {
                 self.next_items.push_back(item.clone());
             }
             command.push(item);
@@ -228,8 +233,7 @@ impl Scene {
 
 #[derive(Clone, Copy)]
 struct SceneItem {
-    x: PhysicalLength,
-    y: PhysicalLength,
+    pos: PhysicalPoint,
     size: PhysicalSize,
     // this is the order of the item from which it is in the item tree
     z: u16,
@@ -245,7 +249,7 @@ struct LineCommand {
 
 fn compare_scene_item(a: &SceneItem, b: &SceneItem) -> core::cmp::Ordering {
     // First, order by line (top to bottom)
-    match a.y.partial_cmp(&b.y) {
+    match a.pos.y.partial_cmp(&b.pos.y) {
         None | Some(core::cmp::Ordering::Equal) => {}
         Some(ord) => return ord,
     }
@@ -340,11 +344,7 @@ impl PrepareScene {
         let z = self.items.len() as u16;
 
         self.items.push(SceneItem {
-            x: ((self.current_state.offset.x_length() + geometry.origin.x_length())
-                * self.scale_factor)
-                .cast(),
-            y: ((self.current_state.offset.y_length() + geometry.origin.y_length())
-                * self.scale_factor)
+            pos: ((geometry.origin + self.current_state.offset.to_vector()) * self.scale_factor)
                 .cast(),
             size: (geometry.size * self.scale_factor).cast(),
             z,
