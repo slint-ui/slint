@@ -8,7 +8,7 @@
 
 use crate::expression_tree::BuiltinFunction;
 use crate::llr::{
-    BindingExpression, EvaluationContext, Expression, PropertyReference, PublicComponent,
+    BindingExpression, EvaluationContext, Expression, Property, PropertyReference, PublicComponent,
     SubComponent,
 };
 use crate::object_tree::PropertyAnalysis;
@@ -106,7 +106,9 @@ pub fn inline_simple_expressions(root: &PublicComponent) {
 
 fn inline_simple_expressions_in_expression(expr: &mut Expression, ctx: &EvaluationContext) {
     if let Expression::PropertyReference(prop) = expr {
-        if let (Some(a), Some((binding, map))) = property_binding_and_analysis(ctx, prop) {
+        if let PropertyInfoResult { analysis: Some(a), binding: Some((binding, map)), .. } =
+            property_binding_and_analysis(ctx, prop)
+        {
             if !a.is_set
                 && !a.is_set_externally
                 // State info binding are special and the binding cannot be inlined or used.
@@ -124,18 +126,35 @@ fn inline_simple_expressions_in_expression(expr: &mut Expression, ctx: &Evaluati
     expr.visit_mut(|e| inline_simple_expressions_in_expression(e, ctx));
 }
 
-fn property_binding_and_analysis<'a>(
+#[derive(Default)]
+pub(crate) struct PropertyInfoResult<'a> {
+    pub analysis: Option<&'a PropertyAnalysis>,
+    pub binding: Option<(&'a BindingExpression, ContextMap)>,
+    pub property_decl: Option<&'a Property>,
+}
+
+pub(crate) fn property_binding_and_analysis<'a>(
     ctx: &'a EvaluationContext,
     prop: &PropertyReference,
-) -> (Option<&'a PropertyAnalysis>, Option<(&'a BindingExpression, ContextMap)>) {
+) -> PropertyInfoResult<'a> {
     fn match_in_sub_component<'a>(
         sc: &'a SubComponent,
         prop: &PropertyReference,
         map: ContextMap,
-    ) -> (Option<&'a PropertyAnalysis>, Option<(&'a BindingExpression, ContextMap)>) {
+    ) -> PropertyInfoResult<'a> {
+        let property_decl =
+            if let PropertyReference::Local { property_index, sub_component_path } = &prop {
+                let mut sc = sc;
+                for i in sub_component_path {
+                    sc = &sc.sub_components[*i].ty;
+                }
+                Some(&sc.properties[*property_index])
+            } else {
+                None
+            };
         if let Some(a) = sc.prop_analysis.get(prop) {
-            let b = a.property_init.map(|i| (&sc.property_init[i].1, map));
-            return (Some(&a.analysis), b);
+            let binding = a.property_init.map(|i| (&sc.property_init[i].1, map));
+            return PropertyInfoResult { analysis: Some(&a.analysis), binding, property_decl };
         }
         match prop {
             PropertyReference::Local { sub_component_path, property_index } => {
@@ -169,16 +188,19 @@ fn property_binding_and_analysis<'a>(
             }
             _ => unreachable!(),
         }
-        return (None, None);
+        return PropertyInfoResult { property_decl, ..Default::default() };
     }
 
     match prop {
         PropertyReference::Local { property_index, .. } => {
             if let Some(g) = ctx.current_global {
-                return (
-                    Some(&g.prop_analysis[*property_index]),
-                    g.init_values[*property_index].as_ref().map(|b| (b, ContextMap::Identity)),
-                );
+                return PropertyInfoResult {
+                    analysis: Some(&g.prop_analysis[*property_index]),
+                    binding: g.init_values[*property_index]
+                        .as_ref()
+                        .map(|b| (b, ContextMap::Identity)),
+                    property_decl: Some(&g.properties[*property_index]),
+                };
             } else if let Some(sc) = ctx.current_sub_component.as_ref() {
                 return match_in_sub_component(sc, prop, ContextMap::Identity);
             } else {
@@ -194,13 +216,15 @@ fn property_binding_and_analysis<'a>(
         }
         PropertyReference::Global { global_index, property_index } => {
             let g = &ctx.public_component.globals[*global_index];
-            return (
-                Some(&g.prop_analysis[*property_index]),
-                g.init_values
+            return PropertyInfoResult {
+                analysis: Some(&g.prop_analysis[*property_index]),
+                binding: g
+                    .init_values
                     .get(*property_index)
                     .and_then(Option::as_ref)
                     .map(|b| (b, ContextMap::InGlobal(*global_index))),
-            );
+                property_decl: Some(&g.properties[*property_index]),
+            };
         }
         PropertyReference::InParent { level, parent_reference } => {
             let mut ctx = ctx;
@@ -208,7 +232,7 @@ fn property_binding_and_analysis<'a>(
                 ctx = ctx.parent.as_ref().unwrap().ctx;
             }
             let mut ret = property_binding_and_analysis(&ctx, parent_reference);
-            match &mut ret.1 {
+            match &mut ret.binding {
                 Some((_, m @ ContextMap::Identity)) => {
                     *m = ContextMap::InSubElement { path: Default::default(), parent: level.get() };
                 }
@@ -226,7 +250,7 @@ fn property_binding_and_analysis<'a>(
 /// This allows to go from the current subcomponent's context, to the context
 /// relative to the binding we want to inline
 #[derive(Debug, Clone)]
-enum ContextMap {
+pub(crate) enum ContextMap {
     Identity,
     InSubElement { path: Vec<usize>, parent: usize },
     InGlobal(usize),
@@ -244,7 +268,7 @@ impl ContextMap {
         }
     }
 
-    fn map_property_reference(&self, p: &PropertyReference) -> PropertyReference {
+    pub fn map_property_reference(&self, p: &PropertyReference) -> PropertyReference {
         match self {
             ContextMap::Identity => p.clone(),
             ContextMap::InSubElement { path, parent } => {
@@ -312,7 +336,7 @@ impl ContextMap {
         e.visit_mut(|e| self.map_expression(e))
     }
 
-    fn map_context<'a>(&self, ctx: &EvaluationContext<'a>) -> EvaluationContext<'a> {
+    pub fn map_context<'a>(&self, ctx: &EvaluationContext<'a>) -> EvaluationContext<'a> {
         match self {
             ContextMap::Identity => ctx.clone(),
             ContextMap::InSubElement { path, parent } => {

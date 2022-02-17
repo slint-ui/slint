@@ -529,7 +529,7 @@ fn generate_sub_component(
     let mut declared_callbacks_types = vec![];
     let mut declared_callbacks_ret = vec![];
 
-    for property in &component.properties {
+    for property in component.properties.iter().filter(|p| p.use_count.get() > 0) {
         let prop_ident = ident(&property.name);
         if let Type::Callback { args, return_type } = &property.ty {
             let callback_args = args.iter().map(|a| rust_type(a).unwrap()).collect::<Vec<_>>();
@@ -684,9 +684,20 @@ fn generate_sub_component(
     }
 
     for (prop, expression) in &component.property_init {
-        handle_property_init(prop, expression, &mut init, &ctx)
+        if expression.use_count.get() > 0 {
+            handle_property_init(prop, expression, &mut init, &ctx)
+        }
     }
     for prop in &component.const_properties {
+        if let llr::PropertyReference::Local { property_index, sub_component_path } = prop {
+            let mut sc = component;
+            for i in sub_component_path {
+                sc = &sc.sub_components[*i].ty;
+            }
+            if sc.properties[*property_index].use_count.get() == 0 {
+                continue;
+            }
+        }
         let rust_property = access_member(prop, &ctx);
         init.push(quote!(#rust_property.set_constant();))
     }
@@ -780,7 +791,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
     let mut declared_callbacks_types = vec![];
     let mut declared_callbacks_ret = vec![];
 
-    for property in &global.properties {
+    for property in global.properties.iter().filter(|p| p.use_count.get() > 0) {
         let prop_ident = ident(&property.name);
         if let Type::Callback { args, return_type } = &property.ty {
             let callback_args = args.iter().map(|a| rust_type(a).unwrap()).collect::<Vec<_>>();
@@ -804,6 +815,9 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
     );
 
     for (property_index, expression) in global.init_values.iter().enumerate() {
+        if global.properties[property_index].use_count.get() == 0 {
+            continue;
+        }
         if let Some(expression) = expression.as_ref() {
             handle_property_init(
                 &llr::PropertyReference::Local { sub_component_path: vec![], property_index },
@@ -814,6 +828,9 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
         }
     }
     for (property_index, cst) in global.const_properties.iter().enumerate() {
+        if global.properties[property_index].use_count.get() == 0 {
+            continue;
+        }
         if *cst {
             let rust_property = access_member(
                 &llr::PropertyReference::Local { sub_component_path: vec![], property_index },
