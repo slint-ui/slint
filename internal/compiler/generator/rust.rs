@@ -147,7 +147,11 @@ pub fn generate(doc: &Document) -> TokenStream {
                     let data = embedded_file_tokens(path);
                     quote!(const #symbol: &'static [u8] = #data;)
                 }
-                crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture { data, format, rect, total_size: crate::embedded_resources::Size{width, height} }) => {
+                crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture {
+                    data, format, rect,
+                    total_size: crate::embedded_resources::Size{width, height},
+                    original_size: crate::embedded_resources::Size{width: unscaled_width, height: unscaled_height},
+                }) => {
                     let (r_x, r_y, r_w, r_h) = (rect.x(), rect.y(), rect.width(), rect.height());
                     let color = if let crate::embedded_resources::PixelFormat::AlphaMap([r, g, b]) = format {
                         quote!(slint::re_exports::Color::from_rgb_u8(#r, #g, #b))
@@ -157,6 +161,7 @@ pub fn generate(doc: &Document) -> TokenStream {
                     quote!(
                         const #symbol: slint::re_exports::ImageInner = slint::re_exports::ImageInner::StaticTextures {
                             size: slint::re_exports::IntSize::new(#width as _, #height as _),
+                            original_size: slint::re_exports::IntSize::new(#unscaled_width as _, #unscaled_height as _),
                             data: Slice::from_slice(&[#(#data),*]),
                             textures: Slice::from_slice(&[
                                 slint::re_exports::StaticTexture {
