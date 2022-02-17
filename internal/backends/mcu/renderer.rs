@@ -12,6 +12,7 @@ use i_slint_core::graphics::{FontRequest, IntRect, PixelFormat, Rect as RectF};
 use i_slint_core::{Color, ImageInner};
 
 use crate::fonts::FontMetrics;
+use crate::lengths::PhysicalPx;
 use crate::{
     Devices, LogicalItemGeometry, LogicalPoint, LogicalRect, PhysicalLength, PhysicalPoint,
     PhysicalRect, PhysicalSize, PointLengths, RectLengths, ScaleFactor, SizeLengths,
@@ -77,11 +78,12 @@ pub fn render_window_frame(
                     let color = scene.rectangles[span.data_index];
                     let alpha = color.alpha();
                     if alpha == u8::MAX {
-                        line_buffer[span.x.get() as usize..(span.x + span.width).get() as usize]
+                        line_buffer[span.x.get() as usize
+                            ..(span.x + span.size.width_length()).get() as usize]
                             .fill(to_rgb888_color_discard_alpha(color))
                     } else {
-                        for pix in &mut line_buffer
-                            [span.x.get() as usize..(span.x + span.width).get() as usize]
+                        for pix in &mut line_buffer[span.x.get() as usize
+                            ..(span.x + span.size.width_length()).get() as usize]
                         {
                             let a = (u8::MAX - alpha) as u16;
                             let b = alpha as u16;
@@ -97,18 +99,23 @@ pub fn render_window_frame(
                     let SceneTexture { data, format, stride, source_size, color } =
                         scene.textures[span.data_index];
 
-                    let sx = span.width.get() as f32 / source_size.width as f32;
-                    let sy = span.height.get() as f32 / source_size.height as f32;
+                    let sx: euclid::Scale<f32, PhysicalPx, PhysicalPx> =
+                        span.size.width_length().cast::<f32>()
+                            / source_size.width_length().cast::<f32>();
+                    let sy: euclid::Scale<f32, PhysicalPx, PhysicalPx> =
+                        span.size.height_length().cast::<f32>()
+                            / source_size.height_length().cast::<f32>();
                     let bpp = bpp(format) as usize;
-                    let y = line.line - span.y;
+                    let y = (line.line - span.y).cast::<f32>();
 
-                    for (x, pix) in line_buffer
-                        [(span.x).get() as usize..(span.x + span.width).get() as usize]
+                    for (x, pix) in line_buffer[(span.x).get() as usize
+                        ..(span.x + span.size.width_length()).get() as usize]
                         .iter_mut()
                         .enumerate()
+                        .map(|(x, pix)| (PhysicalLength::new(x as i16).cast::<f32>(), pix))
                     {
-                        let pos = ((y.get() as f32 / sy) as usize * stride as usize)
-                            + (x as f32 / sx) as usize * bpp;
+                        let pos = ((y / sy).get() as usize * stride as usize)
+                            + (x / sx).get() as usize * bpp;
                         *pix = match format {
                             PixelFormat::Rgb => {
                                 Rgb888::new(data[pos + 0], data[pos + 1], data[pos + 2])
@@ -207,7 +214,7 @@ impl Scene {
                 _ => break,
             };
             let item = item.unwrap();
-            if item.y + item.height > self.current_line + PhysicalLength::new(1) {
+            if item.y + item.size.height_length() > self.current_line + PhysicalLength::new(1) {
                 self.next_items.push_back(item.clone());
             }
             command.push(item);
@@ -223,8 +230,7 @@ impl Scene {
 struct SceneItem {
     x: PhysicalLength,
     y: PhysicalLength,
-    width: PhysicalLength,
-    height: PhysicalLength,
+    size: PhysicalSize,
     // this is the order of the item from which it is in the item tree
     z: u16,
     command: SceneCommand,
@@ -340,8 +346,7 @@ impl PrepareScene {
             y: ((self.current_state.offset.y_length() + geometry.origin.y_length())
                 * self.scale_factor)
                 .cast(),
-            width: (geometry.size.width_length() * self.scale_factor).cast(),
-            height: (geometry.size.height_length() * self.scale_factor).cast(),
+            size: (geometry.size * self.scale_factor).cast(),
             z,
             command,
             data_index,
