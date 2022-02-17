@@ -315,6 +315,7 @@ lazy_static! {
         (".+\\.txt$", LicenseLocation::NoLicense),
         ("(^|.+)\\.reuse/dep5$", LicenseLocation::NoLicense), // .reuse files have no license headers
         ("LICENSES/.+", LicenseLocation::NoLicense),
+        ("^.mailmap$", LicenseLocation::NoLicense),
     ]
     .iter()
     .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
