@@ -308,10 +308,7 @@ impl PrepareScene {
             current_state: RenderState {
                 alpha: 1.,
                 offset: LogicalPoint::default(),
-                clip: LogicalRect::new(
-                    LogicalPoint::default(),
-                    size.cast() * scale_factor.inverse(),
-                ),
+                clip: LogicalRect::new(LogicalPoint::default(), size.cast() / scale_factor),
             },
             scale_factor,
             default_font,
@@ -517,8 +514,8 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
                 glyph.size(),
             )
             .cast()
-                * self.scale_factor.inverse())
-            .intersection(&self.current_state.clip)
+                / self.scale_factor)
+                .intersection(&self.current_state.clip)
             {
                 let stride = glyph.width().get() as u16;
 
