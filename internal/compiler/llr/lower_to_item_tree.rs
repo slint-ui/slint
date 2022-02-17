@@ -205,8 +205,13 @@ fn lower_sub_component(
                     element: component.parent_element.clone(),
                 }
                 .ty(),
+                ..Property::default()
             });
-            sub_component.properties.push(Property { name: "model_index".into(), ty: Type::Int32 });
+            sub_component.properties.push(Property {
+                name: "model_index".into(),
+                ty: Type::Int32,
+                ..Property::default()
+            });
         }
     };
 
@@ -223,9 +228,11 @@ fn lower_sub_component(
                 NamedReference::new(element, p),
                 PropertyReference::Local { sub_component_path: vec![], property_index },
             );
-            sub_component
-                .properties
-                .push(Property { name: format!("{}_{}", elem.id, p), ty: x.property_type.clone() });
+            sub_component.properties.push(Property {
+                name: format!("{}_{}", elem.id, p),
+                ty: x.property_type.clone(),
+                ..Property::default()
+            });
         }
         if elem.repeated.is_some() {
             mapping.element_mapping.insert(
@@ -323,7 +330,13 @@ fn lower_sub_component(
 
             sub_component.property_init.push((
                 prop.clone(),
-                BindingExpression { expression, animation, is_constant, is_state_info },
+                BindingExpression {
+                    expression,
+                    animation,
+                    is_constant,
+                    is_state_info,
+                    use_count: 0.into(),
+                },
             ));
         }
 
@@ -463,7 +476,11 @@ fn lower_global(
             PropertyReference::Local { sub_component_path: vec![], property_index },
         );
 
-        properties.push(Property { name: p.clone(), ty: x.property_type.clone() });
+        properties.push(Property {
+            name: p.clone(),
+            ty: x.property_type.clone(),
+            ..Property::default()
+        });
         if !matches!(x.property_type, Type::Callback { .. }) {
             const_properties.push(nr.is_constant());
         } else {
@@ -504,6 +521,7 @@ fn lower_global(
             animation: None,
             is_constant,
             is_state_info: false,
+            use_count: 0.into(),
         });
     }
 
@@ -511,7 +529,7 @@ fn lower_global(
         // We just generate the property so we know how to address them
         for (p, x) in &builtin.properties {
             let property_index = properties.len();
-            properties.push(Property { name: p.clone(), ty: x.ty.clone() });
+            properties.push(Property { name: p.clone(), ty: x.ty.clone(), ..Property::default() });
             let nr = NamedReference::new(&global.root_element, p);
             state
                 .global_properties

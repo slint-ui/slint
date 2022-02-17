@@ -3,7 +3,7 @@
 
 use super::{EvaluationContext, Expression, ParentCtx};
 use crate::langtype::{NativeClass, Type};
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, HashMap};
 use std::num::NonZeroUsize;
 use std::rc::Rc;
@@ -45,6 +45,10 @@ pub struct BindingExpression {
     /// When true, the expression is a "state binding".  Despite the type of the expression being a integer
     /// the property is of type StateInfo and the `set_state_binding` ned to be used on the property
     pub is_state_info: bool,
+
+    /// The amount of time this binding is used
+    /// This property is only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass
+    pub use_count: Cell<usize>,
 }
 
 #[derive(Debug)]
@@ -80,10 +84,13 @@ pub enum PropertyReference {
     Global { global_index: usize, property_index: usize },
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Property {
     pub name: String,
     pub ty: Type,
+    /// The amount of time this property is used of another property
+    /// This property is only valid after the [`count_property_use`](super::optim_passes::count_property_use) pass
+    pub use_count: Cell<usize>,
 }
 
 #[derive(Debug, Clone)]

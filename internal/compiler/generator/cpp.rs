@@ -1129,7 +1129,7 @@ fn generate_sub_component(
         file.declarations.push(Declaration::Struct(popup_struct));
     });
 
-    for property in &component.properties {
+    for property in component.properties.iter().filter(|p| p.use_count.get() > 0) {
         let cpp_name = ident(&property.name);
 
         let ty = if let Type::Callback { args, return_type } = &property.ty {
@@ -1213,7 +1213,9 @@ fn generate_sub_component(
 
     let mut properties_init_code = Vec::new();
     for (prop, expression) in &component.property_init {
-        handle_property_init(prop, expression, &mut properties_init_code, &ctx)
+        if expression.use_count.get() > 0 {
+            handle_property_init(prop, expression, &mut properties_init_code, &ctx)
+        }
     }
 
     for item in &component.items {
@@ -1449,7 +1451,7 @@ fn generate_repeated_component(
 fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::PublicComponent) {
     let mut global_struct = Struct { name: ident(&global.name), ..Default::default() };
 
-    for property in &global.properties {
+    for property in global.properties.iter().filter(|p| p.use_count.get() > 0) {
         let cpp_name = ident(&property.name);
 
         let ty = if let Type::Callback { args, return_type } = &property.ty {
@@ -1479,6 +1481,10 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::P
     );
 
     for (property_index, expression) in global.init_values.iter().enumerate() {
+        if global.properties[property_index].use_count.get() == 0 {
+            continue;
+        }
+
         if let Some(expression) = expression.as_ref() {
             handle_property_init(
                 &llr::PropertyReference::Local { sub_component_path: vec![], property_index },

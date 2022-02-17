@@ -45,7 +45,7 @@ impl<'a> PrettyPrinter<'a> {
         self.indentation += 1;
         for p in &sc.properties {
             self.indent()?;
-            writeln!(self.writer, "property <{}> {};", p.ty, p.name)?;
+            writeln!(self.writer, "property <{}> {}; //{}", p.ty, p.name, p.use_count.get())?;
         }
         for (p, init) in &sc.property_init {
             self.indent()?;
@@ -66,8 +66,12 @@ impl<'a> PrettyPrinter<'a> {
         }
         for (idx, r) in sc.repeated.iter().enumerate() {
             self.indent()?;
-            writeln!(self.writer, "for in {} : ", DisplayExpression(&r.model.borrow(), &ctx))?;
+            write!(self.writer, "for in {} : ", DisplayExpression(&r.model.borrow(), &ctx))?;
             self.print_component(root, &r.sub_tree.root, Some(ParentCtx::new(&ctx, Some(idx))))?
+        }
+        for w in &sc.popup_windows {
+            self.indent()?;
+            self.print_component(root, &w.root, Some(ParentCtx::new(&ctx, None)))?
         }
         self.indentation -= 1;
         self.indent()?;
