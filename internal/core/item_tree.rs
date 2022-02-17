@@ -106,7 +106,7 @@ impl<T> ItemTreeNode<T> {
 #[vtable]
 /// Object to be passed in visit_item_children method of the Component.
 pub struct ItemVisitorVTable {
-    /// Called for each children of the visited item
+    /// Called for each child of the visited item
     ///
     /// The `component` parameter is the component in which the item live which might not be the same
     /// as the parent's component.
@@ -142,7 +142,7 @@ pub enum ItemVisitorResult<State> {
 
 /// Visit each items recursively
 ///
-/// The state parameter returned by the visitor is passed to each children.
+/// The state parameter returned by the visitor is passed to each child.
 ///
 /// Returns the index of the item that cancelled, or -1 if nobody cancelled
 pub fn visit_items<State>(
@@ -163,7 +163,7 @@ pub fn visit_items<State>(
 
 /// Visit each items recursively
 ///
-/// The state parameter returned by the visitor is passed to each children.
+/// The state parameter returned by the visitor is passed to each child.
 ///
 /// Returns the index of the item that cancelled, or -1 if nobody cancelled
 pub fn visit_items_with_post_visit<State, PostVisitState>(
