@@ -94,11 +94,11 @@ pub fn render_window_frame(
                     }
                 }
                 SceneCommand::Texture => {
-                    let SceneTexture { data, format, stride, source_width, source_height, color } =
+                    let SceneTexture { data, format, stride, source_size, color } =
                         scene.textures[span.data_index];
 
-                    let sx = span.width.get() as f32 / source_width.get() as f32;
-                    let sy = span.height.get() as f32 / source_height.get() as f32;
+                    let sx = span.width.get() as f32 / source_size.width as f32;
+                    let sy = span.height.get() as f32 / source_size.height as f32;
                     let bpp = bpp(format) as usize;
                     let y = line.line - span.y;
 
@@ -265,8 +265,7 @@ struct SceneTexture {
     format: PixelFormat,
     /// bytes between two lines in the source
     stride: u16,
-    source_width: PhysicalLength,
-    source_height: PhysicalLength,
+    source_size: PhysicalSize,
     color: Color,
 }
 
@@ -388,8 +387,7 @@ impl PrepareScene {
                                     + (stride as usize) * (actual_y as usize)
                                     + (bpp(t.format) as usize) * (actual_x as usize))..],
                                 stride,
-                                source_height: PhysicalLength::new(dest_rect.height() as i16),
-                                source_width: PhysicalLength::new(dest_rect.width() as i16),
+                                source_size: PhysicalSize::from_untyped(dest_rect.size.cast()),
                                 format: t.format,
                                 color: if colorize.alpha() > 0 { colorize } else { t.color },
                             },
@@ -524,8 +522,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
                     SceneTexture {
                         data: glyph.data().as_slice(),
                         stride,
-                        source_width: glyph.width(),
-                        source_height: glyph.height(),
+                        source_size: glyph.size(),
                         format: PixelFormat::AlphaMap,
                         color,
                     },
