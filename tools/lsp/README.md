@@ -84,6 +84,10 @@ go to the *User Server Settings*, and  enter the following in the text area:
 }
 ```
 
+To show the preview, right click on the name definition of the component you want to preview 
+(eg. `MainWindow` in `MainWindow := Window {`). Then in the menu, select *LSP Client > Code Action > Show Preview*.
+
+
 ## QtCreator
 
 To setup the lsp:
