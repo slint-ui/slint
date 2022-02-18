@@ -59,6 +59,9 @@ pub struct CompilerConfiguration {
     /// This may help optimization to optimize the runtime resources usages,
     /// but at the cost of much more generated code and binary size.
     pub inline_all_elements: bool,
+
+    /// Compile time scale factor to apply to embedded resources such as images and glyphs.
+    pub scale_factor: f64,
 }
 
 impl CompilerConfiguration {
@@ -88,12 +91,19 @@ impl CompilerConfiguration {
             Err(_) => output_format == crate::generator::OutputFormat::Interpreter,
         };
 
+        let scale_factor = std::env::var("SLINT_SCALE_FACTOR")
+            .ok()
+            .and_then(|x| x.parse::<f64>().ok())
+            .filter(|f| *f > 0.)
+            .unwrap_or(1.);
+
         Self {
             embed_resources,
             include_paths: Default::default(),
             style: Default::default(),
             open_import_fallback: Default::default(),
             inline_all_elements,
+            scale_factor,
         }
     }
 }

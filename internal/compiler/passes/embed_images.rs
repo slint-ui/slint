@@ -17,6 +17,7 @@ use std::rc::Rc;
 pub fn embed_images(
     component: &Rc<Component>,
     embed_files_by_default: bool,
+    scale_factor: f64,
     diag: &mut BuildDiagnostics,
 ) {
     let global_embedded_resources = &component.embedded_file_resources;
@@ -25,7 +26,13 @@ pub fn embed_images(
         component.used_types.borrow().sub_components.iter().chain(std::iter::once(component))
     {
         visit_all_expressions(component, |e, _| {
-            embed_images_from_expression(e, global_embedded_resources, embed_files_by_default, diag)
+            embed_images_from_expression(
+                e,
+                global_embedded_resources,
+                embed_files_by_default,
+                scale_factor,
+                diag,
+            )
         });
     }
 }
@@ -34,6 +41,7 @@ fn embed_images_from_expression(
     e: &mut Expression,
     global_embedded_resources: &RefCell<HashMap<String, EmbeddedResources>>,
     embed_files_by_default: bool,
+    scale_factor: f64,
     diag: &mut BuildDiagnostics,
 ) {
     if let Expression::ImageReference { ref mut resource_ref, source_location } = e {
@@ -41,20 +49,33 @@ fn embed_images_from_expression(
             ImageReference::AbsolutePath(path)
                 if embed_files_by_default || path.starts_with("builtin:/") =>
             {
-                *resource_ref = embed_image(global_embedded_resources, path, diag, source_location);
+                *resource_ref = embed_image(
+                    global_embedded_resources,
+                    path,
+                    scale_factor,
+                    diag,
+                    source_location,
+                );
             }
             _ => {}
         }
     };
 
     e.visit_mut(|e| {
-        embed_images_from_expression(e, global_embedded_resources, embed_files_by_default, diag)
+        embed_images_from_expression(
+            e,
+            global_embedded_resources,
+            embed_files_by_default,
+            scale_factor,
+            diag,
+        )
     });
 }
 
 fn embed_image(
     global_embedded_resources: &RefCell<HashMap<String, EmbeddedResources>>,
     path: &str,
+    _scale_factor: f64,
     diag: &mut BuildDiagnostics,
     source_location: &Option<crate::diagnostics::SourceLocation>,
 ) -> ImageReference {
@@ -68,7 +89,7 @@ fn embed_image(
                 let mut kind = EmbeddedResourcesKind::RawData;
                 #[cfg(not(target_arch = "wasm32"))]
                 if std::env::var("SLINT_PROCESS_IMAGES").is_ok() {
-                    match load_image(file) {
+                    match load_image(file, _scale_factor) {
                         Ok((img, original_size)) => {
                             kind = EmbeddedResourcesKind::TextureData(generate_texture(
                                 img,
@@ -235,13 +256,8 @@ fn convert_image(image: image::RgbaImage, format: PixelFormat, rect: Rect) -> Ve
 #[cfg(not(target_arch = "wasm32"))]
 fn load_image(
     file: crate::fileaccess::VirtualFile,
+    scale_factor: f64,
 ) -> image::ImageResult<(image::RgbaImage, Size)> {
-    let scale_factor = std::env::var("SLINT_SCALE_FACTOR")
-        .ok()
-        .and_then(|x| x.parse::<f64>().ok())
-        .filter(|f| *f > 0.)
-        .unwrap_or(1.);
-
     if file.path.ends_with(".svg") || file.path.ends_with(".svgz") {
         let options = usvg::Options::default();
         let tree = match file.builtin_contents {
