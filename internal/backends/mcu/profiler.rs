@@ -8,7 +8,6 @@ pub enum Timer {
     Running {
         start_time: core::time::Duration,
     },
-    #[cfg(slint_debug_performance)]
     Stopped {
         elapsed: core::time::Duration,
     },
