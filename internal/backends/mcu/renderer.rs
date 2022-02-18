@@ -13,7 +13,7 @@ use i_slint_core::{Color, ImageInner};
 
 use crate::fonts::FontMetrics;
 use crate::lengths::PhysicalPx;
-use crate::profiler::Timer;
+use crate::profiler;
 use crate::{
     Devices, LogicalItemGeometry, LogicalPoint, LogicalRect, PhysicalLength, PhysicalPoint,
     PhysicalRect, PhysicalSize, PointLengths, RectLengths, ScaleFactor, SizeLengths,
@@ -69,9 +69,9 @@ pub fn render_window_frame(
         }
     }*/
 
-    let mut line_processing_profiler = Timer::new_stopped();
-    let mut span_drawing_profiler = Timer::new_stopped();
-    let mut screen_fill_profiler = Timer::new_stopped();
+    let mut line_processing_profiler = profiler::Timer::new_stopped();
+    let mut span_drawing_profiler = profiler::Timer::new_stopped();
+    let mut screen_fill_profiler = profiler::Timer::new_stopped();
 
     let mut line_buffer = vec![background; size.width as usize];
     while scene.current_line < size.height_length() {
@@ -299,7 +299,7 @@ fn prepare_scene(
     size: PhysicalSize,
     devices: &dyn Devices,
 ) -> Scene {
-    let prepare_scene_profiler = Timer::new(devices);
+    let prepare_scene_profiler = profiler::Timer::new(devices);
     let mut prepare_scene = PrepareScene::new(
         size,
         ScaleFactor::new(runtime_window.scale_factor()),
