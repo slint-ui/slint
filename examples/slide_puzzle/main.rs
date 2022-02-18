@@ -1,9 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+#![no_std]
+#![cfg_attr(feature = "i-slint-backend-mcu", no_main)]
+
+extern crate alloc;
+
+use alloc::rc::Rc;
+use alloc::vec;
+use alloc::vec::Vec;
+use core::cell::RefCell;
 use slint::Model;
-use std::cell::RefCell;
-use std::rc::Rc;
+
+use slint::re_exports::Float;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -28,11 +37,14 @@ fn shuffle() -> Vec<i8> {
     }
 
     let mut vec = ((-1)..15).into_iter().collect::<Vec<i8>>();
-    use rand::seq::SliceRandom;
-    let mut rng = rand::thread_rng();
-    vec.shuffle(&mut rng);
-    while !is_solvable(&vec) {
+    #[cfg(feature = "rand")]
+    {
+        use rand::seq::SliceRandom;
+        let mut rng = rand::thread_rng();
         vec.shuffle(&mut rng);
+        while !is_solvable(&vec) {
+            vec.shuffle(&mut rng);
+        }
     }
     vec
 }
@@ -111,11 +123,16 @@ impl AppState {
     }
 
     fn random_move(&mut self) {
+        #[cfg(feature = "rand")]
         let mut rng = rand::thread_rng();
         let hole = self.positions.iter().position(|x| *x == -1).unwrap() as i8;
-        let mut p;
+        let mut p = 1;
         loop {
-            p = rand::Rng::gen_range(&mut rng, 0..16);
+            p = p + 1;
+            #[cfg(feature = "rand")]
+            {
+                p = rand::Rng::gen_range(&mut rng, 0..16);
+            }
             if hole == p {
                 continue;
             } else if (hole % 4 == p % 4) || (hole / 4 == p / 4) {
@@ -165,7 +182,11 @@ impl AppState {
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub fn main() {
+#[cfg_attr(feature = "i-slint-backend-mcu", i_slint_backend_mcu::entry)]
+fn main() -> ! {
+    #[cfg(feature = "i-slint-backend-mcu")]
+    i_slint_backend_mcu::init_board();
+
     // This provides better error messages in debug mode.
     // It's disabled in release mode so it doesn't bloat up the file size.
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
@@ -195,7 +216,7 @@ pub fn main() {
             let state_weak = Rc::downgrade(&state_copy);
             state_copy.borrow().kick_animation_timer.start(
                 slint::TimerMode::Repeated,
-                std::time::Duration::from_millis(16),
+                core::time::Duration::from_millis(16),
                 move || {
                     if let Some(state) = state_weak.upgrade() {
                         state.borrow_mut().kick_animation();
@@ -218,7 +239,7 @@ pub fn main() {
             let state_weak = Rc::downgrade(&state_copy);
             state_copy.borrow().auto_play_timer.start(
                 slint::TimerMode::Repeated,
-                std::time::Duration::from_millis(200),
+                core::time::Duration::from_millis(200),
                 move || {
                     if let Some(state) = state_weak.upgrade() {
                         state.borrow_mut().random_move();
@@ -230,4 +251,5 @@ pub fn main() {
         }
     });
     main_window.run();
+    panic!("the end");
 }
