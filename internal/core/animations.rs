@@ -222,7 +222,10 @@ impl Default for AnimationDriver {
     fn default() -> Self {
         AnimationDriver {
             active_animations: Cell::default(),
-            global_instant: Box::pin(crate::Property::new(Instant::default())),
+            global_instant: Box::pin(crate::Property::new_named(
+                Instant::default(),
+                "i_slint_core::AnimationDriver::global_instant",
+            )),
         }
     }
 }

@@ -177,8 +177,8 @@ impl Window {
             meta_properties_tracker: Rc::pin(Default::default()),
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
-            scale_factor: Box::pin(Property::new(1.)),
-            active: Box::pin(Property::new(false)),
+            scale_factor: Box::pin(Property::new_named(1., "i_slint_core::Window::scale_factor")),
+            active: Box::pin(Property::new_named(false, "i_slint_core::Window::active")),
             active_popup: Default::default(),
         });
         let window_weak = Rc::downgrade(&window);
@@ -194,9 +194,6 @@ impl Window {
 
         #[cfg(slint_debug_property)]
         {
-            window.scale_factor.debug_name.replace("i_slint_core::Window::scale_factor".into());
-            window.active.debug_name.replace("i_slint_core::Window::active".into());
-            window.active.debug_name.replace("i_slint_core::Window::active".into());
             window_properties_tracker
                 .set_debug_name("i_slint_core::Window::window_properties_tracker".into());
             redraw_tracker.set_debug_name("i_slint_core::Window::redraw_tracker".into());

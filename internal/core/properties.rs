@@ -703,6 +703,17 @@ impl<T: Clone> Property<T> {
         }
     }
 
+    /// Same as [`Self::new`] but with a 'static string use for debugging only
+    pub fn new_named(value: T, _name: &'static str) -> Self {
+        Self {
+            handle: Default::default(),
+            value: UnsafeCell::new(value),
+            pinned: PhantomPinned,
+            #[cfg(slint_debug_property)]
+            debug_name: _name.to_owned().into(),
+        }
+    }
+
     /// Get the value of the property
     ///
     /// This may evaluate the binding if there is a binding and it is dirty
