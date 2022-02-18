@@ -419,16 +419,23 @@ pub fn for_each_const_properties(component: &Rc<Component>, mut f: impl FnMut(&E
                     e = c.root_element.clone();
                 }
                 Type::Native(n) => {
-                    all_prop.extend(
-                        n.properties
-                            .iter()
-                            .filter(|(k, x)| {
-                                x.ty.is_property_type()
-                                    && !k.starts_with("viewport-")
-                                    && k.as_str() != "commands"
-                            })
-                            .map(|(k, _)| k.clone()),
-                    );
+                    let mut n = n;
+                    loop {
+                        all_prop.extend(
+                            n.properties
+                                .iter()
+                                .filter(|(k, x)| {
+                                    x.ty.is_property_type()
+                                        && !k.starts_with("viewport-")
+                                        && k.as_str() != "commands"
+                                })
+                                .map(|(k, _)| k.clone()),
+                        );
+                        match n.parent.as_ref() {
+                            Some(p) => n = p,
+                            None => break,
+                        }
+                    }
                     break;
                 }
                 _ => break,
