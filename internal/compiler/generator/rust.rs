@@ -548,6 +548,12 @@ fn generate_sub_component(
     let mut item_names = vec![];
     let mut item_types = vec![];
 
+    #[cfg(slint_debug_property)]
+    init.push(quote!(
+        #(self_rc.#declared_property_vars.debug_name.replace(
+            concat!(stringify!(#inner_component_id), ".", stringify!(#declared_property_vars)).into());)*
+    ));
+
     for item in &component.items {
         if item.is_flickable_viewport {
             continue;
@@ -555,12 +561,23 @@ fn generate_sub_component(
         item_names.push(ident(&item.name));
         item_types.push(ident(&item.ty.class_name));
         #[cfg(slint_debug_property)]
-        for (prop, info) in &item.ty.properties {
-            if info.ty.is_property_type() && !prop.starts_with("viewport") && prop != "commands" {
-                let name = format!("{}::{}.{}", component.name, item.name, prop);
-                let elem_name = ident(&item.name);
-                let prop = ident(&prop);
-                init.push(quote!(self_rc.#elem_name.#prop.debug_name.replace(#name.into());));
+        {
+            let mut it = Some(&item.ty);
+            let elem_name = ident(&item.name);
+            while let Some(ty) = it {
+                for (prop, info) in &ty.properties {
+                    if info.ty.is_property_type()
+                        && !prop.starts_with("viewport")
+                        && prop != "commands"
+                    {
+                        let name = format!("{}::{}.{}", component.name, item.name, prop);
+                        let prop = ident(&prop);
+                        init.push(
+                            quote!(self_rc.#elem_name.#prop.debug_name.replace(#name.into());),
+                        );
+                    }
+                }
+                it = ty.parent.as_ref();
             }
         }
     }
@@ -668,12 +685,6 @@ fn generate_sub_component(
         sub_component_names.push(field_name);
         sub_component_types.push(sub_component_id);
     }
-
-    #[cfg(slint_debug_property)]
-    init.push(quote!(
-        #(self_rc.#declared_property_vars.debug_name.replace(
-            concat!(stringify!(#inner_component_id), ".", stringify!(#declared_property_vars)).into());)*
-    ));
 
     for (prop1, prop2) in &component.two_way_bindings {
         let p1 = access_member(prop1, &ctx);
@@ -807,6 +818,13 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
     }
 
     let mut init = vec![];
+    let inner_component_id = format_ident!("Inner{}", ident(&global.name));
+
+    #[cfg(slint_debug_property)]
+    init.push(quote!(
+        #(self_rc.#declared_property_vars.debug_name.replace(
+            concat!(stringify!(#inner_component_id), ".", stringify!(#declared_property_vars)).into());)*
+    ));
 
     let ctx = EvaluationContext::new_global(
         root,
@@ -839,8 +857,6 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
             init.push(quote!(#rust_property.set_constant();))
         }
     }
-
-    let inner_component_id = format_ident!("Inner{}", ident(&global.name));
 
     let public_interface = global.exported.then(|| {
         let property_and_callback_accessors = public_api(&global.public_properties, quote!(self.0.as_ref()), &ctx);
