@@ -218,7 +218,7 @@ export MainWindow := Window {
     Image {
         height: 100%; width: 100%;
         // https://commons.wikimedia.org/wiki/File:Berlin_potsdamer_platz.jpg Belappetit, CC BY-SA 3.0
-        source: @image-url("berlin.jpg");
+        //source: @image-url("berlin.jpg");
         image-fit: cover;
     }
 
@@ -289,7 +289,7 @@ export MainWindow := Window {
             if (current-theme.game-use-background-image) : Image {
                 height: 100%; width: 100%;
                 // https://commons.wikimedia.org/wiki/File:Berlin_potsdamer_platz.jpg Belappetit, CC BY-SA 3.0
-                source: @image-url("berlin.jpg");
+                //source: @image-url("berlin.jpg");
                 source-clip-x: mod(i, 4) * source.width / 4;
                 source-clip-y: floor(i / 4) * source.height / 4;
                 source-clip-width: source.width / 4;
@@ -377,7 +377,7 @@ export MainWindow := Window {
             if (current-theme.game-use-background-image) : Image {
                 height: 100%; width: 100%;
                 // https://commons.wikimedia.org/wiki/File:Berlin_potsdamer_platz.jpg Belappetit, CC BY-SA 3.0
-                source: @image-url("berlin.jpg");
+                //source: @image-url("berlin.jpg");
                 source-clip-x: 3 * source.width / 4;
                 source-clip-y: 3 * source.height / 4;
                 source-clip-width: source.width / 4;

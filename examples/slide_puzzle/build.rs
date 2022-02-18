@@ -3,4 +3,5 @@
 
 fn main() {
     slint_build::compile("slide_puzzle.slint").unwrap();
+    slint_build::print_rustc_flags().unwrap();
 }
