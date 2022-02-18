@@ -558,7 +558,7 @@ fn generate_sub_component(
         for (prop, info) in &item.ty.properties {
             if info.ty.is_property_type() && !prop.starts_with("viewport") && prop != "commands" {
                 let name = format!("{}::{}.{}", component.name, item.name, prop);
-                let elem_name = ident(&item.id);
+                let elem_name = ident(&item.name);
                 let prop = ident(&prop);
                 init.push(quote!(self_rc.#elem_name.#prop.debug_name.replace(#name.into());));
             }
@@ -670,7 +670,7 @@ fn generate_sub_component(
     }
 
     #[cfg(slint_debug_property)]
-    builder.init.push(quote!(
+    init.push(quote!(
         #(self_rc.#declared_property_vars.debug_name.replace(
             concat!(stringify!(#inner_component_id), ".", stringify!(#declared_property_vars)).into());)*
     ));
