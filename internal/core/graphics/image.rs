@@ -238,6 +238,8 @@ pub enum ImageInner {
         /// The total size of the image (this might not be the size of the full image
         /// as some transparent part are not part of any texture)
         size: IntSize,
+        /// The size of the image before the compiler applied any scaling
+        original_size: IntSize,
         /// The pixel data referenced by the textures
         data: Slice<'static, u8>,
         /// The list of textures
@@ -393,7 +395,7 @@ impl Image {
                 }
             },
             ImageInner::EmbeddedImage(buffer) => buffer.size(),
-            ImageInner::StaticTextures{size, ..} => *size,
+            ImageInner::StaticTextures{original_size, ..} => *original_size,
 
         }
     }

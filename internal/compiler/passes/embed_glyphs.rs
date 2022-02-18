@@ -12,6 +12,7 @@ use std::rc::Rc;
 #[cfg(target_arch = "wasm32")]
 pub fn embed_glyphs<'a>(
     _component: &Rc<Component>,
+    _scale_factor: f64,
     _all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
     _diag: &mut BuildDiagnostics,
 ) -> bool {
@@ -21,6 +22,7 @@ pub fn embed_glyphs<'a>(
 #[cfg(not(target_arch = "wasm32"))]
 pub fn embed_glyphs<'a>(
     component: &Rc<Component>,
+    scale_factor: f64,
     all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
     diag: &mut BuildDiagnostics,
 ) -> bool {
@@ -111,7 +113,7 @@ pub fn embed_glyphs<'a>(
             fontdue::FontSettings { collection_index: face_index, scale: 40. },
         )
         .expect("internal error: fontdb returned a font that ttf-parser/fontdue could not parse");
-                embed_font(family_name, font)
+                embed_font(family_name, font, scale_factor)
             })
             .unwrap();
 
@@ -137,13 +139,7 @@ pub fn embed_glyphs<'a>(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn embed_font(family_name: String, font: fontdue::Font) -> BitmapFont {
-    let scale_factor = std::env::var("SLINT_SCALE_FACTOR")
-        .ok()
-        .and_then(|x| x.parse::<f64>().ok())
-        .filter(|f| *f > 0.)
-        .unwrap_or(1.);
-
+fn embed_font(family_name: String, font: fontdue::Font, scale_factor: f64) -> BitmapFont {
     let mut pixel_sizes = std::env::var("SLINT_FONT_SIZES")
         .map(|sizes_str| {
             sizes_str

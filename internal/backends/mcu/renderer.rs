@@ -358,7 +358,7 @@ impl PrepareScene {
                 unimplemented!()
             }
             ImageInner::EmbeddedImage(_) => todo!(),
-            ImageInner::StaticTextures { size, data, textures } => {
+            ImageInner::StaticTextures { size, data, textures, .. } => {
                 let sx = geom.width() / (size.width as f32);
                 let sy = geom.height() / (size.height as f32);
                 for t in textures.as_slice() {

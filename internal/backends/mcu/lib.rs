@@ -312,7 +312,7 @@ mod the_backend {
                     unimplemented!()
                 }
                 ImageInner::EmbeddedImage(buffer) => buffer.size(),
-                ImageInner::StaticTextures { size, .. } => *size,
+                ImageInner::StaticTextures { original_size, .. } => *original_size,
             }
         }
 

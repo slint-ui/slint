@@ -24,6 +24,7 @@ pub enum PixelFormat {
 #[derive(Debug, Clone)]
 pub struct Texture {
     pub total_size: Size,
+    pub original_size: Size,
     pub rect: Rect,
     pub data: Vec<u8>,
     pub format: PixelFormat,
@@ -34,6 +35,7 @@ impl Texture {
     pub fn new_empty() -> Self {
         Self {
             total_size: Size::default(),
+            original_size: Size::default(),
             rect: Rect::from_xywh(0, 0, 1, 1).unwrap(),
             data: vec![0, 0, 0, 0],
             format: PixelFormat::Rgba,

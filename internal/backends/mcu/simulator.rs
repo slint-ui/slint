@@ -382,7 +382,7 @@ impl i_slint_core::backend::Backend for SimulatorBackend {
             ImageInner::None => Default::default(),
             ImageInner::AbsoluteFilePath(_) | ImageInner::EmbeddedData { .. } => unimplemented!(),
             ImageInner::EmbeddedImage(buffer) => buffer.size(),
-            ImageInner::StaticTextures { size, .. } => *size,
+            ImageInner::StaticTextures { original_size, .. } => *original_size,
         }
     }
 }

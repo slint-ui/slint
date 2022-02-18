@@ -93,7 +93,12 @@ pub async fn run_passes(
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents);
     collect_subcomponents::collect_subcomponents(root_component);
 
-    embed_images::embed_images(root_component, compiler_config.embed_resources, diag);
+    embed_images::embed_images(
+        root_component,
+        compiler_config.embed_resources,
+        compiler_config.scale_factor,
+        diag,
+    );
 
     for component in (root_component.used_types.borrow().sub_components.iter())
         .chain(std::iter::once(root_component))
@@ -169,6 +174,7 @@ pub async fn run_passes(
 
     let embedded_fonts = embed_glyphs::embed_glyphs(
         root_component,
+        compiler_config.scale_factor,
         std::iter::once(&*doc).chain(type_loader.all_documents()),
         diag,
     );

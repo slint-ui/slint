@@ -71,7 +71,7 @@ impl i_slint_core::backend::Backend for TestingBackend {
             )
             .map(|img| img.dimensions().into())
             .unwrap_or_default(),
-            ImageInner::StaticTextures { size, .. } => *size,
+            ImageInner::StaticTextures { original_size, .. } => *original_size,
         }
     }
 
