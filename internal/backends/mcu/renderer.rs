@@ -540,7 +540,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         // TODO
     }
 
-    #[cfg(feature = "simulator")]
+    #[cfg(feature = "std")]
     fn draw_path(&mut self, _path: Pin<&i_slint_core::items::Path>) {
         // TODO
     }
