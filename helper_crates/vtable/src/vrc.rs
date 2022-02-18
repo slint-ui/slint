@@ -313,6 +313,11 @@ impl<VTable: VTableMetaDropInPlace + 'static, X> VWeak<VTable, X> {
             None
         }
     }
+
+    /// Returns true if the two VRc's point to the same allocation
+    pub fn ptr_eq(this: &Self, other: &Self) -> bool {
+        this.inner == other.inner
+    }
 }
 
 impl<VTable: VTableMetaDropInPlace + 'static, X: HasStaticVTable<VTable> + 'static>
