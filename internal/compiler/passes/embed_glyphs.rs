@@ -31,8 +31,26 @@ pub fn embed_glyphs<'a>(
     let mut fontdb = fontdb::Database::new();
     fontdb.load_system_fonts();
 
+    #[cfg(not(any(
+        target_family = "windows",
+        target_os = "macos",
+        target_os = "ios",
+        target_arch = "wasm32"
+    )))]
+    {
+        let default_sans_serif_family = {
+            let mut fontconfig_fallback_families = fontconfig::find_families("sans-serif");
+            if fontconfig_fallback_families.len() == 0 {
+                panic!("internal error: unable to resolve 'sans-serif' with fontconfig");
+            }
+            fontconfig_fallback_families.remove(0)
+        };
+        fontdb.set_sans_serif_family(default_sans_serif_family);
+    }
+
     let fallback_font = fontdb
-        .query(&fontdb::Query { families: &[fontdb::Family::SansSerif], ..Default::default() });
+        .query(&fontdb::Query { families: &[fontdb::Family::SansSerif], ..Default::default() })
+        .expect("internal error: Failed to locate default system font");
 
     // add custom fonts
     for doc in all_docs {
@@ -65,13 +83,12 @@ pub fn embed_glyphs<'a>(
     };
     let face_id = fontdb
         .query(&query)
-        .or_else(|| {
+        .unwrap_or_else(|| {
             if let Some(source_location) = source_location {
                 diag.push_warning_with_span(format!("could not find font that provides specified family, falling back to Sans-Serif"), source_location);
             }
             fallback_font
-        })
-        .expect("internal error: Unable to match any font for embedding");
+        });
 
     let (family_name, path) = {
         let face_info = fontdb
@@ -191,3 +208,11 @@ fn embed_font(family_name: String, font: fontdue::Font) -> BitmapFont {
         glyphs,
     }
 }
+
+#[cfg(not(any(
+    target_family = "windows",
+    target_os = "macos",
+    target_os = "ios",
+    target_arch = "wasm32"
+)))]
+mod fontconfig;

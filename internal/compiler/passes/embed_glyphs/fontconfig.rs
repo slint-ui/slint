@@ -3,8 +3,9 @@
 
 use fontconfig::fontconfig;
 
-// This is duplicated in the slint-compiler's glyph embedding code
+// This is duplicated from the GL backend
 pub fn find_families(requested_family: &str) -> Vec<String> {
+    #[allow(unsafe_code)]
     unsafe {
         let config = fontconfig::FcInitLoadConfigAndFonts();
         let family_cstr = std::ffi::CString::new(requested_family).unwrap();
