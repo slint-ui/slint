@@ -19,6 +19,7 @@ use i_slint_core::unsafe_single_core;
 #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
 use i_slint_core::thread_local_ as thread_local;
 
+mod profiler;
 #[cfg(feature = "simulator")]
 mod simulator;
 
@@ -38,7 +39,7 @@ pub trait Devices {
         None
     }
     fn debug(&mut self, _: &str);
-    fn time(&mut self) -> core::time::Duration {
+    fn time(&self) -> core::time::Duration {
         core::time::Duration::ZERO
     }
 }
