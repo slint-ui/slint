@@ -13,9 +13,16 @@ license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
 path = "main.rs"
 name = "slide_puzzle"
 
+[features]
+default = ["slint/default"]
+
 [dependencies]
-rand = "0.8"
-slint = { path = "../../api/rs/slint" }
+rand = { version = "0.8", optional = true }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-0-2-0"] }
+i-slint-core = { path = "../../internal/core", default-features = false, features = ["libm"] }
+i-slint-backend-mcu = { path = "../../internal/backends/mcu", optional = true, default-features = false }
+once_cell = { version="1.9", features = ["atomic-polyfill"], default-features = false }
+
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
