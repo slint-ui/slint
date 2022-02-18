@@ -1,0 +1,11 @@
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+link_args = [
+    "--nmagic",
+    "-Tlink.x",
+    "-Tdefmt.x",
+]
+link_search_path = [
+    "."
+]

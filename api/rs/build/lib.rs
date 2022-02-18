@@ -272,16 +272,52 @@ pub fn compile_with_config(
 
     println!("cargo:rustc-env=SLINT_INCLUDE_GENERATED={}", output_file_path.display());
 
-    configure_linker();
-
     Ok(())
 }
 
-mod mcu {
-    pub mod pico_st7789;
-}
+/// This function is for use the application's build script, in order to print any device specific
+/// build flags.
+pub fn print_rustc_flags() -> std::io::Result<()> {
+    if let Some(board_config_path) = std::env::var_os("CARGO_FEATURE_I_SLINT_BACKEND_MCU")
+        .is_some()
+        .then(|| std::env::var_os("OUT_DIR"))
+        .flatten()
+        .and_then(|path| {
+            // Same logic as in i-slint-backend-mcu's build script to get the path
+            let path = Path::new(&path).parent()?.parent()?.join("SLINT_MCU_BOARD_CONFIG_PATH.txt");
+            // unfortunately, if for some reason the file is changed by the i-slint-backend-mcu's build script,
+            // it is changed after cargo decide to re-run this build script or not. So that means one will need two build
+            // to settle the right thing.
+            println!("cargo:rerun-if-changed={}", path.display());
+            std::fs::read_to_string(path).ok().map(std::path::PathBuf::from)
+        })
+    {
+        let config = std::fs::read_to_string(board_config_path.as_path())?;
+        let toml = config.parse::<toml_edit::Document>().expect("invalid board config toml");
 
-fn configure_linker() {
-    #[cfg(feature = "mcu-pico-st7789")]
-    mcu::pico_st7789::configure_linker();
+        for link_arg in
+            toml.get("link_args").map(toml_edit::Item::as_array).flatten().into_iter().flatten()
+        {
+            if let Some(option) = link_arg.as_str() {
+                println!("cargo:rustc-link-arg={}", option);
+            }
+        }
+
+        for link_search_path in toml
+            .get("link_search_path")
+            .map(toml_edit::Item::as_array)
+            .flatten()
+            .into_iter()
+            .flatten()
+        {
+            if let Some(mut path) = link_search_path.as_str().map(std::path::PathBuf::from) {
+                if path.is_relative() {
+                    path = board_config_path.parent().unwrap().join(path);
+                }
+                println!("cargo:rustc-link-search={}", path.to_string_lossy());
+            }
+        }
+    }
+
+    Ok(())
 }
