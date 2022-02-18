@@ -137,7 +137,7 @@ impl Devices for TerminalDevices {
         }
     }
 
-    fn time(&mut self) -> core::time::Duration {
+    fn time(&self) -> core::time::Duration {
         static INITIAL_INSTANT: once_cell::race::OnceBox<std::time::Instant> =
             once_cell::race::OnceBox::new();
         let the_beginning = *INITIAL_INSTANT.get_or_init(|| Box::new(std::time::Instant::now()));

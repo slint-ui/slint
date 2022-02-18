@@ -13,6 +13,7 @@ use i_slint_core::{Color, ImageInner};
 
 use crate::fonts::FontMetrics;
 use crate::lengths::PhysicalPx;
+use crate::profiler::Timer;
 use crate::{
     Devices, LogicalItemGeometry, LogicalPoint, LogicalRect, PhysicalLength, PhysicalPoint,
     PhysicalRect, PhysicalSize, PointLengths, RectLengths, ScaleFactor, SizeLengths,
@@ -26,7 +27,7 @@ pub fn render_window_frame(
     devices: &mut dyn Devices,
 ) {
     let size = devices.screen_size();
-    let mut scene = prepare_scene(runtime_window, size);
+    let mut scene = prepare_scene(runtime_window, size, devices);
 
     /*for item in scene.future_items {
         match item.command {
@@ -68,10 +69,17 @@ pub fn render_window_frame(
         }
     }*/
 
+    let mut line_processing_profiler = Timer::new_stopped();
+    let mut span_drawing_profiler = Timer::new_stopped();
+    let mut screen_fill_profiler = Timer::new_stopped();
+
     let mut line_buffer = vec![background; size.width as usize];
     while scene.current_line < size.height_length() {
         line_buffer.fill(background);
+        line_processing_profiler.start(devices);
         let line = scene.process_line();
+        line_processing_profiler.stop(devices);
+        span_drawing_profiler.start(devices);
         for span in line.spans.iter().rev() {
             match span.command {
                 SceneCommand::Rectangle => {
@@ -157,8 +165,15 @@ pub fn render_window_frame(
                 }
             }
         }
-        devices.fill_region(euclid::rect(0, line.line.get() as i16, size.width, 1), &line_buffer)
+        span_drawing_profiler.stop(devices);
+        screen_fill_profiler.start(devices);
+        devices.fill_region(euclid::rect(0, line.line.get() as i16, size.width, 1), &line_buffer);
+        screen_fill_profiler.stop(devices);
     }
+
+    line_processing_profiler.stop_profiling(devices, "line processing");
+    span_drawing_profiler.stop_profiling(devices, "span drawing");
+    screen_fill_profiler.stop_profiling(devices, "screen fill");
 }
 
 struct Scene {
@@ -279,7 +294,12 @@ struct SceneTexture {
     color: Color,
 }
 
-fn prepare_scene(runtime_window: Rc<i_slint_core::window::Window>, size: PhysicalSize) -> Scene {
+fn prepare_scene(
+    runtime_window: Rc<i_slint_core::window::Window>,
+    size: PhysicalSize,
+    devices: &dyn Devices,
+) -> Scene {
+    let prepare_scene_profiler = Timer::new(devices);
     let mut prepare_scene = PrepareScene::new(
         size,
         ScaleFactor::new(runtime_window.scale_factor()),
@@ -294,6 +314,7 @@ fn prepare_scene(runtime_window: Rc<i_slint_core::window::Window>, size: Physica
             );
         }
     });
+    prepare_scene_profiler.stop_profiling(devices, "prepare_scene");
     Scene::new(prepare_scene.items, prepare_scene.rectangles, prepare_scene.textures)
 }
 

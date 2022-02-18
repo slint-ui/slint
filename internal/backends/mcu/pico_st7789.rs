@@ -159,7 +159,7 @@ impl<Display: Devices, IRQ: InputPin, CS: OutputPin<Error = IRQ::Error>, SPI: Tr
             })
     }
 
-    fn time(&mut self) -> core::time::Duration {
+    fn time(&self) -> core::time::Duration {
         core::time::Duration::from_micros(self.timer.get_counter())
     }
 }
