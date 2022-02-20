@@ -1,8 +1,7 @@
 # LSP (Language Server Protocol) Server for Slint
 
 This directory contains the implementation of the LSP server for [Slint](https://slint-ui.com)
-featuring diagnostics, code
-completion, goto definition, and more importantly, live-preview
+featuring diagnostics, code completion, goto definition, and more importantly, live-preview
 
 ## Generic usage
 
@@ -46,8 +45,7 @@ directly from the market place.
 ### Syntax Highlighting
 
 Kate relies on the presence of syntax highlighting file for the usage of the LSP so we'll setup
-that first.
-The file [slint.ksyntaxhighlighter.xml](./slint.ksyntaxhighlighter.xml) needs to be copied
+that first. The file [slint.ksyntaxhighlighter.xml](./slint.ksyntaxhighlighter.xml) needs to be copied
 in a location where kate can find it. See the [kate documentation](https://docs.kde.org/stable5/en/kate/katepart/highlight.html#katehighlight-xml-format)
 
 On Linux, this can be done by running this command
@@ -57,7 +55,7 @@ mkdir -p ~/.local/share/org.kde.syntax-highlighting/syntax/
 wget https://raw.githubusercontent.com/slint-ui/slint/master/tools/lsp/slint.ksyntaxhighlighter.xml -O ~/.local/share/org.kde.syntax-highlighting/syntax/slint.xml
 ```
 
-On Windows, download [slint.ksyntaxhighlighter.xml](./slint.ksyntaxhighlighter.xml) in `%USERPROFILE%\AppData\Local\org.kde.syntax-highlighting\syntax`
+On Windows, download [slint.ksyntaxhighlighter.xml](./slint.ksyntaxhighlighter.xml) into `%USERPROFILE%\AppData\Local\org.kde.syntax-highlighting\syntax`
 
 
 ### LSP
@@ -84,7 +82,7 @@ go to the *User Server Settings*, and  enter the following in the text area:
 }
 ```
 
-To show the preview, right click on the name definition of the component you want to preview 
+To show the preview, right click on the name definition of the component you want to preview
 (eg. `MainWindow` in `MainWindow := Window {`). Then in the menu, select *LSP Client > Code Action > Show Preview*.
 
 
@@ -121,8 +119,10 @@ two additional configuration changes are needed to integrate the LSP server with
 
 1. Make vim recognize the `.slint` files with the correct file type
 
-In your vim configuration file (for example `~/.vimrc`) add the following to enable the
-automatic recognition when opening `.slint` files:
+Install the `hunger/vim-slint` plugin.
+
+Alternatively you can add the following to your vim configuration file (e.g. `vimrc`) to
+enable automatic recognition of `.slint` files:
 
 ```
 autocmd BufEnter *.slint :setlocal filetype=slint
@@ -145,17 +145,21 @@ exists under the `language` server section:
 }
 ```
 
-### Vim syntax highlighting
-
-https://github.com/RustemB/sixtyfps-vim
-
-At the time of writting this plugin was not updated to .slint yet!
-
 ### Neovim
 
-https://github.com/neovim/nvim-lspconfig/blob/master/doc/server_configurations.md#sixtyfps
+Follow step 1. of the Vim section to get support for `.slint` files.
 
-At the time of writing this information was not updated to slint yet!
+The easist way to use the language server itself is in Neovim is via the `neovim/lsp-config`
+and `williamboman/nvim-lsp-installer` plugins. Once these are installed
+you can run `:LspInstallInfo` to install the `slint_lsp` binary (on Windows and Linux).
+
+Once the slint_lsp langauge server is installed and running, you can triggger the live preview
+via the code actions. Unfortunately there are several ways to trigger these, so please check your
+configuration.
+
+You might also find the `jrmoulton/tree-sitter-slint` tree-sitter parser for the Slint language
+interesting. Unfortunately this is not integrated into the tree-sitter support of Neovim at this
+time.
 
 ## Sublime Text
 
