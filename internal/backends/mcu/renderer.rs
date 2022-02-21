@@ -12,7 +12,6 @@ use i_slint_core::graphics::{FontRequest, IntRect, PixelFormat, Rect as RectF};
 use i_slint_core::{Color, ImageInner};
 
 use crate::fonts::FontMetrics;
-use crate::lengths::PhysicalPx;
 use crate::{
     Devices, LogicalItemGeometry, LogicalPoint, LogicalRect, PhysicalLength, PhysicalPoint,
     PhysicalRect, PhysicalSize, PointLengths, RectLengths, ScaleFactor, SizeLengths,
@@ -98,24 +97,18 @@ pub fn render_window_frame(
                 SceneCommand::Texture => {
                     let SceneTexture { data, format, stride, source_size, color } =
                         scene.textures[span.data_index];
-
-                    let sx: euclid::Scale<f32, PhysicalPx, PhysicalPx> =
-                        span.size.width_length().cast::<f32>()
-                            / source_size.width_length().cast::<f32>();
-                    let sy: euclid::Scale<f32, PhysicalPx, PhysicalPx> =
-                        span.size.height_length().cast::<f32>()
-                            / source_size.height_length().cast::<f32>();
+                    let source_size = source_size.cast::<usize>();
+                    let span_size = span.size.cast::<usize>();
                     let bpp = bpp(format) as usize;
                     let y = (line.line - span.pos.y_length()).cast::<f32>();
-
+                    let y_pos = (y.get() as usize * source_size.height / span_size.height)
+                        * stride as usize;
                     for (x, pix) in line_buffer[span.pos.x as usize
                         ..(span.pos.x_length() + span.size.width_length()).get() as usize]
                         .iter_mut()
                         .enumerate()
-                        .map(|(x, pix)| (PhysicalLength::new(x as i16).cast::<f32>(), pix))
                     {
-                        let pos = ((y / sy).get() as usize * stride as usize)
-                            + (x / sx).get() as usize * bpp;
+                        let pos = y_pos + bpp * x * source_size.width / span_size.width;
                         *pix = match format {
                             PixelFormat::Rgb => {
                                 Rgb888::new(data[pos + 0], data[pos + 1], data[pos + 2])
