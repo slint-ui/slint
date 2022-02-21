@@ -112,7 +112,7 @@ impl Item for ImageItem {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::EventIgnored
+        FocusEventResult::FocusIgnored
     }
 
     fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
@@ -191,7 +191,7 @@ impl Item for ClippedImage {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::EventIgnored
+        FocusEventResult::FocusIgnored
     }
 
     fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {

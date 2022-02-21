@@ -189,9 +189,9 @@ pub enum KeyEventResult {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FocusEventResult {
     /// The event was handled.
-    EventAccepted,
+    FocusAccepted,
     /// The event was not handled and should be sent to other items.
-    EventIgnored,
+    FocusIgnored,
 }
 
 /// This event is sent to a component and items when they receive or loose

@@ -239,7 +239,7 @@ impl Item for NativeTabWidget {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::EventIgnored
+        FocusEventResult::FocusIgnored
     }
 
     fn_render! { this dpr size painter widget initial_state =>
@@ -425,7 +425,7 @@ impl Item for NativeTab {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::EventIgnored
+        FocusEventResult::FocusIgnored
     }
 
     fn_render! { this dpr size painter widget initial_state =>

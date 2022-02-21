@@ -194,7 +194,7 @@ impl Item for NativeSlider {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::EventIgnored
+        FocusEventResult::FocusIgnored
     }
 
     fn_render! { this dpr size painter widget initial_state =>

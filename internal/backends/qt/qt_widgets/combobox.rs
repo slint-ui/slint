@@ -93,7 +93,7 @@ impl Item for NativeComboBox {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::EventIgnored
+        FocusEventResult::FocusIgnored
     }
 
     fn_render! { this dpr size painter widget initial_state =>
@@ -192,7 +192,7 @@ impl Item for NativeComboBoxPopup {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::EventIgnored
+        FocusEventResult::FocusIgnored
     }
 
     fn_render! { _this dpr size painter widget initial_state =>

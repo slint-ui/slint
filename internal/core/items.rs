@@ -249,7 +249,7 @@ impl Item for Rectangle {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::EventIgnored
+        FocusEventResult::FocusIgnored
     }
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
@@ -318,7 +318,7 @@ impl Item for BorderRectangle {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::EventIgnored
+        FocusEventResult::FocusIgnored
     }
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
@@ -527,7 +527,7 @@ impl Item for TouchArea {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::EventIgnored
+        FocusEventResult::FocusIgnored
     }
 
     fn render(self: Pin<&Self>, _backend: &mut ItemRendererRef) {}
@@ -634,7 +634,7 @@ impl Item for FocusScope {
                 self.has_focus.set(false);
             }
         }
-        FocusEventResult::EventAccepted
+        FocusEventResult::FocusAccepted
     }
 
     fn render(self: Pin<&Self>, _backend: &mut ItemRendererRef) {}
@@ -707,7 +707,7 @@ impl Item for Clip {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::EventIgnored
+        FocusEventResult::FocusIgnored
     }
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
@@ -779,7 +779,7 @@ impl Item for Opacity {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::EventIgnored
+        FocusEventResult::FocusIgnored
     }
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
@@ -845,7 +845,7 @@ impl Item for Rotate {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::EventIgnored
+        FocusEventResult::FocusIgnored
     }
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
@@ -936,7 +936,7 @@ impl Item for Flickable {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::EventIgnored
+        FocusEventResult::FocusIgnored
     }
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
@@ -1070,7 +1070,7 @@ impl Item for WindowItem {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::EventIgnored
+        FocusEventResult::FocusIgnored
     }
 
     fn render(self: Pin<&Self>, _backend: &mut ItemRendererRef) {}
@@ -1171,7 +1171,7 @@ impl Item for BoxShadow {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::EventIgnored
+        FocusEventResult::FocusIgnored
     }
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {

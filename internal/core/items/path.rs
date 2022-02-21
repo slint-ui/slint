@@ -102,7 +102,7 @@ impl Item for Path {
     }
 
     fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::EventIgnored
+        FocusEventResult::FocusIgnored
     }
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
