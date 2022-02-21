@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file.
 
 ## Unreleased
 
+### Added
+
+ - C++ interpreter API: added a `Value::Value(int)` constructor
+
 ## [0.2.0] - 2022-02-10
 
 This version changes some APIs in incompatible ways. For details how to migrate your application code, see the [C++ migration guide](api/cpp/docs/cpp_migration.md)

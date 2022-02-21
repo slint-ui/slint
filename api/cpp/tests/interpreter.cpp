@@ -36,6 +36,11 @@ SCENARIO("Value API")
         auto number_opt = value.to_number();
         REQUIRE(number_opt.has_value());
         REQUIRE(number_opt.value() == number);
+
+        Value v2 = 42;
+        REQUIRE(v2.type() == Value::Type::Number);
+        REQUIRE(v2 == value);
+        REQUIRE(*v2.to_number() == number);
     }
 
     SECTION("Construct a bool")

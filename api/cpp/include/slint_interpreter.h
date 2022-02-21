@@ -366,6 +366,9 @@ public:
 
     /// Constructs a new Value that holds the double \a value.
     Value(double value) { cbindgen_private::slint_interpreter_value_new_double(value, &inner); }
+    /// Constructs a new Value that holds the int \a value.
+    /// (It will be converted to double internally)
+    Value(int value) : Value(static_cast<double>(value)) { }
     /// Constructs a new Value that holds the string \a str.
     Value(const SharedString &str)
     {
