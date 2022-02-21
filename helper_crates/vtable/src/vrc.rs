@@ -314,7 +314,7 @@ impl<VTable: VTableMetaDropInPlace + 'static, X> VWeak<VTable, X> {
         }
     }
 
-    /// Returns true if the two VWeaks's point to the same allocation
+    /// Returns true if the two VWeak instances point to the same allocation
     pub fn ptr_eq(this: &Self, other: &Self) -> bool {
         this.inner == other.inner
     }
