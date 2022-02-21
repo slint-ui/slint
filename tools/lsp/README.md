@@ -119,7 +119,7 @@ two additional configuration changes are needed to integrate the LSP server with
 
 1. Make vim recognize the `.slint` files with the correct file type
 
-Install the `hunger/vim-slint` plugin.
+Install the `slint-ui/vim-slint` plugin.
 
 Alternatively you can add the following to your vim configuration file (e.g. `vimrc`) to
 enable automatic recognition of `.slint` files:
