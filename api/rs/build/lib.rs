@@ -276,7 +276,7 @@ pub fn compile_with_config(
 }
 
 /// This function is for use the application's build script, in order to print any device specific
-/// build flags.
+/// build flags reported by the backend
 pub fn print_rustc_flags() -> std::io::Result<()> {
     if let Some(board_config_path) =
         std::env::var_os("DEP_I_SLINT_BACKEND_MCU_BOARD_CONFIG_PATH").map(std::path::PathBuf::from)
