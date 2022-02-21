@@ -278,19 +278,8 @@ pub fn compile_with_config(
 /// This function is for use the application's build script, in order to print any device specific
 /// build flags.
 pub fn print_rustc_flags() -> std::io::Result<()> {
-    if let Some(board_config_path) = std::env::var_os("CARGO_FEATURE_I_SLINT_BACKEND_MCU")
-        .is_some()
-        .then(|| std::env::var_os("OUT_DIR"))
-        .flatten()
-        .and_then(|path| {
-            // Same logic as in i-slint-backend-mcu's build script to get the path
-            let path = Path::new(&path).parent()?.parent()?.join("SLINT_MCU_BOARD_CONFIG_PATH.txt");
-            // unfortunately, if for some reason the file is changed by the i-slint-backend-mcu's build script,
-            // it is changed after cargo decide to re-run this build script or not. So that means one will need two build
-            // to settle the right thing.
-            println!("cargo:rerun-if-changed={}", path.display());
-            std::fs::read_to_string(path).ok().map(std::path::PathBuf::from)
-        })
+    if let Some(board_config_path) =
+        std::env::var_os("DEP_I_SLINT_BACKEND_MCU_BOARD_CONFIG_PATH").map(std::path::PathBuf::from)
     {
         let config = std::fs::read_to_string(board_config_path.as_path())?;
         let toml = config.parse::<toml_edit::Document>().expect("invalid board config toml");
