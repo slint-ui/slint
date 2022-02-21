@@ -18,7 +18,7 @@ crate-type = ["cdylib"]
 [dependencies]
 slint-interpreter = { path = "../../internal/interpreter" }
 
-vtable = { version = "0.1.1", path="../../helper_crates/vtable" }
+vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
 
 console_error_panic_hook = { version = "0.1.6", optional = true }
 js-sys = "0.3.44"

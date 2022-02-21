@@ -32,7 +32,7 @@ i-slint-common = { version = "=0.2.1", path = "../../../internal/common", defaul
 i-slint-core = { version = "=0.2.1", path = "../../../internal/core", default-features = false }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
-vtable = { version = "0.1", path = "../../../helper_crates/vtable" }
+vtable = { version = "0.1.6", path = "../../../helper_crates/vtable" }
 
 by_address = "1.0.4"
 derive_more = "0.99.5"

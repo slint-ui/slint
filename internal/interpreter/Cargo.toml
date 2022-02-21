@@ -61,7 +61,7 @@ i-slint-compiler = { version = "=0.2.1", path = "../compiler" }
 i-slint-core = { version = "=0.2.1", path = "../core", features = ["rtti"] }
 i-slint-backend-selector = { version = "=0.2.1", path = "../../internal/backends/selector" }
 
-vtable = { version = "0.1.1", path="../../helper_crates/vtable" }
+vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
 
 derive_more = "0.99.5"
 generativity = "1"
