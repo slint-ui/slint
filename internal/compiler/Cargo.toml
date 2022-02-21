@@ -49,15 +49,15 @@ once_cell = "1"
 url = "2.2.1"
 dunce = "1.0.1"
 linked_hash_set = "0.1.4"
-fontdb = { version = "0.8.0" }
+fontdb = { version = "0.9.0" }
 fontdue = { version = "0.6.2" }
 
 # for processing and embedding the rendered image (texture)
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 image = "0.24"
 tiny-skia = "0.6.1"
-resvg = "0.21"
-usvg = "0.21"
+resvg = "0.22"
+usvg = "0.22"
 
 [dev-dependencies]
 i-slint-parser-test-macro = { path = "./parser-test-macro" }
