@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+use i_slint_core::input::FocusEventResult;
+
 use super::*;
 
 #[repr(C)]
@@ -90,7 +92,9 @@ impl Item for NativeComboBox {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
 
     fn_render! { this dpr size painter widget initial_state =>
         let down: bool = this.pressed();
@@ -187,7 +191,9 @@ impl Item for NativeComboBoxPopup {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
 
     fn_render! { _this dpr size painter widget initial_state =>
         cpp!(unsafe [

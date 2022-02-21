@@ -11,7 +11,8 @@ Lookup the [`crate::items`] module documentation.
 use super::{Item, ItemConsts, ItemRc, ItemRendererRef};
 use crate::graphics::{Brush, PathData, PathDataIterator, Rect};
 use crate::input::{
-    FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
+    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
+    KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
 
@@ -100,7 +101,9 @@ impl Item for Path {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
 
     fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
         let clip = self.clip();

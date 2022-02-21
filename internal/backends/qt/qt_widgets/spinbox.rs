@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+use i_slint_core::input::FocusEventResult;
+
 use super::*;
 
 #[derive(Default, Copy, Clone, Debug, PartialEq)]
@@ -183,7 +185,9 @@ impl Item for NativeSpinBox {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
 
     fn_render! { this dpr size painter widget initial_state =>
         let value: i32 = this.value();

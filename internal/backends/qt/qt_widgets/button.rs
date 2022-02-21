@@ -90,7 +90,7 @@ mod standard_button {
     pub type QStyle_StandardPixmap = ::std::os::raw::c_uint;
 }
 
-use i_slint_core::items::StandardButtonKind;
+use i_slint_core::{input::FocusEventResult, items::StandardButtonKind};
 use standard_button::*;
 
 type ActualStandardButtonKind = Option<StandardButtonKind>;
@@ -259,7 +259,9 @@ impl Item for NativeButton {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) {}
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
 
     fn_render! { this dpr size painter widget initial_state =>
         let down: bool = this.pressed();
