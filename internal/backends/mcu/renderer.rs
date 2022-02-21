@@ -334,16 +334,14 @@ impl PrepareScene {
     }
 
     fn new_scene_item(&mut self, geometry: LogicalRect, command: SceneCommand, data_index: usize) {
-        let z = self.items.len() as u16;
-
-        self.items.push(SceneItem {
-            pos: ((geometry.origin + self.current_state.offset.to_vector()) * self.scale_factor)
-                .cast(),
-            size: (geometry.size * self.scale_factor).cast(),
-            z,
-            command,
-            data_index,
-        });
+        let size = (geometry.size * self.scale_factor).cast();
+        if !size.is_empty() {
+            let z = self.items.len() as u16;
+            let pos = ((geometry.origin + self.current_state.offset.to_vector())
+                * self.scale_factor)
+                .cast();
+            self.items.push(SceneItem { pos, size, z, command, data_index });
+        }
     }
 
     fn draw_image_impl(
