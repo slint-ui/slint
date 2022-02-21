@@ -78,7 +78,7 @@ where
         LINE.with(|l| {
             let line = (l.get() + 1) % (self.screen_size().height / 13 - 2);
             l.set(line);
-            Text::new(text, Point::new(3, (1 + line) as i32 * 13), style).draw(self).unwrap();
+            Text::new(text, Point::new(3, line as i32 * 13 + 1), style).draw(self).unwrap();
         });
     }
 }
