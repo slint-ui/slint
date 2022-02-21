@@ -254,3 +254,38 @@ fn rc_map_origin() {
 
     assert!(weak_origin.upgrade().is_none());
 }
+
+#[test]
+fn ptr_eq() {
+    let string = Rc::new("hello".to_string());
+
+    let vrc1 = VRc::new(SomeStruct { e: 42, x: "42".into(), foo: string.clone() });
+    let vweak1 = VRc::downgrade(&vrc1);
+
+    let vrc2 = VRc::new(SomeStruct { e: 23, x: "23".into(), foo: string });
+    let vweak2 = VRc::downgrade(&vrc2);
+
+    let vweak1clone = vweak1.clone();
+    let vrc2clone = vrc2.clone();
+    let vweak2clone = VRc::downgrade(&vrc2clone);
+
+    assert!(VRc::ptr_eq(&vrc2, &vrc2clone));
+
+    assert!(vtable::VWeak::ptr_eq(&vweak1, &vweak1));
+    assert!(vtable::VWeak::ptr_eq(&vweak1clone, &vweak1clone));
+    assert!(vtable::VWeak::ptr_eq(&vweak1clone, &vweak1));
+    assert!(vtable::VWeak::ptr_eq(&vweak1, &vweak1clone));
+    assert!(vtable::VWeak::ptr_eq(&vweak2clone, &vweak2));
+    assert!(vtable::VWeak::ptr_eq(&vweak2, &vweak2clone));
+    assert!(vtable::VWeak::ptr_eq(&vweak2, &vweak2));
+    assert!(vtable::VWeak::ptr_eq(&vweak2clone, &vweak2clone));
+
+    assert!(!vtable::VWeak::ptr_eq(&vweak1clone, &vweak2));
+    assert!(!vtable::VWeak::ptr_eq(&vweak1clone, &vweak2clone));
+    assert!(!vtable::VWeak::ptr_eq(&vweak1, &vweak2));
+    assert!(!vtable::VWeak::ptr_eq(&vweak1, &vweak2clone));
+    assert!(!vtable::VWeak::ptr_eq(&vweak2clone, &vweak1));
+    assert!(!vtable::VWeak::ptr_eq(&vweak2clone, &vweak1clone));
+    assert!(!vtable::VWeak::ptr_eq(&vweak2, &vweak1));
+    assert!(!vtable::VWeak::ptr_eq(&vweak2, &vweak1clone));
+}

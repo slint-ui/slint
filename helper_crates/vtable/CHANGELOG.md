@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
+## [0.1.6] - 2022-02-21
+
+ - Add `VWeak::ptr_eq`
+
 ## [0.1.5] - 2022-01-21
 
  - Make it `#[no_std]`

@@ -189,7 +189,7 @@ impl ItemRc {
 }
 
 /// A Weak reference to an item that can be constructed from an ItemRc.
-#[derive(Default, Clone)]
+#[derive(Clone, Default)]
 #[repr(C)]
 pub struct ItemWeak {
     component: crate::component::ComponentWeak,
@@ -201,6 +201,14 @@ impl ItemWeak {
         self.component.upgrade().map(|c| ItemRc::new(c, self.index))
     }
 }
+
+impl PartialEq for ItemWeak {
+    fn eq(&self, other: &Self) -> bool {
+        VWeak::ptr_eq(&self.component, &other.component) && self.index == other.index
+    }
+}
+
+impl Eq for ItemWeak {}
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
