@@ -84,6 +84,9 @@ pub mod window;
 #[cfg(feature = "rtti")]
 pub mod rtti;
 
+#[cfg(feature = "text_layout")]
+pub mod textlayout;
+
 #[doc(inline)]
 pub use string::SharedString;
 
