@@ -1,8 +1,9 @@
-# ![Slint](./logo/slint-logo-full-light.svg) 
+# ![Slint](./logo/slint-logo-full-light.svg)
 
 <table border="0" style="border:none"><tr><td valign="center">Formerly known as </td><td><img height="40" src="https://slint-ui.com/resources/logo.drawio.svg" style="vertical-alignment: middle"></td></tr></table>
 
 [![Build Status](https://github.com/slint-ui/slint/workflows/CI/badge.svg)](https://github.com/slint-ui/slint/actions)
+[![REUSE status](https://api.reuse.software/badge/github.com/slint-ui/slint)](https://api.reuse.software/info/github.com/slint-ui/slint)
 [![Discussions](https://img.shields.io/github/discussions/slint-ui/slint)](https://github.com/slint-ui/slint/discussions)
 
 Slint is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications. We support multiple programming languages, such as
