@@ -15,6 +15,7 @@ fn main() {
             "cargo:warning=Could not find a Qt installation. The Qt backend will not be functional. \
             See https://github.com/slint-ui/slint/blob/master/docs/install_qt.md for more info"
         );
+        println!("cargo:warning=    {}", std::env::var("DEP_QT_ERROR_MESSAGE").unwrap());
         return;
     }
     let qt_version = std::env::var("DEP_QT_VERSION").unwrap();
@@ -29,19 +30,11 @@ fn main() {
     }
 
     let mut config = cpp_build::Config::new();
-
+    for f in std::env::var("DEP_QT_COMPILE_FLAGS").unwrap().split_terminator(";") {
+        config.flag(f);
+    }
     config.flag_if_supported("-std=c++17");
     config.flag_if_supported("/std:c++17");
-    // Make sure that MSVC reports the correct value for __cplusplus
-    config.flag_if_supported("/Zc:__cplusplus");
-    // Make sure that MSVC is using utf-8 for source encoding
-    // Ref: https://docs.microsoft.com/en-us/cpp/build/reference/utf-8-set-source-and-executable-character-sets-to-utf-8
-    config.flag_if_supported("/utf-8");
-
-    if cfg!(target_os = "macos") {
-        config.flag("-F");
-        config.flag(&std::env::var("DEP_QT_LIBRARY_PATH").unwrap());
-    }
     config.include(std::env::var("DEP_QT_INCLUDE_PATH").unwrap()).build("lib.rs");
 
     println!("cargo:rerun-if-changed=qt_window.rs");
