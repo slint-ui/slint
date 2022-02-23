@@ -269,6 +269,10 @@ pub fn compile_with_config(
     }
     println!("cargo:rerun-if-env-changed=SLINT_STYLE");
     println!("cargo:rerun-if-env-changed=SIXTYFPS_STYLE");
+    println!("cargo:rerun-if-env-changed=SLINT_EMBED_GLYPHS");
+    println!("cargo:rerun-if-env-changed=SLINT_FONT_SIZES");
+    println!("cargo:rerun-if-env-changed=SLINT_PROCESS_IMAGES");
+    println!("cargo:rerun-if-env-changed=SLINT_SCALE_FACTOR");
 
     println!("cargo:rustc-env=SLINT_INCLUDE_GENERATED={}", output_file_path.display());
     Ok(())
