@@ -98,22 +98,20 @@ pub fn render_component_items(
         |_, item, _, _| {
             renderer.borrow_mut().save_state();
 
-            let item_geometry = item.as_ref().geometry();
+            let (do_draw, item_geometry) = renderer.borrow_mut().filter_item(item);
+
             let item_origin = item_geometry.origin;
+            renderer.borrow_mut().translate(item_origin.x, item_origin.y);
 
             // Don't render items that are clipped, with the exception of the Clip or Flickable since
             // they themselves clip their content.
-            if !renderer.borrow().get_current_clip().intersects(&item_geometry)
+            if !do_draw
                 && !is_clipping_item(item)
                 // HACK, the geometry of the box shadow does not include the shadow, because when the shadow is the root for repeated elements it would translate the children
                 && ItemRef::downcast_pin::<BoxShadow>(item).is_none()
             {
-                renderer.borrow_mut().translate(item_origin.x, item_origin.y);
                 return (ItemVisitorResult::Continue(()), ());
             }
-
-            renderer.borrow_mut().translate(item_origin.x, item_origin.y);
-
             item.as_ref().render(&mut (*renderer.borrow_mut() as &mut dyn ItemRenderer));
 
             (ItemVisitorResult::Continue(()), ())
@@ -172,9 +170,18 @@ pub trait ItemRenderer {
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     );
 
-    // Draw the given string with the specified color at current (0, 0) with the default font. Mainly
-    // used by the performance counter overlay.
+    /// Draw the given string with the specified color at current (0, 0) with the default font. Mainly
+    /// used by the performance counter overlay.
     fn draw_string(&mut self, string: &str, color: crate::Color);
+
+    /// This is called before it is being rendered (before the draw_* function).
+    /// Returns
+    ///  - if the item needs to be drawn (false means it is clipped or doesn't need to be drawn)
+    ///  - the geometry of the item
+    fn filter_item(&mut self, item: Pin<ItemRef>) -> (bool, Rect) {
+        let item_geometry = item.as_ref().geometry();
+        (self.get_current_clip().intersects(&item_geometry), item_geometry)
+    }
 
     fn window(&self) -> crate::window::WindowRc;
 
