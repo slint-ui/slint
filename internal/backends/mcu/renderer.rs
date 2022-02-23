@@ -108,7 +108,7 @@ pub fn render_window_frame(
                         .iter_mut()
                         .enumerate()
                     {
-                        let pos = y_pos + bpp * x * source_size.width / span_size.width;
+                        let pos = y_pos + (x * source_size.width / span_size.width) * bpp;
                         *pix = match format {
                             PixelFormat::Rgb => {
                                 Rgb888::new(data[pos + 0], data[pos + 1], data[pos + 2])
