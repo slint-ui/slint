@@ -23,6 +23,10 @@ fn main() {
     let has_native_style =
         std::env::var("DEP_I_SLINT_BACKEND_QT_SUPPORTS_NATIVE_STYLE").unwrap_or_default() == "1";
 
+    if !has_native_style {
+        println!("cargo:rustc-cfg=no_qt");
+    }
+
     let out_dir = std::env::var_os("OUT_DIR").unwrap();
     // out_dir is something like
     // <target_dir>/build/i-slint-backend-selector-1fe5c4ab61eb0584/out

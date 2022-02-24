@@ -27,6 +27,7 @@ struct ItemVTable;
 #include "slint_internal.h"
 #include "slint_backend_internal.h"
 #include "slint_qt_internal.h"
+#include "slint_selector_internal.h"
 
 /// \rst
 /// The :code:`slint` namespace is the primary entry point into the Slint C++ API.

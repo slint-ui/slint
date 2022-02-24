@@ -21,10 +21,13 @@ svg = ["resvg", "usvg", "tiny-skia"]
 wayland = ["winit/wayland", "glutin/wayland", "copypasta/wayland"]
 x11 = ["winit/x11", "glutin/x11", "copypasta/x11"]
 
-default = ["svg"]
+rtti = ["i-slint-core/rtti"]
+
+default = ["svg", "rtti"]
 
 [dependencies]
 i-slint-core = { version = "=0.2.1", path = "../../../internal/core" }
+i-slint-core-macros = { version = "=0.2.1", path = "../../../internal/core-macros" }
 i-slint-common = { version = "=0.2.1", path = "../../../internal/common" }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
@@ -57,6 +60,7 @@ web_sys = { version = "0.3", package = "web-sys", features=["console", "WebGlCon
 wasm-bindgen = { version = "0.2" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+dark-light = "0.2.1"
 fontdb = { version = "0.9.0", features = ["memmap"] }
 glutin = { version = "0.28", default-features = false }
 usvg = { version= "0.22", optional = true, default-features = false, features = ["text", "memmap-fonts"] }
