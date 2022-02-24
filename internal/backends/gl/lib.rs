@@ -4,6 +4,8 @@
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 
+extern crate alloc;
+
 use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
@@ -28,6 +30,8 @@ mod svg;
 use images::*;
 
 mod fonts;
+
+mod stylemetrics;
 
 type Canvas = femtovg::Canvas<femtovg::renderer::OpenGl>;
 type CanvasRc = Rc<RefCell<Canvas>>;
@@ -1152,10 +1156,14 @@ pub fn create_gl_window_with_canvas_id(canvas_id: String) -> Rc<Window> {
 pub fn use_modules() {}
 
 pub type NativeWidgets = ();
-pub type NativeGlobals = ();
-pub mod native_widgets {}
+pub type NativeGlobals = (stylemetrics::NativeStyleMetrics, ());
+pub mod native_widgets {
+    pub use super::stylemetrics::NativeStyleMetrics;
+}
 pub const HAS_NATIVE_STYLE: bool = false;
-pub const IS_AVAILABLE: bool = true;
+
+pub use stylemetrics::native_style_metrics_deinit;
+pub use stylemetrics::native_style_metrics_init;
 
 // TODO: We can't connect to the wayland clipboard yet because
 // it requires an external connection.

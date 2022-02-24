@@ -89,9 +89,31 @@ pub type NativeGlobals =
     (qt_widgets::NativeStyleMetrics,
         ());
 
+#[cfg(no_qt)]
+mod native_style_metrics_stub {
+    use const_field_offset::FieldOffsets;
+    use core::pin::Pin;
+    use i_slint_core::rtti::*;
+    use i_slint_core_macros::*;
+
+    /// cbindgen:ignore
+    #[repr(C)]
+    #[derive(FieldOffsets, SlintElement)]
+    #[pin]
+    #[pin_drop]
+    pub struct NativeStyleMetrics {}
+
+    impl const_field_offset::PinnedDrop for NativeStyleMetrics {
+        fn drop(self: Pin<&mut Self>) {}
+    }
+}
+
 pub mod native_widgets {
     #[cfg(not(no_qt))]
     pub use super::qt_widgets::*;
+
+    #[cfg(no_qt)]
+    pub use super::native_style_metrics_stub::NativeStyleMetrics;
 }
 
 #[cfg(no_qt)]
@@ -100,8 +122,17 @@ pub type NativeWidgets = ();
 pub type NativeGlobals = ();
 
 pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
-/// False if the backend was compiled without Qt so it wouldn't do anything
-pub const IS_AVAILABLE: bool = cfg!(not(no_qt));
+
+#[cfg(not(no_qt))]
+pub use qt_widgets::{native_style_metrics_deinit, native_style_metrics_init};
+#[cfg(no_qt)]
+pub fn native_style_metrics_init(_: core::pin::Pin<&native_widgets::NativeStyleMetrics>) {
+    panic!("Qt backend not present");
+}
+#[cfg(no_qt)]
+pub fn native_style_metrics_deinit(_: core::pin::Pin<&mut native_widgets::NativeStyleMetrics>) {
+    panic!("Qt backend not present");
+}
 
 pub struct Backend;
 impl i_slint_core::backend::Backend for Backend {
