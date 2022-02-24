@@ -7,8 +7,9 @@
 use super::graphics::RenderingCache;
 use super::items::*;
 use crate::component::ComponentRc;
-use crate::graphics::Rect;
+use crate::graphics::{CachedGraphicsData, Point, Rect};
 use crate::item_tree::ItemVisitorResult;
+use alloc::boxed::Box;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 
@@ -34,11 +35,9 @@ impl CachedRenderingData {
         cache: &RefCell<RenderingCache<T>>,
         update_fn: impl FnOnce() -> T,
     ) -> T {
-        if self.cache_generation.get() == cache.borrow().generation()
-            && cache.borrow().contains(self.cache_index.get())
-        {
+        if let Some(entry) = self.get_entry(&mut cache.borrow_mut()) {
             let index = self.cache_index.get();
-            let tracker = cache.borrow_mut().get_mut(index).unwrap().dependency_tracker.take();
+            let tracker = entry.dependency_tracker.take();
 
             let maybe_new_data =
                 tracker.as_ref().and_then(|tracker| tracker.as_ref().evaluate_if_dirty(update_fn));
@@ -71,6 +70,19 @@ impl CachedRenderingData {
             None
         }
     }
+
+    /// Return the value if it is in the cache
+    pub fn get_entry<'a, T>(
+        &self,
+        cache: &'a mut RenderingCache<T>,
+    ) -> Option<&'a mut crate::graphics::CachedGraphicsData<T>> {
+        let index = self.cache_index.get();
+        if self.cache_generation.get() == cache.generation() {
+            cache.get_mut(index)
+        } else {
+            None
+        }
+    }
 }
 
 /// Return true if the item might be a clipping item
@@ -85,7 +97,7 @@ pub(crate) fn is_clipping_item(item: Pin<ItemRef>) -> bool {
 pub fn render_component_items(
     component: &ComponentRc,
     renderer: &mut dyn ItemRenderer,
-    origin: crate::graphics::Point,
+    origin: Point,
 ) {
     renderer.save_state();
     renderer.translate(origin.x, origin.y);
@@ -187,4 +199,191 @@ pub trait ItemRenderer {
 
     /// Return the internal renderer
     fn as_any(&mut self) -> &mut dyn core::any::Any;
+}
+
+/// The cache that needs to be held by the Window for the partial rendering
+pub type PartialRenderingCache = RenderingCache<Rect>;
+
+/// FIXME: Should actually be a region and not just a rectangle
+pub type DirtyRegion = euclid::default::Box2D<f32>;
+
+/// Put this structure in the renderer to help with partial rendering
+pub struct PartialRenderer<'a, T> {
+    cache: &'a mut PartialRenderingCache,
+    /// The region of the screen which is considered dirty and that should be repainted
+    pub dirty_region: DirtyRegion,
+    actual_renderer: T,
+}
+
+impl<'a, T> PartialRenderer<'a, T> {
+    /// Create a new PartialRenderer
+    pub fn new(cache: &'a mut PartialRenderingCache, actual_renderer: T) -> Self {
+        Self { cache, dirty_region: Default::default(), actual_renderer }
+    }
+
+    /// Visit the tree of item and compute what are the dirty regions
+    pub fn compute_dirty_regions(&mut self, component: &ComponentRc, origin: Point) {
+        crate::item_tree::visit_items(
+            component,
+            crate::item_tree::TraversalOrder::BackToFront,
+            |_, item, _, offset| match item
+                .cached_rendering_data_offset()
+                .get_entry(&mut self.cache)
+            {
+                Some(CachedGraphicsData { data, dependency_tracker: Some(tr) }) => {
+                    if tr.is_dirty() {
+                        let geom = item.as_ref().geometry();
+                        let old_geom = *data;
+                        self.mark_dirty_rect(old_geom, *offset);
+                        self.mark_dirty_rect(geom, *offset);
+                        ItemVisitorResult::Continue(*offset + geom.origin.to_vector())
+                    } else {
+                        ItemVisitorResult::Continue(*offset + data.origin.to_vector())
+                    }
+                }
+                _ => {
+                    let geom = item.as_ref().geometry();
+                    self.mark_dirty_rect(geom, *offset);
+                    ItemVisitorResult::Continue(*offset + geom.origin.to_vector())
+                }
+            },
+            origin.to_vector(),
+        );
+    }
+
+    fn mark_dirty_rect(&mut self, rect: Rect, offset: euclid::default::Vector2D<f32>) {
+        if !rect.is_empty() {
+            self.dirty_region = self.dirty_region.union(&rect.translate(offset).to_box2d());
+        }
+    }
+
+    fn do_rendering(
+        cache: &mut PartialRenderingCache,
+        rendering_data: &CachedRenderingData,
+        render_fn: impl FnOnce() -> Rect,
+    ) {
+        if let Some(entry) = rendering_data.get_entry(cache) {
+            entry
+                .dependency_tracker
+                .get_or_insert_with(|| Box::pin(crate::properties::PropertyTracker::default()))
+                .as_ref()
+                .evaluate(render_fn);
+        } else {
+            let cache_entry = crate::graphics::CachedGraphicsData::new(render_fn);
+            rendering_data.cache_index.set(cache.insert(cache_entry));
+            rendering_data.cache_generation.set(cache.generation());
+        }
+    }
+
+    /// Move the actual renderer
+    pub fn into_inner(self) -> T {
+        self.actual_renderer
+    }
+}
+
+macro_rules! forward_rendering_call {
+    (fn $fn:ident($Ty:ty)) => {
+        fn $fn(&mut self, obj: Pin<&$Ty>) {
+            Self::do_rendering(&mut self.cache, &obj.cached_rendering_data, || {
+                self.actual_renderer.$fn(obj);
+                type Ty = $Ty;
+                let width = Ty::FIELD_OFFSETS.width.apply_pin(obj).get_untracked();
+                let height = Ty::FIELD_OFFSETS.height.apply_pin(obj).get_untracked();
+                let x = Ty::FIELD_OFFSETS.x.apply_pin(obj).get_untracked();
+                let y = Ty::FIELD_OFFSETS.y.apply_pin(obj).get_untracked();
+                euclid::rect(x, y, width, height)
+            })
+        }
+    };
+}
+
+impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
+    fn filter_item(&mut self, item: Pin<ItemRef>) -> (bool, Rect) {
+        let rendering_data = item.cached_rendering_data_offset();
+        let item_geometry = match rendering_data.get_entry(&mut self.cache) {
+            Some(CachedGraphicsData { data, dependency_tracker }) => {
+                dependency_tracker
+                    .get_or_insert_with(|| Box::pin(crate::properties::PropertyTracker::default()))
+                    .as_ref()
+                    .evaluate_if_dirty(|| *data = item.as_ref().geometry());
+                *data
+            }
+            None => {
+                let cache_entry =
+                    crate::graphics::CachedGraphicsData::new(|| item.as_ref().geometry());
+                let geom = cache_entry.data;
+                rendering_data.cache_index.set(self.cache.insert(cache_entry));
+                rendering_data.cache_generation.set(self.cache.generation());
+                geom
+            }
+        };
+
+        //let clip = self.get_current_clip().intersection(&self.dirty_region.to_rect());
+        //let draw = clip.map_or(false, |r| r.intersects(&item_geometry));
+        //FIXME: the dirty_region is in global coordinate but item_geometry and current_clip is not
+        let draw = self.get_current_clip().intersects(&item_geometry);
+        (draw, item_geometry)
+    }
+
+    forward_rendering_call!(fn draw_rectangle(Rectangle));
+    forward_rendering_call!(fn draw_border_rectangle(BorderRectangle));
+    forward_rendering_call!(fn draw_image(ImageItem));
+    forward_rendering_call!(fn draw_clipped_image(ClippedImage));
+    forward_rendering_call!(fn draw_text(Text));
+    forward_rendering_call!(fn draw_text_input(TextInput));
+    #[cfg(feature = "std")]
+    forward_rendering_call!(fn draw_path(Path));
+    forward_rendering_call!(fn draw_box_shadow(BoxShadow));
+
+    fn combine_clip(&mut self, rect: Rect, radius: f32, border_width: f32) {
+        self.actual_renderer.combine_clip(rect, radius, border_width)
+    }
+
+    fn get_current_clip(&self) -> Rect {
+        self.actual_renderer.get_current_clip()
+    }
+
+    fn translate(&mut self, x: f32, y: f32) {
+        self.actual_renderer.translate(x, y)
+    }
+
+    fn rotate(&mut self, angle_in_degrees: f32) {
+        self.actual_renderer.rotate(angle_in_degrees)
+    }
+
+    fn apply_opacity(&mut self, opacity: f32) {
+        self.actual_renderer.apply_opacity(opacity)
+    }
+
+    fn save_state(&mut self) {
+        self.actual_renderer.save_state()
+    }
+
+    fn restore_state(&mut self) {
+        self.actual_renderer.restore_state()
+    }
+
+    fn scale_factor(&self) -> f32 {
+        self.actual_renderer.scale_factor()
+    }
+
+    fn draw_cached_pixmap(
+        &mut self,
+        item_cache: &CachedRenderingData,
+        update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
+    ) {
+        self.actual_renderer.draw_cached_pixmap(item_cache, update_fn)
+    }
+
+    fn draw_string(&mut self, string: &str, color: crate::Color) {
+        self.actual_renderer.draw_string(string, color)
+    }
+
+    fn window(&self) -> crate::window::WindowRc {
+        self.actual_renderer.window()
+    }
+
+    fn as_any(&mut self) -> &mut dyn core::any::Any {
+        self.actual_renderer.as_any()
+    }
 }

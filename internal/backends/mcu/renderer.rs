@@ -5,10 +5,10 @@ use alloc::collections::VecDeque;
 use alloc::rc::Rc;
 use alloc::{vec, vec::Vec};
 use core::pin::Pin;
-
 use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
 use i_slint_core::graphics::{FontRequest, IntRect, PixelFormat, Rect as RectF};
+use i_slint_core::item_rendering::PartialRenderingCache;
 use i_slint_core::{Color, ImageInner, StaticTextures};
 
 use crate::fonts::FontMetrics;
@@ -19,13 +19,16 @@ use crate::{
 
 use euclid::num::Zero;
 
+type DirtyRegion = PhysicalRect;
+
 pub fn render_window_frame(
     runtime_window: Rc<i_slint_core::window::Window>,
     background: Rgb888,
     devices: &mut dyn Devices,
+    cache: &mut PartialRenderingCache,
 ) {
     let size = devices.screen_size();
-    let mut scene = prepare_scene(runtime_window, size, devices);
+    let mut scene = prepare_scene(runtime_window, size, devices, cache);
 
     /*for item in scene.future_items {
         match item.command {
@@ -72,11 +75,21 @@ pub fn render_window_frame(
     let mut screen_fill_profiler = profiler::Timer::new_stopped();
 
     let mut line_buffer = vec![background; size.width as usize];
-    while scene.current_line < size.height_length() {
+
+    let dirty_region = scene
+        .dirty_region
+        .intersection(&PhysicalRect { origin: euclid::point2(0, 0), size })
+        .unwrap_or_default();
+
+    while scene.current_line < dirty_region.origin.y_length() + dirty_region.size.height_length() {
         line_buffer.fill(background);
         line_processing_profiler.start(devices);
         let line = scene.process_line();
         line_processing_profiler.stop(devices);
+        if scene.current_line < dirty_region.origin.y_length() {
+            // FIXME: ideally we should start with that coordinate and not call process_line for all the lines before
+            continue;
+        }
         span_drawing_profiler.start(devices);
         for span in line.spans.iter().rev() {
             match span.command {
@@ -159,7 +172,11 @@ pub fn render_window_frame(
         }
         span_drawing_profiler.stop(devices);
         screen_fill_profiler.start(devices);
-        devices.fill_region(euclid::rect(0, line.line.get() as i16, size.width, 1), &line_buffer);
+        devices.fill_region(
+            euclid::rect(dirty_region.origin.x, line.line.get() as i16, dirty_region.size.width, 1),
+            &line_buffer[dirty_region.origin.x as usize
+                ..(dirty_region.origin.x + dirty_region.size.width) as usize],
+        );
         screen_fill_profiler.stop(devices);
     }
 
@@ -185,10 +202,17 @@ struct Scene {
 
     rectangles: Vec<Color>,
     textures: Vec<SceneTexture>,
+
+    dirty_region: DirtyRegion,
 }
 
 impl Scene {
-    fn new(mut items: Vec<SceneItem>, rectangles: Vec<Color>, textures: Vec<SceneTexture>) -> Self {
+    fn new(
+        mut items: Vec<SceneItem>,
+        rectangles: Vec<Color>,
+        textures: Vec<SceneTexture>,
+        dirty_region: DirtyRegion,
+    ) -> Self {
         items.sort_unstable_by(|a, b| compare_scene_item(a, b).reverse());
         Self {
             future_items: items,
@@ -197,6 +221,7 @@ impl Scene {
             next_items: Default::default(),
             rectangles,
             textures,
+            dirty_region,
         }
     }
 
@@ -290,24 +315,30 @@ fn prepare_scene(
     runtime_window: Rc<i_slint_core::window::Window>,
     size: PhysicalSize,
     devices: &dyn Devices,
+    cache: &mut PartialRenderingCache,
 ) -> Scene {
     let prepare_scene_profiler = profiler::Timer::new(devices);
-    let mut prepare_scene = PrepareScene::new(
-        size,
-        ScaleFactor::new(runtime_window.scale_factor()),
-        runtime_window.default_font_properties(),
-    );
+    let factor = ScaleFactor::new(runtime_window.scale_factor());
+    let prepare_scene = PrepareScene::new(size, factor, runtime_window.default_font_properties());
+    let mut renderer = i_slint_core::item_rendering::PartialRenderer::new(cache, prepare_scene);
+
+    let mut dirty_region = i_slint_core::item_rendering::DirtyRegion::default();
+
     runtime_window.draw_contents(|components| {
         for (component, origin) in components {
-            i_slint_core::item_rendering::render_component_items(
-                component,
-                &mut prepare_scene,
-                origin.clone(),
-            );
+            renderer.compute_dirty_regions(component, *origin);
+            dirty_region = dirty_region.union(&renderer.dirty_region);
+            i_slint_core::item_rendering::render_component_items(component, &mut renderer, *origin);
         }
     });
     prepare_scene_profiler.stop_profiling(devices, "prepare_scene");
-    Scene::new(prepare_scene.items, prepare_scene.rectangles, prepare_scene.textures)
+    let prepare_scene = renderer.into_inner();
+    Scene::new(
+        prepare_scene.items,
+        prepare_scene.rectangles,
+        prepare_scene.textures,
+        (euclid::Rect::from_untyped(&dirty_region.to_rect()) * factor).round_out().cast(),
+    )
 }
 
 struct PrepareScene {

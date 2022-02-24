@@ -77,6 +77,7 @@ where
 }
 
 thread_local! { static DEVICES: RefCell<Option<Box<dyn Devices + 'static>>> = RefCell::new(None) }
+thread_local! { static PARTIAL_RENDERING_CACHE: RefCell<i_slint_core::item_rendering::PartialRenderingCache> = RefCell::new(Default::default()) }
 
 mod the_backend {
     use super::*;
@@ -223,7 +224,14 @@ mod the_backend {
                 runtime_window.set_window_item_geometry(size.width as _, size.height as _);
                 let background =
                     crate::renderer::to_rgb888_color_discard_alpha(window.background_color.get());
-                crate::renderer::render_window_frame(runtime_window, background, &mut **devices);
+                PARTIAL_RENDERING_CACHE.with(|cache| {
+                    crate::renderer::render_window_frame(
+                        runtime_window,
+                        background,
+                        &mut **devices,
+                        &mut cache.borrow_mut(),
+                    )
+                });
             });
         }
     }
