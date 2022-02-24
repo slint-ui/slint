@@ -60,12 +60,12 @@ export global StyleMetrics := {
     property<length> layout-spacing: 8px;
     property<length> layout-padding: 8px;
     property<length> text-cursor-width: 2px;
-    property<color> window-background: white; //FIXME: Palette.white  does not compile (cannot access globals from other globals #175)
-    property<color> default-text-color: #201f1e; // neutralDark
-    property<brush> textedit-background: white;
-    property<color> textedit-text-color: #323130; //Palette.neutralPrimary;
-    property<brush> textedit-background-disabled: #f3f2f1; //Palette.neutralLighter;
-    property<color> textedit-text-color-disabled: #a19f9d;//Palette.neutralTertiary;
+    property<color> window-background: Palette.white;
+    property<color> default-text-color: Palette.neutralDark;
+    property<brush> textedit-background: Palette.white;
+    property<color> textedit-text-color: Palette.neutralPrimary;
+    property<brush> textedit-background-disabled: Palette.neutralLighter;
+    property<color> textedit-text-color-disabled: Palette.neutralTertiary;
 }
 
 export Button := Rectangle {

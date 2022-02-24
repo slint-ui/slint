@@ -21,12 +21,12 @@ export global StyleMetrics := {
     property<length> layout-spacing: 5px;
     property<length> layout-padding: 5px;
     property<length> text-cursor-width: 2px;
-    property<color> window-background: #ecedeb; //FIXME: Palette.window-background  does not compile (cannot access globals from other globals #175)
-    property<color> default-text-color: #090909;
-    property<brush> textedit-background: white; //Palette.base-background-color;
-    property<color> textedit-text-color: #090909;//Palette.text-color;
-    property<brush> textedit-background-disabled: white; //Palette.neutralLighter;
-    property<color> textedit-text-color-disabled: lightgray;// Palette.text-color-disabled;
+    property<color> window-background: Palette.window-background;
+    property<color> default-text-color: Palette.text-color;
+    property<brush> textedit-background: Palette.base-background-color;
+    property<color> textedit-text-color: Palette.text-color;
+    property<brush> textedit-background-disabled: white;
+    property<color> textedit-text-color-disabled: Palette.text-color-disabled;
 }
 
 export Button := Rectangle {
