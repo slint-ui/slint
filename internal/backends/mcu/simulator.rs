@@ -267,7 +267,14 @@ impl WinitWindow for SimulatorWindow {
                     .unwrap();
             }
 
-            crate::renderer::render_window_frame(runtime_window, background, &mut display);
+            super::PARTIAL_RENDERING_CACHE.with(|cache| {
+                crate::renderer::render_window_frame(
+                    runtime_window,
+                    background,
+                    &mut display,
+                    &mut cache.borrow_mut(),
+                );
+            });
 
             let output_image = display
                 .to_rgb_output_image(&embedded_graphics_simulator::OutputSettings::default());
