@@ -18,7 +18,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 #![allow(missing_docs)] // because documenting each property of items is redundant
 
-use crate::component::ComponentVTable;
+use crate::component::{ComponentVTable, ComponentWeak};
 use crate::graphics::{Brush, Color, Point, Rect};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
@@ -199,6 +199,18 @@ pub struct ItemWeak {
 impl ItemWeak {
     pub fn upgrade(&self) -> Option<ItemRc> {
         self.component.upgrade().map(|c| ItemRc::new(c, self.index))
+    }
+
+    pub fn component(&self) -> ComponentWeak {
+        self.component.clone()
+    }
+
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
+    pub fn is_none(&self) -> bool {
+        VWeak::ptr_eq(&self.component, &Default::default())
     }
 }
 
