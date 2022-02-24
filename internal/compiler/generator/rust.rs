@@ -262,7 +262,9 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
 
         impl #public_component_id {
             pub fn new() -> Self {
-                Self(#inner_component_id::new())
+                let inner = #inner_component_id::new();
+                #(inner.globals.#global_names.clone().init(&inner);)*
+                Self(inner)
             }
 
             #property_and_callback_accessors
@@ -829,7 +831,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
     let ctx = EvaluationContext::new_global(
         root,
         global,
-        quote!(compilation_error("can't access root from global")),
+        quote!(_self.root.get().unwrap().upgrade().unwrap()),
     );
 
     for (property_index, expression) in global.init_values.iter().enumerate() {
@@ -882,6 +884,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
         )
     });
 
+    let root_component_id = self::inner_component_id(&root.item_tree.root);
     quote!(
         #[derive(slint::re_exports::FieldOffsets, Default)]
         #[const_field_offset(slint::re_exports::const_field_offset)]
@@ -890,14 +893,19 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
         struct #inner_component_id {
             #(#declared_property_vars: slint::re_exports::Property<#declared_property_types>,)*
             #(#declared_callbacks: slint::re_exports::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
+            root : slint::re_exports::OnceCell<slint::re_exports::VWeak<slint::re_exports::ComponentVTable, #root_component_id>>,
         }
 
         impl #inner_component_id {
             fn new() -> ::core::pin::Pin<slint::re_exports::Rc<Self>> {
-                let self_rc = slint::re_exports::Rc::pin(Self::default());
+                slint::re_exports::Rc::pin(Self::default())
+            }
+            fn init(self: ::core::pin::Pin<slint::re_exports::Rc<Self>>, root: &slint::re_exports::VRc<slint::re_exports::ComponentVTable, #root_component_id>) {
+                #![allow(unused)]
+                self.root.set(VRc::downgrade(root));
+                let self_rc = self;
                 let _self = self_rc.as_ref();
                 #(#init)*
-                self_rc
             }
         }
 

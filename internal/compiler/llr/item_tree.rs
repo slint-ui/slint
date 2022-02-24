@@ -326,7 +326,13 @@ impl PublicComponent {
             }
             visitor(&sc.layout_info_h, ctx);
             visitor(&sc.layout_info_v, ctx);
-        })
+        });
+        for g in &self.globals {
+            let ctx = EvaluationContext::new_global(self, g, ());
+            for e in g.init_values.iter().filter_map(|x| x.as_ref()) {
+                visitor(&e.expression, &ctx)
+            }
+        }
     }
 }
 

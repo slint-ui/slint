@@ -224,6 +224,7 @@ fn box_layout_data(
                     rep.1.clone(),
                     Some(component.borrow()),
                     Some(window),
+                    Default::default(),
                 );
                 instance.run_setup_code();
                 instance
@@ -282,6 +283,7 @@ fn repeater_indices(children: &[ElementRc], component: InstanceRef) -> Vec<u32> 
                     rep.1.clone(),
                     Some(component.borrow()),
                     Some(window),
+                    Default::default(),
                 );
                 instance.run_setup_code();
                 instance

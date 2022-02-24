@@ -12,7 +12,7 @@ struct StyleChangeListener : QWidget {
         auto ty = event->type();
         if (ty == QEvent::StyleChange || ty == QEvent::PaletteChange || ty == QEvent::FontChange) {
             rust!(Slint_style_change_event [nativeStyleMetrics: Pin<&NativeStyleMetrics> as "const void*"] {
-                nativeStyleMetrics.init();
+                nativeStyleMetrics.init_impl();
             });
         }
         return QWidget::event(event);
@@ -64,11 +64,14 @@ impl NativeStyleMetrics {
             placeholder_color_disabled: Default::default(),
             style_change_listener: core::cell::Cell::new(core::ptr::null()),
         });
-        new.as_ref().init();
         new
     }
 
-    fn init(self: Pin<&Self>) {
+    pub fn init<T>(self: Pin<Rc<Self>>, _root: &T) {
+        self.as_ref().init_impl();
+    }
+
+    fn init_impl(self: Pin<&Self>) {
         if self.style_change_listener.get().is_null() {
             self.style_change_listener.set(cpp!(unsafe [self as "void*"] -> *const u8 as "void*"{
                 ensure_initialized();
@@ -140,7 +143,7 @@ impl i_slint_core::rtti::BuiltinGlobal for NativeStyleMetrics {
 #[no_mangle]
 pub extern "C" fn slint_native_style_metrics_init(self_: Pin<&NativeStyleMetrics>) {
     self_.style_change_listener.set(core::ptr::null()); // because the C++ code don't initialize it
-    self_.init();
+    self_.init_impl();
 }
 
 #[no_mangle]
