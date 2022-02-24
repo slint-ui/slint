@@ -727,7 +727,7 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
             Declaration::Var(Var {
                 ty: format!("std::shared_ptr<{}>", ty),
                 name: format!("global_{}", ident(&glob.name)),
-                init: Some(format!("std::make_shared<{}>()", ty)),
+                init: Some(format!("std::make_shared<{}>(this)", ty)),
                 ..Default::default()
             }),
         ));
@@ -1472,13 +1472,9 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::P
         ));
     }
 
-    let mut init = vec![];
+    let mut init = vec!["(void)this->root;".into()];
 
-    let ctx = EvaluationContext::new_global(
-        root,
-        global,
-        "\n#error can't access root from global\n".into(),
-    );
+    let ctx = EvaluationContext::new_global(root, global, "this->root".into());
 
     for (property_index, expression) in global.init_values.iter().enumerate() {
         if global.properties[property_index].use_count.get() == 0 {
@@ -1495,15 +1491,21 @@ fn generate_global(file: &mut File, global: &llr::GlobalComponent, root: &llr::P
         }
     }
 
+    let root_ptr_type = format!("const {} *", ident(&root.item_tree.root.name));
     global_struct.members.push((
         Access::Public,
         Declaration::Function(Function {
             name: ident(&global.name),
-            signature: "()".into(),
+            signature: format!("({} root)", root_ptr_type),
             is_constructor_or_destructor: true,
             statements: Some(init),
+            constructor_member_initializers: vec!["root(root)".into()],
             ..Default::default()
         }),
+    ));
+    global_struct.members.push((
+        Access::Private,
+        Declaration::Var(Var { ty: root_ptr_type, name: "root".to_owned(), ..Default::default() }),
     ));
 
     let declarations = generate_public_api_for_properties(&global.public_properties, &ctx);

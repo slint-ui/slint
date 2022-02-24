@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use core::pin::Pin;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
 use crate::api::Value;
@@ -13,6 +13,8 @@ use i_slint_compiler::object_tree::PropertyDeclaration;
 use i_slint_compiler::{langtype::Type, object_tree::Component};
 use i_slint_core::component::ComponentVTable;
 use i_slint_core::rtti;
+
+pub type GlobalStorage = HashMap<String, Pin<Rc<dyn GlobalComponent>>>;
 
 pub enum CompiledGlobal {
     Builtin {
@@ -89,9 +91,10 @@ pub trait GlobalComponent {
     fn get_property_ptr(self: Pin<&Self>, prop_name: &str) -> *const ();
 }
 
-pub fn instantiate(description: &CompiledGlobal) -> (String, Pin<Rc<dyn GlobalComponent>>) {
-    match description {
-        CompiledGlobal::Builtin { name, element, .. } => {
+/// Instantiate the global singleton and store it in `globals`
+pub fn instantiate(description: &CompiledGlobal, globals: &mut GlobalStorage) {
+    let instance = match description {
+        CompiledGlobal::Builtin { element, .. } => {
             trait Helper {
                 fn instantiate(name: &str) -> Pin<Rc<dyn GlobalComponent>> {
                     panic!("Cannot find native global {}", name)
@@ -107,28 +110,27 @@ pub fn instantiate(description: &CompiledGlobal) -> (String, Pin<Rc<dyn GlobalCo
                     }
                 }
             }
-            let g = i_slint_backend_selector::NativeGlobals::instantiate(
+            i_slint_backend_selector::NativeGlobals::instantiate(
                 element.native_class.class_name.as_ref(),
-            );
-            (name.clone(), g)
+            )
         }
         CompiledGlobal::Component { component, .. } => {
             generativity::make_guard!(guard);
             let description = component.unerase(guard);
-            let component = &description.original;
-            let g = Rc::pin(GlobalComponentInstance(crate::dynamic_component::instantiate(
+            Rc::pin(GlobalComponentInstance(crate::dynamic_component::instantiate(
                 description.clone(),
                 None,
                 None,
-            )));
-            let id = if component.is_global() {
-                component.root_element.borrow().id.clone()
-            } else {
-                component.id.clone()
-            };
-            (id, g)
+                globals.clone(),
+            )))
         }
-    }
+    };
+    globals.extend(
+        description
+            .names()
+            .iter()
+            .map(|name| (crate::normalize_identifier(name).to_string(), instance.clone())),
+    );
 }
 
 /// For the global components, we don't use the dynamic_type optimization,

@@ -439,7 +439,8 @@ fn gen_backend_qt(
 
     config.export.body.insert(
         "NativeStyleMetrics".to_owned(),
-        "    inline NativeStyleMetrics(); inline ~NativeStyleMetrics();".to_owned(),
+        "    inline explicit NativeStyleMetrics(void* = nullptr); inline ~NativeStyleMetrics();"
+            .to_owned(),
     );
 
     let mut crate_dir = root_dir.to_owned();

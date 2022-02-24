@@ -318,6 +318,7 @@ impl ContextMap {
                         property_index: *property_index,
                     }
                 }
+                g @ PropertyReference::Global { .. } => g.clone(),
                 _ => unreachable!(),
             },
         }

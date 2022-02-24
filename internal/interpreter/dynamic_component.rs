@@ -176,7 +176,7 @@ i_slint_core::ComponentVTable_static!(static COMPONENT_BOX_VT for ErasedComponen
 
 #[derive(Default)]
 pub(crate) struct ComponentExtraData {
-    pub(crate) globals: HashMap<String, Pin<Rc<dyn crate::global_component::GlobalComponent>>>,
+    pub(crate) globals: crate::global_component::GlobalStorage,
     pub(crate) self_weak:
         once_cell::unsync::OnceCell<vtable::VWeak<ComponentVTable, ErasedComponentBox>>,
     // resource id -> file path
@@ -358,7 +358,7 @@ impl<'id> ComponentDescription<'id> {
         self: Rc<Self>,
         window: &i_slint_core::window::WindowRc,
     ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
-        let component_ref = instantiate(self, None, Some(window));
+        let component_ref = instantiate(self, None, Some(window), Default::default());
         component_ref
             .as_pin_ref()
             .window()
@@ -612,6 +612,7 @@ fn ensure_repeater_updated<'id>(
             rep_in_comp.component_to_repeat.clone(),
             Some(instance_ref.borrow()),
             Some(window.window_handle()),
+            Default::default(),
         );
         instance.run_setup_code();
         instance
@@ -1098,6 +1099,7 @@ pub fn instantiate(
     component_type: Rc<ComponentDescription>,
     parent_ctx: Option<ComponentRefPin>,
     window: Option<&i_slint_core::window::WindowRc>,
+    mut globals: crate::global_component::GlobalStorage,
 ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
     let mut instance = component_type.dynamic_type.clone().create_instance();
 
@@ -1105,18 +1107,11 @@ pub fn instantiate(
         *component_type.parent_component_offset.unwrap().apply_mut(instance.as_mut()) =
             Some(parent);
     } else {
+        for g in &component_type.compiled_globals {
+            crate::global_component::instantiate(g, &mut globals);
+        }
         let extra_data = component_type.extra_data_offset.apply_mut(instance.as_mut());
-        extra_data.globals = component_type
-            .compiled_globals
-            .iter()
-            .flat_map(|g| {
-                let (_, instance) = crate::global_component::instantiate(g);
-                g.names()
-                    .iter()
-                    .map(|name| (crate::normalize_identifier(name).to_string(), instance.clone()))
-                    .collect::<Vec<_>>()
-            })
-            .collect();
+        extra_data.globals = globals;
 
         extra_data.embedded_file_resources = component_type
             .original
@@ -1637,7 +1632,7 @@ pub fn show_popup(
     generativity::make_guard!(guard);
     // FIXME: we should compile once and keep the cached compiled component
     let compiled = generate_component(&popup.component, guard);
-    let inst = instantiate(compiled, Some(parent_comp), Some(parent_window));
+    let inst = instantiate(compiled, Some(parent_comp), Some(parent_window), Default::default());
     inst.run_setup_code();
     parent_window.show_popup(&vtable::VRc::into_dyn(inst), pos, parent_item);
 }

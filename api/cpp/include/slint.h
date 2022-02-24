@@ -865,7 +865,7 @@ cbindgen_private::Flickable::~Flickable()
     slint_flickable_data_free(&data);
 }
 
-cbindgen_private::NativeStyleMetrics::NativeStyleMetrics()
+cbindgen_private::NativeStyleMetrics::NativeStyleMetrics(void *)
 {
     slint_native_style_metrics_init(this);
 }

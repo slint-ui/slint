@@ -1030,7 +1030,7 @@ pub(crate) fn enclosing_component_instance_for_element<'a, 'old_id, 'new_id>(
     let enclosing = &element.borrow().enclosing_component.upgrade().unwrap();
     match component_instance {
         ComponentInstance::InstanceRef(component) => {
-            if enclosing.is_global() && !component.component_type.original.is_global() {
+            if enclosing.is_global() && !Rc::ptr_eq(enclosing, &component.component_type.original) {
                 // we need a 'static guard in order to be able to borrow from `root` otherwise it does not work because of variance.
                 // Safety: This is the only 'static Id in scope.
                 let static_guard =
