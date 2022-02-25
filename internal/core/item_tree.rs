@@ -286,6 +286,76 @@ pub fn visit_item_tree<Base>(
     }
 }
 
+/// This is a local item tree of one component with some helpful functions to navigate the tree.
+pub struct ItemTree<'a, T> {
+    item_tree: &'a [ItemTreeNode<T>],
+}
+
+impl<'a, T> ItemTree<'a, T> {
+    /// Create a new `ItemTree` from its raw data.
+    pub fn new(item_tree: &'a [ItemTreeNode<T>]) -> Self {
+        Self { item_tree }
+    }
+
+    /// Get the parent of a node, returns `None` if this is the root node of this item tree.
+    pub fn parent(&self, index: usize) -> Option<usize> {
+        (index < self.item_tree.len() && index != 0).then(|| self.item_tree[index].parent_index())
+    }
+
+    /// Returns the next sibling or `None` if this is the last sibling.
+    pub fn next_sibling(&self, index: usize) -> Option<usize> {
+        if let Some(parent_index) = self.parent(index) {
+            match self.item_tree[parent_index] {
+                ItemTreeNode::Item { children_index, children_count, .. } => (index
+                    < (children_count as usize + children_index as usize - 1))
+                    .then(|| index + 1),
+                ItemTreeNode::DynamicTree { .. } => {
+                    unreachable!("Parent in same itemtree is a repeater.")
+                }
+            }
+        } else {
+            None // No parent, so we have no siblings either:-)
+        }
+    }
+
+    /// Returns the previous sibling or `None` if this is the first sibling.
+    pub fn previous_sibling(&self, index: usize) -> Option<usize> {
+        if let Some(parent_index) = self.parent(index) {
+            match self.item_tree[parent_index] {
+                ItemTreeNode::Item { children_index, .. } => {
+                    (index <= children_index as usize).then(|| index - 1)
+                }
+                ItemTreeNode::DynamicTree { .. } => {
+                    unreachable!("Parent in same itemtree is a repeater.")
+                }
+            }
+        } else {
+            None // No parent, so we have no siblings either:-)
+        }
+    }
+
+    /// Returns the first child or `None` if this are no children or the `index`
+    /// points to a `DynamicTree`.
+    pub fn first_child(&self, index: usize) -> Option<usize> {
+        match self.item_tree.get(index)? {
+            ItemTreeNode::Item { children_index, children_count, .. } => {
+                (*children_count != 0).then(|| *children_index as _)
+            }
+            ItemTreeNode::DynamicTree { .. } => None,
+        }
+    }
+
+    /// Returns the last child or `None` if this are no children or the `index`
+    /// points to an `DynamicTree`.
+    pub fn last_child(&self, index: usize) -> Option<usize> {
+        match self.item_tree.get(index)? {
+            ItemTreeNode::Item { children_index, children_count, .. } => (*children_count != 0)
+                .then(|| *children_index as usize + *children_count as usize - 1),
+            ItemTreeNode::DynamicTree { .. } => None,
+        }
+    }
+}
+
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
