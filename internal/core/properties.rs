@@ -582,7 +582,9 @@ impl PropertyHandle {
         }
     }
 
-    fn mark_dirty(&self) {
+    fn mark_dirty(&self, #[cfg(slint_debug_property)] debug_name: &str) {
+        #[cfg(not(slint_debug_property))]
+        let debug_name = "";
         unsafe {
             let dependencies = self.dependencies();
             assert!(
@@ -590,7 +592,8 @@ impl PropertyHandle {
                     *(dependencies as *mut *const u32),
                     (&CONSTANT_PROPERTY_SENTINEL) as *const u32,
                 ),
-                "Constant property being changed"
+                "Constant property being changed {}",
+                debug_name
             );
             mark_dependencies_dirty(dependencies)
         };
@@ -794,7 +797,10 @@ impl<T: Clone> Property<T> {
             }
         });
         if has_value_changed {
-            self.handle.mark_dirty();
+            self.handle.mark_dirty(
+                #[cfg(slint_debug_property)]
+                self.debug_name.borrow().as_str(),
+            );
         }
     }
 
@@ -837,7 +843,10 @@ impl<T: Clone> Property<T> {
                 self.debug_name.borrow().as_str(),
             )
         }
-        self.handle.mark_dirty();
+        self.handle.mark_dirty(
+            #[cfg(slint_debug_property)]
+            self.debug_name.borrow().as_str(),
+        );
     }
 
     /// Any of the properties accessed during the last evaluation of the closure called
@@ -849,7 +858,10 @@ impl<T: Clone> Property<T> {
     /// Internal function to mark the property as dirty and notify dependencies, regardless of
     /// whether the property value has actually changed or not.
     pub fn mark_dirty(&self) {
-        self.handle.mark_dirty()
+        self.handle.mark_dirty(
+            #[cfg(slint_debug_property)]
+            self.debug_name.borrow().as_str(),
+        )
     }
 
     /// Mark that this property will never be modified again and that no tracking should be done
@@ -890,7 +902,10 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
                 self.debug_name.borrow().as_str(),
             );
         }
-        self.handle.mark_dirty();
+        self.handle.mark_dirty(
+            #[cfg(slint_debug_property)]
+            self.debug_name.borrow().as_str(),
+        );
     }
 
     /// Set a binding to this property.
@@ -928,7 +943,10 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
                 self.debug_name.borrow().as_str(),
             )
         };
-        self.handle.mark_dirty();
+        self.handle.mark_dirty(
+            #[cfg(slint_debug_property)]
+            self.debug_name.borrow().as_str(),
+        );
     }
 
     /// Set a binding to this property, providing a callback for the transition animation
@@ -967,7 +985,10 @@ impl<T: Clone + InterpolatedPropertyValue + 'static> Property<T> {
                 self.debug_name.borrow().as_str(),
             )
         };
-        self.handle.mark_dirty();
+        self.handle.mark_dirty(
+            #[cfg(slint_debug_property)]
+            self.debug_name.borrow().as_str(),
+        );
     }
 }
 
@@ -1067,7 +1088,10 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                 debug_name.as_str(),
             );
         }
-        prop1.handle.mark_dirty();
+        prop1.handle.mark_dirty(
+            #[cfg(slint_debug_property)]
+            debug_name.as_str(),
+        );
     }
 }
 
