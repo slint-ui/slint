@@ -1,0 +1,50 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { ListView } from "std-widgets.slint";
+
+FileLine := Rectangle {
+    property <string> filename;
+    HorizontalLayout {
+        t_filename := Text {
+            text: root.filename;
+        }
+    }
+}
+
+export struct FileItem := {
+    filename: string,
+}
+
+MainWindow := Window {
+    property <[FileItem]> file-model: [ ];
+    height: 500px;
+    width: 500px;
+
+    vb := VerticalLayout {
+        list-view := ListView {
+            for file in file-model:  FileLine {
+                filename: file.filename;
+            }
+        }
+    }
+
+
+}
+
+
+/*
+
+```rust
+let ui = MainWindow::new();
+let file_model = vec![
+    FileItem { filename: "one".into() },
+    FileItem { filename: "two".into() },
+];
+let file_model = std::rc::Rc::new(slint::VecModel::from(file_model));
+// this should not panic
+ui.set_file_model(file_model.into());
+slint::testing::send_mouse_click(&ui, 10., 10.);
+```
+
+*/

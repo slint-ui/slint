@@ -67,13 +67,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 );
             }
 
-            comp.root_element
-                .borrow()
-                .property_analysis
-                .borrow_mut()
-                .entry("y".into())
-                .or_default()
-                .is_set_externally = true;
+            NamedReference::new(&comp.root_element, "y").mark_as_set();
         }
 
         let weak = Rc::downgrade(&comp);
