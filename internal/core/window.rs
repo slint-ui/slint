@@ -6,13 +6,23 @@
 
 use crate::component::{ComponentRc, ComponentWeak};
 use crate::graphics::{Point, Size};
-use crate::input::{KeyEvent, MouseEvent, MouseInputState, TextCursorBlinker};
+use crate::input::{
+    key_codes, KeyEvent, KeyEventType, MouseEvent, MouseInputState, TextCursorBlinker,
+};
 use crate::items::{ItemRc, ItemRef, ItemWeak, MouseCursor};
 use crate::properties::{Property, PropertyTracker};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
+
+fn next_focus_item(item: ItemRc) -> ItemWeak {
+    item.next_in_focus_chain(0)
+}
+
+fn previous_focus_item(item: ItemRc) -> ItemWeak {
+    item.previous_in_focus_chain(0)
+}
 
 /// This trait represents the interface that the generated code and the run-time
 /// require in order to implement functionality such as device-independent pixels,
@@ -304,6 +314,15 @@ impl Window {
             }
             item = focus_item.parent_item();
         }
+
+        // Make Tab/Backtab handle keyboard focus
+        if event.text.starts_with(key_codes::Tab) && event.event_type == KeyEventType::KeyPressed {
+            self.focus_next_item();
+        } else if event.text.starts_with(key_codes::Backtab)
+            && event.event_type == KeyEventType::KeyPressed
+        {
+            self.focus_previous_item();
+        }
     }
 
     /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
@@ -323,16 +342,9 @@ impl Window {
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
     /// currently focused item.
     pub fn set_focus_item(self: Rc<Self>, focus_item: &ItemRc) {
-        if let Some(old_focus_item) = self.as_ref().focus_item.borrow().upgrade() {
-            old_focus_item
-                .borrow()
-                .as_ref()
-                .focus_event(&crate::input::FocusEvent::FocusOut, &self);
-        }
-
-        *self.as_ref().focus_item.borrow_mut() = focus_item.downgrade();
-
-        focus_item.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusIn, &self);
+        println!("Setting FOCUS item! => {}", self.focus_item.try_borrow_mut().is_ok());
+        self.clone().take_focus_item();
+        self.move_focus(focus_item.downgrade(), |i| i.downgrade(), next_focus_item);
     }
 
     /// Sets the focus on the window to true or false, depending on the have_focus argument.
@@ -347,6 +359,91 @@ impl Window {
         if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
             focus_item.borrow().as_ref().focus_event(&event, &self);
         }
+    }
+
+    /// Take the focus_item out of this Window
+    ///
+    /// This sends the FocusOut event!
+    fn take_focus_item(self: Rc<Self>) -> ItemWeak {
+        let focus_item = self.as_ref().focus_item.take();
+
+        if let Some(focus_item_rc) = focus_item.upgrade() {
+            println!("Window: Taking existing focus_item.");
+            focus_item_rc.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusOut, &self);
+            focus_item_rc.downgrade()
+        } else {
+            println!("Window: Taking new focus_item.");
+            // No focus item was set: Try to move to the first item accepting focus:
+            let start_item = ItemRc::new(self.component(), 0).downgrade();
+            self.clone().move_focus(start_item, |i| i.downgrade(), next_focus_item);
+
+            // Accept that moving the focus may or may not have worked and hand up a potential null
+            // ItemWeak here!
+            self.as_ref().focus_item.take()
+        }
+    }
+
+    /// Publish the new focus_item to this Window and return the FocusEventResult
+    ///
+    /// This sends a FocusIn event!
+    fn publish_focus_item(self: Rc<Self>, item: &ItemWeak) -> crate::input::FocusEventResult {
+        *self.as_ref().focus_item.borrow_mut() = item.clone();
+
+        if item.is_none() {
+            println!("Window: Published by unsetting focus_item");
+            crate::input::FocusEventResult::FocusAccepted // We were unsetting the focus_item, treat that as OK
+        } else if let Some(fi) = item.upgrade() {
+            println!("Window: Published by sending FocusIn");
+            fi.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusIn, &self)
+        } else {
+            println!("Window: Publishing of non-null broken item, failed.");
+            crate::input::FocusEventResult::FocusIgnored
+        }
+    }
+
+    fn move_focus(
+        self: Rc<Self>,
+        start_item: ItemWeak,
+        prepare: impl Fn(ItemRc) -> ItemWeak,
+        forward: impl Fn(ItemRc) -> ItemWeak,
+    ) {
+        println!("  Window: Moving keyboard FOCUS");
+        let mut current_item = if let Some(si) = start_item.upgrade() {
+            prepare(si)
+        } else {
+            return;
+        };
+
+        loop {
+            if self.clone().publish_focus_item(&current_item)
+                == crate::input::FocusEventResult::FocusAccepted
+            {
+                println!("  Window: FOCUS has moved.");
+                return; // Item was just published.
+            }
+            if let Some(cur) = current_item.upgrade() {
+                println!("  Window: focus was rejected! next attempt...");
+                current_item = forward(cur);
+                if current_item == start_item {
+                    println!("  Window: Nothing accepted focus, resetting focus item.");
+                    return; // Nothing to do: We took the focus_item already
+                }
+                continue;
+            } else {
+                println!("  Window: Failed to upgrade, resetting focus item.");
+                return; // Nothing to do: We took the focus_item already
+            }
+        }
+    }
+
+    /// Move keyboard focus to the next item
+    pub fn focus_next_item(self: Rc<Self>) {
+        self.clone().move_focus(self.take_focus_item(), next_focus_item, next_focus_item);
+    }
+
+    /// Move keyboard focus to the previous item.
+    pub fn focus_previous_item(self: Rc<Self>) {
+        self.clone().move_focus(self.take_focus_item(), previous_focus_item, previous_focus_item);
     }
 
     /// Marks the window to be the active window. This typically coincides with the keyboard
