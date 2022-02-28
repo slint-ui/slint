@@ -58,7 +58,7 @@ scoped-tls-hkt = { version = "0.1", optional = true }
 scopeguard =  { version = "1.1.0", default-features = false }
 slab = { version = "0.4.3", default-features = false }
 static_assertions = "1.1"
-strum = { version = "0.23.0", default-features = false, features = ["derive"] }
+strum = { version = "0.24.0", default-features = false, features = ["derive"] }
 unicode-segmentation = "1.8.0"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
