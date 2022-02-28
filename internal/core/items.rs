@@ -158,6 +158,7 @@ impl ItemRc {
     pub fn new(component: vtable::VRc<ComponentVTable>, index: usize) -> Self {
         Self { component, index }
     }
+
     /// Return a `Pin<ItemRef<'a>>`
     pub fn borrow<'a>(&'a self) -> Pin<ItemRef<'a>> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
@@ -166,15 +167,34 @@ impl ItemRc {
         // lifetime of the component, which is 'a.  Pin::as_ref removes the lifetime, but we can just put it back.
         unsafe { core::mem::transmute::<Pin<ItemRef<'_>>, Pin<ItemRef<'a>>>(result) }
     }
+
     pub fn downgrade(&self) -> ItemWeak {
         ItemWeak { component: VRc::downgrade(&self.component), index: self.index }
     }
+
     /// Return the parent Item in the item tree.
     /// This is weak because it can be null if there is no parent
     pub fn parent_item(&self) -> ItemWeak {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
         let mut r = ItemWeak::default();
         comp_ref_pin.as_ref().parent_item(self.index, &mut r);
+        r
+    }
+
+    /// Return the next item in the focus chain
+    pub fn next_in_focus_chain(&self, subindex: u32) -> ItemWeak {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        let mut r = ItemWeak::default();
+        comp_ref_pin.as_ref().next_in_focus_chain(self.index, subindex, &mut r);
+        r
+    }
+
+    /// Return the parent Item in the item tree.
+    /// This is weak because it can be null if there is no parent
+    pub fn previous_in_focus_chain(&self, subindex: u32) -> ItemWeak {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        let mut r = ItemWeak::default();
+        comp_ref_pin.as_ref().previous_in_focus_chain(self.index, subindex, &mut r);
         r
     }
 

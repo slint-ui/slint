@@ -936,6 +936,57 @@ fn generate_item_tree(
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
+            name: "next_in_local_focus_chain".into(),
+            signature: "(slint::private_api::ComponentRef component, uintptr_t index, uint32_t subindex, slint::private_api::ItemWeak *result) -> void".into(),
+            is_static: true,
+            statements: Some(vec![
+                "// Implement me!".into(),
+            ]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "previous_in_local_focus_chain".into(),
+            signature: "(slint::private_api::ComponentRef component, uintptr_t index, uint32_t subindex, slint::private_api::ItemWeak *result) -> void".into(),
+            is_static: true,
+            statements: Some(vec![
+                "// Implement me!".into(),
+            ]),
+            ..Default::default()
+        }),
+    ));
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "next_in_focus_chain".into(),
+            signature: "(slint::private_api::ComponentRef component, uintptr_t index, uint32_t subindex, slint::private_api::ItemWeak *result) -> void".into(),
+            is_static: true,
+            statements: Some(vec![
+                "// Implement me!".into(),
+            ]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "previous_in_focus_chain".into(),
+            signature: "(slint::private_api::ComponentRef component, uintptr_t index, uint32_t subindex, slint::private_api::ItemWeak *result) -> void".into(),
+            is_static: true,
+            statements: Some(vec![
+                "// Implement me!".into(),
+            ]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
             name: "layout_info".into(),
             signature:
                 "([[maybe_unused]] slint::private_api::ComponentRef component, slint::cbindgen_private::Orientation o) -> slint::cbindgen_private::LayoutInfo"

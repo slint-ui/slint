@@ -31,6 +31,36 @@ pub struct ComponentVTable {
         index: usize,
     ) -> core::pin::Pin<VRef<ItemVTable>>,
 
+    /// The next item in the local focus chain. This does only
+    /// look at information local to the Component and does not work accross
+    /// Components. Typically this is implemented by the compiler,
+    /// while the global handling is generic.
+    pub next_in_local_focus_chain:
+        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, index: usize) -> usize,
+
+    /// The previous item in the local focus chain. This does only
+    /// look at information local to the Component and does not work accross
+    /// Components. Typically this is implemented by the compiler,
+    /// while the global handling is generic.
+    pub previous_in_local_focus_chain:
+        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, index: usize) -> usize,
+
+    /// The next item in the global focus chain
+    pub next_in_focus_chain: extern "C" fn(
+        core::pin::Pin<VRef<ComponentVTable>>,
+        index: usize,
+        subindex: u32,
+        result: &mut ItemWeak,
+    ),
+
+    /// The previous item in the global focus chain
+    pub previous_in_focus_chain: extern "C" fn(
+        core::pin::Pin<VRef<ComponentVTable>>,
+        index: usize,
+        subindex: u32,
+        result: &mut ItemWeak,
+    ),
+
     /// Return the parent item.
     /// The return value is an item weak because it can be null if there is no parent.
     /// And the return value is passed by &mut because ItemWeak has a destructor

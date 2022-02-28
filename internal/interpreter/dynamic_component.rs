@@ -161,14 +161,37 @@ impl Component for ErasedComponentBox {
     fn layout_info(self: Pin<&Self>, orientation: Orientation) -> i_slint_core::layout::LayoutInfo {
         self.borrow().as_ref().layout_info(orientation)
     }
+
     fn get_item_ref(self: Pin<&Self>, index: usize) -> Pin<ItemRef> {
         // We're having difficulties transferring the lifetime to a pinned reference
         // to the other ComponentVTable with the same life time. So skip the vtable
         // indirection and call our implementation directly.
         unsafe { get_item_ref(self.get_ref().borrow(), index) }
     }
+
     fn parent_item(self: Pin<&Self>, index: usize, result: &mut ItemWeak) {
         self.borrow().as_ref().parent_item(index, result)
+    }
+
+    fn next_in_local_focus_chain(self: Pin<&Self>, index: usize) -> usize {
+        self.borrow().as_ref().next_in_local_focus_chain(index)
+    }
+
+    fn previous_in_local_focus_chain(self: Pin<&Self>, index: usize) -> usize {
+        self.borrow().as_ref().previous_in_local_focus_chain(index)
+    }
+
+    fn next_in_focus_chain(self: Pin<&Self>, index: usize, subindex: u32, result: &mut ItemWeak) {
+        self.borrow().as_ref().next_in_focus_chain(index, subindex, result)
+    }
+
+    fn previous_in_focus_chain(
+        self: Pin<&Self>,
+        index: usize,
+        subindex: u32,
+        result: &mut ItemWeak,
+    ) {
+        self.borrow().as_ref().previous_in_focus_chain(index, subindex, result)
     }
 }
 
@@ -1015,6 +1038,10 @@ pub(crate) fn generate_component<'id>(
         layout_info,
         get_item_ref,
         parent_item,
+        next_in_local_focus_chain,
+        previous_in_local_focus_chain,
+        next_in_focus_chain,
+        previous_in_focus_chain,
         drop_in_place,
         dealloc,
     };
@@ -1533,6 +1560,129 @@ unsafe extern "C" fn parent_item(component: ComponentRefPin, index: usize, resul
     };
     let self_rc = instance_ref.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
     *result = ItemRc::new(self_rc, *parent_index as _).downgrade();
+}
+
+extern "C" fn next_in_local_focus_chain(component: ComponentRefPin, index: usize) -> usize {
+    generativity::make_guard!(guard);
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+    let item_tree = instance_ref.component_type.item_tree.as_slice();
+
+    i_slint_core::item_tree::default_next_in_local_focus_chain(index, item_tree)
+        .unwrap_or(usize::MAX)
+}
+
+unsafe extern "C" fn previous_in_local_focus_chain(
+    component: ComponentRefPin,
+    index: usize,
+) -> usize {
+    generativity::make_guard!(guard);
+    let instance_ref = InstanceRef::from_pin_ref(component, guard);
+    let item_tree = instance_ref.component_type.item_tree.as_slice();
+
+    i_slint_core::item_tree::default_previous_in_local_focus_chain(index, item_tree)
+        .unwrap_or(usize::MAX)
+}
+
+extern "C" fn next_in_focus_chain(
+    component: ComponentRefPin,
+    index: usize,
+    subindex: u32,
+    result: &mut ItemWeak,
+) {
+    generativity::make_guard!(guard);
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+    let item_tree = instance_ref.component_type.item_tree.as_slice();
+
+    match item_tree[index] {
+        ItemTreeNode::Item { .. } => {}
+        ItemTreeNode::DynamicTree { index, .. } => {
+            // We returned from a repeater! This can not be the item we started from
+            // as we will never stop on it directly!
+
+            // `ensure_updated` needs a 'static lifetime so we must call get_untagged.
+            // Safety: we do not mix the component with other component id in this function
+            let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untagged() };
+            ensure_repeater_updated(instance_ref, rep_in_comp);
+            let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
+            repeater.next_in_focus_chain(Some(subindex), result);
+            if !result.is_none() {
+                return; // Somehting was found!
+            }
+        }
+    }
+
+    let mut current = index;
+    loop {
+        let next = next_in_local_focus_chain(component, current);
+        if next == usize::MAX {
+            // Go up to the next component!
+            if let Some(parent) = parent_repeater(&instance_ref) {
+                let my_subindex: u32 = instance_ref
+                    .component_type
+                    .get_property(instance_ref.borrow(), "index")
+                    .unwrap()
+                    .try_into()
+                    .unwrap();
+                *result = parent.next_in_focus_chain(my_subindex);
+            } else {
+                // At the very top!
+                return;
+            }
+        } else {
+            match item_tree[next] {
+                ItemTreeNode::Item { .. } => {
+                    let self_rc = instance_ref
+                        .self_weak()
+                        .get()
+                        .unwrap()
+                        .clone()
+                        .into_dyn()
+                        .upgrade()
+                        .unwrap();
+                    *result = i_slint_core::items::ItemRc::new(self_rc, next).downgrade();
+                }
+                ItemTreeNode::DynamicTree { index, .. } => {
+                    // `ensure_updated` needs a 'static lifetime so we must call get_untagged.
+                    // Safety: we do not mix the component with other component id in this function
+                    let rep_in_comp =
+                        unsafe { instance_ref.component_type.repeater[index].get_untagged() };
+                    ensure_repeater_updated(instance_ref, rep_in_comp);
+                    let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
+                    repeater.next_in_focus_chain(None, result);
+
+                    // if result is set (focus was passed into some item in some Component below
+                    // the repeater), then we will leave with that.
+                    //
+                    // Once no more focus items are found in the component we have picked,
+                    // next_in_focus_chain will be called on us again as focus passes out of that
+                    // component and we will catch it above!
+                }
+            }
+        }
+
+        // break out of loop!
+        if !result.is_none() {
+            return;
+        } else {
+            current = next;
+        }
+    }
+}
+
+unsafe extern "C" fn previous_in_focus_chain(
+    component: ComponentRefPin,
+    index: usize,
+    _subindex: u32,
+    result: &mut ItemWeak,
+) {
+    generativity::make_guard!(guard);
+    let instance_ref = InstanceRef::from_pin_ref(component, guard);
+
+    let previous = previous_in_local_focus_chain(component, index);
+    if previous != usize::MAX {
+        let self_rc = instance_ref.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
+        *result = i_slint_core::items::ItemRc::new(self_rc, previous).downgrade();
+    }
 }
 
 unsafe extern "C" fn drop_in_place(component: vtable::VRefMut<ComponentVTable>) -> vtable::Layout {

@@ -954,6 +954,38 @@ impl<C: RepeatedComponent> Repeater<C> {
         crate::item_tree::VisitChildrenResult::CONTINUE
     }
 
+    /// Move to the next focus item in the repeater
+    pub fn next_in_focus_chain(&self, subindex: Option<u32>, result: &mut crate::items::ItemWeak) {
+        let start = if let Some(subindex) = subindex {
+            subindex as usize + 1 - self.inner.borrow().offset
+        } else {
+            0
+        };
+
+        let count = self.inner.borrow().components.len();
+        for i in start..count {
+            let c = self.inner.borrow().components.get(i).and_then(|c| c.1.clone());
+            if let Some(c) = c {
+                c.as_pin_ref().next_in_focus_chain(
+                    0,
+                    (i + self.inner.borrow().offset) as u32,
+                    result,
+                );
+                if !result.is_none() {
+                    return; // found something!
+                }
+            }
+        }
+    }
+
+    /// Move to the next focus item in the repeater
+    pub fn previous_in_focus_chain(
+        &self,
+        _subindex: Option<u32>,
+        _result: &mut crate::items::ItemWeak,
+    ) {
+    }
+
     /// Return the amount of item currently in the component
     pub fn len(&self) -> usize {
         self.inner.borrow().components.len()

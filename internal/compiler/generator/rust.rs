@@ -782,6 +782,24 @@ fn generate_sub_component(
                 }
             }
 
+            fn next_in_local_focus_chain(self: ::core::pin::Pin<&Self>, _index: usize) -> usize {
+                // Implement this!
+                0
+            }
+
+            fn previous_in_local_focus_chain(self: ::core::pin::Pin<&Self>, _index: usize) -> usize {
+                // Implement this!
+                0
+            }
+
+            fn next_in_focus_chain(self: ::core::pin::Pin<&Self>, _index: usize, _subindex: u32, _result: &mut slint::re_exports::ItemWeak) {
+                // Implement this!
+            }
+
+            fn previous_in_focus_chain(self: ::core::pin::Pin<&Self>, _index: usize, _subindex: u32, _result: &mut slint::re_exports::ItemWeak) {
+                // Implement this!
+            }
+
             fn layout_info(self: ::core::pin::Pin<&Self>, orientation: slint::re_exports::Orientation) -> slint::re_exports::LayoutInfo {
                 #![allow(unused)]
                 use slint::re_exports::*;
@@ -1053,6 +1071,24 @@ fn generate_item_tree(
                     ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
 
                 }
+            }
+
+            fn next_in_local_focus_chain(self: ::core::pin::Pin<&Self>, _index: usize) -> usize {
+                // Implement this!
+                0
+            }
+
+            fn previous_in_local_focus_chain(self: ::core::pin::Pin<&Self>, _index: usize) -> usize {
+                // Implement this!
+                0
+            }
+
+            fn next_in_focus_chain(self: ::core::pin::Pin<&Self>, _index: usize, _subindex: u32, _result: &mut slint::re_exports::ItemWeak) {
+                // Implement this!
+            }
+
+            fn previous_in_focus_chain(self: ::core::pin::Pin<&Self>, _index: usize, _subindex: u32, _result: &mut slint::re_exports::ItemWeak) {
+                // Implement this!
             }
 
             fn parent_item(self: ::core::pin::Pin<&Self>, index: usize, result: &mut slint::re_exports::ItemWeak) {
