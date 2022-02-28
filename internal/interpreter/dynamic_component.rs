@@ -1497,32 +1497,33 @@ unsafe extern "C" fn get_item_ref(component: ComponentRefPin, index: usize) -> P
     }
 }
 
+fn parent_repeater<'a>(instance_ref: &InstanceRef<'a, 'a>) -> Option<ItemRc> {
+    let parent_item_index = instance_ref
+        .component_type
+        .original
+        .parent_element
+        .upgrade()
+        .and_then(|e| e.borrow().item_index.get().cloned());
+    if let (Some(parent_offset), Some(parent_index)) =
+        (instance_ref.component_type.parent_component_offset, parent_item_index)
+    {
+        if let Some(parent) = parent_offset.apply(instance_ref.as_ref()) {
+            generativity::make_guard!(new_guard);
+            let parent_instance = unsafe { InstanceRef::from_pin_ref(*parent, new_guard) };
+            let parent_rc =
+                parent_instance.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
+            return Some(ItemRc::new(parent_rc, parent_index));
+        };
+    }
+    None
+}
+
 unsafe extern "C" fn parent_item(component: ComponentRefPin, index: usize, result: &mut ItemWeak) {
     generativity::make_guard!(guard);
     let instance_ref = InstanceRef::from_pin_ref(component, guard);
     if index == 0 {
-        let parent_item_index = instance_ref
-            .component_type
-            .original
-            .parent_element
-            .upgrade()
-            .and_then(|e| e.borrow().item_index.get().cloned());
-        if let (Some(parent_offset), Some(parent_index)) =
-            (instance_ref.component_type.parent_component_offset, parent_item_index)
-        {
-            if let Some(parent) = parent_offset.apply(instance_ref.as_ref()) {
-                generativity::make_guard!(new_guard);
-                let parent_instance = InstanceRef::from_pin_ref(*parent, new_guard);
-                let parent_rc = parent_instance
-                    .self_weak()
-                    .get()
-                    .unwrap()
-                    .clone()
-                    .into_dyn()
-                    .upgrade()
-                    .unwrap();
-                *result = ItemRc::new(parent_rc, parent_index).parent_item();
-            };
+        if let Some(parent_repeater) = parent_repeater(&instance_ref) {
+            *result = parent_repeater.parent_item();
         }
         return;
     }
