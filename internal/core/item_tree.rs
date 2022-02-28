@@ -356,6 +356,54 @@ impl<'a, T> ItemTree<'a, T> {
     }
 }
 
+pub fn default_next_in_local_focus_chain<Base>(
+    index: usize,
+    item_tree: &[ItemTreeNode<Base>],
+) -> Option<usize> {
+    let item_tree = ItemTree::new(item_tree);
+
+    if let Some(child) = item_tree.first_child(index) {
+        return Some(child);
+    }
+
+    let mut self_or_anchestor = index;
+    loop {
+        if let Some(sibling) = item_tree.next_sibling(self_or_anchestor) {
+            return Some(sibling);
+        } else {
+            if let Some(anchestor) = item_tree.parent(self_or_anchestor) {
+                self_or_anchestor = anchestor;
+            } else {
+                return None;
+            }
+        }
+    }
+}
+
+pub fn default_previous_in_local_focus_chain<Base>(
+    index: usize,
+    item_tree: &[ItemTreeNode<Base>],
+) -> Option<usize> {
+    fn rightmost_node<Base>(item_tree: &ItemTree<Base>, index: usize) -> usize {
+        let mut node = index;
+        loop {
+            if let Some(last_child) = item_tree.last_child(node) {
+                node = last_child;
+            } else {
+                return index;
+            }
+        }
+    }
+
+    let item_tree = ItemTree::new(item_tree);
+
+    if let Some(previous) = item_tree.previous_sibling(index) {
+        Some(rightmost_node(&item_tree, previous))
+    } else {
+        item_tree.parent(index)
+    }
+}
+
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
@@ -389,5 +437,24 @@ pub(crate) mod ffi {
             visitor,
             |a, b, c, d| visit_dynamic(a.get_ref(), b, c, d),
         )
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_default_next_in_local_focus_chain(
+        index: usize,
+        item_tree: Slice<ItemTreeNode<u8>>,
+    ) -> usize {
+        crate::item_tree::default_next_in_local_focus_chain(index, item_tree.as_slice())
+            .unwrap_or(std::usize::MAX)
+    }
+
+    /// Returns usize::MAX for None!
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_default_previous_in_local_focus_chain(
+        index: usize,
+        item_tree: Slice<ItemTreeNode<u8>>,
+    ) -> usize {
+        crate::item_tree::default_previous_in_local_focus_chain(index, item_tree.as_slice())
+            .unwrap_or(std::usize::MAX)
     }
 }
