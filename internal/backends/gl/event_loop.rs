@@ -459,8 +459,7 @@ fn process_window_event(
         }
         WindowEvent::CursorLeft { .. } => {
             // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
-            #[cfg(target_arch = "wasm32")]
-            if *pressed {
+            if cfg!(target_arch = "wasm32") || !*pressed {
                 corelib::animations::update_animations();
                 *pressed = false;
                 runtime_window.process_mouse_input(MouseEvent::MouseExit);
