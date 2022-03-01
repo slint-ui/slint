@@ -117,6 +117,7 @@ fn gen_corelib(
         "ImageFit",
         "FillRule",
         "MouseCursor",
+        "InputType",
         "StandardButtonKind",
         "DialogButtonRole",
         "PointerEventKind",
