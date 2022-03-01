@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 ### Added
 
  - C++ interpreter API: added a `Value::Value(int)` constructor
- - Globals Singleton may not refer to other global singletons
+ - Globals Singleton may now refer to other global singletons
 
 ### Fixed
 
