@@ -28,6 +28,23 @@ use i_slint_core_macros::*;
 #[cfg(not(feature = "std"))]
 use num_traits::float::Float;
 
+/// This enum defines the input type in a text input which for now only distinguishes a normal
+/// input from a password input
+#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub enum InputType {
+    /// This type is used for a normal text input
+    text,
+    /// This type is used for password inputs where the characters are represented as *'s
+    password,
+}
+impl Default for InputType {
+    fn default() -> Self {
+        Self::text
+    }
+}
+
 #[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
@@ -235,6 +252,8 @@ pub struct TextInput {
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub wrap: Property<TextWrap>,
+    pub input_type: Property<InputType>,
+    pub password_replace_char: Property<SharedString>,
     pub letter_spacing: Property<f32>,
     pub x: Property<f32>,
     pub y: Property<f32>,
@@ -441,7 +460,7 @@ impl Item for TextInput {
     }
 
     fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
-        (*backend).draw_text_input(self)
+        (*backend).draw_text_input(self);
     }
 }
 

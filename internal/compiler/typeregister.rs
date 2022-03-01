@@ -201,6 +201,7 @@ impl TypeRegister {
         declare_enum("ImageRendering", &["smooth", "pixelated"]);
         declare_enum("EventResult", &["reject", "accept"]);
         declare_enum("FillRule", &["nonzero", "evenodd"]);
+        declare_enum("InputType", &["text", "password"]);
         declare_enum(
             "MouseCursor",
             &[

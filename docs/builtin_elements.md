@@ -638,6 +638,8 @@ When not part of a layout, its width or height defaults to 100% of the parent el
   and a negative value decreases the distance. The default value is 0.
 * **`single-line`** (bool): When set to `true`, no newlines are allowed (default value: `true`)
 * **`wrap`** (*enum [`TextWrap`](#textwrap)*): The way the text input wraps.  Only makes sense when `single-line` is false. (default: no-wrap)
+* **`input-type`** (*enum [`InputType`](#InputType)*): The way to allow special input viewing properties such as password fields (default value: `text`).
+* **`password-replace-char`** (*string*): The character to use when replacing characters in the input field. The default is "*"
 
 ### Methods
 
@@ -889,6 +891,17 @@ Depending on the backend and used OS unidirectional resize cursors may be replac
 * **`ns-resize`**: Bidirectional resize north-south.
 * **`nesw-resize`**: Bidirectional resize north-east-south-west.
 * **`nwse-resize`**: Bidirectional resize north-west-south-east.
+
+## `InputType`
+
+This enum is used to define the type of the input field. Currently this only differentiates between
+text and password inputs but in the future it could be expanded to also define what type of virtual keyboard
+should be shown, for example.
+
+### Values
+
+* **`text`**: The default value. This will render all characters normally
+* **`password`**: This will render all characters with the character stored in `password_replace_char` which defaults to "*"
 
 # Namespaces
 

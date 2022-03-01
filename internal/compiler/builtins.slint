@@ -208,6 +208,8 @@ export TextInput := _ {
     property <length> width;
     property <length> height;
     property <length> text-cursor-width; // StyleMetrics.text-cursor-width  set in apply_default_properties_from_style
+    property <InputType> input-type;
+    property <string> password-replace-char: "*";
     property <int> cursor-position: native_output;
     property <int> anchor-position: native_output;
     property <bool> has-focus: native_output;

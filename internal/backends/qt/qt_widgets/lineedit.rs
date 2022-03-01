@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use i_slint_core::input::FocusEventResult;
+use i_slint_core::items::InputType;
 
 use super::*;
 
@@ -20,6 +21,7 @@ pub struct NativeLineEdit {
     pub native_padding_bottom: Property<f32>,
     pub has_focus: Property<bool>,
     pub enabled: Property<bool>,
+    pub input_type: Property<InputType>,
 }
 
 impl Item for NativeLineEdit {
