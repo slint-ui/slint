@@ -930,7 +930,7 @@ pub(crate) fn generate_component<'id>(
                 "TextVerticalAlignment" => {
                     property_info::<i_slint_core::items::TextVerticalAlignment>()
                 }
-                "InputType" => { property_info::<i_slint_core::items::InputType>() }
+                "InputType" => property_info::<i_slint_core::items::InputType>(),
                 "TextWrap" => property_info::<i_slint_core::items::TextWrap>(),
                 "TextOverflow" => property_info::<i_slint_core::items::TextOverflow>(),
                 "ImageFit" => property_info::<i_slint_core::items::ImageFit>(),

@@ -313,6 +313,7 @@ declare_value_enum_conversion!(i_slint_core::items::StandardButtonKind, Standard
 declare_value_enum_conversion!(i_slint_core::items::PointerEventKind, PointerEventKind);
 declare_value_enum_conversion!(i_slint_core::items::PointerEventButton, PointerEventButton);
 declare_value_enum_conversion!(i_slint_core::items::DialogButtonRole, DialogButtonRole);
+declare_value_enum_conversion!(i_slint_core::items::InputType, InputType);
 declare_value_enum_conversion!(i_slint_core::graphics::PathEvent, PathEvent);
 
 impl From<i_slint_core::animations::Instant> for Value {

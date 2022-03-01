@@ -49,6 +49,7 @@ declare_ValueType![
     crate::items::PointerEvent,
     crate::items::PointerEventButton,
     crate::items::PointerEventKind,
+    crate::items::InputType,
 ];
 
 /// What kind of animation is on a binding

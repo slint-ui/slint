@@ -12,7 +12,6 @@ use std::rc::Rc;
 
 use euclid::approxeq::ApproxEq;
 use event_loop::WinitWindow;
-use i_slint_core::SharedString;
 use i_slint_core::graphics::{
     Brush, Color, Image, ImageInner, IntRect, IntSize, Point, Rect, RenderingCache, Size,
 };
@@ -20,6 +19,7 @@ use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
 use i_slint_core::items::{FillRule, ImageFit, ImageRendering, InputType};
 use i_slint_core::properties::Property;
 use i_slint_core::window::{Window, WindowRc};
+use i_slint_core::SharedString;
 
 mod glwindow;
 use glwindow::*;
@@ -283,12 +283,11 @@ impl ItemRenderer for GLItemRenderer {
         let cursor_visible = cursor_pos >= 0 && text_input.cursor_visible() && text_input.enabled();
         let mut canvas = self.canvas.borrow_mut();
         let font_height = canvas.measure_font(paint).unwrap().height();
-        let mut text = text_input.text();
-        if let InputType::password = text_input.input_type() {
-            text = SharedString::from(text_input.text().as_str().replace(|_| true, text_input.password_replace_char().as_str()));
-
-        }
-
+        let text = if let InputType::password = text_input.input_type() {
+            SharedString::from("*".repeat(text_input.text().as_str().len()))
+        } else {
+            text_input.text()
+        };
 
         let mut cursor_point: Option<Point> = None;
 

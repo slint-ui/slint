@@ -253,7 +253,6 @@ pub struct TextInput {
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub wrap: Property<TextWrap>,
     pub input_type: Property<InputType>,
-    pub password_replace_char: Property<SharedString>,
     pub letter_spacing: Property<f32>,
     pub x: Property<f32>,
     pub y: Property<f32>,
