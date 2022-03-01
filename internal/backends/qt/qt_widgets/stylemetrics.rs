@@ -136,7 +136,9 @@ impl NativeStyleMetrics {
 #[cfg(feature = "rtti")]
 impl i_slint_core::rtti::BuiltinGlobal for NativeStyleMetrics {
     fn new() -> Pin<Rc<Self>> {
-        NativeStyleMetrics::new()
+        let r = NativeStyleMetrics::new();
+        r.as_ref().init_impl();
+        r
     }
 }
 
