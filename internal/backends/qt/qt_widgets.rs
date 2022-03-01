@@ -27,6 +27,7 @@ use i_slint_core::input::{
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
 use i_slint_core::items::{Item, ItemConsts, ItemRc, ItemVTable, VoidArg};
 use i_slint_core::layout::{LayoutInfo, Orientation};
+#[cfg(feature = "rtti")]
 use i_slint_core::rtti::*;
 use i_slint_core::window::WindowRc;
 use i_slint_core::{
