@@ -138,6 +138,11 @@ cpp! {{
                 rust_window.mouse_event(MouseEvent::MouseWheel{pos, delta})
             });
         }
+        void leaveEvent(QEvent *) override {
+            rust!(Slint_mouseLeaveEvent [rust_window: &QtWindow as "void*"] {
+                rust_window.mouse_event(MouseEvent::MouseExit)
+            });
+        }
 
         void keyPressEvent(QKeyEvent *event) override {
             uint modifiers = uint(event->modifiers());
