@@ -29,6 +29,9 @@ backend-gl-all = ["i-slint-backend-selector/backend-gl-all"]
 backend-gl-wayland = ["i-slint-backend-selector/backend-gl-wayland"]
 backend-gl-x11 = ["i-slint-backend-selector/backend-gl-x11"]
 
+rtti-qt = ["i-slint-backend-selector/rtti-qt"]
+rtti-gl = ["i-slint-backend-selector/rtti-gl"]
+
 default = ["backend-gl-all", "backend-qt"]
 
 [dependencies]

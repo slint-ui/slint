@@ -74,6 +74,15 @@ define_cargo_feature(backend-gl-wayland "Enable the OpenGL ES 2.0 backend with w
 
 define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
+if(SLINT_FEATURE_INTERPRETER)
+    if (SLINT_FEATURE_BACKEND_QT)
+        list(APPEND features rtti-qt)
+    endif
+    if(SLINT_FEATURE_BACKEND_GL_ALL OR SLINT_FEATURE_BACKEND_GL_X11 OR SLINT_FEATURE_BACKEND_GL_WAYLAND)
+        list(APPEND features rtti-gl)
+    endif()
+endif()
+
 set_property(
     TARGET slint-cpp
     PROPERTY CORROSION_FEATURES
