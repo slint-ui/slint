@@ -10,7 +10,7 @@ All notable changes to this project will be documented in this file.
 
 ### Fixed
 
- - `TouchArea::has-hover` is now properly set to false when the mouse leave the window
+ - `TouchArea::has-hover` is now properly set to false when the mouse leaves the window.
 
 ## [0.2.0] - 2022-02-10
 
