@@ -12,8 +12,8 @@ use i_slint_core::graphics::{
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
 use i_slint_core::items::{
-    self, FillRule, ImageRendering, ItemRef, MouseCursor, PointerEventButton, TextOverflow,
-    TextWrap, InputType,
+    self, FillRule, ImageRendering, InputType, ItemRef, MouseCursor, PointerEventButton,
+    TextOverflow, TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::window::{PlatformWindow, PopupWindow, PopupWindowLocation, WindowRc};
@@ -518,12 +518,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let selection_background_color: u32 =
             text_input.selection_background_color().as_argb_encoded();
 
-        let mut text = text_input.text();
-        if let InputType::password = text_input.input_type() {
-            text = SharedString::from(text_input.text().as_str().replace(|_| true, text_input.password_replace_char().as_str()));
+        let text = text_input.text();
+        let mut string: qttypes::QString = if let InputType::password = text_input.input_type() {
+            "*".repeat(text.as_str().len()).into()
+        } else {
+            text.as_str().into()
+        };
 
-        }
-        let mut string: qttypes::QString = text.as_str().into();
         let font: QFont =
             get_font(text_input.unresolved_font_request().merge(&self.default_font_properties));
         let flags = match text_input.horizontal_alignment() {
