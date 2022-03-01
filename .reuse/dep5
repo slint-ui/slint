@@ -55,6 +55,6 @@ Files: tools/online_editor/*.html tools/online_editor/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-Files: editor/vscode_extension/*.json editor/vscode_extension/README.md
+Files: editor/vscode/*.json editor/vscode/README.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial

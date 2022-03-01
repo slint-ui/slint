@@ -41,7 +41,7 @@ cargo build --bin slint-lsp
 2. run npm install in the vscode directory
 
 ```sh
-cd editor/vscode_extension
+cd editor/vscode
 npm install
 ```
 

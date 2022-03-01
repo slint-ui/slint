@@ -201,21 +201,21 @@ jobs:
     - uses: actions/download-artifact@v2
       with:
         name: vscode-lsp-binary-x86_64-unknown-linux-gnu
-        path: editor/vscode_extension/bin
+        path: editor/vscode/bin
     - uses: actions/download-artifact@v2
       with:
         name: vscode-lsp-binary-x86_64-pc-windows-gnu
-        path: editor/vscode_extension/bin
+        path: editor/vscode/bin
     - uses: actions/download-artifact@v2
       with:
         name: vscode-lsp-binary-darwin
-        path: editor/vscode_extension/bin
+        path: editor/vscode/bin
     - uses: actions/download-artifact@v2
       with:
         name: vscode-lsp-binary-armv7-unknown-linux-gnueabihf
-        path: editor/vscode_extension/bin
+        path: editor/vscode/bin
     - name: Fix permissions
-      run: chmod 755 editor/vscode_extension/bin/* editor/vscode_extension/bin/*.app/Contents/MacOS/*
+      run: chmod 755 editor/vscode/bin/* editor/vscode/bin/*.app/Contents/MacOS/*
     - name: Setup Node.js
       uses: actions/setup-node@v1
       with:
@@ -223,13 +223,13 @@ jobs:
     - name: "Prepare meta-data files for nightly package"
       env:
         RELEASE_INPUT: ${{ github.event.inputs.release }}
-      working-directory: editor/vscode_extension
+      working-directory: editor/vscode
       run: |
         if [ "$RELEASE_INPUT" != "true" ]; then
           ../../scripts/prepare_vscode_nightly.sh
         fi
     - name: "npm install"
-      working-directory: editor/vscode_extension
+      working-directory: editor/vscode
       run: npm install
     - name: Build package and optionally publish to Open VSX Registry
       id: publishToOpenVSX
@@ -237,7 +237,7 @@ jobs:
       with:
         pat: ${{ secrets.OPENVSX_PAT }}
         dryRun: ${{ github.event.inputs.private == 'true' || github.ref != 'refs/heads/master' }}
-        packagePath: editor/vscode_extension
+        packagePath: editor/vscode
     - name: Publish to Visual Studio Marketplace
       if: ${{ github.event.inputs.private != 'true' && github.ref == 'refs/heads/master' }}
       uses: HaaLeo/publish-vscode-extension@v0

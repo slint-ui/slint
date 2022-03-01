@@ -11,14 +11,14 @@ get you started.
 ### Syntax Highlighting
 
 Kate relies on the presence of syntax highlighting file for the usage of the LSP so we'll setup
-that first. The file [slint.ksyntaxhighlighter.xml](./slint.ksyntaxhighlighter.xml) needs to be copied
+that first. The file [slint.ksyntaxhighlighter.xml](kate/slint.ksyntaxhighlighter.xml) needs to be copied
 in a location where kate can find it. See the [kate documentation](https://docs.kde.org/stable5/en/kate/katepart/highlight.html#katehighlight-xml-format)
 
 On Linux, this can be done by running this command
 
 ```
 mkdir -p ~/.local/share/org.kde.syntax-highlighting/syntax/
-wget https://raw.githubusercontent.com/slint-ui/slint/master/tools/lsp/slint.ksyntaxhighlighter.xml -O ~/.local/share/org.kde.syntax-highlighting/syntax/slint.xml
+wget https://raw.githubusercontent.com/slint-ui/slint/master/editor/kate/slint.ksyntaxhighlighter.xml -O ~/.local/share/org.kde.syntax-highlighting/syntax/slint.xml
 ```
 
 On Windows, download [slint.ksyntaxhighlighter.xml](./slint.ksyntaxhighlighter.xml) into `%USERPROFILE%\AppData\Local\org.kde.syntax-highlighting\syntax`
@@ -53,7 +53,7 @@ To show the preview, right click on the name definition of the component you wan
 ### Syntax Highlighting
 
 For the **syntax highlighting**, QtCreator supports the same format as Kate, with
-the [xml file](./slint.ksyntaxhighlighter.xml) at the same location.
+the [xml file](kate/slint.ksyntaxhighlighter.xml) at the same location.
 Refer to the instruction from the [previous section](#syntax-highlighting) to enable syntax highlighting.
 
 ### LSP
