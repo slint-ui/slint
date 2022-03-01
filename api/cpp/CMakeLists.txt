@@ -77,7 +77,7 @@ define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 if(SLINT_FEATURE_INTERPRETER)
     if (SLINT_FEATURE_BACKEND_QT)
         list(APPEND features rtti-qt)
-    endif
+    endif()
     if(SLINT_FEATURE_BACKEND_GL_ALL OR SLINT_FEATURE_BACKEND_GL_X11 OR SLINT_FEATURE_BACKEND_GL_WAYLAND)
         list(APPEND features rtti-gl)
     endif()
