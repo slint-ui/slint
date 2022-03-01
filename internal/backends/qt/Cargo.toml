@@ -14,7 +14,6 @@ links = "i_slint_backend_qt" # just so we can pass metadata to the dependee's bu
 
 [features]
 rtti = ["i-slint-core/rtti"]
-default = ["rtti"]
 
 [lib]
 path = "lib.rs"
