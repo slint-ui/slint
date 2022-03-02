@@ -130,7 +130,7 @@ exists under the `language` server section:
 
 Follow step 1. of the Vim section to get support for `.slint` files.
 
-The easist way to use the language server itself is in Neovim is via the `neovim/lsp-config`
+The easist way to use the language server itself in Neovim is via the `neovim/lsp-config`
 and `williamboman/nvim-lsp-installer` plugins. Once these are installed
 you can run `:LspInstallInfo` to install the `slint_lsp` binary (on Windows and Linux).
 
@@ -138,9 +138,8 @@ Once the slint_lsp language server is installed and running, you can triggger th
 via the code actions. Unfortunately there are several ways to trigger these, so please check your
 configuration.
 
-You might also find the `jrmoulton/tree-sitter-slint` tree-sitter parser for the Slint language
-interesting. Unfortunately this is not integrated into the tree-sitter support of Neovim at this
-time.
+Also, if you use `nvim-treesitter` you can install the Tree Sitter parser for Slint using `TSInstall slint`
+for syntax highlighting and indentation support.
 
 ## Sublime Text
 
