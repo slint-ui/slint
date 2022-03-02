@@ -335,6 +335,7 @@ export LineEdit := Rectangle {
     property <string> placeholder-text <=> inner.placeholder-text;
     property <bool> has-focus: inner.has-focus;
     property <bool> enabled <=> inner.enabled;
+    property input-type <=> inner.input-type;
     callback accepted <=> inner.accepted;
     callback edited <=> inner.edited;
     forward-focus: inner;

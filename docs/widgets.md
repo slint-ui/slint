@@ -169,6 +169,7 @@ A widget used to enter a single line of text
 * **`has-focus`**: (*bool*): Set to true when the line edit currently has the focus
 * **`placeholder-text`**: (*string*): A placeholder text being shown when there is no text in the edit field
 * **`enabled`**: (*bool*): Defaults to true. When false, nothing can be entered
+* **`input-type`** (*enum [`InputType`](#InputType)*): The way to allow special input viewing properties such as password fields (default value: `text`).
 
 ### Callbacks
 
