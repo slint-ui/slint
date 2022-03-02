@@ -519,11 +519,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
             text_input.selection_background_color().as_argb_encoded();
 
         let text = text_input.text();
-        let mut string: qttypes::QString = if let InputType::password = text_input.input_type() {
-            "*".repeat(text.as_str().len()).into()
-        } else {
-            text.as_str().into()
-        };
+        let mut string: qttypes::QString = text.as_str().into();
+
+        if let InputType::password = text_input.input_type() {
+            cpp! { unsafe [mut string as "QString"] {
+                string.fill(qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr));
+            }}
+        }
 
         let font: QFont =
             get_font(text_input.unresolved_font_request().merge(&self.default_font_properties));

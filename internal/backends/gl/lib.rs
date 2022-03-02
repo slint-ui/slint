@@ -278,15 +278,20 @@ impl ItemRenderer for GLItemRenderer {
             None => return,
         };
 
-        let (min_select, max_select) = text_input.selection_anchor_and_cursor();
+        let (mut min_select, mut max_select) = text_input.selection_anchor_and_cursor();
         let cursor_pos = text_input.cursor_position();
         let cursor_visible = cursor_pos >= 0 && text_input.cursor_visible() && text_input.enabled();
+        let mut cursor_pos = cursor_pos as usize;
         let mut canvas = self.canvas.borrow_mut();
         let font_height = canvas.measure_font(paint).unwrap().height();
-        let text = if let InputType::password = text_input.input_type() {
-            SharedString::from("*".repeat(text_input.text().as_str().len()))
-        } else {
-            text_input.text()
+        let mut text = text_input.text();
+
+        if let InputType::password = text_input.input_type() {
+            let repl = "●";
+            min_select = text[..min_select].chars().count() * repl.len();
+            max_select = text[..max_select].chars().count() * repl.len();
+            cursor_pos = text[..cursor_pos].chars().count() * repl.len();
+            text = SharedString::from(repl.repeat(text.chars().count()));
         };
 
         let mut cursor_point: Option<Point> = None;
@@ -374,7 +379,6 @@ impl ItemRenderer for GLItemRenderer {
                     // no selection on this line
                     canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), paint).unwrap();
                 };
-                let cursor_pos = cursor_pos as usize;
                 if cursor_visible
                     && (range.contains(&cursor_pos)
                         || (cursor_pos == range.end && cursor_pos == text.len()))
