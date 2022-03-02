@@ -523,7 +523,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
         if let InputType::password = text_input.input_type() {
             cpp! { unsafe [mut string as "QString"] {
-                string.fill(qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr));
+                string.fill(QChar(qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr)));
             }}
         }
 
@@ -1455,9 +1455,14 @@ impl PlatformWindow for QtWindow {
             TextWrap::word_wrap => key_generated::Qt_TextFlag_TextWordWrap,
         };
         let single_line: bool = text_input.single_line();
-        cpp! { unsafe [font as "QFont", string as "QString", pos as "QPointF", flags as "int", rect as "QRectF", single_line as "bool"] -> usize as "size_t" {
+        let is_password: bool = matches!(text_input.input_type(), InputType::password);
+        cpp! { unsafe [font as "QFont", string as "QString", pos as "QPointF", flags as "int",
+                rect as "QRectF", single_line as "bool", is_password as "bool"] -> usize as "size_t" {
             // we need to do the \n replacement in a copy because the original need to be kept to know the utf8 offset
             auto copy = string;
+            if (is_password) {
+                copy.fill(QChar(qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr)));
+            }
             if (!single_line) {
                 copy.replace(QChar('\n'), QChar::LineSeparator);
             }
@@ -1474,6 +1479,8 @@ impl PlatformWindow for QtWindow {
             } else {
                 cur = textLine.xToCursor(pos.x());
             }
+            if (cur < string.size() && string[cur].isLowSurrogate())
+                cur++;
             // convert to an utf8 pos;
             return QStringView(string).left(cur).toUtf8().size();
         }}
