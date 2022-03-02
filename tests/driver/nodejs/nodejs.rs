@@ -64,6 +64,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .current_dir(dir.path())
         .env("SLINT_NODE_NATIVE_LIB", std::env::var_os("SLINT_NODE_NATIVE_LIB").unwrap())
         .env("SLINT_INCLUDE_PATH", std::env::join_paths(include_paths).unwrap())
+        .env("SLINT_STYLE", std::env::var_os("SLINT_STYLE").unwrap_or_else(|| "fluent".into()))
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .output()
