@@ -459,9 +459,12 @@ export NativeSpinBox := _ {
     property <length> width;
     property <length> height;
     property <bool> enabled: true;
+    property <bool> has-focus: native_output;
     property <int> value: native_output;
     property <int> minimum;
     property <int> maximum: 100;
+    callback key_pressed(KeyEvent) -> EventResult;
+    callback key_released(KeyEvent) -> EventResult;
     //-is_internal
 }
 

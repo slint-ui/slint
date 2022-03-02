@@ -1,7 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use i_slint_core::input::FocusEventResult;
+use i_slint_core::{
+    input::{FocusEventResult, KeyEventType},
+    items::{EventResult, KeyEventArg},
+};
 
 use super::*;
 
@@ -21,10 +24,13 @@ pub struct NativeSpinBox {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub enabled: Property<bool>,
+    pub has_focus: Property<bool>,
     pub value: Property<i32>,
     pub minimum: Property<i32>,
     pub maximum: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
+    pub key_pressed: Callback<KeyEventArg, EventResult>,
+    pub key_released: Callback<KeyEventArg, EventResult>,
     data: Property<NativeSpinBoxData>,
 }
 
@@ -112,8 +118,8 @@ impl Item for NativeSpinBox {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &WindowRc,
-        _self_rc: &i_slint_core::items::ItemRc,
+        window: &WindowRc,
+        self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
         let enabled = self.enabled();
@@ -178,15 +184,40 @@ impl Item for NativeSpinBox {
         if changed {
             self.data.set(data);
         }
+
+        if let MouseEvent::MousePressed { .. } = event {
+            if !self.has_focus() {
+                window.clone().set_focus_item(self_rc);
+            }
+        }
         InputEventResult::EventAccepted
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
-        KeyEventResult::EventIgnored
+    fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
+        let r = match event.event_type {
+            KeyEventType::KeyPressed => {
+                Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.clone(),))
+            }
+            KeyEventType::KeyReleased => {
+                Self::FIELD_OFFSETS.key_released.apply_pin(self).call(&(event.clone(),))
+            }
+        };
+        match r {
+            EventResult::accept => KeyEventResult::EventAccepted,
+            EventResult::reject => KeyEventResult::EventIgnored,
+        }
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::FocusIgnored
+    fn focus_event(self: Pin<&Self>, event: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+        match event {
+            FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {
+                self.has_focus.set(true);
+            }
+            FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
+                self.has_focus.set(false);
+            }
+        }
+        FocusEventResult::FocusAccepted
     }
 
     fn_render! { this dpr size painter widget initial_state =>
