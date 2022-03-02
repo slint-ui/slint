@@ -77,11 +77,6 @@ default-members = [
 
 resolver="2"
 
-[patch.crates-io]
-#Pin old version to workaround https://github.com/image-rs/image-png/issues/340
-png = { git = "https://github.com/image-rs/image-png", rev = "592534409607b21bb84e521c9964e0f0f1436708" }
-
-
 [profile.release]
 lto = true
 panic = "abort"
