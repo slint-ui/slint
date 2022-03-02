@@ -56,7 +56,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     let source = std::fs::read_to_string(&testcase.absolute_path)?;
     let include_paths = test_driver_lib::extract_include_paths(&source);
     for x in test_driver_lib::extract_test_functions(&source).filter(|x| x.language_id == "js") {
-        write!(main_js, "{{\n    {}\n}}\n", x.source.replace("\n", "\n    "))?;
+        write!(main_js, "{{\n    {}\n}}\n", x.source.replace('\n', "\n    "))?;
     }
 
     let output = std::process::Command::new("node")
