@@ -52,7 +52,7 @@ type ItemRendererRef<'a> = &'a mut dyn crate::item_rendering::ItemRenderer;
 
 /// Workarounds for cbindgen
 pub type VoidArg = ();
-type KeyEventArg = (KeyEvent,);
+pub type KeyEventArg = (KeyEvent,);
 type PointerEventArg = (PointerEvent,);
 type PointArg = (Point,);
 
