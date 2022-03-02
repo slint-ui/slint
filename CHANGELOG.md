@@ -7,7 +7,7 @@ All notable changes to this project will be documented in this file.
 
  - C++ interpreter API: added a `Value::Value(int)` constructor
  - Globals Singleton may now refer to other global singletons
- - Added an enum to TextInput that allows for characters to be replaced which is useful for password fields
+ - Added `input-type` property to `TextInput` and `LineEdit` that allows for characters to be replaced in password fields
 
 ### Fixed
 
