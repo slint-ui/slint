@@ -210,12 +210,15 @@ impl Item for NativeSpinBox {
 
     fn focus_event(self: Pin<&Self>, event: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
         match event {
-            FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {
-                self.has_focus.set(true);
+            FocusEvent::FocusIn => {
+                if self.enabled() {
+                    self.has_focus.set(true);
+                }
             }
             FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
                 self.has_focus.set(false);
             }
+            FocusEvent::WindowReceivedFocus => self.has_focus.set(true),
         }
         FocusEventResult::FocusAccepted
     }
