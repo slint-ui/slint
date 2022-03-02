@@ -88,7 +88,7 @@
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p ./",
-		"local-package": "mkdir -p bin && cp ../target/debug/slint-lsp bin/ && npx vsce package",
+		"local-package": "mkdir -p bin && cp ../../target/debug/slint-lsp bin/ && npx vsce package",
 		"watch": "tsc -watch -p ./",
 		"pretest": "npm run compile && npm run lint",
 		"lint": "eslint src --ext ts",
