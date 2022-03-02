@@ -26,6 +26,8 @@ use winit::dpi::LogicalSize;
 
 use crate::CanvasRc;
 
+pub const PASSWORD_CHARACTER: &str = "●";
+
 /// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
 pub struct GLWindow {
@@ -597,12 +599,21 @@ impl PlatformWindow for GLWindow {
             )
         });
 
+        let is_password = matches!(text_input.input_type(), corelib::items::InputType::password);
+        let password_string;
+        let actual_text = if is_password {
+            password_string = PASSWORD_CHARACTER.repeat(text.chars().count());
+            password_string.as_str()
+        } else {
+            text.as_str()
+        };
+
         let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
         let text_context =
             crate::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone());
         let font_height = text_context.measure_font(paint).unwrap().height();
         crate::fonts::layout_text_lines(
-            text.as_str(),
+            actual_text,
             &font,
             Size::new(width, height),
             (text_input.horizontal_alignment(), text_input.vertical_alignment()),
@@ -625,7 +636,13 @@ impl PlatformWindow for GLWindow {
             },
         );
 
-        result
+        if is_password {
+            text.char_indices()
+                .nth(result / PASSWORD_CHARACTER.len())
+                .map_or(text.len(), |(r, _)| r)
+        } else {
+            result
+        }
     }
 
     fn text_input_position_for_byte_offset(

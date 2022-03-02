@@ -287,11 +287,10 @@ impl ItemRenderer for GLItemRenderer {
         let mut text = text_input.text();
 
         if let InputType::password = text_input.input_type() {
-            let repl = "●";
-            min_select = text[..min_select].chars().count() * repl.len();
-            max_select = text[..max_select].chars().count() * repl.len();
-            cursor_pos = text[..cursor_pos].chars().count() * repl.len();
-            text = SharedString::from(repl.repeat(text.chars().count()));
+            min_select = text[..min_select].chars().count() * PASSWORD_CHARACTER.len();
+            max_select = text[..max_select].chars().count() * PASSWORD_CHARACTER.len();
+            cursor_pos = text[..cursor_pos].chars().count() * PASSWORD_CHARACTER.len();
+            text = SharedString::from(PASSWORD_CHARACTER.repeat(text.chars().count()));
         };
 
         let mut cursor_point: Option<Point> = None;
