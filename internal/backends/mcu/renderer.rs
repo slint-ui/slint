@@ -322,23 +322,19 @@ fn prepare_scene(
     let prepare_scene = PrepareScene::new(size, factor, runtime_window.default_font_properties());
     let mut renderer = i_slint_core::item_rendering::PartialRenderer::new(cache, prepare_scene);
 
-    let mut dirty_region = i_slint_core::item_rendering::DirtyRegion::default();
-
     runtime_window.draw_contents(|components| {
         for (component, origin) in components {
             renderer.compute_dirty_regions(component, *origin);
-            dirty_region = dirty_region.union(&renderer.dirty_region);
+        }
+        for (component, origin) in components {
             i_slint_core::item_rendering::render_component_items(component, &mut renderer, *origin);
         }
     });
     prepare_scene_profiler.stop_profiling(devices, "prepare_scene");
+    let dirty_region =
+        (euclid::Rect::from_untyped(&renderer.dirty_region.to_rect()) * factor).round_out().cast();
     let prepare_scene = renderer.into_inner();
-    Scene::new(
-        prepare_scene.items,
-        prepare_scene.rectangles,
-        prepare_scene.textures,
-        (euclid::Rect::from_untyped(&dirty_region.to_rect()) * factor).round_out().cast(),
-    )
+    Scene::new(prepare_scene.items, prepare_scene.rectangles, prepare_scene.textures, dirty_region)
 }
 
 struct PrepareScene {
