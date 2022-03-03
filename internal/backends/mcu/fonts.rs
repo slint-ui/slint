@@ -12,6 +12,7 @@ use euclid::num::Zero;
 use i_slint_core::{
     graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, FontRequest},
     slice::Slice,
+    textlayout::{ShapedGlyph, TextShaper},
 };
 
 thread_local! {
@@ -110,6 +111,38 @@ impl PixelFont {
                 None
             }
         })
+    }
+}
+
+impl TextShaper for PixelFont {
+    type Length = PhysicalLength;
+    fn shape_text<GlyphStorage: core::iter::Extend<ShapedGlyph<Self::Length>>>(
+        &self,
+        text: &str,
+        glyphs: &mut GlyphStorage,
+    ) {
+        for (byte_offset, char) in text.char_indices() {
+            let out_glyph = self
+                .bitmap_font
+                .character_map
+                .binary_search_by_key(&char, |char_map_entry| char_map_entry.code_point)
+                .ok()
+                .map(|char_map_index| {
+                    let glyph_index = self.bitmap_font.character_map[char_map_index].glyph_index;
+                    let glyph = Glyph(&self.glyphs.glyph_data[glyph_index as usize]);
+
+                    ShapedGlyph {
+                        width: glyph.width(),
+                        height: glyph.height(),
+                        advance_x: glyph.x_advance(),
+                        glyph_id: core::num::NonZeroU16::new(glyph_index),
+                        glyph_cluster_index: byte_offset as u32,
+                        ..Default::default()
+                    }
+                })
+                .unwrap_or_default();
+            glyphs.extend(core::iter::once(out_glyph));
+        }
     }
 }
 
