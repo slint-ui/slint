@@ -697,7 +697,7 @@ pub struct Diagnostic {
 }
 
 #[repr(C)]
-pub struct ComponentCompilerOpaque([usize; 12]);
+pub struct ComponentCompilerOpaque([usize; 13]);
 /// Asserts that ComponentCompilerOpaque is as large as ComponentCompiler and has the same alignment, to make transmute safe.
 const _: [(); std::mem::size_of::<ComponentCompilerOpaque>()] =
     [(); std::mem::size_of::<ComponentCompiler>()];
