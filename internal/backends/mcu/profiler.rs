@@ -5,12 +5,8 @@ use crate::Devices;
 
 #[cfg(slint_debug_performance)]
 pub enum Timer {
-    Running {
-        start_time: core::time::Duration,
-    },
-    Stopped {
-        elapsed: core::time::Duration,
-    },
+    Running { start_time: core::time::Duration },
+    Stopped { elapsed: core::time::Duration },
 }
 
 #[cfg(not(slint_debug_performance))]
