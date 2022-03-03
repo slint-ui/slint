@@ -227,6 +227,7 @@ fn gen_corelib(
                 "slint_image_path",
                 "SharedPixelBuffer",
                 "SharedImageBuffer",
+                "StaticTextures",
             ],
             vec!["Color"],
             "slint_image_internal.h",

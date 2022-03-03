@@ -15,13 +15,13 @@ namespace slint {
 struct Image
 {
 public:
-    Image() : data(Data::None()) { }
+    Image() : data(Data::ImageInner_None()) { }
 
     /// Load an image from an image file
     static Image load_from_path(const SharedString &file_path)
     {
         Image img;
-        img.data = Data::AbsoluteFilePath(file_path);
+        img.data = Data::ImageInner_AbsoluteFilePath(file_path);
         return img;
     }
 
