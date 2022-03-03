@@ -9,7 +9,7 @@ use core::pin::Pin;
 use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
 use i_slint_core::graphics::{FontRequest, IntRect, PixelFormat, Rect as RectF};
-use i_slint_core::{Color, ImageInner};
+use i_slint_core::{Color, ImageInner, StaticTextures};
 
 use crate::fonts::FontMetrics;
 use crate::{
@@ -378,7 +378,7 @@ impl PrepareScene {
                 unimplemented!()
             }
             ImageInner::EmbeddedImage(_) => todo!(),
-            ImageInner::StaticTextures { size, data, textures, .. } => {
+            ImageInner::StaticTextures(StaticTextures { size, data, textures, .. }) => {
                 let sx = geom.width() / (size.width as f32);
                 let sy = geom.height() / (size.height as f32);
                 for t in textures.as_slice() {

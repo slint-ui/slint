@@ -91,7 +91,7 @@ pub use string::SharedString;
 pub use sharedvector::SharedVector;
 
 #[doc(inline)]
-pub use graphics::ImageInner;
+pub use graphics::{ImageInner, StaticTextures};
 
 #[doc(inline)]
 pub use properties::Property;

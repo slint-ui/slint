@@ -8,7 +8,7 @@ use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
 use embedded_graphics_simulator::SimulatorDisplay;
 use i_slint_core::component::ComponentRc;
-use i_slint_core::graphics::{Image, ImageInner};
+use i_slint_core::graphics::{Image, ImageInner, StaticTextures};
 use i_slint_core::input::KeyboardModifiers;
 use i_slint_core::items::ItemRef;
 use i_slint_core::layout::Orientation;
@@ -382,7 +382,7 @@ impl i_slint_core::backend::Backend for SimulatorBackend {
             ImageInner::None => Default::default(),
             ImageInner::AbsoluteFilePath(_) | ImageInner::EmbeddedData { .. } => unimplemented!(),
             ImageInner::EmbeddedImage(buffer) => buffer.size(),
-            ImageInner::StaticTextures { original_size, .. } => *original_size,
+            ImageInner::StaticTextures(StaticTextures { original_size, .. }) => *original_size,
         }
     }
 }

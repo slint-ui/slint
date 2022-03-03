@@ -7,7 +7,7 @@
 use i_slint_core::component::ComponentRc;
 use i_slint_core::graphics::{Image, IntSize, Point, Size};
 use i_slint_core::window::{PlatformWindow, Window};
-use i_slint_core::ImageInner;
+use i_slint_core::{ImageInner, StaticTextures};
 use image::GenericImageView;
 use std::path::Path;
 use std::pin::Pin;
@@ -71,7 +71,7 @@ impl i_slint_core::backend::Backend for TestingBackend {
             )
             .map(|img| img.dimensions().into())
             .unwrap_or_default(),
-            ImageInner::StaticTextures { original_size, .. } => *original_size,
+            ImageInner::StaticTextures(StaticTextures { original_size, .. }) => *original_size,
         }
     }
 

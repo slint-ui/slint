@@ -217,6 +217,22 @@ pub struct StaticTexture {
     pub index: usize,
 }
 
+#[repr(C)]
+#[derive(Clone, PartialEq, Debug)]
+/// A texture is stored in read-only memory and may be composed of sub-textures.
+
+pub struct StaticTextures {
+    /// The total size of the image (this might not be the size of the full image
+    /// as some transparent part are not part of any texture)
+    pub size: IntSize,
+    /// The size of the image before the compiler applied any scaling
+    pub original_size: IntSize,
+    /// The pixel data referenced by the textures
+    pub data: Slice<'static, u8>,
+    /// The list of textures
+    pub textures: Slice<'static, StaticTexture>,
+}
+
 /// A resource is a reference to binary data, for example images. They can be accessible on the file
 /// system or embedded in the resulting binary. Or they might be URLs to a web server and a downloaded
 /// is necessary before they can be used.
@@ -234,17 +250,7 @@ pub enum ImageInner {
         format: Slice<'static, u8>,
     },
     EmbeddedImage(SharedImageBuffer),
-    StaticTextures {
-        /// The total size of the image (this might not be the size of the full image
-        /// as some transparent part are not part of any texture)
-        size: IntSize,
-        /// The size of the image before the compiler applied any scaling
-        original_size: IntSize,
-        /// The pixel data referenced by the textures
-        data: Slice<'static, u8>,
-        /// The list of textures
-        textures: Slice<'static, StaticTexture>,
-    },
+    StaticTextures(&'static StaticTextures),
 }
 
 impl Default for ImageInner {
@@ -395,7 +401,7 @@ impl Image {
                 }
             },
             ImageInner::EmbeddedImage(buffer) => buffer.size(),
-            ImageInner::StaticTextures{original_size, ..} => *original_size,
+            ImageInner::StaticTextures(StaticTextures { original_size, .. }) => *original_size,
 
         }
     }

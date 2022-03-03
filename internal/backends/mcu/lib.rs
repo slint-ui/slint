@@ -90,7 +90,7 @@ mod the_backend {
     use i_slint_core::graphics::{Color, Point, Size};
     use i_slint_core::window::PlatformWindow;
     use i_slint_core::window::Window;
-    use i_slint_core::ImageInner;
+    use i_slint_core::{ImageInner, StaticTextures};
 
     thread_local! { static WINDOWS: RefCell<Option<Rc<McuWindow>>> = RefCell::new(None) }
 
@@ -313,7 +313,7 @@ mod the_backend {
                     unimplemented!()
                 }
                 ImageInner::EmbeddedImage(buffer) => buffer.size(),
-                ImageInner::StaticTextures { original_size, .. } => *original_size,
+                ImageInner::StaticTextures(StaticTextures { original_size, .. }) => *original_size,
             }
         }
 
