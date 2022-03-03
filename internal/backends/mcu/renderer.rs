@@ -537,13 +537,13 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
 
     fn draw_text(&mut self, text: Pin<&i_slint_core::items::Text>) {
         let font_request = text.unresolved_font_request().merge(&self.default_font);
-        let (font, glyphs) = crate::fonts::match_font(&font_request, self.scale_factor);
+        let font = crate::fonts::match_font(&font_request, self.scale_factor);
 
         let color = text.color().color();
 
-        let baseline_y = glyphs.ascent(font);
+        let baseline_y = font.ascent();
 
-        for (glyph_baseline_x, glyph) in crate::fonts::glyphs_for_text(font, glyphs, &text.text()) {
+        for (glyph_baseline_x, glyph) in font.glyphs_for_text(&text.text()) {
             if let Some(dest_rect) = (PhysicalRect::new(
                 PhysicalPoint::from_lengths(
                     glyph_baseline_x + glyph.x(),
