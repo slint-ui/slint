@@ -1,5 +1,5 @@
 /* Copyright © 2021 rp-rs organization
- SPDX-License-Identifier: MIT OR Apache 2.0 */
+ SPDX-License-Identifier: MIT OR Apache-2.0 */
 
 MEMORY {
     BOOT2 : ORIGIN = 0x10000000, LENGTH = 0x100
