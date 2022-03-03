@@ -18,11 +18,7 @@ where
 }
 
 pub fn find_reuse() -> Result<PathBuf> {
-    let output = cmd("which", &["reuse"])?.output().context("Failed to find reuse")?;
-
-    return Ok(PathBuf::from(&String::from_utf8(
-        output.stdout[0..output.stdout.len() - 1].to_vec(),
-    )?));
+    which::which("reuse").context("Failed to find reuse")
 }
 
 pub fn install_reuse() -> Result<PathBuf> {
