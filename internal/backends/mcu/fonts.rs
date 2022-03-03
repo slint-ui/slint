@@ -45,7 +45,7 @@ impl Glyph {
     }
 }
 
-pub trait FontMetrics {
+trait FontMetrics {
     fn ascent(&self, font: &BitmapFont) -> PhysicalLength;
     fn height(&self, font: &BitmapFont) -> PhysicalLength;
     fn pixel_size(&self) -> PhysicalLength;
@@ -68,10 +68,52 @@ impl FontMetrics for BitmapGlyphs {
 
 pub const DEFAULT_FONT_SIZE: f32 = 12.0;
 
-pub fn match_font(
-    request: &FontRequest,
-    scale_factor: ScaleFactor,
-) -> (&'static BitmapFont, &'static BitmapGlyphs) {
+// A font that is resolved to a specific pixel size.
+pub struct PixelFont {
+    bitmap_font: &'static BitmapFont,
+    glyphs: &'static BitmapGlyphs,
+    //letter_spacing: PhysicalLength,
+}
+
+impl PixelFont {
+    pub fn ascent(&self) -> PhysicalLength {
+        self.glyphs.ascent(self.bitmap_font)
+    }
+
+    pub fn height(&self) -> PhysicalLength {
+        self.glyphs.height(self.bitmap_font)
+    }
+
+    pub fn pixel_size(&self) -> PhysicalLength {
+        self.glyphs.pixel_size()
+    }
+
+    pub fn glyphs_for_text<'a>(
+        &'a self,
+        text: &'a str,
+    ) -> impl Iterator<Item = (PhysicalLength, Glyph)> + 'a {
+        let mut x: PhysicalLength = PhysicalLength::zero();
+        text.chars().filter_map(move |char| {
+            if let Some(glyph_index) = self
+                .bitmap_font
+                .character_map
+                .binary_search_by_key(&char, |char_map_entry| char_map_entry.code_point)
+                .ok()
+                .map(|char_map_index| self.bitmap_font.character_map[char_map_index].glyph_index)
+            {
+                let glyph = Glyph(&self.glyphs.glyph_data[glyph_index as usize]);
+                let glyph_x = x;
+                x += glyph.x_advance();
+                Some((glyph_x, glyph))
+            } else {
+                x += self.pixel_size();
+                None
+            }
+        })
+    }
+}
+
+pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> PixelFont {
     let font = FONTS.with(|fonts| {
         let fonts = fonts.borrow();
         let fallback_font =
@@ -98,35 +140,18 @@ pub fn match_font(
 
     let matching_glyphs = &font.glyphs[nearest_pixel_size];
 
-    (font, matching_glyphs)
+    PixelFont {
+        bitmap_font: font,
+        glyphs: matching_glyphs,
+        /*letter_spacing: (LogicalLength::new(request.letter_spacing.unwrap_or_default())
+        * scale_factor)
+        .cast(),
+        */
+    }
 }
 
 pub fn register_bitmap_font(font_data: &'static BitmapFont) {
     FONTS.with(|fonts| fonts.borrow_mut().push(font_data))
-}
-
-pub fn glyphs_for_text<'a>(
-    font: &'static BitmapFont,
-    glyphs: &'static BitmapGlyphs,
-    text: &'a str,
-) -> impl Iterator<Item = (PhysicalLength, Glyph)> + 'a {
-    let mut x: PhysicalLength = PhysicalLength::zero();
-    text.chars().filter_map(move |char| {
-        if let Some(glyph_index) = font
-            .character_map
-            .binary_search_by_key(&char, |char_map_entry| char_map_entry.code_point)
-            .ok()
-            .map(|char_map_index| font.character_map[char_map_index].glyph_index)
-        {
-            let glyph = Glyph(&glyphs.glyph_data[glyph_index as usize]);
-            let glyph_x = x;
-            x += glyph.x_advance();
-            Some((glyph_x, glyph))
-        } else {
-            x += glyphs.pixel_size();
-            None
-        }
-    })
 }
 
 pub fn text_size(
@@ -135,11 +160,12 @@ pub fn text_size(
     _max_width: Option<f32>,
     scale_factor: ScaleFactor,
 ) -> LogicalSize {
-    let (font, glyphs) = match_font(&font_request, scale_factor);
+    let font = match_font(&font_request, scale_factor);
 
-    let width = glyphs_for_text(font, glyphs, text)
+    let width = font
+        .glyphs_for_text(text)
         .last()
         .map_or(PhysicalLength::zero(), |(last_x, last_glyph)| last_x + last_glyph.x_advance());
 
-    PhysicalSize::from_lengths(width, glyphs.height(font)).cast() / scale_factor
+    PhysicalSize::from_lengths(width, font.height()).cast() / scale_factor
 }
