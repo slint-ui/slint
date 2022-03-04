@@ -4,6 +4,8 @@
 #![warn(missing_docs)]
 //! Exposed Window API
 
+use crate::Callback;
+use crate::api::CloseRequestResponse;
 use crate::component::{ComponentRc, ComponentWeak};
 use crate::graphics::{Point, Size};
 use crate::input::{KeyEvent, MouseEvent, MouseInputState, TextCursorBlinker};
@@ -152,6 +154,7 @@ pub struct Window {
     scale_factor: Pin<Box<Property<f32>>>,
     active: Pin<Box<Property<bool>>>,
     active_popup: RefCell<Option<PopupWindow>>,
+    close_requested: Callback<(), CloseRequestResponse>,
 }
 
 impl Drop for Window {
@@ -180,6 +183,7 @@ impl Window {
             scale_factor: Box::pin(Property::new_named(1., "i_slint_core::Window::scale_factor")),
             active: Box::pin(Property::new_named(false, "i_slint_core::Window::active")),
             active_popup: Default::default(),
+            close_requested: Default::default(),
         });
         let window_weak = Rc::downgrade(&window);
         window.platform_window.set(platform_window_fn(&window_weak)).ok().unwrap();
@@ -548,6 +552,20 @@ impl Window {
                 window_item.width.set(width);
                 window_item.height.set(height);
             }
+        }
+    }
+
+    pub fn set_close_requested(&self, mut callback: impl FnMut() -> CloseRequestResponse + 'static) {
+        self.close_requested.set_handler( move |()| callback());
+    }
+
+    /// Runs the close_requested callback.
+    /// If the callback returns KeepWindowShown, this function returns false. That should prevent the Window from closing.
+    /// Otherwise it returns true, which allows the Window to hide.
+    pub fn request_close(&self) -> bool {
+        match self.close_requested.call(&()) {
+            CloseRequestResponse::HideWindow => true,
+            CloseRequestResponse::KeepWindowShown => false
         }
     }
 }
