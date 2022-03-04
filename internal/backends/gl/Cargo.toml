@@ -48,7 +48,6 @@ pin-weak = "1"
 resvg = { version= "0.22", optional = true, default-features = false }
 rgb = "0.8.27"
 scoped-tls-hkt = "0.1"
-smallvec = "1.7"
 tiny-skia = { version= "0.6", optional = true, default-features = false }
 ttf-parser = "0.15.0" # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
 unicode-script = "0.5.4" # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
