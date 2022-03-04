@@ -181,6 +181,20 @@ cpp! {{
             QWidget::changeEvent(event);
         }
 
+        void closeEvent(QCloseEvent *event) override {
+            bool accepted = rust!(Slint_requestClose [rust_window: &QtWindow as "void*"] -> bool as "bool" {
+                if let Some(window) = rust_window.self_weak.upgrade() {
+                    return window.request_close();
+                }
+                true
+            });
+            if (accepted) {
+                event->accept();
+            } else {
+                event->ignore();
+            }
+        }
+
         QSize sizeHint() const override {
             auto preferred_size = rust!(Slint_sizeHint [rust_window: &QtWindow as "void*"] -> qttypes::QSize as "QSize" {
                 let component_rc = rust_window.self_weak.upgrade().unwrap().component();
