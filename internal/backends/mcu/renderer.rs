@@ -1,21 +1,23 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+use crate::fonts::FontMetrics;
+use crate::{
+    profiler, Devices, LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect,
+    PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize, PointLengths, RectLengths,
+    ScaleFactor, SizeLengths,
+};
 use alloc::collections::VecDeque;
 use alloc::rc::Rc;
 use alloc::{vec, vec::Vec};
 use core::pin::Pin;
+use derive_more::{Add, Mul, Sub};
 use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
 use i_slint_core::graphics::{FontRequest, IntRect, PixelFormat, Rect as RectF};
 use i_slint_core::item_rendering::PartialRenderingCache;
 use i_slint_core::{Color, ImageInner, StaticTextures};
-
-use crate::fonts::FontMetrics;
-use crate::{
-    profiler, Devices, LogicalItemGeometry, LogicalPoint, LogicalRect, PhysicalLength,
-    PhysicalPoint, PhysicalRect, PhysicalSize, PointLengths, RectLengths, ScaleFactor, SizeLengths,
-};
+use integer_sqrt::IntegerSquareRoot;
 
 use euclid::num::Zero;
 
@@ -94,24 +96,11 @@ pub fn render_window_frame(
         for span in line.spans.iter().rev() {
             match span.command {
                 SceneCommand::Rectangle { color } => {
-                    let alpha = color.alpha();
-                    if alpha == u8::MAX {
-                        line_buffer[span.pos.x as usize
-                            ..(span.pos.x_length() + span.size.width_length()).get() as usize]
-                            .fill(to_rgb888_color_discard_alpha(color))
-                    } else {
-                        for pix in &mut line_buffer[span.pos.x as usize
-                            ..(span.pos.x_length() + span.size.width_length()).get() as usize]
-                        {
-                            let a = (u8::MAX - alpha) as u16;
-                            let b = alpha as u16;
-                            *pix = Rgb888::new(
-                                ((pix.r() as u16 * a + color.red() as u16 * b) >> 8) as u8,
-                                ((pix.g() as u16 * a + color.green() as u16 * b) >> 8) as u8,
-                                ((pix.b() as u16 * a + color.blue() as u16 * b) >> 8) as u8,
-                            );
-                        }
-                    }
+                    blend_buffer(
+                        &mut line_buffer[span.pos.x as usize
+                            ..(span.pos.x_length() + span.size.width_length()).get() as usize],
+                        color,
+                    );
                 }
                 SceneCommand::Texture { texture_index } => {
                     let SceneTexture { data, format, stride, source_size, color } =
@@ -119,9 +108,8 @@ pub fn render_window_frame(
                     let source_size = source_size.cast::<usize>();
                     let span_size = span.size.cast::<usize>();
                     let bpp = bpp(format) as usize;
-                    let y = (line.line - span.pos.y_length()).cast::<f32>();
-                    let y_pos = (y.get() as usize * source_size.height / span_size.height)
-                        * stride as usize;
+                    let y = (line.line - span.pos.y_length()).cast::<usize>();
+                    let y_pos = (y.get() * source_size.height / span_size.height) * stride as usize;
                     for (x, pix) in line_buffer[span.pos.x as usize
                         ..(span.pos.x_length() + span.size.width_length()).get() as usize]
                         .iter_mut()
@@ -167,6 +155,196 @@ pub fn render_window_frame(
                         }
                     }
                 }
+                SceneCommand::RoundedRectangle { rectangle_index } => {
+                    /// This is an integer shifted by 4 bits.
+                    /// Note: this is not a "fixed point" because multiplication and sqrt operation operate to
+                    /// the shifted integer
+                    #[derive(Clone, Copy, PartialEq, Ord, PartialOrd, Eq, Add, Sub, Mul)]
+                    struct Shifted(u32);
+                    impl Shifted {
+                        const ONE: Self = Shifted(1 << 4);
+                        pub fn new(value: impl TryInto<u32>) -> Self {
+                            Self(value.try_into().map_err(|_| ()).unwrap() << 4)
+                        }
+                        pub fn floor(self) -> u32 {
+                            self.0 >> 4
+                        }
+                        pub fn ceil(self) -> u32 {
+                            (self.0 + Self::ONE.0 - 1) >> 4
+                        }
+                        pub fn saturating_sub(self, other: Self) -> Self {
+                            Self(self.0.saturating_sub(other.0))
+                        }
+                        pub fn sqrt(self) -> Self {
+                            Self(self.0.integer_sqrt())
+                        }
+                    }
+                    impl core::ops::Mul for Shifted {
+                        type Output = Shifted;
+                        fn mul(self, rhs: Self) -> Self::Output {
+                            Self(self.0 * rhs.0)
+                        }
+                    }
+
+                    let pos_x = span.pos.x as usize;
+                    let rr = &scene.rounded_rectangles[rectangle_index as usize];
+                    let y1 = (line.line - span.pos.y_length()) + rr.top_clip;
+                    let y2 = (span.pos.y_length() + span.size.height_length() - line.line)
+                        + rr.bottom_clip
+                        - PhysicalLength::new(1);
+                    let y = y1.min(y2);
+                    debug_assert!(y.get() >= 0,);
+                    let border = Shifted::new(rr.width.get());
+                    const ONE: Shifted = Shifted::ONE;
+                    let anti_alias =
+                        |x1: Shifted, x2: Shifted, process_pixel: &mut dyn FnMut(usize, u32)| {
+                            // x1 and x2 are the coordinate on the top and bottom of the intersection of the pixel
+                            // line and the curve.
+                            // `process_pixel` be called for the coordinate in the array and a coverage between 0..255
+                            // This algorithm just go linearly which is not perfect, but good enough.
+                            for x in x1.floor()..x2.ceil() {
+                                // the coverage is basically how much of the pixel should be used
+                                let cov = ((ONE + Shifted::new(x) - x1).0 << 8) / (ONE + x2 - x1).0;
+                                process_pixel(x as usize, cov);
+                            }
+                        };
+                    let rev = |x: Shifted| {
+                        (Shifted::new(span.size.width) + Shifted::new(rr.right_clip.get()))
+                            .saturating_sub(x)
+                    };
+                    // x1 and x2 are the lower and upper x coordinate of the beginning of the border.
+                    // x3 and x4 are the lower and upper x coordinate between the border and the inner part.
+                    // The upper part is the intersection with the top of the pixel line, and lower is the
+                    // intersection with the bottom of the pixel.  (or the opposite for the bottom corner)
+                    // The coordinate are bit-shifted so we keep a fractional part to know how much of the pixel
+                    // is covered for anti-aliasing. The area between x1 and x2, (and between x3 and x4) is partially covered
+                    // and the `anti_alias` function will draw the pixel in there
+                    let (x1, x2, x3, x4) = if y < rr.radius {
+                        let r = Shifted::new(rr.radius.get());
+                        // `y` is how far away from the center of the circle the current line is.
+                        let y = r - Shifted::new(y.get());
+                        // Circle equation: x = √(r² - y²)
+                        // Coordinate from the left edge: x' = r - x
+                        let x2 = r - (r * r).saturating_sub(y * y).sqrt();
+                        let x1 = r - (r * r).saturating_sub((y - ONE) * (y - ONE)).sqrt();
+                        let r2 = r.saturating_sub(border);
+                        let x4 = r - (r2 * r2).saturating_sub(y * y).sqrt();
+                        let x3 = r - (r2 * r2).saturating_sub((y - ONE) * (y - ONE)).sqrt();
+                        (x1, x2, x3, x4)
+                    } else {
+                        (Shifted(0), Shifted(0), border, border)
+                    };
+                    // 1. The part between 0 and x1 (exclusive) is transparent
+                    // 2. The part between x1 (inclusive) and x2 (rounded up) is anti aliased border
+                    anti_alias(
+                        x1.saturating_sub(Shifted::new(rr.left_clip.get())),
+                        x2.saturating_sub(Shifted::new(rr.left_clip.get())),
+                        &mut |x, cov| {
+                            if x >= span.size.width as usize {
+                                return;
+                            }
+                            let c =
+                                if border == Shifted(0) { rr.inner_color } else { rr.border_color };
+                            let alpha = ((c.alpha() as u32) * cov as u32) / 255;
+                            let col =
+                                Color::from_argb_u8(alpha as u8, c.red(), c.green(), c.blue());
+                            blend_pixel(&mut line_buffer[pos_x + x], col)
+                        },
+                    );
+                    if y < rr.width {
+                        // up or down border (x2 .. x2)
+                        if (x2 * 2).floor() as i16 + rr.right_clip.get()
+                            < span.size.width + rr.left_clip.get()
+                        {
+                            blend_buffer(
+                                &mut line_buffer[pos_x
+                                    + x2.ceil()
+                                        .saturating_sub(rr.left_clip.get() as u32)
+                                        .min(span.size.width as u32)
+                                        as usize
+                                    ..pos_x + rev(x2).floor().min(span.size.width as u32) as usize],
+                                rr.border_color,
+                            )
+                        }
+                    } else {
+                        if border > Shifted(0) {
+                            // 3. draw the border (between x2 and x3)
+                            if ONE + x2 <= x3 {
+                                blend_buffer(
+                                    &mut line_buffer[pos_x
+                                        + x2.ceil()
+                                            .saturating_sub(rr.left_clip.get() as u32)
+                                            .min(span.size.width as u32)
+                                            as usize
+                                        ..pos_x
+                                            + x3.floor()
+                                                .saturating_sub(rr.left_clip.get() as u32)
+                                                .min(span.size.width as u32)
+                                                as usize],
+                                    rr.border_color,
+                                )
+                            }
+                            // 4. anti-aliasing for the contents (x3 .. x4)
+                            anti_alias(
+                                x3.saturating_sub(Shifted::new(rr.left_clip.get())),
+                                x4.saturating_sub(Shifted::new(rr.left_clip.get())),
+                                &mut |x, cov| {
+                                    if x >= span.size.width as usize {
+                                        return;
+                                    }
+                                    let col =
+                                        interpolate_color(cov, rr.border_color, rr.inner_color);
+                                    blend_pixel(&mut line_buffer[pos_x + x], col)
+                                },
+                            );
+                        }
+                        // 5. inside (x4 .. x4)
+                        if (x4 * 2).ceil() as i16 + rr.right_clip.get()
+                            <= span.size.width + rr.left_clip.get()
+                        {
+                            blend_buffer(
+                                &mut line_buffer[pos_x
+                                    + x4.ceil()
+                                        .saturating_sub(rr.left_clip.get() as u32)
+                                        .min(span.size.width as u32)
+                                        as usize
+                                    ..pos_x + rev(x4).floor().min(span.size.width as u32) as usize],
+                                rr.inner_color,
+                            )
+                        }
+                        if border > Shifted(0) {
+                            // 6. border anti-aliasing: x4..x3
+                            anti_alias(rev(x4), rev(x3), &mut |x, cov| {
+                                if x >= span.size.width as usize {
+                                    return;
+                                }
+                                let col = interpolate_color(cov, rr.inner_color, rr.border_color);
+                                blend_pixel(&mut line_buffer[pos_x + x], col)
+                            });
+                            // 7. border x3 .. x2
+                            if ONE + x2 <= x3 {
+                                blend_buffer(
+                                    &mut line_buffer[pos_x
+                                        + rev(x3).ceil().min(span.size.width as u32) as usize
+                                        ..pos_x
+                                            + rev(x2).floor().min(span.size.width as u32) as usize
+                                                as usize],
+                                    rr.border_color,
+                                )
+                            }
+                        }
+                    }
+                    // 8. anti-alias x2 .. x1
+                    anti_alias(rev(x2), rev(x1), &mut |x, cov| {
+                        if x >= span.size.width as usize {
+                            return;
+                        }
+                        let c = if border == Shifted(0) { rr.inner_color } else { rr.border_color };
+                        let alpha = ((c.alpha() as u32) * (255 - cov) as u32) / 255;
+                        let col = Color::from_argb_u8(alpha as u8, c.red(), c.green(), c.blue());
+                        blend_pixel(&mut line_buffer[pos_x + x], col)
+                    });
+                }
             }
         }
         span_drawing_profiler.stop(devices);
@@ -182,6 +360,50 @@ pub fn render_window_frame(
     line_processing_profiler.stop_profiling(devices, "line processing");
     span_drawing_profiler.stop_profiling(devices, "span drawing");
     screen_fill_profiler.stop_profiling(devices, "screen fill");
+}
+
+// a is between 0 and 255. When 0, we get color1, when 2 we get color2
+fn interpolate_color(a: u32, color1: Color, color2: Color) -> Color {
+    let b = 255 - a;
+
+    let al1 = color1.alpha() as u32;
+    let al2 = color2.alpha() as u32;
+
+    let a_ = a * al2;
+    let b_ = b * al1;
+    let m = a_ + b_;
+
+    if m == 0 {
+        return Color::default();
+    }
+
+    let col = Color::from_argb_u8(
+        (m / 255) as u8,
+        ((b_ * color1.red() as u32 + a_ * color2.red() as u32) / m) as u8,
+        ((b_ * color1.green() as u32 + a_ * color2.green() as u32) / m) as u8,
+        ((b_ * color1.blue() as u32 + a_ * color2.blue() as u32) / m) as u8,
+    );
+    col
+}
+
+fn blend_buffer(to_fill: &mut [Rgb888], color: Color) {
+    if color.alpha() == u8::MAX {
+        to_fill.fill(to_rgb888_color_discard_alpha(color))
+    } else {
+        for pix in to_fill {
+            blend_pixel(pix, color);
+        }
+    }
+}
+
+fn blend_pixel(pix: &mut Rgb888, color: Color) {
+    let a = (u8::MAX - color.alpha()) as u16;
+    let b = color.alpha() as u16;
+    *pix = Rgb888::new(
+        ((pix.r() as u16 * a + color.red() as u16 * b) / 255) as u8,
+        ((pix.g() as u16 * a + color.green() as u16 * b) / 255) as u8,
+        ((pix.b() as u16 * a + color.blue() as u16 * b) / 255) as u8,
+    );
 }
 
 struct Scene {
@@ -200,6 +422,7 @@ struct Scene {
     next_items: VecDeque<SceneItem>,
 
     textures: Vec<SceneTexture>,
+    rounded_rectangles: Vec<RoundedRectangle>,
 
     dirty_region: DirtyRegion,
 }
@@ -208,6 +431,7 @@ impl Scene {
     fn new(
         mut items: Vec<SceneItem>,
         textures: Vec<SceneTexture>,
+        rounded_rectangles: Vec<RoundedRectangle>,
         dirty_region: DirtyRegion,
     ) -> Self {
         items.sort_unstable_by(|a, b| compare_scene_item(a, b).reverse());
@@ -217,6 +441,7 @@ impl Scene {
             current_items: Default::default(),
             next_items: Default::default(),
             textures,
+            rounded_rectangles,
             dirty_region,
         }
     }
@@ -300,6 +525,10 @@ enum SceneCommand {
     Texture {
         texture_index: u16,
     },
+    /// rectangle_index is an index in the Scene::rounded_rectangle array
+    RoundedRectangle {
+        rectangle_index: u16,
+    },
 }
 
 struct SceneTexture {
@@ -309,6 +538,21 @@ struct SceneTexture {
     stride: u16,
     source_size: PhysicalSize,
     color: Color,
+}
+
+struct RoundedRectangle {
+    radius: PhysicalLength,
+    /// the border's width
+    width: PhysicalLength,
+    border_color: Color,
+    inner_color: Color,
+    /// The clips is the amount of pixels of the rounded rectangle that is clipped away.
+    /// For example, if left_clip > width, then the left border will not be visible, and
+    /// if left_clip > radius, then no radius will be seen in the left side
+    left_clip: PhysicalLength,
+    right_clip: PhysicalLength,
+    top_clip: PhysicalLength,
+    bottom_clip: PhysicalLength,
 }
 
 fn prepare_scene(
@@ -334,13 +578,18 @@ fn prepare_scene(
     let dirty_region =
         (euclid::Rect::from_untyped(&renderer.dirty_region.to_rect()) * factor).round_out().cast();
     let prepare_scene = renderer.into_inner();
-    Scene::new(prepare_scene.items, prepare_scene.textures, dirty_region)
+    Scene::new(
+        prepare_scene.items,
+        prepare_scene.textures,
+        prepare_scene.rounded_rectangles,
+        dirty_region,
+    )
 }
 
 struct PrepareScene {
     items: Vec<SceneItem>,
-    rectangles: Vec<Color>,
     textures: Vec<SceneTexture>,
+    rounded_rectangles: Vec<RoundedRectangle>,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     scale_factor: ScaleFactor,
@@ -351,7 +600,7 @@ impl PrepareScene {
     fn new(size: PhysicalSize, scale_factor: ScaleFactor, default_font: FontRequest) -> Self {
         Self {
             items: vec![],
-            rectangles: vec![],
+            rounded_rectangles: vec![],
             textures: vec![],
             state_stack: vec![],
             current_state: RenderState {
@@ -471,8 +720,32 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         let geom = LogicalRect::new(LogicalPoint::default(), rect.logical_geometry().size_length());
         if self.should_draw(&geom) {
             let border = rect.border_width();
+            let radius = rect.border_radius();
             // FIXME: gradients
             let color = rect.background().color();
+            if radius > 0. {
+                if let Some(clipped) = geom.intersection(&self.current_state.clip) {
+                    let geom2 = (geom * self.scale_factor).cast::<i16>();
+                    let clipped2 = (clipped * self.scale_factor).cast::<i16>();
+                    let rectangle_index = self.rounded_rectangles.len() as u16;
+                    self.rounded_rectangles.push(RoundedRectangle {
+                        radius: (LogicalLength::new(radius) * self.scale_factor).cast(),
+                        width: (LogicalLength::new(border) * self.scale_factor).cast(),
+                        border_color: rect.border_color().color(),
+                        inner_color: color,
+                        top_clip: PhysicalLength::new(clipped2.min_y() - geom2.min_y()),
+                        bottom_clip: PhysicalLength::new(geom2.max_y() - clipped2.max_y()),
+                        left_clip: PhysicalLength::new(clipped2.min_x() - geom2.min_x()),
+                        right_clip: PhysicalLength::new(geom2.max_x() - clipped2.max_x()),
+                    });
+                    self.new_scene_item(
+                        clipped,
+                        SceneCommand::RoundedRectangle { rectangle_index },
+                    );
+                }
+                return;
+            }
+
             if color.alpha() > 0 {
                 if let Some(r) =
                     geom.inflate(-border, -border).intersection(&self.current_state.clip)
