@@ -219,11 +219,6 @@ impl<Length: Clone + Copy + Default + core::ops::AddAssign> TextLine<Length> {
         if self.byte_range.is_empty() && self.trailing_whitespace.is_none() {
             self.byte_range.start = candidate.byte_range.start;
             self.byte_range.end = self.byte_range.start;
-        } else {
-            debug_assert_eq!(
-                self.byte_range.end + self.trailing_whitespace.as_ref().map_or(0, |ws| ws.len),
-                candidate.byte_range.start
-            );
         }
 
         match (self.trailing_whitespace.as_mut(), candidate.trailing_whitespace.as_ref()) {
@@ -243,8 +238,7 @@ impl<Length: Clone + Copy + Default + core::ops::AddAssign> TextLine<Length> {
             (None, None) => {}
         }
 
-        debug_assert_eq!(self.byte_range.end, candidate.byte_range.start);
-        self.byte_range.end += candidate.byte_range.len();
+        self.byte_range.end = candidate.byte_range.end;
 
         self.text_width += candidate.text_width;
         *candidate = Default::default();
@@ -669,5 +663,14 @@ mod linebreak_tests {
         let lines = TextLineBreaker::new(text, &font, Some(50.)).collect::<Vec<_>>();
         assert_eq!(lines.len(), 1);
         assert_eq!(lines[0].line_text(&text), "Hello\u{00a0}World");
+    }
+
+    #[test]
+    fn test_single_line_multi_break_opportunity() {
+        let font = FixedTestFont;
+        let text = "a b c";
+        let lines = TextLineBreaker::new(text, &font, None).collect::<Vec<_>>();
+        assert_eq!(lines.len(), 1);
+        assert_eq!(lines[0].line_text(&text), "a b c");
     }
 }
