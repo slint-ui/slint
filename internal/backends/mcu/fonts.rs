@@ -190,15 +190,17 @@ pub fn register_bitmap_font(font_data: &'static BitmapFont) {
 pub fn text_size(
     font_request: FontRequest,
     text: &str,
-    _max_width: Option<f32>,
+    max_width: Option<f32>,
     scale_factor: ScaleFactor,
 ) -> LogicalSize {
     let font = match_font(&font_request, scale_factor);
 
-    let width = font
-        .glyphs_for_text(text)
-        .last()
-        .map_or(PhysicalLength::zero(), |(last_x, last_glyph)| last_x + last_glyph.x_advance());
+    let (longest_line_width, num_lines) = i_slint_core::textlayout::text_size(
+        &font,
+        text,
+        max_width.map(|max_width| (LogicalLength::new(max_width) * scale_factor).cast()),
+    );
 
-    PhysicalSize::from_lengths(width, font.height()).cast() / scale_factor
+    PhysicalSize::from_lengths(longest_line_width, font.height() * (num_lines as i16)).cast()
+        / scale_factor
 }
