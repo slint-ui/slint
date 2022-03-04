@@ -35,9 +35,11 @@ impl CachedRenderingData {
         cache: &RefCell<RenderingCache<T>>,
         update_fn: impl FnOnce() -> T,
     ) -> T {
-        if let Some(entry) = self.get_entry(&mut cache.borrow_mut()) {
+        let mut cache_borrow = cache.borrow_mut();
+        if let Some(entry) = self.get_entry(&mut cache_borrow) {
             let index = self.cache_index.get();
             let tracker = entry.dependency_tracker.take();
+            drop(cache_borrow);
 
             let maybe_new_data =
                 tracker.as_ref().and_then(|tracker| tracker.as_ref().evaluate_if_dirty(update_fn));
@@ -52,6 +54,7 @@ impl CachedRenderingData {
 
             return cache_entry.data.clone();
         }
+        drop(cache_borrow);
         let cache_entry = crate::graphics::CachedGraphicsData::new(update_fn);
         self.cache_index.set(cache.borrow_mut().insert(cache_entry));
         self.cache_generation.set(cache.borrow().generation());
