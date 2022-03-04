@@ -122,7 +122,7 @@ impl TextShaper for PixelFont {
         glyphs: &mut GlyphStorage,
     ) {
         for (byte_offset, char) in text.char_indices() {
-            let out_glyph = self
+            let mut out_glyph = self
                 .bitmap_font
                 .character_map
                 .binary_search_by_key(&char, |char_map_entry| char_map_entry.code_point)
@@ -136,11 +136,11 @@ impl TextShaper for PixelFont {
                         height: glyph.height(),
                         advance_x: glyph.x_advance(),
                         glyph_id: core::num::NonZeroU16::new(glyph_index),
-                        glyph_cluster_index: byte_offset as u32,
                         ..Default::default()
                     }
                 })
                 .unwrap_or_default();
+            out_glyph.glyph_cluster_index = byte_offset as u32;
             glyphs.extend(core::iter::once(out_glyph));
         }
     }
