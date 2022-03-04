@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+Button := Text { }
+
+PanelButton := HorizontalLayout {
+    property<string> button-text <=> button.text;
+    button := Button { }
+}
+
+TestCase := Window {
+    property <bool> test: pb.preferred-height == control.preferred-height;
+    pb := PanelButton {  button-text: "button1";  }
+    control := Text { text: "button1"; }
+}
+
+
+/*
+
+```rust
+let ui = TestCase::new();
+assert!(ui.get_test());
+```
+
+*/

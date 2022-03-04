@@ -467,6 +467,12 @@ fn propagate_is_set_on_aliases(component: &Rc<Component>, reverse_aliases: &mut 
         let is_binding_constant =
             binding.is_constant() && binding.two_way_bindings.iter().all(|n| n.is_constant());
         if is_binding_constant && !NamedReference::new(e, name).is_externally_modified() {
+            for alias in &binding.two_way_bindings {
+                crate::namedreference::mark_property_set_derived_in_base(
+                    alias.element(),
+                    alias.name(),
+                );
+            }
             return;
         }
 
