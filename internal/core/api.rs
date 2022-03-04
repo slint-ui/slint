@@ -101,6 +101,21 @@ impl From<WindowRc> for Window {
     }
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub enum CloseRequestResponse {
+    HideWindow,
+    KeepWindowShown
+}
+
+impl Default for CloseRequestResponse {
+    fn default() -> Self {
+        Self::HideWindow
+    }
+}
+
+
 impl Window {
     /// Registers the window with the windowing system in order to make it visible on the screen.
     pub fn show(&self) {
@@ -119,6 +134,10 @@ impl Window {
         callback: impl FnMut(RenderingState, &GraphicsAPI) + 'static,
     ) -> Result<(), SetRenderingNotifierError> {
         self.0.set_rendering_notifier(Box::new(callback))
+    }
+
+    pub fn on_close_requested(&self, mut callback: impl FnMut() -> CloseRequestResponse + 'static) {
+        self.0.set_close_requested(callback);
     }
 
     /// This function issues a request to the windowing system to redraw the contents of the window.
