@@ -150,11 +150,11 @@ pub struct TextLine<Length: Default + Clone> {
 }
 
 impl<Length: Default + Copy + Clone + Zero + core::ops::Add<Output = Length>> TextLine<Length> {
-    fn line_text<'a>(&self, paragraph: &'a str) -> &'a str {
+    pub fn line_text<'a>(&self, paragraph: &'a str) -> &'a str {
         &paragraph[self.byte_range.clone()]
     }
 
-    fn width_including_trailing_whitespace(&self) -> Length {
+    pub fn width_including_trailing_whitespace(&self) -> Length {
         self.text_width + self.trailing_whitespace.as_ref().map_or(Length::zero(), |ws| ws.width)
     }
 }
@@ -328,11 +328,11 @@ impl<'a, Font: TextShaper> Iterator for GraphemeCursor<'a, Font> {
     }
 }
 
-struct TextLineBreaker<'a, Font: TextShaper> {
+pub struct TextLineBreaker<'a, Font: TextShaper> {
     line_breaks: Box<dyn Iterator<Item = (usize, unicode_linebreak::BreakOpportunity)> + 'a>, // Would be nice to get rid of that Box...
     next_break_opportunity: Option<(usize, unicode_linebreak::BreakOpportunity)>,
     grapheme_cursor: GraphemeCursor<'a, Font>,
-    available_width: Font::Length,
+    available_width: Option<Font::Length>,
     current_line: TextLine<Font::Length>,
     fragment: TextLine<Font::Length>,
     num_emitted_lines: usize,
@@ -343,15 +343,19 @@ impl<'a, Font: TextShaper> TextLineBreaker<'a, Font> {
         self.current_line.add_line(&mut self.fragment);
     }
     fn current_line_fits(&self) -> bool {
-        self.current_line.width_including_trailing_whitespace() <= self.available_width
+        self.available_width.map_or(true, |available_width| {
+            self.current_line.width_including_trailing_whitespace() <= available_width
+        })
     }
     fn fragment_fits(&self) -> bool {
-        self.current_line.width_including_trailing_whitespace()
-            + self.fragment.width_including_trailing_whitespace()
-            <= self.available_width
+        self.available_width.map_or(true, |available_width| {
+            self.current_line.width_including_trailing_whitespace()
+                + self.fragment.width_including_trailing_whitespace()
+                <= available_width
+        })
     }
 
-    pub fn new(text: &'a str, font: &'a Font, available_width: Font::Length) -> Self {
+    pub fn new(text: &'a str, font: &'a Font, available_width: Option<Font::Length>) -> Self {
         let mut line_breaks = unicode_linebreak::linebreaks(text);
         let next_break_opportunity = line_breaks.next();
 
@@ -593,7 +597,7 @@ mod linebreak_tests {
     fn test_empty_line_break() {
         let font = FixedTestFont;
         let text = "";
-        let lines = TextLineBreaker::new(text, &font, 50.).collect::<Vec<_>>();
+        let lines = TextLineBreaker::new(text, &font, Some(50.)).collect::<Vec<_>>();
         assert_eq!(lines.len(), 1);
         assert_eq!(lines[0].line_text(&text), "");
     }
@@ -602,7 +606,7 @@ mod linebreak_tests {
     fn test_basic_line_break() {
         let font = FixedTestFont;
         let text = "Hello World";
-        let lines = TextLineBreaker::new(text, &font, 50.).collect::<Vec<_>>();
+        let lines = TextLineBreaker::new(text, &font, Some(50.)).collect::<Vec<_>>();
         assert_eq!(lines.len(), 2);
         assert_eq!(lines[0].line_text(&text), "Hello");
         assert_eq!(lines[1].line_text(&text), "World");
@@ -612,7 +616,7 @@ mod linebreak_tests {
     fn test_linebreak_trailing_space() {
         let font = FixedTestFont;
         let text = "Hello              ";
-        let lines = TextLineBreaker::new(text, &font, 50.).collect::<Vec<_>>();
+        let lines = TextLineBreaker::new(text, &font, Some(50.)).collect::<Vec<_>>();
         assert_eq!(lines.len(), 1);
         assert_eq!(lines[0].line_text(&text), "Hello");
     }
@@ -621,7 +625,7 @@ mod linebreak_tests {
     fn test_forced_break() {
         let font = FixedTestFont;
         let text = "Hello\nWorld";
-        let lines = TextLineBreaker::new(text, &font, 100.).collect::<Vec<_>>();
+        let lines = TextLineBreaker::new(text, &font, None).collect::<Vec<_>>();
         assert_eq!(lines.len(), 2);
         assert_eq!(lines[0].line_text(&text), "Hello");
         assert_eq!(lines[1].line_text(&text), "World");
@@ -631,7 +635,7 @@ mod linebreak_tests {
     fn test_forced_break_multi() {
         let font = FixedTestFont;
         let text = "Hello\n\n\nWorld";
-        let lines = TextLineBreaker::new(text, &font, 100.).collect::<Vec<_>>();
+        let lines = TextLineBreaker::new(text, &font, None).collect::<Vec<_>>();
         assert_eq!(lines.len(), 4);
         assert_eq!(lines[0].line_text(&text), "Hello");
         assert_eq!(lines[1].line_text(&text), "");
@@ -643,7 +647,7 @@ mod linebreak_tests {
     fn test_nbsp_break() {
         let font = FixedTestFont;
         let text = "Hello\u{00a0}World";
-        let lines = TextLineBreaker::new(text, &font, 50.).collect::<Vec<_>>();
+        let lines = TextLineBreaker::new(text, &font, Some(50.)).collect::<Vec<_>>();
         assert_eq!(lines.len(), 1);
         assert_eq!(lines[0].line_text(&text), "Hello\u{00a0}World");
     }
