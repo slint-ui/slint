@@ -93,8 +93,7 @@ pub fn render_window_frame(
         span_drawing_profiler.start(devices);
         for span in line.spans.iter().rev() {
             match span.command {
-                SceneCommand::Rectangle => {
-                    let color = scene.rectangles[span.data_index];
+                SceneCommand::Rectangle { color } => {
                     let alpha = color.alpha();
                     if alpha == u8::MAX {
                         line_buffer[span.pos.x as usize
@@ -114,9 +113,9 @@ pub fn render_window_frame(
                         }
                     }
                 }
-                SceneCommand::Texture => {
+                SceneCommand::Texture { texture_index } => {
                     let SceneTexture { data, format, stride, source_size, color } =
-                        scene.textures[span.data_index];
+                        scene.textures[texture_index as usize];
                     let source_size = source_size.cast::<usize>();
                     let span_size = span.size.cast::<usize>();
                     let bpp = bpp(format) as usize;
@@ -200,7 +199,6 @@ struct Scene {
     /// Some staging buffer of scene item
     next_items: VecDeque<SceneItem>,
 
-    rectangles: Vec<Color>,
     textures: Vec<SceneTexture>,
 
     dirty_region: DirtyRegion,
@@ -209,7 +207,6 @@ struct Scene {
 impl Scene {
     fn new(
         mut items: Vec<SceneItem>,
-        rectangles: Vec<Color>,
         textures: Vec<SceneTexture>,
         dirty_region: DirtyRegion,
     ) -> Self {
@@ -219,7 +216,6 @@ impl Scene {
             current_line: PhysicalLength::zero(),
             current_items: Default::default(),
             next_items: Default::default(),
-            rectangles,
             textures,
             dirty_region,
         }
@@ -270,7 +266,6 @@ struct SceneItem {
     // this is the order of the item from which it is in the item tree
     z: u16,
     command: SceneCommand,
-    data_index: usize, // SceneCommand specific index in textures, etc. arrays for additional data
 }
 
 struct LineCommand {
@@ -298,8 +293,13 @@ fn compare_scene_item(a: &SceneItem, b: &SceneItem) -> core::cmp::Ordering {
 #[derive(Clone, Copy)]
 #[repr(u8)]
 enum SceneCommand {
-    Rectangle,
-    Texture,
+    Rectangle {
+        color: Color,
+    },
+    /// texture_index is an index in the Scene::textures array
+    Texture {
+        texture_index: u16,
+    },
 }
 
 struct SceneTexture {
@@ -334,7 +334,7 @@ fn prepare_scene(
     let dirty_region =
         (euclid::Rect::from_untyped(&renderer.dirty_region.to_rect()) * factor).round_out().cast();
     let prepare_scene = renderer.into_inner();
-    Scene::new(prepare_scene.items, prepare_scene.rectangles, prepare_scene.textures, dirty_region)
+    Scene::new(prepare_scene.items, prepare_scene.textures, dirty_region)
 }
 
 struct PrepareScene {
@@ -371,23 +371,23 @@ impl PrepareScene {
     }
 
     fn new_scene_rectangle(&mut self, geometry: LogicalRect, color: Color) {
-        self.rectangles.push(color);
-        self.new_scene_item(geometry, SceneCommand::Rectangle, self.rectangles.len() - 1);
+        self.new_scene_item(geometry, SceneCommand::Rectangle { color });
     }
 
     fn new_scene_texture(&mut self, geometry: LogicalRect, texture: SceneTexture) {
+        let texture_index = self.textures.len() as u16;
         self.textures.push(texture);
-        self.new_scene_item(geometry, SceneCommand::Texture, self.textures.len() - 1);
+        self.new_scene_item(geometry, SceneCommand::Texture { texture_index });
     }
 
-    fn new_scene_item(&mut self, geometry: LogicalRect, command: SceneCommand, data_index: usize) {
+    fn new_scene_item(&mut self, geometry: LogicalRect, command: SceneCommand) {
         let size = (geometry.size * self.scale_factor).cast();
         if !size.is_empty() {
             let z = self.items.len() as u16;
             let pos = ((geometry.origin + self.current_state.offset.to_vector())
                 * self.scale_factor)
                 .cast();
-            self.items.push(SceneItem { pos, size, z, command, data_index });
+            self.items.push(SceneItem { pos, size, z, command });
         }
     }
 
