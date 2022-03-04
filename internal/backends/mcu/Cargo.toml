@@ -43,6 +43,7 @@ euclid = { version = "0.22.1", default-features = false }
 femtovg = { version = "0.3.3", optional = true }
 glutin = { version = "0.28", default-features = false, optional = true, features = ["x11"] }
 imgref = { version = "1.6.1", optional = true }
+integer-sqrt = "0.1.5"
 once_cell = { version = "1.9", default-features = false, features = ["alloc", "atomic-polyfill"] }
 pin-weak = { version = "1", default-features = false }
 rgb = "0.8.27"
