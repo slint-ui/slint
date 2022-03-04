@@ -375,15 +375,17 @@ fn process_window_event(
             runtime_window.set_window_item_geometry(size.width, size.height);
         }
         WindowEvent::CloseRequested => {
-            window.hide();
-            match quit_behavior {
-                corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
-                    let window_count = ALL_WINDOWS.with(|windows| windows.borrow().len());
-                    if window_count == 0 {
-                        *control_flow = winit::event_loop::ControlFlow::Exit;
+            if runtime_window.request_close() {
+                window.hide();
+                match quit_behavior {
+                    corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
+                        let window_count = ALL_WINDOWS.with(|windows| windows.borrow().len());
+                        if window_count == 0 {
+                            *control_flow = winit::event_loop::ControlFlow::Exit;
+                        }
                     }
+                    corelib::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => {}
                 }
-                corelib::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => {}
             }
         }
         WindowEvent::ReceivedCharacter(ch) => {
