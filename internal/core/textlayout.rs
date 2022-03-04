@@ -437,6 +437,25 @@ impl<'a, Font: TextShaper> Iterator for TextLineBreaker<'a, Font> {
     }
 }
 
+// Measures the size of the given text when rendered with the specified font and optionally constrained
+// by the provided `max_width`.
+// Returns a tuple of the width of the longest line as well as the number of lines.
+pub fn text_size<Font: TextShaper>(
+    font: &Font,
+    text: &str,
+    max_width: Option<Font::Length>,
+) -> (Font::Length, usize) {
+    let mut max_line_width = Font::Length::zero();
+    let mut line_count: usize = 0;
+
+    for line in TextLineBreaker::new(text, font, max_width) {
+        max_line_width = euclid::approxord::max(max_line_width, line.text_width);
+        line_count += 1;
+    }
+
+    (max_line_width, line_count)
+}
+
 #[test]
 fn test_shape_boundaries_simple() {
     {
