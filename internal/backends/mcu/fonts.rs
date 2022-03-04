@@ -115,6 +115,7 @@ impl PixelFont {
 }
 
 impl TextShaper for PixelFont {
+    type LengthPrimitive = i16;
     type Length = PhysicalLength;
     fn shape_text<GlyphStorage: core::iter::Extend<ShapedGlyph<Self::Length>>>(
         &self,
