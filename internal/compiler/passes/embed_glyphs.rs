@@ -154,7 +154,7 @@ fn embed_font(family_name: String, font: fontdue::Font, scale_factor: f64) -> Bi
 
     // TODO: configure coverage
     let coverage =
-        ('a'..='z').chain('A'..='Z').chain('0'..='9').chain([' ', '.', '+', '-', '!', '%']);
+        ('a'..='z').chain('A'..='Z').chain('0'..='9').chain([' ', '.', '+', '-', '!', '%', ':']);
 
     let mut character_map: Vec<CharacterMapEntry> = coverage
         .enumerate()
