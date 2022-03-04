@@ -536,39 +536,60 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
     }
 
     fn draw_text(&mut self, text: Pin<&i_slint_core::items::Text>) {
+        let max_width: PhysicalLength =
+            (LogicalLength::new(text.width()) * self.scale_factor).cast();
+        let max_height: PhysicalLength =
+            (LogicalLength::new(text.height()) * self.scale_factor).cast();
+
+        if max_width <= PhysicalLength::zero() || max_height <= PhysicalLength::zero() {
+            return;
+        }
+
         let font_request = text.unresolved_font_request().merge(&self.default_font);
         let font = crate::fonts::match_font(&font_request, self.scale_factor);
 
         let color = text.color().color();
 
-        let baseline_y = font.ascent();
+        i_slint_core::textlayout::layout_text_lines(
+            &text.text(),
+            &font,
+            font.height(),
+            max_width,
+            max_height,
+            (text.horizontal_alignment(), text.vertical_alignment()),
+            text.wrap(),
+            text.overflow(),
+            false,
+            |to_draw, line_x, line_y, _| {
+                let baseline_y = line_y + font.ascent();
+                for (glyph_baseline_x, glyph) in font.glyphs_for_text(to_draw) {
+                    if let Some(dest_rect) = (PhysicalRect::new(
+                        PhysicalPoint::from_lengths(
+                            line_x + glyph_baseline_x + glyph.x(),
+                            baseline_y - glyph.y() - glyph.height(),
+                        ),
+                        glyph.size(),
+                    )
+                    .cast()
+                        / self.scale_factor)
+                        .intersection(&self.current_state.clip)
+                    {
+                        let stride = glyph.width().get() as u16;
 
-        for (glyph_baseline_x, glyph) in font.glyphs_for_text(&text.text()) {
-            if let Some(dest_rect) = (PhysicalRect::new(
-                PhysicalPoint::from_lengths(
-                    glyph_baseline_x + glyph.x(),
-                    baseline_y - glyph.y() - glyph.height(),
-                ),
-                glyph.size(),
-            )
-            .cast()
-                / self.scale_factor)
-                .intersection(&self.current_state.clip)
-            {
-                let stride = glyph.width().get() as u16;
-
-                self.new_scene_texture(
-                    dest_rect,
-                    SceneTexture {
-                        data: glyph.data().as_slice(),
-                        stride,
-                        source_size: glyph.size(),
-                        format: PixelFormat::AlphaMap,
-                        color,
-                    },
-                );
-            }
-        }
+                        self.new_scene_texture(
+                            dest_rect,
+                            SceneTexture {
+                                data: glyph.data().as_slice(),
+                                stride,
+                                source_size: glyph.size(),
+                                format: PixelFormat::AlphaMap,
+                                color,
+                            },
+                        );
+                    }
+                }
+            },
+        );
     }
 
     fn draw_text_input(&mut self, _text_input: Pin<&i_slint_core::items::TextInput>) {
