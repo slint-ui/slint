@@ -43,7 +43,9 @@ use core::ops::Range;
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
-use euclid::num::Zero;
+use euclid::num::{One, Zero};
+
+use crate::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
 
 #[derive(Clone, Debug, Default)]
 pub struct ShapedGlyph<Length> {
@@ -59,13 +61,24 @@ pub struct ShapedGlyph<Length> {
 }
 
 pub trait TextShaper {
+    type LengthPrimitive: core::ops::Mul
+        + core::ops::Div
+        + core::ops::Add<Output = Self::LengthPrimitive>
+        + core::ops::AddAssign
+        + euclid::num::Zero
+        + euclid::num::One
+        + core::convert::From<i16>
+        + Copy;
     type Length: euclid::num::Zero
         + core::ops::AddAssign
         + core::ops::Add<Output = Self::Length>
+        + core::ops::Sub<Output = Self::Length>
         + Default
         + Clone
         + Copy
-        + core::cmp::PartialOrd;
+        + core::cmp::PartialOrd
+        + core::ops::Mul<Self::LengthPrimitive, Output = Self::Length>
+        + core::ops::Div<Self::LengthPrimitive, Output = Self::Length>;
     fn shape_text<GlyphStorage: core::iter::Extend<ShapedGlyph<Self::Length>>>(
         &self,
         text: &str,
@@ -438,16 +451,88 @@ pub fn text_size<Font: TextShaper>(
     font: &Font,
     text: &str,
     max_width: Option<Font::Length>,
-) -> (Font::Length, usize) {
+) -> (Font::Length, Font::LengthPrimitive)
+where
+    Font::Length: core::fmt::Debug,
+{
     let mut max_line_width = Font::Length::zero();
-    let mut line_count: usize = 0;
+    let mut line_count = Font::LengthPrimitive::zero();
 
     for line in TextLineBreaker::new(text, font, max_width) {
         max_line_width = euclid::approxord::max(max_line_width, line.text_width);
-        line_count += 1;
+        line_count += Font::LengthPrimitive::one();
     }
 
     (max_line_width, line_count)
+}
+
+/// Layout the given string in lines, and call the `layout_line` callback with the line to draw at position y.
+/// The signature of the `layout_line` function is: `(canvas, text, pos, start_index, line_metrics)`.
+/// start index is the starting byte of the text in the string.
+/// Returns the baseline y coordinate.
+pub fn layout_text_lines<Font: TextShaper>(
+    string: &str,
+    font: &Font,
+    font_height: Font::Length,
+    max_width: Font::Length,
+    max_height: Font::Length,
+    (horizontal_alignment, vertical_alignment): (TextHorizontalAlignment, TextVerticalAlignment),
+    wrap: TextWrap,
+    overflow: TextOverflow,
+    single_line: bool,
+    mut layout_line: impl FnMut(&str, Font::Length, Font::Length, &TextLine<Font::Length>),
+) -> Font::Length {
+    let wrap = wrap == TextWrap::word_wrap;
+    let _elide = overflow == TextOverflow::elide;
+
+    let new_line_break_iter =
+        || TextLineBreaker::new(string, font, if wrap { Some(max_width) } else { None });
+    let mut text_lines = None;
+
+    let mut text_height = || {
+        if single_line {
+            font_height
+        } else {
+            text_lines = Some(new_line_break_iter().collect::<Vec<_>>());
+            font_height * (text_lines.as_ref().unwrap().len() as i16).into()
+        }
+    };
+
+    let two = Font::LengthPrimitive::one() + Font::LengthPrimitive::one();
+
+    let mut process_line = |text: &str, y: Font::Length, line_metrics: &TextLine<Font::Length>| {
+        let x = match horizontal_alignment {
+            TextHorizontalAlignment::left => Font::Length::zero(),
+            TextHorizontalAlignment::center => {
+                max_width / two - euclid::approxord::min(max_width, line_metrics.text_width) / two
+            }
+            TextHorizontalAlignment::right => {
+                max_width - euclid::approxord::min(max_width, line_metrics.text_width)
+            }
+        };
+        layout_line(text, x, y, line_metrics);
+    };
+
+    let baseline_y = match vertical_alignment {
+        TextVerticalAlignment::top => Font::Length::zero(),
+        TextVerticalAlignment::center => max_height / two - text_height() / two,
+        TextVerticalAlignment::bottom => max_height - text_height(),
+    };
+    let mut y = baseline_y;
+
+    if let Some(lines_vec) = text_lines {
+        for line in lines_vec {
+            process_line(line.line_text(string), y, &line);
+            y += font_height;
+        }
+    } else {
+        for line in new_line_break_iter() {
+            process_line(line.line_text(string), y, &line);
+            y += font_height;
+        }
+    }
+
+    baseline_y
 }
 
 #[test]
@@ -484,6 +569,7 @@ mod shape_tests {
     use super::*;
 
     impl<'a> TextShaper for rustybuzz::Face<'a> {
+        type LengthPrimitive = f32;
         type Length = f32;
         fn shape_text<GlyphStorage: std::iter::Extend<ShapedGlyph<Self::Length>>>(
             &self,
@@ -583,6 +669,7 @@ mod linebreak_tests {
     struct FixedTestFont;
 
     impl TextShaper for FixedTestFont {
+        type LengthPrimitive = f32;
         type Length = f32;
         fn shape_text<GlyphStorage: std::iter::Extend<ShapedGlyph<Self::Length>>>(
             &self,
