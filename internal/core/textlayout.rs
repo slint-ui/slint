@@ -47,17 +47,9 @@ use euclid::num::{One, Zero};
 
 use crate::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
 
-#[derive(Clone, Debug, Default)]
-pub struct ShapedGlyph<Length> {
-    pub offset_x: Length,
-    pub offset_y: Length,
-    pub bearing_x: Length,
-    pub bearing_y: Length,
-    pub width: Length,
-    pub height: Length,
-    pub advance_x: Length,
-    pub glyph_id: Option<core::num::NonZeroU16>,
-    pub glyph_cluster_index: u32,
+pub trait GlyphMetrics<Length> {
+    fn advance_x(&self) -> Length;
+    fn byte_offset(&self) -> usize;
 }
 
 pub trait TextShaper {
@@ -79,7 +71,8 @@ pub trait TextShaper {
         + core::cmp::PartialOrd
         + core::ops::Mul<Self::LengthPrimitive, Output = Self::Length>
         + core::ops::Div<Self::LengthPrimitive, Output = Self::Length>;
-    fn shape_text<GlyphStorage: core::iter::Extend<ShapedGlyph<Self::Length>>>(
+    type Glyph: GlyphMetrics<Self::Length>;
+    fn shape_text<GlyphStorage: core::iter::Extend<Self::Glyph>>(
         &self,
         text: &str,
         glyphs: &mut GlyphStorage,
@@ -262,7 +255,7 @@ struct GraphemeCursor<'a, Font: TextShaper> {
     font: &'a Font,
     shape_boundaries: ShapeBoundaries<'a>,
     current_shapable: Range<usize>,
-    glyphs: Vec<ShapedGlyph<Font::Length>>,
+    glyphs: Vec<Font::Glyph>,
     // absolute byte offset in the entire text
     byte_offset: usize,
     glyph_index: usize,
@@ -305,11 +298,11 @@ impl<'a, Font: TextShaper> Iterator for GraphemeCursor<'a, Font> {
         loop {
             let glyph = &self.glyphs[self.glyph_index];
             // Rustybuzz uses a relative byte offset as cluster index
-            cluster_byte_offset = self.current_shapable.start + glyph.glyph_cluster_index as usize;
+            cluster_byte_offset = self.current_shapable.start + glyph.byte_offset();
             if cluster_byte_offset != self.byte_offset {
                 break;
             }
-            grapheme_width += glyph.advance_x;
+            grapheme_width += glyph.advance_x();
 
             self.glyph_index += 1;
 
@@ -566,12 +559,37 @@ fn test_shape_boundaries_script_change() {
 
 #[cfg(test)]
 mod shape_tests {
+
     use super::*;
+
+    #[derive(Clone, Debug, Default)]
+    pub struct ShapedGlyph {
+        pub offset_x: f32,
+        pub offset_y: f32,
+        pub bearing_x: f32,
+        pub bearing_y: f32,
+        pub width: f32,
+        pub height: f32,
+        pub advance_x: f32,
+        pub glyph_id: Option<core::num::NonZeroU16>,
+        pub glyph_cluster_index: u32,
+    }
+
+    impl GlyphMetrics<f32> for ShapedGlyph {
+        fn advance_x(&self) -> f32 {
+            self.advance_x
+        }
+
+        fn byte_offset(&self) -> usize {
+            self.glyph_cluster_index as usize
+        }
+    }
 
     impl<'a> TextShaper for rustybuzz::Face<'a> {
         type LengthPrimitive = f32;
         type Length = f32;
-        fn shape_text<GlyphStorage: std::iter::Extend<ShapedGlyph<Self::Length>>>(
+        type Glyph = ShapedGlyph;
+        fn shape_text<GlyphStorage: std::iter::Extend<ShapedGlyph>>(
             &self,
             text: &str,
             glyphs: &mut GlyphStorage,
@@ -663,6 +681,7 @@ mod shape_tests {
 
 #[cfg(test)]
 mod linebreak_tests {
+    use super::shape_tests::ShapedGlyph;
     use super::*;
 
     // All glyphs are 10 pixels wide, break on ascii rules
@@ -671,7 +690,8 @@ mod linebreak_tests {
     impl TextShaper for FixedTestFont {
         type LengthPrimitive = f32;
         type Length = f32;
-        fn shape_text<GlyphStorage: std::iter::Extend<ShapedGlyph<Self::Length>>>(
+        type Glyph = ShapedGlyph;
+        fn shape_text<GlyphStorage: std::iter::Extend<ShapedGlyph>>(
             &self,
             text: &str,
             glyphs: &mut GlyphStorage,
