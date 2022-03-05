@@ -8,7 +8,6 @@ use core::cell::RefCell;
 use i_slint_core::thread_local_ as thread_local;
 
 use crate::{LogicalLength, LogicalSize, PhysicalLength, PhysicalSize, ScaleFactor};
-use euclid::num::Zero;
 use i_slint_core::{
     graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, FontRequest},
     slice::Slice,
@@ -88,41 +87,33 @@ impl PixelFont {
     pub fn pixel_size(&self) -> PhysicalLength {
         self.glyphs.pixel_size()
     }
-
-    pub fn glyphs_for_text<'a>(
-        &'a self,
-        text: &'a str,
-    ) -> impl Iterator<Item = (PhysicalLength, Glyph)> + 'a {
-        let mut x: PhysicalLength = PhysicalLength::zero();
-        text.chars().filter_map(move |char| {
-            if let Some(glyph_index) = self
-                .bitmap_font
-                .character_map
-                .binary_search_by_key(&char, |char_map_entry| char_map_entry.code_point)
-                .ok()
-                .map(|char_map_index| self.bitmap_font.character_map[char_map_index].glyph_index)
-            {
-                let glyph = Glyph(&self.glyphs.glyph_data[glyph_index as usize]);
-                let glyph_x = x;
-                x += glyph.x_advance();
-                Some((glyph_x, glyph))
-            } else {
-                x += self.pixel_size();
-                None
-            }
-        })
-    }
 }
 
-#[derive(Default)]
+enum BitmapGlyphOrNone {
+    BitmapGlyph(Glyph),
+    NoGlyph { fallback_pixel_size: PhysicalLength },
+}
+
 pub struct ShapedGlyph {
-    g: Option<Glyph>,
+    glyph: BitmapGlyphOrNone,
     byte_offset: usize,
+}
+
+impl ShapedGlyph {
+    pub fn bitmap_glyph(&self) -> Option<Glyph> {
+        match self.glyph {
+            BitmapGlyphOrNone::BitmapGlyph(g) => Some(g),
+            BitmapGlyphOrNone::NoGlyph { .. } => None,
+        }
+    }
 }
 
 impl GlyphMetrics<PhysicalLength> for ShapedGlyph {
     fn advance_x(&self) -> PhysicalLength {
-        self.g.map(|g| g.x_advance()).unwrap_or_default()
+        match self.glyph {
+            BitmapGlyphOrNone::BitmapGlyph(bitmap_glyph) => bitmap_glyph.x_advance(),
+            BitmapGlyphOrNone::NoGlyph { fallback_pixel_size } => fallback_pixel_size,
+        }
     }
 
     fn byte_offset(&self) -> usize {
@@ -140,21 +131,21 @@ impl TextShaper for PixelFont {
         glyphs: &mut GlyphStorage,
     ) {
         for (byte_offset, char) in text.char_indices() {
-            let mut out_glyph = self
+            let out_glyph = self
                 .bitmap_font
                 .character_map
                 .binary_search_by_key(&char, |char_map_entry| char_map_entry.code_point)
                 .ok()
                 .map(|char_map_index| {
                     let glyph_index = self.bitmap_font.character_map[char_map_index].glyph_index;
-                    ShapedGlyph {
-                        g: Some(Glyph(&self.glyphs.glyph_data[glyph_index as usize])),
-                        ..Default::default()
-                    }
+                    BitmapGlyphOrNone::BitmapGlyph(Glyph(
+                        &self.glyphs.glyph_data[glyph_index as usize],
+                    ))
                 })
-                .unwrap_or_default();
-            out_glyph.byte_offset = byte_offset;
-            glyphs.extend(core::iter::once(out_glyph));
+                .unwrap_or_else(|| BitmapGlyphOrNone::NoGlyph {
+                    fallback_pixel_size: self.pixel_size(),
+                });
+            glyphs.extend(core::iter::once(ShapedGlyph { glyph: out_glyph, byte_offset }));
         }
     }
 }
