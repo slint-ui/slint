@@ -493,35 +493,36 @@ pub fn layout_text_lines<Font: TextShaper>(
 
     let two = Font::LengthPrimitive::one() + Font::LengthPrimitive::one();
 
-    let mut process_line = |text: &str, y: Font::Length, line_metrics: &TextLine<Font::Length>| {
-        let x = match horizontal_alignment {
-            TextHorizontalAlignment::left => Font::Length::zero(),
-            TextHorizontalAlignment::center => {
-                max_width / two - euclid::approxord::min(max_width, line_metrics.text_width) / two
-            }
-            TextHorizontalAlignment::right => {
-                max_width - euclid::approxord::min(max_width, line_metrics.text_width)
-            }
-        };
-        layout_line(text, x, y, line_metrics);
-    };
-
     let baseline_y = match vertical_alignment {
         TextVerticalAlignment::top => Font::Length::zero(),
         TextVerticalAlignment::center => max_height / two - text_height() / two,
         TextVerticalAlignment::bottom => max_height - text_height(),
     };
+
     let mut y = baseline_y;
+
+    let mut process_line = |line: &TextLine<Font::Length>| {
+        let x = match horizontal_alignment {
+            TextHorizontalAlignment::left => Font::Length::zero(),
+            TextHorizontalAlignment::center => {
+                max_width / two - euclid::approxord::min(max_width, line.text_width) / two
+            }
+            TextHorizontalAlignment::right => {
+                max_width - euclid::approxord::min(max_width, line.text_width)
+            }
+        };
+        let text = line.line_text(string);
+        layout_line(text, x, y, line);
+        y += font_height;
+    };
 
     if let Some(lines_vec) = text_lines {
         for line in lines_vec {
-            process_line(line.line_text(string), y, &line);
-            y += font_height;
+            process_line(&line);
         }
     } else {
         for line in new_line_break_iter() {
-            process_line(line.line_text(string), y, &line);
-            y += font_height;
+            process_line(&line);
         }
     }
 
