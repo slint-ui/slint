@@ -12,7 +12,7 @@ use euclid::num::Zero;
 use i_slint_core::{
     graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, FontRequest},
     slice::Slice,
-    textlayout::{ShapedGlyph, TextShaper},
+    textlayout::{GlyphMetrics, TextShaper},
 };
 
 thread_local! {
@@ -114,10 +114,27 @@ impl PixelFont {
     }
 }
 
+#[derive(Default)]
+pub struct ShapedGlyph {
+    g: Option<Glyph>,
+    byte_offset: usize,
+}
+
+impl GlyphMetrics<PhysicalLength> for ShapedGlyph {
+    fn advance_x(&self) -> PhysicalLength {
+        self.g.map(|g| g.x_advance()).unwrap_or_default()
+    }
+
+    fn byte_offset(&self) -> usize {
+        self.byte_offset
+    }
+}
+
 impl TextShaper for PixelFont {
     type LengthPrimitive = i16;
     type Length = PhysicalLength;
-    fn shape_text<GlyphStorage: core::iter::Extend<ShapedGlyph<Self::Length>>>(
+    type Glyph = ShapedGlyph;
+    fn shape_text<GlyphStorage: core::iter::Extend<ShapedGlyph>>(
         &self,
         text: &str,
         glyphs: &mut GlyphStorage,
@@ -130,18 +147,13 @@ impl TextShaper for PixelFont {
                 .ok()
                 .map(|char_map_index| {
                     let glyph_index = self.bitmap_font.character_map[char_map_index].glyph_index;
-                    let glyph = Glyph(&self.glyphs.glyph_data[glyph_index as usize]);
-
                     ShapedGlyph {
-                        width: glyph.width(),
-                        height: glyph.height(),
-                        advance_x: glyph.x_advance(),
-                        glyph_id: core::num::NonZeroU16::new(glyph_index),
+                        g: Some(Glyph(&self.glyphs.glyph_data[glyph_index as usize])),
                         ..Default::default()
                     }
                 })
                 .unwrap_or_default();
-            out_glyph.glyph_cluster_index = byte_offset as u32;
+            out_glyph.byte_offset = byte_offset;
             glyphs.extend(core::iter::once(out_glyph));
         }
     }
