@@ -560,28 +560,32 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
             text.wrap(),
             text.overflow(),
             false,
-            |to_draw, line_x, line_y, _| {
+            |glyphs, line_x, line_y, _| {
                 let baseline_y = line_y + font.ascent();
-                for (glyph_baseline_x, glyph) in font.glyphs_for_text(to_draw) {
+                while let Some((glyph_baseline_x, glyph)) = glyphs.next() {
+                    let bitmap_glyph = match glyph.bitmap_glyph() {
+                        Some(g) => g,
+                        None => continue,
+                    };
                     if let Some(dest_rect) = (PhysicalRect::new(
                         PhysicalPoint::from_lengths(
-                            line_x + glyph_baseline_x + glyph.x(),
-                            baseline_y - glyph.y() - glyph.height(),
+                            line_x + glyph_baseline_x + bitmap_glyph.x(),
+                            baseline_y - bitmap_glyph.y() - bitmap_glyph.height(),
                         ),
-                        glyph.size(),
+                        bitmap_glyph.size(),
                     )
                     .cast()
                         / self.scale_factor)
                         .intersection(&self.current_state.clip)
                     {
-                        let stride = glyph.width().get() as u16;
+                        let stride = bitmap_glyph.width().get() as u16;
 
                         self.new_scene_texture(
                             dest_rect,
                             SceneTexture {
-                                data: glyph.data().as_slice(),
+                                data: bitmap_glyph.data().as_slice(),
                                 stride,
-                                source_size: glyph.size(),
+                                source_size: bitmap_glyph.size(),
                                 format: PixelFormat::AlphaMap,
                                 color,
                             },
