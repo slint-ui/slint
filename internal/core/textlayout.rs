@@ -473,7 +473,12 @@ pub fn layout_text_lines<Font: TextShaper>(
     wrap: TextWrap,
     overflow: TextOverflow,
     single_line: bool,
-    mut layout_line: impl FnMut(&str, Font::Length, Font::Length, &TextLine<Font::Length>),
+    mut layout_line: impl FnMut(
+        &mut dyn Iterator<Item = (Font::Length, &'_ Font::Glyph)>,
+        Font::Length,
+        Font::Length,
+        &TextLine<Font::Length>,
+    ),
 ) -> Font::Length {
     let wrap = wrap == TextWrap::word_wrap;
     let _elide = overflow == TextOverflow::elide;
@@ -501,6 +506,8 @@ pub fn layout_text_lines<Font: TextShaper>(
 
     let mut y = baseline_y;
 
+    let mut glyph_buffer = Vec::new(); // TODO: merge with line breaker's glyph buffer to avoid shaping again
+
     let mut process_line = |line: &TextLine<Font::Length>| {
         let x = match horizontal_alignment {
             TextHorizontalAlignment::left => Font::Length::zero(),
@@ -511,8 +518,20 @@ pub fn layout_text_lines<Font: TextShaper>(
                 max_width - euclid::approxord::min(max_width, line.text_width)
             }
         };
+
+        glyph_buffer.clear();
         let text = line.line_text(string);
-        layout_line(text, x, y, line);
+        font.shape_text(text, &mut glyph_buffer);
+
+        let glyph_it = glyph_buffer.iter();
+        let mut glyph_x = Font::Length::zero();
+        let mut positioned_glyph_it = glyph_it.map(|g| {
+            let positioned_glyph = (glyph_x, g);
+            glyph_x += g.advance_x();
+            positioned_glyph
+        });
+
+        layout_line(&mut positioned_glyph_it, x, y, line);
         y += font_height;
     };
 
