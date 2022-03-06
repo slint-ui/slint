@@ -77,6 +77,7 @@ pub trait TextShaper {
         text: &str,
         glyphs: &mut GlyphStorage,
     );
+    fn glyph_for_char(&self, ch: char) -> Option<Self::Glyph>;
 }
 
 pub struct ShapeBoundaries<'a> {
@@ -481,7 +482,10 @@ pub fn layout_text_lines<Font: TextShaper>(
     ),
 ) -> Font::Length {
     let wrap = wrap == TextWrap::word_wrap;
-    let _elide = overflow == TextOverflow::elide;
+    let elide_glyph =
+        if overflow == TextOverflow::elide { font.glyph_for_char('…') } else { None };
+    let max_width_without_elision =
+        max_width - elide_glyph.as_ref().map_or(Font::Length::zero(), |g| g.advance_x());
 
     let new_line_break_iter =
         || TextLineBreaker::new(string, font, if wrap { Some(max_width) } else { None });
@@ -519,16 +523,25 @@ pub fn layout_text_lines<Font: TextShaper>(
             }
         };
 
+        let mut elide_glyph = elide_glyph.as_ref().clone();
+
         glyph_buffer.clear();
         let text = line.line_text(string);
         font.shape_text(text, &mut glyph_buffer);
 
         let glyph_it = glyph_buffer.iter();
         let mut glyph_x = Font::Length::zero();
-        let mut positioned_glyph_it = glyph_it.map(|g| {
+        let mut positioned_glyph_it = glyph_it.filter_map(|g| {
+            if glyph_x >= max_width_without_elision {
+                if let Some(elide_glyph) = elide_glyph.take() {
+                    return Some((glyph_x, elide_glyph));
+                } else {
+                    return None;
+                }
+            }
             let positioned_glyph = (glyph_x, g);
             glyph_x += g.advance_x();
-            positioned_glyph
+            Some(positioned_glyph)
         });
 
         layout_line(&mut positioned_glyph_it, x, y, line);
@@ -647,6 +660,10 @@ mod shape_tests {
             // Cannot return impl Iterator, so extend argument instead
             glyphs.extend(output_glyph_generator);
         }
+
+        fn glyph_for_char(&self, _ch: char) -> Option<Self::Glyph> {
+            todo!()
+        }
     }
 
     #[test]
@@ -730,6 +747,21 @@ mod linebreak_tests {
                 };
                 glyphs.extend(core::iter::once(out_glyph));
             }
+        }
+
+        fn glyph_for_char(&self, _ch: char) -> Option<Self::Glyph> {
+            ShapedGlyph {
+                offset_x: 0.,
+                offset_y: 0.,
+                bearing_x: 0.,
+                bearing_y: 0.,
+                width: 10.,
+                height: 10.,
+                advance_x: 10.,
+                glyph_id: None,
+                glyph_cluster_index: 0,
+            }
+            .into()
         }
     }
 
