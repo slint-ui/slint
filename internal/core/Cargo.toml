@@ -28,9 +28,11 @@ std = ["euclid/std", "once_cell/std", "scoped-tls-hkt", "lyon_path", "lyon_algor
 # from a single core, and not in a interrupt or signal handler.
 unsafe_single_core = []
 
-text_layout = ["unicode-linebreak", "unicode-script"]
+text_layout = ["unicode-linebreak"]
 
-default = ["std", "text_layout"]
+unicode = ["unicode-script"]
+
+default = ["std", "text_layout", "unicode"]
 
 [dependencies]
 i-slint-common = { version = "=0.2.2", path = "../common" }

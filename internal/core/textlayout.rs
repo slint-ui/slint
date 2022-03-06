@@ -82,32 +82,41 @@ pub trait TextShaper {
 
 pub struct ShapeBoundaries<'a> {
     text: &'a str,
+    #[cfg(feature = "unicode-script")]
     // TODO: We should do a better analysis to find boundaries for text shaping; including
     // boundaries when the bidi level changes, the script changes or an explicit separator like
     // paragraph/lineseparator/space is encountered.
     chars: core::str::CharIndices<'a>,
     next_boundary_start: Option<usize>,
+    #[cfg(feature = "unicode-script")]
     last_script: Option<unicode_script::Script>,
 }
 
 impl<'a> ShapeBoundaries<'a> {
     pub fn new(text: &'a str) -> Self {
-        let chars = text.char_indices();
         let next_boundary_start = if !text.is_empty() { Some(0) } else { None };
-        Self { text, chars, next_boundary_start, last_script: None }
+        Self {
+            text,
+            #[cfg(feature = "unicode-script")]
+            chars: text.char_indices(),
+            next_boundary_start,
+            #[cfg(feature = "unicode-script")]
+            last_script: None,
+        }
     }
 }
 
 impl<'a> Iterator for ShapeBoundaries<'a> {
     type Item = Range<usize>;
 
+    #[cfg(feature = "unicode-script")]
     fn next(&mut self) -> Option<Self::Item> {
         let start = self.next_boundary_start?;
 
-        use unicode_script::UnicodeScript;
         let (next_offset, script) = loop {
             match self.chars.next() {
                 Some((byte_offset, ch)) => {
+                    use unicode_script::UnicodeScript;
                     let next_script = ch.script();
                     let previous_script = *self.last_script.get_or_insert(next_script);
 
@@ -136,6 +145,14 @@ impl<'a> Iterator for ShapeBoundaries<'a> {
         self.last_script = script;
         self.next_boundary_start = next_offset;
 
+        Some(item)
+    }
+
+    #[cfg(not(feature = "unicode-script"))]
+    fn next(&mut self) -> Option<Self::Item> {
+        let start = self.next_boundary_start?;
+        let item = Range { start, end: self.text.len() };
+        self.next_boundary_start = None;
         Some(item)
     }
 }
