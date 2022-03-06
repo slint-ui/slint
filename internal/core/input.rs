@@ -307,8 +307,8 @@ pub fn process_mouse_input(
 
     let mut result = MouseInputState::default();
     type State = (Vector2D<f32>, Vec<(ItemWeak, InputEventFilterResult)>);
-    crate::item_tree::visit_items_with_post_visit(
-        &component,
+    let item_rc = ItemRc::new_root(component);
+    item_rc.visit_with_post_visit(
         crate::item_tree::TraversalOrder::FrontToBack,
         |comp_rc: &ComponentRc,
          item: core::pin::Pin<ItemRef>,

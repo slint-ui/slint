@@ -13,9 +13,10 @@ use i_slint_compiler::*;
 use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
 use i_slint_core::api::Window;
 use i_slint_core::component::{Component, ComponentRef, ComponentRefPin, ComponentVTable};
-use i_slint_core::item_tree::{
-    ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder, VisitChildrenResult,
-};
+// use i_slint_core::item_tree::{
+//     ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder, VisitChildrenResult,
+// };
+use i_slint_core::item_tree::ItemTreeNode;
 use i_slint_core::items::{Flickable, ItemRc, ItemRef, ItemVTable, ItemWeak, PropertyAnimation};
 use i_slint_core::layout::{BoxLayoutCellData, LayoutInfo, Orientation};
 use i_slint_core::model::RepeatedComponent;
@@ -149,26 +150,44 @@ impl RepeatedComponent for ErasedComponentBox {
 }
 
 impl Component for ErasedComponentBox {
-    fn visit_children_item(
-        self: Pin<&Self>,
-        index: isize,
-        order: TraversalOrder,
-        visitor: ItemVisitorRefMut,
-    ) -> VisitChildrenResult {
-        self.borrow().as_ref().visit_children_item(index, order, visitor)
-    }
+    // fn visit_children_item(
+    //     self: Pin<&Self>,
+    //     index: isize,
+    //     order: TraversalOrder,
+    //     visitor: ItemVisitorRefMut,
+    // ) -> VisitChildrenResult {
+    //     self.borrow().as_ref().visit_children_item(index, order, visitor)
+    // }
 
-    fn layout_info(self: Pin<&Self>, orientation: Orientation) -> i_slint_core::layout::LayoutInfo {
-        self.borrow().as_ref().layout_info(orientation)
-    }
     fn get_item_ref(self: Pin<&Self>, index: usize) -> Pin<ItemRef> {
         // We're having difficulties transferring the lifetime to a pinned reference
         // to the other ComponentVTable with the same life time. So skip the vtable
         // indirection and call our implementation directly.
         unsafe { get_item_ref(self.get_ref().borrow(), index) }
     }
+
     fn parent_item(self: Pin<&Self>, index: usize, result: &mut ItemWeak) {
         self.borrow().as_ref().parent_item(index, result)
+    }
+
+    fn layout_info(self: Pin<&Self>, orientation: Orientation) -> i_slint_core::layout::LayoutInfo {
+        self.borrow().as_ref().layout_info(orientation)
+    }
+
+    fn first_child(self: Pin<&Self>, index: usize, result: &mut ItemWeak) {
+        self.borrow().as_ref().first_child(index, result);
+    }
+
+    fn last_child(self: Pin<&Self>, index: usize, result: &mut ItemWeak) {
+        self.borrow().as_ref().last_child(index, result);
+    }
+
+    fn previous_sibling(self: Pin<&Self>, index: usize, result: &mut ItemWeak) {
+        self.borrow().as_ref().previous_sibling(index, result);
+    }
+
+    fn next_sibling(self: Pin<&Self>, index: usize, result: &mut ItemWeak) {
+        self.borrow().as_ref().next_sibling(index, result);
     }
 }
 
@@ -566,33 +585,6 @@ impl<'id> ComponentDescription<'id> {
         let extra_data = c.component_type.extra_data_offset.apply(c.instance.get_ref());
         extra_data.globals.get(global_name).cloned().ok_or(())
     }
-}
-
-extern "C" fn visit_children_item(
-    component: ComponentRefPin,
-    index: isize,
-    order: TraversalOrder,
-    v: ItemVisitorRefMut,
-) -> VisitChildrenResult {
-    generativity::make_guard!(guard);
-    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    let comp_rc = instance_ref.self_weak().get().unwrap().upgrade().unwrap();
-    i_slint_core::item_tree::visit_item_tree(
-        instance_ref.instance,
-        &vtable::VRc::into_dyn(comp_rc),
-        instance_ref.component_type.item_tree.as_slice(),
-        index,
-        order,
-        v,
-        |_, order, visitor, index| {
-            // `ensure_updated` needs a 'static lifetime so we must call get_untagged.
-            // Safety: we do not mix the component with other component id in this function
-            let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untagged() };
-            ensure_repeater_updated(instance_ref, rep_in_comp);
-            let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
-            repeater.visit(order, visitor)
-        },
-    )
 }
 
 /// Make sure that the repeater is updated
@@ -1012,10 +1004,14 @@ pub(crate) fn generate_component<'id>(
         .collect();
 
     let t = ComponentVTable {
-        visit_children_item,
+        // visit_children_item,
         layout_info,
         get_item_ref,
         parent_item,
+        first_child,
+        last_child,
+        previous_sibling,
+        next_sibling,
         drop_in_place,
         dealloc,
     };
@@ -1522,7 +1518,7 @@ unsafe extern "C" fn parent_item(component: ComponentRefPin, index: usize, resul
                     .into_dyn()
                     .upgrade()
                     .unwrap();
-                *result = ItemRc::new(parent_rc, parent_index).parent_item();
+                *result = ItemRc::new(parent_rc, parent_index).downgrade();
             };
         }
         return;
@@ -1533,6 +1529,217 @@ unsafe extern "C" fn parent_item(component: ComponentRefPin, index: usize, resul
     };
     let self_rc = instance_ref.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
     *result = ItemRc::new(self_rc, *parent_index as _).downgrade();
+}
+
+fn sibling_range<Instance>(item_tree: &[ItemTreeNode<Instance>], index: usize) -> (usize, usize) {
+    if index != 0 && index < item_tree.len() {
+        let item = item_tree.get(index).expect("Index was tested to be valid!");
+        let parent_index = match item {
+            ItemTreeNode::Item { parent_index, .. } => *parent_index,
+            ItemTreeNode::DynamicTree { parent_index, .. } => *parent_index,
+        };
+        return children_range(item_tree, parent_index as usize)
+            .expect("My parent expected to have children.");
+    }
+    (index, index + 1)
+}
+
+fn children_range<Instance>(
+    item_tree: &[ItemTreeNode<Instance>],
+    index: usize,
+) -> Option<(usize, usize)> {
+    let item = item_tree.get(index).expect("Index must be valid here.");
+    match item {
+        ItemTreeNode::Item { children_count, children_index, .. } => {
+            let start = *children_index as usize;
+            let end = start + *children_count as usize;
+            Some((start, end))
+        }
+        ItemTreeNode::DynamicTree { .. } => None,
+    }
+}
+
+fn repeater<'a, Instance>(
+    item_tree: &'a [ItemTreeNode<Instance>],
+    index: usize,
+    repeater_list: &'a [ErasedRepeaterWithinComponent<'a>],
+) -> Option<&'a RepeaterWithinComponent<'a, 'static>> {
+    let item = item_tree.get(index).expect("Index must be valid here.");
+    match item {
+        ItemTreeNode::Item { .. } => None,
+        ItemTreeNode::DynamicTree { index, .. } => {
+            Some(unsafe { repeater_list[*index].get_untagged() })
+        }
+    }
+}
+
+unsafe extern "C" fn first_child(component: ComponentRefPin, index: usize, result: &mut ItemWeak) {
+    generativity::make_guard!(guard);
+    let instance_ref = InstanceRef::from_pin_ref(component, guard);
+    let item_tree = instance_ref.component_type.item_tree.as_slice();
+    let repeater_list = instance_ref.component_type.repeater.as_slice();
+    let self_rc = instance_ref.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
+
+    if let Some((children_start, children_end)) = children_range(item_tree, index) {
+        for c in children_start..children_end {
+            // Normal Node:
+            if children_range(item_tree, c).is_some() {
+                // First child is a normal node:
+                *result = ItemRc::new(self_rc, c).downgrade();
+                return;
+            } else {
+                // First child is a Repeater:
+                let r = repeater(item_tree, index, repeater_list).expect("Was a repeater before.");
+                ensure_repeater_updated(instance_ref, r);
+                let r = r.offset.apply_pin(instance_ref.instance);
+
+                if let Some(child) = r.first_child() {
+                    *result = child.downgrade();
+                    return;
+                }
+            }
+        }
+    } else {
+        // Repeater Node:
+        let r = repeater(item_tree, index, repeater_list).expect("Was a repeater before.");
+        ensure_repeater_updated(instance_ref, r);
+        let r = r.offset.apply_pin(instance_ref.instance);
+
+        if let Some(child) = r.first_child() {
+            *result = child.downgrade();
+        }
+    }
+}
+
+unsafe extern "C" fn last_child(component: ComponentRefPin, index: usize, result: &mut ItemWeak) {
+    generativity::make_guard!(guard);
+    let instance_ref = InstanceRef::from_pin_ref(component, guard);
+    let item_tree = instance_ref.component_type.item_tree.as_slice();
+    let repeater_list = instance_ref.component_type.repeater.as_slice();
+    let self_rc = instance_ref.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
+
+    if let Some((children_start, children_end)) = children_range(item_tree, index) {
+        for c in (children_start..children_end).rev() {
+            // Normal Node:
+            if children_range(item_tree, c).is_some() {
+                // First child is a normal node:
+                *result = ItemRc::new(self_rc, c).downgrade();
+                return;
+            } else {
+                // First child is a Repeater:
+                let r = repeater(item_tree, index, repeater_list).expect("Was a repeater before.");
+                ensure_repeater_updated(instance_ref, r);
+                let r = r.offset.apply_pin(instance_ref.instance);
+
+                if let Some(child) = r.last_child() {
+                    *result = child.downgrade();
+                    return;
+                }
+            }
+        }
+    } else {
+        // Repeater Node:
+        let r = repeater(item_tree, index, repeater_list).expect("Was a repeater before.");
+        ensure_repeater_updated(instance_ref, r);
+        let r = r.offset.apply_pin(instance_ref.instance);
+
+        if let Some(child) = r.last_child() {
+            *result = child.downgrade();
+        }
+    }
+}
+
+unsafe extern "C" fn previous_sibling(
+    component: ComponentRefPin,
+    index: usize,
+    result: &mut ItemWeak,
+) {
+    generativity::make_guard!(guard);
+    let instance_ref = InstanceRef::from_pin_ref(component, guard);
+    let item_tree = instance_ref.component_type.item_tree.as_slice();
+    let repeater_list = instance_ref.component_type.repeater.as_slice();
+    let self_rc = instance_ref.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
+
+    if index == 0 {
+        // Look up the tree and merge with the elements there!
+        let mut parent_repeater = Default::default();
+        parent_item(component, 0, &mut parent_repeater);
+
+        if let Some(parent_repeater) = parent_repeater.upgrade() {
+            let parent_instance_ref = instance_ref.parent_instance().unwrap();
+            let parent_item_tree = parent_instance_ref.component_type.item_tree.as_slice();
+            let parent_repeater_list = parent_instance_ref.component_type.repeater.as_slice();
+
+            let r =
+                repeater(parent_item_tree, parent_repeater.index(), parent_repeater_list).unwrap();
+            ensure_repeater_updated(parent_instance_ref, r);
+            let r = r.offset.apply_pin(parent_instance_ref.instance);
+
+            if let Some(child) = r.previous_sibling(
+                instance_ref
+                    .component_type
+                    .get_property(component, "index")
+                    .unwrap()
+                    .try_into()
+                    .unwrap(),
+            ) {
+                *result = child.downgrade();
+                return;
+            }
+        }
+    } else {
+        let (sibling_start, _) = sibling_range(item_tree, index);
+        for c in (sibling_start..index).rev() {
+            // Normal Node:
+            if children_range(item_tree, c).is_some() {
+                // Sibling is a normal node:
+                *result = ItemRc::new(self_rc, c).downgrade();
+                return;
+            } else {
+                // Sibling is a Repeater:
+                let r = repeater(item_tree, c, repeater_list).expect("Was a repeater before.");
+                ensure_repeater_updated(instance_ref, r);
+                let r = r.offset.apply_pin(instance_ref.instance);
+
+                if let Some(child) = r.last_child() {
+                    *result = child.downgrade();
+                    return;
+                }
+            }
+        }
+    }
+}
+
+unsafe extern "C" fn next_sibling(component: ComponentRefPin, index: usize, result: &mut ItemWeak) {
+    generativity::make_guard!(guard);
+    let instance_ref = InstanceRef::from_pin_ref(component, guard);
+    let item_tree = instance_ref.component_type.item_tree.as_slice();
+    let repeater_list = instance_ref.component_type.repeater.as_slice();
+    let self_rc = instance_ref.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
+
+    if index == 0 {
+        // FIXME: Implement this
+    } else {
+        let (_, sibling_end) = sibling_range(item_tree, index);
+        for c in (index + 1)..sibling_end {
+            // Normal Node:
+            if children_range(item_tree, c).is_some() {
+                // First child is a normal node:
+                *result = ItemRc::new(self_rc, c).downgrade();
+                return;
+            } else {
+                // First child is a Repeater:
+                let r = repeater(item_tree, c, repeater_list).expect("Was a repeater before.");
+                ensure_repeater_updated(instance_ref, r);
+                let r = r.offset.apply_pin(instance_ref.instance);
+
+                if let Some(child) = r.first_child() {
+                    *result = child.downgrade();
+                    return;
+                }
+            }
+        }
+    }
 }
 
 unsafe extern "C" fn drop_in_place(component: vtable::VRefMut<ComponentVTable>) -> vtable::Layout {

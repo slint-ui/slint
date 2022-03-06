@@ -7,8 +7,7 @@
 // will remove them from the list so it will not be accessed after it is dropped
 #![allow(unsafe_code)]
 
-use crate::item_tree::TraversalOrder;
-use crate::items::ItemRef;
+use crate::items::{ItemRc, ItemRef};
 use crate::layout::Orientation;
 use crate::properties::dependency_tracker::DependencyNode;
 use crate::{Property, SharedVector};
@@ -560,7 +559,9 @@ impl<T> Model for ModelRc<T> {
 }
 
 /// Component that can be instantiated by a repeater.
-pub trait RepeatedComponent: crate::component::Component {
+pub trait RepeatedComponent:
+    crate::component::Component + vtable::HasStaticVTable<crate::component::ComponentVTable> + 'static
+{
     /// The data corresponding to the model
     type Data: 'static;
 
@@ -935,26 +936,26 @@ impl<C: RepeatedComponent> Repeater<C> {
         self.model.set_binding(binding);
     }
 
-    /// Call the visitor for each component
-    pub fn visit(
-        &self,
-        order: TraversalOrder,
-        mut visitor: crate::item_tree::ItemVisitorRefMut,
-    ) -> crate::item_tree::VisitChildrenResult {
-        // We can't keep self.inner borrowed because the event might modify the model
-        let count = self.inner.borrow().components.len();
-        for i in 0..count {
-            let i = if order == TraversalOrder::BackToFront { i } else { count - i - 1 };
-            let c = self.inner.borrow().components.get(i).and_then(|c| c.1.clone());
-            if let Some(c) = c {
-                if c.as_pin_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted()
-                {
-                    return crate::item_tree::VisitChildrenResult::abort(i, 0);
-                }
-            }
-        }
-        crate::item_tree::VisitChildrenResult::CONTINUE
-    }
+    // /// Call the visitor for each component
+    // pub fn visit(
+    //     &self,
+    //     order: TraversalOrder,
+    //     mut visitor: crate::item_tree::ItemVisitorRefMut,
+    // ) -> crate::item_tree::VisitChildrenResult {
+    //     // We can't keep self.inner borrowed because the event might modify the model
+    //     let count = self.inner.borrow().components.len();
+    //     for i in 0..count {
+    //         let i = if order == TraversalOrder::BackToFront { i } else { count - i - 1 };
+    //         let c = self.inner.borrow().components.get(i).and_then(|c| c.1.clone());
+    //         if let Some(c) = c {
+    //             if c.as_pin_ref().visit_children_item(-1, order, visitor.borrow_mut()).has_aborted()
+    //             {
+    //                 return crate::item_tree::VisitChildrenResult::abort(i, 0);
+    //             }
+    //         }
+    //     }
+    //     crate::item_tree::VisitChildrenResult::CONTINUE
+    // }
 
     /// Return the amount of item currently in the component
     pub fn len(&self) -> usize {
@@ -964,6 +965,57 @@ impl<C: RepeatedComponent> Repeater<C> {
     /// Return true if the Repeater is empty
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    pub fn first_child(&self) -> Option<ItemRc> {
+        self.inner
+            .borrow()
+            .components
+            .first()
+            .and_then(|c| c.1.clone())
+            .map(|c| ItemRc::new(vtable::VRc::into_dyn(c), 0))
+    }
+
+    pub fn last_child(&self) -> Option<ItemRc> {
+        self.inner
+            .borrow()
+            .components
+            .last()
+            .and_then(|c| c.1.clone())
+            .map(|c| ItemRc::new(vtable::VRc::into_dyn(c), 0))
+    }
+
+    pub fn previous_sibling(&self, index: usize) -> Option<ItemRc> {
+        let inner = self.inner.borrow();
+        let offset = inner.offset;
+
+        if index <= offset {
+            return None;
+        }
+
+        let pos = index - offset;
+        self.inner
+            .borrow()
+            .components
+            .get(pos - 1)
+            .and_then(|c| c.1.clone())
+            .map(|c| ItemRc::new(vtable::VRc::into_dyn(c), 0))
+    }
+
+    pub fn next_sibling(&self, index: usize) -> Option<ItemRc> {
+        let inner = self.inner.borrow();
+        let offset = inner.offset;
+        if index < offset {
+            return None;
+        }
+
+        let pos = index - offset;
+        self.inner
+            .borrow()
+            .components
+            .get(pos + 1)
+            .and_then(|c| c.1.clone())
+            .map(|c| ItemRc::new(vtable::VRc::into_dyn(c), 0))
     }
 
     /// Returns a vector containing all components

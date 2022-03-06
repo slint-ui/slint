@@ -772,20 +772,20 @@ fn generate_sub_component(
                 #(#init)*
             }
 
-            fn visit_dynamic_children(
-                self: ::core::pin::Pin<&Self>,
-                dyn_index: usize,
-                order: slint::re_exports::TraversalOrder,
-                visitor: slint::re_exports::ItemVisitorRefMut
-            ) -> slint::re_exports::VisitChildrenResult {
-                #![allow(unused)]
-                use slint::re_exports::*;
-                let _self = self;
-                match dyn_index {
-                    #(#repeated_visit_branch)*
-                    _ => panic!("invalid dyn_index {}", dyn_index),
-                }
-            }
+            // fn visit_dynamic_children(
+            //     self: ::core::pin::Pin<&Self>,
+            //     dyn_index: usize,
+            //     order: slint::re_exports::TraversalOrder,
+            //     visitor: slint::re_exports::ItemVisitorRefMut
+            // ) -> slint::re_exports::VisitChildrenResult {
+            //     #![allow(unused)]
+            //     use slint::re_exports::*;
+            //     let _self = self;
+            //     match dyn_index {
+            //         #(#repeated_visit_branch)*
+            //         _ => panic!("invalid dyn_index {}", dyn_index),
+            //     }
+            // }
 
             fn layout_info(self: ::core::pin::Pin<&Self>, orientation: slint::re_exports::Orientation) -> slint::re_exports::LayoutInfo {
                 #![allow(unused)]
@@ -1041,16 +1041,16 @@ fn generate_item_tree(
         }
 
         impl slint::re_exports::Component for #inner_component_id {
-            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: slint::re_exports::TraversalOrder, visitor: slint::re_exports::ItemVisitorRefMut)
-                -> slint::re_exports::VisitChildrenResult
-            {
-                use slint::re_exports::*;
-                return slint::re_exports::visit_item_tree(self, &VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), Self::item_tree(), index, order, visitor, visit_dynamic);
-                #[allow(unused)]
-                fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: slint::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
-                    _self.visit_dynamic_children(dyn_index, order, visitor)
-                }
-            }
+            // fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: slint::re_exports::TraversalOrder, visitor: slint::re_exports::ItemVisitorRefMut)
+            //     -> slint::re_exports::VisitChildrenResult
+            // {
+            //     use slint::re_exports::*;
+            //     return slint::re_exports::visit_item_tree(self, &VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), Self::item_tree(), index, order, visitor, visit_dynamic);
+            //     #[allow(unused)]
+            //     fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: slint::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
+            //         _self.visit_dynamic_children(dyn_index, order, visitor)
+            //     }
+            // }
 
             fn get_item_ref(self: ::core::pin::Pin<&Self>, index: usize) -> ::core::pin::Pin<ItemRef> {
                 match &Self::item_tree()[index] {

@@ -249,7 +249,6 @@ fn gen_corelib(
         let mut special_config = config.clone();
         special_config.export.include = rust_types.iter().map(|s| s.to_string()).collect();
         special_config.export.exclude = [
-            "slint_visit_item_tree",
             "slint_windowrc_drop",
             "slint_windowrc_clone",
             "slint_windowrc_show",

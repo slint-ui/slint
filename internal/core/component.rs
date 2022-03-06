@@ -5,7 +5,7 @@
 
 //! This module contains the basic datastructures that are exposed to the C API
 
-use crate::item_tree::{ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
+// use crate::item_tree::{ItemVisitorVTable, TraversalOrder, VisitChildrenResult}; FIXME: Remove
 use crate::items::{ItemVTable, ItemWeak};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::window::WindowRc;
@@ -15,16 +15,15 @@ use vtable::*;
 #[vtable]
 #[repr(C)]
 pub struct ComponentVTable {
-    /// Visit the children of the item at index `index`.
-    /// Note that the root item is at index 0, so passing 0 would visit the item under root (the children of root).
-    /// If you want to visit the root item, you need to pass -1 as an index.
-    pub visit_children_item: extern "C" fn(
-        core::pin::Pin<VRef<ComponentVTable>>,
-        index: isize,
-        order: TraversalOrder,
-        visitor: VRefMut<ItemVisitorVTable>,
-    ) -> VisitChildrenResult,
-
+    // /// Visit the children of the item at index `index`.
+    // /// Note that the root item is at index 0, so passing 0 would visit the item under root (the children of root).
+    // /// If you want to visit the root item, you need to pass -1 as an index.
+    // pub visit_children_item: extern "C" fn(
+    //     core::pin::Pin<VRef<ComponentVTable>>,
+    //     index: isize,
+    //     order: TraversalOrder,
+    //     visitor: VRefMut<ItemVisitorVTable>,
+    // ) -> VisitChildrenResult,
     /// Return a reference to an item using the given index
     pub get_item_ref: extern "C" fn(
         core::pin::Pin<VRef<ComponentVTable>>,
@@ -35,6 +34,30 @@ pub struct ComponentVTable {
     /// The return value is an item weak because it can be null if there is no parent.
     /// And the return value is passed by &mut because ItemWeak has a destructor
     pub parent_item:
+        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, index: usize, result: &mut ItemWeak),
+
+    /// Return the first child of an item.
+    /// The return value is an item weak because it can be null if there is no parent.
+    /// And the return value is passed by &mut because ItemWeak has a destructor
+    pub first_child:
+        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, index: usize, result: &mut ItemWeak),
+
+    /// Return the last child of an item.
+    /// The return value is an item weak because it can be null if there is no parent.
+    /// And the return value is passed by &mut because ItemWeak has a destructor
+    pub last_child:
+        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, index: usize, result: &mut ItemWeak),
+
+    /// Return the previous sibling (or `None` if this is the first sibling)
+    /// The return value is an item weak because it can be null if there is no parent.
+    /// And the return value is passed by &mut because ItemWeak has a destructor
+    pub previous_sibling:
+        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, index: usize, result: &mut ItemWeak),
+
+    /// Return the next sibling (or `None` if this is the last sibling)
+    /// The return value is an item weak because it can be null if there is no parent.
+    /// And the return value is passed by &mut because ItemWeak has a destructor
+    pub next_sibling:
         extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, index: usize, result: &mut ItemWeak),
 
     /// Returns the layout info for this component

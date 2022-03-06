@@ -106,9 +106,8 @@ pub fn render_component_items(
     renderer.translate(origin.x, origin.y);
 
     let renderer = RefCell::new(renderer);
-
-    crate::item_tree::visit_items_with_post_visit(
-        component,
+    let item_rc = ItemRc::new_root(component.clone());
+    item_rc.visit_with_post_visit(
         crate::item_tree::TraversalOrder::BackToFront,
         |_, item, _, _| {
             renderer.borrow_mut().save_state();
@@ -226,9 +225,9 @@ impl<'a, T> PartialRenderer<'a, T> {
 
     /// Visit the tree of item and compute what are the dirty regions
     pub fn compute_dirty_regions(&mut self, component: &ComponentRc, origin: Point) {
+        let item = crate::items::ItemRc::new_root(component.clone());
         crate::properties::evaluate_no_tracking(|| {
-            crate::item_tree::visit_items(
-                component,
+            item.visit(
                 crate::item_tree::TraversalOrder::BackToFront,
                 |_, item, _, offset| match item
                     .cached_rendering_data_offset()

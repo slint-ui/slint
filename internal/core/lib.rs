@@ -125,7 +125,6 @@ pub fn use_modules() -> usize {
             + callbacks::ffi::slint_callback_init as usize
             + sharedvector::ffi::slint_shared_vector_empty as usize
             + layout::ffi::slint_solve_grid_layout as usize
-            + item_tree::ffi::slint_visit_item_tree as usize
             + graphics::ffi::slint_new_path_elements as usize
             + properties::ffi::slint_property_init as usize
             + string::ffi::slint_shared_string_bytes as usize

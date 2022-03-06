@@ -158,6 +158,12 @@ impl ItemRc {
     pub fn new(component: vtable::VRc<ComponentVTable>, index: usize) -> Self {
         Self { component, index }
     }
+
+    /// Create an ItemRc from a component
+    pub fn new_root(component: vtable::VRc<ComponentVTable>) -> Self {
+        Self { component, index: 0 }
+    }
+
     /// Return a `Pin<ItemRef<'a>>`
     pub fn borrow<'a>(&'a self) -> Pin<ItemRef<'a>> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
@@ -169,12 +175,19 @@ impl ItemRc {
     pub fn downgrade(&self) -> ItemWeak {
         ItemWeak { component: VRc::downgrade(&self.component), index: self.index }
     }
+
     /// Return the parent Item in the item tree.
     /// This is weak because it can be null if there is no parent
     pub fn parent_item(&self) -> ItemWeak {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
         let mut r = ItemWeak::default();
         comp_ref_pin.as_ref().parent_item(self.index, &mut r);
+        if self.index() == 0 {
+            // parent_item returns the repeater node, go up one more level!
+            if let Some(rc) = r.upgrade() {
+                r = rc.parent_item();
+            }
+        }
         r
     }
 
@@ -185,6 +198,283 @@ impl ItemRc {
     /// Returns a reference to the component holding this item
     pub fn component(&self) -> vtable::VRc<ComponentVTable> {
         self.component.clone()
+    }
+
+    /// The first child of an item. This transparently handles repeaters.
+    pub fn first_child(&self) -> Option<Self> {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        let mut r = ItemWeak::default();
+        comp_ref_pin.as_ref().first_child(self.index, &mut r);
+        r.upgrade()
+    }
+
+    /// The last child of an item. This transparently handles repeaters.
+    pub fn last_child(&self) -> Option<Self> {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        let mut r = ItemWeak::default();
+        comp_ref_pin.as_ref().last_child(self.index, &mut r);
+        r.upgrade()
+    }
+
+    /// The previous sibling of an item. This transparently handles repeaters.
+    pub fn previous_sibling(&self) -> Option<Self> {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        let mut r = ItemWeak::default();
+        comp_ref_pin.as_ref().previous_sibling(self.index, &mut r);
+        r.upgrade()
+    }
+
+    /// The next sibling of an item. This transparently handles repeaters.
+    pub fn next_sibling(&self) -> Option<Self> {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        let mut r = ItemWeak::default();
+        comp_ref_pin.as_ref().next_sibling(self.index, &mut r);
+        r.upgrade()
+    }
+
+    // Recursively visit the ItemRc and all its children
+    pub fn visit<State>(
+        &self,
+        order: crate::item_tree::TraversalOrder,
+        mut visitor: impl FnMut(
+            &crate::component::ComponentRc,
+            Pin<ItemRef>,
+            usize,
+            &State,
+        ) -> crate::item_tree::ItemVisitorResult<State>,
+        state: State,
+    ) -> crate::item_tree::VisitChildrenResult {
+        visit_internal(
+            self,
+            order,
+            &mut |component, item, index, state| (visitor(component, item, index, state), ()),
+            &mut |_, _, _, r| r,
+            &state,
+        )
+    }
+
+    // Recursively visit the ItemRc and all its children with a post visit.
+    pub fn visit_with_post_visit<State, PostVisitState>(
+        &self,
+        order: crate::item_tree::TraversalOrder,
+        mut visitor: impl FnMut(
+            &crate::component::ComponentRc,
+            Pin<ItemRef>,
+            usize,
+            &State,
+        ) -> (crate::item_tree::ItemVisitorResult<State>, PostVisitState),
+        mut post_visitor: impl FnMut(
+            &crate::component::ComponentRc,
+            Pin<ItemRef>,
+            PostVisitState,
+            crate::item_tree::VisitChildrenResult,
+        ) -> crate::item_tree::VisitChildrenResult,
+        state: State,
+    ) -> crate::item_tree::VisitChildrenResult {
+        visit_internal(self, order, &mut visitor, &mut post_visitor, &state)
+    }
+}
+
+struct Frame<State, PostVisitState> {
+    item: ItemWeak,
+    state: Option<State>,
+    post_visit: Option<PostVisitState>,
+}
+
+fn unwind_frame<State, PostVisitState>(
+    frame: &mut Frame<State, PostVisitState>,
+    post_visitor: &mut impl FnMut(
+        &crate::component::ComponentRc,
+        Pin<ItemRef>,
+        PostVisitState,
+        crate::item_tree::VisitChildrenResult,
+    ) -> crate::item_tree::VisitChildrenResult,
+    visit_result: crate::item_tree::VisitChildrenResult,
+) -> crate::item_tree::VisitChildrenResult {
+    if let Some(item_rc) = frame.item.upgrade() {
+        let component_rc = item_rc.component();
+        let comp_ref_pin = vtable::VRc::borrow_pin(&component_rc);
+        let item_ref = comp_ref_pin.as_ref().get_item_ref(item_rc.index());
+        post_visitor(&item_rc.component(), item_ref, frame.post_visit.take().unwrap(), visit_result)
+    } else {
+        panic!("Could not upgrade item!");
+    }
+}
+
+fn unwind_last_frame<State, PostVisitState>(
+    stack: &mut Vec<Frame<State, PostVisitState>>,
+    post_visitor: &mut impl FnMut(
+        &crate::component::ComponentRc,
+        Pin<ItemRef>,
+        PostVisitState,
+        crate::item_tree::VisitChildrenResult,
+    ) -> crate::item_tree::VisitChildrenResult,
+    visit_result: crate::item_tree::VisitChildrenResult,
+) -> crate::item_tree::VisitChildrenResult {
+    if let Some(mut f) = stack.pop() {
+        unwind_frame(&mut f, post_visitor, visit_result)
+    } else {
+        crate::item_tree::VisitChildrenResult::CONTINUE
+    }
+}
+
+fn unwind_stack<State, PostVisitState>(
+    stack: &mut Vec<Frame<State, PostVisitState>>,
+    post_visitor: &mut impl FnMut(
+        &crate::component::ComponentRc,
+        Pin<ItemRef>,
+        PostVisitState,
+        crate::item_tree::VisitChildrenResult,
+    ) -> crate::item_tree::VisitChildrenResult,
+    visit_result: crate::item_tree::VisitChildrenResult,
+) -> crate::item_tree::VisitChildrenResult {
+    let mut visit_result = visit_result;
+    if !stack.is_empty() {
+        visit_result = unwind_last_frame(stack, post_visitor, visit_result);
+    }
+    visit_result
+}
+
+fn current_state_from_stack<'a, State, PostVisitState>(
+    stack: &'a [Frame<State, PostVisitState>],
+    fallback: &'a State,
+) -> &'a State {
+    if let Some(f) = stack.last() {
+        if let Some(s) = f.state.as_ref() {
+            return s;
+        }
+    }
+    fallback
+}
+
+fn visit_internal<State, PostVisitState>(
+    item_rc: &ItemRc,
+    order: crate::item_tree::TraversalOrder,
+    visitor: &mut impl FnMut(
+        &crate::component::ComponentRc,
+        Pin<ItemRef>,
+        usize,
+        &State,
+    ) -> (crate::item_tree::ItemVisitorResult<State>, PostVisitState),
+    post_visitor: &mut impl FnMut(
+        &crate::component::ComponentRc,
+        Pin<ItemRef>,
+        PostVisitState,
+        crate::item_tree::VisitChildrenResult,
+    ) -> crate::item_tree::VisitChildrenResult,
+    state: &State,
+) -> crate::item_tree::VisitChildrenResult {
+    println!("Visiting node @{} ({:?}).", item_rc.index(), order);
+    let mut current_item = item_rc.clone();
+    let mut state_stack: Vec<Frame<State, PostVisitState>> = Vec::new();
+
+    loop {
+        println!("   Looping... @{}", current_item.index());
+
+        let component = current_item.component();
+        let component_pin = vtable::VRc::borrow_pin(&component);
+        let index = current_item.index();
+        let item_ref = component_pin.as_ref().get_item_ref(index);
+
+        match visitor(&component, item_ref, index, current_state_from_stack(&state_stack, state)) {
+            (crate::item_tree::ItemVisitorResult::Continue(state), post_visit) => {
+                state_stack.push(Frame {
+                    item: current_item.downgrade(),
+                    state: Some(state),
+                    post_visit: Some(post_visit),
+                });
+            }
+            (crate::item_tree::ItemVisitorResult::Abort, post_visit) => {
+                state_stack.push(Frame {
+                    item: current_item.downgrade(),
+                    state: None,
+                    post_visit: Some(post_visit),
+                });
+                return unwind_stack(
+                    &mut state_stack,
+                    post_visitor,
+                    crate::item_tree::VisitChildrenResult::abort(index, 0),
+                );
+            }
+        }
+        println!("       Visited @{}", current_item.index());
+
+        // Traversal children first
+        let next = if order == crate::item_tree::TraversalOrder::FrontToBack {
+            current_item.first_child()
+        } else {
+            current_item.last_child()
+        };
+        if let Some(next_rc) = next {
+            current_item = next_rc;
+            println!("       Moving to child @{}", current_item.index());
+            continue;
+        } else {
+            // No children, postprocess this node!
+            println!("       No children -- postprocessing @{}", current_item.index());
+            let r = unwind_last_frame(
+                &mut state_stack,
+                post_visitor,
+                crate::item_tree::VisitChildrenResult::CONTINUE,
+            );
+            if r.has_aborted() {
+                println!("           POSTPROCESSING ABORTED at @{}", current_item.index());
+                return unwind_stack(&mut state_stack, post_visitor, r);
+            }
+        }
+
+        // ... then siblings:
+        let next = if order == crate::item_tree::TraversalOrder::FrontToBack {
+            current_item.next_sibling()
+        } else {
+            current_item.previous_sibling()
+        };
+        if let Some(next_rc) = next {
+            current_item = next_rc;
+            println!("       Moving to sibling @{}", current_item.index());
+            continue;
+        }
+
+        // ... then go up and to the next sibling:
+        loop {
+            let next = current_item.parent_item();
+            unwind_last_frame(
+                &mut state_stack,
+                post_visitor,
+                crate::item_tree::VisitChildrenResult::CONTINUE,
+            );
+
+            if let Some(next_rc) = next.upgrade() {
+                if next_rc.index() == item_rc.index()
+                    && vtable::VRc::ptr_eq(&next_rc.component, &item_rc.component)
+                {
+                    println!("       Back at start item, FINISHING");
+                    assert!(state_stack.is_empty());
+                    return crate::item_tree::VisitChildrenResult::CONTINUE; // Back at root!
+                }
+                current_item = next_rc; // Move up and try to find a sibling...
+                println!("       Going up to parent @{}", current_item.index());
+            } else {
+                println!("       At the root, FINISHING (should never get here!)");
+                assert!(state_stack.is_empty());
+                return crate::item_tree::VisitChildrenResult::CONTINUE; // Back at root!
+            }
+
+            // ... and try to find the next item there.
+            let next = if order == crate::item_tree::TraversalOrder::FrontToBack {
+                current_item.next_sibling()
+            } else {
+                current_item.previous_sibling()
+            };
+            if let Some(next_rc) = next {
+                current_item = next_rc;
+                println!("       Moving to anchestor sibling @{}", current_item.index());
+                break; // ... anchestor with a sibling found, so break out
+            }
+            // ... go up further otherwise
+            println!("       Inner looping!");
+        }
+        println!("      Outer looping!");
     }
 }
 
