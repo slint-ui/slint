@@ -148,6 +148,22 @@ impl TextShaper for PixelFont {
             glyphs.extend(core::iter::once(ShapedGlyph { glyph: out_glyph, byte_offset }));
         }
     }
+
+    fn glyph_for_char(&self, ch: char) -> Option<Self::Glyph> {
+        self.bitmap_font
+            .character_map
+            .binary_search_by_key(&ch, |char_map_entry| char_map_entry.code_point)
+            .ok()
+            .map(|char_map_index| {
+                let glyph_index = self.bitmap_font.character_map[char_map_index].glyph_index;
+                ShapedGlyph {
+                    glyph: BitmapGlyphOrNone::BitmapGlyph(Glyph(
+                        &self.glyphs.glyph_data[glyph_index as usize],
+                    )),
+                    byte_offset: 0,
+                }
+            })
+    }
 }
 
 pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> PixelFont {
