@@ -47,11 +47,6 @@ use euclid::num::{One, Zero};
 
 use crate::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
 
-pub trait GlyphMetrics<Length> {
-    fn advance_x(&self) -> Length;
-    fn byte_offset(&self) -> usize;
-}
-
 pub trait TextShaper {
     type LengthPrimitive: core::ops::Mul
         + core::ops::Div
@@ -71,13 +66,16 @@ pub trait TextShaper {
         + core::cmp::PartialOrd
         + core::ops::Mul<Self::LengthPrimitive, Output = Self::Length>
         + core::ops::Div<Self::LengthPrimitive, Output = Self::Length>;
-    type Glyph: GlyphMetrics<Self::Length>;
-    fn shape_text<GlyphStorage: core::iter::Extend<Self::Glyph>>(
+    type Glyph;
+    // Shapes the given string and emits the result into the given glyphs buffer,
+    // as tuples of glyph handle and corresponding byte offset in the originating string.
+    fn shape_text<GlyphStorage: core::iter::Extend<(Self::Glyph, usize)>>(
         &self,
         text: &str,
         glyphs: &mut GlyphStorage,
     );
     fn glyph_for_char(&self, ch: char) -> Option<Self::Glyph>;
+    fn glyph_advance_x(&self, glyph: &Self::Glyph) -> Self::Length;
 }
 
 pub struct ShapeBoundaries<'a> {
@@ -273,7 +271,7 @@ struct GraphemeCursor<'a, Font: TextShaper> {
     font: &'a Font,
     shape_boundaries: ShapeBoundaries<'a>,
     current_shapable: Range<usize>,
-    glyphs: Vec<Font::Glyph>,
+    glyphs: Vec<(Font::Glyph, usize)>,
     // absolute byte offset in the entire text
     byte_offset: usize,
     glyph_index: usize,
@@ -314,13 +312,13 @@ impl<'a, Font: TextShaper> Iterator for GraphemeCursor<'a, Font> {
 
         let mut cluster_byte_offset;
         loop {
-            let glyph = &self.glyphs[self.glyph_index];
+            let (glyph, glyph_byte_offset) = &self.glyphs[self.glyph_index];
             // Rustybuzz uses a relative byte offset as cluster index
-            cluster_byte_offset = self.current_shapable.start + glyph.byte_offset();
+            cluster_byte_offset = self.current_shapable.start + glyph_byte_offset;
             if cluster_byte_offset != self.byte_offset {
                 break;
             }
-            grapheme_width += glyph.advance_x();
+            grapheme_width += self.font.glyph_advance_x(glyph);
 
             self.glyph_index += 1;
 
@@ -502,7 +500,7 @@ pub fn layout_text_lines<Font: TextShaper>(
     let elide_glyph =
         if overflow == TextOverflow::elide { font.glyph_for_char('…') } else { None };
     let max_width_without_elision =
-        max_width - elide_glyph.as_ref().map_or(Font::Length::zero(), |g| g.advance_x());
+        max_width - elide_glyph.as_ref().map_or(Font::Length::zero(), |g| font.glyph_advance_x(g));
 
     let new_line_break_iter =
         || TextLineBreaker::new(string, font, if wrap { Some(max_width) } else { None });
@@ -548,7 +546,7 @@ pub fn layout_text_lines<Font: TextShaper>(
 
         let glyph_it = glyph_buffer.iter();
         let mut glyph_x = Font::Length::zero();
-        let mut positioned_glyph_it = glyph_it.filter_map(|g| {
+        let mut positioned_glyph_it = glyph_it.filter_map(|(glyph, _)| {
             if glyph_x >= max_width_without_elision {
                 if let Some(elide_glyph) = elide_glyph.take() {
                     return Some((glyph_x, elide_glyph));
@@ -556,8 +554,8 @@ pub fn layout_text_lines<Font: TextShaper>(
                     return None;
                 }
             }
-            let positioned_glyph = (glyph_x, g);
-            glyph_x += g.advance_x();
+            let positioned_glyph = (glyph_x, glyph);
+            glyph_x += font.glyph_advance_x(glyph);
             Some(positioned_glyph)
         });
 
@@ -622,24 +620,13 @@ mod shape_tests {
         pub height: f32,
         pub advance_x: f32,
         pub glyph_id: Option<core::num::NonZeroU16>,
-        pub glyph_cluster_index: u32,
-    }
-
-    impl GlyphMetrics<f32> for ShapedGlyph {
-        fn advance_x(&self) -> f32 {
-            self.advance_x
-        }
-
-        fn byte_offset(&self) -> usize {
-            self.glyph_cluster_index as usize
-        }
     }
 
     impl<'a> TextShaper for rustybuzz::Face<'a> {
         type LengthPrimitive = f32;
         type Length = f32;
         type Glyph = ShapedGlyph;
-        fn shape_text<GlyphStorage: std::iter::Extend<ShapedGlyph>>(
+        fn shape_text<GlyphStorage: std::iter::Extend<(ShapedGlyph, usize)>>(
             &self,
             text: &str,
             glyphs: &mut GlyphStorage,
@@ -654,7 +641,6 @@ mod shape_tests {
                         let mut out_glyph = ShapedGlyph::default();
 
                         out_glyph.glyph_id = core::num::NonZeroU16::new(info.glyph_id as u16);
-                        out_glyph.glyph_cluster_index = info.cluster;
 
                         out_glyph.offset_x = position.x_offset as _;
                         out_glyph.offset_y = position.y_offset as _;
@@ -670,7 +656,7 @@ mod shape_tests {
                             out_glyph.bearing_y = bounding_box.y_min as _;
                         }
 
-                        out_glyph
+                        (out_glyph, info.cluster as usize)
                     },
                 );
 
@@ -680,6 +666,10 @@ mod shape_tests {
 
         fn glyph_for_char(&self, _ch: char) -> Option<Self::Glyph> {
             todo!()
+        }
+
+        fn glyph_advance_x(&self, glyph: &Self::Glyph) -> Self::Length {
+            glyph.advance_x
         }
     }
 
@@ -705,14 +695,14 @@ mod shape_tests {
                 face.shape_text("a\u{0304}\u{0301}b", &mut shaped_glyphs);
 
                 assert_eq!(shaped_glyphs.len(), 3);
-                assert_eq!(shaped_glyphs[0].glyph_id, NonZeroU16::new(195));
-                assert_eq!(shaped_glyphs[0].glyph_cluster_index, 0);
+                assert_eq!(shaped_glyphs[0].0.glyph_id, NonZeroU16::new(195));
+                assert_eq!(shaped_glyphs[0].1, 0);
 
-                assert_eq!(shaped_glyphs[1].glyph_id, NonZeroU16::new(690));
-                assert_eq!(shaped_glyphs[1].glyph_cluster_index, 0);
+                assert_eq!(shaped_glyphs[1].0.glyph_id, NonZeroU16::new(690));
+                assert_eq!(shaped_glyphs[1].1, 0);
 
-                assert_eq!(shaped_glyphs[2].glyph_id, NonZeroU16::new(69));
-                assert_eq!(shaped_glyphs[2].glyph_cluster_index, 5);
+                assert_eq!(shaped_glyphs[2].0.glyph_id, NonZeroU16::new(69));
+                assert_eq!(shaped_glyphs[2].1, 5);
             }
 
             {
@@ -721,13 +711,13 @@ mod shape_tests {
                 face.shape_text("a b", &mut shaped_glyphs);
 
                 assert_eq!(shaped_glyphs.len(), 3);
-                assert_eq!(shaped_glyphs[0].glyph_id, NonZeroU16::new(68));
-                assert_eq!(shaped_glyphs[0].glyph_cluster_index, 0);
+                assert_eq!(shaped_glyphs[0].0.glyph_id, NonZeroU16::new(68));
+                assert_eq!(shaped_glyphs[0].1, 0);
 
-                assert_eq!(shaped_glyphs[1].glyph_cluster_index, 1);
+                assert_eq!(shaped_glyphs[1].1, 1);
 
-                assert_eq!(shaped_glyphs[2].glyph_id, NonZeroU16::new(69));
-                assert_eq!(shaped_glyphs[2].glyph_cluster_index, 2);
+                assert_eq!(shaped_glyphs[2].0.glyph_id, NonZeroU16::new(69));
+                assert_eq!(shaped_glyphs[2].1, 2);
             }
         });
     }
@@ -745,25 +735,27 @@ mod linebreak_tests {
         type LengthPrimitive = f32;
         type Length = f32;
         type Glyph = ShapedGlyph;
-        fn shape_text<GlyphStorage: std::iter::Extend<ShapedGlyph>>(
+        fn shape_text<GlyphStorage: std::iter::Extend<(ShapedGlyph, usize)>>(
             &self,
             text: &str,
             glyphs: &mut GlyphStorage,
         ) {
-            for (byte_offset, _) in text.char_indices() {
-                let out_glyph = ShapedGlyph {
-                    offset_x: 0.,
-                    offset_y: 0.,
-                    bearing_x: 0.,
-                    bearing_y: 0.,
-                    width: 10.,
-                    height: 10.,
-                    advance_x: 10.,
-                    glyph_id: None,
-                    glyph_cluster_index: byte_offset as u32,
-                };
-                glyphs.extend(core::iter::once(out_glyph));
-            }
+            let glyph_iter = text.char_indices().map(|(byte_offset, _)| {
+                (
+                    ShapedGlyph {
+                        offset_x: 0.,
+                        offset_y: 0.,
+                        bearing_x: 0.,
+                        bearing_y: 0.,
+                        width: 10.,
+                        height: 10.,
+                        advance_x: 10.,
+                        glyph_id: None,
+                    },
+                    byte_offset,
+                )
+            });
+            glyphs.extend(glyph_iter);
         }
 
         fn glyph_for_char(&self, _ch: char) -> Option<Self::Glyph> {
@@ -776,9 +768,12 @@ mod linebreak_tests {
                 height: 10.,
                 advance_x: 10.,
                 glyph_id: None,
-                glyph_cluster_index: 0,
             }
             .into()
+        }
+
+        fn glyph_advance_x(&self, glyph: &Self::Glyph) -> Self::Length {
+            glyph.advance_x
         }
     }
 
