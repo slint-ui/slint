@@ -38,6 +38,7 @@
 //!         Add grapheme to fragment
 //!
 
+use core::cell::RefCell;
 use core::ops::Range;
 
 use alloc::vec::Vec;
@@ -181,6 +182,7 @@ struct Whitespace<Length: Default + Clone> {
 pub struct TextLine<Length: Default + Clone> {
     // The range excludes trailing whitespace
     byte_range: Range<usize>,
+    glyph_range: Range<usize>,
     trailing_whitespace: Option<Whitespace<Length>>,
     text_width: Length, // with as occupied by the glyphs
 }
@@ -198,6 +200,7 @@ impl<Length: Default + Copy + Clone + Zero + core::ops::Add<Output = Length>> Te
 #[derive(Clone)]
 struct Grapheme<Length> {
     byte_range: Range<usize>,
+    glyph_range: Range<usize>,
     width: Length,
     is_whitespace: bool,
 }
@@ -210,6 +213,8 @@ impl<Length: Clone + Copy + Default + core::ops::AddAssign> TextLine<Length> {
             } else {
                 self.byte_range.start = grapheme.byte_range.start;
                 self.byte_range.end = self.byte_range.start;
+                self.glyph_range.start = grapheme.glyph_range.start;
+                self.glyph_range.end = self.glyph_range.start;
             }
         }
 
@@ -233,6 +238,7 @@ impl<Length: Clone + Copy + Default + core::ops::AddAssign> TextLine<Length> {
                 // There should not be any gaps between the whitespace and the added grapheme
                 debug_assert_eq!(self.byte_range.end, grapheme.byte_range.start);
                 self.byte_range.end += grapheme.byte_range.len();
+                self.glyph_range.end = grapheme.glyph_range.end;
 
                 self.text_width += grapheme.width;
             }
@@ -242,6 +248,7 @@ impl<Length: Clone + Copy + Default + core::ops::AddAssign> TextLine<Length> {
                     debug_assert_eq!(self.byte_range.end, grapheme.byte_range.start);
                 }
                 self.byte_range.end += grapheme.byte_range.len();
+                self.glyph_range.end = grapheme.glyph_range.end;
 
                 self.text_width += grapheme.width;
             }
@@ -255,6 +262,8 @@ impl<Length: Clone + Copy + Default + core::ops::AddAssign> TextLine<Length> {
         if self.byte_range.is_empty() && self.trailing_whitespace.is_none() {
             self.byte_range.start = candidate.byte_range.start;
             self.byte_range.end = self.byte_range.start;
+            self.glyph_range.start = candidate.glyph_range.start;
+            self.glyph_range.end = self.glyph_range.end;
         }
 
         match (self.trailing_whitespace.as_mut(), candidate.trailing_whitespace.as_ref()) {
@@ -275,6 +284,7 @@ impl<Length: Clone + Copy + Default + core::ops::AddAssign> TextLine<Length> {
         }
 
         self.byte_range.end = candidate.byte_range.end;
+        self.glyph_range.end = candidate.glyph_range.end;
 
         self.text_width += candidate.text_width;
         *candidate = Default::default();
@@ -289,7 +299,7 @@ struct GraphemeCursor<
     font: &'a Font,
     shape_boundaries: ShapeBoundaries<'a>,
     current_shapable: Range<usize>,
-    glyphs: &'a mut GlyphBuffer,
+    glyphs: &'a RefCell<GlyphBuffer>,
     // absolute byte offset in the entire text
     byte_offset: usize,
     glyph_index: usize,
@@ -301,13 +311,13 @@ impl<
         GlyphBuffer: core::iter::Extend<(Font::Glyph, usize)> + core::convert::AsRef<[(Font::Glyph, usize)]>,
     > GraphemeCursor<'a, Font, GlyphBuffer>
 {
-    fn new(text: &'a str, font: &'a Font, glyph_buffer: &'a mut GlyphBuffer) -> Self {
+    fn new(text: &'a str, font: &'a Font, glyph_buffer: &'a RefCell<GlyphBuffer>) -> Self {
         let mut shape_boundaries = ShapeBoundaries::new(text);
 
         let current_shapable = shape_boundaries.next().unwrap_or(Range { start: 0, end: 0 });
-        let first_glyph_index = glyph_buffer.as_ref().len();
+        let first_glyph_index = glyph_buffer.borrow().as_ref().len();
 
-        font.shape_text(&text[current_shapable.clone()], glyph_buffer);
+        font.shape_text(&text[current_shapable.clone()], &mut *glyph_buffer.borrow_mut());
 
         Self {
             font,
@@ -335,18 +345,21 @@ impl<
                 None => return None,
             };
             self.byte_offset = self.current_shapable.start;
-            self.glyph_index = self.glyphs.as_ref().len();
+            self.glyph_index = self.glyphs.borrow().as_ref().len();
             self.font.shape_text(
                 &self.shape_boundaries.text[self.current_shapable.clone()],
-                self.glyphs,
+                &mut *self.glyphs.borrow_mut(),
             );
         }
 
         let mut grapheme_width: Font::Length = Font::Length::zero();
+        let glyphs = self.glyphs.borrow();
+
+        let grapheme_glyph_start = self.glyph_index;
 
         let mut cluster_byte_offset;
         loop {
-            let (glyph, glyph_byte_offset) = &self.glyphs.as_ref()[self.glyph_index];
+            let (glyph, glyph_byte_offset) = &glyphs.as_ref()[self.glyph_index];
             // Rustybuzz uses a relative byte offset as cluster index
             cluster_byte_offset = self.current_shapable.start + glyph_byte_offset;
             if cluster_byte_offset != self.byte_offset {
@@ -356,7 +369,7 @@ impl<
 
             self.glyph_index += 1;
 
-            if self.glyph_index >= self.glyphs.as_ref().len() {
+            if self.glyph_index >= self.glyphs.borrow().as_ref().len() {
                 cluster_byte_offset = self.current_shapable.end;
                 break;
             }
@@ -372,6 +385,7 @@ impl<
                 start: grapheme_byte_offset,
                 end: grapheme_byte_offset + grapheme_byte_len,
             },
+            glyph_range: Range { start: grapheme_glyph_start, end: self.glyph_index },
             width: grapheme_width,
             is_whitespace,
         })
@@ -417,7 +431,7 @@ impl<
     pub fn new(
         text: &'a str,
         font: &'a Font,
-        glyph_buffer: &'a mut GlyphBuffer,
+        glyph_buffer: &'a RefCell<GlyphBuffer>,
         available_width: Option<Font::Length>,
     ) -> Self {
         let mut line_breaks = LineBreakIterator::new(text);
@@ -519,9 +533,9 @@ where
 {
     let mut max_line_width = Font::Length::zero();
     let mut line_count = Font::LengthPrimitive::zero();
-    let mut glyphs = Vec::new();
+    let glyphs = RefCell::new(Vec::new());
 
-    for line in TextLineBreaker::new(text, font, &mut glyphs, max_width) {
+    for line in TextLineBreaker::new(text, font, &glyphs, max_width) {
         max_line_width = euclid::approxord::max(max_line_width, line.text_width);
         line_count += Font::LengthPrimitive::one();
     }
@@ -556,7 +570,7 @@ pub fn layout_text_lines<Font: TextShaper>(
     let max_width_without_elision =
         max_width - elide_glyph.as_ref().map_or(Font::Length::zero(), |g| font.glyph_advance_x(g));
 
-    let mut glyphs = Vec::new();
+    let glyphs = RefCell::new(Vec::new());
 
     let new_line_break_iter = |glyphs| {
         TextLineBreaker::new(string, font, glyphs, if wrap { Some(max_width) } else { None })
@@ -576,58 +590,54 @@ pub fn layout_text_lines<Font: TextShaper>(
 
     let baseline_y = match vertical_alignment {
         TextVerticalAlignment::top => Font::Length::zero(),
-        TextVerticalAlignment::center => max_height / two - text_height(&mut glyphs) / two,
-        TextVerticalAlignment::bottom => max_height - text_height(&mut glyphs),
+        TextVerticalAlignment::center => max_height / two - text_height(&glyphs) / two,
+        TextVerticalAlignment::bottom => max_height - text_height(&glyphs),
     };
 
     let mut y = baseline_y;
 
-    let mut glyph_buffer = Vec::new(); // TODO: merge with line breaker's glyph buffer to avoid shaping again
-
-    let mut process_line = |line: &TextLine<Font::Length>| {
-        let x = match horizontal_alignment {
-            TextHorizontalAlignment::left => Font::Length::zero(),
-            TextHorizontalAlignment::center => {
-                max_width / two - euclid::approxord::min(max_width, line.text_width) / two
-            }
-            TextHorizontalAlignment::right => {
-                max_width - euclid::approxord::min(max_width, line.text_width)
-            }
-        };
-
-        let mut elide_glyph = elide_glyph.as_ref().clone();
-
-        glyph_buffer.clear();
-        let text = line.line_text(string);
-        font.shape_text(text, &mut glyph_buffer);
-
-        let glyph_it = glyph_buffer.iter();
-        let mut glyph_x = Font::Length::zero();
-        let mut positioned_glyph_it = glyph_it.filter_map(|(glyph, _)| {
-            if glyph_x >= max_width_without_elision {
-                if let Some(elide_glyph) = elide_glyph.take() {
-                    return Some((glyph_x, elide_glyph));
-                } else {
-                    return None;
+    let mut process_line =
+        |line: &TextLine<Font::Length>, glyphs: &RefCell<Vec<(Font::Glyph, usize)>>| {
+            let x = match horizontal_alignment {
+                TextHorizontalAlignment::left => Font::Length::zero(),
+                TextHorizontalAlignment::center => {
+                    max_width / two - euclid::approxord::min(max_width, line.text_width) / two
                 }
-            }
-            let positioned_glyph = (glyph_x, glyph);
-            glyph_x += font.glyph_advance_x(glyph);
-            Some(positioned_glyph)
-        });
+                TextHorizontalAlignment::right => {
+                    max_width - euclid::approxord::min(max_width, line.text_width)
+                }
+            };
 
-        layout_line(&mut positioned_glyph_it, x, y, line);
-        y += font_height;
-    };
+            let mut elide_glyph = elide_glyph.as_ref().clone();
+
+            let glyphs = glyphs.borrow();
+            let glyph_it = glyphs[line.glyph_range.clone()].iter();
+            let mut glyph_x = Font::Length::zero();
+            let mut positioned_glyph_it = glyph_it.filter_map(|(glyph, _)| {
+                if glyph_x >= max_width_without_elision {
+                    if let Some(elide_glyph) = elide_glyph.take() {
+                        return Some((glyph_x, elide_glyph));
+                    } else {
+                        return None;
+                    }
+                }
+                let positioned_glyph = (glyph_x, glyph);
+                glyph_x += font.glyph_advance_x(glyph);
+                Some(positioned_glyph)
+            });
+
+            layout_line(&mut positioned_glyph_it, x, y, line);
+            y += font_height;
+        };
 
     if let Some(lines_vec) = text_lines.take() {
         for line in lines_vec {
-            process_line(&line);
+            process_line(&line, &glyphs);
         }
     } else {
-        let mut glyphs = Vec::new();
-        for line in new_line_break_iter(&mut glyphs) {
-            process_line(&line);
+        let glyphs = RefCell::new(Vec::new());
+        for line in new_line_break_iter(&glyphs) {
+            process_line(&line, &glyphs);
         }
     }
 
@@ -839,7 +849,7 @@ mod linebreak_tests {
     fn test_empty_line_break() {
         let font = FixedTestFont;
         let text = "";
-        let mut glyphs = Vec::new();
+        let mut glyphs = RefCell::new(Vec::new());
         let lines = TextLineBreaker::new(text, &font, &mut glyphs, Some(50.)).collect::<Vec<_>>();
         assert_eq!(lines.len(), 1);
         assert_eq!(lines[0].line_text(&text), "");
@@ -849,7 +859,7 @@ mod linebreak_tests {
     fn test_basic_line_break() {
         let font = FixedTestFont;
         let text = "Hello World";
-        let mut glyphs = Vec::new();
+        let mut glyphs = RefCell::new(Vec::new());
         let lines = TextLineBreaker::new(text, &font, &mut glyphs, Some(50.)).collect::<Vec<_>>();
         assert_eq!(lines.len(), 2);
         assert_eq!(lines[0].line_text(&text), "Hello");
@@ -860,7 +870,7 @@ mod linebreak_tests {
     fn test_linebreak_trailing_space() {
         let font = FixedTestFont;
         let text = "Hello              ";
-        let mut glyphs = Vec::new();
+        let mut glyphs = RefCell::new(Vec::new());
         let lines = TextLineBreaker::new(text, &font, &mut glyphs, Some(50.)).collect::<Vec<_>>();
         assert_eq!(lines.len(), 1);
         assert_eq!(lines[0].line_text(&text), "Hello");
@@ -870,7 +880,7 @@ mod linebreak_tests {
     fn test_forced_break() {
         let font = FixedTestFont;
         let text = "Hello\nWorld";
-        let mut glyphs = Vec::new();
+        let mut glyphs = RefCell::new(Vec::new());
         let lines = TextLineBreaker::new(text, &font, &mut glyphs, None).collect::<Vec<_>>();
         assert_eq!(lines.len(), 2);
         assert_eq!(lines[0].line_text(&text), "Hello");
@@ -881,7 +891,7 @@ mod linebreak_tests {
     fn test_forced_break_multi() {
         let font = FixedTestFont;
         let text = "Hello\n\n\nWorld";
-        let mut glyphs = Vec::new();
+        let mut glyphs = RefCell::new(Vec::new());
         let lines = TextLineBreaker::new(text, &font, &mut glyphs, None).collect::<Vec<_>>();
         assert_eq!(lines.len(), 4);
         assert_eq!(lines[0].line_text(&text), "Hello");
@@ -894,7 +904,7 @@ mod linebreak_tests {
     fn test_nbsp_break() {
         let font = FixedTestFont;
         let text = "Hello\u{00a0}World";
-        let mut glyphs = Vec::new();
+        let mut glyphs = RefCell::new(Vec::new());
         let lines = TextLineBreaker::new(text, &font, &mut glyphs, Some(50.)).collect::<Vec<_>>();
         assert_eq!(lines.len(), 1);
         assert_eq!(lines[0].line_text(&text), "Hello\u{00a0}World");
@@ -904,7 +914,7 @@ mod linebreak_tests {
     fn test_single_line_multi_break_opportunity() {
         let font = FixedTestFont;
         let text = "a b c";
-        let mut glyphs = Vec::new();
+        let mut glyphs = RefCell::new(Vec::new());
         let lines = TextLineBreaker::new(text, &font, &mut glyphs, None).collect::<Vec<_>>();
         assert_eq!(lines.len(), 1);
         assert_eq!(lines[0].line_text(&text), "a b c");
