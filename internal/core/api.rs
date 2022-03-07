@@ -101,6 +101,8 @@ impl From<WindowRc> for Window {
     }
 }
 
+/// This enum describes whether a Window is allowed to be hidden when the user tries to close the window.
+/// It is the return type of the callback provided to [Window::on_close_requested].
 #[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
@@ -136,6 +138,8 @@ impl Window {
         self.0.set_rendering_notifier(Box::new(callback))
     }
 
+    /// This function allows registering a callback that's invoked when the user tries to close a window.
+    /// It is emmited when the user tries to "close" a window. The callback has to return a [CloseRequestResponse].
     pub fn on_close_requested(&self, mut callback: impl FnMut() -> CloseRequestResponse + 'static) {
         self.0.set_close_requested(callback);
     }
