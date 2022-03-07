@@ -11,7 +11,7 @@ use crate::{LogicalLength, LogicalSize, PhysicalLength, PhysicalSize, ScaleFacto
 use i_slint_core::{
     graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, FontRequest},
     slice::Slice,
-    textlayout::{GlyphMetrics, TextShaper},
+    textlayout::TextShaper,
 };
 
 thread_local! {
@@ -89,64 +89,28 @@ impl PixelFont {
     }
 }
 
-enum BitmapGlyphOrNone {
-    BitmapGlyph(Glyph),
-    NoGlyph { fallback_pixel_size: PhysicalLength },
-}
-
-pub struct ShapedGlyph {
-    glyph: BitmapGlyphOrNone,
-    byte_offset: usize,
-}
-
-impl ShapedGlyph {
-    pub fn bitmap_glyph(&self) -> Option<Glyph> {
-        match self.glyph {
-            BitmapGlyphOrNone::BitmapGlyph(g) => Some(g),
-            BitmapGlyphOrNone::NoGlyph { .. } => None,
-        }
-    }
-}
-
-impl GlyphMetrics<PhysicalLength> for ShapedGlyph {
-    fn advance_x(&self) -> PhysicalLength {
-        match self.glyph {
-            BitmapGlyphOrNone::BitmapGlyph(bitmap_glyph) => bitmap_glyph.x_advance(),
-            BitmapGlyphOrNone::NoGlyph { fallback_pixel_size } => fallback_pixel_size,
-        }
-    }
-
-    fn byte_offset(&self) -> usize {
-        self.byte_offset
-    }
-}
-
 impl TextShaper for PixelFont {
     type LengthPrimitive = i16;
     type Length = PhysicalLength;
-    type Glyph = ShapedGlyph;
-    fn shape_text<GlyphStorage: core::iter::Extend<ShapedGlyph>>(
+    type Glyph = Option<Glyph>;
+    fn shape_text<GlyphStorage: core::iter::Extend<(Option<Glyph>, usize)>>(
         &self,
         text: &str,
         glyphs: &mut GlyphStorage,
     ) {
-        for (byte_offset, char) in text.char_indices() {
-            let out_glyph = self
+        let glyphs_iter = text.char_indices().map(|(byte_offset, char)| {
+            let glyph = self
                 .bitmap_font
                 .character_map
                 .binary_search_by_key(&char, |char_map_entry| char_map_entry.code_point)
                 .ok()
                 .map(|char_map_index| {
                     let glyph_index = self.bitmap_font.character_map[char_map_index].glyph_index;
-                    BitmapGlyphOrNone::BitmapGlyph(Glyph(
-                        &self.glyphs.glyph_data[glyph_index as usize],
-                    ))
-                })
-                .unwrap_or_else(|| BitmapGlyphOrNone::NoGlyph {
-                    fallback_pixel_size: self.pixel_size(),
+                    Glyph(&self.glyphs.glyph_data[glyph_index as usize])
                 });
-            glyphs.extend(core::iter::once(ShapedGlyph { glyph: out_glyph, byte_offset }));
-        }
+            (glyph, byte_offset)
+        });
+        glyphs.extend(glyphs_iter);
     }
 
     fn glyph_for_char(&self, ch: char) -> Option<Self::Glyph> {
@@ -156,13 +120,11 @@ impl TextShaper for PixelFont {
             .ok()
             .map(|char_map_index| {
                 let glyph_index = self.bitmap_font.character_map[char_map_index].glyph_index;
-                ShapedGlyph {
-                    glyph: BitmapGlyphOrNone::BitmapGlyph(Glyph(
-                        &self.glyphs.glyph_data[glyph_index as usize],
-                    )),
-                    byte_offset: 0,
-                }
+                Some(Glyph(&self.glyphs.glyph_data[glyph_index as usize]))
             })
+    }
+    fn glyph_advance_x(&self, glyph: &Option<Glyph>) -> PhysicalLength {
+        glyph.map(|g| g.x_advance()).unwrap_or_else(|| self.pixel_size())
     }
 }
 

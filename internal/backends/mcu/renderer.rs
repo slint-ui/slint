@@ -563,7 +563,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
             |glyphs, line_x, line_y, _| {
                 let baseline_y = line_y + font.ascent();
                 while let Some((glyph_baseline_x, glyph)) = glyphs.next() {
-                    let bitmap_glyph = match glyph.bitmap_glyph() {
+                    let bitmap_glyph = match glyph {
                         Some(g) => g,
                         None => continue,
                     };
