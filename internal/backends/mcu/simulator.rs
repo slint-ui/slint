@@ -4,7 +4,6 @@
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 
-use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
 use embedded_graphics_simulator::SimulatorDisplay;
 use i_slint_core::component::ComponentRc;
@@ -34,6 +33,7 @@ pub struct SimulatorWindow {
     constraints: Cell<(i_slint_core::layout::LayoutInfo, i_slint_core::layout::LayoutInfo)>,
     visible: Cell<bool>,
     background_color: Cell<Color>,
+    frame_buffer: RefCell<Option<SimulatorDisplay<embedded_graphics::pixelcolor::Rgb888>>>,
 }
 
 impl SimulatorWindow {
@@ -61,6 +61,7 @@ impl SimulatorWindow {
             constraints: Default::default(),
             visible: Default::default(),
             background_color: Color::from_rgb_u8(0, 0, 0).into(),
+            frame_buffer: RefCell::default(),
         });
 
         let runtime_window = window_weak.upgrade().unwrap();
@@ -241,18 +242,34 @@ impl WinitWindow for SimulatorWindow {
                 canvas.set_size(size.width, size.height, 1.0);
             }
 
-            let mut display: SimulatorDisplay<embedded_graphics::pixelcolor::Rgb888> =
-                SimulatorDisplay::new(Size { width: size.width, height: size.height });
-
             let background =
                 crate::renderer::to_rgb888_color_discard_alpha(self.background_color.get());
-            display.clear(background).unwrap();
+
+            let mut frame_buffer = self.frame_buffer.borrow_mut();
+            let display = match frame_buffer.as_mut() {
+                Some(buffer)
+                    if buffer.size().width == size.width && buffer.size().height == size.height =>
+                {
+                    buffer
+                }
+                _ => {
+                    let buffer = frame_buffer.insert(SimulatorDisplay::new(Size {
+                        width: size.width,
+                        height: size.height,
+                    }));
+                    super::PARTIAL_RENDERING_CACHE.with(|cache| {
+                        *cache.borrow_mut() = Default::default();
+                    });
+                    buffer.clear(background).unwrap();
+                    buffer
+                }
+            };
 
             super::PARTIAL_RENDERING_CACHE.with(|cache| {
                 crate::renderer::render_window_frame(
                     runtime_window,
                     background,
-                    &mut display,
+                    &mut *display,
                     &mut cache.borrow_mut(),
                 );
             });
