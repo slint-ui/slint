@@ -732,8 +732,10 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
             });
 
             m.model_tracker().attach_peer(ModelPeer { inner: PinWeak::downgrade(peer.clone()) });
+            m
+        } else {
+            model.get()
         }
-        model.get()
     }
 
     /// Call this function to make sure that the model is updated.
