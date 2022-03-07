@@ -108,7 +108,7 @@ impl From<WindowRc> for Window {
 #[allow(non_camel_case_types)]
 pub enum CloseRequestResponse {
     HideWindow,
-    KeepWindowShown
+    KeepWindowShown,
 }
 
 impl Default for CloseRequestResponse {
@@ -116,7 +116,6 @@ impl Default for CloseRequestResponse {
         Self::HideWindow
     }
 }
-
 
 impl Window {
     /// Registers the window with the windowing system in order to make it visible on the screen.
