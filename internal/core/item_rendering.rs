@@ -226,32 +226,34 @@ impl<'a, T> PartialRenderer<'a, T> {
 
     /// Visit the tree of item and compute what are the dirty regions
     pub fn compute_dirty_regions(&mut self, component: &ComponentRc, origin: Point) {
-        crate::item_tree::visit_items(
-            component,
-            crate::item_tree::TraversalOrder::BackToFront,
-            |_, item, _, offset| match item
-                .cached_rendering_data_offset()
-                .get_entry(&mut self.cache)
-            {
-                Some(CachedGraphicsData { data, dependency_tracker: Some(tr) }) => {
-                    if tr.is_dirty() {
+        crate::properties::evaluate_no_tracking(|| {
+            crate::item_tree::visit_items(
+                component,
+                crate::item_tree::TraversalOrder::BackToFront,
+                |_, item, _, offset| match item
+                    .cached_rendering_data_offset()
+                    .get_entry(&mut self.cache)
+                {
+                    Some(CachedGraphicsData { data, dependency_tracker: Some(tr) }) => {
+                        if tr.is_dirty() {
+                            let geom = item.as_ref().geometry();
+                            let old_geom = *data;
+                            self.mark_dirty_rect(old_geom, *offset);
+                            self.mark_dirty_rect(geom, *offset);
+                            ItemVisitorResult::Continue(*offset + geom.origin.to_vector())
+                        } else {
+                            ItemVisitorResult::Continue(*offset + data.origin.to_vector())
+                        }
+                    }
+                    _ => {
                         let geom = item.as_ref().geometry();
-                        let old_geom = *data;
-                        self.mark_dirty_rect(old_geom, *offset);
                         self.mark_dirty_rect(geom, *offset);
                         ItemVisitorResult::Continue(*offset + geom.origin.to_vector())
-                    } else {
-                        ItemVisitorResult::Continue(*offset + data.origin.to_vector())
                     }
-                }
-                _ => {
-                    let geom = item.as_ref().geometry();
-                    self.mark_dirty_rect(geom, *offset);
-                    ItemVisitorResult::Continue(*offset + geom.origin.to_vector())
-                }
-            },
-            origin.to_vector(),
-        );
+                },
+                origin.to_vector(),
+            )
+        });
     }
 
     fn mark_dirty_rect(&mut self, rect: Rect, offset: euclid::default::Vector2D<f32>) {
