@@ -40,12 +40,26 @@
 
 use core::ops::Range;
 
-use alloc::boxed::Box;
 use alloc::vec::Vec;
 
 use euclid::num::{One, Zero};
 
 use crate::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
+
+pub enum BreakOpportunity {
+    Allowed,
+    Mandatory,
+}
+
+#[cfg(feature = "unicode-linebreak")]
+mod linebreak_unicode;
+#[cfg(feature = "unicode-linebreak")]
+use linebreak_unicode::LineBreakIterator;
+
+#[cfg(not(feature = "unicode-linebreak"))]
+mod linebreak_ascii;
+#[cfg(not(feature = "unicode-linebreak"))]
+use linebreak_ascii::LineBreakIterator;
 
 pub trait TextShaper {
     type LengthPrimitive: core::ops::Mul
@@ -345,8 +359,8 @@ impl<'a, Font: TextShaper> Iterator for GraphemeCursor<'a, Font> {
 }
 
 pub struct TextLineBreaker<'a, Font: TextShaper> {
-    line_breaks: Box<dyn Iterator<Item = (usize, unicode_linebreak::BreakOpportunity)> + 'a>, // Would be nice to get rid of that Box...
-    next_break_opportunity: Option<(usize, unicode_linebreak::BreakOpportunity)>,
+    line_breaks: LineBreakIterator<'a>,
+    next_break_opportunity: Option<(usize, BreakOpportunity)>,
     grapheme_cursor: GraphemeCursor<'a, Font>,
     available_width: Option<Font::Length>,
     current_line: TextLine<Font::Length>,
@@ -372,13 +386,13 @@ impl<'a, Font: TextShaper> TextLineBreaker<'a, Font> {
     }
 
     pub fn new(text: &'a str, font: &'a Font, available_width: Option<Font::Length>) -> Self {
-        let mut line_breaks = unicode_linebreak::linebreaks(text);
+        let mut line_breaks = LineBreakIterator::new(text);
         let next_break_opportunity = line_breaks.next();
 
         let grapheme_cursor = GraphemeCursor::new(text, font);
 
         Self {
-            line_breaks: Box::new(line_breaks),
+            line_breaks,
             next_break_opportunity,
             grapheme_cursor,
             available_width,
@@ -400,7 +414,7 @@ impl<'a, Font: TextShaper> Iterator for TextLineBreaker<'a, Font> {
             let mut line_to_emit = None;
 
             match self.next_break_opportunity.as_ref() {
-                Some((offset, unicode_linebreak::BreakOpportunity::Mandatory))
+                Some((offset, BreakOpportunity::Mandatory))
                     if *offset == grapheme.byte_range.start
                         || (*offset == grapheme.byte_range.end && grapheme.is_whitespace) =>
                 {
@@ -410,7 +424,7 @@ impl<'a, Font: TextShaper> Iterator for TextLineBreaker<'a, Font> {
                     line_to_emit = Some(core::mem::take(&mut self.current_line));
                     self.fragment.add_grapheme(&grapheme);
                 }
-                Some((offset, unicode_linebreak::BreakOpportunity::Allowed))
+                Some((offset, BreakOpportunity::Allowed))
                     if (*offset == grapheme.byte_range.start)
                         || (*offset == grapheme.byte_range.end && grapheme.is_whitespace) =>
                 {
