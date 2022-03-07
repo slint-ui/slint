@@ -97,7 +97,7 @@ pub struct ShapeBoundaries<'a> {
     text: &'a str,
     #[cfg(feature = "unicode-script")]
     // TODO: We should do a better analysis to find boundaries for text shaping; including
-    // boundaries when the bidi level changes, the script changes or an explicit separator like
+    // boundaries when the bidi level changes or an explicit separator like
     // paragraph/lineseparator/space is encountered.
     chars: core::str::CharIndices<'a>,
     next_boundary_start: Option<usize>,
@@ -614,6 +614,7 @@ pub fn layout_text_lines<Font: TextShaper>(
             let glyph_it = glyphs[line.glyph_range.clone()].iter();
             let mut glyph_x = Font::Length::zero();
             let mut positioned_glyph_it = glyph_it.filter_map(|(glyph, _)| {
+                // TODO: cut off at grapheme boundaries
                 if glyph_x >= max_width_without_elision {
                     if let Some(elide_glyph) = elide_glyph.take() {
                         return Some((glyph_x, elide_glyph));
