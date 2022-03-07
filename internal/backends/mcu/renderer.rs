@@ -3,7 +3,6 @@
 
 mod draw_functions;
 
-use crate::fonts::FontMetrics;
 use crate::{
     profiler, Devices, LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect,
     PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize, PointLengths, RectLengths,
