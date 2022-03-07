@@ -39,6 +39,8 @@ let instance = TestCase::new();
 assert_eq!(instance.invoke_foo1_alias(100), 122);
 assert_eq!(instance.invoke_foo2_alias(100), 188);
 assert_eq!(instance.invoke_call_foo2(100), 188);
+instance.on_foo2_alias(|val| val - 20);
+assert_eq!(instance.invoke_call_foo2(200), 180);
 ```
 
 ```cpp
@@ -47,6 +49,8 @@ const TestCase &instance = *handle;
 assert_eq(instance.invoke_foo1_alias(100), 122);
 assert_eq(instance.invoke_foo2_alias(100), 188);
 assert_eq(instance.invoke_call_foo2(100), 188);
+instance.on_foo2_alias([](auto val){return val - 20;});
+assert_eq(instance.invoke_call_foo2(200), 180);
 ```
 
 
