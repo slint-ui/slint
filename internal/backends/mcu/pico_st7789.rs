@@ -136,7 +136,6 @@ impl<Display: Devices, IRQ: InputPin, CS: OutputPin<Error = IRQ::Error>, SPI: Tr
             .map_err(|_| ())
             .unwrap()
             .map(|point| {
-                let point = point.to_f32() / (i16::MAX as f32);
                 let size = self.display.screen_size().to_f32();
                 let pos = euclid::point2(point.x * size.width, point.y * size.height);
                 match self.last_touch.replace(pos) {
@@ -176,12 +175,19 @@ mod xpt2046 {
             Ok(Self { irq, cs, spi })
         }
 
-        pub fn read(&mut self) -> Result<Option<Point2D<i16>>, Error<PinE, SPI::Error>> {
+        pub fn read(&mut self) -> Result<Option<Point2D<f32>>, Error<PinE, SPI::Error>> {
             if self.irq.is_low().map_err(|e| Error::Pin(e))? {
                 const CMD_X_READ: u8 = 0b10010000;
                 const CMD_Y_READ: u8 = 0b11010000;
+                const CMD_Z1_READ: u8 = 0b10110001;
+                //const CMD_Z2_READ: u8 = 0b11000001;
 
-                let mut point = Point2D::new(0u32, 0u32);
+                // These numbers were measured approximately.
+                const MIN_X: u32 = 1900;
+                const MAX_X: u32 = 30300;
+                const MIN_Y: u32 = 2300;
+                const MAX_Y: u32 = 30300;
+                const Z_THRESHOLD: u32 = 1000;
 
                 // FIXME! how else set the frequency to this device
                 unsafe { set_spi_freq(3_000_000u32.Hz()) };
@@ -190,27 +196,45 @@ mod xpt2046 {
 
                 macro_rules! xchg {
                     ($byte:expr) => {
-                        match self.spi.transfer(&mut [$byte]).map_err(|e| Error::Transfer(e))? {
-                            [x] => *x as u32,
+                        match self
+                            .spi
+                            .transfer(&mut [$byte, 0, 0])
+                            .map_err(|e| Error::Transfer(e))?
+                        {
+                            [_, h, l] => ((*h as u32) << 8) | (*l as u32),
                             _ => return Err(Error::InternalError),
                         }
                     };
                 }
 
-                for _ in 0..10 {
-                    xchg!(CMD_X_READ);
-                    let mut x = xchg!(0) << 8;
-                    x |= xchg!(CMD_Y_READ);
-                    let mut y = xchg!(0) << 8;
-                    y |= xchg!(0);
+                let z1 = xchg!(CMD_Z1_READ);
+                //let z2 = xchg!(CMD_Z2_READ);
+                //let z = z1 as i32 + 4095 - z2 as i32;
 
+                if z1 < Z_THRESHOLD {
+                    xchg!(0);
+                    self.cs.set_high().map_err(|e| Error::Pin(e))?;
+                    unsafe { set_spi_freq(18_000_000u32.Hz()) };
+                    return Ok(None);
+                }
+
+                xchg!(CMD_X_READ | 1); // Dummy read, first read is a outlier
+
+                let mut point = Point2D::new(0u32, 0u32);
+                for _ in 0..10 {
+                    let y = xchg!(CMD_Y_READ);
+                    let x = xchg!(CMD_X_READ);
                     point += euclid::vec2(i16::MAX as u32 - x, y)
                 }
+                xchg!(0);
                 self.cs.set_high().map_err(|e| Error::Pin(e))?;
-
                 unsafe { set_spi_freq(18_000_000u32.Hz()) };
 
-                Ok(Some((point / 10).cast()))
+                point /= 10;
+                Ok(Some(euclid::point2(
+                    point.x.saturating_sub(MIN_X) as f32 / (MAX_X - MIN_X) as f32,
+                    point.y.saturating_sub(MIN_Y) as f32 / (MAX_Y - MIN_Y) as f32,
+                )))
             } else {
                 Ok(None)
             }
