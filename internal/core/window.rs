@@ -555,6 +555,7 @@ impl Window {
         }
     }
 
+    /// Sets the close_requested callback. The callback will be run when the user tries to close a window.
     pub fn set_close_requested(&self, mut callback: impl FnMut() -> CloseRequestResponse + 'static) {
         self.close_requested.set_handler( move |()| callback());
     }
