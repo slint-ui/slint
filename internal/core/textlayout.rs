@@ -688,6 +688,7 @@ mod shape_tests {
         pub height: f32,
         pub advance_x: f32,
         pub glyph_id: Option<core::num::NonZeroU16>,
+        pub char: Option<char>,
     }
 
     impl<'a> TextShaper for rustybuzz::Face<'a> {
@@ -713,6 +714,7 @@ mod shape_tests {
                         out_glyph.offset_x = position.x_offset as _;
                         out_glyph.offset_y = position.y_offset as _;
                         out_glyph.advance_x = position.x_advance as _;
+                        out_glyph.char = text[info.cluster as usize..].chars().next();
 
                         if let Some(bounding_box) = out_glyph
                             .glyph_id
@@ -808,7 +810,7 @@ mod linebreak_tests {
             text: &str,
             glyphs: &mut GlyphStorage,
         ) {
-            let glyph_iter = text.char_indices().map(|(byte_offset, _)| {
+            let glyph_iter = text.char_indices().map(|(byte_offset, char)| {
                 (
                     ShapedGlyph {
                         offset_x: 0.,
@@ -819,6 +821,7 @@ mod linebreak_tests {
                         height: 10.,
                         advance_x: 10.,
                         glyph_id: None,
+                        char: Some(char),
                     },
                     byte_offset,
                 )
@@ -826,7 +829,7 @@ mod linebreak_tests {
             glyphs.extend(glyph_iter);
         }
 
-        fn glyph_for_char(&self, _ch: char) -> Option<Self::Glyph> {
+        fn glyph_for_char(&self, ch: char) -> Option<Self::Glyph> {
             ShapedGlyph {
                 offset_x: 0.,
                 offset_y: 0.,
@@ -836,6 +839,7 @@ mod linebreak_tests {
                 height: 10.,
                 advance_x: 10.,
                 glyph_id: None,
+                char: Some(ch),
             }
             .into()
         }
@@ -918,5 +922,32 @@ mod linebreak_tests {
         let lines = TextLineBreaker::new(text, &font, &mut glyphs, None).collect::<Vec<_>>();
         assert_eq!(lines.len(), 1);
         assert_eq!(lines[0].line_text(&text), "a b c");
+    }
+
+    #[test]
+    fn test_elision() {
+        let font = FixedTestFont;
+        let text = "This is a longer piece of text";
+
+        let mut lines = Vec::new();
+
+        super::layout_text_lines(
+            text,
+            &font,
+            10.,
+            13. * 10.,
+            10.,
+            (TextHorizontalAlignment::left, TextVerticalAlignment::top),
+            TextWrap::no_wrap,
+            TextOverflow::elide,
+            true,
+            |glyphs, _, _, _| {
+                lines.push(glyphs.map(|(_, g)| g.clone()).collect::<Vec<_>>());
+            },
+        );
+
+        assert_eq!(lines.len(), 1);
+        let rendered_text = lines[0].iter().map(|glyph| glyph.char.unwrap()).collect::<String>();
+        debug_assert_eq!(rendered_text, "This is a lo…")
     }
 }
