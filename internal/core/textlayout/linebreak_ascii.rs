@@ -21,7 +21,7 @@ impl<'a> Iterator for LineBreakIterator<'a> {
         while let Some((byte_offset, char)) = self.it.next() {
             let maybe_opportunity = match char {
                 '\u{2028}' | '\u{2029}' => Some(BreakOpportunity::Mandatory), // unicode line- and paragraph separators
-                '\n' => Some(BreakOpportunity::Mandatory), // unicode line- and paragraph separators
+                '\n' => Some(BreakOpportunity::Mandatory), // ascii line break
                 _ if self.last_ch.map_or(false, |c| c.is_ascii_whitespace()) => {
                     Some(BreakOpportunity::Allowed)
                 }
