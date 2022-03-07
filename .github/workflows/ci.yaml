@@ -81,7 +81,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
           command: build
-          args: --verbose --all-features --workspace --exclude i-slint-backend-mcu # mcu backend requires nightly
+          args: --verbose --all-features --workspace --exclude i-slint-backend-mcu --exclude printerdemo_mcu # mcu backend requires nightly
     - name: Run tests
       uses: actions-rs/cargo@v1
       with:
