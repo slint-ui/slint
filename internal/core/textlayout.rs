@@ -631,7 +631,6 @@ pub fn layout_text_lines<Font: TextShaper>(
             process_line(&line, &glyphs);
         }
     } else {
-        let glyphs = RefCell::new(Vec::new());
         for line in new_line_break_iter(&glyphs) {
             process_line(&line, &glyphs);
         }
