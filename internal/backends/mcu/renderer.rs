@@ -16,6 +16,7 @@ use embedded_graphics::pixelcolor::Rgb888;
 use euclid::num::Zero;
 use i_slint_core::graphics::{FontRequest, IntRect, PixelFormat, Rect as RectF};
 use i_slint_core::item_rendering::PartialRenderingCache;
+use i_slint_core::textlayout::TextParagraphLayout;
 use i_slint_core::{Color, ImageInner, StaticTextures};
 
 type DirtyRegion = PhysicalRect;
@@ -549,50 +550,52 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
 
         let color = text.color().color();
 
-        i_slint_core::textlayout::layout_text_lines(
-            &text.text(),
-            &font,
-            font.height(),
+        let paragraph = TextParagraphLayout {
+            string: &text.text(),
+            font: &font,
+            font_height: font.height(),
             max_width,
             max_height,
-            (text.horizontal_alignment(), text.vertical_alignment()),
-            text.wrap(),
-            text.overflow(),
-            false,
-            |glyphs, line_x, line_y, _| {
-                let baseline_y = line_y + font.ascent();
-                while let Some((glyph_baseline_x, glyph)) = glyphs.next() {
-                    let bitmap_glyph = match glyph {
-                        Some(g) => g,
-                        None => continue,
-                    };
-                    if let Some(dest_rect) = (PhysicalRect::new(
-                        PhysicalPoint::from_lengths(
-                            line_x + glyph_baseline_x + bitmap_glyph.x(),
-                            baseline_y - bitmap_glyph.y() - bitmap_glyph.height(),
-                        ),
-                        bitmap_glyph.size(),
-                    )
-                    .cast()
-                        / self.scale_factor)
-                        .intersection(&self.current_state.clip)
-                    {
-                        let stride = bitmap_glyph.width().get() as u16;
+            horizontal_alignment: text.horizontal_alignment(),
+            vertical_alignment: text.vertical_alignment(),
+            wrap: text.wrap(),
+            overflow: text.overflow(),
+            single_line: false,
+        };
 
-                        self.new_scene_texture(
-                            dest_rect,
-                            SceneTexture {
-                                data: bitmap_glyph.data().as_slice(),
-                                stride,
-                                source_size: bitmap_glyph.size(),
-                                format: PixelFormat::AlphaMap,
-                                color,
-                            },
-                        );
-                    }
+        paragraph.layout_lines(|glyphs, line_x, line_y, _| {
+            let baseline_y = line_y + font.ascent();
+            while let Some((glyph_baseline_x, glyph)) = glyphs.next() {
+                let bitmap_glyph = match glyph {
+                    Some(g) => g,
+                    None => continue,
+                };
+                if let Some(dest_rect) = (PhysicalRect::new(
+                    PhysicalPoint::from_lengths(
+                        line_x + glyph_baseline_x + bitmap_glyph.x(),
+                        baseline_y - bitmap_glyph.y() - bitmap_glyph.height(),
+                    ),
+                    bitmap_glyph.size(),
+                )
+                .cast()
+                    / self.scale_factor)
+                    .intersection(&self.current_state.clip)
+                {
+                    let stride = bitmap_glyph.width().get() as u16;
+
+                    self.new_scene_texture(
+                        dest_rect,
+                        SceneTexture {
+                            data: bitmap_glyph.data().as_slice(),
+                            stride,
+                            source_size: bitmap_glyph.size(),
+                            format: PixelFormat::AlphaMap,
+                            color,
+                        },
+                    );
                 }
-            },
-        );
+            }
+        });
     }
 
     fn draw_text_input(&mut self, _text_input: Pin<&i_slint_core::items::TextInput>) {
