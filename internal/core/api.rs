@@ -103,7 +103,7 @@ impl From<WindowRc> for Window {
 
 /// This enum describes whether a Window is allowed to be hidden when the user tries to close the window.
 /// It is the return type of the callback provided to [Window::on_close_requested].
-#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
+#[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum CloseRequestResponse {
