@@ -47,20 +47,15 @@ use euclid::num::{One, Zero};
 
 use crate::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
 
-pub enum BreakOpportunity {
-    Allowed,
-    Mandatory,
-}
-
 #[cfg(feature = "unicode-linebreak")]
 mod linebreak_unicode;
 #[cfg(feature = "unicode-linebreak")]
-use linebreak_unicode::LineBreakIterator;
+use linebreak_unicode::{BreakOpportunity, LineBreakIterator};
 
 #[cfg(not(feature = "unicode-linebreak"))]
 mod linebreak_ascii;
 #[cfg(not(feature = "unicode-linebreak"))]
-use linebreak_ascii::LineBreakIterator;
+use linebreak_ascii::{BreakOpportunity, LineBreakIterator};
 
 pub trait TextShaper {
     type LengthPrimitive: core::ops::Mul
