@@ -248,25 +248,6 @@ impl WinitWindow for SimulatorWindow {
                 crate::renderer::to_rgb888_color_discard_alpha(self.background_color.get());
             display.clear(background).unwrap();
 
-            // Debug
-            {
-                use embedded_graphics::{
-                    prelude::*,
-                    primitives::{PrimitiveStyleBuilder, Rectangle},
-                };
-
-                let style = PrimitiveStyleBuilder::new()
-                    .stroke_color(Rgb888::RED)
-                    .stroke_width(3)
-                    .fill_color(Rgb888::GREEN)
-                    .build();
-
-                Rectangle::new(Point::new(30, 20), Size::new(10, 15))
-                    .into_styled(style)
-                    .draw(&mut display)
-                    .unwrap();
-            }
-
             super::PARTIAL_RENDERING_CACHE.with(|cache| {
                 crate::renderer::render_window_frame(
                     runtime_window,
