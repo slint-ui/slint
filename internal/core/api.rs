@@ -138,7 +138,7 @@ impl Window {
     }
 
     /// This function allows registering a callback that's invoked when the user tries to close a window.
-    /// It is emmited when the user tries to "close" a window. The callback has to return a [CloseRequestResponse].
+    /// The callback has to return a [CloseRequestResponse].
     pub fn on_close_requested(&self, callback: impl FnMut() -> CloseRequestResponse + 'static) {
         self.0.set_close_requested(callback);
     }
