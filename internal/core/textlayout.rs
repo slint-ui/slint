@@ -538,105 +538,121 @@ where
     (max_line_width, line_count)
 }
 
-/// Layout the given string in lines, and call the `layout_line` callback with the line to draw at position y.
-/// The signature of the `layout_line` function is: `(canvas, text, pos, start_index, line_metrics)`.
-/// start index is the starting byte of the text in the string.
-/// Returns the baseline y coordinate.
-pub fn layout_text_lines<Font: TextShaper>(
-    string: &str,
-    font: &Font,
-    font_height: Font::Length,
-    max_width: Font::Length,
-    max_height: Font::Length,
-    (horizontal_alignment, vertical_alignment): (TextHorizontalAlignment, TextVerticalAlignment),
-    wrap: TextWrap,
-    overflow: TextOverflow,
-    single_line: bool,
-    mut layout_line: impl FnMut(
-        &mut dyn Iterator<Item = (Font::Length, &'_ Font::Glyph)>,
-        Font::Length,
-        Font::Length,
-        &TextLine<Font::Length>,
-    ),
-) -> Font::Length {
-    let wrap = wrap == TextWrap::word_wrap;
-    let elide_glyph =
-        if overflow == TextOverflow::elide { font.glyph_for_char('…') } else { None };
-    let max_width_without_elision =
-        max_width - elide_glyph.as_ref().map_or(Font::Length::zero(), |g| font.glyph_advance_x(g));
+pub struct TextParagraphLayout<'a, Font: TextShaper> {
+    pub string: &'a str,
+    pub font: &'a Font,
+    pub font_height: Font::Length,
+    pub max_width: Font::Length,
+    pub max_height: Font::Length,
+    pub horizontal_alignment: TextHorizontalAlignment,
+    pub vertical_alignment: TextVerticalAlignment,
+    pub wrap: TextWrap,
+    pub overflow: TextOverflow,
+    pub single_line: bool,
+}
 
-    let glyphs = RefCell::new(Vec::new());
-
-    let new_line_break_iter = |glyphs| {
-        TextLineBreaker::new(string, font, glyphs, if wrap { Some(max_width) } else { None })
-    };
-    let mut text_lines = None;
-
-    let mut text_height = |glyphs| {
-        if single_line {
-            font_height
+impl<'a, Font: TextShaper> TextParagraphLayout<'a, Font> {
+    /// Layout the given string in lines, and call the `layout_line` callback with the line to draw at position y.
+    /// The signature of the `layout_line` function is: `(canvas, text, pos, start_index, line_metrics)`.
+    /// start index is the starting byte of the text in the string.
+    /// Returns the baseline y coordinate.
+    pub fn layout_lines(
+        &self,
+        mut line_callback: impl FnMut(
+            &mut dyn Iterator<Item = (Font::Length, &'_ Font::Glyph)>,
+            Font::Length,
+            Font::Length,
+            &TextLine<Font::Length>,
+        ),
+    ) -> Font::Length {
+        let wrap = self.wrap == TextWrap::word_wrap;
+        let elide_glyph = if self.overflow == TextOverflow::elide {
+            self.font.glyph_for_char('…')
         } else {
-            text_lines = Some(new_line_break_iter(glyphs).collect::<Vec<_>>());
-            font_height * (text_lines.as_ref().unwrap().len() as i16).into()
-        }
-    };
+            None
+        };
+        let max_width_without_elision = self.max_width
+            - elide_glyph.as_ref().map_or(Font::Length::zero(), |g| self.font.glyph_advance_x(g));
 
-    let two = Font::LengthPrimitive::one() + Font::LengthPrimitive::one();
+        let glyphs = RefCell::new(Vec::new());
 
-    let baseline_y = match vertical_alignment {
-        TextVerticalAlignment::top => Font::Length::zero(),
-        TextVerticalAlignment::center => max_height / two - text_height(&glyphs) / two,
-        TextVerticalAlignment::bottom => max_height - text_height(&glyphs),
-    };
+        let new_line_break_iter = |glyphs| {
+            TextLineBreaker::new(
+                self.string,
+                self.font,
+                glyphs,
+                if wrap { Some(self.max_width) } else { None },
+            )
+        };
+        let mut text_lines = None;
 
-    let mut y = baseline_y;
-
-    let mut process_line =
-        |line: &TextLine<Font::Length>, glyphs: &RefCell<Vec<(Font::Glyph, usize)>>| {
-            let x = match horizontal_alignment {
-                TextHorizontalAlignment::left => Font::Length::zero(),
-                TextHorizontalAlignment::center => {
-                    max_width / two - euclid::approxord::min(max_width, line.text_width) / two
-                }
-                TextHorizontalAlignment::right => {
-                    max_width - euclid::approxord::min(max_width, line.text_width)
-                }
-            };
-
-            let mut elide_glyph = elide_glyph.as_ref().clone();
-
-            let glyphs = glyphs.borrow();
-            let glyph_it = glyphs[line.glyph_range.clone()].iter();
-            let mut glyph_x = Font::Length::zero();
-            let mut positioned_glyph_it = glyph_it.filter_map(|(glyph, _)| {
-                // TODO: cut off at grapheme boundaries
-                if glyph_x >= max_width_without_elision {
-                    if let Some(elide_glyph) = elide_glyph.take() {
-                        return Some((glyph_x, elide_glyph));
-                    } else {
-                        return None;
-                    }
-                }
-                let positioned_glyph = (glyph_x, glyph);
-                glyph_x += font.glyph_advance_x(glyph);
-                Some(positioned_glyph)
-            });
-
-            layout_line(&mut positioned_glyph_it, x, y, line);
-            y += font_height;
+        let mut text_height = |glyphs| {
+            if self.single_line {
+                self.font_height
+            } else {
+                text_lines = Some(new_line_break_iter(glyphs).collect::<Vec<_>>());
+                self.font_height * (text_lines.as_ref().unwrap().len() as i16).into()
+            }
         };
 
-    if let Some(lines_vec) = text_lines.take() {
-        for line in lines_vec {
-            process_line(&line, &glyphs);
-        }
-    } else {
-        for line in new_line_break_iter(&glyphs) {
-            process_line(&line, &glyphs);
-        }
-    }
+        let two = Font::LengthPrimitive::one() + Font::LengthPrimitive::one();
 
-    baseline_y
+        let baseline_y = match self.vertical_alignment {
+            TextVerticalAlignment::top => Font::Length::zero(),
+            TextVerticalAlignment::center => self.max_height / two - text_height(&glyphs) / two,
+            TextVerticalAlignment::bottom => self.max_height - text_height(&glyphs),
+        };
+
+        let mut y = baseline_y;
+
+        let mut process_line =
+            |line: &TextLine<Font::Length>, glyphs: &RefCell<Vec<(Font::Glyph, usize)>>| {
+                let x = match self.horizontal_alignment {
+                    TextHorizontalAlignment::left => Font::Length::zero(),
+                    TextHorizontalAlignment::center => {
+                        self.max_width / two
+                            - euclid::approxord::min(self.max_width, line.text_width) / two
+                    }
+                    TextHorizontalAlignment::right => {
+                        self.max_width - euclid::approxord::min(self.max_width, line.text_width)
+                    }
+                };
+
+                let mut elide_glyph = elide_glyph.as_ref().clone();
+
+                let glyphs = glyphs.borrow();
+                let glyph_it = glyphs[line.glyph_range.clone()].iter();
+                let mut glyph_x = Font::Length::zero();
+                let mut positioned_glyph_it = glyph_it.filter_map(|(glyph, _)| {
+                    // TODO: cut off at grapheme boundaries
+                    if glyph_x >= max_width_without_elision {
+                        if let Some(elide_glyph) = elide_glyph.take() {
+                            return Some((glyph_x, elide_glyph));
+                        } else {
+                            return None;
+                        }
+                    }
+                    let positioned_glyph = (glyph_x, glyph);
+                    glyph_x += self.font.glyph_advance_x(glyph);
+                    Some(positioned_glyph)
+                });
+
+                line_callback(&mut positioned_glyph_it, x, y, line);
+                y += self.font_height;
+            };
+
+        if let Some(lines_vec) = text_lines.take() {
+            for line in lines_vec {
+                process_line(&line, &glyphs);
+            }
+        } else {
+            for line in new_line_break_iter(&glyphs) {
+                process_line(&line, &glyphs);
+            }
+        }
+
+        baseline_y
+    }
 }
 
 #[test]
@@ -926,20 +942,21 @@ mod linebreak_tests {
 
         let mut lines = Vec::new();
 
-        super::layout_text_lines(
-            text,
-            &font,
-            10.,
-            13. * 10.,
-            10.,
-            (TextHorizontalAlignment::left, TextVerticalAlignment::top),
-            TextWrap::no_wrap,
-            TextOverflow::elide,
-            true,
-            |glyphs, _, _, _| {
-                lines.push(glyphs.map(|(_, g)| g.clone()).collect::<Vec<_>>());
-            },
-        );
+        let paragraph = TextParagraphLayout {
+            string: text,
+            font: &font,
+            font_height: 10.,
+            max_width: 13. * 10.,
+            max_height: 10.,
+            horizontal_alignment: TextHorizontalAlignment::left,
+            vertical_alignment: TextVerticalAlignment::top,
+            wrap: TextWrap::no_wrap,
+            overflow: TextOverflow::elide,
+            single_line: true,
+        };
+        paragraph.layout_lines(|glyphs, _, _, _| {
+            lines.push(glyphs.map(|(_, g)| g.clone()).collect::<Vec<_>>());
+        });
 
         assert_eq!(lines.len(), 1);
         let rendered_text = lines[0].iter().map(|glyph| glyph.char.unwrap()).collect::<String>();
