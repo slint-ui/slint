@@ -4,13 +4,13 @@
 #![warn(missing_docs)]
 //! Exposed Window API
 
-use crate::Callback;
 use crate::api::CloseRequestResponse;
 use crate::component::{ComponentRc, ComponentWeak};
 use crate::graphics::{Point, Size};
 use crate::input::{KeyEvent, MouseEvent, MouseInputState, TextCursorBlinker};
 use crate::items::{ItemRc, ItemRef, ItemWeak, MouseCursor};
 use crate::properties::{Property, PropertyTracker};
+use crate::Callback;
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use core::cell::{Cell, RefCell};
@@ -556,8 +556,11 @@ impl Window {
     }
 
     /// Sets the close_requested callback. The callback will be run when the user tries to close a window.
-    pub fn set_close_requested(&self, mut callback: impl FnMut() -> CloseRequestResponse + 'static) {
-        self.close_requested.set_handler( move |()| callback());
+    pub fn set_close_requested(
+        &self,
+        mut callback: impl FnMut() -> CloseRequestResponse + 'static,
+    ) {
+        self.close_requested.set_handler(move |()| callback());
     }
 
     /// Runs the close_requested callback.
@@ -566,7 +569,7 @@ impl Window {
     pub fn request_close(&self) -> bool {
         match self.close_requested.call(&()) {
             CloseRequestResponse::HideWindow => true,
-            CloseRequestResponse::KeepWindowShown => false
+            CloseRequestResponse::KeepWindowShown => false,
         }
     }
 }
