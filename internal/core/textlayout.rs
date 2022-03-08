@@ -562,7 +562,6 @@ impl<'a, Font: TextShaper> TextParagraphLayout<'a, Font> {
             &mut dyn Iterator<Item = (Font::Length, &'_ Font::Glyph)>,
             Font::Length,
             Font::Length,
-            &TextLine<Font::Length>,
         ),
     ) -> Font::Length {
         let wrap = self.wrap == TextWrap::word_wrap;
@@ -637,7 +636,7 @@ impl<'a, Font: TextShaper> TextParagraphLayout<'a, Font> {
                     Some(positioned_glyph)
                 });
 
-                line_callback(&mut positioned_glyph_it, x, y, line);
+                line_callback(&mut positioned_glyph_it, x, y);
                 y += self.font_height;
             };
 
@@ -954,7 +953,7 @@ mod linebreak_tests {
             overflow: TextOverflow::elide,
             single_line: true,
         };
-        paragraph.layout_lines(|glyphs, _, _, _| {
+        paragraph.layout_lines(|glyphs, _, _| {
             lines.push(glyphs.map(|(_, g)| g.clone()).collect::<Vec<_>>());
         });
 
