@@ -53,9 +53,9 @@ mod linebreak_unicode;
 use linebreak_unicode::{BreakOpportunity, LineBreakIterator};
 
 #[cfg(not(feature = "unicode-linebreak"))]
-mod linebreak_ascii;
+mod linebreak_simple;
 #[cfg(not(feature = "unicode-linebreak"))]
-use linebreak_ascii::{BreakOpportunity, LineBreakIterator};
+use linebreak_simple::{BreakOpportunity, LineBreakIterator};
 
 pub trait TextShaper {
     type LengthPrimitive: core::ops::Mul
