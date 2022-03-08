@@ -553,8 +553,7 @@ pub struct TextParagraphLayout<'a, Font: TextShaper> {
 
 impl<'a, Font: TextShaper> TextParagraphLayout<'a, Font> {
     /// Layout the given string in lines, and call the `layout_line` callback with the line to draw at position y.
-    /// The signature of the `layout_line` function is: `(canvas, text, pos, start_index, line_metrics)`.
-    /// start index is the starting byte of the text in the string.
+    /// The signature of the `layout_line` function is: `(glyph_iterator, line_x, line_y)`.
     /// Returns the baseline y coordinate.
     pub fn layout_lines(
         &self,
