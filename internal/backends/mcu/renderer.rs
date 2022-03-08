@@ -563,7 +563,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
             single_line: false,
         };
 
-        paragraph.layout_lines(|glyphs, line_x, line_y, _| {
+        paragraph.layout_lines(|glyphs, line_x, line_y| {
             let baseline_y = line_y + font.ascent();
             while let Some((glyph_baseline_x, glyph)) = glyphs.next() {
                 let bitmap_glyph = match glyph {
