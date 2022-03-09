@@ -464,6 +464,9 @@ pub struct Element {
     /// the index of the first children in the tree, set with item_index
     pub item_index_of_first_children: once_cell::unsync::OnceCell<usize>,
 
+    /// How many times the element was inlined
+    pub inline_depth: i32,
+
     /// The AST node, if available
     pub node: Option<syntax_nodes::Element>,
 }

@@ -44,6 +44,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 is_flickable_viewport: elem.is_flickable_viewport,
                 item_index: Default::default(), // Not determined yet
                 item_index_of_first_children: Default::default(),
+                inline_depth: 0,
             })),
             parent_element,
             ..Component::default()
