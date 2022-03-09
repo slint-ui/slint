@@ -2,7 +2,7 @@
 
 ## Visual Studio Code
 
-For VSCode, we have an [extension in this repository](vscode_extension), you can install it
+For VSCode, we have an [extension in this repository](vscode), you can install it
 directly from the market place. This includes the Slint language server and is a one-stop shop to
 get you started.
 
