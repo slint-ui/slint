@@ -338,6 +338,7 @@ impl i_slint_core::backend::Backend for SimulatorBackend {
 
     fn run_event_loop(&'static self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {
         event_loop::run(behavior);
+        std::process::exit(0);
     }
 
     fn quit_event_loop(&'static self) {
