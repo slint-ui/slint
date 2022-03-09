@@ -1,9 +1,22 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+struct Str := { foo: Rectangle }
+//                   ^error{'Rectangle' is not a valid type}
+
 Comp := Rectangle {
     property <Rectangle> r;
-//            ^error{'Rectangle' is not a valid property type}
+//            ^error{'Rectangle' is not a valid type}
+
+    property <[Rectangle]> ls;
+//             ^error{'Rectangle' is not a valid type}
+    property <{foo: Rectangle}> st;
+//                  ^error{'Rectangle' is not a valid type}
+
+    callback cb1(Rectangle);
+//               ^error{'Rectangle' is not a valid type}
+    callback cb1() -> Rectangle;
+//                    ^error{'Rectangle' is not a valid type}
 }
 
 Foo := Rectangle {
