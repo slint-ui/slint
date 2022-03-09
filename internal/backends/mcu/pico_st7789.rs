@@ -31,7 +31,7 @@ static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
-pub fn init_board() {
+pub fn init() {
     let mut pac = pac::Peripherals::take().unwrap();
     let core = pac::CorePeripherals::take().unwrap();
 

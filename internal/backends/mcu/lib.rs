@@ -352,7 +352,7 @@ pub mod native_widgets {}
 pub const HAS_NATIVE_STYLE: bool = false;
 
 #[cfg(feature = "simulator")]
-pub fn init_simulator() {
+pub fn init() {
     i_slint_core::backend::instance_or_init(|| alloc::boxed::Box::new(simulator::SimulatorBackend));
 }
 
@@ -363,8 +363,8 @@ pub fn init_with_display<Display: Devices + 'static>(display: Display) {
     });
 }
 
-#[cfg(not(feature = "pico-st7789"))]
-pub fn init_with_mock_display() {
+#[cfg(not(any(feature = "pico-st7789", feature = "simulator")))]
+pub fn init() {
     struct EmptyDisplay;
     impl embedded_graphics::draw_target::DrawTarget for EmptyDisplay {
         type Color = embedded_graphics::pixelcolor::Rgb888;
@@ -390,3 +390,6 @@ mod pico_st7789;
 
 #[cfg(feature = "pico-st7789")]
 pub use pico_st7789::*;
+
+#[cfg(not(feature = "pico-st7789"))]
+pub use i_slint_core_macros::identity as entry;
