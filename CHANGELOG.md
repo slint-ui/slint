@@ -6,15 +6,15 @@ All notable changes to this project are documented in this file.
 ### Added
 
  - C++ interpreter API: added a `Value::Value(int)` constructor
- - Globals Singleton may now refer to other global singletons
+ - Global singletons in `.slint` files may now refer to other global singletons
  - Added `input-type` property to `TextInput` and `LineEdit` that allows for characters to be replaced in password fields
- - The SpinBox widget now handle keys up and key down event
+ - The `SpinBox` widget now handles up and down key events
 
 ### Fixed
 
- - `TouchArea::has-hover` is now properly set to false when the mouse leaves the window.
+ - `TouchArea::has-hover` is now properly set to false when the mouse leaves the window
  - Fixed some cases of panics with 'Constant property being changed'
- - Fixed Flickable animation
+ - Fixed `Flickable` animation
  - Better compilation error when selecting unknown styles
  - Fixed duplicated key event for some keys (such as tab) with the GL backend
  - Improved property optimizations by inlining some bindings and remove more unused properties
