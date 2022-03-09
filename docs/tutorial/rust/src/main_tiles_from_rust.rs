@@ -20,7 +20,7 @@ fn main() {
 
     // Assign the shuffled Vec to the model property
     let tiles_model = std::rc::Rc::new(slint::VecModel::from(tiles));
-    main_window.set_memory_tiles(tiles_model.into());
+    main_window.set_memory_tiles(tiles_model.clone().into());
 
     main_window.run();
 }
