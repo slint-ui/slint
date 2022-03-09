@@ -1,5 +1,14 @@
 # Editor Configuration for Slint
 
+This folder contains extensions or configuration files for different editor to better support .slint files.
+This README contains information on how to configure various editors. 
+
+If your favorite editor is not in this list, it just means we did not test it, not that it doesn't work. 
+We do provide a [language server for Slint](../tools/lsp) that should work with most editor that supports
+the Language Server Protocol (LSP)
+(see its [README.md](../tools/lsp/README.md) for more info on how to install it).
+If you do test your editor with it, we would be happy to accept a pull request that adds instructions here.
+
 ## Visual Studio Code
 
 For VSCode, we have an [extension in this repository](vscode), you can install it
