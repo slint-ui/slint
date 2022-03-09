@@ -289,14 +289,15 @@ jobs:
           mkdir package
           tar xvf cpp-package/Slint-cpp-*.tar.gz -C package --strip-components=1
           echo "CMAKE_PREFIX_PATH=`pwd`/package" >> $GITHUB_ENV
+    # Build the examples with a config different than the package (which is debug)
     - name: Build examples
       uses: lukka/run-cmake@v3.4
       with:
         cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
         cmakeListsTxtPath: examples/CMakeLists.txt
-        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=Debug -DSLINT_FEATURE_INTERPRETER=1 -DSLINT_FEATURE_BACKEND_QT=1'
+        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=Release -DSLINT_FEATURE_INTERPRETER=1 -DSLINT_FEATURE_BACKEND_QT=1'
         buildDirectory: ${{ runner.workspace }}/examples/build
-        buildWithCMakeArgs: '--config Debug'
+        buildWithCMakeArgs: '--config Release'
 
   # test to compile the mcu backend with nightly and for the armv6 target (no_std)
   mcu:
