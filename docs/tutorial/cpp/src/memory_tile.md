@@ -16,12 +16,20 @@ We copy the following code into the `memory.slint` file:
 Inside the <span class="hljs-built_in">Rectangle</span> we place an <span class="hljs-built_in">Image</span> element that
 loads an icon with the <span class="hljs-built_in">@image-url()</span> macro. The path is relative to the folder in which
 the `memory.slint` is located. This icon and others we're going to use later need to be installed first. You can download a
-[Zip archive](https://slint-ui.com/blog/memory-game-tutorial/icons.zip) that we have prepared and extract it with the
-following two commands:
+[Zip archive](https://slint-ui.com/blog/memory-game-tutorial/icons.zip) that we have prepared.
+
+If you are on Linux or macOS, download and extract it with the following two commands:
 
 ```sh
 curl -O https://slint-ui.com/blog/memory-game-tutorial/icons.zip
 unzip icons.zip
+```
+
+If you are on Windows, use the following commands:
+
+```
+powershell curl -Uri https://slint-ui.com/blog/memory-game-tutorial/icons.zip -Outfile icons.zip
+powershell Expand-Archive -Path icons.zip -DestinationPath .
 ```
 
 This should unpack an `icons` directory containing a bunch of icons.
