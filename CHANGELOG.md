@@ -3,6 +3,8 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## [0.2.1] - 2022-03-09
+
 ### Added
 
  - C++ interpreter API: added a `Value::Value(int)` constructor
@@ -404,3 +406,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [0.1.5]: https://github.com/slint-ui/slint/releases/tag/v0.1.5
 [0.1.6]: https://github.com/slint-ui/slint/releases/tag/v0.1.6
 [0.2.0]: https://github.com/slint-ui/slint/releases/tag/v0.2.0
+[0.2.1]: https://github.com/slint-ui/slint/releases/tag/v0.2.1
