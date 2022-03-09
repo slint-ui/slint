@@ -403,4 +403,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [0.1.4]: https://github.com/slint-ui/slint/releases/tag/v0.1.4
 [0.1.5]: https://github.com/slint-ui/slint/releases/tag/v0.1.5
 [0.1.6]: https://github.com/slint-ui/slint/releases/tag/v0.1.6
-[0.2.0]: https://github.com/slint-ui/slint/releases/tag/v0.0.2
+[0.2.0]: https://github.com/slint-ui/slint/releases/tag/v0.2.0
