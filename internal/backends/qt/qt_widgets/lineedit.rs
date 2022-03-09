@@ -128,10 +128,10 @@ impl Item for NativeLineEdit {
             option.rect = QRect(QPoint(), size / dpr);
             option.lineWidth = 1;
             option.midLineWidth = 0;
-            if (has_focus)
-                option.state |= QStyle::State_HasFocus;
             if (enabled) {
                 option.state |= QStyle::State_Enabled;
+                if (has_focus)
+                    option.state |= QStyle::State_HasFocus;
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
             }
