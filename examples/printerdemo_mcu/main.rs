@@ -8,9 +8,6 @@ extern crate alloc;
 
 use alloc::vec::Vec;
 
-#[cfg(target_arch = "wasm32")]
-use wasm_bindgen::prelude::*;
-
 use alloc::rc::Rc;
 use slint::Model;
 
@@ -43,34 +40,9 @@ impl PrinterQueueData {
     }
 }
 
-#[cfg(not(feature = "mcu-pico-st7789"))]
-#[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-pub fn main() {
-    #[cfg(feature = "i-slint-backend-mcu")]
-    {
-        #[cfg(feature = "mcu-simulator")]
-        i_slint_backend_mcu::init_simulator();
-        #[cfg(not(feature = "mcu-simulator"))]
-        i_slint_backend_mcu::init_with_mock_display();
-    }
-
-    // This provides better error messages in debug mode.
-    // It's disabled in release mode so it doesn't bloat up the file size.
-    #[cfg(all(debug_assertions, target_arch = "wasm32"))]
-    console_error_panic_hook::set_once();
-
-    printerdemo_main();
-}
-
-#[cfg(feature = "mcu-pico-st7789")]
 #[i_slint_backend_mcu::entry]
 fn main() -> ! {
-    i_slint_backend_mcu::init_board();
-    printerdemo_main();
-    loop {}
-}
-
-fn printerdemo_main() {
+    i_slint_backend_mcu::init();
     let main_window = MainWindow::new();
     main_window.set_ink_levels(slint::VecModel::from_slice(&[
         InkLevel { color: slint::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
@@ -128,4 +100,6 @@ fn printerdemo_main() {
     );
 
     main_window.run();
+
+    panic!("The MCU demo should not quit")
 }

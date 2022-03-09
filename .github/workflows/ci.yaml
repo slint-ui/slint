@@ -301,6 +301,10 @@ jobs:
 
   # test to compile the mcu backend with nightly and for the armv6 target (no_std)
   mcu:
+    env:
+      SLINT_EMBED_GLYPHS: 1
+      SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
+      SLINT_PROCESS_IMAGES: 1
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
@@ -315,7 +319,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
           command: check
-          args: --target=thumbv6m-none-eabi -p i-slint-backend-mcu --no-default-features --features pico-st7789
+          args: --target=thumbv6m-none-eabi -p printerdemo_mcu --features mcu-pico-st7789
 
   docs:
     uses: slint-ui/slint/.github/workflows/build_docs.yaml@master
