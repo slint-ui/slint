@@ -416,14 +416,14 @@ private:
 inline Value::Value(const slint::SharedVector<Value> &array)
 {
     cbindgen_private::slint_interpreter_value_new_array_model(
-            &reinterpret_cast<const slint::SharedVector<ValueOpaque> &>(array), &inner);
+            reinterpret_cast<const slint::SharedVector<ValueOpaque> *>(&array), &inner);
 }
 
 inline std::optional<slint::SharedVector<Value>> Value::to_array() const
 {
     slint::SharedVector<Value> array;
     if (cbindgen_private::slint_interpreter_value_to_array(
-                &inner, &reinterpret_cast<slint::SharedVector<ValueOpaque> &>(array))) {
+                &inner, reinterpret_cast<slint::SharedVector<ValueOpaque> *>(&array))) {
         return array;
     } else {
         return {};
