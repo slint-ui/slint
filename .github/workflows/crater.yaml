@@ -24,7 +24,6 @@ jobs:
           - "https://github.com/jturcotte/chiptrack"
           - "https://codeberg.org/Be.ing/moire"
           - "https://github.com/Project-Trains/launcher"
-          - "https://github.com/jmdaemon/timesync"
           - "https://github.com/jmdaemon/anno"
           - "https://github.com/Kroisse/sudoku"
           - "https://github.com/jannes/han-cihui"
