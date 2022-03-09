@@ -21,14 +21,14 @@ jobs:
         git_url:
           - "https://github.com/slint-ui/cargo-ui"
           - "https://github.com/Futsch1/image-sieve"
-          - "https://github.com/samyak-jain/nitroshot"
-          - "https://github.com/lukas-jung/sixty-mines"
-          - "https://github.com/getsentry/hackweek-rust-gui"
-          - "https://github.com/Vuenc/SixtyFPS-Str8ts"
           - "https://github.com/jturcotte/chiptrack"
-          - "https://github.com/jrmoulton/apple-music-player"
-          - "https://github.com/Kirottu/SteamRunner"
           - "https://codeberg.org/Be.ing/moire"
+          - "https://github.com/Project-Trains/launcher"
+          - "https://github.com/jmdaemon/timesync"
+          - "https://github.com/jmdaemon/anno"
+          - "https://github.com/Kroisse/sudoku"
+          - "https://github.com/jannes/han-cihui"
+          - "https://github.com/leofidus/ntfs-explorer"
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
