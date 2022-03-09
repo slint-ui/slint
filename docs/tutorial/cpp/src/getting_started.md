@@ -49,15 +49,32 @@ What's still missing is the `main.cpp`:
 
 To recap, we now have a directory with a `CMakeLists.txt`, `memory.slint` and `main.cpp`.
 
-We can now compile and run this program:
+We can now compile the program in a terminal:
 
 ```sh
 cmake -GNinja .
 cmake --build .
+```
+
+If you are on Linux or macOS, you can run the program:
+
+```sh
 ./memory_game
 ```
 
 and a window will appear with the green "Hello World" greeting.
+
+If you are stepping through this tutorial on a Windows machine, you need to add the `bin` sub-directory into your `%PATH%`:
+
+```sh
+set PATH=%CD%\bin;%PATH%
+```
+
+so that Windows to can find the Slint run-time library. Then you can run it with
+
+```sh
+memory_game
+```
 
 ![Screenshot of initial tutorial app showing Hello World](https://slint-ui.com/blog/memory-game-tutorial/getting-started.png "Hello World")
 
