@@ -362,7 +362,7 @@ A button that, when clicked, opens a popup to select a value.
 import { ComboBox } from "std-widgets.slint";
 Example := Window {
     width: 200px;
-    height: 25px;
+    height: 130px;
     ComboBox {
         width: preferred-width;
         height: preferred-height;
