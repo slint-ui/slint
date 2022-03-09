@@ -1,0 +1,44 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+RoundedIcon := Rectangle {
+    property <float> background-opacity <=> background-fill.opacity;
+    background-fill := Rectangle {
+        background:  #ff7d34;
+        opacity: 1.0;
+    }
+    property <float> o: background-fill.opacity;
+}
+
+Device := VerticalLayout {
+    spacing: 5px;
+    ri := RoundedIcon {
+        background-opacity: 0.15;
+    }
+
+    property<float> o: ri.o;
+}
+
+Sub := Rectangle {
+    property o <=> d.o;
+    d := Device {}
+}
+
+
+TestCase := Rectangle {
+    s := Sub {}
+    d := Device {}
+    property o1 <=> s.o;
+    property o2 <=> d.o;
+    property <bool> test: abs(o1 - 0.15) < 0.001 && abs(o2 - 0.15) < 0.001;
+}
+
+/*
+
+```rust
+let instance = TestCase::new();
+assert!(instance.get_test());
+```
+
+*/

@@ -76,6 +76,7 @@ fn inline_element(
     debug_assert!(inlined_component.parent_element.upgrade().is_none());
 
     let mut elem_mut = elem.borrow_mut();
+    let priority_delta = 1 + elem_mut.inline_depth;
     elem_mut.base_type = inlined_component.root_element.borrow().base_type.clone();
     elem_mut.property_declarations.extend(
         inlined_component.root_element.borrow().property_declarations.iter().map(clone_tuple),
@@ -97,12 +98,9 @@ fn inline_element(
     new_children
         .reserve(elem_mut.children.len() + inlined_component.root_element.borrow().children.len());
     new_children.extend(
-        inlined_component
-            .root_element
-            .borrow()
-            .children
-            .iter()
-            .map(|x| duplicate_element_with_mapping(x, &mut mapping, root_component)),
+        inlined_component.root_element.borrow().children.iter().map(|x| {
+            duplicate_element_with_mapping(x, &mut mapping, root_component, priority_delta)
+        }),
     );
 
     match inlined_component
@@ -129,30 +127,32 @@ fn inline_element(
     if let Type::Component(c) = &mut elem_mut.base_type {
         if c.parent_element.upgrade().is_some() {
             debug_assert!(Rc::ptr_eq(elem, &c.parent_element.upgrade().unwrap()));
-            *c = duplicate_sub_component(c, elem, &mut mapping);
+            *c = duplicate_sub_component(c, elem, &mut mapping, priority_delta);
         }
     };
 
     root_component.optimized_elements.borrow_mut().extend(
-        inlined_component
-            .optimized_elements
-            .borrow()
-            .iter()
-            .map(|x| duplicate_element_with_mapping(x, &mut mapping, root_component)),
+        inlined_component.optimized_elements.borrow().iter().map(|x| {
+            duplicate_element_with_mapping(x, &mut mapping, root_component, priority_delta)
+        }),
     );
     root_component.popup_windows.borrow_mut().extend(
-        inlined_component.popup_windows.borrow().iter().map(|p| duplicate_popup(p, &mut mapping)),
+        inlined_component
+            .popup_windows
+            .borrow()
+            .iter()
+            .map(|p| duplicate_popup(p, &mut mapping, priority_delta)),
     );
     for (k, val) in inlined_component.root_element.borrow().bindings.iter() {
         match elem_mut.bindings.entry(k.clone()) {
             std::collections::btree_map::Entry::Vacant(entry) => {
                 let priority = &mut entry.insert(val.clone()).get_mut().priority;
-                *priority = priority.saturating_add(1);
+                *priority = priority.saturating_add(priority_delta);
             }
             std::collections::btree_map::Entry::Occupied(mut entry) => {
                 let entry = entry.get_mut().get_mut();
                 if entry.merge_with(&val.borrow()) {
-                    entry.priority = entry.priority.saturating_add(1);
+                    entry.priority = entry.priority.saturating_add(priority_delta);
                 }
             }
         }
@@ -184,6 +184,7 @@ fn duplicate_element_with_mapping(
     element: &ElementRc,
     mapping: &mut HashMap<ByAddress<ElementRc>, ElementRc>,
     root_component: &Rc<Component>,
+    priority_delta: i32,
 ) -> ElementRc {
     let elem = element.borrow();
     let new = Rc::new(RefCell::new(Element {
@@ -194,13 +195,13 @@ fn duplicate_element_with_mapping(
         bindings: elem
             .bindings
             .iter()
-            .map(|b| duplicate_binding(b, mapping, root_component))
+            .map(|b| duplicate_binding(b, mapping, root_component, priority_delta))
             .collect(),
         property_analysis: elem.property_analysis.clone(),
         children: elem
             .children
             .iter()
-            .map(|x| duplicate_element_with_mapping(x, mapping, root_component))
+            .map(|x| duplicate_element_with_mapping(x, mapping, root_component, priority_delta))
             .collect(),
         repeated: elem.repeated.clone(),
         node: elem.node.clone(),
@@ -209,7 +210,7 @@ fn duplicate_element_with_mapping(
         transitions: elem
             .transitions
             .iter()
-            .map(|t| duplicate_transition(t, mapping, root_component))
+            .map(|t| duplicate_transition(t, mapping, root_component, priority_delta))
             .collect(),
         child_of_layout: elem.child_of_layout,
         layout_info_prop: elem.layout_info_prop.clone(),
@@ -217,12 +218,13 @@ fn duplicate_element_with_mapping(
         item_index: Default::default(), // Not determined yet
         item_index_of_first_children: Default::default(),
         is_flickable_viewport: elem.is_flickable_viewport,
+        inline_depth: elem.inline_depth + 1,
     }));
     mapping.insert(element_key(element.clone()), new.clone());
     if let Type::Component(c) = &mut new.borrow_mut().base_type {
         if c.parent_element.upgrade().is_some() {
             debug_assert!(Rc::ptr_eq(element, &c.parent_element.upgrade().unwrap()));
-            *c = duplicate_sub_component(c, &new, mapping);
+            *c = duplicate_sub_component(c, &new, mapping, priority_delta);
         }
     };
 
@@ -234,6 +236,7 @@ fn duplicate_sub_component(
     component_to_duplicate: &Rc<Component>,
     new_parent: &ElementRc,
     mapping: &mut HashMap<ByAddress<ElementRc>, ElementRc>,
+    priority_delta: i32,
 ) -> Rc<Component> {
     debug_assert!(component_to_duplicate.parent_element.upgrade().is_some());
     let new_component = Component {
@@ -242,6 +245,7 @@ fn duplicate_sub_component(
             &component_to_duplicate.root_element,
             mapping,
             component_to_duplicate, // that's the wrong one, but we fixup further
+            priority_delta,
         ),
         parent_element: Rc::downgrade(new_parent),
         optimized_elements: RefCell::new(
@@ -249,7 +253,14 @@ fn duplicate_sub_component(
                 .optimized_elements
                 .borrow()
                 .iter()
-                .map(|e| duplicate_element_with_mapping(e, mapping, component_to_duplicate))
+                .map(|e| {
+                    duplicate_element_with_mapping(
+                        e,
+                        mapping,
+                        component_to_duplicate,
+                        priority_delta,
+                    )
+                })
                 .collect(),
         ),
         embedded_file_resources: component_to_duplicate.embedded_file_resources.clone(),
@@ -271,7 +282,7 @@ fn duplicate_sub_component(
         .popup_windows
         .borrow()
         .iter()
-        .map(|p| duplicate_popup(p, mapping))
+        .map(|p| duplicate_popup(p, mapping, priority_delta))
         .collect();
     for p in new_component.popup_windows.borrow_mut().iter_mut() {
         fixup_reference(&mut p.x, mapping);
@@ -287,6 +298,7 @@ fn duplicate_sub_component(
 fn duplicate_popup(
     p: &PopupWindow,
     mapping: &mut HashMap<ByAddress<ElementRc>, ElementRc>,
+    priority_delta: i32,
 ) -> PopupWindow {
     let parent = mapping
         .get(&element_key(p.component.parent_element.upgrade().expect("must have a parent")))
@@ -295,7 +307,7 @@ fn duplicate_popup(
     PopupWindow {
         x: p.x.clone(),
         y: p.y.clone(),
-        component: duplicate_sub_component(&p.component, &parent, mapping),
+        component: duplicate_sub_component(&p.component, &parent, mapping, priority_delta),
         parent_element: mapping
             .get(&element_key(p.parent_element.clone()))
             .expect("Parent element must be in the mapping")
@@ -309,16 +321,17 @@ fn duplicate_binding(
     (k, b): (&String, &RefCell<BindingExpression>),
     mapping: &mut HashMap<ByAddress<ElementRc>, ElementRc>,
     root_component: &Rc<Component>,
+    priority_delta: i32,
 ) -> (String, RefCell<BindingExpression>) {
     let b = b.borrow();
     let b = BindingExpression {
         expression: b.expression.clone(),
         span: b.span.clone(),
-        priority: b.priority.saturating_add(1),
+        priority: b.priority.saturating_add(priority_delta),
         animation: b
             .animation
             .as_ref()
-            .map(|pa| duplicate_property_animation(pa, mapping, root_component)),
+            .map(|pa| duplicate_property_animation(pa, mapping, root_component, priority_delta)),
         analysis: b.analysis.clone(),
         two_way_bindings: b.two_way_bindings.clone(),
     };
@@ -329,11 +342,15 @@ fn duplicate_property_animation(
     v: &PropertyAnimation,
     mapping: &mut HashMap<ByAddress<ElementRc>, ElementRc>,
     root_component: &Rc<Component>,
+    priority_delta: i32,
 ) -> PropertyAnimation {
     match v {
-        PropertyAnimation::Static(a) => {
-            PropertyAnimation::Static(duplicate_element_with_mapping(a, mapping, root_component))
-        }
+        PropertyAnimation::Static(a) => PropertyAnimation::Static(duplicate_element_with_mapping(
+            a,
+            mapping,
+            root_component,
+            priority_delta,
+        )),
         PropertyAnimation::Transition { state_ref, animations } => PropertyAnimation::Transition {
             state_ref: state_ref.clone(),
             animations: animations
@@ -345,6 +362,7 @@ fn duplicate_property_animation(
                         &a.animation,
                         mapping,
                         root_component,
+                        priority_delta,
                     ),
                 })
                 .collect(),
@@ -401,6 +419,7 @@ fn duplicate_transition(
     t: &Transition,
     mapping: &mut HashMap<ByAddress<ElementRc>, Rc<RefCell<Element>>>,
     root_component: &Rc<Component>,
+    priority_delta: i32,
 ) -> Transition {
     Transition {
         is_out: t.is_out,
@@ -412,7 +431,7 @@ fn duplicate_transition(
                 (
                     r.clone(),
                     loc.clone(),
-                    duplicate_element_with_mapping(anim, mapping, root_component),
+                    duplicate_element_with_mapping(anim, mapping, root_component, priority_delta),
                 )
             })
             .collect(),
