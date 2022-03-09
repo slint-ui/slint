@@ -12,6 +12,11 @@ All notable changes to this project will be documented in this file.
 ### Fixed
 
  - `TouchArea::has-hover` is now properly set to false when the mouse leaves the window.
+ - Fixed some cases of panics with 'Constant property being changed'
+ - Fixed Flickable animation
+ - Better compilation error when selecting unknown styles
+ - Fixed duplicated key event for some keys (such as tab) with the GL backend
+ - Improved property optimizations by inlining some bindings and remove more unused properties
 
 ## [0.2.0] - 2022-02-10
 
