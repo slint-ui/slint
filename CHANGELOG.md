@@ -18,7 +18,6 @@ All notable changes to this project are documented in this file.
  - Better compilation error when selecting unknown styles
  - Fixed duplicated key event for some keys (such as tab) with the GL backend
  - Improved property optimizations by inlining some bindings and remove more unused properties
- - Fixed `TouchArea::has-hover` not reset when the mouse leaves the window
 
 ## [0.2.0] - 2022-02-10
 
