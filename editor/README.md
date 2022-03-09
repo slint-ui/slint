@@ -76,10 +76,10 @@ To setup the lsp:
  3. Click *Add*
  4. As a name, use "Slint"
  5. use `*.slint` as a file pattern. (don't use MIME types)
- 6. As executable, select the `~/.cargo/bin/slint-lsp` binary (no arguments required)
+ 6. As executable, select the `slint-lsp` binary (no arguments required)
  7. Click *Apply* or *Ok*
 
-<img src="https://user-images.githubusercontent.com/959326/115923547-af5eeb00-a47e-11eb-8962-5a5f011892a7.png" width="50%" height="50%">
+<img src="https://user-images.githubusercontent.com/959326/157453134-c1ff17ed-6c44-4a48-802f-9a9b2a57e6ab.png" width="50%" height="50%">
 
 In order to **preview a component**, when you have a .slint file open, place your cursor to
 the name of the component you would like to preview and press *Alt + Enter* to open
