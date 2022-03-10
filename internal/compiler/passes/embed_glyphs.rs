@@ -156,7 +156,8 @@ fn embed_font(family_name: String, font: fontdue::Font, scale_factor: f64) -> Bi
     let coverage = ('a'..='z')
         .chain('A'..='Z')
         .chain('0'..='9')
-        .chain(" !\"#$%&'()*+,-./:;<=>?@\\]^_|~".chars());
+        .chain(" !\"#$%&'()*+,-./:;<=>?@\\]^_|~".chars())
+        .chain(std::iter::once('…'));
 
     let mut character_map: Vec<CharacterMapEntry> = coverage
         .enumerate()
