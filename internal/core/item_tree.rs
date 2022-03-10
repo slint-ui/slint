@@ -250,8 +250,9 @@ pub fn visit_item_tree<Base>(
 ) -> VisitChildrenResult {
     let mut visit_at_index = |idx: usize| -> VisitChildrenResult {
         match &item_tree[idx] {
-            ItemTreeNode::Item { item, .. } => {
-                visitor.visit_item(component, idx, item.apply_pin(base))
+            ItemTreeNode::Item { .. } => {
+                let item = crate::items::ItemRc::new(component.clone(), idx);
+                visitor.visit_item(component, idx, item.borrow())
             }
             ItemTreeNode::DynamicTree { index, .. } => {
                 if let Some(sub_idx) =
