@@ -226,6 +226,8 @@ jobs:
           toolchain: stable
           override: true
     - uses: Swatinem/rust-cache@v1
+      with:
+          key: x
     - uses: ilammy/msvc-dev-cmd@v1
     - name: Select MSVC (windows)
       run: |
