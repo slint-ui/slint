@@ -11,7 +11,7 @@ use crate::item_tree::TraversalOrder;
 use crate::items::ItemRef;
 use crate::layout::Orientation;
 use crate::properties::dependency_tracker::DependencyNode;
-use crate::{Property, SharedVector};
+use crate::{Property, SharedString, SharedVector};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
@@ -997,6 +997,18 @@ impl<C: RepeatedComponent> Repeater<C> {
 pub struct StandardListViewItem {
     /// The text content of the item
     pub text: crate::SharedString,
+}
+
+impl From<&str> for StandardListViewItem {
+    fn from(other: &str) -> Self {
+        return Self { text: other.into() };
+    }
+}
+
+impl From<SharedString> for StandardListViewItem {
+    fn from(other: SharedString) -> Self {
+        return Self { text: other };
+    }
 }
 
 #[test]
