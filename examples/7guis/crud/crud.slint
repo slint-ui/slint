@@ -3,7 +3,7 @@
 
 import { LineEdit, Button, Slider, StandardListView, GridBox, HorizontalBox } from "std-widgets.slint";
 
-Crud := Window {
+MainWindow := Window {
 
     GridBox {
         Text { text: "Filter prefix:"; }
@@ -13,20 +13,37 @@ Crud := Window {
             row: 1;
             rowspan: 3;
             colspan: 2;
-            model: [{ text: "Emil, Hans"}, {text: "Mustermann, Max"}, {text: "Tisch Roman"}];
+            model: root.names-list;
         }
 
         Text { col: 2; row: 1; text: "Name: "; }
-        LineEdit { text: "John"; }
-        Text { col: 2; row: 2; text: "Surename: "; }
-        LineEdit { text: "Romba"; }
+        LineEdit { text <=> root.name; }
+        Text { col: 2; row: 2; text: "Surname: "; }
+        LineEdit { text <=> root.surname; }
 
         HorizontalBox {
+            row: 4;
             alignment: start;
-            Button { text: "Create"; }
-            Button { text: "Update"; }
-            Button { text: "Delete"; }
+            Button {
+                text: "Create";
+                clicked => { root.createClicked() }
+            }
+            Button {
+                text: "Update";
+                clicked => { root.updateClicked() }
+            }
+            Button {
+                text: "Delete";
+                clicked => { root.deleteClicked() }
+            }
         }
 
     }
+    property <[StandardListViewItem]> names-list;
+    property <string> name;
+    property <string> surname;
+
+    callback createClicked();
+    callback updateClicked();
+    callback deleteClicked();
 }
