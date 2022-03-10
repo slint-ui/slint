@@ -62,9 +62,9 @@ impl<'id> Drop for ComponentBox<'id> {
     fn drop(&mut self) {
         let instance_ref = self.borrow_instance();
         if let Some(window) = eval::window_ref(instance_ref) {
-            i_slint_core::component::init_component_items(
+            i_slint_core::component::init_component_items_array(
                 instance_ref.instance,
-                instance_ref.component_type.item_tree.as_slice(),
+                instance_ref.component_type.item_array.as_slice(),
                 window,
             );
         }
@@ -261,6 +261,8 @@ pub struct ComponentDescription<'id> {
     /// INVARIANT: both dynamic_type and item_tree have the same lifetime id. Here it is erased to 'static
     dynamic_type: Rc<dynamic_type::TypeInfo<'id>>,
     item_tree: Vec<ItemTreeNode<crate::dynamic_type::Instance<'id>>>,
+    item_array:
+        Vec<vtable::VOffset<crate::dynamic_type::Instance<'id>, ItemVTable, vtable::AllowPin>>,
     pub(crate) items: HashMap<String, ItemWithinComponent>,
     pub(crate) custom_properties: HashMap<String, PropertiesWithinComponent>,
     pub(crate) custom_callbacks: HashMap<String, FieldOffset<Instance<'id>, Callback>>,
@@ -761,6 +763,8 @@ pub(crate) fn generate_component<'id>(
 
     struct TreeBuilder<'id> {
         tree_array: Vec<ItemTreeNode<Instance<'id>>>,
+        item_array:
+            Vec<vtable::VOffset<crate::dynamic_type::Instance<'id>, ItemVTable, vtable::AllowPin>>,
         items_types: HashMap<String, ItemWithinComponent>,
         type_builder: dynamic_type::TypeBuilder<'id>,
         repeater: Vec<ErasedRepeaterWithinComponent<'id>>,
@@ -817,12 +821,13 @@ pub(crate) fn generate_component<'id>(
                 self.type_builder.add_field(rt.type_info)
             };
             self.tree_array.push(ItemTreeNode::Item {
-                item: unsafe { vtable::VOffset::from_raw(rt.vtable, offset) },
+                item: unsafe { vtable::VOffset::from_raw(rt.vtable, std::usize::MAX) }, // I hope this is invalid:-)
                 children_index: child_offset,
                 children_count: item.children.len() as u32,
                 parent_index,
-                item_array_index: 0,
+                item_array_index: self.item_array.len() as u32,
             });
+            self.item_array.push(unsafe { vtable::VOffset::from_raw(rt.vtable, offset) });
             self.items_types.insert(
                 item.id.clone(),
                 ItemWithinComponent { offset, rtti: rt.clone(), elem: rc_item.clone() },
@@ -852,6 +857,7 @@ pub(crate) fn generate_component<'id>(
 
     let mut builder = TreeBuilder {
         tree_array: vec![],
+        item_array: vec![],
         items_types: HashMap::new(),
         type_builder: dynamic_type::TypeBuilder::new(guard),
         repeater: vec![],
@@ -1024,6 +1030,7 @@ pub(crate) fn generate_component<'id>(
         ct: t,
         dynamic_type: builder.type_builder.build(),
         item_tree: builder.tree_array,
+        item_array: builder.item_array,
         items: builder.items_types,
         custom_properties,
         custom_callbacks,
@@ -1130,9 +1137,9 @@ pub fn instantiate(
     let instance_ref = component_box.borrow_instance();
 
     if !component_type.original.is_global() {
-        i_slint_core::component::init_component_items(
+        i_slint_core::component::init_component_items_array(
             instance_ref.instance,
-            instance_ref.component_type.item_tree.as_slice(),
+            instance_ref.component_type.item_array.as_slice(),
             eval::window_ref(instance_ref).unwrap(),
         );
     }
@@ -1492,9 +1499,12 @@ unsafe extern "C" fn get_item_ref(component: ComponentRefPin, index: usize) -> P
     generativity::make_guard!(guard);
     let instance_ref = InstanceRef::from_pin_ref(component, guard);
     match &instance_ref.component_type.item_tree.as_slice()[index] {
-        ItemTreeNode::Item { item, .. } => core::mem::transmute::<Pin<ItemRef>, Pin<ItemRef>>(
-            item.apply_pin(instance_ref.instance),
-        ),
+        ItemTreeNode::Item { item_array_index, .. } => {
+            core::mem::transmute::<Pin<ItemRef>, Pin<ItemRef>>(
+                instance_ref.component_type.item_array[*item_array_index as usize]
+                    .apply_pin(instance_ref.instance),
+            )
+        }
         ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
     }
 }
