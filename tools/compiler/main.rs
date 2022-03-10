@@ -7,6 +7,7 @@ use i_slint_compiler::*;
 use std::io::Write;
 
 #[derive(Parser)]
+#[clap(author, version, about, long_about = None)]
 struct Cli {
     /// Set output format
     #[clap(short = 'f', long = "format", default_value = "cpp")]

@@ -28,6 +28,7 @@ mod from_0_0_6;
 mod from_0_1_0;
 
 #[derive(clap::Parser)]
+#[clap(author, version, about, long_about = None)]
 struct Cli {
     #[clap(name = "path to .slint file(s)", parse(from_os_str))]
     paths: Vec<std::path::PathBuf>,

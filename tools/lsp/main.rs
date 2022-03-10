@@ -38,6 +38,7 @@ type Error = Box<dyn std::error::Error>;
 const SHOW_PREVIEW_COMMAND: &str = "showPreview";
 
 #[derive(Clone, clap::Parser)]
+#[clap(author, version, about, long_about = None)]
 struct Cli {
     #[clap(
         short = 'I',

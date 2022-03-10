@@ -7,7 +7,7 @@ version = "0.2.2"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
-description = "Slint LSP server"
+description = "A language server protocol implementation for slint. "
 repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint-ui.com"
 categories = ["gui", "development-tools"]
@@ -35,7 +35,7 @@ i-slint-core = { version = "=0.2.2", path = "../../internal/core"}
 slint-interpreter = { version = "=0.2.2", path = "../../internal/interpreter", default-features = false, features = ["compat-0-2-0"] }
 i-slint-backend-selector = { version = "=0.2.2", path="../../internal/backends/selector" }
 
-clap = { version = "3.0.5", features=["derive", "wrap_help"] }
+clap = { version = "3.1", features = ["derive", "wrap_help"] }
 crossbeam-channel = "0.5"  # must match the version used by lsp-server
 dunce = "1.0.1"
 euclid = "0.22"

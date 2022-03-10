@@ -7,7 +7,7 @@ version = "0.2.2"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
-description = "Viewer binary for Slint"
+description = "The viewer binary for Slint"
 repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint-ui.com"
 categories = ["gui", "development-tools"]
@@ -28,7 +28,7 @@ i-slint-backend-selector = { version = "=0.2.2", path="../../internal/backends/s
 
 vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
 
-clap = { version = "3.0.5", features=["derive", "wrap_help"] }
+clap = { version = "3.1", features = ["derive", "wrap_help"] }
 codemap = "0.1"
 codemap-diagnostic = "0.1.1"
 notify = "4.0.15"

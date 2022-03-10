@@ -19,6 +19,6 @@ path = "main.rs"
 [dependencies]
 i-slint-compiler = { version = "=0.2.2", path = "../../internal/compiler", features = ["display-diagnostics", "cpp", "rust"]}
 
-clap = { version = "3.0.5", features=["derive", "wrap_help"] }
+clap = { version = "3.1", features = ["derive", "wrap_help"] }
 proc-macro2 = "1.0.11"
 spin_on = "0.1"
