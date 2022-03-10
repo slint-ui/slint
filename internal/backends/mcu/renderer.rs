@@ -8,7 +8,6 @@ use crate::{
     PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize, PointLengths, RectLengths,
     ScaleFactor, SizeLengths,
 };
-use alloc::collections::VecDeque;
 use alloc::rc::Rc;
 use alloc::{vec, vec::Vec};
 use core::pin::Pin;
@@ -75,23 +74,15 @@ pub fn render_window_frame(
     let mut screen_fill_profiler = profiler::Timer::new_stopped();
 
     let mut line_buffer = vec![background; size.width as usize];
+    let dirty_region = scene.dirty_region;
 
-    let dirty_region = scene
-        .dirty_region
-        .intersection(&PhysicalRect { origin: euclid::point2(0, 0), size })
-        .unwrap_or_default();
-
+    debug_assert!(scene.current_line >= dirty_region.origin.y_length());
     while scene.current_line < dirty_region.origin.y_length() + dirty_region.size.height_length() {
         line_buffer.fill(background);
-        line_processing_profiler.start(devices);
-        let line = scene.process_line();
-        line_processing_profiler.stop(devices);
-        if scene.current_line < dirty_region.origin.y_length() {
-            // FIXME: ideally we should start with that coordinate and not call process_line for all the lines before
-            continue;
-        }
         span_drawing_profiler.start(devices);
-        for span in line.spans.iter().rev() {
+        for span in scene.items[0..scene.current_items_index].iter().rev() {
+            debug_assert!(scene.current_line >= span.pos.y_length());
+            debug_assert!(scene.current_line < span.pos.y_length() + span.size.height_length(),);
             match span.command {
                 SceneCommand::Rectangle { color } => {
                     draw_functions::blend_buffer(
@@ -102,13 +93,18 @@ pub fn render_window_frame(
                 }
                 SceneCommand::Texture { texture_index } => {
                     let texture = &scene.textures[texture_index as usize];
-                    draw_functions::draw_texture_line(span, line.line, texture, &mut line_buffer);
+                    draw_functions::draw_texture_line(
+                        span,
+                        scene.current_line,
+                        texture,
+                        &mut line_buffer,
+                    );
                 }
                 SceneCommand::RoundedRectangle { rectangle_index } => {
                     let rr = &scene.rounded_rectangles[rectangle_index as usize];
                     draw_functions::draw_rounded_rectangle_line(
                         span,
-                        line.line,
+                        scene.current_line,
                         rr,
                         &mut line_buffer,
                     );
@@ -118,11 +114,21 @@ pub fn render_window_frame(
         span_drawing_profiler.stop(devices);
         screen_fill_profiler.start(devices);
         devices.fill_region(
-            euclid::rect(dirty_region.origin.x, line.line.get() as i16, dirty_region.size.width, 1),
+            euclid::rect(
+                dirty_region.origin.x,
+                scene.current_line.get() as i16,
+                dirty_region.size.width,
+                1,
+            ),
             &line_buffer[dirty_region.origin.x as usize
                 ..(dirty_region.origin.x + dirty_region.size.width) as usize],
         );
         screen_fill_profiler.stop(devices);
+        line_processing_profiler.start(devices);
+        if scene.current_line < dirty_region.origin.y_length() + dirty_region.size.height_length() {
+            scene.next_line();
+        }
+        line_processing_profiler.stop(devices);
     }
 
     line_processing_profiler.stop_profiling(devices, "line processing");
@@ -134,93 +140,158 @@ struct Scene {
     /// the next line to be processed
     current_line: PhysicalLength,
 
-    /// Element that have `y > current_line`
-    /// They must be sorted by `y` in reverse order (bottom to top)
-    /// then by `z` top to bottom
-    future_items: Vec<SceneItem>,
+    /// The items are sorted like so:
+    /// - `items[future_items_index..]` are the items that have `y > current_line`.
+    ///   They must be sorted by `y` (top to bottom), then by `z` (front to back)
+    /// - `items[..current_items_index]` are the items that overlap with the current_line,
+    ///   sorted by z (front to back)
+    items: Vec<SceneItem>,
 
-    /// The items that overlap with the current line, sorted by z top to bottom
-    current_items: VecDeque<SceneItem>,
-
-    /// Some staging buffer of scene item
-    next_items: VecDeque<SceneItem>,
+    future_items_index: usize,
+    current_items_index: usize,
 
     textures: Vec<SceneTexture>,
     rounded_rectangles: Vec<RoundedRectangle>,
-
     dirty_region: DirtyRegion,
 }
 
 impl Scene {
-    fn new(
+    pub fn new(
         mut items: Vec<SceneItem>,
         textures: Vec<SceneTexture>,
         rounded_rectangles: Vec<RoundedRectangle>,
         dirty_region: DirtyRegion,
     ) -> Self {
-        items.sort_unstable_by(|a, b| compare_scene_item(a, b).reverse());
+        let current_line = dirty_region.origin.y_length();
+        items.retain(|i| i.pos.y_length() + i.size.height_length() > current_line);
+        items.sort_unstable_by(|a, b| compare_scene_item(a, b));
+        let current_items_index = items.partition_point(|i| i.pos.y_length() <= current_line);
+        items[..current_items_index].sort_unstable_by(|a, b| b.z.cmp(&a.z));
         Self {
-            future_items: items,
-            current_line: PhysicalLength::zero(),
-            current_items: Default::default(),
-            next_items: Default::default(),
+            items,
+            current_line,
+            current_items_index,
+            future_items_index: current_items_index,
             textures,
             rounded_rectangles,
             dirty_region,
         }
     }
 
-    /// Will generate a LineCommand for the current_line, remove all items that are done from the items
-    fn process_line(&mut self) -> LineCommand {
-        let mut command = vec![];
-        // Take the next element from current_items or future_items
-        loop {
-            let a_next_z = self
-                .future_items
-                .last()
-                .filter(|i| i.pos.y_length() == self.current_line)
+    /// Updates `current_items_index` and `future_items_index` to match the invariant
+    pub fn next_line(&mut self) {
+        self.current_line += PhysicalLength::new(1);
+
+        // The items array is split in part:
+        // 1. [0..i] are the items that have already been processed, that are on this line
+        // 2. [j..current_items_index] are the items from the previous line that might still be
+        //   valid on this line
+        // 3. [tmp1, tmp2] is a buffer where we swap items so we can make room for the items in [0..i]
+        // 4. [future_items_index..] are the items which might get processed now
+        // 5. [current_items_index..tmp1], [tmp2..future_items_index] and [i..j] is garbage
+        //
+        // At each step, we selecting the item with the higher z from the list 2 or 3 or 4 and take it from
+        // that list. Then we add it to the list [0..i] if it needs more processing. If needed,
+        // we move the first  item from list  2. to list 3. to make some room
+
+        let (mut i, mut j, mut tmp1, mut tmp2) =
+            (0, 0, self.current_items_index, self.current_items_index);
+
+        'outer: loop {
+            let future_next_z = self
+                .items
+                .get(self.future_items_index)
+                .filter(|i| i.pos.y_length() <= self.current_line)
                 .map(|i| i.z);
-            let b_next_z = self.current_items.front().map(|i| i.z);
-            let item = match (a_next_z, b_next_z) {
-                (Some(a), Some(b)) => {
-                    if a > b {
-                        self.future_items.pop()
-                    } else {
-                        self.current_items.pop_front()
+            let item = loop {
+                if tmp1 != tmp2 {
+                    if future_next_z.map_or(true, |z| self.items[tmp1].z > z) {
+                        let idx = tmp1;
+                        tmp1 += 1;
+                        if tmp1 == tmp2 {
+                            tmp1 = self.current_items_index;
+                            tmp2 = self.current_items_index;
+                        }
+                        break self.items[idx];
+                    }
+                } else if j < self.current_items_index {
+                    let item = &self.items[j];
+                    if item.pos.y_length() + item.size.height_length() <= self.current_line {
+                        j += 1;
+                        continue;
+                    }
+                    if future_next_z.map_or(true, |z| item.z > z) {
+                        j += 1;
+                        break *item;
                     }
                 }
-                (Some(_), None) => self.future_items.pop(),
-                (None, Some(_)) => self.current_items.pop_front(),
-                _ => break,
+                if future_next_z.is_some() {
+                    self.future_items_index += 1;
+                    break self.items[self.future_items_index - 1];
+                }
+                break 'outer;
             };
-            let item = item.unwrap();
-            if item.pos.y_length() + item.size.height_length()
-                > self.current_line + PhysicalLength::new(1)
+            if i != j {
+                // there is room
+            } else if j >= self.current_items_index && tmp1 == tmp2 {
+                // the current_items list is empty
+                j += 1
+            } else if self.items[j].pos.y_length() + self.items[j].size.height_length()
+                <= self.current_line
             {
-                self.next_items.push_back(item.clone());
+                // next item in the current_items array is no longer in this line
+                j += 1;
+            } else if tmp2 < self.future_items_index && j < self.current_items_index {
+                // move the next item in current_items
+                let to_move = self.items[j];
+                self.items[tmp2] = to_move;
+                j += 1;
+                tmp2 += 1;
+            } else {
+                debug_assert!(tmp1 >= self.current_items_index);
+                let sort_begin = i;
+                // merge sort doesn't work because we don't have enough tmp space, just bring all items and use a normal sort.
+                while j < self.current_items_index {
+                    let item = self.items[j];
+                    if item.pos.y_length() + item.size.height_length() > self.current_line {
+                        self.items[i] = item;
+                        i += 1;
+                    }
+                    j += 1;
+                }
+                self.items.copy_within(tmp1..tmp2, i);
+                i += tmp2 - tmp1;
+                debug_assert!(i < self.future_items_index);
+                self.items[i] = item;
+                i += 1;
+                while self.future_items_index < self.items.len() {
+                    let item = self.items[self.future_items_index];
+                    if item.pos.y_length() > self.current_line {
+                        break;
+                    }
+                    self.items[i] = item;
+                    i += 1;
+                    self.future_items_index += 1;
+                }
+                self.items[sort_begin..i].sort_unstable_by(|a, b| b.z.cmp(&a.z));
+                break;
             }
-            command.push(item);
+            self.items[i] = item;
+            i += 1;
         }
-        core::mem::swap(&mut self.next_items, &mut self.current_items);
-        let line = self.current_line;
-        self.current_line += PhysicalLength::new(1);
-        LineCommand { spans: command, line }
+        self.current_items_index = i;
+        // check that current items are properly sorted
+        debug_assert!(self.items[0..self.current_items_index].windows(2).all(|x| x[0].z >= x[1].z));
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 struct SceneItem {
     pos: PhysicalPoint,
     size: PhysicalSize,
     // this is the order of the item from which it is in the item tree
     z: u16,
     command: SceneCommand,
-}
-
-struct LineCommand {
-    line: PhysicalLength,
-    // Fixme: we need to process these so we do not draw items under opaque regions
-    spans: Vec<SceneItem>,
 }
 
 fn compare_scene_item(a: &SceneItem, b: &SceneItem) -> core::cmp::Ordering {
@@ -239,7 +310,7 @@ fn compare_scene_item(a: &SceneItem, b: &SceneItem) -> core::cmp::Ordering {
     core::cmp::Ordering::Equal
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(u8)]
 enum SceneCommand {
     Rectangle {
@@ -299,8 +370,12 @@ fn prepare_scene(
         }
     });
     prepare_scene_profiler.stop_profiling(devices, "prepare_scene");
-    let dirty_region =
-        (euclid::Rect::from_untyped(&renderer.dirty_region.to_rect()) * factor).round_out().cast();
+    let dirty_region = (euclid::Rect::from_untyped(&renderer.dirty_region.to_rect()) * factor)
+        .round_out()
+        .cast()
+        .intersection(&PhysicalRect { origin: euclid::point2(0, 0), size })
+        .unwrap_or_default();
+
     let prepare_scene = renderer.into_inner();
     Scene::new(
         prepare_scene.items,
