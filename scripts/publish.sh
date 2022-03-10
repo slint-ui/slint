@@ -4,6 +4,7 @@
 
 cargo publish --manifest-path internal/common/Cargo.toml
 cargo publish --manifest-path internal/core-macros/Cargo.toml
+sleep 15
 cargo publish --manifest-path internal/compiler/Cargo.toml
 cargo publish --manifest-path internal/core/Cargo.toml
 cargo publish --manifest-path api/rs/macros/Cargo.toml
