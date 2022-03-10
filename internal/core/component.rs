@@ -85,6 +85,24 @@ pub fn free_component_item_graphics_resources<Base>(
     }));
 }
 
+/// Call init() on the ItemVTable for each item of the component.
+pub fn init_component_items_array<Base>(
+    base: core::pin::Pin<&Base>,
+    item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
+    window: &WindowRc,
+) {
+    item_array.iter().for_each(|item| item.apply_pin(base).as_ref().init(window));
+}
+
+/// Free the backend graphics resources allocated by the component's items.
+pub fn free_component_item_array_graphics_resources<Base>(
+    base: core::pin::Pin<&Base>,
+    item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
+    window: &WindowRc,
+) {
+    window.free_graphics_resources(&mut item_array.iter().map(|item| item.apply_pin(base)));
+}
+
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
@@ -116,9 +134,39 @@ pub(crate) mod ffi {
         window_handle: *const crate::window::ffi::WindowRcOpaque,
     ) {
         let window = &*(window_handle as *const WindowRc);
-        super::free_component_item_graphics_resources(
+        super::free_component_item_array_graphics_resources(
+            core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
+            item_array.as_slice(),
+            window,
+        )
+    }
+
+    /// Call init() on the ItemVTable of each item in the item array.
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_component_init_items_array(
+        component: ComponentRefPin,
+        item_array: Slice<Ivtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
+        window_handle: *const crate::window::ffi::WindowRcOpaque,
+    ) {
+        let window = &*(window_handle as *const WindowRc);
+        super::init_component_items(
             core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
             item_tree.as_slice(),
+            window,
+        )
+    }
+
+    /// Free the backend graphics resources allocated in the item array.
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_component_free_item_array_graphics_resources(
+        component: ComponentRefPin,
+        item_array: Slice<Ivtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
+        window_handle: *const crate::window::ffi::WindowRcOpaque,
+    ) {
+        let window = &*(window_handle as *const WindowRc);
+        super::free_component_item_array_graphics_resources(
+            core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
+            item_array.as_slice(),
             window,
         )
     }
