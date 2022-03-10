@@ -5,7 +5,7 @@ The tiles in the game should have a random placement. We'll need to add the <`ra
 
 ```toml
 [dependencies]
-slint = "0.2.0"
+slint = "0.2.1"
 rand = "0.8" # Added
 ```
 
