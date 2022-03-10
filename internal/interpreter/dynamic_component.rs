@@ -821,6 +821,7 @@ pub(crate) fn generate_component<'id>(
                 children_index: child_offset,
                 children_count: item.children.len() as u32,
                 parent_index,
+                item_array_index: 0,
             });
             self.items_types.insert(
                 item.id.clone(),

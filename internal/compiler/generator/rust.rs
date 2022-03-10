@@ -990,6 +990,7 @@ fn generate_item_tree(
                     children_count: #children_count,
                     children_index: #children_index,
                     parent_index: #parent_index,
+                    item_array_index: 0,
                 }
             ))
         }

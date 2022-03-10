@@ -81,6 +81,9 @@ pub enum ItemTreeNode<T> {
 
         /// The index of the parent item (not valid for the root)
         parent_index: u32,
+
+        /// The index in the extra item_array
+        item_array_index: u32,
     },
     /// A placeholder for many instance of item in their own component which
     /// are instantiated according to a model.
