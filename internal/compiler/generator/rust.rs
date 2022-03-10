@@ -954,6 +954,7 @@ fn generate_item_tree(
     });
     let parent_item_index = parent_item_index.iter();
     let mut item_tree_array = vec![];
+    let mut item_array = vec![];
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
         let (path, component) = follow_sub_component_path(&sub_tree.root, &node.sub_component_path);
@@ -984,19 +985,22 @@ fn generate_item_tree(
 
             let children_count = node.children.len() as u32;
             let children_index = children_offset as u32;
+            let item_array_len = item_array.len() as u32;
             item_tree_array.push(quote!(
                 slint::re_exports::ItemTreeNode::Item{
                     item: VOffset::new(#path #field #flick),
                     children_count: #children_count,
                     children_index: #children_index,
                     parent_index: #parent_index,
-                    item_array_index: 0,
+                    item_array_index: #item_array_len,
                 }
-            ))
+            ));
+            item_array.push(quote!(VOffset::new(#path #field #flick)));
         }
     });
 
     let item_tree_array_len = item_tree_array.len();
+    let item_array_len = item_array.len();
 
     quote!(
         #sub_comp
@@ -1013,25 +1017,34 @@ fn generate_item_tree(
                 let self_rc = VRc::new(_self);
                 let _self = self_rc.as_pin_ref();
                 #init_window
-                slint::re_exports::init_component_items(_self, Self::item_tree(), #root_token.window.get().unwrap().window_handle());
+                slint::re_exports::init_component_items_array(_self, Self::item_array(), #root_token.window.get().unwrap().window_handle());
                 Self::init(slint::re_exports::VRc::map(self_rc.clone(), |x| x), #root_token, 0, 1);
                 self_rc
             }
 
             fn item_tree() -> &'static [slint::re_exports::ItemTreeNode<Self>] {
                 use slint::re_exports::*;
-                ComponentVTable_static!(static VT for #inner_component_id);
                 // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
                 static ITEM_TREE : slint::re_exports::OnceBox<
                     [slint::re_exports::ItemTreeNode<#inner_component_id>; #item_tree_array_len]
                 > = slint::re_exports::OnceBox::new();
                 &*ITEM_TREE.get_or_init(|| Box::new([#(#item_tree_array),*]))
             }
+
+            fn item_array() -> &'static [vtable::VOffset<Self, ItemVTable, vtable::AllowPin>] {
+                use slint::re_exports::*;
+                ComponentVTable_static!(static VT for #inner_component_id);
+                // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
+                static ITEM_ARRAY : slint::re_exports::OnceBox<
+                    [vtable::VOffset<#inner_component_id, ItemVTable, vtable::AllowPin>; #item_array_len]
+                > = slint::re_exports::OnceBox::new();
+                &*ITEM_ARRAY.get_or_init(|| Box::new([#(#item_array),*]))
+            }
         }
 
         impl slint::re_exports::PinnedDrop for #inner_component_id {
             fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
-                slint::re_exports::free_component_item_graphics_resources(self.as_ref(), Self::item_tree(), self.window.get().unwrap().window_handle());
+                slint::re_exports::free_component_item_array_graphics_resources(self.as_ref(), Self::item_array(), self.window.get().unwrap().window_handle());
             }
         }
 
@@ -1055,7 +1068,9 @@ fn generate_item_tree(
 
             fn get_item_ref(self: ::core::pin::Pin<&Self>, index: usize) -> ::core::pin::Pin<ItemRef> {
                 match &Self::item_tree()[index] {
-                    ItemTreeNode::Item { item, .. } => item.apply_pin(self),
+                    ItemTreeNode::Item { item_array_index, .. } => {
+                        Self::item_array()[*item_array_index as usize].apply_pin(self)
+                    }
                     ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
 
                 }
