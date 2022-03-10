@@ -18,6 +18,7 @@ use clap::Parser;
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[derive(Clone, clap::Parser)]
+#[clap(author, version, about, long_about = None)]
 struct Cli {
     #[clap(
         short = 'I',

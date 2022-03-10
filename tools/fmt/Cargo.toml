@@ -8,7 +8,7 @@ authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
 publish = false
-description = "Tool used to update .slint files when we do syntax upgrade"
+description = "A code formatter for slint files"
 repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint-ui.com"
 categories = ["gui", "development-tools"]
@@ -17,7 +17,7 @@ keywords = ["formatter", "gui", "ui", "toolkit"]
 [dependencies]
 i-slint-compiler = { path = "../../internal/compiler", features = ["display-diagnostics"] }
 
-clap = { version = "3.0.5", features=["derive", "wrap_help"] }
+clap = { version = "3.1", features = ["derive", "wrap_help"] }
 codemap = "0.1"
 codemap-diagnostic = "0.1.1"
 

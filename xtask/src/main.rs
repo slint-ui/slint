@@ -12,6 +12,7 @@ mod nodepackage;
 mod reuse_compliance_check;
 
 #[derive(Debug, clap::Parser)]
+#[clap(author, version, about, long_about = None)]
 pub enum TaskCommand {
     #[clap(name = "check_license_headers")]
     CheckLicenseHeaders(license_headers_check::LicenseHeaderCheck),

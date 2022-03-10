@@ -11,6 +11,7 @@ use std::fmt::Display;
 use tokio::io::AsyncWriteExt;
 
 #[derive(Debug, Parser)]
+#[clap(author, version, about, long_about = None)]
 struct Opt {
     /// Figma asscess token
     #[clap(short = 't', long = "token")]

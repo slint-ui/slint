@@ -5,13 +5,14 @@
 name = "xtask"
 version = "0.2.2"
 authors = ["Slint Developers <info@slint-ui.com>"]
+description = "Development helper tool for the Slint project"
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
 publish = false
 
 [dependencies]
 const_format = "0.2"
-clap = { version = "3.0.5", features=["derive", "wrap_help"] }
+clap = { version = "3.1", features = ["derive", "wrap_help"] }
 cargo_metadata = "0.14"
 anyhow = "1.0"
 lazy_static = "1.4.0"
