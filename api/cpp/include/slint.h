@@ -126,7 +126,7 @@ public:
     template<typename Component, typename ItemArray>
     void init_items(Component *c, ItemArray items) const
     {
-        cbindgen_private::slint_component_init_items_array(
+        cbindgen_private::slint_component_init_items(
                 vtable::VRef<ComponentVTable> { &Component::static_vtable, c }, items, &inner);
     }
 

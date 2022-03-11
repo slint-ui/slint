@@ -60,7 +60,7 @@ pub type ComponentRc = vtable::VRc<ComponentVTable, Dyn>;
 pub type ComponentWeak = vtable::VWeak<ComponentVTable, Dyn>;
 
 /// Call init() on the ItemVTable for each item of the component.
-pub fn init_component_items_array<Base>(
+pub fn init_component_items<Base>(
     base: core::pin::Pin<&Base>,
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
     window: &WindowRc,
@@ -69,7 +69,7 @@ pub fn init_component_items_array<Base>(
 }
 
 /// Free the backend graphics resources allocated by the component's items.
-pub fn free_component_item_array_graphics_resources<Base>(
+pub fn free_component_item_graphics_resources<Base>(
     base: core::pin::Pin<&Base>,
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
     window: &WindowRc,
@@ -86,13 +86,13 @@ pub(crate) mod ffi {
 
     /// Call init() on the ItemVTable of each item in the item array.
     #[no_mangle]
-    pub unsafe extern "C" fn slint_component_init_items_array(
+    pub unsafe extern "C" fn slint_component_init_items(
         component: ComponentRefPin,
         item_array: Slice<vtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
         window_handle: *const crate::window::ffi::WindowRcOpaque,
     ) {
         let window = &*(window_handle as *const WindowRc);
-        super::init_component_items_array(
+        super::init_component_items(
             core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
             item_array.as_slice(),
             window,
@@ -107,7 +107,7 @@ pub(crate) mod ffi {
         window_handle: *const crate::window::ffi::WindowRcOpaque,
     ) {
         let window = &*(window_handle as *const WindowRc);
-        super::free_component_item_array_graphics_resources(
+        super::free_component_item_graphics_resources(
             core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
             item_array.as_slice(),
             window,
