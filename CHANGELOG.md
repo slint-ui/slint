@@ -3,6 +3,12 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Added
+
+ - Added `From<&str>` and `From<SharedString>` to `StandardListViewItem` to make creation and modification of `StandardListView`'s models easier.
+
+### Fixed
+
 ## [0.2.1] - 2022-03-10
 
 ### Added
