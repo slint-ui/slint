@@ -623,12 +623,11 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
     }
 
     fn draw_text(&mut self, text: Pin<&i_slint_core::items::Text>) {
-        let max_width: PhysicalLength =
-            (LogicalLength::new(text.width()) * self.scale_factor).cast();
-        let max_height: PhysicalLength =
-            (LogicalLength::new(text.height()) * self.scale_factor).cast();
-
-        if max_width <= PhysicalLength::zero() || max_height <= PhysicalLength::zero() {
+        let geom = LogicalRect::new(
+            LogicalPoint::default(),
+            LogicalSize::new(text.width(), text.height()),
+        );
+        if !self.should_draw(&geom) {
             return;
         }
 
@@ -636,13 +635,14 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         let font = crate::fonts::match_font(&font_request, self.scale_factor);
 
         let color = text.color().color();
+        let max_size = (geom.size * self.scale_factor).cast();
 
         let paragraph = TextParagraphLayout {
             string: &text.text(),
             font: &font,
             font_height: font.height(),
-            max_width,
-            max_height,
+            max_width: max_size.width_length(),
+            max_height: max_size.height_length(),
             horizontal_alignment: text.horizontal_alignment(),
             vertical_alignment: text.vertical_alignment(),
             wrap: text.wrap(),
