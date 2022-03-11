@@ -134,9 +134,9 @@ pub(crate) mod ffi {
         window_handle: *const crate::window::ffi::WindowRcOpaque,
     ) {
         let window = &*(window_handle as *const WindowRc);
-        super::free_component_item_array_graphics_resources(
+        super::free_component_item_graphics_resources(
             core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
-            item_array.as_slice(),
+            item_tree.as_slice(),
             window,
         )
     }
@@ -145,13 +145,13 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_component_init_items_array(
         component: ComponentRefPin,
-        item_array: Slice<Ivtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
+        item_array: Slice<vtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
         window_handle: *const crate::window::ffi::WindowRcOpaque,
     ) {
         let window = &*(window_handle as *const WindowRc);
-        super::init_component_items(
+        super::init_component_items_array(
             core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
-            item_tree.as_slice(),
+            item_array.as_slice(),
             window,
         )
     }
@@ -160,7 +160,7 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_component_free_item_array_graphics_resources(
         component: ComponentRefPin,
-        item_array: Slice<Ivtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
+        item_array: Slice<vtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
         window_handle: *const crate::window::ffi::WindowRcOpaque,
     ) {
         let window = &*(window_handle as *const WindowRc);
