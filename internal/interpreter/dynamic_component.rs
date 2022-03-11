@@ -260,7 +260,7 @@ pub struct ComponentDescription<'id> {
     pub(crate) ct: ComponentVTable,
     /// INVARIANT: both dynamic_type and item_tree have the same lifetime id. Here it is erased to 'static
     dynamic_type: Rc<dynamic_type::TypeInfo<'id>>,
-    item_tree: Vec<ItemTreeNode<crate::dynamic_type::Instance<'id>>>,
+    item_tree: Vec<ItemTreeNode>,
     item_array:
         Vec<vtable::VOffset<crate::dynamic_type::Instance<'id>, ItemVTable, vtable::AllowPin>>,
     pub(crate) items: HashMap<String, ItemWithinComponent>,
@@ -762,7 +762,7 @@ pub(crate) fn generate_component<'id>(
     }
 
     struct TreeBuilder<'id> {
-        tree_array: Vec<ItemTreeNode<Instance<'id>>>,
+        tree_array: Vec<ItemTreeNode>,
         item_array:
             Vec<vtable::VOffset<crate::dynamic_type::Instance<'id>, ItemVTable, vtable::AllowPin>>,
         items_types: HashMap<String, ItemWithinComponent>,
@@ -821,7 +821,6 @@ pub(crate) fn generate_component<'id>(
                 self.type_builder.add_field(rt.type_info)
             };
             self.tree_array.push(ItemTreeNode::Item {
-                item: unsafe { vtable::VOffset::from_raw(rt.vtable, std::usize::MAX) }, // I hope this is invalid:-)
                 children_index: child_offset,
                 children_count: item.children.len() as u32,
                 parent_index,

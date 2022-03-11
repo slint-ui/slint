@@ -832,15 +832,8 @@ fn generate_item_tree(
             let item_array_index = item_array.len() as u32;
 
             item_tree_array.push(format!(
-                "slint::private_api::make_item_node({} offsetof({}, {}), {}, {}, {}, {}, {})",
-                compo_offset,
-                &ident(&sub_component.name),
-                ident(&item.name),
-                item.ty.cpp_vtable_getter,
-                children_count,
-                children_index,
-                parent_index,
-                item_array_index,
+                "slint::private_api::make_item_node({}, {}, {}, {})",
+                children_count, children_index, parent_index, item_array_index,
             ));
             item_array.push(format!(
                 "{{ {}, {} offsetof({}, {}) }}",

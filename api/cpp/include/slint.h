@@ -51,7 +51,7 @@ using cbindgen_private::TraversalOrder;
 }
 
 namespace private_api {
-using ItemTreeNode = cbindgen_private::ItemTreeNode<uint8_t>;
+using ItemTreeNode = cbindgen_private::ItemTreeNode;
 using ItemArrayEntry =
         vtable::VOffset<uint8_t, slint::cbindgen_private::ItemVTable, vtable::AllowPin>;
 using ItemArray = slint::cbindgen_private::Slice<ItemArrayEntry>;
@@ -168,17 +168,11 @@ private:
     cbindgen_private::WindowRcOpaque inner;
 };
 
-constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,
-                                             const cbindgen_private::ItemVTable *vtable,
-                                             uint32_t child_count, uint32_t child_index,
+constexpr inline ItemTreeNode make_item_node(uint32_t child_count, uint32_t child_index,
                                              uint32_t parent_index, uint32_t item_array_index)
 {
-    return ItemTreeNode { ItemTreeNode::Item_Body { ItemTreeNode::Tag::Item,
-                                                    { vtable, offset },
-                                                    child_count,
-                                                    child_index,
-                                                    parent_index,
-                                                    item_array_index } };
+    return ItemTreeNode { ItemTreeNode::Item_Body { ItemTreeNode::Tag::Item, child_count,
+                                                    child_index, parent_index, item_array_index } };
 }
 
 constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset, std::uint32_t parent_index)

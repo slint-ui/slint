@@ -67,12 +67,9 @@ impl core::fmt::Debug for VisitChildrenResult {
 /// within a component.
 #[repr(u8)]
 #[derive(Debug)]
-pub enum ItemTreeNode<T> {
+pub enum ItemTreeNode {
     /// Static item
     Item {
-        /// byte offset where we can find the item (from the *ComponentImpl)
-        item: vtable::VOffset<T, ItemVTable, vtable::AllowPin>,
-
         /// number of children
         children_count: u32,
 
@@ -96,7 +93,7 @@ pub enum ItemTreeNode<T> {
     },
 }
 
-impl<T> ItemTreeNode<T> {
+impl ItemTreeNode {
     pub fn parent_index(&self) -> usize {
         match self {
             ItemTreeNode::Item { parent_index, .. } => *parent_index as usize,
@@ -240,7 +237,7 @@ fn visit_internal<State, PostVisitState>(
 pub fn visit_item_tree<Base>(
     base: Pin<&Base>,
     component: &ComponentRc,
-    item_tree: &[ItemTreeNode<Base>],
+    item_tree: &[ItemTreeNode],
     index: isize,
     order: TraversalOrder,
     mut visitor: vtable::VRefMut<ItemVisitorVTable>,
@@ -303,7 +300,7 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_visit_item_tree(
         component: &ComponentRc,
-        item_tree: Slice<ItemTreeNode<u8>>,
+        item_tree: Slice<ItemTreeNode>,
         index: isize,
         order: TraversalOrder,
         visitor: VRefMut<ItemVisitorVTable>,
