@@ -110,10 +110,10 @@ public:
     float scale_factor() const { return slint_windowrc_get_scale_factor(&inner); }
     void set_scale_factor(float value) const { slint_windowrc_set_scale_factor(&inner, value); }
 
-    template<typename Component, typename ItemTree>
-    void free_graphics_resources(Component *c, ItemTree items) const
+    template<typename Component, typename ItemArray>
+    void free_graphics_resources(Component *c, ItemArray items) const
     {
-        cbindgen_private::slint_component_free_item_graphics_resources(
+        cbindgen_private::slint_component_free_item_array_graphics_resources(
                 vtable::VRef<ComponentVTable> { &Component::static_vtable, c }, items, &inner);
     }
 
@@ -123,10 +123,10 @@ public:
         cbindgen_private::slint_windowrc_set_focus_item(&inner, &item_rc);
     }
 
-    template<typename Component, typename ItemTree>
-    void init_items(Component *c, ItemTree items) const
+    template<typename Component, typename ItemArray>
+    void init_items(Component *c, ItemArray items) const
     {
-        cbindgen_private::slint_component_init_items(
+        cbindgen_private::slint_component_init_items_array(
                 vtable::VRef<ComponentVTable> { &Component::static_vtable, c }, items, &inner);
     }
 
