@@ -623,6 +623,11 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
     }
 
     fn draw_text(&mut self, text: Pin<&i_slint_core::items::Text>) {
+        let string = text.text();
+        if string.trim().is_empty() {
+            return;
+        }
+
         let geom = LogicalRect::new(
             LogicalPoint::default(),
             LogicalSize::new(text.width(), text.height()),
@@ -638,7 +643,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         let max_size = (geom.size * self.scale_factor).cast();
 
         let paragraph = TextParagraphLayout {
-            string: &text.text(),
+            string: &string,
             font: &font,
             font_height: font.height(),
             max_width: max_size.width_length(),
