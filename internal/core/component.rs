@@ -60,32 +60,6 @@ pub type ComponentRc = vtable::VRc<ComponentVTable, Dyn>;
 pub type ComponentWeak = vtable::VWeak<ComponentVTable, Dyn>;
 
 /// Call init() on the ItemVTable for each item of the component.
-pub fn init_component_items<Base>(
-    base: core::pin::Pin<&Base>,
-    item_tree: &[crate::item_tree::ItemTreeNode<Base>],
-    window: &WindowRc,
-) {
-    item_tree.iter().for_each(|entry| match entry {
-        crate::item_tree::ItemTreeNode::Item { item, .. } => {
-            item.apply_pin(base).as_ref().init(window)
-        }
-        crate::item_tree::ItemTreeNode::DynamicTree { .. } => {}
-    })
-}
-
-/// Free the backend graphics resources allocated by the component's items.
-pub fn free_component_item_graphics_resources<Base>(
-    base: core::pin::Pin<&Base>,
-    item_tree: &[crate::item_tree::ItemTreeNode<Base>],
-    window: &WindowRc,
-) {
-    window.free_graphics_resources(&mut item_tree.iter().filter_map(|entry| match entry {
-        crate::item_tree::ItemTreeNode::Item { item, .. } => Some(item.apply_pin(base)),
-        crate::item_tree::ItemTreeNode::DynamicTree { .. } => None,
-    }));
-}
-
-/// Call init() on the ItemVTable for each item of the component.
 pub fn init_component_items_array<Base>(
     base: core::pin::Pin<&Base>,
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
@@ -108,38 +82,7 @@ pub(crate) mod ffi {
     #![allow(unsafe_code)]
 
     use super::*;
-    use crate::item_tree::*;
     use crate::slice::Slice;
-
-    /// Call init() on the ItemVTable of each item of the component.
-    #[no_mangle]
-    pub unsafe extern "C" fn slint_component_init_items(
-        component: ComponentRefPin,
-        item_tree: Slice<ItemTreeNode<u8>>,
-        window_handle: *const crate::window::ffi::WindowRcOpaque,
-    ) {
-        let window = &*(window_handle as *const WindowRc);
-        super::init_component_items(
-            core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
-            item_tree.as_slice(),
-            window,
-        )
-    }
-
-    /// Free the backend graphics resources allocated by the component's items.
-    #[no_mangle]
-    pub unsafe extern "C" fn slint_component_free_item_graphics_resources(
-        component: ComponentRefPin,
-        item_tree: Slice<ItemTreeNode<u8>>,
-        window_handle: *const crate::window::ffi::WindowRcOpaque,
-    ) {
-        let window = &*(window_handle as *const WindowRc);
-        super::free_component_item_graphics_resources(
-            core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
-            item_tree.as_slice(),
-            window,
-        )
-    }
 
     /// Call init() on the ItemVTable of each item in the item array.
     #[no_mangle]
