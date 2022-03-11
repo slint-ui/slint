@@ -788,7 +788,8 @@ fn generate_item_tree(
 
     let root_access = if parent_ctx.is_some() { "parent->root" } else { "self" };
 
-    let mut tree_array: Vec<String> = Default::default();
+    let mut item_tree_array: Vec<String> = Default::default();
+    let mut item_array: Vec<String> = Default::default();
 
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
         let parent_index = parent_index as u32;
@@ -801,7 +802,7 @@ fn generate_item_tree(
                 repeater_index += sub_component.sub_components[*i].repeater_offset;
                 sub_component = &sub_component.sub_components[*i].ty;
             }
-            tree_array.push(format!(
+            item_tree_array.push(format!(
                 "slint::private_api::make_dyn_node({}, {})",
                 repeater_index, parent_index
             ));
@@ -828,9 +829,10 @@ fn generate_item_tree(
 
             let children_count = node.children.len() as u32;
             let children_index = children_offset as u32;
+            let item_array_index = item_array.len() as u32;
 
-            tree_array.push(format!(
-                "slint::private_api::make_item_node({} offsetof({}, {}), {}, {}, {}, {})",
+            item_tree_array.push(format!(
+                "slint::private_api::make_item_node({} offsetof({}, {}), {}, {}, {}, {}, {})",
                 compo_offset,
                 &ident(&sub_component.name),
                 ident(&item.name),
@@ -838,6 +840,14 @@ fn generate_item_tree(
                 children_count,
                 children_index,
                 parent_index,
+                item_array_index,
+            ));
+            item_array.push(format!(
+                "{{ {}, {} offsetof({}, {}) }}",
+                item.ty.cpp_vtable_getter,
+                compo_offset,
+                &ident(&sub_component.name),
+                ident(&item.name),
             ));
         }
     });
@@ -878,7 +888,7 @@ fn generate_item_tree(
             signature: "(slint::private_api::ComponentRef component, uintptr_t index) -> slint::private_api::ItemRef".into(),
             is_static: true,
             statements: Some(vec![
-                "return slint::private_api::get_item_ref(component, item_tree(), index);".to_owned(),
+                "return slint::private_api::get_item_ref(component, item_tree(), item_array(), index);".to_owned(),
             ]),
             ..Default::default()
         }),
@@ -925,8 +935,24 @@ fn generate_item_tree(
             is_static: true,
             statements: Some(vec![
                 "static const slint::private_api::ItemTreeNode children[] {".to_owned(),
-                format!("    {} }};", tree_array.join(", \n")),
+                format!("    {} }};", item_tree_array.join(", \n")),
                 "return { const_cast<slint::private_api::ItemTreeNode*>(children), std::size(children) };"
+                    .to_owned(),
+            ]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "item_array".into(),
+            signature: "() -> const slint::private_api::ItemArray".into(),
+            is_static: true,
+            statements: Some(vec![
+                "static const slint::private_api::ItemArrayEntry items[] {".to_owned(),
+                format!("    {} }};", item_array.join(", \n")),
+                "return { const_cast<slint::private_api::ItemArrayEntry*>(items), std::size(items) };"
                     .to_owned(),
             ]),
             ..Default::default()

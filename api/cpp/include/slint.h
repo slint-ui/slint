@@ -52,6 +52,9 @@ using cbindgen_private::TraversalOrder;
 
 namespace private_api {
 using ItemTreeNode = cbindgen_private::ItemTreeNode<uint8_t>;
+using ItemArrayEntry =
+        vtable::VOffset<uint8_t, slint::cbindgen_private::ItemVTable, vtable::AllowPin>;
+using ItemArray = slint::cbindgen_private::Slice<ItemArrayEntry>;
 using cbindgen_private::KeyboardModifiers;
 using cbindgen_private::KeyEvent;
 using cbindgen_private::PointerEvent;
@@ -168,10 +171,14 @@ private:
 constexpr inline ItemTreeNode make_item_node(std::uintptr_t offset,
                                              const cbindgen_private::ItemVTable *vtable,
                                              uint32_t child_count, uint32_t child_index,
-                                             uint32_t parent_index)
+                                             uint32_t parent_index, uint32_t item_array_index)
 {
-    return ItemTreeNode { ItemTreeNode::Item_Body {
-            ItemTreeNode::Tag::Item, { vtable, offset }, child_count, child_index, parent_index } };
+    return ItemTreeNode { ItemTreeNode::Item_Body { ItemTreeNode::Tag::Item,
+                                                    { vtable, offset },
+                                                    child_count,
+                                                    child_index,
+                                                    parent_index,
+                                                    item_array_index } };
 }
 
 constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset, std::uint32_t parent_index)
@@ -180,10 +187,12 @@ constexpr inline ItemTreeNode make_dyn_node(std::uintptr_t offset, std::uint32_t
                                                            parent_index } };
 }
 
-inline ItemRef get_item_ref(ComponentRef component, cbindgen_private::Slice<ItemTreeNode> item_tree,
-                            int index)
+inline ItemRef get_item_ref(ComponentRef component,
+                            const cbindgen_private::Slice<ItemTreeNode> item_tree,
+                            const private_api::ItemArray item_array, int index)
 {
-    const auto &item = item_tree.ptr[index].item.item;
+    const auto item_array_index = item_tree.ptr[index].item.item_array_index;
+    const auto item = item_array[item_array_index];
     return ItemRef { item.vtable, reinterpret_cast<char *>(component.instance) + item.offset };
 }
 
