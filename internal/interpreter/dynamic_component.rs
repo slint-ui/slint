@@ -62,7 +62,7 @@ impl<'id> Drop for ComponentBox<'id> {
     fn drop(&mut self) {
         let instance_ref = self.borrow_instance();
         if let Some(window) = eval::window_ref(instance_ref) {
-            i_slint_core::component::init_component_items_array(
+            i_slint_core::component::init_component_items(
                 instance_ref.instance,
                 instance_ref.component_type.item_array.as_slice(),
                 window,
@@ -1136,7 +1136,7 @@ pub fn instantiate(
     let instance_ref = component_box.borrow_instance();
 
     if !component_type.original.is_global() {
-        i_slint_core::component::init_component_items_array(
+        i_slint_core::component::init_component_items(
             instance_ref.instance,
             instance_ref.component_type.item_array.as_slice(),
             eval::window_ref(instance_ref).unwrap(),
