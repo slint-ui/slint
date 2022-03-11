@@ -526,18 +526,18 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
             let color = rect.background().color();
             if radius > 0. {
                 if let Some(clipped) = geom.intersection(&self.current_state.clip) {
-                    let geom2 = (geom * self.scale_factor).cast::<i16>();
-                    let clipped2 = (clipped * self.scale_factor).cast::<i16>();
+                    let geom2 = geom * self.scale_factor;
+                    let clipped2 = clipped * self.scale_factor;
                     let rectangle_index = self.rounded_rectangles.len() as u16;
                     self.rounded_rectangles.push(RoundedRectangle {
                         radius: (LogicalLength::new(radius) * self.scale_factor).cast(),
                         width: (LogicalLength::new(border) * self.scale_factor).cast(),
                         border_color: rect.border_color().color(),
                         inner_color: color,
-                        top_clip: PhysicalLength::new(clipped2.min_y() - geom2.min_y()),
-                        bottom_clip: PhysicalLength::new(geom2.max_y() - clipped2.max_y()),
-                        left_clip: PhysicalLength::new(clipped2.min_x() - geom2.min_x()),
-                        right_clip: PhysicalLength::new(geom2.max_x() - clipped2.max_x()),
+                        top_clip: PhysicalLength::new((clipped2.min_y() - geom2.min_y()) as _),
+                        bottom_clip: PhysicalLength::new((geom2.max_y() - clipped2.max_y()) as _),
+                        left_clip: PhysicalLength::new((clipped2.min_x() - geom2.min_x()) as _),
+                        right_clip: PhysicalLength::new((geom2.max_x() - clipped2.max_x()) as _),
                     });
                     self.new_scene_item(
                         clipped,
