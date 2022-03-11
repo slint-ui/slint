@@ -133,7 +133,7 @@ pub fn use_modules() -> usize {
             + properties::ffi::slint_property_init as usize
             + string::ffi::slint_shared_string_bytes as usize
             + window::ffi::slint_windowrc_drop as usize
-            + component::ffi::slint_component_init_items as usize
+            + component::ffi::slint_component_init_items_array as usize
             + timers::ffi::slint_timer_start as usize
             + graphics::color::ffi::slint_color_brighter as usize
             + graphics::image::ffi::slint_image_size as usize
