@@ -988,7 +988,6 @@ fn generate_item_tree(
             let item_array_len = item_array.len() as u32;
             item_tree_array.push(quote!(
                 slint::re_exports::ItemTreeNode::Item{
-                    item: VOffset::new(#path #field #flick),
                     children_count: #children_count,
                     children_index: #children_index,
                     parent_index: #parent_index,
@@ -1022,11 +1021,11 @@ fn generate_item_tree(
                 self_rc
             }
 
-            fn item_tree() -> &'static [slint::re_exports::ItemTreeNode<Self>] {
+            fn item_tree() -> &'static [slint::re_exports::ItemTreeNode] {
                 use slint::re_exports::*;
                 // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
                 static ITEM_TREE : slint::re_exports::OnceBox<
-                    [slint::re_exports::ItemTreeNode<#inner_component_id>; #item_tree_array_len]
+                    [slint::re_exports::ItemTreeNode; #item_tree_array_len]
                 > = slint::re_exports::OnceBox::new();
                 &*ITEM_TREE.get_or_init(|| Box::new([#(#item_tree_array),*]))
             }
