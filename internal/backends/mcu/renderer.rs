@@ -3,10 +3,10 @@
 
 mod draw_functions;
 
-use crate::lengths::LogicalSize;
 use crate::{
-    profiler, Devices, LogicalLength, LogicalPoint, LogicalRect, PhysicalLength, PhysicalPoint,
-    PhysicalRect, PhysicalSize, PointLengths, ScaleFactor, SizeLengths,
+    profiler, Devices, LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect,
+    PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize, PointLengths, RectLengths,
+    ScaleFactor, SizeLengths,
 };
 use alloc::rc::Rc;
 use alloc::{vec, vec::Vec};
@@ -501,10 +501,7 @@ struct RenderState {
 
 impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
     fn draw_rectangle(&mut self, rect: Pin<&i_slint_core::items::Rectangle>) {
-        let geom = LogicalRect::new(
-            LogicalPoint::default(),
-            LogicalSize::new(rect.width(), rect.height()),
-        );
+        let geom = LogicalRect::new(LogicalPoint::default(), rect.logical_geometry().size_length());
         if self.should_draw(&geom) {
             let geom = match geom.intersection(&self.current_state.clip) {
                 Some(geom) => geom,
@@ -521,10 +518,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
     }
 
     fn draw_border_rectangle(&mut self, rect: Pin<&i_slint_core::items::BorderRectangle>) {
-        let geom = LogicalRect::new(
-            LogicalPoint::default(),
-            LogicalSize::new(rect.width(), rect.height()),
-        );
+        let geom = LogicalRect::new(LogicalPoint::default(), rect.logical_geometry().size_length());
         if self.should_draw(&geom) {
             let border = rect.border_width();
             let radius = rect.border_radius();
@@ -585,10 +579,8 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
     }
 
     fn draw_image(&mut self, image: Pin<&i_slint_core::items::ImageItem>) {
-        let geom = LogicalRect::new(
-            LogicalPoint::default(),
-            LogicalSize::new(image.width(), image.height()),
-        );
+        let geom =
+            LogicalRect::new(LogicalPoint::default(), image.logical_geometry().size_length());
         if self.should_draw(&geom) {
             self.draw_image_impl(
                 geom,
@@ -603,10 +595,8 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         // when the source_clip size is empty, make it full
         let a = |v| if v == 0 { i32::MAX } else { v };
 
-        let geom = LogicalRect::new(
-            LogicalPoint::default(),
-            LogicalSize::new(image.width(), image.height()),
-        );
+        let geom =
+            LogicalRect::new(LogicalPoint::default(), image.logical_geometry().size_length());
         if self.should_draw(&geom) {
             self.draw_image_impl(
                 geom,
@@ -627,11 +617,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         if string.trim().is_empty() {
             return;
         }
-
-        let geom = LogicalRect::new(
-            LogicalPoint::default(),
-            LogicalSize::new(text.width(), text.height()),
-        );
+        let geom = LogicalRect::new(LogicalPoint::default(), text.logical_geometry().size_length());
         if !self.should_draw(&geom) {
             return;
         }
