@@ -330,6 +330,13 @@ impl<T: 'static> VecModel<T> {
         self.array.borrow_mut().remove(index);
         self.notify.row_removed(index, 1)
     }
+
+    /// Replace inner Vec with new data
+    pub fn set_vec(&self, new: impl Into<Vec<T>>) {
+        self.notify.row_removed(0, self.array.borrow().len());
+        *self.array.borrow_mut() = new.into();
+        self.notify.row_added(0, self.array.borrow().len());
+    }
 }
 
 impl<T> From<Vec<T>> for VecModel<T> {
