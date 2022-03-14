@@ -7,9 +7,12 @@ MainWindow := Window {
 
     GridBox {
         Text { text: "Filter prefix:"; }
-        LineEdit {}
+        LineEdit {
+            text <=> root.prefix;
+            edited => { root.prefexEdited() }
+        }
 
-        StandardListView {
+        list := StandardListView {
             row: 1;
             rowspan: 3;
             colspan: 2;
@@ -30,19 +33,26 @@ MainWindow := Window {
             }
             Button {
                 text: "Update";
+                enabled: list.current-item != -1;
                 clicked => { root.updateClicked() }
             }
             Button {
                 text: "Delete";
+                enabled: list.current-item != -1;
                 clicked => { root.deleteClicked() }
             }
         }
 
     }
     property <[StandardListViewItem]> names-list;
+    property <int> current-item: list.current-item;
+
     property <string> name;
     property <string> surname;
 
+    property <string> prefix;
+
+    callback prefexEdited();
     callback createClicked();
     callback updateClicked();
     callback deleteClicked();
