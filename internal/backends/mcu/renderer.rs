@@ -28,46 +28,6 @@ pub fn render_window_frame(
     let size = devices.screen_size();
     let mut scene = prepare_scene(runtime_window, size, devices, cache);
 
-    /*for item in scene.future_items {
-        match item.command {
-            SceneCommand::Rectangle { color } => {
-                embedded_graphics::primitives::Rectangle {
-                    top_left: Point { x: item.x as _, y: item.y as _ },
-                    size: Size { width: item.width as _, height: item.height as _ },
-                }
-                .into_styled(
-                    embedded_graphics::primitives::PrimitiveStyleBuilder::new()
-                        .fill_color(Rgb888::new(color.red(), color.green(), color.blue()))
-                        .build(),
-                )
-                .draw(display)
-                .unwrap();
-            }
-            SceneCommand::Texture { data, format, stride, source_width, source_height, color } => {
-                let sx = item.width as f32 / source_width as f32;
-                let sy = item.height as f32 / source_height as f32;
-                let bpp = bpp(format) as usize;
-                for y in 0..item.height {
-                    let pixel_iter = (0..item.width).into_iter().map(|x| {
-                        let pos = ((y as f32 / sy) as usize * stride as usize)
-                            + (x as f32 / sx) as usize * bpp;
-                        to_color(&data[pos..], format, color)
-                    });
-
-                    display
-                        .fill_contiguous(
-                            &embedded_graphics::primitives::Rectangle::new(
-                                Point::new(item.x as i32, (item.y + y) as i32),
-                                Size::new(item.width as u32, 1),
-                            ),
-                            pixel_iter,
-                        )
-                        .unwrap()
-                }
-            }
-        }
-    }*/
-
     let mut line_processing_profiler = profiler::Timer::new_stopped();
     let mut span_drawing_profiler = profiler::Timer::new_stopped();
     let mut screen_fill_profiler = profiler::Timer::new_stopped();
@@ -760,23 +720,6 @@ fn bpp(format: PixelFormat) -> u16 {
         PixelFormat::AlphaMap => 1,
     }
 }
-/*
-fn to_color(data: &[u8], format: PixelFormat, color: Color) -> Rgb888 {
-    match format {
-        PixelFormat::Rgba if color.alpha() > 0 => Rgb888::new(
-            ((color.red() as u16 * data[3] as u16) >> 8) as u8,
-            ((color.green() as u16 * data[3] as u16) >> 8) as u8,
-            ((color.blue() as u16 * data[3] as u16) >> 8) as u8,
-        ),
-        PixelFormat::Rgb => Rgb888::new(data[0], data[1], data[2]),
-        PixelFormat::Rgba => Rgb888::new(data[0], data[1], data[2]),
-        PixelFormat::AlphaMap => Rgb888::new(
-            ((color.red() as u16 * data[0] as u16) >> 8) as u8,
-            ((color.green() as u16 * data[0] as u16) >> 8) as u8,
-            ((color.blue() as u16 * data[0] as u16) >> 8) as u8,
-        ),
-    }
-}*/
 
 pub fn to_rgb888_color_discard_alpha(col: Color) -> Rgb888 {
     Rgb888::new(col.red(), col.green(), col.blue())
