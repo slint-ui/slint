@@ -1537,12 +1537,9 @@ unsafe extern "C" fn parent_item(component: ComponentRefPin, index: usize, resul
         }
         return;
     }
-    let parent_index = match &instance_ref.component_type.item_tree.as_slice()[index] {
-        ItemTreeNode::Item { parent_index, .. } => parent_index,
-        ItemTreeNode::DynamicTree { parent_index, .. } => parent_index,
-    };
+    let parent_index = instance_ref.component_type.item_tree.as_slice()[index].parent_index();
     let self_rc = instance_ref.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
-    *result = ItemRc::new(self_rc, *parent_index as _).downgrade();
+    *result = ItemRc::new(self_rc, parent_index).downgrade();
 }
 
 unsafe extern "C" fn drop_in_place(component: vtable::VRefMut<ComponentVTable>) -> vtable::Layout {
