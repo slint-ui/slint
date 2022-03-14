@@ -13,16 +13,11 @@ fuzz_target!(|tokens: Vec<Token>| {
 
     let doc_node = parse_tokens(tokens, source_file, &mut diags);
 
-    let rt = tokio::runtime::Runtime::new().unwrap();
-
-    rt.block_on(async move {
-        let (_, _) = i_slint_compiler::compile_syntax_node(
-            doc_node,
-            diags,
-            i_slint_compiler::CompilerConfiguration::new(
-                i_slint_compiler::generator::OutputFormat::Llr,
-            ),
-        )
-        .await;
-    });
+    let (_, _) = spin_on::spin_on(i_slint_compiler::compile_syntax_node(
+        doc_node,
+        diags,
+        i_slint_compiler::CompilerConfiguration::new(
+            i_slint_compiler::generator::OutputFormat::Llr,
+        ),
+    ));
 });

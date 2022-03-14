@@ -30,8 +30,8 @@ display-diagnostics = ["codemap", "codemap-diagnostic"]
 # Enabled the support to render images and font in the binary
 software-renderer = ["image", "tiny-skia", "resvg", "usvg", "fontdb", "fontdue", "libc", "yeslogic-fontconfig-sys"]
 
-# Enable Arbitrary support for fuzzing
-arbitrary = ["smol_str/arbitrary", "dep:arbitrary"]
+# Enable fuzzing
+fuzzing = ["smol_str/arbitrary", "arbitrary"]
 
 [dependencies]
 i-slint-common = { version = "=0.3.3", path = "../common" }
