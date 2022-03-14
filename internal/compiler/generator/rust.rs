@@ -1058,7 +1058,7 @@ fn generate_item_tree(
                 -> slint::re_exports::VisitChildrenResult
             {
                 use slint::re_exports::*;
-                return slint::re_exports::visit_item_tree(self, &VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), Self::item_tree(), index, order, visitor, visit_dynamic);
+                return slint::re_exports::visit_item_tree(self, &VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), self.get_item_tree().as_slice(), index, order, visitor, visit_dynamic);
                 #[allow(unused)]
                 fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: slint::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
                     _self.visit_dynamic_children(dyn_index, order, visitor)
@@ -1066,13 +1066,19 @@ fn generate_item_tree(
             }
 
             fn get_item_ref(self: ::core::pin::Pin<&Self>, index: usize) -> ::core::pin::Pin<ItemRef> {
-                match &Self::item_tree()[index] {
+                match &self.get_item_tree().as_slice()[index] {
                     ItemTreeNode::Item { item_array_index, .. } => {
                         Self::item_array()[*item_array_index as usize].apply_pin(self)
                     }
                     ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
 
                 }
+            }
+
+            fn get_item_tree(
+                self: ::core::pin::Pin<&Self>) -> slint::re_exports::Slice<slint::re_exports::ItemTreeNode>
+            {
+                Self::item_tree().into()
             }
 
             fn parent_item(self: ::core::pin::Pin<&Self>, index: usize, result: &mut slint::re_exports::ItemWeak) {
@@ -1084,7 +1090,7 @@ fn generate_item_tree(
                     )*
                     return;
                 }
-                let parent_index = Self::item_tree()[index].parent_index();
+                let parent_index = self.get_item_tree().as_slice()[index].parent_index();
                 let self_rc = slint::re_exports::VRcMapped::origin(&self.self_weak.get().unwrap().upgrade().unwrap());
                 *result = ItemRc::new(self_rc, parent_index).downgrade();
             }

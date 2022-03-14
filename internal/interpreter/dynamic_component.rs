@@ -22,6 +22,7 @@ use i_slint_core::model::RepeatedComponent;
 use i_slint_core::model::Repeater;
 use i_slint_core::properties::InterpolatedPropertyValue;
 use i_slint_core::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
+use i_slint_core::slice::Slice;
 use i_slint_core::window::{WindowHandleAccess, WindowRc};
 use i_slint_core::{Brush, Color, Property, SharedString, SharedVector};
 use std::collections::BTreeMap;
@@ -161,12 +162,18 @@ impl Component for ErasedComponentBox {
     fn layout_info(self: Pin<&Self>, orientation: Orientation) -> i_slint_core::layout::LayoutInfo {
         self.borrow().as_ref().layout_info(orientation)
     }
+
+    fn get_item_tree(self: Pin<&Self>) -> Slice<ItemTreeNode> {
+        get_item_tree(self.get_ref().borrow())
+    }
+
     fn get_item_ref(self: Pin<&Self>, index: usize) -> Pin<ItemRef> {
         // We're having difficulties transferring the lifetime to a pinned reference
         // to the other ComponentVTable with the same life time. So skip the vtable
         // indirection and call our implementation directly.
         unsafe { get_item_ref(self.get_ref().borrow(), index) }
     }
+
     fn parent_item(self: Pin<&Self>, index: usize, result: &mut ItemWeak) {
         self.borrow().as_ref().parent_item(index, result)
     }
@@ -582,7 +589,7 @@ extern "C" fn visit_children_item(
     i_slint_core::item_tree::visit_item_tree(
         instance_ref.instance,
         &vtable::VRc::into_dyn(comp_rc),
-        instance_ref.component_type.item_tree.as_slice(),
+        get_item_tree(component).as_slice(),
         index,
         order,
         v,
@@ -1021,6 +1028,7 @@ pub(crate) fn generate_component<'id>(
         visit_children_item,
         layout_info,
         get_item_ref,
+        get_item_tree,
         parent_item,
         drop_in_place,
         dealloc,
@@ -1495,10 +1503,11 @@ extern "C" fn layout_info(component: ComponentRefPin, orientation: Orientation) 
 }
 
 unsafe extern "C" fn get_item_ref(component: ComponentRefPin, index: usize) -> Pin<ItemRef> {
-    generativity::make_guard!(guard);
-    let instance_ref = InstanceRef::from_pin_ref(component, guard);
-    match &instance_ref.component_type.item_tree.as_slice()[index] {
+    let tree = get_item_tree(component);
+    match &tree[index] {
         ItemTreeNode::Item { item_array_index, .. } => {
+            generativity::make_guard!(guard);
+            let instance_ref = InstanceRef::from_pin_ref(component, guard);
             core::mem::transmute::<Pin<ItemRef>, Pin<ItemRef>>(
                 instance_ref.component_type.item_array[*item_array_index as usize]
                     .apply_pin(instance_ref.instance),
@@ -1506,6 +1515,13 @@ unsafe extern "C" fn get_item_ref(component: ComponentRefPin, index: usize) -> P
         }
         ItemTreeNode::DynamicTree { .. } => panic!("get_item_ref called on dynamic tree"),
     }
+}
+
+extern "C" fn get_item_tree(component: ComponentRefPin) -> Slice<ItemTreeNode> {
+    generativity::make_guard!(guard);
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+    let tree = instance_ref.component_type.item_tree.as_slice();
+    unsafe { core::mem::transmute::<&[ItemTreeNode], &[ItemTreeNode]>(tree) }.into()
 }
 
 unsafe extern "C" fn parent_item(component: ComponentRefPin, index: usize, result: &mut ItemWeak) {
@@ -1537,7 +1553,7 @@ unsafe extern "C" fn parent_item(component: ComponentRefPin, index: usize, resul
         }
         return;
     }
-    let parent_index = instance_ref.component_type.item_tree.as_slice()[index].parent_index();
+    let parent_index = get_item_tree(component)[index].parent_index();
     let self_rc = instance_ref.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
     *result = ItemRc::new(self_rc, parent_index).downgrade();
 }
