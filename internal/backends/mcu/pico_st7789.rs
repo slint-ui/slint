@@ -117,11 +117,7 @@ impl<Display: Devices, IRQ: InputPin, CS: OutputPin<Error = IRQ::Error>, SPI: Tr
         self.display.screen_size()
     }
 
-    fn fill_region(
-        &mut self,
-        region: PhysicalRect,
-        pixels: &[embedded_graphics::pixelcolor::Rgb888],
-    ) {
+    fn fill_region(&mut self, region: PhysicalRect, pixels: &[super::TargetPixel]) {
         self.display.fill_region(region, pixels)
     }
 

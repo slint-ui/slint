@@ -268,7 +268,7 @@ impl WinitWindow for SimulatorWindow {
             super::PARTIAL_RENDERING_CACHE.with(|cache| {
                 crate::renderer::render_window_frame(
                     runtime_window,
-                    background,
+                    background.into(),
                     &mut *display,
                     &mut cache.borrow_mut(),
                 );

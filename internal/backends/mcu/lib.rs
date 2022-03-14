@@ -10,7 +10,6 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 use core::cell::RefCell;
-use embedded_graphics::pixelcolor::Rgb888;
 use embedded_graphics::prelude::*;
 
 #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
@@ -32,9 +31,13 @@ mod renderer;
 
 use lengths::*;
 
+/// The Pixel type of the backing store
+/// TODO: make it configurable
+pub type TargetPixel = embedded_graphics::pixelcolor::Rgb565;
+
 pub trait Devices {
     fn screen_size(&self) -> PhysicalSize;
-    fn fill_region(&mut self, region: PhysicalRect, pixels: &[Rgb888]);
+    fn fill_region(&mut self, region: PhysicalRect, pixels: &[TargetPixel]);
     fn read_touch_event(&mut self) -> Option<i_slint_core::input::MouseEvent> {
         None
     }
@@ -47,14 +50,14 @@ pub trait Devices {
 impl<T: embedded_graphics::draw_target::DrawTarget> crate::Devices for T
 where
     T::Error: core::fmt::Debug,
-    T::Color: core::convert::From<embedded_graphics::pixelcolor::Rgb888>,
+    T::Color: core::convert::From<TargetPixel>,
 {
     fn screen_size(&self) -> PhysicalSize {
         let s = self.bounding_box().size;
         PhysicalSize::new(s.width as i16, s.height as i16)
     }
 
-    fn fill_region(&mut self, region: PhysicalRect, pixels: &[Rgb888]) {
+    fn fill_region(&mut self, region: PhysicalRect, pixels: &[TargetPixel]) {
         self.color_converted()
             .fill_contiguous(
                 &embedded_graphics::primitives::Rectangle::new(
@@ -71,7 +74,7 @@ where
             mono_font::{ascii::FONT_6X10, MonoTextStyle},
             text::Text,
         };
-        let style = MonoTextStyle::new(&FONT_6X10, Rgb888::RED.into());
+        let style = MonoTextStyle::new(&FONT_6X10, TargetPixel::RED.into());
         Text::new(text, Point::new(20, 30), style).draw(self).unwrap();
     }
 }
@@ -227,7 +230,7 @@ mod the_backend {
                 PARTIAL_RENDERING_CACHE.with(|cache| {
                     crate::renderer::render_window_frame(
                         runtime_window,
-                        background,
+                        background.into(),
                         &mut **devices,
                         &mut cache.borrow_mut(),
                     )

@@ -11,6 +11,7 @@ use crate::{
 use alloc::rc::Rc;
 use alloc::{vec, vec::Vec};
 use core::pin::Pin;
+pub use draw_functions::TargetPixel;
 use embedded_graphics::pixelcolor::Rgb888;
 use i_slint_core::graphics::{FontRequest, IntRect, PixelFormat, Rect as RectF};
 use i_slint_core::item_rendering::PartialRenderingCache;
@@ -21,7 +22,7 @@ type DirtyRegion = PhysicalRect;
 
 pub fn render_window_frame(
     runtime_window: Rc<i_slint_core::window::Window>,
-    background: Rgb888,
+    background: super::TargetPixel,
     devices: &mut dyn Devices,
     cache: &mut PartialRenderingCache,
 ) {
@@ -44,7 +45,7 @@ pub fn render_window_frame(
             debug_assert!(scene.current_line < span.pos.y_length() + span.size.height_length(),);
             match span.command {
                 SceneCommand::Rectangle { color } => {
-                    draw_functions::blend_buffer(
+                    TargetPixel::blend_buffer(
                         &mut line_buffer[span.pos.x as usize
                             ..(span.pos.x_length() + span.size.width_length()).get() as usize],
                         color,
