@@ -8,7 +8,7 @@ use super::{SceneItem, SceneTexture};
 use crate::lengths::{PointLengths, SizeLengths};
 use crate::PhysicalLength;
 use derive_more::{Add, Mul, Sub};
-use embedded_graphics::pixelcolor::Rgb888;
+use embedded_graphics::pixelcolor::{Rgb565, Rgb888};
 use embedded_graphics::prelude::*;
 use i_slint_core::graphics::PixelFormat;
 use i_slint_core::Color;
@@ -19,7 +19,7 @@ pub(super) fn draw_texture_line(
     span: &SceneItem,
     line: PhysicalLength,
     texture: &super::SceneTexture,
-    line_buffer: &mut [Rgb888],
+    line_buffer: &mut [impl TargetPixel],
 ) {
     let SceneTexture { data, format, stride, source_size, color } = *texture;
     let source_size = source_size.cast::<usize>();
@@ -33,37 +33,22 @@ pub(super) fn draw_texture_line(
         .enumerate()
     {
         let pos = y_pos + (x * source_size.width / span_size.width) * bpp;
-        *pix = match format {
-            PixelFormat::Rgb => Rgb888::new(data[pos + 0], data[pos + 1], data[pos + 2]),
+        let c = match format {
+            PixelFormat::Rgb => {
+                Color::from_argb_u8(255, data[pos + 0], data[pos + 1], data[pos + 2])
+            }
             PixelFormat::Rgba => {
                 if color.alpha() == 0 {
-                    let a = (u8::MAX - data[pos + 3]) as u16;
-                    let b = data[pos + 3] as u16;
-                    Rgb888::new(
-                        ((pix.r() as u16 * a + data[pos + 0] as u16 * b) >> 8) as u8,
-                        ((pix.g() as u16 * a + data[pos + 1] as u16 * b) >> 8) as u8,
-                        ((pix.b() as u16 * a + data[pos + 2] as u16 * b) >> 8) as u8,
-                    )
+                    Color::from_argb_u8(data[pos + 3], data[pos + 0], data[pos + 1], data[pos + 2])
                 } else {
-                    let a = (u8::MAX - data[pos + 3]) as u16;
-                    let b = data[pos + 3] as u16;
-                    Rgb888::new(
-                        ((pix.r() as u16 * a + color.red() as u16 * b) >> 8) as u8,
-                        ((pix.g() as u16 * a + color.green() as u16 * b) >> 8) as u8,
-                        ((pix.b() as u16 * a + color.blue() as u16 * b) >> 8) as u8,
-                    )
+                    Color::from_argb_u8(data[pos + 3], color.red(), color.green(), color.blue())
                 }
             }
             PixelFormat::AlphaMap => {
-                let a = (u8::MAX - data[pos]) as u16;
-                let b = data[pos] as u16;
-                Rgb888::new(
-                    ((pix.r() as u16 * a + color.red() as u16 * b) >> 8) as u8,
-                    ((pix.g() as u16 * a + color.green() as u16 * b) >> 8) as u8,
-                    ((pix.b() as u16 * a + color.blue() as u16 * b) >> 8) as u8,
-                )
+                Color::from_argb_u8(data[pos], color.red(), color.green(), color.blue())
             }
-        }
+        };
+        TargetPixel::blend_pixel(pix, c);
     }
 }
 
@@ -72,7 +57,7 @@ pub(super) fn draw_rounded_rectangle_line(
     span: &SceneItem,
     line: PhysicalLength,
     rr: &super::RoundedRectangle,
-    line_buffer: &mut [Rgb888],
+    line_buffer: &mut [impl TargetPixel],
 ) {
     /// This is an integer shifted by 4 bits.
     /// Note: this is not a "fixed point" because multiplication and sqrt operation operate to
@@ -150,13 +135,13 @@ pub(super) fn draw_rounded_rectangle_line(
             let c = if border == Shifted(0) { rr.inner_color } else { rr.border_color };
             let alpha = ((c.alpha() as u32) * cov as u32) / 255;
             let col = Color::from_argb_u8(alpha as u8, c.red(), c.green(), c.blue());
-            blend_pixel(&mut line_buffer[pos_x + x], col)
+            TargetPixel::blend_pixel(&mut line_buffer[pos_x + x], col)
         },
     );
     if y < rr.width {
         // up or down border (x2 .. x2)
         if (x2 * 2).floor() as i16 + rr.right_clip.get() < span.size.width + rr.left_clip.get() {
-            blend_buffer(
+            TargetPixel::blend_buffer(
                 &mut line_buffer[pos_x
                     + x2.ceil()
                         .saturating_sub(rr.left_clip.get() as u32)
@@ -169,7 +154,7 @@ pub(super) fn draw_rounded_rectangle_line(
         if border > Shifted(0) {
             // 3. draw the border (between x2 and x3)
             if ONE + x2 <= x3 {
-                blend_buffer(
+                TargetPixel::blend_buffer(
                     &mut line_buffer[pos_x
                         + x2.ceil()
                             .saturating_sub(rr.left_clip.get() as u32)
@@ -191,13 +176,13 @@ pub(super) fn draw_rounded_rectangle_line(
                         return;
                     }
                     let col = interpolate_color(cov, rr.border_color, rr.inner_color);
-                    blend_pixel(&mut line_buffer[pos_x + x], col)
+                    TargetPixel::blend_pixel(&mut line_buffer[pos_x + x], col)
                 },
             );
         }
         // 5. inside (x4 .. x4)
         if (x4 * 2).ceil() as i16 + rr.right_clip.get() <= span.size.width + rr.left_clip.get() {
-            blend_buffer(
+            TargetPixel::blend_buffer(
                 &mut line_buffer[pos_x
                     + x4.ceil()
                         .saturating_sub(rr.left_clip.get() as u32)
@@ -213,11 +198,11 @@ pub(super) fn draw_rounded_rectangle_line(
                     return;
                 }
                 let col = interpolate_color(cov, rr.inner_color, rr.border_color);
-                blend_pixel(&mut line_buffer[pos_x + x], col)
+                TargetPixel::blend_pixel(&mut line_buffer[pos_x + x], col)
             });
             // 7. border x3 .. x2
             if ONE + x2 <= x3 {
-                blend_buffer(
+                TargetPixel::blend_buffer(
                     &mut line_buffer[pos_x + rev(x3).ceil().min(span.size.width as u32) as usize
                         ..pos_x + rev(x2).floor().min(span.size.width as u32) as usize as usize],
                     rr.border_color,
@@ -232,7 +217,7 @@ pub(super) fn draw_rounded_rectangle_line(
         let c = if border == Shifted(0) { rr.inner_color } else { rr.border_color };
         let alpha = ((c.alpha() as u32) * (255 - cov) as u32) / 255;
         let col = Color::from_argb_u8(alpha as u8, c.red(), c.green(), c.blue());
-        blend_pixel(&mut line_buffer[pos_x + x], col)
+        TargetPixel::blend_pixel(&mut line_buffer[pos_x + x], col)
     });
 }
 
@@ -260,23 +245,54 @@ fn interpolate_color(a: u32, color1: Color, color2: Color) -> Color {
     col
 }
 
-/// Fill (or blend) the color in the buffer
-pub fn blend_buffer(to_fill: &mut [Rgb888], color: Color) {
-    if color.alpha() == u8::MAX {
-        to_fill.fill(super::to_rgb888_color_discard_alpha(color))
-    } else {
-        for pix in to_fill {
-            blend_pixel(pix, color);
+/// Trait for the pixels in the buffer
+pub trait TargetPixel: Sized + Copy {
+    /// blend a single pixel
+    fn blend_pixel(pix: &mut Self, color: Color);
+    /// Fill (or blend) the color in the buffer
+    fn blend_buffer(to_fill: &mut [Self], color: Color);
+}
+
+impl TargetPixel for Rgb888 {
+    fn blend_buffer(to_fill: &mut [Rgb888], color: Color) {
+        if color.alpha() == u8::MAX {
+            to_fill.fill(super::to_rgb888_color_discard_alpha(color))
+        } else {
+            for pix in to_fill {
+                Self::blend_pixel(pix, color);
+            }
         }
+    }
+
+    fn blend_pixel(pix: &mut Rgb888, color: Color) {
+        let a = (u8::MAX - color.alpha()) as u16;
+        let b = color.alpha() as u16;
+        *pix = Rgb888::new(
+            ((pix.r() as u16 * a + color.red() as u16 * b) / 255) as u8,
+            ((pix.g() as u16 * a + color.green() as u16 * b) / 255) as u8,
+            ((pix.b() as u16 * a + color.blue() as u16 * b) / 255) as u8,
+        );
     }
 }
 
-fn blend_pixel(pix: &mut Rgb888, color: Color) {
-    let a = (u8::MAX - color.alpha()) as u16;
-    let b = color.alpha() as u16;
-    *pix = Rgb888::new(
-        ((pix.r() as u16 * a + color.red() as u16 * b) / 255) as u8,
-        ((pix.g() as u16 * a + color.green() as u16 * b) / 255) as u8,
-        ((pix.b() as u16 * a + color.blue() as u16 * b) / 255) as u8,
-    );
+impl TargetPixel for Rgb565 {
+    fn blend_buffer(to_fill: &mut [Rgb565], color: Color) {
+        if color.alpha() == u8::MAX {
+            to_fill.fill(Rgb565::new(color.red() >> 3, color.green() >> 2, color.blue() >> 3))
+        } else {
+            for pix in to_fill {
+                Self::blend_pixel(pix, color);
+            }
+        }
+    }
+
+    fn blend_pixel(pix: &mut Rgb565, color: Color) {
+        let a = (u8::MAX - color.alpha()) as u16;
+        let b = color.alpha() as u16;
+        *pix = Rgb565::new(
+            ((((pix.r() as u16) << 3) * a + color.red() as u16 * b) / 2040) as u8,
+            ((((pix.g() as u16) << 2) * a + color.green() as u16 * b) / 1020) as u8,
+            ((((pix.b() as u16) << 3) * a + color.blue() as u16 * b) / 2040) as u8,
+        )
+    }
 }
