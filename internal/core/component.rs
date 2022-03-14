@@ -5,9 +5,10 @@
 
 //! This module contains the basic datastructures that are exposed to the C API
 
-use crate::item_tree::{ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
+use crate::item_tree::{ItemTreeNode, ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
 use crate::items::{ItemVTable, ItemWeak};
 use crate::layout::{LayoutInfo, Orientation};
+use crate::slice::Slice;
 use crate::window::WindowRc;
 use vtable::*;
 
@@ -30,6 +31,11 @@ pub struct ComponentVTable {
         core::pin::Pin<VRef<ComponentVTable>>,
         index: usize,
     ) -> core::pin::Pin<VRef<ItemVTable>>,
+
+    /// Return the item tree that is defined by this `Component`.
+    /// The return value is an item weak because it can be null if there is no parent.
+    /// And the return value is passed by &mut because ItemWeak has a destructor
+    pub get_item_tree: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>) -> Slice<ItemTreeNode>,
 
     /// Return the parent item.
     /// The return value is an item weak because it can be null if there is no parent.
@@ -82,7 +88,6 @@ pub(crate) mod ffi {
     #![allow(unsafe_code)]
 
     use super::*;
-    use crate::slice::Slice;
 
     /// Call init() on the ItemVTable of each item in the item array.
     #[no_mangle]

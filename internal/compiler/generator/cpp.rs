@@ -861,7 +861,7 @@ fn generate_item_tree(
     visit_children_statements.extend([
         "};".into(),
         format!("auto self_rc = reinterpret_cast<const {}*>(component.instance)->self_weak.lock()->into_dyn();", item_tree_class_name),
-        "return slint::cbindgen_private::slint_visit_item_tree(&self_rc, item_tree() , index, order, visitor, dyn_visit);".to_owned(),
+        "return slint::cbindgen_private::slint_visit_item_tree(&self_rc, get_item_tree(component) , index, order, visitor, dyn_visit);".to_owned(),
     ]);
 
     target_struct.members.push((
@@ -874,6 +874,7 @@ fn generate_item_tree(
             ..Default::default()
         }),
     ));
+
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
@@ -881,7 +882,20 @@ fn generate_item_tree(
             signature: "(slint::private_api::ComponentRef component, uintptr_t index) -> slint::private_api::ItemRef".into(),
             is_static: true,
             statements: Some(vec![
-                "return slint::private_api::get_item_ref(component, item_tree(), item_array(), index);".to_owned(),
+                "return slint::private_api::get_item_ref(component, get_item_tree(component), item_array(), index);".to_owned(),
+            ]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "get_item_tree".into(),
+            signature: "(slint::private_api::ComponentRef) -> slint::cbindgen_private::Slice<slint::private_api::ItemTreeNode>".into(),
+            is_static: true,
+            statements: Some(vec![
+                "return item_tree();".to_owned(),
             ]),
             ..Default::default()
         }),
@@ -895,7 +909,7 @@ fn generate_item_tree(
         }) {
         format!(
             // that does not work when the parent is not a component with a ComponentVTable
-            //"   *result = slint::private_api::parent_item(self->parent->self_weak.into_dyn(), self->parent->item_tree(), {});",
+            //"   *result = slint::private_api::parent_item(self->parent->self_weak.into_dyn(), self->parent->get_item_tree(), {});",
             "self->parent->self_weak.vtable()->parent_item(self->parent->self_weak.lock()->borrow(), {}, result);",
             parent_index,
         )
@@ -914,7 +928,7 @@ fn generate_item_tree(
                 parent_item_from_parent_component,
                 "   return;".into(),
                 "}".into(),
-                "*result = slint::private_api::parent_item(self->self_weak.into_dyn(), item_tree(), index);".into(),
+                "*result = slint::private_api::parent_item(self->self_weak.into_dyn(), get_item_tree(component), index);".into(),
             ]),
             ..Default::default()
         }),
@@ -981,7 +995,7 @@ fn generate_item_tree(
         ty: "const slint::private_api::ComponentVTable".to_owned(),
         name: format!("{}::static_vtable", item_tree_class_name),
         init: Some(format!(
-            "{{ visit_children, get_item_ref, parent_item,  layout_info, slint::private_api::drop_in_place<{}>, slint::private_api::dealloc }}",
+            "{{ visit_children, get_item_ref, get_item_tree, parent_item,  layout_info, slint::private_api::drop_in_place<{}>, slint::private_api::dealloc }}",
             item_tree_class_name)
         ),
         ..Default::default()
