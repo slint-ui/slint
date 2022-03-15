@@ -377,7 +377,8 @@ export ListView := ScrollView {
 
 export StandardListView := ListView {
     property<[StandardListViewItem]> model;
-    property<int> current-item: -1;
+    property<int> current-item: min(actual-current-item, model.length - 1);
+    property<int> actual-current-item: -1;
     for item[idx] in model : Rectangle {
         l := HorizontalLayout {
             padding: 8px;
@@ -392,16 +393,16 @@ export StandardListView := ListView {
         touch := TouchArea {
             width: parent.width;
             height: parent.height;
-            clicked => { current-item = idx; }
+            clicked => { actual-current-item = idx; }
         }
     }
     FocusScope {
         key-pressed(event) => {
             if (event.text == Keys.UpArrow && current-item > 0) {
-                current-item -= 1;
+                actual-current-item -= 1;
                 return accept;
             } else if (event.text == Keys.DownArrow && current-item + 1 < model.length) {
-                current-item += 1;
+                actual-current-item += 1;
                 return accept;
             }
             reject
