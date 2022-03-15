@@ -14,7 +14,7 @@ use core::pin::Pin;
 pub use draw_functions::TargetPixel;
 use embedded_graphics::pixelcolor::Rgb888;
 use i_slint_core::graphics::{FontRequest, IntRect, PixelFormat, Rect as RectF};
-use i_slint_core::item_rendering::PartialRenderingCache;
+use i_slint_core::item_rendering::{ItemRenderer, PartialRenderingCache};
 use i_slint_core::textlayout::TextParagraphLayout;
 use i_slint_core::{Color, ImageInner, StaticTextures};
 
@@ -327,6 +327,13 @@ fn prepare_scene(
         for (component, origin) in components {
             renderer.compute_dirty_regions(component, *origin);
         }
+        renderer.combine_clip(
+            ((LogicalRect::from_untyped(&renderer.dirty_region.to_rect()) * factor).round_out()
+                / factor)
+                .to_untyped(),
+            0.,
+            0.,
+        );
         compute_dirty_region_profiler.stop(devices);
         for (component, origin) in components {
             i_slint_core::item_rendering::render_component_items(component, &mut renderer, *origin);
