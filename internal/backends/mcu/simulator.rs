@@ -317,10 +317,11 @@ impl WinitWindow for SimulatorWindow {
                     line: crate::PhysicalLength,
                     render_fn: impl FnOnce(&mut [super::TargetPixel]),
                 ) {
-                    render_fn(&mut self.line_buffer);
-                    self.devices.fill_region(
+                    let mut render_fn = Some(render_fn);
+                    self.devices.render_line(
+                        line,
                         euclid::rect(0, line.get(), self.line_buffer.len() as _, 1),
-                        &self.line_buffer,
+                        &mut |buffer| (render_fn.take().unwrap())(buffer),
                     );
                 }
             }

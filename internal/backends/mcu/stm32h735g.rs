@@ -26,7 +26,7 @@ fn oom(layout: core::alloc::Layout) -> ! {
 }
 use alloc_cortex_m::CortexMHeap;
 
-use crate::{Devices, PhysicalRect, PhysicalSize};
+use crate::{Devices, PhysicalLength, PhysicalRect, PhysicalSize};
 
 const HEAP_SIZE: usize = 200 * 1024;
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
@@ -241,11 +241,15 @@ impl Devices for StmDevices {
         dirty_region.union(&core::mem::replace(&mut self.prev_dirty, dirty_region))
     }
 
-    fn fill_region(&mut self, region: PhysicalRect, pixels: &[super::TargetPixel]) {
-        let region = region.cast::<usize>();
-        self.work_fb[region.min_y() * DISPLAY_WIDTH + region.min_x()
-            ..region.min_y() * DISPLAY_WIDTH + region.max_x()]
-            .copy_from_slice(pixels)
+    fn render_line(
+        &mut self,
+        line: PhysicalLength,
+        dirty_region: crate::renderer::DirtyRegion,
+        fill_buffer: &mut dyn FnMut(&mut [TargetPixel]),
+    ) {
+        while self.layer.is_swap_pending() {}
+        let line = line.get() as usize;
+        fill_buffer(&mut self.work_fb[line * DISPLAY_WIDTH..(line + 1) * DISPLAY_WIDTH])
     }
 
     fn flush_frame(&mut self) {

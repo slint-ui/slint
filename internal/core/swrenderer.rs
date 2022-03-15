@@ -19,7 +19,7 @@ use core::cell::RefCell;
 use core::pin::Pin;
 pub use draw_functions::TargetPixel;
 
-type DirtyRegion = PhysicalRect;
+pub type DirtyRegion = PhysicalRect;
 
 pub trait LineBufferProvider {
     /// The pixel type of the buffer
@@ -109,7 +109,6 @@ fn render_window_frame(
     while scene.current_line < dirty_region.origin.y_length() + dirty_region.size.height_length() {
         line_buffer.process_line(scene.current_line, |line_buffer| {
             TargetPixel::blend_buffer(&mut line_buffer[dirty_region.min_x() as usize..dirty_region.max_x() as usize] , background);
-
             for span in scene.items[0..scene.current_items_index].iter().rev() {
                 debug_assert!(scene.current_line >= span.pos.y_length());
                 debug_assert!(scene.current_line < span.pos.y_length() + span.size.height_length(),);
@@ -127,7 +126,7 @@ fn render_window_frame(
                             span,
                             scene.current_line,
                             texture,
-                             line_buffer,
+                            line_buffer,
                         );
                     }
                     SceneCommand::RoundedRectangle { rectangle_index } => {
@@ -136,7 +135,7 @@ fn render_window_frame(
                             span,
                             scene.current_line,
                             rr,
-                             line_buffer,
+                            line_buffer,
                         );
                     }
                 }
