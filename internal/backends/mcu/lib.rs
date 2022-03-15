@@ -9,6 +9,7 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
+use alloc::vec;
 use core::cell::RefCell;
 use embedded_graphics::prelude::*;
 use i_slint_core::items::{Item, WindowItem};
@@ -35,8 +36,17 @@ pub trait Devices {
     fn prepare_frame(&mut self, dirty_region: PhysicalRect) -> PhysicalRect {
         dirty_region
     }
-    fn fill_region(&mut self, region: PhysicalRect, pixels: &[TargetPixel]);
     fn flush_frame(&mut self) {}
+
+    /// Call the fill_line function with a buffer of `self.screen_size().width`.
+    /// The parts within the dirty_region will be filled by the FnMut.
+    /// this function should then send the buffer to the screen.
+    fn render_line(
+        &mut self,
+        line: PhysicalLength,
+        dirty_region: renderer::DirtyRegion,
+        fill_buffer: &mut dyn FnMut(&mut [TargetPixel]),
+    );
     fn read_touch_event(&mut self) -> Option<i_slint_core::input::MouseEvent> {
         None
     }
@@ -57,14 +67,21 @@ where
         PhysicalSize::new(s.width as i16, s.height as i16)
     }
 
-    fn fill_region(&mut self, region: PhysicalRect, pixels: &[TargetPixel]) {
+    fn render_line(
+        &mut self,
+        line: PhysicalLength,
+        dirty_region: renderer::DirtyRegion,
+        fill_buffer: &mut dyn FnMut(&mut [TargetPixel]),
+    ) {
+        let mut buffer = vec![TargetPixel::default(); self.screen_size().width as usize];
+        fill_buffer(&mut buffer);
         self.color_converted()
             .fill_contiguous(
                 &embedded_graphics::primitives::Rectangle::new(
-                    Point::new(region.origin.x as i32, region.origin.y as i32),
-                    Size::new(region.size.width as u32, region.size.height as u32),
+                    Point::new(dirty_region.origin.x as i32, line.get() as i32),
+                    Size::new(dirty_region.size.width as u32, 1),
                 ),
-                pixels.iter().copied(),
+                buffer.into_iter().skip(dirty_region.origin.x as usize),
             )
             .unwrap()
     }
@@ -284,7 +301,6 @@ mod the_backend {
                     compute_dirty_regions_profiler: profiler::Timer,
                     line_processing_profiler: profiler::Timer,
                     devices: &'a mut dyn Devices,
-                    line_buffer: alloc::vec::Vec<TargetPixel>,
                     dirty_region: PhysicalRect,
                 }
                 impl renderer::LineBufferProvider for BufferProvider<'_> {
@@ -303,23 +319,15 @@ mod the_backend {
                         line: PhysicalLength,
                         render_fn: impl FnOnce(&mut [super::TargetPixel]),
                     ) {
+                        let mut render_fn = Some(render_fn);
                         self.prepare_scene_profiler.stop(self.devices);
-                        self.span_drawing_profiler.start(self.devices);
-                        render_fn(&mut self.line_buffer);
-                        self.span_drawing_profiler.stop(self.devices);
-
-                        self.screen_fill_profiler.start(self.devices);
-                        self.devices.fill_region(
-                            euclid::rect(
-                                self.dirty_region.min_x(),
-                                line.get(),
-                                self.dirty_region.width(),
-                                1,
-                            ),
-                            &self.line_buffer[self.dirty_region.min_x() as usize
-                                ..self.dirty_region.max_x() as usize],
-                        );
                         self.screen_fill_profiler.stop(self.devices);
+                        self.span_drawing_profiler.start(self.devices);
+                        self.devices.render_line(line, self.dirty_region, &mut |buffer| {
+                            (render_fn.take().unwrap())(buffer);
+                        });
+                        self.span_drawing_profiler.stop(self.devices);
+                        self.screen_fill_profiler.start(self.devices);
                     }
                 }
                 impl Drop for BufferProvider<'_> {
@@ -342,7 +350,6 @@ mod the_backend {
                     prepare_scene_profiler: profiler::Timer::new_stopped(),
                     line_processing_profiler: profiler::Timer::new_stopped(),
                     devices: &mut **devices,
-                    line_buffer: alloc::vec![Default::default(); size.width as usize],
                     dirty_region: PhysicalRect::default(),
                 };
 
