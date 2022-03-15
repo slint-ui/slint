@@ -38,7 +38,7 @@ pub fn render_window_frame(
 
     debug_assert!(scene.current_line >= dirty_region.origin.y_length());
     while scene.current_line < dirty_region.origin.y_length() + dirty_region.size.height_length() {
-        line_buffer.fill(background);
+        line_buffer[dirty_region.min_x() as usize..dirty_region.max_x() as usize].fill(background);
         span_drawing_profiler.start(devices);
         for span in scene.items[0..scene.current_items_index].iter().rev() {
             debug_assert!(scene.current_line >= span.pos.y_length());
@@ -80,8 +80,7 @@ pub fn render_window_frame(
                 dirty_region.size.width,
                 1,
             ),
-            &line_buffer[dirty_region.origin.x as usize
-                ..(dirty_region.origin.x + dirty_region.size.width) as usize],
+            &line_buffer[dirty_region.min_x() as usize..dirty_region.max_x() as usize],
         );
         screen_fill_profiler.stop(devices);
         line_processing_profiler.start(devices);
@@ -428,25 +427,19 @@ impl PrepareScene {
                 let sy = geom.height() / (size.height as f32);
                 for t in textures.as_slice() {
                     if let Some(dest_rect) = t.rect.intersection(&source_clip).and_then(|r| {
-                        r.intersection(
-                            &self
-                                .current_state
-                                .clip
-                                .to_untyped()
-                                .scale(1. / sx, 1. / sy)
-                                .round_in()
-                                .cast(),
+                        r.cast().intersection(
+                            &self.current_state.clip.to_untyped().scale(1. / sx, 1. / sy),
                         )
                     }) {
-                        let actual_x = dest_rect.origin.x - t.rect.origin.x;
-                        let actual_y = dest_rect.origin.y - t.rect.origin.y;
+                        let actual_x = dest_rect.origin.x as usize - t.rect.origin.x as usize;
+                        let actual_y = dest_rect.origin.y as usize - t.rect.origin.y as usize;
                         let stride = t.rect.width() as u16 * bpp(t.format);
                         self.new_scene_texture(
-                            LogicalRect::from_untyped(&dest_rect.cast().scale(sx, sy)),
+                            LogicalRect::from_untyped(&dest_rect.scale(sx, sy)),
                             SceneTexture {
                                 data: &data.as_slice()[(t.index
-                                    + (stride as usize) * (actual_y as usize)
-                                    + (bpp(t.format) as usize) * (actual_x as usize))..],
+                                    + (stride as usize) * actual_y
+                                    + (bpp(t.format) as usize) * actual_x)..],
                                 stride,
                                 source_size: PhysicalSize::from_untyped(dest_rect.size.cast()),
                                 format: t.format,
@@ -616,25 +609,30 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
                     Some(g) => g,
                     None => continue,
                 };
-                if let Some(dest_rect) = (PhysicalRect::new(
+                let src_rect = PhysicalRect::new(
                     PhysicalPoint::from_lengths(
                         line_x + glyph_baseline_x + bitmap_glyph.x(),
                         baseline_y - bitmap_glyph.y() - bitmap_glyph.height(),
                     ),
                     bitmap_glyph.size(),
                 )
-                .cast()
-                    / self.scale_factor)
-                    .intersection(&self.current_state.clip)
+                .cast();
+
+                if let Some(clipped_rect) =
+                    src_rect.intersection(&(self.current_state.clip * self.scale_factor))
                 {
+                    let actual_x = clipped_rect.origin.x as usize - src_rect.origin.x as usize;
+                    let actual_y = clipped_rect.origin.y as usize - src_rect.origin.y as usize;
+
                     let stride = bitmap_glyph.width().get() as u16;
 
                     self.new_scene_texture(
-                        dest_rect,
+                        clipped_rect / self.scale_factor,
                         SceneTexture {
-                            data: bitmap_glyph.data().as_slice(),
+                            data: &bitmap_glyph.data().as_slice()
+                                [actual_x + actual_y * stride as usize..],
                             stride,
-                            source_size: bitmap_glyph.size(),
+                            source_size: clipped_rect.size.cast(),
                             format: PixelFormat::AlphaMap,
                             color,
                         },
