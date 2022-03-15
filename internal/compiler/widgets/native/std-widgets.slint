@@ -69,23 +69,24 @@ export ListView := ScrollView {
 
 export StandardListView := ListView {
     property<[StandardListViewItem]> model;
-    property<int> current-item: -1;
+    property<int> current-item: min(actual-current-item, model.length - 1);
+    property<int> actual-current-item: -1;
     for item[i] in model : NativeStandardListViewItem {
         item: item;
         index: i;
         is-selected: current-item == i;
         TouchArea {
-            clicked => { current-item = i; }
+            clicked => { actual-current-item = i; }
             has-hover <=> parent.has-hover;
         }
     }
     FocusScope {
         key-pressed(event) => {
             if (event.text == Keys.UpArrow && current-item > 0) {
-                current-item -= 1;
+                actual-current-item -= 1;
                 return accept;
             } else if (event.text == Keys.DownArrow && current-item + 1 < model.length) {
-                current-item += 1;
+                actual-current-item += 1;
                 return accept;
             }
             reject
