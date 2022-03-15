@@ -8,10 +8,11 @@ use super::graphics::RenderingCache;
 use super::items::*;
 use crate::component::ComponentRc;
 use crate::graphics::{CachedGraphicsData, Point, Rect};
-use crate::item_tree::ItemVisitorResult;
+use crate::item_tree::{ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult};
 use alloc::boxed::Box;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
+use vtable::VRc;
 
 /// This structure must be present in items that are Rendered and contains information.
 /// Used by the backend.
@@ -95,6 +96,42 @@ pub(crate) fn is_clipping_item(item: Pin<ItemRef>) -> bool {
         || ItemRef::downcast_pin::<Clip>(item).is_some()
 }
 
+fn render_item_children(
+    renderer: &mut dyn ItemRenderer,
+    component: &ComponentRc,
+    index: isize,
+) -> VisitChildrenResult {
+    let mut actual_visitor =
+        |component: &ComponentRc, index: usize, item: Pin<ItemRef>| -> VisitChildrenResult {
+            renderer.save_state();
+
+            let (do_draw, item_geometry) = renderer.filter_item(item);
+
+            let item_origin = item_geometry.origin;
+            renderer.translate(item_origin.x, item_origin.y);
+
+            // Don't render items that are clipped, with the exception of the Clip or Flickable since
+            // they themselves clip their content.
+            if do_draw
+               || is_clipping_item(item)
+               // HACK, the geometry of the box shadow does not include the shadow, because when the shadow is the root for repeated elements it would translate the children
+               || ItemRef::downcast_pin::<BoxShadow>(item).is_some()
+            {
+                item.as_ref().render(&mut (renderer as &mut dyn ItemRenderer));
+            }
+
+            let result = render_item_children(renderer, component, index as isize);
+            renderer.restore_state();
+            result
+        };
+    vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
+    VRc::borrow_pin(component).as_ref().visit_children_item(
+        index,
+        crate::item_tree::TraversalOrder::BackToFront,
+        actual_visitor,
+    )
+}
+
 /// Renders the tree of items that component holds, using the specified renderer. Rendering is done
 /// relative to the specified origin.
 pub fn render_component_items(
@@ -105,40 +142,8 @@ pub fn render_component_items(
     renderer.save_state();
     renderer.translate(origin.x, origin.y);
 
-    let renderer = RefCell::new(renderer);
+    render_item_children(renderer, component, -1);
 
-    crate::item_tree::visit_items_with_post_visit(
-        component,
-        crate::item_tree::TraversalOrder::BackToFront,
-        |_, item, _, _| {
-            renderer.borrow_mut().save_state();
-
-            let (do_draw, item_geometry) = renderer.borrow_mut().filter_item(item);
-
-            let item_origin = item_geometry.origin;
-            renderer.borrow_mut().translate(item_origin.x, item_origin.y);
-
-            // Don't render items that are clipped, with the exception of the Clip or Flickable since
-            // they themselves clip their content.
-            if !do_draw
-                && !is_clipping_item(item)
-                // HACK, the geometry of the box shadow does not include the shadow, because when the shadow is the root for repeated elements it would translate the children
-                && ItemRef::downcast_pin::<BoxShadow>(item).is_none()
-            {
-                return (ItemVisitorResult::Continue(()), ());
-            }
-            item.as_ref().render(&mut (*renderer.borrow_mut() as &mut dyn ItemRenderer));
-
-            (ItemVisitorResult::Continue(()), ())
-        },
-        |_, _, _, r| {
-            renderer.borrow_mut().restore_state();
-            r
-        },
-        (),
-    );
-
-    let renderer = renderer.into_inner();
     renderer.restore_state();
 }
 
