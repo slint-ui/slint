@@ -9,7 +9,7 @@ MainWindow := Window {
         Text { text: "Filter prefix:"; }
         LineEdit {
             text <=> root.prefix;
-            edited => { root.prefexEdited() }
+            edited => { root.prefixEdited() }
         }
 
         list := StandardListView {
@@ -52,7 +52,7 @@ MainWindow := Window {
 
     property <string> prefix;
 
-    callback prefexEdited();
+    callback prefixEdited();
     callback createClicked();
     callback updateClicked();
     callback deleteClicked();
