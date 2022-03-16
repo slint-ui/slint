@@ -96,7 +96,12 @@ pub(crate) fn is_clipping_item(item: Pin<ItemRef>) -> bool {
         || ItemRef::downcast_pin::<Clip>(item).is_some()
 }
 
-fn render_item_children(renderer: &mut dyn ItemRenderer, component: &ComponentRc, index: isize) {
+/// Renders the children of the item with the specified index into the renderer.
+pub fn render_item_children(
+    renderer: &mut dyn ItemRenderer,
+    component: &ComponentRc,
+    index: isize,
+) {
     let mut actual_visitor =
         |component: &ComponentRc, index: usize, item: Pin<ItemRef>| -> VisitChildrenResult {
             renderer.save_state();
@@ -196,6 +201,20 @@ pub trait ItemRenderer {
     /// Draw the given string with the specified color at current (0, 0) with the default font. Mainly
     /// used by the performance counter overlay.
     fn draw_string(&mut self, string: &str, color: crate::Color);
+
+    // Renders the children of the specified item into a layer and subsequently renders the layer. The
+    // layer may be cached.
+    // Returns true if the operation is supported; false if the caller needs to take care of rendering
+    // the children without a layer.
+    fn render_layer(
+        &mut self,
+        _item_cache: &CachedRenderingData,
+        _item: &ItemRc,
+        _radius: f32,
+        _border_width: f32,
+    ) -> bool {
+        false
+    }
 
     /// This is called before it is being rendered (before the draw_* function).
     /// Returns
