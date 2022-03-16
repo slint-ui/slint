@@ -15,6 +15,7 @@ pub use draw_functions::TargetPixel;
 use embedded_graphics::pixelcolor::Rgb888;
 use i_slint_core::graphics::{FontRequest, IntRect, PixelFormat, Rect as RectF};
 use i_slint_core::item_rendering::{ItemRenderer, PartialRenderingCache};
+use i_slint_core::items::ImageFit;
 use i_slint_core::textlayout::TextParagraphLayout;
 use i_slint_core::{Color, ImageInner, StaticTextures};
 
@@ -414,7 +415,8 @@ impl PrepareScene {
         &mut self,
         geom: LogicalRect,
         source: &i_slint_core::graphics::Image,
-        source_clip: IntRect,
+        mut source_clip: IntRect,
+        image_fit: ImageFit,
         colorize: Color,
     ) {
         let image_inner: &ImageInner = source.into();
@@ -427,23 +429,56 @@ impl PrepareScene {
             ImageInner::StaticTextures(StaticTextures { size, data, textures, .. }) => {
                 let sx = geom.width() / (size.width as f32);
                 let sy = geom.height() / (size.height as f32);
+                let mut image_fit_offset = euclid::Vector2D::default();
+                let (sx, sy) = match image_fit {
+                    ImageFit::fill => (sx, sy),
+                    ImageFit::cover => {
+                        let ratio = f32::max(sx, sy);
+                        if size.width as f32 > geom.width() / ratio {
+                            let diff = (size.width as f32 - geom.width() / ratio) as i32;
+                            source_clip.origin.x += diff / 2;
+                            source_clip.size.width -= diff;
+                        }
+                        if size.height as f32 > geom.height() / ratio {
+                            let diff = (size.height as f32 - geom.height() / ratio) as i32;
+                            source_clip.origin.y += diff / 2;
+                            source_clip.size.height -= diff;
+                        }
+                        (ratio, ratio)
+                    }
+                    ImageFit::contain => {
+                        let ratio = f32::min(sx, sy);
+                        if (size.width as f32) < geom.width() / ratio {
+                            image_fit_offset.x = (geom.width() - size.width as f32 * ratio) / 2.;
+                        }
+                        if (size.height as f32) < geom.height() / ratio {
+                            image_fit_offset.y = (geom.height() - size.height as f32 * ratio) / 2.;
+                        }
+                        (ratio, ratio)
+                    }
+                };
+
+                let scaled_clip = self.current_state.clip.to_untyped().scale(1. / sx, 1. / sy);
                 for t in textures.as_slice() {
-                    if let Some(dest_rect) = t.rect.intersection(&source_clip).and_then(|r| {
-                        r.cast().intersection(
-                            &self.current_state.clip.to_untyped().scale(1. / sx, 1. / sy),
-                        )
-                    }) {
-                        let actual_x = dest_rect.origin.x as usize - t.rect.origin.x as usize;
-                        let actual_y = dest_rect.origin.y as usize - t.rect.origin.y as usize;
+                    if let Some(clipped_src) = t
+                        .rect
+                        .intersection(&source_clip)
+                        .and_then(|r| r.cast().intersection(&scaled_clip))
+                    {
+                        let actual_x = clipped_src.origin.x as usize - t.rect.origin.x as usize;
+                        let actual_y = clipped_src.origin.y as usize - t.rect.origin.y as usize;
                         let stride = t.rect.width() as u16 * bpp(t.format);
                         self.new_scene_texture(
-                            LogicalRect::from_untyped(&dest_rect.scale(sx, sy)),
+                            LogicalRect::from_untyped(&clipped_src.scale(sx, sy))
+                                .translate(image_fit_offset),
                             SceneTexture {
                                 data: &data.as_slice()[(t.index
                                     + (stride as usize) * actual_y
                                     + (bpp(t.format) as usize) * actual_x)..],
                                 stride,
-                                source_size: PhysicalSize::from_untyped(dest_rect.size.cast()),
+                                source_size: PhysicalSize::from_untyped(
+                                    clipped_src.size.ceil().cast(),
+                                ),
                                 format: t.format,
                                 color: if colorize.alpha() > 0 { colorize } else { t.color },
                             },
@@ -549,6 +584,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
                 geom,
                 &image.source(),
                 euclid::rect(0, 0, i32::MAX, i32::MAX),
+                image.image_fit(),
                 Default::default(),
             );
         }
@@ -570,6 +606,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
                     a(image.source_clip_width()),
                     a(image.source_clip_height()),
                 ),
+                image.image_fit(),
                 image.colorize().color(),
             );
         }
