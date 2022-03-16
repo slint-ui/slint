@@ -45,6 +45,27 @@ pub fn main() {
         }
     });
 
+    let weak_window = main_window.as_weak();
+    main_window.on_popup_confirmed(move || {
+        let window = weak_window.unwrap();
+        window.hide();
+    });
+
+    {
+        let weak_window = main_window.as_weak();
+        let todo_model = todo_model.clone();
+        main_window.window().on_close_requested(move || {
+            let window = weak_window.unwrap();
+
+            if todo_model.iter().any(|t| !t.checked) {
+                window.invoke_show_confirm_popup();
+                slint::CloseRequestResponse::KeepWindowShown
+            } else {
+                slint::CloseRequestResponse::HideWindow
+            }
+        });
+    }
+
     main_window.set_todo_model(todo_model.into());
 
     main_window.run();
