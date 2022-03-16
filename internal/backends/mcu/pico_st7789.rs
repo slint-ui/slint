@@ -174,8 +174,8 @@ mod xpt2046 {
 
         pub fn read(&mut self) -> Result<Option<Point2D<f32>>, Error<PinE, SPI::Error>> {
             const PRESS_THRESHOLD: i32 = -20_000;
-            const RELEASE_THRESHOLD: i32 = -25_000;
-            let threshold = if self.pressed { PRESS_THRESHOLD } else { RELEASE_THRESHOLD };
+            const RELEASE_THRESHOLD: i32 = -30_000;
+            let threshold = if self.pressed { RELEASE_THRESHOLD } else { PRESS_THRESHOLD };
             self.pressed = false;
             if self.irq.is_low().map_err(|e| Error::Pin(e))? {
                 const CMD_X_READ: u8 = 0b10010000;
