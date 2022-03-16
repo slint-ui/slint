@@ -25,7 +25,7 @@ use i_slint_core::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
 };
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
-use i_slint_core::items::{Item, ItemConsts, ItemRc, ItemVTable, VoidArg};
+use i_slint_core::items::{Item, ItemConsts, ItemRc, ItemVTable, RenderingResult, VoidArg};
 use i_slint_core::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use i_slint_core::rtti::*;
@@ -55,7 +55,7 @@ macro_rules! get_size {
 
 macro_rules! fn_render {
     ($this:ident $dpr:ident $size:ident $painter:ident $widget:ident $initial_state:ident => $($tt:tt)*) => {
-        fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
+        fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer, _self_rc: &ItemRc) -> RenderingResult {
             let $dpr: f32 = backend.scale_factor();
 
             let window = backend.window();
@@ -102,6 +102,7 @@ macro_rules! fn_render {
                     },
                 );
             }
+            RenderingResult::ContinueRenderingChildren
         }
     };
 }

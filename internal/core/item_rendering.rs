@@ -108,15 +108,22 @@ fn render_item_children(renderer: &mut dyn ItemRenderer, component: &ComponentRc
 
             // Don't render items that are clipped, with the exception of the Clip or Flickable since
             // they themselves clip their content.
-            if do_draw
+            let render_result = if do_draw
                || is_clipping_item(item)
                // HACK, the geometry of the box shadow does not include the shadow, because when the shadow is the root for repeated elements it would translate the children
                || ItemRef::downcast_pin::<BoxShadow>(item).is_some()
             {
-                item.as_ref().render(&mut (renderer as &mut dyn ItemRenderer));
-            }
+                item.as_ref().render(
+                    &mut (renderer as &mut dyn ItemRenderer),
+                    &ItemRc::new(component.clone(), index),
+                )
+            } else {
+                RenderingResult::ContinueRenderingChildren
+            };
 
-            render_item_children(renderer, component, index as isize);
+            if matches!(render_result, RenderingResult::ContinueRenderingChildren) {
+                render_item_children(renderer, component, index as isize);
+            }
             renderer.restore_state();
             VisitChildrenResult::CONTINUE
         };
