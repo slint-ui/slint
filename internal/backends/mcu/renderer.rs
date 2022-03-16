@@ -401,7 +401,7 @@ impl PrepareScene {
     fn new_scene_item(&mut self, geometry: LogicalRect, command: SceneCommand) {
         let geometry = (geometry.translate(self.current_state.offset.to_vector())
             * self.scale_factor)
-            .round_in()
+            .round()
             .cast();
         let size = geometry.size;
         if !size.is_empty() {
@@ -523,12 +523,15 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
             // FIXME: gradients
             let color = rect.background().color();
             if radius > 0. {
+                let radius = LogicalLength::new(radius)
+                    .min(geom.width_length() / 2.)
+                    .min(geom.height_length() / 2.);
                 if let Some(clipped) = geom.intersection(&self.current_state.clip) {
                     let geom2 = geom * self.scale_factor;
                     let clipped2 = clipped * self.scale_factor;
                     let rectangle_index = self.rounded_rectangles.len() as u16;
                     self.rounded_rectangles.push(RoundedRectangle {
-                        radius: (LogicalLength::new(radius) * self.scale_factor).cast(),
+                        radius: (radius * self.scale_factor).cast(),
                         width: (LogicalLength::new(border) * self.scale_factor).cast(),
                         border_color: rect.border_color().color(),
                         inner_color: color,
