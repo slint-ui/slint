@@ -216,6 +216,7 @@ impl WinitWindow for GLWindow {
                     ),
                     global_alpha: 1.,
                     layer: None,
+                    current_render_target: femtovg::RenderTarget::Screen,
                 }],
             };
 
