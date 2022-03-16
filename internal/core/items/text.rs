@@ -8,7 +8,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 
-use super::{Item, ItemConsts, ItemRc, PointArg, PointerEventButton, VoidArg};
+use super::{Item, ItemConsts, ItemRc, PointArg, PointerEventButton, RenderingResult, VoidArg};
 use crate::graphics::{Brush, Color, FontRequest, Rect};
 use crate::input::{
     key_codes, FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
@@ -195,8 +195,13 @@ impl Item for Text {
         FocusEventResult::FocusIgnored
     }
 
-    fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
-        (*backend).draw_text(self)
+    fn render(
+        self: Pin<&Self>,
+        backend: &mut &mut dyn ItemRenderer,
+        _self_rc: &ItemRc,
+    ) -> RenderingResult {
+        (*backend).draw_text(self);
+        RenderingResult::ContinueRenderingChildren
     }
 }
 
@@ -458,8 +463,13 @@ impl Item for TextInput {
         FocusEventResult::FocusAccepted
     }
 
-    fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
+    fn render(
+        self: Pin<&Self>,
+        backend: &mut &mut dyn ItemRenderer,
+        _self_rc: &ItemRc,
+    ) -> RenderingResult {
         (*backend).draw_text_input(self);
+        RenderingResult::ContinueRenderingChildren
     }
 }
 

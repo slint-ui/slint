@@ -82,6 +82,21 @@ macro_rules! declare_item_vtable {
     };
 }
 
+// Returned by the `render()` function on items to indicate whether the rendering of
+// children should be handled by the caller, of if the item took care of that (for example
+// through layer indirection)
+#[repr(C)]
+pub enum RenderingResult {
+    ContinueRenderingChildren,
+    ContinueRenderingWithoutChildren,
+}
+
+impl Default for RenderingResult {
+    fn default() -> Self {
+        Self::ContinueRenderingChildren
+    }
+}
+
 /// Items are the nodes in the render tree.
 #[vtable]
 #[repr(C)]
@@ -138,7 +153,11 @@ pub struct ItemVTable {
         window: &WindowRc,
     ) -> KeyEventResult,
 
-    pub render: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, backend: &mut ItemRendererRef),
+    pub render: extern "C" fn(
+        core::pin::Pin<VRef<ItemVTable>>,
+        backend: &mut ItemRendererRef,
+        self_rc: &ItemRc,
+    ) -> RenderingResult,
 }
 
 /// Alias for `vtable::VRef<ItemVTable>` which represent a pointer to a `dyn Item` with
@@ -260,8 +279,13 @@ impl Item for Rectangle {
         FocusEventResult::FocusIgnored
     }
 
-    fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
-        (*backend).draw_rectangle(self)
+    fn render(
+        self: Pin<&Self>,
+        backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+    ) -> RenderingResult {
+        (*backend).draw_rectangle(self);
+        RenderingResult::ContinueRenderingChildren
     }
 }
 
@@ -329,8 +353,13 @@ impl Item for BorderRectangle {
         FocusEventResult::FocusIgnored
     }
 
-    fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
-        (*backend).draw_border_rectangle(self)
+    fn render(
+        self: Pin<&Self>,
+        backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+    ) -> RenderingResult {
+        (*backend).draw_border_rectangle(self);
+        RenderingResult::ContinueRenderingChildren
     }
 }
 
@@ -538,7 +567,13 @@ impl Item for TouchArea {
         FocusEventResult::FocusIgnored
     }
 
-    fn render(self: Pin<&Self>, _backend: &mut ItemRendererRef) {}
+    fn render(
+        self: Pin<&Self>,
+        _backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+    ) -> RenderingResult {
+        RenderingResult::ContinueRenderingChildren
+    }
 }
 
 impl ItemConsts for TouchArea {
@@ -645,7 +680,13 @@ impl Item for FocusScope {
         FocusEventResult::FocusAccepted
     }
 
-    fn render(self: Pin<&Self>, _backend: &mut ItemRendererRef) {}
+    fn render(
+        self: Pin<&Self>,
+        _backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+    ) -> RenderingResult {
+        RenderingResult::ContinueRenderingChildren
+    }
 }
 
 impl ItemConsts for FocusScope {
@@ -718,7 +759,11 @@ impl Item for Clip {
         FocusEventResult::FocusIgnored
     }
 
-    fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
+    fn render(
+        self: Pin<&Self>,
+        backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+    ) -> RenderingResult {
         if self.clip() {
             let geometry = self.geometry();
             (*backend).combine_clip(
@@ -727,6 +772,7 @@ impl Item for Clip {
                 self.border_width(),
             )
         }
+        RenderingResult::ContinueRenderingChildren
     }
 }
 
@@ -790,8 +836,13 @@ impl Item for Opacity {
         FocusEventResult::FocusIgnored
     }
 
-    fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
+    fn render(
+        self: Pin<&Self>,
+        backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+    ) -> RenderingResult {
         backend.apply_opacity(self.opacity());
+        RenderingResult::ContinueRenderingChildren
     }
 }
 
@@ -856,10 +907,15 @@ impl Item for Rotate {
         FocusEventResult::FocusIgnored
     }
 
-    fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
+    fn render(
+        self: Pin<&Self>,
+        backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+    ) -> RenderingResult {
         (*backend).translate(self.origin_x(), self.origin_y());
         (*backend).rotate(self.angle());
         (*backend).translate(-self.origin_x(), -self.origin_y());
+        RenderingResult::ContinueRenderingChildren
     }
 }
 
@@ -947,9 +1003,14 @@ impl Item for Flickable {
         FocusEventResult::FocusIgnored
     }
 
-    fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
+    fn render(
+        self: Pin<&Self>,
+        backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+    ) -> RenderingResult {
         let geometry = self.geometry();
-        (*backend).combine_clip(euclid::rect(0., 0., geometry.width(), geometry.height()), 0., 0.)
+        (*backend).combine_clip(euclid::rect(0., 0., geometry.width(), geometry.height()), 0., 0.);
+        RenderingResult::ContinueRenderingChildren
     }
 }
 
@@ -1081,7 +1142,13 @@ impl Item for WindowItem {
         FocusEventResult::FocusIgnored
     }
 
-    fn render(self: Pin<&Self>, _backend: &mut ItemRendererRef) {}
+    fn render(
+        self: Pin<&Self>,
+        _backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+    ) -> RenderingResult {
+        RenderingResult::ContinueRenderingChildren
+    }
 }
 
 impl WindowItem {
@@ -1182,8 +1249,13 @@ impl Item for BoxShadow {
         FocusEventResult::FocusIgnored
     }
 
-    fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
-        (*backend).draw_box_shadow(self)
+    fn render(
+        self: Pin<&Self>,
+        backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+    ) -> RenderingResult {
+        (*backend).draw_box_shadow(self);
+        RenderingResult::ContinueRenderingChildren
     }
 }
 
