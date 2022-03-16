@@ -181,13 +181,11 @@ pub(super) fn draw_rounded_rectangle_line(
             );
         }
         // 5. inside (x4 .. x4)
-        if (x4 * 2).ceil() as i16 + rr.right_clip.get() <= span.size.width + rr.left_clip.get() {
+        let begin = x4.ceil().saturating_sub(rr.left_clip.get() as u32).min(span.size.width as u32);
+        let end = rev(x4).floor().min(span.size.width as u32);
+        if begin < end {
             TargetPixel::blend_buffer(
-                &mut line_buffer[pos_x
-                    + x4.ceil()
-                        .saturating_sub(rr.left_clip.get() as u32)
-                        .min(span.size.width as u32) as usize
-                    ..pos_x + rev(x4).floor().min(span.size.width as u32) as usize],
+                &mut line_buffer[pos_x + begin as usize..pos_x + end as usize],
                 rr.inner_color,
             )
         }
