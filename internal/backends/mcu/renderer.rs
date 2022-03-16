@@ -338,7 +338,7 @@ fn prepare_scene(
             i_slint_core::item_rendering::render_component_items(component, &mut renderer, *origin);
         }
     });
-    let dirty_region = (euclid::Rect::from_untyped(&renderer.dirty_region.to_rect()) * factor)
+    let dirty_region = (LogicalRect::from_untyped(&renderer.dirty_region.to_rect()) * factor)
         .round_out()
         .cast()
         .intersection(&PhysicalRect { origin: euclid::point2(0, 0), size })
@@ -398,12 +398,14 @@ impl PrepareScene {
     }
 
     fn new_scene_item(&mut self, geometry: LogicalRect, command: SceneCommand) {
-        let size = (geometry.size * self.scale_factor).cast();
+        let geometry = (geometry.translate(self.current_state.offset.to_vector())
+            * self.scale_factor)
+            .round_in()
+            .cast();
+        let size = geometry.size;
         if !size.is_empty() {
             let z = self.items.len() as u16;
-            let pos = ((geometry.origin + self.current_state.offset.to_vector())
-                * self.scale_factor)
-                .cast();
+            let pos = geometry.origin;
             self.items.push(SceneItem { pos, size, z, command });
         }
     }
