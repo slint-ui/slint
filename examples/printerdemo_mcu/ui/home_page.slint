@@ -18,20 +18,22 @@ ActionButton := Rectangle {
         spacing: 4px;
 
         Rectangle {
-            border-radius: 25px;
-            border-width: 5px;
+            border-radius: 12px;
+            border-width: 3px;
             border-color: DemoPalette.control-outline-color;
             background: DemoPalette.printer-action-background-color;
 
             img := Image {
                 x: (parent.width / 2) - (self.width / 2);
                 y: (parent.height / 2) - (self.height / 2);
+                width: self.source.width * 1px / 2;
+                height: self.source.height * 1px / 2;
                 colorize: DemoPalette.text-foreground-color;
             }
         }
 
         label := Text {
-            font-size: DemoPalette.base-font-size * 1.375;
+            font-size: DemoPalette.base-font-size * 1.2;
             font-weight: 800;
             horizontal-alignment: center;
             color: DemoPalette.text-foreground-color;
@@ -42,27 +44,26 @@ ActionButton := Rectangle {
 }
 
 export HomePage := Page {
-    property <length> header-row-height: 40px;
+    property <length> header-row-height: 40px / 2;
 
-    property <length> button-spacing: 28px;
-    property <length> button-width: 127px;
-    property <length> button-height: button-width + 37px;
+    property <length> button-spacing: 8px;
+    property <length> button-width: 127px / 2;
+    property <length> button-height: button-width + 20px;
 
-    header: "Xerol 1347 hdp";
+    header: "Slint";
 
     property <int> current-subpage: 0;
 
 
     for action[idx] in [
-        { name: "Print", icon: @image-url("images/print.svg") },
-        { name: "Scan", icon: @image-url("images/scan.svg") },
         { name: "Copy", icon: @image-url("images/copy.svg") },
-        { name: "USB", icon: @image-url("images/usb.svg") },
+        { name: "Scan", icon: @image-url("images/scan.svg") },
+
     ]: ActionButton {
-        x: mod(idx, 2) * (button-width + button-spacing);
-        y: floor(idx / 2) * (button-height + button-spacing)
-           + /* header row height */ 46px
-           + /* top-padding of printer queue */ 27px; // align with the first item of the printer queue
+        x: mod(idx, 1) * (button-width + button-spacing) + button-spacing;
+        y: floor(idx / 1) * (button-height + button-spacing)
+           + header-row-height
+           + /* top-padding of printer queue */ 18px; // align with the first item of the printer queue
         width: button-width;
         height: button-height;
         icon: action.icon;
@@ -71,32 +72,18 @@ export HomePage := Page {
     }
 
     queue-view := PrinterQueueView {
-        x: button-width*2 +button-spacing;
+
+        x: button-width + button-spacing * 2;
         width: parent.width - x;
-        show-job-details(idx) => {
-            current-subpage = 1; // Not nice to hard-code the index here...
-        }
     }
 
-    /* FIXME: these make us run out of memory/stack on the pico
-    PrintPage {
-        x: current-subpage == 1 ? 0 : parent.width + parent.x + 2px;
-        animate x { duration: 125ms; easing: ease; }
-        back => { current-subpage = 0 }
-    }
-    */
-   /* ScanPage {
+    ScanPage {
         x: current-subpage == 2 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
         back => { current-subpage = 0 }
     }
     CopyPage {
-        x: current-subpage == 3 ? 0 : parent.width + parent.x + 2px;
-        animate x { duration: 125ms; easing: ease; }
-        back => { current-subpage = 0 }
-    }*/
-    UsbPage {
-        x: current-subpage == 4 ? 0 : parent.width + parent.x + 2px;
+        x: current-subpage == 1 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
         back => { current-subpage = 0 }
     }

@@ -9,9 +9,9 @@ export ScanPage := Page {
     header: "Scan";
 
     GridLayout {
-        padding-top: 46px /* header line height in design */
-                     + /* extra top-padding in design */ 27px;
-        spacing: 24px;
+        padding-top: 23px /* header line height in design */
+                     + /* extra top-padding in design */ 13px;
+        spacing: 5px;
         Row {
             Text {
                 text: "Choose Settings";
@@ -20,60 +20,43 @@ export ScanPage := Page {
                 font-weight: 800;
             }
         }
-        /*
-        FIXME: these make us run out of memory/stack on the pico
+
         Row {
             Label { text: "Copies"; }
             SpinBox {
                 value: 1;
                 minimum: 1;
             }
-
-            Rectangle {}
-
-            Label { text: "Size"; }
-            ComboBox {
-                value: "Original";
-                choices: ["Original", "A4"];
-            }
         }
-        Row {
+        /*Row {
             Label { text: "Quality"; }
             ComboBox {
                 value: "Best";
                 choices: ["Best", "Medium", "Draft"];
             }
-
             Rectangle {}
-
-            Label { text: "Format"; }
-            ComboBox {
-                value: "PDF";
-                choices: ["PDF", "JPEG", "PNG"];
-            }
-        }
+        }*/
         Row {
             Label { text: "Color"; }
             ComboBox {
                 value: "Grayscale";
                 choices: ["Grayscale", "RGB", "YCMB"];
             }
+        }
 
-            Rectangle {}
-
-            Label { text: "Save to"; }
+        Row {
+         Label { text: "Format"; }
             ComboBox {
-                value: "Desktop";
-                choices: ["Desktop"];
+                value: "PDF";
+                choices: ["PDF", "JPEG", "PNG"];
             }
         }
+
          Row {
-            Rectangle {
-                colspan: 3;
-            }
             HorizontalLayout {
-                col: 3;
+                col: 0;
                 colspan: 2;
+
 
                 Rectangle {
                     horizontal-stretch: 0;
@@ -93,6 +76,6 @@ export ScanPage := Page {
             }
         }
         Row { Rectangle {} }
-        */
+
     }
 }

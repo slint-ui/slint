@@ -111,11 +111,11 @@ PrintDetails := GridLayout {
 
 NarrowPrintQueueElement := Rectangle {
     property <PrinterQueueItem> queue-item;
-    callback show-job-details();
+    callback cancel-job();
 
     border-color: DemoPalette.control-outline-color;
-    border-radius: 14px;
-    border-width: 2px;
+    border-radius: 6px;
+    border-width: 1px;
     background: DemoPalette.printer-queue-item-background-color;
     clip: true;
 
@@ -169,7 +169,7 @@ NarrowPrintQueueElement := Rectangle {
                     color: DemoPalette.status-label-text-color;
                     font-size: DemoPalette.base-font-size * 0.75;
                     font-weight: 800;
-                    letter-spacing: 1.56px;
+                    letter-spacing: 1.26px;
                 }
 
                 Text {
@@ -195,10 +195,9 @@ NarrowPrintQueueElement := Rectangle {
                 }
                 PushButton {
                     opacity: expanded-opacity;
-                    text: "More   ";
-                    clicked => {
-                        root.show-job-details();
-                    }
+                    text: "Delete";
+                    icon: @image-url("images/delete.svg");
+                    clicked => { cancel-job(); }
                 }
                 Rectangle {
                     horizontal-stretch: 0;
@@ -210,17 +209,16 @@ NarrowPrintQueueElement := Rectangle {
 }
 
 NarrowPrinterQueueList := Flickable {
-    callback show-job-details(int);
     VerticalLayout {
         alignment: start;
         padding: 0px;
-        spacing: 13.5px;
+        spacing: 6px;
 
         for queue-item[idx] in PrinterQueue.printer-queue: NarrowPrintQueueElement {
             width: root.width;
             queue-item: queue-item;
-            show-job-details => {
-                root.show-job-details(idx)
+            cancel-job => {
+                PrinterQueue.cancel-job(idx)
             }
         }
     }
@@ -350,27 +348,14 @@ export WidePrinterQueueList := Flickable {
 }
 
 export PrinterQueueView := Rectangle {
-    callback show-job-details(int);
 
-    border-radius: 27px;
+    border-radius: 18px;
     background: DemoPalette.night-mode ? DemoPalette.printer-action-background-color : #F4F6FF;
 
     VerticalLayout {
-        padding: 16px;
-        spacing: 16px;
+        padding: 6px;
+        spacing: 6px;
 
-        Text {
-            text: "Printing-Queue";
-            color: DemoPalette.text-foreground-color;
-            font-size: DemoPalette.base-font-size * 1.5;
-            font-weight: 700;
-        }
-
-        queue-list := NarrowPrinterQueueList {
-            width: root.width - 2*parent.padding; // FIXME why do we need this? bug in layout?
-            show-job-details(idx) => {
-                root.show-job-details(idx)
-            }
-        }
+        queue-list := NarrowPrinterQueueList { }
     }
 }
