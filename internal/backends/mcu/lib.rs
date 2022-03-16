@@ -71,11 +71,16 @@ where
 
     fn debug(&mut self, text: &str) {
         use embedded_graphics::{
-            mono_font::{ascii::FONT_6X10, MonoTextStyle},
+            mono_font::{ascii, MonoTextStyle},
             text::Text,
         };
-        let style = MonoTextStyle::new(&FONT_6X10, TargetPixel::RED.into());
-        Text::new(text, Point::new(20, 30), style).draw(self).unwrap();
+        let style = MonoTextStyle::new(&ascii::FONT_8X13, TargetPixel::RED.into());
+        thread_local! { static LINE: core::cell::Cell<i16>  = core::cell::Cell::new(0) }
+        LINE.with(|l| {
+            let line = (l.get() + 1) % (self.screen_size().height / 13 - 2);
+            l.set(line);
+            Text::new(text, Point::new(3, (1 + line) as i32 * 13), style).draw(self).unwrap();
+        });
     }
 }
 
