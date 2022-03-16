@@ -96,11 +96,7 @@ pub(crate) fn is_clipping_item(item: Pin<ItemRef>) -> bool {
         || ItemRef::downcast_pin::<Clip>(item).is_some()
 }
 
-fn render_item_children(
-    renderer: &mut dyn ItemRenderer,
-    component: &ComponentRc,
-    index: isize,
-) -> VisitChildrenResult {
+fn render_item_children(renderer: &mut dyn ItemRenderer, component: &ComponentRc, index: isize) {
     let mut actual_visitor =
         |component: &ComponentRc, index: usize, item: Pin<ItemRef>| -> VisitChildrenResult {
             renderer.save_state();
@@ -120,16 +116,16 @@ fn render_item_children(
                 item.as_ref().render(&mut (renderer as &mut dyn ItemRenderer));
             }
 
-            let result = render_item_children(renderer, component, index as isize);
+            render_item_children(renderer, component, index as isize);
             renderer.restore_state();
-            result
+            VisitChildrenResult::CONTINUE
         };
     vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
     VRc::borrow_pin(component).as_ref().visit_children_item(
         index,
         crate::item_tree::TraversalOrder::BackToFront,
         actual_visitor,
-    )
+    );
 }
 
 /// Renders the tree of items that component holds, using the specified renderer. Rendering is done
