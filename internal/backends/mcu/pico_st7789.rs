@@ -161,6 +161,7 @@ mod xpt2046 {
         irq: IRQ,
         cs: CS,
         spi: SPI,
+        pressed: bool,
     }
 
     impl<PinE, IRQ: InputPin<Error = PinE>, CS: OutputPin<Error = PinE>, SPI: Transfer<u8>>
@@ -168,22 +169,25 @@ mod xpt2046 {
     {
         pub fn new(irq: IRQ, mut cs: CS, spi: SPI) -> Result<Self, PinE> {
             cs.set_high()?;
-            Ok(Self { irq, cs, spi })
+            Ok(Self { irq, cs, spi, pressed: false })
         }
 
         pub fn read(&mut self) -> Result<Option<Point2D<f32>>, Error<PinE, SPI::Error>> {
+            const PRESS_THRESHOLD: i32 = -20_000;
+            const RELEASE_THRESHOLD: i32 = -25_000;
+            let threshold = if self.pressed { PRESS_THRESHOLD } else { RELEASE_THRESHOLD };
+            self.pressed = false;
             if self.irq.is_low().map_err(|e| Error::Pin(e))? {
                 const CMD_X_READ: u8 = 0b10010000;
                 const CMD_Y_READ: u8 = 0b11010000;
                 const CMD_Z1_READ: u8 = 0b10110001;
-                //const CMD_Z2_READ: u8 = 0b11000001;
+                const CMD_Z2_READ: u8 = 0b11000001;
 
                 // These numbers were measured approximately.
                 const MIN_X: u32 = 1900;
                 const MAX_X: u32 = 30300;
                 const MIN_Y: u32 = 2300;
                 const MAX_Y: u32 = 30300;
-                const Z_THRESHOLD: u32 = 1000;
 
                 // FIXME! how else set the frequency to this device
                 unsafe { set_spi_freq(3_000_000u32.Hz()) };
@@ -204,10 +208,10 @@ mod xpt2046 {
                 }
 
                 let z1 = xchg!(CMD_Z1_READ);
-                //let z2 = xchg!(CMD_Z2_READ);
-                //let z = z1 as i32 + 4095 - z2 as i32;
+                let z2 = xchg!(CMD_Z2_READ);
+                let z = z1 as i32 - z2 as i32;
 
-                if z1 < Z_THRESHOLD {
+                if z < threshold {
                     xchg!(0);
                     self.cs.set_high().map_err(|e| Error::Pin(e))?;
                     unsafe { set_spi_freq(18_000_000u32.Hz()) };
@@ -222,11 +226,21 @@ mod xpt2046 {
                     let x = xchg!(CMD_X_READ);
                     point += euclid::vec2(i16::MAX as u32 - x, y)
                 }
+
+                let z1 = xchg!(CMD_Z1_READ);
+                let z2 = xchg!(CMD_Z2_READ);
+                let z = z1 as i32 - z2 as i32;
+
                 xchg!(0);
                 self.cs.set_high().map_err(|e| Error::Pin(e))?;
                 unsafe { set_spi_freq(18_000_000u32.Hz()) };
 
+                if z < RELEASE_THRESHOLD {
+                    return Ok(None);
+                }
+
                 point /= 10;
+                self.pressed = true;
                 Ok(Some(euclid::point2(
                     point.x.saturating_sub(MIN_X) as f32 / (MAX_X - MIN_X) as f32,
                     point.y.saturating_sub(MIN_Y) as f32 / (MAX_Y - MIN_Y) as f32,
