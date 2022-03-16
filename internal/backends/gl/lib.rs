@@ -126,6 +126,21 @@ fn item_rect<Item: i_slint_core::items::Item>(item: Pin<&Item>, scale_factor: f3
     euclid::rect(0., 0., geometry.width() * scale_factor, geometry.height() * scale_factor)
 }
 
+fn path_bounding_box(canvas: &CanvasRc, path: &mut femtovg::Path) -> euclid::default::Box2D<f32> {
+    // `canvas.path_bbox()` applies the current transform. However we're not interested in that, since
+    // we operate in item local coordinates with the `path` parameter as well as the resulting
+    // paint.
+    let mut canvas = canvas.borrow_mut();
+    canvas.save();
+    canvas.reset_transform();
+    let bounding_box = canvas.path_bbox(path);
+    canvas.restore();
+    euclid::default::Box2D::new(
+        [bounding_box.minx, bounding_box.miny].into(),
+        [bounding_box.maxx, bounding_box.maxy].into(),
+    )
+}
+
 impl ItemRenderer for GLItemRenderer {
     fn draw_rectangle(&mut self, rect: std::pin::Pin<&i_slint_core::items::Rectangle>) {
         let geometry = item_rect(rect, self.scale_factor);
@@ -1057,23 +1072,13 @@ impl GLItemRenderer {
         Some(match brush {
             Brush::SolidColor(color) => femtovg::Paint::color(to_femtovg_color(&color)),
             Brush::LinearGradient(gradient) => {
-                // `canvas.path_bbox()` applies the current transform. However we're not interested in that, since
-                // we operate in item local coordinates with the `path` parameter as well as the resulting
-                // paint.
-                let path_bounds = {
-                    let mut canvas = self.canvas.borrow_mut();
-                    canvas.save();
-                    canvas.reset_transform();
-                    let bounding_box = canvas.path_bbox(path);
-                    canvas.restore();
-                    bounding_box
-                };
+                let path_bounds = path_bounding_box(&self.canvas, path);
 
-                let path_width = path_bounds.maxx - path_bounds.minx;
-                let path_height = path_bounds.maxy - path_bounds.miny;
+                let path_width = path_bounds.width();
+                let path_height = path_bounds.height();
 
                 let transform = euclid::Transform2D::scale(path_width, path_height)
-                    .then_translate(euclid::Vector2D::new(path_bounds.minx, path_bounds.miny));
+                    .then_translate(path_bounds.min.to_vector());
 
                 let (start, end) = i_slint_core::graphics::line_for_angle(gradient.angle());
 
@@ -1094,17 +1099,10 @@ impl GLItemRenderer {
     // an intermediate image and using that to fill the clip path on the next restore_state()
     // call. Therefore this can only be called once per save_state()!
     fn set_clip_path(&mut self, mut path: femtovg::Path) {
-        let path_bounds = {
-            let mut canvas = self.canvas.borrow_mut();
-            canvas.save();
-            canvas.reset_transform();
-            let bbox = canvas.path_bbox(&mut path);
-            canvas.restore();
-            bbox
-        };
+        let path_bounds = path_bounding_box(&self.canvas, &mut path);
 
-        let layer_width = path_bounds.maxx - path_bounds.minx;
-        let layer_height = path_bounds.maxy - path_bounds.miny;
+        let layer_width = path_bounds.width();
+        let layer_height = path_bounds.height();
 
         let clip_buffer_img = match CachedImage::new_empty_on_gpu(
             &self.canvas,
