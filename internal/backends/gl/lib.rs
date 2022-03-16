@@ -16,7 +16,7 @@ use i_slint_core::graphics::{
     Brush, Color, Image, ImageInner, IntRect, IntSize, Point, Rect, RenderingCache, Size,
 };
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
-use i_slint_core::items::{FillRule, ImageFit, ImageRendering, InputType};
+use i_slint_core::items::{FillRule, ImageFit, ImageRendering, InputType, ItemRc};
 use i_slint_core::properties::Property;
 use i_slint_core::window::{Window, WindowRc};
 use i_slint_core::SharedString;
@@ -76,6 +76,7 @@ struct State {
     scissor: Rect,
     global_alpha: f32,
     layer: Option<Rc<Layer>>,
+    current_render_target: femtovg::RenderTarget,
 }
 
 pub struct GLItemRenderer {
@@ -139,6 +140,30 @@ fn path_bounding_box(canvas: &CanvasRc, path: &mut femtovg::Path) -> euclid::def
         [bounding_box.minx, bounding_box.miny].into(),
         [bounding_box.maxx, bounding_box.maxy].into(),
     )
+}
+
+// Return a femtovg::Path (in physical pixels) that represents the clip_rect, radius and border_width (all logical!)
+fn clip_path_for_rect_alike_item(
+    mut clip_rect: Rect,
+    mut radius: f32,
+    mut border_width: f32,
+    scale_factor: f32,
+) -> femtovg::Path {
+    // Femtovg renders evenly 50% inside and 50% outside of the border width. The
+    // adjust_rect_and_border_for_inner_drawing adjusts the rect so that for drawing it
+    // would be entirely an *inner* border. However for clipping we want the rect that's
+    // entirely inside, hence the doubling of the width and consequently radius adjustment.
+    radius -= border_width * KAPPA90;
+    border_width *= 2.;
+
+    // Convert from logical to physical pixels
+    border_width *= scale_factor;
+    radius *= scale_factor;
+    clip_rect *= scale_factor;
+
+    adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
+
+    rect_with_radius_to_path(clip_rect, radius)
 }
 
 impl ItemRenderer for GLItemRenderer {
@@ -664,7 +689,7 @@ impl ItemRenderer for GLItemRenderer {
         });
     }
 
-    fn combine_clip(&mut self, mut clip_rect: Rect, mut radius: f32, mut border_width: f32) {
+    fn combine_clip(&mut self, clip_rect: Rect, radius: f32, border_width: f32) {
         let clip = &mut self.state.last_mut().unwrap().scissor;
         match clip.intersection(&clip_rect) {
             Some(r) => {
@@ -675,30 +700,21 @@ impl ItemRenderer for GLItemRenderer {
             }
         };
 
-        // Femtovg renders evenly 50% inside and 50% outside of the border width. The
-        // adjust_rect_and_border_for_inner_drawing adjusts the rect so that for drawing it
-        // would be entirely an *inner* border. However for clipping we want the rect that's
-        // entirely inside, hence the doubling of the width and consequently radius adjustment.
-        radius -= border_width * KAPPA90;
-        border_width *= 2.;
+        let mut clip_path =
+            clip_path_for_rect_alike_item(clip_rect, radius, border_width, self.scale_factor);
 
-        // Convert from logical to physical pixels
-        border_width *= self.scale_factor;
-        radius *= self.scale_factor;
-        clip_rect *= self.scale_factor;
+        let clip_path_bounds = path_bounding_box(&self.canvas, &mut clip_path);
 
-        adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
         self.canvas.borrow_mut().intersect_scissor(
-            clip_rect.min_x(),
-            clip_rect.min_y(),
-            clip_rect.width(),
-            clip_rect.height(),
+            clip_path_bounds.min.x,
+            clip_path_bounds.min.y,
+            clip_path_bounds.width(),
+            clip_path_bounds.height(),
         );
 
         // This is the very expensive clipping code path, where we change the current render target
         // to be an intermediate image and then fill the clip path with that image.
         if radius > 0. {
-            let clip_path = rect_with_radius_to_path(clip_rect, radius);
             self.set_clip_path(clip_path)
         }
     }
@@ -832,6 +848,93 @@ impl ItemRenderer for GLItemRenderer {
         let state = &mut self.state.last_mut().unwrap().global_alpha;
         *state *= opacity;
         self.canvas.borrow_mut().set_global_alpha(*state);
+    }
+
+    fn render_layer(
+        &mut self,
+        item_cache: &CachedRenderingData,
+        item_rc: &ItemRc,
+        radius: f32,
+        border_width: f32,
+    ) -> bool {
+        let item = item_rc.borrow();
+        let cache_entry =
+            item_cache.get_or_update(&self.graphics_window.clone().graphics_cache, || {
+                ItemGraphicsCacheEntry::Image({
+                    let size = item.as_ref().geometry().size * self.scale_factor;
+
+                    let layer_image = CachedImage::new_empty_on_gpu(
+                        &self.canvas,
+                        size.width.ceil() as u32,
+                        size.height.ceil() as u32,
+                    )?;
+
+                    let previous_render_target = self.current_render_target();
+
+                    {
+                        let mut canvas = self.canvas.borrow_mut();
+                        canvas.save();
+
+                        canvas.set_render_target(layer_image.as_render_target());
+
+                        canvas.reset();
+
+                        canvas.clear_rect(
+                            0,
+                            0,
+                            size.width.ceil() as u32,
+                            size.height.ceil() as u32,
+                            femtovg::Color::rgba(0, 0, 0, 0),
+                        );
+                    }
+
+                    *self.state.last_mut().unwrap() = crate::State {
+                        scissor: Rect::new(
+                            Point::default(),
+                            Size::new(size.width as f32, size.height as f32),
+                        ),
+                        global_alpha: 1.,
+                        layer: None,
+                        current_render_target: layer_image.as_render_target(),
+                    };
+
+                    i_slint_core::item_rendering::render_item_children(
+                        self,
+                        &item_rc.component(),
+                        item_rc.index() as isize,
+                    );
+
+                    {
+                        let mut canvas = self.canvas.borrow_mut();
+                        canvas.restore();
+
+                        canvas.set_render_target(previous_render_target);
+                    }
+
+                    Rc::new(layer_image)
+                })
+                .into()
+            });
+
+        let layer_image = match &cache_entry {
+            Some(cached_layer_image) => cached_layer_image.as_image(),
+            None => return false, // Zero width or height layer
+        };
+
+        let layer_image_paint = layer_image.as_paint();
+
+        let mut layer_path = clip_path_for_rect_alike_item(
+            item.as_ref().geometry(),
+            radius,
+            border_width,
+            self.scale_factor,
+        );
+
+        self.canvas.borrow_mut().save_with(|canvas| {
+            canvas.fill_path(&mut layer_path, layer_image_paint);
+        });
+
+        true
     }
 }
 
@@ -1133,17 +1236,13 @@ impl GLItemRenderer {
             );
             canvas.global_composite_operation(femtovg::CompositeOperation::SourceOver);
         }
+        self.state.last_mut().unwrap().current_render_target = clip_buffer_img.as_render_target();
         self.state.last_mut().unwrap().layer =
             Some(Rc::new(Layer { image: clip_buffer_img, target_path: path }));
     }
 
     fn current_render_target(&self) -> femtovg::RenderTarget {
-        self.state
-            .last()
-            .unwrap()
-            .layer
-            .as_ref()
-            .map_or(femtovg::RenderTarget::Screen, |layer| layer.image.as_render_target())
+        self.state.last().unwrap().current_render_target
     }
 }
 
