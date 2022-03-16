@@ -7,7 +7,7 @@ This module contains the builtin image related items.
 When adding an item or a property, it needs to be kept in sync with different place.
 Lookup the [`crate::items`] module documentation.
 */
-use super::{Item, ItemConsts, ItemRc};
+use super::{Item, ItemConsts, ItemRc, RenderingResult};
 use crate::graphics::Rect;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
@@ -115,8 +115,13 @@ impl Item for ImageItem {
         FocusEventResult::FocusIgnored
     }
 
-    fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
-        (*backend).draw_image(self)
+    fn render(
+        self: Pin<&Self>,
+        backend: &mut &mut dyn ItemRenderer,
+        _self_rc: &ItemRc,
+    ) -> RenderingResult {
+        (*backend).draw_image(self);
+        RenderingResult::ContinueRenderingChildren
     }
 }
 
@@ -194,8 +199,13 @@ impl Item for ClippedImage {
         FocusEventResult::FocusIgnored
     }
 
-    fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer) {
-        (*backend).draw_clipped_image(self)
+    fn render(
+        self: Pin<&Self>,
+        backend: &mut &mut dyn ItemRenderer,
+        _self_rc: &ItemRc,
+    ) -> RenderingResult {
+        (*backend).draw_clipped_image(self);
+        RenderingResult::ContinueRenderingChildren
     }
 }
 

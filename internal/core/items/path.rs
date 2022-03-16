@@ -8,7 +8,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 
-use super::{Item, ItemConsts, ItemRc, ItemRendererRef};
+use super::{Item, ItemConsts, ItemRc, ItemRendererRef, RenderingResult};
 use crate::graphics::{Brush, PathData, PathDataIterator, Rect};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
@@ -105,7 +105,11 @@ impl Item for Path {
         FocusEventResult::FocusIgnored
     }
 
-    fn render(self: Pin<&Self>, backend: &mut ItemRendererRef) {
+    fn render(
+        self: Pin<&Self>,
+        backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+    ) -> RenderingResult {
         let clip = self.clip();
         if clip {
             (*backend).save_state();
@@ -115,6 +119,7 @@ impl Item for Path {
         if clip {
             (*backend).restore_state();
         }
+        RenderingResult::ContinueRenderingChildren
     }
 }
 
