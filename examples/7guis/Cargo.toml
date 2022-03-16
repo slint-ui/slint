@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 [package]
-name = "booker"
+name = "_7guis"
 version = "0.2.2"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
@@ -13,6 +13,10 @@ license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
 path = "booker.rs"
 name = "booker"
 
+[[bin]]
+path = "crud.rs"
+name = "crud"
+
 [dependencies]
-slint = { path = "../../../api/rs/slint" }
+slint = { path = "../../api/rs/slint" }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"]}
