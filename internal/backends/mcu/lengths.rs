@@ -15,64 +15,57 @@ pub type LogicalSize = euclid::Size2D<f32, LogicalPx>;
 
 pub type ScaleFactor = euclid::Scale<f32, LogicalPx, PhysicalPx>;
 
-pub trait SizeLengths<LengthType> {
-    fn width_length(&self) -> LengthType;
-    fn height_length(&self) -> LengthType;
+pub trait SizeLengths {
+    type LengthType;
+    fn width_length(&self) -> Self::LengthType;
+    fn height_length(&self) -> Self::LengthType;
 }
 
-impl SizeLengths<LogicalLength> for LogicalSize {
-    fn width_length(&self) -> LogicalLength {
-        LogicalLength::new(self.width)
+impl<T: Copy, U> SizeLengths for euclid::Size2D<T, U> {
+    type LengthType = euclid::Length<T, U>;
+    fn width_length(&self) -> Self::LengthType {
+        euclid::Length::new(self.width)
     }
-
-    fn height_length(&self) -> LogicalLength {
-        LogicalLength::new(self.height)
-    }
-}
-
-impl SizeLengths<PhysicalLength> for PhysicalSize {
-    fn width_length(&self) -> PhysicalLength {
-        PhysicalLength::new(self.width)
-    }
-
-    fn height_length(&self) -> PhysicalLength {
-        PhysicalLength::new(self.height)
+    fn height_length(&self) -> Self::LengthType {
+        euclid::Length::new(self.height)
     }
 }
 
-pub trait PointLengths<LengthType> {
-    fn x_length(&self) -> LengthType;
-    fn y_length(&self) -> LengthType;
+pub trait PointLengths {
+    type LengthType;
+    fn x_length(&self) -> Self::LengthType;
+    fn y_length(&self) -> Self::LengthType;
 }
 
-impl PointLengths<LogicalLength> for LogicalPoint {
-    fn x_length(&self) -> LogicalLength {
-        LogicalLength::new(self.x)
+impl<T: Copy, U> PointLengths for euclid::Point2D<T, U> {
+    type LengthType = euclid::Length<T, U>;
+    fn x_length(&self) -> Self::LengthType {
+        euclid::Length::new(self.x)
     }
-
-    fn y_length(&self) -> LogicalLength {
-        LogicalLength::new(self.y)
-    }
-}
-
-impl PointLengths<PhysicalLength> for PhysicalPoint {
-    fn x_length(&self) -> PhysicalLength {
-        PhysicalLength::new(self.x)
-    }
-
-    fn y_length(&self) -> PhysicalLength {
-        PhysicalLength::new(self.y)
+    fn y_length(&self) -> Self::LengthType {
+        euclid::Length::new(self.y)
     }
 }
 
-pub trait RectLengths<SizeType> {
-    fn size_length(&self) -> SizeType;
+pub trait RectLengths {
+    type SizeType;
+    type LengthType;
+    fn size_length(&self) -> Self::SizeType;
+    fn width_length(&self) -> Self::LengthType;
+    fn height_length(&self) -> Self::LengthType;
 }
 
-impl RectLengths<LogicalSize> for LogicalRect {
-    fn size_length(&self) -> LogicalSize {
-        let size = self.size;
-        LogicalSize::from_lengths(size.width_length(), size.height_length())
+impl<T: Copy, U> RectLengths for euclid::Rect<T, U> {
+    type LengthType = euclid::Length<T, U>;
+    type SizeType = euclid::Size2D<T, U>;
+    fn size_length(&self) -> Self::SizeType {
+        euclid::Size2D::new(self.size.width, self.size.height)
+    }
+    fn width_length(&self) -> Self::LengthType {
+        self.size_length().width_length()
+    }
+    fn height_length(&self) -> Self::LengthType {
+        self.size_length().height_length()
     }
 }
 
