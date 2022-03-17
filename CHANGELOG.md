@@ -7,6 +7,7 @@ All notable changes to this project are documented in this file.
 
  - Added `From<&str>` and `From<SharedString>` to `StandardListViewItem` to make creation and modification of `StandardListView`'s models easier.
  - Added `on_close_requested` function to `Window` to register callbacks that are emitted when the user tries to close a window.
+ - Added `VecModel::set_vec` to replace the entire contents with new data.
 
 ### Fixed
 
