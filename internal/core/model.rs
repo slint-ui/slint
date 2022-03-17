@@ -1103,3 +1103,56 @@ fn test_data_tracking() {
     model.set_vec(vec![]);
     assert!(tracker.is_dirty());
 }
+
+#[test]
+fn test_vecmodel_set_vec() {
+    #[derive(Default)]
+    struct TestView {
+        changed_rows: RefCell<Vec<usize>>,
+        added_rows: RefCell<Vec<(usize, usize)>>,
+        removed_rows: RefCell<Vec<(usize, usize)>>,
+    }
+    impl TestView {
+        fn clear(&self) {
+            self.changed_rows.borrow_mut().clear();
+            self.added_rows.borrow_mut().clear();
+            self.removed_rows.borrow_mut().clear();
+        }
+    }
+    impl ErasedRepeater for TestView {
+        fn row_changed(&self, row: usize) {
+            self.changed_rows.borrow_mut().push(row);
+        }
+
+        fn row_added(&self, index: usize, count: usize) {
+            self.added_rows.borrow_mut().push((index, count));
+        }
+
+        fn row_removed(&self, index: usize, count: usize) {
+            self.removed_rows.borrow_mut().push((index, count));
+        }
+    }
+
+    let view = Rc::pin(TestView::default());
+
+    let view_as_repeater = Rc::pin(DependencyNode::new(view.as_ref().get_ref()
+        as &dyn ErasedRepeater
+        as *const dyn ErasedRepeater));
+
+    let peer = ModelPeer { inner: PinWeak::downgrade(view_as_repeater.clone()) };
+
+    let model: VecModel<i32> = vec![1i32, 2, 3, 4].into();
+    model.model_tracker().attach_peer(peer);
+
+    model.push(5);
+    assert!(view.changed_rows.borrow().is_empty());
+    assert_eq!(&*view.added_rows.borrow(), &[(4, 1)]);
+    assert!(view.removed_rows.borrow().is_empty());
+    view.clear();
+
+    model.set_vec(vec![6, 7, 8]);
+    assert!(view.changed_rows.borrow().is_empty());
+    assert_eq!(&*view.added_rows.borrow(), &[(0, 3)]);
+    assert_eq!(&*view.removed_rows.borrow(), &[(0, 5)]);
+    view.clear();
+}
