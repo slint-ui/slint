@@ -10,9 +10,9 @@ export CopyPage := Page {
     header: "Copy";
 
     GridLayout {
-        padding-top: 46px /* header line height in design */
-                     + /* extra top-padding in design */ 27px;
-        spacing: 24px;
+        padding-top: 23px /* header line height in design */
+                     + /* extra top-padding in design */ 13px;
+        spacing: 5px;
         Row {
             Text {
                 text: "Choose Settings";
@@ -27,64 +27,33 @@ export CopyPage := Page {
                 value: 1;
                 minimum: 1;
             }
-
-            Rectangle {}
-
-            Label { text: "Size"; }
-            ComboBox {
-                value: "DIN A4";
-                choices: ["DIN A4", "DIN A3", "Letter"];
-            }
         }
-        Row {
-            Label { text: "Layout"; }
-            ComboBox {
-                value: "Portrait";
-                choices: ["Portrait", "Landscape"];
-            }
-
-            Rectangle {}
-
-            Label { text: "Paper Tray"; }
-            ComboBox {
-                value: "Special Tray";
-                choices: ["Special Tray", "Normal Tray"];
-            }
-        }
-        Row {
+        /*Row {
             Label { text: "Quality"; }
             ComboBox {
                 value: "Best";
                 choices: ["Best", "Medium", "Draft"];
             }
-
-            Rectangle {}
-
-            Label { text: "Paper Type"; }
-            ComboBox {
-                value: "Standard";
-                choices: ["Standard", "Non-standard"];
-            }
-        }
+        }*/
         Row {
             Label { text: "Color"; }
             ComboBox {
                 value: "Grayscale";
                 choices: ["Grayscale", "Color"];
             }
-
-            Rectangle {}
-
+        }
+        Row {
             Label { text: "Paper Handling"; }
             CheckBox {
                 checked: true;
                 text: "sort page";
             }
         }
+
         Row {
             HorizontalLayout {
-                col: 3;
-                colspan: 2;
+                col: 0;
+                colspan: 3;
 
                 Rectangle {
                     horizontal-stretch: 0;

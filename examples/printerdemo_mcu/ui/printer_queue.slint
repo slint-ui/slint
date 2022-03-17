@@ -19,9 +19,9 @@ export global PrinterQueue := {
     callback pause-job(int);
 
     property <[PrinterQueueItem]> printer-queue: [
-        { status: "PRINTING", progress: 63, title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@slint-ui.com", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
-        { status: "WAITING...", title: "Adressliste.docx", owner: "simon.hausmann@slint-ui.com", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
-        { status: "WAITING...", title: "210106-FinalPresentation.pdf", owner: "simon.hausmann@slint-ui.com", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        { status: "PRINTING", progress: 63, title: "Slint-Demo.jpeg", owner: "info@slint-ui.com", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        { status: "WAITING...", title: "Adressliste.docx", owner: "info@slint-ui.com", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
+        { status: "WAITING...", title: "210106-FinalPresentation.pdf", owner: "info@slint-ui.com", pages: 6, size: "143kb", submission-date: "11:41 25/01/21" },
     ];
 }
 
@@ -111,11 +111,11 @@ PrintDetails := GridLayout {
 
 NarrowPrintQueueElement := Rectangle {
     property <PrinterQueueItem> queue-item;
-    callback show-job-details();
+    callback cancel-job();
 
     border-color: DemoPalette.control-outline-color;
-    border-radius: 14px;
-    border-width: 2px;
+    border-radius: 6px;
+    border-width: 1px;
     background: DemoPalette.printer-queue-item-background-color;
     clip: true;
 
@@ -169,7 +169,7 @@ NarrowPrintQueueElement := Rectangle {
                     color: DemoPalette.status-label-text-color;
                     font-size: DemoPalette.base-font-size * 0.75;
                     font-weight: 800;
-                    letter-spacing: 1.56px;
+                    letter-spacing: 1.26px;
                 }
 
                 Text {
@@ -195,10 +195,9 @@ NarrowPrintQueueElement := Rectangle {
                 }
                 PushButton {
                     opacity: expanded-opacity;
-                    text: "More   ";
-                    clicked => {
-                        root.show-job-details();
-                    }
+                    text: "Delete";
+                    icon: @image-url("images/delete.svg");
+                    clicked => { cancel-job(); }
                 }
                 Rectangle {
                     horizontal-stretch: 0;
@@ -210,167 +209,30 @@ NarrowPrintQueueElement := Rectangle {
 }
 
 NarrowPrinterQueueList := Flickable {
-    callback show-job-details(int);
     VerticalLayout {
         alignment: start;
         padding: 0px;
-        spacing: 13.5px;
+        spacing: 6px;
 
         for queue-item[idx] in PrinterQueue.printer-queue: NarrowPrintQueueElement {
             width: root.width;
             queue-item: queue-item;
-            show-job-details => {
-                root.show-job-details(idx)
+            cancel-job => {
+                PrinterQueue.cancel-job(idx)
             }
-        }
-    }
-}
-
-ProgressBar := Rectangle {
-    property <int> progress;
-
-    // FIXME: The intermediate rectangle is needed to allow the surrounding
-    // layout to freely resize the progress bar without affecting the design-intended
-    // height of 6px. The alternative of specifying a `max-height: 6px` will unfortunately
-    // also affect the width calculation and make it vanish altogether.
-    Rectangle {
-        y: parent.height / 2 - 3px;
-        height: 6px;
-
-        border-radius: 3px;
-        background: DemoPalette.neutral-box;
-
-        Rectangle {
-            width: max(6px, progress * parent.width / 100);
-            border-radius: parent.border-radius;
-            background: DemoPalette.control-foreground;
-        }
-    }
-}
-
-WidePrintQueueElement := Rectangle {
-    callback cancel-job();
-    callback pause-job();
-
-    property <PrinterQueueItem> queue-item;
-
-    border-color: DemoPalette.neutral-box;
-    border-radius: 14px;
-    border-width: 2px;
-    background: DemoPalette.printer-queue-item-background-color;
-
-    GridLayout {
-        padding: parent.border-radius;
-        spacing: 3px;
-
-        HorizontalLayout {
-            width: 48%;
-            Text {
-                // TODO: text-transform: uppercase
-                text: {
-                    if (queue-item.status == "PRINTING") {
-                    "\{queue-item.progress}% - \{queue-item.status}"
-                    } else {
-                        queue-item.status
-                    }
-                }
-                color: DemoPalette.status-label-text-color;
-                font-size: DemoPalette.base-font-size * 0.75;
-                font-weight: 700;
-                letter-spacing: 1.56px;
-                horizontal-stretch: 1;
-            }
-            ProgressBar {
-                // Each progress bar should have the same size
-                // In principle it should be the smaller size which would fit next to the text foe each entry
-                // But since it is too hard to compute, just hardcode that for now
-                width: 50%; // 164px;
-                progress: queue-item.progress;
-            }
-        }
-
-        Text {
-            col: 0;
-            row: 1;
-            text: queue-item.title;
-            color: DemoPalette.text-foreground-color;
-            overflow: elide;
-            font-weight: 700;
-            font-size: DemoPalette.base-font-size * 1.125;
-            horizontal-stretch: 1;
-        }
-
-        HorizontalLayout {
-            col: 0;
-            row: 3;
-            spacing: 14px;
-            horizontal-stretch: 1;
-            vertical-stretch: 0;
-
-            PushButton {
-                text: "Pause";
-                icon: @image-url("images/pause.svg");
-                clicked => { pause-job(); }
-            }
-            PushButton {
-                primary: false;
-                text: "Delete";
-                icon: @image-url("images/delete.svg");
-                clicked => { cancel-job(); }
-            }
-        }
-
-        PrintDetails {
-            row: 0;
-            col: 2;
-            rowspan: 4;
-            width: 40%;
-            padding: 0px;
-            padding-bottom: root.border-radius / 2;
-            queue-item: root.queue-item;
-            horizontal-stretch: 1;
-        }
-    }
-}
-
-
-export WidePrinterQueueList := Flickable {
-
-    VerticalLayout {
-        alignment: start;
-        padding: 0px;
-        spacing: 13.5px;
-
-        for queue-item[idx] in PrinterQueue.printer-queue: WidePrintQueueElement {
-            queue-item: queue-item;
-            cancel-job => { PrinterQueue.cancel-job(idx) }
-            pause-job => { PrinterQueue.pause-job(idx) }
         }
     }
 }
 
 export PrinterQueueView := Rectangle {
-    callback show-job-details(int);
 
-    border-radius: 27px;
+    border-radius: 18px;
     background: DemoPalette.night-mode ? DemoPalette.printer-action-background-color : #F4F6FF;
 
     VerticalLayout {
-        padding: 16px;
-        spacing: 16px;
+        padding: 6px;
+        spacing: 6px;
 
-        Text {
-            text: "Printing-Queue";
-            color: DemoPalette.text-foreground-color;
-            font-size: DemoPalette.base-font-size * 1.5;
-            font-weight: 700;
-        }
-
-        queue-list := NarrowPrinterQueueList {
-            width: root.width - 2*parent.padding; // FIXME why do we need this? bug in layout?
-            show-job-details(idx) => {
-                root.show-job-details(idx)
-            }
-        }
+        queue-list := NarrowPrinterQueueList { }
     }
 }

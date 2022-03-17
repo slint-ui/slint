@@ -49,7 +49,7 @@ export global DemoPalette := {
 
     property <color> push-button-text-color: white;
 
-    property <length> base-font-size: 16px;
+    property <length> base-font-size: 12px;
 
     property <bool> night-mode: false;
 }
@@ -67,20 +67,24 @@ export Page := Rectangle {
         image-fit: contain;
         colorize: DemoPalette.control-secondary;
         y: h.y + (h.height - height) / 2;
+        x: 5px;
         width: 14px;
         height: 24px;
         TouchArea {
             clicked => { back() }
-            width: 150%;
+            width: 200%;
+            height: 200%;
+            x: (parent.width - width) / 2;
+            y: (parent.height - height) / 2;
         }
     }
 
     h := Text {
         font-weight: 900;
-        font-size: DemoPalette.base-font-size * 2;
+        font-size: DemoPalette.base-font-size * 1.75;
         color: DemoPalette.text-foreground-color;
-        y: 46px - font-size;
-        x: has-back-button ? 24px + 16px : 0px;
+        y: 23px - font-size;
+        x: has-back-button ? 30px + 16px : 0px;
         // Allow clicking on the title as well to get back easier when just
         // using fingers on a small screen.
         if (has-back-button) : TouchArea {
@@ -102,6 +106,10 @@ SquareButton := Rectangle {
     border-width: 2px;
     border-color: DemoPalette.control-outline-color;
     touch := TouchArea {
+        x: -4px;
+        y: -4px;
+        width: parent.width + 8px;
+        height: parent.height + 8px;
         clicked => {
             root.clicked();
         }
@@ -241,7 +249,7 @@ export CheckBox := Rectangle {
             clicked => { checked = !checked; }
         }
 
-        Text {
+        if text != "" : Text {
             text <=> root.text;
             vertical-alignment: center;
             horizontal-alignment: center;
@@ -270,12 +278,11 @@ export PushButton := Rectangle {
 
     background: pressed ? colors.pressed : (touch-area.has-hover ? colors.hovered : colors.base);
 
-    height: 27px; // line-height in the design
     horizontal-stretch: 1;
 
     HorizontalLayout {
-        padding-top: 0px;
-        padding-bottom: 0px;
+        padding-top: 5px;
+        padding-bottom: 5px;
         padding-left: parent.border-radius;
         padding-right: parent.border-radius;
 

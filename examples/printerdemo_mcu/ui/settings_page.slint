@@ -7,33 +7,23 @@ export SettingsPage := Page {
     header: "Settings";
 
     GridLayout {
-        padding-top: 46px /* header line height in design */
-                     + /* extra top-padding in design */ 27px;
-        spacing: 24px;
-        Row {
-            Text {
-                text: "General";
-                color: DemoPalette.secondary-foreground-color;
-                font-size: DemoPalette.base-font-size * 1.125;
-                font-weight: 800;
-            }
-        }
-        Row {
-            Label { text: "TURBO mode"; }
-            CheckBox { checked: true; }
-
-            Rectangle {}
-
-            Label { text: "Power Management"; }
-            CheckBox {
-                checked: false;
-                text: "Eco Mode";
-            }
-        }
-
+        padding-top: 23px /* header line height in design */
+                     + /* extra top-padding in design */ 13px;
+        spacing: 5px;
         Row {
             Text {
                 text: "Defaults";
+                color: DemoPalette.secondary-foreground-color;
+                font-size: DemoPalette.base-font-size * 1.125;
+                font-weight: 800;
+                colspan: 2;
+                horizontal-stretch: 2;
+            }
+            Rectangle {}
+            Text {
+                col: 2;
+                colspan: 2;
+                text: "General";
                 color: DemoPalette.secondary-foreground-color;
                 font-size: DemoPalette.base-font-size * 1.125;
                 font-weight: 800;
@@ -44,47 +34,34 @@ export SettingsPage := Page {
             ComboBox {
                 value: "Portrait";
                 choices: ["Portrait", "Landscape"];
+                horizontal-stretch: 2;
             }
-
             Rectangle {}
-
-            Label { text: "Paper Tray"; }
-            ComboBox {
-                value: "Special Tray";
-                choices: ["Special Tray", "Normal Tray"];
-            }
+            Label { text: "EcoMode"; }
+            CheckBox { checked: false; }
         }
         Row {
             Label { text: "Quality"; }
             ComboBox {
                 value: "Best";
                 choices: ["Best", "Medium", "Draft"];
+                horizontal-stretch: 2;
             }
-
             Rectangle {}
-
-            Label { text: "Paper Type"; }
-            ComboBox {
-                value: "Standard";
-                choices: ["Standard", "Non-standard"];
-            }
+            Label { text: "TURBO "; }
+            CheckBox { checked: true; }
         }
         Row {
-            Label { text: "Color Mode"; }
+            Label { text: "Color"; }
             ComboBox {
                 value: "Grayscale";
                 choices: ["Grayscale", "RGB", "YCMB"];
-            }
-
-            Rectangle {}
-
-            Label { text: "Paper Handling"; }
-            CheckBox {
-                checked: true;
-                text: "sort page";
+                horizontal-stretch: 2;
             }
         }
-        Row { Rectangle {} }
+
+        Rectangle {}
+
     }
 
 }
