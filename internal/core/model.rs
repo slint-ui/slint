@@ -1099,4 +1099,7 @@ fn test_data_tracking() {
 
     model.insert(0, 255);
     assert!(tracker.is_dirty());
+
+    model.set_vec(vec![]);
+    assert!(tracker.is_dirty());
 }
