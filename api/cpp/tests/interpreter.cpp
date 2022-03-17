@@ -283,8 +283,8 @@ SCENARIO("Component Compiler")
     SECTION("configure style")
     {
         REQUIRE(compiler.style() == "");
-        compiler.set_style("ugly");
-        REQUIRE(compiler.style() == "ugly");
+        compiler.set_style("fluent");
+        REQUIRE(compiler.style() == "fluent");
     }
 
     SECTION("Compile failure from source")

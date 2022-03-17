@@ -32,7 +32,7 @@ struct Cli {
     #[clap(name = "path to .slint file", parse(from_os_str))]
     path: std::path::PathBuf,
 
-    /// The style name ('native', 'fluent', or 'ugly')
+    /// The style name ('native' or 'fluent')
     #[clap(long, name = "style name")]
     style: Option<String>,
 
