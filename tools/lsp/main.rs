@@ -48,7 +48,7 @@ struct Cli {
     )]
     include_paths: Vec<std::path::PathBuf>,
 
-    /// The style name for the preview ('native', 'fluent' or 'ugly')
+    /// The style name for the preview ('native' or 'fluent')
     #[clap(long, name = "style name", default_value_t)]
     style: String,
 
