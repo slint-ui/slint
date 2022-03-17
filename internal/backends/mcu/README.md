@@ -40,11 +40,11 @@ Some environment variable must be set so the Slint compiler knows to embedd the 
 ### The simulator
 
 ```sh
-SLINT_SCALE_FACTOR=0.5 WINIT_X11_SCALE_FACTOR=1 SLINT_EMBED_GLYPHS=1 SLINT_FONT_SIZES=8,11,10,12,13,14,15,16,18,20,22,24,32 SLINT_PROCESS_IMAGES=1 SLINT_STYLE=ugly cargo run -p printerdemo_mcu --features=i-slint-backend-mcu/simulator --release
+WINIT_X11_SCALE_FACTOR=1 SLINT_EMBED_GLYPHS=1 SLINT_FONT_SIZES=8,11,10,12,13,14,15,16,18,20,22,24,32 SLINT_PROCESS_IMAGES=1 SLINT_STYLE=ugly cargo run -p printerdemo_mcu --features=i-slint-backend-mcu/simulator --release
 ```
 
 ### On the Raspberry Pi Pico
 
 ```sh
-SLINT_FONT_SIZES=8,11,10,12,13,14,15,16,18,20,22,24,32 CARGO_TARGET_THUMBV6M_NONE_EABI_LINKER="flip-link" CARGO_TARGET_THUMBV6M_NONE_EABI_RUNNER="probe-run --chip RP2040" SLINT_SCALE_FACTOR=0.5 SLINT_STYLE=ugly  SLINT_PROCESS_IMAGES=1 cargo +nightly run -p printerdemo_mcu --features=mcu-pico-st7789 --target=thumbv6m-none-eabi --release
+SLINT_FONT_SIZES=8,11,10,12,13,14,15,16,18,20,22,24,32 CARGO_TARGET_THUMBV6M_NONE_EABI_LINKER="flip-link" CARGO_TARGET_THUMBV6M_NONE_EABI_RUNNER="probe-run --chip RP2040" SLINT_STYLE=ugly  SLINT_PROCESS_IMAGES=1 cargo +nightly run -p printerdemo_mcu --features=mcu-pico-st7789 --target=thumbv6m-none-eabi --release
 ```
