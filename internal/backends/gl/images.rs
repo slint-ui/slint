@@ -424,12 +424,24 @@ impl CachedImage {
     }
 
     pub(crate) fn as_paint(&self) -> femtovg::Paint {
+        self.as_paint_with_alpha(1.0)
+    }
+
+    pub(crate) fn as_paint_with_alpha(&self, alpha_tint: f32) -> femtovg::Paint {
         match &*self.0.borrow() {
             ImageData::Texture(tex) => {
                 let size = tex
                     .size()
                     .expect("internal error: CachedImage::as_paint() called on zero-sized texture");
-                femtovg::Paint::image(tex.id, 0., 0., size.width as f32, size.height as f32, 0., 1.)
+                femtovg::Paint::image(
+                    tex.id,
+                    0.,
+                    0.,
+                    size.width as f32,
+                    size.height as f32,
+                    0.,
+                    alpha_tint,
+                )
             }
             _ => panic!("internal error: CachedImage::as_paint() called on non-texture image"),
         }

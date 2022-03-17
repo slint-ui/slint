@@ -96,6 +96,13 @@ pub(crate) fn is_clipping_item(item: Pin<ItemRef>) -> bool {
         || ItemRef::downcast_pin::<Clip>(item).is_some()
 }
 
+/// Return true if the item might be a clipping item and it has clipping enabled
+pub(crate) fn is_enabled_clipping_item(item: Pin<ItemRef>) -> bool {
+    //(FIXME: there should be some flag in the vtable instead of downcasting)
+    ItemRef::downcast_pin::<Flickable>(item).is_some()
+        || ItemRef::downcast_pin::<Clip>(item).map_or(false, |clip_item| clip_item.as_ref().clip())
+}
+
 /// Renders the children of the item with the specified index into the renderer.
 pub fn render_item_children(
     renderer: &mut dyn ItemRenderer,
@@ -155,6 +162,44 @@ pub fn render_component_items(
     renderer.restore_state();
 }
 
+/// Compute the bounding rect of all children. This does /not/ include item's own bounding rect. Remember to run this
+/// via `evaluate_no_tracking`.
+pub fn item_children_bounding_rect(
+    component: &ComponentRc,
+    index: isize,
+    clip_rect: &Rect,
+) -> Rect {
+    let mut bounding_rect = Rect::zero();
+
+    let mut actual_visitor =
+        |component: &ComponentRc, index: usize, item: Pin<ItemRef>| -> VisitChildrenResult {
+            let item_geometry = item.as_ref().geometry();
+
+            let local_clip_rect = clip_rect.translate(-item_geometry.origin.to_vector());
+
+            if let Some(clipped_item_geometry) = item_geometry.intersection(clip_rect) {
+                bounding_rect = bounding_rect.union(&clipped_item_geometry);
+            }
+
+            if !is_enabled_clipping_item(item) {
+                bounding_rect = bounding_rect.union(&item_children_bounding_rect(
+                    component,
+                    index as isize,
+                    &local_clip_rect,
+                ));
+            }
+            VisitChildrenResult::CONTINUE
+        };
+    vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
+    VRc::borrow_pin(component).as_ref().visit_children_item(
+        index,
+        crate::item_tree::TraversalOrder::BackToFront,
+        actual_visitor,
+    );
+
+    bounding_rect
+}
+
 /// Trait used to render each items.
 ///
 /// The item needs to be rendered relative to its (x,y) position. For example,
@@ -170,6 +215,10 @@ pub trait ItemRenderer {
     #[cfg(feature = "std")]
     fn draw_path(&mut self, path: Pin<&Path>);
     fn draw_box_shadow(&mut self, box_shadow: Pin<&BoxShadow>);
+    fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, _self_rc: &ItemRc) -> RenderingResult {
+        self.apply_opacity(opacity_item.opacity());
+        RenderingResult::ContinueRenderingChildren
+    }
 
     // Apply the bounds of the Clip element, if enabled. The default implementation calls
     // combine_clip, but the render may choose an alternate way of implementing the clip.
