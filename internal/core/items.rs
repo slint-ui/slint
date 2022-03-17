@@ -831,10 +831,9 @@ impl Item for Opacity {
     fn render(
         self: Pin<&Self>,
         backend: &mut ItemRendererRef,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
     ) -> RenderingResult {
-        backend.apply_opacity(self.opacity());
-        RenderingResult::ContinueRenderingChildren
+        backend.draw_opacity(self, self_rc)
     }
 }
 
