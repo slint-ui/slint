@@ -132,6 +132,15 @@ fn gen_corelib(
     let mut private_exported_types: std::collections::HashSet<String> =
         config.export.include.iter().cloned().collect();
 
+    // included in generated_public.h
+    let public_exported_types = [
+        "TimerMode",
+        "RenderingState",
+        "SetRenderingNotifierError",
+        "GraphicsAPI",
+        "CloseRequestResponse",
+    ];
+
     config.export.exclude = [
         "SharedString",
         "SharedVector",
@@ -161,12 +170,9 @@ fn gen_corelib(
         "slint_color_darker",
         "slint_image_size",
         "slint_image_path",
-        "TimerMode",                 // included in generated_public.h
-        "RenderingState",            // included in generated_public.h
-        "SetRenderingNotifierError", // included in generated_public.h
-        "GraphicsAPI",               // included in generated_public.h
     ]
     .iter()
+    .chain(public_exported_types.iter())
     .map(|x| x.to_string())
     .collect();
 
@@ -262,6 +268,7 @@ fn gen_corelib(
             "slint_windowrc_show_popup",
             "slint_windowrc_set_rendering_notifier",
             "slint_windowrc_request_redraw",
+            "slint_windowrc_on_close_requested",
             "slint_new_path_elements",
             "slint_new_path_events",
             "slint_color_brighter",
@@ -315,12 +322,7 @@ fn gen_corelib(
     // Previously included types are now excluded (to avoid duplicates)
     public_config.export.exclude = private_exported_types.into_iter().collect();
     public_config.export.exclude.push("Point".into());
-    public_config.export.include = vec![
-        "TimerMode".into(),
-        "RenderingState".into(),
-        "SetRenderingNotifierError".into(),
-        "GraphicsAPI".into(),
-    ];
+    public_config.export.include = public_exported_types.into_iter().map(str::to_string).collect();
 
     cbindgen::Builder::new()
         .with_config(public_config)

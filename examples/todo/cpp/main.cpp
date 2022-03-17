@@ -30,5 +30,19 @@ int main()
         }
     });
 
+    demo->on_popup_confirmed(
+            [demo = slint::ComponentWeakHandle(demo)] { (*demo.lock())->window().hide(); });
+
+    demo->window().on_close_requested([todo_model, demo = slint::ComponentWeakHandle(demo)] {
+        int count = todo_model->row_count();
+        for (int i = 0; i < count; ++i) {
+            if (!todo_model->row_data(i)->checked) {
+                (*demo.lock())->invoke_show_confirm_popup();
+                return slint::CloseRequestResponse::KeepWindowShown;
+            }
+        }
+        return slint::CloseRequestResponse::HideWindow;
+    });
+
     demo->run();
 }

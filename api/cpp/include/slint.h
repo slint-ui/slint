@@ -162,6 +162,15 @@ public:
         }
     }
 
+    template<typename F>
+    void on_close_requested(F callback) const
+    {
+        auto actual_cb = [](void *data) { return (*reinterpret_cast<F *>(data))(); };
+        cbindgen_private::slint_windowrc_on_close_requested(
+                &inner, actual_cb, [](void *user_data) { delete reinterpret_cast<F *>(user_data); },
+                new F(std::move(callback)));
+    }
+
     void request_redraw() const { cbindgen_private::slint_windowrc_request_redraw(&inner); }
 
 private:
@@ -345,6 +354,18 @@ public:
     std::optional<SetRenderingNotifierError> set_rendering_notifier(F &&callback) const
     {
         return inner.set_rendering_notifier(std::forward<F>(callback));
+    }
+
+    /// This function allows registering a callback that's invoked when the user tries to close
+    /// a window.
+    /// The callback has to return a CloseRequestResponse.
+    template<typename F>
+    void on_close_requested(F &&callback) const
+    {
+        static_assert(std::is_invocable_v<F>, "Functor callback must be callable");
+        static_assert(std::is_same_v<std::invoke_result_t<F>, CloseRequestResponse>,
+                      "Functor callback must return CloseRequestResponse");
+        return inner.on_close_requested(std::forward<F>(callback));
     }
 
     /// This function issues a request to the windowing system to redraw the contents of the window.

@@ -419,7 +419,7 @@ pub struct GridLayout {
 
     pub geometry: LayoutGeometry,
 
-    /// When this GridLyout is actually the layout of a Dialog, then the cells start with all the buttons,
+    /// When this GridLayout is actually the layout of a Dialog, then the cells start with all the buttons,
     /// and this variable contains their roles. The string is actually one of the values from the i_slint_core::layout::DialogButtonRole
     pub dialog_button_roles: Option<Vec<String>>,
 }
