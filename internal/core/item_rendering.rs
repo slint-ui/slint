@@ -170,6 +170,22 @@ pub trait ItemRenderer {
     #[cfg(feature = "std")]
     fn draw_path(&mut self, path: Pin<&Path>);
     fn draw_box_shadow(&mut self, box_shadow: Pin<&BoxShadow>);
+
+    // Apply the bounds of the Clip element, if enabled. The default implementation calls
+    // combine_clip, but the render may choose an alternate way of implementing the clip.
+    // For example the GL backend uses a layered rendering approach.
+    fn apply_clip(&mut self, clip_item: Pin<&Clip>, _self_rc: &ItemRc) -> RenderingResult {
+        if clip_item.clip() {
+            let geometry = clip_item.geometry();
+            self.combine_clip(
+                euclid::rect(0., 0., geometry.width(), geometry.height()),
+                clip_item.border_radius(),
+                clip_item.border_width(),
+            )
+        }
+        RenderingResult::ContinueRenderingChildren
+    }
+
     /// Clip the further call until restore_state.
     /// radius/border_width can be used for border rectangle clip.
     /// (FIXME: consider removing radius/border_width and have another  function that take a path instead)
@@ -201,20 +217,6 @@ pub trait ItemRenderer {
     /// Draw the given string with the specified color at current (0, 0) with the default font. Mainly
     /// used by the performance counter overlay.
     fn draw_string(&mut self, string: &str, color: crate::Color);
-
-    // Renders the children of the specified item into a layer and subsequently renders the layer. The
-    // layer may be cached.
-    // Returns true if the operation is supported; false if the caller needs to take care of rendering
-    // the children without a layer.
-    fn render_layer(
-        &mut self,
-        _item_cache: &CachedRenderingData,
-        _item: &ItemRc,
-        _radius: f32,
-        _border_width: f32,
-    ) -> bool {
-        false
-    }
 
     /// This is called before it is being rendered (before the draw_* function).
     /// Returns
