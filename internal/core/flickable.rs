@@ -13,10 +13,11 @@ use crate::items::PointerEventButton;
 use crate::items::{Flickable, PropertyAnimation, Rectangle};
 use core::cell::RefCell;
 use core::pin::Pin;
+#[cfg(not(feature = "std"))]
+use num_traits::Float;
 
 /// The distance required before it starts flicking if there is another item intercepting the mouse.
-/// FIXME: this is currently physical pixels, but it should be logical
-const DISTANCE_THRESHOLD: f32 = 4.;
+const DISTANCE_THRESHOLD: f32 = 8.;
 /// Time required before we stop caring about child event if the mouse hasn't been moved
 const DURATION_THRESHOLD: Duration = Duration::from_millis(500);
 
@@ -73,9 +74,22 @@ impl FlickableData {
             MouseEvent::MouseMoved { pos } => {
                 let do_intercept = inner.capture_events
                     || inner.pressed_time.map_or(false, |pressed_time| {
-                        crate::animations::current_tick() - pressed_time < DURATION_THRESHOLD
-                            && (pos - inner.pressed_pos).square_length()
-                                > DISTANCE_THRESHOLD * DISTANCE_THRESHOLD
+                        if crate::animations::current_tick() - pressed_time > DURATION_THRESHOLD {
+                            return false;
+                        }
+                        let can_move_horiz = (Flickable::FIELD_OFFSETS.viewport
+                            + Rectangle::FIELD_OFFSETS.width)
+                            .apply_pin(flick)
+                            .get()
+                            > flick.width();
+                        let can_move_vert = (Flickable::FIELD_OFFSETS.viewport
+                            + Rectangle::FIELD_OFFSETS.height)
+                            .apply_pin(flick)
+                            .get()
+                            > flick.height();
+                        let diff = pos - inner.pressed_pos;
+                        (can_move_horiz && diff.x.abs() > DISTANCE_THRESHOLD)
+                            || (can_move_vert && diff.y.abs() > DISTANCE_THRESHOLD)
                     });
                 if do_intercept {
                     InputEventFilterResult::Intercept
