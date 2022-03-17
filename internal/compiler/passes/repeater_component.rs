@@ -51,7 +51,7 @@ fn create_repeater_components(component: &Rc<Component>) {
         });
 
         if let Some(listview) = is_listview {
-            if !comp.root_element.borrow().bindings.contains_key("height") {
+            if !comp.root_element.borrow().is_binding_set("height", false) {
                 let preferred = Expression::PropertyReference(NamedReference::new(
                     &comp.root_element,
                     "preferred-height",
@@ -61,7 +61,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                     .bindings
                     .insert("height".into(), RefCell::new(preferred.into()));
             }
-            if !comp.root_element.borrow().bindings.contains_key("width") {
+            if !comp.root_element.borrow().is_binding_set("width", false) {
                 comp.root_element.borrow_mut().bindings.insert(
                     "width".into(),
                     RefCell::new(Expression::PropertyReference(listview.listview_width).into()),

@@ -1,0 +1,59 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { ListView  } from "std-widgets.slint";
+
+MyListItem := Rectangle {
+    callback clicked <=> ta.clicked;
+    property <string> string;
+
+    height: 100px;
+
+    Text {
+        text: string;
+    }
+
+    ta := TouchArea {  }
+}
+
+TestCase := Window {
+    width: 300px;
+    height: 500px;
+
+    property <string> value;
+
+    HorizontalLayout {
+        lv := ListView {
+            for string in [ "Blue", "Red", "Green", "Yellow", "Black", "White", "Magenta", "Cyan"] : my := MyListItem {
+                string: string;
+                clicked => { value = string; }
+            }
+        }
+    }
+    property <int> viewport-height: lv.viewport-height / 1px;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint::testing::send_mouse_click(&instance, 5., 205.);
+assert_eq(instance.get_value(), "Green");
+assert_eq(instance.get_viewport_height(), 800);
+```
+
+```rust
+let instance = TestCase::new();
+slint::testing::send_mouse_click(&instance, 5., 205.);
+assert_eq!(instance.get_value(), "Green");
+assert_eq!(instance.get_viewport_height(), 800);
+```
+
+```js
+var instance = new slint.TestCase();
+instance.send_mouse_click(5., 205.);
+assert.equal(instance.value, "Green");
+assert.equal(instance.viewport_height, 800);
+```
+
+*/
