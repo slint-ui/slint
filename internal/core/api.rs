@@ -105,7 +105,6 @@ impl From<WindowRc> for Window {
 /// It is the return type of the callback provided to [Window::on_close_requested].
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
-#[allow(non_camel_case_types)]
 pub enum CloseRequestResponse {
     HideWindow,
     KeepWindowShown,
@@ -140,7 +139,7 @@ impl Window {
     /// This function allows registering a callback that's invoked when the user tries to close a window.
     /// The callback has to return a [CloseRequestResponse].
     pub fn on_close_requested(&self, callback: impl FnMut() -> CloseRequestResponse + 'static) {
-        self.0.set_close_requested(callback);
+        self.0.on_close_requested(callback);
     }
 
     /// This function issues a request to the windowing system to redraw the contents of the window.

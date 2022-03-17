@@ -556,10 +556,7 @@ impl Window {
     }
 
     /// Sets the close_requested callback. The callback will be run when the user tries to close a window.
-    pub fn set_close_requested(
-        &self,
-        mut callback: impl FnMut() -> CloseRequestResponse + 'static,
-    ) {
+    pub fn on_close_requested(&self, mut callback: impl FnMut() -> CloseRequestResponse + 'static) {
         self.close_requested.set_handler(move |()| callback());
     }
 
@@ -766,6 +763,38 @@ pub mod ffi {
                 false
             }
         }
+    }
+
+    /// C binding to the on_close_requested() API of Window
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_on_close_requested(
+        handle: *const WindowRcOpaque,
+        callback: extern "C" fn(user_data: *mut c_void) -> CloseRequestResponse,
+        drop_user_data: extern "C" fn(user_data: *mut c_void),
+        user_data: *mut c_void,
+    ) {
+        struct WithUserData {
+            callback: extern "C" fn(user_data: *mut c_void) -> CloseRequestResponse,
+            drop_user_data: extern "C" fn(*mut c_void),
+            user_data: *mut c_void,
+        }
+
+        impl Drop for WithUserData {
+            fn drop(&mut self) {
+                (self.drop_user_data)(self.user_data)
+            }
+        }
+
+        impl WithUserData {
+            fn call(&self) -> CloseRequestResponse {
+                (self.callback)(self.user_data)
+            }
+        }
+
+        let with_user_data = WithUserData { callback, drop_user_data, user_data };
+
+        let window = &*(handle as *const WindowRc);
+        window.on_close_requested(move || with_user_data.call());
     }
 
     /// This function issues a request to the windowing system to redraw the contents of the window.
