@@ -215,7 +215,6 @@ impl WinitWindow for GLWindow {
                         Size::new(size.width as f32, size.height as f32) / scale_factor,
                     ),
                     global_alpha: 1.,
-                    layer: None,
                     current_render_target: femtovg::RenderTarget::Screen,
                 }],
             };
