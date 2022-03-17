@@ -16,7 +16,9 @@ use i_slint_core::graphics::{
     Brush, Color, Image, ImageInner, IntRect, IntSize, Point, Rect, RenderingCache, Size,
 };
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
-use i_slint_core::items::{FillRule, ImageFit, ImageRendering, InputType, ItemRc};
+use i_slint_core::items::{
+    Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, RenderingResult,
+};
 use i_slint_core::properties::Property;
 use i_slint_core::window::{Window, WindowRc};
 use i_slint_core::SharedString;
@@ -64,18 +66,10 @@ impl ItemGraphicsCacheEntry {
 
 type ItemGraphicsCache = RenderingCache<Option<ItemGraphicsCacheEntry>>;
 
-// Layers are stored in the renderers State and flushed to the screen (or current rendering target)
-// in restore_state() by filling the target_path.
-struct Layer {
-    image: CachedImage,
-    target_path: femtovg::Path,
-}
-
 #[derive(Clone)]
 struct State {
     scissor: Rect,
     global_alpha: f32,
-    layer: Option<Rc<Layer>>,
     current_render_target: femtovg::RenderTarget,
 }
 
@@ -689,6 +683,28 @@ impl ItemRenderer for GLItemRenderer {
         });
     }
 
+    fn apply_clip(&mut self, clip_item: Pin<&Clip>, self_rc: &ItemRc) -> RenderingResult {
+        if !clip_item.clip() {
+            return RenderingResult::ContinueRenderingChildren;
+        }
+
+        let radius = clip_item.border_radius();
+        let border_width = clip_item.border_width();
+
+        if radius > 0. {
+            self.render_layer(&clip_item.cached_rendering_data, self_rc, radius, border_width);
+            RenderingResult::ContinueRenderingWithoutChildren
+        } else {
+            let geometry = clip_item.as_ref().geometry();
+            self.combine_clip(
+                euclid::rect(0., 0., geometry.width(), geometry.height()),
+                radius,
+                border_width,
+            );
+            RenderingResult::ContinueRenderingChildren
+        }
+    }
+
     fn combine_clip(&mut self, clip_rect: Rect, radius: f32, border_width: f32) {
         let clip = &mut self.state.last_mut().unwrap().scissor;
         match clip.intersection(&clip_rect) {
@@ -712,11 +728,9 @@ impl ItemRenderer for GLItemRenderer {
             clip_path_bounds.height(),
         );
 
-        // This is the very expensive clipping code path, where we change the current render target
-        // to be an intermediate image and then fill the clip path with that image.
-        if radius > 0. {
-            self.set_clip_path(clip_path)
-        }
+        // femtovg only supports rectangular clipping. Non-rectangular clips must be handled via `apply_clip`,
+        // which can render children into a layer.
+        debug_assert!(radius == 0.);
     }
 
     fn get_current_clip(&self) -> Rect {
@@ -729,24 +743,7 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn restore_state(&mut self) {
-        if let Some(mut layer_to_restore) = self
-            .state
-            .pop()
-            .and_then(|state| state.layer)
-            .and_then(|layer| Rc::try_unwrap(layer).ok())
-        {
-            let paint = layer_to_restore.image.as_paint();
-
-            self.layer_images_to_delete_after_flush.push(layer_to_restore.image);
-
-            let mut canvas = self.canvas.borrow_mut();
-
-            canvas.set_render_target(self.current_render_target());
-
-            // Balanced in set_clip_path, back to original drawing conditions when set_clip_path() was called.
-            canvas.restore();
-            canvas.fill_path(&mut layer_to_restore.target_path, paint);
-        }
+        self.state.pop();
         self.canvas.borrow_mut().restore();
     }
 
@@ -849,14 +846,16 @@ impl ItemRenderer for GLItemRenderer {
         *state *= opacity;
         self.canvas.borrow_mut().set_global_alpha(*state);
     }
+}
 
+impl GLItemRenderer {
     fn render_layer(
         &mut self,
         item_cache: &CachedRenderingData,
         item_rc: &ItemRc,
         radius: f32,
         border_width: f32,
-    ) -> bool {
+    ) {
         let item = item_rc.borrow();
         let cache_entry =
             item_cache.get_or_update(&self.graphics_window.clone().graphics_cache, || {
@@ -894,7 +893,6 @@ impl ItemRenderer for GLItemRenderer {
                             Size::new(size.width as f32, size.height as f32),
                         ),
                         global_alpha: 1.,
-                        layer: None,
                         current_render_target: layer_image.as_render_target(),
                     };
 
@@ -918,7 +916,7 @@ impl ItemRenderer for GLItemRenderer {
 
         let layer_image = match &cache_entry {
             Some(cached_layer_image) => cached_layer_image.as_image(),
-            None => return false, // Zero width or height layer
+            None => return, // Zero width or height layer
         };
 
         let layer_image_paint = layer_image.as_paint();
@@ -933,12 +931,8 @@ impl ItemRenderer for GLItemRenderer {
         self.canvas.borrow_mut().save_with(|canvas| {
             canvas.fill_path(&mut layer_path, layer_image_paint);
         });
-
-        true
     }
-}
 
-impl GLItemRenderer {
     fn colorize_image(
         &self,
         original_cache_entry: ItemGraphicsCacheEntry,
@@ -1196,49 +1190,6 @@ impl GLItemRenderer {
             }
             _ => return None,
         })
-    }
-
-    // Set the specified path for clipping. This is done by redirecting rendering into
-    // an intermediate image and using that to fill the clip path on the next restore_state()
-    // call. Therefore this can only be called once per save_state()!
-    fn set_clip_path(&mut self, mut path: femtovg::Path) {
-        let path_bounds = path_bounding_box(&self.canvas, &mut path);
-
-        let layer_width = path_bounds.width();
-        let layer_height = path_bounds.height();
-
-        let clip_buffer_img = match CachedImage::new_empty_on_gpu(
-            &self.canvas,
-            layer_width as _,
-            layer_height as _,
-        ) {
-            Some(clip_buffer) => clip_buffer,
-            None => return, // Zero width or height clip path
-        };
-
-        {
-            let mut canvas = self.canvas.borrow_mut();
-
-            // Balanced with the *first* restore() call in restore_state(), followed by
-            // the original restore() later in restore_state().
-            canvas.save();
-
-            canvas.set_render_target(clip_buffer_img.as_render_target());
-
-            canvas.reset();
-
-            canvas.clear_rect(
-                0,
-                0,
-                layer_width as _,
-                layer_height as _,
-                femtovg::Color::rgba(0, 0, 0, 0),
-            );
-            canvas.global_composite_operation(femtovg::CompositeOperation::SourceOver);
-        }
-        self.state.last_mut().unwrap().current_render_target = clip_buffer_img.as_render_target();
-        self.state.last_mut().unwrap().layer =
-            Some(Rc::new(Layer { image: clip_buffer_img, target_path: path }));
     }
 
     fn current_render_target(&self) -> femtovg::RenderTarget {

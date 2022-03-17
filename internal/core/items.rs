@@ -764,29 +764,7 @@ impl Item for Clip {
         backend: &mut ItemRendererRef,
         self_rc: &ItemRc,
     ) -> RenderingResult {
-        if self.clip() {
-            let radius = self.border_radius();
-            let border_width = self.border_width();
-            let needs_layer = radius > 0.;
-            if needs_layer
-                && (*backend).render_layer(
-                    &self.cached_rendering_data,
-                    self_rc,
-                    radius,
-                    border_width,
-                )
-            {
-                return RenderingResult::ContinueRenderingWithoutChildren;
-            } else {
-                let geometry = self.geometry();
-                (*backend).combine_clip(
-                    euclid::rect(0., 0., geometry.width(), geometry.height()),
-                    radius,
-                    border_width,
-                )
-            }
-        }
-        RenderingResult::ContinueRenderingChildren
+        (*backend).apply_clip(self, self_rc)
     }
 }
 
