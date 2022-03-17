@@ -17,7 +17,7 @@ use i_slint_core::graphics::{
 };
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
 use i_slint_core::items::{
-    Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, RenderingResult,
+    Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, Opacity, RenderingResult,
 };
 use i_slint_core::properties::Property;
 use i_slint_core::window::{Window, WindowRc};
@@ -683,6 +683,14 @@ impl ItemRenderer for GLItemRenderer {
         });
     }
 
+    fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, self_rc: &ItemRc) -> RenderingResult {
+        self.render_and_blend_layer(
+            &opacity_item.cached_rendering_data,
+            opacity_item.opacity(),
+            self_rc,
+        )
+    }
+
     fn visit_clip(&mut self, clip_item: Pin<&Clip>, self_rc: &ItemRc) -> RenderingResult {
         if !clip_item.clip() {
             return RenderingResult::ContinueRenderingChildren;
@@ -692,7 +700,23 @@ impl ItemRenderer for GLItemRenderer {
         let border_width = clip_item.border_width();
 
         if radius > 0. {
-            self.render_layer(&clip_item.cached_rendering_data, self_rc, radius, border_width);
+            if let Some(layer_image) =
+                self.render_layer(&clip_item.cached_rendering_data, self_rc, &|| {
+                    clip_item.as_ref().geometry().size
+                })
+            {
+                let layer_image_paint = layer_image.as_paint();
+
+                let mut layer_path = clip_path_for_rect_alike_item(
+                    clip_item.as_ref().geometry(),
+                    radius,
+                    border_width,
+                    self.scale_factor,
+                );
+
+                self.canvas.borrow_mut().fill_path(&mut layer_path, layer_image_paint);
+            }
+
             RenderingResult::ContinueRenderingWithoutChildren
         } else {
             let geometry = clip_item.as_ref().geometry();
@@ -853,14 +877,12 @@ impl GLItemRenderer {
         &mut self,
         item_cache: &CachedRenderingData,
         item_rc: &ItemRc,
-        radius: f32,
-        border_width: f32,
-    ) {
-        let item = item_rc.borrow();
+        layer_logical_size_fn: &dyn Fn() -> Size,
+    ) -> Option<Rc<CachedImage>> {
         let cache_entry =
             item_cache.get_or_update(&self.graphics_window.clone().graphics_cache, || {
                 ItemGraphicsCacheEntry::Image({
-                    let size = item.as_ref().geometry().size * self.scale_factor;
+                    let size = layer_logical_size_fn() * self.scale_factor;
 
                     let layer_image = CachedImage::new_empty_on_gpu(
                         &self.canvas,
@@ -914,23 +936,39 @@ impl GLItemRenderer {
                 .into()
             });
 
-        let layer_image = match &cache_entry {
-            Some(cached_layer_image) => cached_layer_image.as_image(),
-            None => return, // Zero width or height layer
-        };
+        cache_entry.map(|item_cache_entry| item_cache_entry.as_image().clone())
+    }
 
-        let layer_image_paint = layer_image.as_paint();
+    fn render_and_blend_layer(
+        &mut self,
+        item_cache: &CachedRenderingData,
+        alpha_tint: f32,
+        self_rc: &ItemRc,
+    ) -> RenderingResult {
+        let current_clip = self.get_current_clip();
+        if let Some(layer_image) = self.render_layer(&item_cache, &self_rc.clone(), &|| {
+            // We don't need to include the size of the opacity item itself, since it has no content.
+            let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
+                let self_ref = self_rc.borrow();
+                self_ref.as_ref().geometry().union(
+                    &i_slint_core::item_rendering::item_children_bounding_rect(
+                        &self_rc.component(),
+                        self_rc.index() as isize,
+                        &current_clip,
+                    ),
+                )
+            });
+            children_rect.size
+        }) {
+            let layer_image_paint = layer_image.as_paint_with_alpha(alpha_tint);
 
-        let mut layer_path = clip_path_for_rect_alike_item(
-            item.as_ref().geometry(),
-            radius,
-            border_width,
-            self.scale_factor,
-        );
-
-        self.canvas.borrow_mut().save_with(|canvas| {
-            canvas.fill_path(&mut layer_path, layer_image_paint);
-        });
+            let mut layer_path = femtovg::Path::new();
+            if let Some(layer_size) = layer_image.size() {
+                layer_path.rect(0., 0., layer_size.width as _, layer_size.height as _);
+                self.canvas.borrow_mut().fill_path(&mut layer_path, layer_image_paint);
+            }
+        }
+        RenderingResult::ContinueRenderingWithoutChildren
     }
 
     fn colorize_image(
