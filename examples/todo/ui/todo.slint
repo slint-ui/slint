@@ -1,7 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-import { SpinBox, Button, CheckBox, Slider, LineEdit, ScrollView, ListView, HorizontalBox, VerticalBox, GridBox } from "std-widgets.slint";
+import { SpinBox, Button, CheckBox, Slider, LineEdit, ScrollView, ListView,
+    HorizontalBox, VerticalBox, GridBox, StandardButton } from "std-widgets.slint";
 
 export struct TodoItem := {
     title: string,
@@ -17,20 +18,25 @@ MainWindow := Window {
     callback popup_confirmed;
     callback show_confirm_popup;
     show_confirm_popup => { confirm_popup.show(); }
-    
+
     confirm_popup := PopupWindow {
         x: 40px;
         y: 100px;
-        Rectangle { height:100%; width: 100%; background: root.background; }
-        VerticalBox {
-           Text {
-               text: "Some items are not done, are you sure you wish to quit?";
+        width: min(confirm_popup_layout.preferred-width, root.width - 80px);
+        Rectangle {
+            background: root.background;
+            border-color: confirm_popup_text.color;
+            border-width: 1px;
+        }
+        confirm_popup_layout := Dialog {
+            height:100%; width: 100%;
+            confirm_popup_text := Text {
+                text: "Some items are not done, are you sure you wish to quit?";
+                wrap: word-wrap;
             }
-            HorizontalLayout {
-                 Button { text: "Yes"; clicked => { popup_confirmed(); } }
-                 Button { text: "No"; }
-            }
-         }
+            StandardButton { kind: yes; clicked => { popup_confirmed(); } }
+            StandardButton { kind: no; }
+        }
     }
 
     property <[TodoItem]> todo-model: [
