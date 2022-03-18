@@ -24,10 +24,13 @@ jobs:
           - "https://github.com/jturcotte/chiptrack"
           - "https://codeberg.org/Be.ing/moire"
           - "https://github.com/Project-Trains/launcher"
+          - "https://github.com/jmdaemon/timesync"
           - "https://github.com/jmdaemon/anno"
           - "https://github.com/Kroisse/sudoku"
           - "https://github.com/jannes/han-cihui"
           - "https://github.com/leofidus/ntfs-explorer"
+          - "https://github.com/ElevenJune/mastermind_Rust"
+          - "https://github.com/PhotonQuantum/shuiyuan-archiver"
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
