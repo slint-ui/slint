@@ -174,7 +174,7 @@ pub trait ItemRenderer {
     // Apply the bounds of the Clip element, if enabled. The default implementation calls
     // combine_clip, but the render may choose an alternate way of implementing the clip.
     // For example the GL backend uses a layered rendering approach.
-    fn apply_clip(&mut self, clip_item: Pin<&Clip>, _self_rc: &ItemRc) -> RenderingResult {
+    fn visit_clip(&mut self, clip_item: Pin<&Clip>, _self_rc: &ItemRc) -> RenderingResult {
         if clip_item.clip() {
             let geometry = clip_item.geometry();
             self.combine_clip(
