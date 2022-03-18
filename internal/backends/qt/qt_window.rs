@@ -12,7 +12,7 @@ use i_slint_core::graphics::{
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
 use i_slint_core::items::{
-    self, FillRule, ImageRendering, InputType, ItemRc, ItemRef, MouseCursor, Opacity,
+    self, FillRule, ImageRendering, InputType, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
     PointerEventButton, RenderingResult, TextOverflow, TextWrap,
 };
 use i_slint_core::layout::Orientation;
@@ -782,6 +782,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
             opacity_item.opacity(),
             self_rc,
         )
+    }
+
+    fn visit_layer(&mut self, layer_item: Pin<&Layer>, self_rc: &ItemRc) -> RenderingResult {
+        self.render_and_blend_layer(&layer_item.cached_rendering_data, 1.0, self_rc)
     }
 
     fn combine_clip(&mut self, rect: Rect, radius: f32, mut border_width: f32) {
