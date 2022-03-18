@@ -764,7 +764,7 @@ impl Item for Clip {
         backend: &mut ItemRendererRef,
         self_rc: &ItemRc,
     ) -> RenderingResult {
-        (*backend).apply_clip(self, self_rc)
+        (*backend).visit_clip(self, self_rc)
     }
 }
 
@@ -833,7 +833,7 @@ impl Item for Opacity {
         backend: &mut ItemRendererRef,
         self_rc: &ItemRc,
     ) -> RenderingResult {
-        backend.draw_opacity(self, self_rc)
+        backend.visit_opacity(self, self_rc)
     }
 }
 

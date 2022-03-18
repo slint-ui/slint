@@ -776,7 +776,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn draw_opacity(&mut self, opacity_item: Pin<&Opacity>, self_rc: &ItemRc) -> RenderingResult {
+    fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, self_rc: &ItemRc) -> RenderingResult {
         let current_clip = self.get_current_clip();
         if let Some(mut layer_image) =
             self.render_layer(&opacity_item.cached_rendering_data, self_rc, &|| {

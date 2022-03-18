@@ -683,7 +683,7 @@ impl ItemRenderer for GLItemRenderer {
         });
     }
 
-    fn draw_opacity(&mut self, opacity_item: Pin<&Opacity>, self_rc: &ItemRc) -> RenderingResult {
+    fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, self_rc: &ItemRc) -> RenderingResult {
         let current_clip = self.get_current_clip();
         if let Some(layer_image) =
             self.render_layer(&opacity_item.cached_rendering_data, self_rc, &|| {
@@ -711,7 +711,7 @@ impl ItemRenderer for GLItemRenderer {
         RenderingResult::ContinueRenderingWithoutChildren
     }
 
-    fn apply_clip(&mut self, clip_item: Pin<&Clip>, self_rc: &ItemRc) -> RenderingResult {
+    fn visit_clip(&mut self, clip_item: Pin<&Clip>, self_rc: &ItemRc) -> RenderingResult {
         if !clip_item.clip() {
             return RenderingResult::ContinueRenderingChildren;
         }

@@ -215,7 +215,9 @@ pub trait ItemRenderer {
     #[cfg(feature = "std")]
     fn draw_path(&mut self, path: Pin<&Path>);
     fn draw_box_shadow(&mut self, box_shadow: Pin<&BoxShadow>);
-    fn draw_opacity(&mut self, opacity_item: Pin<&Opacity>, _self_rc: &ItemRc) -> RenderingResult {
+    fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, _self_rc: &ItemRc) -> RenderingResult {
+        // This is not an entirely correct default implementation (see #725), but it's better than
+        // nothing :-)
         self.apply_opacity(opacity_item.opacity());
         RenderingResult::ContinueRenderingChildren
     }
@@ -223,7 +225,7 @@ pub trait ItemRenderer {
     // Apply the bounds of the Clip element, if enabled. The default implementation calls
     // combine_clip, but the render may choose an alternate way of implementing the clip.
     // For example the GL backend uses a layered rendering approach.
-    fn apply_clip(&mut self, clip_item: Pin<&Clip>, _self_rc: &ItemRc) -> RenderingResult {
+    fn visit_clip(&mut self, clip_item: Pin<&Clip>, _self_rc: &ItemRc) -> RenderingResult {
         if clip_item.clip() {
             let geometry = clip_item.geometry();
             self.combine_clip(
