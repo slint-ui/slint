@@ -13,9 +13,13 @@ license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
 path = "main.rs"
 name = "memory"
 
+[features]
+default = ["slint/default", "rand"]
+
 [dependencies]
-rand = "0.8"
-slint = { path = "../../api/rs/slint" }
+rand = { version = "0.8", optional = true }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-0-2-0"] }
+i-slint-backend-mcu = { path = "../../internal/backends/mcu", optional = true, default-features = false }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
