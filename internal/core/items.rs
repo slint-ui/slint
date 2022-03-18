@@ -205,6 +205,18 @@ impl ItemRc {
     pub fn component(&self) -> vtable::VRc<ComponentVTable> {
         self.component.clone()
     }
+
+    /// Returns the number of child items for this item. Returns None if
+    /// the number is dynamically determined.
+    /// TODO: Remove the option when the Subtree trait exists and allows querying
+    pub fn children_count(&self) -> Option<u32> {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        let item_tree = comp_ref_pin.as_ref().get_item_tree();
+        match item_tree.as_slice()[self.index] {
+            crate::item_tree::ItemTreeNode::Item { children_count, .. } => Some(children_count),
+            crate::item_tree::ItemTreeNode::DynamicTree { .. } => None,
+        }
+    }
 }
 
 /// A Weak reference to an item that can be constructed from an ItemRc.
@@ -834,6 +846,39 @@ impl Item for Opacity {
         self_rc: &ItemRc,
     ) -> RenderingResult {
         backend.visit_opacity(self, self_rc)
+    }
+}
+
+impl Opacity {
+    // The opacity item has only one child, as per the compiler's output. However if that item has
+    // no children, then we can skip the layer and apply the opacity directly. This is not perfect though,
+    // for example if the compiler inserts another synthetic element between the `Opacity` and the actual child,
+    // then this check will apply a layer even though it might not actually be necessary.
+    pub fn opacity_needs_layer(self_rc: &ItemRc) -> bool {
+        let target_has_children = {
+            let component_rc = self_rc.component();
+            let component_ref = vtable::VRc::borrow_pin(&component_rc);
+            let self_index = self_rc.index();
+            // TODO: use first_child() once it exists
+            let item_tree = component_ref.as_ref().get_item_tree();
+            let target_item_index = match item_tree.as_slice()[self_index] {
+                crate::item_tree::ItemTreeNode::Item {
+                    children_count: _children_count,
+                    children_index,
+                    ..
+                } => {
+                    debug_assert_eq!(_children_count, 1);
+                    children_index as usize
+                }
+                crate::item_tree::ItemTreeNode::DynamicTree { .. } => panic!(
+                    "internal error: compiler placed Opacity element as a parent for a repeater!"
+                ),
+            };
+            let target_item = ItemRc::new(component_rc.clone(), target_item_index);
+            target_item.children_count() != Some(0)
+        };
+
+        target_has_children
     }
 }
 
