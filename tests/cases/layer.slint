@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+// Test case for manual visual verification that layering does not pessimize the
+// output, and to have a compile-time verification that the lowering to the Layer
+// element compiles.
+
+export TestCase := Window {
+    preferred-width: 800px;
+    preferred-height: 600px;
+    background: white;
+
+    Rectangle {        
+        layer: true;
+        width: 200px;
+        height: 100px;
+
+        background: red;
+
+        Text {
+            text: "This rectangle should be red";
+        }
+
+        Rectangle {
+            background: blue;
+            width: 400px;
+            height: 50px;
+            x: 25px;
+            y: 25px;
+
+            Text {
+                text: "This rectangle should be green\nas well as be wider than the red rectangle.";
+                color: green;
+            }
+        }
+    }
+}

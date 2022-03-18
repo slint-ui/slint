@@ -743,6 +743,7 @@ pub(crate) fn generate_component<'id>(
                 rtti_for::<BoxShadow>(),
                 rtti_for::<Rotate>(),
                 rtti_for::<Opacity>(),
+                rtti_for::<Layer>(),
             ]
             .iter()
             .cloned(),

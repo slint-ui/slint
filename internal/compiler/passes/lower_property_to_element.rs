@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-//! Pass that lowers synthetic `opacity`, `visibility`, or `rotate` properties to their Element.
-//! TODO: the rotation is not yet implemented
+//! Pass that lowers synthetic properties such as `opacity` and `layer` properties to their corresponding elements.
+//! For example `f := Foo { opacity: <some float>; }` is mapped to `Opacity { opacity <=> f.opacity; f := Foo { ... } }`
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -13,21 +13,25 @@ use crate::langtype::Type;
 use crate::object_tree::{self, Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 
-pub(crate) fn handle_transform_and_opacity(
+pub(crate) fn lower_property_to_element(
     component: &Rc<Component>,
+    property_name: &str,
+    element_name: &str,
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
-    if let Some(b) = component.root_element.borrow().bindings.get("opacity") {
+    if let Some(b) = component.root_element.borrow().bindings.get(property_name) {
         diag.push_warning(
-            "The opacity property cannot be used on the root element, it will not be applied"
-                .to_string(),
+            format!(
+                "The {} property cannot be used on the root element, it will not be applied",
+                property_name
+            ),
             &*b.borrow(),
         );
     }
 
     object_tree::recurse_elem_including_sub_components_no_borrow(component, &(), &mut |elem, _| {
-        if elem.borrow().base_type.to_string() == "Opacity" {
+        if elem.borrow().base_type.to_string() == element_name {
             return;
         }
 
@@ -37,27 +41,33 @@ pub(crate) fn handle_transform_and_opacity(
             std::mem::replace(&mut elem.children, new_children)
         };
 
-        let has_opacity_binding = |e: &ElementRc| {
-            e.borrow().base_type.lookup_property("opacity").property_type != Type::Invalid
-                && (e.borrow().bindings.contains_key("opacity")
+        let has_property_binding = |e: &ElementRc| {
+            e.borrow().base_type.lookup_property(property_name).property_type != Type::Invalid
+                && (e.borrow().bindings.contains_key(property_name)
                     || e.borrow()
                         .property_analysis
                         .borrow()
-                        .get("opacity")
+                        .get(property_name)
                         .map_or(false, |a| a.is_set))
         };
 
         for mut child in old_children {
             if child.borrow().repeated.is_some() {
                 let root_elem = child.borrow().base_type.as_component().root_element.clone();
-                if has_opacity_binding(&root_elem) {
+                if has_property_binding(&root_elem) {
                     object_tree::inject_element_as_repeated_element(
                         &child,
-                        create_opacity_element(&root_elem, type_register),
+                        create_property_element(
+                            &root_elem,
+                            property_name,
+                            element_name,
+                            type_register,
+                        ),
                     )
                 }
-            } else if has_opacity_binding(&child) {
-                let new_child = create_opacity_element(&child, type_register);
+            } else if has_property_binding(&child) {
+                let new_child =
+                    create_property_element(&child, property_name, element_name, type_register);
                 crate::object_tree::adjust_geometry_for_injected_parent(&new_child, &child);
                 new_child.borrow_mut().children.push(child);
                 child = new_child;
@@ -68,14 +78,19 @@ pub(crate) fn handle_transform_and_opacity(
     });
 }
 
-fn create_opacity_element(child: &ElementRc, type_register: &TypeRegister) -> ElementRc {
+fn create_property_element(
+    child: &ElementRc,
+    property_name: &str,
+    element_name: &str,
+    type_register: &TypeRegister,
+) -> ElementRc {
     let element = Element {
-        id: format!("{}-opacity", child.borrow().id),
-        base_type: type_register.lookup_element("Opacity").unwrap(),
+        id: format!("{}-{}", child.borrow().id, property_name),
+        base_type: type_register.lookup_element(element_name).unwrap(),
         enclosing_component: child.borrow().enclosing_component.clone(),
         bindings: std::iter::once((
-            "opacity".to_owned(),
-            BindingExpression::new_two_way(NamedReference::new(child, "opacity")).into(),
+            property_name.to_owned(),
+            BindingExpression::new_two_way(NamedReference::new(child, property_name)).into(),
         ))
         .collect(),
         ..Default::default()

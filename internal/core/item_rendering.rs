@@ -221,6 +221,10 @@ pub trait ItemRenderer {
         self.apply_opacity(opacity_item.opacity());
         RenderingResult::ContinueRenderingChildren
     }
+    fn visit_layer(&mut self, _layer_item: Pin<&Layer>, _self_rc: &ItemRc) -> RenderingResult {
+        // Not supported
+        RenderingResult::ContinueRenderingChildren
+    }
 
     // Apply the bounds of the Clip element, if enabled. The default implementation calls
     // combine_clip, but the render may choose an alternate way of implementing the clip.
