@@ -331,13 +331,14 @@ pub fn evaluate_no_tracking<T>(f: impl FnOnce() -> T) -> T {
     CURRENT_BINDING.set(None, f)
 }
 
+/// This structure erase the `B` type with a vtable.
 #[repr(C)]
 struct BindingHolder<B = ()> {
     /// Access to the list of binding which depends on this binding
     dependencies: Cell<usize>,
     /// The binding own the nodes used in the dependencies lists of the properties
     /// From which we depend.
-    dep_nodes: RefCell<single_linked_list_pin::SingleLinkedListPinHead<DependencyNode>>,
+    dep_nodes: Cell<single_linked_list_pin::SingleLinkedListPinHead<DependencyNode>>,
     vtable: &'static BindingVTable,
     /// The binding is dirty and need to be re_evaluated
     dirty: Cell<bool>,
@@ -355,9 +356,10 @@ impl BindingHolder {
         #[cfg(slint_debug_property)] other_debug_name: &str,
     ) {
         let node = DependencyNode::new(self.get_ref() as *const _);
-        let mut dep_nodes = self.dep_nodes.borrow_mut();
+        let mut dep_nodes = self.dep_nodes.take();
         let node = dep_nodes.push_front(node);
         unsafe { DependencyListHead::append(&*property_that_will_notify, node) }
+        self.dep_nodes.set(dep_nodes);
     }
 }
 
@@ -549,7 +551,7 @@ impl PropertyHandle {
             if let Some(mut binding) = binding {
                 if binding.dirty.get() {
                     // clear all the nodes so that we can start from scratch
-                    *binding.dep_nodes.borrow_mut() = Default::default();
+                    binding.dep_nodes.set(Default::default());
                     let r = (binding.vtable.evaluate)(
                         binding.as_mut().get_unchecked_mut() as *mut BindingHolder,
                         value as *mut (),
@@ -2137,7 +2139,7 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
     /// any changes to accessed properties will not propagate to the other tracker.
     pub fn evaluate_as_dependency_root<R>(self: Pin<&Self>, f: impl FnOnce() -> R) -> R {
         // clear all the nodes so that we can start from scratch
-        *self.holder.dep_nodes.borrow_mut() = Default::default();
+        self.holder.dep_nodes.set(Default::default());
 
         // Safety: it is safe to project the holder as we don't implement drop or unpin
         let pinned_holder = unsafe {
@@ -2742,7 +2744,7 @@ pub(crate) mod ffi {
     /// Opaque type representing the PropertyTracker
     pub struct PropertyTrackerOpaque {
         dependencies: usize,
-        dep_nodes: [usize; 2],
+        dep_nodes: usize,
         vtable: usize,
         dirty: bool,
     }
