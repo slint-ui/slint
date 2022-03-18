@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+import { Button } from "std-widgets.slint";
+
 // Test case for manual visual verification that layering does not pessimize the
 // output, and to have a compile-time verification that the lowering to the Layer
 // element compiles.
@@ -10,28 +12,50 @@ export TestCase := Window {
     preferred-height: 600px;
     background: white;
 
-    Rectangle {        
-        layer: true;
-        width: 200px;
-        height: 100px;
+    VerticalLayout {
 
-        background: red;
-
-        Text {
-            text: "This rectangle should be red";
+        Button {
+            text: "Press me to start the animation and check that it is smooth.";
+            clicked => {
+                layered.place_to_the_right = true;
+            }
         }
 
         Rectangle {
-            background: blue;
-            width: 400px;
-            height: 50px;
-            x: 25px;
-            y: 25px;
 
-            Text {
-                text: "This rectangle should be green\nas well as be wider than the red rectangle.";
-                color: green;
+            // This will be a layer
+            layered := Rectangle {
+                layer: true;
+                width: 200px;
+                height: 100px;
+
+                property <bool> place_to_the_right;
+                states [
+                    right when place_to_the_right: {
+                        x: 200px;
+                    }
+                    left when !place_to_the_right: {
+                        x: 10px;
+                    }
+                ]
+
+                animate x {
+                    duration: 15s;
+                }
+
+                background: red;
+                
+                for i in 1000: Rectangle {
+                    background: blue;
+                    drop-shadow-blur: 10px;
+                    drop-shadow-offset-x: 5px;
+                    drop-shadow-offset-y: 5px;
+                    drop-shadow-color: green;
+                    Text {
+                        text: "Many text items over each other";
+                    }
+                }
             }
         }
-    }
+    }    
 }
