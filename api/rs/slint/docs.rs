@@ -14,6 +14,13 @@
     - The [`layouting`] module contains the documentation to position the elements.
 */
 
+pub mod recipes {
+    #![doc = include_str!("docs/recipes/recipes.md")]
+    //!
+    //! #
+    //! Next: [The `.slint` language reference](super::langref)    
+}
+
 pub mod langref {
     #![doc = include_str!("docs/langref.md")]
     //!
