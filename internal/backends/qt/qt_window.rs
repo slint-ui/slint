@@ -12,7 +12,7 @@ use i_slint_core::graphics::{
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
 use i_slint_core::items::{
-    self, FillRule, ImageRendering, InputType, Item, ItemRc, ItemRef, MouseCursor, Opacity,
+    self, FillRule, ImageRendering, InputType, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
     PointerEventButton, RenderingResult, TextOverflow, TextWrap,
 };
 use i_slint_core::layout::Orientation;
@@ -777,40 +777,15 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, self_rc: &ItemRc) -> RenderingResult {
-        let current_clip = self.get_current_clip();
-        if let Some(mut layer_image) =
-            self.render_layer(&opacity_item.cached_rendering_data, self_rc, &|| {
-                // We don't need to include the size of the opacity item itself, since it has no content.
-                let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
-                    opacity_item.as_ref().geometry().union(
-                        &i_slint_core::item_rendering::item_children_bounding_rect(
-                            &self_rc.component(),
-                            self_rc.index() as isize,
-                            &current_clip,
-                        ),
-                    )
-                });
-                qttypes::QSize {
-                    width: children_rect.size.width as _,
-                    height: children_rect.size.height as _,
-                }
-            })
-        {
-            self.save_state();
-            self.apply_opacity(opacity_item.opacity());
-            {
-                let painter: &mut QPainter = &mut *self.painter;
-                let layer_image_ref: &mut qttypes::QPixmap = &mut layer_image;
-                cpp! { unsafe [
-                        painter as "QPainter*",
-                        layer_image_ref as "QPixmap*"
-                    ] {
-                    painter->drawPixmap(0, 0, *layer_image_ref);
-                }}
-            }
-            self.restore_state();
-        }
-        RenderingResult::ContinueRenderingWithoutChildren
+        self.render_and_blend_layer(
+            &opacity_item.cached_rendering_data,
+            opacity_item.opacity(),
+            self_rc,
+        )
+    }
+
+    fn visit_layer(&mut self, layer_item: Pin<&Layer>, self_rc: &ItemRc) -> RenderingResult {
+        self.render_and_blend_layer(&layer_item.cached_rendering_data, 1.0, self_rc)
     }
 
     fn combine_clip(&mut self, rect: Rect, radius: f32, mut border_width: f32) {
@@ -1196,6 +1171,47 @@ impl QtItemRenderer<'_> {
             QtRenderingCacheItem::Pixmap(pixmap) => Some(pixmap.clone()),
             _ => None,
         }
+    }
+
+    fn render_and_blend_layer(
+        &mut self,
+        item_cache: &CachedRenderingData,
+        alpha_tint: f32,
+        self_rc: &ItemRc,
+    ) -> RenderingResult {
+        let current_clip = self.get_current_clip();
+        if let Some(mut layer_image) = self.render_layer(&item_cache, self_rc, &|| {
+            // We don't need to include the size of the opacity item itself, since it has no content.
+            let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
+                let self_ref = self_rc.borrow();
+                self_ref.as_ref().geometry().union(
+                    &i_slint_core::item_rendering::item_children_bounding_rect(
+                        &self_rc.component(),
+                        self_rc.index() as isize,
+                        &current_clip,
+                    ),
+                )
+            });
+            qttypes::QSize {
+                width: children_rect.size.width as _,
+                height: children_rect.size.height as _,
+            }
+        }) {
+            self.save_state();
+            self.apply_opacity(alpha_tint);
+            {
+                let painter: &mut QPainter = &mut *self.painter;
+                let layer_image_ref: &mut qttypes::QPixmap = &mut layer_image;
+                cpp! { unsafe [
+                        painter as "QPainter*",
+                        layer_image_ref as "QPixmap*"
+                    ] {
+                    painter->drawPixmap(0, 0, *layer_image_ref);
+                }}
+            }
+            self.restore_state();
+        }
+        RenderingResult::ContinueRenderingWithoutChildren
     }
 }
 
