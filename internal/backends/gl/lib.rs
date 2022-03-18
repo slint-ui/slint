@@ -17,7 +17,8 @@ use i_slint_core::graphics::{
 };
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
 use i_slint_core::items::{
-    Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, Opacity, RenderingResult,
+    Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, Layer, Opacity,
+    RenderingResult,
 };
 use i_slint_core::properties::Property;
 use i_slint_core::window::{Window, WindowRc};
@@ -689,6 +690,10 @@ impl ItemRenderer for GLItemRenderer {
             opacity_item.opacity(),
             self_rc,
         )
+    }
+
+    fn visit_layer(&mut self, layer_item: Pin<&Layer>, self_rc: &ItemRc) -> RenderingResult {
+        self.render_and_blend_layer(&layer_item.cached_rendering_data, 1.0, self_rc)
     }
 
     fn visit_clip(&mut self, clip_item: Pin<&Clip>, self_rc: &ItemRc) -> RenderingResult {
