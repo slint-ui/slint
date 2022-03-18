@@ -102,6 +102,7 @@ fn gen_corelib(
         "BoxShadow",
         "Rotate",
         "Opacity",
+        "Layer",
     ];
 
     config.export.include = [
