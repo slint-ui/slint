@@ -125,6 +125,17 @@ We have a few tools to help with the development of .slint files:
 
 Please check our [Editor README](./editor/README.md) for tips on how to configure your favorite editor to work well with Slint.
 
+## Made with Slint
+
+List of some open source projects using Slint: (Contact us or open a pull request to add yours)
+
+ - **[Cargo UI](https://github.com/slint-ui/cargo-ui)**: A UI interface for Cargo.
+ - **[ImageSieve](https://github.com/Futsch1/image-sieve)** : GUI based tool to sort and categorize images.
+ - **[Moiré](https://codeberg.org/Be.ing/moire)** : musical live performance application with a DAW-like timeline interface.
+ - **[Chiptrack](https://github.com/jturcotte/chiptrack)**: A cross-platform sequencer that internally uses a Game Boy emulator to synthesize the sound.
+ - **[Project Trains Launcher](https://github.com/Project-Trains/launcher)**: Cross-platform game launcher made for Project Trains simulator.
+ - **[Mastermind](https://github.com/ElevenJune/mastermind_Rust)**: Mastermind game coded in Rust.
+
 ## Contributions
 
 We welcome your contributions: in the form of code, bug reports or feedback.
