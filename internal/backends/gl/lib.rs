@@ -17,7 +17,8 @@ use i_slint_core::graphics::{
 };
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
 use i_slint_core::items::{
-    Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, Opacity, RenderingResult,
+    Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, Layer, Opacity,
+    RenderingResult,
 };
 use i_slint_core::properties::Property;
 use i_slint_core::window::{Window, WindowRc};
@@ -684,31 +685,15 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, self_rc: &ItemRc) -> RenderingResult {
-        let current_clip = self.get_current_clip();
-        if let Some(layer_image) =
-            self.render_layer(&opacity_item.cached_rendering_data, self_rc, &|| {
-                // We don't need to include the size of the opacity item itself, since it has no content.
-                let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
-                    opacity_item.as_ref().geometry().union(
-                        &i_slint_core::item_rendering::item_children_bounding_rect(
-                            &self_rc.component(),
-                            self_rc.index() as isize,
-                            &current_clip,
-                        ),
-                    )
-                });
-                children_rect.size
-            })
-        {
-            let layer_image_paint = layer_image.as_paint_with_alpha(opacity_item.opacity());
+        self.render_and_blend_layer(
+            &opacity_item.cached_rendering_data,
+            opacity_item.opacity(),
+            self_rc,
+        )
+    }
 
-            let mut layer_path = femtovg::Path::new();
-            if let Some(layer_size) = layer_image.size() {
-                layer_path.rect(0., 0., layer_size.width as _, layer_size.height as _);
-                self.canvas.borrow_mut().fill_path(&mut layer_path, layer_image_paint);
-            }
-        }
-        RenderingResult::ContinueRenderingWithoutChildren
+    fn visit_layer(&mut self, layer_item: Pin<&Layer>, self_rc: &ItemRc) -> RenderingResult {
+        self.render_and_blend_layer(&layer_item.cached_rendering_data, 1.0, self_rc)
     }
 
     fn visit_clip(&mut self, clip_item: Pin<&Clip>, self_rc: &ItemRc) -> RenderingResult {
@@ -957,6 +942,38 @@ impl GLItemRenderer {
             });
 
         cache_entry.map(|item_cache_entry| item_cache_entry.as_image().clone())
+    }
+
+    fn render_and_blend_layer(
+        &mut self,
+        item_cache: &CachedRenderingData,
+        alpha_tint: f32,
+        self_rc: &ItemRc,
+    ) -> RenderingResult {
+        let current_clip = self.get_current_clip();
+        if let Some(layer_image) = self.render_layer(&item_cache, &self_rc.clone(), &|| {
+            // We don't need to include the size of the opacity item itself, since it has no content.
+            let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
+                let self_ref = self_rc.borrow();
+                self_ref.as_ref().geometry().union(
+                    &i_slint_core::item_rendering::item_children_bounding_rect(
+                        &self_rc.component(),
+                        self_rc.index() as isize,
+                        &current_clip,
+                    ),
+                )
+            });
+            children_rect.size
+        }) {
+            let layer_image_paint = layer_image.as_paint_with_alpha(alpha_tint);
+
+            let mut layer_path = femtovg::Path::new();
+            if let Some(layer_size) = layer_image.size() {
+                layer_path.rect(0., 0., layer_size.width as _, layer_size.height as _);
+                self.canvas.borrow_mut().fill_path(&mut layer_path, layer_image_paint);
+            }
+        }
+        RenderingResult::ContinueRenderingWithoutChildren
     }
 
     fn colorize_image(
