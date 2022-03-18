@@ -243,6 +243,16 @@ export Opacity := _ {
     //-is_internal
 }
 
+export Layer := _ {
+    property <length> x;
+    property <length> y;
+    property <length> width;
+    property <length> height;
+    property <bool> layer;
+    //-default_size_binding:expands_to_parent_geometry
+    //-is_internal    
+}
+
 Row := _ {
     //-is_non_item_type
 }

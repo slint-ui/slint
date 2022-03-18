@@ -851,6 +851,77 @@ declare_item_vtable! {
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
+/// The Layer Item is not meant to be used directly by the .slint code, instead, the `layer: xxx` property should be used
+pub struct Layer {
+    // FIXME: this element shouldn't need these geometry property
+    pub x: Property<f32>,
+    pub y: Property<f32>,
+    pub width: Property<f32>,
+    pub height: Property<f32>,
+    pub layer: Property<bool>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for Layer {
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
+
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
+    }
+
+    fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
+        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &WindowRc,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window: &WindowRc,
+        _self_rc: &ItemRc,
+    ) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
+
+    fn render(
+        self: Pin<&Self>,
+        backend: &mut ItemRendererRef,
+        self_rc: &ItemRc,
+    ) -> RenderingResult {
+        backend.visit_layer(self, self_rc)
+    }
+}
+
+impl ItemConsts for Layer {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        Layer,
+        CachedRenderingData,
+    > = Layer::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+declare_item_vtable! {
+    fn slint_get_LayerVTable() -> LayerVTable for Layer
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, SlintElement)]
+#[pin]
 /// The implementation of the `Rotate` element
 pub struct Rotate {
     pub angle: Property<f32>,
