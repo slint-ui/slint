@@ -24,6 +24,7 @@ mod infer_aliases_types;
 mod inlining;
 mod lower_layout;
 mod lower_popups;
+mod lower_property_to_element;
 mod lower_shadows;
 mod lower_states;
 mod lower_tabwidget;
@@ -35,7 +36,6 @@ mod remove_unused_properties;
 mod repeater_component;
 mod resolve_native_classes;
 mod resolving;
-mod transform_and_opacity;
 mod unique_id;
 mod visible;
 mod z_order;
@@ -121,8 +121,17 @@ pub async fn run_passes(
         lower_layout::lower_layouts(component, type_loader, diag).await;
         default_geometry::default_geometry(component, diag);
         z_order::reorder_by_z_order(component, diag);
-        transform_and_opacity::handle_transform_and_opacity(
+        lower_property_to_element::lower_property_to_element(
             component,
+            "opacity",
+            "Opacity",
+            &global_type_registry.borrow(),
+            diag,
+        );
+        lower_property_to_element::lower_property_to_element(
+            component,
+            "layer",
+            "Layer",
             &global_type_registry.borrow(),
             diag,
         );
