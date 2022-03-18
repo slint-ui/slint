@@ -1,9 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+#![cfg_attr(feature = "i-slint-backend-mcu", no_main)]
+#![cfg_attr(feature = "i-slint-backend-mcu", no_std)]
+
+extern crate alloc;
+
+use alloc::rc::Rc;
+use alloc::vec::Vec;
+use core::time::Duration;
 use slint::{Model, Timer, VecModel};
-use std::rc::Rc;
-use std::time::Duration;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -12,6 +18,15 @@ slint::slint! {
     import { MainWindow } from "memory.slint";
 }
 
+#[cfg(feature = "i-slint-backend-mcu")]
+#[i_slint_backend_mcu::entry]
+fn main() -> ! {
+    i_slint_backend_mcu::init();
+    actual_main();
+    panic!("The MCU event loop should not exit");
+}
+
+#[cfg(not(feature = "i-slint-backend-mcu"))]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
     // This provides better error messages in debug mode.
@@ -19,14 +34,21 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
+    actual_main();
+}
+
+fn actual_main() {
     let main_window = MainWindow::new();
 
     let mut tiles: Vec<TileData> = main_window.get_memory_tiles().iter().collect();
     tiles.extend(tiles.clone());
 
-    use rand::seq::SliceRandom;
-    let mut rng = rand::thread_rng();
-    tiles.shuffle(&mut rng);
+    #[cfg(feature = "rand")]
+    {
+        use rand::seq::SliceRandom;
+        let mut rng = rand::thread_rng();
+        tiles.shuffle(&mut rng);
+    }
 
     let tiles_model = Rc::new(VecModel::from(tiles));
 
