@@ -683,7 +683,7 @@ impl ItemRenderer for GLItemRenderer {
         });
     }
 
-    fn apply_clip(&mut self, clip_item: Pin<&Clip>, self_rc: &ItemRc) -> RenderingResult {
+    fn visit_clip(&mut self, clip_item: Pin<&Clip>, self_rc: &ItemRc) -> RenderingResult {
         if !clip_item.clip() {
             return RenderingResult::ContinueRenderingChildren;
         }

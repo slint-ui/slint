@@ -764,7 +764,7 @@ impl Item for Clip {
         backend: &mut ItemRendererRef,
         self_rc: &ItemRc,
     ) -> RenderingResult {
-        (*backend).apply_clip(self, self_rc)
+        (*backend).visit_clip(self, self_rc)
     }
 }
 
