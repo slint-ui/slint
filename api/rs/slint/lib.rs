@@ -12,6 +12,7 @@ If you are already familiar with Slint, the following topics provide related inf
 
 ## Related topics
 
+ * [Examples and Recipes](docs::recipes)
  * [The `.slint` language reference](docs::langref)
  * [Builtin Elements](docs::builtin_elements)
  * [Widgets](docs::widgets)
