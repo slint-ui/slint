@@ -4,7 +4,7 @@
 /*! module for the C++ code generator
 */
 
-// cSpell:ignore cstdlib cmath constexpr nullptr decltype intptr uintptr
+// cSpell:ignore cmath constexpr cstdlib decltype intptr itertools nullptr prepended struc subcomponent uintptr vals
 
 use std::fmt::Write;
 

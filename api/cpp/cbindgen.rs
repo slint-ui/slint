@@ -5,7 +5,7 @@ use anyhow::Context;
 use std::iter::Extend;
 use std::path::{Path, PathBuf};
 
-// cspell::ignore compat constexpr corelib sharedvector pathdata
+// cSpell: ignore compat constexpr corelib deps sharedvector pathdata
 
 fn ensure_cargo_rerun_for_crate(
     crate_dir: &Path,

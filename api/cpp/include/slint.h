@@ -961,7 +961,7 @@ void invoke_from_event_loop(Functor f)
 ///
 /// This function must be called from a different thread than the thread that runs the event loop
 /// otherwise it will result in a deadlock. Calling this function if the event loop is not running
-/// will also block foerver or until the event loop is started in another thread.
+/// will also block forever or until the event loop is started in another thread.
 ///
 /// The following example is reading the message property from a thread
 ///
