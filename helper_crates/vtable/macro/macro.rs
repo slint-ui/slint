@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore asyncness constness containee dealloc defaultness impls qself supertraits vref
+
 /*!
 Implementation detail for the vtable crate
 */
@@ -716,7 +718,7 @@ and implements HasStaticVTable for it.
             #generated_trait
             #generated_trait_assoc_const
 
-            /// Invariant, same as vtable::Inner: vtable and ptr has to be valid and ptr an instance macthcin the vtable
+            /// Invariant, same as vtable::Inner: vtable and ptr has to be valid and ptr an instance matching the vtable
             #[doc(hidden)]
             #[repr(C)]
             pub struct #to_name {
