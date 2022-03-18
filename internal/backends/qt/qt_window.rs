@@ -796,19 +796,19 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 }
             })
         {
-            let painter: &mut QPainter = &mut *self.painter;
-            let opacity: f32 = opacity_item.opacity();
-            let layer_image_ref: &mut qttypes::QPixmap = &mut layer_image;
-            cpp! { unsafe [
-                    painter as "QPainter*",
-                    opacity as "float",
-                    layer_image_ref as "QPixmap*"
-                ] {
-                painter->save();
-                painter->setOpacity(opacity);
-                painter->drawPixmap(0, 0, *layer_image_ref);
-                painter->restore();
-            }}
+            self.save_state();
+            self.apply_opacity(opacity_item.opacity());
+            {
+                let painter: &mut QPainter = &mut *self.painter;
+                let layer_image_ref: &mut qttypes::QPixmap = &mut layer_image;
+                cpp! { unsafe [
+                        painter as "QPainter*",
+                        layer_image_ref as "QPixmap*"
+                    ] {
+                    painter->drawPixmap(0, 0, *layer_image_ref);
+                }}
+            }
+            self.restore_state();
         }
         RenderingResult::ContinueRenderingWithoutChildren
     }
