@@ -20,13 +20,13 @@ Their appearance can change depending on the style
 ### Example
 
 ```slint
-import { Button } from "std-widgets.slint";
+import { Button, VerticalBox } from "std-widgets.slint";
 Example := Window {
-    Button {
-        width: parent.width;
-        height: parent.height;
-        text: "Click Me";
-        clicked => { self.text = "Clicked"; }
+    VerticalBox {
+        Button {
+            text: "Click Me";
+            clicked => { self.text = "Clicked"; }
+        }
     }
 }
 ```

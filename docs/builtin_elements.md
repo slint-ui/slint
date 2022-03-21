@@ -155,6 +155,8 @@ An Image can be used to represent an image loaded from an image file.
 
 ```slint
 Example := Window {
+    width: 100px;
+    height: 100px;
     VerticalLayout {
         Image {
             source: @image-url("https://slint-ui.com/logo/slint-logo-full-light.svg");
@@ -172,10 +174,15 @@ Scaled while preserving the aspect ratio:
 
 ```slint
 Example := Window {
-    Image {
-        source: @image-url("https://slint-ui.com/logo/slint-logo-full-light.svg");
-        width: 270px;
-        // implicit default, preserving aspect ratio: height: self.width * natural_height / natural_width;
+    width: 100px;
+    height: 150px;
+    VerticalLayout {
+        Image {
+            source: @image-url("https://slint-ui.com/logo/slint-logo-full-light.svg");
+            width: 100px;
+            // implicit default, preserving aspect ratio:
+            // height: self.width * natural_height / natural_width;
+        }
     }
 }
 ```
@@ -479,6 +486,8 @@ or it will be mapped to a private unicode character. The mapping of these non-pr
 
 ```slint
 Example := Window {
+    width: 100px;
+    height: 100px;
     forward-focus: my-key-handler;
     my-key-handler := FocusScope {
         key-pressed(event) => {

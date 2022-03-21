@@ -12,8 +12,11 @@
     async function render_or_error(source, div) {
         let canvas_id = 'canvas_' + Math.random().toString(36).substr(2, 9);
         let canvas = document.createElement("canvas");
-        canvas.width = 100;
-        canvas.height = 100;
+        // The GL backend tries to preserve a previously set size on the canvas. Make sure that any default the
+        // browser sets for these attributes are not used, but instead the examples can resize according to their
+        // constraints.
+        canvas.width = 0;
+        canvas.height = 0;
         canvas.id = canvas_id;
         div.appendChild(canvas);
 
