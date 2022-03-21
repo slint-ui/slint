@@ -958,7 +958,7 @@ mod linebreak_tests {
 
         assert_eq!(lines.len(), 1);
         let rendered_text = lines[0].iter().map(|glyph| glyph.char.unwrap()).collect::<String>();
-        debug_assert_eq!(rendered_text, "This is a lo…")
+        debug_assert_eq!(rendered_text, "This is a lon…")
     }
 
     #[test]
