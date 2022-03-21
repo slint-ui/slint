@@ -11,6 +11,8 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
+ - Fixed application of the `opacity` property evenly to child elements (#725).
+
 ## [0.2.1] - 2022-03-10
 
 ### Added
