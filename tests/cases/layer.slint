@@ -46,6 +46,7 @@ export TestCase := Window {
                 background: red;
                 
                 for i in 1000: Rectangle {
+                    cache-rendering-hint: i == 8;
                     background: blue;
                     drop-shadow-blur: 10px;
                     drop-shadow-offset-x: 5px;
