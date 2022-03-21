@@ -76,19 +76,14 @@ pub trait WinitWindow: PlatformWindow {
                 #[cfg(target_arch = "wasm32")]
                 {
                     // set_max_inner_size / set_min_inner_size don't work on wasm, so apply the size manually
-                    let existing_size = winit_window.inner_size();
-                    if !(min_width..=max_width).contains(&(existing_size.width as f32))
-                        || !(min_height..=max_height).contains(&(existing_size.height as f32))
+                    let existing_size: winit::dpi::LogicalSize<f32> =
+                        winit_window.inner_size().to_logical(sf as f64);
+                    if !(min_width..=max_width).contains(&(existing_size.width))
+                        || !(min_height..=max_height).contains(&(existing_size.height))
                     {
                         let new_size = winit::dpi::LogicalSize::new(
-                            existing_size
-                                .width
-                                .min(max_width.ceil() as u32)
-                                .max(min_width.ceil() as u32),
-                            existing_size
-                                .height
-                                .min(max_height.ceil() as u32)
-                                .max(min_height.ceil() as u32),
+                            existing_size.width.min(max_width).max(min_width),
+                            existing_size.height.min(max_height).max(min_height),
                         );
                         winit_window.set_inner_size(new_size);
                     }
