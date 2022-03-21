@@ -693,7 +693,7 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn visit_layer(&mut self, layer_item: Pin<&Layer>, self_rc: &ItemRc) -> RenderingResult {
-        if layer_item.layer() {
+        if layer_item.cache_rendering_hint() {
             self.render_and_blend_layer(&layer_item.cached_rendering_data, 1.0, self_rc)
         } else {
             RenderingResult::ContinueRenderingChildren
