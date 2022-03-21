@@ -452,6 +452,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             if ident == "drop_in_place" {
                 vtable_ctor.push(quote!(#ident: {
                     #sig_extern {
+                        #[allow(unused_unsafe)]
                         unsafe { ::core::ptr::drop_in_place((#self_call).0 as *mut T) };
                         ::core::alloc::Layout::new::<T>().into()
                     }
