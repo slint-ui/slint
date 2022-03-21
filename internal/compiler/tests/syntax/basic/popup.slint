@@ -18,5 +18,9 @@ X := PopupWindow {
     }
 
 
+    if true : PopupWindow {}
+    //        ^error{PopupWindow cannot be directly repeated or conditional}
+    for abc in [1] : PopupWindow {}
+    //               ^error{PopupWindow cannot be directly repeated or conditional}
 
 }

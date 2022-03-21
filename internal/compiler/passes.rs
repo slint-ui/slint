@@ -116,8 +116,8 @@ pub async fn run_passes(
         .chain(std::iter::once(root_component))
     {
         flickable::handle_flickable(component, &global_type_registry.borrow());
-        repeater_component::process_repeater_components(component);
         lower_popups::lower_popups(component, &doc.local_registry, diag);
+        repeater_component::process_repeater_components(component);
         lower_layout::lower_layouts(component, type_loader, diag).await;
         default_geometry::default_geometry(component, diag);
         z_order::reorder_by_z_order(component, diag);

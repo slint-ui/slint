@@ -78,6 +78,10 @@ fn create_repeater_components(component: &Rc<Component>) {
         create_repeater_components(&comp);
         elem.base_type = Type::Component(comp);
     });
+
+    for p in component.popup_windows.borrow().iter() {
+        create_repeater_components(&p.component);
+    }
 }
 
 /// Make sure that references to property within the repeated element actually point to the reference
