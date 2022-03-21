@@ -1022,12 +1022,8 @@ fn generate_item_tree(
             }
 
             fn item_tree() -> &'static [slint::re_exports::ItemTreeNode] {
-                use slint::re_exports::*;
-                // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
-                static ITEM_TREE : slint::re_exports::OnceBox<
-                    [slint::re_exports::ItemTreeNode; #item_tree_array_len]
-                > = slint::re_exports::OnceBox::new();
-                &*ITEM_TREE.get_or_init(|| Box::new([#(#item_tree_array),*]))
+                const ITEM_TREE : [slint::re_exports::ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
+                &ITEM_TREE
             }
 
             fn item_array() -> &'static [vtable::VOffset<Self, ItemVTable, vtable::AllowPin>] {
