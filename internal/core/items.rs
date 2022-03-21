@@ -858,7 +858,7 @@ pub struct Layer {
     pub y: Property<f32>,
     pub width: Property<f32>,
     pub height: Property<f32>,
-    pub layer: Property<bool>,
+    pub cache_rendering_hint: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
 

@@ -76,7 +76,7 @@ thread_local! {
 const RESERVED_OTHER_PROPERTIES: &[(&str, Type)] = &[
     ("clip", Type::Bool),
     ("opacity", Type::Float32),
-    ("layer", Type::Bool),
+    ("cache-rendering-hint", Type::Bool),
     ("visible", Type::Bool), // ("enabled", Type::Bool),
 ];
 

@@ -130,7 +130,7 @@ pub async fn run_passes(
         );
         lower_property_to_element::lower_property_to_element(
             component,
-            "layer",
+            "cache-rendering-hint",
             "Layer",
             &global_type_registry.borrow(),
             diag,

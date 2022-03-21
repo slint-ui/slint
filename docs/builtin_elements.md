@@ -17,9 +17,11 @@ These properties are valid on all visible items
   children with transparency. 0 is fully transparent (invisible), and 1 is fully opaque. (default: 1)
 * **`visible`** (*bool*): When set to `false`, the element and all his children will not be drawn
   and not react to mouse input (default: `true`)
-* **`layer`** (*bool*): When set to `true`, this provides a hint to the renderer to cache the contents of the element and all the children into an intermediate cached layer.
-  For complex sub-trees that rarely change this may speed up the rendering, at the expense of increased memory consumption. Not all rendering backends support this, so this
-  is merely a hint.
+* **`cache-rendering-hint`** (*bool*): When set to `true` (default: `false'), this provides a hint
+  to the renderer to cache the contents of the element and all the children into an intermediate
+  cached layer. For complex sub-trees that rarely change this may speed up the rendering, at the
+  expense of increased memory consumption. Not all rendering backends support this, so this is
+  merely a hint.
 * **`dialog-button-role`** (*enum DialogButtonRole*): Specify that this is a button in a `Dialog`.
 
 
