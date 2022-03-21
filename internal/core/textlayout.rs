@@ -623,7 +623,7 @@ impl<'a, Font: TextShaper> TextParagraphLayout<'a, Font> {
                 let mut glyph_x = Font::Length::zero();
                 let mut positioned_glyph_it = glyph_it.filter_map(|(glyph, _)| {
                     // TODO: cut off at grapheme boundaries
-                    if glyph_x >= max_width_without_elision {
+                    if glyph_x > max_width_without_elision {
                         if let Some(elide_glyph) = elide_glyph.take() {
                             return Some((glyph_x, elide_glyph));
                         } else {
@@ -959,5 +959,33 @@ mod linebreak_tests {
         assert_eq!(lines.len(), 1);
         let rendered_text = lines[0].iter().map(|glyph| glyph.char.unwrap()).collect::<String>();
         debug_assert_eq!(rendered_text, "This is a lo…")
+    }
+
+    #[test]
+    fn test_exact_fit() {
+        let font = FixedTestFont;
+        let text = "Fits";
+
+        let mut lines = Vec::new();
+
+        let paragraph = TextParagraphLayout {
+            string: text,
+            font: &font,
+            font_height: 10.,
+            max_width: 4. * 10.,
+            max_height: 10.,
+            horizontal_alignment: TextHorizontalAlignment::left,
+            vertical_alignment: TextVerticalAlignment::top,
+            wrap: TextWrap::no_wrap,
+            overflow: TextOverflow::elide,
+            single_line: true,
+        };
+        paragraph.layout_lines(|glyphs, _, _| {
+            lines.push(glyphs.map(|(_, g)| g.clone()).collect::<Vec<_>>());
+        });
+
+        assert_eq!(lines.len(), 1);
+        let rendered_text = lines[0].iter().map(|glyph| glyph.char.unwrap()).collect::<String>();
+        debug_assert_eq!(rendered_text, "Fits")
     }
 }
