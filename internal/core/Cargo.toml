@@ -70,7 +70,6 @@ unicode-script = { version = "0.5.3", optional = true }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }
 wasm-bindgen = { version = "0.2" }
-web_sys = { version = "0.3", package = "web-sys", features=["console", "CanvasRenderingContext2d", "TextMetrics", "HtmlSpanElement"] }
 
 [dev-dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-0-2-0"] }

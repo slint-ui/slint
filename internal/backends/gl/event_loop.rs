@@ -163,6 +163,11 @@ pub trait WinitWindow: PlatformWindow {
             self.runtime_window().set_window_item_geometry(size.width as _, size.height as _)
         }
     }
+
+    /// Return true if the proxy element used for input method has the focus
+    fn input_method_focused(&self) -> bool {
+        false
+    }
 }
 
 struct NotRunningEventLoop {
@@ -414,6 +419,7 @@ fn process_window_event(
             runtime_window.process_key_input(&event);
         }
         WindowEvent::Focused(have_focus) => {
+            let have_focus = have_focus || window.input_method_focused();
             // We don't render popups as separate windows yet, so treat
             // focus to be the same as being active.
             runtime_window.set_active(have_focus);

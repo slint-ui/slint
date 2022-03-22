@@ -87,6 +87,12 @@ pub trait PlatformWindow {
         byte_offset: usize,
     ) -> Point;
 
+    /// This is called when the virtual keyboard should be shown because a widget that
+    /// uses input has the focus.
+    fn show_virtual_keyboard(&self, _: crate::items::InputType) {}
+    /// This is called when the widget that needed the keyboard loses focus
+    fn hide_virtual_keyboard(&self) {}
+
     /// Return self as any so the backend can upcast
     fn as_any(&self) -> &dyn core::any::Any;
 }

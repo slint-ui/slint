@@ -3,6 +3,10 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Changed
+ - On wasm, the input event are handled via a hidden `<input>` element, allowing the keyboard
+   to show on mobile platform
+
 ### Added
 
  - Added `From<&str>` and `From<SharedString>` to `StandardListViewItem` to make creation and modification of `StandardListView`'s models easier.
