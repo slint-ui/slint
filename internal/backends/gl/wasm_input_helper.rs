@@ -161,6 +161,10 @@ impl WasmInputHelper {
 }
 
 fn event_text(e: &web_sys::KeyboardEvent) -> Option<SharedString> {
+    if e.is_composing() {
+        return None;
+    }
+
     let key = e.key();
 
     let convert = |char: char| {
