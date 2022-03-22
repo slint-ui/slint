@@ -275,6 +275,7 @@ pub struct TextInput {
     pub pressed: core::cell::Cell<bool>,
     pub single_line: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
+    preferred_x_pos: core::cell::Cell<f32>,
 }
 
 impl Item for TextInput {
@@ -355,6 +356,8 @@ impl Item for TextInput {
                 if !self.has_focus() {
                     window.clone().set_focus_item(self_rc);
                 }
+
+                self.preferred_x_pos.set(pos.x);
             }
             MouseEvent::MouseReleased { button: PointerEventButton::left, .. }
             | MouseEvent::MouseExit => self.as_ref().pressed.set(false),
@@ -363,6 +366,8 @@ impl Item for TextInput {
                     let clicked_offset =
                         window.text_input_byte_offset_for_position(self, pos) as i32;
                     self.set_cursor_position(clicked_offset, window);
+
+                    self.preferred_x_pos.set(pos.x);
                 }
             }
             _ => return InputEventResult::EventIgnored,
@@ -485,6 +490,8 @@ impl ItemConsts for TextInput {
 enum TextCursorDirection {
     Forward,
     Backward,
+    NextLine,
+    PreviousLine,
     PreviousCharacter, // breaks grapheme boundaries, so only used by delete-previous-char
     StartOfLine,
     EndOfLine,
@@ -499,6 +506,8 @@ impl core::convert::TryFrom<char> for TextCursorDirection {
         Ok(match value {
             key_codes::LeftArrow => Self::Backward,
             key_codes::RightArrow => Self::Forward,
+            key_codes::UpArrow => Self::PreviousLine,
+            key_codes::DownArrow => Self::NextLine,
             key_codes::Home => Self::StartOfLine,
             key_codes::End => Self::EndOfLine,
             _ => return Err(()),
@@ -546,12 +555,34 @@ impl TextInput {
         let mut grapheme_cursor =
             unicode_segmentation::GraphemeCursor::new(last_cursor_pos, text.len(), true);
 
+        let font_height = window.text_size(self.unresolved_font_request(), "", None).height;
+
+        let mut reset_preferred_x_pos = true;
+
         let new_cursor_pos = match direction {
             TextCursorDirection::Forward => {
                 grapheme_cursor.next_boundary(&text, 0).ok().flatten().unwrap_or_else(|| text.len())
             }
             TextCursorDirection::Backward => {
                 grapheme_cursor.prev_boundary(&text, 0).ok().flatten().unwrap_or(0)
+            }
+            TextCursorDirection::NextLine => {
+                reset_preferred_x_pos = false;
+
+                let mut cursor_xy_pos =
+                    window.text_input_position_for_byte_offset(self, last_cursor_pos);
+                cursor_xy_pos.y += font_height * 1.5;
+                cursor_xy_pos.x = self.preferred_x_pos.get();
+                window.text_input_byte_offset_for_position(self, cursor_xy_pos)
+            }
+            TextCursorDirection::PreviousLine => {
+                reset_preferred_x_pos = false;
+
+                let mut cursor_xy_pos =
+                    window.text_input_position_for_byte_offset(self, last_cursor_pos);
+                cursor_xy_pos.y -= font_height * 0.5;
+                cursor_xy_pos.x = self.preferred_x_pos.get();
+                window.text_input_byte_offset_for_position(self, cursor_xy_pos)
             }
             TextCursorDirection::PreviousCharacter => {
                 let mut i = last_cursor_pos;
@@ -576,6 +607,11 @@ impl TextInput {
             }
         }
         self.set_cursor_position(new_cursor_pos as i32, window);
+
+        if reset_preferred_x_pos {
+            self.preferred_x_pos
+                .set(window.text_input_position_for_byte_offset(self, new_cursor_pos).x);
+        }
 
         // Keep the cursor visible when moving. Blinking should only occur when
         // nothing is entered or the cursor isn't moved.
