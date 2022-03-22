@@ -20,12 +20,14 @@ foreach(build_type Release RelWithDebInfo MinSizeRel Debug)
   endif()
 endforeach()
 
-add_executable(Slint::slint-compiler IMPORTED GLOBAL)
-set_target_properties(Slint::slint-compiler PROPERTIES IMPORTED_LOCATION "${_IMPORT_PREFIX}/@CMAKE_INSTALL_BINDIR@/slint-compiler${CMAKE_EXECUTABLE_SUFFIX}")
+if (@SLINT_FEATURE_COMPILER@)
+    add_executable(Slint::slint-compiler IMPORTED GLOBAL)
+    set_target_properties(Slint::slint-compiler PROPERTIES IMPORTED_LOCATION "${_IMPORT_PREFIX}/@CMAKE_INSTALL_BINDIR@/slint-compiler${CMAKE_EXECUTABLE_SUFFIX}")
+    include("${CMAKE_CURRENT_LIST_DIR}/SlintMacro.cmake")
+endif()
 
 set(_IMPORT_PREFIX)
 
 include("${CMAKE_CURRENT_LIST_DIR}/SlintTargets.cmake")
-include("${CMAKE_CURRENT_LIST_DIR}/SlintMacro.cmake")
 
 set(SLINT_STYLE @SLINT_STYLE_DEFAULT@ CACHE STRING "The Slint widget style")
