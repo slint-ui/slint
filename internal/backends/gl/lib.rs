@@ -31,6 +31,8 @@ use glcontext::*;
 pub(crate) mod event_loop;
 mod images;
 mod svg;
+#[cfg(target_arch = "wasm32")]
+pub(crate) mod wasm_input_helper;
 use images::*;
 
 mod fonts;

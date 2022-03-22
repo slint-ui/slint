@@ -454,10 +454,12 @@ impl Item for TextInput {
             FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {
                 self.has_focus.set(true);
                 self.show_cursor(window);
+                window.show_virtual_keyboard(self.input_type());
             }
             FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
                 self.has_focus.set(false);
                 self.hide_cursor();
+                window.hide_virtual_keyboard();
             }
         }
         FocusEventResult::FocusAccepted

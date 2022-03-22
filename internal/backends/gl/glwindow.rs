@@ -46,6 +46,9 @@ pub struct GLWindow {
 
     #[cfg(target_arch = "wasm32")]
     canvas_id: String,
+
+    #[cfg(target_arch = "wasm32")]
+    virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
 }
 
 impl GLWindow {
@@ -70,6 +73,8 @@ impl GLWindow {
             rendering_notifier: Default::default(),
             #[cfg(target_arch = "wasm32")]
             canvas_id,
+            #[cfg(target_arch = "wasm32")]
+            virtual_keyboard_helper: Default::default(),
         })
     }
 
@@ -279,6 +284,11 @@ impl WinitWindow for GLWindow {
                 );
             }
         };
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn input_method_focused(&self) -> bool {
+        self.virtual_keyboard_helper.borrow().as_ref().map_or(false, |h| h.has_focus())
     }
 }
 
@@ -695,6 +705,24 @@ impl PlatformWindow for GLWindow {
         );
 
         result / scale_factor
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn show_virtual_keyboard(&self, _it: corelib::items::InputType) {
+        let mut vkh = self.virtual_keyboard_helper.borrow_mut();
+        let h = vkh.get_or_insert_with(|| {
+            let canvas =
+                self.borrow_mapped_window().unwrap().opengl_context.html_canvas_element().clone();
+            super::wasm_input_helper::WasmInputHelper::new(self.self_weak.clone(), canvas)
+        });
+        h.show();
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn hide_virtual_keyboard(&self) {
+        if let Some(h) = &*self.virtual_keyboard_helper.borrow() {
+            h.hide()
+        }
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
