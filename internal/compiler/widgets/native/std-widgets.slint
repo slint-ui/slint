@@ -18,7 +18,7 @@ export StandardButton := NativeButton {
 export CheckBox := NativeCheckBox { }
 export SpinBox := NativeSpinBox {
     property<length> font-size;
-        
+
     key-pressed(event) => {
         if (enabled && event.text == Keys.UpArrow && value < maximum) {
             value += 1;
@@ -84,12 +84,13 @@ export StandardListView := ListView {
         key-pressed(event) => {
             if (event.text == Keys.UpArrow && current-item > 0) {
                 actual-current-item -= 1;
-                return accept;
+                accept
             } else if (event.text == Keys.DownArrow && current-item + 1 < model.length) {
                 actual-current-item += 1;
-                return accept;
+                accept
+            } else {
+                reject
             }
-            reject
         }
     }
 }

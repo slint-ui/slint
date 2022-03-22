@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore standardbutton
+
 import { LineEditInner, TextEdit, AboutSlint } from "../common/common.slint";
 import { StandardButton } from "../common/standardbutton.slint";
 import { StyleMetrics, ScrollView, Button, Palette  } from "std-widgets-impl.slint";
@@ -163,14 +165,17 @@ export SpinBox := FocusScope {
             : has-focus ? Palette.themeSecondary
             : Palette.neutralDark;
     }
-    
+
     key-pressed(event) => {
         if (enabled && event.text == Keys.UpArrow && value < maximum) {
             value += 1;
+            accept
         } else if (enabled && event.text == Keys.DownArrow && value > minimum) {
             value -= 1;
+            accept
+        } else {
+            reject
         }
-        accept
     }
 }
 
