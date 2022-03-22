@@ -18,8 +18,15 @@ FetchContent_MakeAvailable(Corrosion)
 list(PREPEND CMAKE_MODULE_PATH ${Corrosion_SOURCE_DIR}/cmake)
 find_package(Rust 1.56 REQUIRED MODULE)
 
+option(SLINT_FEATURE_COMPILER "Enable support for compiling .slint files to C++ ahead of time" ON)
+
+if (SLINT_FEATURE_COMPILER)
+    set(slint_compiler_crate "slint-compiler")
+endif()
+
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
-    CRATES slint-compiler slint-cpp)
+    CRATES slint-cpp ${slint_compiler_crate})
+
 
 set_property(
     TARGET slint-cpp
@@ -28,10 +35,12 @@ set_property(
     SLINT_GENERATED_INCLUDE_DIR="${CMAKE_CURRENT_BINARY_DIR}/generated_include/"
 )
 
-set_property(
-    TARGET slint-compiler
-    PROPERTY CORROSION_USE_HOST_BUILD 1
-)
+if (SLINT_FEATURE_COMPILER)
+    set_property(
+        TARGET slint-compiler
+        PROPERTY CORROSION_USE_HOST_BUILD 1
+    )
+endif()
 
 add_library(Slint INTERFACE)
 add_library(Slint::Slint ALIAS Slint)
@@ -157,8 +166,10 @@ target_include_directories(Slint INTERFACE
     $<INSTALL_INTERFACE:include/slint>
 )
 
-add_executable(Slint::slint-compiler ALIAS slint-compiler)
-include(${CMAKE_CURRENT_LIST_DIR}/cmake/SlintMacro.cmake)
+if (SLINT_FEATURE_COMPILER)
+    add_executable(Slint::slint-compiler ALIAS slint-compiler)
+    include(${CMAKE_CURRENT_LIST_DIR}/cmake/SlintMacro.cmake)
+endif()
 
 export(TARGETS Slint slint-cpp
     NAMESPACE Slint:: FILE "${CMAKE_BINARY_DIR}/lib/cmake/Slint/SlintTargets.cmake")
@@ -184,7 +195,9 @@ if(WIN32)
 	    ${CMAKE_BINARY_DIR}/bin/${config_subdir_genex}$<TARGET_FILE_NAME:slint-cpp-shared>)
 endif()
 
-install(PROGRAMS $<TARGET_FILE:slint-compiler> TYPE BIN)
+if (SLINT_FEATURE_COMPILER)
+    install(PROGRAMS $<TARGET_FILE:slint-compiler> TYPE BIN)
+endif()
 
 set(SLINT_LIB_PROPERTIES "IMPORTED_NO_SONAME;1")
 foreach(prop
@@ -199,8 +212,6 @@ foreach(prop
   endif()
 endforeach()
 
-
-
 configure_package_config_file("cmake/SlintConfig.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake" INSTALL_DESTINATION lib/cmake/Slint)
 
 write_basic_package_version_file(
@@ -212,9 +223,15 @@ write_basic_package_version_file(
 install(FILES
     "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake"
     "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfigVersion.cmake"
-    "${CMAKE_CURRENT_LIST_DIR}/cmake/SlintMacro.cmake"
     DESTINATION lib/cmake/Slint
 )
+
+if (SLINT_FEATURE_COMPILER)
+    install(FILES
+        "${CMAKE_CURRENT_LIST_DIR}/cmake/SlintMacro.cmake"
+        DESTINATION lib/cmake/Slint
+    )
+endif()
 
 option(SLINT_PACKAGE_BUNDLE_QT "Internal setting to install Qt binary in the packages" OFF)
 if(SLINT_PACKAGE_BUNDLE_QT)
