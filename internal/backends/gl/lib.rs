@@ -691,6 +691,9 @@ impl ItemRenderer for GLItemRenderer {
         if opacity != 1.0 {
             self.render_and_blend_layer(&opacity_item.cached_rendering_data, opacity, self_rc)
         } else {
+            opacity_item
+                .cached_rendering_data
+                .release(&mut self.graphics_window.clone().graphics_cache.borrow_mut());
             RenderingResult::ContinueRenderingChildren
         }
     }
