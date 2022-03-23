@@ -792,9 +792,10 @@ Example := Window {
 
 ## Global Singletons
 
-You can declare global singleton for properties that are available in the entire project.
-The syntax is `global Name := { /* .. properties or callbacks .. */ }`.
-Then can be then used using the `Name.property` syntax.
+Declare a global singleton with `global Name := { /* .. properties or callbacks .. */ }` when you want to
+make properties and callbacks available throughout the entire project. Access them using `Name.property`.
+
+For example, this can be useful for a common color palette:
 
 ```slint,no-preview
 global Palette := {
@@ -808,6 +809,71 @@ Example := Rectangle {
     border-width: 2px;
 }
 ```
+
+A global can be declared in another module file, and imported from many files.
+
+Access properties and callbacks from globals in native code by marking them as exported
+in the file that exports your main application component. In the above example it is
+sufficient to directly export the `Logic` global:
+
+```slint,ignore
+export global Logic := {
+    property <int> the-value;
+    callback magic-operation(int) -> int;
+}
+// ...
+```
+
+It's also possible to export globals from other files:
+
+```slint,ignore
+import { Logic as MathLogic } from "math.slint";
+export { MathLogic } // known as "MathLogic" when using native APIs to access globals
+```
+
+<details data-snippet-language="rust">
+<summary>Usage from Rust</summary>
+
+```rust
+slint::slint!{
+export global Logic := {
+    property <int> the-value;
+    callback magic-operation(int) -> int;
+}
+
+export App := Window {
+    // ...
+}
+}
+
+fn main() {
+    let app = App::new();
+    app.global::<Logic>().on_magic_operation(|value| {
+        eprintln!("magic operation input: {}", value);
+        value * 2
+    });
+    app.global::<Logic>().set_the_value(42);
+    // ...
+}
+```
+</details>
+
+<details data-snippet-language="cpp">
+<summary>Usage from C++</summary>
+
+```cpp
+#include "app.h"
+
+fn main() {
+    auto app = App::create();
+    app->global<Logic>().on_magic_operation([](int value) -> int {
+        return value * 2;
+    });
+    app->global<Logic>().set_the_value(42);
+    // ...
+}
+```
+</details>
 
 It is possible to re-expose a callback or properties from a global using the two way binding syntax.
 
@@ -832,27 +898,6 @@ export MainWindow := Window {
 }
 ```
 
-A global can be declared in another module file, and imported from many files.
-
-It is also possible to access the properties and callbacks from globals in native code,
-such as Rust or C++. In order to access them, it is necessary to mark them as exported
-in the file that exports your main application component. In the above example it is
-sufficient to directly export the `Logic` global:
-
-```slint,ignore
-export global Logic := {
-    property <int> the-value;
-    callback magic-operation(int) -> int;
-}
-// ...
-```
-
-It's also possible to export globals from other files:
-
-```slint,ignore
-import { Logic as MathLogic } from "math.slint";
-export { MathLogic } // known as "MathLogic" when using native APIs to access globals
-```
 
 ## Modules
 
