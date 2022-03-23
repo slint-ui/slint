@@ -326,9 +326,9 @@ export Recipe := Window {
 ### Invoke a globally registered native callback from Slint
 
 ```slint-no-run
-import { VerticalBox, LineEdit } from "std-widgets.slint";
+import { HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint";
 
-global Logic := {
+export global Logic := {
     callback to-upper-case(string) -> string;
     // You can collect other global properties here
 }
@@ -357,9 +357,9 @@ In Rust you can set the callback like this:
 
 ```rust
 slint::slint!{
-import { VerticalBox, LineEdit } from "std-widgets.slint";
+import { HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint";
 
-global Logic := {
+export global Logic := {
     callback to-upper-case(string) -> string;
     // You can collect other global properties here
 }
@@ -384,7 +384,7 @@ export Recipe := Window {
 
 fn main() {
     let recipe = Recipe::new();
-    recipe.global::<Logic>().on_to_upper_case(|string: SharedString| {
+    recipe.global::<Logic>().on_to_upper_case(|string| {
         string.as_str().to_uppercase().into()
     });
     // ...
