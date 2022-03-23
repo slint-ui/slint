@@ -63,4 +63,29 @@
     }
     fix_markdown_links()
 
+    // Select C++ blocks in rustdoc generated code and hide them, while opening the <details> of Rust snippets
+    // Similarly, in Sphinx generated HTML, hide Rust blocks and open C++.
+    function select_code_snippet_variants() {
+        // When the CSS has pseudo class becomes available, we can probably use that directly
+        // in a stylesheet instead of JS here.
+
+        for (let cpp_snippet_in_rustdoc of document.querySelectorAll("details div.example-wrap pre.language-cpp")) {
+            let details_element = cpp_snippet_in_rustdoc.parentElement.parentElement;
+            details_element.style = "display: none";
+        }
+        for (let rust_snippet_in_rustdoc of document.querySelectorAll("details div.example-wrap pre.rust-example-rendered")) {
+            let details_element = rust_snippet_in_rustdoc.parentElement.parentElement;
+            details_element.open = true;
+        }
+
+        for (let rust_snippet_in_sphinx of document.querySelectorAll("details div[class^=highlight-rust")) {
+            let details_element = rust_snippet_in_sphinx.parentElement;
+            details_element.style = "display: none";
+        }
+        for (let cpp_snippet_in_sphinx of document.querySelectorAll("details div.highlight-cpp")) {
+            let details_element = cpp_snippet_in_sphinx.parentElement;
+            details_element.open = true;
+        }
+    }
+    select_code_snippet_variants()
 </script>
