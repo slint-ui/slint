@@ -777,11 +777,12 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, self_rc: &ItemRc) -> RenderingResult {
-        self.render_and_blend_layer(
-            &opacity_item.cached_rendering_data,
-            opacity_item.opacity(),
-            self_rc,
-        )
+        let opacity = opacity_item.opacity();
+        if opacity != 1.0 {
+            self.render_and_blend_layer(&opacity_item.cached_rendering_data, opacity, self_rc)
+        } else {
+            RenderingResult::ContinueRenderingChildren
+        }
     }
 
     fn visit_layer(&mut self, layer_item: Pin<&Layer>, self_rc: &ItemRc) -> RenderingResult {
