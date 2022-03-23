@@ -1,0 +1,13 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { VerticalBox, Button } from "std-widgets.slint";
+export Recipe := Window {
+    property <int> counter: 0;
+    callback button_pressed <=> button.clicked;
+    VerticalBox {
+        button := Button {
+            text: "Button, pressed \{root.counter} times";
+        }
+    }
+}
