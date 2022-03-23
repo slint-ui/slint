@@ -27,9 +27,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let file = file.replace('\r', ""); // Remove \r, because Windows.
         let mut rest = file.as_str();
         let mut count = 0;
-        const BEGIN_MARKER: &str = "\n```slint\n";
+        const BEGIN_MARKER: &str = "\n```slint";
         while let Some(begin) = rest.find(BEGIN_MARKER) {
             rest = rest[begin..].strip_prefix(BEGIN_MARKER).unwrap();
+
+            // Permit `slint,no_run` but skip `slint,ignore` and others.
+            rest = match rest.split_once('\n') {
+                Some((",no_run", rest)) => rest,
+                Some(("", _)) => rest,
+                _ => continue,
+            };
+
             let end = rest.find("\n```\n").ok_or_else(|| {
                 format!("Could not find the end of a code snippet in {}", path.display())
             })?;
