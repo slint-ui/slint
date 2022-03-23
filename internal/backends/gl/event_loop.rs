@@ -323,6 +323,7 @@ impl std::fmt::Debug for CustomEvent {
     }
 }
 
+#[cfg(target_arch = "wasm32")]
 fn redraw_all_windows() {
     let all_windows_weak =
         ALL_WINDOWS.with(|windows| windows.borrow().values().cloned().collect::<Vec<_>>());
@@ -608,6 +609,7 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
                 }
 
                 winit::event::Event::MainEventsCleared => {
+                    corelib::timers::TimerList::maybe_activate_timers();
                     corelib::animations::update_animations();
                 }
                 _ => (),
@@ -618,10 +620,7 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
                     .with(|driver| driver.has_active_animations())
             {
                 *control_flow = ControlFlow::Poll;
-                redraw_all_windows()
             }
-
-            corelib::timers::TimerList::maybe_activate_timers();
 
             if *control_flow == winit::event_loop::ControlFlow::Wait {
                 if let Some(next_timer) = corelib::timers::TimerList::next_timeout() {
