@@ -152,6 +152,16 @@ impl WasmInputHelper {
         event: &str,
         closure: impl Fn(Arg) + 'static,
     ) {
+        let closure = move |arg: Arg| {
+            closure(arg);
+            crate::event_loop::GLOBAL_PROXY.with(|global_proxy| {
+                if let Ok(mut x) = global_proxy.try_borrow_mut() {
+                    if let Some(proxy) = &mut *x {
+                        proxy.send_event(crate::event_loop::CustomEvent::WakeEventLoopWorkaround)
+                    }
+                }
+            });
+        };
         let closure = Closure::wrap(Box::new(closure) as Box<dyn Fn(_)>);
         self.input
             .add_event_listener_with_callback(event, closure.as_ref().unchecked_ref())
