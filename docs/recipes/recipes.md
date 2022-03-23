@@ -40,12 +40,14 @@ export Recipe := Window {
 <summary>Rust code</summary>
 In Rust you can write
 
-```rust
+```rust,no_run
+slint::slint!(import { Recipe } from "docs/recipes/button_native.slint";);
+
 fn main() {
-    let recipe := Recipe::new();
+    let recipe = Recipe::new();
     let recipe_weak = recipe.as_weak();
     recipe.on_button_pressed(move || {
-        let recipe = recipe_weak.upgrade();
+        let recipe = recipe_weak.unwrap();
         let mut value = recipe.get_counter();
         value = value + 1;
         recipe.set_counter(value);
