@@ -31,8 +31,8 @@ MyButton := Text {
 }
 
 export MyApp := Window {
-    width: 200px;
-    height: 100px;
+    preferred-width: 200px;
+    preferred-height: 100px;
     Rectangle {
         width: 200px;
         height: 100px;
@@ -60,6 +60,9 @@ MyButton := Text {
 }
 
 MyApp := Window {
+    preferred-width: 200px;
+    preferred-height: 100px;
+
     hello := MyButton {
         text: "hello";
     }
@@ -110,6 +113,7 @@ BoxWithLabel := GridLayout {
 }
 
 MyApp := Window {
+    preferred-height: 100px;
     BoxWithLabel {
         Rectangle { background: blue; }
         Rectangle { background: yellow; }
@@ -135,7 +139,7 @@ The underscores are normalized to dashes. Which means that these two identifiers
 The elements can have properties. Built-in elements come with common properties such
 as color or dimensional properties. You can assign values or entire [expressions](#expressions) to them:
 
-```slint
+```slint,no_run
 Example := Window {
     // Simple expression: ends with a semi colon
     width: 42px;
@@ -167,10 +171,14 @@ changing the `counter`  property automatically changes the text.
 
 ```slint
 import { Button } from "std-widgets.slint";
-Example := Button {
-    property <int> counter: 3;
-    clicked => { counter += 3 }
-    text: counter * 2;
+Example := Window {
+    preferred-width: 50px;
+    preferred-height: 50px;
+    Button {
+        property <int> counter: 3;
+        clicked => { counter += 3 }
+        text: counter * 2;
+    }
 }
 ```
 
@@ -300,10 +308,13 @@ Example := Window {
 ### Relative Lengths
 
 Sometimes it is convenient to express the relationships of length properties in terms of relative percentages.
-For example the following inner blue rectangle has half the size of the outer green one:
+For example the following inner blue rectangle has half the size of the outer green window:
 
 ```slint
-Example := Rectangle {
+Example := Window {
+    preferred-width: 100px;
+    preferred-height: 100px;
+
     background: green;
     Rectangle {
         background: blue;
@@ -323,7 +334,10 @@ If these conditions are met, then it is not necessary to specify the parent prop
 use the percentage. The earlier example then looks like this:
 
 ```slint
-Example := Rectangle {
+Example := Window {
+    preferred-width: 100px;
+    preferred-height: 100px;
+
     background: green;
     Rectangle {
         background: blue;
@@ -434,13 +448,18 @@ Example := Rectangle {
 The ternary operator `... ? ... : ...`  is also supported, like in C or JavaScript:
 
 ```slint
-Example := Rectangle {
-    touch := TouchArea {}
-    background: touch.pressed ? #111 : #eee;
-    border-width: 1px;
-    border-color: !touch.enabled ? #888
-        : touch.pressed ? #aaa
-        : #555;
+Example := Window {
+    preferred-width: 100px;
+    preferred-height: 100px;
+
+    Rectangle {
+        touch := TouchArea {}
+        background: touch.pressed ? #111 : #eee;
+        border-width: 5px;
+        border-color: !touch.enabled ? #888
+            : touch.pressed ? #aaa
+            : #555;
+    }
 }
 ```
 
@@ -463,7 +482,7 @@ Anything else after a `\` is an error.
 
 (TODO: translations: `tr!"Hello"`)
 
-```slint
+```slint,no_run
 Example := Text {
     text: "hello";
 }
@@ -473,8 +492,8 @@ Example := Text {
 
 Color literals follow the syntax of CSS:
 
-```slint
-Example := Rectangle {
+```slint,no_run
+Example := Window {
     background: blue;
     property<color> c1: #ffaaff;
     property<brush> b2: Colors.red;
@@ -524,10 +543,13 @@ The following example shows a rectangle that's filled with a linear gradient tha
 color, interpolates to a very light shade in the center and finishes with an orange tone:
 
 ```slint
-Example := Rectangle {
-    width: 100px;
-    height: 100px;
-    background: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%);
+Example := Window {
+    preferred-width: 100px;
+    preferred-height: 100px;
+
+    Rectangle {
+        background: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%);
+    }
 }
 ```
 
@@ -541,9 +563,15 @@ relative to the file. In addition, it will also be looked in the include path sp
 It is possible to access the `width` and `height` of an image.
 
 ```slint
-Example := Text {
+Example := Window {
+    preferred-width: 150px;
+    preferred-height: 50px;
+
     property <image> some_image: @image-url("https://slint-ui.com/logo/slint-logo-full-light.svg");
-    text: "The image is " + some_image.width + "x" + some_image.height;
+
+    Text {
+        text: "The image is " + some_image.width + "x" + some_image.height;
+    }
 }
 ```
 
@@ -616,8 +644,8 @@ The *id* is also optional.
 
 ```slint
 Example := Window {
-    height: 100px;
-    width: 300px;
+    preferred-width: 300px;
+    preferred-height: 100px;
     for my-color[index] in [ #e11, #1a2, #23d ]: Rectangle {
         height: 100px;
         width: 60px;
@@ -629,8 +657,8 @@ Example := Window {
 
 ```slint
 Example := Window {
-    height: 50px;
-    width: 50px;
+    preferred-width: 50px;
+    preferred-height: 50px;
     property <[{foo: string, col: color}]> model: [
         {foo: "abc", col: #f00 },
         {foo: "def", col: #00f },
@@ -651,10 +679,11 @@ The syntax is `if condition : id := Element { ... }`
 
 ```slint
 Example := Window {
-    height: 50px;
-    width: 50px;
-    if true : foo := Rectangle { background: blue; }
-    if false : Rectangle { background: red; }
+    preferred-width: 50px;
+    preferred-height: 50px;
+    if area.pressed : foo := Rectangle { background: blue; }
+    if !area.pressed : Rectangle { background: red; }
+    area := TouchArea {}
 }
 ```
 
@@ -663,12 +692,16 @@ Example := Window {
 Simple animation that animates a property can be declared with `animate` like this:
 
 ```slint
-Example := Rectangle {
-    property<bool> pressed;
-    background: pressed ? blue : red;
+Example := Window {
+    preferred-width: 100px;
+    preferred-height: 100px;
+
+    background: area.pressed ? blue : red;
     animate background {
-        duration: 100ms;
+        duration: 250ms;
     }
+
+    area := TouchArea {}
 }
 ```
 
@@ -700,14 +733,17 @@ animate y { duration: 100ms; }
 The `states` statement allow to declare states like this:
 
 ```slint
-Example := Rectangle {
+Example := Window {
+    preferred-width: 100px;
+    preferred-height: 100px;
+
     text := Text { text: "hello"; }
     property<bool> pressed;
     property<bool> is-enabled;
 
     states [
         disabled when !is-enabled : {
-            color: gray; // same as root.color: gray;
+            background: gray; // same as root.background: gray;
             text.color: white;
         }
         down when pressed : {
@@ -725,14 +761,17 @@ This will change the color of the Rectangle and of the Text.
 Complex animations can be declared on state transitions:
 
 ```slint
-Example := Rectangle {
+Example := Window {
+    preferred-width: 100px;
+    preferred-height: 100px;
+
     text := Text { text: "hello"; }
     property<bool> pressed;
     property<bool> is-enabled;
 
     states [
         disabled when !is-enabled : {
-            color: gray; // same as root.color: gray;
+            background: gray; // same as root.background: gray;
             text.color: white;
         }
         down when pressed : {
@@ -757,7 +796,7 @@ You can declare global singleton for properties that are available in the entire
 The syntax is `global Name := { /* .. properties or callbacks .. */ }`.
 Then can be then used using the `Name.property` syntax.
 
-```slint
+```slint,no_run
 global Palette := {
     property<color> primary: blue;
     property<color> secondary: green;
@@ -772,7 +811,7 @@ Example := Rectangle {
 
 It is possible to re-expose a callback or properties from a global using the two way binding syntax.
 
-```slint
+```slint,no_run
 global Logic := {
     property <int> the-value;
     callback magic-operation(int) -> int;
@@ -821,7 +860,7 @@ Components declared in a .slint file can be shared with components in other .sli
 By default, everything declared in a .slint file is private, but it can be made accessible from the outside using the export
 keyword:
 
-```slint
+```slint,no_run
 ButtonHelper := Rectangle {
     // ...
 }
@@ -840,7 +879,7 @@ In the above example, `Button` is usable from other .slint files, but `ButtonHel
 
 It's also possible to change the name just for the purpose of exporting, without affecting its internal use:
 
-```slint
+```slint,no_run
 Button := Rectangle {
     // ...
 }
@@ -852,7 +891,7 @@ In the above example, ```Button``` is not accessible from the outside, but inste
 
 For convenience, a third way of exporting a component is to declare it exported right away:
 
-```slint
+```slint,no_run
 export Button := Rectangle {
     // ...
 }
