@@ -36,7 +36,7 @@ export Recipe := Window {
 }
 ```
 
-<details>
+<details data-snippet-language="rust">
 <summary>Rust code</summary>
 In Rust you can write
 
@@ -57,7 +57,7 @@ fn main() {
 ```
 </details>
 
-<details>
+<details data-snippet-language="cpp">
 <summary>C++ code</summary>
 In C++ you can write
 
@@ -351,7 +351,7 @@ export Recipe := Window {
 }
 ```
 
-<details>
+<details  data-snippet-language="rust">
 <summary>Rust code</summary>
 In Rust you can set the callback like this:
 
@@ -392,7 +392,7 @@ fn main() {
 ```
 </details>
 
-<details>
+<details  data-snippet-language="cpp">
 <summary>C++ code</summary>
 In C++ you can set the callback like this:
 
