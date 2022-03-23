@@ -309,8 +309,8 @@ export Recipe := Window {
             Button { text: "Second"; }
         }
         Row {
-            Button { text: "Third"; }        
-            Button { text: "Fourth"; }        
+            Button { text: "Third"; }
+            Button { text: "Fourth"; }
         }
         Row {
             Slider {
@@ -320,6 +320,96 @@ export Recipe := Window {
     }
 }
 ```
+
+## Global Callbacks
+
+### Invoke a globally registered native callback from Slint
+
+```slint
+import { VerticalBox, LineEdit } from "std-widgets.slint";
+
+global Logic := {
+    callback to-upper-case(string) -> string;
+    // You can collect other global properties here
+}
+
+export Recipe := Window {
+    VerticalBox {
+        input := LineEdit {
+            text: "Text to be transformed";
+        }
+        HorizontalBox {
+            Text { text: "Transformed:"; }
+            // Callback invoked in binding expression
+            Text {
+                text: {
+                    Logic.to-upper-case(input.text);
+                }
+            }
+        }
+    }
+}
+```
+
+<details>
+<summary>Rust code</summary>
+In Rust you can set the callback like this:
+
+```rust
+slint::slint!{
+import { VerticalBox, LineEdit } from "std-widgets.slint";
+
+global Logic := {
+    callback to-upper-case(string) -> string;
+    // You can collect other global properties here
+}
+
+export Recipe := Window {
+    VerticalBox {
+        input := LineEdit {
+            text: "Text to be transformed";
+        }
+        HorizontalBox {
+            Text { text: "Transformed:"; }
+            // Callback invoked in binding expression
+            Text {
+                text: {
+                    Logic.to-upper-case(input.text);
+                }
+            }
+        }
+    }
+}
+}
+
+fn main() {
+    let recipe = Recipe::new();
+    recipe.global::<Logic>().on_to_upper_case(|string: SharedString| {
+        string.as_str().to_uppercase().into()
+    });
+    // ...
+}
+```
+</details>
+
+<details>
+<summary>C++ code</summary>
+In C++ you can set the callback like this:
+
+```cpp
+int main(int argc, char **argv)
+{
+    auto recipe = Recipe::create();
+    recipe->global<Logic>().on_to_uppercase([](SharedString str) -> SharedString {
+        std::string arg(str);
+        std::transform(arg.begin(), arg.end(), arg.begin(), toupper);
+        return SharedString(arg);
+    });
+    // ...
+}
+```
+</details>
+
 
 <!--
 
