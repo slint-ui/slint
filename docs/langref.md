@@ -148,7 +148,7 @@ You can also declare your own properties. The properties declared at the top lev
 component are public and can be accessed by the component using it as an element, or using the
 language bindings:
 
-```slint
+```slint,no_run
 Example := Rectangle {
     // declare a property of type int with the name `my-property`
     property<int> my-property;
@@ -186,7 +186,7 @@ together.
 The right hand side of the `<=>` must be a reference to a property of the same type.
 The type can be omitted in a property declaration to have the type automatically inferred.
 
-```slint
+```slint,no_run
 Example := Window {
     property<brush> rect-color <=> r.background;
     // it is allowed to omit the type to have it automatically inferred
@@ -227,7 +227,7 @@ Anonymous structs type can be declared with curly braces: `{ identifier1: type2,
 The trailing semicolon is optional.
 They can be initialized with a struct literal: `{ identifier1: expression1, identifier2: expression2  }`
 
-```slint
+```slint,no_run
 Example := Window {
     property<{name: string, score: int}> player: { name: "Foo", score: 100 };
     property<{a: int, }> foo: { a: 3 };
@@ -238,7 +238,7 @@ Example := Window {
 
 It is possible to define a named struct using the `struct` keyword,
 
-```slint
+```slint,no_run
 export struct Player := {
     name: string,
     score: int,
@@ -254,7 +254,7 @@ Example := Window {
 The type array is using square brackets for example  `[int]` is an array of `int`. In the runtime, they are
 basically used as models for the `for` expression.
 
-```slint
+```slint,no_run
 Example := Window {
     property<[int]> list-of-int: [1,2,3];
     property<[{a: int, b: string}]> list-of-structs: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
@@ -280,7 +280,7 @@ Example := Window {
 * String can be converted to float by using the `to-float` function. That function returns 0 if the string is not
    a valid number. you can check with `is-float` if the string contains a valid number
 
-```slint
+```slint,no_run
 Example := Window {
     // ok: int converts to string
     property<{a: string, b: int}> prop1: {a: 12, b: 12 };
@@ -341,7 +341,7 @@ element comes with a `clicked` callback, that's emitted when the user touches th
 it with the mouse. In the example below, the emission of that callback is forwarded to another custom callback (`hello`) by declaring a
 handler and emitting our custom callback:
 
-```slint
+```slint,no_run
 Example := Rectangle {
     // declare a callback
     callback hello;
@@ -358,7 +358,7 @@ Example := Rectangle {
 
 It is also possible to add parameters to the callback.
 
-```slint
+```slint,no_run
 Example := Rectangle {
     // declares a callback
     callback hello(int, string);
@@ -368,7 +368,7 @@ Example := Rectangle {
 
 And return value.
 
-```slint
+```slint,no_run
 Example := Rectangle {
     // declares a callback with a return value
     callback hello(int, int) -> int;
@@ -380,7 +380,7 @@ Example := Rectangle {
 
 It is possible to declare callback aliases in a similar way to two-way bindings:
 
-```slint
+```slint,no_run
 Example := Rectangle {
     callback clicked <=> area.clicked;
     area := TouchArea {}
@@ -394,7 +394,7 @@ are typically used to combine basic arithmetic with access to properties of othe
 these properties change, the expression is automatically re-evaluated and a new value is assigned
 to the property the expression is associated with:
 
-```slint
+```slint,no_run
 Example := Rectangle {
     // declare a property of type int
     property<int> my-property;
@@ -409,7 +409,7 @@ If something changes `my-property`, the width will be updated automatically.
 
 Arithmetic in expression with numbers works like in most programming language with the operators `*`, `+`, `-`, `/`:
 
-```slint
+```slint,no_run
 Example := Rectangle {
     property <int> p: 1 * 2 + 3 * 4; // same as (1 * 2) + (3 * 4)
 }
@@ -422,7 +422,7 @@ There are also the operators `&&` and `||` for logical *and* and *or* between bo
 
 You can access properties by addressing the associated element, followed by a `.` and the property name:
 
-```slint
+```slint,no_run
 Example := Rectangle {
     foo := Rectangle {
         x: 42px;
@@ -559,25 +559,25 @@ Inside callback handlers, more complicated statements are allowed:
 
 Assignment:
 
-```ignore
+```slint,ignore
 clicked => { some-property = 42; }
 ```
 
 Self-assignment with `+=` `-=` `*=` `/=`
 
-```ignore
+```slint,ignore
 clicked => { some-property += 42; }
 ```
 
 Calling a callback
 
-```ignore
+```slint,ignore
 clicked => { root.some-callback(); }
 ```
 
 Conditional statements
 
-```ignore
+```slint,ignore
 clicked => {
     if (condition) {
         foo = 42;
@@ -591,7 +591,7 @@ clicked => {
 
 Empty expression
 
-```ignore
+```slint,ignore
 clicked => { }
 // or
 clicked => { ; }
@@ -684,11 +684,13 @@ Animation can be configured with the following parameter:
 
 It is also possible to animate several properties with the same animation:
 
-```ignore
+```slint,ignore
 animate x, y { duration: 100ms; }
 ```
+
 is the same as
-```ignore
+
+```slint,ignore
 animate x { duration: 100ms; }
 animate y { duration: 100ms; }
 ```
@@ -1017,7 +1019,7 @@ instructions the Slint compiler to include the font and makes the font families 
 
 For example:
 
-```slint,notest
+```slint,ignore
 import "./NotoSans-Regular.ttf";
 
 Example := Window {
