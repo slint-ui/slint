@@ -300,6 +300,10 @@ pub enum CustomEvent {
     /// web for example to request an animation frame.
     #[cfg(target_arch = "wasm32")]
     RedrawAllWindows,
+    /// On wasm request_redraw doesn't wake the event loop, so we need to manually send an event
+    /// so that the event loop can run
+    #[cfg(target_arch = "wasm32")]
+    WakeEventLoopWorkaround,
     UpdateWindowProperties(winit::window::WindowId),
     UserEvent(Box<dyn FnOnce() + Send>),
     Exit,
@@ -310,6 +314,8 @@ impl std::fmt::Debug for CustomEvent {
         match self {
             #[cfg(target_arch = "wasm32")]
             Self::RedrawAllWindows => write!(f, "RedrawAllWindows"),
+            #[cfg(target_arch = "wasm32")]
+            Self::WakeEventLoopWorkaround => write!(f, "WakeEventLoopWorkaround"),
             Self::UpdateWindowProperties(e) => write!(f, "UpdateWindowProperties({:?})", e),
             Self::UserEvent(_) => write!(f, "UserEvent"),
             Self::Exit => write!(f, "Exit"),
@@ -594,6 +600,11 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
                 #[cfg(target_arch = "wasm32")]
                 winit::event::Event::UserEvent(CustomEvent::RedrawAllWindows) => {
                     redraw_all_windows()
+                }
+
+                #[cfg(target_arch = "wasm32")]
+                winit::event::Event::UserEvent(CustomEvent::WakeEventLoopWorkaround) => {
+                    *control_flow = winit::event_loop::ControlFlow::Poll;
                 }
 
                 winit::event::Event::MainEventsCleared => {
