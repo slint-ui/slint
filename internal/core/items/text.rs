@@ -275,6 +275,8 @@ pub struct TextInput {
     pub pressed: core::cell::Cell<bool>,
     pub single_line: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
+    // The x position where the cursor wants to be.
+    // It is not updated when moving up and down even when the line is shorter.
     preferred_x_pos: core::cell::Cell<f32>,
 }
 
