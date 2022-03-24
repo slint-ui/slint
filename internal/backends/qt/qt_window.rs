@@ -1241,7 +1241,7 @@ impl QtWindow {
         let rc = Rc::new(QtWindow {
             widget_ptr,
             self_weak: window_weak.clone(),
-            fps_counter: FPSCounter::new(),
+            fps_counter: FPSCounter::new(window_weak.clone()),
             cache: Default::default(),
         });
         let self_weak = Rc::downgrade(&rc);

@@ -8,7 +8,7 @@ This module contains a simple helper type to measure the average number of frame
 use crate::timers::*;
 use std::cell::RefCell;
 use std::convert::TryFrom;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 enum RefreshMode {
     Lazy,      // render only when necessary (default)
@@ -36,6 +36,7 @@ pub struct FPSCounter {
     refresh_mode: RefreshMode,
     output_console: bool,
     output_overlay: bool,
+    window: Weak<crate::window::Window>,
 }
 
 impl FPSCounter {
@@ -45,7 +46,7 @@ impl FPSCounter {
     ///     * `refresh_full_speed`: frames are continuously rendered
     ///     * `console`: the measurement is printed to the console
     ///     * `overlay`: the measurement is drawn as overlay on top of the scene
-    pub fn new() -> Option<Rc<Self>> {
+    pub fn new(window: Weak<crate::window::Window>) -> Option<Rc<Self>> {
         let options = match std::env::var("SLINT_DEBUG_PERFORMANCE") {
             Ok(var) => var,
             _ => return None,
@@ -74,6 +75,7 @@ impl FPSCounter {
             refresh_mode,
             output_console,
             output_overlay,
+            window,
         }))
     }
 
@@ -116,6 +118,9 @@ impl FPSCounter {
     ) {
         self.frame_times.borrow_mut().push(instant::Instant::now());
         if matches!(self.refresh_mode, RefreshMode::FullSpeed) {
+            if let Some(window) = self.window.upgrade() {
+                window.request_redraw();
+            }
             crate::animations::CURRENT_ANIMATION_DRIVER
                 .with(|driver| driver.set_has_active_animations());
         }

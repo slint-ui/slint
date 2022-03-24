@@ -69,7 +69,7 @@ impl GLWindow {
             currently_pressed_key_code: Default::default(),
             graphics_cache: Default::default(),
             texture_cache: Default::default(),
-            fps_counter: FPSCounter::new(),
+            fps_counter: FPSCounter::new(window_weak.clone()),
             rendering_notifier: Default::default(),
             #[cfg(target_arch = "wasm32")]
             canvas_id,
