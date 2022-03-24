@@ -46,9 +46,9 @@ pub(crate) mod bitmapfont;
 pub use self::bitmapfont::*;
 
 #[cfg(feature = "std")]
-mod fps_counter;
+mod rendering_metrics_collector;
 #[cfg(feature = "std")]
-pub use fps_counter::*;
+pub use rendering_metrics_collector::*;
 
 /// CachedGraphicsData allows the graphics backend to store an arbitrary piece of data associated with
 /// an item, which is typically computed by accessing properties. The dependency_tracker is used to allow

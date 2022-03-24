@@ -40,7 +40,7 @@ pub struct GLWindow {
     // This cache only contains textures. The cache for decoded CPU side images is in crate::IMAGE_CACHE.
     pub(crate) texture_cache: RefCell<TextureCache>,
 
-    fps_counter: Option<Rc<FPSCounter>>,
+    rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
 
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
 
@@ -69,7 +69,7 @@ impl GLWindow {
             currently_pressed_key_code: Default::default(),
             graphics_cache: Default::default(),
             texture_cache: Default::default(),
-            fps_counter: FPSCounter::new(window_weak.clone()),
+            rendering_metrics_collector: RenderingMetricsCollector::new(window_weak.clone()),
             rendering_notifier: Default::default(),
             #[cfg(target_arch = "wasm32")]
             canvas_id,
@@ -228,8 +228,8 @@ impl WinitWindow for GLWindow {
                 corelib::item_rendering::render_component_items(component, &mut renderer, *origin);
             }
 
-            if let Some(fps_counter) = &self.fps_counter {
-                fps_counter.measure_frame_rendered(&mut renderer);
+            if let Some(collector) = &self.rendering_metrics_collector {
+                collector.measure_frame_rendered(&mut renderer);
             }
 
             renderer.canvas.borrow_mut().flush();
@@ -473,7 +473,7 @@ impl PlatformWindow for GLWindow {
         );
         let id = platform_window.id();
 
-        if let Some(fps_counter) = &self.fps_counter {
+        if let Some(collector) = &self.rendering_metrics_collector {
             cfg_if::cfg_if! {
                 if #[cfg(target_arch = "wasm32")] {
                     let winsys = "HTML Canvas";
@@ -505,7 +505,7 @@ impl PlatformWindow for GLWindow {
                 }
             }
 
-            fps_counter.start(&format!("GL backend (windowing system: {})", winsys));
+            collector.start(&format!("GL backend (windowing system: {})", winsys));
         }
 
         drop(platform_window);

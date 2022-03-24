@@ -30,7 +30,7 @@ impl<'a> TryFrom<&Vec<&'a str>> for RefreshMode {
 }
 
 /// Helper class that rendering backends can use to provide an FPS counter
-pub struct FPSCounter {
+pub struct RenderingMetricsCollector {
     frame_times: RefCell<Vec<instant::Instant>>,
     update_timer: Timer,
     refresh_mode: RefreshMode,
@@ -39,7 +39,7 @@ pub struct FPSCounter {
     window: Weak<crate::window::Window>,
 }
 
-impl FPSCounter {
+impl RenderingMetricsCollector {
     /// Returns a new instance of the counter if requested by the user (via `SLINT_DEBUG_PERFORMANCE` environment variable).
     /// The environment variable holds a comma separated list of options:
     ///     * `refresh_lazy`: selects the lazy refresh mode, where measurements are only taken when a frame is rendered (due to user input or animations)
