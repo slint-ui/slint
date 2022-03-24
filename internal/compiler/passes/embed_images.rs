@@ -7,6 +7,7 @@ use crate::diagnostics::BuildDiagnostics;
 use crate::embedded_resources::*;
 use crate::expression_tree::{Expression, ImageReference};
 use crate::object_tree::*;
+use crate::EmbedResourcesKind;
 #[cfg(not(target_arch = "wasm32"))]
 use image::GenericImageView;
 use std::cell::RefCell;
@@ -16,7 +17,7 @@ use std::rc::Rc;
 
 pub fn embed_images(
     component: &Rc<Component>,
-    embed_files_by_default: bool,
+    embed_files: EmbedResourcesKind,
     scale_factor: f64,
     diag: &mut BuildDiagnostics,
 ) {
@@ -29,7 +30,7 @@ pub fn embed_images(
             embed_images_from_expression(
                 e,
                 global_embedded_resources,
-                embed_files_by_default,
+                embed_files,
                 scale_factor,
                 diag,
             )
@@ -40,17 +41,19 @@ pub fn embed_images(
 fn embed_images_from_expression(
     e: &mut Expression,
     global_embedded_resources: &RefCell<HashMap<String, EmbeddedResources>>,
-    embed_files_by_default: bool,
+    embed_files: EmbedResourcesKind,
     scale_factor: f64,
     diag: &mut BuildDiagnostics,
 ) {
     if let Expression::ImageReference { ref mut resource_ref, source_location } = e {
         match resource_ref {
             ImageReference::AbsolutePath(path)
-                if embed_files_by_default || path.starts_with("builtin:/") =>
+                if embed_files != EmbedResourcesKind::OnlyBuiltinResources
+                    || path.starts_with("builtin:/") =>
             {
                 *resource_ref = embed_image(
                     global_embedded_resources,
+                    embed_files,
                     path,
                     scale_factor,
                     diag,
@@ -62,18 +65,13 @@ fn embed_images_from_expression(
     };
 
     e.visit_mut(|e| {
-        embed_images_from_expression(
-            e,
-            global_embedded_resources,
-            embed_files_by_default,
-            scale_factor,
-            diag,
-        )
+        embed_images_from_expression(e, global_embedded_resources, embed_files, scale_factor, diag)
     });
 }
 
 fn embed_image(
     global_embedded_resources: &RefCell<HashMap<String, EmbeddedResources>>,
+    embed_files: EmbedResourcesKind,
     path: &str,
     _scale_factor: f64,
     diag: &mut BuildDiagnostics,
@@ -88,9 +86,7 @@ fn embed_image(
             if let Some(file) = crate::fileaccess::load_file(std::path::Path::new(path)) {
                 let mut kind = EmbeddedResourcesKind::RawData;
                 #[cfg(not(target_arch = "wasm32"))]
-                if std::env::var("SLINT_PROCESS_IMAGES").is_ok()
-                    || std::env::var("DEP_I_SLINT_BACKEND_MCU_PROCESS_IMAGES").is_ok()
-                {
+                if embed_files == EmbedResourcesKind::EmbedTextures {
                     match load_image(file, _scale_factor) {
                         Ok((img, original_size)) => {
                             kind = EmbeddedResourcesKind::TextureData(generate_texture(

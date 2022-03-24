@@ -15,8 +15,7 @@ fn main() -> std::io::Result<()> {
         println!("cargo:BOARD_CONFIG_PATH={}", path.display())
     }
 
-    println!("cargo:PROCESS_IMAGES=1");
-    println!("cargo:EMBED_GLYPHS=1");
+    println!("cargo:EMBED_TEXTURES=1");
 
     Ok(())
 }

@@ -181,19 +181,19 @@ pub async fn run_passes(
     // collect globals once more: After optimizations we might have less globals
     collect_globals::collect_globals(doc, diag);
 
-    let embedded_fonts = embed_glyphs::embed_glyphs(
-        root_component,
-        compiler_config.scale_factor,
-        std::iter::once(&*doc).chain(type_loader.all_documents()),
-        diag,
-    );
-
-    // Create font registration calls for custom fonts, unless we're embedding pre-rendered glyphs
-    if !embedded_fonts {
+    if compiler_config.embed_resources == crate::EmbedResourcesKind::EmbedTextures {
+        embed_glyphs::embed_glyphs(
+            root_component,
+            compiler_config.scale_factor,
+            std::iter::once(&*doc).chain(type_loader.all_documents()),
+            diag,
+        );
+    } else {
+        // Create font registration calls for custom fonts, unless we're embedding pre-rendered glyphs
         collect_custom_fonts::collect_custom_fonts(
             root_component,
             std::iter::once(&*doc).chain(type_loader.all_documents()),
-            compiler_config.embed_resources,
+            compiler_config.embed_resources == crate::EmbedResourcesKind::EmbedAllResources,
         );
     }
 
