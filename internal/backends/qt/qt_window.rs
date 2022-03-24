@@ -6,8 +6,8 @@
 use cpp::*;
 use euclid::approxeq::ApproxEq;
 use i_slint_core::graphics::{
-    Brush, Color, FontRequest, Image, Point, Rect, RenderingCache, RenderingMetricsCollector,
-    SharedImageBuffer, Size,
+    Brush, Color, FontRequest, Image, Point, Rect, RenderingCache, RenderingMetrics,
+    RenderingMetricsCollector, SharedImageBuffer, Size,
 };
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
@@ -386,6 +386,7 @@ struct QtItemRenderer<'a> {
     cache: QtRenderingCache,
     default_font_properties: FontRequest,
     window: WindowRc,
+    metrics: RenderingMetrics,
 }
 
 impl ItemRenderer for QtItemRenderer<'_> {
@@ -893,6 +894,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
             painter->setOpacity(painter->opacity() * opacity);
         }}
     }
+
+    fn metrics(&self) -> RenderingMetrics {
+        self.metrics.clone()
+    }
 }
 
 pub(crate) fn load_image_from_resource(
@@ -1144,6 +1149,8 @@ impl QtItemRenderer<'_> {
             let mut layer_image = qttypes::QImage::new(layer_size, qttypes::ImageFormat::ARGB32_Premultiplied);
             layer_image.fill(qttypes::QColor::from_rgba_f(0., 0., 0., 0.));
 
+            *self.metrics.layers_created.as_mut().unwrap() += 1;
+
             let mut layer_painter = {
                 let img_ref: &mut qttypes::QImage = &mut layer_image;
                 cpp!(unsafe [img_ref as "QImage*"] -> QPainter as "QPainter" { return QPainter(img_ref); })
@@ -1269,6 +1276,7 @@ impl QtWindow {
                 cache,
                 default_font_properties: self.default_font_properties(),
                 window: runtime_window,
+                metrics: RenderingMetrics { layers_created: Some(0) },
             };
 
             for (component, origin) in components {

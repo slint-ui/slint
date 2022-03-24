@@ -29,9 +29,32 @@ impl<'a> TryFrom<&Vec<&'a str>> for RefreshMode {
     }
 }
 
+/// This struct is filled/provided by the ItemRenderer to return collected metrics
+/// during the rendering of the scene.
+#[derive(Default, Clone)]
+pub struct RenderingMetrics {
+    /// The number of layers that were created. None if the renderer does not create layers.
+    pub layers_created: Option<usize>,
+}
+
+impl core::fmt::Display for RenderingMetrics {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if let Some(layer_count) = self.layers_created {
+            write!(f, "[{} layers created]", layer_count)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+struct FrameData {
+    timestamp: instant::Instant,
+    metrics: RenderingMetrics,
+}
+
 /// Helper class that rendering backends can use to provide an FPS counter
 pub struct RenderingMetricsCollector {
-    frame_times: RefCell<Vec<instant::Instant>>,
+    collected_frame_data_since_second_ago: RefCell<Vec<FrameData>>,
     update_timer: Timer,
     refresh_mode: RefreshMode,
     output_console: bool,
@@ -70,7 +93,7 @@ impl RenderingMetricsCollector {
         }
 
         Some(Rc::new(Self {
-            frame_times: Default::default(),
+            collected_frame_data_since_second_ago: Default::default(),
             update_timer: Default::default(),
             refresh_mode,
             output_console,
@@ -92,18 +115,35 @@ impl RenderingMetricsCollector {
         let this = self.clone();
         self.update_timer.stop();
         self.update_timer.start(TimerMode::Repeated, std::time::Duration::from_secs(1), move || {
-            this.trim_frame_times();
+            this.trim_frame_data_to_second_boundary();
+
+            let mut last_frame_details = String::new();
+            if let Some(last_frame_data) =
+                this.collected_frame_data_since_second_ago.borrow().last()
+            {
+                use core::fmt::Write;
+                if write!(&mut last_frame_details, "{}", last_frame_data.metrics).is_ok()
+                    && !last_frame_details.is_empty()
+                {
+                    last_frame_details.insert_str(0, "details from last frame: ");
+                }
+            }
+
             if this.output_console {
-                eprintln!("average frames per second: {}", this.frame_times.borrow().len());
+                eprintln!(
+                    "average frames per second: {} {}",
+                    this.collected_frame_data_since_second_ago.borrow().len(),
+                    last_frame_details
+                );
             }
         })
     }
 
-    fn trim_frame_times(self: &Rc<Self>) {
+    fn trim_frame_data_to_second_boundary(self: &Rc<Self>) {
         let mut i = 0;
-        let mut frame_times = self.frame_times.borrow_mut();
+        let mut frame_times = self.collected_frame_data_since_second_ago.borrow_mut();
         while i < frame_times.len() {
-            if frame_times[i].elapsed() > std::time::Duration::from_secs(1) {
+            if frame_times[i].timestamp.elapsed() > std::time::Duration::from_secs(1) {
                 frame_times.remove(i);
             } else {
                 i += 1
@@ -111,12 +151,15 @@ impl RenderingMetricsCollector {
         }
     }
 
-    /// Call this function every time you've completed the rendering of a frame.
+    /// Call this function every time you've completed the rendering of a frame. The rendere parameter
+    /// is used to collect additional data and is used to render an overlay if enabled.
     pub fn measure_frame_rendered(
         self: &Rc<Self>,
-        renderer_for_overlay: &mut dyn crate::item_rendering::ItemRenderer,
+        renderer: &mut dyn crate::item_rendering::ItemRenderer,
     ) {
-        self.frame_times.borrow_mut().push(instant::Instant::now());
+        self.collected_frame_data_since_second_ago
+            .borrow_mut()
+            .push(FrameData { timestamp: instant::Instant::now(), metrics: renderer.metrics() });
         if matches!(self.refresh_mode, RefreshMode::FullSpeed) {
             if let Some(window) = self.window.upgrade() {
                 window.request_redraw();
@@ -124,11 +167,11 @@ impl RenderingMetricsCollector {
             crate::animations::CURRENT_ANIMATION_DRIVER
                 .with(|driver| driver.set_has_active_animations());
         }
-        self.trim_frame_times();
+        self.trim_frame_data_to_second_boundary();
 
         if self.output_overlay {
-            renderer_for_overlay.draw_string(
-                &format!("FPS: {}", self.frame_times.borrow().len()),
+            renderer.draw_string(
+                &format!("FPS: {}", self.collected_frame_data_since_second_ago.borrow().len()),
                 crate::Color::from_rgb_u8(0, 128, 128),
             );
         }
