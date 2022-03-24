@@ -49,6 +49,7 @@ impl WasmInputHelper {
         style.set_property("width", &format!("{}px", canvas.offset_width())).unwrap();
         style.set_property("height", &format!("{}px", canvas.offset_height())).unwrap();
         style.set_property("opacity", "0").unwrap(); // Hide the cursor on mobile Safari
+        input.set_attribute("autocapitalize", "none").unwrap(); // Otherwise everything would be capitalized as we need to clear the input
         canvas.before_with_node_1(&input).unwrap();
         let mut h = Self { input };
 
@@ -95,25 +96,28 @@ impl WasmInputHelper {
         let input = h.input.clone();
         h.add_event_listener("input", move |e: web_sys::InputEvent| {
             if let (Some(window), Some(data)) = (win.upgrade(), e.data()) {
-                if !has_key_down2.get() && !e.is_composing() {
-                    let text = SharedString::from(data.as_str());
-                    window.clone().process_key_input(&KeyEvent {
-                        modifiers: Default::default(),
-                        text: text.clone(),
-                        event_type: KeyEventType::KeyPressed,
-                    });
-                    window.process_key_input(&KeyEvent {
-                        modifiers: Default::default(),
-                        text,
-                        event_type: KeyEventType::KeyReleased,
-                    });
+                if !e.is_composing() && e.input_type() != "insertCompositionText" {
+                    if !has_key_down2.get() {
+                        let text = SharedString::from(data.as_str());
+                        window.clone().process_key_input(&KeyEvent {
+                            modifiers: Default::default(),
+                            text: text.clone(),
+                            event_type: KeyEventType::KeyPressed,
+                        });
+                        window.process_key_input(&KeyEvent {
+                            modifiers: Default::default(),
+                            text,
+                            event_type: KeyEventType::KeyReleased,
+                        });
+                        has_key_down2.set(false);
+                    }
                     input.set_value("");
-                    has_key_down2.set(false);
                 }
             }
         });
 
         let win = window.clone();
+        let input = h.input.clone();
         h.add_event_listener("compositionend", move |e: web_sys::CompositionEvent| {
             if let (Some(window), Some(data)) = (win.upgrade(), e.data()) {
                 let text = SharedString::from(data.as_str());
@@ -127,6 +131,7 @@ impl WasmInputHelper {
                     text,
                     event_type: KeyEventType::KeyReleased,
                 });
+                input.set_value("");
             }
         });
 
