@@ -52,7 +52,7 @@ impl WasmInputState {
         let result = if let Some((idx, _)) = data_iter.next() {
             SharedString::from(&data[idx..])
         } else {
-            SharedString::default();
+            SharedString::default()
         };
         self.composition = if is_end { String::new() } else { data };
         (result, to_delete)
