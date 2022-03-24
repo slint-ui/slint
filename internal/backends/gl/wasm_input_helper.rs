@@ -14,7 +14,7 @@
 //! check that we get input event when no normal key are pressed, and we send
 //! that as text. Ignore the composition event until the end.
 
-use std::cell::Cell;
+use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 use i_slint_core::input::{KeyEvent, KeyEventType, KeyboardModifiers};
@@ -25,6 +25,38 @@ use wasm_bindgen::JsCast;
 
 pub struct WasmInputHelper {
     input: web_sys::HtmlInputElement,
+}
+
+#[derive(Default)]
+struct WasmInputState {
+    /// If there was a "keydown" event recieved not part of a composition
+    has_key_down: bool,
+    /// The current composing text
+    composition: String,
+}
+
+impl WasmInputState {
+    /// Update the composition text and return the number of character to rollback and the string to add
+    fn text_from_compose(&mut self, data: String, is_end: bool) -> (SharedString, usize) {
+        let mut data_iter = data.char_indices().peekable();
+        let mut composition_iter = self.composition.chars().peekable();
+        // Skip common prefix
+        while let (Some(c), Some((_, d))) = (composition_iter.peek(), data_iter.peek()) {
+            if c != d {
+                break;
+            }
+            composition_iter.next();
+            data_iter.next();
+        }
+        let to_delete = composition_iter.count();
+        let result = if let Some((idx, _)) = data_iter.next() {
+            SharedString::from(&data[idx..])
+        } else {
+            SharedString::default()
+        };
+        self.composition = if is_end { String::new() } else { data };
+        (result, to_delete)
+    }
 }
 
 impl WasmInputHelper {
@@ -53,7 +85,7 @@ impl WasmInputHelper {
         canvas.before_with_node_1(&input).unwrap();
         let mut h = Self { input };
 
-        let has_key_down = Rc::new(Cell::new(false));
+        let shared_state = Rc::new(RefCell::new(WasmInputState::default()));
 
         let win = window.clone();
         h.add_event_listener("blur", move |_: web_sys::Event| {
@@ -66,10 +98,10 @@ impl WasmInputHelper {
             }
         });
         let win = window.clone();
-        let has_key_down2 = has_key_down.clone();
+        let shared_state2 = shared_state.clone();
         h.add_event_listener("keydown", move |e: web_sys::KeyboardEvent| {
             if let (Some(window), Some(text)) = (win.upgrade(), event_text(&e)) {
-                has_key_down2.set(true);
+                shared_state2.borrow_mut().has_key_down = true;
                 window.process_key_input(&KeyEvent {
                     modifiers: modifiers(&e),
                     text,
@@ -79,10 +111,10 @@ impl WasmInputHelper {
         });
 
         let win = window.clone();
-        let has_key_down2 = has_key_down.clone();
+        let shared_state2 = shared_state.clone();
         h.add_event_listener("keyup", move |e: web_sys::KeyboardEvent| {
             if let (Some(window), Some(text)) = (win.upgrade(), event_text(&e)) {
-                has_key_down2.set(false);
+                shared_state2.borrow_mut().has_key_down = false;
                 window.process_key_input(&KeyEvent {
                     modifiers: modifiers(&e),
                     text,
@@ -92,12 +124,12 @@ impl WasmInputHelper {
         });
 
         let win = window.clone();
-        let has_key_down2 = has_key_down.clone();
+        let shared_state2 = shared_state.clone();
         let input = h.input.clone();
         h.add_event_listener("input", move |e: web_sys::InputEvent| {
             if let (Some(window), Some(data)) = (win.upgrade(), e.data()) {
                 if !e.is_composing() && e.input_type() != "insertCompositionText" {
-                    if !has_key_down2.get() {
+                    if !shared_state2.borrow_mut().has_key_down {
                         let text = SharedString::from(data.as_str());
                         window.clone().process_key_input(&KeyEvent {
                             modifiers: Default::default(),
@@ -109,31 +141,52 @@ impl WasmInputHelper {
                             text,
                             event_type: KeyEventType::KeyReleased,
                         });
-                        has_key_down2.set(false);
+                        shared_state2.borrow_mut().has_key_down = false;
                     }
                     input.set_value("");
                 }
             }
         });
 
-        let win = window.clone();
-        let input = h.input.clone();
-        h.add_event_listener("compositionend", move |e: web_sys::CompositionEvent| {
-            if let (Some(window), Some(data)) = (win.upgrade(), e.data()) {
-                let text = SharedString::from(data.as_str());
-                window.clone().process_key_input(&KeyEvent {
-                    modifiers: Default::default(),
-                    text: text.clone(),
-                    event_type: KeyEventType::KeyPressed,
-                });
-                window.process_key_input(&KeyEvent {
-                    modifiers: Default::default(),
-                    text,
-                    event_type: KeyEventType::KeyReleased,
-                });
-                input.set_value("");
-            }
-        });
+        for event in ["compositionend", "compositionupdate"] {
+            let win = window.clone();
+            let shared_state2 = shared_state.clone();
+            let input = h.input.clone();
+            h.add_event_listener(event, move |e: web_sys::CompositionEvent| {
+                if let (Some(window), Some(data)) = (win.upgrade(), e.data()) {
+                    let is_end = event == "compositionend";
+                    let (text, to_delete) =
+                        shared_state2.borrow_mut().text_from_compose(data, is_end);
+                    if to_delete > 0 {
+                        let mut buffer = [0; 6];
+                        let backspace = SharedString::from(
+                            i_slint_core::input::key_codes::Backspace.encode_utf8(&mut buffer)
+                                as &str,
+                        );
+                        for _ in 0..to_delete {
+                            window.clone().process_key_input(&KeyEvent {
+                                modifiers: Default::default(),
+                                text: backspace.clone(),
+                                event_type: KeyEventType::KeyPressed,
+                            });
+                        }
+                    }
+                    window.clone().process_key_input(&KeyEvent {
+                        modifiers: Default::default(),
+                        text: text.clone(),
+                        event_type: KeyEventType::KeyPressed,
+                    });
+                    window.process_key_input(&KeyEvent {
+                        modifiers: Default::default(),
+                        text,
+                        event_type: KeyEventType::KeyReleased,
+                    });
+                    if is_end {
+                        input.set_value("");
+                    }
+                }
+            });
+        }
 
         h
     }
