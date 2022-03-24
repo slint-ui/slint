@@ -13,7 +13,8 @@ use std::rc::Rc;
 use euclid::approxeq::ApproxEq;
 use event_loop::WinitWindow;
 use i_slint_core::graphics::{
-    Brush, Color, Image, ImageInner, IntRect, IntSize, Point, Rect, RenderingCache, Size,
+    Brush, Color, Image, ImageInner, IntRect, IntSize, Point, Rect, RenderingCache,
+    RenderingMetrics, Size,
 };
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
 use i_slint_core::items::{
@@ -86,6 +87,7 @@ pub struct GLItemRenderer {
     scale_factor: f32,
     /// track the state manually since femtovg don't have accessor for its state
     state: Vec<State>,
+    metrics: RenderingMetrics,
 }
 
 fn rect_with_radius_to_path(rect: Rect, border_radius: f32) -> femtovg::Path {
@@ -885,9 +887,36 @@ impl ItemRenderer for GLItemRenderer {
         *state *= opacity;
         self.canvas.borrow_mut().set_global_alpha(*state);
     }
+
+    fn metrics(&self) -> RenderingMetrics {
+        self.metrics.clone()
+    }
 }
 
 impl GLItemRenderer {
+    pub fn new(
+        canvas: CanvasRc,
+        graphics_window: Rc<GLWindow>,
+        scale_factor: f32,
+        size: winit::dpi::PhysicalSize<u32>,
+    ) -> Self {
+        Self {
+            canvas,
+            layer_images_to_delete_after_flush: Default::default(),
+            graphics_window,
+            scale_factor,
+            state: vec![crate::State {
+                scissor: Rect::new(
+                    Point::default(),
+                    Size::new(size.width as f32, size.height as f32) / scale_factor,
+                ),
+                global_alpha: 1.,
+                current_render_target: femtovg::RenderTarget::Screen,
+            }],
+            metrics: RenderingMetrics { layers_created: Some(0) },
+        }
+    }
+
     fn render_layer(
         &mut self,
         item_cache: &CachedRenderingData,
@@ -904,6 +933,7 @@ impl GLItemRenderer {
                         size.width.ceil() as u32,
                         size.height.ceil() as u32,
                     )?;
+                    *self.metrics.layers_created.as_mut().unwrap() += 1;
 
                     let previous_render_target = self.current_render_target();
 

@@ -209,20 +209,12 @@ impl WinitWindow for GLWindow {
                 }
             }
 
-            let mut renderer = crate::GLItemRenderer {
-                canvas: window.canvas.as_ref().unwrap().clone(),
-                layer_images_to_delete_after_flush: Default::default(),
-                graphics_window: self.clone(),
+            let mut renderer = crate::GLItemRenderer::new(
+                window.canvas.as_ref().unwrap().clone(),
+                self.clone(),
                 scale_factor,
-                state: vec![crate::State {
-                    scissor: Rect::new(
-                        Point::default(),
-                        Size::new(size.width as f32, size.height as f32) / scale_factor,
-                    ),
-                    global_alpha: 1.,
-                    current_render_target: femtovg::RenderTarget::Screen,
-                }],
-            };
+                size,
+            );
 
             for (component, origin) in components {
                 corelib::item_rendering::render_component_items(component, &mut renderer, *origin);
