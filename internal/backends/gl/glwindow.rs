@@ -15,6 +15,7 @@ use crate::glcontext::OpenGLContext;
 use const_field_offset::FieldOffsets;
 use corelib::api::{GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use corelib::component::ComponentRc;
+use corelib::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use corelib::graphics::*;
 use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};

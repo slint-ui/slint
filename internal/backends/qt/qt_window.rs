@@ -5,9 +5,11 @@
 
 use cpp::*;
 use euclid::approxeq::ApproxEq;
+use i_slint_core::graphics::rendering_metrics_collector::{
+    RenderingMetrics, RenderingMetricsCollector,
+};
 use i_slint_core::graphics::{
-    Brush, Color, FontRequest, Image, Point, Rect, RenderingCache, RenderingMetrics,
-    RenderingMetricsCollector, SharedImageBuffer, Size,
+    Brush, Color, FontRequest, Image, Point, Rect, RenderingCache, SharedImageBuffer, Size,
 };
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
