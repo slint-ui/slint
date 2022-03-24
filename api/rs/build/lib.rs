@@ -55,6 +55,7 @@ use std::io::Write;
 use std::path::Path;
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::EmbedResourcesKind;
 
 /// The structure for configuring aspects of the compilation of `.slint` markup files to Rust.
 pub struct CompilerConfiguration {
@@ -199,9 +200,11 @@ pub fn compile_with_config(
 
     let mut compiler_config = config.config;
 
-    if let (Ok(target), Ok(host)) = (env::var("TARGET"), env::var("HOST")) {
+    if env::var_os("DEP_I_SLINT_BACKEND_MCU_EMBED_TEXTURES").is_some() {
+        compiler_config.embed_resources = EmbedResourcesKind::EmbedTextures;
+    } else if let (Ok(target), Ok(host)) = (env::var("TARGET"), env::var("HOST")) {
         if target != host {
-            compiler_config.embed_resources = true;
+            compiler_config.embed_resources = EmbedResourcesKind::EmbedAllResources;
         }
     };
     let mut rerun_if_changed = String::new();
@@ -269,9 +272,7 @@ pub fn compile_with_config(
     }
     println!("cargo:rerun-if-env-changed=SLINT_STYLE");
     println!("cargo:rerun-if-env-changed=SIXTYFPS_STYLE");
-    println!("cargo:rerun-if-env-changed=SLINT_EMBED_GLYPHS");
     println!("cargo:rerun-if-env-changed=SLINT_FONT_SIZES");
-    println!("cargo:rerun-if-env-changed=SLINT_PROCESS_IMAGES");
     println!("cargo:rerun-if-env-changed=SLINT_SCALE_FACTOR");
 
     println!("cargo:rustc-env=SLINT_INCLUDE_GENERATED={}", output_file_path.display());

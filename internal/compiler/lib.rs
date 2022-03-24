@@ -35,12 +35,23 @@ pub mod typeregister;
 
 mod passes;
 
+/// Specify how the resources are embedded by the compiler
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum EmbedResourcesKind {
+    /// Only embed builtin resources
+    OnlyBuiltinResources,
+    /// Embed all images resources (the content of their files)
+    EmbedAllResources,
+    /// Embed raw texture (process images and fonts)
+    EmbedTextures,
+}
+
 /// CompilationConfiguration allows configuring different aspects of the compiler.
 #[derive(Clone)]
 pub struct CompilerConfiguration {
     /// Indicate whether to embed resources such as images in the generated output or whether
     /// to retain references to the resources on the file system.
-    pub embed_resources: bool,
+    pub embed_resources: EmbedResourcesKind,
     /// The compiler will look in these paths for components used in the file to compile.
     pub include_paths: Vec<std::path::PathBuf>,
     /// the name of the style. (eg: "native")
@@ -68,17 +79,24 @@ impl CompilerConfiguration {
     pub fn new(output_format: crate::generator::OutputFormat) -> Self {
         let embed_resources = match std::env::var("SLINT_EMBED_RESOURCES") {
             Ok(var) => {
-                var.parse().unwrap_or_else(|_|{
+                let var = var.parse::<bool>().unwrap_or_else(|_|{
                     panic!("SLINT_EMBED_RESOURCES has incorrect value. Must be either unset, 'true' or 'false'")
-                })
-            }
-            Err(_) => {
-                match output_format {
-                    #[cfg(feature = "rust")]
-                    crate::generator::OutputFormat::Rust => true,
-                    _ => false,
+                });
+                match var {
+                    true => EmbedResourcesKind::OnlyBuiltinResources,
+                    false => EmbedResourcesKind::EmbedAllResources,
                 }
             }
+            Err(_) => match output_format {
+                #[cfg(feature = "rust")]
+                crate::generator::OutputFormat::Rust => {
+                    match std::env::var_os("SLINT_EMBED_TEXTURES") {
+                        Some(_) => EmbedResourcesKind::EmbedTextures,
+                        None => EmbedResourcesKind::EmbedAllResources,
+                    }
+                }
+                _ => EmbedResourcesKind::OnlyBuiltinResources,
+            },
         };
 
         let inline_all_elements = match std::env::var("SLINT_INLINING") {

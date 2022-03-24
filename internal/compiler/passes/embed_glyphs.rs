@@ -25,13 +25,7 @@ pub fn embed_glyphs<'a>(
     scale_factor: f64,
     all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
     diag: &mut BuildDiagnostics,
-) -> bool {
-    if std::env::var("SLINT_EMBED_GLYPHS").is_err()
-        && std::env::var("DEP_I_SLINT_BACKEND_MCU_EMBED_GLYPHS").is_err()
-    {
-        return false;
-    }
-
+) {
     let mut fontdb = fontdb::Database::new();
     fontdb.load_system_fonts();
 
@@ -136,8 +130,6 @@ pub fn embed_glyphs<'a>(
         arguments: vec![Expression::NumberLiteral(resource_id as _, Unit::None)],
         source_location: None,
     });
-
-    true
 }
 
 #[cfg(not(target_arch = "wasm32"))]
