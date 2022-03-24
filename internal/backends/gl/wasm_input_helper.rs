@@ -48,6 +48,7 @@ impl WasmInputHelper {
         style.set_property("top", &format!("{}px", canvas.offset_top())).unwrap();
         style.set_property("width", &format!("{}px", canvas.offset_width())).unwrap();
         style.set_property("height", &format!("{}px", canvas.offset_height())).unwrap();
+        style.set_property("opacity", "0").unwrap(); // Hide the cursor on mobile Safari
         canvas.before_with_node_1(&input).unwrap();
         let mut h = Self { input };
 
