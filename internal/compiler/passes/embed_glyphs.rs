@@ -26,7 +26,9 @@ pub fn embed_glyphs<'a>(
     all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
     diag: &mut BuildDiagnostics,
 ) -> bool {
-    if std::env::var("SLINT_EMBED_GLYPHS").is_err() {
+    if std::env::var("SLINT_EMBED_GLYPHS").is_err()
+        && std::env::var("DEP_I_SLINT_BACKEND_MCU_EMBED_GLYPHS").is_err()
+    {
         return false;
     }
 
@@ -149,7 +151,7 @@ fn embed_font(family_name: String, font: fontdue::Font, scale_factor: f64) -> Bi
                 })
                 .collect::<Vec<_>>()
         })
-        .expect("please specify SLINT_FONT_SIZES");
+        .expect("please specify SLINT_FONT_SIZES environment variable");
     pixel_sizes.sort();
 
     // TODO: configure coverage
