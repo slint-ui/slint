@@ -7,7 +7,7 @@
 use super::graphics::RenderingCache;
 use super::items::*;
 use crate::component::ComponentRc;
-use crate::graphics::{CachedGraphicsData, Point, Rect, RenderingMetrics};
+use crate::graphics::{CachedGraphicsData, Point, Rect};
 use crate::item_tree::{ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult};
 use alloc::boxed::Box;
 use core::cell::{Cell, RefCell};
@@ -287,7 +287,8 @@ pub trait ItemRenderer {
 
     /// Returns any rendering metrics collecting since the creation of the renderer (typically
     /// per frame)
-    fn metrics(&self) -> RenderingMetrics {
+    #[cfg(feature = "std")]
+    fn metrics(&self) -> crate::graphics::rendering_metrics_collector::RenderingMetrics {
         Default::default()
     }
 }

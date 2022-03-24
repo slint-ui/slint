@@ -12,9 +12,9 @@ use std::rc::Rc;
 
 use euclid::approxeq::ApproxEq;
 use event_loop::WinitWindow;
+use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{
-    Brush, Color, Image, ImageInner, IntRect, IntSize, Point, Rect, RenderingCache,
-    RenderingMetrics, Size,
+    Brush, Color, Image, ImageInner, IntRect, IntSize, Point, Rect, RenderingCache, Size,
 };
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
 use i_slint_core::items::{
