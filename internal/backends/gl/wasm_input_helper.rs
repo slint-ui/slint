@@ -49,10 +49,11 @@ impl WasmInputState {
             data_iter.next();
         }
         let to_delete = composition_iter.count();
-        let mut result = SharedString::default();
-        if let Some((idx, _)) = data_iter.next() {
-            result.push_str(&data[idx..]);
-        }
+        let result = if let Some((idx, _)) = data_iter.next() {
+            SharedString::from(&data[idx..])
+        } else {
+            SharedString::default();
+        };
         self.composition = if is_end { String::new() } else { data };
         (result, to_delete)
     }
