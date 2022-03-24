@@ -693,7 +693,7 @@ impl ItemRenderer for GLItemRenderer {
         } else {
             opacity_item
                 .cached_rendering_data
-                .release(&mut self.graphics_window.clone().graphics_cache.borrow_mut());
+                .release(&mut self.graphics_window.graphics_cache.borrow_mut());
             RenderingResult::ContinueRenderingChildren
         }
     }
