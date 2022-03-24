@@ -6,8 +6,8 @@
 use cpp::*;
 use euclid::approxeq::ApproxEq;
 use i_slint_core::graphics::{
-    Brush, Color, FPSCounter, FontRequest, Image, Point, Rect, RenderingCache, SharedImageBuffer,
-    Size,
+    Brush, Color, FontRequest, Image, Point, Rect, RenderingCache, RenderingMetricsCollector,
+    SharedImageBuffer, Size,
 };
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
@@ -1227,7 +1227,7 @@ pub struct QtWindow {
     widget_ptr: QWidgetPtr,
     pub(crate) self_weak: Weak<i_slint_core::window::Window>,
 
-    fps_counter: Option<Rc<FPSCounter>>,
+    rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
 
     cache: QtRenderingCache,
 }
@@ -1241,7 +1241,7 @@ impl QtWindow {
         let rc = Rc::new(QtWindow {
             widget_ptr,
             self_weak: window_weak.clone(),
-            fps_counter: FPSCounter::new(window_weak.clone()),
+            rendering_metrics_collector: RenderingMetricsCollector::new(window_weak.clone()),
             cache: Default::default(),
         });
         let self_weak = Rc::downgrade(&rc);
@@ -1279,8 +1279,8 @@ impl QtWindow {
                 );
             }
 
-            if let Some(fps_counter) = &self.fps_counter {
-                fps_counter.measure_frame_rendered(&mut renderer);
+            if let Some(collector) = &self.rendering_metrics_collector {
+                collector.measure_frame_rendered(&mut renderer);
             }
 
             i_slint_core::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
@@ -1357,11 +1357,11 @@ impl PlatformWindow for QtWindow {
         cpp! {unsafe [widget_ptr as "QWidget*"] {
             widget_ptr->show();
         }};
-        if let Some(fps_counter) = &self.fps_counter {
+        if let Some(collector) = &self.rendering_metrics_collector {
             let qt_platform_name = cpp! {unsafe [] -> qttypes::QString as "QString" {
                 return QGuiApplication::platformName();
             }};
-            fps_counter.start(&format!("Qt backend (platform {})", qt_platform_name));
+            collector.start(&format!("Qt backend (platform {})", qt_platform_name));
         }
     }
 
