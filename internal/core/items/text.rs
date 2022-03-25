@@ -354,7 +354,7 @@ impl Item for TextInput {
                 let clicked_offset = window.text_input_byte_offset_for_position(self, pos) as i32;
                 self.as_ref().pressed.set(true);
                 self.as_ref().anchor_position.set(clicked_offset);
-                self.set_cursor_position(clicked_offset, window);
+                self.set_cursor_position(clicked_offset, true, window);
                 if !self.has_focus() {
                     window.clone().set_focus_item(self_rc);
                 }
@@ -367,7 +367,7 @@ impl Item for TextInput {
                 if self.as_ref().pressed.get() {
                     let clicked_offset =
                         window.text_input_byte_offset_for_position(self, pos) as i32;
-                    self.set_cursor_position(clicked_offset, window);
+                    self.set_cursor_position(clicked_offset, true, window);
 
                     self.preferred_x_pos.set(pos.x);
                 }
@@ -442,7 +442,7 @@ impl Item for TextInput {
                 self.as_ref().text.set(text.into());
                 let new_cursor_pos = (insert_pos + event.text.len()) as i32;
                 self.as_ref().anchor_position.set(new_cursor_pos);
-                self.set_cursor_position(new_cursor_pos, window);
+                self.set_cursor_position(new_cursor_pos, true, window);
 
                 // Keep the cursor visible when inserting text. Blinking should only occur when
                 // nothing is entered or the cursor isn't moved.
@@ -612,12 +612,7 @@ impl TextInput {
                 self.as_ref().anchor_position.set(new_cursor_pos as i32);
             }
         }
-        self.set_cursor_position(new_cursor_pos as i32, window);
-
-        if reset_preferred_x_pos {
-            self.preferred_x_pos
-                .set(window.text_input_cursor_rect_for_byte_offset(self, new_cursor_pos).origin.x);
-        }
+        self.set_cursor_position(new_cursor_pos as i32, reset_preferred_x_pos, window);
 
         // Keep the cursor visible when moving. Blinking should only occur when
         // nothing is entered or the cursor isn't moved.
@@ -626,11 +621,19 @@ impl TextInput {
         new_cursor_pos != last_cursor_pos
     }
 
-    fn set_cursor_position(self: Pin<&Self>, new_position: i32, window: &WindowRc) {
+    fn set_cursor_position(
+        self: Pin<&Self>,
+        new_position: i32,
+        reset_preferred_x_pos: bool,
+        window: &WindowRc,
+    ) {
         self.cursor_position.set(new_position);
         if new_position >= 0 {
             let pos =
                 window.text_input_cursor_rect_for_byte_offset(self, new_position as usize).origin;
+            if reset_preferred_x_pos {
+                self.preferred_x_pos.set(pos.x);
+            }
             Self::FIELD_OFFSETS.cursor_position_changed.apply_pin(self).call(&(pos,));
         }
     }
@@ -667,7 +670,7 @@ impl TextInput {
         let text = [text.split_at(anchor).0, text.split_at(cursor).1].concat();
         self.text.set(text.into());
         self.anchor_position.set(anchor as i32);
-        self.set_cursor_position(anchor as i32, window);
+        self.set_cursor_position(anchor as i32, true, window);
         Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
 
@@ -708,7 +711,7 @@ impl TextInput {
         let cursor_pos = cursor_pos + text_to_insert.len();
         self.text.set(text.into());
         self.anchor_position.set(cursor_pos as i32);
-        self.set_cursor_position(cursor_pos as i32, window);
+        self.set_cursor_position(cursor_pos as i32, true, window);
         Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
 
