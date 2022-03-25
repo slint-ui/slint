@@ -557,7 +557,7 @@ impl TextInput {
         let mut grapheme_cursor =
             unicode_segmentation::GraphemeCursor::new(last_cursor_pos, text.len(), true);
 
-        let font_height = window.text_size(self.unresolved_font_request(), "", None).height;
+        let font_height = window.text_size(self.unresolved_font_request(), " ", None).height;
 
         let mut reset_preferred_x_pos = true;
 
@@ -571,18 +571,22 @@ impl TextInput {
             TextCursorDirection::NextLine => {
                 reset_preferred_x_pos = false;
 
-                let mut cursor_xy_pos =
-                    window.text_input_position_for_byte_offset(self, last_cursor_pos);
-                cursor_xy_pos.y += font_height * 1.5;
+                let cursor_rect =
+                    window.text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
+                let mut cursor_xy_pos = cursor_rect.center();
+
+                cursor_xy_pos.y += font_height;
                 cursor_xy_pos.x = self.preferred_x_pos.get();
                 window.text_input_byte_offset_for_position(self, cursor_xy_pos)
             }
             TextCursorDirection::PreviousLine => {
                 reset_preferred_x_pos = false;
 
-                let mut cursor_xy_pos =
-                    window.text_input_position_for_byte_offset(self, last_cursor_pos);
-                cursor_xy_pos.y -= font_height * 0.5;
+                let cursor_rect =
+                    window.text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
+                let mut cursor_xy_pos = cursor_rect.center();
+
+                cursor_xy_pos.y -= font_height;
                 cursor_xy_pos.x = self.preferred_x_pos.get();
                 window.text_input_byte_offset_for_position(self, cursor_xy_pos)
             }
@@ -612,7 +616,7 @@ impl TextInput {
 
         if reset_preferred_x_pos {
             self.preferred_x_pos
-                .set(window.text_input_position_for_byte_offset(self, new_cursor_pos).x);
+                .set(window.text_input_cursor_rect_for_byte_offset(self, new_cursor_pos).origin.x);
         }
 
         // Keep the cursor visible when moving. Blinking should only occur when
@@ -625,7 +629,8 @@ impl TextInput {
     fn set_cursor_position(self: Pin<&Self>, new_position: i32, window: &WindowRc) {
         self.cursor_position.set(new_position);
         if new_position >= 0 {
-            let pos = window.text_input_position_for_byte_offset(self, new_position as usize);
+            let pos =
+                window.text_input_cursor_rect_for_byte_offset(self, new_position as usize).origin;
             Self::FIELD_OFFSETS.cursor_position_changed.apply_pin(self).call(&(pos,));
         }
     }

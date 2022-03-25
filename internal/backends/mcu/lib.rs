@@ -96,7 +96,7 @@ mod the_backend {
     use core::cell::{Cell, RefCell};
     use core::pin::Pin;
     use i_slint_core::component::ComponentRc;
-    use i_slint_core::graphics::{Color, Point, Size};
+    use i_slint_core::graphics::{Color, Point, Rect, Size};
     use i_slint_core::window::PlatformWindow;
     use i_slint_core::window::Window;
     use i_slint_core::{ImageInner, StaticTextures};
@@ -167,11 +167,11 @@ mod the_backend {
         ) -> usize {
             0
         }
-        fn text_input_position_for_byte_offset(
+        fn text_input_cursor_rect_for_byte_offset(
             &self,
             _text_input: Pin<&i_slint_core::items::TextInput>,
             _byte_offset: usize,
-        ) -> Point {
+        ) -> Rect {
             Default::default()
         }
         fn as_any(&self) -> &dyn core::any::Any {

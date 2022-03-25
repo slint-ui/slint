@@ -200,11 +200,11 @@ impl PlatformWindow for SimulatorWindow {
         todo!()
     }
 
-    fn text_input_position_for_byte_offset(
+    fn text_input_cursor_rect_for_byte_offset(
         &self,
         _text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
         _byte_offset: usize,
-    ) -> i_slint_core::graphics::Point {
+    ) -> i_slint_core::graphics::Rect {
         todo!()
     }
 
