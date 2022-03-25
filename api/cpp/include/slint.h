@@ -42,10 +42,12 @@ namespace slint {
 namespace private_api {
 using cbindgen_private::ComponentVTable;
 using cbindgen_private::ItemVTable;
+using ComponentRc = vtable::VRc<private_api::ComponentVTable>;
 using ComponentRef = vtable::VRef<private_api::ComponentVTable>;
+using IndexRange = cbindgen_private::IndexRange;
 using ItemRef = vtable::VRef<private_api::ItemVTable>;
 using ItemVisitorRefMut = vtable::VRefMut<cbindgen_private::ItemVisitorVTable>;
-using cbindgen_private::ComponentRc;
+using cbindgen_private::ComponentWeak;
 using cbindgen_private::ItemWeak;
 using cbindgen_private::TraversalOrder;
 }
@@ -844,6 +846,16 @@ public:
     {
         const auto &x = inner->data.at(i);
         return { &C::static_vtable, const_cast<C *>(&(**x.ptr)) };
+    }
+
+    void component_at(int i, vtable::VWeak<private_api::ComponentVTable> *result) const
+    {
+        const auto &x = inner->data.at(i);
+        *result = vtable::VWeak<private_api::ComponentVTable>{x.ptr->into_dyn()};
+    }
+
+    private_api::IndexRange index_range() const {
+        return private_api::IndexRange { 0, inner->data.size() };
     }
 
     float compute_layout_listview(const private_api::Property<float> *viewport_width,
