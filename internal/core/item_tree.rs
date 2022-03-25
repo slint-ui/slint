@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore xffff
+
 use crate::component::{ComponentRc, ComponentVTable};
 use crate::items::{ItemRef, ItemVTable};
 use core::pin::Pin;
@@ -98,6 +100,82 @@ impl ItemTreeNode {
         match self {
             ItemTreeNode::Item { parent_index, .. } => *parent_index as usize,
             ItemTreeNode::DynamicTree { parent_index, .. } => *parent_index as usize,
+        }
+    }
+}
+
+/// The `ComponentItemTree` provides tree walking code for the physical ItemTree stored in
+/// a `Component` without stitching any inter-Component links together!
+pub struct ComponentItemTree<'a> {
+    item_tree: &'a [ItemTreeNode],
+}
+
+impl<'a> ComponentItemTree<'a> {
+    /// Create a new `ItemTree` from its raw data.
+    pub fn new(item_tree: &'a [ItemTreeNode]) -> Self {
+        Self { item_tree }
+    }
+
+    /// Get a ItemTreeNode
+    pub fn get(&self, index: usize) -> Option<&ItemTreeNode> {
+        self.item_tree.get(index)
+    }
+
+    /// Get the parent of a node, returns `None` if this is the root node of this item tree.
+    pub fn parent(&self, index: usize) -> Option<usize> {
+        (index < self.item_tree.len() && index != 0).then(|| self.item_tree[index].parent_index())
+    }
+
+    /// Returns the next sibling or `None` if this is the last sibling.
+    pub fn next_sibling(&self, index: usize) -> Option<usize> {
+        if let Some(parent_index) = self.parent(index) {
+            match self.item_tree[parent_index] {
+                ItemTreeNode::Item { children_index, children_count, .. } => (index
+                    < (children_count as usize + children_index as usize - 1))
+                    .then(|| index + 1),
+                ItemTreeNode::DynamicTree { .. } => {
+                    unreachable!("Parent in same item tree is a repeater.")
+                }
+            }
+        } else {
+            None // No parent, so we have no siblings either:-)
+        }
+    }
+
+    /// Returns the previous sibling or `None` if this is the first sibling.
+    pub fn previous_sibling(&self, index: usize) -> Option<usize> {
+        if let Some(parent_index) = self.parent(index) {
+            match self.item_tree[parent_index] {
+                ItemTreeNode::Item { children_index, .. } => {
+                    (index > children_index as usize).then(|| index - 1)
+                }
+                ItemTreeNode::DynamicTree { .. } => {
+                    unreachable!("Parent in same item tree is a repeater.")
+                }
+            }
+        } else {
+            None // No parent, so we have no siblings either:-)
+        }
+    }
+
+    /// Returns the first child or `None` if this are no children or the `index`
+    /// points to a `DynamicTree`.
+    pub fn first_child(&self, index: usize) -> Option<usize> {
+        match self.item_tree.get(index)? {
+            ItemTreeNode::Item { children_index, children_count, .. } => {
+                (*children_count != 0).then(|| *children_index as _)
+            }
+            ItemTreeNode::DynamicTree { .. } => None,
+        }
+    }
+
+    /// Returns the last child or `None` if this are no children or the `index`
+    /// points to an `DynamicTree`.
+    pub fn last_child(&self, index: usize) -> Option<usize> {
+        match self.item_tree.get(index)? {
+            ItemTreeNode::Item { children_index, children_count, .. } => (*children_count != 0)
+                .then(|| *children_index as usize + *children_count as usize - 1),
+            ItemTreeNode::DynamicTree { .. } => None,
         }
     }
 }
