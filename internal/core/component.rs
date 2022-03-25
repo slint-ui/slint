@@ -82,6 +82,9 @@ pub struct ComponentVTable {
     pub dealloc: unsafe fn(&ComponentVTable, ptr: *mut u8, layout: vtable::Layout),
 }
 
+#[cfg(test)]
+pub(crate) use ComponentVTable_static;
+
 /// Alias for `vtable::VRef<ComponentVTable>` which represent a pointer to a `dyn Component` with
 /// the associated vtable
 pub type ComponentRef<'a> = vtable::VRef<'a, ComponentVTable>;

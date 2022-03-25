@@ -162,13 +162,80 @@ pub struct ItemVTable {
     ) -> RenderingResult,
 }
 
+fn find_sibling_outside_repeater(
+    component: crate::component::ComponentRc,
+    comp_ref_pin: Pin<VRef<ComponentVTable>>,
+    index: usize,
+    sibling_step: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
+    subtree_child: &dyn Fn(usize, usize) -> usize,
+) -> Option<ItemRc> {
+    assert_ne!(index, 0);
+
+    let item_tree =
+        crate::item_tree::ComponentItemTree::new(comp_ref_pin.as_ref().get_item_tree().as_slice());
+
+    let mut current_sibling = index;
+    loop {
+        current_sibling = sibling_step(&item_tree, current_sibling)?;
+
+        match item_tree.get(current_sibling)? {
+            crate::item_tree::ItemTreeNode::Item { .. } => {
+                return Some(ItemRc::new(component, current_sibling))
+            }
+            crate::item_tree::ItemTreeNode::DynamicTree { index, .. } => {
+                let range = comp_ref_pin.as_ref().get_subtree_range(*index);
+                let component_index = subtree_child(range.start, range.end);
+                if range.start <= component_index && component_index < range.end {
+                    let mut component = Default::default();
+                    comp_ref_pin.as_ref().get_subtree_component(
+                        *index,
+                        component_index,
+                        &mut component,
+                    );
+                    let component = component.upgrade().unwrap();
+                    return Some(ItemRc::new(component, 0));
+                }
+            }
+        }
+    }
+}
+
+fn step_into_node(
+    component: crate::component::ComponentRc,
+    comp_ref_pin: Pin<VRef<ComponentVTable>>,
+    node_index: usize,
+    item_tree: &crate::item_tree::ComponentItemTree,
+    subtree_child: &dyn Fn(usize, usize) -> usize,
+    wrap_around: &dyn Fn(ItemRc) -> ItemRc,
+) -> Option<ItemRc> {
+    match item_tree.get(node_index).expect("Invalid index passed to item tree") {
+        crate::item_tree::ItemTreeNode::Item { .. } => Some(ItemRc::new(component, node_index)),
+        crate::item_tree::ItemTreeNode::DynamicTree { index, .. } => {
+            let range = comp_ref_pin.as_ref().get_subtree_range(*index);
+            let component_index = subtree_child(range.start, range.end);
+            if range.start <= component_index && component_index < range.end {
+                let mut child_component = Default::default();
+                comp_ref_pin.as_ref().get_subtree_component(
+                    *index,
+                    component_index,
+                    &mut child_component,
+                );
+                let child_component = child_component.upgrade().unwrap();
+                Some(wrap_around(ItemRc::new(child_component, 0)))
+            } else {
+                None
+            }
+        }
+    }
+}
+
 /// Alias for `vtable::VRef<ItemVTable>` which represent a pointer to a `dyn Item` with
 /// the associated vtable
 pub type ItemRef<'a> = vtable::VRef<'a, ItemVTable>;
 
 /// A ItemRc is holding a reference to a component containing the item, and the index of this item
 #[repr(C)]
-#[derive(Clone)]
+#[derive(Clone, Eq)]
 pub struct ItemRc {
     component: vtable::VRc<ComponentVTable>,
     index: usize,
@@ -234,6 +301,138 @@ impl ItemRc {
             crate::item_tree::ItemTreeNode::DynamicTree { .. } => None,
         }
     }
+
+    fn find_child(
+        &self,
+        child_access: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
+        child_step: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
+        subtree_child: &dyn Fn(usize, usize) -> usize,
+    ) -> Option<Self> {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        let item_tree = crate::item_tree::ComponentItemTree::new(
+            comp_ref_pin.as_ref().get_item_tree().as_slice(),
+        );
+
+        let mut current_child_index = child_access(&item_tree, self.index())?;
+        loop {
+            if let Some(item) = step_into_node(
+                self.component(),
+                comp_ref_pin,
+                current_child_index,
+                &item_tree,
+                subtree_child,
+                &|i| i,
+            ) {
+                return Some(item);
+            }
+            current_child_index = child_step(&item_tree, current_child_index)?;
+        }
+    }
+
+    /// The first child Item of this Item
+    pub fn first_child(&self) -> Option<Self> {
+        self.find_child(
+            &|item_tree, index| item_tree.first_child(index),
+            &|item_tree, index| item_tree.next_sibling(index),
+            &|start, _| start,
+        )
+    }
+
+    /// The last child Item of this Item
+    pub fn last_child(&self) -> Option<Self> {
+        self.find_child(
+            &|item_tree, index| item_tree.last_child(index),
+            &|item_tree, index| item_tree.previous_sibling(index),
+            &|_, end| end.wrapping_sub(1),
+        )
+    }
+
+    fn find_sibling(
+        &self,
+        sibling_step: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
+        subtree_step: &dyn Fn(usize) -> usize,
+        subtree_child: &dyn Fn(usize, usize) -> usize,
+    ) -> Option<Self> {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        if self.index == 0 {
+            let mut parent_item = Default::default();
+            comp_ref_pin.as_ref().parent_item(0, &mut parent_item);
+            let current_component_subtree_index = comp_ref_pin.as_ref().subtree_index();
+            if let Some(parent_item) = parent_item.upgrade() {
+                let parent = parent_item.component();
+                let parent_ref_pin = vtable::VRc::borrow_pin(&parent);
+                let parent_item_index = parent_item.index();
+                let parent_item_tree = crate::item_tree::ComponentItemTree::new(
+                    parent_ref_pin.as_ref().get_item_tree().as_slice(),
+                );
+
+                let subtree_index = match parent_item_tree.get(parent_item_index)? {
+                    crate::item_tree::ItemTreeNode::Item { .. } => {
+                        panic!("Got an Item, expected a repeater!")
+                    }
+                    crate::item_tree::ItemTreeNode::DynamicTree { index, .. } => *index as usize,
+                };
+
+                let range = parent_ref_pin.as_ref().get_subtree_range(subtree_index);
+                let next_subtree_index = subtree_step(current_component_subtree_index);
+
+                if range.start <= next_subtree_index && next_subtree_index < range.end {
+                    // Get next subtree from repeater!
+                    let mut next_subtree_component = Default::default();
+                    parent_ref_pin.as_ref().get_subtree_component(
+                        subtree_index,
+                        next_subtree_index,
+                        &mut next_subtree_component,
+                    );
+                    let next_subtree_component = next_subtree_component.upgrade().unwrap();
+                    return Some(ItemRc::new(next_subtree_component, 0));
+                }
+
+                // We need to leave the repeater:
+                find_sibling_outside_repeater(
+                    parent.clone(),
+                    parent_ref_pin,
+                    parent_item_index,
+                    sibling_step,
+                    subtree_child,
+                )
+            } else {
+                None // At root if the item tree
+            }
+        } else {
+            find_sibling_outside_repeater(
+                self.component(),
+                comp_ref_pin,
+                self.index(),
+                sibling_step,
+                subtree_child,
+            )
+        }
+    }
+
+    /// The previous sibling of this Item
+    pub fn previous_sibling(&self) -> Option<Self> {
+        self.find_sibling(
+            &|item_tree, index| item_tree.previous_sibling(index),
+            &|index| index.wrapping_sub(1),
+            &|_, end| end.wrapping_sub(1),
+        )
+    }
+
+    /// The next sibling of this Item
+    pub fn next_sibling(&self) -> Option<Self> {
+        self.find_sibling(
+            &|item_tree, index| item_tree.next_sibling(index),
+            &|index| index + 1,
+            &|start, _| start,
+        )
+    }
+}
+
+impl PartialEq for ItemRc {
+    fn eq(&self, other: &Self) -> bool {
+        VRc::ptr_eq(&self.component, &other.component) && self.index == other.index
+    }
 }
 
 /// A Weak reference to an item that can be constructed from an ItemRc.
@@ -255,8 +454,6 @@ impl PartialEq for ItemWeak {
         VWeak::ptr_eq(&self.component, &other.component) && self.index == other.index
     }
 }
-
-impl Eq for ItemWeak {}
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
@@ -1490,4 +1687,368 @@ impl Default for PointerEventButton {
 pub struct PointerEvent {
     pub button: PointerEventButton,
     pub kind: PointerEventKind,
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::component::{Component, ComponentRc, ComponentVTable, ComponentWeak, IndexRange};
+    use crate::item_tree::{ItemTreeNode, ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
+    use crate::layout::{LayoutInfo, Orientation};
+    use crate::slice::Slice;
+
+    use vtable::VRc;
+
+    use super::{ItemRc, ItemVTable, ItemWeak};
+
+    struct TestComponent {
+        parent_component: Option<ComponentRc>,
+        item_tree: Vec<ItemTreeNode>,
+        subtrees: std::cell::RefCell<Vec<Vec<vtable::VRc<ComponentVTable, TestComponent>>>>,
+        subtree_index: usize,
+    }
+
+    impl Component for TestComponent {
+        fn visit_children_item(
+            self: core::pin::Pin<&Self>,
+            _1: isize,
+            _2: crate::item_tree::TraversalOrder,
+            _3: vtable::VRefMut<crate::item_tree::ItemVisitorVTable>,
+        ) -> crate::item_tree::VisitChildrenResult {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn get_item_ref(
+            self: core::pin::Pin<&Self>,
+            _1: usize,
+        ) -> core::pin::Pin<vtable::VRef<super::ItemVTable>> {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn get_item_tree(self: core::pin::Pin<&Self>) -> Slice<ItemTreeNode> {
+            unsafe {
+                core::mem::transmute::<Slice<ItemTreeNode>, Slice<ItemTreeNode>>(Slice::from_slice(
+                    &self.item_tree,
+                ))
+            }
+        }
+
+        fn parent_item(self: core::pin::Pin<&Self>, _1: usize, result: &mut ItemWeak) {
+            if let Some(parent_item) = self.parent_component.clone() {
+                *result =
+                    ItemRc::new(parent_item.clone(), self.item_tree[0].parent_index()).downgrade();
+            }
+        }
+
+        fn layout_info(self: core::pin::Pin<&Self>, _1: Orientation) -> LayoutInfo {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn subtree_index(self: core::pin::Pin<&Self>) -> usize {
+            self.subtree_index
+        }
+
+        fn get_subtree_range(self: core::pin::Pin<&Self>, subtree_index: usize) -> IndexRange {
+            IndexRange { start: 0, end: self.subtrees.borrow()[subtree_index].len() }
+        }
+
+        fn get_subtree_component(
+            self: core::pin::Pin<&Self>,
+            subtree_index: usize,
+            component_index: usize,
+            result: &mut ComponentWeak,
+        ) {
+            *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(
+                self.subtrees.borrow()[subtree_index][component_index].clone(),
+            ))
+        }
+    }
+
+    crate::component::ComponentVTable_static!(static TEST_COMPONENT_VT for TestComponent);
+
+    #[test]
+    fn test_tree_traversal_one_node() {
+        let component = VRc::new(TestComponent {
+            parent_component: None,
+            item_tree: vec![ItemTreeNode::Item {
+                children_count: 0,
+                children_index: 1,
+                parent_index: 0,
+                item_array_index: 0,
+            }],
+            subtrees: std::cell::RefCell::new(vec![]),
+            subtree_index: core::usize::MAX,
+        });
+        let component = VRc::into_dyn(component);
+
+        let item = ItemRc::new(component.clone(), 0);
+
+        assert!(item.first_child().is_none());
+        assert!(item.last_child().is_none());
+        assert!(item.previous_sibling().is_none());
+        assert!(item.next_sibling().is_none());
+    }
+
+    #[test]
+    fn test_tree_traversal_children_nodes() {
+        let component = VRc::new(TestComponent {
+            parent_component: None,
+            item_tree: vec![
+                ItemTreeNode::Item {
+                    children_count: 3,
+                    children_index: 1,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+                ItemTreeNode::Item {
+                    children_count: 0,
+                    children_index: 4,
+                    parent_index: 0,
+                    item_array_index: 1,
+                },
+                ItemTreeNode::Item {
+                    children_count: 0,
+                    children_index: 4,
+                    parent_index: 0,
+                    item_array_index: 2,
+                },
+                ItemTreeNode::Item {
+                    children_count: 0,
+                    children_index: 4,
+                    parent_index: 0,
+                    item_array_index: 3,
+                },
+            ],
+            subtrees: std::cell::RefCell::new(vec![]),
+            subtree_index: core::usize::MAX,
+        });
+        let component = VRc::into_dyn(component);
+
+        // Examine root node:
+        let item = ItemRc::new(component.clone(), 0);
+        assert!(item.previous_sibling().is_none());
+        assert!(item.next_sibling().is_none());
+
+        let fc = item.first_child().unwrap();
+        assert_eq!(fc.index(), 1);
+        assert!(VRc::ptr_eq(&fc.component(), &item.component()));
+
+        let fcn = fc.next_sibling().unwrap();
+        assert_eq!(fcn.index(), 2);
+
+        let lc = item.last_child().unwrap();
+        assert_eq!(lc.index(), 3);
+        assert!(VRc::ptr_eq(&lc.component(), &item.component()));
+
+        let lcp = lc.previous_sibling().unwrap();
+        assert!(VRc::ptr_eq(&lcp.component(), &item.component()));
+        assert_eq!(lcp.index(), 2);
+
+        // Examine first child:
+        assert!(fc.first_child().is_none());
+        assert!(fc.last_child().is_none());
+        assert!(fc.previous_sibling().is_none());
+        assert!(fc.parent_item().upgrade() == Some(item.clone()));
+
+        // Examine item between first and last child:
+        assert!(fcn == lcp);
+        assert!(lcp.parent_item().upgrade() == Some(item.clone()));
+        assert!(fcn.previous_sibling().unwrap() == fc);
+        assert!(fcn.next_sibling().unwrap() == lc);
+
+        // Examine last child:
+        assert!(lc.first_child().is_none());
+        assert!(lc.last_child().is_none());
+        assert!(lc.next_sibling().is_none());
+        assert!(lc.parent_item().upgrade() == Some(item.clone()));
+    }
+
+    #[test]
+    fn test_tree_traversal_empty_subtree() {
+        let component = vtable::VRc::new(TestComponent {
+            parent_component: None,
+            item_tree: vec![
+                ItemTreeNode::Item {
+                    children_count: 1,
+                    children_index: 1,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+                ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
+            ],
+            subtrees: std::cell::RefCell::new(vec![vec![]]),
+            subtree_index: core::usize::MAX,
+        });
+        let component = vtable::VRc::into_dyn(component);
+
+        // Examine root node:
+        let item = ItemRc::new(component.clone(), 0);
+        assert!(item.previous_sibling().is_none());
+        assert!(item.next_sibling().is_none());
+        assert!(item.first_child().is_none());
+        assert!(item.last_child().is_none());
+    }
+
+    #[test]
+    fn test_tree_traversal_item_subtree_item() {
+        let component = VRc::new(TestComponent {
+            parent_component: None,
+            item_tree: vec![
+                ItemTreeNode::Item {
+                    children_count: 3,
+                    children_index: 1,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+                ItemTreeNode::Item {
+                    children_count: 0,
+                    children_index: 4,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+                ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
+                ItemTreeNode::Item {
+                    children_count: 0,
+                    children_index: 4,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+            ],
+            subtrees: std::cell::RefCell::new(vec![]),
+            subtree_index: core::usize::MAX,
+        });
+
+        component.as_pin_ref().subtrees.replace(vec![vec![VRc::new(TestComponent {
+            parent_component: Some(VRc::into_dyn(component.clone())),
+            item_tree: vec![ItemTreeNode::Item {
+                children_count: 0,
+                children_index: 1,
+                parent_index: 2,
+                item_array_index: 0,
+            }],
+            subtrees: std::cell::RefCell::new(vec![]),
+            subtree_index: 0,
+        })]]);
+
+        let component = VRc::into_dyn(component);
+
+        // Examine root node:
+        let item = ItemRc::new(component.clone(), 0);
+        assert!(item.previous_sibling().is_none());
+        assert!(item.next_sibling().is_none());
+
+        let fc = item.first_child().unwrap();
+        assert!(VRc::ptr_eq(&fc.component(), &item.component()));
+        assert_eq!(fc.index(), 1);
+
+        let lc = item.last_child().unwrap();
+        assert!(VRc::ptr_eq(&lc.component(), &item.component()));
+        assert_eq!(lc.index(), 3);
+
+        let fcn = fc.next_sibling().unwrap();
+        let lcp = lc.previous_sibling().unwrap();
+
+        assert!(fcn == lcp);
+        assert!(!VRc::ptr_eq(&fcn.component(), &item.component()));
+
+        let last = fcn.next_sibling().unwrap();
+        assert!(last == lc);
+
+        let first = lcp.previous_sibling().unwrap();
+        assert!(first == fc);
+    }
+
+    #[test]
+    fn test_tree_traversal_subtrees_item() {
+        let component = VRc::new(TestComponent {
+            parent_component: None,
+            item_tree: vec![
+                ItemTreeNode::Item {
+                    children_count: 2,
+                    children_index: 1,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+                ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
+                ItemTreeNode::Item {
+                    children_count: 0,
+                    children_index: 4,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+            ],
+            subtrees: std::cell::RefCell::new(vec![]),
+            subtree_index: core::usize::MAX,
+        });
+
+        component.as_pin_ref().subtrees.replace(vec![vec![
+            VRc::new(TestComponent {
+                parent_component: Some(VRc::into_dyn(component.clone())),
+                item_tree: vec![ItemTreeNode::Item {
+                    children_count: 0,
+                    children_index: 1,
+                    parent_index: 1,
+                    item_array_index: 0,
+                }],
+                subtrees: std::cell::RefCell::new(vec![]),
+                subtree_index: 0,
+            }),
+            VRc::new(TestComponent {
+                parent_component: Some(VRc::into_dyn(component.clone())),
+                item_tree: vec![ItemTreeNode::Item {
+                    children_count: 0,
+                    children_index: 1,
+                    parent_index: 1,
+                    item_array_index: 0,
+                }],
+                subtrees: std::cell::RefCell::new(vec![]),
+                subtree_index: 1,
+            }),
+            VRc::new(TestComponent {
+                parent_component: Some(VRc::into_dyn(component.clone())),
+                item_tree: vec![ItemTreeNode::Item {
+                    children_count: 0,
+                    children_index: 1,
+                    parent_index: 1,
+                    item_array_index: 0,
+                }],
+                subtrees: std::cell::RefCell::new(vec![]),
+                subtree_index: 2,
+            }),
+        ]]);
+
+        let component = VRc::into_dyn(component);
+
+        // Examine root node:
+        let item = ItemRc::new(component.clone(), 0);
+        assert!(item.previous_sibling().is_none());
+        assert!(item.next_sibling().is_none());
+
+        let sub1 = item.first_child().unwrap();
+        assert_eq!(sub1.index(), 0);
+        assert!(!VRc::ptr_eq(&sub1.component(), &item.component()));
+
+        // assert!(sub1.previous_sibling().is_none());
+
+        let sub2 = sub1.next_sibling().unwrap();
+        assert_eq!(sub2.index(), 0);
+        assert!(!VRc::ptr_eq(&sub1.component(), &sub2.component()));
+        assert!(!VRc::ptr_eq(&item.component(), &sub2.component()));
+
+        assert!(sub2.previous_sibling() == Some(sub1.clone()));
+
+        let sub3 = sub2.next_sibling().unwrap();
+        assert_eq!(sub3.index(), 0);
+        assert!(!VRc::ptr_eq(&sub1.component(), &sub2.component()));
+        assert!(!VRc::ptr_eq(&sub2.component(), &sub3.component()));
+        assert!(!VRc::ptr_eq(&item.component(), &sub3.component()));
+
+        assert!(sub3.previous_sibling() == Some(sub2.clone()));
+
+        let lc = item.last_child().unwrap();
+        assert!(VRc::ptr_eq(&lc.component(), &item.component()));
+        assert_eq!(lc.index(), 2);
+
+        assert!(sub3.next_sibling() == Some(lc.clone()));
+        assert!(lc.previous_sibling() == Some(sub3.clone()));
+    }
 }
