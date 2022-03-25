@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore dealloc refcell unerase
+
 use crate::{api::Value, dynamic_type, eval};
 
 use core::convert::TryInto;
@@ -12,7 +14,9 @@ use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::*;
 use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
 use i_slint_core::api::Window;
-use i_slint_core::component::{Component, ComponentRef, ComponentRefPin, ComponentVTable};
+use i_slint_core::component::{
+    Component, ComponentRef, ComponentRefPin, ComponentVTable, ComponentWeak, IndexRange,
+};
 use i_slint_core::item_tree::{
     ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder, VisitChildrenResult,
 };
@@ -174,8 +178,25 @@ impl Component for ErasedComponentBox {
         unsafe { get_item_ref(self.get_ref().borrow(), index) }
     }
 
+    fn get_subtree_range(self: Pin<&Self>, index: usize) -> IndexRange {
+        self.borrow().as_ref().get_subtree_range(index)
+    }
+
+    fn get_subtree_component(
+        self: Pin<&Self>,
+        index: usize,
+        subindex: usize,
+        result: &mut ComponentWeak,
+    ) {
+        self.borrow().as_ref().get_subtree_component(index, subindex, result);
+    }
+
     fn parent_item(self: Pin<&Self>, index: usize, result: &mut ItemWeak) {
         self.borrow().as_ref().parent_item(index, result)
+    }
+
+    fn subtree_index(self: Pin<&Self>) -> usize {
+        self.borrow().as_ref().subtree_index()
     }
 }
 
@@ -1030,7 +1051,10 @@ pub(crate) fn generate_component<'id>(
         layout_info,
         get_item_ref,
         get_item_tree,
+        get_subtree_range,
+        get_subtree_component,
         parent_item,
+        subtree_index,
         drop_in_place,
         dealloc,
     };
@@ -1518,11 +1542,49 @@ unsafe extern "C" fn get_item_ref(component: ComponentRefPin, index: usize) -> P
     }
 }
 
+extern "C" fn get_subtree_range(component: ComponentRefPin, index: usize) -> IndexRange {
+    generativity::make_guard!(guard);
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+    let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untagged() };
+    ensure_repeater_updated(instance_ref, rep_in_comp);
+
+    let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
+    let (start, end) = repeater.range();
+    IndexRange { start, end }
+}
+
+extern "C" fn get_subtree_component(
+    component: ComponentRefPin,
+    index: usize,
+    subtree_index: usize,
+    result: &mut ComponentWeak,
+) {
+    generativity::make_guard!(guard);
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+    let rep_in_comp = unsafe { instance_ref.component_type.repeater[index].get_untagged() };
+    ensure_repeater_updated(instance_ref, rep_in_comp);
+
+    let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
+    *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(
+        repeater.component_at(subtree_index).unwrap(),
+    ))
+}
+
 extern "C" fn get_item_tree(component: ComponentRefPin) -> Slice<ItemTreeNode> {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
     let tree = instance_ref.component_type.item_tree.as_slice();
     unsafe { core::mem::transmute::<&[ItemTreeNode], &[ItemTreeNode]>(tree) }.into()
+}
+
+extern "C" fn subtree_index(component: ComponentRefPin) -> usize {
+    generativity::make_guard!(guard);
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+    if let Ok(value) = instance_ref.component_type.get_property(component, "index") {
+        value.try_into().unwrap()
+    } else {
+        core::usize::MAX
+    }
 }
 
 unsafe extern "C" fn parent_item(component: ComponentRefPin, index: usize, result: &mut ItemWeak) {
@@ -1549,7 +1611,7 @@ unsafe extern "C" fn parent_item(component: ComponentRefPin, index: usize, resul
                     .into_dyn()
                     .upgrade()
                     .unwrap();
-                *result = ItemRc::new(parent_rc, parent_index).parent_item();
+                *result = ItemRc::new(parent_rc, parent_index).downgrade();
             };
         }
         return;

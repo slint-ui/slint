@@ -848,15 +848,25 @@ fn generate_item_tree(
     let mut visit_children_statements = vec![
         "static const auto dyn_visit = [] (const uint8_t *base,  [[maybe_unused]] slint::private_api::TraversalOrder order, [[maybe_unused]] slint::private_api::ItemVisitorRefMut visitor, [[maybe_unused]] uintptr_t dyn_index) -> uint64_t {".to_owned(),
         format!("    [[maybe_unused]] auto self = reinterpret_cast<const {}*>(base);", item_tree_class_name)];
+    let mut subtree_range_statement = vec!["    std::abort();".into()];
+    let mut subtree_component_statement = vec!["    std::abort();".into()];
 
     if target_struct.members.iter().any(|(_, declaration)| {
         matches!(&declaration, Declaration::Function(func @ Function { .. }) if func.name == "visit_dynamic_children")
     }) {
         visit_children_statements
             .push("    return self->visit_dynamic_children(dyn_index, order, visitor);".into());
+        subtree_range_statement = vec![
+                format!("auto self = reinterpret_cast<const {}*>(component.instance);", item_tree_class_name),
+                "return self->subtree_range(dyn_index);".to_owned(),
+        ];
+        subtree_component_statement = vec![
+                format!("auto self = reinterpret_cast<const {}*>(component.instance);", item_tree_class_name),
+                "self->subtree_component(dyn_index, subtree_index, result);".to_owned(),
+        ];
     } else {
         visit_children_statements.push("    std::abort();".into());
-    }
+     }
 
     visit_children_statements.extend([
         "};".into(),
@@ -891,6 +901,28 @@ fn generate_item_tree(
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
+            name: "get_subtree_range".into(),
+            signature: "([[maybe_unused]] slint::private_api::ComponentRef component, [[maybe_unused]] uintptr_t dyn_index) -> slint::private_api::IndexRange".into(),
+            is_static: true,
+            statements: Some(subtree_range_statement),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "get_subtree_component".into(),
+            signature: "([[maybe_unused]] slint::private_api::ComponentRef component, [[maybe_unused]] uintptr_t dyn_index, [[maybe_unused]] uintptr_t subtree_index, [[maybe_unused]] slint::private_api::ComponentWeak *result) -> void".into(),
+            is_static: true,
+            statements: Some(subtree_component_statement),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
             name: "get_item_tree".into(),
             signature: "(slint::private_api::ComponentRef) -> slint::cbindgen_private::Slice<slint::private_api::ItemTreeNode>".into(),
             is_static: true,
@@ -910,7 +942,7 @@ fn generate_item_tree(
         format!(
             // that does not work when the parent is not a component with a ComponentVTable
             //"   *result = slint::private_api::parent_item(self->parent->self_weak.into_dyn(), self->parent->get_item_tree(), {});",
-            "self->parent->self_weak.vtable()->parent_item(self->parent->self_weak.lock()->borrow(), {}, result);",
+            "*result = {{ self->parent->self_weak, {} }};",
             parent_index,
         )
     } else {
@@ -930,6 +962,17 @@ fn generate_item_tree(
                 "}".into(),
                 "*result = slint::private_api::parent_item(self->self_weak.into_dyn(), get_item_tree(component), index);".into(),
             ]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "subtree_index".into(),
+            signature: "(slint::private_api::ComponentRef /* component */) -> uintptr_t".into(),
+            is_static: true,
+            statements: Some(vec!["/* unimplemented! */".to_owned(), "return 0;".into()]),
             ..Default::default()
         }),
     ));
@@ -995,7 +1038,7 @@ fn generate_item_tree(
         ty: "const slint::private_api::ComponentVTable".to_owned(),
         name: format!("{}::static_vtable", item_tree_class_name),
         init: Some(format!(
-            "{{ visit_children, get_item_ref, get_item_tree, parent_item,  layout_info, slint::private_api::drop_in_place<{}>, slint::private_api::dealloc }}",
+            "{{ visit_children, get_item_ref, get_subtree_range, get_subtree_component, get_item_tree, parent_item, subtree_index, layout_info, slint::private_api::drop_in_place<{}>, slint::private_api::dealloc }}",
             item_tree_class_name)
         ),
         ..Default::default()
@@ -1181,6 +1224,8 @@ fn generate_sub_component(
     }
 
     let mut children_visitor_cases = Vec::new();
+    let mut subtrees_ranges_cases = Vec::new();
+    let mut subtrees_components_cases = Vec::new();
 
     let mut subcomponent_init_code = Vec::new();
     for sub in &component.sub_components {
@@ -1218,6 +1263,23 @@ fn generate_sub_component(
             children_visitor_cases.push(format!(
                 "\n        {case_code} {{
                         return self->{id}.visit_dynamic_children(dyn_index - {base}, order, visitor);
+                    }}",
+                case_code = case_code,
+                id = field_name,
+                base = repeater_offset,
+            ));
+            subtrees_ranges_cases.push(format!(
+                "\n        {case_code} {{
+                        return self->{id}.subtree_range(dyn_index - {base});
+                    }}",
+                case_code = case_code,
+                id = field_name,
+                base = repeater_offset,
+            ));
+            subtrees_components_cases.push(format!(
+                "\n        {case_code} {{
+                        self->{id}.subtree_component(dyn_index - {base}, subtree_index, result);
+                        return;
                     }}",
                 case_code = case_code,
                 id = field_name,
@@ -1321,6 +1383,25 @@ fn generate_sub_component(
             i = idx,
             e_u = ensure_updated,
         ));
+        subtrees_ranges_cases.push(format!(
+            "\n        case {i}: {{
+                {e_u}
+                return self->{id}.index_range();
+            }}",
+            i = idx,
+            e_u = ensure_updated,
+            id = repeater_id,
+        ));
+        subtrees_components_cases.push(format!(
+            "\n        case {i}: {{
+                {e_u}
+                self->{id}.component_at(subtree_index, result);
+                return;
+            }}",
+            i = idx,
+            e_u = ensure_updated,
+            id = repeater_id,
+        ));
 
         target_struct.members.push((
             Access::Private,
@@ -1377,6 +1458,32 @@ fn generate_sub_component(
                 statements: Some(vec![
                     "    auto self = this;".to_owned(),
                     format!("    switch(dyn_index) {{ {} }};", children_visitor_cases.join("")),
+                    "    std::abort();".to_owned(),
+                ]),
+                ..Default::default()
+            }),
+        ));
+        target_struct.members.push((
+            field_access,
+            Declaration::Function(Function {
+                name: "subtree_range".into(),
+                signature: "(uintptr_t dyn_index) const -> slint::private_api::IndexRange".into(),
+                statements: Some(vec![
+                    "[[maybe_unused]] auto self = this;".to_owned(),
+                    format!("    switch(dyn_index) {{ {} }};", subtrees_ranges_cases.join("")),
+                    "    std::abort();".to_owned(),
+                ]),
+                ..Default::default()
+            }),
+        ));
+        target_struct.members.push((
+            field_access,
+            Declaration::Function(Function {
+                name: "subtree_component".into(),
+                signature: "(uintptr_t dyn_index, [[maybe_unused]] uintptr_t subtree_index, [[maybe_unused]] slint::private_api::ComponentWeak *result) const -> void".into(),
+                statements: Some(vec![
+                    "[[maybe_unused]] auto self = this;".to_owned(),
+                    format!("    switch(dyn_index) {{ {} }};", subtrees_components_cases.join("")),
                     "    std::abort();".to_owned(),
                 ]),
                 ..Default::default()

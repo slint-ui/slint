@@ -1,12 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore vecmodel
+
 //! Model and Repeater
 
 // Safety: we use pointer to Repeater in the DependencyList, bue the Drop of the Repeater
 // will remove them from the list so it will not be accessed after it is dropped
 #![allow(unsafe_code)]
 
+use crate::component::ComponentVTable;
 use crate::item_tree::TraversalOrder;
 use crate::items::ItemRef;
 use crate::layout::Orientation;
@@ -567,7 +570,9 @@ impl<T> Model for ModelRc<T> {
 }
 
 /// Component that can be instantiated by a repeater.
-pub trait RepeatedComponent: crate::component::Component {
+pub trait RepeatedComponent:
+    crate::component::Component + vtable::HasStaticVTable<ComponentVTable> + 'static
+{
     /// The data corresponding to the model
     type Data: 'static;
 
@@ -615,6 +620,7 @@ impl<C: RepeatedComponent> Default for RepeaterInner<C> {
         RepeaterInner { components: Default::default(), offset: 0, cached_item_height: 0. }
     }
 }
+
 trait ErasedRepeater {
     fn row_changed(&self, row: usize);
     fn row_added(&self, index: usize, count: usize);
@@ -968,7 +974,24 @@ impl<C: RepeatedComponent> Repeater<C> {
         self.inner.borrow().components.len()
     }
 
-    /// Return true if the Repeater is empty
+    /// Return the range of indices used by this Repeater.
+    ///
+    /// Two values are necessary here since the Repeater can start to insert the data from its
+    /// model at an offset.
+    pub fn range(&self) -> (usize, usize) {
+        let inner = self.inner.borrow();
+        (inner.offset, inner.offset + inner.components.len())
+    }
+
+    pub fn component_at(&self, index: usize) -> Option<ComponentRc<C>> {
+        self.inner
+            .borrow()
+            .components
+            .get(index)
+            .map(|c| c.1.clone().expect("That was updated before!"))
+    }
+
+    /// Return true if the Repeater as empty
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }

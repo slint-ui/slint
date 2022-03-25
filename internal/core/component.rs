@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore dealloc
+
 #![warn(missing_docs)]
 
 //! This module contains the basic datastructures that are exposed to the C API
@@ -11,6 +13,15 @@ use crate::layout::{LayoutInfo, Orientation};
 use crate::slice::Slice;
 use crate::window::WindowRc;
 use vtable::*;
+
+#[repr(C)]
+/// A range of indices
+pub struct IndexRange {
+    /// Start index
+    pub start: usize,
+    /// Index one past the last index
+    pub end: usize,
+}
 
 /// A Component is representing an unit that is allocated together
 #[vtable]
@@ -32,16 +43,34 @@ pub struct ComponentVTable {
         index: usize,
     ) -> core::pin::Pin<VRef<ItemVTable>>,
 
+    /// Return the range of indices below the dynamic `ItemTreeNode` at `index`
+    pub get_subtree_range:
+        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, index: usize) -> IndexRange,
+
+    /// Return the `ComponentRc` at `subindex` below the dynamic `ItemTreeNode` at `index`
+    pub get_subtree_component: extern "C" fn(
+        core::pin::Pin<VRef<ComponentVTable>>,
+        index: usize,
+        subindex: usize,
+        result: &mut vtable::VWeak<ComponentVTable, Dyn>,
+    ),
+
     /// Return the item tree that is defined by this `Component`.
     /// The return value is an item weak because it can be null if there is no parent.
     /// And the return value is passed by &mut because ItemWeak has a destructor
     pub get_item_tree: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>) -> Slice<ItemTreeNode>,
 
+    // FIXME: This does return an invalid ItemWeak now that points to the parent repeater!
+    // FIXME: Get rid of the index and make this always return the "Item" that connects this component
+    //        to its parent-component?
     /// Return the parent item.
     /// The return value is an item weak because it can be null if there is no parent.
     /// And the return value is passed by &mut because ItemWeak has a destructor
     pub parent_item:
         extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, index: usize, result: &mut ItemWeak),
+
+    /// Return the index of the current subtree or usize::MAX if this is not a subtree
+    pub subtree_index: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>) -> usize,
 
     /// Returns the layout info for this component
     pub layout_info:
