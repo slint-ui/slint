@@ -781,9 +781,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
     fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, self_rc: &ItemRc) -> RenderingResult {
         let opacity = opacity_item.opacity();
-        if opacity != 1.0 {
+        if Opacity::need_layer(self_rc, opacity) {
             self.render_and_blend_layer(&opacity_item.cached_rendering_data, opacity, self_rc)
         } else {
+            self.apply_opacity(opacity);
             opacity_item.cached_rendering_data.release(&mut self.cache.borrow_mut());
             RenderingResult::ContinueRenderingChildren
         }
