@@ -444,6 +444,83 @@ impl ItemRc {
             &|start, _| start,
         )
     }
+
+    fn move_focus(
+        &self,
+        focus_step: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
+        subtree_step: &dyn Fn(ItemRc) -> Option<ItemRc>,
+        subtree_child: &dyn Fn(usize, usize) -> usize,
+        wrap_around: &dyn Fn(ItemRc) -> ItemRc,
+    ) -> Self {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        let item_tree = crate::item_tree::ComponentItemTree::new(
+            comp_ref_pin.as_ref().get_item_tree().as_slice(),
+        );
+
+        let mut to_focus = self.index();
+        loop {
+            if let Some(next) = focus_step(&item_tree, to_focus) {
+                if let Some(item) = step_into_node(
+                    self.component(),
+                    comp_ref_pin,
+                    next,
+                    &item_tree,
+                    subtree_child,
+                    wrap_around,
+                ) {
+                    return item;
+                }
+                to_focus = next;
+                // Loop: We stepped into an empty repeater!
+            } else {
+                // Step out of this component:
+                let root = ItemRc::new(self.component(), 0);
+                if let Some(item) = subtree_step(root.clone()) {
+                    return wrap_around(item);
+                } else {
+                    // Go up a level!
+                    if let Some(parent) = root.parent_item().upgrade() {
+                        return parent;
+                    } else {
+                        return wrap_around(root);
+                    }
+                }
+            }
+        }
+    }
+
+    /// Move tab focus to the previous item:
+    pub fn previous_focus_item(&self) -> Self {
+        self.move_focus(
+            &|item_tree, index| {
+                crate::item_focus::default_previous_in_local_focus_chain(index, item_tree)
+            },
+            &|root| root.previous_sibling(),
+            &|_, end| end.wrapping_sub(1),
+            &|root| {
+                let mut current = root;
+                loop {
+                    if let Some(next) = current.last_child() {
+                        current = next;
+                    } else {
+                        return current;
+                    }
+                }
+            },
+        )
+    }
+
+    /// Move tab focus to the next item:
+    pub fn next_focus_item(&self) -> Self {
+        self.move_focus(
+            &|item_tree, index| {
+                crate::item_focus::default_next_in_local_focus_chain(index, item_tree)
+            },
+            &|root| root.next_sibling(),
+            &|start, _| start,
+            &|root| root,
+        )
+    }
 }
 
 impl PartialEq for ItemRc {
@@ -1803,6 +1880,10 @@ mod tests {
         assert!(item.last_child().is_none());
         assert!(item.previous_sibling().is_none());
         assert!(item.next_sibling().is_none());
+
+        // Wrap the focus around:
+        assert!(item.previous_focus_item() == item);
+        assert!(item.next_focus_item() == item);
     }
 
     #[test]
@@ -1877,6 +1958,33 @@ mod tests {
         assert!(lc.last_child().is_none());
         assert!(lc.next_sibling().is_none());
         assert!(lc.parent_item().upgrade() == Some(item.clone()));
+
+        // Focus traversal:
+        let mut cursor = item.clone();
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == fc);
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == fcn);
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == lc);
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == item);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == lc);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == fcn);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == fc);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == item);
     }
 
     #[test]
@@ -1903,6 +2011,10 @@ mod tests {
         assert!(item.next_sibling().is_none());
         assert!(item.first_child().is_none());
         assert!(item.last_child().is_none());
+
+        // Wrap the focus around:
+        assert!(item.previous_focus_item() == item);
+        assert!(item.next_focus_item() == item);
     }
 
     #[test]
@@ -1972,6 +2084,33 @@ mod tests {
 
         let first = lcp.previous_sibling().unwrap();
         assert!(first == fc);
+
+        // Focus traversal:
+        let mut cursor = item.clone();
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == fc);
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == fcn);
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == lc);
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == item);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == lc);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == fcn);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == fc);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == item);
     }
 
     #[test]
@@ -2067,5 +2206,38 @@ mod tests {
 
         assert!(sub3.next_sibling() == Some(lc.clone()));
         assert!(lc.previous_sibling() == Some(sub3.clone()));
+
+        // Focus traversal:
+        let mut cursor = item.clone();
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == sub1);
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == sub2);
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == sub3);
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == lc);
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == item);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == lc);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == sub3);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == sub2);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == sub1);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == item);
     }
 }
