@@ -281,6 +281,23 @@ impl ItemRc {
         r
     }
 
+    // FIXME: This should be nicer/done elsewhere?
+    pub fn is_visible(&self) -> bool {
+        let item = self.borrow();
+        let is_clipping = crate::item_rendering::is_enabled_clipping_item(item);
+        let geometry = item.as_ref().geometry();
+
+        if is_clipping && (geometry.width() == 0.0 || geometry.height() == 0.0) {
+            return false;
+        }
+
+        if let Some(parent) = self.parent_item().upgrade() {
+            parent.is_visible()
+        } else {
+            true
+        }
+    }
+
     /// Return the index of the item within the component
     pub fn index(&self) -> usize {
         self.index
