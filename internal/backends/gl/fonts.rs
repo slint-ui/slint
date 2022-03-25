@@ -114,6 +114,16 @@ impl Font {
         }
         euclid::size2(width, lines as f32 * font_metrics.height())
     }
+
+    pub fn height(&self) -> f32 {
+        let paint = self.init_paint(
+            // letter spacing doesn't affect height
+            0.,
+            femtovg::Paint::default(),
+        );
+        let font_metrics = self.text_context.measure_font(paint).unwrap();
+        font_metrics.height()
+    }
 }
 
 pub(crate) fn text_size(

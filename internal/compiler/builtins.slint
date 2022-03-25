@@ -192,6 +192,7 @@ export struct Point := {
 }
 
 export TextInput := _ {
+    callback set-debug-rect(length,length,length,length);
     property <string> text: native_output;
     property <string> font-family;
     property <length> font-size;

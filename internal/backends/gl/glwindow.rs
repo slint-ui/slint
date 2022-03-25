@@ -648,22 +648,13 @@ impl PlatformWindow for GLWindow {
         }
     }
 
-    fn text_input_position_for_byte_offset(
+    fn text_input_cursor_rect_for_byte_offset(
         &self,
         text_input: Pin<&corelib::items::TextInput>,
         byte_offset: usize,
-    ) -> Point {
+    ) -> Rect {
         let scale_factor = self.self_weak.upgrade().unwrap().scale_factor();
         let text = text_input.text();
-
-        let mut result = Point::default();
-
-        let width = text_input.width() * scale_factor;
-        let height = text_input.height() * scale_factor;
-        if width <= 0. || height <= 0. {
-            return result;
-        }
-
         let font = crate::fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
                 text_input.unresolved_font_request().merge(&self.default_font_properties()),
@@ -671,6 +662,14 @@ impl PlatformWindow for GLWindow {
                 &text_input.text(),
             )
         });
+
+        let mut result = Point::default();
+
+        let width = text_input.width() * scale_factor;
+        let height = text_input.height() * scale_factor;
+        if width <= 0. || height <= 0. {
+            return Rect::new(result, Size::new(1.0, font.height() / scale_factor));
+        }
 
         let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
         crate::fonts::layout_text_lines(
@@ -686,7 +685,7 @@ impl PlatformWindow for GLWindow {
                 if (start..=(start + line_text.len())).contains(&byte_offset) {
                     for glyph in &metrics.glyphs {
                         if glyph.byte_index == (byte_offset - start) {
-                            result = line_pos + euclid::vec2(glyph.x, glyph.y);
+                            result = line_pos + euclid::vec2(glyph.x, 0.0);
                             return;
                         }
                     }
@@ -697,7 +696,7 @@ impl PlatformWindow for GLWindow {
             },
         );
 
-        result / scale_factor
+        Rect::new(result / scale_factor, Size::new(1.0, font.height() / scale_factor))
     }
 
     #[cfg(target_arch = "wasm32")]

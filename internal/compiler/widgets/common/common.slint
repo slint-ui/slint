@@ -62,6 +62,16 @@ export TextEdit := ScrollView {
     }
 
     input := TextInput {
+        debug_rect := Rectangle {
+            border-width: 1px;
+            border-color: red;
+        }
+        set-debug-rect(x,y,w,h) => {
+            debug-rect.x = x;
+            debug-rect.y = y;
+            debug-rect.width = w;
+            debug-rect.height = h;
+        }
         edited => { root.edited(self.text); }
         color: enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
         single-line: false;

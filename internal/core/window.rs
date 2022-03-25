@@ -6,7 +6,7 @@
 
 use crate::api::CloseRequestResponse;
 use crate::component::{ComponentRc, ComponentWeak};
-use crate::graphics::{Point, Size};
+use crate::graphics::{Point, Rect, Size};
 use crate::input::{KeyEvent, MouseEvent, MouseInputState, TextCursorBlinker};
 use crate::items::{ItemRc, ItemRef, ItemWeak, MouseCursor};
 use crate::properties::{Property, PropertyTracker};
@@ -81,11 +81,11 @@ pub trait PlatformWindow {
 
     /// That's the opposite of [`Self::text_input_byte_offset_for_position`]
     /// It takes a (UTF-8) byte offset in the text property, and returns its position
-    fn text_input_position_for_byte_offset(
+    fn text_input_cursor_rect_for_byte_offset(
         &self,
         text_input: Pin<&crate::items::TextInput>,
         byte_offset: usize,
-    ) -> Point;
+    ) -> Rect;
 
     /// This is called when the virtual keyboard should be shown because a widget that
     /// uses input has the focus.
