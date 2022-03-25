@@ -1,13 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore backtab
+
 #![warn(missing_docs)]
 //! Exposed Window API
 
 use crate::api::CloseRequestResponse;
 use crate::component::{ComponentRc, ComponentWeak};
 use crate::graphics::{Point, Rect, Size};
-use crate::input::{KeyEvent, MouseEvent, MouseInputState, TextCursorBlinker};
+use crate::input::{
+    key_codes, KeyEvent, KeyEventType, MouseEvent, MouseInputState, TextCursorBlinker,
+};
 use crate::items::{ItemRc, ItemRef, ItemWeak, MouseCursor};
 use crate::properties::{Property, PropertyTracker};
 use crate::Callback;
@@ -15,6 +19,14 @@ use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
+
+fn next_focus_item(item: ItemRc) -> ItemRc {
+    item.next_focus_item()
+}
+
+fn previous_focus_item(item: ItemRc) -> ItemRc {
+    item.previous_focus_item()
+}
 
 /// This trait represents the interface that the generated code and the run-time
 /// require in order to implement functionality such as device-independent pixels,
@@ -315,6 +327,15 @@ impl Window {
             }
             item = focus_item.parent_item();
         }
+
+        // Make Tab/Backtab handle keyboard focus
+        if event.text.starts_with(key_codes::Tab) && event.event_type == KeyEventType::KeyPressed {
+            self.focus_next_item();
+        } else if event.text.starts_with(key_codes::Backtab)
+            && event.event_type == KeyEventType::KeyPressed
+        {
+            self.focus_previous_item();
+        }
     }
 
     /// Installs a binding on the specified property that's toggled whenever the text cursor is supposed to be visible or not.
@@ -334,16 +355,8 @@ impl Window {
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
     /// currently focused item.
     pub fn set_focus_item(self: Rc<Self>, focus_item: &ItemRc) {
-        if let Some(old_focus_item) = self.as_ref().focus_item.borrow().upgrade() {
-            old_focus_item
-                .borrow()
-                .as_ref()
-                .focus_event(&crate::input::FocusEvent::FocusOut, &self);
-        }
-
-        *self.as_ref().focus_item.borrow_mut() = focus_item.downgrade();
-
-        focus_item.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusIn, &self);
+        self.clone().take_focus_item();
+        self.move_focus(focus_item.clone(), next_focus_item);
     }
 
     /// Sets the focus on the window to true or false, depending on the have_focus argument.
@@ -358,6 +371,76 @@ impl Window {
         if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
             focus_item.borrow().as_ref().focus_event(&event, &self);
         }
+    }
+
+    /// Take the focus_item out of this Window
+    ///
+    /// This sends the FocusOut event!
+    fn take_focus_item(self: Rc<Self>) -> Option<ItemRc> {
+        let focus_item = self.as_ref().focus_item.take();
+
+        if let Some(focus_item_rc) = focus_item.upgrade() {
+            focus_item_rc.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusOut, &self);
+            Some(focus_item_rc)
+        } else {
+            None
+        }
+    }
+
+    /// Publish the new focus_item to this Window and return the FocusEventResult
+    ///
+    /// This sends a FocusIn event!
+    fn publish_focus_item(self: Rc<Self>, item: &Option<ItemRc>) -> crate::input::FocusEventResult {
+        match item {
+            Some(item) => {
+                *self.as_ref().focus_item.borrow_mut() = item.downgrade();
+                item.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusIn, &self)
+            }
+            None => {
+                *self.as_ref().focus_item.borrow_mut() = Default::default();
+                crate::input::FocusEventResult::FocusAccepted // We were removing the focus, treat that as OK
+            }
+        }
+    }
+
+    fn move_focus(self: Rc<Self>, start_item: ItemRc, forward: impl Fn(ItemRc) -> ItemRc) {
+        let mut current_item = start_item;
+        let mut visited = vec![];
+
+        loop {
+            if current_item.is_visible()
+                && self.clone().publish_focus_item(&Some(current_item.clone()))
+                    == crate::input::FocusEventResult::FocusAccepted
+            {
+                return; // Item was just published.
+            }
+            visited.push(current_item.clone());
+            current_item = forward(current_item);
+
+            if visited.iter().any(|i| *i == current_item) {
+                return; // Nothing to do: We took the focus_item already
+            }
+        }
+    }
+
+    /// Move keyboard focus to the next item
+    pub fn focus_next_item(self: Rc<Self>) {
+        let component = self.component();
+        let start_item = self
+            .clone()
+            .take_focus_item()
+            .map(next_focus_item)
+            .unwrap_or_else(|| ItemRc::new(component, 0));
+        self.move_focus(start_item, next_focus_item);
+    }
+
+    /// Move keyboard focus to the previous item.
+    pub fn focus_previous_item(self: Rc<Self>) {
+        let component = self.component();
+        let start_item = previous_focus_item(
+            self.clone().take_focus_item().unwrap_or_else(|| ItemRc::new(component, 0)),
+        );
+        self.move_focus(start_item, previous_focus_item);
     }
 
     /// Marks the window to be the active window. This typically coincides with the keyboard
@@ -607,7 +690,7 @@ pub mod ffi {
     use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
     use crate::slice::Slice;
 
-    /// This enum describes a low-level access to specific graphcis APIs used
+    /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
     #[repr(C)]
     pub enum GraphicsAPI {
