@@ -12,7 +12,7 @@
 //! on mobile either as we only get these for a bunch of non-printable key
 //! that do not interact with the composing input. For anything else we
 //! check that we get input event when no normal key are pressed, and we send
-//! that as text. 
+//! that as text.
 //! Since the slint core lib doesn't support composition yet, when we get
 //! composition event, we just send that as key, and if the composition changes,
 //! we just sumulate a few backspaces.
