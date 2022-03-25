@@ -1615,11 +1615,11 @@ impl PlatformWindow for QtWindow {
         }}
     }
 
-    fn text_input_position_for_byte_offset(
+    fn text_input_cursor_rect_for_byte_offset(
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
-    ) -> Point {
+    ) -> Rect {
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
         let font: QFont =
             get_font(text_input.unresolved_font_request().merge(&self.default_font_properties()));
@@ -1652,7 +1652,13 @@ impl PlatformWindow for QtWindow {
                 return QPointF();
             return QPointF(textLine.x() + textLine.cursorToX(offset), textLine.y());
         }};
-        Point::new(r.x as _, r.y as _)
+
+        let font_size = cpp! { unsafe [font as "QFont"]
+                -> i32 as "int" {
+            return QFontInfo(font).pixelSize();
+        }};
+
+        Rect::new(Point::new(r.x as _, r.y as _), Size::new(1.0, font_size as f32))
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
