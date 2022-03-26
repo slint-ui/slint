@@ -355,7 +355,7 @@ impl Window {
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
     /// currently focused item.
     pub fn set_focus_item(self: Rc<Self>, focus_item: &ItemRc) {
-        self.clone().take_focus_item();
+        self.take_focus_item();
         self.move_focus(focus_item.clone(), next_focus_item);
     }
 
@@ -376,7 +376,7 @@ impl Window {
     /// Take the focus_item out of this Window
     ///
     /// This sends the FocusOut event!
-    fn take_focus_item(self: Rc<Self>) -> Option<ItemRc> {
+    fn take_focus_item(self: &Rc<Self>) -> Option<ItemRc> {
         let focus_item = self.as_ref().focus_item.take();
 
         if let Some(focus_item_rc) = focus_item.upgrade() {
@@ -427,7 +427,6 @@ impl Window {
     pub fn focus_next_item(self: Rc<Self>) {
         let component = self.component();
         let start_item = self
-            .clone()
             .take_focus_item()
             .map(next_focus_item)
             .unwrap_or_else(|| ItemRc::new(component, 0));
@@ -438,7 +437,7 @@ impl Window {
     pub fn focus_previous_item(self: Rc<Self>) {
         let component = self.component();
         let start_item = previous_focus_item(
-            self.clone().take_focus_item().unwrap_or_else(|| ItemRc::new(component, 0)),
+            self.take_focus_item().unwrap_or_else(|| ItemRc::new(component, 0)),
         );
         self.move_focus(start_item, previous_focus_item);
     }
