@@ -848,10 +848,10 @@ public:
         return { &C::static_vtable, const_cast<C *>(&(**x.ptr)) };
     }
 
-    void component_at(int i, vtable::VWeak<private_api::ComponentVTable> *result) const
+    vtable::VWeak<private_api::ComponentVTable> component_at(int i) const
     {
         const auto &x = inner->data.at(i);
-        *result = vtable::VWeak<private_api::ComponentVTable>{x.ptr->into_dyn()};
+        return vtable::VWeak<private_api::ComponentVTable>{x.ptr->into_dyn()};
     }
 
     private_api::IndexRange index_range() const {
