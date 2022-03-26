@@ -31,9 +31,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         while let Some(begin) = rest.find(BEGIN_MARKER) {
             rest = rest[begin..].strip_prefix(BEGIN_MARKER).unwrap();
 
-            // Permit `slint,no_run` but skip `slint,ignore` and others.
+            // Permit `slint,no-preview` but skip `slint,ignore` and others.
             rest = match rest.split_once('\n') {
-                Some((",no_run", rest)) => rest,
+                Some((",no-preview", rest)) => rest,
                 Some(("", _)) => rest,
                 _ => continue,
             };
