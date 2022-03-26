@@ -139,7 +139,7 @@ The underscores are normalized to dashes. Which means that these two identifiers
 The elements can have properties. Built-in elements come with common properties such
 as color or dimensional properties. You can assign values or entire [expressions](#expressions) to them:
 
-```slint,no_run
+```slint,no-preview
 Example := Window {
     // Simple expression: ends with a semi colon
     width: 42px;
@@ -152,7 +152,7 @@ You can also declare your own properties. The properties declared at the top lev
 component are public and can be accessed by the component using it as an element, or using the
 language bindings:
 
-```slint,no_run
+```slint,no-preview
 Example := Rectangle {
     // declare a property of type int with the name `my-property`
     property<int> my-property;
@@ -194,7 +194,7 @@ together.
 The right hand side of the `<=>` must be a reference to a property of the same type.
 The type can be omitted in a property declaration to have the type automatically inferred.
 
-```slint,no_run
+```slint,no-preview
 Example := Window {
     property<brush> rect-color <=> r.background;
     // it is allowed to omit the type to have it automatically inferred
@@ -235,7 +235,7 @@ Anonymous structs type can be declared with curly braces: `{ identifier1: type2,
 The trailing semicolon is optional.
 They can be initialized with a struct literal: `{ identifier1: expression1, identifier2: expression2  }`
 
-```slint,no_run
+```slint,no-preview
 Example := Window {
     property<{name: string, score: int}> player: { name: "Foo", score: 100 };
     property<{a: int, }> foo: { a: 3 };
@@ -246,7 +246,7 @@ Example := Window {
 
 It is possible to define a named struct using the `struct` keyword,
 
-```slint,no_run
+```slint,no-preview
 export struct Player := {
     name: string,
     score: int,
@@ -262,7 +262,7 @@ Example := Window {
 The type array is using square brackets for example  `[int]` is an array of `int`. In the runtime, they are
 basically used as models for the `for` expression.
 
-```slint,no_run
+```slint,no-preview
 Example := Window {
     property<[int]> list-of-int: [1,2,3];
     property<[{a: int, b: string}]> list-of-structs: [{ a: 1, b: "hello" }, {a: 2, b: "world"}];
@@ -288,7 +288,7 @@ Example := Window {
 * String can be converted to float by using the `to-float` function. That function returns 0 if the string is not
    a valid number. you can check with `is-float` if the string contains a valid number
 
-```slint,no_run
+```slint,no-preview
 Example := Window {
     // ok: int converts to string
     property<{a: string, b: int}> prop1: {a: 12, b: 12 };
@@ -355,7 +355,7 @@ element comes with a `clicked` callback, that's emitted when the user touches th
 it with the mouse. In the example below, the emission of that callback is forwarded to another custom callback (`hello`) by declaring a
 handler and emitting our custom callback:
 
-```slint,no_run
+```slint,no-preview
 Example := Rectangle {
     // declare a callback
     callback hello;
@@ -372,7 +372,7 @@ Example := Rectangle {
 
 It is also possible to add parameters to the callback.
 
-```slint,no_run
+```slint,no-preview
 Example := Rectangle {
     // declares a callback
     callback hello(int, string);
@@ -382,7 +382,7 @@ Example := Rectangle {
 
 And return value.
 
-```slint,no_run
+```slint,no-preview
 Example := Rectangle {
     // declares a callback with a return value
     callback hello(int, int) -> int;
@@ -394,7 +394,7 @@ Example := Rectangle {
 
 It is possible to declare callback aliases in a similar way to two-way bindings:
 
-```slint,no_run
+```slint,no-preview
 Example := Rectangle {
     callback clicked <=> area.clicked;
     area := TouchArea {}
@@ -408,7 +408,7 @@ are typically used to combine basic arithmetic with access to properties of othe
 these properties change, the expression is automatically re-evaluated and a new value is assigned
 to the property the expression is associated with:
 
-```slint,no_run
+```slint,no-preview
 Example := Rectangle {
     // declare a property of type int
     property<int> my-property;
@@ -423,7 +423,7 @@ If something changes `my-property`, the width will be updated automatically.
 
 Arithmetic in expression with numbers works like in most programming language with the operators `*`, `+`, `-`, `/`:
 
-```slint,no_run
+```slint,no-preview
 Example := Rectangle {
     property <int> p: 1 * 2 + 3 * 4; // same as (1 * 2) + (3 * 4)
 }
@@ -436,7 +436,7 @@ There are also the operators `&&` and `||` for logical *and* and *or* between bo
 
 You can access properties by addressing the associated element, followed by a `.` and the property name:
 
-```slint,no_run
+```slint,no-preview
 Example := Rectangle {
     foo := Rectangle {
         x: 42px;
@@ -482,7 +482,7 @@ Anything else after a `\` is an error.
 
 (TODO: translations: `tr!"Hello"`)
 
-```slint,no_run
+```slint,no-preview
 Example := Text {
     text: "hello";
 }
@@ -492,7 +492,7 @@ Example := Text {
 
 Color literals follow the syntax of CSS:
 
-```slint,no_run
+```slint,no-preview
 Example := Window {
     background: blue;
     property<color> c1: #ffaaff;
@@ -796,7 +796,7 @@ You can declare global singleton for properties that are available in the entire
 The syntax is `global Name := { /* .. properties or callbacks .. */ }`.
 Then can be then used using the `Name.property` syntax.
 
-```slint,no_run
+```slint,no-preview
 global Palette := {
     property<color> primary: blue;
     property<color> secondary: green;
@@ -811,7 +811,7 @@ Example := Rectangle {
 
 It is possible to re-expose a callback or properties from a global using the two way binding syntax.
 
-```slint,no_run
+```slint,no-preview
 global Logic := {
     property <int> the-value;
     callback magic-operation(int) -> int;
@@ -860,7 +860,7 @@ Components declared in a .slint file can be shared with components in other .sli
 By default, everything declared in a .slint file is private, but it can be made accessible from the outside using the export
 keyword:
 
-```slint,no_run
+```slint,no-preview
 ButtonHelper := Rectangle {
     // ...
 }
@@ -879,7 +879,7 @@ In the above example, `Button` is usable from other .slint files, but `ButtonHel
 
 It's also possible to change the name just for the purpose of exporting, without affecting its internal use:
 
-```slint,no_run
+```slint,no-preview
 Button := Rectangle {
     // ...
 }
@@ -891,7 +891,7 @@ In the above example, ```Button``` is not accessible from the outside, but inste
 
 For convenience, a third way of exporting a component is to declare it exported right away:
 
-```slint,no_run
+```slint,no-preview
 export Button := Rectangle {
     // ...
 }
