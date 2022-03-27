@@ -171,8 +171,7 @@ fn find_sibling_outside_repeater(
 ) -> Option<ItemRc> {
     assert_ne!(index, 0);
 
-    let item_tree =
-        crate::item_tree::ComponentItemTree::new(comp_ref_pin.as_ref().get_item_tree().as_slice());
+    let item_tree = crate::item_tree::ComponentItemTree::new(&comp_ref_pin);
 
     let mut current_sibling = index;
     loop {
@@ -235,7 +234,7 @@ pub type ItemRef<'a> = vtable::VRef<'a, ItemVTable>;
 
 /// A ItemRc is holding a reference to a component containing the item, and the index of this item
 #[repr(C)]
-#[derive(Clone, Eq)]
+#[derive(Clone)]
 pub struct ItemRc {
     component: vtable::VRc<ComponentVTable>,
     index: usize,
@@ -264,9 +263,7 @@ impl ItemRc {
     /// This is weak because it can be null if there is no parent
     pub fn parent_item(&self) -> ItemWeak {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
-        let item_tree = crate::item_tree::ComponentItemTree::new(
-            comp_ref_pin.as_ref().get_item_tree().as_slice(),
-        );
+        let item_tree = crate::item_tree::ComponentItemTree::new(&comp_ref_pin);
 
         if let Some(parent_index) = item_tree.parent(self.index) {
             return ItemRc::new(self.component.clone(), parent_index).downgrade();
@@ -326,9 +323,7 @@ impl ItemRc {
         subtree_child: &dyn Fn(usize, usize) -> usize,
     ) -> Option<Self> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
-        let item_tree = crate::item_tree::ComponentItemTree::new(
-            comp_ref_pin.as_ref().get_item_tree().as_slice(),
-        );
+        let item_tree = crate::item_tree::ComponentItemTree::new(&comp_ref_pin);
 
         let mut current_child_index = child_access(&item_tree, self.index())?;
         loop {
@@ -379,9 +374,7 @@ impl ItemRc {
                 let parent = parent_item.component();
                 let parent_ref_pin = vtable::VRc::borrow_pin(&parent);
                 let parent_item_index = parent_item.index();
-                let parent_item_tree = crate::item_tree::ComponentItemTree::new(
-                    parent_ref_pin.as_ref().get_item_tree().as_slice(),
-                );
+                let parent_item_tree = crate::item_tree::ComponentItemTree::new(&parent_ref_pin);
 
                 let subtree_index = match parent_item_tree.get(parent_item_index)? {
                     crate::item_tree::ItemTreeNode::Item { .. } => {
@@ -453,9 +446,7 @@ impl ItemRc {
         wrap_around: &dyn Fn(ItemRc) -> ItemRc,
     ) -> Self {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
-        let item_tree = crate::item_tree::ComponentItemTree::new(
-            comp_ref_pin.as_ref().get_item_tree().as_slice(),
-        );
+        let item_tree = crate::item_tree::ComponentItemTree::new(&comp_ref_pin);
 
         let mut to_focus = self.index();
         loop {
@@ -529,6 +520,8 @@ impl PartialEq for ItemRc {
     }
 }
 
+impl Eq for ItemRc {}
+
 /// A Weak reference to an item that can be constructed from an ItemRc.
 #[derive(Clone, Default)]
 #[repr(C)]
@@ -548,6 +541,8 @@ impl PartialEq for ItemWeak {
         VWeak::ptr_eq(&self.component, &other.component) && self.index == other.index
     }
 }
+
+impl Eq for ItemWeak {}
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]

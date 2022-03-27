@@ -112,8 +112,8 @@ pub struct ComponentItemTree<'a> {
 
 impl<'a> ComponentItemTree<'a> {
     /// Create a new `ItemTree` from its raw data.
-    pub fn new(item_tree: &'a [ItemTreeNode]) -> Self {
-        Self { item_tree }
+    pub fn new(comp_ref_pin: &'a Pin<VRef<'a, ComponentVTable>>) -> Self {
+        Self { item_tree: comp_ref_pin.as_ref().get_item_tree().as_slice() }
     }
 
     /// Get a ItemTreeNode
