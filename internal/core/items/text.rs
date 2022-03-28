@@ -24,6 +24,7 @@ use alloc::string::String;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use i_slint_core_macros::*;
+use unicode_segmentation::UnicodeSegmentation;
 
 #[cfg(not(feature = "std"))]
 use num_traits::float::Float;
@@ -382,12 +383,21 @@ impl Item for TextInput {
             KeyEventType::KeyPressed => {
                 if let Some(keycode) = event.text.chars().next() {
                     if let Ok(text_cursor_movement) = TextCursorDirection::try_from(keycode) {
-                        TextInput::move_cursor(
-                            self,
-                            text_cursor_movement,
-                            event.modifiers.into(),
-                            window,
-                        );
+                        if event.modifiers.has_semantic(SemanticModifier::MoveByWord) {
+                            TextInput::move_cursor_by_word(
+                                self,
+                                text_cursor_movement,
+                                event.modifiers.into(),
+                                window,
+                            );
+                        } else {
+                            TextInput::move_cursor(
+                                self,
+                                text_cursor_movement,
+                                event.modifiers.into(),
+                                window,
+                            );
+                        }
                         return KeyEventResult::EventAccepted;
                     } else if keycode == key_codes::Backspace {
                         TextInput::delete_previous(self, window);
@@ -633,6 +643,61 @@ impl TextInput {
             }
         }
         self.set_cursor_position(new_cursor_pos as i32, reset_preferred_x_pos, window);
+
+        // Keep the cursor visible when moving. Blinking should only occur when
+        // nothing is entered or the cursor isn't moved.
+        self.as_ref().show_cursor(window);
+
+        new_cursor_pos != last_cursor_pos
+    }
+
+    fn move_cursor_by_word(
+        self: Pin<&Self>,
+        direction: TextCursorDirection,
+        anchor_mode: AnchorMode,
+        window: &WindowRc,
+    ) -> bool {
+        let text = self.text();
+        if text.is_empty() {
+            return false;
+        }
+
+        let last_cursor_pos = (self.cursor_position() as usize).max(0).min(text.len());
+
+        let new_cursor_pos = match direction {
+            TextCursorDirection::Forward => {
+                if let Some((word_offset, slice)) = text
+                    .unicode_word_indices()
+                    .skip_while(|(offset, slice)| *offset + slice.len() <= last_cursor_pos)
+                    .next()
+                {
+                    word_offset + slice.len()
+                } else {
+                    text.len()
+                }
+            }
+            TextCursorDirection::Backward => {
+                let mut peekable_words = text.unicode_word_indices().peekable();
+
+                let mut word_offset = 0;
+                while let Some((current_word_offset, _)) =
+                    peekable_words.next_if(|(offset, _)| *offset < last_cursor_pos)
+                {
+                    word_offset = current_word_offset;
+                }
+
+                word_offset
+            }
+            _ => return false,
+        };
+
+        match anchor_mode {
+            AnchorMode::KeepAnchor => {}
+            AnchorMode::MoveAnchor => {
+                self.as_ref().anchor_position.set(new_cursor_pos as i32);
+            }
+        }
+        self.set_cursor_position(new_cursor_pos as i32, true, window);
 
         // Keep the cursor visible when moving. Blinking should only occur when
         // nothing is entered or the cursor isn't moved.
