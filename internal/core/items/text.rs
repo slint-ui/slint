@@ -410,7 +410,7 @@ impl Item for TextInput {
                 {
                     return KeyEventResult::EventIgnored;
                 }
-                if event.modifiers.control {
+                if event.modifiers.has_semantic(SemanticModifier::StandardShortcut) {
                     if event.text == "a" {
                         self.select_all(window);
                         return KeyEventResult::EventAccepted;
@@ -510,6 +510,30 @@ impl core::convert::TryFrom<char> for TextCursorDirection {
             key_codes::End => Self::EndOfLine,
             _ => return Err(()),
         })
+    }
+}
+
+enum SemanticModifier {
+    StandardShortcut,
+    MoveByWord,
+}
+
+impl KeyboardModifiers {
+    fn has_semantic(&self, sem: SemanticModifier) -> bool {
+        match sem {
+            // if we stop doing the cmd to ctrl mapping we can change this to meta on macos
+            SemanticModifier::StandardShortcut => self.control,
+            SemanticModifier::MoveByWord => {
+                #[cfg(target_os = "macos")]
+                {
+                    self.alt
+                }
+                #[cfg(not(target_os = "macos"))]
+                {
+                    self.control
+                }
+            }
+        }
     }
 }
 
