@@ -358,8 +358,6 @@ impl Item for TextInput {
                 if !self.has_focus() {
                     window.clone().set_focus_item(self_rc);
                 }
-
-                self.preferred_x_pos.set(pos.x);
             }
             MouseEvent::MouseReleased { button: PointerEventButton::left, .. }
             | MouseEvent::MouseExit => self.as_ref().pressed.set(false),
@@ -368,8 +366,6 @@ impl Item for TextInput {
                     let clicked_offset =
                         window.text_input_byte_offset_for_position(self, pos) as i32;
                     self.set_cursor_position(clicked_offset, true, window);
-
-                    self.preferred_x_pos.set(pos.x);
                 }
             }
             _ => return InputEventResult::EventIgnored,
