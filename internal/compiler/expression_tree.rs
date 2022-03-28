@@ -993,6 +993,24 @@ impl Expression {
                 },
                 _ => unreachable!(),
             }
+        } else if let (Type::Struct { fields, .. }, Expression::Struct { values, .. }) =
+            (&target_type, &self)
+        {
+            // Also special case struct literal in case they contain array literal
+            let mut fields = fields.clone();
+            let mut new_values = HashMap::new();
+            for (f, v) in values {
+                if let Some(t) = fields.remove(f) {
+                    new_values.insert(f.clone(), v.clone().maybe_convert_to(t, node, diag));
+                } else {
+                    diag.push_error(format!("Cannot convert {} to {}", ty, target_type), node);
+                    return self;
+                }
+            }
+            for (f, t) in fields {
+                new_values.insert(f, Expression::default_value_for_type(&t));
+            }
+            Expression::Struct { ty: target_type, values: new_values }
         } else {
             let mut message = format!("Cannot convert {} to {}", ty, target_type);
             // Explicit error message for unit conversion
