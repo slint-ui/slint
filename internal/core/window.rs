@@ -405,7 +405,7 @@ impl Window {
 
     fn move_focus(self: Rc<Self>, start_item: ItemRc, forward: impl Fn(ItemRc) -> ItemRc) {
         let mut current_item = start_item;
-        let mut visited = vec![];
+        let mut visited = alloc::vec::Vec::new();
 
         loop {
             if current_item.is_visible()
