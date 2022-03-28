@@ -177,38 +177,31 @@ fn find_sibling_outside_repeater(
     loop {
         current_sibling = sibling_step(&item_tree, current_sibling)?;
 
-        match item_tree.get(current_sibling)? {
-            crate::item_tree::ItemTreeNode::Item { .. } => {
-                return Some(ItemRc::new(component, current_sibling))
-            }
-            crate::item_tree::ItemTreeNode::DynamicTree { index, .. } => {
-                let range = comp_ref_pin.as_ref().get_subtree_range(*index);
-                let component_index = subtree_child(range.start, range.end);
-                if range.start <= component_index && component_index < range.end {
-                    let mut component = Default::default();
-                    comp_ref_pin.as_ref().get_subtree_component(
-                        *index,
-                        component_index,
-                        &mut component,
-                    );
-                    let component = component.upgrade().unwrap();
-                    return Some(ItemRc::new(component, 0));
-                }
-            }
+        if let Some(node) = step_into_node(
+            &component,
+            &comp_ref_pin,
+            current_sibling,
+            &item_tree,
+            subtree_child,
+            &std::convert::identity,
+        ) {
+            return Some(node);
         }
     }
 }
 
 fn step_into_node(
-    component: crate::component::ComponentRc,
-    comp_ref_pin: Pin<VRef<ComponentVTable>>,
+    component: &crate::component::ComponentRc,
+    comp_ref_pin: &Pin<VRef<ComponentVTable>>,
     node_index: usize,
     item_tree: &crate::item_tree::ComponentItemTree,
     subtree_child: &dyn Fn(usize, usize) -> usize,
     wrap_around: &dyn Fn(ItemRc) -> ItemRc,
 ) -> Option<ItemRc> {
     match item_tree.get(node_index).expect("Invalid index passed to item tree") {
-        crate::item_tree::ItemTreeNode::Item { .. } => Some(ItemRc::new(component, node_index)),
+        crate::item_tree::ItemTreeNode::Item { .. } => {
+            Some(ItemRc::new(component.clone(), node_index))
+        }
         crate::item_tree::ItemTreeNode::DynamicTree { index, .. } => {
             let range = comp_ref_pin.as_ref().get_subtree_range(*index);
             let component_index = subtree_child(range.start, range.end);
@@ -328,12 +321,12 @@ impl ItemRc {
         let mut current_child_index = child_access(&item_tree, self.index())?;
         loop {
             if let Some(item) = step_into_node(
-                self.component(),
-                comp_ref_pin,
+                &self.component(),
+                &comp_ref_pin,
                 current_child_index,
                 &item_tree,
                 subtree_child,
-                &|i| i,
+                &std::convert::identity,
             ) {
                 return Some(item);
             }
@@ -452,8 +445,8 @@ impl ItemRc {
         loop {
             if let Some(next) = focus_step(&item_tree, to_focus) {
                 if let Some(item) = step_into_node(
-                    self.component(),
-                    comp_ref_pin,
+                    &self.component(),
+                    &comp_ref_pin,
                     next,
                     &item_tree,
                     subtree_child,
