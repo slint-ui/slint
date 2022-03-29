@@ -142,18 +142,6 @@ impl ItemRc {
         self.component.clone()
     }
 
-    /// Returns the number of child items for this item. Returns None if
-    /// the number is dynamically determined.
-    /// TODO: Remove the option when the Subtree trait exists and allows querying
-    pub fn children_count(&self) -> Option<u32> {
-        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
-        let item_tree = comp_ref_pin.as_ref().get_item_tree();
-        match item_tree.as_slice()[self.index] {
-            crate::item_tree::ItemTreeNode::Item { children_count, .. } => Some(children_count),
-            crate::item_tree::ItemTreeNode::DynamicTree { .. } => None,
-        }
-    }
-
     fn find_child(
         &self,
         child_access: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
