@@ -20,13 +20,14 @@ path = "lib.rs"
 simulator = ["winit", "glutin", "femtovg", "embedded-graphics-simulator", "std", "imgref", "scoped-tls-hkt"]
 
 pico-st7789 = ["unsafe_single_core", "rp-pico", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "embedded-time", "cortex-m", "display-interface-spi", "st7789", "defmt", "defmt-rtt",  "i-slint-core/defmt", "shared-bus", "i-slint-core/libm" ]
+stm32h735g = ["unsafe_single_core", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "embedded-time", "cortex-m", "i-slint-core/defmt", "i-slint-core/libm", "stm32h7xx-hal/stm32h735", "defmt", "defmt-rtt", "embedded-display-controller"]
 
 unsafe_single_core = ["i-slint-core/unsafe_single_core"]
 
 snapshot_renderer = []
 std = ["i-slint-core/std"]
 
-default = ["simulator"]
+default = ["stm32h735g"]
 
 [dependencies]
 i-slint-common = { version = "=0.2.2", path = "../../../internal/common", default-features = false }
@@ -60,6 +61,9 @@ embedded-time = { version = "0.12.0", optional = true }
 rp-pico = { version = "0.3.0", optional = true }
 shared-bus = { version = "0.2", optional = true }
 st7789 = { version = "0.6.1", optional = true }
+
+stm32h7xx-hal = { version = "0.11", optional = true, features = ["log-rtt", "ltdc"] }
+embedded-display-controller = { version = "0.1.0", optional = true }
 
 defmt-rtt = { version = "0.3.0", optional = true }
 defmt = { version = "0.3.0", optional = true }
