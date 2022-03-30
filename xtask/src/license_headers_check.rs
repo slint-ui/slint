@@ -263,6 +263,8 @@ enum LicenseLocation {
 lazy_static! {
     // cspell:disable
     static ref LICENSE_LOCATION_FOR_FILE: Vec<(regex::Regex, LicenseLocation)> = [
+        ("^editor/tree-sitter-slint/binding.gyp$", LicenseLocation::NoLicense), // liberal license
+        ("^editor/tree-sitter-slint/queries/.*", LicenseLocation::NoLicense), // liberal license
         ("^helper_crates/const-field-offset/.*", LicenseLocation::NoLicense), // liberal license
         ("^helper_crates/document-features/.*", LicenseLocation::NoLicense), // liberal license
         (".+webpack\\..+\\.js$", LicenseLocation::NoLicense),
