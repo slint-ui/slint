@@ -31,6 +31,9 @@ static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
+// 16ns for serial clock cycle (write), page 43 of https://www.waveshare.com/w/upload/a/ae/ST7789_Datasheet.pdf
+const SPI_ST7789VW_MAX_FREQ: embedded_time::rate::Hertz = embedded_time::rate::Hertz(62_500_000u32);
+
 pub fn init() {
     let mut pac = pac::Peripherals::take().unwrap();
     let core = pac::CorePeripherals::take().unwrap();
@@ -66,7 +69,7 @@ pub fn init() {
     let spi = spi.init(
         &mut pac.RESETS,
         clocks.peripheral_clock.freq(),
-        18_000_000u32.Hz(),
+        SPI_ST7789VW_MAX_FREQ,
         &embedded_hal::spi::MODE_3,
     );
     // FIXME: a cleaner way to get a static reference, or be able to use non-static backend
@@ -214,7 +217,7 @@ mod xpt2046 {
                 if z < threshold {
                     xchg!(0);
                     self.cs.set_high().map_err(|e| Error::Pin(e))?;
-                    unsafe { set_spi_freq(18_000_000u32.Hz()) };
+                    unsafe { set_spi_freq(super::SPI_ST7789VW_MAX_FREQ) };
                     return Ok(None);
                 }
 
@@ -233,7 +236,7 @@ mod xpt2046 {
 
                 xchg!(0);
                 self.cs.set_high().map_err(|e| Error::Pin(e))?;
-                unsafe { set_spi_freq(18_000_000u32.Hz()) };
+                unsafe { set_spi_freq(super::SPI_ST7789VW_MAX_FREQ) };
 
                 if z < RELEASE_THRESHOLD {
                     return Ok(None);
