@@ -1019,12 +1019,21 @@ fn generate_item_tree(
         (None, None)
     };
 
-    let parent_item_index = parent_ctx.and_then(|parent| {
-        parent
-            .repeater_index
-            .map(|idx| parent.ctx.current_sub_component.unwrap().repeated[idx].index_in_tree)
+    let parent_item_expression = parent_ctx.and_then(|parent| {
+        parent.repeater_index.map(|idx| {
+            let sub_component_offset = parent.ctx.current_sub_component.unwrap().repeated[idx].index_in_tree;
+
+            quote!(if let Some((parent_component, parent_index)) = self
+                .parent
+                .clone()
+                .upgrade()
+                .map(|sc| (VRcMapped::origin(&sc), sc.as_pin_ref().tree_index_of_first_child.get()))
+            {
+                *result = slint::re_exports::ItemRc::new(parent_component, parent_index as usize + #sub_component_offset - 1)
+                    .downgrade();
+            })
+        })
     });
-    let parent_item_index = parent_item_index.iter();
     let mut item_tree_array = vec![];
     let mut item_array = vec![];
     sub_tree.tree.visit_in_array(&mut |node, children_offset, parent_index| {
@@ -1169,11 +1178,7 @@ fn generate_item_tree(
 
             fn parent_item(self: ::core::pin::Pin<&Self>, index: usize, result: &mut slint::re_exports::ItemWeak) {
                 if index == 0 {
-                    #(
-                        if let Some(parent) = self.parent.clone().upgrade().map(|sc| VRcMapped::origin(&sc)) {
-                            *result = slint::re_exports::ItemRc::new(parent, #parent_item_index).downgrade();
-                        }
-                    )*
+                    #parent_item_expression
                     return;
                 }
                 let parent_index = self.get_item_tree().as_slice()[index].parent_index();
