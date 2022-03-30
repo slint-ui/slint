@@ -152,6 +152,9 @@ This software is provided under a dual licensing scheme:
  - **GNU GPLv3**: Open source license ideal for free software.
  - **Commercial Slint license**: <https://slint-ui.com/#offering>
 
+The commercial license is free if you help us promote Slint: Check out our
+[ambassador program](https://slint-ui.com/ambassador-program.html).
+
 See also the [Licensing FAQ](FAQ.md#licensing)
 
 ## Frequently Asked Questions
