@@ -12,7 +12,7 @@ use super::{Item, ItemConsts, ItemRc, PointArg, PointerEventButton, RenderingRes
 use crate::graphics::{Brush, Color, FontRequest, Rect};
 use crate::input::{
     key_codes, FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
-    KeyEventResult, KeyEventType, KeyboardModifiers, MouseEvent, Shortcut,
+    KeyEventResult, KeyEventType, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::{LayoutInfo, Orientation};
@@ -416,19 +416,19 @@ impl Item for TextInput {
                 }
                 match event.shortcut() {
                     Some(shortcut) => match shortcut {
-                        Shortcut::SelectAll => {
+                        StandardShortcut::SelectAll => {
                             self.select_all(window);
                             return KeyEventResult::EventAccepted;
                         }
-                        Shortcut::Copy => {
+                        StandardShortcut::Copy => {
                             self.copy();
                             return KeyEventResult::EventAccepted;
                         }
-                        Shortcut::Paste => {
+                        StandardShortcut::Paste => {
                             self.paste(window);
                             return KeyEventResult::EventAccepted;
                         }
-                        Shortcut::Cut => {
+                        StandardShortcut::Cut => {
                             self.copy();
                             self.delete_selection(window);
                             return KeyEventResult::EventAccepted;
@@ -498,49 +498,7 @@ impl ItemConsts for TextInput {
     > = TextInput::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
-impl KeyEvent {
-    fn text_shortcut(&self) -> Option<TextShortcut> {
-        let keycode = self.text.chars().next()?;
-
-        let by_word = if cfg!(target_os = "macos") {
-            self.modifiers.alt && !self.modifiers.control && !self.modifiers.meta
-        } else {
-            self.modifiers.control && !self.modifiers.alt && !self.modifiers.meta
-        };
-        match TextCursorDirection::try_from(keycode) {
-            Ok(TextCursorDirection::Forward) => {
-                if by_word {
-                    // return Some(TextShortcut::Move(TextCursorDirection::ForwardByWord));
-                } else {
-                    return Some(TextShortcut::Move(TextCursorDirection::Forward));
-                }
-            }
-            Ok(TextCursorDirection::Backward) => {
-                if by_word {
-                    // return Some(TextShortcut::Move(TextCursorDirection::BackwardByWord));
-                } else {
-                    return Some(TextShortcut::Move(TextCursorDirection::Backward));
-                }
-            }
-            Ok(direction) => return Some(TextShortcut::Move(direction)),
-            _ => (),
-        };
-
-        match keycode {
-            key_codes::Backspace => Some(TextShortcut::DeleteBackward),
-            key_codes::Delete => Some(TextShortcut::DeleteForward),
-            _ => None,
-        }
-    }
-}
-
-enum TextShortcut {
-    Move(TextCursorDirection),
-    DeleteForward,
-    DeleteBackward,
-}
-
-enum TextCursorDirection {
+pub enum TextCursorDirection {
     Forward,
     Backward,
     // ForwardByWord,

@@ -7,7 +7,7 @@
 
 use crate::graphics::Point;
 use crate::item_tree::{ItemVisitorResult, VisitChildrenResult};
-use crate::items::{ItemRc, ItemRef, ItemWeak, PointerEventButton};
+use crate::items::{ItemRc, ItemRef, ItemWeak, PointerEventButton, TextCursorDirection};
 use crate::window::WindowRc;
 use crate::Property;
 use crate::{component::ComponentRc, SharedString};
@@ -175,36 +175,72 @@ pub struct KeyEvent {
 impl KeyEvent {
     /// If a shortcut was pressed, this function returns `Some(Shortcut)`.
     /// Otherwise it returns None.
-    pub fn shortcut(&self) -> Option<Shortcut> {
+    pub fn shortcut(&self) -> Option<StandardShortcut> {
         if self.modifiers.control && !self.modifiers.shift {
             match self.text.as_str() {
-                "c" => Some(Shortcut::Copy),
-                "x" => Some(Shortcut::Cut),
-                "v" => Some(Shortcut::Paste),
-                "a" => Some(Shortcut::SelectAll),
-                "f" => Some(Shortcut::Find),
-                "s" => Some(Shortcut::Save),
-                "p" => Some(Shortcut::Print),
-                "z" => Some(Shortcut::Undo),
+                "c" => Some(StandardShortcut::Copy),
+                "x" => Some(StandardShortcut::Cut),
+                "v" => Some(StandardShortcut::Paste),
+                "a" => Some(StandardShortcut::SelectAll),
+                "f" => Some(StandardShortcut::Find),
+                "s" => Some(StandardShortcut::Save),
+                "p" => Some(StandardShortcut::Print),
+                "z" => Some(StandardShortcut::Undo),
                 #[cfg(not(target_os = "macos"))]
                 "y" => Some(Shortcut::Redo),
-                "r" => Some(Shortcut::Refresh),
+                "r" => Some(StandardShortcut::Refresh),
                 _ => None,
             }
         } else if self.modifiers.control && self.modifiers.shift {
             match self.text.as_str() {
                 #[cfg(target_os = "macos")]
-                "z" => Some(Shortcut::Redo),
+                "z" => Some(StandardShortcut::Redo),
                 _ => None,
             }
         } else {
             None
         }
     }
+
+    /// If a shortcut concerning text editing was pressed, this function
+    /// returns `Some(TextShortcut)`. Otherwise it returns None.
+    pub fn text_shortcut(&self) -> Option<TextShortcut> {
+        let keycode = self.text.chars().next()?;
+
+        let by_word = if cfg!(target_os = "macos") {
+            self.modifiers.alt && !self.modifiers.control && !self.modifiers.meta
+        } else {
+            self.modifiers.control && !self.modifiers.alt && !self.modifiers.meta
+        };
+        match TextCursorDirection::try_from(keycode) {
+            Ok(TextCursorDirection::Forward) => {
+                if by_word {
+                    // return Some(TextShortcut::Move(TextCursorDirection::ForwardByWord));
+                } else {
+                    return Some(TextShortcut::Move(TextCursorDirection::Forward));
+                }
+            }
+            Ok(TextCursorDirection::Backward) => {
+                if by_word {
+                    // return Some(TextShortcut::Move(TextCursorDirection::BackwardByWord));
+                } else {
+                    return Some(TextShortcut::Move(TextCursorDirection::Backward));
+                }
+            }
+            Ok(direction) => return Some(TextShortcut::Move(direction)),
+            _ => (),
+        };
+
+        match keycode {
+            key_codes::Backspace => Some(TextShortcut::DeleteBackward),
+            key_codes::Delete => Some(TextShortcut::DeleteForward),
+            _ => None,
+        }
+    }
 }
-/// Represents a non context specific shortcut. Shortcuts that are specific to
-/// a special context e.g. text movement shortcuts should be handled were they are used.
-pub enum Shortcut {
+
+/// Represents a non context specific shortcut.
+pub enum StandardShortcut {
     /// Copy Something
     Copy,
     /// Cut Something
@@ -225,6 +261,16 @@ pub enum Shortcut {
     Redo,
     /// Redo the last undone action
     Refresh,
+}
+
+/// Shortcuts that are used when editing text
+pub enum TextShortcut {
+    /// Move the cursor
+    Move(TextCursorDirection),
+    /// Delete the Character to the right of the cursor
+    DeleteForward,
+    /// Delete the Character to the left of the cursor (aka Backspace).
+    DeleteBackward,
 }
 
 /// Represents how an item's key_event handler dealt with a key event.
