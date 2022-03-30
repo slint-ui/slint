@@ -380,22 +380,26 @@ impl Item for TextInput {
 
         match event.event_type {
             KeyEventType::KeyPressed => {
+                match event.text_shortcut() {
+                    Some(text_shortcut) => match text_shortcut {
+                        TextShortcut::Move(direction) => {
+                            TextInput::move_cursor(self, direction, event.modifiers.into(), window);
+                            return KeyEventResult::EventAccepted;
+                        }
+                        TextShortcut::DeleteForward => {
+                            TextInput::delete_char(self, window);
+                            return KeyEventResult::EventAccepted;
+                        }
+                        TextShortcut::DeleteBackward => {
+                            TextInput::delete_previous(self, window);
+                            return KeyEventResult::EventAccepted;
+                        }
+                    },
+                    None => (),
+                };
+
                 if let Some(keycode) = event.text.chars().next() {
-                    if let Ok(text_cursor_movement) = TextCursorDirection::try_from(keycode) {
-                        TextInput::move_cursor(
-                            self,
-                            text_cursor_movement,
-                            event.modifiers.into(),
-                            window,
-                        );
-                        return KeyEventResult::EventAccepted;
-                    } else if keycode == key_codes::Backspace {
-                        TextInput::delete_previous(self, window);
-                        return KeyEventResult::EventAccepted;
-                    } else if keycode == key_codes::Delete {
-                        TextInput::delete_char(self, window);
-                        return KeyEventResult::EventAccepted;
-                    } else if keycode == key_codes::Return && self.single_line() {
+                    if keycode == key_codes::Return && self.single_line() {
                         Self::FIELD_OFFSETS.accepted.apply_pin(self).call(&());
                         return KeyEventResult::EventAccepted;
                     }
@@ -485,9 +489,53 @@ impl ItemConsts for TextInput {
     > = TextInput::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
 }
 
+impl KeyEvent {
+    fn text_shortcut(&self) -> Option<TextShortcut> {
+        let keycode = self.text.chars().next()?;
+
+        let by_word = if cfg!(target_os = "macos") {
+            self.modifiers.alt && !self.modifiers.control && !self.modifiers.meta
+        } else {
+            self.modifiers.control && !self.modifiers.alt && !self.modifiers.meta
+        };
+        match TextCursorDirection::try_from(keycode) {
+            Ok(TextCursorDirection::Forward) => {
+                if by_word {
+                    // return Some(TextShortcut::Move(TextCursorDirection::ForwardByWord));
+                } else {
+                    return Some(TextShortcut::Move(TextCursorDirection::Forward));
+                }
+            }
+            Ok(TextCursorDirection::Backward) => {
+                if by_word {
+                    // return Some(TextShortcut::Move(TextCursorDirection::BackwardByWord));
+                } else {
+                    return Some(TextShortcut::Move(TextCursorDirection::Backward));
+                }
+            }
+            Ok(direction) => return Some(TextShortcut::Move(direction)),
+            _ => (),
+        };
+
+        match keycode {
+            key_codes::Backspace => Some(TextShortcut::DeleteBackward),
+            key_codes::Delete => Some(TextShortcut::DeleteForward),
+            _ => None,
+        }
+    }
+}
+
+enum TextShortcut {
+    Move(TextCursorDirection),
+    DeleteForward,
+    DeleteBackward,
+}
+
 enum TextCursorDirection {
     Forward,
     Backward,
+    // ForwardByWord,
+    // BackwardByWord,
     NextLine,
     PreviousLine,
     PreviousCharacter, // breaks grapheme boundaries, so only used by delete-previous-char
