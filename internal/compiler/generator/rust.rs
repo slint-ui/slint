@@ -530,9 +530,7 @@ fn generate_sub_component(
     let mut extra_components = component
         .popup_windows
         .iter()
-        .map(|c| {
-            generate_item_tree(c, root, Some(ParentCtx::new(&ctx, None)), quote!(), index_property)
-        })
+        .map(|c| generate_item_tree(c, root, Some(ParentCtx::new(&ctx, None)), quote!(), None))
         .collect::<Vec<_>>();
 
     let mut declared_property_vars = vec![];
@@ -766,17 +764,15 @@ fn generate_sub_component(
     let visibility =
         core::ptr::eq(&root.item_tree.root as *const _, component as *const _).then(|| quote!(pub));
 
-    let access_prop = |&property_index| {
-        access_member(
+    let subtree_index_function = if let Some(property_index) = index_property {
+        let prop = access_member(
             &llr::PropertyReference::Local { sub_component_path: vec![], property_index },
             &ctx,
-        )
+        );
+        quote!(#prop.get() as usize)
+    } else {
+        quote!(core::usize::MAX)
     };
-    let prop = index_property.iter().map(access_prop);
-    let mut subtree_index_function = quote!(#(#prop.get() as usize)*);
-    if subtree_index_function.is_empty() {
-        subtree_index_function = quote!(core::usize::MAX);
-    }
 
     quote!(
         #[derive(slint::re_exports::FieldOffsets, Default)]

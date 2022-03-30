@@ -14,6 +14,7 @@ use std::rc::Rc;
 pub fn process_repeater_components(component: &Rc<Component>) {
     create_repeater_components(component);
     adjust_references(component);
+    adjust_popups(component);
 }
 
 fn create_repeater_components(component: &Rc<Component>) {
@@ -111,5 +112,24 @@ fn adjust_references(comp: &Rc<Component>) {
                 }
             }
         })
+    });
+}
+
+fn adjust_popups(component: &Rc<Component>) {
+    component.popup_windows.borrow_mut().retain(|popup| {
+        let parent = popup
+            .component
+            .parent_element
+            .upgrade()
+            .unwrap()
+            .borrow()
+            .enclosing_component
+            .upgrade()
+            .unwrap();
+        if Rc::ptr_eq(&parent, component) {
+            return true;
+        }
+        parent.popup_windows.borrow_mut().push(popup.clone());
+        false
     });
 }
