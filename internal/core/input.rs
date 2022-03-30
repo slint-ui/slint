@@ -173,7 +173,7 @@ pub struct KeyEvent {
 }
 
 impl KeyEvent {
-    /// If a shortcut was pressed, this function returns `Some(Shortcut)`.
+    /// If a shortcut was pressed, this function returns `Some(StandardShortcut)`.
     /// Otherwise it returns None.
     pub fn shortcut(&self) -> Option<StandardShortcut> {
         if self.modifiers.control && !self.modifiers.shift {
@@ -186,14 +186,14 @@ impl KeyEvent {
                 "s" => Some(StandardShortcut::Save),
                 "p" => Some(StandardShortcut::Print),
                 "z" => Some(StandardShortcut::Undo),
-                #[cfg(not(target_os = "macos"))]
-                "y" => Some(Shortcut::Redo),
+                #[cfg(target_os = "windows")]
+                "y" => Some(StandardShortcut::Redo),
                 "r" => Some(StandardShortcut::Refresh),
                 _ => None,
             }
         } else if self.modifiers.control && self.modifiers.shift {
             match self.text.as_str() {
-                #[cfg(target_os = "macos")]
+                #[cfg(not(target_os = "windows"))]
                 "z" => Some(StandardShortcut::Redo),
                 _ => None,
             }
