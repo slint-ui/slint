@@ -43,6 +43,9 @@ Slint is available under two licenses:
  * GPLv3, for the growing ecosystem of Free and Open Source Software.
  * Commercial, for use in closed-source projects. See <https://slint-ui.com/#offering>
 
+The commercial license is free if you help us promote Slint: Check out our
+[ambassador license](https://slint-ui.com/ambassador-program.html).
+
 ## What is the commercial licensing model?
 
 The basic principle behind our commercial licensing is that you start for free and pay when you're shipping.
