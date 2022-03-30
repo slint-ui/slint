@@ -153,7 +153,7 @@ This software is provided under a dual licensing scheme:
  - **Commercial Slint license**: <https://slint-ui.com/#offering>
 
 The commercial license is free if you help us promote Slint: Check out our
-[ambassador program](https://slint-ui.com/ambassador-program.html).
+[ambassador license](https://slint-ui.com/ambassador-program.html).
 
 See also the [Licensing FAQ](FAQ.md#licensing)
 
