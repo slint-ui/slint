@@ -140,6 +140,7 @@ jobs:
         with:
           version: 6.2.1 # for Apple Silicon support
           cached: ${{ steps.cache-qt.outputs.cache-hit }}
+          setup-python: false
       - uses: Swatinem/rust-cache@v1
         with:
           key: x

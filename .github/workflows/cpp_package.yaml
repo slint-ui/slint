@@ -46,6 +46,7 @@ jobs:
       with:
         version: 6.2.1
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
+        setup-python: false
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
