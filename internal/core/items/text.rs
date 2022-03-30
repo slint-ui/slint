@@ -12,7 +12,7 @@ use super::{Item, ItemConsts, ItemRc, PointArg, PointerEventButton, RenderingRes
 use crate::graphics::{Brush, Color, FontRequest, Rect};
 use crate::input::{
     key_codes, FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
-    KeyEventResult, KeyEventType, KeyboardModifiers, MouseEvent,
+    KeyEventResult, KeyEventType, KeyboardModifiers, MouseEvent, Shortcut,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::{LayoutInfo, Orientation};
@@ -414,21 +414,30 @@ impl Item for TextInput {
                 {
                     return KeyEventResult::EventIgnored;
                 }
+                match event.shortcut() {
+                    Some(shortcut) => match shortcut {
+                        Shortcut::SelectAll => {
+                            self.select_all(window);
+                            return KeyEventResult::EventAccepted;
+                        }
+                        Shortcut::Copy => {
+                            self.copy();
+                            return KeyEventResult::EventAccepted;
+                        }
+                        Shortcut::Paste => {
+                            self.paste(window);
+                            return KeyEventResult::EventAccepted;
+                        }
+                        Shortcut::Cut => {
+                            self.copy();
+                            self.delete_selection(window);
+                            return KeyEventResult::EventAccepted;
+                        }
+                        _ => (),
+                    },
+                    None => (),
+                }
                 if event.modifiers.control {
-                    if event.text == "a" {
-                        self.select_all(window);
-                        return KeyEventResult::EventAccepted;
-                    } else if event.text == "c" {
-                        self.copy();
-                        return KeyEventResult::EventAccepted;
-                    } else if event.text == "v" {
-                        self.paste(window);
-                        return KeyEventResult::EventAccepted;
-                    } else if event.text == "x" {
-                        self.copy();
-                        self.delete_selection(window);
-                        return KeyEventResult::EventAccepted;
-                    }
                     return KeyEventResult::EventIgnored;
                 }
                 self.delete_selection(window);
