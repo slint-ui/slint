@@ -173,7 +173,7 @@ impl Document {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PopupWindow {
     pub component: Rc<Component>,
     pub x: NamedReference,
