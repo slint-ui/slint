@@ -172,6 +172,61 @@ pub struct KeyEvent {
     pub event_type: KeyEventType,
 }
 
+impl KeyEvent {
+    /// If a shortcut was pressed, this function returns `Some(Shortcut)`.
+    /// Otherwise it returns None.
+    pub fn shortcut(&self) -> Option<Shortcut> {
+        if self.modifiers.control && !self.modifiers.shift {
+            match self.text.as_str() {
+                "c" => Some(Shortcut::Copy),
+                "x" => Some(Shortcut::Cut),
+                "v" => Some(Shortcut::Paste),
+                "a" => Some(Shortcut::SelectAll),
+                "f" => Some(Shortcut::Find),
+                "s" => Some(Shortcut::Save),
+                "p" => Some(Shortcut::Print),
+                "z" => Some(Shortcut::Undo),
+                #[cfg(not(target_os = "macos"))]
+                "y" => Some(Shortcut::Redo),
+                "r" => Some(Shortcut::Refresh),
+                _ => None,
+            }
+        } else if self.modifiers.control && self.modifiers.shift {
+            match self.text.as_str() {
+                #[cfg(target_os = "macos")]
+                "z" => Some(Shortcut::Redo),
+                _ => None,
+            }
+        } else {
+            None
+        }
+    }
+}
+/// Represents a non context specific shortcut. Shortcuts that are specific to
+/// a special context e.g. text movement shortcuts should be handled were they are used.
+pub enum Shortcut {
+    /// Copy Something
+    Copy,
+    /// Cut Something
+    Cut,
+    /// Paste Something
+    Paste,
+    /// Copy Something
+    SelectAll,
+    /// Select All
+    Find,
+    /// Find/Search Something
+    Save,
+    /// Save Something
+    Print,
+    /// Print Something
+    Undo,
+    /// Undo the last action
+    Redo,
+    /// Redo the last undone action
+    Refresh,
+}
+
 /// Represents how an item's key_event handler dealt with a key event.
 /// An accepted event results in no further event propagation.
 #[repr(C)]
