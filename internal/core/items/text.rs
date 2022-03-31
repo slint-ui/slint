@@ -509,6 +509,8 @@ pub enum TextCursorDirection {
     PreviousCharacter, // breaks grapheme boundaries, so only used by delete-previous-char
     StartOfLine,
     EndOfLine,
+    StartOfParagraph, // These don't care about wrapping
+    EndOfParagraph,
     StartOfText,
     EndOfText,
 }
@@ -522,7 +524,10 @@ impl core::convert::TryFrom<char> for TextCursorDirection {
             key_codes::RightArrow => Self::Forward,
             key_codes::UpArrow => Self::PreviousLine,
             key_codes::DownArrow => Self::NextLine,
+            // On macos this scrolls to the top or the bottom of the page
+            #[cfg(not(target_os = "macos"))]
             key_codes::Home => Self::StartOfLine,
+            #[cfg(not(target_os = "macos"))]
             key_codes::End => Self::EndOfLine,
             _ => return Err(()),
         })
@@ -634,10 +639,39 @@ impl TextInput {
 
                 word_offset
             }
+            TextCursorDirection::StartOfLine => {
+                let cursor_rect =
+                    window.text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
+                let mut cursor_xy_pos = cursor_rect.center();
 
-            // FIXME: StartOfLine and EndOfLine should respect line boundaries
-            TextCursorDirection::StartOfLine => 0,
-            TextCursorDirection::EndOfLine => text.len(),
+                cursor_xy_pos.x = 0.0;
+                window.text_input_byte_offset_for_position(self, cursor_xy_pos)
+            }
+            TextCursorDirection::EndOfLine => {
+                let cursor_rect =
+                    window.text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
+                let mut cursor_xy_pos = cursor_rect.center();
+
+                cursor_xy_pos.x = f32::MAX;
+                window.text_input_byte_offset_for_position(self, cursor_xy_pos)
+            }
+            TextCursorDirection::StartOfParagraph => text
+                .as_bytes()
+                .iter()
+                .enumerate()
+                .rev()
+                .skip(text.len() - last_cursor_pos + 1)
+                .find(|(_, &c)| c == b'\n')
+                .map(|(new_pos, _)| new_pos + 1)
+                .unwrap_or(0),
+            TextCursorDirection::EndOfParagraph => text
+                .as_bytes()
+                .iter()
+                .enumerate()
+                .skip(last_cursor_pos + 1)
+                .find(|(_, &c)| c == b'\n')
+                .map(|(new_pos, _)| new_pos)
+                .unwrap_or(text.len()),
             TextCursorDirection::StartOfText => 0,
             TextCursorDirection::EndOfText => text.len(),
         };

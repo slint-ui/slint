@@ -207,26 +207,67 @@ impl KeyEvent {
     pub fn text_shortcut(&self) -> Option<TextShortcut> {
         let keycode = self.text.chars().next()?;
 
-        let by_word = if cfg!(target_os = "macos") {
+        let move_mod = if cfg!(target_os = "macos") {
             self.modifiers.alt && !self.modifiers.control && !self.modifiers.meta
         } else {
             self.modifiers.control && !self.modifiers.alt && !self.modifiers.meta
         };
+
+        if move_mod {
+            match keycode {
+                key_codes::LeftArrow => {
+                    return Some(TextShortcut::Move(TextCursorDirection::BackwardByWord))
+                }
+                key_codes::RightArrow => {
+                    return Some(TextShortcut::Move(TextCursorDirection::ForwardByWord))
+                }
+                key_codes::UpArrow => {
+                    return Some(TextShortcut::Move(TextCursorDirection::StartOfParagraph))
+                }
+                key_codes::DownArrow => {
+                    return Some(TextShortcut::Move(TextCursorDirection::EndOfParagraph))
+                }
+                _ => (),
+            };
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        {
+            if self.modifiers.control && !self.modifiers.alt && !self.modifiers.meta {
+                match keycode {
+                    key_codes::Home => {
+                        return Some(TextShortcut::Move(TextCursorDirection::StartOfText))
+                    }
+                    key_codes::End => {
+                        return Some(TextShortcut::Move(TextCursorDirection::EndOfText))
+                    }
+                    _ => (),
+                };
+            }
+        }
+
+        #[cfg(target_os = "macos")]
+        {
+            if self.modifiers.control {
+                match keycode {
+                    key_codes::LeftArrow => {
+                        return Some(TextShortcut::Move(TextCursorDirection::StartOfLine))
+                    }
+                    key_codes::RightArrow => {
+                        return Some(TextShortcut::Move(TextCursorDirection::EndOfLine))
+                    }
+                    key_codes::UpArrow => {
+                        return Some(TextShortcut::Move(TextCursorDirection::StartOfText))
+                    }
+                    key_codes::DownArrow => {
+                        return Some(TextShortcut::Move(TextCursorDirection::EndOfText))
+                    }
+                    _ => (),
+                };
+            }
+        }
+
         match TextCursorDirection::try_from(keycode) {
-            Ok(TextCursorDirection::Forward) => {
-                if by_word {
-                    return Some(TextShortcut::Move(TextCursorDirection::ForwardByWord));
-                } else {
-                    return Some(TextShortcut::Move(TextCursorDirection::Forward));
-                }
-            }
-            Ok(TextCursorDirection::Backward) => {
-                if by_word {
-                    return Some(TextShortcut::Move(TextCursorDirection::BackwardByWord));
-                } else {
-                    return Some(TextShortcut::Move(TextCursorDirection::Backward));
-                }
-            }
             Ok(direction) => return Some(TextShortcut::Move(direction)),
             _ => (),
         };
