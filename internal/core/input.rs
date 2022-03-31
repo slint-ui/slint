@@ -215,14 +215,14 @@ impl KeyEvent {
         match TextCursorDirection::try_from(keycode) {
             Ok(TextCursorDirection::Forward) => {
                 if by_word {
-                    // return Some(TextShortcut::Move(TextCursorDirection::ForwardByWord));
+                    return Some(TextShortcut::Move(TextCursorDirection::ForwardByWord));
                 } else {
                     return Some(TextShortcut::Move(TextCursorDirection::Forward));
                 }
             }
             Ok(TextCursorDirection::Backward) => {
                 if by_word {
-                    // return Some(TextShortcut::Move(TextCursorDirection::BackwardByWord));
+                    return Some(TextShortcut::Move(TextCursorDirection::BackwardByWord));
                 } else {
                     return Some(TextShortcut::Move(TextCursorDirection::Backward));
                 }

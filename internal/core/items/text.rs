@@ -24,6 +24,7 @@ use alloc::string::String;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use i_slint_core_macros::*;
+use unicode_segmentation::UnicodeSegmentation;
 
 #[cfg(not(feature = "std"))]
 use num_traits::float::Float;
@@ -501,8 +502,8 @@ impl ItemConsts for TextInput {
 pub enum TextCursorDirection {
     Forward,
     Backward,
-    // ForwardByWord,
-    // BackwardByWord,
+    ForwardByWord,
+    BackwardByWord,
     NextLine,
     PreviousLine,
     PreviousCharacter, // breaks grapheme boundaries, so only used by delete-previous-char
@@ -610,6 +611,31 @@ impl TextInput {
                     }
                 }
             }
+            // Currently moving by word behaves like macos: next end of word(forward) or previous beginning of word(backward)
+            TextCursorDirection::ForwardByWord => {
+                if let Some((word_offset, slice)) = text
+                    .unicode_word_indices()
+                    .skip_while(|(offset, slice)| *offset + slice.len() <= last_cursor_pos)
+                    .next()
+                {
+                    word_offset + slice.len()
+                } else {
+                    text.len()
+                }
+            }
+            TextCursorDirection::BackwardByWord => {
+                let mut peekable_words = text.unicode_word_indices().peekable();
+
+                let mut word_offset = 0;
+                while let Some((current_word_offset, _)) =
+                    peekable_words.next_if(|(offset, _)| *offset < last_cursor_pos)
+                {
+                    word_offset = current_word_offset;
+                }
+
+                word_offset
+            }
+
             // FIXME: StartOfLine and EndOfLine should respect line boundaries
             TextCursorDirection::StartOfLine => 0,
             TextCursorDirection::EndOfLine => text.len(),
