@@ -974,7 +974,7 @@ fn generate_item_tree(
             signature: "([[maybe_unused]] slint::private_api::ComponentRef component) -> uintptr_t"
                 .into(),
             is_static: true,
-            statements: Some(vec![format!("return {};", std::usize::MAX)]),
+            statements: Some(vec!["return std::numeric_limits<uintptr_t>::max();".into()]),
             ..Default::default()
         }),
     ));
@@ -1508,7 +1508,7 @@ fn generate_repeated_component(
         &repeated.sub_tree,
         root,
         Some(parent_ctx.clone()),
-        repeater_id,
+        repeater_id.clone(),
         Access::Public,
         file,
     );
@@ -1596,7 +1596,10 @@ fn generate_repeated_component(
         if let Declaration::Function(f) = &mut subtree_index_func.unwrap().1 {
             let index = access_prop(&index_prop);
             f.statements = Some(vec![
-                "[[maybe_unused]] auto self = this;".into(),
+                format!(
+                    "auto self = reinterpret_cast<const {}*>(component.instance);",
+                    repeater_id
+                ),
                 format!("return {}.get();", index),
             ]);
         }
