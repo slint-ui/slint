@@ -966,13 +966,15 @@ fn generate_item_tree(
         }),
     ));
 
+    // Statements will be overridden for repeated components!
     target_struct.members.push((
         Access::Private,
         Declaration::Function(Function {
             name: "subtree_index".into(),
-            signature: "(slint::private_api::ComponentRef /* component */) -> uintptr_t".into(),
+            signature: "([[maybe_unused]] slint::private_api::ComponentRef component) -> uintptr_t"
+                .into(),
             is_static: true,
-            statements: Some(vec!["/* unimplemented! */".to_owned(), "return 0;".into()]),
+            statements: Some(vec![format!("return {};", std::usize::MAX)]),
             ..Default::default()
         }),
     ));
@@ -1582,6 +1584,22 @@ fn generate_repeated_component(
                 ..Function::default()
             }),
         ));
+    }
+
+    if let Some(index_prop) = repeated.index_prop {
+        // Override default subtree_index function implementation
+        let subtree_index_func = repeater_struct.members.iter_mut().find(|(_, d)| match d {
+            Declaration::Function(f) if f.name == "subtree_index" => true,
+            _ => false,
+        });
+
+        if let Declaration::Function(f) = &mut subtree_index_func.unwrap().1 {
+            let index = access_prop(&index_prop);
+            f.statements = Some(vec![
+                "[[maybe_unused]] auto self = this;".into(),
+                format!("return {}.get();", index),
+            ]);
+        }
     }
 
     file.definitions.extend(repeater_struct.extract_definitions().collect::<Vec<_>>());
