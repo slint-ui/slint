@@ -8,9 +8,11 @@ pub use cortex_m_rt::entry;
 use embedded_display_controller::{DisplayController, DisplayControllerLayer};
 use embedded_graphics::prelude::RgbColor;
 use embedded_hal::digital::v2::OutputPin;
+use hal::gpio::Speed::High;
 use hal::ltdc::LtdcLayer1;
 use hal::pac;
 use hal::prelude::*;
+use hal::rcc::rec::OctospiClkSelGetter;
 use stm32h7xx_hal as hal;
 
 use defmt_rtt as _; // global logger
@@ -47,29 +49,57 @@ pub fn init() {
     let pwr = dp.PWR.constrain();
     let pwrcfg = pwr.smps().freeze();
     let rcc = dp.RCC.constrain();
-    // there number are just random :-/  Don't know where to find the actual number i need
     let ccdr = rcc
-        .sys_ck(200.mhz())
-        .hclk(200.mhz())
+        .sys_ck(320.mhz())
+        // there number are just random :-/  Don't know where to find the actual number i need
         .pll3_p_ck(200.mhz())
         .pll3_r_ck(200.mhz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
+    // Octospi from HCLK at 160MHz
+    assert_eq!(ccdr.clocks.hclk().0, 160_000_000);
+    assert_eq!(
+        ccdr.peripheral.OCTOSPI1.get_kernel_clk_mux(),
+        hal::rcc::rec::OctospiClkSel::RCC_HCLK3
+    );
+
     cp.SCB.invalidate_icache();
     cp.SCB.enable_icache();
     cp.DWT.enable_cycle_counter();
-    /*
-    // setup SRAM
-    {
-        let sdram_size = 16384 * 1024;
-        let mpu = cp.MPU;
-        let scb = &mut cp.SCB;
-        dp.FMC.sdram(pins, OCTOSPI, ccdr.peripheral.FMC, &ccdr.clocks);
-    }*/
+
+    let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
+    let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
+    let gpiod = dp.GPIOD.split(ccdr.peripheral.GPIOD);
+    let gpiof = dp.GPIOF.split(ccdr.peripheral.GPIOF);
+    let gpiog = dp.GPIOG.split(ccdr.peripheral.GPIOG);
+
+    // setup OCTOSPI HyperRAM
+    let _tracweswo = gpiob.pb3.into_alternate_af0();
+    let _ncs = gpiog.pg12.into_alternate_af3().set_speed(High).internal_pull_up(true);
+    let _dqs = gpiof.pf12.into_alternate_af9().set_speed(High).internal_pull_up(true);
+    let _clk = gpiof.pf4.into_alternate_af9().set_speed(High).internal_pull_up(true);
+    let _io0 = gpiof.pf0.into_alternate_af9().set_speed(High).internal_pull_up(true);
+    let _io1 = gpiof.pf1.into_alternate_af9().set_speed(High).internal_pull_up(true);
+    let _io2 = gpiof.pf2.into_alternate_af9().set_speed(High).internal_pull_up(true);
+    let _io3 = gpiof.pf3.into_alternate_af9().set_speed(High).internal_pull_up(true);
+    let _io4 = gpiog.pg0.into_alternate_af9().set_speed(High).internal_pull_up(true);
+    let _io5 = gpiog.pg1.into_alternate_af9().set_speed(High).internal_pull_up(true);
+    let _io6 = gpiog.pg10.into_alternate_af3().set_speed(High).internal_pull_up(true);
+    let _io7 = gpiog.pg11.into_alternate_af9().set_speed(High).internal_pull_up(true);
+
+    let hyperram_size = 16 * 1024 * 1024; // 16 MByte
+    let config = hal::xspi::HyperbusConfig::new(80.mhz())
+        .device_size_bytes(24) // 16 Mbyte
+        .refresh_interval(4.us())
+        .read_write_recovery(4) // 50ns
+        .access_initial_latency(6);
+
+    let hyperram =
+        dp.OCTOSPI2.octospi_hyperbus_unchecked(config, &ccdr.clocks, ccdr.peripheral.OCTOSPI2);
+    let hyperram_ptr: *mut u32 = hyperram.init();
 
     i_slint_core::debug_log!("hello");
 
-    let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
     let mut led = gpioc.pc2.into_push_pull_output();
     led.set_high().unwrap();
     let mut led2 = gpioc.pc3.into_push_pull_output();
@@ -83,6 +113,11 @@ pub fn init() {
         [TargetPixel::BLACK; DISPLAY_WIDTH * DISPLAY_HEIGHT];
     // SAFETY the init function is only called once (as enforced by Peripherals::take)
     let (fb1, fb2) = unsafe { (&mut FB1, &mut FB2) };
+
+    assert!((hyperram_ptr as usize..hyperram_ptr as usize + hyperram_size)
+        .contains(&(fb1.as_ptr() as usize)));
+    assert!((hyperram_ptr as usize..hyperram_ptr as usize + hyperram_size)
+        .contains(&(fb2.as_ptr() as usize)));
 
     fb1.fill(TargetPixel::BLUE);
 
@@ -109,8 +144,6 @@ pub fn init() {
     ltdc.listen();
     let mut layer = ltdc.split();
 
-    let gpiog = dp.GPIOG.split(ccdr.peripheral.GPIOG);
-    let gpiod = dp.GPIOD.split(ccdr.peripheral.GPIOD);
     let mut lcd_disp_ctrl = gpiod.pd10.into_push_pull_output();
     lcd_disp_ctrl.set_high().unwrap();
     let mut lcd_bl_ctrl = gpiog.pg15.into_push_pull_output();
