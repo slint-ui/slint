@@ -475,9 +475,12 @@ impl Window {
         }
     }
 
-    /// Calls the render_components to render the main component and any sub-window components, tracked by a
-    /// property dependency tracker.
-    pub fn draw_contents(self: Rc<Self>, render_components: impl FnOnce(&[(&ComponentRc, Point)])) {
+    /// Calls the render_components to render the main component (first argument) and any sub-window components (second argument),
+    /// tracked by a property dependency tracker.
+    pub fn draw_contents(
+        self: Rc<Self>,
+        render_components: impl FnOnce(&ComponentRc, &[(&ComponentRc, Point)]),
+    ) {
         let draw_fn = || {
             let component_rc = self.component();
             let component = ComponentRc::borrow_pin(&component_rc);
@@ -489,21 +492,17 @@ impl Window {
                 );
             });
 
-            let popup_component =
+            if let Some(popup) =
                 self.active_popup.borrow().as_ref().and_then(|popup| match popup.location {
                     PopupWindowLocation::TopLevel(_) => None,
                     PopupWindowLocation::ChildWindow(coordinates) => {
-                        Some((popup.component.clone(), coordinates))
+                        Some((&popup.component, coordinates))
                     }
-                });
-
-            if let Some((popup_component, popup_coordinates)) = popup_component {
-                render_components(&[
-                    (&component_rc, Point::default()),
-                    (&popup_component, popup_coordinates),
-                ])
+                })
+            {
+                render_components(&component_rc, &[popup]);
             } else {
-                render_components(&[(&component_rc, Point::default())]);
+                render_components(&component_rc, &[]);
             }
         };
 

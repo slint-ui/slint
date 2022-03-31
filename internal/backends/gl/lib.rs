@@ -166,20 +166,6 @@ fn clip_path_for_rect_alike_item(
 }
 
 impl ItemRenderer for GLItemRenderer {
-    fn draw_rectangle(&mut self, rect: std::pin::Pin<&i_slint_core::items::Rectangle>) {
-        let geometry = item_rect(rect, self.scale_factor);
-        if geometry.is_empty() {
-            return;
-        }
-        // TODO: cache path in item to avoid re-tesselation
-        let mut path = rect_to_path(geometry);
-        let paint = match self.brush_to_paint(rect.background(), &mut path) {
-            Some(paint) => paint,
-            None => return,
-        };
-        self.canvas.borrow_mut().fill_path(&mut path, paint)
-    }
-
     fn draw_border_rectangle(
         &mut self,
         rect: std::pin::Pin<&i_slint_core::items::BorderRectangle>,
@@ -841,6 +827,20 @@ impl ItemRenderer for GLItemRenderer {
         let paint = font.init_paint(0.0, femtovg::Paint::color(to_femtovg_color(&color)));
         let mut canvas = self.canvas.borrow_mut();
         canvas.fill_text(0., 0., string, paint).unwrap();
+    }
+
+    fn fill_rect(&mut self, logical_rect: &Rect, brush: crate::Brush) {
+        if logical_rect.is_empty() {
+            return;
+        }
+        let physical_rect = *logical_rect * self.scale_factor;
+        let mut path = rect_to_path(physical_rect);
+
+        let paint = match self.brush_to_paint(brush, &mut path) {
+            Some(paint) => paint,
+            None => return,
+        };
+        self.canvas.borrow_mut().fill_path(&mut path, paint)
     }
 
     fn window(&self) -> WindowRc {

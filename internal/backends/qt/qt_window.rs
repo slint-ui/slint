@@ -392,15 +392,6 @@ struct QtItemRenderer<'a> {
 }
 
 impl ItemRenderer for QtItemRenderer<'_> {
-    fn draw_rectangle(&mut self, rect: Pin<&items::Rectangle>) {
-        let brush: qttypes::QBrush = into_qbrush(rect.background());
-        let rect: qttypes::QRectF = get_geometry!(items::Rectangle, rect);
-        let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", brush as "QBrush", rect as "QRectF"] {
-            painter->fillRect(rect, brush);
-        }}
-    }
-
     fn draw_border_rectangle(&mut self, rect: std::pin::Pin<&items::BorderRectangle>) {
         Self::draw_rectangle_impl(
             self.painter,
@@ -869,6 +860,20 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
+    fn fill_rect(&mut self, rect: &Rect, brush: Brush) {
+        let brush: qttypes::QBrush = into_qbrush(brush);
+        let rect = qttypes::QRectF {
+            x: rect.origin.x as _,
+            y: rect.origin.y as _,
+            width: rect.size.width as _,
+            height: rect.size.height as _,
+        };
+        let painter: &mut QPainter = &mut *self.painter;
+        cpp! { unsafe [painter as "QPainter*", brush as "QBrush", rect as "QRectF"] {
+            painter->fillRect(rect, brush);
+        }}
+    }
+
     fn window(&self) -> WindowRc {
         self.window.clone()
     }
@@ -1271,7 +1276,7 @@ impl QtWindow {
 
     fn paint_event(&self, painter: &mut QPainter) {
         let runtime_window = self.self_weak.upgrade().unwrap();
-        runtime_window.clone().draw_contents(|components| {
+        runtime_window.clone().draw_contents(|root_component, inline_popups| {
             i_slint_core::animations::update_animations();
             let cache = self.cache.clone();
             let mut renderer = QtItemRenderer {
@@ -1282,13 +1287,12 @@ impl QtWindow {
                 metrics: RenderingMetrics { layers_created: Some(0) },
             };
 
-            for (component, origin) in components {
-                i_slint_core::item_rendering::render_component_items(
-                    component,
-                    &mut renderer,
-                    *origin,
-                );
-            }
+            i_slint_core::item_rendering::render_component_items(
+                root_component,
+                &mut renderer,
+                Default::default(),
+            );
+            i_slint_core::item_rendering::render_inline_popups(inline_popups, &mut renderer);
 
             if let Some(collector) = &self.rendering_metrics_collector {
                 collector.measure_frame_rendered(&mut renderer);

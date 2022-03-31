@@ -322,11 +322,14 @@ fn prepare_scene(
     let prepare_scene = PrepareScene::new(size, factor, runtime_window.default_font_properties());
     let mut renderer = i_slint_core::item_rendering::PartialRenderer::new(cache, prepare_scene);
 
-    runtime_window.draw_contents(|components| {
+    runtime_window.draw_contents(|root_component, popups| {
         compute_dirty_region_profiler.start(devices);
-        for (component, origin) in components {
+
+        renderer.compute_dirty_regions(root_component, Default::default());
+        for (component, origin) in popups {
             renderer.compute_dirty_regions(component, *origin);
         }
+
         renderer.combine_clip(
             ((LogicalRect::from_untyped(&renderer.dirty_region.to_rect()) * factor).round_out()
                 / factor)
@@ -335,9 +338,13 @@ fn prepare_scene(
             0.,
         );
         compute_dirty_region_profiler.stop(devices);
-        for (component, origin) in components {
-            i_slint_core::item_rendering::render_component_items(component, &mut renderer, *origin);
-        }
+
+        i_slint_core::item_rendering::render_component_items(
+            root_component,
+            &mut renderer,
+            Default::default(),
+        );
+        i_slint_core::item_rendering::render_inline_popups(popups, &mut renderer);
     });
     let dirty_region = (LogicalRect::from_untyped(&renderer.dirty_region.to_rect()) * factor)
         .round_out()
@@ -498,23 +505,6 @@ struct RenderState {
 }
 
 impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
-    fn draw_rectangle(&mut self, rect: Pin<&i_slint_core::items::Rectangle>) {
-        let geom = LogicalRect::new(LogicalPoint::default(), rect.logical_geometry().size_length());
-        if self.should_draw(&geom) {
-            let geom = match geom.intersection(&self.current_state.clip) {
-                Some(geom) => geom,
-                None => return,
-            };
-
-            // FIXME: gradients
-            let color = rect.background().color();
-            if color.alpha() == 0 {
-                return;
-            }
-            self.new_scene_rectangle(geom, color);
-        }
-    }
-
     fn draw_border_rectangle(&mut self, rect: Pin<&i_slint_core::items::BorderRectangle>) {
         let geom = LogicalRect::new(LogicalPoint::default(), rect.logical_geometry().size_length());
         if self.should_draw(&geom) {
@@ -749,6 +739,27 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
 
     fn draw_string(&mut self, _string: &str, _color: Color) {
         todo!()
+    }
+
+    fn fill_rect(
+        &mut self,
+        logical_rect: &i_slint_core::graphics::Rect,
+        brush: i_slint_core::graphics::Brush,
+    ) {
+        let logical_rect = LogicalRect::from_untyped(logical_rect);
+        if self.should_draw(&logical_rect) {
+            let geom = match logical_rect.intersection(&self.current_state.clip) {
+                Some(geom) => geom,
+                None => return,
+            };
+
+            // FIXME: gradients
+            let color = brush.color();
+            if color.alpha() == 0 {
+                return;
+            }
+            self.new_scene_rectangle(geom, color);
+        }
     }
 
     fn window(&self) -> i_slint_core::window::WindowRc {

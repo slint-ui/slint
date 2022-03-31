@@ -162,6 +162,24 @@ pub fn render_component_items(
     renderer.restore_state();
 }
 
+/// Renders the tree of items that belong to the provided popup components, using the specified renderer. Rendering is done
+/// relative to the specified origin.
+pub fn render_inline_popups(popups: &[(&ComponentRc, Point)], renderer: &mut dyn ItemRenderer) {
+    for (component, origin) in popups {
+        {
+            let component_ref = ComponentRc::borrow_pin(component);
+            let popup_root = component_ref.as_ref().get_item_ref(0);
+            if let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(popup_root)
+            {
+                let background_rect =
+                    euclid::rect(origin.x, origin.y, window_item.width(), window_item.height());
+                renderer.fill_rect(&background_rect, window_item.background().into());
+            }
+        }
+        render_component_items(component, renderer, *origin);
+    }
+}
+
 /// Compute the bounding rect of all children. This does /not/ include item's own bounding rect. Remember to run this
 /// via `evaluate_no_tracking`.
 pub fn item_children_bounding_rect(
@@ -206,7 +224,14 @@ pub fn item_children_bounding_rect(
 /// draw_rectangle should draw a rectangle in `(pos.x + rect.x, pos.y + rect.y)`
 #[allow(missing_docs)]
 pub trait ItemRenderer {
-    fn draw_rectangle(&mut self, rect: Pin<&Rectangle>);
+    fn draw_rectangle(&mut self, rect: Pin<&Rectangle>) {
+        let geometry = euclid::rect(0., 0., rect.width(), rect.height());
+        if geometry.is_empty() {
+            return;
+        }
+        self.fill_rect(&geometry, rect.background());
+    }
+
     fn draw_border_rectangle(&mut self, rect: Pin<&BorderRectangle>);
     fn draw_image(&mut self, image: Pin<&ImageItem>);
     fn draw_clipped_image(&mut self, image: Pin<&ClippedImage>);
@@ -270,6 +295,9 @@ pub trait ItemRenderer {
     /// Draw the given string with the specified color at current (0, 0) with the default font. Mainly
     /// used by the performance counter overlay.
     fn draw_string(&mut self, string: &str, color: crate::Color);
+
+    /// Draw a rectangle with the specified brush.
+    fn fill_rect(&mut self, rect: &Rect, brush: crate::Brush);
 
     /// This is called before it is being rendered (before the draw_* function).
     /// Returns
@@ -471,6 +499,10 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
 
     fn draw_string(&mut self, string: &str, color: crate::Color) {
         self.actual_renderer.draw_string(string, color)
+    }
+
+    fn fill_rect(&mut self, rect: &Rect, brush: crate::Brush) {
+        self.actual_renderer.fill_rect(rect, brush);
     }
 
     fn window(&self) -> crate::window::WindowRc {

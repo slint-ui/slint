@@ -172,7 +172,7 @@ impl WinitWindow for GLWindow {
     fn draw(self: Rc<Self>) {
         let runtime_window = self.self_weak.upgrade().unwrap();
         let scale_factor = runtime_window.scale_factor();
-        runtime_window.clone().draw_contents(|components| {
+        runtime_window.clone().draw_contents(|root_component, popups| {
             let window = match self.borrow_mapped_window() {
                 Some(window) => window,
                 None => return, // caller bug, doesn't make sense to call draw() when not mapped
@@ -217,9 +217,12 @@ impl WinitWindow for GLWindow {
                 size,
             );
 
-            for (component, origin) in components {
-                corelib::item_rendering::render_component_items(component, &mut renderer, *origin);
-            }
+            corelib::item_rendering::render_component_items(
+                root_component,
+                &mut renderer,
+                Default::default(),
+            );
+            corelib::item_rendering::render_inline_popups(popups, &mut renderer);
 
             if let Some(collector) = &self.rendering_metrics_collector {
                 collector.measure_frame_rendered(&mut renderer);
