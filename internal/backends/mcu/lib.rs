@@ -34,7 +34,7 @@ mod renderer;
 use lengths::*;
 
 /// The Pixel type of the backing store
-/// TODO: make it configurable
+#[cfg(not(feature = "stm32h735g"))]
 pub type TargetPixel = embedded_graphics::pixelcolor::Rgb565;
 
 pub trait Devices {

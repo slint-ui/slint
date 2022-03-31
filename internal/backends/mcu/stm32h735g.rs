@@ -3,7 +3,6 @@
 
 extern crate alloc;
 
-use super::TargetPixel;
 pub use cortex_m_rt::entry;
 use embedded_display_controller::{DisplayController, DisplayControllerLayer};
 use embedded_graphics::prelude::RgbColor;
@@ -37,6 +36,8 @@ static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 const DISPLAY_WIDTH: usize = 480;
 const DISPLAY_HEIGHT: usize = 272;
 
+pub type TargetPixel = embedded_graphics::pixelcolor::Rgb888;
+
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
@@ -52,8 +53,8 @@ pub fn init() {
     let ccdr = rcc
         .sys_ck(320.mhz())
         // there number are just random :-/  Don't know where to find the actual number i need
-        .pll3_p_ck(200.mhz())
-        .pll3_r_ck(200.mhz())
+        .pll3_p_ck(160.mhz())
+        .pll3_r_ck(160.mhz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Octospi from HCLK at 160MHz
@@ -67,11 +68,14 @@ pub fn init() {
     cp.SCB.enable_icache();
     cp.DWT.enable_cycle_counter();
 
-    let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
+    let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
     let gpiob = dp.GPIOB.split(ccdr.peripheral.GPIOB);
+    let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
     let gpiod = dp.GPIOD.split(ccdr.peripheral.GPIOD);
+    let gpioe = dp.GPIOE.split(ccdr.peripheral.GPIOE);
     let gpiof = dp.GPIOF.split(ccdr.peripheral.GPIOF);
     let gpiog = dp.GPIOG.split(ccdr.peripheral.GPIOG);
+    let gpioh = dp.GPIOH.split(ccdr.peripheral.GPIOH);
 
     // setup OCTOSPI HyperRAM
     let _tracweswo = gpiob.pb3.into_alternate_af0();
@@ -100,10 +104,10 @@ pub fn init() {
 
     i_slint_core::debug_log!("hello");
 
-    let mut led = gpioc.pc2.into_push_pull_output();
-    led.set_high().unwrap();
-    let mut led2 = gpioc.pc3.into_push_pull_output();
-    led2.set_low().unwrap();
+    let mut led_red = gpioc.pc2.into_push_pull_output();
+    led_red.set_low().unwrap(); // low mean "on"
+    let mut led_green = gpioc.pc3.into_push_pull_output();
+    led_green.set_low().unwrap();
 
     #[link_section = ".frame_buffer"]
     static mut FB1: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
@@ -121,29 +125,70 @@ pub fn init() {
 
     fb1.fill(TargetPixel::BLUE);
 
-    // TODO: do the flip instead
+    // setup LTDC
+    let _p = gpioa.pa3.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpioa.pa4.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpioa.pa6.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpiob.pb0.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpiob.pb1.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpiob.pb8.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpiob.pb9.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpioc.pc6.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpioc.pc7.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpiod.pd0.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpiod.pd3.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpiod.pd6.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpioe.pe0.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpioe.pe1.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpioe.pe11.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpioe.pe12.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpioe.pe15.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpiog.pg7.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpiog.pg14.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpioh.ph3.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpioh.ph8.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpioh.ph9.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpioh.ph10.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpioh.ph11.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpioh.ph15.into_alternate_af14().set_speed(High).internal_pull_up(true);
+    let _p = gpioa.pa8.into_alternate_af13().set_speed(High).internal_pull_up(true);
+    let _p = gpioh.ph4.into_alternate_af9().set_speed(High).internal_pull_up(true);
+
     let mut ltdc = hal::ltdc::Ltdc::new(dp.LTDC, ccdr.peripheral.LTDC, &ccdr.clocks);
 
-    const RK043FN48H_HSYNC: u16 = 41;
-    const RK043FN48H_VSYNC: u16 = 10;
+    const RK043FN48H_HSYNC: u16 = 41; /* Horizontal synchronization */
+    const RK043FN48H_HBP: u16 = 13; /* Horizontal back porch      */
+    const RK043FN48H_HFP: u16 = 32; /* Horizontal front porch     */
+    const RK043FN48H_VSYNC: u16 = 10; /* Vertical synchronization   */
+    const RK043FN48H_VBP: u16 = 2; /* Vertical back porch        */
+    const RK043FN48H_VFP: u16 = 2; /* Vertical front porch       */
 
     ltdc.init(embedded_display_controller::DisplayConfiguration {
         active_width: DISPLAY_WIDTH as _,
         active_height: DISPLAY_HEIGHT as _,
-        h_back_porch: 0,
-        h_front_porch: 0,
-        v_back_porch: 0,
-        v_front_porch: 0,
-        h_sync: RK043FN48H_HSYNC - 1,
-        v_sync: RK043FN48H_VSYNC - 1,
+        h_back_porch: RK043FN48H_HBP,
+        h_front_porch: RK043FN48H_HFP,
+        v_back_porch: RK043FN48H_VBP,
+        v_front_porch: RK043FN48H_VFP,
+        h_sync: RK043FN48H_HSYNC,
+        v_sync: RK043FN48H_VSYNC,
         h_sync_pol: false,
         v_sync_pol: false,
         not_data_enable_pol: false,
         pixel_clock_pol: false,
     });
+    stm32h7xx_hal::ltdc::Ltdc::unpend();
     ltdc.listen();
     let mut layer = ltdc.split();
 
+    // Safety: the frame buffer has the right size
+    unsafe {
+        layer.enable(fb1.as_ptr() as *const u16, embedded_display_controller::PixelFormat::RGB888);
+        layer.swap_framebuffer(fb1.as_ptr() as *const u16);
+    }
+
+    let mut lcd_disp_en = gpioe.pe13.into_push_pull_output();
+    lcd_disp_en.set_low().unwrap();
     let mut lcd_disp_ctrl = gpiod.pd10.into_push_pull_output();
     lcd_disp_ctrl.set_high().unwrap();
     let mut lcd_bl_ctrl = gpiog.pg15.into_push_pull_output();
@@ -151,7 +196,7 @@ pub fn init() {
 
     // Safety: the frame buffer has the right size
     unsafe {
-        layer.enable(fb1.as_ptr() as *const u16, embedded_display_controller::PixelFormat::RGB565);
+        layer.enable(fb1.as_ptr() as *const u16, embedded_display_controller::PixelFormat::RGB888);
         layer.swap_framebuffer(fb1.as_ptr() as *const u16);
     }
 
