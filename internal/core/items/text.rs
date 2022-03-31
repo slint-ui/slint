@@ -624,13 +624,12 @@ impl TextInput {
                 }
             }
             TextCursorDirection::BackwardByWord => {
-                let mut peekable_words = text.unicode_word_indices().peekable();
-
                 let mut word_offset = 0;
-                while let Some((current_word_offset, _)) =
-                    peekable_words.next_if(|(offset, _)| *offset < last_cursor_pos)
-                {
-                    word_offset = current_word_offset;
+
+                for (current_word_offset, _) in text.unicode_word_indices() {
+                    if current_word_offset < last_cursor_pos {
+                        word_offset = current_word_offset;
+                    }
                 }
 
                 word_offset
