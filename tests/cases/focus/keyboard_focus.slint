@@ -1,0 +1,233 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+// cSpell: ignore ogoffart tronical
+
+import { SpinBox, LineEdit, HorizontalBox, VerticalBox, TabWidget } from "std-widgets.slint";
+
+TestCase := Window {
+    preferred-width: 500px;
+    preferred-height: 400px;
+
+    property<[{name: string, account: string, score: float}]> model: [
+        {
+            name: "Olivier",
+            account: "ogoffart",
+            score: 456,
+        },
+        {
+            name: "Simon",
+            account: "tronical",
+            score: 789,
+        }
+    ];
+
+    property<string> result;
+
+    VerticalBox {
+        FocusScope {
+            key-pressed(event) => {
+                if (event.text == "X") {
+                    result += "T:";
+                    return accept;
+                }
+                return reject;
+            }
+        }
+
+        for person[i] in model: HorizontalBox {
+            FocusScope {
+                key-pressed(event) => {
+                    if (event.text == "X") {
+                        result += "1." + person.score + ":";
+                        return accept;
+                    }
+                    return reject;
+                }
+            }
+            Text {
+                // Not a focus scope, the Focus should skip this
+                text: "Test " + i;
+            }
+            FocusScope {
+                key-pressed(event) => {
+                    if (event.text == "X") {
+                        result += "2." + i + ":";
+                        return accept;
+                    }
+                    return reject;
+                }
+            }
+        }
+        FocusScope {
+            key-pressed(event) => {
+                if (event.text == "X") {
+                    result += "B:";
+                    return accept;
+                }
+                return reject;
+            }
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new();
+
+// Forward:
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "T:");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "T:1.456:");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "T:1.456:2.0:");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "T:1.456:2.0:1.789:");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "T:1.456:2.0:1.789:2.1:");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "T:1.456:2.0:1.789:2.1:B:");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "T:1.456:2.0:1.789:2.1:B:T:");
+
+// Backwards:
+instance.set_result("".into());
+assert_eq!(instance.get_result(), "");
+slint::testing::send_keyboard_string_sequence(&instance, "\u{0019}");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "B:");
+slint::testing::send_keyboard_string_sequence(&instance, "\u{0019}");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "B:2.1:");
+slint::testing::send_keyboard_string_sequence(&instance, "\u{0019}");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "B:2.1:1.789:");
+slint::testing::send_keyboard_string_sequence(&instance, "\u{0019}");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "B:2.1:1.789:2.0:");
+slint::testing::send_keyboard_string_sequence(&instance, "\u{0019}");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "B:2.1:1.789:2.0:1.456:");
+slint::testing::send_keyboard_string_sequence(&instance, "\u{0019}");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "B:2.1:1.789:2.0:1.456:T:");
+slint::testing::send_keyboard_string_sequence(&instance, "\u{0019}");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "B:2.1:1.789:2.0:1.456:T:B:");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "T:");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "T:1.456:");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "T:1.456:2.0:");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "T:1.456:2.0:1.789:");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "T:1.456:2.0:1.789:2.1:");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "T:1.456:2.0:1.789:2.1:B:");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "T:1.456:2.0:1.789:2.1:B:T:");
+
+// Backwards:
+instance.set_result("");
+assert_eq(instance.get_result(), "");
+slint::testing::send_keyboard_string_sequence(&instance, "\u0019");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "B:");
+slint::testing::send_keyboard_string_sequence(&instance, "\u0019");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "B:2.1:");
+slint::testing::send_keyboard_string_sequence(&instance, "\u0019");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "B:2.1:1.789:");
+slint::testing::send_keyboard_string_sequence(&instance, "\u0019");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "B:2.1:1.789:2.0:");
+slint::testing::send_keyboard_string_sequence(&instance, "\u0019");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "B:2.1:1.789:2.0:1.456:");
+slint::testing::send_keyboard_string_sequence(&instance, "\u0019");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "B:2.1:1.789:2.0:1.456:T:");
+slint::testing::send_keyboard_string_sequence(&instance, "\u0019");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "B:2.1:1.789:2.0:1.456:T:B:");
+```
+
+```js
+var instance = new slint.TestCase();
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "");
+instance.send_keyboard_string_sequence("\t");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "T:");
+instance.send_keyboard_string_sequence("\t");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "T:1.456:");
+instance.send_keyboard_string_sequence("\t");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "T:1.456:2.0:");
+instance.send_keyboard_string_sequence("\t");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "T:1.456:2.0:1.789:");
+instance.send_keyboard_string_sequence("\t");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "T:1.456:2.0:1.789:2.1:");
+instance.send_keyboard_string_sequence("\t");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "T:1.456:2.0:1.789:2.1:B:");
+instance.send_keyboard_string_sequence("\t");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "T:1.456:2.0:1.789:2.1:B:T:");
+
+// Backwards:
+instance.result = "";
+assert.equal(instance.result, "");
+instance.send_keyboard_string_sequence("\u0019");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "B:");
+instance.send_keyboard_string_sequence("\u0019");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "B:2.1:");
+instance.send_keyboard_string_sequence("\u0019");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "B:2.1:1.789:");
+instance.send_keyboard_string_sequence("\u0019");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "B:2.1:1.789:2.0:");
+instance.send_keyboard_string_sequence("\u0019");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "B:2.1:1.789:2.0:1.456:");
+instance.send_keyboard_string_sequence("\u0019");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "B:2.1:1.789:2.0:1.456:T:");
+instance.send_keyboard_string_sequence("\u0019");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "B:2.1:1.789:2.0:1.456:T:B:");
+```
+*/
