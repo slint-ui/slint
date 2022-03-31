@@ -49,7 +49,7 @@ pub fn apply_default_properties_from_style(
                         to: Type::Brush,
                     });
                 }
-                "Dialog" | "Window" | "WindowItem" => {
+                "Dialog" | "Window" | "WindowItem" | "PopupWindow" => {
                     elem.set_binding_if_not_set("background".into(), || {
                         Expression::PropertyReference(NamedReference::new(
                             &style_metrics.root_element,
