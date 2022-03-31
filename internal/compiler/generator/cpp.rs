@@ -942,7 +942,7 @@ fn generate_item_tree(
         format!(
             // that does not work when the parent is not a component with a ComponentVTable
             //"   *result = slint::private_api::parent_item(self->parent->self_weak.into_dyn(), self->parent->get_item_tree(), {});",
-            "*result = {{ self->parent->self_weak, {} }};",
+            "*result = {{ self->parent->self_weak, self->parent->tree_index_of_first_child + {} - 1 }};",
             parent_index,
         )
     } else {
