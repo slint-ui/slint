@@ -29,20 +29,23 @@ use crate::{Devices, PhysicalRect, PhysicalSize};
 const HEAP_SIZE: usize = 128 * 1024;
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 
-const DISPLAY_WIDTH: usize = 320;
-const DISPLAY_HEIGHT: usize = 240;
+//const DISPLAY_WIDTH: usize = 320;
+//const DISPLAY_HEIGHT: usize = 240;
+
+const DISPLAY_WIDTH: usize = 480;
+const DISPLAY_HEIGHT: usize = 272;
 
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
 pub fn init() {
-    let cp = cortex_m::Peripherals::take().unwrap();
+    let mut cp = cortex_m::Peripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
 
     unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
 
     let pwr = dp.PWR.constrain();
-    let pwrcfg = pwr.freeze();
+    let pwrcfg = pwr.smps().freeze();
     let rcc = dp.RCC.constrain();
     // there number are just random :-/  Don't know where to find the actual number i need
     let ccdr = rcc
@@ -52,18 +55,36 @@ pub fn init() {
         .pll3_r_ck(200.mhz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
+    cp.SCB.invalidate_icache();
+    cp.SCB.enable_icache();
+    cp.DWT.enable_cycle_counter();
+    /*
+    // setup SRAM
+    {
+        let sdram_size = 16384 * 1024;
+        let mpu = cp.MPU;
+        let scb = &mut cp.SCB;
+        dp.FMC.sdram(pins, OCTOSPI, ccdr.peripheral.FMC, &ccdr.clocks);
+    }*/
+
+    i_slint_core::debug_log!("hello");
+
     let gpioc = dp.GPIOC.split(ccdr.peripheral.GPIOC);
     let mut led = gpioc.pc2.into_push_pull_output();
-    led.set_low().unwrap();
+    led.set_high().unwrap();
     let mut led2 = gpioc.pc3.into_push_pull_output();
-    led2.set_high().unwrap();
+    led2.set_low().unwrap();
 
+    #[link_section = ".frame_buffer"]
     static mut FB1: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
         [TargetPixel::BLACK; DISPLAY_WIDTH * DISPLAY_HEIGHT];
+    #[link_section = ".frame_buffer"]
     static mut FB2: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
         [TargetPixel::BLACK; DISPLAY_WIDTH * DISPLAY_HEIGHT];
     // SAFETY the init function is only called once (as enforced by Peripherals::take)
     let (fb1, fb2) = unsafe { (&mut FB1, &mut FB2) };
+
+    fb1.fill(TargetPixel::BLUE);
 
     // TODO: do the flip instead
     let mut ltdc = hal::ltdc::Ltdc::new(dp.LTDC, ccdr.peripheral.LTDC, &ccdr.clocks);
@@ -87,6 +108,13 @@ pub fn init() {
     });
     ltdc.listen();
     let mut layer = ltdc.split();
+
+    let gpiog = dp.GPIOG.split(ccdr.peripheral.GPIOG);
+    let gpiod = dp.GPIOD.split(ccdr.peripheral.GPIOD);
+    let mut lcd_disp_ctrl = gpiod.pd10.into_push_pull_output();
+    lcd_disp_ctrl.set_high().unwrap();
+    let mut lcd_bl_ctrl = gpiog.pg15.into_push_pull_output();
+    lcd_bl_ctrl.set_high().unwrap();
 
     // Safety: the frame buffer has the right size
     unsafe {
