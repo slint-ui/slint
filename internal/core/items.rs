@@ -183,7 +183,7 @@ fn find_sibling_outside_repeater(
             current_sibling,
             &item_tree,
             subtree_child,
-            &std::convert::identity,
+            &core::convert::identity,
         ) {
             return Some(node);
         }
@@ -326,7 +326,7 @@ impl ItemRc {
                 current_child_index,
                 &item_tree,
                 subtree_child,
-                &std::convert::identity,
+                &core::convert::identity,
             ) {
                 return Some(item);
             }
