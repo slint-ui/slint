@@ -1027,7 +1027,7 @@ fn generate_item_tree(
                 .parent
                 .clone()
                 .upgrade()
-                .map(|sc| (VRcMapped::origin(&sc), sc.as_pin_ref().tree_index_of_first_child.get()))
+                .map(|sc| (VRcMapped::origin(&sc), sc.tree_index_of_first_child.get()))
             {
                 *result = slint::re_exports::ItemRc::new(parent_component, parent_index as usize + #sub_component_offset - 1)
                     .downgrade();
