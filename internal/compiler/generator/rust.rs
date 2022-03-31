@@ -771,7 +771,7 @@ fn generate_sub_component(
         );
         quote!(#prop.get() as usize)
     } else {
-        quote!(core::usize::MAX)
+        quote!(core::usize::MAX - 42) // Use a constant > u32::MAX (which is what we can get) that will not overflow easily
     };
 
     quote!(
