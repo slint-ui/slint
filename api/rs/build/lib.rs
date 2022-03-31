@@ -311,6 +311,8 @@ pub fn print_rustc_flags() -> std::io::Result<()> {
                 println!("cargo:rustc-link-search={}", path.to_string_lossy());
             }
         }
+        println!("cargo:rerun-if-env-changed=DEP_I_SLINT_BACKEND_MCU_BOARD_CONFIG_PATH");
+        println!("cargo:rerun-if-changed={}", board_config_path.display());
     }
 
     Ok(())
