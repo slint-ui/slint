@@ -426,7 +426,7 @@ impl ItemRc {
     pub fn next_sibling(&self) -> Option<Self> {
         self.find_sibling(
             &|item_tree, index| item_tree.next_sibling(index),
-            &|index| index + 1,
+            &|index| index.saturating_add(1),
             &|start, _| start,
         )
     }
