@@ -45,9 +45,8 @@ TestCase := Window {
                     return reject;
                 }
             }
-            Text {
-                // Not a focus scope, the Focus should skip this
-                text: "Test " + i;
+            FocusScope {
+                enabled: false;
             }
             FocusScope {
                 key-pressed(event) => {
