@@ -1408,8 +1408,7 @@ impl PlatformWindow for QtWindow {
         };
         if size.width == 0 || size.height == 0 {
             let existing_size = cpp!(unsafe [widget_ptr as "QWidget*"] -> qttypes::QSize as "QSize" {
-                auto sizeHint = widget_ptr->sizeHint();
-                return sizeHint.isValid() ? sizeHint : widget_ptr->size();
+                return widget_ptr->size();
             });
             if size.width == 0 {
                 window_item.width.set(existing_size.width as _);

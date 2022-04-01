@@ -7,9 +7,7 @@
     [PlatformWindow] trait used by the generated code and the run-time to change
     aspects of windows on the screen.
 */
-use corelib::component::ComponentRc;
 use corelib::items::PointerEventButton;
-use corelib::layout::Orientation;
 use i_slint_core as corelib;
 
 use corelib::graphics::Point;
@@ -100,13 +98,14 @@ pub trait WinitWindow: PlatformWindow {
         let title = window_item.title();
         let no_frame = window_item.no_frame();
         let icon = window_item.icon();
-        let width = window_item.width();
-        let height = window_item.height();
+        let mut width = window_item.width();
+        let mut height = window_item.height();
 
         self.set_background_color(background);
         self.set_icon(icon);
 
-        let mut size: winit::dpi::LogicalSize<f64> = Default::default();
+        let mut must_resize = false;
+
         self.with_window_handle(&mut |winit_window| {
             winit_window.set_title(&title);
             if no_frame && winit_window.fullscreen().is_none() {
@@ -114,53 +113,33 @@ pub trait WinitWindow: PlatformWindow {
             } else {
                 winit_window.set_decorations(true);
             }
-            size =
-                winit_window.inner_size().to_logical(self.runtime_window().scale_factor() as f64);
-        });
 
-        let mut must_resize = false;
-        let mut resizable = None;
-        let mut w = width;
-        let mut h = height;
-        if (size.width as f32 - w).abs() < 1. || (size.height as f32 - h).abs() < 1. {
-            return;
-        }
-        if w <= 0. || h <= 0. {
-            if let Some(component_rc) = self.runtime_window().try_component() {
-                let component = ComponentRc::borrow_pin(&component_rc);
-                let hor_info = component.as_ref().layout_info(Orientation::Horizontal);
-                if w <= 0. {
-                    w = hor_info.preferred_bounded();
-                    must_resize = true;
-                }
-                let ver_info = component.as_ref().layout_info(Orientation::Vertical);
-                if h <= 0. {
-                    h = ver_info.preferred_bounded();
-                    must_resize = true;
-                }
-                resizable = Some(hor_info.min != hor_info.max && ver_info.min != ver_info.max);
+            let existing_size =
+                winit_window.inner_size().to_logical(self.runtime_window().scale_factor() as f64);
+
+            if width <= 0. {
+                width = existing_size.width;
+                must_resize = true;
             }
-        };
-        if w > 0. {
-            size.width = w as _;
-        }
-        if h > 0. {
-            size.height = h as _;
-        }
-        self.with_window_handle(&mut |winit_window| {
-            // If we're in fullscreen state, don't try to resize the window but maintain the surface
-            // size we've been assigned to from the windowing system. Weston/Wayland don't like it
-            // when we create a surface that's bigger than the screen due to constraints (#532).
-            if winit_window.fullscreen().is_none() {
-                winit_window.set_inner_size(size);
-                if let Some(resizable) = resizable {
-                    winit_window.set_resizable(resizable)
+            if height <= 0. {
+                height = existing_size.height;
+                must_resize = true;
+            }
+
+            if (existing_size.width as f32 - width).abs() > 1.
+                || (existing_size.height as f32 - height).abs() > 1.
+            {
+                // If we're in fullscreen state, don't try to resize the window but maintain the surface
+                // size we've been assigned to from the windowing system. Weston/Wayland don't like it
+                // when we create a surface that's bigger than the screen due to constraints (#532).
+                if winit_window.fullscreen().is_none() {
+                    winit_window.set_inner_size(winit::dpi::LogicalSize::new(width, height));
                 }
             }
         });
 
         if must_resize {
-            self.runtime_window().set_window_item_geometry(size.width as _, size.height as _)
+            self.runtime_window().set_window_item_geometry(width as _, height as _)
         }
     }
 
