@@ -669,7 +669,9 @@ impl ItemRenderer for GLItemRenderer {
             None => return,
         };
 
-        let shadow_image_paint = shadow_image.as_paint();
+        // On the paint for the box shadow, we don't need anti-aliasing on the fringes,
+        // since we are just blitting a texture. This saves a triangle strip for the stroke.
+        let shadow_image_paint = shadow_image.as_paint().with_anti_alias(false);
 
         let mut shadow_image_rect = femtovg::Path::new();
         shadow_image_rect.rect(
@@ -992,27 +994,31 @@ impl GLItemRenderer {
         self_rc: &ItemRc,
     ) -> RenderingResult {
         let current_clip = self.get_current_clip();
-        if let Some(layer_image) = self.render_layer(&item_cache, &self_rc.clone(), &|| {
-            // We don't need to include the size of the opacity item itself, since it has no content.
-            let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
-                let self_ref = self_rc.borrow();
-                self_ref.as_ref().geometry().union(
-                    &i_slint_core::item_rendering::item_children_bounding_rect(
-                        &self_rc.component(),
-                        self_rc.index() as isize,
-                        &current_clip,
-                    ),
-                )
-            });
-            children_rect.size
-        }) {
-            let layer_image_paint = layer_image.as_paint_with_alpha(alpha_tint);
-
+        if let Some((layer_image, layer_size)) = self
+            .render_layer(&item_cache, &self_rc.clone(), &|| {
+                // We don't need to include the size of the opacity item itself, since it has no content.
+                let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
+                    let self_ref = self_rc.borrow();
+                    self_ref.as_ref().geometry().union(
+                        &i_slint_core::item_rendering::item_children_bounding_rect(
+                            &self_rc.component(),
+                            self_rc.index() as isize,
+                            &current_clip,
+                        ),
+                    )
+                });
+                children_rect.size
+            })
+            .and_then(|image| image.size().map(|size| (image, size)))
+        {
             let mut layer_path = femtovg::Path::new();
-            if let Some(layer_size) = layer_image.size() {
-                layer_path.rect(0., 0., layer_size.width as _, layer_size.height as _);
-                self.canvas.borrow_mut().fill_path(&mut layer_path, layer_image_paint);
-            }
+            // On the paint for the layer, we don't need anti-aliasing on the fringes,
+            // since we are just blitting a texture. This saves a triangle strip for the stroke.
+            let layer_image_paint =
+                layer_image.as_paint_with_alpha(alpha_tint).with_anti_alias(false);
+
+            layer_path.rect(0., 0., layer_size.width as _, layer_size.height as _);
+            self.canvas.borrow_mut().fill_path(&mut layer_path, layer_image_paint);
         }
         RenderingResult::ContinueRenderingWithoutChildren
     }
