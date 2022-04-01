@@ -548,6 +548,7 @@ pub struct FocusScope {
     pub y: Property<Coord>,
     pub width: Property<Coord>,
     pub height: Property<Coord>,
+    pub enabled: Property<bool>,
     pub has_focus: Property<bool>,
     pub key_pressed: Callback<KeyEventArg, EventResult>,
     pub key_released: Callback<KeyEventArg, EventResult>,
@@ -581,10 +582,7 @@ impl Item for FocusScope {
         window: &WindowRc,
         self_rc: &ItemRc,
     ) -> InputEventResult {
-        /*if !self.enabled() {
-            return InputEventResult::EventIgnored;
-        }*/
-        if matches!(event, MouseEvent::MousePressed { .. }) && !self.has_focus() {
+        if self.enabled() && matches!(event, MouseEvent::MousePressed { .. }) && !self.has_focus() {
             window.clone().set_focus_item(self_rc);
         }
         InputEventResult::EventIgnored
@@ -606,6 +604,10 @@ impl Item for FocusScope {
     }
 
     fn focus_event(self: Pin<&Self>, event: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+        if !self.enabled() {
+            return FocusEventResult::FocusIgnored;
+        }
+
         match event {
             FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {
                 self.has_focus.set(true);

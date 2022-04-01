@@ -95,7 +95,6 @@ export SpinBox := FocusScope {
     property <int> value;
     property <int> minimum;
     property <int> maximum: 100;
-    property <bool> enabled: true;
     property <image> icon;
     property <length> font-size <=> button.font-size;
 
@@ -420,7 +419,6 @@ export ComboBox := FocusScope {
     property <int> current-index : -1;
     property <string> current-value;
     //property <bool> is-open: false;
-    property<bool> enabled <=> touch.enabled;
     callback selected(string);
 
     Rectangle {
@@ -469,6 +467,7 @@ export ComboBox := FocusScope {
     }
 
     touch := TouchArea {
+        enabled <=> root.enabled;
         clicked => {
             root.focus();
             popup.show();

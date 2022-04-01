@@ -134,6 +134,7 @@ export FocusScope := _ {
     property <length> y;
     property <length> width;
     property <length> height;
+    property <bool> enabled: true;
     property <bool> has-focus: native_output;
     callback key_pressed(KeyEvent) -> EventResult;
     callback key_released(KeyEvent) -> EventResult;
@@ -250,7 +251,7 @@ export Layer := _ {
     property <length> height;
     property <bool> cache-rendering-hint;
     //-default_size_binding:expands_to_parent_geometry
-    //-is_internal    
+    //-is_internal
 }
 
 Row := _ {
