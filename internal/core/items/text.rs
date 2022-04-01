@@ -617,23 +617,19 @@ impl TextInput {
                 }
             }
             // Currently moving by word behaves like macos: next end of word(forward) or previous beginning of word(backward)
-            TextCursorDirection::ForwardByWord => {
-                if let Some((word_offset, slice)) = text
-                    .unicode_word_indices()
-                    .skip_while(|(offset, slice)| *offset + slice.len() <= last_cursor_pos)
-                    .next()
-                {
-                    word_offset + slice.len()
-                } else {
-                    text.len()
-                }
-            }
+            TextCursorDirection::ForwardByWord => text
+                .unicode_word_indices()
+                .skip_while(|(offset, slice)| *offset + slice.len() <= last_cursor_pos)
+                .next()
+                .map_or(text.len(), |(offset, slice)| offset + slice.len()),
             TextCursorDirection::BackwardByWord => {
                 let mut word_offset = 0;
 
                 for (current_word_offset, _) in text.unicode_word_indices() {
                     if current_word_offset < last_cursor_pos {
                         word_offset = current_word_offset;
+                    } else {
+                        break;
                     }
                 }
 
