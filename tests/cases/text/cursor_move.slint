@@ -14,14 +14,21 @@ TestCase := TextInput {
 /*
 ```rust
 
+const UP_CODE: char = '\u{F700}';
+const DOWN_CODE: char = '\u{F701}';
 const LEFT_CODE: char = '\u{F702}';
 const RIGHT_CODE: char = '\u{F703}';
-const HOME_CODE: char = '\u{F729}';
-const END_CODE: char = '\u{F72B}';
 const BACK_CODE: char = '\u{0008}'; // backspace \b
 
 let shift_modifier = slint::re_exports::KeyboardModifiers {
     shift: true,
+    ..Default::default()
+};
+
+let move_mod_shift_modifier = slint::re_exports::KeyboardModifiers {
+    shift: true,
+    control: cfg!(not(target_os = "macos")),
+    alt: cfg!(target_os = "macos"),
     ..Default::default()
 };
 
@@ -55,8 +62,8 @@ slint::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string())
 slint::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
 assert_eq!(instance.get_test_cursor_pos(), 0);
 
-slint::testing::set_current_keyboard_modifiers(&instance, shift_modifier);
-slint::testing::send_keyboard_string_sequence(&instance, &END_CODE.to_string());
+slint::testing::set_current_keyboard_modifiers(&instance, move_mod_shift_modifier);
+slint::testing::send_keyboard_string_sequence(&instance, &DOWN_CODE.to_string());
 slint::testing::set_current_keyboard_modifiers(&instance, slint::re_exports::KeyboardModifiers::default());
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 2);
@@ -65,8 +72,8 @@ assert_eq!(instance.get_test_anchor_pos(), 0);
 slint::testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
 assert!(!instance.get_has_selection());
 
-slint::testing::set_current_keyboard_modifiers(&instance, shift_modifier);
-slint::testing::send_keyboard_string_sequence(&instance, &HOME_CODE.to_string());
+slint::testing::set_current_keyboard_modifiers(&instance, move_mod_shift_modifier);
+slint::testing::send_keyboard_string_sequence(&instance, &UP_CODE.to_string());
 slint::testing::set_current_keyboard_modifiers(&instance, slint::re_exports::KeyboardModifiers::default());
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 0);
