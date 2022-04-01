@@ -1886,7 +1886,16 @@ fn compile_builtin_function_call(
             if let [Expression::NumberLiteral(popup_index), x, y, Expression::PropertyReference(parent_ref)] =
                 arguments
             {
-                let current_sub_component = ctx.current_sub_component.unwrap();
+                let mut parent_ctx = ctx;
+                let mut component_access_tokens = quote!(_self);
+                if let llr::PropertyReference::InParent { level, .. } = parent_ref {
+                    for _ in 0..level.get() {
+                        component_access_tokens =
+                            quote!(#component_access_tokens.parent.upgrade().unwrap().as_pin_ref());
+                        parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;
+                    }
+                }
+                let current_sub_component = parent_ctx.current_sub_component.unwrap();
                 let popup_window_id = inner_component_id(
                     &current_sub_component.popup_windows[*popup_index as usize].root,
                 );
@@ -1896,7 +1905,7 @@ fn compile_builtin_function_call(
                 let window_tokens = access_window_field(ctx);
                 quote!(
                     #window_tokens.show_popup(
-                        &VRc::into_dyn(#popup_window_id::new(_self.self_weak.get().unwrap().clone()).into()),
+                        &VRc::into_dyn(#popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).into()),
                         Point::new(#x as f32, #y as f32),
                         #parent_component
                     );

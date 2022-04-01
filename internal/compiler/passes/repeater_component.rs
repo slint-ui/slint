@@ -14,7 +14,6 @@ use std::rc::Rc;
 pub fn process_repeater_components(component: &Rc<Component>) {
     create_repeater_components(component);
     adjust_references(component);
-    adjust_popups(component);
 }
 
 fn create_repeater_components(component: &Rc<Component>) {
@@ -43,6 +42,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 child_of_layout: elem.child_of_layout || is_listview.is_some(),
                 layout_info_prop: elem.layout_info_prop.take(),
                 is_flickable_viewport: elem.is_flickable_viewport,
+                has_popup_child: elem.has_popup_child,
                 item_index: Default::default(), // Not determined yet
                 item_index_of_first_children: Default::default(),
                 inline_depth: 0,
@@ -112,24 +112,5 @@ fn adjust_references(comp: &Rc<Component>) {
                 }
             }
         })
-    });
-}
-
-fn adjust_popups(component: &Rc<Component>) {
-    component.popup_windows.borrow_mut().retain(|popup| {
-        let parent = popup
-            .component
-            .parent_element
-            .upgrade()
-            .unwrap()
-            .borrow()
-            .enclosing_component
-            .upgrade()
-            .unwrap();
-        if Rc::ptr_eq(&parent, component) {
-            return true;
-        }
-        parent.popup_windows.borrow_mut().push(popup.clone());
-        false
     });
 }

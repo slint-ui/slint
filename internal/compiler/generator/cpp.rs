@@ -2320,16 +2320,26 @@ fn compile_builtin_function_call(
             if let [llr::Expression::NumberLiteral(popup_index), x, y, llr::Expression::PropertyReference(parent_ref)] =
                 arguments
             {
+                let mut parent_ctx = ctx;
+                let mut component_access = "self".into();
+
+                if let llr::PropertyReference::InParent { level, .. } = parent_ref {
+                    for _ in 0..level.get() {
+                        component_access = format!("{}->parent", component_access);
+                        parent_ctx = parent_ctx.parent.as_ref().unwrap().ctx;
+                    }
+                };
+
                 let window = access_window_field(ctx);
-                let current_sub_component = ctx.current_sub_component.unwrap();
+                let current_sub_component = parent_ctx.current_sub_component.unwrap();
                 let popup_window_id =
                     ident(&current_sub_component.popup_windows[*popup_index as usize].root.name);
                 let parent_component = access_item_rc(parent_ref, ctx);
                 let x = compile_expression(x, ctx);
                 let y = compile_expression(y, ctx);
                 format!(
-                    "{}.show_popup<{}>(self, {{ {}, {} }}, {{ {} }})",
-                    window, popup_window_id, x, y, parent_component,
+                    "{}.show_popup<{}>({}, {{ {}, {} }}, {{ {} }})",
+                    window, popup_window_id, component_access, x, y, parent_component,
                 )
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {:?}", arguments)

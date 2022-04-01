@@ -12,5 +12,26 @@ App := Window {
             }
        }
     }
+
+    if true : Rectangle {
+        Rectangle {
+            TouchArea {
+                clicked => {
+                    popup2.show();
+                }
+            }
+            popup2 := PopupWindow { }
+        }
+    }
+
+    // Issue #1132
+    for menu-item in [0] : TouchArea {
+        clicked => { popup3.show(); }
+        if true: TouchArea {
+            clicked => { popup3.show(); }
+        }
+        popup3 := PopupWindow { }
+    }
+
 }
 

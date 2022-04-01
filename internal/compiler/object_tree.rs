@@ -458,6 +458,10 @@ pub struct Element {
     /// true if this Element is the fake Flickable viewport
     pub is_flickable_viewport: bool,
 
+    /// true if this Element may have a popup as child meaning it cannot be optimized
+    /// because the popup references it.
+    pub has_popup_child: bool,
+
     /// This is the component-local index of this item in the item tree array.
     /// It is generated after the last pass and before the generators run.
     pub item_index: once_cell::unsync::OnceCell<usize>,

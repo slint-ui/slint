@@ -37,14 +37,6 @@ fn lower_popup_window(
     window_type: &Type,
     diag: &mut BuildDiagnostics,
 ) {
-    if popup_window_element.borrow().repeated.is_some() {
-        diag.push_error(
-            "PopupWindow cannot be directly repeated or conditional".into(),
-            &*popup_window_element.borrow(),
-        );
-        return;
-    }
-
     let parent_element = match parent_element {
         None => {
             diag.push_error(
@@ -57,6 +49,13 @@ fn lower_popup_window(
     };
 
     let parent_component = popup_window_element.borrow().enclosing_component.upgrade().unwrap();
+    if Rc::ptr_eq(&parent_component.root_element, popup_window_element) {
+        diag.push_error(
+            "PopupWindow cannot be directly repeated or conditional".into(),
+            &*popup_window_element.borrow(),
+        );
+        return;
+    }
 
     // Remove the popup_window_element from its parent
     let old_size = parent_element.borrow().children.len();
@@ -66,6 +65,7 @@ fn lower_popup_window(
         old_size,
         "Exactly one child must be removed (the popup itself)"
     );
+    parent_element.borrow_mut().has_popup_child = true;
 
     popup_window_element.borrow_mut().base_type = window_type.clone();
 
