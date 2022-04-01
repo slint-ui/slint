@@ -87,7 +87,8 @@ function startClient(context: vscode.ExtensionContext) {
     // Try a local ../target build first, then try the plain bundled binary and finally the architecture specific one.
     // A debug session will find the first one, a local package build the second and the distributed vsix the last.
     const lspSearchPaths = [
-        context.asAbsolutePath(path.join('..', 'target', 'debug', 'slint-lsp' + program_extension)),
+        path.join(context.extensionPath, '..', '..', 'target', 'debug', 'slint-lsp' + program_extension),
+        path.join(context.extensionPath, '..', '..', 'target', 'release', 'slint-lsp' + program_extension),
         path.join(context.extensionPath, "bin", "slint-lsp" + program_extension),
         path.join(context.extensionPath, "bin", lsp_platform.program_name),
     ];
