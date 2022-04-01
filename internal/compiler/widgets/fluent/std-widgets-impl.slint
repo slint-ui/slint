@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore flickable textedit
 
 export global Palette := {
     property<color> themeDarker: #004578;
@@ -71,6 +72,7 @@ export global StyleMetrics := {
 export Button := Rectangle {
     callback clicked <=> touch.clicked;
     property<string> text <=> text.text;
+    property<bool> has-focus <=> fs.has-focus;
     property<bool> pressed: self.enabled && touch.pressed;
     property<bool> enabled <=> touch.enabled;
     property<image> icon;
@@ -106,8 +108,27 @@ export Button := Rectangle {
         }
     }
 
-
     touch := TouchArea {}
+
+    fs := FocusScope {
+        enabled <=> root.enabled;
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                 touch.clicked();
+                 return accept;
+            }
+            return reject;
+        }
+    }
+
+    Rectangle { // Focus rectangle
+        x: 3px;
+        y: x;
+        width: parent.width - 2*x;
+        height: parent.height - 2*y;
+        border-width: enabled && has-focus? 1px : 0px;
+        border-color: Palette.black;
+    }
 }
 
 ScrollBar := Rectangle {
