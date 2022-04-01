@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 ### Changed
  - On wasm, the input event are handled via a hidden `<input>` element, allowing the keyboard
    to show on mobile platform
+ - The size of the window is kept when reloading a window in the preview (instead of being reset to the preferred size)
 
 ### Added
 
