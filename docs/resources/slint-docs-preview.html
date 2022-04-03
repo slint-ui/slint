@@ -5,7 +5,9 @@
 <script type="module">
     "use strict";
     //import * as slint from 'https://slint-ui.com/releases/0.x.0/wasm-interpreter/slint_wasm_interpreter.js';
+    //const editor_url = "https://slint-ui.com/releases/0.x.0/editor/";
     import * as slint from 'https://slint-ui.com/snapshots/master/wasm-interpreter/slint_wasm_interpreter.js';
+    const editor_url = "https://slint-ui.com/snapshots/master/editor/";
     // keep them alive
     var all_instances = new Array;
 
@@ -37,6 +39,9 @@
             let div = document.createElement("div");
             div.style = "float: right; padding:0; margin:0;";
             elements[i].prepend(div);
+            let link = document.createElement("div");
+            link.innerHTML = `<a href="${editor_url}?snippet=${encodeURIComponent(source)}" target="_blank">📝</a>`;
+            elements[i].append(link);
             await render_or_error(source, div);
         }
         slint.run_event_loop();
