@@ -18,7 +18,10 @@ pub mod recipes {
     #![doc = include_str!("docs/recipes/recipes.md")]
     //!
     //! #
-    //! Next: [The `.slint` language reference](super::langref)    
+    //! Next: [The `.slint` language reference](super::langref)
+
+    // So intra-doc links can refer it as `slint::`
+    use crate as slint;
 }
 
 pub mod langref {
