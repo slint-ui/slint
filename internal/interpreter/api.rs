@@ -271,7 +271,10 @@ macro_rules! declare_value_enum_conversion {
     ($ty:ty, $n:ident) => {
         impl From<$ty> for Value {
             fn from(v: $ty) -> Self {
-                Value::EnumerationValue(stringify!($n).to_owned(), v.to_string().replace('_', "-"))
+                Value::EnumerationValue(
+                    stringify!($n).to_owned(),
+                    v.to_string().trim_start_matches("r#").replace('_', "-"),
+                )
             }
         }
         impl TryInto<$ty> for Value {
@@ -285,7 +288,11 @@ macro_rules! declare_value_enum_conversion {
                         }
 
                         <$ty>::from_str(value.as_str())
-                            .or_else(|_| <$ty>::from_str(&value.as_str().replace('-', "_")))
+                            .or_else(|_| {
+                                let norm = value.as_str().replace('-', "_");
+                                <$ty>::from_str(&norm)
+                                    .or_else(|_| <$ty>::from_str(&format!("r#{}", norm)))
+                            })
                             .map_err(|_| ())
                     }
                     _ => Err(()),

@@ -1529,6 +1529,7 @@ impl PlatformWindow for QtWindow {
             MouseCursor::text => key_generated::Qt_CursorShape_IBeamCursor,
             MouseCursor::alias => key_generated::Qt_CursorShape_DragLinkCursor,
             MouseCursor::copy => key_generated::Qt_CursorShape_DragCopyCursor,
+            MouseCursor::r#move => key_generated::Qt_CursorShape_DragMoveCursor,
             MouseCursor::no_drop => key_generated::Qt_CursorShape_ForbiddenCursor,
             MouseCursor::not_allowed => key_generated::Qt_CursorShape_ForbiddenCursor,
             MouseCursor::grab => key_generated::Qt_CursorShape_OpenHandCursor,

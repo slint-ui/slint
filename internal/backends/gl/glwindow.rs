@@ -536,6 +536,7 @@ impl PlatformWindow for GLWindow {
             MouseCursor::text => winit::window::CursorIcon::Text,
             MouseCursor::alias => winit::window::CursorIcon::Alias,
             MouseCursor::copy => winit::window::CursorIcon::Copy,
+            MouseCursor::r#move => winit::window::CursorIcon::Move,
             MouseCursor::no_drop => winit::window::CursorIcon::NoDrop,
             MouseCursor::not_allowed => winit::window::CursorIcon::NotAllowed,
             MouseCursor::grab => winit::window::CursorIcon::Grab,
