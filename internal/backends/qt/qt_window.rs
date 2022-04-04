@@ -1607,7 +1607,10 @@ impl PlatformWindow for QtWindow {
             int cur;
             if (pos.x() > textLine.naturalTextWidth()) {
                 cur = textLine.textStart() + textLine.textLength();
-                if (cur > 0)
+                // cur is one past the last character of the line (eg, the \n or space).
+                // Go one back to get back on this line.
+                // Unless we were at the end of the text, in which case there was no \n
+                if (cur > textLine.textStart() && (cur < string.size() || string[cur-1] == '\n'))
                     cur--;
             } else {
                 cur = textLine.xToCursor(pos.x());
