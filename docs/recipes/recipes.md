@@ -325,7 +325,7 @@ export Recipe := Window {
 
 ### Invoke a globally registered native callback from Slint
 
-```slint-no-run
+```slint,no-preview
 import { HorizontalBox, VerticalBox, LineEdit } from "std-widgets.slint";
 
 export global Logic := {
