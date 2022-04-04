@@ -590,7 +590,7 @@ impl PlatformWindow for GLWindow {
 
         let width = text_input.width() * scale_factor;
         let height = text_input.height() * scale_factor;
-        if width <= 0. || height <= 0. {
+        if width <= 0. || height <= 0. || pos.y < 0. {
             return 0;
         }
 

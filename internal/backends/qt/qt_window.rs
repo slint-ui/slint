@@ -1566,6 +1566,9 @@ impl PlatformWindow for QtWindow {
         text_input: Pin<&i_slint_core::items::TextInput>,
         pos: Point,
     ) -> usize {
+        if pos.y < 0. {
+            return 0;
+        }
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
         let pos = qttypes::QPointF { x: pos.x as _, y: pos.y as _ };
         let font: QFont =
@@ -1598,7 +1601,7 @@ impl PlatformWindow for QtWindow {
             QTextLayout layout(copy, font);
             auto line = do_text_layout(layout, flags, rect, pos.y());
             if (line < 0 || layout.lineCount() <= line)
-                return 0;
+                return string.toUtf8().size();
             QTextLine textLine = layout.lineAt(line);
             int cur;
             if (pos.x() > textLine.naturalTextWidth()) {
