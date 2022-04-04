@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore tabwidget
+
 //! Passe lower the TabWidget to create the tabbar.
 //!
 //! Must be done before inlining and many other passes because the lowered code must
@@ -111,6 +113,10 @@ fn process_tabwidget(
             BindingExpression::new_two_way(NamedReference::new(elem, "current-index")).into(),
         );
         tab.bindings.insert(
+            "current-focused".to_owned(),
+            BindingExpression::new_two_way(NamedReference::new(elem, "current-focused")).into(),
+        );
+        tab.bindings.insert(
             "tab-index".to_owned(),
             RefCell::new(Expression::NumberLiteral(index as _, Unit::None).into()),
         );
@@ -133,6 +139,18 @@ fn process_tabwidget(
     set_tabbar_geometry_prop(elem, &tabbar, "y");
     set_tabbar_geometry_prop(elem, &tabbar, "width");
     set_tabbar_geometry_prop(elem, &tabbar, "height");
+    tabbar.borrow_mut().bindings.insert(
+        "num-tabs".to_owned(),
+        RefCell::new(Expression::NumberLiteral(num_tabs as _, Unit::None).into()),
+    );
+    tabbar.borrow_mut().bindings.insert(
+        "current".to_owned(),
+        BindingExpression::new_two_way(NamedReference::new(elem, "current-index")).into(),
+    );
+    tabbar.borrow_mut().bindings.insert(
+        "current-focused".to_owned(),
+        BindingExpression::new_two_way(NamedReference::new(elem, "current-focused")).into(),
+    );
     elem.borrow_mut().bindings.insert(
         "tabbar-preferred-width".to_owned(),
         BindingExpression::new_two_way(NamedReference::new(&tabbar, "preferred-width")).into(),

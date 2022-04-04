@@ -132,11 +132,15 @@ export ComboBox := NativeComboBox {
     }
 }
 
-export TabWidgetImpl := NativeTabWidget {
-    property <int> current-index;
-}
-export TabImpl := NativeTab {}
+export TabWidgetImpl := NativeTabWidget { }
+export TabImpl := NativeTab { }
+
 export TabBarImpl := HorizontalLayout {
+    // injected properties:
+    property<int> current; // The currently selected tab
+    property<int> current-focused; // The current focused index (or -1 if no focus)
+    property<int> num-tabs; // The total number of tabs
+
     alignment: start;
 }
 export TabWidget := TabWidget {}

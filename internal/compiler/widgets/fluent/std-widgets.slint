@@ -303,25 +303,27 @@ export TabWidgetImpl := Rectangle {
     property <length> content-min-height;
     property <length> content-min-width;
     property <int> current-index;
+    property <int> current-focused;
 
     preferred-width: content-min-width;
     min-width: content-min-width;
     preferred-height: content-min-height + tabbar-preferred-height;
     min-height: content-min-height + tabbar-preferred-height;
-
 }
+
 export TabImpl := Rectangle {
     property<string> title <=> t.text;
     //property<image> icon;
-    property<bool> enabled : true;
+    property<bool> enabled: true;
+    property<bool> has-focus: current-focused == tab-index;
     property<bool> pressed;
-    property<int> current;
-    property<int> tab-index;
-    property<int> num-tabs;
+    property<int> current; // The currently selected tab
+    property<int> current-focused; // The currently focused tab
+    property<int> tab-index; // The index of this tab
+    property<int> num-tabs; // The total number of tabs
 
     min-height: t.preferred-height + 16px;
     preferred-width: t.preferred-width + 16px;
-
 
     background: !enabled ? Palette.neutralLighter
         : touch.pressed ? Palette.neutralLight
@@ -331,8 +333,8 @@ export TabImpl := Rectangle {
     vertical-stretch: 0;
 
     touch := TouchArea {
+        enabled <=> root.enabled;
         clicked => {
-            fs.focus(); // focus ourselves so that the previous tab don't keep the focus
             current = tab-index;
         }
     }
@@ -354,12 +356,51 @@ export TabImpl := Rectangle {
         x: (parent.width - width) / 2;
     }
 
-    fs := FocusScope {}
+    Rectangle { // Focus Rectangle
+        border-width: enabled && has-focus ? 1px : 0px;
+        border-color: Palette.black;
+    }
 }
 
-export TabBarImpl := HorizontalLayout {
-    spacing: 8px;
-    alignment: start;
+export TabBarImpl := Rectangle {
+    // injected properties:
+    property<int> current; // The currently selected tab
+    property<int> current-focused: fs.has-focus ? fs.focused-tab : -1; // The currently focused tab
+    property<int> num-tabs; // The total number of tabs
+
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: start;
+        @children
+    }
+
+    fs := FocusScope {
+        property<int> focused-tab: 0;
+
+        key-pressed(event) => {
+            if (event.text == "\n") {
+                 current = current-focused;
+                 return accept;
+            }
+            if (event.text == Keys.LeftArrow) {
+                 focused-tab = Math.max(focused-tab - 1,  0);
+                 return accept;
+            }
+            if (event.text == Keys.RightArrow) {
+                 focused-tab = Math.min(focused-tab + 1, num-tabs - 1);
+                 return accept;
+            }
+            return reject;
+        }
+
+        key-released(event) => {
+            if (event.text == " ") {
+                 current = current-focused;
+                 return accept;
+            }
+            return reject;
+        }
+    }
 }
 
 export TabWidget := TabWidget {}

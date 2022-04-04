@@ -18,6 +18,8 @@ pub struct NativeTabWidget {
     pub content_min_width: Property<f32>,
     pub tabbar_preferred_height: Property<f32>,
     pub tabbar_preferred_width: Property<f32>,
+    pub current_index: Property<i32>,
+    pub current_focused: Property<i32>,
 
     // outputs
     pub content_x: Property<f32>,
@@ -313,8 +315,9 @@ pub struct NativeTab {
     pub enabled: Property<bool>,
     pub pressed: Property<bool>,
     pub current: Property<i32>,
-    pub num_tabs: Property<i32>,
+    pub current_focused: Property<i32>,
     pub tab_index: Property<i32>,
+    pub num_tabs: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
