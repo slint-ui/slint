@@ -3,21 +3,17 @@
 
 import { LineEdit, Button, Slider, StandardListView, VerticalBox } from "std-widgets.slint";
 
-struct Circle := { x: float, y: float, r: float }
+struct Circle := { x: length, y: length, d: length }
 
-CircleDraw := Window {
+MainWindow := Window {
     preferred-width: 500px;
     preferred-height: 400px;
 
-    property <[Circle]> model: [
-        { x: 0.1, y:0.1, r: 5  },
-        { x: 0.03, y:0.4, r:8  },
-        { x: 0.82, y:0.2, r:10 },
-        { x: 0.5, y:0.31, r:2  },
-    ];
+    property <[Circle]> model;
 
     property<int> clicked-idx: -1;
     property<Circle> selected-circle;
+    callback background_clicked(length,length);
 
     VerticalBox {
         HorizontalLayout {
@@ -30,6 +26,14 @@ CircleDraw := Window {
             background: white;
             border-color: black;
             border-width: 2px;
+            clip: true;
+            TouchArea {
+                width: 100%;
+                height: 100%;
+                clicked => {
+                    root.background_clicked(pressed_x, pressed_y);
+                }
+            }
 
             for circle[idx] in model : Rectangle {
                 background: clicked-idx == idx ? gray : white;
@@ -37,9 +41,9 @@ CircleDraw := Window {
                 border-width: 2px;
                 border-radius: width / 2;
                 height: width;
-                width: circle.r / 50 * parent.width;
-                x: (parent.width - width)  * circle.x;
-                y: (parent.height - height) * circle.y;
+                width: circle.d;
+                x: circle.x - width/2;
+                y: circle.y - height/2;
                 TouchArea {
                     height: 100%;
                     width: 100%;
@@ -71,12 +75,14 @@ CircleDraw := Window {
 
         VerticalBox {
             Text {
-                text: "Adjust diameter of circle at (" + selected-circle.x + ", " +  selected-circle.y + ").";
+                text: "Adjust diameter of circle at (" + selected-circle.x / 1px + ", " +  selected-circle.y / 1px + ").";
                 wrap: word-wrap;
             }
             Slider {
+                minimum: 4;
                 maximum: 100;
-                value: selected-circle.r;
+                value: selected-circle.d / 1px;
+                changed(diameter) => { model[clicked-idx].d = diameter * 1px }
             }
         }
     }
