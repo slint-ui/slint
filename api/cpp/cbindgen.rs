@@ -39,6 +39,7 @@ fn default_config() -> cbindgen::Config {
                 ("KeyEventArg".into(), "KeyEvent".into()),
                 ("PointerEventArg".into(), "PointerEvent".into()),
                 ("PointArg".into(), "Point".into()),
+                ("FloatArg".into(), "float".into()),
             ]
             .iter()
             .cloned()
@@ -442,6 +443,7 @@ fn gen_backend_qt(
     ];
 
     config.export.include = items.iter().map(|x| x.to_string()).collect();
+    config.export.exclude = vec!["FloatArg".into()];
 
     config.export.body.insert(
         "NativeStyleMetrics".to_owned(),
