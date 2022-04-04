@@ -42,5 +42,5 @@ slint-interpreter = { version = "=0.2.2", path="../../internal/interpreter", def
 
 [build-dependencies]
 anyhow = "1.0"
-cbindgen = "0.20"
+cbindgen = "0.21"
 proc-macro2 = "1.0.11"

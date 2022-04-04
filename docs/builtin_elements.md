@@ -886,6 +886,7 @@ Depending on the backend and used OS unidirectional resize cursors may be replac
 * **`text`**: A cursor indicating selectable text.
 * **`alias`**: An alias or shortcut is being created.
 * **`copy`**: A copy is being created.
+* **`move`**: Something is to be moved.
 * **`no-drop`**: Something cannot be dropped here.
 * **`not-allowed`**: An action is not allowed
 * **`grab`**: Something is grabbable.
