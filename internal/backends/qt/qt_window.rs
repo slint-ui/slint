@@ -222,6 +222,7 @@ cpp! {{
     static int do_text_layout(QTextLayout &layout, int flags, const QRectF &rect, int line_for_y_pos = -1) {
         QTextOption options;
         options.setWrapMode((flags & Qt::TextWordWrap) ? QTextOption::WordWrap : QTextOption::NoWrap);
+        options.setFlags(QTextOption::IncludeTrailingSpaces);
         layout.setTextOption(options);
         layout.setCacheEnabled(true);
         QFontMetrics fm(layout.font());
@@ -1606,7 +1607,7 @@ impl PlatformWindow for QtWindow {
             int cur;
             if (pos.x() > textLine.naturalTextWidth()) {
                 cur = textLine.textStart() + textLine.textLength();
-                if (cur > 0 && string[cur - 1] == '\n')
+                if (cur > 0)
                     cur--;
             } else {
                 cur = textLine.xToCursor(pos.x());
