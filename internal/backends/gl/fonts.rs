@@ -421,7 +421,7 @@ impl FontCache {
         &self,
         _request: &FontRequest,
         _primary_font: &LoadedFont,
-        _reference_text: &str,
+        mut reference_text: &str,
     ) -> Vec<FontRequest> {
         // TODO: use bindings::Windows::Win32::Graphics::DirectWrite directly.
         let handle = self
@@ -452,18 +452,24 @@ impl FontCache {
                     .unwrap()
             });
 
-        handle
-            .get_fallbacks(_reference_text, "")
-            .fonts
-            .iter()
-            .map(|fallback_font| FontRequest {
-                family: Some(fallback_font.font.family_name().into()),
-                weight: _request.weight,
-                pixel_size: _request.pixel_size,
-                letter_spacing: _request.letter_spacing,
-            })
-            .filter(|request| self.is_known_family(request))
-            .collect()
+        let mut fallback_fonts = Vec::new();
+        while !reference_text.is_empty() {
+            let fallbacks = handle.get_fallbacks(reference_text, "");
+            reference_text = &reference_text[fallbacks.valid_len..];
+            fallback_fonts.extend(
+                fallbacks
+                    .fonts
+                    .iter()
+                    .map(|fallback_font| FontRequest {
+                        family: Some(fallback_font.font.family_name().into()),
+                        weight: _request.weight,
+                        pixel_size: _request.pixel_size,
+                        letter_spacing: _request.letter_spacing,
+                    })
+                    .filter(|request| self.is_known_family(request)),
+            );
+        }
+        fallback_fonts
     }
 
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows"), not(target_arch = "wasm32")))]
