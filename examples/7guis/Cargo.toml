@@ -14,6 +14,10 @@ path = "booker.rs"
 name = "booker"
 
 [[bin]]
+path = "circledraw.rs"
+name = "circledraw"
+
+[[bin]]
 path = "crud.rs"
 name = "crud"
 
