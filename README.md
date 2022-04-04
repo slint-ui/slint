@@ -1,5 +1,7 @@
 # ![Slint](./logo/slint-logo-full-light.svg)
 
+<!-- cSpell: ignore ChipTrack Moiré Trolltech valign Woboq -->
+
 <table border="0" style="border:none"><tr><td valign="center">Formerly known as </td><td><img height="40" src="https://slint-ui.com/resources/logo.drawio.svg" style="vertical-alignment: middle"></td></tr></table>
 
 [![Build Status](https://github.com/slint-ui/slint/workflows/CI/badge.svg)](https://github.com/slint-ui/slint/actions)
@@ -32,6 +34,11 @@ Slint is in active development. Its state of development depends on the kind of 
  - **Web**: Our focus is on Embedded and Desktop applications. We do not intend to compete in
    the web space as a primary platform. That said, Slint can compile to WebAssembly and the
    demos are running in a web browser. But the web support is currently limited to demo purposes.
+
+### Stay up to date
+
+Follow [@slint-ui](https://twitter.com/slint_ui) on twitter or keep an eye out for
+our [🥠 Weekly Status Updates](https://slint-ui.com/thisweek/).
 
 ## Documentation
 
@@ -175,6 +182,6 @@ Rust developers all the way to UI/UX designers.
 
 Feel free to join [Github discussions](https://github.com/slint-ui/slint/discussions) for general chat or questions. Use [Github issues](https://github.com/slint-ui/slint/issues) to report public suggestions or bugs.
 
-To contact us privately send an email to info@slint-ui.com
+We chat in [our Mattermost instance](https://chat.slint-ui.com) where you are welcome to listen in or ask your questions.
 
-For chat, we also have [our Mattermost instance](https://chat.slint-ui.com)
+You can of course also tweet at [@slint-ui](https://twitter.com/slint_ui) or contact us privately via email to [info@slint-ui.com](mailto://info@slint-ui.com).
