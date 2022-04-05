@@ -12,7 +12,8 @@ export CheckBox := Rectangle {
     callback toggled;
     property <string> text <=> text.text;
     property <bool> checked;
-    property<bool> enabled <=> touch.enabled;
+    property <bool> has-focus;
+    property<bool> enabled: true;
     min-height: 20px;
     horizontal-stretch: 0;
     vertical-stretch: 0;
@@ -64,6 +65,7 @@ export CheckBox := Rectangle {
     }
 
     touch := TouchArea {
+        enabled <=> root.enabled;
         clicked => {
             if (root.enabled) {
                 root.checked = !root.checked;
@@ -72,6 +74,27 @@ export CheckBox := Rectangle {
         }
     }
 
+    fs := FocusScope {
+        enabled <=> root.enabled;
+        has_focus <=> root.has-focus;
+
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                 touch.clicked();
+                 return accept;
+            }
+            return reject;
+        }
+    }
+
+    Rectangle { // Focus rectangle
+        x: -3px;
+        y: x;
+        width: parent.width - 2*x;
+        height: parent.height - 2*y;
+        border-width: enabled && has-focus ? 1px : 0px;
+        border-color: Palette.black;
+    }
 }
 
 SpinBoxButton := Rectangle {
