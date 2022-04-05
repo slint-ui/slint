@@ -227,7 +227,7 @@ pub type ItemRef<'a> = vtable::VRef<'a, ItemVTable>;
 
 /// A ItemRc is holding a reference to a component containing the item, and the index of this item
 #[repr(C)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ItemRc {
     component: vtable::VRc<ComponentVTable>,
     index: usize,
