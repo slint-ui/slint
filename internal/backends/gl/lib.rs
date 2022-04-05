@@ -719,6 +719,14 @@ impl ItemRenderer for GLItemRenderer {
             return RenderingResult::ContinueRenderingChildren;
         }
 
+        let geometry = clip_item.as_ref().geometry();
+
+        // If clipping is enabled but the clip element is outside the visible range, then we don't
+        // need to bother doing anything, not even rendering the children.
+        if !self.get_current_clip().intersects(&geometry) {
+            return RenderingResult::ContinueRenderingWithoutChildren;
+        }
+
         let radius = clip_item.border_radius();
         let border_width = clip_item.border_width();
 
@@ -731,7 +739,7 @@ impl ItemRenderer for GLItemRenderer {
                 let layer_image_paint = layer_image.as_paint();
 
                 let mut layer_path = clip_path_for_rect_alike_item(
-                    clip_item.as_ref().geometry(),
+                    geometry,
                     radius,
                     border_width,
                     self.scale_factor,
@@ -742,7 +750,6 @@ impl ItemRenderer for GLItemRenderer {
 
             RenderingResult::ContinueRenderingWithoutChildren
         } else {
-            let geometry = clip_item.as_ref().geometry();
             self.combine_clip(
                 euclid::rect(0., 0., geometry.width(), geometry.height()),
                 radius,
