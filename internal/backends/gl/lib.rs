@@ -750,6 +750,10 @@ impl ItemRenderer for GLItemRenderer {
 
             RenderingResult::ContinueRenderingWithoutChildren
         } else {
+            clip_item
+                .cached_rendering_data
+                .release(&mut self.graphics_window.graphics_cache.borrow_mut());
+
             self.combine_clip(
                 euclid::rect(0., 0., geometry.width(), geometry.height()),
                 radius,
