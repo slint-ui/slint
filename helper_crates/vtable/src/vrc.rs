@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore dealloc pointee repr
+
 //! implementation of vtable::Vrc
 
 use super::*;
@@ -123,6 +125,12 @@ impl<VTable: VTableMetaDropInPlace + 'static, X> Drop for VRc<VTable, X> {
                 }
             }
         }
+    }
+}
+
+impl<VTable: VTableMetaDropInPlace + 'static, X> core::fmt::Debug for VRc<VTable, X> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("VRc").field("inner", &unsafe { self.inner.as_ref().data_ptr() }).finish()
     }
 }
 
