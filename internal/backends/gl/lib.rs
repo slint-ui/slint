@@ -1275,6 +1275,9 @@ impl GLItemRenderer {
         if brush.is_transparent() {
             return None;
         }
+        if self.state.last().unwrap().global_alpha == 0.0 {
+            return None;
+        }
         Some(match brush {
             Brush::SolidColor(color) => femtovg::Paint::color(to_femtovg_color(&color)),
             Brush::LinearGradient(gradient) => {
