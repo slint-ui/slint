@@ -21,6 +21,11 @@ For Linux a few additional packages beyond the usual build essentials are needed
 - fontconfig library (`libfontconfig-dev` on debian based distributions)
 - (optional) Qt will be used when `qmake` is found in `PATH`
 
+`xcb` and `xcbcommon` are not needed if you are only using `backend-winit-wayland` without `backend-winit-x11`.
+
+fontconfig can be `dlopen`ed at runtime instead of linking it at build time by setting the
+environment variable `RUST_FONTCONFIG_DLOPEN=on`. This can be useful for [cross-compiling](#cross-compiling).
+
 ### macOS
 
 - Make sure the "Xcode Command Line Tools" are installed: `xcode-select --install`
@@ -125,7 +130,7 @@ in the dependencies section of your `package.json`:
 Slint can be cross-compiled to different target architectures and environments. For the Rust build we
 have had a good experience using [`cross`](https://github.com/rust-embedded/cross). For convenience we're
 including a `Cross.toml` configuration file for `cross` in the source tree along with Docker containers that
-allow targeting a Debian ARMv7 and ARMv8 based Distribution with X11 or Wayland, out of the box.
+allow targeting a Debian ARMv7 and ARMv8 based Distribution with X11 or Wayland, out of the box. If you want to use the default Cross containers or your own, make sure the [dependencies](#Prerequisites) are in the container.
 
 This includes for example the Raspberry Pi OS. Using the following steps you can run the examples on a
 pi:
