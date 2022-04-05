@@ -180,6 +180,12 @@ impl<'a> ComponentItemTree<'a> {
     }
 }
 
+impl<'a> From<&'a [ItemTreeNode]> for ComponentItemTree<'a> {
+    fn from(item_tree: &'a [ItemTreeNode]) -> Self {
+        Self { item_tree }
+    }
+}
+
 #[repr(C)]
 #[vtable]
 /// Object to be passed in visit_item_children method of the Component.
@@ -398,5 +404,107 @@ pub(crate) mod ffi {
             visitor,
             |a, b, c, d| visit_dynamic(a.get_ref(), b, c, d),
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_component_item_tree_root_only() {
+        let nodes = vec![ItemTreeNode::Item {
+            children_count: 0,
+            children_index: 1,
+            parent_index: 0,
+            item_array_index: 0,
+        }];
+
+        let tree: ComponentItemTree = (nodes.as_slice()).into();
+
+        assert_eq!(tree.first_child(0), None);
+        assert_eq!(tree.last_child(0), None);
+        assert_eq!(tree.previous_sibling(0), None);
+        assert_eq!(tree.next_sibling(0), None);
+        assert_eq!(tree.parent(0), None);
+    }
+
+    #[test]
+    fn test_component_item_tree_one_child() {
+        let nodes = vec![
+            ItemTreeNode::Item {
+                children_count: 1,
+                children_index: 1,
+                parent_index: 0,
+                item_array_index: 0,
+            },
+            ItemTreeNode::Item {
+                children_count: 0,
+                children_index: 2,
+                parent_index: 0,
+                item_array_index: 0,
+            },
+        ];
+
+        let tree: ComponentItemTree = (nodes.as_slice()).into();
+
+        assert_eq!(tree.first_child(0), Some(1));
+        assert_eq!(tree.last_child(0), Some(1));
+        assert_eq!(tree.previous_sibling(0), None);
+        assert_eq!(tree.next_sibling(0), None);
+        assert_eq!(tree.parent(0), None);
+        assert_eq!(tree.previous_sibling(1), None);
+        assert_eq!(tree.next_sibling(1), None);
+        assert_eq!(tree.parent(1), Some(0));
+    }
+
+    #[test]
+    fn test_component_item_tree_tree_children() {
+        let nodes = vec![
+            ItemTreeNode::Item {
+                children_count: 3,
+                children_index: 1,
+                parent_index: 0,
+                item_array_index: 0,
+            },
+            ItemTreeNode::Item {
+                children_count: 0,
+                children_index: 4,
+                parent_index: 0,
+                item_array_index: 0,
+            },
+            ItemTreeNode::Item {
+                children_count: 0,
+                children_index: 4,
+                parent_index: 0,
+                item_array_index: 0,
+            },
+            ItemTreeNode::Item {
+                children_count: 0,
+                children_index: 4,
+                parent_index: 0,
+                item_array_index: 0,
+            },
+        ];
+
+        let tree: ComponentItemTree = (nodes.as_slice()).into();
+
+        assert_eq!(tree.first_child(0), Some(1));
+        assert_eq!(tree.last_child(0), Some(3));
+        assert_eq!(tree.previous_sibling(0), None);
+        assert_eq!(tree.next_sibling(0), None);
+        assert_eq!(tree.parent(0), None);
+
+        assert_eq!(tree.previous_sibling(1), None);
+        assert_eq!(tree.next_sibling(1), Some(2));
+        assert_eq!(tree.parent(1), Some(0));
+
+        assert_eq!(tree.previous_sibling(2), Some(1));
+        assert_eq!(tree.next_sibling(2), Some(3));
+        assert_eq!(tree.parent(2), Some(0));
+
+        assert_eq!(tree.previous_sibling(3), Some(2));
+        assert_eq!(tree.next_sibling(3), None);
+        assert_eq!(tree.parent(3), Some(0));
     }
 }
