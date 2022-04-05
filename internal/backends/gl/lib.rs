@@ -1077,7 +1077,9 @@ impl GLItemRenderer {
 
         let mut image_rect = femtovg::Path::new();
         image_rect.rect(0., 0., image_size.width, image_size.height);
-        let brush_paint = self.brush_to_paint(colorize_brush, &mut image_rect).unwrap();
+        // We fill the entire image, there is no need to apply anti-aliasing around the edges
+        let brush_paint =
+            self.brush_to_paint(colorize_brush, &mut image_rect).unwrap().with_anti_alias(false);
 
         self.canvas.borrow_mut().save_with(|canvas| {
             canvas.reset();
@@ -1252,7 +1254,10 @@ impl GLItemRenderer {
             image_size.height,
             0.0,
             1.0,
-        );
+        )
+        // We preserve the rectangular shape of the image, so there's no need to apply anti-aliasing
+        // at the edges
+        .with_anti_alias(false);
 
         let mut path = femtovg::Path::new();
         path.rect(0., 0., source_width, source_height);
