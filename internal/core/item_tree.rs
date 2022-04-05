@@ -178,6 +178,11 @@ impl<'a> ComponentItemTree<'a> {
             ItemTreeNode::DynamicTree { .. } => None,
         }
     }
+
+    /// Returns the number of nodes in the `ComponentItemTree`
+    pub fn node_count(&self) -> usize {
+        self.item_tree.len()
+    }
 }
 
 impl<'a> From<&'a [ItemTreeNode]> for ComponentItemTree<'a> {
