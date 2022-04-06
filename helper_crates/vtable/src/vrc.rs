@@ -130,7 +130,7 @@ impl<VTable: VTableMetaDropInPlace + 'static, X> Drop for VRc<VTable, X> {
 
 impl<VTable: VTableMetaDropInPlace + 'static, X> core::fmt::Debug for VRc<VTable, X> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("VRc").field("inner", &unsafe { self.inner.as_ref().data_ptr() }).finish()
+        f.debug_struct("VRc").field("inner", &self.inner).finish()
     }
 }
 
