@@ -436,7 +436,8 @@ impl ItemRc {
         focus_step: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
         subtree_step: &dyn Fn(ItemRc) -> Option<ItemRc>,
         subtree_child: &dyn Fn(usize, usize) -> usize,
-        wrap_around: &dyn Fn(ItemRc) -> ItemRc,
+        step_in: &dyn Fn(ItemRc) -> ItemRc,
+        step_out: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
     ) -> Self {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
         let item_tree = crate::item_tree::ComponentItemTree::new(&comp_ref_pin);
@@ -450,7 +451,7 @@ impl ItemRc {
                     next,
                     &item_tree,
                     subtree_child,
-                    wrap_around,
+                    step_in,
                 ) {
                     return item;
                 }
@@ -460,13 +461,31 @@ impl ItemRc {
                 // Step out of this component:
                 let root = ItemRc::new(self.component(), 0);
                 if let Some(item) = subtree_step(root.clone()) {
-                    return wrap_around(item);
+                    return step_in(item);
                 } else {
                     // Go up a level!
                     if let Some(parent) = root.parent_item().upgrade() {
-                        return parent;
+                        let parent_ref_pin = vtable::VRc::borrow_pin(&parent.component);
+                        let parent_item_tree =
+                            crate::item_tree::ComponentItemTree::new(&parent_ref_pin);
+                        if let Some(next) = step_out(&parent_item_tree, parent.index()) {
+                            if let Some(item) = step_into_node(
+                                &parent.component(),
+                                &parent_ref_pin,
+                                next,
+                                &parent_item_tree,
+                                subtree_child,
+                                step_in,
+                            ) {
+                                return item;
+                            }
+                            to_focus = next;
+                        } else {
+                            // Moving out
+                            return step_in(root);
+                        }
                     } else {
-                        return wrap_around(root);
+                        return step_in(root);
                     }
                 }
             }
@@ -491,6 +510,7 @@ impl ItemRc {
                     }
                 }
             },
+            &|_, index| Some(index),
         )
     }
 
@@ -502,7 +522,8 @@ impl ItemRc {
             },
             &|root| root.next_sibling(),
             &|start, _| start,
-            &|root| root,
+            &core::convert::identity,
+            &|item_tree, index| crate::item_focus::step_out_of_node(index, item_tree),
         )
     }
 }
@@ -2224,6 +2245,110 @@ mod tests {
 
         cursor = cursor.previous_focus_item();
         assert!(cursor == sub1);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == item);
+    }
+
+    #[test]
+    fn test_tree_traversal_item_subtree_child() {
+        let component = VRc::new(TestComponent {
+            parent_component: None,
+            item_tree: vec![
+                ItemTreeNode::Item {
+                    children_count: 2,
+                    children_index: 1,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+                ItemTreeNode::Item {
+                    children_count: 1,
+                    children_index: 3,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+                ItemTreeNode::Item {
+                    children_count: 0,
+                    children_index: 4,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+                ItemTreeNode::Item {
+                    children_count: 1,
+                    children_index: 4,
+                    parent_index: 1,
+                    item_array_index: 0,
+                },
+                ItemTreeNode::DynamicTree { index: 0, parent_index: 3 },
+            ],
+            subtrees: std::cell::RefCell::new(vec![]),
+            subtree_index: core::usize::MAX,
+        });
+
+        component.as_pin_ref().subtrees.replace(vec![vec![VRc::new(TestComponent {
+            parent_component: Some(VRc::into_dyn(component.clone())),
+            item_tree: vec![ItemTreeNode::Item {
+                children_count: 0,
+                children_index: 1,
+                parent_index: 4,
+                item_array_index: 0,
+            }],
+            subtrees: std::cell::RefCell::new(vec![]),
+            subtree_index: 0,
+        })]]);
+
+        let component = VRc::into_dyn(component);
+
+        // Examine root node:
+        let item = ItemRc::new(component.clone(), 0);
+        assert!(item.previous_sibling().is_none());
+        assert!(item.next_sibling().is_none());
+
+        let c1 = item.first_child().unwrap();
+        assert_eq!(c1.index(), 1);
+        assert!(VRc::ptr_eq(&c1.component(), &item.component()));
+
+        let c2 = c1.next_sibling().unwrap();
+        assert_eq!(c2.index(), 2);
+        assert!(VRc::ptr_eq(&c2.component(), &item.component()));
+
+        let c1_1 = c1.first_child().unwrap();
+        assert_eq!(c1_1.index(), 3);
+        assert!(VRc::ptr_eq(&c1_1.component(), &item.component()));
+
+        let sub = c1_1.first_child().unwrap();
+        assert_eq!(sub.index(), 0);
+        assert!(!VRc::ptr_eq(&sub.component(), &item.component()));
+
+        // Focus traversal:
+        let mut cursor = item.clone();
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == c1);
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == c1_1);
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == sub);
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == c2);
+
+        cursor = cursor.next_focus_item();
+        assert!(cursor == item);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == c2);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == sub);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == c1_1);
+
+        cursor = cursor.previous_focus_item();
+        assert!(cursor == c1);
 
         cursor = cursor.previous_focus_item();
         assert!(cursor == item);

@@ -9,14 +9,10 @@ This module contains the code moving the keyboard focus between items
 
 use crate::item_tree::ComponentItemTree;
 
-pub fn default_next_in_local_focus_chain(
+pub fn step_out_of_node(
     index: usize,
     item_tree: &crate::item_tree::ComponentItemTree,
 ) -> Option<usize> {
-    if let Some(child) = item_tree.first_child(index) {
-        return Some(child);
-    }
-
     let mut self_or_ancestor = index;
     loop {
         if let Some(sibling) = item_tree.next_sibling(self_or_ancestor) {
@@ -30,7 +26,18 @@ pub fn default_next_in_local_focus_chain(
     }
 }
 
-fn rightmost_node(item_tree: &ComponentItemTree, index: usize) -> usize {
+pub fn default_next_in_local_focus_chain(
+    index: usize,
+    item_tree: &crate::item_tree::ComponentItemTree,
+) -> Option<usize> {
+    if let Some(child) = item_tree.first_child(index) {
+        return Some(child);
+    }
+
+    step_out_of_node(index, item_tree)
+}
+
+fn step_into_node(item_tree: &ComponentItemTree, index: usize) -> usize {
     let mut node = index;
     loop {
         if let Some(last_child) = item_tree.last_child(node) {
@@ -46,7 +53,7 @@ pub fn default_previous_in_local_focus_chain(
     item_tree: &crate::item_tree::ComponentItemTree,
 ) -> Option<usize> {
     if let Some(previous) = item_tree.previous_sibling(index) {
-        Some(rightmost_node(item_tree, previous))
+        Some(step_into_node(item_tree, previous))
     } else {
         item_tree.parent(index)
     }
@@ -75,7 +82,7 @@ mod tests {
         };
         let reverse_backward_chain = {
             let mut tmp = alloc::vec::Vec::with_capacity(item_tree.node_count());
-            let mut node = rightmost_node(&item_tree, 0);
+            let mut node = step_into_node(&item_tree, 0);
 
             loop {
                 tmp.push(node);
