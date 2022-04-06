@@ -522,7 +522,7 @@ impl ItemRc {
             },
             &|root| root.next_sibling(),
             &|start, _| start,
-            &std::convert::identity,
+            &core::convert::identity,
             &|item_tree, index| crate::item_focus::step_out_of_node(index, item_tree),
         )
     }
