@@ -4,8 +4,6 @@
 // cspell:ignore Noto fontconfig
 
 use femtovg::TextContext;
-#[cfg(target_os = "windows")]
-use font_kit::loader::Loader;
 use i_slint_core::graphics::{FontRequest, Point, Size};
 use i_slint_core::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
 use i_slint_core::{SharedString, SharedVector};
@@ -419,56 +417,85 @@ impl FontCache {
     #[cfg(target_os = "windows")]
     fn font_fallbacks_for_request(
         &self,
-        _request: &FontRequest,
+        request: &FontRequest,
         _primary_font: &LoadedFont,
-        mut reference_text: &str,
+        reference_text: &str,
     ) -> Vec<FontRequest> {
-        // TODO: use bindings::Windows::Win32::Graphics::DirectWrite directly.
-        let handle = self
-            .available_fonts
-            .face_source(_primary_font.fontdb_face_id)
-            .and_then(|(source, face_index)| match source {
-                fontdb::Source::File(path) | fontdb::Source::SharedFile(path, _) => {
-                    font_kit::loaders::directwrite::Font::from_path(path, face_index).ok()
-                }
-                _ => None,
-            })
-            .unwrap_or_else(|| {
-                let family_name = _request
-                    .family
-                    .as_ref()
-                    .map_or(font_kit::family_name::FamilyName::SansSerif, |family| {
-                        font_kit::family_name::FamilyName::Title(family.to_string())
-                    });
+        let system_font_fallback = match dwrote::FontFallback::get_system_fallback() {
+            Some(fallback) => fallback,
+            None => return Vec::new(),
+        };
+        let font_collection = dwrote::FontCollection::get_system(false);
+        let base_family = Some(request.family.as_ref().map_or_else(|| "", |s| s.as_str()));
 
-                font_kit::source::SystemSource::new()
-                    .select_best_match(
-                        &[family_name, font_kit::family_name::FamilyName::SansSerif],
-                        &font_kit::properties::Properties::new()
-                            .weight(font_kit::properties::Weight(_request.weight.unwrap() as f32)),
-                    )
-                    .unwrap()
-                    .load()
-                    .unwrap()
-            });
+        let reference_text_utf16: Vec<u16> = reference_text.encode_utf16().collect();
+
+        // Hack to implement the minimum interface for direct write. We have yet to provide the correct
+        // locale (but return an empty string for now). This struct stores the number of utf-16 characters
+        // so that in get_locale_name it can return that the (empty) locale applies all the characters after
+        // `text_position`, by returning the count.
+        struct TextAnalysisHack(u32);
+        impl dwrote::TextAnalysisSourceMethods for TextAnalysisHack {
+            fn get_locale_name<'a>(
+                &'a self,
+                text_position: u32,
+            ) -> (std::borrow::Cow<'a, str>, u32) {
+                ("".into(), self.0 - text_position)
+            }
+
+            // We should do better on this one, too...
+            fn get_paragraph_reading_direction(
+                &self,
+            ) -> winapi::um::dwrite::DWRITE_READING_DIRECTION {
+                winapi::um::dwrite::DWRITE_READING_DIRECTION_LEFT_TO_RIGHT
+            }
+        }
+
+        let text_analysis_source = dwrote::TextAnalysisSource::from_text_and_number_subst(
+            Box::new(TextAnalysisHack(reference_text_utf16.len() as u32)),
+            std::borrow::Cow::Borrowed(&reference_text_utf16),
+            dwrote::NumberSubstitution::new(
+                winapi::um::dwrite::DWRITE_NUMBER_SUBSTITUTION_METHOD_NONE,
+                "",
+                true,
+            ),
+        );
 
         let mut fallback_fonts = Vec::new();
-        while !reference_text.is_empty() {
-            let fallbacks = handle.get_fallbacks(reference_text, "");
-            reference_text = &reference_text[fallbacks.valid_len..];
-            fallback_fonts.extend(
-                fallbacks
-                    .fonts
-                    .iter()
-                    .map(|fallback_font| FontRequest {
-                        family: Some(fallback_font.font.family_name().into()),
-                        weight: _request.weight,
-                        pixel_size: _request.pixel_size,
-                        letter_spacing: _request.letter_spacing,
-                    })
-                    .filter(|request| self.is_known_family(request)),
+
+        let mut utf16_pos = 0;
+
+        while utf16_pos < reference_text_utf16.len() {
+            let fallback_result = system_font_fallback.map_characters(
+                &text_analysis_source,
+                utf16_pos as u32,
+                (reference_text_utf16.len() - utf16_pos) as u32,
+                &font_collection,
+                base_family,
+                dwrote::FontWeight::Regular,
+                dwrote::FontStyle::Normal,
+                dwrote::FontStretch::Normal,
             );
+
+            if let Some(fallback_font) = fallback_result.mapped_font {
+                let family = fallback_font.family_name();
+
+                let fallback = FontRequest {
+                    family: Some(family.into()),
+                    weight: request.weight,
+                    pixel_size: request.pixel_size,
+                    letter_spacing: request.letter_spacing,
+                };
+                if self.is_known_family(&fallback) {
+                    fallback_fonts.push(fallback)
+                }
+            } else {
+                break;
+            }
+
+            utf16_pos += fallback_result.mapped_length;
         }
+
         fallback_fonts
     }
 

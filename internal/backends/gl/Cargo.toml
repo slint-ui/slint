@@ -65,7 +65,8 @@ glutin = { version = "0.28", default-features = false }
 usvg = { version= "0.22", optional = true, default-features = false, features = ["text", "memmap-fonts"] }
 
 [target.'cfg(target_family = "windows")'.dependencies]
-font-kit = { version = "0.10", features = [] }
+dwrote = "0.11.0"
+winapi = { version = "0.3", features = ["dwrite"] }
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
 libc = { version = "0.2" }
