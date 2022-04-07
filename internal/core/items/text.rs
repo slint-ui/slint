@@ -23,6 +23,7 @@ use crate::{Callback, Property, SharedString};
 use alloc::string::String;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
+use euclid::approxeq::ApproxEq;
 use i_slint_core_macros::*;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -232,7 +233,7 @@ impl Text {
             },
             pixel_size: {
                 let font_size = self.font_size();
-                if font_size == 0.0 {
+                if font_size.approx_eq(&0.0) {
                     None
                 } else {
                     Some(font_size)
@@ -819,7 +820,7 @@ impl TextInput {
             },
             pixel_size: {
                 let font_size = self.font_size();
-                if font_size == 0.0 {
+                if font_size.approx_eq(&0.0) {
                     None
                 } else {
                     Some(font_size)

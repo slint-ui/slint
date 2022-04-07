@@ -570,9 +570,9 @@ impl ItemRenderer for GLItemRenderer {
     ///  * Draw the shadow image
     fn draw_box_shadow(&mut self, box_shadow: std::pin::Pin<&i_slint_core::items::BoxShadow>) {
         if box_shadow.color().alpha() == 0
-            || (box_shadow.blur() == 0.0
-                && box_shadow.offset_x() == 0.
-                && box_shadow.offset_y() == 0.)
+            || (box_shadow.blur().approx_eq(&0.)
+                && box_shadow.offset_x().approx_eq(&0.)
+                && box_shadow.offset_y().approx_eq(&0.))
         {
             return;
         }
@@ -788,7 +788,7 @@ impl ItemRenderer for GLItemRenderer {
 
         // femtovg only supports rectangular clipping. Non-rectangular clips must be handled via `apply_clip`,
         // which can render children into a layer.
-        debug_assert!(radius == 0.);
+        debug_assert!(radius.approx_eq(&0.));
     }
 
     fn get_current_clip(&self) -> Rect {
@@ -1275,7 +1275,7 @@ impl GLItemRenderer {
         if brush.is_transparent() {
             return None;
         }
-        if self.state.last().unwrap().global_alpha == 0.0 {
+        if self.state.last().unwrap().global_alpha < 0. {
             return None;
         }
         Some(match brush {

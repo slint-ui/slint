@@ -36,6 +36,7 @@ use alloc::boxed::Box;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
 use core::pin::Pin;
+use euclid::approxeq::ApproxEq;
 use i_slint_core_macros::*;
 use vtable::*;
 
@@ -277,7 +278,7 @@ impl ItemRc {
         let is_clipping = crate::item_rendering::is_enabled_clipping_item(item);
         let geometry = item.as_ref().geometry();
 
-        if is_clipping && (geometry.width() == 0.0 || geometry.height() == 0.0) {
+        if is_clipping && (geometry.width().approx_eq(&0.) || geometry.height().approx_eq(&0.)) {
             return false;
         }
 
@@ -1587,7 +1588,7 @@ impl WindowItem {
             },
             pixel_size: {
                 let font_size = self.default_font_size();
-                if font_size == 0.0 {
+                if font_size.approx_eq(&0.0) {
                     None
                 } else {
                     Some(font_size)

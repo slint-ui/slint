@@ -22,6 +22,7 @@ use corelib::items::{ItemRef, MouseCursor};
 use corelib::layout::Orientation;
 use corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation};
 use corelib::Property;
+use euclid::approxeq::ApproxEq;
 use i_slint_core as corelib;
 use winit::dpi::LogicalSize;
 
@@ -398,7 +399,7 @@ impl PlatformWindow for GLWindow {
             (
                 window_item.title().to_string(),
                 window_item.no_frame(),
-                window_item.height() == 0. && window_item.width() == 0.,
+                window_item.height().approx_eq(&0.) && window_item.width().approx_eq(&0.),
             )
         } else {
             ("Slint Window".to_string(), false, true)
