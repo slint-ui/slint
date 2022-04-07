@@ -109,6 +109,10 @@ pub fn render_item_children(
     component: &ComponentRc,
     index: isize,
 ) {
+    if renderer.get_current_clip().is_empty() {
+        return;
+    }
+
     let mut actual_visitor =
         |component: &ComponentRc, index: usize, item: Pin<ItemRef>| -> VisitChildrenResult {
             renderer.save_state();
