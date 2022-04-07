@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
+## [0.1.7]
+
+ - Implement `Debug` for `VRc`
+ - Quieten warning about unused unsafe in the `#[vtable]` generated code
+
 ## [0.1.6] - 2022-03-09
 
  - Add `VWeak::ptr_eq`

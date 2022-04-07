@@ -39,7 +39,7 @@ i-slint-common = { version = "=0.2.2", path = "../common" }
 i-slint-core-macros = { version = "=0.2.2", path = "../core-macros" }
 
 const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
-vtable = { version="0.1.6", path = "../../helper_crates/vtable" }
+vtable = { version="0.1.7", path = "../../helper_crates/vtable" }
 
 atomic-polyfill = { version = "0.1.5" }
 auto_enums = "0.7"
