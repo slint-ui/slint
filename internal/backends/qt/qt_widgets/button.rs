@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore qstyle unshade
+
 use super::*;
 
 #[allow(nonstandard_style)]
@@ -90,7 +92,10 @@ mod standard_button {
     pub type QStyle_StandardPixmap = ::std::os::raw::c_uint;
 }
 
-use i_slint_core::{input::FocusEventResult, items::StandardButtonKind};
+use i_slint_core::{
+    input::{FocusEventResult, KeyEventType},
+    items::StandardButtonKind,
+};
 use standard_button::*;
 
 type ActualStandardButtonKind = Option<StandardButtonKind>;
@@ -107,6 +112,7 @@ pub struct NativeButton {
     pub icon: Property<i_slint_core::graphics::Image>,
     pub enabled: Property<bool>,
     pub pressed: Property<bool>,
+    pub has_focus: Property<bool>,
     pub clicked: Callback<VoidArg>,
     pub standard_button_kind: Property<StandardButtonKind>,
     pub is_standard_button: Property<bool>,
@@ -255,12 +261,32 @@ impl Item for NativeButton {
         }
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
-        KeyEventResult::EventIgnored
+    fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
+        match event.event_type {
+            KeyEventType::KeyPressed if event.text == " " || event.text == "\n" => {
+                Self::FIELD_OFFSETS.pressed.apply_pin(self).set(true);
+                KeyEventResult::EventAccepted
+            }
+            KeyEventType::KeyPressed => KeyEventResult::EventIgnored,
+            KeyEventType::KeyReleased if event.text == " " || event.text == "\n" => {
+                Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
+                Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
+                KeyEventResult::EventAccepted
+            }
+            KeyEventType::KeyReleased => KeyEventResult::EventIgnored,
+        }
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::FocusIgnored
+    fn focus_event(self: Pin<&Self>, event: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+        if self.enabled() {
+            Self::FIELD_OFFSETS
+                .has_focus
+                .apply_pin(self)
+                .set(event == &FocusEvent::FocusIn || event == &FocusEvent::WindowReceivedFocus);
+            FocusEventResult::FocusAccepted
+        } else {
+            FocusEventResult::FocusIgnored
+        }
     }
 
     fn_render! { this dpr size painter widget initial_state =>
@@ -269,6 +295,7 @@ impl Item for NativeButton {
         let text: qttypes::QString = this.actual_text(standard_button_kind);
         let icon: qttypes::QPixmap = this.actual_icon(standard_button_kind);
         let enabled = this.enabled();
+        let has_focus = this.has_focus();
 
         cpp!(unsafe [
             painter as "QPainter*",
@@ -278,6 +305,7 @@ impl Item for NativeButton {
             enabled as "bool",
             size as "QSize",
             down as "bool",
+            has_focus as "bool",
             dpr as "float",
             initial_state as "int"
         ] {
@@ -296,6 +324,9 @@ impl Item for NativeButton {
                 option.state |= QStyle::State_Enabled;
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
+            }
+            if (has_focus) {
+                option.state |= QStyle::State_HasFocus | QStyle::State_KeyboardFocusChange | QStyle::State_Item;
             }
             qApp->style()->drawControl(QStyle::CE_PushButton, &option, painter, widget);
         });
