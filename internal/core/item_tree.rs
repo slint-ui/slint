@@ -844,11 +844,7 @@ mod tests {
         }
 
         fn get_item_tree(self: core::pin::Pin<&Self>) -> Slice<ItemTreeNode> {
-            unsafe {
-                core::mem::transmute::<Slice<ItemTreeNode>, Slice<ItemTreeNode>>(Slice::from_slice(
-                    &self.item_tree,
-                ))
-            }
+            Slice::from_slice(&self.get_ref().item_tree)
         }
 
         fn parent_item(self: core::pin::Pin<&Self>, _1: usize, result: &mut ItemWeak) {
