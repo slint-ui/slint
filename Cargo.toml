@@ -78,11 +78,6 @@ default-members = [
 
 resolver="2"
 
-[patch.crates-io]
-# Pull in https://github.com/femtovg/femtovg/pull/87 and 108038dd97fd4fd140968f03ef55eb2414968882 to
-# improve GL performance
-femtovg = { git = "https://github.com/femtovg/femtovg", rev = "108038dd97fd4fd140968f03ef55eb2414968882" }
-
 [profile.release]
 lto = true
 panic = "abort"
