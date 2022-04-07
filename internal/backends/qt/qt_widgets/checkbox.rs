@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use i_slint_core::input::FocusEventResult;
+use i_slint_core::input::{FocusEventResult, KeyEventType};
 
 use super::*;
 
@@ -14,6 +14,7 @@ pub struct NativeCheckBox {
     pub width: Property<f32>,
     pub height: Property<f32>,
     pub enabled: Property<bool>,
+    pub has_focus: Property<bool>,
     pub toggled: Callback<VoidArg>,
     pub text: Property<SharedString>,
     pub checked: Property<bool>,
@@ -77,17 +78,34 @@ impl Item for NativeCheckBox {
         InputEventResult::EventAccepted
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
-        KeyEventResult::EventIgnored
+    fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
+        match event.event_type {
+            KeyEventType::KeyPressed if event.text == " " || event.text == "\n" => {
+                Self::FIELD_OFFSETS.checked.apply_pin(self).set(!self.checked());
+                Self::FIELD_OFFSETS.toggled.apply_pin(self).call(&());
+                KeyEventResult::EventAccepted
+            }
+            KeyEventType::KeyPressed => KeyEventResult::EventIgnored,
+            KeyEventType::KeyReleased => KeyEventResult::EventIgnored,
+        }
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
-        FocusEventResult::FocusIgnored
+    fn focus_event(self: Pin<&Self>, event: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+        if self.enabled() {
+            Self::FIELD_OFFSETS
+                .has_focus
+                .apply_pin(self)
+                .set(event == &FocusEvent::FocusIn || event == &FocusEvent::WindowReceivedFocus);
+            FocusEventResult::FocusAccepted
+        } else {
+            FocusEventResult::FocusIgnored
+        }
     }
 
     fn_render! { this dpr size painter widget initial_state =>
         let checked: bool = this.checked();
         let enabled = this.enabled();
+        let has_focus = this.has_focus();
         let text: qttypes::QString = this.text().as_str().into();
 
         cpp!(unsafe [
@@ -97,6 +115,7 @@ impl Item for NativeCheckBox {
             text as "QString",
             size as "QSize",
             checked as "bool",
+            has_focus as "bool",
             dpr as "float",
             initial_state as "int"
         ] {
@@ -109,6 +128,9 @@ impl Item for NativeCheckBox {
                 option.state |= QStyle::State_Enabled;
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
+            }
+            if (has_focus) {
+                option.state |= QStyle::State_HasFocus | QStyle::State_KeyboardFocusChange | QStyle::State_Item;
             }
             qApp->style()->drawControl(QStyle::CE_CheckBox, &option, painter, widget);
         });
