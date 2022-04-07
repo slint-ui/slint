@@ -7,8 +7,10 @@
 
 //! This module contains the basic datastructures that are exposed to the C API
 
-use crate::item_tree::{ItemTreeNode, ItemVisitorVTable, TraversalOrder, VisitChildrenResult};
-use crate::items::{ItemVTable, ItemWeak};
+use crate::item_tree::{
+    ItemTreeNode, ItemVisitorVTable, ItemWeak, TraversalOrder, VisitChildrenResult,
+};
+use crate::items::ItemVTable;
 use crate::layout::{LayoutInfo, Orientation};
 use crate::slice::Slice;
 use crate::window::WindowRc;

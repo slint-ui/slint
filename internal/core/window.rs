@@ -12,7 +12,8 @@ use crate::graphics::{Point, Rect, Size};
 use crate::input::{
     key_codes, KeyEvent, KeyEventType, MouseEvent, MouseInputState, TextCursorBlinker,
 };
-use crate::items::{ItemRc, ItemRef, ItemWeak, MouseCursor};
+use crate::item_tree::ItemRc;
+use crate::items::{ItemRef, MouseCursor};
 use crate::properties::{Property, PropertyTracker};
 use crate::Callback;
 use alloc::boxed::Box;
@@ -167,7 +168,7 @@ pub struct Window {
     /// Gets dirty when the layout restrictions, or some other property of the windows change
     meta_properties_tracker: Pin<Rc<PropertyTracker>>,
 
-    focus_item: RefCell<ItemWeak>,
+    focus_item: RefCell<crate::item_tree::ItemWeak>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
 
     scale_factor: Pin<Box<Property<f32>>>,
