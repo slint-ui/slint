@@ -288,19 +288,19 @@ pub enum StandardShortcut {
     Cut,
     /// Paste Something
     Paste,
-    /// Copy Something
-    SelectAll,
     /// Select All
-    Find,
+    SelectAll,
     /// Find/Search Something
-    Save,
+    Find,
     /// Save Something
-    Print,
+    Save,
     /// Print Something
-    Undo,
+    Print,
     /// Undo the last action
-    Redo,
+    Undo,
     /// Redo the last undone action
+    Redo,
+    /// Refresh
     Refresh,
 }
 
