@@ -293,8 +293,8 @@ pub mod re_exports {
         FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
     };
     pub use i_slint_core::item_tree::{
-        visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder,
-        VisitChildrenResult,
+        visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak,
+        TraversalOrder, VisitChildrenResult,
     };
     pub use i_slint_core::items::*;
     pub use i_slint_core::layout::*;

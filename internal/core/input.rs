@@ -6,8 +6,8 @@
 #![warn(missing_docs)]
 
 use crate::graphics::Point;
-use crate::item_tree::{ItemVisitorResult, VisitChildrenResult};
-use crate::items::{ItemRc, ItemRef, ItemWeak, PointerEventButton, TextCursorDirection};
+use crate::item_tree::{ItemRc, ItemVisitorResult, ItemWeak, VisitChildrenResult};
+use crate::items::{ItemRef, PointerEventButton, TextCursorDirection};
 use crate::window::WindowRc;
 use crate::Property;
 use crate::{component::ComponentRc, SharedString};

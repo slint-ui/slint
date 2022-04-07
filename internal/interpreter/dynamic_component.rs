@@ -18,9 +18,10 @@ use i_slint_core::component::{
     Component, ComponentRef, ComponentRefPin, ComponentVTable, ComponentWeak, IndexRange,
 };
 use i_slint_core::item_tree::{
-    ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, TraversalOrder, VisitChildrenResult,
+    ItemRc, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
+    VisitChildrenResult,
 };
-use i_slint_core::items::{Flickable, ItemRc, ItemRef, ItemVTable, ItemWeak, PropertyAnimation};
+use i_slint_core::items::{Flickable, ItemRef, ItemVTable, PropertyAnimation};
 use i_slint_core::layout::{BoxLayoutCellData, LayoutInfo, Orientation};
 use i_slint_core::model::RepeatedComponent;
 use i_slint_core::model::Repeater;

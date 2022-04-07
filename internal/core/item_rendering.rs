@@ -8,7 +8,9 @@ use super::graphics::RenderingCache;
 use super::items::*;
 use crate::component::ComponentRc;
 use crate::graphics::{CachedGraphicsData, Point, Rect};
-use crate::item_tree::{ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult};
+use crate::item_tree::{
+    ItemRc, ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult,
+};
 use alloc::boxed::Box;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
