@@ -439,10 +439,27 @@ export StandardListView := ListView {
 
 export ComboBox := FocusScope {
     property <[string]> model;
-    property <int> current-index : -1;
-    property <string> current-value;
+    property <int> current-index : 0;
+    property <string> current-value: model[current-index];
     //property <bool> is-open: false;
     callback selected(string);
+
+    key-pressed(event) => {
+        if (event.text == Keys.UpArrow) {
+            current-index = Math.max(current-index - 1, 0);
+            current-value = model[current-index];
+            return accept;
+        } else if (event.text == Keys.DownArrow) {
+            current-index = Math.min(current-index + 1, model.length - 1);
+            current-value = model[current-index];
+            return accept;
+        // PopupWindow can not get hidden again at this time, so do not allow to pop that up.
+        // } else if (event.text == Keys.Return) {
+        //     touch.clicked()
+        //     return accept;
+        }
+        return reject;
+    }
 
     Rectangle {
         background: !enabled ? Palette.neutralLighter : Palette.white;
