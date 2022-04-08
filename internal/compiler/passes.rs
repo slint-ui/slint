@@ -182,7 +182,8 @@ pub async fn run_passes(
     collect_globals::collect_globals(doc, diag);
 
     if compiler_config.embed_resources == crate::EmbedResourcesKind::EmbedTextures {
-        let mut font_pixel_sizes = Vec::new();
+        // Include at least the default font sizes used in the MCU backend
+        let mut font_pixel_sizes = vec![(12. * compiler_config.scale_factor) as i16];
         for component in (root_component.used_types.borrow().sub_components.iter())
             .chain(std::iter::once(root_component))
         {
