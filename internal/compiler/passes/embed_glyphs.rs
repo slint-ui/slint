@@ -5,7 +5,8 @@ use crate::diagnostics::BuildDiagnostics;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::embedded_resources::{BitmapFont, BitmapGlyph, BitmapGlyphs, CharacterMapEntry};
 #[cfg(not(target_arch = "wasm32"))]
-use crate::expression_tree::{BuiltinFunction, Expression, Unit};
+use crate::expression_tree::BuiltinFunction;
+use crate::expression_tree::{Expression, Unit};
 use crate::object_tree::*;
 use std::rc::Rc;
 
