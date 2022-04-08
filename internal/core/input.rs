@@ -9,8 +9,8 @@ use crate::graphics::Point;
 use crate::item_tree::{ItemRc, ItemVisitorResult, ItemWeak, VisitChildrenResult};
 use crate::items::{ItemRef, PointerEventButton, TextCursorDirection};
 use crate::window::WindowRc;
-use crate::Property;
 use crate::{component::ComponentRc, SharedString};
+use crate::{Coord, Property};
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use const_field_offset::FieldOffsets;
@@ -49,7 +49,7 @@ impl MouseEvent {
     }
 
     /// Translate the position by the given value
-    pub fn translate(&mut self, vec: Vector2D<f32>) {
+    pub fn translate(&mut self, vec: Vector2D<Coord>) {
         let pos = match self {
             MouseEvent::MousePressed { pos, .. } => Some(pos),
             MouseEvent::MouseReleased { pos, .. } => Some(pos),
@@ -448,7 +448,7 @@ pub fn process_mouse_input(
     send_exit_events(&mouse_input_state, mouse_event.pos(), window);
 
     let mut result = MouseInputState::default();
-    type State = (Vector2D<f32>, Vec<(ItemWeak, InputEventFilterResult)>);
+    type State = (Vector2D<Coord>, Vec<(ItemWeak, InputEventFilterResult)>);
     crate::item_tree::visit_items_with_post_visit(
         &component,
         crate::item_tree::TraversalOrder::FrontToBack,
@@ -522,7 +522,7 @@ pub fn process_mouse_input(
             }
             r
         },
-        (Vector2D::new(0., 0.), Vec::new()),
+        (Vector2D::new(0 as Coord, 0 as Coord), Vec::new()),
     );
     result
 }

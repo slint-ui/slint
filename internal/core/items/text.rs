@@ -19,15 +19,14 @@ use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowRc;
-use crate::{Callback, Property, SharedString};
+use crate::{Callback, Coord, Property, SharedString};
 use alloc::string::String;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
+#[allow(unused)]
+use euclid::num::Ceil;
 use i_slint_core_macros::*;
 use unicode_segmentation::UnicodeSegmentation;
-
-#[cfg(not(feature = "std"))]
-use num_traits::float::Float;
 
 /// This enum defines the input type in a text input which for now only distinguishes a normal
 /// input from a password input
@@ -111,18 +110,18 @@ impl Default for TextOverflow {
 pub struct Text {
     pub text: Property<SharedString>,
     pub font_family: Property<SharedString>,
-    pub font_size: Property<f32>,
+    pub font_size: Property<Coord>,
     pub font_weight: Property<i32>,
     pub color: Property<Brush>,
     pub horizontal_alignment: Property<TextHorizontalAlignment>,
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub wrap: Property<TextWrap>,
     pub overflow: Property<TextOverflow>,
-    pub letter_spacing: Property<f32>,
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub letter_spacing: Property<Coord>,
+    pub x: Property<Coord>,
+    pub y: Property<Coord>,
+    pub width: Property<Coord>,
+    pub height: Property<Coord>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -150,7 +149,7 @@ impl Item for Text {
                         .min(window.text_size(self.unresolved_font_request(), "…", None).width),
                     TextOverflow::clip => match self.wrap() {
                         TextWrap::no_wrap => implicit_size.width,
-                        TextWrap::word_wrap => 0.,
+                        TextWrap::word_wrap => 0 as _,
                     },
                 };
                 LayoutInfo {
@@ -232,7 +231,7 @@ impl Text {
             },
             pixel_size: {
                 let font_size = self.font_size();
-                if font_size == 0.0 {
+                if font_size == 0 as _ {
                     None
                 } else {
                     Some(font_size)
@@ -250,7 +249,7 @@ impl Text {
 pub struct TextInput {
     pub text: Property<SharedString>,
     pub font_family: Property<SharedString>,
-    pub font_size: Property<f32>,
+    pub font_size: Property<Coord>,
     pub font_weight: Property<i32>,
     pub color: Property<Brush>,
     pub selection_foreground_color: Property<Color>,
@@ -259,14 +258,14 @@ pub struct TextInput {
     pub vertical_alignment: Property<TextVerticalAlignment>,
     pub wrap: Property<TextWrap>,
     pub input_type: Property<InputType>,
-    pub letter_spacing: Property<f32>,
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub letter_spacing: Property<Coord>,
+    pub x: Property<Coord>,
+    pub y: Property<Coord>,
+    pub width: Property<Coord>,
+    pub height: Property<Coord>,
     pub cursor_position: Property<i32>, // byte offset,
     pub anchor_position: Property<i32>, // byte offset
-    pub text_cursor_width: Property<f32>,
+    pub text_cursor_width: Property<Coord>,
     pub cursor_visible: Property<bool>,
     pub has_focus: Property<bool>,
     pub enabled: Property<bool>,
@@ -278,7 +277,7 @@ pub struct TextInput {
     pub cached_rendering_data: CachedRenderingData,
     // The x position where the cursor wants to be.
     // It is not updated when moving up and down even when the line is shorter.
-    preferred_x_pos: core::cell::Cell<f32>,
+    preferred_x_pos: core::cell::Cell<Coord>,
 }
 
 impl Item for TextInput {
@@ -313,7 +312,7 @@ impl Item for TextInput {
                 let implicit_size = implicit_size(None);
                 let min = match self.wrap() {
                     TextWrap::no_wrap => implicit_size.width,
-                    TextWrap::word_wrap => 0.,
+                    TextWrap::word_wrap => 0 as _,
                 };
                 LayoutInfo {
                     min: min.ceil(),
@@ -640,7 +639,7 @@ impl TextInput {
                     window.text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
                 let mut cursor_xy_pos = cursor_rect.center();
 
-                cursor_xy_pos.x = 0.0;
+                cursor_xy_pos.x = 0 as Coord;
                 window.text_input_byte_offset_for_position(self, cursor_xy_pos)
             }
             TextCursorDirection::EndOfLine => {
@@ -648,7 +647,7 @@ impl TextInput {
                     window.text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
                 let mut cursor_xy_pos = cursor_rect.center();
 
-                cursor_xy_pos.x = f32::MAX;
+                cursor_xy_pos.x = Coord::MAX;
                 window.text_input_byte_offset_for_position(self, cursor_xy_pos)
             }
             TextCursorDirection::StartOfParagraph => text
@@ -819,7 +818,7 @@ impl TextInput {
             },
             pixel_size: {
                 let font_size = self.font_size();
-                if font_size == 0.0 {
+                if font_size == 0 as _ {
                     None
                 } else {
                     Some(font_size)

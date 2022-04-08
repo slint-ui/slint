@@ -122,7 +122,7 @@ impl ItemRc {
         let is_clipping = crate::item_rendering::is_enabled_clipping_item(item);
         let geometry = item.as_ref().geometry();
 
-        if is_clipping && (geometry.width() == 0.0 || geometry.height() == 0.0) {
+        if is_clipping && (geometry.width() <= 0.01 as _ || geometry.height() <= 0.01 as _) {
             return false;
         }
 

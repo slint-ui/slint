@@ -31,7 +31,7 @@ use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowRc;
-use crate::{Callback, Property, SharedString};
+use crate::{Callback, Coord, Property, SharedString};
 use alloc::boxed::Box;
 use const_field_offset::FieldOffsets;
 use core::cell::Cell;
@@ -172,10 +172,10 @@ pub type ItemRef<'a> = vtable::VRef<'a, ItemVTable>;
 /// The implementation of the `Rectangle` element
 pub struct Rectangle {
     pub background: Property<Brush>,
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub x: Property<Coord>,
+    pub y: Property<Coord>,
+    pub width: Property<Coord>,
+    pub height: Property<Coord>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -243,12 +243,12 @@ declare_item_vtable! {
 /// The implementation of the `BorderRectangle` element
 pub struct BorderRectangle {
     pub background: Property<Brush>,
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
-    pub border_width: Property<f32>,
-    pub border_radius: Property<f32>,
+    pub x: Property<Coord>,
+    pub y: Property<Coord>,
+    pub width: Property<Coord>,
+    pub height: Property<Coord>,
+    pub border_width: Property<Coord>,
+    pub border_radius: Property<Coord>,
     pub border_color: Property<Brush>,
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -363,10 +363,10 @@ impl Default for MouseCursor {
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct TouchArea {
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub x: Property<Coord>,
+    pub y: Property<Coord>,
+    pub width: Property<Coord>,
+    pub height: Property<Coord>,
     pub enabled: Property<bool>,
     /// FIXME: We should annotate this as an "output" property.
     pub pressed: Property<bool>,
@@ -374,11 +374,11 @@ pub struct TouchArea {
     /// FIXME: there should be just one property for the point instead of two.
     /// Could even be merged with pressed in a Property<Option<Point>> (of course, in the
     /// implementation item only, for the compiler it would stay separate properties)
-    pub pressed_x: Property<f32>,
-    pub pressed_y: Property<f32>,
+    pub pressed_x: Property<Coord>,
+    pub pressed_y: Property<Coord>,
     /// FIXME: should maybe be as parameter to the mouse event instead. Or at least just one property
-    pub mouse_x: Property<f32>,
-    pub mouse_y: Property<f32>,
+    pub mouse_x: Property<Coord>,
+    pub mouse_y: Property<Coord>,
     pub mouse_cursor: Property<MouseCursor>,
     pub clicked: Callback<VoidArg>,
     pub moved: Callback<VoidArg>,
@@ -436,7 +436,7 @@ impl Item for TouchArea {
         }
         let result = if let MouseEvent::MouseReleased { pos, button } = event {
             if button == PointerEventButton::left
-                && euclid::rect(0., 0., self.width(), self.height()).contains(pos)
+                && euclid::rect(0 as Coord, 0 as Coord, self.width(), self.height()).contains(pos)
             {
                 Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
             }
@@ -544,10 +544,10 @@ impl Default for EventResult {
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct FocusScope {
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub x: Property<Coord>,
+    pub y: Property<Coord>,
+    pub width: Property<Coord>,
+    pub height: Property<Coord>,
     pub has_focus: Property<bool>,
     pub key_pressed: Callback<KeyEventArg, EventResult>,
     pub key_released: Callback<KeyEventArg, EventResult>,
@@ -642,12 +642,12 @@ declare_item_vtable! {
 #[pin]
 /// The implementation of the `Clip` element
 pub struct Clip {
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
-    pub border_radius: Property<f32>,
-    pub border_width: Property<f32>,
+    pub x: Property<Coord>,
+    pub y: Property<Coord>,
+    pub width: Property<Coord>,
+    pub height: Property<Coord>,
+    pub border_radius: Property<Coord>,
+    pub border_width: Property<Coord>,
     pub cached_rendering_data: CachedRenderingData,
     pub clip: Property<bool>,
 }
@@ -671,7 +671,10 @@ impl Item for Clip {
     ) -> InputEventFilterResult {
         if let Some(pos) = event.pos() {
             if self.clip()
-                && (pos.x < 0. || pos.y < 0. || pos.x > self.width() || pos.y > self.height())
+                && (pos.x < 0 as Coord
+                    || pos.y < 0 as Coord
+                    || pos.x > self.width()
+                    || pos.y > self.height())
             {
                 return InputEventFilterResult::Intercept;
             }
@@ -720,10 +723,10 @@ declare_item_vtable! {
 /// The Opacity Item is not meant to be used directly by the .slint code, instead, the `opacity: xxx` or `visible: false` should be used
 pub struct Opacity {
     // FIXME: this element shouldn't need these geometry property
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub x: Property<Coord>,
+    pub y: Property<Coord>,
+    pub width: Property<Coord>,
+    pub height: Property<Coord>,
     pub opacity: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -822,10 +825,10 @@ declare_item_vtable! {
 /// The Layer Item is not meant to be used directly by the .slint code, instead, the `layer: xxx` property should be used
 pub struct Layer {
     // FIXME: this element shouldn't need these geometry property
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub x: Property<Coord>,
+    pub y: Property<Coord>,
+    pub width: Property<Coord>,
+    pub height: Property<Coord>,
     pub cache_rendering_hint: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -893,10 +896,10 @@ declare_item_vtable! {
 /// The implementation of the `Rotate` element
 pub struct Rotate {
     pub angle: Property<f32>,
-    pub origin_x: Property<f32>,
-    pub origin_y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub origin_x: Property<Coord>,
+    pub origin_y: Property<Coord>,
+    pub width: Property<Coord>,
+    pub height: Property<Coord>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -904,7 +907,7 @@ impl Item for Rotate {
     fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(0., 0., 0., 0.)
+        euclid::rect(0, 0, 0, 0).cast()
     }
 
     fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
@@ -965,10 +968,10 @@ declare_item_vtable! {
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct Flickable {
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub x: Property<Coord>,
+    pub y: Property<Coord>,
+    pub width: Property<Coord>,
+    pub height: Property<Coord>,
     pub viewport: Rectangle,
     pub interactive: Property<bool>,
     data: FlickableDataBox,
@@ -995,7 +998,7 @@ impl Item for Flickable {
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         if let Some(pos) = event.pos() {
-            if pos.x < 0. || pos.y < 0. || pos.x > self.width() || pos.y > self.height() {
+            if pos.x < 0 as _ || pos.y < 0 as _ || pos.x > self.width() || pos.y > self.height() {
                 return InputEventFilterResult::Intercept;
             }
         }
@@ -1016,7 +1019,10 @@ impl Item for Flickable {
         }
         if let Some(pos) = event.pos() {
             if matches!(event, MouseEvent::MouseWheel { .. } | MouseEvent::MousePressed { .. })
-                && (pos.x < 0. || pos.y < 0. || pos.x > self.width() || pos.y > self.height())
+                && (pos.x < 0 as _
+                    || pos.y < 0 as _
+                    || pos.x > self.width()
+                    || pos.y > self.height())
             {
                 return InputEventResult::EventIgnored;
             }
@@ -1039,7 +1045,11 @@ impl Item for Flickable {
         _self_rc: &ItemRc,
     ) -> RenderingResult {
         let geometry = self.geometry();
-        (*backend).combine_clip(euclid::rect(0., 0., geometry.width(), geometry.height()), 0., 0.);
+        (*backend).combine_clip(
+            euclid::rect(0 as _, 0 as _, geometry.width(), geometry.height()),
+            0 as _,
+            0 as _,
+        );
         RenderingResult::ContinueRenderingChildren
     }
 }
@@ -1123,14 +1133,14 @@ impl Default for PropertyAnimation {
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct WindowItem {
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub width: Property<Coord>,
+    pub height: Property<Coord>,
     pub background: Property<Color>,
     pub title: Property<SharedString>,
     pub no_frame: Property<bool>,
     pub icon: Property<crate::graphics::Image>,
     pub default_font_family: Property<SharedString>,
-    pub default_font_size: Property<f32>,
+    pub default_font_size: Property<Coord>,
     pub default_font_weight: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -1139,7 +1149,7 @@ impl Item for WindowItem {
     fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(0., 0., self.width(), self.height())
+        euclid::rect(0 as _, 0 as _, self.width(), self.height())
     }
 
     fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
@@ -1195,7 +1205,7 @@ impl WindowItem {
             },
             pixel_size: {
                 let font_size = self.default_font_size();
-                if font_size == 0.0 {
+                if font_size <= 0 as Coord {
                     None
                 } else {
                     Some(font_size)
@@ -1229,16 +1239,16 @@ declare_item_vtable! {
 #[pin]
 pub struct BoxShadow {
     // Rectangle properties
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
-    pub border_radius: Property<f32>,
+    pub x: Property<Coord>,
+    pub y: Property<Coord>,
+    pub width: Property<Coord>,
+    pub height: Property<Coord>,
+    pub border_radius: Property<Coord>,
     // Shadow specific properties
-    pub offset_x: Property<f32>,
-    pub offset_y: Property<f32>,
+    pub offset_x: Property<Coord>,
+    pub offset_y: Property<Coord>,
     pub color: Property<Color>,
-    pub blur: Property<f32>,
+    pub blur: Property<Coord>,
     pub cached_rendering_data: CachedRenderingData,
 }
 

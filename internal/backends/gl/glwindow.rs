@@ -16,12 +16,12 @@ use const_field_offset::FieldOffsets;
 use corelib::api::{GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use corelib::component::ComponentRc;
 use corelib::graphics::rendering_metrics_collector::RenderingMetricsCollector;
-use corelib::graphics::*;
 use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};
 use corelib::layout::Orientation;
 use corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation};
 use corelib::Property;
+use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
 use winit::dpi::LogicalSize;
 
@@ -398,7 +398,7 @@ impl PlatformWindow for GLWindow {
             (
                 window_item.title().to_string(),
                 window_item.no_frame(),
-                window_item.height() == 0. && window_item.width() == 0.,
+                window_item.height() <= 0 as _ && window_item.width() <= 0 as _,
             )
         } else {
             ("Slint Window".to_string(), false, true)
@@ -423,7 +423,7 @@ impl PlatformWindow for GLWindow {
                 layout_info_v.preferred_bounded(),
             );
 
-            if s.width > 0. && s.height > 0. {
+            if s.width > 0 as Coord && s.height > 0 as Coord {
                 // Make sure that the window's inner size is in sync with the root window item's
                 // width/height.
                 runtime_window.set_window_item_geometry(s.width, s.height);
@@ -566,7 +566,7 @@ impl PlatformWindow for GLWindow {
         &self,
         font_request: corelib::graphics::FontRequest,
         text: &str,
-        max_width: Option<f32>,
+        max_width: Option<Coord>,
     ) -> Size {
         let font_request = font_request.merge(&self.default_font_properties());
 

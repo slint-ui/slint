@@ -100,7 +100,7 @@ mod the_backend {
     use i_slint_core::items::ItemRef;
     use i_slint_core::window::PlatformWindow;
     use i_slint_core::window::Window;
-    use i_slint_core::{ImageInner, StaticTextures};
+    use i_slint_core::{Coord, ImageInner, StaticTextures};
 
     thread_local! { static WINDOWS: RefCell<Option<Rc<McuWindow>>> = RefCell::new(None) }
 
@@ -164,7 +164,7 @@ mod the_backend {
             &self,
             font_request: i_slint_core::graphics::FontRequest,
             text: &str,
-            max_width: Option<f32>,
+            max_width: Option<Coord>,
         ) -> Size {
             let runtime_window = self.self_weak.upgrade().unwrap();
             crate::fonts::text_size(
@@ -294,7 +294,7 @@ mod the_backend {
                             let w = window.self_weak.upgrade().unwrap();
                             // scale the event by the scale factor:
                             if let Some(p) = event.pos() {
-                                event.translate(p / w.scale_factor() - p);
+                                event.translate((p.cast() / w.scale_factor()).cast() - p);
                             }
                             w.process_mouse_input(event);
                         }

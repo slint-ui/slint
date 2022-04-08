@@ -11,22 +11,23 @@
     created by the backend in a type-erased manner.
 */
 extern crate alloc;
+use crate::Coord;
 use crate::SharedString;
 use alloc::boxed::Box;
 
 pub use euclid;
 /// 2D Rectangle
-pub type Rect = euclid::default::Rect<f32>;
+pub type Rect = euclid::default::Rect<Coord>;
 /// 2D Rectangle with integer coordinates
 pub type IntRect = euclid::default::Rect<i32>;
 /// 2D Point
-pub type Point = euclid::default::Point2D<f32>;
+pub type Point = euclid::default::Point2D<Coord>;
 /// 2D Size
-pub type Size = euclid::default::Size2D<f32>;
+pub type Size = euclid::default::Size2D<Coord>;
 /// 2D Size in integer coordinates
 pub type IntSize = euclid::default::Size2D<u32>;
 /// 2D Transform
-pub type Transform = euclid::default::Transform2D<f32>;
+pub type Transform = euclid::default::Transform2D<Coord>;
 
 pub(crate) mod color;
 pub use color::*;
@@ -134,10 +135,10 @@ pub struct FontRequest {
     /// If the weight is None, the system default font weight should be used.
     pub weight: Option<i32>,
     /// If the pixel size is None, the system default font size should be used.
-    pub pixel_size: Option<f32>,
+    pub pixel_size: Option<Coord>,
     /// The additional spacing (or shrinking if negative) between glyphs. This is usually not submitted to
     /// the font-subsystem but collected here for API convenience
-    pub letter_spacing: Option<f32>,
+    pub letter_spacing: Option<Coord>,
 }
 
 impl FontRequest {

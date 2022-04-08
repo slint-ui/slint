@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+use i_slint_core::Coord;
 pub struct PhysicalPx;
 pub type PhysicalLength = euclid::Length<i16, PhysicalPx>;
 pub type PhysicalRect = euclid::Rect<i16, PhysicalPx>;
@@ -8,10 +9,10 @@ pub type PhysicalSize = euclid::Size2D<i16, PhysicalPx>;
 pub type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
 
 pub struct LogicalPx;
-pub type LogicalLength = euclid::Length<f32, LogicalPx>;
-pub type LogicalRect = euclid::Rect<f32, LogicalPx>;
-pub type LogicalPoint = euclid::Point2D<f32, LogicalPx>;
-pub type LogicalSize = euclid::Size2D<f32, LogicalPx>;
+pub type LogicalLength = euclid::Length<Coord, LogicalPx>;
+pub type LogicalRect = euclid::Rect<Coord, LogicalPx>;
+pub type LogicalPoint = euclid::Point2D<Coord, LogicalPx>;
+pub type LogicalSize = euclid::Size2D<Coord, LogicalPx>;
 
 pub type ScaleFactor = euclid::Scale<f32, LogicalPx, PhysicalPx>;
 
