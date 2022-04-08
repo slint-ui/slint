@@ -97,6 +97,7 @@ mod the_backend {
     use core::pin::Pin;
     use i_slint_core::component::ComponentRc;
     use i_slint_core::graphics::{Color, Point, Rect, Size};
+    use i_slint_core::items::ItemRef;
     use i_slint_core::window::PlatformWindow;
     use i_slint_core::window::Window;
     use i_slint_core::{ImageInner, StaticTextures};
@@ -130,8 +131,23 @@ mod the_backend {
         ) {
         }
 
-        fn show_popup(&self, _popup: &ComponentRc, _position: i_slint_core::graphics::Point) {
-            todo!()
+        fn show_popup(&self, popup: &ComponentRc, position: i_slint_core::graphics::Point) {
+            let runtime_window = self.self_weak.upgrade().unwrap();
+            let size = runtime_window.set_active_popup(i_slint_core::window::PopupWindow {
+                location: i_slint_core::window::PopupWindowLocation::ChildWindow(position),
+                component: popup.clone(),
+            });
+
+            let popup = ComponentRc::borrow_pin(popup);
+            let popup_root = popup.as_ref().get_item_ref(0);
+            if let Some(window_item) = ItemRef::downcast_pin(popup_root) {
+                let width_property =
+                    i_slint_core::items::WindowItem::FIELD_OFFSETS.width.apply_pin(window_item);
+                let height_property =
+                    i_slint_core::items::WindowItem::FIELD_OFFSETS.height.apply_pin(window_item);
+                width_property.set(size.width);
+                height_property.set(size.height);
+            }
         }
         fn request_window_properties_update(&self) {}
         fn apply_window_properties(&self, window_item: Pin<&i_slint_core::items::WindowItem>) {
