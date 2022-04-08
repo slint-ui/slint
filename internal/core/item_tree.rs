@@ -108,7 +108,7 @@ impl ItemRc {
         }
 
         let mut r = ItemWeak::default();
-        comp_ref_pin.as_ref().parent_item(self.index, &mut r);
+        comp_ref_pin.as_ref().parent_node(&mut r);
         // parent_item returns the repeater node, go up one more level!
         if let Some(rc) = r.upgrade() {
             r = rc.parent_item();
@@ -206,7 +206,7 @@ impl ItemRc {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
         if self.index == 0 {
             let mut parent_item = Default::default();
-            comp_ref_pin.as_ref().parent_item(0, &mut parent_item);
+            comp_ref_pin.as_ref().parent_node(&mut parent_item);
             let current_component_subtree_index = comp_ref_pin.as_ref().subtree_index();
             if let Some(parent_item) = parent_item.upgrade() {
                 let parent = parent_item.component();
@@ -847,7 +847,7 @@ mod tests {
             Slice::from_slice(&self.get_ref().item_tree)
         }
 
-        fn parent_item(self: core::pin::Pin<&Self>, _1: usize, result: &mut ItemWeak) {
+        fn parent_node(self: core::pin::Pin<&Self>, result: &mut ItemWeak) {
             if let Some(parent_item) = self.parent_component.clone() {
                 *result =
                     ItemRc::new(parent_item.clone(), self.item_tree[0].parent_index()).downgrade();

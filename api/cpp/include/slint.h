@@ -201,17 +201,6 @@ inline ItemRef get_item_ref(ComponentRef component,
     return ItemRef { item.vtable, reinterpret_cast<char *>(component.instance) + item.offset };
 }
 
-inline ItemWeak parent_item(cbindgen_private::ComponentWeak component,
-                            cbindgen_private::Slice<ItemTreeNode> item_tree, int index)
-{
-    const auto &node = item_tree.ptr[index];
-    if (node.tag == ItemTreeNode::Tag::Item) {
-        return { component, node.item.parent_index };
-    } else {
-        return { component, node.dynamic_tree.parent_index };
-    }
-}
-
 inline void dealloc(const ComponentVTable *, uint8_t *ptr, vtable::Layout layout)
 {
 #ifdef __cpp_sized_deallocation

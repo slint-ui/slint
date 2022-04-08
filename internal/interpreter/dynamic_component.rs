@@ -192,8 +192,8 @@ impl Component for ErasedComponentBox {
         self.borrow().as_ref().get_subtree_component(index, subindex, result);
     }
 
-    fn parent_item(self: Pin<&Self>, index: usize, result: &mut ItemWeak) {
-        self.borrow().as_ref().parent_item(index, result)
+    fn parent_node(self: Pin<&Self>, result: &mut ItemWeak) {
+        self.borrow().as_ref().parent_node(result)
     }
 
     fn subtree_index(self: Pin<&Self>) -> usize {
@@ -1054,7 +1054,7 @@ pub(crate) fn generate_component<'id>(
         get_item_tree,
         get_subtree_range,
         get_subtree_component,
-        parent_item,
+        parent_node,
         subtree_index,
         drop_in_place,
         dealloc,
@@ -1588,38 +1588,26 @@ extern "C" fn subtree_index(component: ComponentRefPin) -> usize {
     }
 }
 
-unsafe extern "C" fn parent_item(component: ComponentRefPin, index: usize, result: &mut ItemWeak) {
+unsafe extern "C" fn parent_node(component: ComponentRefPin, result: &mut ItemWeak) {
     generativity::make_guard!(guard);
     let instance_ref = InstanceRef::from_pin_ref(component, guard);
-    if index == 0 {
-        let parent_item_index = instance_ref
-            .component_type
-            .original
-            .parent_element
-            .upgrade()
-            .and_then(|e| e.borrow().item_index.get().cloned());
-        if let (Some(parent_offset), Some(parent_index)) =
-            (instance_ref.component_type.parent_component_offset, parent_item_index)
-        {
-            if let Some(parent) = parent_offset.apply(instance_ref.as_ref()) {
-                generativity::make_guard!(new_guard);
-                let parent_instance = InstanceRef::from_pin_ref(*parent, new_guard);
-                let parent_rc = parent_instance
-                    .self_weak()
-                    .get()
-                    .unwrap()
-                    .clone()
-                    .into_dyn()
-                    .upgrade()
-                    .unwrap();
-                *result = ItemRc::new(parent_rc, parent_index).downgrade();
-            };
-        }
-        return;
+    let parent_item_index = instance_ref
+        .component_type
+        .original
+        .parent_element
+        .upgrade()
+        .and_then(|e| e.borrow().item_index.get().cloned());
+    if let (Some(parent_offset), Some(parent_index)) =
+        (instance_ref.component_type.parent_component_offset, parent_item_index)
+    {
+        if let Some(parent) = parent_offset.apply(instance_ref.as_ref()) {
+            generativity::make_guard!(new_guard);
+            let parent_instance = InstanceRef::from_pin_ref(*parent, new_guard);
+            let parent_rc =
+                parent_instance.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
+            *result = ItemRc::new(parent_rc, parent_index).downgrade();
+        };
     }
-    let parent_index = get_item_tree(component)[index].parent_index();
-    let self_rc = instance_ref.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
-    *result = ItemRc::new(self_rc, parent_index).downgrade();
 }
 
 unsafe extern "C" fn drop_in_place(component: vtable::VRefMut<ComponentVTable>) -> vtable::Layout {

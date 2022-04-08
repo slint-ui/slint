@@ -60,14 +60,13 @@ pub struct ComponentVTable {
     /// And the return value is passed by &mut because ItemWeak has a destructor
     pub get_item_tree: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>) -> Slice<ItemTreeNode>,
 
-    // FIXME: This does return an invalid ItemWeak now that points to the parent repeater!
-    // FIXME: Get rid of the index and make this always return the "Item" that connects this component
-    //        to its parent-component?
-    /// Return the parent item.
+    /// Return the node this component is a part of in the parent component.
+    ///
     /// The return value is an item weak because it can be null if there is no parent.
     /// And the return value is passed by &mut because ItemWeak has a destructor
-    pub parent_item:
-        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, index: usize, result: &mut ItemWeak),
+    /// Note that the returned value will typically point to a repeater node, which is
+    /// strictly speaking not an Item at all!
+    pub parent_node: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, result: &mut ItemWeak),
 
     /// Return the index of the current subtree or usize::MAX if this is not a subtree
     pub subtree_index: extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>) -> usize,
