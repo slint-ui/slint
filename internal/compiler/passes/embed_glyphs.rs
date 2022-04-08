@@ -13,6 +13,7 @@ use std::rc::Rc;
 pub fn embed_glyphs<'a>(
     _component: &Rc<Component>,
     _scale_factor: f64,
+    _pixel_sizes: Vec<i16>,
     _all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
     _diag: &mut BuildDiagnostics,
 ) -> bool {
@@ -23,9 +24,20 @@ pub fn embed_glyphs<'a>(
 pub fn embed_glyphs<'a>(
     component: &Rc<Component>,
     scale_factor: f64,
+    mut pixel_sizes: Vec<i16>,
     all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
     diag: &mut BuildDiagnostics,
 ) {
+    if let Ok(sizes_str) = std::env::var("SLINT_FONT_SIZES") {
+        for custom_size in sizes_str.split(',').map(|size_str| {
+            (size_str.parse::<f64>().expect("invalid font size") * scale_factor) as i16
+        }) {
+            if let Err(pos) = pixel_sizes.binary_search(&custom_size) {
+                pixel_sizes.insert(pos, custom_size)
+            }
+        }
+    }
+
     let mut fontdb = fontdb::Database::new();
     fontdb.load_system_fonts();
 
@@ -109,7 +121,7 @@ pub fn embed_glyphs<'a>(
             fontdue::FontSettings { collection_index: face_index, scale: 40. },
         )
         .expect("internal error: fontdb returned a font that ttf-parser/fontdue could not parse");
-                embed_font(family_name, font, scale_factor)
+                embed_font(family_name, font, &pixel_sizes)
             })
             .unwrap();
 
@@ -133,19 +145,7 @@ pub fn embed_glyphs<'a>(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn embed_font(family_name: String, font: fontdue::Font, scale_factor: f64) -> BitmapFont {
-    let mut pixel_sizes = std::env::var("SLINT_FONT_SIZES")
-        .map(|sizes_str| {
-            sizes_str
-                .split(',')
-                .map(|size_str| {
-                    (size_str.parse::<f64>().expect("invalid font size") * scale_factor) as i16
-                })
-                .collect::<Vec<_>>()
-        })
-        .expect("please specify SLINT_FONT_SIZES environment variable");
-    pixel_sizes.sort();
-
+fn embed_font(family_name: String, font: fontdue::Font, pixel_sizes: &[i16]) -> BitmapFont {
     // TODO: configure coverage
     let coverage = ('a'..='z')
         .chain('A'..='Z')
@@ -200,6 +200,48 @@ fn embed_font(family_name: String, font: fontdue::Font, scale_factor: f64) -> Bi
         descent: metrics.descent,
         glyphs,
     }
+}
+
+fn try_extract_font_size_from_element(elem: &ElementRc, property_name: &str) -> Option<f64> {
+    elem.borrow().bindings.get(property_name).and_then(|expression| {
+        match &expression.borrow().expression {
+            Expression::NumberLiteral(value, Unit::Px) => Some(*value),
+            _ => None,
+        }
+    })
+}
+
+pub fn collect_font_sizes_used(
+    component: &Rc<Component>,
+    scale_factor: f64,
+    sizes_seen: &mut Vec<i16>,
+) {
+    let mut add_font_size = |logical_size: f64| {
+        let pixel_size = (logical_size * scale_factor) as i16;
+        match sizes_seen.binary_search(&pixel_size) {
+            Ok(_) => {}
+            Err(pos) => sizes_seen.insert(pos, pixel_size),
+        }
+    };
+
+    recurse_elem_including_sub_components(component, &(), &mut |elem, _| match elem
+        .borrow()
+        .base_type
+        .to_string()
+        .as_str()
+    {
+        "TextInput" | "Text" => {
+            if let Some(font_size) = try_extract_font_size_from_element(elem, "font-size") {
+                add_font_size(font_size)
+            }
+        }
+        "Dialog" | "Window" | "WindowItem" => {
+            if let Some(font_size) = try_extract_font_size_from_element(elem, "default-font-size") {
+                add_font_size(font_size)
+            }
+        }
+        _ => {}
+    });
 }
 
 #[cfg(not(any(
