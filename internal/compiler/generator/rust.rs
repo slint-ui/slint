@@ -1031,7 +1031,7 @@ fn generate_item_tree(
                 .upgrade()
                 .map(|sc| (VRcMapped::origin(&sc), sc.tree_index_of_first_child.get()))
             {
-                *result = slint::re_exports::ItemRc::new(parent_component, parent_index as usize + #sub_component_offset - 1)
+                *_result = slint::re_exports::ItemRc::new(parent_component, parent_index as usize + #sub_component_offset - 1)
                     .downgrade();
             })
         })
@@ -1178,14 +1178,8 @@ fn generate_item_tree(
                 self.index_property()
             }
 
-            fn parent_item(self: ::core::pin::Pin<&Self>, index: usize, result: &mut slint::re_exports::ItemWeak) {
-                if index == 0 {
-                    #parent_item_expression
-                    return;
-                }
-                let parent_index = self.get_item_tree().as_slice()[index].parent_index();
-                let self_rc = slint::re_exports::VRcMapped::origin(&self.self_weak.get().unwrap().upgrade().unwrap());
-                *result = ItemRc::new(self_rc, parent_index).downgrade();
+            fn parent_node(self: ::core::pin::Pin<&Self>, _result: &mut slint::re_exports::ItemWeak) {
+                #parent_item_expression
             }
 
             fn layout_info(self: ::core::pin::Pin<&Self>, orientation: slint::re_exports::Orientation) -> slint::re_exports::LayoutInfo {
