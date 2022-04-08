@@ -25,10 +25,11 @@ pub fn render_window_frame(
     runtime_window: Rc<i_slint_core::window::Window>,
     background: super::TargetPixel,
     devices: &mut dyn Devices,
+    initial_dirty_region: i_slint_core::item_rendering::DirtyRegion,
     cache: &mut PartialRenderingCache,
 ) {
     let size = devices.screen_size();
-    let mut scene = prepare_scene(runtime_window, size, devices, cache);
+    let mut scene = prepare_scene(runtime_window, size, devices, initial_dirty_region, cache);
 
     let mut line_processing_profiler = profiler::Timer::new_stopped();
     let mut span_drawing_profiler = profiler::Timer::new_stopped();
@@ -314,13 +315,18 @@ fn prepare_scene(
     runtime_window: Rc<i_slint_core::window::Window>,
     size: PhysicalSize,
     devices: &dyn Devices,
+    initial_dirty_region: i_slint_core::item_rendering::DirtyRegion,
     cache: &mut PartialRenderingCache,
 ) -> Scene {
     let prepare_scene_profiler = profiler::Timer::new(devices);
     let mut compute_dirty_region_profiler = profiler::Timer::new_stopped();
     let factor = ScaleFactor::new(runtime_window.scale_factor());
     let prepare_scene = PrepareScene::new(size, factor, runtime_window.default_font_properties());
-    let mut renderer = i_slint_core::item_rendering::PartialRenderer::new(cache, prepare_scene);
+    let mut renderer = i_slint_core::item_rendering::PartialRenderer::new(
+        cache,
+        initial_dirty_region,
+        prepare_scene,
+    );
 
     runtime_window.draw_contents(|components| {
         compute_dirty_region_profiler.start(devices);
