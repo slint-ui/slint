@@ -57,6 +57,9 @@ pub trait PlatformWindow {
     /// Show a popup at the given position
     fn show_popup(&self, popup: &ComponentRc, position: Point);
 
+    /// Notify the platform window about the closure of a previously opened popup.
+    fn close_popup(&self, _popup: &PopupWindow) {}
+
     /// Request for the event loop to wake up and call [`Window::update_window_properties()`].
     fn request_window_properties_update(&self);
     /// Request for the given title string to be set to the windowing system for use as window title.
@@ -592,6 +595,7 @@ impl Window {
     pub fn close_popup(&self) {
         if let Some(current_popup) = self.active_popup.replace(None) {
             if matches!(current_popup.location, PopupWindowLocation::ChildWindow(..)) {
+                self.platform_window.get().unwrap().close_popup(&current_popup);
                 // Refresh the area that was previously covered by the popup. I wonder if this
                 // is still needed, shouldn't the redraw tracker be dirty due to the removal of
                 // dependent properties?

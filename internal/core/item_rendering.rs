@@ -311,8 +311,12 @@ pub struct PartialRenderer<'a, T> {
 
 impl<'a, T> PartialRenderer<'a, T> {
     /// Create a new PartialRenderer
-    pub fn new(cache: &'a mut PartialRenderingCache, actual_renderer: T) -> Self {
-        Self { cache, dirty_region: Default::default(), actual_renderer }
+    pub fn new(
+        cache: &'a mut PartialRenderingCache,
+        initial_dirty_region: DirtyRegion,
+        actual_renderer: T,
+    ) -> Self {
+        Self { cache, dirty_region: initial_dirty_region, actual_renderer }
     }
 
     /// Visit the tree of item and compute what are the dirty regions

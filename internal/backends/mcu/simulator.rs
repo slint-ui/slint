@@ -9,7 +9,8 @@ use embedded_graphics_simulator::SimulatorDisplay;
 use i_slint_core::component::ComponentRc;
 use i_slint_core::graphics::{Image, ImageInner, StaticTextures};
 use i_slint_core::input::KeyboardModifiers;
-use i_slint_core::items::ItemRef;
+use i_slint_core::item_rendering::DirtyRegion;
+use i_slint_core::items::{Item, ItemRef, WindowItem};
 use i_slint_core::layout::Orientation;
 use i_slint_core::window::{PlatformWindow, Window};
 use i_slint_core::Color;
@@ -34,6 +35,7 @@ pub struct SimulatorWindow {
     visible: Cell<bool>,
     background_color: Cell<Color>,
     frame_buffer: RefCell<Option<SimulatorDisplay<embedded_graphics::pixelcolor::Rgb888>>>,
+    initial_dirty_region_for_next_frame: Cell<DirtyRegion>,
 }
 
 impl SimulatorWindow {
@@ -62,6 +64,7 @@ impl SimulatorWindow {
             visible: Default::default(),
             background_color: Color::from_rgb_u8(0, 0, 0).into(),
             frame_buffer: RefCell::default(),
+            initial_dirty_region_for_next_frame: Default::default(),
         });
 
         let runtime_window = window_weak.upgrade().unwrap();
@@ -136,9 +139,15 @@ impl PlatformWindow for SimulatorWindow {
 
     fn free_graphics_resources<'a>(
         &self,
-        _items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'a>>>,
+        items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'a>>>,
     ) {
-        // Nothing to do until we start caching stuff that needs freeing
+        super::PARTIAL_RENDERING_CACHE.with(|cache| {
+            for item in items {
+                let cache_entry =
+                    item.cached_rendering_data_offset().release(&mut cache.borrow_mut());
+                drop(cache_entry);
+            }
+        });
     }
 
     fn show_popup(
@@ -161,6 +170,29 @@ impl PlatformWindow for SimulatorWindow {
                 i_slint_core::items::WindowItem::FIELD_OFFSETS.height.apply_pin(window_item);
             width_property.set(size.width);
             height_property.set(size.height);
+        }
+    }
+
+    fn close_popup(&self, popup: &i_slint_core::window::PopupWindow) {
+        match popup.location {
+            i_slint_core::window::PopupWindowLocation::TopLevel(_) => {}
+            i_slint_core::window::PopupWindowLocation::ChildWindow(offset) => {
+                let popup_component = ComponentRc::borrow_pin(&popup.component);
+                let popup_root = popup_component.as_ref().get_item_ref(0);
+                if let Some(window_item) = ItemRef::downcast_pin::<WindowItem>(popup_root) {
+                    let popup_region =
+                        i_slint_core::properties::evaluate_no_tracking(|| window_item.geometry())
+                            .translate(offset.to_vector());
+
+                    if !popup_region.is_empty() {
+                        self.initial_dirty_region_for_next_frame.set(
+                            self.initial_dirty_region_for_next_frame
+                                .get()
+                                .union(&popup_region.to_box2d()),
+                        );
+                    }
+                }
+            }
         }
     }
 
@@ -285,6 +317,7 @@ impl WinitWindow for SimulatorWindow {
                     runtime_window,
                     background.into(),
                     &mut *display,
+                    self.initial_dirty_region_for_next_frame.take(),
                     &mut cache.borrow_mut(),
                 );
             });

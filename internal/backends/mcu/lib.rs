@@ -12,6 +12,8 @@ use alloc::boxed::Box;
 use core::cell::RefCell;
 use embedded_graphics::prelude::*;
 
+use i_slint_core::items::{Item, WindowItem};
+
 #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
 use i_slint_core::unsafe_single_core;
 
@@ -108,6 +110,7 @@ mod the_backend {
         backend: &'static MCUBackend,
         self_weak: Weak<Window>,
         background_color: Cell<Color>,
+        initial_dirty_region_for_next_frame: Cell<i_slint_core::item_rendering::DirtyRegion>,
     }
 
     impl PlatformWindow for McuWindow {
@@ -127,8 +130,15 @@ mod the_backend {
         }
         fn free_graphics_resources<'a>(
             &self,
-            _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'a>>>,
+            items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'a>>>,
         ) {
+            super::PARTIAL_RENDERING_CACHE.with(|cache| {
+                for item in items {
+                    let cache_entry =
+                        item.cached_rendering_data_offset().release(&mut cache.borrow_mut());
+                    drop(cache_entry);
+                }
+            });
         }
 
         fn show_popup(&self, popup: &ComponentRc, position: i_slint_core::graphics::Point) {
@@ -149,6 +159,31 @@ mod the_backend {
                 height_property.set(size.height);
             }
         }
+
+        fn close_popup(&self, popup: &i_slint_core::window::PopupWindow) {
+            match popup.location {
+                i_slint_core::window::PopupWindowLocation::TopLevel(_) => {}
+                i_slint_core::window::PopupWindowLocation::ChildWindow(offset) => {
+                    let popup_component = ComponentRc::borrow_pin(&popup.component);
+                    let popup_root = popup_component.as_ref().get_item_ref(0);
+                    if let Some(window_item) = ItemRef::downcast_pin::<WindowItem>(popup_root) {
+                        let popup_region = i_slint_core::properties::evaluate_no_tracking(|| {
+                            window_item.geometry()
+                        })
+                        .translate(offset.to_vector());
+
+                        if !popup_region.is_empty() {
+                            self.initial_dirty_region_for_next_frame.set(
+                                self.initial_dirty_region_for_next_frame
+                                    .get()
+                                    .union(&popup_region.to_box2d()),
+                            );
+                        }
+                    }
+                }
+            }
+        }
+
         fn request_window_properties_update(&self) {}
         fn apply_window_properties(&self, window_item: Pin<&i_slint_core::items::WindowItem>) {
             self.background_color.set(window_item.background());
@@ -253,6 +288,7 @@ mod the_backend {
                         runtime_window,
                         background.into(),
                         &mut **devices,
+                        window.initial_dirty_region_for_next_frame.take(),
                         &mut cache.borrow_mut(),
                     )
                 });
@@ -267,6 +303,7 @@ mod the_backend {
                     backend: self,
                     self_weak: window.clone(),
                     background_color: Color::from_rgb_u8(0, 0, 0).into(),
+                    initial_dirty_region_for_next_frame: Default::default(),
                 })
             })
         }
