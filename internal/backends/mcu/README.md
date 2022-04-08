@@ -47,12 +47,6 @@ slint-build = { git = "https://github.com/slint-ui/slint" }
 
 ## Run the demo:
 
-We must tell the compiler what font sizes to embed in the final binary with the SLINT_FONT_SIZES environment variable.
-
-```sh
-export SLINT_FONT_SIZES=8,11,10,12,13,14,15,16,18,20,22,24,32
-```
-
 ### The simulator
 
 

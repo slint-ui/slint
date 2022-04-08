@@ -182,9 +182,21 @@ pub async fn run_passes(
     collect_globals::collect_globals(doc, diag);
 
     if compiler_config.embed_resources == crate::EmbedResourcesKind::EmbedTextures {
+        let mut font_pixel_sizes = Vec::new();
+        for component in (root_component.used_types.borrow().sub_components.iter())
+            .chain(std::iter::once(root_component))
+        {
+            embed_glyphs::collect_font_sizes_used(
+                component,
+                compiler_config.scale_factor,
+                &mut font_pixel_sizes,
+            );
+        }
+
         embed_glyphs::embed_glyphs(
             root_component,
             compiler_config.scale_factor,
+            font_pixel_sizes,
             std::iter::once(&*doc).chain(type_loader.all_documents()),
             diag,
         );
