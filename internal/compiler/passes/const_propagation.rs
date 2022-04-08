@@ -47,7 +47,18 @@ fn simplify_expression(expr: &mut Expression) -> bool {
                 {
                     Some(Expression::NumberLiteral(*a - *b, *un1))
                 }
-                // TODO: * and / are more complicated because they need to take care about units
+                ('*', Expression::NumberLiteral(a, un1), Expression::NumberLiteral(b, un2))
+                    if *un1 == Unit::None || *un2 == Unit::None =>
+                {
+                    let preserved_unit = if *un1 == Unit::None { *un2 } else { *un1 };
+                    Some(Expression::NumberLiteral(*a * *b, preserved_unit))
+                }
+                (
+                    '/',
+                    Expression::NumberLiteral(a, un1),
+                    Expression::NumberLiteral(b, Unit::None),
+                ) => Some(Expression::NumberLiteral(*a / *b, *un1)),
+                // TODO: take care of * and / when both numbers have units
                 ('=' | '!', Expression::NumberLiteral(a, _), Expression::NumberLiteral(b, _)) => {
                     Some(Expression::BoolLiteral((a == b) == (*op == '=')))
                 }
