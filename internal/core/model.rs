@@ -14,17 +14,16 @@ use crate::item_tree::TraversalOrder;
 use crate::items::ItemRef;
 use crate::layout::Orientation;
 use crate::properties::dependency_tracker::DependencyNode;
-use crate::{Property, SharedString, SharedVector};
+use crate::{Coord, Property, SharedString, SharedVector};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
+#[allow(unused)]
+use euclid::num::{Ceil, Floor};
 use once_cell::unsync::OnceCell;
 use pin_project::pin_project;
 use pin_weak::rc::{PinWeak, Rc};
-
-#[cfg(not(feature = "std"))]
-use num_traits::float::Float;
 
 type DependencyListHead =
     crate::properties::dependency_tracker::DependencyListHead<*const dyn ErasedRepeater>;
@@ -585,8 +584,8 @@ pub trait RepeatedComponent:
     /// it should be updated to be to the y position of the next item.
     fn listview_layout(
         self: Pin<&Self>,
-        _offset_y: &mut f32,
-        _viewport_width: Pin<&Property<f32>>,
+        _offset_y: &mut Coord,
+        _viewport_width: Pin<&Property<Coord>>,
     ) {
     }
 
@@ -612,12 +611,12 @@ struct RepeaterInner<C: RepeatedComponent> {
     /// Only used for ListView
     offset: usize,
     /// The average visible item_height. Only used for ListView
-    cached_item_height: f32,
+    cached_item_height: Coord,
 }
 
 impl<C: RepeatedComponent> Default for RepeaterInner<C> {
     fn default() -> Self {
-        RepeaterInner { components: Default::default(), offset: 0, cached_item_height: 0. }
+        RepeaterInner { components: Default::default(), offset: 0, cached_item_height: 0 as _ }
     }
 }
 
@@ -789,18 +788,18 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     pub fn ensure_updated_listview(
         self: Pin<&Self>,
         init: impl Fn() -> ComponentRc<C>,
-        viewport_width: Pin<&Property<f32>>,
-        viewport_height: Pin<&Property<f32>>,
-        viewport_y: Pin<&Property<f32>>,
-        listview_width: f32,
-        listview_height: Pin<&Property<f32>>,
+        viewport_width: Pin<&Property<Coord>>,
+        viewport_height: Pin<&Property<Coord>>,
+        viewport_y: Pin<&Property<Coord>>,
+        listview_width: Coord,
+        listview_height: Pin<&Property<Coord>>,
     ) {
         let model = self.model();
         let row_count = model.row_count();
         if row_count == 0 {
             self.inner.borrow_mut().components.clear();
-            viewport_height.set(0.);
-            viewport_y.set(0.);
+            viewport_height.set(0 as _);
+            viewport_y.set(0 as _);
 
             return;
         }
@@ -817,7 +816,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 
                 let listview_height = listview_height.get();
                 // Compute the element height
-                let total_height = Cell::new(0.);
+                let total_height = Cell::new(0 as Coord);
                 let min_height = Cell::new(listview_height);
                 let count = Cell::new(0);
 
@@ -834,7 +833,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                 }
 
                 let mut element_height = if count.get() > 0 {
-                    total_height.get() / (count.get() as f32)
+                    total_height.get() / (count.get() as Coord)
                 } else {
                     // There seems to be currently no items. Just instantiate one item.
 
@@ -854,13 +853,14 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     total_height.get()
                 };
 
-                let min_height = min_height.get().min(element_height).max(1.);
+                let min_height = min_height.get().min(element_height).max(1 as _);
 
-                let mut offset_y = -viewport_y.get().min(0.);
-                if offset_y > element_height * row_count as f32 - listview_height
+                let mut offset_y = -viewport_y.get().min(0 as _);
+                if offset_y > element_height * row_count as Coord - listview_height
                     && offset_y > viewport_height.get() - listview_height
                 {
-                    offset_y = (element_height * row_count as f32 - listview_height).max(0.);
+                    offset_y =
+                        (element_height * row_count as Coord - listview_height).max(0 as Coord);
                 }
                 let mut count = ((listview_height / min_height).ceil() as usize)
                     // count never decreases to avoid too much flickering if items have different size
@@ -875,21 +875,21 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     self.ensure_updated_impl(init, &model, count);
                     let end = self.compute_layout_listview(viewport_width, listview_width);
                     let adjusted_element_height =
-                        (end - element_height * offset as f32) / count as f32;
+                        (end - element_height * offset as Coord) / count as Coord;
                     element_height = adjusted_element_height;
                     let diff = listview_height + offset_y - end;
-                    if diff > 0.5 && count < row_count {
+                    if diff > 0.5 as _ && count < row_count {
                         // we did not create enough item, try increasing count until it matches
                         count = (count + (diff / element_height).ceil() as usize).min(row_count);
                         if offset + count > row_count {
                             // apparently, we scrolled past the end, so decrease the offset and make offset_y
                             // so we just are at the end
                             offset = row_count - count;
-                            offset_y = (offset_y - diff).max(0.);
+                            offset_y = (offset_y - diff).max(0 as _);
                         }
                         continue;
                     }
-                    viewport_height.set((element_height * row_count as f32).max(end));
+                    viewport_height.set((element_height * row_count as Coord).max(end));
                     viewport_y.set(-offset_y);
                     break;
                 }
@@ -1006,11 +1006,11 @@ impl<C: RepeatedComponent> Repeater<C> {
     /// Returns the offset of the end of the last element
     pub fn compute_layout_listview(
         &self,
-        viewport_width: Pin<&Property<f32>>,
-        listview_width: f32,
-    ) -> f32 {
+        viewport_width: Pin<&Property<Coord>>,
+        listview_width: Coord,
+    ) -> Coord {
         let inner = self.inner.borrow();
-        let mut y_offset = inner.offset as f32 * inner.cached_item_height;
+        let mut y_offset = inner.offset as Coord * inner.cached_item_height;
         viewport_width.set(listview_width);
         for c in self.inner.borrow().components.iter() {
             if let Some(x) = c.1.as_ref() {

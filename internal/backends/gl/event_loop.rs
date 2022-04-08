@@ -12,8 +12,8 @@ use i_slint_core as corelib;
 
 use corelib::graphics::Point;
 use corelib::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
-use corelib::SharedString;
 use corelib::{window::*, Color};
+use corelib::{Coord, SharedString};
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 use winit::event::WindowEvent;
@@ -49,10 +49,10 @@ pub trait WinitWindow: PlatformWindow {
             }
 
             if (constraints_horizontal, constraints_vertical) != self.constraints() {
-                let min_width = constraints_horizontal.min.min(constraints_horizontal.max);
-                let min_height = constraints_vertical.min.min(constraints_vertical.max);
-                let max_width = constraints_horizontal.max.max(constraints_horizontal.min);
-                let max_height = constraints_vertical.max.max(constraints_vertical.min);
+                let min_width = constraints_horizontal.min.min(constraints_horizontal.max) as f32;
+                let min_height = constraints_vertical.min.min(constraints_vertical.max) as f32;
+                let max_width = constraints_horizontal.max.max(constraints_horizontal.min) as f32;
+                let max_height = constraints_vertical.max.max(constraints_vertical.min) as f32;
 
                 let sf = self.runtime_window().scale_factor();
 
@@ -61,14 +61,16 @@ pub trait WinitWindow: PlatformWindow {
                 } else {
                     None
                 });
-                winit_window.set_max_inner_size(if max_width < f32::MAX || max_height < f32::MAX {
-                    Some(winit::dpi::PhysicalSize::new(
-                        (max_width * sf).min(65535.),
-                        (max_height * sf).min(65535.),
-                    ))
-                } else {
-                    None
-                });
+                winit_window.set_max_inner_size(
+                    if max_width < i32::MAX as f32 || max_height < i32::MAX as f32 {
+                        Some(winit::dpi::PhysicalSize::new(
+                            (max_width * sf).min(65535.),
+                            (max_height * sf).min(65535.),
+                        ))
+                    } else {
+                        None
+                    },
+                );
                 winit_window.set_resizable(min_width < max_width || min_height < max_height);
                 self.set_constraints((constraints_horizontal, constraints_vertical));
 
@@ -99,8 +101,8 @@ pub trait WinitWindow: PlatformWindow {
         let title = window_item.title();
         let no_frame = window_item.no_frame();
         let icon = window_item.icon();
-        let mut width = window_item.width();
-        let mut height = window_item.height();
+        let mut width = window_item.width() as f32;
+        let mut height = window_item.height() as f32;
 
         self.set_background_color(background);
         self.set_icon(icon);
@@ -461,7 +463,8 @@ fn process_window_event(
                     let d = d.to_logical(runtime_window.scale_factor() as f64);
                     euclid::point2(d.x, d.y)
                 }
-            };
+            }
+            .cast::<Coord>();
             runtime_window.process_mouse_input(MouseEvent::MouseWheel { pos: *cursor_pos, delta });
         }
         WindowEvent::MouseInput { state, button, .. } => {

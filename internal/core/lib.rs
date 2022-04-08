@@ -118,6 +118,11 @@ pub use graphics::RgbaColor;
 #[doc(inline)]
 pub use graphics::PathData;
 
+#[cfg(not(slint_int_coord))]
+pub type Coord = f32;
+#[cfg(slint_int_coord)]
+pub type Coord = i32;
+
 /// One need to use at least one function in each module in order to get them
 /// exported in the final binary.
 /// This only use functions from modules which are not otherwise used.

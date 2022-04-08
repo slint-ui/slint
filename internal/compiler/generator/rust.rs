@@ -67,8 +67,8 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Color => Some(quote!(slint::re_exports::Color)),
         Type::Duration => Some(quote!(i64)),
         Type::Angle => Some(quote!(f32)),
-        Type::PhysicalLength => Some(quote!(f32)),
-        Type::LogicalLength => Some(quote!(f32)),
+        Type::PhysicalLength => Some(quote!(slint::re_exports::Coord)),
+        Type::LogicalLength => Some(quote!(slint::re_exports::Coord)),
         Type::Percent => Some(quote!(f32)),
         Type::Bool => Some(quote!(bool)),
         Type::Image => Some(quote!(slint::re_exports::Image)),
@@ -87,7 +87,9 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
             Some(quote!(slint::re_exports::#e))
         }
         Type::Brush => Some(quote!(slint::Brush)),
-        Type::LayoutCache => Some(quote!(SharedVector<f32>)),
+        Type::LayoutCache => {
+            Some(quote!(slint::re_exports::SharedVector<slint::re_exports::Coord>))
+        }
         _ => None,
     }
 }
@@ -1229,8 +1231,8 @@ fn generate_repeated_component(
         quote! {
             fn listview_layout(
                 self: core::pin::Pin<&Self>,
-                offset_y: &mut f32,
-                viewport_width: core::pin::Pin<&slint::re_exports::Property<f32>>,
+                offset_y: &mut slint::re_exports::Coord,
+                viewport_width: core::pin::Pin<&slint::re_exports::Property<slint::re_exports::Coord>>,
             ) {
                 use slint::re_exports::*;
                 let _self = self;
@@ -1826,7 +1828,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 let offset = compile_expression(ri, ctx);
                 quote!({
                     let cache = #cache.get();
-                    *cache.get((cache[#index] as usize) + #offset as usize * 2).unwrap_or(&0.)
+                    *cache.get((cache[#index] as usize) + #offset as usize * 2).unwrap_or(&(0 as slint::re_exports::Coord))
                 })
             } else {
                 quote!(#cache.get()[#index])
@@ -1906,7 +1908,7 @@ fn compile_builtin_function_call(
                 quote!(
                     #window_tokens.show_popup(
                         &VRc::into_dyn(#popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).into()),
-                        Point::new(#x as f32, #y as f32),
+                        Point::new(#x as slint::re_exports::Coord, #y as slint::re_exports::Coord),
                         #parent_component
                     );
                 )

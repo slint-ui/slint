@@ -13,7 +13,7 @@ use i_slint_core::item_rendering::DirtyRegion;
 use i_slint_core::items::{Item, ItemRef, WindowItem};
 use i_slint_core::layout::Orientation;
 use i_slint_core::window::{PlatformWindow, Window};
-use i_slint_core::Color;
+use i_slint_core::{Color, Coord};
 use rgb::FromSlice;
 
 use self::event_loop::WinitWindow;
@@ -111,7 +111,7 @@ impl PlatformWindow for SimulatorWindow {
                 layout_info_h.preferred_bounded(),
                 layout_info_v.preferred_bounded(),
             );
-            if s.width > 0. && s.height > 0. {
+            if s.width > 0 as Coord && s.height > 0 as Coord {
                 // Make sure that the window's inner size is in sync with the root window item's
                 // width/height.
                 runtime_window.set_window_item_geometry(s.width, s.height);
@@ -227,7 +227,7 @@ impl PlatformWindow for SimulatorWindow {
         &self,
         font_request: i_slint_core::graphics::FontRequest,
         text: &str,
-        max_width: Option<f32>,
+        max_width: Option<Coord>,
     ) -> i_slint_core::graphics::Size {
         let runtime_window = self.self_weak.upgrade().unwrap();
         crate::fonts::text_size(

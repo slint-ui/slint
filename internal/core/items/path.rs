@@ -20,7 +20,7 @@ use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowRc;
-use crate::Property;
+use crate::{Coord, Property};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use i_slint_core_macros::*;
@@ -44,15 +44,15 @@ impl Default for FillRule {
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct Path {
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub x: Property<Coord>,
+    pub y: Property<Coord>,
+    pub width: Property<Coord>,
+    pub height: Property<Coord>,
     pub elements: Property<PathData>,
     pub fill: Property<Brush>,
     pub fill_rule: Property<FillRule>,
     pub stroke: Property<Brush>,
-    pub stroke_width: Property<f32>,
+    pub stroke_width: Property<Coord>,
     pub viewbox_x: Property<f32>,
     pub viewbox_y: Property<f32>,
     pub viewbox_width: Property<f32>,
@@ -80,7 +80,10 @@ impl Item for Path {
     ) -> InputEventFilterResult {
         if let Some(pos) = event.pos() {
             if self.clip()
-                && (pos.x < 0. || pos.y < 0. || pos.x > self.width() || pos.y > self.height())
+                && (pos.x < 0 as _
+                    || pos.y < 0 as _
+                    || pos.x > self.width()
+                    || pos.y > self.height())
             {
                 return InputEventFilterResult::Intercept;
             }
@@ -113,7 +116,7 @@ impl Item for Path {
         let clip = self.clip();
         if clip {
             (*backend).save_state();
-            (*backend).combine_clip(self.geometry(), 0., 0.)
+            (*backend).combine_clip(self.geometry(), 0 as _, 0 as _)
         }
         (*backend).draw_path(self);
         if clip {
@@ -129,11 +132,12 @@ impl Path {
     /// width.
     pub fn fitted_path_events(
         self: Pin<&Self>,
-    ) -> (euclid::default::Vector2D<f32>, PathDataIterator) {
+    ) -> (euclid::default::Vector2D<Coord>, PathDataIterator) {
         let stroke_width = self.stroke_width();
-        let bounds_width = (self.width() - stroke_width).max(0.);
-        let bounds_height = (self.height() - stroke_width).max(0.);
-        let offset = euclid::default::Vector2D::new(stroke_width / 2., stroke_width / 2.);
+        let bounds_width = (self.width() - stroke_width).max(0 as _);
+        let bounds_height = (self.height() - stroke_width).max(0 as _);
+        let offset =
+            euclid::default::Vector2D::new(stroke_width / 2 as Coord, stroke_width / 2 as Coord);
 
         let viewbox_width = self.viewbox_width();
         let viewbox_height = self.viewbox_height();
@@ -146,7 +150,7 @@ impl Path {
             None
         };
 
-        elements_iter.fit(bounds_width, bounds_height, maybe_viewbox);
+        elements_iter.fit(bounds_width as _, bounds_height as _, maybe_viewbox);
         (offset, elements_iter)
     }
 }

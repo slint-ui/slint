@@ -136,7 +136,7 @@ impl<Display: Devices, IRQ: InputPin, CS: OutputPin<Error = IRQ::Error>, SPI: Tr
             .unwrap()
             .map(|point| {
                 let size = self.display.screen_size().to_f32();
-                let pos = euclid::point2(point.x * size.width, point.y * size.height);
+                let pos = euclid::point2(point.x * size.width, point.y * size.height).cast();
                 match self.last_touch.replace(pos) {
                     Some(_) => i_slint_core::input::MouseEvent::MouseMoved { pos },
                     None => i_slint_core::input::MouseEvent::MousePressed { pos, button },

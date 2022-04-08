@@ -12,6 +12,7 @@ use i_slint_core::{
     graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, FontRequest},
     slice::Slice,
     textlayout::TextShaper,
+    Coord,
 };
 
 thread_local! {
@@ -66,7 +67,7 @@ impl FontMetrics for BitmapGlyphs {
     }
 }
 
-pub const DEFAULT_FONT_SIZE: f32 = 12.0;
+pub const DEFAULT_FONT_SIZE: Coord = 12 as Coord;
 
 // A font that is resolved to a specific pixel size.
 pub struct PixelFont {
@@ -146,7 +147,8 @@ pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> PixelFont
     });
 
     let requested_pixel_size: PhysicalLength =
-        (LogicalLength::new(request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE)) * scale_factor).cast();
+        (LogicalLength::new(request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE)).cast() * scale_factor)
+            .cast();
 
     let nearest_pixel_size = font
         .glyphs
@@ -172,7 +174,7 @@ pub fn register_bitmap_font(font_data: &'static BitmapFont) {
 pub fn text_size(
     font_request: FontRequest,
     text: &str,
-    max_width: Option<f32>,
+    max_width: Option<Coord>,
     scale_factor: ScaleFactor,
 ) -> LogicalSize {
     let font = match_font(&font_request, scale_factor);
@@ -180,9 +182,10 @@ pub fn text_size(
     let (longest_line_width, num_lines) = i_slint_core::textlayout::text_size(
         &font,
         text,
-        max_width.map(|max_width| (LogicalLength::new(max_width) * scale_factor).cast()),
+        max_width.map(|max_width| (LogicalLength::new(max_width).cast() * scale_factor).cast()),
     );
 
-    PhysicalSize::from_lengths(longest_line_width, font.height() * (num_lines as i16)).cast()
-        / scale_factor
+    (PhysicalSize::from_lengths(longest_line_width, font.height() * (num_lines as i16)).cast()
+        / scale_factor)
+        .cast()
 }

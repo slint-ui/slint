@@ -11,13 +11,15 @@ use crate::graphics::Point;
 use crate::input::{InputEventFilterResult, InputEventResult, MouseEvent};
 use crate::items::PointerEventButton;
 use crate::items::{Flickable, PropertyAnimation, Rectangle};
+use crate::Coord;
 use core::cell::RefCell;
 use core::pin::Pin;
 #[cfg(not(feature = "std"))]
+#[allow(unused)]
 use num_traits::Float;
 
 /// The distance required before it starts flicking if there is another item intercepting the mouse.
-const DISTANCE_THRESHOLD: f32 = 8.;
+const DISTANCE_THRESHOLD: Coord = 8 as _;
 /// Time required before we stop caring about child event if the mouse hasn't been moved
 const DURATION_THRESHOLD: Duration = Duration::from_millis(500);
 
@@ -160,14 +162,14 @@ impl FlickableData {
 
     fn mouse_released(inner: &mut FlickableDataInner, flick: Pin<&Flickable>, event: MouseEvent) {
         if let (Some(pressed_time), Some(pos)) = (inner.pressed_time, event.pos()) {
-            let dist = pos - inner.pressed_pos;
+            let dist = (pos - inner.pressed_pos).cast::<f32>();
             let speed =
                 dist / ((crate::animations::current_tick() - pressed_time).as_millis() as f32);
 
             let duration = 100;
             let final_pos = ensure_in_bound(
                 flick,
-                inner.pressed_viewport_pos + dist + speed * (duration as f32),
+                (inner.pressed_viewport_pos.cast() + dist + speed * (duration as f32)).cast(),
             );
             let anim = PropertyAnimation {
                 duration,
@@ -197,6 +199,6 @@ fn ensure_in_bound(flick: Pin<&Flickable>, p: Point) -> Point {
         .get();
 
     let min = Point::new(w - vw, h - vh);
-    let max = Point::new(0., 0.);
+    let max = Point::new(0 as _, 0 as _);
     p.max(min).min(max)
 }

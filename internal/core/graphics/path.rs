@@ -5,7 +5,6 @@
 This module contains path related types and functions for the run-time library.
 */
 
-use super::{Point, Rect, Size};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use auto_enums::auto_enum;
@@ -157,9 +156,9 @@ pub enum PathEvent {
 
 struct ToLyonPathEventIterator<'a> {
     events_it: core::slice::Iter<'a, PathEvent>,
-    coordinates_it: core::slice::Iter<'a, Point>,
-    first: Option<&'a Point>,
-    last: Option<&'a Point>,
+    coordinates_it: core::slice::Iter<'a, lyon_path::math::Point>,
+    first: Option<&'a lyon_path::math::Point>,
+    last: Option<&'a lyon_path::math::Point>,
 }
 
 impl<'a> Iterator for ToLyonPathEventIterator<'a> {
@@ -236,7 +235,7 @@ pub struct PathDataIterator {
 
 enum LyonPathIteratorVariant {
     FromPath(lyon_path::Path),
-    FromEvents(crate::SharedVector<PathEvent>, crate::SharedVector<Point>),
+    FromEvents(crate::SharedVector<PathEvent>, crate::SharedVector<lyon_path::math::Point>),
 }
 
 impl PathDataIterator {
@@ -267,13 +266,13 @@ impl PathDataIterator {
     /// Applies a transformation on the elements this iterator provides that tries to fit everything
     /// into the specified width/height, respecting the provided viewbox. If no viewbox is specified,
     /// the bounding rectangle of the path is used.
-    pub fn fit(&mut self, width: f32, height: f32, viewbox: Option<Rect>) {
+    pub fn fit(&mut self, width: f32, height: f32, viewbox: Option<lyon_path::math::Rect>) {
         if width > 0. || height > 0. {
             let viewbox =
                 viewbox.unwrap_or_else(|| lyon_algorithms::aabb::bounding_rect(self.iter()));
             self.transform = lyon_algorithms::fit::fit_rectangle(
                 &viewbox,
-                &Rect::from_size(Size::new(width, height)),
+                &lyon_path::math::Rect::from_size(lyon_path::math::Size::new(width, height)),
                 lyon_algorithms::fit::FitStyle::Min,
             );
         }
@@ -291,7 +290,7 @@ pub enum PathData {
     Elements(crate::SharedVector<PathElement>),
     /// The Events variant describes the path as a series of low-level events and
     /// associated coordinates.
-    Events(crate::SharedVector<PathEvent>, crate::SharedVector<Point>),
+    Events(crate::SharedVector<PathEvent>, crate::SharedVector<lyon_path::math::Point>),
     /// The Commands variant describes the path as a series of SVG encoded path commands.
     Commands(crate::SharedString),
 }

@@ -40,6 +40,7 @@ fn default_config() -> cbindgen::Config {
                 ("PointerEventArg".into(), "PointerEvent".into()),
                 ("PointArg".into(), "Point".into()),
                 ("FloatArg".into(), "float".into()),
+                ("Coord".into(), "float".into()),
             ]
             .iter()
             .cloned()
@@ -172,6 +173,7 @@ fn gen_corelib(
         "slint_color_darker",
         "slint_image_size",
         "slint_image_path",
+        "Coord",
     ]
     .iter()
     .chain(public_exported_types.iter())

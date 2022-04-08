@@ -5,7 +5,7 @@
 
 // cspell:ignore coord
 
-use crate::{items::DialogButtonRole, slice::Slice, SharedVector};
+use crate::{items::DialogButtonRole, slice::Slice, Coord, SharedVector};
 use alloc::vec::Vec;
 
 /// Vertical or Horizontal orientation
@@ -16,23 +16,21 @@ pub enum Orientation {
     Vertical,
 }
 
-type Coord = f32;
-
 /// The constraint that applies to an item
 // Also, the field needs to be in alphabetical order because how the generated code sort fields for struct
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct LayoutInfo {
     /// The maximum size for the item.
-    pub max: f32,
+    pub max: Coord,
     /// The maximum size in percentage of the parent (value between 0 and 100).
-    pub max_percent: f32,
+    pub max_percent: Coord,
     /// The minimum size for this item.
-    pub min: f32,
+    pub min: Coord,
     /// The minimum size in percentage of the parent (value between 0 and 100).
-    pub min_percent: f32,
+    pub min_percent: Coord,
     /// the preferred size
-    pub preferred: f32,
+    pub preferred: Coord,
     /// the  stretch factor
     pub stretch: f32,
 }
@@ -40,12 +38,12 @@ pub struct LayoutInfo {
 impl Default for LayoutInfo {
     fn default() -> Self {
         LayoutInfo {
-            min: 0.,
-            max: f32::MAX,
-            min_percent: 0.,
-            max_percent: 100.,
-            preferred: 0.,
-            stretch: 0.,
+            min: 0 as _,
+            max: Coord::MAX,
+            min_percent: 0 as _,
+            max_percent: 100 as _,
+            preferred: 0 as _,
+            stretch: 0 as _,
         }
     }
 }
@@ -65,7 +63,7 @@ impl LayoutInfo {
     }
 
     /// Helper function to return a preferred size which is within the min/max constraints
-    pub fn preferred_bounded(&self) -> f32 {
+    pub fn preferred_bounded(&self) -> Coord {
         self.preferred.min(self.max).max(self.min)
     }
 }
@@ -78,10 +76,28 @@ impl core::ops::Add for LayoutInfo {
     }
 }
 
+/// Implement a saturating_add version for both possible value of Coord.
+/// So that adding the max value does not overflow
+trait Saturating {
+    fn add(_: Self, _: Self) -> Self;
+}
+impl Saturating for i32 {
+    #[inline]
+    fn add(a: Self, b: Self) -> Self {
+        a.saturating_add(b)
+    }
+}
+impl Saturating for f32 {
+    #[inline]
+    fn add(a: Self, b: Self) -> Self {
+        a + b
+    }
+}
+
 mod grid_internal {
     use super::*;
 
-    fn order_coord(a: &Coord, b: &Coord) -> core::cmp::Ordering {
+    fn order_coord<T: PartialOrd>(a: &T, b: &T) -> core::cmp::Ordering {
         a.partial_cmp(b).unwrap_or(core::cmp::Ordering::Equal)
     }
 
@@ -100,7 +116,14 @@ mod grid_internal {
 
     impl Default for LayoutData {
         fn default() -> Self {
-            LayoutData { min: 0., max: Coord::MAX, pref: 0., stretch: f32::MAX, pos: 0., size: 0. }
+            LayoutData {
+                min: 0 as _,
+                max: Coord::MAX,
+                pref: 0 as _,
+                stretch: f32::MAX,
+                pos: 0 as _,
+                size: 0 as _,
+            }
         }
     }
 
@@ -142,39 +165,46 @@ mod grid_internal {
 
     fn adjust_items<A: Adjust>(data: &mut [LayoutData], size_without_spacing: Coord) -> Option<()> {
         loop {
-            let size_cannot_grow: Coord =
-                data.iter().filter(|it| A::can_grow(it) <= 0.).map(|it| it.size).sum();
+            let size_cannot_grow: Coord = data
+                .iter()
+                .filter(|it| A::can_grow(it) <= 0 as _)
+                .map(|it| it.size)
+                .fold(0 as Coord, Saturating::add);
 
             let total_stretch: f32 =
-                data.iter().filter(|it| A::can_grow(it) > 0.).map(|it| it.stretch).sum();
+                data.iter().filter(|it| A::can_grow(it) > 0 as _).map(|it| it.stretch).sum();
 
             let actual_stretch = |s: f32| if total_stretch <= 0. { 1. } else { s };
 
             let max_grow = data
                 .iter()
-                .filter(|it| A::can_grow(it) > 0.)
-                .map(|it| A::can_grow(it) / actual_stretch(it.stretch))
+                .filter(|it| A::can_grow(it) > 0 as _)
+                .map(|it| A::can_grow(it) as f32 / actual_stretch(it.stretch))
                 .min_by(order_coord)?;
 
-            let current_size: Coord =
-                data.iter().filter(|it| A::can_grow(it) > 0.).map(|it| it.size).sum();
+            let current_size: Coord = data
+                .iter()
+                .filter(|it| A::can_grow(it) > 0 as _)
+                .map(|it| it.size)
+                .fold(0 as _, Saturating::add);
 
             //let to_distribute = size_without_spacing - (size_cannot_grow + current_size);
             let to_distribute =
-                A::to_distribute(size_without_spacing, size_cannot_grow + current_size);
+                A::to_distribute(size_without_spacing, size_cannot_grow + current_size) as f32;
             if to_distribute <= 0. || max_grow <= 0. {
                 return Some(());
             }
 
             let grow = if total_stretch <= 0. {
-                to_distribute / (data.iter().filter(|it| A::can_grow(it) > 0.).count() as Coord)
+                to_distribute
+                    / (data.iter().filter(|it| A::can_grow(it) > 0 as _).count() as Coord) as f32
             } else {
                 to_distribute / total_stretch
             }
             .min(max_grow);
 
-            for it in data.iter_mut().filter(|it| A::can_grow(it) > 0.) {
-                A::distribute(it, grow * actual_stretch(it.stretch));
+            for it in data.iter_mut().filter(|it| A::can_grow(it) > 0 as Coord) {
+                A::distribute(it, (grow * actual_stretch(it.stretch)) as Coord);
             }
         }
     }
@@ -182,7 +212,7 @@ mod grid_internal {
     pub fn layout_items(data: &mut [LayoutData], start_pos: Coord, size: Coord, spacing: Coord) {
         let size_without_spacing = size - spacing * (data.len() - 1) as Coord;
 
-        let mut pref = 0.;
+        let mut pref = 0 as Coord;
         for it in data.iter_mut() {
             it.size = it.pref;
             pref += it.pref;
@@ -196,7 +226,7 @@ mod grid_internal {
         let mut pos = start_pos;
         for it in data.iter_mut() {
             it.pos = pos;
-            pos += it.size + spacing;
+            pos = Saturating::add(pos, Saturating::add(it.size, spacing));
         }
     }
 
@@ -244,7 +274,7 @@ mod grid_internal {
             let constraint = &cell.constraint;
             let mut max = constraint.max;
             if let Some(size) = size {
-                max = max.min(size * constraint.max_percent / 100.);
+                max = max.min(size * constraint.max_percent / 100 as Coord);
             }
             for c in 0..(cell.span as usize) {
                 let cdata = &mut layout_data[cell.col_or_row as usize + c];
@@ -253,7 +283,7 @@ mod grid_internal {
             if cell.span == 1 {
                 let mut min = constraint.min;
                 if let Some(size) = size {
-                    min = min.max(size * constraint.min_percent / 100.);
+                    min = min.max(size * constraint.min_percent / 100 as Coord);
                 }
                 let pref = constraint.preferred.min(max).max(min);
                 let cdata = &mut layout_data[cell.col_or_row as usize];
@@ -271,9 +301,9 @@ mod grid_internal {
                     [(cell.col_or_row as usize)..(cell.col_or_row + cell.span) as usize];
                 let mut min = cell.constraint.min;
                 if let Some(size) = size {
-                    min = min.max(size * cell.constraint.min_percent / 100.);
+                    min = min.max(size * cell.constraint.min_percent / 100 as Coord);
                 }
-                grid_internal::layout_items(span_data, 0., min, spacing);
+                grid_internal::layout_items(span_data, 0 as _, min, spacing);
                 for cdata in span_data {
                     if cdata.min < cdata.size {
                         cdata.min = cdata.size;
@@ -286,9 +316,9 @@ mod grid_internal {
                     [(cell.col_or_row as usize)..(cell.col_or_row + cell.span) as usize];
                 let mut max = cell.constraint.max;
                 if let Some(size) = size {
-                    max = max.min(size * cell.constraint.max_percent / 100.);
+                    max = max.min(size * cell.constraint.max_percent / 100 as Coord);
                 }
-                grid_internal::layout_items(span_data, 0., max, spacing);
+                grid_internal::layout_items(span_data, 0 as _, max, spacing);
                 for cdata in span_data {
                     if cdata.max > cdata.size {
                         cdata.max = cdata.size;
@@ -299,7 +329,7 @@ mod grid_internal {
             for cell in data.iter().filter(|cell| cell.span > 1) {
                 let span_data = &mut layout_data
                     [(cell.col_or_row as usize)..(cell.col_or_row + cell.span) as usize];
-                grid_internal::layout_items(span_data, 0., cell.constraint.preferred, spacing);
+                grid_internal::layout_items(span_data, 0 as _, cell.constraint.preferred, spacing);
                 for cdata in span_data {
                     cdata.pref = cdata.pref.max(cdata.size).min(cdata.max).max(cdata.min);
                 }
@@ -328,7 +358,7 @@ pub struct Constraint {
 
 impl Default for Constraint {
     fn default() -> Self {
-        Constraint { min: 0., max: Coord::MAX }
+        Constraint { min: 0 as Coord, max: Coord::MAX }
     }
 }
 
@@ -398,10 +428,10 @@ pub fn grid_layout_info(
     }
     let spacing_w = spacing * (layout_data.len() - 1) as Coord + padding.begin + padding.end;
     let min = layout_data.iter().map(|data| data.min).sum::<Coord>() + spacing_w;
-    let max = layout_data.iter().map(|data| data.max).sum::<Coord>() + spacing_w;
+    let max = layout_data.iter().map(|data| data.max).fold(spacing_w, Saturating::add);
     let preferred = layout_data.iter().map(|data| data.pref).sum::<Coord>() + spacing_w;
-    let stretch = layout_data.iter().map(|data| data.stretch).sum::<Coord>();
-    LayoutInfo { min, max, min_percent: 0., max_percent: 100., preferred, stretch }
+    let stretch = layout_data.iter().map(|data| data.stretch).sum::<f32>();
+    LayoutInfo { min, max, min_percent: 0 as _, max_percent: 100 as _, preferred, stretch }
 }
 
 /// Enum representing the alignment property of a BoxLayout or HorizontalLayout
@@ -444,8 +474,8 @@ pub struct BoxLayoutCellData {
 
 /// Solve a BoxLayout
 pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> SharedVector<Coord> {
-    let mut result = SharedVector::<f32>::default();
-    result.resize(data.cells.len() * 2 + repeater_indexes.len(), 0.);
+    let mut result = SharedVector::<Coord>::default();
+    result.resize(data.cells.len() * 2 + repeater_indexes.len(), 0 as _);
 
     if data.cells.is_empty() {
         return result;
@@ -455,8 +485,8 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> S
         .cells
         .iter()
         .map(|c| {
-            let min = c.constraint.min.max(c.constraint.min_percent * data.size / 100.);
-            let max = c.constraint.max.min(c.constraint.max_percent * data.size / 100.);
+            let min = c.constraint.min.max(c.constraint.min_percent * data.size / 100 as Coord);
+            let max = c.constraint.max.min(c.constraint.max_percent * data.size / 100 as Coord);
             grid_internal::LayoutData {
                 min,
                 max,
@@ -492,7 +522,7 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> S
             None
         }
         LayoutAlignment::center => Some((
-            data.padding.begin + (size_without_padding - pref_size - spacings) / 2.,
+            data.padding.begin + (size_without_padding - pref_size - spacings) / 2 as Coord,
             data.spacing,
         )),
         LayoutAlignment::start => Some((data.padding.begin, data.spacing)),
@@ -503,8 +533,8 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> S
             Some((data.padding.begin, (size_without_padding - pref_size) / num_spacings))
         }
         LayoutAlignment::space_around => {
-            let spacing = (size_without_padding - pref_size) / (num_spacings + 1.);
-            Some((data.padding.begin + spacing / 2., spacing))
+            let spacing = (size_without_padding - pref_size) / (num_spacings + 1 as Coord);
+            Some((data.padding.begin + spacing / 2 as Coord, spacing))
         }
     };
     if let Some((mut pos, spacing)) = align {
@@ -561,25 +591,25 @@ pub fn box_layout_info(
 ) -> LayoutInfo {
     let count = cells.len();
     if count < 1 {
-        return LayoutInfo { max: 0., ..LayoutInfo::default() };
+        return LayoutInfo { max: 0 as _, ..LayoutInfo::default() };
     };
     let is_stretch = alignment == LayoutAlignment::stretch;
     let extra_w = padding.begin + padding.end + spacing * (count - 1) as Coord;
     let min = cells.iter().map(|c| c.constraint.min).sum::<Coord>() + extra_w;
     let max = if is_stretch {
-        (cells.iter().map(|c| c.constraint.max).sum::<Coord>() + extra_w).max(min)
+        (cells.iter().map(|c| c.constraint.max).fold(extra_w, Saturating::add)).max(min)
     } else {
-        f32::MAX
+        Coord::MAX
     };
     let preferred = cells.iter().map(|c| c.constraint.preferred_bounded()).sum::<Coord>() + extra_w;
     let stretch = cells.iter().map(|c| c.constraint.stretch).sum::<f32>();
-    LayoutInfo { min, max, min_percent: 0., max_percent: 100., preferred, stretch }
+    LayoutInfo { min, max, min_percent: 0 as _, max_percent: 100 as _, preferred, stretch }
 }
 
 pub fn box_layout_info_ortho(cells: Slice<BoxLayoutCellData>, padding: &Padding) -> LayoutInfo {
     let count = cells.len();
     if count < 1 {
-        return LayoutInfo { max: 0., ..LayoutInfo::default() };
+        return LayoutInfo { max: 0 as _, ..LayoutInfo::default() };
     };
     let extra_w = padding.begin + padding.end;
 
@@ -590,7 +620,7 @@ pub fn box_layout_info_ortho(cells: Slice<BoxLayoutCellData>, padding: &Padding)
     fold.max = fold.max.max(fold.min);
     fold.preferred = fold.preferred.clamp(fold.min, fold.max);
     fold.min += extra_w;
-    fold.max += extra_w;
+    fold.max = Saturating::add(fold.max, extra_w);
     fold.preferred += extra_w;
     fold
 }
@@ -608,17 +638,20 @@ pub struct PathLayoutData {
 }
 
 #[cfg(feature = "std")]
-pub fn solve_path_layout(data: &PathLayoutData, repeater_indexes: Slice<u32>) -> SharedVector<f32> {
+pub fn solve_path_layout(
+    data: &PathLayoutData,
+    repeater_indexes: Slice<u32>,
+) -> SharedVector<Coord> {
     use lyon_geom::*;
     use lyon_path::iterator::PathIterator;
 
     // Clone of path elements is cheap because it's a clone of underlying SharedVector
     let mut path_iter = data.elements.clone().iter();
-    path_iter.fit(data.width, data.height, None);
+    path_iter.fit(data.width as _, data.height as _, None);
 
     let tolerance: f32 = 0.1; // lyon::tessellation::StrokeOptions::DEFAULT_TOLERANCE
 
-    let segment_lengths: Vec<Coord> = path_iter
+    let segment_lengths: Vec<_> = path_iter
         .iter()
         .bezier_segments()
         .map(|segment| match segment {
@@ -630,7 +663,7 @@ pub fn solve_path_layout(data: &PathLayoutData, repeater_indexes: Slice<u32>) ->
         })
         .collect();
 
-    let path_length: Coord = segment_lengths.iter().sum();
+    let path_length: f32 = segment_lengths.iter().sum();
     // the max(2) is there to put the item in the middle when there is a single item
     let item_distance = 1. / ((data.item_count - 1) as f32).max(2.);
 
@@ -640,8 +673,8 @@ pub fn solve_path_layout(data: &PathLayoutData, repeater_indexes: Slice<u32>) ->
         next_t += item_distance;
     }
 
-    let mut result = SharedVector::<f32>::default();
-    result.resize(data.item_count as usize * 2 + repeater_indexes.len(), 0.);
+    let mut result = SharedVector::<Coord>::default();
+    result.resize(data.item_count as usize * 2 + repeater_indexes.len(), 0 as Coord);
     let res = result.make_mut_slice();
 
     // The index/2 in result in which we should add the next repeated item
@@ -690,8 +723,8 @@ pub fn solve_path_layout(data: &PathLayoutData, repeater_indexes: Slice<u32>) ->
                     break current_offset - 1;
                 };
 
-                res[o * 2] = item_pos.x + data.x;
-                res[o * 2 + 1] = item_pos.y + data.y;
+                res[o * 2] = item_pos.x as Coord + data.x;
+                res[o * 2 + 1] = item_pos.y as Coord + data.y;
                 i += 1;
                 next_t += item_distance;
                 if i >= data.item_count {

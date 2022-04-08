@@ -15,7 +15,7 @@ use crate::input::{
 use crate::item_tree::ItemRc;
 use crate::items::{ItemRef, MouseCursor};
 use crate::properties::{Property, PropertyTracker};
-use crate::Callback;
+use crate::{Callback, Coord};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use core::cell::{Cell, RefCell};
@@ -82,7 +82,7 @@ pub trait PlatformWindow {
         &self,
         font_request: crate::graphics::FontRequest,
         text: &str,
-        max_width: Option<f32>,
+        max_width: Option<Coord>,
     ) -> Size;
 
     /// Returns the (UTF-8) byte offset in the text property that refers to the character that contributed to
@@ -545,7 +545,7 @@ impl Window {
         {
             (window_item.width(), window_item.height())
         } else {
-            (0., 0.)
+            (0 as Coord, 0 as Coord)
         };
 
         let layout_info_h =
@@ -553,10 +553,10 @@ impl Window {
         let layout_info_v =
             popup_component.as_ref().layout_info(crate::layout::Orientation::Vertical);
 
-        if w <= 0. {
+        if w <= 0 as Coord {
             w = layout_info_h.preferred;
         }
-        if h <= 0. {
+        if h <= 0 as Coord {
             h = layout_info_v.preferred;
         }
         w = w.clamp(layout_info_h.min, layout_info_h.max);
@@ -637,7 +637,7 @@ impl Window {
     /// Sets the size of the window item. This method is typically called in response to receiving a
     /// window resize event from the windowing system.
     /// Size is in logical pixels.
-    pub fn set_window_item_geometry(&self, width: f32, height: f32) {
+    pub fn set_window_item_geometry(&self, width: Coord, height: Coord) {
         if let Some(component_rc) = self.try_component() {
             let component = ComponentRc::borrow_pin(&component_rc);
             let root_item = component.as_ref().get_item_ref(0);

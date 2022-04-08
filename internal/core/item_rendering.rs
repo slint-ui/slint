@@ -11,6 +11,7 @@ use crate::graphics::{CachedGraphicsData, Point, Rect};
 use crate::item_tree::{
     ItemRc, ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult,
 };
+use crate::Coord;
 use alloc::boxed::Box;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
@@ -233,7 +234,7 @@ pub trait ItemRenderer {
         if clip_item.clip() {
             let geometry = clip_item.geometry();
             self.combine_clip(
-                euclid::rect(0., 0., geometry.width(), geometry.height()),
+                euclid::rect(0 as Coord, 0 as Coord, geometry.width(), geometry.height()),
                 clip_item.border_radius(),
                 clip_item.border_width(),
             )
@@ -244,11 +245,11 @@ pub trait ItemRenderer {
     /// Clip the further call until restore_state.
     /// radius/border_width can be used for border rectangle clip.
     /// (FIXME: consider removing radius/border_width and have another  function that take a path instead)
-    fn combine_clip(&mut self, rect: Rect, radius: f32, border_width: f32);
+    fn combine_clip(&mut self, rect: Rect, radius: Coord, border_width: Coord);
     /// Get the current clip bounding box in the current transformed coordinate.
     fn get_current_clip(&self) -> Rect;
 
-    fn translate(&mut self, x: f32, y: f32);
+    fn translate(&mut self, x: Coord, y: Coord);
     fn rotate(&mut self, angle_in_degrees: f32);
     /// Apply the opacity (between 0 and 1) for all following items until the next call to restore_state.
     fn apply_opacity(&mut self, opacity: f32);
@@ -299,7 +300,7 @@ pub trait ItemRenderer {
 pub type PartialRenderingCache = RenderingCache<Rect>;
 
 /// FIXME: Should actually be a region and not just a rectangle
-pub type DirtyRegion = euclid::default::Box2D<f32>;
+pub type DirtyRegion = euclid::default::Box2D<Coord>;
 
 /// Put this structure in the renderer to help with partial rendering
 pub struct PartialRenderer<'a, T> {
@@ -351,7 +352,7 @@ impl<'a, T> PartialRenderer<'a, T> {
         });
     }
 
-    fn mark_dirty_rect(&mut self, rect: Rect, offset: euclid::default::Vector2D<f32>) {
+    fn mark_dirty_rect(&mut self, rect: Rect, offset: euclid::default::Vector2D<Coord>) {
         if !rect.is_empty() {
             self.dirty_region = self.dirty_region.union(&rect.translate(offset).to_box2d());
         }
@@ -435,7 +436,7 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
     forward_rendering_call!(fn draw_path(Path));
     forward_rendering_call!(fn draw_box_shadow(BoxShadow));
 
-    fn combine_clip(&mut self, rect: Rect, radius: f32, border_width: f32) {
+    fn combine_clip(&mut self, rect: Rect, radius: Coord, border_width: Coord) {
         self.actual_renderer.combine_clip(rect, radius, border_width)
     }
 
@@ -443,7 +444,7 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
         self.actual_renderer.get_current_clip()
     }
 
-    fn translate(&mut self, x: f32, y: f32) {
+    fn translate(&mut self, x: Coord, y: Coord) {
         self.actual_renderer.translate(x, y)
     }
 

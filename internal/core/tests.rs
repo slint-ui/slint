@@ -7,6 +7,7 @@
 
 use crate::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
 use crate::window::WindowRc;
+use crate::Coord;
 use crate::SharedString;
 
 /// Slint animations do not use real time, but use a mocked time.
@@ -26,8 +27,8 @@ pub extern "C" fn slint_mock_elapsed_time(time_in_ms: u64) {
 #[no_mangle]
 pub extern "C" fn slint_send_mouse_click(
     component: &crate::component::ComponentRc,
-    x: f32,
-    y: f32,
+    x: Coord,
+    y: Coord,
     window: &WindowRc,
 ) {
     let mut state = crate::input::MouseInputState::default();

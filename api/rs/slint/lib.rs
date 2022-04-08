@@ -304,6 +304,7 @@ pub mod re_exports {
     pub use i_slint_core::window::{Window, WindowHandleAccess, WindowRc};
     pub use i_slint_core::Color;
     pub use i_slint_core::ComponentVTable_static;
+    pub use i_slint_core::Coord;
     pub use i_slint_core::SharedString;
     pub use i_slint_core::SharedVector;
     pub use num_traits::float::Float;

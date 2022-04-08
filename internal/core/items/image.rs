@@ -19,7 +19,7 @@ use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowRc;
-use crate::{Brush, Property};
+use crate::{Brush, Coord, Property};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use i_slint_core_macros::*;
@@ -59,10 +59,10 @@ impl Default for ImageRendering {
 /// The implementation of the `Image` element
 pub struct ImageItem {
     pub source: Property<crate::graphics::Image>,
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub x: Property<Coord>,
+    pub y: Property<Coord>,
+    pub width: Property<Coord>,
+    pub height: Property<Coord>,
     pub image_fit: Property<ImageFit>,
     pub image_rendering: Property<ImageRendering>,
     pub cached_rendering_data: CachedRenderingData,
@@ -79,10 +79,10 @@ impl Item for ImageItem {
         let natural_size = self.source().size();
         LayoutInfo {
             preferred: match orientation {
-                _ if natural_size.width == 0 || natural_size.height == 0 => 0.,
-                Orientation::Horizontal => natural_size.width as f32,
+                _ if natural_size.width == 0 || natural_size.height == 0 => 0 as Coord,
+                Orientation::Horizontal => natural_size.width as Coord,
                 Orientation::Vertical => {
-                    natural_size.height as f32 * self.width() / natural_size.width as f32
+                    natural_size.height as Coord * self.width() / natural_size.width as Coord
                 }
             },
             ..Default::default()
@@ -138,10 +138,10 @@ impl ItemConsts for ImageItem {
 /// The implementation of the `ClippedImage` element
 pub struct ClippedImage {
     pub source: Property<crate::graphics::Image>,
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub x: Property<Coord>,
+    pub y: Property<Coord>,
+    pub width: Property<Coord>,
+    pub height: Property<Coord>,
     pub image_fit: Property<ImageFit>,
     pub image_rendering: Property<ImageRendering>,
     pub colorize: Property<Brush>,
@@ -163,10 +163,10 @@ impl Item for ClippedImage {
         let natural_size = self.source().size();
         LayoutInfo {
             preferred: match orientation {
-                _ if natural_size.width == 0 || natural_size.height == 0 => 0.,
-                Orientation::Horizontal => natural_size.width as f32,
+                _ if natural_size.width == 0 || natural_size.height == 0 => 0 as Coord,
+                Orientation::Horizontal => natural_size.width as Coord,
                 Orientation::Vertical => {
-                    natural_size.height as f32 * self.width() / natural_size.width as f32
+                    natural_size.height as Coord * self.width() / natural_size.width as Coord
                 }
             },
             ..Default::default()
