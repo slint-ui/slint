@@ -65,7 +65,6 @@ impl NativeStyleMetrics {
     // The palette on macOS is fixed, so the only property the macOS theme
     // actually uses is dark_style.
     // The actual colors are defined in the theme's .slint file.
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn init_impl(self: Pin<&Self>) {
         use dark_light::Mode;
 
@@ -74,10 +73,6 @@ impl NativeStyleMetrics {
             Mode::Dark => true,
         });
     }
-
-    // dark-light currently has no support for WASM
-    #[cfg(target_arch = "wasm32")]
-    pub fn init_impl(self: Pin<&Self>) {}
 }
 
 #[cfg(feature = "rtti")]

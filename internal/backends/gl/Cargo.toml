@@ -53,13 +53,13 @@ ttf-parser = "0.15.0" # Use the same version was femtovg's rustybuzz, to avoid d
 unicode-script = "0.5.4" # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
 usvg = { version= "0.22", optional = true, default-features = false, features = ["text"] }
 winit = { version = "0.26", default-features = false }
+dark-light = "0.2.2"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", features=["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "CssStyleDeclaration", "Event", "KeyboardEvent", "InputEvent", "CompositionEvent"] }
 wasm-bindgen = { version = "0.2" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-dark-light = "0.2.1"
 fontdb = { version = "0.9.0", features = ["memmap"] }
 glutin = { version = "0.28", default-features = false }
 usvg = { version= "0.22", optional = true, default-features = false, features = ["text", "memmap-fonts"] }
