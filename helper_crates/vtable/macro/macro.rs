@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// cSpell: ignore asyncness constness containee dealloc defaultness impls qself supertraits vref
+// cSpell: ignore asyncness constness containee defaultness impls qself supertraits vref
 
 /*!
 Implementation detail for the vtable crate

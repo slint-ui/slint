@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// cSpell: ignore dealloc pointee repr
+// cSpell: ignore pointee repr
 
 //! implementation of vtable::Vrc
 

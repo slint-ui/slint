@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// cSpell: ignore dealloc refcell unerase
+// cSpell: ignore unerase
 
 use crate::{api::Value, dynamic_type, eval};
 
