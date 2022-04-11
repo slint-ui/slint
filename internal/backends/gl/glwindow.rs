@@ -408,10 +408,17 @@ impl PlatformWindow for GLWindow {
             .with_title(window_title)
             .with_resizable(is_resizable);
 
-        let scale_factor_override = std::env::var("SLINT_SCALE_FACTOR")
-            .ok()
-            .and_then(|x| x.parse::<f64>().ok())
-            .filter(|f| *f > 0.);
+        let scale_factor_override = runtime_window.scale_factor();
+        // If the scale factor was already set programmatically, use that
+        // else, use the SLINT_SCALE_FACTOR if set, otherwise use the one from winit
+        let scale_factor_override = if scale_factor_override > 1. {
+            Some(scale_factor_override as f64)
+        } else {
+            std::env::var("SLINT_SCALE_FACTOR")
+                .ok()
+                .and_then(|x| x.parse::<f64>().ok())
+                .filter(|f| *f > 0.)
+        };
 
         let window_builder = if std::env::var("SLINT_FULLSCREEN").is_ok() {
             window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
