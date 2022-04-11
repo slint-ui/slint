@@ -310,6 +310,7 @@ jobs:
       SLINT_EMBED_GLYPHS: 1
       SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
       SLINT_PROCESS_IMAGES: 1
+      RUSTFLAGS: --cfg slint_int_coord
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
