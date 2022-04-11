@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// cSpell: ignore dealloc nesw
+// cSpell: ignore nesw
 
 /*!
 This module contains the code moving the keyboard focus between items

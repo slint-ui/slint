@@ -16,7 +16,6 @@
                 "evenodd",
                 "FBOs", // plural of FBO (frame buffer object)
                 "femtovg",
-                "Flickable",
                 "fontdb",
                 "fullscreen",
                 "glutin",
@@ -27,13 +26,13 @@
                 "miny",
                 "peekable",
                 "Realloc",
+                "refcell",
                 "Rgba",
                 "rtti",
                 "subspan",
                 "uninit",
                 "unmap",
                 "unsync",
-                "viewbox",
                 "vsync",
                 "winit"
             ],
@@ -49,23 +48,12 @@
         },
         {
             "languageId": "restructuredtext",
-            "words": [
-                "genindex",
-                "langref",
-                "modindex",
-                "toctree"
-            ],
-            "ignoreRegExpList": [
-                "/:.+:/"
-            ]
+            "words": ["genindex", "langref", "modindex", "toctree"],
+            "ignoreRegExpList": ["/:.+:/"]
         },
         {
             "languageId": "markdown",
-            "words": [
-                "rustup",
-                "SUBDIR",
-                "Yocto"
-            ],
+            "words": ["rustup", "SUBDIR", "Yocto"],
             "ignoreRegExpList": [
                 // Ignore simple code blocks
                 "`[^`]+`"
@@ -78,6 +66,8 @@
         "cmake",
         "colspan",
         "datastructures",
+        "dealloc",
+        "flickable",
         "focusable", // common term in UI (css, dom, toolkits)
         "Goffart",
         "gradians",
@@ -90,6 +80,7 @@
         "microcontroller",
         "microcontrollers",
         "MSVC",
+        "ogoffart",
         "opengl",
         "pixmap",
         "rowspan",
@@ -100,12 +91,17 @@
         "slint",
         "SPDX",
         "streetsidesoftware",
+        "struct",
+        "tabwidget",
         "testcase",
+        "textedit",
         "tmpobj",
         "toolchain",
+        "tronical",
         "uncompiled",
         "unmapping", // present participle of unmap
         "untracked",
+        "viewbox",
         "vtable",
         "wasm",
         "windowrc", // use in slint_windowrc_foo FFI functions
