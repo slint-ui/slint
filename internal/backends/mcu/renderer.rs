@@ -296,6 +296,7 @@ struct SceneTexture {
     color: Color,
 }
 
+#[derive(Debug)]
 struct RoundedRectangle {
     radius: PhysicalLength,
     /// the border's width
@@ -546,15 +547,21 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
                     let geom2 = geom.cast() * self.scale_factor;
                     let clipped2 = clipped.cast() * self.scale_factor;
                     let rectangle_index = self.rounded_rectangles.len() as u16;
+                    // Add a small value to make sure that the clip is always positive despite floating point shenanigans
+                    const E: f32 = 0.00001;
                     self.rounded_rectangles.push(RoundedRectangle {
                         radius: (radius.cast() * self.scale_factor).cast(),
                         width: (LogicalLength::new(border).cast() * self.scale_factor).cast(),
                         border_color: rect.border_color().color(),
                         inner_color: color,
-                        top_clip: PhysicalLength::new((clipped2.min_y() - geom2.min_y()) as _),
-                        bottom_clip: PhysicalLength::new((geom2.max_y() - clipped2.max_y()) as _),
-                        left_clip: PhysicalLength::new((clipped2.min_x() - geom2.min_x()) as _),
-                        right_clip: PhysicalLength::new((geom2.max_x() - clipped2.max_x()) as _),
+                        top_clip: PhysicalLength::new((clipped2.min_y() - geom2.min_y() + E) as _),
+                        bottom_clip: PhysicalLength::new(
+                            (geom2.max_y() - clipped2.max_y() + E) as _,
+                        ),
+                        left_clip: PhysicalLength::new((clipped2.min_x() - geom2.min_x() + E) as _),
+                        right_clip: PhysicalLength::new(
+                            (geom2.max_x() - clipped2.max_x() + E) as _,
+                        ),
                     });
                     self.new_scene_item(
                         clipped,
