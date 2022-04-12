@@ -140,15 +140,11 @@ pub(super) fn draw_rounded_rectangle_line(
     );
     if y < rr.width {
         // up or down border (x2 .. x2)
-        if (x2 * 2).floor() as i16 + rr.right_clip.get() < span.size.width + rr.left_clip.get() {
-            TargetPixel::blend_buffer(
-                &mut line_buffer[pos_x
-                    + x2.ceil()
-                        .saturating_sub(rr.left_clip.get() as u32)
-                        .min(span.size.width as u32) as usize
-                    ..pos_x + rev(x2).floor().min(span.size.width as u32) as usize],
-                rr.border_color,
-            )
+        let l = x2.ceil().saturating_sub(rr.left_clip.get() as u32).min(span.size.width as u32)
+            as usize;
+        let r = rev(x2).floor().min(span.size.width as u32) as usize;
+        if l < r {
+            TargetPixel::blend_buffer(&mut line_buffer[pos_x + l..pos_x + r], rr.border_color)
         }
     } else {
         if border > Shifted(0) {
