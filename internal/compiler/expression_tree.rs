@@ -109,12 +109,12 @@ impl BuiltinFunction {
                 args: vec![Type::ElementReference],
             },
             BuiltinFunction::ColorBrighter => Type::Function {
-                return_type: Box::new(Type::Color),
-                args: vec![Type::Color, Type::Float32],
+                return_type: Box::new(Type::Brush),
+                args: vec![Type::Brush, Type::Float32],
             },
             BuiltinFunction::ColorDarker => Type::Function {
-                return_type: Box::new(Type::Color),
-                args: vec![Type::Color, Type::Float32],
+                return_type: Box::new(Type::Brush),
+                args: vec![Type::Brush, Type::Float32],
             },
             BuiltinFunction::ImageSize => Type::Function {
                 return_type: Box::new(Type::Struct {

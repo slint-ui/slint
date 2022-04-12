@@ -61,6 +61,38 @@ impl Brush {
             Brush::LinearGradient(_) => false,
         }
     }
+
+    /// Returns a new version of this brush that has the brightness increased
+    /// by the specified factor. This is done by calling [`Color::brighter`] on
+    /// all the colors of this brush.
+    #[must_use]
+    pub fn brighter(&self, factor: f32) -> Self {
+        match self {
+            Brush::SolidColor(c) => Brush::SolidColor(c.brighter(factor)),
+            Brush::LinearGradient(g) => Brush::LinearGradient(LinearGradientBrush::new(
+                g.angle(),
+                g.stops().map(|s| GradientStop {
+                    color: s.color.brighter(factor),
+                    position: s.position,
+                }),
+            )),
+        }
+    }
+
+    /// Returns a new version of this brush that has the brightness decreased
+    /// by the specified factor. This is done by calling [`Color::ligher`] on
+    /// all the color of this brush.
+    #[must_use]
+    pub fn darker(&self, factor: f32) -> Self {
+        match self {
+            Brush::SolidColor(c) => Brush::SolidColor(c.darker(factor)),
+            Brush::LinearGradient(g) => Brush::LinearGradient(LinearGradientBrush::new(
+                g.angle(),
+                g.stops()
+                    .map(|s| GradientStop { color: s.color.darker(factor), position: s.position }),
+            )),
+        }
+    }
 }
 
 /// The LinearGradientBrush describes a way of filling a shape with different colors, which
