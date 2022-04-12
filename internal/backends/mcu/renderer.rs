@@ -696,16 +696,19 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         });
     }
 
-    fn draw_text_input(&mut self, _text_input: Pin<&i_slint_core::items::TextInput>) {
+    fn draw_text_input(&mut self, text_input: Pin<&i_slint_core::items::TextInput>) {
+        text_input.logical_geometry();
         // TODO
     }
 
     #[cfg(feature = "std")]
-    fn draw_path(&mut self, _path: Pin<&i_slint_core::items::Path>) {
+    fn draw_path(&mut self, path: Pin<&i_slint_core::items::Path>) {
+        path.logical_geometry();
         // TODO
     }
 
-    fn draw_box_shadow(&mut self, _box_shadow: Pin<&i_slint_core::items::BoxShadow>) {
+    fn draw_box_shadow(&mut self, box_shadow: Pin<&i_slint_core::items::BoxShadow>) {
+        box_shadow.logical_geometry();
         // TODO
     }
 
