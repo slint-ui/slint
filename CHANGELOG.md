@@ -15,6 +15,7 @@ All notable changes to this project are documented in this file.
  - Added `VecModel::set_vec` to replace the entire contents with new data.
  - Added a `cache-rendering-hint` boolean property that can be applied to any element, to hint to the renderer that it should cache the element and its children
    into a cached layer. This may speed up rendering of complex sub-trees if they rarely change.
+ - The `brighter` and `lighter` functions also work on values of type brush.
 
 ### Fixed
 

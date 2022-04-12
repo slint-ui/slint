@@ -369,9 +369,9 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 if arguments.len() != 2 {
                     panic!("internal error: incorrect argument count to ColorBrighter")
                 }
-                if let Value::Brush(Brush::SolidColor(col)) = eval_expression(&arguments[0], local_context) {
+                if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
                     if let Value::Number(factor) = eval_expression(&arguments[1], local_context) {
-                        col.brighter(factor as _).into()
+                        brush.brighter(factor as _).into()
                     } else {
                         panic!("Second argument not a number");
                     }
@@ -383,9 +383,9 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 if arguments.len() != 2 {
                     panic!("internal error: incorrect argument count to ColorDarker")
                 }
-                if let Value::Brush(Brush::SolidColor(col)) = eval_expression(&arguments[0], local_context) {
+                if let Value::Brush(brush) = eval_expression(&arguments[0], local_context) {
                     if let Value::Number(factor) = eval_expression(&arguments[1], local_context) {
-                        col.darker(factor as _).into()
+                        brush.darker(factor as _).into()
                     } else {
                         panic!("Second argument not a number");
                     }

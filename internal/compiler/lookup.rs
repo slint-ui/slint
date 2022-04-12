@@ -635,7 +635,7 @@ impl LookupObject for Expression {
                 }
                 Type::Component(c) => c.root_element.for_each_entry(ctx, f),
                 Type::String => StringExpression(self).for_each_entry(ctx, f),
-                Type::Color => ColorExpression(self).for_each_entry(ctx, f),
+                Type::Brush | Type::Color => ColorExpression(self).for_each_entry(ctx, f),
                 Type::Image => ImageExpression(self).for_each_entry(ctx, f),
                 Type::Array(_) => ArrayExpression(self).for_each_entry(ctx, f),
                 _ => None,
@@ -655,7 +655,7 @@ impl LookupObject for Expression {
                 }),
                 Type::Component(c) => c.root_element.lookup(ctx, name),
                 Type::String => StringExpression(self).lookup(ctx, name),
-                Type::Color => ColorExpression(self).lookup(ctx, name),
+                Type::Brush | Type::Color => ColorExpression(self).lookup(ctx, name),
                 Type::Image => ImageExpression(self).lookup(ctx, name),
                 Type::Array(_) => ArrayExpression(self).lookup(ctx, name),
                 _ => None,

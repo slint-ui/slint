@@ -82,6 +82,15 @@ public:
     /// of the first stop.
     inline Color color() const;
 
+    /// Returns a new version of this brush that has the brightness increased
+    /// by the specified factor. This is done by calling Color::brighter on
+    /// all the colors of this brush.
+    inline Brush brighter(float factor) const;
+    /// Returns a new version of this color that has the brightness decreased
+    /// by the specified factor. This is done by calling Color::darker on
+    /// all the colors of this brush.
+    inline Brush darker(float factor) const;
+
     /// Returns true if \a a is equal to \a b. If \a a holds a color, then \a b must also hold a
     /// color that is identical to \a a's color. If it holds a gradient, then the gradients must be
     /// identical. Returns false if the brushes differ in what they hold or their respective color
@@ -113,4 +122,41 @@ Color Brush::color() const
     return result;
 }
 
+inline Brush Brush::brighter(float factor) const
+{
+    Brush result = *this;
+    switch (data.tag) {
+    case Tag::SolidColor: {
+        cbindgen_private::types::slint_color_brighter(&data.solid_color._0, factor,
+                                                      &result.data.solid_color._0);
+        break;
+    }
+    case Tag::LinearGradient:
+        for (std::size_t i = 1; i < data.linear_gradient._0.size(); ++i) {
+            cbindgen_private::types::slint_color_brighter(&data.linear_gradient._0[i].color, factor,
+                                                          &result.data.linear_gradient._0[i].color);
+        }
+        break;
+    }
+    return result;
+}
+
+inline Brush Brush::darker(float factor) const
+{
+    Brush result = *this;
+    switch (data.tag) {
+    case Tag::SolidColor: {
+        cbindgen_private::types::slint_color_darker(&data.solid_color._0, factor,
+                                                    &result.data.solid_color._0);
+        break;
+    }
+    case Tag::LinearGradient:
+        for (std::size_t i = 1; i < data.linear_gradient._0.size(); ++i) {
+            cbindgen_private::types::slint_color_darker(&data.linear_gradient._0[i].color, factor,
+                                                        &result.data.linear_gradient._0[i].color);
+        }
+        break;
+    }
+    return result;
+}
 }
