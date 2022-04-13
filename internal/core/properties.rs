@@ -522,8 +522,9 @@ impl PropertyHandle {
         debug_assert!((binding as usize) & 0b11 == 0);
         debug_assert!(self.handle.get() & 0b11 == 0);
         let const_sentinel = (&CONSTANT_PROPERTY_SENTINEL) as *const u32 as usize;
+        let is_constant = self.handle.get() == const_sentinel;
         unsafe {
-            if self.handle.get() == const_sentinel {
+            if is_constant {
                 (*binding).dependencies.set(const_sentinel);
             } else {
                 DependencyListHead::mem_move(
@@ -533,6 +534,12 @@ impl PropertyHandle {
             }
         }
         self.handle.set((binding as usize) | 0b10);
+        if !is_constant {
+            self.mark_dirty(
+                #[cfg(slint_debug_property)]
+                "",
+            );
+        }
     }
 
     fn dependencies(&self) -> *mut DependencyListHead {
@@ -1099,10 +1106,6 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                 debug_name.as_str(),
             );
         }
-        prop1.handle.mark_dirty(
-            #[cfg(slint_debug_property)]
-            debug_name.as_str(),
-        );
     }
 }
 
