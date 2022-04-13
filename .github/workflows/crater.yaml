@@ -31,6 +31,12 @@ jobs:
           - "https://github.com/leofidus/ntfs-explorer"
           - "https://github.com/ElevenJune/mastermind_Rust"
           - "https://github.com/PhotonQuantum/shuiyuan-archiver"
+          - "https://github.com/xentec/camview"
+          - "https://github.com/Yuhanawa/Mirror-source-assistant"
+          - "https://github.com/b1tg/copy-net-info"
+          - "https://github.com/planet0104/wxcode-client"
+          - "https://github.com/planet0104/matrix"
+          - "https://github.com/SeriousBug/kiraz"
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
