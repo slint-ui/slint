@@ -318,7 +318,7 @@ export TabImpl := Rectangle {
     property<bool> has-focus: current-focused == tab-index;
     property<bool> pressed;
     property<int> current; // The currently selected tab
-    property<int> current-focused; // The currently focused tab
+    property<int> current-focused: -1; // The currently focused tab
     property<int> tab-index; // The index of this tab
     property<int> num-tabs; // The total number of tabs
 
