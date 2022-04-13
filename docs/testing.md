@@ -84,16 +84,11 @@ The C++ test driver will take each .slint and generate a .h for it. It will also
 includes it, and add the ```` ```cpp ```` block in the main function.
 Each program is compiled separately. And then run.
 
-Some macro like `assert_eq` are defined to look similar o the rust equivalent.
-
-To run the test, you must make sure to first build the slint-cpp shared library:
+Some macro like `assert_eq` are defined to look similar to the rust equivalent.
 
 ```
-cargo build --lib -p slint-cpp --features testing --no-default-features && cargo test -p  test-driver-cpp --
+cargo test -p  test-driver-cpp --
 ```
-
-You can omit the first part that compiles slint-cpp if you only want to test the compiler and
-the runtime library is uptodate.
 
 Note that there are also C++ unit tests that can be run by CMake
 

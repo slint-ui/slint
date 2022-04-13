@@ -26,7 +26,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     target_dir.pop();
     target_dir.pop();
 
-    println!("cargo:rustc-env=CPP_LIB_PATH={}", target_dir.display());
+    println!("cargo:rustc-env=CPP_LIB_PATH={}/deps", target_dir.display());
 
     let generated_include_dir = std::env::var_os("DEP_SLINT_CPP_GENERATED_INCLUDE_DIR")
         .expect("the slint-cpp crate needs to provide the meta-data that points to the directory with the generated includes");
