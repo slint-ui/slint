@@ -112,6 +112,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     }
 
     let output = cmd
+        .envs(library_search_path_env_with(env!("CPP_LIB_PATH")))
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
         .spawn()
@@ -140,4 +141,21 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
     }
 
     Ok(())
+}
+
+fn library_search_path_env_with(
+    value_to_prepend: &str,
+) -> impl IntoIterator<Item = (&'static str, String)> {
+    let (var, separator) = if cfg!(target_os = "windows") {
+        ("PATH", ';')
+    } else if cfg!(target_os = "macos") {
+        ("DYLD_FALLBACK_LIBRARY_PATH", ':')
+    } else {
+        ("LD_LIBRARY_PATH", ':')
+    };
+
+    std::iter::once((
+        var,
+        format!("{}{}{}", value_to_prepend, separator, std::env::var(var).unwrap_or_default()),
+    ))
 }
