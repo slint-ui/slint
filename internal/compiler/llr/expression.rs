@@ -91,7 +91,7 @@ pub enum Expression {
         level: usize,
         value: Box<Expression>,
     },
-    /// An assignement done with the `foo[idx] = ...`
+    /// An assignment done with the `foo[idx] = ...`
     ArrayIndexAssignment {
         array: Box<Expression>,
         index: Box<Expression>,
@@ -464,7 +464,7 @@ impl<'a, T> TypeResolutionContext for EvaluationContext<'a, T> {
             }
             PropertyReference::InNativeItem { sub_component_path, item_index, prop_name } => {
                 if prop_name == "elements" {
-                    // The `Path::elements` property is not in the NativeClasss
+                    // The `Path::elements` property is not in the NativeClass
                     return &Type::PathData;
                 }
 

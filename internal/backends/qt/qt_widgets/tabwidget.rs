@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore hframe qreal tabbar vframe
+
 use i_slint_core::input::FocusEventResult;
 
 use super::*;
