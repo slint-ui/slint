@@ -126,13 +126,31 @@ export ComboBox := NativeComboBox {
 export TabWidgetImpl := NativeTabWidget { }
 export TabImpl := NativeTab { }
 
-export TabBarImpl := HorizontalLayout {
+export TabBarImpl := Rectangle {
     // injected properties:
     property<int> current; // The currently selected tab
-    property<int> current-focused; // The current focused index (or -1 if no focus)
+    property<int> current-focused: current; // The currently focused tab
     property<int> num-tabs; // The total number of tabs
 
-    alignment: start;
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: start;
+        @children
+    }
+
+    fs := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Keys.LeftArrow) {
+                 root.current = Math.max(root.current - 1,  0);
+                 return accept;
+            }
+            if (event.text == Keys.RightArrow) {
+                 root.current = Math.min(root.current + 1, num-tabs - 1);
+                 return accept;
+            }
+            return reject;
+        }
+    }
 }
 export TabWidget := TabWidget {}
 
