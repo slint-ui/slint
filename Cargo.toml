@@ -84,3 +84,7 @@ panic = "abort"
 
 [profile.dev]
 panic = "abort"
+
+[patch.crates-io]
+# Pull in https://github.com/rust-windowing/winit/pull/2255
+winit = { git = "https://github.com/slint-ui/winit", branch = "simon/v0.26-with-touch-fix" }

@@ -338,7 +338,6 @@ fn process_window_event(
     quit_behavior: i_slint_core::backend::EventLoopQuitBehavior,
     control_flow: &mut winit::event_loop::ControlFlow,
     cursor_pos: &mut Point,
-    active_touch_points: &mut Vec<(u64, winit::dpi::PhysicalPosition<f64>)>,
     pressed: &mut bool,
 ) {
     fn key_event(
@@ -487,32 +486,7 @@ fn process_window_event(
             runtime_window.process_mouse_input(ev);
         }
         WindowEvent::Touch(touch) => {
-            // Work around rust-windowing/winit#1996 , don't use the touch position on `TouchPhase::Ended` as it may be wrong.
-            // Instead save and maintain it on `Started` and `Moved`
-            if matches!(
-                touch.phase,
-                winit::event::TouchPhase::Started | winit::event::TouchPhase::Moved
-            ) {
-                if let Some(i) = active_touch_points.iter().position(|(id, _)| *id == touch.id) {
-                    active_touch_points[i].1 = touch.location;
-                } else {
-                    active_touch_points.push((touch.id, touch.location))
-                }
-            }
-            let physical_location = active_touch_points
-                .iter()
-                .find_map(
-                    |(id, physical_position)| {
-                        if *id == touch.id {
-                            Some(*physical_position)
-                        } else {
-                            None
-                        }
-                    },
-                )
-                .unwrap_or_else(|| touch.location);
-
-            let location = physical_location.to_logical(runtime_window.scale_factor() as f64);
+            let location = touch.location.to_logical(runtime_window.scale_factor() as f64);
             let pos = euclid::point2(location.x, location.y);
             let ev = match touch.phase {
                 winit::event::TouchPhase::Started => {
@@ -526,16 +500,6 @@ fn process_window_event(
                 winit::event::TouchPhase::Moved => MouseEvent::MouseMoved { pos },
             };
             runtime_window.process_mouse_input(ev);
-
-            // Work around rust-windowing/winit#1996 by removing our own tracking when we're done
-            if matches!(
-                touch.phase,
-                winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled
-            ) {
-                if let Some(i) = active_touch_points.iter().position(|(id, _)| *id == touch.id) {
-                    active_touch_points.swap_remove(i);
-                }
-            }
         }
         WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size: size } => {
             if std::env::var("SLINT_SCALE_FACTOR").is_err() {
@@ -574,7 +538,6 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
 
     // last seen cursor position, (physical coordinate)
     let mut cursor_pos = Point::default();
-    let mut active_touch_points = Vec::new();
     let mut pressed = false;
     let mut run_fn = move |event: Event<CustomEvent>,
                            event_loop_target: &EventLoopWindowTarget<CustomEvent>,
@@ -593,7 +556,6 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
                             quit_behavior,
                             control_flow,
                             &mut cursor_pos,
-                            &mut active_touch_points,
                             &mut pressed,
                         );
                     };
