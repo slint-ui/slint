@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+O := Text {
+    property <int> val;
+    text: val;
+    property <int> a: val + 1;
+}
+
+TestCase := Window {
+    property <int> val: condition ? 2 : 4;
+    property <bool> condition : false;
+    HorizontalLayout {
+        o1 := O { val <=> root.val; }
+        o2 := O { val <=> root.val; }
+        o3 := O { val <=> root.val; }
+        o4 := O { val <=> root.val; }
+        o5 := O { val <=> root.val; }
+    }
+    property <int> checksum: 10000 * o1.a + 1000 * o2.a + 100 * o3.a + 10 * o4.a + 1 * o5.a;
+    property <bool> test: checksum == 55555;
+}
+
+
+/*
+
+```rust
+let instance = TestCase::new();
+assert_eq!(instance.get_checksum(), 55555);
+instance.set_condition(true);
+assert_eq!(instance.get_checksum(), 33333);
+```
+
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert_eq(instance.get_checksum(), 55555);
+instance.set_condition(true);
+assert_eq(instance.get_checksum(), 33333);
+```
+
+
+```js
+let instance = new slint.TestCase({});
+assert.equal(instance.checksum, 55555);
+instance.condition = true;
+assert.equal(instance.checksum, 33333);
+```
+
+*/
