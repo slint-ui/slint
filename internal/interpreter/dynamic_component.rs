@@ -958,26 +958,19 @@ pub(crate) fn generate_component<'id>(
             Type::Struct { .. } => property_info::<Value>(),
             Type::Array(_) => property_info::<Value>(),
             Type::Percent => property_info::<f32>(),
-            Type::Enumeration(e) => match e.name.as_ref() {
-                "LayoutAlignment" => property_info::<i_slint_core::layout::LayoutAlignment>(),
-                "TextHorizontalAlignment" => {
-                    property_info::<i_slint_core::items::TextHorizontalAlignment>()
+            Type::Enumeration(e) => {
+                macro_rules! match_enum_type {
+                    ($( $(#[$enum_doc:meta])* enum $Name:ident { $($body:tt)* })*) => {
+                        match e.name.as_str() {
+                            $(
+                                stringify!($Name) => property_info::<i_slint_core::items::$Name>(),
+                            )*
+                            _ => panic!("unknown enum"),
+                        }
+                    }
                 }
-                "TextVerticalAlignment" => {
-                    property_info::<i_slint_core::items::TextVerticalAlignment>()
-                }
-                "InputType" => property_info::<i_slint_core::items::InputType>(),
-                "TextWrap" => property_info::<i_slint_core::items::TextWrap>(),
-                "TextOverflow" => property_info::<i_slint_core::items::TextOverflow>(),
-                "ImageFit" => property_info::<i_slint_core::items::ImageFit>(),
-                "FillRule" => property_info::<i_slint_core::items::FillRule>(),
-                "MouseCursor" => property_info::<i_slint_core::items::MouseCursor>(),
-                "StandardButtonKind" => property_info::<i_slint_core::items::StandardButtonKind>(),
-                "DialogButtonRole" => property_info::<i_slint_core::items::DialogButtonRole>(),
-                "PointerEventButton" => property_info::<i_slint_core::items::PointerEventButton>(),
-                "PointerEventKind" => property_info::<i_slint_core::items::PointerEventKind>(),
-                _ => panic!("unknown enum"),
-            },
+                i_slint_common::for_each_enums!(match_enum_type)
+            }
             Type::LayoutCache => property_info::<SharedVector<f32>>(),
             _ => panic!("bad type {:?}", &decl.property_type),
         };

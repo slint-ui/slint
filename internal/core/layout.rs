@@ -5,7 +5,8 @@
 
 // cspell:ignore coord
 
-use crate::{items::DialogButtonRole, slice::Slice, Coord, SharedVector};
+use crate::items::{DialogButtonRole, LayoutAlignment};
+use crate::{slice::Slice, Coord, SharedVector};
 use alloc::vec::Vec;
 
 /// Vertical or Horizontal orientation
@@ -432,25 +433,6 @@ pub fn grid_layout_info(
     let preferred = layout_data.iter().map(|data| data.pref).sum::<Coord>() + spacing_w;
     let stretch = layout_data.iter().map(|data| data.stretch).sum::<f32>();
     LayoutInfo { min, max, min_percent: 0 as _, max_percent: 100 as _, preferred, stretch }
-}
-
-/// Enum representing the alignment property of a BoxLayout or HorizontalLayout
-#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub enum LayoutAlignment {
-    stretch,
-    center,
-    start,
-    end,
-    space_between,
-    space_around,
-}
-
-impl Default for LayoutAlignment {
-    fn default() -> Self {
-        Self::stretch
-    }
 }
 
 #[repr(C)]

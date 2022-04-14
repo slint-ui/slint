@@ -8,11 +8,15 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 
-use super::{Item, ItemConsts, ItemRc, PointArg, PointerEventButton, RenderingResult, VoidArg};
+use super::{
+    InputType, Item, ItemConsts, ItemRc, KeyEventResult, KeyEventType, PointArg,
+    PointerEventButton, RenderingResult, TextHorizontalAlignment, TextOverflow,
+    TextVerticalAlignment, TextWrap, VoidArg,
+};
 use crate::graphics::{Brush, Color, FontRequest, Rect};
 use crate::input::{
     key_codes, FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
-    KeyEventResult, KeyEventType, KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
+    KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::{LayoutInfo, Orientation};
@@ -27,81 +31,6 @@ use core::pin::Pin;
 use euclid::num::Ceil;
 use i_slint_core_macros::*;
 use unicode_segmentation::UnicodeSegmentation;
-
-/// This enum defines the input type in a text input which for now only distinguishes a normal
-/// input from a password input
-#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub enum InputType {
-    /// This type is used for a normal text input
-    text,
-    /// This type is used for password inputs where the characters are represented as *'s
-    password,
-}
-impl Default for InputType {
-    fn default() -> Self {
-        Self::text
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub enum TextHorizontalAlignment {
-    left,
-    center,
-    right,
-}
-
-impl Default for TextHorizontalAlignment {
-    fn default() -> Self {
-        Self::left
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub enum TextVerticalAlignment {
-    top,
-    center,
-    bottom,
-}
-
-impl Default for TextVerticalAlignment {
-    fn default() -> Self {
-        Self::top
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub enum TextWrap {
-    no_wrap,
-    word_wrap,
-}
-
-impl Default for TextWrap {
-    fn default() -> Self {
-        Self::no_wrap
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub enum TextOverflow {
-    clip,
-    elide,
-}
-
-impl Default for TextOverflow {
-    fn default() -> Self {
-        Self::clip
-    }
-}
 
 /// The implementation of the `Text` element
 #[repr(C)]

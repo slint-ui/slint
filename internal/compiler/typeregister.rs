@@ -37,40 +37,37 @@ const RESERVED_LAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("rowspan", Type::Int32),
 ];
 
+macro_rules! declare_enums {
+    ($( $(#[$enum_doc:meta])* enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
+        pub struct BuiltinEnums {
+            $(pub $Name : Rc<Enumeration>),*
+        }
+        impl BuiltinEnums {
+            fn new() -> Self {
+                Self {
+                    $($Name : Rc::new(Enumeration {
+                        name: stringify!($Name).replace('_', "-"),
+                        values: vec![$(stringify!($Value).trim_start_matches("r#").replace('_', "-")),*],
+                        default_value: 0,
+                    })),*
+                }
+            }
+            fn fill_register(&self, register: &mut TypeRegister) {
+                $(if stringify!($Name) != "PathEvent" {
+                    register.insert_type_with_name(
+                        Type::Enumeration(self.$Name.clone()),
+                        stringify!($Name).replace('_', "-")
+                    );
+                })*
+            }
+        }
+    };
+}
+
+i_slint_common::for_each_enums!(declare_enums);
+
 thread_local! {
-    pub static DIALOG_BUTTON_ROLE_ENUM: Rc<Enumeration> =
-        Rc::new(Enumeration {
-            name: "DialogButtonRole".into(),
-            values: IntoIterator::into_iter([
-                "none".to_owned(),
-                "accept".to_owned(),
-                "reject".to_owned(),
-                "apply".to_owned(),
-                "reset".to_owned(),
-                "action".to_owned(),
-                "help".to_owned(),
-            ])
-            .collect(),
-            default_value: 0,
-        });
-
-    pub static LAYOUT_ALIGNMENT_ENUM: Rc<Enumeration> =
-        Rc::new(Enumeration {
-            name: "LayoutAlignment".into(),
-            values: IntoIterator::into_iter(
-                ["stretch", "center", "start", "end", "space-between", "space-around"]
-            ).map(String::from).collect(),
-            default_value: 0,
-        });
-
-    pub static PATH_EVENT_ENUM: Rc<Enumeration> =
-    Rc::new(Enumeration {
-        name: "PathEvent".into(),
-        values: IntoIterator::into_iter(
-            ["begin", "line", "quadratic", "cubic", "end_open", "end_closed"]
-        ).map(String::from).collect(),
-        default_value: 0,
-    });
+    pub static BUILTIN_ENUMS: BuiltinEnums = BuiltinEnums::new();
 }
 
 const RESERVED_OTHER_PROPERTIES: &[(&str, Type)] = &[
@@ -98,7 +95,10 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
         .chain(IntoIterator::into_iter([
             ("forward-focus", Type::ElementReference),
             ("focus", BuiltinFunction::SetFocusItem.ty()),
-            ("dialog-button-role", Type::Enumeration(DIALOG_BUTTON_ROLE_ENUM.with(|e| e.clone()))),
+            (
+                "dialog-button-role",
+                Type::Enumeration(BUILTIN_ENUMS.with(|e| e.DialogButtonRole.clone())),
+            ),
         ]))
 }
 
@@ -183,73 +183,7 @@ impl TypeRegister {
         register.insert_type(Type::Angle);
         register.insert_type(Type::Brush);
 
-        let mut declare_enum = |name: &str, values: &[&str]| {
-            register.insert_type_with_name(
-                Type::Enumeration(Rc::new(Enumeration {
-                    name: name.to_owned(),
-                    values: values.iter().cloned().map(String::from).collect(),
-                    default_value: 0,
-                })),
-                name.to_owned(),
-            );
-        };
-
-        declare_enum("TextHorizontalAlignment", &["left", "center", "right"]);
-        declare_enum("TextVerticalAlignment", &["top", "center", "bottom"]);
-        declare_enum("TextWrap", &["no-wrap", "word-wrap"]);
-        declare_enum("TextOverflow", &["clip", "elide"]);
-        declare_enum("ImageFit", &["fill", "contain", "cover"]);
-        declare_enum("ImageRendering", &["smooth", "pixelated"]);
-        declare_enum("EventResult", &["reject", "accept"]);
-        declare_enum("FillRule", &["nonzero", "evenodd"]);
-        declare_enum("InputType", &["text", "password"]);
-        declare_enum(
-            "MouseCursor",
-            &[
-                "default",
-                "none",
-                "help",
-                "pointer",
-                "progress",
-                "wait",
-                "crosshair",
-                "text",
-                "alias",
-                "copy",
-                "move",
-                "no-drop",
-                "not-allowed",
-                "grab",
-                "grabbing",
-                "col-resize",
-                "row-resize",
-                "n-resize",
-                "e-resize",
-                "s-resize",
-                "w-resize",
-                "ne-resize",
-                "nw-resize",
-                "se-resize",
-                "sw-resize",
-                "ew-resize",
-                "ns-resize",
-                "nesw-resize",
-                "nwse-resize",
-            ],
-        );
-        declare_enum(
-            "StandardButtonKind",
-            &[
-                "ok", "cancel", "apply", "close", "reset", "help", "yes", "no", "abort", "retry",
-                "ignore",
-            ],
-        );
-        declare_enum("PointerEventKind", &["cancel", "down", "up"]);
-        declare_enum("PointerEventButton", &["none", "left", "right", "middle"]);
-        DIALOG_BUTTON_ROLE_ENUM
-            .with(|e| register.insert_type_with_name(Type::Enumeration(e.clone()), e.name.clone()));
-        LAYOUT_ALIGNMENT_ENUM
-            .with(|e| register.insert_type_with_name(Type::Enumeration(e.clone()), e.name.clone()));
+        BUILTIN_ENUMS.with(|e| e.fill_register(&mut register));
 
         register.supported_property_animation_types.insert(Type::Float32.to_string());
         register.supported_property_animation_types.insert(Type::Int32.to_string());

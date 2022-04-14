@@ -499,7 +499,7 @@ fn solve_layout(
             if let (Some(button_roles), Orientation::Horizontal) = (&layout.dialog_button_roles, o)
             {
                 let cells_ty = cells.ty(ctx);
-                let e = crate::typeregister::DIALOG_BUTTON_ROLE_ENUM.with(|e| e.clone());
+                let e = crate::typeregister::BUILTIN_ENUMS.with(|e| e.DialogButtonRole.clone());
                 let roles = button_roles
                     .iter()
                     .map(|r| {
@@ -569,8 +569,8 @@ fn solve_layout(
                     ("padding", padding.ty(ctx), padding),
                     (
                         "alignment",
-                        crate::typeregister::LAYOUT_ALIGNMENT_ENUM
-                            .with(|e| Type::Enumeration(e.clone())),
+                        crate::typeregister::BUILTIN_ENUMS
+                            .with(|e| Type::Enumeration(e.LayoutAlignment.clone())),
                         bld.alignment,
                     ),
                     ("cells", bld.cells.ty(ctx), bld.cells),
@@ -661,7 +661,7 @@ fn box_layout_data(
     let alignment = if let Some(expr) = &layout.geometry.alignment {
         llr_Expression::PropertyReference(ctx.map_property_reference(expr))
     } else {
-        let e = crate::typeregister::LAYOUT_ALIGNMENT_ENUM.with(|e| e.clone());
+        let e = crate::typeregister::BUILTIN_ENUMS.with(|e| e.LayoutAlignment.clone());
         llr_Expression::EnumerationValue(EnumerationValue {
             value: e.default_value,
             enumeration: e,

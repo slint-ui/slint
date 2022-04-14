@@ -58,6 +58,7 @@ backend-gl-wayland = ["i-slint-backend-selector/backend-gl-wayland", "i-slint-ba
 
 [dependencies]
 i-slint-compiler = { version = "=0.2.2", path = "../compiler" }
+i-slint-common = { version = "=0.2.2", path = "../common" }
 i-slint-core = { version = "=0.2.2", path = "../core", features = ["rtti"] }
 i-slint-backend-selector = { version = "=0.2.2", path = "../../internal/backends/selector" }
 
