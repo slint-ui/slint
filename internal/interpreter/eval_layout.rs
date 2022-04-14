@@ -208,7 +208,7 @@ fn box_layout_data(
     component: InstanceRef,
     expr_eval: &impl Fn(&NamedReference) -> f32,
     mut repeater_indices: Option<&mut Vec<u32>>,
-) -> (Vec<core_layout::BoxLayoutCellData>, core_layout::LayoutAlignment) {
+) -> (Vec<core_layout::BoxLayoutCellData>, i_slint_core::items::LayoutAlignment) {
     let window = eval::window_ref(component).unwrap();
     let mut cells = Vec::with_capacity(box_layout.elems.len());
     for cell in &box_layout.elems {

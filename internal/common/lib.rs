@@ -5,4 +5,5 @@
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 #![no_std]
 
+pub mod enums;
 pub mod key_codes;

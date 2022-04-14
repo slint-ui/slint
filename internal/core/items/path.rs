@@ -8,7 +8,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 
-use super::{Item, ItemConsts, ItemRc, ItemRendererRef, RenderingResult};
+use super::{FillRule, Item, ItemConsts, ItemRc, ItemRendererRef, RenderingResult};
 use crate::graphics::{Brush, PathData, PathDataIterator, Rect};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
@@ -24,20 +24,6 @@ use crate::{Coord, Property};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use i_slint_core_macros::*;
-
-#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub enum FillRule {
-    nonzero,
-    evenodd,
-}
-
-impl Default for FillRule {
-    fn default() -> Self {
-        Self::nonzero
-    }
-}
 
 /// The implementation of the `Path` element
 #[repr(C)]

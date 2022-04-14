@@ -17,40 +17,34 @@ macro_rules! declare_ValueType {
         pub trait ValueType: 'static + Default + Clone $(+ TryInto<$ty> + TryFrom<$ty>)* {}
     };
 }
-declare_ValueType![
-    (),
-    bool,
-    u32,
-    u64,
-    i32,
-    i64,
-    f32,
-    f64,
-    crate::SharedString,
-    crate::graphics::Image,
-    crate::Color,
-    crate::PathData,
-    crate::animations::EasingCurve,
-    crate::items::TextHorizontalAlignment,
-    crate::items::TextVerticalAlignment,
-    crate::items::TextOverflow,
-    crate::items::TextWrap,
-    crate::model::StandardListViewItem,
-    crate::items::ImageFit,
-    crate::items::ImageRendering,
-    crate::input::KeyEvent,
-    crate::items::EventResult,
-    crate::Brush,
-    crate::items::FillRule,
-    crate::items::MouseCursor,
-    crate::items::DialogButtonRole,
-    crate::items::StandardButtonKind,
-    crate::graphics::Point,
-    crate::items::PointerEvent,
-    crate::items::PointerEventButton,
-    crate::items::PointerEventKind,
-    crate::items::InputType,
-];
+
+macro_rules! declare_ValueType_2 {
+    ($( $(#[$enum_doc:meta])* enum $Name:ident { $($body:tt)* })*) => {
+        declare_ValueType![
+            (),
+            bool,
+            u32,
+            u64,
+            i32,
+            i64,
+            f32,
+            f64,
+            crate::SharedString,
+            crate::graphics::Image,
+            crate::Color,
+            crate::PathData,
+            crate::animations::EasingCurve,
+            crate::model::StandardListViewItem,
+            crate::input::KeyEvent,
+            crate::Brush,
+            crate::graphics::Point,
+            crate::items::PointerEvent,
+            $(crate::items::$Name,)*
+        ];
+    };
+}
+
+i_slint_common::for_each_enums!(declare_ValueType_2);
 
 /// What kind of animation is on a binding
 pub enum AnimatedBindingKind {

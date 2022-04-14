@@ -268,30 +268,30 @@ declare_value_struct_conversion!(struct i_slint_core::items::PointerEvent { kind
 /// The `enum` must derive `Display` and `FromStr`
 /// (can be done with `strum_macros::EnumString`, `strum_macros::Display` derive macro)
 macro_rules! declare_value_enum_conversion {
-    ($ty:ty, $n:ident) => {
-        impl From<$ty> for Value {
-            fn from(v: $ty) -> Self {
+    ($( $(#[$enum_doc:meta])* enum $Name:ident { $($body:tt)* })*) => { $(
+        impl From<i_slint_core::items::$Name> for Value {
+            fn from(v: i_slint_core::items::$Name) -> Self {
                 Value::EnumerationValue(
-                    stringify!($n).to_owned(),
+                    stringify!($Name).to_owned(),
                     v.to_string().trim_start_matches("r#").replace('_', "-"),
                 )
             }
         }
-        impl TryInto<$ty> for Value {
+        impl TryInto<i_slint_core::items::$Name> for Value {
             type Error = ();
-            fn try_into(self) -> Result<$ty, ()> {
+            fn try_into(self) -> Result<i_slint_core::items::$Name, ()> {
                 use std::str::FromStr;
                 match self {
                     Self::EnumerationValue(enumeration, value) => {
-                        if enumeration != stringify!($n) {
+                        if enumeration != stringify!($Name) {
                             return Err(());
                         }
 
-                        <$ty>::from_str(value.as_str())
+                        <i_slint_core::items::$Name>::from_str(value.as_str())
                             .or_else(|_| {
                                 let norm = value.as_str().replace('-', "_");
-                                <$ty>::from_str(&norm)
-                                    .or_else(|_| <$ty>::from_str(&format!("r#{}", norm)))
+                                <i_slint_core::items::$Name>::from_str(&norm)
+                                    .or_else(|_| <i_slint_core::items::$Name>::from_str(&format!("r#{}", norm)))
                             })
                             .map_err(|_| ())
                     }
@@ -299,29 +299,10 @@ macro_rules! declare_value_enum_conversion {
                 }
             }
         }
-    };
+    )*};
 }
 
-declare_value_enum_conversion!(
-    i_slint_core::items::TextHorizontalAlignment,
-    TextHorizontalAlignment
-);
-declare_value_enum_conversion!(i_slint_core::items::TextVerticalAlignment, TextVerticalAlignment);
-declare_value_enum_conversion!(i_slint_core::items::TextOverflow, TextOverflow);
-declare_value_enum_conversion!(i_slint_core::items::TextWrap, TextWrap);
-declare_value_enum_conversion!(i_slint_core::layout::LayoutAlignment, LayoutAlignment);
-declare_value_enum_conversion!(i_slint_core::items::ImageFit, ImageFit);
-declare_value_enum_conversion!(i_slint_core::items::ImageRendering, ImageRendering);
-declare_value_enum_conversion!(i_slint_core::input::KeyEventType, KeyEventType);
-declare_value_enum_conversion!(i_slint_core::items::EventResult, EventResult);
-declare_value_enum_conversion!(i_slint_core::items::FillRule, FillRule);
-declare_value_enum_conversion!(i_slint_core::items::MouseCursor, MouseCursor);
-declare_value_enum_conversion!(i_slint_core::items::StandardButtonKind, StandardButtonKind);
-declare_value_enum_conversion!(i_slint_core::items::PointerEventKind, PointerEventKind);
-declare_value_enum_conversion!(i_slint_core::items::PointerEventButton, PointerEventButton);
-declare_value_enum_conversion!(i_slint_core::items::DialogButtonRole, DialogButtonRole);
-declare_value_enum_conversion!(i_slint_core::items::InputType, InputType);
-declare_value_enum_conversion!(i_slint_core::graphics::PathEvent, PathEvent);
+i_slint_common::for_each_enums!(declare_value_enum_conversion);
 
 impl From<i_slint_core::animations::Instant> for Value {
     fn from(value: i_slint_core::animations::Instant) -> Self {

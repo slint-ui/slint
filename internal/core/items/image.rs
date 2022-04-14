@@ -7,7 +7,7 @@ This module contains the builtin image related items.
 When adding an item or a property, it needs to be kept in sync with different place.
 Lookup the [`crate::items`] module documentation.
 */
-use super::{Item, ItemConsts, ItemRc, RenderingResult};
+use super::{ImageFit, ImageRendering, Item, ItemConsts, ItemRc, RenderingResult};
 use crate::graphics::Rect;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
@@ -23,35 +23,6 @@ use crate::{Brush, Coord, Property};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use i_slint_core_macros::*;
-
-#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub enum ImageFit {
-    fill,
-    contain,
-    cover,
-}
-
-impl Default for ImageFit {
-    fn default() -> Self {
-        ImageFit::fill
-    }
-}
-
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, strum::EnumString, strum::Display)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub enum ImageRendering {
-    smooth,
-    pixelated,
-}
-
-impl Default for ImageRendering {
-    fn default() -> Self {
-        ImageRendering::smooth
-    }
-}
 
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]

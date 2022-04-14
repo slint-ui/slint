@@ -120,7 +120,7 @@ pub fn compile_paths(
 fn compile_path_from_string_literal(commands: &str) -> Option<BindingExpression> {
     let path_builder = lyon_path::Path::builder().with_svg();
     lyon_svg::path_utils::build_path(path_builder, commands).ok().map(|path| {
-        let event_enum = crate::typeregister::PATH_EVENT_ENUM.with(|e| e.clone());
+        let event_enum = crate::typeregister::BUILTIN_ENUMS.with(|e| e.PathEvent.clone());
         let point_type = Type::Struct {
             fields: IntoIterator::into_iter([
                 ("x".to_owned(), Type::Float32),

@@ -23,7 +23,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 use crate::graphics::{Brush, Color, Point, Rect};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
-    KeyEventResult, KeyEventType, MouseEvent,
+    KeyEventResult, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
 pub use crate::item_tree::ItemRc;
@@ -311,53 +311,6 @@ declare_item_vtable! {
     fn slint_get_BorderRectangleVTable() -> BorderRectangleVTable for BorderRectangle
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub enum MouseCursor {
-    default,
-    none,
-    //context_menu,
-    help,
-    pointer,
-    progress,
-    wait,
-    //cell,
-    crosshair,
-    text,
-    //vertical_text,
-    alias,
-    copy,
-    r#move,
-    no_drop,
-    not_allowed,
-    grab,
-    grabbing,
-    //all_scroll,
-    col_resize,
-    row_resize,
-    n_resize,
-    e_resize,
-    s_resize,
-    w_resize,
-    ne_resize,
-    nw_resize,
-    se_resize,
-    sw_resize,
-    ew_resize,
-    ns_resize,
-    nesw_resize,
-    nwse_resize,
-    //zoom_in,
-    //zoom_out,
-}
-
-impl Default for MouseCursor {
-    fn default() -> Self {
-        Self::default
-    }
-}
-
 /// The implementation of the `TouchArea` element
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
@@ -522,21 +475,6 @@ impl ItemConsts for TouchArea {
 
 declare_item_vtable! {
     fn slint_get_TouchAreaVTable() -> TouchAreaVTable for TouchArea
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-/// What is returned from the event handler
-pub enum EventResult {
-    reject,
-    accept,
-}
-
-impl Default for EventResult {
-    fn default() -> Self {
-        Self::reject
-    }
 }
 
 /// A runtime item that exposes key
@@ -1327,78 +1265,28 @@ declare_item_vtable! {
     fn slint_get_PathVTable() -> PathVTable for Path
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub enum StandardButtonKind {
-    ok,
-    cancel,
-    apply,
-    close,
-    reset,
-    help,
-    yes,
-    no,
-    abort,
-    retry,
-    ignore,
+macro_rules! declare_enums {
+    ($( $(#[$enum_doc:meta])* enum $Name:ident { $( $(#[$value_doc:meta])* $Value:ident,)* })*) => {
+        $(
+            #[derive(Copy, Clone, Debug, PartialEq, Eq, strum::EnumString, strum::Display, Hash)]
+            #[repr(C)]
+            #[allow(non_camel_case_types)]
+            $(#[$enum_doc])*
+            pub enum $Name {
+                $( $(#[$value_doc])* $Value),*
+            }
+
+            impl Default for $Name {
+                fn default() -> Self {
+                    // Always return the first value
+                    ($(Self::$Value,)*).0
+                }
+            }
+        )*
+    };
 }
 
-impl Default for StandardButtonKind {
-    fn default() -> Self {
-        Self::ok
-    }
-}
-
-#[derive(Copy, Clone, Eq, PartialEq, Hash, Debug, strum::EnumString, strum::Display)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub enum DialogButtonRole {
-    none,
-    accept,
-    reject,
-    apply,
-    reset,
-    action,
-    help,
-}
-
-impl Default for DialogButtonRole {
-    fn default() -> Self {
-        Self::none
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub enum PointerEventKind {
-    cancel,
-    down,
-    up,
-}
-
-impl Default for PointerEventKind {
-    fn default() -> Self {
-        Self::cancel
-    }
-}
-
-#[derive(Copy, Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
-#[repr(C)]
-#[allow(non_camel_case_types)]
-pub enum PointerEventButton {
-    none,
-    left,
-    right,
-    middle,
-}
-
-impl Default for PointerEventButton {
-    fn default() -> Self {
-        Self::none
-    }
-}
+i_slint_common::for_each_enums!(declare_enums);
 
 /// Represents a key event sent by the windowing system.
 #[derive(Debug, Clone, PartialEq, Default)]

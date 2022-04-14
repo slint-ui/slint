@@ -5,6 +5,7 @@
 This module contains path related types and functions for the run-time library.
 */
 
+use crate::items::PathEvent;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use auto_enums::auto_enum;
@@ -132,26 +133,6 @@ pub enum PathElement {
     QuadraticTo(PathQuadraticTo),
     /// Indicates that the path should be closed now by connecting to the starting point.
     Close,
-}
-
-#[repr(C)]
-#[derive(Clone, Debug, PartialEq, strum::EnumString, strum::Display)]
-#[allow(non_camel_case_types)]
-/// PathEvent is a low-level data structure describing the composition of a path. Typically it is
-/// generated at compile time from a higher-level description, such as SVG commands.
-pub enum PathEvent {
-    /// The beginning of the path.
-    begin,
-    /// A straight line on the path.
-    line,
-    /// A quadratic bezier curve on the path.
-    quadratic,
-    /// A cubic bezier curve on the path.
-    cubic,
-    /// The end of the path that remains open.
-    end_open,
-    /// The end of a path that is closed.
-    end_closed,
 }
 
 struct ToLyonPathEventIterator<'a> {

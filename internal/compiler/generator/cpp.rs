@@ -2184,7 +2184,11 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             )
         }
         Expression::EnumerationValue(value) => {
-            format!("slint::cbindgen_private::{}::{}", value.enumeration.name, ident(&value.to_string()))
+            format!(
+                "slint::cbindgen_private::{}::{}",
+                value.enumeration.name,
+                ident(i_slint_common::enums::cpp_escape_keyword(&value.to_string())),
+            )
         }
         Expression::ReturnStatement(Some(expr)) => format!(
             "throw slint::private_api::ReturnWrapper<{}>({})",

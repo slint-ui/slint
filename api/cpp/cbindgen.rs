@@ -2,10 +2,35 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use anyhow::Context;
+use std::io::Write;
 use std::iter::Extend;
 use std::path::{Path, PathBuf};
 
 // cSpell: ignore compat constexpr corelib deps sharedvector pathdata
+
+fn enums(path: &Path) -> anyhow::Result<()> {
+    let mut enums =
+        std::fs::File::create(path).context("Error creating slint_internal_enums.h file")?;
+    writeln!(enums, "#pragma once")?;
+    writeln!(enums, "// This file is auto-generated from {}", file!())?;
+    writeln!(enums, "namespace slint::cbindgen_private {{")?;
+    macro_rules! print_enums {
+         ($( $(#[doc = $enum_doc:literal])* enum $Name:ident { $( $(#[doc = $value_doc:literal])* $Value:ident,)* })*) => {
+             $(
+                $(writeln!(enums, "///{}", $enum_doc)?;)*
+                writeln!(enums, "enum class {} {{", stringify!($Name))?;
+                $(
+                    $(writeln!(enums, "    ///{}", $value_doc)?;)*
+                    writeln!(enums, "    {},", i_slint_common::enums::cpp_escape_keyword(stringify!($Value).trim_start_matches("r#")))?;
+                )*
+                writeln!(enums, "}};")?;
+             )*
+         }
+    }
+    i_slint_common::for_each_enums!(print_enums);
+    writeln!(enums, "}}")?;
+    Ok(())
+}
 
 fn ensure_cargo_rerun_for_crate(
     crate_dir: &Path,
@@ -314,6 +339,7 @@ fn gen_corelib(
             //            .with_src(crate_dir.join("input.rs"))
             .with_src(crate_dir.join("item_rendering.rs"))
             .with_src(crate_dir.join("window.rs"))
+            .with_include("slint_enums_internal.h")
             .generate()
             .with_context(|| format!("Unable to generate bindings for {}", internal_header))?
             .write_to_file(include_dir.join(internal_header));
@@ -399,6 +425,7 @@ fn gen_corelib(
         .with_include("slint_pathdata.h")
         .with_include("slint_brush.h")
         .with_include("slint_generated_public.h")
+        .with_include("slint_enums_internal.h")
         .with_after_include(
             r"
 namespace slint {
@@ -594,6 +621,7 @@ pub fn gen_all(root_dir: &Path, include_dir: &Path) -> anyhow::Result<Vec<PathBu
     proc_macro2::fallback::force(); // avoid a abort if panic=abort is set
     std::fs::create_dir_all(include_dir).context("Could not create the include directory")?;
     let mut deps = Vec::new();
+    enums(&include_dir.join("slint_enums_internal.h"))?;
     gen_corelib(root_dir, include_dir, &mut deps)?;
     gen_backend_qt(root_dir, include_dir, &mut deps)?;
     gen_backend_selector(root_dir, include_dir, &mut deps)?;
