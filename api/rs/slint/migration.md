@@ -6,8 +6,6 @@ This guide lists all API incompatible changes between major versions and describ
 
 ## Migrating from Version 0.1.x to 0.2.0
 
-In 0.2.0 we have increased the minimum version of rust. You need to have rust compiler version >= 1.56 installed.
-
 ### Models
 
 #### `Model::row_data`
