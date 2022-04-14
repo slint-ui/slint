@@ -1092,6 +1092,9 @@ fn test_tracking_model_handle() {
         }),
         1
     );
+    assert!(!tracker.is_dirty());
+    model.set_vec(vec![1, 2, 3]);
+    assert!(tracker.is_dirty());
 }
 
 #[test]
@@ -1150,6 +1153,7 @@ fn test_vecmodel_set_vec() {
         changed_rows: RefCell<Vec<usize>>,
         added_rows: RefCell<Vec<(usize, usize)>>,
         removed_rows: RefCell<Vec<(usize, usize)>>,
+        reset: RefCell<usize>,
     }
     impl TestView {
         fn clear(&self) {
@@ -1170,6 +1174,9 @@ fn test_vecmodel_set_vec() {
         fn row_removed(&self, index: usize, count: usize) {
             self.removed_rows.borrow_mut().push((index, count));
         }
+        fn reset(&self) {
+            *self.reset.borrow_mut() += 1;
+        }
     }
 
     let view = Rc::pin(TestView::default());
@@ -1187,11 +1194,13 @@ fn test_vecmodel_set_vec() {
     assert!(view.changed_rows.borrow().is_empty());
     assert_eq!(&*view.added_rows.borrow(), &[(4, 1)]);
     assert!(view.removed_rows.borrow().is_empty());
+    assert_eq!(*view.reset.borrow(), 0);
     view.clear();
 
     model.set_vec(vec![6, 7, 8]);
     assert!(view.changed_rows.borrow().is_empty());
-    assert_eq!(&*view.added_rows.borrow(), &[(0, 3)]);
-    assert_eq!(&*view.removed_rows.borrow(), &[(0, 5)]);
+    assert!(view.added_rows.borrow().is_empty());
+    assert!(view.removed_rows.borrow().is_empty());
+    assert_eq!(*view.reset.borrow(), 1);
     view.clear();
 }
