@@ -129,7 +129,7 @@ export TabImpl := NativeTab { }
 export TabBarImpl := Rectangle {
     // injected properties:
     property<int> current; // The currently selected tab
-    property<int> current-focused: current; // The currently focused tab
+    property<int> current-focused: fs.has-focus ? current : -1; // The currently focused tab
     property<int> num-tabs; // The total number of tabs
 
     HorizontalLayout {
