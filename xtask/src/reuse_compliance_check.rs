@@ -3,38 +3,38 @@
 
 use anyhow::{Context, Result};
 
-use xshell::Cmd;
+use xshell::{Cmd, Shell};
 
 use std::collections::BTreeMap;
 use std::{ffi::OsStr, path::Path, path::PathBuf};
 
-fn cmd<I>(command: impl AsRef<Path>, args: I) -> Result<Cmd>
+fn cmd<'a, I>(sh: &'a Shell, command: impl AsRef<Path>, args: I) -> Result<Cmd<'a>>
 where
     I: IntoIterator,
     I::Item: AsRef<OsStr>,
 {
     let home_dir = std::env::var("HOME").context("HOME is not set in the environment")?;
-    Ok(Cmd::new(command).args(args).env("PATH", &format!("/bin:/usr/bin:{}/.local/bin", home_dir)))
+    Ok(sh.cmd(command).args(args).env("PATH", &format!("/bin:/usr/bin:{}/.local/bin", home_dir)))
 }
 
 pub fn find_reuse() -> Result<PathBuf> {
     which::which("reuse").context("Failed to find reuse")
 }
 
-pub fn install_reuse() -> Result<PathBuf> {
-    cmd("pip", &["install", "reuse"])?.run().context("Failed to pip install reuse.")?;
+pub fn install_reuse(sh: &Shell) -> Result<PathBuf> {
+    cmd(sh, "pip", &["install", "reuse"])?.run().context("Failed to pip install reuse.")?;
 
     find_reuse().context("Could not find reuse after pip installing it")
 }
 
-pub fn reuse_download(reuse: &Path) -> Result<String> {
-    Ok(cmd(reuse, &["download", "--all"])?
+pub fn reuse_download(sh: &Shell, reuse: &Path) -> Result<String> {
+    Ok(cmd(sh, reuse, &["download", "--all"])?
         .read()
         .context("Failed to download missing licenses.")?)
 }
 
-pub fn reuse_lint(reuse: &Path) -> Result<()> {
-    let output = cmd(reuse, &["lint"])?.ignore_status().output()?;
+pub fn reuse_lint(sh: &Shell, reuse: &Path) -> Result<()> {
+    let output = cmd(sh, reuse, &["lint"])?.ignore_status().output()?;
 
     if !output.status.success() {
         let stdout = String::from_utf8(output.stdout)?;
@@ -44,8 +44,8 @@ pub fn reuse_lint(reuse: &Path) -> Result<()> {
     Ok(())
 }
 
-fn parse_spdx_data(reuse: &Path) -> Result<BTreeMap<PathBuf, Vec<String>>> {
-    let output = cmd(reuse, &["spdx"])?.read()?;
+fn parse_spdx_data(sh: &Shell, reuse: &Path) -> Result<BTreeMap<PathBuf, Vec<String>>> {
+    let output = cmd(sh, reuse, &["spdx"])?.read()?;
 
     let mut current_filename = String::new();
     let mut licenses = Vec::new();
@@ -327,7 +327,7 @@ fn validate_license_directory(dir: &Path, licenses: &[String], fix_it: bool) -> 
     Ok(())
 }
 
-pub fn scan_symlinks(reuse: &Path, fix_it: bool) -> Result<()> {
+pub fn scan_symlinks(sh: &Shell, reuse: &Path, fix_it: bool) -> Result<()> {
     let license_directories = find_licenses_directories(&PathBuf::from("."))
         .context("Failed to scan for directories containing LICENSES subfolders")?;
 
@@ -340,7 +340,7 @@ pub fn scan_symlinks(reuse: &Path, fix_it: bool) -> Result<()> {
         .map(|p| (p.clone(), Vec::<String>::new()))
         .collect::<BTreeMap<_, _>>();
 
-    let file_data = parse_spdx_data(reuse).context("Failed to parse SPDX project data")?;
+    let file_data = parse_spdx_data(sh, reuse).context("Failed to parse SPDX project data")?;
 
     populate_license_map(&mut license_map, file_data);
 
@@ -369,17 +369,19 @@ impl ReuseComplianceCheck {
             anyhow::bail!("No .reuse directory found in current directory");
         }
 
-        let reuse = find_reuse().or_else(|_| install_reuse())?;
+        let sh = Shell::new()?;
+
+        let reuse = find_reuse().or_else(|_| install_reuse(&sh))?;
 
         println!("Reuse binary \"{}\".", reuse.to_string_lossy());
 
         if self.download_missing_licenses {
-            let output = reuse_download(&reuse)?;
+            let output = reuse_download(&sh, &reuse)?;
             println!("{}", &output);
         }
 
-        reuse_lint(&reuse)?;
+        reuse_lint(&sh, &reuse)?;
 
-        scan_symlinks(&reuse, self.fix_symlinks)
+        scan_symlinks(&sh, &reuse, self.fix_symlinks)
     }
 }
