@@ -1,13 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore deinit
+
 use super::*;
 
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 #[cfg(feature = "rtti")]
 use i_slint_core::rtti::*;
-use i_slint_core::Property;
+use i_slint_core::{items::LayoutAlignment, Property};
 use i_slint_core_macros::*;
 
 #[repr(C)]
@@ -29,6 +31,9 @@ pub struct NativeStyleMetrics {
 
     pub placeholder_color: Property<Color>,
     pub placeholder_color_disabled: Property<Color>,
+
+    // Tab Bar metrics:
+    pub tab_bar_alignment: Property<LayoutAlignment>,
 }
 
 impl const_field_offset::PinnedDrop for NativeStyleMetrics {
@@ -52,6 +57,7 @@ impl NativeStyleMetrics {
             dark_style: Default::default(),
             placeholder_color: Default::default(),
             placeholder_color_disabled: Default::default(),
+            tab_bar_alignment: Default::default(),
         });
         new
     }

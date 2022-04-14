@@ -124,6 +124,7 @@ export ComboBox := NativeComboBox {
 }
 
 export TabWidgetImpl := NativeTabWidget { }
+
 export TabImpl := NativeTab { }
 
 export TabBarImpl := Rectangle {
@@ -133,8 +134,8 @@ export TabBarImpl := Rectangle {
     property<int> num-tabs; // The total number of tabs
 
     HorizontalLayout {
-        spacing: 8px;
-        alignment: start;
+        spacing: 0px; // Qt renders Tabs next to each other and renders "spacing" as part of the tab itself
+        alignment: NativeStyleMetrics.tab-bar-alignment;
         @children
     }
 
@@ -152,6 +153,7 @@ export TabBarImpl := Rectangle {
         }
     }
 }
+
 export TabWidget := TabWidget {}
 
 export VerticalBox := VerticalLayout {
