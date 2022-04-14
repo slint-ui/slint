@@ -120,6 +120,12 @@ interface ModelPeer {
      * @param count
      */
     rowRemoved(row: number, count: number): void;
+
+    /**
+     * Call this function from your own model to notify that the model has been
+     * changed and everything must be reloaded
+     */
+    reset(): void;
 }
 
 /**
@@ -160,6 +166,7 @@ class NullPeer implements ModelPeer {
     rowDataChanged(row: number): void { }
     rowAdded(row: number, count: number): void { }
     rowRemoved(row: number, count: number): void { }
+    reset(): void { }
 }
 
 /**

@@ -114,6 +114,17 @@ impl ModelNotify {
                 .for_each(|p| unsafe { &**p }.row_removed(index, count))
         }
     }
+
+    /// Notify the peer that the model has been changed in some way and
+    /// everything needs to be reloaded
+    pub fn reset(&self) {
+        if let Some(inner) = self.inner.get() {
+            inner.model_row_count_dirty_property.mark_dirty();
+            inner.tracked_rows.borrow_mut().clear();
+            inner.model_row_data_dirty_property.mark_dirty();
+            inner.as_ref().project_ref().peers.for_each(|p| unsafe { &**p }.reset())
+        }
+    }
 }
 
 impl ModelTracker for ModelNotify {
@@ -335,9 +346,8 @@ impl<T: 'static> VecModel<T> {
 
     /// Replace inner Vec with new data
     pub fn set_vec(&self, new: impl Into<Vec<T>>) {
-        self.notify.row_removed(0, self.array.borrow().len());
         *self.array.borrow_mut() = new.into();
-        self.notify.row_added(0, self.array.borrow().len());
+        self.notify.reset();
     }
 }
 
@@ -624,6 +634,7 @@ trait ErasedRepeater {
     fn row_changed(&self, row: usize);
     fn row_added(&self, index: usize, count: usize);
     fn row_removed(&self, index: usize, count: usize);
+    fn reset(&self);
 }
 
 impl<C: RepeatedComponent> ErasedRepeater for Repeater<C> {
@@ -681,6 +692,11 @@ impl<C: RepeatedComponent> ErasedRepeater for Repeater<C> {
             // Because all the indexes are dirty
             c.0 = RepeatedComponentState::Dirty;
         }
+    }
+
+    fn reset(&self) {
+        self.is_dirty.set(true);
+        self.inner.borrow_mut().components.clear();
     }
 }
 
@@ -1076,6 +1092,9 @@ fn test_tracking_model_handle() {
         }),
         1
     );
+    assert!(!tracker.is_dirty());
+    model.set_vec(vec![1, 2, 3]);
+    assert!(tracker.is_dirty());
 }
 
 #[test]
@@ -1134,6 +1153,7 @@ fn test_vecmodel_set_vec() {
         changed_rows: RefCell<Vec<usize>>,
         added_rows: RefCell<Vec<(usize, usize)>>,
         removed_rows: RefCell<Vec<(usize, usize)>>,
+        reset: RefCell<usize>,
     }
     impl TestView {
         fn clear(&self) {
@@ -1154,6 +1174,9 @@ fn test_vecmodel_set_vec() {
         fn row_removed(&self, index: usize, count: usize) {
             self.removed_rows.borrow_mut().push((index, count));
         }
+        fn reset(&self) {
+            *self.reset.borrow_mut() += 1;
+        }
     }
 
     let view = Rc::pin(TestView::default());
@@ -1171,11 +1194,13 @@ fn test_vecmodel_set_vec() {
     assert!(view.changed_rows.borrow().is_empty());
     assert_eq!(&*view.added_rows.borrow(), &[(4, 1)]);
     assert!(view.removed_rows.borrow().is_empty());
+    assert_eq!(*view.reset.borrow(), 0);
     view.clear();
 
     model.set_vec(vec![6, 7, 8]);
     assert!(view.changed_rows.borrow().is_empty());
-    assert_eq!(&*view.added_rows.borrow(), &[(0, 3)]);
-    assert_eq!(&*view.removed_rows.borrow(), &[(0, 5)]);
+    assert!(view.added_rows.borrow().is_empty());
+    assert!(view.removed_rows.borrow().is_empty());
+    assert_eq!(*view.reset.borrow(), 1);
     view.clear();
 }

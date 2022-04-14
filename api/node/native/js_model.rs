@@ -142,6 +142,13 @@ declare_types! {
             }
             Ok(JsUndefined::new().as_value(&mut cx))
         }
+        method reset(mut cx) {
+            let this = cx.this();
+            if let Some(model) = cx.borrow(&this, |x| x.0.upgrade()) {
+                model.notify.reset()
+            }
+            Ok(JsUndefined::new().as_value(&mut cx))
+        }
 
     }
 

@@ -120,6 +120,7 @@ When such an object is set to a model property, it gets a new `notify` object wi
 * `rowDataChanged(index)`: notify the view that the row was changed.
 * `rowAdded(index, count)`: notify the view that rows were added.
 * `rowRemoved(index, count)`: notify the view that a row were removed.
+* `reset()`: notify the view that everything may have changed.
 
 As an example, here is the implementation of the `ArrayModel` (which is available as `slint.ArrayModel`)
 
