@@ -75,6 +75,7 @@ jobs:
       with:
           toolchain: ${{ matrix.rust_version }}
           profile: minimal
+          override: true
     - uses: Swatinem/rust-cache@v1
       with:
           key: x-${{ steps.nodeversion.outputs.node-version }} # The cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
