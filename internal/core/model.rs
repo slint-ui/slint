@@ -1150,10 +1150,14 @@ fn test_data_tracking() {
 fn test_vecmodel_set_vec() {
     #[derive(Default)]
     struct TestView {
-        changed_rows: RefCell<Vec<usize>>,
-        added_rows: RefCell<Vec<(usize, usize)>>,
-        removed_rows: RefCell<Vec<(usize, usize)>>,
+        // Track the parameters reported by the model (row counts, indices, etc.).
+        // The last field in the tuple is the row size the model reports at the time
+        // of callback
+        changed_rows: RefCell<Vec<(usize, usize)>>,
+        added_rows: RefCell<Vec<(usize, usize, usize)>>,
+        removed_rows: RefCell<Vec<(usize, usize, usize)>>,
         reset: RefCell<usize>,
+        model: RefCell<Option<std::rc::Weak<dyn Model<Data = i32>>>>,
     }
     impl TestView {
         fn clear(&self) {
@@ -1161,18 +1165,25 @@ fn test_vecmodel_set_vec() {
             self.added_rows.borrow_mut().clear();
             self.removed_rows.borrow_mut().clear();
         }
+        fn row_count(&self) -> usize {
+            self.model
+                .borrow()
+                .as_ref()
+                .and_then(|model| model.upgrade())
+                .map_or(0, |model| model.row_count())
+        }
     }
     impl ErasedRepeater for TestView {
         fn row_changed(&self, row: usize) {
-            self.changed_rows.borrow_mut().push(row);
+            self.changed_rows.borrow_mut().push((row, self.row_count()));
         }
 
         fn row_added(&self, index: usize, count: usize) {
-            self.added_rows.borrow_mut().push((index, count));
+            self.added_rows.borrow_mut().push((index, count, self.row_count()));
         }
 
         fn row_removed(&self, index: usize, count: usize) {
-            self.removed_rows.borrow_mut().push((index, count));
+            self.removed_rows.borrow_mut().push((index, count, self.row_count()));
         }
         fn reset(&self) {
             *self.reset.borrow_mut() += 1;
@@ -1187,12 +1198,14 @@ fn test_vecmodel_set_vec() {
 
     let peer = ModelPeer { inner: PinWeak::downgrade(view_as_repeater.clone()) };
 
-    let model: VecModel<i32> = vec![1i32, 2, 3, 4].into();
+    let model = Rc::new(VecModel::from(vec![1i32, 2, 3, 4]));
     model.model_tracker().attach_peer(peer);
+    *view.model.borrow_mut() =
+        Some(std::rc::Rc::downgrade(&(model.clone() as Rc<dyn Model<Data = i32>>)));
 
     model.push(5);
     assert!(view.changed_rows.borrow().is_empty());
-    assert_eq!(&*view.added_rows.borrow(), &[(4, 1)]);
+    assert_eq!(&*view.added_rows.borrow(), &[(4, 1, 5)]);
     assert!(view.removed_rows.borrow().is_empty());
     assert_eq!(*view.reset.borrow(), 0);
     view.clear();
