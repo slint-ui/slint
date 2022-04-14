@@ -2,21 +2,25 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use anyhow::Context;
-use xshell::{cmd, cp, pushd, read_dir, read_file, rm_rf, write_file};
+use xshell::{cmd, Shell};
 
-fn cp_r(src: &std::path::Path, dst: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+fn cp_r(
+    sh: &Shell,
+    src: &std::path::Path,
+    dst: &std::path::Path,
+) -> Result<(), Box<dyn std::error::Error>> {
     if src.is_dir() {
         assert!(dst.is_dir() || !dst.exists());
 
-        for f in read_dir(src)? {
+        for f in sh.read_dir(src)? {
             let src = src.join(&f);
             let dst = dst.join(&f);
 
-            cp_r(&src, &dst)?
+            cp_r(sh, &src, &dst)?
         }
         Ok(())
     } else {
-        cp(src, dst).map_err(|e| e.into())
+        sh.copy_file(src, dst).map_err(|e| e.into())
     }
 }
 
@@ -28,8 +32,10 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Removing relative paths from {}", cargo_toml_path.to_string_lossy());
 
+    let sh = Shell::new()?;
+
     let toml_source =
-        read_file(cargo_toml_path.clone()).context("Failed to read Node Cargo.toml")?;
+        sh.read_file(cargo_toml_path.clone()).context("Failed to read Node Cargo.toml")?;
 
     let mut toml: toml_edit::Document = toml_source.parse().context("Error parsing Cargo.toml")?;
 
@@ -47,17 +53,17 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
 
     let edited_toml = toml.to_string();
 
-    write_file(cargo_toml_path.clone(), edited_toml).context("Error writing Cargo.toml")?;
+    sh.write_file(cargo_toml_path.clone(), edited_toml).context("Error writing Cargo.toml")?;
 
     println!("Putting LICENSE information into place for the source package");
 
-    cp(root.join("LICENSE.md"), node_dir.join("LICENSE.md"))
+    sh.copy_file(root.join("LICENSE.md"), node_dir.join("LICENSE.md"))
         .context("Error copying LICENSE.md into the node dir for packaging")?;
 
-    cp_r(&root.join("LICENSES"), &node_dir.join("LICENSES"))?;
+    cp_r(&sh, &root.join("LICENSES"), &node_dir.join("LICENSES"))?;
 
     let package_json_source =
-        read_file(&node_dir.join("package.json")).context("Error reading package.json")?;
+        sh.read_file(&node_dir.join("package.json")).context("Error reading package.json")?;
 
     let package_json: serde_json::Value = serde_json::from_str(&package_json_source)?;
 
@@ -67,22 +73,20 @@ pub fn generate() -> Result<(), Box<dyn std::error::Error>> {
         package_json["version"].as_str().unwrap()
     ));
 
-    rm_rf(file_name.clone()).context("Error deleting old archive")?;
+    sh.remove_path(file_name.clone()).context("Error deleting old archive")?;
 
     println!("Running npm package to create the tarball");
 
     {
-        let _p = pushd(node_dir.clone())
-            .context(format!("Error changing to node directory {}", node_dir.to_string_lossy()))?;
-
-        cmd!("npm pack").run()?;
+        let _p = sh.push_dir(node_dir.clone());
+        cmd!(sh, "npm pack").run()?;
     }
 
     println!("Reverting Cargo.toml");
 
-    write_file(cargo_toml_path, toml_source).context("Error writing Cargo.toml")?;
+    sh.write_file(cargo_toml_path, toml_source).context("Error writing Cargo.toml")?;
 
-    rm_rf(node_dir.join("LICENSE.md")).context("Error deleting LICENSE.md copy")?;
+    sh.remove_path(node_dir.join("LICENSE.md")).context("Error deleting LICENSE.md copy")?;
 
     println!("Source package created and located in {}", file_name.to_string_lossy());
 
