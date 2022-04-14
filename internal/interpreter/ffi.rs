@@ -659,6 +659,11 @@ pub unsafe extern "C" fn slint_interpreter_model_notify_row_added(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn slint_interpreter_model_notify_reset(notify: &ModelNotifyOpaque) {
+    notify.as_model_notify().reset();
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn slint_interpreter_model_notify_row_removed(
     notify: &ModelNotifyOpaque,
     row: usize,

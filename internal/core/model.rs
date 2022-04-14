@@ -114,6 +114,17 @@ impl ModelNotify {
                 .for_each(|p| unsafe { &**p }.row_removed(index, count))
         }
     }
+
+    /// Notify the peer that the model has been changed in some way and
+    /// everything needs to be reloaded
+    pub fn reset(&self) {
+        if let Some(inner) = self.inner.get() {
+            inner.model_row_count_dirty_property.mark_dirty();
+            inner.tracked_rows.borrow_mut().clear();
+            inner.model_row_data_dirty_property.mark_dirty();
+            inner.as_ref().project_ref().peers.for_each(|p| unsafe { &**p }.reset())
+        }
+    }
 }
 
 impl ModelTracker for ModelNotify {
@@ -335,9 +346,8 @@ impl<T: 'static> VecModel<T> {
 
     /// Replace inner Vec with new data
     pub fn set_vec(&self, new: impl Into<Vec<T>>) {
-        self.notify.row_removed(0, self.array.borrow().len());
         *self.array.borrow_mut() = new.into();
-        self.notify.row_added(0, self.array.borrow().len());
+        self.notify.reset();
     }
 }
 
@@ -624,6 +634,7 @@ trait ErasedRepeater {
     fn row_changed(&self, row: usize);
     fn row_added(&self, index: usize, count: usize);
     fn row_removed(&self, index: usize, count: usize);
+    fn reset(&self);
 }
 
 impl<C: RepeatedComponent> ErasedRepeater for Repeater<C> {
@@ -681,6 +692,11 @@ impl<C: RepeatedComponent> ErasedRepeater for Repeater<C> {
             // Because all the indexes are dirty
             c.0 = RepeatedComponentState::Dirty;
         }
+    }
+
+    fn reset(&self) {
+        self.is_dirty.set(true);
+        self.inner.borrow_mut().components.clear();
     }
 }
 

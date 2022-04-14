@@ -454,6 +454,10 @@ inline Value::Value(const std::shared_ptr<slint::Model<Value>> &model)
         {
             cbindgen_private::slint_interpreter_model_notify_row_removed(&notify, index, count);
         }
+        void reset() override
+        {
+            cbindgen_private::slint_interpreter_model_notify_reset(&notify);
+        }
     };
 
     auto wrapper = std::make_shared<ModelWrapper>();

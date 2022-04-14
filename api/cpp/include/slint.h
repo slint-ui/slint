@@ -520,6 +520,7 @@ struct AbstractRepeaterView
     virtual void row_added(int index, int count) = 0;
     virtual void row_removed(int index, int count) = 0;
     virtual void row_changed(int index) = 0;
+    virtual void reset() = 0;
 };
 using ModelPeer = std::weak_ptr<AbstractRepeaterView>;
 
@@ -612,6 +613,14 @@ protected:
         tracked_rows.clear();
         model_row_data_dirty_property.mark_dirty();
         for_each_peers([=](auto peer) { peer->row_removed(index, count); });
+    }
+
+    /// Notify the views that the model has been changed and that everything needs to be reloaded
+    void reset() {
+        model_row_count_dirty_property.mark_dirty();
+        tracked_rows.clear();
+        model_row_data_dirty_property.mark_dirty();
+        for_each_peers([=](auto peer) { peer->reset(); });
     }
 
 private:
@@ -768,6 +777,10 @@ class Repeater
                 // all the indexes are dirty
                 data[i].state = State::Dirty;
             }
+        }
+        void reset() override {
+            is_dirty.set(true);
+            data.clear();
         }
     };
 
