@@ -13,11 +13,12 @@ use i_slint_core::items::{
     Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, Layer, Opacity,
     RenderingResult,
 };
+use i_slint_core::textlayout::{FontMetrics as _, TextLayout, TextParagraphLayout};
 use i_slint_core::window::WindowRc;
 use i_slint_core::{Brush, Color, ImageInner, Property, SharedString};
 
 use crate::event_loop::WinitWindow;
-use crate::fonts;
+use crate::fonts::{self};
 use crate::glwindow::{GLWindow, PASSWORD_CHARACTER};
 use crate::images::{CachedImage, TextureCacheKey};
 
@@ -253,6 +254,14 @@ impl ItemRenderer for GLItemRenderer {
             )
         });
 
+        let layout = TextLayout {
+            font: &font,
+            letter_spacing: text
+                .unresolved_font_request()
+                .letter_spacing
+                .map(|logical_spacing| logical_spacing * self.scale_factor),
+        };
+
         let paint = match self
             .brush_to_paint(text.color(), &mut rect_to_path(item_rect(text, self.scale_factor)))
         {
@@ -260,7 +269,43 @@ impl ItemRenderer for GLItemRenderer {
             None => return,
         };
 
+        let paragraph = TextParagraphLayout {
+            string: &string,
+            layout,
+            max_width,
+            max_height,
+            horizontal_alignment: text.horizontal_alignment(),
+            vertical_alignment: text.vertical_alignment(),
+            wrap: text.wrap(),
+            overflow: text.overflow(),
+            single_line: false,
+        };
+
+        let ascent = paragraph.layout.font.ascent();
+
         let mut canvas = self.canvas.borrow_mut();
+
+        paragraph.layout_lines(|glyphs, line_x, line_y| {
+            canvas.save_with(|canvas| {
+                let baseline_y = line_y + ascent;
+
+                canvas.translate(line_x, baseline_y);
+
+                if let Err(_) = canvas.fill_glyphs(
+                    glyphs.map(|positioned_glyph| femtovg::PositionedGlyph {
+                        x: positioned_glyph.x,
+                        y: positioned_glyph.y,
+                        font_id: positioned_glyph.platform_glyph.font_id.unwrap(),
+                        glyph_id: positioned_glyph.platform_glyph.glyph_id.unwrap().get(),
+                    }),
+                    paint,
+                ) {
+                    i_slint_core::debug_log!("unexpected error rasterizing text");
+                }
+            });
+        });
+
+        /*
         fonts::layout_text_lines(
             string,
             &font,
@@ -274,6 +319,7 @@ impl ItemRenderer for GLItemRenderer {
                 canvas.fill_text(pos.x, pos.y, to_draw.trim_end(), paint).unwrap();
             },
         );
+        */
     }
 
     fn draw_text_input(&mut self, text_input: std::pin::Pin<&i_slint_core::items::TextInput>) {
@@ -307,6 +353,10 @@ impl ItemRenderer for GLItemRenderer {
         let mut cursor_pos = cursor_pos as usize;
         let mut canvas = self.canvas.borrow_mut();
         let font_height = canvas.measure_font(paint).unwrap().height();
+        let physical_letter_spacing = text_input
+            .unresolved_font_request()
+            .letter_spacing
+            .map(|logical_spacing| logical_spacing * self.scale_factor);
         let mut text = text_input.text();
 
         if let InputType::password = text_input.input_type() {
@@ -326,6 +376,7 @@ impl ItemRenderer for GLItemRenderer {
             text_input.wrap(),
             i_slint_core::items::TextOverflow::clip,
             text_input.single_line(),
+            physical_letter_spacing,
             paint,
             |to_draw, pos, start, metrics| {
                 let range = start..(start + to_draw.len());

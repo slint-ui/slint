@@ -631,6 +631,10 @@ impl PlatformWindow for GLWindow {
         let text_context =
             crate::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone());
         let font_height = text_context.measure_font(paint).unwrap().height();
+        let physical_letter_spacing = text_input
+            .unresolved_font_request()
+            .letter_spacing
+            .map(|logical_spacing| logical_spacing * scale_factor);
         crate::fonts::layout_text_lines(
             actual_text,
             &font,
@@ -639,6 +643,7 @@ impl PlatformWindow for GLWindow {
             text_input.wrap(),
             i_slint_core::items::TextOverflow::clip,
             text_input.single_line(),
+            physical_letter_spacing,
             paint,
             |line_text, line_pos, start, metrics| {
                 if (line_pos.y..(line_pos.y + font_height)).contains(&pos.y) {
@@ -695,6 +700,10 @@ impl PlatformWindow for GLWindow {
         });
 
         let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
+        let physical_letter_spacing = text_input
+            .unresolved_font_request()
+            .letter_spacing
+            .map(|logical_spacing| logical_spacing * scale_factor);
         crate::fonts::layout_text_lines(
             text.as_str(),
             &font,
@@ -703,6 +712,7 @@ impl PlatformWindow for GLWindow {
             text_input.wrap(),
             i_slint_core::items::TextOverflow::clip,
             text_input.single_line(),
+            physical_letter_spacing,
             paint,
             |line_text, line_pos, start, metrics| {
                 if (start..=(start + line_text.len())).contains(&byte_offset) {

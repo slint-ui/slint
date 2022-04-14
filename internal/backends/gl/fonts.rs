@@ -6,6 +6,7 @@
 use femtovg::TextContext;
 use i_slint_core::graphics::{FontRequest, Point, Size};
 use i_slint_core::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
+use i_slint_core::textlayout::{Glyph, TextLayout, TextShaper};
 use i_slint_core::{SharedString, SharedVector};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
@@ -68,49 +69,156 @@ struct FontCacheKey {
     weight: i32,
 }
 
-#[derive(Clone)]
 pub struct Font {
-    fonts: SharedVector<femtovg::FontId>,
-    pixel_size: f32,
-    text_context: TextContext,
+    fonts: SharedVector<ScaledFont>,
+    pub(crate) pixel_size: f32,
+    //text_context: TextContext,
 }
 
 impl Font {
     pub fn init_paint(&self, letter_spacing: f32, mut paint: femtovg::Paint) -> femtovg::Paint {
-        paint.set_font(&self.fonts);
+        // (femtovg takes max 8 from the slice)
+        let mut femtovg_fonts = [self.fonts.first().unwrap().femtovg_font_id; 8];
+        for (i, loaded_font) in self.fonts.iter().enumerate() {
+            femtovg_fonts[i] = loaded_font.femtovg_font_id;
+        }
+        paint.set_font(&femtovg_fonts);
         paint.set_font_size(self.pixel_size);
         paint.set_text_baseline(femtovg::Baseline::Top);
         paint.set_letter_spacing(letter_spacing);
         paint
     }
 
-    pub fn text_size(&self, letter_spacing: f32, text: &str, max_width: Option<f32>) -> Size {
-        let paint = self.init_paint(letter_spacing, femtovg::Paint::default());
-        let font_metrics = self.text_context.measure_font(paint).unwrap();
-        let mut lines = 0;
-        let mut width = 0.;
-        let mut start = 0;
-        if let Some(max_width) = max_width {
-            while start < text.len() {
-                let index = self.text_context.break_text(max_width, &text[start..], paint).unwrap();
-                if index == 0 {
-                    break;
-                }
-                let index = start + index;
-                let measure =
-                    self.text_context.measure_text(0., 0., &text[start..index], paint).unwrap();
-                start = index;
-                lines += 1;
-                width = measure.width().max(width);
-            }
-        } else {
-            for line in text.lines() {
-                let measure = self.text_context.measure_text(0., 0., line, paint).unwrap();
-                lines += 1;
-                width = measure.width().max(width);
-            }
+    pub fn text_size(
+        &self,
+        letter_spacing: Option<f32>,
+        text: &str,
+        max_width: Option<f32>,
+    ) -> Size {
+        let layout = TextLayout { font: self, letter_spacing };
+        let (longest_line_width, height) = layout.text_size(text, max_width);
+        euclid::size2(longest_line_width, height)
+    }
+}
+
+impl TextShaper for Font {
+    type LengthPrimitive = f32;
+    type Length = f32;
+    type PlatformGlyphData = PlatformGlyph;
+
+    fn shape_text<
+        GlyphStorage: core::iter::Extend<Glyph<Self::Length, Self::PlatformGlyphData>>
+            + core::convert::AsRef<[Glyph<Self::Length, Self::PlatformGlyphData>]>
+            + core::ops::Index<usize, Output = Glyph<Self::Length, Self::PlatformGlyphData>>
+            + core::ops::IndexMut<usize, Output = Glyph<Self::Length, Self::PlatformGlyphData>>,
+    >(
+        &self,
+        text: &str,
+        glyphs: &mut GlyphStorage,
+    ) {
+        self.fonts.as_slice().shape_text(text, glyphs)
+    }
+
+    fn glyph_for_char(&self, ch: char) -> Option<Glyph<Self::Length, Self::PlatformGlyphData>> {
+        self.fonts.as_slice().glyph_for_char(ch)
+    }
+}
+
+impl i_slint_core::textlayout::FontMetrics<f32> for Font {
+    fn ascent(&self) -> f32 {
+        self.fonts.iter().map(|f| f.ascent()).reduce(f32::max).unwrap_or_default()
+    }
+
+    fn descent(&self) -> f32 {
+        self.fonts.iter().map(|f| f.descent()).reduce(f32::min).unwrap_or_default()
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct PlatformGlyph {
+    pub font_id: Option<femtovg::FontId>,
+    pub glyph_id: Option<core::num::NonZeroU16>,
+}
+
+impl TextShaper for ScaledFont {
+    type LengthPrimitive = f32;
+    type Length = f32;
+    type PlatformGlyphData = PlatformGlyph;
+
+    fn shape_text<
+        GlyphStorage: core::iter::Extend<Glyph<Self::Length, Self::PlatformGlyphData>>,
+    >(
+        &self,
+        text: &str,
+        glyphs: &mut GlyphStorage,
+    ) {
+        self.with_face(|face| {
+            let scale = self.pixel_size / (face.units_per_em() as f32);
+            let mut buffer = rustybuzz::UnicodeBuffer::new();
+            buffer.push_str(text);
+            let glyph_buffer = rustybuzz::shape(&face, &[], buffer);
+
+            let output_glyph_generator =
+                glyph_buffer.glyph_infos().iter().zip(glyph_buffer.glyph_positions().iter()).map(
+                    |(info, position)| {
+                        let mut out_glyph = Glyph::default();
+
+                        out_glyph.platform_glyph = PlatformGlyph {
+                            font_id: Some(self.femtovg_font_id),
+                            glyph_id: core::num::NonZeroU16::new(info.glyph_id as u16),
+                        };
+
+                        out_glyph.offset_x = scale * position.x_offset as f32;
+                        out_glyph.offset_y = scale * position.y_offset as f32;
+                        out_glyph.advance = scale * position.x_advance as f32;
+
+                        out_glyph.text_byte_offset = info.cluster as usize;
+
+                        out_glyph
+                    },
+                );
+
+            // Cannot return impl Iterator, so extend argument instead
+            glyphs.extend(output_glyph_generator);
+        })
+    }
+
+    fn glyph_for_char(&self, ch: char) -> Option<Glyph<Self::Length, Self::PlatformGlyphData>> {
+        self.with_face(|face| {
+            let scale = self.pixel_size / (face.units_per_em() as f32);
+
+            face.glyph_index(ch).map(|glyph_id| {
+                let mut out_glyph = Glyph::default();
+                out_glyph.platform_glyph = PlatformGlyph {
+                    font_id: Some(self.femtovg_font_id),
+                    glyph_id: core::num::NonZeroU16::new(glyph_id.0),
+                };
+                out_glyph.offset_x = 0.;
+                out_glyph.offset_y = 0.;
+                out_glyph.advance = scale * face.glyph_hor_advance(glyph_id).unwrap() as f32;
+                out_glyph
+            })
+        })
+    }
+
+    fn has_glyph_for_char(&self, ch: char) -> bool {
+        if ch.is_control() || ch.is_whitespace() {
+            return true;
         }
-        euclid::size2(width, lines as f32 * font_metrics.height())
+        FONT_CACHE.with(|font_cache| {
+            let mut font_cache = font_cache.borrow_mut();
+            font_cache.face_supports_char(self.fontdb_face_id, ch)
+        })
+    }
+}
+
+impl i_slint_core::textlayout::FontMetrics<f32> for ScaledFont {
+    fn ascent(&self) -> f32 {
+        self.ascent * self.pixel_size / self.units_per_em
+    }
+
+    fn descent(&self) -> f32 {
+        self.descent * self.pixel_size / self.units_per_em
     }
 }
 
@@ -122,16 +230,64 @@ pub(crate) fn text_size(
 ) -> Size {
     let font =
         FONT_CACHE.with(|cache| cache.borrow_mut().font(font_request.clone(), scale_factor, text));
-    let letter_spacing = font_request.letter_spacing.unwrap_or_default();
-    font.text_size(letter_spacing, text, max_width.map(|x| x * scale_factor)) / scale_factor
+    font.text_size(font_request.letter_spacing, text, max_width.map(|x| x * scale_factor))
+        / scale_factor
 }
 
 #[derive(Copy, Clone)]
 struct LoadedFont {
     femtovg_font_id: femtovg::FontId,
     fontdb_face_id: fontdb::ID,
+    ascent: f32,
+    descent: f32,
+    units_per_em: f32,
 }
 
+impl LoadedFont {
+    fn new(
+        femtovg_font_id: femtovg::FontId,
+        fontdb_face_id: fontdb::ID,
+        data: &SharedFontData,
+        face_index: u32,
+    ) -> Self {
+        let face = ttf_parser::Face::from_slice(data.as_ref(), face_index)
+            .expect("unable to parse previously successfully parsed ttf data");
+        let ascent = face.ascender() as f32;
+        let descent = face.descender() as f32;
+        let units_per_em = face.units_per_em() as f32;
+
+        Self { femtovg_font_id, fontdb_face_id, ascent, descent, units_per_em }
+    }
+
+    fn with_face<T>(&self, mut callback: impl FnMut(&rustybuzz::Face) -> T) -> T {
+        FONT_CACHE.with(|cache| {
+            cache
+                .borrow()
+                .available_fonts
+                .with_face_data(self.fontdb_face_id, |face_data, face_index| {
+                    let face = rustybuzz::Face::from_slice(face_data, face_index)
+                        .expect("unable to parse true type font");
+                    callback(&face)
+                })
+                .unwrap()
+        })
+    }
+}
+
+struct ScaledFont {
+    font: LoadedFont,
+    pixel_size: f32,
+}
+
+impl core::ops::Deref for ScaledFont {
+    type Target = LoadedFont;
+
+    fn deref(&self) -> &Self::Target {
+        &self.font
+    }
+}
+
+#[derive(Clone)]
 struct SharedFontData(std::sync::Arc<dyn AsRef<[u8]>>);
 impl AsRef<[u8]> for SharedFontData {
     fn as_ref(&self) -> &[u8] {
@@ -300,12 +456,14 @@ impl FontCache {
             })
             .expect("invalid fontdb face id");
 
-        let femtovg_font_id = text_context
-            .add_shared_font_with_index(SharedFontData(shared_data), face_index)
-            .unwrap();
+        let shared_font_data = SharedFontData(shared_data);
+
+        let femtovg_font_id =
+            text_context.add_shared_font_with_index(shared_font_data.clone(), face_index).unwrap();
 
         //println!("Loaded {:#?} in {}ms.", request, now.elapsed().as_millis());
-        let new_font = LoadedFont { femtovg_font_id, fontdb_face_id };
+        let new_font =
+            LoadedFont::new(femtovg_font_id, fontdb_face_id, &shared_font_data, face_index);
         self.loaded_fonts.insert(cache_key, new_font);
         new_font
     }
@@ -355,7 +513,7 @@ impl FontCache {
             Vec::new()
         };
 
-        let fonts = core::iter::once(primary_font.femtovg_font_id)
+        let fonts = core::iter::once(primary_font)
             .chain(fallbacks.iter().filter_map(|fallback_request| {
                 if matches!(coverage_result, GlyphCoverageCheckResult::Complete) {
                     return None;
@@ -370,16 +528,17 @@ impl FontCache {
                 );
 
                 if matches!(coverage_result, GlyphCoverageCheckResult::Improved) {
-                    Some(fallback_font.femtovg_font_id)
+                    Some(fallback_font)
                 } else {
                     None
                 }
             }))
+            .map(|font| ScaledFont { font, pixel_size: request.pixel_size.unwrap() })
             .collect::<SharedVector<_>>();
 
         Font {
             fonts,
-            text_context: self.text_context.clone(),
+            //text_context: self.text_context.clone(),
             pixel_size: request.pixel_size.unwrap(),
         }
     }
@@ -620,6 +779,32 @@ impl FontCache {
             GlyphCoverageCheckResult::Incomplete
         }
     }
+
+    fn face_supports_char(&mut self, face_id: fontdb::ID, char: char) -> bool {
+        let coverage = self.loaded_font_coverage.entry(face_id).or_default();
+
+        use unicode_script::{Script, UnicodeScript};
+        let script = char.script();
+        if script == Script::Common || script == Script::Inherited || script == Script::Unknown {
+            *coverage.exact_glyph_coverage.entry(char).or_insert_with(|| {
+                self.available_fonts
+                    .with_face_data(face_id, |face_data, face_index| {
+                        let face = ttf_parser::Face::from_slice(face_data, face_index).unwrap();
+                        face.glyph_index(char).is_some()
+                    })
+                    .unwrap_or(false)
+            })
+        } else {
+            *coverage.supported_scripts.entry(script).or_insert_with(|| {
+                self.available_fonts
+                    .with_face_data(face_id, |face_data, face_index| {
+                        let face = ttf_parser::Face::from_slice(face_data, face_index).unwrap();
+                        face.glyph_index(char).is_some()
+                    })
+                    .unwrap_or(false)
+            })
+        }
+    }
 }
 
 /// Layout the given string in lines, and call the `layout_line` callback with the line to draw at position y.
@@ -634,6 +819,7 @@ pub(crate) fn layout_text_lines(
     wrap: TextWrap,
     overflow: TextOverflow,
     single_line: bool,
+    physical_letter_spacing: Option<f32>,
     paint: femtovg::Paint,
     mut layout_line: impl FnMut(&str, Point, usize, &femtovg::TextMetrics),
 ) -> f32 {
@@ -650,7 +836,7 @@ pub(crate) fn layout_text_lines(
         } else {
             // Note: this is kind of doing twice the layout because text_size also does it
             font.text_size(
-                paint.letter_spacing(),
+                physical_letter_spacing,
                 string,
                 if wrap { Some(max_width) } else { None },
             )
