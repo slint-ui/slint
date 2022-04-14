@@ -162,9 +162,9 @@ fn compile_path_from_string_literal(commands: &str) -> Option<BindingExpression>
                     }
                     lyon_path::Event::End { first: _, last: _, close } => {
                         if close {
-                            event_enum.clone().try_value_from_string("end_closed").unwrap()
+                            event_enum.clone().try_value_from_string("end-closed").unwrap()
                         } else {
-                            event_enum.clone().try_value_from_string("end_open").unwrap()
+                            event_enum.clone().try_value_from_string("end-open").unwrap()
                         }
                     }
                 })

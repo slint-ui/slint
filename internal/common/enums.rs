@@ -14,6 +14,7 @@
 /// }
 /// i_slint_common::for_each_enums!(print_enums);
 /// ```
+// NOTE: the documentation for .slint enum is in builtin_elements.md
 #[macro_export]
 macro_rules! for_each_enums {
     ($macro:ident) => {
