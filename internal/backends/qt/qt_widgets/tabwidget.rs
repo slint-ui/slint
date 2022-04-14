@@ -444,6 +444,7 @@ impl Item for NativeTab {
         .unwrap_or_default();
         let enabled: bool = this.enabled();
         let current: i32 = this.current();
+        let current_focused: i32 = this.current_focused();
         let tab_index: i32 = this.tab_index();
         let num_tabs: i32 = this.num_tabs();
 
@@ -458,6 +459,7 @@ impl Item for NativeTab {
             dpr as "float",
             tab_index as "int",
             current as "int",
+            current_focused as "int",
             num_tabs as "int",
             initial_state as "int"
         ] {
@@ -486,6 +488,9 @@ impl Item for NativeTab {
             }
             if (current == tab_index)
                 option.state |= QStyle::State_Selected;
+            if (current_focused == tab_index) {
+                option.state |= QStyle::State_HasFocus | QStyle::State_KeyboardFocusChange | QStyle::State_Item;
+            }
             option.features |= QStyleOptionTab::HasFrame;
             qApp->style()->drawControl(QStyle::CE_TabBarTab, &option, painter, widget);
         });
