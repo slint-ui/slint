@@ -311,10 +311,14 @@ fn handle_request(
 fn cast<Kind: lsp_types::request::Request>(
     req: &mut Option<Request>,
 ) -> Option<(RequestId, Kind::Params)> {
-    match req.take().unwrap().extract::<Kind::Params>(Kind::METHOD) {
+    match req.take()?.extract::<Kind::Params>(Kind::METHOD) {
         Ok(value) => Some(value),
-        Err(owned) => {
+        Err(lsp_server::ExtractError::MethodMismatch(owned)) => {
             *req = Some(owned);
+            None
+        }
+        Err(e) => {
+            eprintln!("Warning: error when deserializing request: {}", e);
             None
         }
     }
