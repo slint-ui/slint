@@ -1,6 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore deinit
+
+use i_slint_core::items::LayoutAlignment;
+
 use super::*;
 
 cpp! {{
@@ -41,6 +45,9 @@ pub struct NativeStyleMetrics {
 
     pub dark_style: Property<bool>,
 
+    // Tab Bar metrics:
+    pub tab_bar_alignment: Property<LayoutAlignment>,
+
     pub style_change_listener: core::cell::Cell<*const u8>,
 }
 
@@ -65,6 +72,7 @@ impl NativeStyleMetrics {
             placeholder_color: Default::default(),
             placeholder_color_disabled: Default::default(),
             dark_style: Default::default(),
+            tab_bar_alignment: Default::default(),
             style_change_listener: core::cell::Cell::new(core::ptr::null()),
         });
         new
@@ -142,6 +150,21 @@ impl NativeStyleMetrics {
                 / 3
                 < 128,
         );
+
+        let tab_bar_alignment = cpp!(unsafe[] -> u32 as "uint32_t" {
+            switch (qApp->style()->styleHint(QStyle::SH_TabBar_Alignment)) {
+                case Qt::AlignLeft: return 1;
+                case Qt::AlignCenter: return 2;
+                case Qt::AlignRight: return 3;
+                default: return 0;
+            }
+        });
+        self.tab_bar_alignment.set(match tab_bar_alignment {
+            1 => LayoutAlignment::start,
+            2 => LayoutAlignment::center,
+            3 => LayoutAlignment::end,
+            _ => LayoutAlignment::space_between, // Should not happen! If it does, it should be noticeable;-)
+        });
     }
 }
 
