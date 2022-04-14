@@ -15,6 +15,10 @@
 //!     Determine if the grapheme is produced by a white space character
 //!     If grapheme is not at break opportunity:
 //!         Add grapheme to fragment
+//!         // Fall back to breaking anywhere if we can't find any other break point
+//!         If the current fragment ends before the first break opportunity and width of current line + fragment <= available width:
+//!              Add fragment to current line
+//!              Clear fragment
 //!         If width of current line <= available width AND width of current line + fragment > available width:
 //!             Emit current line
 //!             Current line starts with fragment
@@ -393,6 +397,7 @@ pub struct TextLineBreaker<
     GlyphBuffer: core::iter::Extend<(Font::Glyph, usize)> + core::convert::AsRef<[(Font::Glyph, usize)]>,
 > {
     line_breaks: LineBreakIterator<'a>,
+    first_break_opportunity: usize,
     next_break_opportunity: Option<(usize, BreakOpportunity)>,
     grapheme_cursor: GraphemeCursor<'a, Font, GlyphBuffer>,
     available_width: Option<Font::Length>,
@@ -436,6 +441,8 @@ impl<
 
         Self {
             line_breaks,
+            first_break_opportunity: next_break_opportunity
+                .map_or(text.len(), |(offset, _)| offset),
             next_break_opportunity,
             grapheme_cursor,
             available_width,
@@ -489,6 +496,12 @@ impl<
                 }
                 _ => {
                     self.fragment.add_grapheme(&grapheme);
+
+                    if self.fragment.byte_range.end <= self.first_break_opportunity
+                        && self.fragment_fits()
+                    {
+                        self.commit_fragment();
+                    }
 
                     if self.current_line_fits() && !self.fragment_fits() {
                         if !self.current_line.byte_range.is_empty() {
@@ -916,11 +929,12 @@ mod linebreak_tests {
     #[test]
     fn test_nbsp_break() {
         let font = FixedTestFont;
-        let text = "Hello\u{00a0}World";
+        let text = "Ok Hello\u{00a0}World";
         let mut glyphs = RefCell::new(Vec::new());
-        let lines = TextLineBreaker::new(text, &font, &mut glyphs, Some(50.)).collect::<Vec<_>>();
-        assert_eq!(lines.len(), 1);
-        assert_eq!(lines[0].line_text(&text), "Hello\u{00a0}World");
+        let lines = TextLineBreaker::new(text, &font, &mut glyphs, Some(110.)).collect::<Vec<_>>();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0].line_text(&text), "Ok");
+        assert_eq!(lines[1].line_text(&text), "Hello\u{00a0}World");
     }
 
     #[test]
@@ -931,6 +945,17 @@ mod linebreak_tests {
         let lines = TextLineBreaker::new(text, &font, &mut glyphs, None).collect::<Vec<_>>();
         assert_eq!(lines.len(), 1);
         assert_eq!(lines[0].line_text(&text), "a b c");
+    }
+
+    #[test]
+    fn test_basic_line_break_anywhere_fallback() {
+        let font = FixedTestFont;
+        let text = "HelloWorld";
+        let mut glyphs = RefCell::new(Vec::new());
+        let lines = TextLineBreaker::new(text, &font, &mut glyphs, Some(50.)).collect::<Vec<_>>();
+        assert_eq!(lines.len(), 2);
+        assert_eq!(lines[0].line_text(&text), "Hello");
+        assert_eq!(lines[1].line_text(&text), "World");
     }
 
     #[test]
