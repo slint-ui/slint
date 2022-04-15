@@ -122,13 +122,13 @@ Rendering backends and styles are configurable at compile time. Current there ar
 ### Tooling
 
 We have a few tools to help with the development of .slint files:
- - A [**LSP Server**](./tools/lsp) that adds things like auto-complete and live preview of the .slint files to many editors
- - It is bundled in a [**Visual Studio Code Extension**](./editor/vscode) accessible from the market place
- - A [**slint-viewer**](./tools/viewer) tool which display the .slint files. With the `--auto-reload` argument, makes it easy to preview
-   your UI as you are working it (when using the LSP preview is not possible)
- - An [**online editor**](https://slint-ui.com/editor) to try out .slint syntax without installing anything ([sources](./tools/online_editor))
- - An [**updater**](./tools/syntax_updater) to convert the .slint files from previous version to the newer version
- - An experimental [**Figma importer**](./tools/figma_import)
+ - A [**LSP Server**](./tools/lsp) that adds features like auto-complete and live preview of the .slint files to many editors.
+ - It is bundled in a [**Visual Studio Code Extension**](./editor/vscode) available from the market place.
+ - A [**slint-viewer**](./tools/viewer) tool which displays the .slint files. The `--auto-reload` argument makes it easy to preview
+   your UI while you are working on it (when using the LSP preview is not possible).
+ - An [**online editor**](https://slint-ui.com/editor) to try out .slint syntax without installing anything ([sources](./tools/online_editor)).
+ - An [**updater**](./tools/syntax_updater) to convert the .slint files from previous versions to newer versions.
+ - An experimental [**Figma importer**](./tools/figma_import).
 
 Please check our [Editor README](./editor/README.md) for tips on how to configure your favorite editor to work well with Slint.
 
