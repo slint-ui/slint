@@ -667,6 +667,13 @@ impl<'a, Font: TextShaper> TextParagraphLayout<'a, Font> {
 }
 
 #[test]
+fn test_no_linebreak_opportunity_at_eot() {
+    let mut it = LineBreakIterator::new("Hello World");
+    assert_eq!(it.next(), Some((6, BreakOpportunity::Allowed)));
+    assert_eq!(it.next(), None);
+}
+
+#[test]
 fn test_shape_boundaries_simple() {
     {
         let simple_text = "Hello World";

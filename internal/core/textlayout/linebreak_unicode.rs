@@ -12,6 +12,14 @@ pub struct LineBreakIterator<'a>(
 
 impl<'a> LineBreakIterator<'a> {
     pub fn new(text: &'a str) -> Self {
-        Self(Box::new(unicode_linebreak::linebreaks(text)))
+        Self(Box::new(unicode_linebreak::linebreaks(text).filter(|(offset, opportunity)| {
+            // unicode-linebreaks emits a mandatory break at the end of the text. We're not interested
+            // in that.
+            if *offset == text.len() && matches!(opportunity, BreakOpportunity::Mandatory) {
+                false
+            } else {
+                true
+            }
+        })))
     }
 }
