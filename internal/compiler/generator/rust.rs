@@ -1612,8 +1612,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let index_e = compile_expression(index, ctx);
             quote!(match &#base_e { x => {
                 let index = (#index_e) as usize;
-                x.model_tracker().track_row_data_changes(index);
-                x.row_data(index).unwrap_or_default()
+                x.row_data_tracked(index).unwrap_or_default()
             }})
         }
         Expression::CodeBlock(sub) => {
