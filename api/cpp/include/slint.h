@@ -574,12 +574,12 @@ public:
     /// \private
     /// Internal function called from within bindings to register with the currently
     /// evaluating dependency and get notified when this model's row count changes.
-    void track_row_count_changes() { model_row_count_dirty_property.get(); }
+    void track_row_count_changes() const { model_row_count_dirty_property.get(); }
 
     /// \private
     /// Internal function called from within bindings to register with the currently
     /// evaluating dependency and get notified when this model's row data changes.
-    void track_row_data_changes(int row)
+    void track_row_data_changes(int row) const
     {
         auto it = std::lower_bound(tracked_rows.begin(), tracked_rows.end(), row);
         if (it == tracked_rows.end() || row < *it) {
@@ -592,7 +592,7 @@ public:
     /// Convenience function that calls `track_row_data_changes` before returning `row_data`
     std::optional<ModelData> row_data_tracked(int row) const
     {
-        const_cast<Model *>(this)->track_row_data_changes(row);
+        track_row_data_changes(row);
         return row_data(row);
     }
 
@@ -648,7 +648,7 @@ private:
     std::vector<private_api::ModelPeer> peers;
     private_api::Property<bool> model_row_count_dirty_property;
     private_api::Property<bool> model_row_data_dirty_property;
-    std::vector<int> tracked_rows;
+    mutable std::vector<int> tracked_rows;
 };
 
 namespace private_api {
