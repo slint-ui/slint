@@ -527,8 +527,7 @@ using ModelPeer = std::weak_ptr<AbstractRepeaterView>;
 template<typename M>
 auto access_array_index(const M &model, int index)
 {
-    model->track_row_data_changes(index);
-    if (const auto v = model->row_data(index)) {
+    if (const auto v = model->row_data_tracked(index)) {
         return *v;
     } else {
         return decltype(*v) {};
@@ -587,6 +586,14 @@ public:
             tracked_rows.insert(it, row);
         }
         model_row_data_dirty_property.get();
+    }
+
+    /// \private
+    /// Convenience function that calls `track_row_data_changes` before returning `row_data`
+    std::optional<ModelData> row_data_tracked(int row) const
+    {
+        const_cast<Model *>(this)->track_row_data_changes(row);
+        return row_data(row);
     }
 
 protected:
