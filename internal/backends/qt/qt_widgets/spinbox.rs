@@ -1,10 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use i_slint_core::{
-    input::{FocusEventResult, KeyEventType},
-    items::{EventResult, KeyEventArg},
-};
+use i_slint_core::input::{FocusEventResult, KeyEventType};
 
 use super::*;
 
@@ -29,8 +26,6 @@ pub struct NativeSpinBox {
     pub minimum: Property<i32>,
     pub maximum: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
-    pub key_pressed: Callback<KeyEventArg, EventResult>,
-    pub key_released: Callback<KeyEventArg, EventResult>,
     data: Property<NativeSpinBoxData>,
 }
 
@@ -194,17 +189,21 @@ impl Item for NativeSpinBox {
     }
 
     fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
-        let r = match event.event_type {
-            KeyEventType::KeyPressed => {
-                Self::FIELD_OFFSETS.key_pressed.apply_pin(self).call(&(event.clone(),))
-            }
-            KeyEventType::KeyReleased => {
-                Self::FIELD_OFFSETS.key_released.apply_pin(self).call(&(event.clone(),))
-            }
-        };
-        match r {
-            EventResult::accept => KeyEventResult::EventAccepted,
-            EventResult::reject => KeyEventResult::EventIgnored,
+        if !self.enabled() || event.event_type != KeyEventType::KeyPressed {
+            return KeyEventResult::EventIgnored;
+        }
+        if event.text.starts_with(i_slint_core::input::key_codes::UpArrow)
+            && self.value() < self.maximum()
+        {
+            self.value.set(self.value() + 1);
+            KeyEventResult::EventAccepted
+        } else if event.text.starts_with(i_slint_core::input::key_codes::DownArrow)
+            && self.value() > self.minimum()
+        {
+            self.value.set(self.value() - 1);
+            KeyEventResult::EventAccepted
+        } else {
+            KeyEventResult::EventIgnored
         }
     }
 
