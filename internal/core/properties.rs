@@ -331,6 +331,12 @@ pub fn evaluate_no_tracking<T>(f: impl FnOnce() -> T) -> T {
     CURRENT_BINDING.set(None, f)
 }
 
+/// Return true if there is currently a binding being evaluated so that access to
+/// properties register dependencies to that binding.
+pub fn is_currently_tracking() -> bool {
+    CURRENT_BINDING.is_set() && CURRENT_BINDING.with(|x| x.is_some())
+}
+
 /// This structure erase the `B` type with a vtable.
 #[repr(C)]
 struct BindingHolder<B = ()> {
