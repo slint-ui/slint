@@ -21,6 +21,9 @@ name = "circledraw"
 path = "crud.rs"
 name = "crud"
 
+[lib]
+path = "lib.rs"
+
 [dependencies]
 slint = { path = "../../api/rs/slint" }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"]}
