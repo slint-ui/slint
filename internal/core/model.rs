@@ -142,14 +142,16 @@ impl ModelTracker for ModelNotify {
     }
 
     fn track_row_data_changes(&self, row: usize) {
-        let inner = self.inner().project_ref();
+        if crate::properties::is_currently_tracking() {
+            let inner = self.inner().project_ref();
 
-        let mut tracked_rows = inner.tracked_rows.borrow_mut();
-        if let Err(insertion_point) = tracked_rows.binary_search(&row) {
-            tracked_rows.insert(insertion_point, row);
+            let mut tracked_rows = inner.tracked_rows.borrow_mut();
+            if let Err(insertion_point) = tracked_rows.binary_search(&row) {
+                tracked_rows.insert(insertion_point, row);
+            }
+
+            inner.model_row_data_dirty_property.get();
         }
-
-        inner.model_row_data_dirty_property.get();
     }
 }
 
