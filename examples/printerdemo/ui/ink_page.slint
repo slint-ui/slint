@@ -37,15 +37,15 @@ export InkPage := Page {
                         y: -parent.y;
                     }
                     states [
-                        innactive when !root.page-visible : {
+                        inactive when !root.page-visible : {
                             height: 0;
                         }
                     ]
                     transitions [
-                        out innactive : {
+                        out inactive : {
                             animate height { duration: 750ms; easing: ease-in-out; }
                         }
-                        in innactive : {
+                        in inactive : {
                             animate height { duration: 200ms; easing: ease-in; }
                         }
                     ]

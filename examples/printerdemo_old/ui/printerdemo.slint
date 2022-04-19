@@ -200,12 +200,12 @@ MainWindow := Window {
                     y: parent.height - self.height;
                     background: color-info.color;
                     states [
-                        innactive when root.active-page != 0 : {
+                        inactive when root.active-page != 0 : {
                             height: 0phx;
                         }
                     ]
                     transitions [
-                        out innactive : {
+                        out inactive : {
                             animate height { duration: 750ms; easing: ease-in-out; }
                         }
                     ]
