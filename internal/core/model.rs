@@ -48,6 +48,8 @@ pub trait ModelTracker {
     /// Register the model as a dependency to the current binding being evaluated, so
     /// that it will be notified when the model changes its size.
     fn track_row_count_changes(&self);
+    /// Register a row as a dependency to the current binding being evaluated, so that
+    /// it will be notified when the value of that row changes.
     fn track_row_data_changes(&self, row: usize);
 }
 
@@ -242,6 +244,17 @@ pub trait Model {
     ///
     /// You can return `&()` if you your `Model` is constant and does not have a ModelNotify field.
     fn model_tracker(&self) -> &dyn ModelTracker;
+
+    /// Convenience function that calls [`ModelTracker::track_row_data_changes`]
+    /// before returning [`Self::row_data`].
+    ///
+    /// Calling [`row_data(row)`](Self::row_data) does not register the row as a dependency when calling it while
+    /// evaluating a property binding. This function calls [`track_row_data_changes(row)`](ModelTracker::track_row_data_changes)
+    /// on the [`self.model_tracker()`](Self::model_tracker) to enable tracking.
+    fn row_data_tracked(&self, row: usize) -> Option<Self::Data> {
+        self.model_tracker().track_row_data_changes(row);
+        self.row_data(row)
+    }
 
     /// Returns an iterator visiting all elements of the model.
     fn iter(&self) -> ModelIterator<Self::Data>
@@ -1130,13 +1143,7 @@ fn test_data_tracking() {
     model.push(200);
     assert!(tracker.is_dirty());
 
-    assert_eq!(
-        tracker.as_ref().evaluate(|| {
-            handle.model_tracker().track_row_data_changes(1);
-            handle.row_data(1).unwrap()
-        }),
-        100
-    );
+    assert_eq!(tracker.as_ref().evaluate(|| { handle.row_data_tracked(1).unwrap() }), 100);
     assert!(!tracker.is_dirty());
 
     model.insert(0, 255);
