@@ -711,7 +711,30 @@ impl ItemRenderer for GLItemRenderer {
         let radius = clip_item.border_radius();
         let border_width = clip_item.border_width();
 
-        if radius > 0. {
+        if radius > 0.
+            && i_slint_core::properties::evaluate_no_tracking(|| {
+                let width = clip_item.width();
+                let height = clip_item.height();
+
+                let corners: [Rect; 4] = [
+                    euclid::rect(0., 0., radius, radius),
+                    euclid::rect(width - radius, 0., radius, radius),
+                    euclid::rect(width - radius, height - radius, radius, radius),
+                    euclid::rect(0., height - radius, radius, radius),
+                ];
+
+                let intersects = i_slint_core::item_rendering::item_children_intersects_region(
+                    self,
+                    &self_rc.component(),
+                    self_rc.index() as isize,
+                    &corners,
+                );
+                //                if !intersects {
+                //                    eprintln!("OPTIMIZE");
+                //                }
+                intersects
+            })
+        {
             if let Some(layer_image) =
                 self.render_layer(&clip_item.cached_rendering_data, self_rc, &|| {
                     clip_item.as_ref().geometry().size
@@ -769,7 +792,7 @@ impl ItemRenderer for GLItemRenderer {
 
         // femtovg only supports rectangular clipping. Non-rectangular clips must be handled via `apply_clip`,
         // which can render children into a layer.
-        debug_assert!(radius == 0.);
+        //debug_assert!(radius == 0.);
     }
 
     fn get_current_clip(&self) -> Rect {

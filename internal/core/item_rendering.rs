@@ -106,39 +106,81 @@ pub(crate) fn is_enabled_clipping_item(item: Pin<ItemRef>) -> bool {
         || ItemRef::downcast_pin::<Clip>(item).map_or(false, |clip_item| clip_item.as_ref().clip())
 }
 
-/// Renders the children of the item with the specified index into the renderer.
-pub fn render_item_children(
+/// TODO
+pub enum VisitItemChildrenForRenderingResult<State, ReturnValue> {
+    /// TODO
+    ContinueVisitingChildren(State),
+    /// TODO
+    ContinueVisitingWithoutChildren,
+    /// TODO
+    Break(ReturnValue),
+}
+
+/// TODO
+pub fn visit_item_children_for_rendering<State: Clone, RV>(
     renderer: &mut dyn ItemRenderer,
     component: &ComponentRc,
     index: isize,
-) {
+    state: &State,
+    visitor: &mut dyn FnMut(
+        &State,
+        &mut dyn ItemRenderer,
+        &Rect,
+        Pin<ItemRef>,
+        &ItemRc,
+    ) -> VisitItemChildrenForRenderingResult<State, RV>,
+) -> Option<RV> {
+    let mut rv = None;
+
     let mut actual_visitor =
         |component: &ComponentRc, index: usize, item: Pin<ItemRef>| -> VisitChildrenResult {
-            renderer.save_state();
-
             let (do_draw, item_geometry) = renderer.filter_item(item);
+
+            renderer.save_state();
 
             let item_origin = item_geometry.origin;
             renderer.translate(item_origin.x, item_origin.y);
 
-            // Don't render items that are clipped, with the exception of the Clip or Flickable since
-            // they themselves clip their content.
-            let render_result = if do_draw
-               || is_clipping_item(item)
-               // HACK, the geometry of the box shadow does not include the shadow, because when the shadow is the root for repeated elements it would translate the children
-               || ItemRef::downcast_pin::<BoxShadow>(item).is_some()
+            let maybe_visit_children = if do_draw  
+            || is_clipping_item(item)
+            // HACK, the geometry of the box shadow does not include the shadow, because when the shadow is the root for repeated elements it would translate the children
+            || ItemRef::downcast_pin::<BoxShadow>(item).is_some()
             {
-                item.as_ref().render(
-                    &mut (renderer as &mut dyn ItemRenderer),
+                match visitor(
+                    state,
+                    renderer,
+                    &item_geometry,
+                    item,
                     &ItemRc::new(component.clone(), index),
-                )
+                ) {
+                    VisitItemChildrenForRenderingResult::ContinueVisitingChildren(new_state) => {
+                        Some(new_state)
+                    }
+                    VisitItemChildrenForRenderingResult::ContinueVisitingWithoutChildren => None,
+                    VisitItemChildrenForRenderingResult::Break(return_value) => {
+                        rv = Some(return_value);
+                        renderer.restore_state();
+                        return VisitChildrenResult::abort(0, 0);
+                    }
+                }
             } else {
-                RenderingResult::ContinueRenderingChildren
+                Some(state.clone())
             };
 
-            if matches!(render_result, RenderingResult::ContinueRenderingChildren) {
-                render_item_children(renderer, component, index as isize);
+            if let Some(visit_children_state) = maybe_visit_children {
+                if let Some(abort_value) = visit_item_children_for_rendering(
+                    renderer,
+                    component,
+                    index as isize,
+                    &visit_children_state,
+                    visitor,
+                ) {
+                    rv = Some(abort_value);
+                    renderer.restore_state();
+                    return VisitChildrenResult::abort(0, 0);
+                }
             }
+
             renderer.restore_state();
             VisitChildrenResult::CONTINUE
         };
@@ -148,6 +190,63 @@ pub fn render_item_children(
         crate::item_tree::TraversalOrder::BackToFront,
         actual_visitor,
     );
+
+    rv
+}
+
+/// TODO
+pub fn item_children_intersects_region<const N: usize>(
+    renderer: &mut dyn ItemRenderer,
+    component: &ComponentRc,
+    index: isize,
+    region: &[Rect; N],
+) -> bool {
+    visit_item_children_for_rendering(
+        renderer,
+        component,
+        index,
+        region,
+        &mut |region, _renderer, item_geometry, item, _item_rc| {
+            if region.iter().any(|r| r.intersects(&item_geometry)) {
+                return VisitItemChildrenForRenderingResult::Break(true);
+            }
+
+            let item_origin = item_geometry.origin;
+            let mut translated_region = [Default::default(); N];
+            for i in 0..N {
+                translated_region[i] = region[i].translate(-item_origin.to_vector());
+            }
+
+            VisitItemChildrenForRenderingResult::ContinueVisitingChildren(translated_region)
+        },
+    )
+    .unwrap_or(false)
+}
+
+
+
+/// Renders the children of the item with the specified index into the renderer.
+pub fn render_item_children(
+    renderer: &mut dyn ItemRenderer,
+    component: &ComponentRc,
+    index: isize,
+) {
+    visit_item_children_for_rendering::<(), ()>(
+        renderer,
+        component,
+        index,
+        &(),
+        &mut |_, renderer, _item_geometry, item, item_rc| {
+            match item.as_ref().render(
+                &mut (renderer as &mut dyn ItemRenderer),
+                item_rc
+            ) {
+                RenderingResult::ContinueRenderingChildren => VisitItemChildrenForRenderingResult::ContinueVisitingChildren(()),
+                RenderingResult::ContinueRenderingWithoutChildren => VisitItemChildrenForRenderingResult::ContinueVisitingWithoutChildren,
+            }
+        },
+    );
+  
 }
 
 /// Renders the tree of items that component holds, using the specified renderer. Rendering is done
