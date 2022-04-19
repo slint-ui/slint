@@ -182,7 +182,7 @@ export Recipe := Window {
 }
 ```
 
-Layouts are typically used to position elements automatically. In this example they are positioned 
+Layouts are typically used to position elements automatically. In this example they are positioned
 manually using the `x`, `y`, `width`, `height` properties.
 
 Notice the `animate x` block that specifies an animation. It is run when the property
@@ -477,6 +477,99 @@ int main(int argc, char **argv)
 ```
 </details>
 
+## Custom widgets
+
+### Custom Button
+
+```slint
+Button := Rectangle {
+    property text <=> txt.text;
+    callback clicked <=> touch.clicked;
+    border-radius: height / 2;
+    border-width: 1px;
+    border-color: background.darker(25%);
+    background: touch.pressed ? #6b8282 : touch.has-hover ? #6c616c :  #456;
+    height: txt.preferred-height * 1.33;
+    min-width: txt.preferred-width + 20px;
+    txt := Text {
+        x: (parent.width - width)/2 + (touch.pressed ? 2px : 0);
+        y: (parent.height - height)/2 + (touch.pressed ? 1px : 0);
+        color: touch.pressed ? #fff : #eee;
+    }
+    touch := TouchArea { }
+}
+
+Demo := Window {
+    VerticalLayout {
+        alignment: start;
+        Button { text: "Button"; }
+    }
+}
+```
+
+### ToggleSwitch
+
+```slint
+export ToggleSwitch := Rectangle {
+    callback toggled;
+    property <string> text;
+    property <bool> checked;
+    property<bool> enabled <=> touch-area.enabled;
+    height: 20px;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+
+    HorizontalLayout {
+        spacing: 8px;
+        indicator := Rectangle {
+            width: 40px;
+            border-width: 1px;
+            border-radius: root.height / 2;
+            border-color: background.darker(25%);
+            background: root.enabled ? (root.checked ? blue: white)  : white;
+            animate background { duration: 100ms; }
+
+            bubble := Rectangle {
+                width: root.height - 8px;
+                height: bubble.width;
+                border-radius: bubble.height / 2;
+                y: 4px;
+                x: 4px + a * (indicator.width - bubble.width - 8px);
+                property <float> a: root.checked ? 1 : 0;
+                background: root.checked ? white : (root.enabled ? blue : gray);
+                animate a, background { duration: 200ms; easing: ease;}
+            }
+        }
+
+        Text {
+            min-width: max(100px, preferred-width);
+            text: root.text;
+            vertical-alignment: center;
+            color: root.enabled ? black : gray;
+        }
+
+    }
+
+    touch-area := TouchArea {
+        width: root.width;
+        height: root.height;
+        clicked => {
+            if (root.enabled) {
+                root.checked = !root.checked;
+                root.toggled();
+            }
+        }
+    }
+}
+
+App := Window {
+    VerticalLayout {
+        alignment: start;
+        ToggleSwitch { text: "Toggle me"; }
+        ToggleSwitch { text: "Disabled"; enabled: false; }
+    }
+}
+```
 
 <!--
 
