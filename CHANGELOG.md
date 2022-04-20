@@ -1,6 +1,10 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## Unreleased
+
+ - Added the Model Adapters `FilterModel` and `MapModel`.
+
 ## [0.2.4] - 2022-05-09
 
  - Fixed crash when opening a native (Qt) ComboBox
