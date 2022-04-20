@@ -499,7 +499,7 @@ Button := Rectangle {
     touch := TouchArea { }
 }
 
-Demo := Window {
+export Recipe := Window {
     VerticalLayout {
         alignment: start;
         Button { text: "Button"; }
@@ -562,11 +562,173 @@ export ToggleSwitch := Rectangle {
     }
 }
 
-App := Window {
+export Recipe := Window {
     VerticalLayout {
         alignment: start;
         ToggleSwitch { text: "Toggle me"; }
         ToggleSwitch { text: "Disabled"; enabled: false; }
+    }
+}
+```
+
+### CustomSlider
+
+This slider can be dragged from any point within itself, because the TouchArea is covering
+the whole widget
+
+```slint
+import { VerticalBox } from "std-widgets.slint";
+
+export MySlider := Rectangle {
+    property<float> maximum: 100;
+    property<float> minimum: 0;
+    property<float> value;
+
+    min-height: 24px;
+    min-width: 100px;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+
+    border-radius: height/2;
+    background: touch.pressed ? #eee: #ddd;
+    border-width: 1px;
+    border-color: background.darker(25%);
+
+    handle := Rectangle {
+        width: height;
+        height: parent.height;
+        border-width: 3px;
+        border-radius: height / 2;
+        background: touch.pressed ? #f8f: touch.has-hover ? #66f : #0000ff;
+        border-color: background.darker(15%);
+        x: (root.width - handle.width) * (value - minimum)/(maximum - minimum);
+    }
+    touch := TouchArea {
+        property <float> pressed-value;
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                pressed-value = root.value;
+            }
+        }
+        moved => {
+            if (enabled && pressed) {
+                value = max(root.minimum, min(root.maximum,
+                    pressed-value + (touch.mouse-x - touch.pressed-x) * (maximum - minimum) / (root.width - handle.width)));
+
+            }
+        }
+    }
+}
+
+export Recipe := Window {
+    VerticalBox {
+        alignment: start;
+        slider := MySlider {
+            maximum: 100;
+        }
+        Text {
+            text: "Value: \{round(slider.value)}";
+        }
+    }
+}
+```
+
+This example show another implementation that has a draggable handle:
+The handle only moves when we click on that handle.
+The TouchArea is within the handle and moves with the handle.
+
+```slint
+import { VerticalBox } from "std-widgets.slint";
+
+export MySlider := Rectangle {
+    property<float> maximum: 100;
+    property<float> minimum: 0;
+    property<float> value;
+
+    min-height: 24px;
+    min-width: 100px;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+
+    border-radius: height/2;
+    background: touch.pressed ? #eee: #ddd;
+    border-width: 1px;
+    border-color: background.darker(25%);
+
+    handle := Rectangle {
+        width: height;
+        height: parent.height;
+        border-width: 3px;
+        border-radius: height / 2;
+        background: touch.pressed ? #f8f: touch.has-hover ? #66f : #0000ff;
+        border-color: background.darker(15%);
+        x: (root.width - handle.width) * (value - minimum)/(maximum - minimum);
+
+        touch := TouchArea {
+            moved => {
+                if (enabled && pressed) {
+                    value = max(root.minimum, min(root.maximum,
+                        value + (mouse-x - pressed-x) * (maximum - minimum) / root.width));
+                }
+            }
+        }
+    }
+}
+
+export Recipe := Window {
+    VerticalBox {
+        alignment: start;
+        slider := MySlider {
+            maximum: 100;
+        }
+        Text {
+            text: "Value: \{round(slider.value)}";
+        }
+    }
+}
+```
+
+### Custom tabs
+
+```slint
+import { Button } from "std-widgets.slint";
+
+export Recipe := Window {
+    preferred-height: 200px;
+    property <int> active-tab;
+    VerticalLayout {
+        tab_bar := HorizontalLayout {
+            spacing: 3px;
+            Button {
+                text: "Red";
+                clicked => { active-tab = 0; }
+            }
+            Button {
+                text: "Blue";
+                clicked => { active-tab = 1; }
+            }
+            Button {
+                text: "Green";
+                clicked => { active-tab = 2; }
+            }
+        }
+        Rectangle {
+            Rectangle {
+                background: red;
+                x: active-tab == 0 ? 0 : active-tab < 0 ? - width - 1px : parent.width + 1px;
+                animate x { duration: 125ms; easing: ease; }
+            }
+            Rectangle {
+                background: blue;
+                x: active-tab == 1 ? 0 : active-tab < 1 ? - width - 1px : parent.width + 1px;
+                animate x { duration: 125ms; easing: ease; }
+            }
+            Rectangle {
+                background: green;
+                x: active-tab == 2 ? 0 : active-tab < 2 ? - width - 1px : parent.width + 1px;
+                animate x { duration: 125ms; easing: ease; }
+            }
+        }
     }
 }
 ```
