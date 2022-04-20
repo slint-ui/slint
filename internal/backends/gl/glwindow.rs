@@ -9,9 +9,10 @@ use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use std::rc::{Rc, Weak};
 
-use super::{ItemGraphicsCache, TextureCache};
+use super::TextureCache;
 use crate::event_loop::WinitWindow;
 use crate::glcontext::OpenGLContext;
+use crate::glrenderer::{CanvasRc, ItemGraphicsCache};
 use const_field_offset::FieldOffsets;
 use corelib::api::{GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use corelib::component::ComponentRc;
@@ -24,8 +25,6 @@ use corelib::Property;
 use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
 use winit::dpi::LogicalSize;
-
-use crate::CanvasRc;
 
 pub const PASSWORD_CHARACTER: &str = "●";
 
@@ -194,7 +193,7 @@ impl WinitWindow for GLWindow {
                     0,
                     size.width,
                     size.height,
-                    crate::to_femtovg_color(&window.clear_color),
+                    crate::glrenderer::to_femtovg_color(&window.clear_color),
                 );
                 // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                 // the back buffer, in order to allow the callback to provide its own rendering of the background.
@@ -210,7 +209,7 @@ impl WinitWindow for GLWindow {
                 }
             }
 
-            let mut renderer = crate::GLItemRenderer::new(
+            let mut renderer = crate::glrenderer::GLItemRenderer::new(
                 window.canvas.as_ref().unwrap().clone(),
                 self.clone(),
                 scale_factor,

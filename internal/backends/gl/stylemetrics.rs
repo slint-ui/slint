@@ -9,7 +9,7 @@ use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 #[cfg(feature = "rtti")]
 use i_slint_core::rtti::*;
-use i_slint_core::{items::LayoutAlignment, Property};
+use i_slint_core::{items::LayoutAlignment, Color, Property};
 use i_slint_core_macros::*;
 
 #[repr(C)]

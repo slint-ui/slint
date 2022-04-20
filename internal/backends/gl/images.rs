@@ -10,7 +10,7 @@ use i_slint_core::graphics::{IntSize, SharedImageBuffer};
 use i_slint_core::Property;
 use i_slint_core::{items::ImageRendering, slice::Slice, ImageInner, SharedString};
 
-use super::{CanvasRc, GLItemRenderer};
+use super::glrenderer::{CanvasRc, GLItemRenderer};
 
 struct Texture {
     id: femtovg::ImageId,
@@ -134,7 +134,7 @@ impl std::fmt::Debug for ImageData {
 }
 
 #[derive(Debug)]
-pub(crate) struct CachedImage(RefCell<ImageData>);
+pub struct CachedImage(RefCell<ImageData>);
 
 impl CachedImage {
     fn new_on_cpu(decoded_image: image::DynamicImage, premultiplied_alpha: bool) -> Self {
