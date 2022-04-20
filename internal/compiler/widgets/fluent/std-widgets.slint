@@ -75,6 +75,7 @@ export CheckBox := Rectangle {
     }
 
     fs := FocusScope {
+        width: 0px; // Do not react on clicks
         enabled <=> root.enabled;
         has_focus <=> root.has-focus;
 
@@ -375,6 +376,7 @@ export TabBarImpl := Rectangle {
     }
 
     fs := FocusScope {
+        width: 0px; // Do not react on clicks
         property<int> focused-tab: 0;
 
         key-pressed(event) => {
@@ -464,6 +466,7 @@ export StandardListView := ListView {
         }
     }
     fs := FocusScope {
+        width: 0px; // Do not react on clicks
         property<int> actual-current-item: -1;
         key-pressed(event) => {
             if (event.text == Keys.UpArrow && current-item > 0) {

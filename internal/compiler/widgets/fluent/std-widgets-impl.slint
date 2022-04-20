@@ -109,6 +109,7 @@ export Button := Rectangle {
     touch := TouchArea {}
 
     fs := FocusScope {
+        width: 0px; // Do not react on clicks
         enabled <=> root.enabled;
         key-pressed(event) => {
             if (event.text == " " || event.text == "\n") {

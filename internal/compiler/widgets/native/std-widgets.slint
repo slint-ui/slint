@@ -71,6 +71,7 @@ export StandardListView := ListView {
         }
     }
     fs := FocusScope {
+        width: 0px; // Do not react on clicks
         property<int> actual-current-item: -1;
         key-pressed(event) => {
             if (event.text == Keys.UpArrow && current-item > 0) {
@@ -140,6 +141,7 @@ export TabBarImpl := Rectangle {
     }
 
     fs := FocusScope {
+        width: 0px; // Do not react on clicks
         key-pressed(event) => {
             if (event.text == Keys.LeftArrow) {
                  root.current = Math.max(root.current - 1,  0);
