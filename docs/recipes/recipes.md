@@ -574,7 +574,7 @@ export Recipe := Window {
 ### CustomSlider
 
 This slider can be dragged from any point within itself, because the TouchArea is covering
-the whole widget
+the whole widget.
 
 ```slint
 import { VerticalBox } from "std-widgets.slint";
