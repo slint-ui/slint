@@ -10,6 +10,7 @@ use crate::item_tree::TraversalOrder;
 use crate::items::ItemRef;
 use crate::layout::Orientation;
 use crate::{Coord, Property, SharedString, SharedVector};
+pub use adapters::{FilterModel, MapModel};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
@@ -21,6 +22,7 @@ use once_cell::unsync::OnceCell;
 use pin_project::pin_project;
 use pin_weak::rc::{PinWeak, Rc};
 
+mod adapters;
 mod model_peer;
 
 type ComponentRc<C> = vtable::VRc<crate::component::ComponentVTable, C>;
@@ -173,17 +175,37 @@ pub trait Model {
     }
 }
 
-/// Extension trait with extra methods implemented on types that implements [`Model`]
+/// Extension trait with extra methods implemented on types that implement [`Model`]
 pub trait ModelExt: Model {
     /// Convenience function that calls [`ModelTracker::track_row_data_changes`]
-    /// before returning [`Self::row_data`].
+    /// before returning [`Model::row_data`].
     ///
-    /// Calling [`row_data(row)`](Self::row_data) does not register the row as a dependency when calling it while
+    /// Calling [`row_data(row)`](Model::row_data) does not register the row as a dependency when calling it while
     /// evaluating a property binding. This function calls [`track_row_data_changes(row)`](ModelTracker::track_row_data_changes)
-    /// on the [`self.model_tracker()`](Self::model_tracker) to enable tracking.
+    /// on the [`self.model_tracker()`](Model::model_tracker) to enable tracking.
     fn row_data_tracked(&self, row: usize) -> Option<Self::Data> {
         self.model_tracker().track_row_data_changes(row);
         self.row_data(row)
+    }
+
+    /// Returns a new Model where all elements are mapped by the function `map_function`.
+    /// This is a shortcut for [`MapModel::new()`].
+    fn map<F, U>(self, map_function: F) -> MapModel<Self, F>
+    where
+        Self: Sized + 'static,
+        F: Fn(Self::Data) -> U + 'static,
+    {
+        MapModel::new(self, map_function)
+    }
+
+    /// Returns a new Model where the elements are filtered by the function `filter_function`.
+    /// This is a shortcut for [`FilterModel::new()`].
+    fn filter<F>(self, filter_function: F) -> FilterModel<Self, F>
+    where
+        Self: Sized + 'static,
+        F: Fn(&Self::Data) -> bool + 'static,
+    {
+        FilterModel::new(self, filter_function)
     }
 }
 
@@ -227,6 +249,29 @@ impl<'a, T> Iterator for ModelIterator<'a, T> {
 }
 
 impl<'a, T> ExactSizeIterator for ModelIterator<'a, T> {}
+
+impl<M: Model> Model for Rc<M> {
+    type Data = M::Data;
+
+    fn row_count(&self) -> usize {
+        (**self).row_count()
+    }
+
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        (**self).row_data(row)
+    }
+
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        (**self).model_tracker()
+    }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        (**self).as_any()
+    }
+    fn set_row_data(&self, row: usize, data: Self::Data) {
+        (**self).set_row_data(row, data)
+    }
+}
 
 /// A model backed by a `Vec<T>`
 #[derive(Default)]
