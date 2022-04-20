@@ -713,6 +713,7 @@ export Recipe := Window {
             }
         }
         Rectangle {
+            clip: true;
             Rectangle {
                 background: red;
                 x: active-tab == 0 ? 0 : active-tab < 0 ? - width - 1px : parent.width + 1px;
