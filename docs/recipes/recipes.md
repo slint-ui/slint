@@ -690,6 +690,7 @@ export Recipe := Window {
 
 ### Custom tabs
 
+Use this recipe as a basis to when you want to create your own custom tab widget.
 ```slint
 import { Button } from "std-widgets.slint";
 
