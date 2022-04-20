@@ -324,6 +324,29 @@ impl<'a, T> Iterator for ModelIterator<'a, T> {
 
 impl<'a, T> ExactSizeIterator for ModelIterator<'a, T> {}
 
+impl<M: Model> Model for Rc<M> {
+    type Data = M::Data;
+
+    fn row_count(&self) -> usize {
+        (**self).row_count()
+    }
+
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        (**self).row_data(row)
+    }
+
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        (**self).model_tracker()
+    }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        (**self).as_any()
+    }
+    fn set_row_data(&self, row: usize, data: Self::Data) {
+        (**self).set_row_data(row, data)
+    }
+}
+
 /// A model backed by a `Vec<T>`
 #[derive(Default)]
 pub struct VecModel<T> {
@@ -1225,4 +1248,65 @@ fn test_vecmodel_set_vec() {
     assert!(view.removed_rows.borrow().is_empty());
     assert_eq!(*view.reset.borrow(), 1);
     view.clear();
+}
+
+mod proxy {
+    use super::*;
+
+    pub struct MapProxy<M, F> {
+        inner_model: M,
+        map_function: F,
+    }
+
+    impl<M, F, T, U> Model for MapProxy<M, F>
+    where
+        M: 'static,
+        F: 'static,
+        F: Fn(T) -> U,
+        M: Model<Data = T>,
+    {
+        type Data = U;
+
+        fn row_count(&self) -> usize {
+            self.inner_model.row_count()
+        }
+
+        fn row_data(&self, row: usize) -> Option<Self::Data> {
+            self.inner_model.row_data(row).map(|x| (self.map_function)(x))
+        }
+
+        fn model_tracker(&self) -> &dyn ModelTracker {
+            self.inner_model.model_tracker()
+        }
+
+        fn as_any(&self) -> &dyn core::any::Any {
+            self
+        }
+    }
+
+    impl<M, F, T, U> MapProxy<M, F>
+    where
+        M: 'static,
+        F: 'static,
+        F: Fn(T) -> U,
+        M: Model<Data = T>,
+    {
+        pub fn new(model: M, map_function: F) -> Self {
+            Self { inner_model: model, map_function }
+        }
+    }
+
+    #[test]
+    fn test_model_proxy() {
+        let inner_rc = Rc::new(VecModel::from(vec![1, 2, 3]));
+        //let inner = ModelRc::from(inner_rc.clone());
+        let map = MapProxy::new(inner_rc.clone(), |x| x.to_string());
+
+        inner_rc.set_row_data(2, 42);
+        inner_rc.push(4);
+
+        assert_eq!(map.row_data(2).unwrap(), "42");
+        assert_eq!(map.row_data(3).unwrap(), "4");
+        assert_eq!(map.row_data(1).unwrap(), "2");
+    }
 }
