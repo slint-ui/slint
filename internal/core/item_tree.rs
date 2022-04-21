@@ -1123,6 +1123,148 @@ mod tests {
     }
 
     #[test]
+    fn test_tree_traversal_nested_subtrees() {
+        let component = VRc::new(TestComponent {
+            parent_component: None,
+            item_tree: vec![
+                ItemTreeNode::Item {
+                    children_count: 3,
+                    children_index: 1,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+                ItemTreeNode::Item {
+                    children_count: 0,
+                    children_index: 4,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+                ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
+                ItemTreeNode::Item {
+                    children_count: 0,
+                    children_index: 4,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+            ],
+            subtrees: std::cell::RefCell::new(vec![]),
+            subtree_index: core::usize::MAX,
+        });
+
+        let sub_component1 = VRc::new(TestComponent {
+            parent_component: Some(VRc::into_dyn(component.clone())),
+            item_tree: vec![
+                ItemTreeNode::Item {
+                    children_count: 1,
+                    children_index: 1,
+                    parent_index: 2,
+                    item_array_index: 0,
+                },
+                ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
+            ],
+            subtrees: std::cell::RefCell::new(vec![]),
+            subtree_index: core::usize::MAX,
+        });
+        let sub_component2 = VRc::new(TestComponent {
+            parent_component: Some(VRc::into_dyn(sub_component1.clone())),
+            item_tree: vec![
+                ItemTreeNode::Item {
+                    children_count: 1,
+                    children_index: 1,
+                    parent_index: 1,
+                    item_array_index: 0,
+                },
+                ItemTreeNode::Item {
+                    children_count: 0,
+                    children_index: 2,
+                    parent_index: 0,
+                    item_array_index: 0,
+                },
+            ],
+            subtrees: std::cell::RefCell::new(vec![]),
+            subtree_index: core::usize::MAX,
+        });
+
+        sub_component1.as_pin_ref().subtrees.replace(vec![vec![sub_component2]]);
+        component.as_pin_ref().subtrees.replace(vec![vec![sub_component1]]);
+
+        let component = VRc::into_dyn(component);
+
+        // Examine root node:
+        let item = ItemRc::new(component.clone(), 0);
+        assert!(item.previous_sibling().is_none());
+        assert!(item.next_sibling().is_none());
+
+        let fc = item.first_child().unwrap();
+        assert!(VRc::ptr_eq(&fc.component(), &item.component()));
+        assert_eq!(fc.index(), 1);
+
+        let lc = item.last_child().unwrap();
+        assert!(VRc::ptr_eq(&lc.component(), &item.component()));
+        assert_eq!(lc.index(), 3);
+
+        let fcn = fc.next_sibling().unwrap();
+        let lcp = lc.previous_sibling().unwrap();
+
+        assert!(fcn == lcp);
+        assert!(!VRc::ptr_eq(&fcn.component(), &item.component()));
+
+        let last = fcn.next_sibling().unwrap();
+        assert_eq!(last, lc);
+
+        let first = lcp.previous_sibling().unwrap();
+        assert_eq!(first, fc);
+
+        // Nested component:
+        let nested_root = fcn.first_child().unwrap();
+        assert_eq!(nested_root, fcn.last_child().unwrap());
+        assert!(nested_root.next_sibling().is_none());
+        assert!(nested_root.previous_sibling().is_none());
+        assert!(!VRc::ptr_eq(&nested_root.component(), &item.component()));
+        assert!(!VRc::ptr_eq(&nested_root.component(), &fcn.component()));
+
+        let nested_child = nested_root.first_child().unwrap();
+        assert_eq!(nested_child, nested_root.last_child().unwrap());
+        assert!(VRc::ptr_eq(&nested_root.component(), &nested_child.component()));
+
+        // Focus traversal:
+        let mut cursor = item.clone();
+
+        cursor = cursor.next_focus_item();
+        assert_eq!(cursor, fc);
+
+        cursor = cursor.next_focus_item();
+        assert_eq!(cursor, fcn);
+
+        cursor = cursor.next_focus_item();
+        assert_eq!(cursor, nested_root);
+
+        cursor = cursor.next_focus_item();
+        assert_eq!(cursor, nested_child);
+
+        cursor = cursor.next_focus_item();
+        assert_eq!(cursor, lc);
+
+        cursor = cursor.next_focus_item();
+        assert_eq!(cursor, item);
+
+        cursor = cursor.previous_focus_item();
+        assert_eq!(cursor, nested_child);
+
+        cursor = cursor.previous_focus_item();
+        assert_eq!(cursor, nested_root);
+
+        cursor = cursor.previous_focus_item();
+        assert_eq!(cursor, fcn);
+
+        cursor = cursor.previous_focus_item();
+        assert_eq!(cursor, fc);
+
+        cursor = cursor.previous_focus_item();
+        assert_eq!(cursor, item);
+    }
+
+    #[test]
     fn test_tree_traversal_subtrees_item() {
         let component = VRc::new(TestComponent {
             parent_component: None,
