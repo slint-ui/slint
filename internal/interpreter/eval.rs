@@ -1159,7 +1159,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::Struct { fields, .. } => Value::Struct(
             fields.iter().map(|(n, t)| (n.clone(), default_value_for_type(t))).collect::<Struct>(),
         ),
-        Type::Array(_) | Type::Model => Value::Void,
+        Type::Array(_) | Type::Model => Value::Model(Default::default()),
         Type::Percent => Value::Number(0.),
         Type::Enumeration(e) => {
             Value::EnumerationValue(e.name.clone(), e.values.get(e.default_value).unwrap().clone())
