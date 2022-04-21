@@ -322,10 +322,15 @@ impl Window {
     pub fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
         let mut item = self.focus_item.borrow().clone();
         while let Some(focus_item) = item.upgrade() {
-            if focus_item.borrow().as_ref().key_event(event, &self.clone())
-                == crate::input::KeyEventResult::EventAccepted
-            {
-                return;
+            if !focus_item.is_visible() {
+                // Reset the focus... not great, but better than keeping it.
+                self.take_focus_item();
+            } else {
+                if focus_item.borrow().as_ref().key_event(event, &self.clone())
+                    == crate::input::KeyEventResult::EventAccepted
+                {
+                    return;
+                }
             }
             item = focus_item.parent_item();
         }
