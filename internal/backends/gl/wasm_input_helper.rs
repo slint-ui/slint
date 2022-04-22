@@ -15,7 +15,7 @@
 //! that as text.
 //! Since the slint core lib doesn't support composition yet, when we get
 //! composition event, we just send that as key, and if the composition changes,
-//! we just sumulate a few backspaces.
+//! we just simulate a few backspaces.
 
 use std::cell::RefCell;
 use std::rc::{Rc, Weak};
@@ -28,6 +28,7 @@ use wasm_bindgen::JsCast;
 
 pub struct WasmInputHelper {
     input: web_sys::HtmlInputElement,
+    canvas: web_sys::HtmlCanvasElement,
 }
 
 #[derive(Default)]
@@ -86,7 +87,7 @@ impl WasmInputHelper {
         style.set_property("opacity", "0").unwrap(); // Hide the cursor on mobile Safari
         input.set_attribute("autocapitalize", "none").unwrap(); // Otherwise everything would be capitalized as we need to clear the input
         canvas.before_with_node_1(&input).unwrap();
-        let mut h = Self { input };
+        let mut h = Self { input, canvas: canvas.clone() };
 
         let shared_state = Rc::new(RefCell::new(WasmInputState::default()));
 
@@ -104,6 +105,7 @@ impl WasmInputHelper {
         let shared_state2 = shared_state.clone();
         h.add_event_listener("keydown", move |e: web_sys::KeyboardEvent| {
             if let (Some(window), Some(text)) = (win.upgrade(), event_text(&e)) {
+                e.prevent_default();
                 shared_state2.borrow_mut().has_key_down = true;
                 window.process_key_input(&KeyEvent {
                     modifiers: modifiers(&e),
@@ -117,6 +119,7 @@ impl WasmInputHelper {
         let shared_state2 = shared_state.clone();
         h.add_event_listener("keyup", move |e: web_sys::KeyboardEvent| {
             if let (Some(window), Some(text)) = (win.upgrade(), event_text(&e)) {
+                e.prevent_default();
                 shared_state2.borrow_mut().has_key_down = false;
                 window.process_key_input(&KeyEvent {
                     modifiers: modifiers(&e),
@@ -205,7 +208,9 @@ impl WasmInputHelper {
     }
 
     pub fn hide(&self) {
-        self.input.blur().unwrap();
+        if self.has_focus() {
+            self.canvas.focus().unwrap()
+        }
         self.input.style().set_property("visibility", "hidden").unwrap();
     }
 
@@ -247,6 +252,7 @@ fn event_text(e: &web_sys::KeyboardEvent) -> Option<SharedString> {
     macro_rules! check_non_printable_code {
         ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident)|* ;)*) => {
             match key.as_str() {
+                "Tab" if e.shift_key() => return convert(i_slint_core::input::key_codes::Backtab),
                 $(stringify!($name) => {
                     return convert($char);
                 })*
