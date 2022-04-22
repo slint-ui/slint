@@ -67,7 +67,6 @@ pub mod api;
 pub mod backend;
 pub mod callbacks;
 pub mod component;
-pub(crate) mod flickable;
 pub mod graphics;
 pub mod input;
 pub mod item_focus;

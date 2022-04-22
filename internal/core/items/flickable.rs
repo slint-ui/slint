@@ -3,20 +3,159 @@
 
 //! The implementation details behind the Flickable
 
-use core::time::Duration;
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use crate::animations::EasingCurve;
-use crate::animations::Instant;
-use crate::graphics::Point;
-use crate::input::{InputEventFilterResult, InputEventResult, MouseEvent};
-use crate::items::PointerEventButton;
-use crate::items::{Flickable, PropertyAnimation, Rectangle};
+//! The `Flickable` item
+
+use super::{
+    Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventResult, PointerEventButton, RenderingResult,
+};
+use crate::animations::{EasingCurve, Instant};
+use crate::graphics::{Point, Rect};
+use crate::input::{
+    FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent, MouseEvent,
+};
+use crate::item_rendering::CachedRenderingData;
+use crate::items::{PropertyAnimation, Rectangle};
+use crate::layout::{LayoutInfo, Orientation};
+#[cfg(feature = "rtti")]
+use crate::rtti::*;
+use crate::window::WindowRc;
 use crate::Coord;
+use crate::Property;
+use const_field_offset::FieldOffsets;
 use core::cell::RefCell;
 use core::pin::Pin;
+use core::time::Duration;
+#[allow(unused)]
+use euclid::num::Ceil;
+use i_slint_core_macros::*;
 #[cfg(not(feature = "std"))]
 #[allow(unused)]
 use num_traits::Float;
+
+/// The implementation of the `Flickable` element
+#[repr(C)]
+#[derive(FieldOffsets, Default, SlintElement)]
+#[pin]
+pub struct Flickable {
+    pub x: Property<Coord>,
+    pub y: Property<Coord>,
+    pub width: Property<Coord>,
+    pub height: Property<Coord>,
+    pub viewport: Rectangle,
+    pub interactive: Property<bool>,
+    data: FlickableDataBox,
+
+    /// FIXME: remove this
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for Flickable {
+    fn init(self: Pin<&Self>, _window: &WindowRc) {}
+
+    fn geometry(self: Pin<&Self>) -> Rect {
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
+    }
+
+    fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
+        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        event: MouseEvent,
+        _window: &WindowRc,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        if let Some(pos) = event.pos() {
+            if pos.x < 0 as _ || pos.y < 0 as _ || pos.x > self.width() || pos.y > self.height() {
+                return InputEventFilterResult::Intercept;
+            }
+        }
+        if !self.interactive() && !matches!(event, MouseEvent::MouseWheel { .. }) {
+            return InputEventFilterResult::ForwardAndIgnore;
+        }
+        self.data.handle_mouse_filter(self, event)
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        event: MouseEvent,
+        _window: &WindowRc,
+        _self_rc: &ItemRc,
+    ) -> InputEventResult {
+        if !self.interactive() && !matches!(event, MouseEvent::MouseWheel { .. }) {
+            return InputEventResult::EventIgnored;
+        }
+        if let Some(pos) = event.pos() {
+            if matches!(event, MouseEvent::MouseWheel { .. } | MouseEvent::MousePressed { .. })
+                && (pos.x < 0 as _
+                    || pos.y < 0 as _
+                    || pos.x > self.width()
+                    || pos.y > self.height())
+            {
+                return InputEventResult::EventIgnored;
+            }
+        }
+
+        self.data.handle_mouse(self, event)
+    }
+
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
+
+    fn render(
+        self: Pin<&Self>,
+        backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+    ) -> RenderingResult {
+        let geometry = self.geometry();
+        (*backend).combine_clip(
+            euclid::rect(0 as _, 0 as _, geometry.width(), geometry.height()),
+            0 as _,
+            0 as _,
+        );
+        RenderingResult::ContinueRenderingChildren
+    }
+}
+
+impl ItemConsts for Flickable {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<Self, CachedRenderingData> =
+        Self::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+#[repr(C)]
+/// Wraps the internal data structure for the Flickable
+pub struct FlickableDataBox(core::ptr::NonNull<FlickableData>);
+
+impl Default for FlickableDataBox {
+    fn default() -> Self {
+        FlickableDataBox(Box::leak(Box::new(FlickableData::default())).into())
+    }
+}
+impl Drop for FlickableDataBox {
+    fn drop(&mut self) {
+        // Safety: the self.0 was constructed from a Box::leak in FlickableDataBox::default
+        unsafe {
+            Box::from_raw(self.0.as_ptr());
+        }
+    }
+}
+
+impl core::ops::Deref for FlickableDataBox {
+    type Target = FlickableData;
+    fn deref(&self) -> &Self::Target {
+        // Safety: initialized in FlickableDataBox::default
+        unsafe { self.0.as_ref() }
+    }
+}
 
 /// The distance required before it starts flicking if there is another item intercepting the mouse.
 const DISTANCE_THRESHOLD: Coord = 8 as _;
@@ -201,4 +340,21 @@ fn ensure_in_bound(flick: Pin<&Flickable>, p: Point) -> Point {
     let min = Point::new(w - vw, h - vh);
     let max = Point::new(0 as _, 0 as _);
     p.max(min).min(max)
+}
+
+/// # Safety
+/// This must be called using a non-null pointer pointing to a chunk of memory big enough to
+/// hold a FlickableDataBox
+#[cfg(feature = "ffi")]
+#[no_mangle]
+pub unsafe extern "C" fn slint_flickable_data_init(data: *mut FlickableDataBox) {
+    core::ptr::write(data, FlickableDataBox::default());
+}
+
+/// # Safety
+/// This must be called using a non-null pointer pointing to an initialized FlickableDataBox
+#[cfg(feature = "ffi")]
+#[no_mangle]
+pub unsafe extern "C" fn slint_flickable_data_free(data: *mut FlickableDataBox) {
+    core::ptr::drop_in_place(data);
 }
