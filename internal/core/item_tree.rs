@@ -99,21 +99,18 @@ impl ItemRc {
 
     /// Return the parent Item in the item tree.
     /// This is weak because it can be null if there is no parent
-    pub fn parent_item(&self) -> ItemWeak {
+    pub fn parent_item(&self) -> Option<ItemRc> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
         let item_tree = crate::item_tree::ComponentItemTree::new(&comp_ref_pin);
 
         if let Some(parent_index) = item_tree.parent(self.index) {
-            return ItemRc::new(self.component.clone(), parent_index).downgrade();
+            return Some(ItemRc::new(self.component.clone(), parent_index));
         }
 
         let mut r = ItemWeak::default();
         comp_ref_pin.as_ref().parent_node(&mut r);
-        // parent_item returns the repeater node, go up one more level!
-        if let Some(rc) = r.upgrade() {
-            r = rc.parent_item();
-        }
-        r
+        // parent_node returns the repeater node, go up one more level!
+        r.upgrade()?.parent_item()
     }
 
     // FIXME: This should be nicer/done elsewhere?
@@ -126,7 +123,7 @@ impl ItemRc {
             return false;
         }
 
-        if let Some(parent) = self.parent_item().upgrade() {
+        if let Some(parent) = self.parent_item() {
             parent.is_visible()
         } else {
             true
@@ -297,7 +294,6 @@ impl ItemRc {
                     return step_in(item);
                 } else {
                     // Go up a level!
-
                     let mut parent_node = Default::default();
                     let root_component = root.component();
                     let root_comp_ref = vtable::VRc::borrow_pin(&root_component);
@@ -985,11 +981,11 @@ mod tests {
         assert!(fc.first_child().is_none());
         assert!(fc.last_child().is_none());
         assert!(fc.previous_sibling().is_none());
-        assert_eq!(fc.parent_item().upgrade(), Some(item.clone()));
+        assert_eq!(fc.parent_item().unwrap(), item);
 
         // Examine item between first and last child:
         assert_eq!(fcn, lcp);
-        assert_eq!(lcp.parent_item().upgrade(), Some(item.clone()));
+        assert_eq!(lcp.parent_item().unwrap(), item);
         assert_eq!(fcn.previous_sibling().unwrap(), fc);
         assert_eq!(fcn.next_sibling().unwrap(), lc);
 
@@ -997,7 +993,7 @@ mod tests {
         assert!(lc.first_child().is_none());
         assert!(lc.last_child().is_none());
         assert!(lc.next_sibling().is_none());
-        assert_eq!(lc.parent_item().upgrade(), Some(item.clone()));
+        assert_eq!(lc.parent_item().unwrap(), item);
     }
 
     #[test]

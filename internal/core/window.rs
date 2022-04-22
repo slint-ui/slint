@@ -320,8 +320,8 @@ impl Window {
     /// * `event`: The key event received by the windowing system.
     /// * `component`: The Slint compiled component that provides the tree of items.
     pub fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
-        let mut item = self.focus_item.borrow().clone();
-        while let Some(focus_item) = item.upgrade() {
+        let mut item = self.focus_item.borrow().clone().upgrade();
+        while let Some(focus_item) = item {
             if !focus_item.is_visible() {
                 // Reset the focus... not great, but better than keeping it.
                 self.take_focus_item();
@@ -586,7 +586,7 @@ impl Window {
         let mut parent_item = parent_item.clone();
         loop {
             position += parent_item.borrow().as_ref().geometry().origin.to_vector();
-            parent_item = match parent_item.parent_item().upgrade() {
+            parent_item = match parent_item.parent_item() {
                 None => break,
                 Some(pi) => pi,
             }
