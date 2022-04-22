@@ -110,7 +110,6 @@ impl ItemRc {
         let mut r = ItemWeak::default();
         comp_ref_pin.as_ref().parent_node(&mut r);
         // parent_node returns the repeater node, go up one more level!
-
         r.upgrade().map(|rc| rc.parent_item()).flatten()
     }
 
