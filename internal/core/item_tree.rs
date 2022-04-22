@@ -868,8 +868,7 @@ mod tests {
 
     crate::component::ComponentVTable_static!(static TEST_COMPONENT_VT for TestComponent);
 
-    #[test]
-    fn test_tree_traversal_one_node() {
+    fn create_one_node_component() -> VRc<ComponentVTable, vtable::Dyn> {
         let component = VRc::new(TestComponent {
             parent_component: None,
             item_tree: vec![ItemTreeNode::Item {
@@ -881,7 +880,12 @@ mod tests {
             subtrees: std::cell::RefCell::new(vec![]),
             subtree_index: core::usize::MAX,
         });
-        let component = VRc::into_dyn(component);
+        VRc::into_dyn(component)
+    }
+
+    #[test]
+    fn test_tree_traversal_one_node_structure() {
+        let component = create_one_node_component();
 
         let item = ItemRc::new(component.clone(), 0);
 
@@ -889,14 +893,29 @@ mod tests {
         assert!(item.last_child().is_none());
         assert!(item.previous_sibling().is_none());
         assert!(item.next_sibling().is_none());
-
-        // Wrap the focus around:
-        assert!(item.previous_focus_item() == item);
-        assert!(item.next_focus_item() == item);
     }
 
     #[test]
-    fn test_tree_traversal_children_nodes() {
+    fn test_tree_traversal_one_node_forward_focus() {
+        let component = create_one_node_component();
+
+        let item = ItemRc::new(component.clone(), 0);
+
+        // Wrap the focus around:
+        assert_eq!(item.next_focus_item(), item);
+    }
+
+    #[test]
+    fn test_tree_traversal_one_node_backward_focus() {
+        let component = create_one_node_component();
+
+        let item = ItemRc::new(component.clone(), 0);
+
+        // Wrap the focus around:
+        assert_eq!(item.previous_focus_item(), item);
+    }
+
+    fn create_children_nodes() -> VRc<ComponentVTable, vtable::Dyn> {
         let component = VRc::new(TestComponent {
             parent_component: None,
             item_tree: vec![
@@ -928,7 +947,12 @@ mod tests {
             subtrees: std::cell::RefCell::new(vec![]),
             subtree_index: core::usize::MAX,
         });
-        let component = VRc::into_dyn(component);
+        VRc::into_dyn(component)
+    }
+
+    #[test]
+    fn test_tree_traversal_children_nodes_structure() {
+        let component = create_children_nodes();
 
         // Examine root node:
         let item = ItemRc::new(component.clone(), 0);
@@ -954,50 +978,70 @@ mod tests {
         assert!(fc.first_child().is_none());
         assert!(fc.last_child().is_none());
         assert!(fc.previous_sibling().is_none());
-        assert!(fc.parent_item().upgrade() == Some(item.clone()));
+        assert_eq!(fc.parent_item().upgrade(), Some(item.clone()));
 
         // Examine item between first and last child:
-        assert!(fcn == lcp);
-        assert!(lcp.parent_item().upgrade() == Some(item.clone()));
-        assert!(fcn.previous_sibling().unwrap() == fc);
-        assert!(fcn.next_sibling().unwrap() == lc);
+        assert_eq!(fcn, lcp);
+        assert_eq!(lcp.parent_item().upgrade(), Some(item.clone()));
+        assert_eq!(fcn.previous_sibling().unwrap(), fc);
+        assert_eq!(fcn.next_sibling().unwrap(), lc);
 
         // Examine last child:
         assert!(lc.first_child().is_none());
         assert!(lc.last_child().is_none());
         assert!(lc.next_sibling().is_none());
-        assert!(lc.parent_item().upgrade() == Some(item.clone()));
-
-        // Focus traversal:
-        let mut cursor = item.clone();
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == fc);
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == fcn);
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == lc);
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == item);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == lc);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == fcn);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == fc);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == item);
+        assert_eq!(lc.parent_item().upgrade(), Some(item.clone()));
     }
 
     #[test]
-    fn test_tree_traversal_empty_subtree() {
+    fn test_tree_traversal_children_nodes_forward_focus() {
+        let component = create_children_nodes();
+
+        let item = ItemRc::new(component.clone(), 0);
+        let fc = item.first_child().unwrap();
+        let fcn = fc.next_sibling().unwrap();
+        let lc = item.last_child().unwrap();
+
+        let mut cursor = item.clone();
+
+        cursor = cursor.next_focus_item();
+        assert_eq!(cursor, fc);
+
+        cursor = cursor.next_focus_item();
+        assert_eq!(cursor, fcn);
+
+        cursor = cursor.next_focus_item();
+        assert_eq!(cursor, lc);
+
+        cursor = cursor.next_focus_item();
+        assert_eq!(cursor, item);
+    }
+
+    #[test]
+    fn test_tree_traversal_children_nodes_backward_focus() {
+        let component = create_children_nodes();
+
+        let item = ItemRc::new(component.clone(), 0);
+        let fc = item.first_child().unwrap();
+        let fcn = fc.next_sibling().unwrap();
+        let lc = item.last_child().unwrap();
+
+        let mut cursor = item.clone();
+
+        cursor = cursor.previous_focus_item();
+        assert_eq!(cursor, lc);
+
+        cursor = cursor.previous_focus_item();
+        assert_eq!(cursor, fcn);
+
+        cursor = cursor.previous_focus_item();
+        assert_eq!(cursor, fc);
+
+        cursor = cursor.previous_focus_item();
+        assert_eq!(cursor, item);
+    }
+
+    fn create_empty_subtree() -> VRc<ComponentVTable, vtable::Dyn> {
         let component = vtable::VRc::new(TestComponent {
             parent_component: None,
             item_tree: vec![
@@ -1012,7 +1056,12 @@ mod tests {
             subtrees: std::cell::RefCell::new(vec![vec![]]),
             subtree_index: core::usize::MAX,
         });
-        let component = vtable::VRc::into_dyn(component);
+        vtable::VRc::into_dyn(component)
+    }
+
+    #[test]
+    fn test_tree_traversal_empty_subtree_structure() {
+        let component = create_empty_subtree();
 
         // Examine root node:
         let item = ItemRc::new(component.clone(), 0);
@@ -1027,7 +1076,26 @@ mod tests {
     }
 
     #[test]
-    fn test_tree_traversal_item_subtree_item() {
+    fn test_tree_traversal_empty_subtree_forward_focus() {
+        let component = create_empty_subtree();
+
+        // Examine root node:
+        let item = ItemRc::new(component.clone(), 0);
+
+        assert!(item.next_focus_item() == item);
+    }
+
+    #[test]
+    fn test_tree_traversal_empty_subtree_backward_focus() {
+        let component = create_empty_subtree();
+
+        // Examine root node:
+        let item = ItemRc::new(component.clone(), 0);
+
+        assert!(item.previous_focus_item() == item);
+    }
+
+    fn create_item_subtree_item() -> VRc<ComponentVTable, vtable::Dyn> {
         let component = VRc::new(TestComponent {
             parent_component: None,
             item_tree: vec![
@@ -1067,7 +1135,12 @@ mod tests {
             subtree_index: 0,
         })]]);
 
-        let component = VRc::into_dyn(component);
+        VRc::into_dyn(component)
+    }
+
+    #[test]
+    fn test_tree_traversal_item_subtree_item_structure() {
+        let component = create_item_subtree_item();
 
         // Examine root node:
         let item = ItemRc::new(component.clone(), 0);
@@ -1085,45 +1158,65 @@ mod tests {
         let fcn = fc.next_sibling().unwrap();
         let lcp = lc.previous_sibling().unwrap();
 
-        assert!(fcn == lcp);
+        assert_eq!(fcn, lcp);
         assert!(!VRc::ptr_eq(&fcn.component(), &item.component()));
 
         let last = fcn.next_sibling().unwrap();
-        assert!(last == lc);
+        assert_eq!(last, lc);
 
         let first = lcp.previous_sibling().unwrap();
-        assert!(first == fc);
-
-        // Focus traversal:
-        let mut cursor = item.clone();
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == fc);
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == fcn);
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == lc);
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == item);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == lc);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == fcn);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == fc);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == item);
+        assert_eq!(first, fc);
     }
 
     #[test]
-    fn test_tree_traversal_nested_subtrees() {
+    fn test_tree_traversal_item_subtree_item_forward_focus() {
+        let component = create_item_subtree_item();
+
+        let item = ItemRc::new(component.clone(), 0);
+        let fc = item.first_child().unwrap();
+        let lc = item.last_child().unwrap();
+        let fcn = fc.next_sibling().unwrap();
+
+        let mut cursor = item.clone();
+
+        cursor = cursor.next_focus_item();
+        assert_eq!(cursor, fc);
+
+        cursor = cursor.next_focus_item();
+        assert_eq!(cursor, fcn);
+
+        cursor = cursor.next_focus_item();
+        assert_eq!(cursor, lc);
+
+        cursor = cursor.next_focus_item();
+        assert_eq!(cursor, item);
+    }
+
+    #[test]
+    fn test_tree_traversal_item_subtree_item_backward_focus() {
+        let component = create_item_subtree_item();
+
+        let item = ItemRc::new(component.clone(), 0);
+        let fc = item.first_child().unwrap();
+        let lc = item.last_child().unwrap();
+        let fcn = fc.next_sibling().unwrap();
+
+        let mut cursor = item.clone();
+
+        cursor = cursor.previous_focus_item();
+        assert_eq!(cursor, lc);
+
+        cursor = cursor.previous_focus_item();
+        assert_eq!(cursor, fcn);
+
+        cursor = cursor.previous_focus_item();
+        assert_eq!(cursor, fc);
+
+        cursor = cursor.previous_focus_item();
+        assert_eq!(cursor, item);
+    }
+
+    fn create_nested_subtrees() -> VRc<ComponentVTable, vtable::Dyn> {
         let component = VRc::new(TestComponent {
             parent_component: None,
             item_tree: vec![
@@ -1188,7 +1281,12 @@ mod tests {
         sub_component1.as_pin_ref().subtrees.replace(vec![vec![sub_component2]]);
         component.as_pin_ref().subtrees.replace(vec![vec![sub_component1]]);
 
-        let component = VRc::into_dyn(component);
+        VRc::into_dyn(component)
+    }
+
+    #[test]
+    fn test_tree_traversal_nested_subtrees_structure() {
+        let component = create_nested_subtrees();
 
         // Examine root node:
         let item = ItemRc::new(component.clone(), 0);
@@ -1206,7 +1304,7 @@ mod tests {
         let fcn = fc.next_sibling().unwrap();
         let lcp = lc.previous_sibling().unwrap();
 
-        assert!(fcn == lcp);
+        assert_eq!(fcn, lcp);
         assert!(!VRc::ptr_eq(&fcn.component(), &item.component()));
 
         let last = fcn.next_sibling().unwrap();
@@ -1226,6 +1324,19 @@ mod tests {
         let nested_child = nested_root.first_child().unwrap();
         assert_eq!(nested_child, nested_root.last_child().unwrap());
         assert!(VRc::ptr_eq(&nested_root.component(), &nested_child.component()));
+    }
+
+    #[test]
+    fn test_tree_traversal_nested_subtrees_forward_focus() {
+        let component = create_nested_subtrees();
+
+        // Examine root node:
+        let item = ItemRc::new(component.clone(), 0);
+        let fc = item.first_child().unwrap();
+        let fcn = fc.next_sibling().unwrap();
+        let lc = item.last_child().unwrap();
+        let nested_root = fcn.first_child().unwrap();
+        let nested_child = nested_root.first_child().unwrap();
 
         // Focus traversal:
         let mut cursor = item.clone();
@@ -1247,6 +1358,25 @@ mod tests {
 
         cursor = cursor.next_focus_item();
         assert_eq!(cursor, item);
+    }
+
+    #[test]
+    fn test_tree_traversal_nested_subtrees_backward_focus() {
+        let component = create_nested_subtrees();
+
+        // Examine root node:
+        let item = ItemRc::new(component.clone(), 0);
+        let fc = item.first_child().unwrap();
+        let fcn = fc.next_sibling().unwrap();
+        let lc = item.last_child().unwrap();
+        let nested_root = fcn.first_child().unwrap();
+        let nested_child = nested_root.first_child().unwrap();
+
+        // Focus traversal:
+        let mut cursor = item.clone();
+
+        cursor = cursor.previous_focus_item();
+        assert_eq!(cursor, lc);
 
         cursor = cursor.previous_focus_item();
         assert_eq!(cursor, nested_child);
@@ -1264,8 +1394,7 @@ mod tests {
         assert_eq!(cursor, item);
     }
 
-    #[test]
-    fn test_tree_traversal_subtrees_item() {
+    fn create_subtrees_item() -> VRc<ComponentVTable, vtable::Dyn> {
         let component = VRc::new(TestComponent {
             parent_component: None,
             item_tree: vec![
@@ -1323,7 +1452,12 @@ mod tests {
             }),
         ]]);
 
-        let component = VRc::into_dyn(component);
+        VRc::into_dyn(component)
+    }
+
+    #[test]
+    fn test_tree_traversal_subtrees_item_structure() {
+        let component = create_subtrees_item();
 
         // Examine root node:
         let item = ItemRc::new(component.clone(), 0);
@@ -1349,151 +1483,7 @@ mod tests {
         assert!(!VRc::ptr_eq(&sub2.component(), &sub3.component()));
         assert!(!VRc::ptr_eq(&item.component(), &sub3.component()));
 
-        assert!(sub3.previous_sibling() == Some(sub2.clone()));
-
-        let lc = item.last_child().unwrap();
-        assert!(VRc::ptr_eq(&lc.component(), &item.component()));
-        assert_eq!(lc.index(), 2);
-
-        assert!(sub3.next_sibling() == Some(lc.clone()));
-        assert!(lc.previous_sibling() == Some(sub3.clone()));
-
-        // Focus traversal:
-        let mut cursor = item.clone();
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == sub1);
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == sub2);
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == sub3);
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == lc);
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == item);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == lc);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == sub3);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == sub2);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == sub1);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == item);
-    }
-
-    #[test]
-    fn test_tree_traversal_item_subtree_child() {
-        let component = VRc::new(TestComponent {
-            parent_component: None,
-            item_tree: vec![
-                ItemTreeNode::Item {
-                    children_count: 2,
-                    children_index: 1,
-                    parent_index: 0,
-                    item_array_index: 0,
-                },
-                ItemTreeNode::Item {
-                    children_count: 1,
-                    children_index: 3,
-                    parent_index: 0,
-                    item_array_index: 0,
-                },
-                ItemTreeNode::Item {
-                    children_count: 0,
-                    children_index: 4,
-                    parent_index: 0,
-                    item_array_index: 0,
-                },
-                ItemTreeNode::Item {
-                    children_count: 1,
-                    children_index: 4,
-                    parent_index: 1,
-                    item_array_index: 0,
-                },
-                ItemTreeNode::DynamicTree { index: 0, parent_index: 3 },
-            ],
-            subtrees: std::cell::RefCell::new(vec![]),
-            subtree_index: core::usize::MAX,
-        });
-
-        component.as_pin_ref().subtrees.replace(vec![vec![VRc::new(TestComponent {
-            parent_component: Some(VRc::into_dyn(component.clone())),
-            item_tree: vec![ItemTreeNode::Item {
-                children_count: 0,
-                children_index: 1,
-                parent_index: 4,
-                item_array_index: 0,
-            }],
-            subtrees: std::cell::RefCell::new(vec![]),
-            subtree_index: 0,
-        })]]);
-
-        let component = VRc::into_dyn(component);
-
-        // Examine root node:
-        let item = ItemRc::new(component.clone(), 0);
-        assert!(item.previous_sibling().is_none());
-        assert!(item.next_sibling().is_none());
-
-        let c1 = item.first_child().unwrap();
-        assert_eq!(c1.index(), 1);
-        assert!(VRc::ptr_eq(&c1.component(), &item.component()));
-
-        let c2 = c1.next_sibling().unwrap();
-        assert_eq!(c2.index(), 2);
-        assert!(VRc::ptr_eq(&c2.component(), &item.component()));
-
-        let c1_1 = c1.first_child().unwrap();
-        assert_eq!(c1_1.index(), 3);
-        assert!(VRc::ptr_eq(&c1_1.component(), &item.component()));
-
-        let sub = c1_1.first_child().unwrap();
-        assert_eq!(sub.index(), 0);
-        assert!(!VRc::ptr_eq(&sub.component(), &item.component()));
-
-        // Focus traversal:
-        let mut cursor = item.clone();
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == c1);
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == c1_1);
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == sub);
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == c2);
-
-        cursor = cursor.next_focus_item();
-        assert!(cursor == item);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == c2);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == sub);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == c1_1);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == c1);
-
-        cursor = cursor.previous_focus_item();
-        assert!(cursor == item);
+        assert_eq!(sub3.previous_sibling().unwrap(), sub2.clone());
     }
 
     #[test]
