@@ -7,6 +7,7 @@ pub use cortex_m_rt::entry;
 use embedded_display_controller::{DisplayController, DisplayControllerLayer};
 use embedded_graphics::prelude::RgbColor;
 use embedded_hal::digital::v2::OutputPin;
+use hal::delay::Delay;
 use hal::gpio::Speed::High;
 use hal::ltdc::LtdcLayer1;
 use hal::pac;
@@ -49,12 +50,15 @@ pub fn init() {
 
     let pwr = dp.PWR.constrain();
     let pwrcfg = pwr.smps().freeze();
+    dp.RCC.apb3enr.write(|w| w.ltdcen().enabled()); // __HAL_RCC_LTDC_CLK_ENABLE ?
+    dp.RCC.apb3rstr.write(|w| w.ltdcrst().set_bit()); // __HAL_RCC_LTDC_FORCE_RESET  ?
+    dp.RCC.apb3rstr.write(|w| w.ltdcrst().clear_bit()); // __HAL_RCC_LTDC_RELEASE_RESET  ?
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
         .sys_ck(320.mhz())
-        // there number are just random :-/  Don't know where to find the actual number i need
-        .pll3_p_ck(160.mhz())
-        .pll3_r_ck(160.mhz())
+        .pll3_p_ck(400.mhz())
+        .pll3_q_ck(400.mhz())
+        .pll3_r_ck(9630.khz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Octospi from HCLK at 160MHz
@@ -124,8 +128,9 @@ pub fn init() {
         .contains(&(fb2.as_ptr() as usize)));
 
     fb1.fill(TargetPixel::BLUE);
+    fb1.fill(TargetPixel::RED);
 
-    // setup LTDC
+    // setup LTDC  (LTDC_MspInit)
     let _p = gpioa.pa3.into_alternate_af14().set_speed(High).internal_pull_up(true);
     let _p = gpioa.pa4.into_alternate_af14().set_speed(High).internal_pull_up(true);
     let _p = gpioa.pa6.into_alternate_af14().set_speed(High).internal_pull_up(true);
@@ -154,12 +159,27 @@ pub fn init() {
     let _p = gpioa.pa8.into_alternate_af13().set_speed(High).internal_pull_up(true);
     let _p = gpioh.ph4.into_alternate_af9().set_speed(High).internal_pull_up(true);
 
+    /*unsafe {
+        // I have no clue what i'm doing
+        let dp = pac::Peripherals::steal();
+        dp.RCC.apb3rstr.write(|w| w.ltdcrst().set_bit()); // __HAL_RCC_LTDC_FORCE_RESET  ?
+        dp.RCC.apb3rstr.write(|w| w.ltdcrst().clear_bit()); // __HAL_RCC_LTDC_RELEASE_RESET  ?
+    }*/
+
+    let mut lcd_disp_en = gpioe.pe13.into_push_pull_output();
+    let mut lcd_disp_ctrl = gpiod.pd10.into_push_pull_output();
+    let mut lcd_bl_ctrl = gpiog.pg15.into_push_pull_output();
+
+    let mut delay = Delay::new(cp.SYST, ccdr.clocks);
+    delay.delay_ms(40u8);
+    // End LTDC_MspInit
+
     let mut ltdc = hal::ltdc::Ltdc::new(dp.LTDC, ccdr.peripheral.LTDC, &ccdr.clocks);
 
-    const RK043FN48H_HSYNC: u16 = 41; /* Horizontal synchronization */
+    const RK043FN48H_HSYNC: u16 = 40; /* Horizontal synchronization */
     const RK043FN48H_HBP: u16 = 13; /* Horizontal back porch      */
     const RK043FN48H_HFP: u16 = 32; /* Horizontal front porch     */
-    const RK043FN48H_VSYNC: u16 = 10; /* Vertical synchronization   */
+    const RK043FN48H_VSYNC: u16 = 9; /* Vertical synchronization   */
     const RK043FN48H_VBP: u16 = 2; /* Vertical back porch        */
     const RK043FN48H_VFP: u16 = 2; /* Vertical front porch       */
 
@@ -183,15 +203,12 @@ pub fn init() {
 
     // Safety: the frame buffer has the right size
     unsafe {
-        layer.enable(fb1.as_ptr() as *const u16, embedded_display_controller::PixelFormat::RGB888);
+        layer.enable(fb2.as_ptr() as *const u16, embedded_display_controller::PixelFormat::RGB888);
         layer.swap_framebuffer(fb1.as_ptr() as *const u16);
     }
 
-    let mut lcd_disp_en = gpioe.pe13.into_push_pull_output();
     lcd_disp_en.set_low().unwrap();
-    let mut lcd_disp_ctrl = gpiod.pd10.into_push_pull_output();
     lcd_disp_ctrl.set_high().unwrap();
-    let mut lcd_bl_ctrl = gpiog.pg15.into_push_pull_output();
     lcd_bl_ctrl.set_high().unwrap();
 
     // Safety: the frame buffer has the right size
@@ -200,6 +217,7 @@ pub fn init() {
         layer.swap_framebuffer(fb1.as_ptr() as *const u16);
     }
 
+    i_slint_core::debug_log!("run!");
     crate::init_with_display(StmDevices { work_fb: fb1 /*displayed_fb: fb2*/, layer });
 }
 
