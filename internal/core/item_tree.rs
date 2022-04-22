@@ -292,12 +292,18 @@ impl ItemRc {
                 // Loop: We stepped into an empty repeater!
             } else {
                 // Step out of this component:
-                let root = ItemRc::new(self.component(), 0);
+                let mut root = ItemRc::new(self.component(), 0);
                 if let Some(item) = subtree_step(root.clone()) {
                     return step_in(item);
                 } else {
                     // Go up a level!
-                    if let Some(parent) = root.parent_item().upgrade() {
+
+                    let mut parent_node = Default::default();
+                    let root_component = root.component();
+                    let root_comp_ref = vtable::VRc::borrow_pin(&root_component);
+                    root_comp_ref.as_ref().parent_node(&mut parent_node);
+
+                    while let Some(parent) = parent_node.upgrade() {
                         let parent_ref_pin = vtable::VRc::borrow_pin(&parent.component);
                         let parent_item_tree =
                             crate::item_tree::ComponentItemTree::new(&parent_ref_pin);
@@ -312,14 +318,15 @@ impl ItemRc {
                             ) {
                                 return item;
                             }
-                            to_focus = next;
-                        } else {
-                            // Moving out
-                            return step_in(root);
                         }
-                    } else {
-                        return step_in(root);
+
+                        root = ItemRc::new(parent.component(), 0);
+                        let root_component = root.component();
+                        let root_comp_ref = vtable::VRc::borrow_pin(&root_component);
+                        root_comp_ref.as_ref().parent_node(&mut parent_node);
                     }
+
+                    return step_in(root);
                 }
             }
         }
@@ -343,7 +350,7 @@ impl ItemRc {
                     }
                 }
             },
-            &|_, index| Some(index),
+            &|item_tree, index| item_tree.parent(index),
         )
     }
 
