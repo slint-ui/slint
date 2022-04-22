@@ -280,7 +280,12 @@ impl WinitWindow for GLWindow {
 
     #[cfg(target_arch = "wasm32")]
     fn input_method_focused(&self) -> bool {
-        self.virtual_keyboard_helper.borrow().as_ref().map_or(false, |h| h.has_focus())
+        match self.virtual_keyboard_helper.try_borrow() {
+            Ok(vkh) => vkh.as_ref().map_or(false, |h| h.has_focus()),
+            // the only location in which the virtual_keyboard_helper is mutably borrowed is from
+            // show_virtual_keyboard, which means we have the focus
+            Err(_) => true,
+        }
     }
 }
 

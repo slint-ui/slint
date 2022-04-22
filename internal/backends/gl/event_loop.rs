@@ -410,8 +410,10 @@ fn process_window_event(
             let have_focus = have_focus || window.input_method_focused();
             // We don't render popups as separate windows yet, so treat
             // focus to be the same as being active.
-            runtime_window.set_active(have_focus);
-            runtime_window.set_focus(have_focus);
+            if have_focus != runtime_window.active() {
+                runtime_window.set_active(have_focus);
+                runtime_window.set_focus(have_focus);
+            }
         }
         WindowEvent::KeyboardInput { ref input, .. } => {
             window.currently_pressed_key_code().set(match input.state {
@@ -419,13 +421,25 @@ fn process_window_event(
                 _ => None,
             });
             if let Some(text) = input.virtual_keycode.and_then(key_codes::winit_key_to_string) {
+                #[allow(unused_mut)]
+                let mut modifiers = window.current_keyboard_modifiers().get();
+                // On wasm, the WindowEvent::ModifiersChanged event is not received
+                #[cfg(target_arch = "wasm32")]
+                #[allow(deprecated)]
+                {
+                    modifiers.shift |= input.modifiers.shift();
+                    modifiers.control |= input.modifiers.ctrl();
+                    modifiers.meta |= input.modifiers.logo();
+                    modifiers.alt |= input.modifiers.alt();
+                }
+
                 let event = key_event(
                     match input.state {
                         winit::event::ElementState::Pressed => KeyEventType::KeyPressed,
                         winit::event::ElementState::Released => KeyEventType::KeyReleased,
                     },
                     text,
-                    window.current_keyboard_modifiers().get(),
+                    modifiers,
                 );
                 runtime_window.process_key_input(&event);
             };
