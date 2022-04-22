@@ -24,6 +24,7 @@ use crate::rtti::*;
 use crate::window::WindowRc;
 use crate::Coord;
 use crate::Property;
+use alloc::boxed::Box;
 use const_field_offset::FieldOffsets;
 use core::cell::RefCell;
 use core::pin::Pin;
