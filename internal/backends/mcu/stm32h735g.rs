@@ -31,13 +31,10 @@ use crate::{Devices, PhysicalRect, PhysicalSize};
 const HEAP_SIZE: usize = 128 * 1024;
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 
-//const DISPLAY_WIDTH: usize = 320;
-//const DISPLAY_HEIGHT: usize = 240;
-
 const DISPLAY_WIDTH: usize = 480;
 const DISPLAY_HEIGHT: usize = 272;
 
-pub type TargetPixel = embedded_graphics::pixelcolor::Rgb888;
+pub type TargetPixel = embedded_graphics::pixelcolor::Rgb565;
 
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
@@ -56,9 +53,9 @@ pub fn init() {
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
         .sys_ck(320.mhz())
-        .pll3_p_ck(400.mhz())
-        .pll3_q_ck(400.mhz())
-        .pll3_r_ck(9630.khz())
+        .pll3_p_ck((800_000_000 / 2).hz())
+        .pll3_q_ck((800_000_000 / 2).hz())
+        .pll3_r_ck((800_000_000 / 83).hz())
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Octospi from HCLK at 160MHz
@@ -106,8 +103,6 @@ pub fn init() {
         dp.OCTOSPI2.octospi_hyperbus_unchecked(config, &ccdr.clocks, ccdr.peripheral.OCTOSPI2);
     let hyperram_ptr: *mut u32 = hyperram.init();
 
-    i_slint_core::debug_log!("hello");
-
     let mut led_red = gpioc.pc2.into_push_pull_output();
     led_red.set_low().unwrap(); // low mean "on"
     let mut led_green = gpioc.pc3.into_push_pull_output();
@@ -127,8 +122,8 @@ pub fn init() {
     assert!((hyperram_ptr as usize..hyperram_ptr as usize + hyperram_size)
         .contains(&(fb2.as_ptr() as usize)));
 
-    fb1.fill(TargetPixel::BLUE);
-    fb1.fill(TargetPixel::RED);
+    fb1.fill(TargetPixel::BLACK);
+    fb2.fill(TargetPixel::WHITE);
 
     // setup LTDC  (LTDC_MspInit)
     let _p = gpioa.pa3.into_alternate_af14().set_speed(High).internal_pull_up(true);
@@ -159,12 +154,14 @@ pub fn init() {
     let _p = gpioa.pa8.into_alternate_af13().set_speed(High).internal_pull_up(true);
     let _p = gpioh.ph4.into_alternate_af9().set_speed(High).internal_pull_up(true);
 
-    /*unsafe {
+    /*
+    unsafe {
         // I have no clue what i'm doing
         let dp = pac::Peripherals::steal();
         dp.RCC.apb3rstr.write(|w| w.ltdcrst().set_bit()); // __HAL_RCC_LTDC_FORCE_RESET  ?
         dp.RCC.apb3rstr.write(|w| w.ltdcrst().clear_bit()); // __HAL_RCC_LTDC_RELEASE_RESET  ?
-    }*/
+    }
+    */
 
     let mut lcd_disp_en = gpioe.pe13.into_push_pull_output();
     let mut lcd_disp_ctrl = gpiod.pd10.into_push_pull_output();
@@ -176,17 +173,17 @@ pub fn init() {
 
     let mut ltdc = hal::ltdc::Ltdc::new(dp.LTDC, ccdr.peripheral.LTDC, &ccdr.clocks);
 
-    const RK043FN48H_HSYNC: u16 = 40; /* Horizontal synchronization */
+    const RK043FN48H_HSYNC: u16 = 41; /* Horizontal synchronization */
     const RK043FN48H_HBP: u16 = 13; /* Horizontal back porch      */
     const RK043FN48H_HFP: u16 = 32; /* Horizontal front porch     */
-    const RK043FN48H_VSYNC: u16 = 9; /* Vertical synchronization   */
+    const RK043FN48H_VSYNC: u16 = 10; /* Vertical synchronization   */
     const RK043FN48H_VBP: u16 = 2; /* Vertical back porch        */
     const RK043FN48H_VFP: u16 = 2; /* Vertical front porch       */
 
     ltdc.init(embedded_display_controller::DisplayConfiguration {
         active_width: DISPLAY_WIDTH as _,
         active_height: DISPLAY_HEIGHT as _,
-        h_back_porch: RK043FN48H_HBP,
+        h_back_porch: RK043FN48H_HBP - 11, // -11 from MX_LTDC_Init
         h_front_porch: RK043FN48H_HFP,
         v_back_porch: RK043FN48H_VBP,
         v_front_porch: RK043FN48H_VFP,
@@ -197,27 +194,19 @@ pub fn init() {
         not_data_enable_pol: false,
         pixel_clock_pol: false,
     });
-    stm32h7xx_hal::ltdc::Ltdc::unpend();
-    ltdc.listen();
     let mut layer = ltdc.split();
 
     // Safety: the frame buffer has the right size
     unsafe {
-        layer.enable(fb2.as_ptr() as *const u16, embedded_display_controller::PixelFormat::RGB888);
-        layer.swap_framebuffer(fb1.as_ptr() as *const u16);
+        layer.enable(fb1.as_ptr() as *const u8, embedded_display_controller::PixelFormat::RGB565);
     }
 
     lcd_disp_en.set_low().unwrap();
     lcd_disp_ctrl.set_high().unwrap();
     lcd_bl_ctrl.set_high().unwrap();
 
-    // Safety: the frame buffer has the right size
-    unsafe {
-        layer.enable(fb1.as_ptr() as *const u16, embedded_display_controller::PixelFormat::RGB888);
-        layer.swap_framebuffer(fb1.as_ptr() as *const u16);
-    }
+    led_red.set_high().unwrap();
 
-    i_slint_core::debug_log!("run!");
     crate::init_with_display(StmDevices { work_fb: fb1 /*displayed_fb: fb2*/, layer });
 }
 
