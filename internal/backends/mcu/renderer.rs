@@ -95,6 +95,8 @@ pub fn render_window_frame(
     line_processing_profiler.stop_profiling(devices, "line processing");
     span_drawing_profiler.stop_profiling(devices, "span drawing");
     screen_fill_profiler.stop_profiling(devices, "screen fill");
+
+    devices.flush_frame();
 }
 
 struct Scene {
@@ -315,7 +317,7 @@ struct RoundedRectangle {
 fn prepare_scene(
     runtime_window: Rc<i_slint_core::window::Window>,
     size: PhysicalSize,
-    devices: &dyn Devices,
+    devices: &mut dyn Devices,
     initial_dirty_region: i_slint_core::item_rendering::DirtyRegion,
     cache: &mut PartialRenderingCache,
 ) -> Scene {
@@ -329,31 +331,28 @@ fn prepare_scene(
         prepare_scene,
     );
 
+    let mut dirty_region = PhysicalRect::default();
     runtime_window.draw_contents(|components| {
         compute_dirty_region_profiler.start(devices);
         for (component, origin) in components {
             renderer.compute_dirty_regions(component, *origin);
         }
-        renderer.combine_clip(
-            ((LogicalRect::from_untyped(&renderer.dirty_region.to_rect()).cast() * factor)
-                .round_out()
-                / factor)
-                .to_untyped()
-                .cast(),
-            0 as _,
-            0 as _,
-        );
+
+        dirty_region = (LogicalRect::from_untyped(&renderer.dirty_region.to_rect()).cast()
+            * factor)
+            .round_out()
+            .cast()
+            .intersection(&PhysicalRect { origin: euclid::point2(0, 0), size })
+            .unwrap_or_default();
+        dirty_region = devices.prepare_frame(dirty_region);
+
+        renderer.combine_clip((dirty_region.cast() / factor).to_untyped().cast(), 0 as _, 0 as _);
         compute_dirty_region_profiler.stop(devices);
         for (component, origin) in components {
             i_slint_core::item_rendering::render_component_items(component, &mut renderer, *origin);
         }
     });
-    let dirty_region = (LogicalRect::from_untyped(&renderer.dirty_region.to_rect()).cast()
-        * factor)
-        .round_out()
-        .cast()
-        .intersection(&PhysicalRect { origin: euclid::point2(0, 0), size })
-        .unwrap_or_default();
+
     prepare_scene_profiler.stop_profiling(devices, "prepare_scene");
     compute_dirty_region_profiler.stop_profiling(devices, "+    dirty_region");
     let prepare_scene = renderer.into_inner();
