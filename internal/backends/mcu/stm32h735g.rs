@@ -207,13 +207,26 @@ pub fn init() {
 
     led_red.set_high().unwrap();
 
-    crate::init_with_display(StmDevices { work_fb: fb1 /*displayed_fb: fb2*/, layer });
+    let mut timer = dp.TIM2.tick_timer(10000.hz(), ccdr.peripheral.TIM2, &ccdr.clocks);
+    timer.listen(hal::timer::Event::TimeOut);
+
+    crate::init_with_display(StmDevices {
+        work_fb: fb2,
+        displayed_fb: fb1,
+        layer,
+        timer,
+        prev_dirty: Default::default(),
+    });
 }
 
 struct StmDevices {
     work_fb: &'static mut [TargetPixel],
-    //displayed_fb: &'static mut [TargetPixel],
+    displayed_fb: &'static mut [TargetPixel],
     layer: LtdcLayer1,
+    timer: hal::timer::Timer<pac::TIM2>,
+
+    /// When using double frame buffer, this is the part still dirty in the other buffer
+    prev_dirty: PhysicalRect,
 }
 
 impl Devices for StmDevices {
@@ -221,11 +234,22 @@ impl Devices for StmDevices {
         PhysicalSize::new(DISPLAY_WIDTH as _, DISPLAY_HEIGHT as _)
     }
 
+    fn prepare_frame(&mut self, dirty_region: PhysicalRect) -> PhysicalRect {
+        dirty_region.union(&core::mem::replace(&mut self.prev_dirty, dirty_region))
+    }
+
     fn fill_region(&mut self, region: PhysicalRect, pixels: &[super::TargetPixel]) {
-        let region = region.cast();
+        let region = region.cast::<usize>();
         self.work_fb[region.min_y() * DISPLAY_WIDTH + region.min_x()
             ..region.min_y() * DISPLAY_WIDTH + region.max_x()]
-            .copy_from_slice(&pixels[region.min_x()..region.max_x()])
+            .copy_from_slice(pixels)
+    }
+
+    fn flush_frame(&mut self) {
+        // Safety: the frame buffer has the right size
+        unsafe { self.layer.swap_framebuffer(self.work_fb.as_ptr() as *const u8) };
+        // Swap the buffer pointer so we will work now on the second buffer
+        core::mem::swap::<&mut [_]>(&mut self.work_fb, &mut self.displayed_fb);
     }
 
     fn debug(&mut self, text: &str) {
@@ -237,7 +261,8 @@ impl Devices for StmDevices {
     }
 
     fn time(&self) -> core::time::Duration {
-        //FIXME
-        core::time::Duration::from_micros(0)
+        // FIXME! the timer can overflow
+        let val = self.timer.counter() / 10;
+        core::time::Duration::from_millis(val.into())
     }
 }

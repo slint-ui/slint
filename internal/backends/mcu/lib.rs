@@ -39,7 +39,12 @@ pub type TargetPixel = embedded_graphics::pixelcolor::Rgb565;
 
 pub trait Devices {
     fn screen_size(&self) -> PhysicalSize;
+    /// Called before the frame is being drawn, with the dirty region. Return the actual dirty region
+    fn prepare_frame(&mut self, dirty_region: PhysicalRect) -> PhysicalRect {
+        dirty_region
+    }
     fn fill_region(&mut self, region: PhysicalRect, pixels: &[TargetPixel]);
+    fn flush_frame(&mut self) {}
     fn read_touch_event(&mut self) -> Option<i_slint_core::input::MouseEvent> {
         None
     }
