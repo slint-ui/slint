@@ -27,7 +27,7 @@ use alloc_cortex_m::CortexMHeap;
 
 use crate::{Devices, PhysicalRect, PhysicalSize};
 
-const HEAP_SIZE: usize = 128 * 1024;
+const HEAP_SIZE: usize = 200 * 1024;
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 
 const DISPLAY_WIDTH: usize = 480;
@@ -46,12 +46,6 @@ pub fn init() {
 
     let pwr = dp.PWR.constrain();
     let pwrcfg = pwr.smps().freeze();
-    dp.RCC.apb3enr.write(|w| w.ltdcen().enabled()); // __HAL_RCC_LTDC_CLK_ENABLE ?
-    dp.RCC.apb3rstr.write(|w| w.ltdcrst().set_bit()); // __HAL_RCC_LTDC_FORCE_RESET  ?
-    dp.RCC.apb3rstr.write(|w| w.ltdcrst().clear_bit()); // __HAL_RCC_LTDC_RELEASE_RESET  ?
-    dp.RCC.apb4enr.write(|w| w.i2c4en().enabled()); // __HAL_RCC_I2C4_CLK_ENABLE
-    dp.RCC.apb4rstr.write(|w| w.i2c4rst().set_bit()); //__HAL_RCC_I2C4_FORCE_RESET
-    dp.RCC.apb4rstr.write(|w| w.i2c4rst().clear_bit()); //__HAL_RCC_I2C4_RELEASE_RESET
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
         .sys_ck(320.MHz())
@@ -155,15 +149,6 @@ pub fn init() {
     let _p = gpioh.ph15.into_alternate::<14>().speed(High).internal_pull_up(true);
     let _p = gpioa.pa8.into_alternate::<13>().speed(High).internal_pull_up(true);
     let _p = gpioh.ph4.into_alternate::<9>().speed(High).internal_pull_up(true);
-
-    /*
-    unsafe {
-        // I have no clue what i'm doing
-        let dp = pac::Peripherals::steal();
-        dp.RCC.apb3rstr.write(|w| w.ltdcrst().set_bit()); // __HAL_RCC_LTDC_FORCE_RESET  ?
-        dp.RCC.apb3rstr.write(|w| w.ltdcrst().clear_bit()); // __HAL_RCC_LTDC_RELEASE_RESET  ?
-    }
-    */
 
     let mut lcd_disp_en = gpioe.pe13.into_push_pull_output();
     let mut lcd_disp_ctrl = gpiod.pd10.into_push_pull_output();
