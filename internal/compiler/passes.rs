@@ -22,6 +22,7 @@ mod focus_item;
 mod generate_item_indices;
 mod infer_aliases_types;
 mod inlining;
+mod lower_accessibility;
 mod lower_layout;
 mod lower_popups;
 mod lower_property_to_element;
@@ -139,6 +140,7 @@ pub async fn run_passes(
         clip::handle_clip(component, &global_type_registry.borrow(), diag);
         visible::handle_visible(component, &global_type_registry.borrow());
         materialize_fake_properties::materialize_fake_properties(component);
+        lower_accessibility::lower_accessibility_properties(component, diag);
     }
     collect_globals::collect_globals(doc, diag);
 

@@ -214,6 +214,7 @@ fn duplicate_element_with_mapping(
             .collect(),
         child_of_layout: elem.child_of_layout,
         layout_info_prop: elem.layout_info_prop.clone(),
+        accessibility_props: elem.accessibility_props.clone(),
         named_references: Default::default(),
         item_index: Default::default(), // Not determined yet
         item_index_of_first_children: Default::default(),
