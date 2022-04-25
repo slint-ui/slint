@@ -6,7 +6,6 @@ extern crate alloc;
 pub use cortex_m_rt::entry;
 use embedded_display_controller::{DisplayController, DisplayControllerLayer};
 use embedded_graphics::prelude::RgbColor;
-use embedded_hal::digital::v2::OutputPin;
 use hal::delay::Delay;
 use hal::gpio::Speed::High;
 use hal::ltdc::LtdcLayer1;
@@ -52,14 +51,14 @@ pub fn init() {
     dp.RCC.apb3rstr.write(|w| w.ltdcrst().clear_bit()); // __HAL_RCC_LTDC_RELEASE_RESET  ?
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(320.mhz())
-        .pll3_p_ck((800_000_000 / 2).hz())
-        .pll3_q_ck((800_000_000 / 2).hz())
-        .pll3_r_ck((800_000_000 / 83).hz())
+        .sys_ck(320.MHz())
+        .pll3_p_ck(800.MHz() / 2)
+        .pll3_q_ck(800.MHz() / 2)
+        .pll3_r_ck(800.MHz() / 83)
         .freeze(pwrcfg, &dp.SYSCFG);
 
     // Octospi from HCLK at 160MHz
-    assert_eq!(ccdr.clocks.hclk().0, 160_000_000);
+    assert_eq!(ccdr.clocks.hclk(), 160.MHz::<1, 1>());
     assert_eq!(
         ccdr.peripheral.OCTOSPI1.get_kernel_clk_mux(),
         hal::rcc::rec::OctospiClkSel::RCC_HCLK3
@@ -79,23 +78,23 @@ pub fn init() {
     let gpioh = dp.GPIOH.split(ccdr.peripheral.GPIOH);
 
     // setup OCTOSPI HyperRAM
-    let _tracweswo = gpiob.pb3.into_alternate_af0();
-    let _ncs = gpiog.pg12.into_alternate_af3().set_speed(High).internal_pull_up(true);
-    let _dqs = gpiof.pf12.into_alternate_af9().set_speed(High).internal_pull_up(true);
-    let _clk = gpiof.pf4.into_alternate_af9().set_speed(High).internal_pull_up(true);
-    let _io0 = gpiof.pf0.into_alternate_af9().set_speed(High).internal_pull_up(true);
-    let _io1 = gpiof.pf1.into_alternate_af9().set_speed(High).internal_pull_up(true);
-    let _io2 = gpiof.pf2.into_alternate_af9().set_speed(High).internal_pull_up(true);
-    let _io3 = gpiof.pf3.into_alternate_af9().set_speed(High).internal_pull_up(true);
-    let _io4 = gpiog.pg0.into_alternate_af9().set_speed(High).internal_pull_up(true);
-    let _io5 = gpiog.pg1.into_alternate_af9().set_speed(High).internal_pull_up(true);
-    let _io6 = gpiog.pg10.into_alternate_af3().set_speed(High).internal_pull_up(true);
-    let _io7 = gpiog.pg11.into_alternate_af9().set_speed(High).internal_pull_up(true);
+    let _tracweswo = gpiob.pb3.into_alternate::<0>();
+    let _ncs = gpiog.pg12.into_alternate::<3>().speed(High).internal_pull_up(true);
+    let _dqs = gpiof.pf12.into_alternate::<9>().speed(High).internal_pull_up(true);
+    let _clk = gpiof.pf4.into_alternate::<9>().speed(High).internal_pull_up(true);
+    let _io0 = gpiof.pf0.into_alternate::<9>().speed(High).internal_pull_up(true);
+    let _io1 = gpiof.pf1.into_alternate::<9>().speed(High).internal_pull_up(true);
+    let _io2 = gpiof.pf2.into_alternate::<9>().speed(High).internal_pull_up(true);
+    let _io3 = gpiof.pf3.into_alternate::<9>().speed(High).internal_pull_up(true);
+    let _io4 = gpiog.pg0.into_alternate::<9>().speed(High).internal_pull_up(true);
+    let _io5 = gpiog.pg1.into_alternate::<9>().speed(High).internal_pull_up(true);
+    let _io6 = gpiog.pg10.into_alternate::<3>().speed(High).internal_pull_up(true);
+    let _io7 = gpiog.pg11.into_alternate::<9>().speed(High).internal_pull_up(true);
 
     let hyperram_size = 16 * 1024 * 1024; // 16 MByte
-    let config = hal::xspi::HyperbusConfig::new(80.mhz())
+    let config = hal::xspi::HyperbusConfig::new(80.MHz())
         .device_size_bytes(24) // 16 Mbyte
-        .refresh_interval(4.us())
+        .refresh_interval(4.micros())
         .read_write_recovery(4) // 50ns
         .access_initial_latency(6);
 
@@ -104,9 +103,9 @@ pub fn init() {
     let hyperram_ptr: *mut u32 = hyperram.init();
 
     let mut led_red = gpioc.pc2.into_push_pull_output();
-    led_red.set_low().unwrap(); // low mean "on"
+    led_red.set_low(); // low mean "on"
     let mut led_green = gpioc.pc3.into_push_pull_output();
-    led_green.set_low().unwrap();
+    led_green.set_low();
 
     #[link_section = ".frame_buffer"]
     static mut FB1: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
@@ -126,33 +125,33 @@ pub fn init() {
     fb2.fill(TargetPixel::WHITE);
 
     // setup LTDC  (LTDC_MspInit)
-    let _p = gpioa.pa3.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpioa.pa4.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpioa.pa6.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpiob.pb0.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpiob.pb1.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpiob.pb8.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpiob.pb9.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpioc.pc6.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpioc.pc7.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpiod.pd0.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpiod.pd3.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpiod.pd6.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpioe.pe0.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpioe.pe1.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpioe.pe11.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpioe.pe12.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpioe.pe15.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpiog.pg7.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpiog.pg14.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpioh.ph3.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpioh.ph8.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpioh.ph9.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpioh.ph10.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpioh.ph11.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpioh.ph15.into_alternate_af14().set_speed(High).internal_pull_up(true);
-    let _p = gpioa.pa8.into_alternate_af13().set_speed(High).internal_pull_up(true);
-    let _p = gpioh.ph4.into_alternate_af9().set_speed(High).internal_pull_up(true);
+    let _p = gpioa.pa3.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpioa.pa4.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpioa.pa6.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpiob.pb0.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpiob.pb1.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpiob.pb8.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpiob.pb9.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpioc.pc6.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpioc.pc7.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpiod.pd0.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpiod.pd3.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpiod.pd6.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpioe.pe0.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpioe.pe1.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpioe.pe11.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpioe.pe12.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpioe.pe15.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpiog.pg7.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpiog.pg14.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpioh.ph3.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpioh.ph8.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpioh.ph9.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpioh.ph10.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpioh.ph11.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpioh.ph15.into_alternate::<14>().speed(High).internal_pull_up(true);
+    let _p = gpioa.pa8.into_alternate::<13>().speed(High).internal_pull_up(true);
+    let _p = gpioh.ph4.into_alternate::<9>().speed(High).internal_pull_up(true);
 
     /*
     unsafe {
@@ -201,13 +200,13 @@ pub fn init() {
         layer.enable(fb1.as_ptr() as *const u8, embedded_display_controller::PixelFormat::RGB565);
     }
 
-    lcd_disp_en.set_low().unwrap();
-    lcd_disp_ctrl.set_high().unwrap();
-    lcd_bl_ctrl.set_high().unwrap();
+    lcd_disp_en.set_low();
+    lcd_disp_ctrl.set_high();
+    lcd_bl_ctrl.set_high();
 
-    led_red.set_high().unwrap();
+    led_red.set_high();
 
-    let mut timer = dp.TIM2.tick_timer(10000.hz(), ccdr.peripheral.TIM2, &ccdr.clocks);
+    let mut timer = dp.TIM2.tick_timer(10000.Hz(), ccdr.peripheral.TIM2, &ccdr.clocks);
     timer.listen(hal::timer::Event::TimeOut);
 
     crate::init_with_display(StmDevices {
