@@ -245,6 +245,14 @@ macro_rules! for_each_enums {
                 /// A key on a keyboard was released.
                 KeyReleased,
             }
+
+            /// The role for the `accessible-role` property
+            enum AccessibleRole {
+                none,
+                button,
+                checkbox,
+                //...
+            }
         ];
     };
 }
