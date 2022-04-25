@@ -418,6 +418,10 @@ impl Clone for PropertyAnimation {
     }
 }
 
+/// Map the accessibility property (eg "accessible-role", "accessible-label") to its named reference
+#[derive(Default, Clone)]
+pub struct AccessibilityProps(pub BTreeMap<String, NamedReference>);
+
 pub type BindingsMap = BTreeMap<String, RefCell<BindingExpression>>;
 
 /// An Element is an instantiation of a Component
@@ -454,6 +458,8 @@ pub struct Element {
     pub child_of_layout: bool,
     /// The property pointing to the layout info. `(horizontal, vertical)`
     pub layout_info_prop: Option<(NamedReference, NamedReference)>,
+
+    pub accessibility_props: AccessibilityProps,
 
     /// true if this Element is the fake Flickable viewport
     pub is_flickable_viewport: bool,
@@ -1620,6 +1626,10 @@ pub fn visit_all_named_references_in_element(
     let mut layout_info_prop = std::mem::take(&mut elem.borrow_mut().layout_info_prop);
     layout_info_prop.as_mut().map(|(h, b)| (vis(h), vis(b)));
     elem.borrow_mut().layout_info_prop = layout_info_prop;
+
+    let mut accessibility_props = std::mem::take(&mut elem.borrow_mut().accessibility_props);
+    accessibility_props.0.iter_mut().for_each(|(_, x)| vis(x));
+    elem.borrow_mut().accessibility_props = accessibility_props;
 
     // visit two way bindings
     for expr in elem.borrow().bindings.values() {

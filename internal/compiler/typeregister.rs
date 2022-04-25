@@ -84,6 +84,11 @@ pub(crate) const RESERVED_DROP_SHADOW_PROPERTIES: &[(&str, Type)] = &[
     ("drop-shadow-color", Type::Color),
 ];
 
+pub(crate) const RESERVED_ACCESSIBILITY_PROPERTIES: &[(&str, Type)] = &[
+    //("accessible-role", ...)
+    ("accessible-label", Type::String),
+];
+
 /// list of reserved property injected in every item
 pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
     RESERVED_GEOMETRY_PROPERTIES
@@ -91,6 +96,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
         .chain(RESERVED_LAYOUT_PROPERTIES.iter())
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
+        .chain(RESERVED_ACCESSIBILITY_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone()))
         .chain(IntoIterator::into_iter([
             ("forward-focus", Type::ElementReference),
@@ -98,6 +104,10 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
             (
                 "dialog-button-role",
                 Type::Enumeration(BUILTIN_ENUMS.with(|e| e.DialogButtonRole.clone())),
+            ),
+            (
+                "accessible-role",
+                Type::Enumeration(BUILTIN_ENUMS.with(|e| e.AccessibleRole.clone())),
             ),
         ]))
 }
