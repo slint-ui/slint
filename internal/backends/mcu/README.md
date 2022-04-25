@@ -9,11 +9,17 @@ only be used with `version = "=x.y.z"` in Cargo.toml.
 
 The MCU backend is still a work in progress.
 
-We are currently working on getting demo running with the [Raspberry Pi Pico](https://www.raspberrypi.com/products/raspberry-pi-pico/)
-and [ST7789 based screen](https://www.waveshare.com/pico-restouch-lcd-2.8.htm).
-The Raspberry Pi Pico uses a RP2040 micro-controller which has 264KB of RAM and 2MB of flash memory.
+We currently have in-tree backend for
+ * the [Raspberry Pi Pico](https://www.raspberrypi.com/products/raspberry-pi-pico/)
+   and [ST7789 based screen](https://www.waveshare.com/pico-restouch-lcd-2.8.htm):
 
-The other backend is the simulator which is a way to test the software rendering backend on desktop.
+   The Raspberry Pi Pico uses a RP2040 micro-controller which has 264KB of RAM and 2MB of flash memory.
+
+ * STM32H735G-DK
+
+ * Simulator, which is a way to test the software rendering backend on desktop.
+
+We will make some backend API public so any board supported by rust can easily be supported
 
 ## How to use
 
@@ -92,4 +98,12 @@ Then you can simply run with `cargo run`
 
 ```sh
 CARGO_TARGET_THUMBV6M_NONE_EABI_LINKER="flip-link" CARGO_TARGET_THUMBV6M_NONE_EABI_RUNNER="probe-run --chip RP2040" cargo +nightly run -p printerdemo_mcu --features=mcu-pico-st7789 --target=thumbv6m-none-eabi --release
+```
+
+### STM32H735G-DK
+
+Using [probe-run](https://github.com/knurling-rs/probe-run) (`cargo install probe-run`)
+
+```sh
+CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-run --chip STM32H735IGKx" cargo +nightly run -p printerdemo_mcu --features=i-slint-backend-mcu/stm32h735g,i-slint-backend-mcu/panic-probe --target=thumbv7em-none-eabihf --release
 ```
