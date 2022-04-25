@@ -27,7 +27,7 @@ unsafe_single_core = ["i-slint-core/unsafe_single_core"]
 snapshot_renderer = []
 std = ["i-slint-core/std"]
 
-default = ["stm32h735g"]
+default = ["simulator"]
 
 [dependencies]
 i-slint-common = { version = "=0.2.2", path = "../../../internal/common", default-features = false }

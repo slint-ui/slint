@@ -1,3 +1,6 @@
+/* Copyright © 2021 rp-rs organization
+ SPDX-License-Identifier: MIT OR Apache-2.0 */
+
 MEMORY
 {
   FLASH  : ORIGIN = 0x08000000, LENGTH = 1M
