@@ -49,6 +49,9 @@ pub fn init() {
     dp.RCC.apb3enr.write(|w| w.ltdcen().enabled()); // __HAL_RCC_LTDC_CLK_ENABLE ?
     dp.RCC.apb3rstr.write(|w| w.ltdcrst().set_bit()); // __HAL_RCC_LTDC_FORCE_RESET  ?
     dp.RCC.apb3rstr.write(|w| w.ltdcrst().clear_bit()); // __HAL_RCC_LTDC_RELEASE_RESET  ?
+    dp.RCC.apb4enr.write(|w| w.i2c4en().enabled()); // __HAL_RCC_I2C4_CLK_ENABLE
+    dp.RCC.apb4rstr.write(|w| w.i2c4rst().set_bit()); //__HAL_RCC_I2C4_FORCE_RESET
+    dp.RCC.apb4rstr.write(|w| w.i2c4rst().clear_bit()); //__HAL_RCC_I2C4_RELEASE_RESET
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
         .sys_ck(320.MHz())
@@ -206,14 +209,28 @@ pub fn init() {
 
     led_red.set_high();
 
+    // Init Timer
     let mut timer = dp.TIM2.tick_timer(10000.Hz(), ccdr.peripheral.TIM2, &ccdr.clocks);
     timer.listen(hal::timer::Event::TimeOut);
+
+    // Init Touch screen
+    let scl = gpiof.pf14.into_alternate::<4>().set_open_drain().speed(High).internal_pull_up(true);
+    let sda = gpiof.pf15.into_alternate::<4>().set_open_drain().speed(High).internal_pull_up(true);
+    let mut touch_i2c = dp.I2C4.i2c((scl, sda), 100u32.kHz(), ccdr.peripheral.I2C4, &ccdr.clocks);
+
+    {
+        let mut ft5336 = touch_device(&mut delay, &mut touch_i2c);
+        ft5336.init(&mut touch_i2c);
+    }
 
     crate::init_with_display(StmDevices {
         work_fb: fb2,
         displayed_fb: fb1,
         layer,
         timer,
+        delay,
+        touch_i2c,
+        last_touch: Default::default(),
         prev_dirty: Default::default(),
     });
 }
@@ -223,6 +240,9 @@ struct StmDevices {
     displayed_fb: &'static mut [TargetPixel],
     layer: LtdcLayer1,
     timer: hal::timer::Timer<pac::TIM2>,
+    delay: Delay,
+    touch_i2c: TouchI2C,
+    last_touch: Option<i_slint_core::graphics::Point>,
 
     /// When using double frame buffer, this is the part still dirty in the other buffer
     prev_dirty: PhysicalRect,
@@ -252,11 +272,26 @@ impl Devices for StmDevices {
     }
 
     fn debug(&mut self, text: &str) {
-        //self.display.debug(text)
+        i_slint_core::debug_log!("Debug: {}", text);
     }
 
     fn read_touch_event(&mut self) -> Option<i_slint_core::input::MouseEvent> {
-        None
+        let mut ft5336 = touch_device(&mut self.delay, &mut self.touch_i2c);
+        let touch = ft5336.detect_touch(&mut self.touch_i2c).unwrap();
+        let button = i_slint_core::items::PointerEventButton::left;
+
+        if touch > 0 {
+            let state = ft5336.get_touch(&mut self.touch_i2c, 1).unwrap();
+            let pos = i_slint_core::graphics::Point::new(state.y as _, state.x as _);
+            Some(match self.last_touch.replace(pos) {
+                Some(_) => i_slint_core::input::MouseEvent::MouseMoved { pos },
+                None => i_slint_core::input::MouseEvent::MousePressed { pos, button },
+            })
+        } else {
+            self.last_touch
+                .take()
+                .map(|pos| i_slint_core::input::MouseEvent::MouseReleased { pos, button })
+        }
     }
 
     fn time(&self) -> core::time::Duration {
@@ -264,4 +299,12 @@ impl Devices for StmDevices {
         let val = self.timer.counter() / 10;
         core::time::Duration::from_millis(val.into())
     }
+}
+
+type TouchI2C = hal::i2c::I2c<pac::I2C4>;
+fn touch_device<'a>(
+    delay: &'a mut Delay,
+    touch_i2c: &mut TouchI2C,
+) -> ft5336::Ft5336<'a, TouchI2C> {
+    ft5336::Ft5336::new(touch_i2c, 0x70 >> 1, delay).unwrap()
 }
