@@ -156,6 +156,7 @@ pub struct TreeNode {
     pub item_index: usize,
     pub repeated: bool,
     pub children: Vec<TreeNode>,
+    pub is_accessible: bool,
 }
 
 impl TreeNode {
@@ -216,11 +217,14 @@ pub struct SubComponent {
     pub animations: HashMap<PropertyReference, Expression>,
     pub two_way_bindings: Vec<(PropertyReference, PropertyReference)>,
     pub const_properties: Vec<PropertyReference>,
-    // Code that is run in the sub component constructor, after property initializations
+    /// Code that is run in the sub component constructor, after property initializations
     pub init_code: Vec<MutExpression>,
 
     pub layout_info_h: MutExpression,
     pub layout_info_v: MutExpression,
+
+    /// Maps (item_index, property) to an expression
+    pub accessible_prop: BTreeMap<(usize, String), MutExpression>,
 
     pub prop_analysis: HashMap<PropertyReference, PropAnalysis>,
 }
@@ -238,6 +242,15 @@ impl SubComponent {
         let mut count = self.repeated.len();
         for x in self.sub_components.iter() {
             count += x.ty.repeater_count();
+        }
+        count
+    }
+
+    /// total count of items, including in sub components
+    pub fn child_item_count(&self) -> usize {
+        let mut count = self.items.len();
+        for x in self.sub_components.iter() {
+            count += x.ty.child_item_count();
         }
         count
     }
@@ -326,6 +339,9 @@ impl PublicComponent {
             }
             visitor(&sc.layout_info_h, ctx);
             visitor(&sc.layout_info_v, ctx);
+            for (_, e) in &sc.accessible_prop {
+                visitor(e, ctx);
+            }
         });
         for g in &self.globals {
             let ctx = EvaluationContext::new_global(self, g, ());
