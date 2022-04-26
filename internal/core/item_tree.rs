@@ -129,6 +129,35 @@ impl ItemRc {
         }
     }
 
+    pub fn is_accessible(&self) -> bool {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        let item_tree = crate::item_tree::ComponentItemTree::new(&comp_ref_pin);
+
+        if let Some(n) = &item_tree.get(self.index) {
+            match n {
+                ItemTreeNode::Item { is_accessible, .. } => *is_accessible,
+                ItemTreeNode::DynamicTree { .. } => false,
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn accessible_role(&self) -> crate::items::AccessibleRole {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        comp_ref_pin.as_ref().accessible_role(self.index)
+    }
+
+    pub fn accessible_string_property(
+        &self,
+        what: crate::accessibility::AccessibleStringProperty,
+    ) -> String {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        let mut result = Default::default();
+        comp_ref_pin.as_ref().accessible_string_property(self.index, what, &mut result);
+        result.to_string()
+    }
+
     /// Return the index of the item within the component
     pub fn index(&self) -> usize {
         self.index

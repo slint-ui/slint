@@ -5,7 +5,7 @@
 
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
-#![recursion_limit = "1024"]
+#![recursion_limit = "4096"]
 
 extern crate alloc;
 
@@ -16,6 +16,8 @@ use i_slint_core::window::Window;
 #[cfg(not(no_qt))]
 use i_slint_core::ImageInner;
 
+#[cfg(not(no_qt))]
+mod qt_accessible;
 #[cfg(not(no_qt))]
 mod qt_widgets;
 #[cfg(not(no_qt))]
