@@ -105,5 +105,5 @@ CARGO_TARGET_THUMBV6M_NONE_EABI_LINKER="flip-link" CARGO_TARGET_THUMBV6M_NONE_EA
 Using [probe-run](https://github.com/knurling-rs/probe-run) (`cargo install probe-run`)
 
 ```sh
-CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-run --chip STM32H735IGKx" cargo +nightly run -p printerdemo_mcu --features=i-slint-backend-mcu/stm32h735g,i-slint-backend-mcu/panic-probe --target=thumbv7em-none-eabihf --release
+CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-run --chip STM32H735IGKx" cargo +nightly run -p printerdemo_mcu --features=i-slint-backend-mcu/stm32h735g --target=thumbv7em-none-eabihf --release
 ```

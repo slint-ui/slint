@@ -20,7 +20,7 @@ path = "lib.rs"
 simulator = ["winit", "glutin", "femtovg", "embedded-graphics-simulator", "std", "imgref", "scoped-tls-hkt"]
 
 pico-st7789 = ["unsafe_single_core", "rp-pico", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "embedded-time", "cortex-m", "display-interface-spi", "st7789", "defmt", "defmt-rtt",  "i-slint-core/defmt", "shared-bus", "i-slint-core/libm" ]
-stm32h735g = ["unsafe_single_core", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "embedded-time", "cortex-m", "i-slint-core/defmt", "i-slint-core/libm", "stm32h7xx-hal/stm32h735", "defmt", "defmt-rtt", "embedded-display-controller", "ft5336"]
+stm32h735g = ["unsafe_single_core", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "embedded-time", "cortex-m", "i-slint-core/defmt", "stm32h7xx-hal/stm32h735", "defmt", "defmt-rtt", "embedded-display-controller", "ft5336"]
 
 unsafe_single_core = ["i-slint-core/unsafe_single_core"]
 
