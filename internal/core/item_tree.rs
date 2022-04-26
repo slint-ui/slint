@@ -98,7 +98,6 @@ impl ItemRc {
     }
 
     /// Return the parent Item in the item tree.
-    /// This is weak because it can be null if there is no parent
     pub fn parent_item(&self) -> Option<ItemRc> {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
         let item_tree = crate::item_tree::ComponentItemTree::new(&comp_ref_pin);
