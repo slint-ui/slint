@@ -13,7 +13,7 @@ pub mod pretty_print;
 
 /// The optimisation passes over the LLR
 pub mod optim_passes {
-    mod count_property_use;
+    pub mod count_property_use;
     mod inline_expressions;
 
     pub fn run_passes(root: &super::PublicComponent) {

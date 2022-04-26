@@ -11,7 +11,7 @@
     Some code in this main.rs file is duplicated with the syntax_updater, i guess it could
     be refactored in a separate utility crate or module or something.
 
-    The [`TokenWriter`] trait is meant to be able to support the LSP later as the
+    The [`writer::TokenWriter`] trait is meant to be able to support the LSP later as the
     LSP wants just the edits, not the full file
 */
 

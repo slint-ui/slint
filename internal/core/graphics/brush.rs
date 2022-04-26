@@ -80,7 +80,7 @@ impl Brush {
     }
 
     /// Returns a new version of this brush that has the brightness decreased
-    /// by the specified factor. This is done by calling [`Color::ligher`] on
+    /// by the specified factor. This is done by calling [`Color::darker`] on
     /// all the color of this brush.
     #[must_use]
     pub fn darker(&self, factor: f32) -> Self {

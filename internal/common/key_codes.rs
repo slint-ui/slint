@@ -3,8 +3,8 @@
 
 //! This module is meant to be included by different crate and each crate must define the macro for_each_keys
 //!
-//! The key code comes from https://www.unicode.org/Public/MAPPINGS/VENDORS/APPLE/CORPCHAR.TXT
-//! the names comes should match with https://www.w3.org/TR/uievents-key/#named-key-attribute-values,
+//! The key code comes from <https://www.unicode.org/Public/MAPPINGS/VENDORS/APPLE/CORPCHAR.TXT>
+//! the names comes should match with <https://www.w3.org/TR/uievents-key/#named-key-attribute-values>,
 
 // NOTE: Update builtin_elements.md when changing/adding/removing keys, to keep the docs in sync!
 #[macro_export]
