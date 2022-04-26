@@ -869,6 +869,7 @@ pub(crate) fn generate_component<'id>(
                 self.type_builder.add_field(rt.type_info)
             };
             self.tree_array.push(ItemTreeNode::Item {
+                is_accessible: !item.accessibility_props.0.is_empty(),
                 children_index: child_offset,
                 children_count: item.children.len() as u32,
                 parent_index,
