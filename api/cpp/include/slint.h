@@ -182,7 +182,7 @@ private:
 constexpr inline ItemTreeNode make_item_node(uint32_t child_count, uint32_t child_index,
                                              uint32_t parent_index, uint32_t item_array_index)
 {
-    return ItemTreeNode { ItemTreeNode::Item_Body { ItemTreeNode::Tag::Item, child_count,
+    return ItemTreeNode { ItemTreeNode::Item_Body { ItemTreeNode::Tag::Item, false, child_count,
                                                     child_index, parent_index, item_array_index } };
 }
 

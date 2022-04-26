@@ -1070,7 +1070,8 @@ fn generate_item_tree(
             let children_index = children_offset as u32;
             let item_array_len = item_array.len() as u32;
             item_tree_array.push(quote!(
-                slint::re_exports::ItemTreeNode::Item{
+                slint::re_exports::ItemTreeNode::Item {
+                    is_accessible: false, // TODO
                     children_count: #children_count,
                     children_index: #children_index,
                     parent_index: #parent_index,
