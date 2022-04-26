@@ -3,6 +3,7 @@
 
 extern crate alloc;
 
+use super::TargetPixel;
 pub use cortex_m_rt::entry;
 use embedded_display_controller::{DisplayController, DisplayControllerLayer};
 use embedded_graphics::prelude::RgbColor;
@@ -32,8 +33,6 @@ static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 
 const DISPLAY_WIDTH: usize = 480;
 const DISPLAY_HEIGHT: usize = 272;
-
-pub type TargetPixel = embedded_graphics::pixelcolor::Rgb565;
 
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
@@ -99,10 +98,12 @@ pub fn init() {
         dp.OCTOSPI2.octospi_hyperbus_unchecked(config, &ccdr.clocks, ccdr.peripheral.OCTOSPI2);
     let hyperram_ptr: *mut u32 = hyperram.init();
 
+    /*
     let mut led_red = gpioc.pc2.into_push_pull_output();
     led_red.set_low(); // low mean "on"
     let mut led_green = gpioc.pc3.into_push_pull_output();
     led_green.set_low();
+    */
 
     #[link_section = ".frame_buffer"]
     static mut FB1: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
@@ -117,9 +118,6 @@ pub fn init() {
         .contains(&(fb1.as_ptr() as usize)));
     assert!((hyperram_ptr as usize..hyperram_ptr as usize + hyperram_size)
         .contains(&(fb2.as_ptr() as usize)));
-
-    fb1.fill(TargetPixel::BLACK);
-    fb2.fill(TargetPixel::WHITE);
 
     // setup LTDC  (LTDC_MspInit)
     let _p = gpioa.pa3.into_alternate::<14>().speed(High).internal_pull_up(true);
@@ -191,8 +189,6 @@ pub fn init() {
     lcd_disp_en.set_low();
     lcd_disp_ctrl.set_high();
     lcd_bl_ctrl.set_high();
-
-    led_red.set_high();
 
     // Init Timer
     let mut timer = dp.TIM2.tick_timer(10000.Hz(), ccdr.peripheral.TIM2, &ccdr.clocks);
