@@ -1187,6 +1187,19 @@ fn generate_item_tree(
             fn layout_info(self: ::core::pin::Pin<&Self>, orientation: slint::re_exports::Orientation) -> slint::re_exports::LayoutInfo {
                 self.layout_info(orientation)
             }
+
+            fn accessible_role(self: ::core::pin::Pin<&Self>, index: usize) -> slint::re_exports::AccessibleRole {
+                todo!()
+            }
+
+            fn accessible_string_property(
+                self: ::core::pin::Pin<&Self>,
+                index: usize,
+                what: slint::re_exports::AccessibleStringProperty,
+                result: &mut slint::re_exports::SharedString,
+            ) {
+                todo!()
+            }
         }
 
 

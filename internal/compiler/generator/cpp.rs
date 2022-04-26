@@ -1035,9 +1035,11 @@ fn generate_item_tree(
         ty: "const slint::private_api::ComponentVTable".to_owned(),
         name: format!("{}::static_vtable", item_tree_class_name),
         init: Some(format!(
-            "{{ visit_children, get_item_ref, get_subtree_range, get_subtree_component, get_item_tree, parent_node, subtree_index, layout_info, slint::private_api::drop_in_place<{}>, slint::private_api::dealloc }}",
-            item_tree_class_name)
-        ),
+            "{{ visit_children, get_item_ref, get_subtree_range, get_subtree_component, \
+                get_item_tree, parent_node, subtree_index, layout_info, nullptr, nullptr, \
+                slint::private_api::drop_in_place<{}>, slint::private_api::dealloc }}",
+            item_tree_class_name
+        )),
         ..Default::default()
     }));
 

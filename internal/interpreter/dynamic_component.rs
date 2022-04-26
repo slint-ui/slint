@@ -13,6 +13,7 @@ use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::*;
 use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
+use i_slint_core::accessibility::AccessibleStringProperty;
 use i_slint_core::api::Window;
 use i_slint_core::component::{
     Component, ComponentRef, ComponentRefPin, ComponentVTable, ComponentWeak, IndexRange,
@@ -21,7 +22,7 @@ use i_slint_core::item_tree::{
     ItemRc, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
     VisitChildrenResult,
 };
-use i_slint_core::items::{Flickable, ItemRef, ItemVTable, PropertyAnimation};
+use i_slint_core::items::{AccessibleRole, Flickable, ItemRef, ItemVTable, PropertyAnimation};
 use i_slint_core::layout::{BoxLayoutCellData, LayoutInfo, Orientation};
 use i_slint_core::model::RepeatedComponent;
 use i_slint_core::model::Repeater;
@@ -200,6 +201,19 @@ impl Component for ErasedComponentBox {
     fn subtree_index(self: Pin<&Self>) -> usize {
         self.borrow().as_ref().subtree_index()
     }
+
+    fn accessible_role(self: Pin<&Self>, index: usize) -> AccessibleRole {
+        self.borrow().as_ref().accessible_role(index)
+    }
+
+    fn accessible_string_property(
+        self: Pin<&Self>,
+        index: usize,
+        what: AccessibleStringProperty,
+        result: &mut SharedString,
+    ) {
+        self.borrow().as_ref().accessible_string_property(index, what, result)
+    }
 }
 
 i_slint_core::ComponentVTable_static!(static COMPONENT_BOX_VT for ErasedComponentBox);
@@ -308,6 +322,8 @@ pub struct ComponentDescription<'id> {
     pub(crate) extra_data_offset: FieldOffset<Instance<'id>, ComponentExtraData>,
     /// Keep the Rc alive
     pub(crate) original: Rc<object_tree::Component>,
+    /// Maps from an item_id to the original element it came from
+    pub(crate) original_elements: Vec<ElementRc>,
     /// Copy of original.root_element.property_declarations, without a guarded refcell
     public_properties: BTreeMap<String, PropertyDeclaration>,
 
@@ -796,6 +812,7 @@ pub(crate) fn generate_component<'id>(
         tree_array: Vec<ItemTreeNode>,
         item_array:
             Vec<vtable::VOffset<crate::dynamic_type::Instance<'id>, ItemVTable, vtable::AllowPin>>,
+        original_elements: Vec<ElementRc>,
         items_types: HashMap<String, ItemWithinComponent>,
         type_builder: dynamic_type::TypeBuilder<'id>,
         repeater: Vec<ErasedRepeaterWithinComponent<'id>>,
@@ -814,6 +831,7 @@ pub(crate) fn generate_component<'id>(
         ) {
             self.tree_array
                 .push(ItemTreeNode::DynamicTree { index: repeater_count as usize, parent_index });
+            self.original_elements.push(item_rc.clone());
             let item = item_rc.borrow();
             let base_component = item.base_type.as_component();
             self.repeater_names.insert(item.id.clone(), self.repeater.len());
@@ -858,6 +876,8 @@ pub(crate) fn generate_component<'id>(
                 item_array_index: self.item_array.len() as u32,
             });
             self.item_array.push(unsafe { vtable::VOffset::from_raw(rt.vtable, offset) });
+            self.original_elements.push(rc_item.clone());
+            debug_assert_eq!(self.original_elements.len(), self.tree_array.len());
             self.items_types.insert(
                 item.id.clone(),
                 ItemWithinComponent { offset, rtti: rt.clone(), elem: rc_item.clone() },
@@ -888,6 +908,7 @@ pub(crate) fn generate_component<'id>(
     let mut builder = TreeBuilder {
         tree_array: vec![],
         item_array: vec![],
+        original_elements: vec![],
         items_types: HashMap::new(),
         type_builder: dynamic_type::TypeBuilder::new(guard),
         repeater: vec![],
@@ -1050,6 +1071,8 @@ pub(crate) fn generate_component<'id>(
         get_subtree_component,
         parent_node,
         subtree_index,
+        accessible_role,
+        accessible_string_property,
         drop_in_place,
         dealloc,
     };
@@ -1062,6 +1085,7 @@ pub(crate) fn generate_component<'id>(
         custom_properties,
         custom_callbacks,
         original: component.clone(),
+        original_elements: builder.original_elements,
         repeater: builder.repeater,
         repeater_names: builder.repeater_names,
         parent_component_offset,
@@ -1601,6 +1625,46 @@ unsafe extern "C" fn parent_node(component: ComponentRefPin, result: &mut ItemWe
                 parent_instance.self_weak().get().unwrap().clone().into_dyn().upgrade().unwrap();
             *result = ItemRc::new(parent_rc, parent_index).downgrade();
         };
+    }
+}
+
+extern "C" fn accessible_role(component: ComponentRefPin, item_index: usize) -> AccessibleRole {
+    generativity::make_guard!(guard);
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+    let nr = instance_ref.component_type.original_elements[item_index]
+        .borrow()
+        .accessibility_props
+        .0
+        .get("accessible-role")
+        .cloned();
+    match nr {
+        Some(nr) => crate::eval::load_property(instance_ref, &nr.element(), nr.name())
+            .unwrap()
+            .try_into()
+            .unwrap(),
+        None => AccessibleRole::default(),
+    }
+}
+extern "C" fn accessible_string_property(
+    component: ComponentRefPin,
+    item_index: usize,
+    what: AccessibleStringProperty,
+    result: &mut SharedString,
+) {
+    generativity::make_guard!(guard);
+    let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
+    let prop_name = format!("accessible-{}", what.to_string().to_lowercase());
+    let nr = instance_ref.component_type.original_elements[item_index]
+        .borrow()
+        .accessibility_props
+        .0
+        .get(&prop_name)
+        .cloned();
+    if let Some(nr) = nr {
+        *result = crate::eval::load_property(instance_ref, &nr.element(), nr.name())
+            .unwrap()
+            .try_into()
+            .unwrap();
     }
 }
 

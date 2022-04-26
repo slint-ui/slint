@@ -5,13 +5,15 @@
 
 //! This module contains the basic datastructures that are exposed to the C API
 
+use crate::accessibility::AccessibleStringProperty;
 use crate::item_tree::{
     ItemTreeNode, ItemVisitorVTable, ItemWeak, TraversalOrder, VisitChildrenResult,
 };
-use crate::items::ItemVTable;
+use crate::items::{AccessibleRole, ItemVTable};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::slice::Slice;
 use crate::window::WindowRc;
+use crate::SharedString;
 use vtable::*;
 
 #[repr(C)]
@@ -74,6 +76,18 @@ pub struct ComponentVTable {
     /// Returns the layout info for this component
     pub layout_info:
         extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, Orientation) -> LayoutInfo,
+
+    /// Returns the accessible role for a given item
+    pub accessible_role:
+        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, item_index: usize) -> AccessibleRole,
+
+    /// Returns the accessible property
+    pub accessible_string_property: extern "C" fn(
+        core::pin::Pin<VRef<ComponentVTable>>,
+        item_index: usize,
+        what: AccessibleStringProperty,
+        result: &mut SharedString,
+    ),
 
     /// in-place destructor (for VRc)
     pub drop_in_place: unsafe fn(VRefMut<ComponentVTable>) -> vtable::Layout,

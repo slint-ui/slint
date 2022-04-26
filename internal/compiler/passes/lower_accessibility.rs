@@ -6,7 +6,6 @@
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::NamedReference;
 use crate::object_tree::Component;
-use crate::typeregister::TypeRegister;
 
 use std::rc::Rc;
 
