@@ -282,6 +282,7 @@ pub mod re_exports {
     pub use const_field_offset::{self, FieldOffsets, PinnedDrop};
     pub use core::iter::FromIterator;
     pub use i_slint_backend_selector::native_widgets::*;
+    pub use i_slint_core::accessibility::AccessibleStringProperty;
     pub use i_slint_core::animations::EasingCurve;
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::component::{
