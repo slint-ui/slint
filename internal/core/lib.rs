@@ -62,6 +62,7 @@ pub mod unsafe_single_core {
     unsafe impl<T> Sync for OnceCell<T> {}
 }
 
+pub mod accessibility;
 pub mod animations;
 pub mod api;
 pub mod backend;
