@@ -15,6 +15,9 @@ pub fn lower_accessibility_properties(component: &Rc<Component>, diag: &mut Buil
         component,
         &(),
         &mut |elem, _| {
+            if elem.borrow().repeated.is_some() {
+                return;
+            };
             apply_builtin(elem);
             let accessible_role_set = match elem.borrow().bindings.get("accessible-role") {
                 Some(role) => {
