@@ -5,9 +5,9 @@ name: CI
 
 on:
   push:
-    branches: [ master ]
+    branches: [ master, accessibility ]
   pull_request:
-    branches: [ master ]
+    branches: [ master, accessibility ]
   workflow_dispatch:
 
 jobs:
