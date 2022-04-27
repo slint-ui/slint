@@ -5,4 +5,5 @@
 #[derive(PartialEq, Eq, Copy, Clone, strum::Display)]
 pub enum AccessibleStringProperty {
     Label,
+    Description,
 }
