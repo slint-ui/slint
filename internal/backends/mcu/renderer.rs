@@ -400,10 +400,6 @@ impl PrepareScene {
             && self.current_state.clip.intersects(rect)
     }
 
-    fn new_scene_rectangle(&mut self, geometry: LogicalRect, color: Color) {
-        self.new_scene_item(geometry, SceneCommand::Rectangle { color });
-    }
-
     fn new_scene_texture(&mut self, geometry: LogicalRect, texture: SceneTexture) {
         let texture_index = self.textures.len() as u16;
         self.textures.push(texture);
@@ -527,7 +523,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
             if color.alpha() == 0 {
                 return;
             }
-            self.new_scene_rectangle(geom, color);
+            self.new_scene_item(geom, SceneCommand::Rectangle { color: color });
         }
     }
 
@@ -574,7 +570,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
                 if let Some(r) =
                     geom.inflate(-border, -border).intersection(&self.current_state.clip)
                 {
-                    self.new_scene_rectangle(r, color);
+                    self.new_scene_item(r, SceneCommand::Rectangle { color });
                 }
             }
             if border > 0.01 as Coord {
@@ -584,7 +580,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
                 if border_color.alpha() > 0 {
                     let mut add_border = |r: LogicalRect| {
                         if let Some(r) = r.intersection(&self.current_state.clip) {
-                            self.new_scene_rectangle(r, border_color);
+                            self.new_scene_item(r, SceneCommand::Rectangle { color: border_color });
                         }
                     };
                     let b = border;
