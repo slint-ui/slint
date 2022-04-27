@@ -34,6 +34,8 @@ TestCase := Rectangle {
         }
     }
 
+    for t in ["abc"] : Text { text: t; accessible-description: t;  }
+
     property<AccessibleRole> materialized_b1_role: b1.accessible_role;
     property<string> materialized_b2_label: b2.accessible-label;
     property<string> materialized_vl_label: vl.accessible-label;
