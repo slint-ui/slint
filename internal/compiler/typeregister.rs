@@ -87,6 +87,7 @@ pub(crate) const RESERVED_DROP_SHADOW_PROPERTIES: &[(&str, Type)] = &[
 pub(crate) const RESERVED_ACCESSIBILITY_PROPERTIES: &[(&str, Type)] = &[
     //("accessible-role", ...)
     ("accessible-label", Type::String),
+    ("accessible-description", Type::String),
 ];
 
 /// list of reserved property injected in every item

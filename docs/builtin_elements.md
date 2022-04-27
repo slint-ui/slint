@@ -24,6 +24,15 @@ These properties are valid on all visible items
   merely a hint. (default: `false`)
 * **`dialog-button-role`** (*enum DialogButtonRole*): Specify that this is a button in a `Dialog`.
 
+### Accessibility
+
+The following `accessible-` properties are used to enable accessibility of appplications.
+
+* **`accessible-role`** (*enum AccessibleRole*): describe the role of the element. This property is mandatory
+  to be able to use any other accessible properties. It should be set to a constant value
+* **`accessible-label`** (*string*): defines a string value that labels an interactive element
+* **`accessible-description`** (*string*) defines a string value that describes or annotates the current element.
+
 
 ### Drop Shadows
 
