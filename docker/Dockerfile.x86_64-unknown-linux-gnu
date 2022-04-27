@@ -1,0 +1,5 @@
+FROM rustembedded/cross:x86_64-unknown-linux-gnu
+# Unfortunately the base container is based on Centos7 rather than Ubuntu
+
+RUN yum update --assumeyes
+RUN yum install --assumeyes openssl-devel
