@@ -1297,7 +1297,7 @@ mod proxy {
     }
 
     #[test]
-    fn test_model_proxy() {
+    fn test_map_proxy() {
         let inner_rc = Rc::new(VecModel::from(vec![1, 2, 3]));
         //let inner = ModelRc::from(inner_rc.clone());
         let map = MapProxy::new(inner_rc.clone(), |x| x.to_string());
@@ -1308,5 +1308,194 @@ mod proxy {
         assert_eq!(map.row_data(2).unwrap(), "42");
         assert_eq!(map.row_data(3).unwrap(), "4");
         assert_eq!(map.row_data(1).unwrap(), "2");
+    }
+
+    pub struct FilterProxy<M, F, T>
+    where
+        M: Model<Data = T> + 'static,
+        F: Fn(&T) -> bool + 'static,
+        T: 'static,
+    {
+        inner_model: M,
+        filter_function: F,
+        mapping: RefCell<Vec<usize>>,
+        notify: ModelNotify,
+    }
+
+    impl<M, F, T> FilterProxy<M, F, T>
+    where
+        M: Model<Data = T> + 'static,
+        F: Fn(&T) -> bool + 'static,
+        T: 'static,
+    {
+        fn new(inner_model: M, filter_function: F) -> Pin<Rc<RefCell<Self>>> {
+            let filter_proxy = Rc::pin(RefCell::new(Self {
+                inner_model,
+                filter_function,
+                mapping: RefCell::new(Vec::new()),
+                notify: Default::default(),
+            }));
+
+            {
+                let filter_proxy = filter_proxy.borrow();
+                filter_proxy.build_mapping_vec();
+
+                let proxy_as_repeater = Rc::pin(DependencyNode::new(
+                    &*filter_proxy as &dyn ErasedRepeater as *const dyn ErasedRepeater,
+                ));
+
+                let peer = ModelPeer { inner: PinWeak::downgrade(proxy_as_repeater.clone()) };
+
+                filter_proxy.inner_model.model_tracker().attach_peer(peer);
+            }
+
+            filter_proxy
+        }
+
+        fn build_mapping_vec(&self) {
+            let mut mapping = self.mapping.borrow_mut();
+            *mapping = self
+                .inner_model
+                .iter()
+                .enumerate()
+                .filter(|(_, e)| (self.filter_function)(e))
+                .map(|(i, _)| i)
+                .collect();
+        }
+    }
+
+    impl<M, F, T> Model for FilterProxy<M, F, T>
+    where
+        M: Model<Data = T> + 'static,
+        F: Fn(&T) -> bool + 'static,
+        T: 'static,
+    {
+        type Data = T;
+
+        fn row_count(&self) -> usize {
+            self.mapping.borrow().len()
+        }
+
+        fn row_data(&self, row: usize) -> Option<Self::Data> {
+            self.mapping
+                .borrow()
+                .get(row)
+                .map(|&inner_row| self.inner_model.row_data(inner_row).unwrap())
+        }
+
+        fn model_tracker(&self) -> &dyn ModelTracker {
+            &self.notify
+        }
+    }
+
+    impl<M, F, T> ErasedRepeater for FilterProxy<M, F, T>
+    where
+        M: Model<Data = T> + 'static,
+        F: Fn(&T) -> bool + 'static,
+        T: 'static,
+    {
+        fn row_changed(&self, row: usize) {
+            let mut mapping = self.mapping.borrow_mut();
+
+            let index;
+            let is_contained = match mapping.binary_search(&row) {
+                Ok(i) => {
+                    index = i;
+                    true
+                }
+                Err(i) => {
+                    index = i;
+                    false
+                }
+            };
+
+            let should_be_contained =
+                (self.filter_function)(&self.inner_model.row_data(row).unwrap());
+
+            if is_contained && should_be_contained {
+                drop(mapping);
+                self.notify.row_changed(index);
+            } else if !is_contained && should_be_contained {
+                mapping.insert(index, row);
+                drop(mapping);
+                self.notify.row_added(index, 1);
+            } else if is_contained && !should_be_contained {
+                mapping.remove(index);
+                drop(mapping);
+                self.notify.row_removed(index, 1);
+            }
+        }
+
+        fn row_added(&self, index: usize, count: usize) {
+            if count == 0 {
+                return;
+            }
+
+            let insertion: Vec<usize> = self
+                .inner_model
+                .iter()
+                .enumerate()
+                .skip(index)
+                .take(count)
+                .filter_map(|(i, e)| if (self.filter_function)(&e) { Some(i) } else { None })
+                .collect();
+
+            if insertion.len() > 0 {
+                let mut mapping = self.mapping.borrow_mut();
+                let insertion_point = match mapping.binary_search(&index) {
+                    Ok(ip) => ip,
+                    Err(ip) => ip,
+                };
+
+                for (value, &count) in insertion.iter().enumerate() {
+                    mapping.insert(insertion_point + count, value);
+                }
+
+                drop(mapping);
+                self.notify.row_added(insertion_point, insertion.len());
+            }
+        }
+
+        fn row_removed(&self, index: usize, count: usize) {
+            if count == 0 {
+                return;
+            }
+            let mut mapping = self.mapping.borrow_mut();
+
+            let start = match mapping.binary_search(&index) {
+                Ok(i) => i,
+                Err(i) => i,
+            };
+            let end = match mapping.binary_search(&(index + count)) {
+                Ok(i) => i,
+                Err(i) => i,
+            };
+
+            let range = start..end;
+            if !range.is_empty() {
+                for _ in range.clone() {
+                    mapping.remove(start);
+                }
+
+                drop(mapping);
+                self.notify.row_removed(start, range.len());
+            }
+        }
+
+        fn reset(&self) {
+            self.build_mapping_vec();
+            self.notify.reset();
+        }
+    }
+
+    #[test]
+    fn test_filter_proxy() {
+        let inner_rc = Rc::new(VecModel::from(vec![1, 2, 3, 4, 5, 6]));
+        let filter = FilterProxy::new(inner_rc.clone(), |x| x % 2 == 0);
+
+        assert_eq!(filter.borrow().row_data(0).unwrap(), 2);
+        assert_eq!(filter.borrow().row_data(1).unwrap(), 4);
+        assert_eq!(filter.borrow().row_data(2).unwrap(), 6);
+        assert_eq!(filter.borrow().row_count(), 3);
     }
 }
