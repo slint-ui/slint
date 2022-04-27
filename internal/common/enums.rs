@@ -180,6 +180,7 @@ macro_rules! for_each_enums {
             /// The role for the `accessible-role` property
             enum AccessibleRole {
                 none,
+                text,
                 button,
                 checkbox,
                 //...
