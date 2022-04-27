@@ -24,20 +24,26 @@ TestCase := Rectangle {
             text: "plus";
         }
 
+        txt := Text {
+            text: "automatic text value";
+        }
+
 
         b2 := Btn {
             text : "minus";
         }
     }
 
-
     property<AccessibleRole> materialized_b1_role: b1.accessible_role;
     property<string> materialized_b2_label: b2.accessible-label;
     property<string> materialized_vl_label: vl.accessible-label;
     property<AccessibleRole> materialized_vl_role: vl.accessible-role;
+    property<AccessibleRole> materialized_txt_role: txt.accessible-role;
+    property<string> materialized_txt_label: txt.accessible-label;
 
     property <bool> test:
         materialized_b1_role == AccessibleRole.button && materialized_b2_label == "minus"
-        && materialized_vl_label == "" && materialized_vl_role == AccessibleRole.none;
+        && materialized_vl_label == "" && materialized_vl_role == AccessibleRole.none
+        && materialized_txt_label == "automatic text value" && materialized_txt_role == AccessibleRole.text;
 }
 

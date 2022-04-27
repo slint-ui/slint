@@ -26,11 +26,14 @@ These properties are valid on all visible items
 
 ### Accessibility
 
-The following `accessible-` properties are used to enable accessibility of appplications.
+The following `accessible-` properties are used to enable accessibility of applications.
 
-* **`accessible-role`** (*enum AccessibleRole*): describe the role of the element. This property is mandatory
-  to be able to use any other accessible properties. It should be set to a constant value
-* **`accessible-label`** (*string*): defines a string value that labels an interactive element
+* **`accessible-role`** (*enum AccessibleRole*): describe the role of the element. This property is
+  mandatory to be able to use any other accessible properties. It should be set to a constant value.
+  The default value is `none` for most elements, but is `text` for the Text element.
+* **`accessible-label`** (*string*): defines a string value that labels an interactive element.
+  The  default value is empty for most elements, or is the value of the `text` property for the Text
+  element.
 * **`accessible-description`** (*string*) defines a string value that describes or annotates the current element.
 
 
