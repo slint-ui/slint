@@ -3,6 +3,7 @@
 
 mod draw_functions;
 
+use crate::lengths::PhysicalPx;
 use crate::{
     profiler, Devices, LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect,
     PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize, PointLengths, RectLengths,
@@ -400,10 +401,18 @@ impl PrepareScene {
             && self.current_state.clip.intersects(rect)
     }
 
-    fn new_scene_texture(&mut self, geometry: LogicalRect, texture: SceneTexture) {
-        let texture_index = self.textures.len() as u16;
-        self.textures.push(texture);
-        self.new_scene_item(geometry, SceneCommand::Texture { texture_index });
+    fn new_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture) {
+        let size = geometry.size;
+        if !size.is_empty() {
+            let texture_index = self.textures.len() as u16;
+            self.textures.push(texture);
+            self.items.push(SceneItem {
+                pos: geometry.origin,
+                size,
+                z: self.items.len() as u16,
+                command: SceneCommand::Texture { texture_index },
+            });
+        }
     }
 
     fn new_scene_item(&mut self, geometry: LogicalRect, command: SceneCommand) {
@@ -435,20 +444,21 @@ impl PrepareScene {
             }
             ImageInner::EmbeddedImage(_) => todo!(),
             ImageInner::StaticTextures(StaticTextures { size, data, textures, .. }) => {
-                let sx = geom.width() as f32 / (size.width as f32);
-                let sy = geom.height() as f32 / (size.height as f32);
+                let phys_size = geom.size_length().cast() * self.scale_factor;
+                let sx = phys_size.width / (size.width as f32);
+                let sy = phys_size.height / (size.height as f32);
                 let mut image_fit_offset = euclid::Vector2D::default();
                 let (sx, sy) = match image_fit {
                     ImageFit::fill => (sx, sy),
                     ImageFit::cover => {
                         let ratio = f32::max(sx, sy);
-                        if size.width as f32 > geom.width() as f32 / ratio {
-                            let diff = (size.width as f32 - geom.width() as f32 / ratio) as i32;
+                        if size.width as f32 > phys_size.width / ratio {
+                            let diff = (size.width as f32 - phys_size.width / ratio) as i32;
                             source_clip.origin.x += diff / 2;
                             source_clip.size.width -= diff;
                         }
-                        if size.height as f32 > geom.height() as f32 / ratio {
-                            let diff = (size.height as f32 - geom.height() as f32 / ratio) as i32;
+                        if size.height as f32 > phys_size.height / ratio {
+                            let diff = (size.height as f32 - phys_size.height / ratio) as i32;
                             source_clip.origin.y += diff / 2;
                             source_clip.size.height -= diff;
                         }
@@ -456,41 +466,38 @@ impl PrepareScene {
                     }
                     ImageFit::contain => {
                         let ratio = f32::min(sx, sy);
-                        if (size.width as f32) < geom.width() as f32 / ratio {
-                            image_fit_offset.x =
-                                (geom.width() as f32 - size.width as f32 * ratio) / 2.;
+                        if (size.width as f32) < phys_size.width / ratio {
+                            image_fit_offset.x = (phys_size.width - size.width as f32 * ratio) / 2.;
                         }
-                        if (size.height as f32) < geom.height() as f32 / ratio {
+                        if (size.height as f32) < phys_size.height / ratio {
                             image_fit_offset.y =
-                                (geom.height() as f32 - size.height as f32 * ratio) / 2.;
+                                (phys_size.height - size.height as f32 * ratio) / 2.;
                         }
                         (ratio, ratio)
                     }
                 };
 
+                let offset = self.current_state.offset.to_vector().cast() * self.scale_factor
+                    + image_fit_offset;
                 let scaled_clip =
-                    self.current_state.clip.to_untyped().cast::<f32>().scale(1. / sx, 1. / sy);
+                    (self.current_state.clip * self.scale_factor).scale(1. / sx, 1. / sy);
                 for t in textures.as_slice() {
-                    if let Some(clipped_src) = t
-                        .rect
-                        .intersection(&source_clip)
-                        .and_then(|r| r.cast().intersection(&scaled_clip))
-                    {
+                    if let Some(clipped_src) = t.rect.intersection(&source_clip).and_then(|r| {
+                        euclid::Rect::<_, PhysicalPx>::from_untyped(&r.cast())
+                            .intersection(&scaled_clip)
+                    }) {
+                        let geometry = clipped_src.scale(sx, sy).translate(offset).round();
                         let actual_x = clipped_src.origin.x as usize - t.rect.origin.x as usize;
                         let actual_y = clipped_src.origin.y as usize - t.rect.origin.y as usize;
                         let stride = t.rect.width() as u16 * bpp(t.format);
                         self.new_scene_texture(
-                            LogicalRect::from_untyped(
-                                &clipped_src.scale(sx, sy).translate(image_fit_offset).cast(),
-                            ),
+                            geometry.cast(),
                             SceneTexture {
                                 data: &data.as_slice()[(t.index
                                     + (stride as usize) * actual_y
                                     + (bpp(t.format) as usize) * actual_x)..],
                                 stride,
-                                source_size: PhysicalSize::from_untyped(
-                                    clipped_src.size.ceil().cast(),
-                                ),
+                                source_size: clipped_src.size.ceil().cast(),
                                 format: t.format,
                                 color: if colorize.alpha() > 0 { colorize } else { t.color },
                             },
@@ -674,21 +681,23 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
                 )
                 .cast();
 
-                if let Some(clipped_rect) = src_rect.intersection(
+                if let Some(clipped_src) = src_rect.intersection(
                     &(self.current_state.clip.cast() * self.scale_factor).cast::<Coord>(),
                 ) {
-                    let actual_x = clipped_rect.origin.x as usize - src_rect.origin.x as usize;
-                    let actual_y = clipped_rect.origin.y as usize - src_rect.origin.y as usize;
-
+                    let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
+                    let geometry = clipped_src.translate(offset).round();
+                    let origin = (geometry.origin - offset.round()).cast::<usize>();
+                    let actual_x = origin.x - src_rect.origin.x as usize;
+                    let actual_y = origin.y - src_rect.origin.y as usize;
                     let stride = bitmap_glyph.width().get() as u16;
-
+                    let geometry = geometry.cast();
                     self.new_scene_texture(
-                        (clipped_rect.cast() / self.scale_factor).cast(),
+                        geometry,
                         SceneTexture {
                             data: &bitmap_glyph.data().as_slice()
                                 [actual_x + actual_y * stride as usize..],
                             stride,
-                            source_size: clipped_rect.size.cast(),
+                            source_size: geometry.size,
                             format: PixelFormat::AlphaMap,
                             color,
                         },
