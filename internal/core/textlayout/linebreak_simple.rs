@@ -9,12 +9,12 @@ pub enum BreakOpportunity {
 
 pub struct LineBreakIterator<'a> {
     it: core::str::CharIndices<'a>,
-    last_ch: Option<char>,
+    leading_whitespace: bool,
 }
 
 impl<'a> LineBreakIterator<'a> {
     pub fn new(text: &'a str) -> Self {
-        Self { it: text.char_indices(), last_ch: None }
+        Self { it: text.char_indices(), leading_whitespace: false }
     }
 }
 
@@ -26,12 +26,10 @@ impl<'a> Iterator for LineBreakIterator<'a> {
             let maybe_opportunity = match char {
                 '\u{2028}' | '\u{2029}' => Some(BreakOpportunity::Mandatory), // unicode line- and paragraph separators
                 '\n' => Some(BreakOpportunity::Mandatory),                    // ascii line break
-                _ if self.last_ch.map_or(false, |c| c.is_ascii_whitespace()) => {
-                    Some(BreakOpportunity::Allowed)
-                }
+                _ if self.leading_whitespace => Some(BreakOpportunity::Allowed),
                 _ => None,
             };
-            self.last_ch = Some(char);
+            self.leading_whitespace = char.is_ascii_whitespace();
 
             if let Some(opportunity) = maybe_opportunity {
                 return Some((byte_offset, opportunity));
