@@ -480,7 +480,7 @@ impl PrepareScene {
                 let offset = self.current_state.offset.to_vector().cast() * self.scale_factor
                     + image_fit_offset;
                 let scaled_clip =
-                    (self.current_state.clip * self.scale_factor).scale(1. / sx, 1. / sy);
+                    (self.current_state.clip.cast() * self.scale_factor).scale(1. / sx, 1. / sy);
                 for t in textures.as_slice() {
                     if let Some(clipped_src) = t.rect.intersection(&source_clip).and_then(|r| {
                         euclid::Rect::<_, PhysicalPx>::from_untyped(&r.cast())
@@ -681,9 +681,9 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
                 )
                 .cast();
 
-                if let Some(clipped_src) = src_rect.intersection(
-                    &(self.current_state.clip.cast() * self.scale_factor).cast::<Coord>(),
-                ) {
+                if let Some(clipped_src) =
+                    src_rect.intersection(&(self.current_state.clip.cast() * self.scale_factor))
+                {
                     let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
                     let geometry = clipped_src.translate(offset).round();
                     let origin = (geometry.origin - offset.round()).cast::<usize>();
