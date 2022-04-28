@@ -1397,16 +1397,9 @@ mod proxy {
         fn row_changed(&self, row: usize) {
             let mut mapping = self.mapping.borrow_mut();
 
-            let index;
-            let is_contained = match mapping.binary_search(&row) {
-                Ok(i) => {
-                    index = i;
-                    true
-                }
-                Err(i) => {
-                    index = i;
-                    false
-                }
+            let (index, is_contained) = match mapping.binary_search(&row) {
+                Ok(index) => (index, true),
+                Err(index) => (index, false),
             };
 
             let should_be_contained =
@@ -1442,14 +1435,16 @@ mod proxy {
 
             if insertion.len() > 0 {
                 let mut mapping = self.mapping.borrow_mut();
-                let insertion_point = match mapping.binary_search(&index) {
-                    Ok(ip) => ip,
-                    Err(ip) => ip,
-                };
+                let insertion_point = mapping.binary_search(&index).unwrap_or_else(|ip| ip);
 
-                for (value, &count) in insertion.iter().enumerate() {
-                    mapping.insert(insertion_point + count, value);
-                }
+                let extend_range = mapping.len() - insertion.len()..;
+                mapping.extend_from_within(extend_range);
+                mapping[insertion_point..].copy_from_slice(&insertion);
+
+                mapping
+                    .iter_mut()
+                    .skip(insertion_point + insertion.len())
+                    .for_each(|i| *i += count);
 
                 drop(mapping);
                 self.notify.row_added(insertion_point, insertion.len());
@@ -1462,20 +1457,16 @@ mod proxy {
             }
             let mut mapping = self.mapping.borrow_mut();
 
-            let start = match mapping.binary_search(&index) {
-                Ok(i) => i,
-                Err(i) => i,
-            };
-            let end = match mapping.binary_search(&(index + count)) {
-                Ok(i) => i,
-                Err(i) => i,
-            };
-
+            let start = mapping.binary_search(&index).unwrap_or_else(|s| s);
+            let end = mapping.binary_search(&(index + count)).unwrap_or_else(|e| e);
             let range = start..end;
+
             if !range.is_empty() {
-                for _ in range.clone() {
-                    mapping.remove(start);
-                }
+                mapping.copy_within(end.., start);
+                let new_size = mapping.len() - range.len();
+                mapping.truncate(new_size);
+
+                mapping.iter_mut().skip(start).for_each(|i| *i -= count);
 
                 drop(mapping);
                 self.notify.row_removed(start, range.len());
@@ -1497,5 +1488,10 @@ mod proxy {
         assert_eq!(filter.borrow().row_data(1).unwrap(), 4);
         assert_eq!(filter.borrow().row_data(2).unwrap(), 6);
         assert_eq!(filter.borrow().row_count(), 3);
+
+        inner_rc.remove(1);
+        assert_eq!(filter.borrow().row_data(0).unwrap(), 4);
+        assert_eq!(filter.borrow().row_data(1).unwrap(), 6);
+        assert_eq!(filter.borrow().row_count(), 2);
     }
 }
