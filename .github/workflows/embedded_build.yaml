@@ -15,6 +15,7 @@ jobs:
           - armv7-unknown-linux-gnueabihf
           - aarch64-unknown-linux-gnu
           - riscv64gc-unknown-linux-gnu
+          - x86_64-unknown-linux-gnu
     env:
       SLINT_NO_QT: 1
       SLINT_STYLE: fluent
