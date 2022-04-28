@@ -7,6 +7,7 @@ pub enum BreakOpportunity {
     Mandatory,
 }
 
+#[derive(Clone)]
 pub struct LineBreakIterator<'a> {
     it: core::str::CharIndices<'a>,
     leading_whitespace: bool,
