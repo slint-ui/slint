@@ -45,7 +45,7 @@
 use core::cell::RefCell;
 use core::ops::Range;
 
-use alloc::vec::Vec;
+use alloc::{rc::Rc, vec::Vec};
 
 use euclid::num::{One, Zero};
 
@@ -119,11 +119,13 @@ impl<'a> ShapeBoundaries<'a> {
 }
 
 impl<'a> Iterator for ShapeBoundaries<'a> {
-    type Item = Range<usize>;
+    type Item = usize;
 
     #[cfg(feature = "unicode-script")]
     fn next(&mut self) -> Option<Self::Item> {
-        let start = self.next_boundary_start?;
+        if self.next_boundary_start.is_none() {
+            return None;
+        }
 
         let (next_offset, script) = loop {
             match self.chars.next() {
@@ -152,20 +154,21 @@ impl<'a> Iterator for ShapeBoundaries<'a> {
             }
         };
 
-        let item = Range { start, end: next_offset.unwrap_or(self.text.len()) };
-
         self.last_script = script;
         self.next_boundary_start = next_offset;
 
-        Some(item)
+        Some(self.next_boundary_start.unwrap_or(self.text.len()))
     }
 
     #[cfg(not(feature = "unicode-script"))]
     fn next(&mut self) -> Option<Self::Item> {
-        let start = self.next_boundary_start?;
-        let item = Range { start, end: self.text.len() };
-        self.next_boundary_start = None;
-        Some(item)
+        match self.next_boundary_start {
+            Some(_) => {
+                self.next_boundary_start = None;
+                Some(self.text.len())
+            }
+            None => None,
+        }
     }
 }
 
@@ -290,15 +293,22 @@ impl<Length: Clone + Copy + Default + core::ops::AddAssign> TextLine<Length> {
     }
 }
 
+struct TextRun {
+    byte_range: Range<usize>,
+    //glyph_range: Range<usize>,
+    // TODO: direction, etc.
+}
+
 struct GraphemeCursor<
     'a,
     Font: TextShaper,
     GlyphBuffer: core::iter::Extend<(Font::Glyph, usize)> + core::convert::AsRef<[(Font::Glyph, usize)]>,
 > {
+    text: &'a str,
     font: &'a Font,
-    shape_boundaries: ShapeBoundaries<'a>,
-    current_shapable: Range<usize>,
     glyphs: &'a RefCell<GlyphBuffer>,
+    runs: Rc<Vec<TextRun>>, // TODO: let caller provide buffer for these
+    current_run: usize,
     // absolute byte offset in the entire text
     byte_offset: usize,
     glyph_index: usize,
@@ -311,18 +321,35 @@ impl<
     > GraphemeCursor<'a, Font, GlyphBuffer>
 {
     fn new(text: &'a str, font: &'a Font, glyph_buffer: &'a RefCell<GlyphBuffer>) -> Self {
-        let mut shape_boundaries = ShapeBoundaries::new(text);
-
-        let current_shapable = shape_boundaries.next().unwrap_or(Range { start: 0, end: 0 });
         let first_glyph_index = glyph_buffer.borrow().as_ref().len();
 
-        font.shape_text(&text[current_shapable.clone()], &mut *glyph_buffer.borrow_mut());
+        let runs = Rc::new(
+            ShapeBoundaries::new(text)
+                .scan(0, |run_start, run_end| {
+                    //let glyphs_start = glyph_buffer.borrow().as_ref().len();
+
+                    font.shape_text(&text[*run_start..run_end], &mut *glyph_buffer.borrow_mut());
+
+                    let run = TextRun {
+                        byte_range: Range { start: *run_start, end: run_end },
+                        //glyph_range: Range {
+                        //     start: glyphs_start,
+                        //     end: glyph_buffer.borrow().as_ref().len(),
+                        // },
+                    };
+                    *run_start = run_end;
+
+                    Some(run)
+                })
+                .collect(),
+        );
 
         Self {
+            text,
             font,
-            shape_boundaries,
-            current_shapable,
             glyphs: glyph_buffer,
+            runs,
+            current_run: 0,
             byte_offset: 0,
             glyph_index: first_glyph_index,
         }
@@ -338,18 +365,16 @@ impl<
     type Item = Grapheme<Font::Length>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if self.byte_offset >= self.current_shapable.end {
-            self.current_shapable = match self.shape_boundaries.next() {
-                Some(shapable) => shapable,
-                None => return None,
-            };
-            self.byte_offset = self.current_shapable.start;
-            self.glyph_index = self.glyphs.borrow().as_ref().len();
-            self.font.shape_text(
-                &self.shape_boundaries.text[self.current_shapable.clone()],
-                &mut *self.glyphs.borrow_mut(),
-            );
+        if self.current_run >= self.runs.len() {
+            return None;
         }
+
+        let current_run = if self.byte_offset < self.runs[self.current_run].byte_range.end {
+            &self.runs[self.current_run]
+        } else {
+            self.current_run += 1;
+            self.runs.get(self.current_run)?
+        };
 
         let mut grapheme_width: Font::Length = Font::Length::zero();
         let glyphs = self.glyphs.borrow();
@@ -360,7 +385,7 @@ impl<
         loop {
             let (glyph, glyph_byte_offset) = &glyphs.as_ref()[self.glyph_index];
             // Rustybuzz uses a relative byte offset as cluster index
-            cluster_byte_offset = self.current_shapable.start + glyph_byte_offset;
+            cluster_byte_offset = current_run.byte_range.start + glyph_byte_offset;
             if cluster_byte_offset != self.byte_offset {
                 break;
             }
@@ -369,14 +394,17 @@ impl<
             self.glyph_index += 1;
 
             if self.glyph_index >= self.glyphs.borrow().as_ref().len() {
-                cluster_byte_offset = self.current_shapable.end;
+                cluster_byte_offset = current_run.byte_range.end;
                 break;
             }
         }
         let grapheme_byte_offset = self.byte_offset;
         let grapheme_byte_len = cluster_byte_offset - self.byte_offset;
-        let first_char = self.shape_boundaries.text[self.byte_offset..].chars().next();
-        let is_whitespace = first_char.map(|ch| ch.is_whitespace()).unwrap_or_default();
+        let is_whitespace = self.text[self.byte_offset..]
+            .chars()
+            .next()
+            .map(|ch| ch.is_whitespace())
+            .unwrap_or_default();
         self.byte_offset = cluster_byte_offset;
 
         Some(Grapheme {
@@ -678,7 +706,7 @@ fn test_shape_boundaries_simple() {
     {
         let simple_text = "Hello World";
         let mut itemizer = ShapeBoundaries::new(simple_text);
-        assert_eq!(itemizer.next().map(|range| &simple_text[range]), Some("Hello World"));
+        assert_eq!(itemizer.next(), Some(simple_text.len()));
         assert_eq!(itemizer.next(), None);
     }
 }
@@ -695,9 +723,13 @@ fn test_shape_boundaries_empty() {
 fn test_shape_boundaries_script_change() {
     {
         let text = "abc🍌🐒defதோசை.";
-        let mut itemizer = ShapeBoundaries::new(text);
-        assert_eq!(itemizer.next().map(|range| &text[range]), Some("abc🍌🐒def"));
-        assert_eq!(itemizer.next().map(|range| &text[range]), Some("தோசை."));
+        let mut itemizer = ShapeBoundaries::new(text).scan(0, |start, end| {
+            let str = &text[*start..end];
+            *start = end;
+            Some(str)
+        });
+        assert_eq!(itemizer.next(), Some("abc🍌🐒def"));
+        assert_eq!(itemizer.next(), Some("தோசை."));
         assert_eq!(itemizer.next(), None);
     }
 }
