@@ -55,6 +55,9 @@ TestCase := Window {
                     return reject;
                 }
             }
+            if (true) : FocusScope {
+                enabled: false;
+            }
         }
         FocusScope {
             key-pressed(event) => {
