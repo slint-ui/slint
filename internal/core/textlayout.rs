@@ -34,7 +34,7 @@
 //!              Current line starts with fragment
 //!              Clear fragment
 //!         Add grapheme to fragment
-//!             
+//!
 //!     Else if break opportunity at grapheme boundary is mandatory:
 //!         Add fragment to current line
 //!         Emit current line
@@ -262,7 +262,7 @@ impl<Length: Clone + Copy + Default + core::ops::AddAssign> TextLine<Length> {
             self.byte_range.start = candidate.byte_range.start;
             self.byte_range.end = self.byte_range.start;
             self.glyph_range.start = candidate.glyph_range.start;
-            self.glyph_range.end = self.glyph_range.end;
+            self.glyph_range.end = candidate.glyph_range.end;
         }
 
         match (self.trailing_whitespace.as_mut(), candidate.trailing_whitespace.as_ref()) {
