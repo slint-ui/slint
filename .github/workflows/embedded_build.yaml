@@ -59,7 +59,7 @@ jobs:
       with:
           use-cross: true
           command: build
-          args: --release --target=${{ matrix.target }} --workspace --exclude slint-node
+          args: --release --target=${{ matrix.target }} --workspace --exclude slint-node --exclude i-slint-backend-mcu --exclude printerdemo_mcu
     - name: "Upload printerdemo artifact"
       uses: actions/upload-artifact@v2
       with:
