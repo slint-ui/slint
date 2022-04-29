@@ -314,8 +314,12 @@ impl ItemRc {
                                 return item;
                             }
                         }
-
                         root = ItemRc::new(parent.component(), 0);
+
+                        if let Some(item) = subtree_step(root.clone()) {
+                            return step_in(item);
+                        }
+
                         let root_component = root.component();
                         let root_comp_ref = vtable::VRc::borrow_pin(&root_component);
                         parent_node = Default::default();
