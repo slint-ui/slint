@@ -11,6 +11,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+ - Support for keyboard focus with the tab key
+ - Support more keyboard shortcut in the editing element
  - Added `From<&str>` and `From<SharedString>` to `StandardListViewItem` to make creation and modification of `StandardListView`'s models easier.
  - Added `on_close_requested` function to `Window` to register callbacks that are emitted when the user tries to close a window.
  - Added `VecModel::set_vec` to replace the entire contents with new data.
@@ -23,6 +25,9 @@ All notable changes to this project are documented in this file.
 ### Fixed
 
  - Fixed application of the `opacity` property evenly to child elements (#725).
+ - Windows: Fixed font lookup of strings including several scripts (eg, containing asian characters)
+ - Fixed PopupWindow in a repeater (#1113, #1132)
+ - LSP: do not always resize the preview window to its preferred each time the code is modified
 
 ## [0.2.1] - 2022-03-10
 
