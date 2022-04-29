@@ -29,7 +29,6 @@ jobs:
           - "https://github.com/jannes/han-cihui"
           - "https://github.com/leofidus/ntfs-explorer"
           - "https://github.com/ElevenJune/mastermind_Rust"
-          - "https://github.com/PhotonQuantum/shuiyuan-archiver"
           - "https://github.com/xentec/camview"
           - "https://github.com/Yuhanawa/Mirror-source-assistant"
           - "https://github.com/b1tg/copy-net-info"
