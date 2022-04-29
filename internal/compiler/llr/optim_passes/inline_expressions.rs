@@ -160,7 +160,7 @@ pub(crate) fn property_binding_and_analysis<'a>(
             PropertyReference::Local { sub_component_path, property_index } => {
                 if !sub_component_path.is_empty() {
                     let prop2 = PropertyReference::Local {
-                        sub_component_path: sub_component_path[1..].iter().copied().collect(),
+                        sub_component_path: sub_component_path[1..].to_vec(),
                         property_index: *property_index,
                     };
                     let idx = sub_component_path[0];
@@ -174,7 +174,7 @@ pub(crate) fn property_binding_and_analysis<'a>(
             PropertyReference::InNativeItem { item_index, sub_component_path, prop_name } => {
                 if !sub_component_path.is_empty() {
                     let prop2 = PropertyReference::InNativeItem {
-                        sub_component_path: sub_component_path[1..].iter().copied().collect(),
+                        sub_component_path: sub_component_path[1..].to_vec(),
                         prop_name: prop_name.clone(),
                         item_index: *item_index,
                     };
