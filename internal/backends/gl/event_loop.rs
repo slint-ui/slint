@@ -71,8 +71,9 @@ pub trait WinitWindow: PlatformWindow {
                         None
                     },
                 );
-                winit_window.set_resizable(min_width < max_width || min_height < max_height);
+                winit_window.set_resizable(true);
                 self.set_constraints((constraints_horizontal, constraints_vertical));
+                winit_window.set_resizable(min_width < max_width || min_height < max_height);
 
                 #[cfg(target_arch = "wasm32")]
                 {

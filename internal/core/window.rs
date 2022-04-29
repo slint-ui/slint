@@ -224,6 +224,8 @@ impl Window {
             redraw_tracker.set_debug_name("i_slint_core::Window::redraw_tracker".into());
         }
 
+        // We need to use a OnceCell only so we can have a cycle with the Weak.
+        // Rust 1.60's Rc::new_cyclic would allow to avoid that.
         window.window_properties_tracker.set(Box::pin(window_properties_tracker)).ok().unwrap();
         window.redraw_tracker.set(Box::pin(redraw_tracker)).ok().unwrap();
 
