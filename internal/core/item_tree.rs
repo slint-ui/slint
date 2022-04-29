@@ -293,9 +293,9 @@ impl ItemRc {
                     return step_in(item);
                 } else {
                     // Go up a level!
-                    let mut parent_node = Default::default();
                     let root_component = root.component();
                     let root_comp_ref = vtable::VRc::borrow_pin(&root_component);
+                    let mut parent_node = Default::default();
                     root_comp_ref.as_ref().parent_node(&mut parent_node);
 
                     while let Some(parent) = parent_node.upgrade() {
@@ -318,6 +318,7 @@ impl ItemRc {
                         root = ItemRc::new(parent.component(), 0);
                         let root_component = root.component();
                         let root_comp_ref = vtable::VRc::borrow_pin(&root_component);
+                        parent_node = Default::default();
                         root_comp_ref.as_ref().parent_node(&mut parent_node);
                     }
 

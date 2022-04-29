@@ -66,6 +66,20 @@ TestCase := Window {
             }
         }
     }
+    for xxx in [0, 1] : FocusScope {
+        enabled: false;
+        key-pressed(event) => {
+            result += "disabledA" + xxx;
+            accept
+        }
+        if (true) :  FocusScope {
+            enabled: false;
+            key-pressed(event) => {
+                result += "disabledB" + xxx;
+                accept
+            }
+        }
+    }
 }
 
 /*
