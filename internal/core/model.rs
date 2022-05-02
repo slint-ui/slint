@@ -682,6 +682,10 @@ impl<C: RepeatedComponent> ErasedRepeater for Repeater<C> {
             index..index,
             core::iter::repeat((RepeatedComponentState::Dirty, None)).take(count),
         );
+        for c in inner.components[index + count..].iter_mut() {
+            // Because all the indexes are dirty
+            c.0 = RepeatedComponentState::Dirty;
+        }
     }
     /// Notify the peers that rows were removed
     fn row_removed(&self, mut index: usize, mut count: usize) {
