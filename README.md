@@ -21,6 +21,11 @@ Our design goals are:
    home on each platform. The look and feel and experience should match the users' expectations of a
    native application.
 
+## Quick Start
+
+Check the [online demos](#demos-running-in-webassembly-simulation) or
+[build on your own system](docs/building.md).
+
 ## Current Status
 
 Slint is in active development. Its state of development depends on the kind of application.
@@ -42,14 +47,17 @@ our [🥠 Weekly Status Updates](https://slint-ui.com/thisweek/).
 
 ## Documentation
 
-Refer to the README of each language directory in the `api` sub-folder:
+The [examples](examples) folder contains examples and demos.
+
+The `docs` folder contains a lot more information, including
+[build instructions](docs/building.md), [recipes for common tasks](docs/recipes/recipes.md) and
+[internal developer docs](docs/development.md).
+
+Refer to the README of each language directory in the `api` folder:
 
  * [C++](api/cpp) ([Documentation](https://slint-ui.com/docs/cpp) | [Tutorial](https://slint-ui.com/docs/tutorial/cpp) | [Tutorial Video](https://youtu.be/_-Hxr6ZrHyo) | [Getting Started Template](https://github.com/slint-ui/slint-cpp-template))
  * [Rust](api/rs/slint) [![Crates.io](https://img.shields.io/crates/v/slint)](https://crates.io/crates/slint) ([Documentation](https://slint-ui.com/docs/rust/slint/) | [Tutorial](https://slint-ui.com/docs/tutorial/rust) | [Tutorial Video](https://youtu.be/_-Hxr6ZrHyo) | [Getting Started Template](https://github.com/slint-ui/slint-rust-template))
  * [JavaScript/NodeJS](api/node) [![npm](https://img.shields.io/npm/v/slint-ui)](https://www.npmjs.com/package/sixtyfps) ([Documentation](https://slint-ui.com/docs/node))
-
-The [examples](/examples) folder contains examples and demos. The `docs` folder contains [build instructions](docs/building.md) and [internal developer docs](docs/development.md).
-
 
 ## Demos running in WebAssembly Simulation
 
