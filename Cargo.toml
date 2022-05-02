@@ -50,7 +50,6 @@ members = [
 ]
 
 default-members = [
-    'api/node/native',
     'api/rs/build',
     'api/rs/slint',
     'examples/gallery',
@@ -67,7 +66,6 @@ default-members = [
     'internal/interpreter',
     'tests/doctests',
     'tests/driver/interpreter',
-    'tests/driver/nodejs',
     'tests/driver/rust',
     'tools/compiler',
     'tools/fmt',
