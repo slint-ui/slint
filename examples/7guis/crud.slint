@@ -33,12 +33,12 @@ MainWindow := Window {
             }
             Button {
                 text: "Update";
-                enabled: list.current-item != -1;
+                enabled: list.current-item != -1 && list.current-item < names-list.length;
                 clicked => { root.updateClicked() }
             }
             Button {
                 text: "Delete";
-                enabled: list.current-item != -1;
+                enabled: list.current-item != -1 && list.current-item < names-list.length;
                 clicked => { root.deleteClicked() }
             }
         }
