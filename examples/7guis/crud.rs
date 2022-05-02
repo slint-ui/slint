@@ -108,6 +108,10 @@ impl FilteredStringModel {
     fn remove(&self, index: usize) {
         let mut inner = self.inner.borrow_mut();
 
+        if index > inner.filtered_array.len() {
+            return;
+        }
+
         let id = inner.filtered_array.remove(index).id;
         self.notify.row_removed(index, 1);
         inner.filtered_ids.remove(&id);
