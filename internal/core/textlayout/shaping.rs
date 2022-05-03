@@ -27,7 +27,7 @@ pub trait TextShaper {
         + core::cmp::PartialOrd
         + core::ops::Mul<Self::LengthPrimitive, Output = Self::Length>
         + core::ops::Div<Self::LengthPrimitive, Output = Self::Length>;
-    type Glyph: GlyphMetrics<Self::Length>;
+    type Glyph: GlyphMetrics<Self::Length> + Clone;
     // Shapes the given string and emits the result into the given glyphs buffer,
     // as tuples of glyph handle and corresponding byte offset in the originating string.
     fn shape_text<GlyphStorage: core::iter::Extend<(Self::Glyph, usize)>>(
@@ -125,13 +125,16 @@ pub struct TextRun {
     // TODO: direction, etc.
 }
 
-pub struct ShapeBuffer<Font: TextShaper + ?Sized> {
-    pub glyphs: Vec<(Font::Glyph, usize)>,
+pub struct ShapeBuffer<Glyph> {
+    pub glyphs: Vec<(Glyph, usize)>,
     pub text_runs: Vec<TextRun>,
 }
 
-impl<Font: TextShaper + ?Sized> ShapeBuffer<Font> {
-    pub fn new(font: &Font, text: &str) -> Self {
+impl<Glyph> ShapeBuffer<Glyph> {
+    pub fn new<Font>(font: &Font, text: &str) -> Self
+    where
+        Font: TextShaper<Glyph = Glyph>,
+    {
         let mut glyphs = Vec::new();
         let text_runs = ShapeBoundaries::new(text)
             .scan(0, |run_start, run_end| {

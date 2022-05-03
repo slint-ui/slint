@@ -63,7 +63,7 @@ where
     let mut line_count = Font::LengthPrimitive::zero();
     let shape_buffer = ShapeBuffer::new(font, text);
 
-    for line in TextLineBreaker::new(text, font, &shape_buffer, max_width) {
+    for line in TextLineBreaker::<Font>::new(text, &shape_buffer, max_width) {
         max_line_width = euclid::approxord::max(max_line_width, line.text_width);
         line_count += Font::LengthPrimitive::one();
     }
@@ -108,9 +108,8 @@ impl<'a, Font: TextShaper> TextParagraphLayout<'a, Font> {
         let shape_buffer = ShapeBuffer::new(self.font, self.string);
 
         let new_line_break_iter = || {
-            TextLineBreaker::new(
+            TextLineBreaker::<Font>::new(
                 self.string,
-                self.font,
                 &shape_buffer,
                 if wrap { Some(self.max_width) } else { None },
             )

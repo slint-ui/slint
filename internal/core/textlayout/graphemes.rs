@@ -1,51 +1,48 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use core::ops::Range;
+use core::{marker::PhantomData, ops::Range};
 
 use euclid::num::Zero;
 
-use super::{ShapeBuffer, TextShaper};
+use super::{GlyphMetrics, ShapeBuffer};
 
 #[derive(Clone)]
-pub struct Grapheme<Length> {
+pub struct Grapheme<Length: Clone> {
     pub byte_range: Range<usize>,
     pub glyph_range: Range<usize>,
     pub width: Length,
     pub is_whitespace: bool,
 }
 
-pub struct GraphemeIterator<'a, Font: TextShaper> {
+#[derive(Clone)]
+pub struct GraphemeIterator<'a, Length, Glyph> {
     text: &'a str,
-    font: &'a Font,
-    shaped_text: &'a ShapeBuffer<Font>,
+    shaped_text: &'a ShapeBuffer<Glyph>,
     current_run: usize,
     // absolute byte offset in the entire text
     byte_offset: usize,
     glyph_index: usize,
+    marker: PhantomData<Length>,
 }
 
-impl<'a, Font: TextShaper> Clone for GraphemeIterator<'a, Font> {
-    fn clone(&self) -> Self {
+impl<'a, Length, Glyph> GraphemeIterator<'a, Length, Glyph> {
+    pub fn new(text: &'a str, shaped_text: &'a ShapeBuffer<Glyph>) -> Self {
         Self {
-            text: self.text.clone(),
-            font: self.font.clone(),
-            shaped_text: self.shaped_text.clone(),
-            current_run: self.current_run.clone(),
-            byte_offset: self.byte_offset.clone(),
-            glyph_index: self.glyph_index.clone(),
+            text,
+            shaped_text,
+            current_run: 0,
+            byte_offset: 0,
+            glyph_index: 0,
+            marker: Default::default(),
         }
     }
 }
 
-impl<'a, Font: TextShaper> GraphemeIterator<'a, Font> {
-    pub fn new(text: &'a str, font: &'a Font, shaped_text: &'a ShapeBuffer<Font>) -> Self {
-        Self { text, font, shaped_text, current_run: 0, byte_offset: 0, glyph_index: 0 }
-    }
-}
-
-impl<'a, Font: TextShaper> Iterator for GraphemeIterator<'a, Font> {
-    type Item = Grapheme<Font::Length>;
+impl<'a, Length: Clone + Zero + core::ops::AddAssign, Glyph: GlyphMetrics<Length>> Iterator
+    for GraphemeIterator<'a, Length, Glyph>
+{
+    type Item = Grapheme<Length>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current_run >= self.shaped_text.text_runs.len() {
@@ -60,7 +57,7 @@ impl<'a, Font: TextShaper> Iterator for GraphemeIterator<'a, Font> {
                 self.shaped_text.text_runs.get(self.current_run)?
             };
 
-        let mut grapheme_width: Font::Length = Font::Length::zero();
+        let mut grapheme_width: Length = Length::zero();
 
         let grapheme_glyph_start = self.glyph_index;
 
@@ -72,7 +69,7 @@ impl<'a, Font: TextShaper> Iterator for GraphemeIterator<'a, Font> {
             if cluster_byte_offset != self.byte_offset {
                 break;
             }
-            grapheme_width += self.font.glyph_advance_x(glyph);
+            grapheme_width += glyph.advance();
 
             self.glyph_index += 1;
 

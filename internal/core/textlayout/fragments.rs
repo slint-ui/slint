@@ -3,8 +3,10 @@
 
 use core::ops::Range;
 
+use euclid::num::Zero;
+
 use super::graphemes::GraphemeIterator;
-use super::{BreakOpportunity, LineBreakIterator, ShapeBuffer, TextShaper};
+use super::{BreakOpportunity, GlyphMetrics, LineBreakIterator, ShapeBuffer};
 
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct TextFragment<Length> {
@@ -15,37 +17,32 @@ pub struct TextFragment<Length> {
     pub trailing_mandatory_break: bool,
 }
 
-pub struct TextFragmentIterator<'a, Font: TextShaper> {
+#[derive(Clone)]
+pub struct TextFragmentIterator<'a, Length, Glyph> {
     line_breaks: LineBreakIterator<'a>,
-    grapheme_cursor: GraphemeIterator<'a, Font>,
+    grapheme_cursor: GraphemeIterator<'a, Length, Glyph>,
     text_len: usize,
     pub break_anywhere: bool,
 }
 
-impl<'a, Font: TextShaper> Clone for TextFragmentIterator<'a, Font> {
-    fn clone(&self) -> Self {
-        Self {
-            line_breaks: self.line_breaks.clone(),
-            grapheme_cursor: self.grapheme_cursor.clone(),
-            text_len: self.text_len.clone(),
-            break_anywhere: self.break_anywhere.clone(),
-        }
-    }
-}
-
-impl<'a, Font: TextShaper> TextFragmentIterator<'a, Font> {
-    pub fn new(text: &'a str, font: &'a Font, shape_buffer: &'a ShapeBuffer<Font>) -> Self {
+impl<'a, Length, Glyph> TextFragmentIterator<'a, Length, Glyph> {
+    pub fn new(text: &'a str, shape_buffer: &'a ShapeBuffer<Glyph>) -> Self {
         Self {
             line_breaks: LineBreakIterator::new(text),
-            grapheme_cursor: GraphemeIterator::new(text, font, shape_buffer),
+            grapheme_cursor: GraphemeIterator::new(text, shape_buffer),
             text_len: text.len(),
             break_anywhere: false,
         }
     }
 }
 
-impl<'a, Font: TextShaper> Iterator for TextFragmentIterator<'a, Font> {
-    type Item = TextFragment<Font::Length>;
+impl<
+        'a,
+        Length: Clone + Default + core::ops::AddAssign + Zero + Copy,
+        Glyph: GlyphMetrics<Length>,
+    > Iterator for TextFragmentIterator<'a, Length, Glyph>
+{
+    type Item = TextFragment<Length>;
 
     fn next(&mut self) -> Option<Self::Item> {
         let first_grapheme = self.grapheme_cursor.next()?;
@@ -111,7 +108,7 @@ fn fragment_iterator_simple() {
     let font = FixedTestFont;
     let text = "H WX";
     let shape_buffer = ShapeBuffer::new(&font, text);
-    let fragments = TextFragmentIterator::new(text, &font, &shape_buffer).collect::<Vec<_>>();
+    let fragments = TextFragmentIterator::new(text, &shape_buffer).collect::<Vec<_>>();
     let expected = vec![
         TextFragment {
             byte_range: Range { start: 0, end: 1 },
@@ -136,7 +133,7 @@ fn fragment_iterator_simple_v2() {
     let font = FixedTestFont;
     let text = "Hello World";
     let shape_buffer = ShapeBuffer::new(&font, text);
-    let fragments = TextFragmentIterator::new(text, &font, &shape_buffer).collect::<Vec<_>>();
+    let fragments = TextFragmentIterator::new(text, &shape_buffer).collect::<Vec<_>>();
     let expected = vec![
         TextFragment {
             byte_range: Range { start: 0, end: 5 },
@@ -161,7 +158,7 @@ fn fragment_iterator_forced_break() {
     let font = FixedTestFont;
     let text = "H\nW";
     let shape_buffer = ShapeBuffer::new(&font, text);
-    let fragments = TextFragmentIterator::new(text, &font, &shape_buffer).collect::<Vec<_>>();
+    let fragments = TextFragmentIterator::new(text, &shape_buffer).collect::<Vec<_>>();
     assert_eq!(
         fragments,
         vec![
@@ -188,7 +185,7 @@ fn fragment_iterator_forced_break_multi() {
     let font = FixedTestFont;
     let text = "H\n\n\nW";
     let shape_buffer = ShapeBuffer::new(&font, text);
-    let fragments = TextFragmentIterator::new(text, &font, &shape_buffer).collect::<Vec<_>>();
+    let fragments = TextFragmentIterator::new(text, &shape_buffer).collect::<Vec<_>>();
     assert_eq!(
         fragments,
         vec![
@@ -229,7 +226,7 @@ fn fragment_iterator_nbsp() {
     let font = FixedTestFont;
     let text = "X H\u{00a0}W";
     let shape_buffer = ShapeBuffer::new(&font, text);
-    let fragments = TextFragmentIterator::new(text, &font, &shape_buffer).collect::<Vec<_>>();
+    let fragments = TextFragmentIterator::new(text, &shape_buffer).collect::<Vec<_>>();
     assert_eq!(
         fragments,
         vec![
@@ -256,7 +253,7 @@ fn fragment_iterator_break_anywhere() {
     let font = FixedTestFont;
     let text = "AB\nCD\nEF";
     let shape_buffer = ShapeBuffer::new(&font, text);
-    let mut fragments = TextFragmentIterator::new(text, &font, &shape_buffer);
+    let mut fragments = TextFragmentIterator::new(text, &shape_buffer);
     assert_eq!(
         fragments.next(),
         Some(TextFragment {
