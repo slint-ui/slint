@@ -15,12 +15,27 @@ MainWindow := Window {
     property<Circle> selected-circle;
     callback background_clicked(length,length);
 
+    property<bool> undoable: false;
+    property<bool> redoable: false;
+    callback undo_clicked();
+    callback redo_clicked();
+
+    callback circle_resized(int, length);
+
     VerticalBox {
         HorizontalLayout {
             alignment: center;
             spacing: 12px;
-            Button { text: "Undo"; }
-            Button { text: "Redo"; }
+            Button {
+                text: "Undo";
+                enabled <=> root.undoable;
+                clicked => { root.undo-clicked() }
+            }
+            Button {
+                text: "Redo";
+                enabled <=> root.redoable;
+                clicked => { root.redo-clicked() }
+            }
         }
         Rectangle {
             background: white;
@@ -82,7 +97,9 @@ MainWindow := Window {
                 minimum: 4;
                 maximum: 100;
                 value: selected-circle.d / 1px;
-                changed(diameter) => { model[clicked-idx].d = diameter * 1px }
+                changed(diameter) => {
+                    root.circle_resized(clicked-idx, diameter *1px);
+                }
             }
         }
     }
