@@ -4,6 +4,10 @@
 use alloc::vec::Vec;
 use core::ops::Range;
 
+pub trait GlyphMetrics<Length> {
+    fn advance(&self) -> Length;
+}
+
 pub trait TextShaper {
     type LengthPrimitive: core::ops::Mul
         + core::ops::Div
@@ -23,7 +27,7 @@ pub trait TextShaper {
         + core::cmp::PartialOrd
         + core::ops::Mul<Self::LengthPrimitive, Output = Self::Length>
         + core::ops::Div<Self::LengthPrimitive, Output = Self::Length>;
-    type Glyph;
+    type Glyph: GlyphMetrics<Self::Length>;
     // Shapes the given string and emits the result into the given glyphs buffer,
     // as tuples of glyph handle and corresponding byte offset in the originating string.
     fn shape_text<GlyphStorage: core::iter::Extend<(Self::Glyph, usize)>>(
@@ -197,6 +201,13 @@ pub struct ShapedGlyph {
     pub advance_x: f32,
     pub glyph_id: Option<core::num::NonZeroU16>,
     pub char: Option<char>,
+}
+
+#[cfg(test)]
+impl GlyphMetrics<f32> for ShapedGlyph {
+    fn advance(&self) -> f32 {
+        self.advance_x
+    }
 }
 
 #[cfg(test)]

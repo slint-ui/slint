@@ -41,7 +41,7 @@ mod fragments;
 mod graphemes;
 mod shaping;
 use shaping::ShapeBuffer;
-pub use shaping::TextShaper;
+pub use shaping::{GlyphMetrics, TextShaper};
 
 mod linebreaker;
 pub use linebreaker::TextLine;

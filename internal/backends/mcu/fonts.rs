@@ -11,7 +11,7 @@ use crate::{LogicalLength, LogicalSize, PhysicalLength, PhysicalSize, ScaleFacto
 use i_slint_core::{
     graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, FontRequest},
     slice::Slice,
-    textlayout::TextShaper,
+    textlayout::{GlyphMetrics, TextShaper},
     Coord,
 };
 
@@ -90,6 +90,12 @@ impl PixelFont {
 
     pub fn pixel_size(&self) -> PhysicalLength {
         self.glyphs.pixel_size()
+    }
+}
+
+impl GlyphMetrics<PhysicalLength> for Glyph {
+    fn advance(&self) -> PhysicalLength {
+        self.x_advance
     }
 }
 
