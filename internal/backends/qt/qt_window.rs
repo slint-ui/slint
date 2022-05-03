@@ -108,7 +108,7 @@ cpp! {{
             });
         }
         void mouseReleaseEvent(QMouseEvent *event) override {
-            // HACK: Qt on windows is a bit special when clicking on the windowi
+            // HACK: Qt on windows is a bit special when clicking on the window
             //       close button and when the resulting close event is ignored.
             //       In that case a release event that was not preceeded by
             //       a press event is sent on Windows.
