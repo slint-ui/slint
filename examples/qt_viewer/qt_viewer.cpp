@@ -39,13 +39,12 @@ void show_diagnostics(QWidget *root,
 int main(int argc, char **argv)
 {
     QApplication app(argc, argv);
-    std::unique_ptr<LoadedFile> loaded_file;
-
     QWidget main;
     Ui::Interface ui;
     ui.setupUi(&main);
     QHBoxLayout layout(ui.my_content);
 
+    std::unique_ptr<LoadedFile> loaded_file;
     slint::interpreter::Value::Type currentType;
 
     auto load_file = [&](const QString &fileName) {
