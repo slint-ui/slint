@@ -533,6 +533,10 @@ impl PlatformWindow for GLWindow {
         if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
             existing_blinker.stop();
         }*/
+        crate::event_loop::with_window_target(|event_loop| {
+            event_loop.event_loop_proxy().send_event(crate::event_loop::CustomEvent::WindowHidden)
+        })
+        .unwrap();
     }
 
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
