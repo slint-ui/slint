@@ -20,29 +20,32 @@ thread_local! {
 }
 
 #[derive(Copy, Clone)]
-pub struct Glyph(&'static BitmapGlyph);
+pub struct Glyph {
+    pub(crate) bitmap_glyph: Option<&'static BitmapGlyph>,
+    x_advance: PhysicalLength,
+}
 
 impl Glyph {
     pub fn x(&self) -> PhysicalLength {
-        PhysicalLength::new(self.0.x)
+        self.bitmap_glyph.map(|g| PhysicalLength::new(g.x)).unwrap_or_default()
     }
     pub fn y(&self) -> PhysicalLength {
-        PhysicalLength::new(self.0.y)
+        self.bitmap_glyph.map(|g| PhysicalLength::new(g.y)).unwrap_or_default()
     }
     pub fn width(&self) -> PhysicalLength {
-        PhysicalLength::new(self.0.width)
+        self.bitmap_glyph.map(|g| PhysicalLength::new(g.width)).unwrap_or_default()
     }
     pub fn height(&self) -> PhysicalLength {
-        PhysicalLength::new(self.0.height)
+        self.bitmap_glyph.map(|g| PhysicalLength::new(g.height)).unwrap_or_default()
     }
     pub fn size(&self) -> PhysicalSize {
         PhysicalSize::from_lengths(self.width(), self.height())
     }
     pub fn x_advance(&self) -> PhysicalLength {
-        PhysicalLength::new(self.0.x_advance)
+        self.x_advance
     }
     pub fn data(&self) -> &Slice<'static, u8> {
-        &self.0.data
+        &self.bitmap_glyph.expect("invalid error: Glyph::data called on null").data
     }
 }
 
@@ -93,23 +96,25 @@ impl PixelFont {
 impl TextShaper for PixelFont {
     type LengthPrimitive = i16;
     type Length = PhysicalLength;
-    type Glyph = Option<Glyph>;
-    fn shape_text<GlyphStorage: core::iter::Extend<(Option<Glyph>, usize)>>(
+    type Glyph = self::Glyph;
+    fn shape_text<GlyphStorage: core::iter::Extend<(Glyph, usize)>>(
         &self,
         text: &str,
         glyphs: &mut GlyphStorage,
     ) {
         let glyphs_iter = text.char_indices().map(|(byte_offset, char)| {
-            let glyph = self
+            let bitmap_glyph = self
                 .bitmap_font
                 .character_map
                 .binary_search_by_key(&char, |char_map_entry| char_map_entry.code_point)
                 .ok()
-                .map(|char_map_index| {
+                .map_or(None, |char_map_index| {
                     let glyph_index = self.bitmap_font.character_map[char_map_index].glyph_index;
-                    Glyph(&self.glyphs.glyph_data[glyph_index as usize])
+                    Some(&self.glyphs.glyph_data[glyph_index as usize])
                 });
-            (glyph, byte_offset)
+            let x_advance = bitmap_glyph
+                .map_or_else(|| self.pixel_size(), |g| PhysicalLength::new(g.x_advance));
+            (Glyph { bitmap_glyph, x_advance }, byte_offset)
         });
         glyphs.extend(glyphs_iter);
     }
@@ -121,11 +126,13 @@ impl TextShaper for PixelFont {
             .ok()
             .map(|char_map_index| {
                 let glyph_index = self.bitmap_font.character_map[char_map_index].glyph_index;
-                Some(Glyph(&self.glyphs.glyph_data[glyph_index as usize]))
+                let bitmap_glyph = &self.glyphs.glyph_data[glyph_index as usize];
+                let x_advance = PhysicalLength::new(bitmap_glyph.x_advance);
+                Glyph { bitmap_glyph: Some(bitmap_glyph), x_advance }
             })
     }
-    fn glyph_advance_x(&self, glyph: &Option<Glyph>) -> PhysicalLength {
-        glyph.map(|g| g.x_advance()).unwrap_or_else(|| self.pixel_size())
+    fn glyph_advance_x(&self, glyph: &Glyph) -> PhysicalLength {
+        glyph.x_advance
     }
 }
 
