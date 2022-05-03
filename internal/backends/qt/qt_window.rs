@@ -1510,7 +1510,7 @@ impl PlatformWindow for QtWindow {
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*", pos as "QPoint", size as "QSize"] {
             popup_ptr->setParent(widget_ptr, Qt::Popup);
-            popup_ptr->setGeometry(QRect(pos + widget_ptr->geometry().topLeft(), size));
+            popup_ptr->setGeometry(QRect(pos + widget_ptr->mapToGlobal(QPoint(0,0)), size));
             popup_ptr->show();
         }};
     }
