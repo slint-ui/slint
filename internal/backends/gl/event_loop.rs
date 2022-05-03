@@ -289,6 +289,8 @@ pub enum CustomEvent {
     WakeEventLoopWorkaround,
     UpdateWindowProperties(winit::window::WindowId),
     UserEvent(Box<dyn FnOnce() + Send>),
+    /// Called from `GLWindow::hide` so that we can check if we should quit the event loop
+    WindowHidden,
     Exit,
 }
 
@@ -301,6 +303,7 @@ impl std::fmt::Debug for CustomEvent {
             Self::WakeEventLoopWorkaround => write!(f, "WakeEventLoopWorkaround"),
             Self::UpdateWindowProperties(e) => write!(f, "UpdateWindowProperties({:?})", e),
             Self::UserEvent(_) => write!(f, "UserEvent"),
+            Self::WindowHidden => write!(f, "WindowHidden"),
             Self::Exit => write!(f, "Exit"),
         }
     }
@@ -336,8 +339,6 @@ mod key_codes {
 fn process_window_event(
     window: Rc<dyn WinitWindow>,
     event: WindowEvent,
-    quit_behavior: i_slint_core::backend::EventLoopQuitBehavior,
-    control_flow: &mut winit::event_loop::ControlFlow,
     cursor_pos: &mut Point,
     pressed: &mut bool,
 ) {
@@ -367,15 +368,6 @@ fn process_window_event(
         WindowEvent::CloseRequested => {
             if runtime_window.request_close() {
                 window.hide();
-                match quit_behavior {
-                    corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
-                        let window_count = ALL_WINDOWS.with(|windows| windows.borrow().len());
-                        if window_count == 0 {
-                            *control_flow = winit::event_loop::ControlFlow::Exit;
-                        }
-                    }
-                    corelib::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => {}
-                }
             }
         }
         WindowEvent::ReceivedCharacter(ch) => {
@@ -565,14 +557,7 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
             match event {
                 winit::event::Event::WindowEvent { event, window_id } => {
                     if let Some(window) = window_by_id(window_id) {
-                        process_window_event(
-                            window,
-                            event,
-                            quit_behavior,
-                            control_flow,
-                            &mut cursor_pos,
-                            &mut pressed,
-                        );
+                        process_window_event(window, event, &mut cursor_pos, &mut pressed);
                     };
                 }
 
@@ -587,6 +572,15 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
                         window.runtime_window().update_window_properties();
                     }
                 }
+                winit::event::Event::UserEvent(CustomEvent::WindowHidden) => match quit_behavior {
+                    corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
+                        let window_count = ALL_WINDOWS.with(|windows| windows.borrow().len());
+                        if window_count == 0 {
+                            *control_flow = winit::event_loop::ControlFlow::Exit;
+                        }
+                    }
+                    corelib::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => {}
+                },
 
                 winit::event::Event::UserEvent(CustomEvent::Exit) => {
                     *control_flow = winit::event_loop::ControlFlow::Exit;
