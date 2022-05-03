@@ -73,6 +73,7 @@ cpp! {{
 
     struct SlintWidget : QWidget {
         void *rust_window;
+        bool isMouseButtonDown = false;
 
         SlintWidget() {
             setMouseTracking(true);
@@ -97,6 +98,7 @@ cpp! {{
         }
 
         void mousePressEvent(QMouseEvent *event) override {
+            isMouseButtonDown = true;
             QPoint pos = event->pos();
             int button = event->button();
             rust!(Slint_mousePressEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
@@ -106,6 +108,21 @@ cpp! {{
             });
         }
         void mouseReleaseEvent(QMouseEvent *event) override {
+            // HACK: Qt on windows is a bit special when clicking on the window
+            //       close button and when the resulting close event is ignored.
+            //       In that case a release event that was not preceeded by
+            //       a press event is sent on Windows.
+            //       This confuses Slint, so eat this event.
+            //
+            //       One example is a popup is shown in the close event that
+            //       then ignores the the close request to ask the user what to
+            //       do. The stray release event will then close the popup
+            //       straight away
+            if (!isMouseButtonDown) {
+                return;
+            }
+            isMouseButtonDown = false;
+
             QPoint pos = event->pos();
             int button = event->button();
             rust!(Slint_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
