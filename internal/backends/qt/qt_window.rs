@@ -1381,6 +1381,9 @@ impl PlatformWindow for QtWindow {
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*"] {
             widget_ptr->hide();
+            // Since we don't call close(), this will force Qt to recompute wether there are any
+            // visible windows, and ends the application if needed
+            QEventLoopLocker();
         }};
     }
 
