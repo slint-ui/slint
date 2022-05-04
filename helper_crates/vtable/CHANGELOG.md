@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
-## [0.1.7]
+## [0.1.7] - 2022-05-04
 
  - Implement `Debug` for `VRc`
  - Quieten warning about unused unsafe in the `#[vtable]` generated code
