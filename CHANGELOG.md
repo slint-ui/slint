@@ -20,7 +20,7 @@ All notable changes to this project are documented in this file.
    into a cached layer. This may speed up rendering of complex sub-trees if they rarely change.
  - The `brighter` and `lighter` functions also work on values of type brush.
  - Added a `reset` function to C++'s `Model`, Rust's `ModelNotify` and JS's `ModelPeer`
- - Added a `row_data_tracked` function to the Model trait
+ - Added a `row_data_tracked` function to `ModelExt` (an extension to the Model trait)
 
 ### Fixed
 

@@ -223,6 +223,9 @@ pub trait Model {
     /// The amount of row in the model
     fn row_count(&self) -> usize;
     /// Returns the data for a particular row. This function should be called with `row < row_count()`.
+    ///
+    /// This function does not register dependencies on the current binding. For an equivalent
+    /// function that tracks dependencies, see [`ModelExt::row_data_tracked`]
     fn row_data(&self, row: usize) -> Option<Self::Data>;
     /// Sets the data for a particular row.
     ///
@@ -279,7 +282,8 @@ pub trait Model {
     }
 }
 
-trait ModelExt: Model {
+/// Extension trait with extra methods implemented on types that implements [`Model`]
+pub trait ModelExt: Model {
     /// Convenience function that calls [`ModelTracker::track_row_data_changes`]
     /// before returning [`Self::row_data`].
     ///
