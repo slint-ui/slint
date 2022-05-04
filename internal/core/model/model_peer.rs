@@ -156,6 +156,10 @@ impl<T: ModelChangeListener> PinnedDrop for ModelChangeListenerContainer<T> {
 }
 
 impl<T: ModelChangeListener + 'static> ModelChangeListenerContainer<T> {
+    pub fn new(data: T) -> Self {
+        Self { peer: Default::default(), data }
+    }
+
     pub fn model_peer(self: Pin<&Self>) -> ModelPeer {
         let peer = self.peer.get_or_init(|| {
             //Safety: we will reset it when we Drop the Repeater
