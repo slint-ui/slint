@@ -104,6 +104,7 @@
         "viewbox",
         "vtable",
         "wasm",
+        "webassembly",
         "windowrc", // use in slint_windowrc_foo FFI functions
         "xtask"
     ],
