@@ -6,6 +6,7 @@ use core::ops::Range;
 
 pub trait GlyphMetrics<Length> {
     fn advance(&self) -> Length;
+    fn advance_mut(&mut self) -> &mut Length;
 }
 
 pub trait TextShaper {
@@ -36,6 +37,10 @@ pub trait TextShaper {
         glyphs: &mut GlyphStorage,
     );
     fn glyph_for_char(&self, ch: char) -> Option<Self::Glyph>;
+
+    fn letter_spacing(&self) -> Option<Self::Length> {
+        None
+    }
 }
 
 pub struct ShapeBoundaries<'a> {
@@ -133,13 +138,30 @@ impl<Glyph> ShapeBuffer<Glyph> {
     pub fn new<Font>(font: &Font, text: &str) -> Self
     where
         Font: TextShaper<Glyph = Glyph>,
+        Glyph: GlyphMetrics<Font::Length>,
     {
         let mut glyphs = Vec::new();
         let text_runs = ShapeBoundaries::new(text)
             .scan(0, |run_start, run_end| {
-                //let glyphs_start = glyph_buffer.borrow().as_ref().len();
+                let glyphs_start = glyphs.len();
 
                 font.shape_text(&text[*run_start..run_end], &mut glyphs);
+
+                if let Some(letter_spacing) = font.letter_spacing() {
+                    if glyphs.len() > glyphs_start {
+                        let mut last_byte_offset = glyphs[glyphs_start].1;
+                        for index in glyphs_start + 1..glyphs.len() {
+                            let current_glyph_byte_offset = glyphs[index].1;
+                            if current_glyph_byte_offset != last_byte_offset {
+                                let previous_glyph = &mut glyphs[index - 1].0;
+                                *previous_glyph.advance_mut() += letter_spacing;
+                            }
+                            last_byte_offset = current_glyph_byte_offset;
+                        }
+
+                        *glyphs.last_mut().unwrap().0.advance_mut() += letter_spacing;
+                    }
+                }
 
                 let run = TextRun {
                     byte_range: Range { start: *run_start, end: run_end },
@@ -210,11 +232,27 @@ impl GlyphMetrics<f32> for ShapedGlyph {
     fn advance(&self) -> f32 {
         self.advance_x
     }
+    fn advance_mut(&mut self) -> &mut f32 {
+        &mut self.advance_x
+    }
+}
+
+#[cfg(test)]
+struct RustyBuzzFont<'a> {
+    face: rustybuzz::Face<'a>,
+    letter_spacing: Option<f32>,
+}
+
+#[cfg(test)]
+impl<'a> core::convert::From<rustybuzz::Face<'a>> for RustyBuzzFont<'a> {
+    fn from(face: rustybuzz::Face<'a>) -> Self {
+        Self { face, letter_spacing: None }
+    }
 }
 
 #[cfg(test)]
 
-impl<'a> TextShaper for rustybuzz::Face<'a> {
+impl<'a> TextShaper for RustyBuzzFont<'a> {
     type LengthPrimitive = f32;
     type Length = f32;
     type Glyph = ShapedGlyph;
@@ -225,7 +263,7 @@ impl<'a> TextShaper for rustybuzz::Face<'a> {
     ) {
         let mut buffer = rustybuzz::UnicodeBuffer::new();
         buffer.push_str(text);
-        let glyph_buffer = rustybuzz::shape(self, &[], buffer);
+        let glyph_buffer = rustybuzz::shape(&self.face, &[], buffer);
 
         let output_glyph_generator =
             glyph_buffer.glyph_infos().iter().zip(glyph_buffer.glyph_positions().iter()).map(
@@ -241,7 +279,7 @@ impl<'a> TextShaper for rustybuzz::Face<'a> {
 
                     if let Some(bounding_box) = out_glyph
                         .glyph_id
-                        .and_then(|id| self.glyph_bounding_box(ttf_parser::GlyphId(id.get())))
+                        .and_then(|id| self.face.glyph_bounding_box(ttf_parser::GlyphId(id.get())))
                     {
                         out_glyph.width = bounding_box.width() as _;
                         out_glyph.height = bounding_box.height() as _;
@@ -260,13 +298,14 @@ impl<'a> TextShaper for rustybuzz::Face<'a> {
     fn glyph_for_char(&self, _ch: char) -> Option<Self::Glyph> {
         todo!()
     }
+
+    fn letter_spacing(&self) -> Option<Self::Length> {
+        self.letter_spacing
+    }
 }
 
-#[test]
-fn test_shaping() {
-    use std::num::NonZeroU16;
-    use TextShaper;
-
+#[cfg(test)]
+fn with_dejavu_font<R>(mut callback: impl FnMut(&mut RustyBuzzFont) -> R) -> Option<R> {
     let mut fontdb = fontdb::Database::new();
     let dejavu_path: std::path::PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "..", "backends", "gl", "fonts", "DejaVuSans.ttf"]
@@ -275,9 +314,19 @@ fn test_shaping() {
     fontdb.load_font_file(dejavu_path).expect("unable to load test dejavu font");
     let font_id = fontdb.faces()[0].id;
     fontdb.with_face_data(font_id, |data, font_index| {
-        let face =
-            rustybuzz::Face::from_slice(data, font_index).expect("unable to parse dejavu font");
+        let mut face: RustyBuzzFont = rustybuzz::Face::from_slice(data, font_index)
+            .expect("unable to parse dejavu font")
+            .into();
+        callback(&mut face)
+    })
+}
 
+#[test]
+fn test_shaping() {
+    use std::num::NonZeroU16;
+    use TextShaper;
+
+    with_dejavu_font(|face| {
         {
             let mut shaped_glyphs = Vec::new();
             // two glyph clusters: ā́b
@@ -308,5 +357,39 @@ fn test_shaping() {
             assert_eq!(shaped_glyphs[2].0.glyph_id, NonZeroU16::new(69));
             assert_eq!(shaped_glyphs[2].1, 2);
         }
+    });
+}
+
+#[test]
+fn test_letter_spacing() {
+    use GlyphMetrics;
+    use TextShaper;
+
+    with_dejavu_font(|mut face| {
+        // two glyph clusters: ā́b
+        let text = "a\u{0304}\u{0301}b";
+        let advances = {
+            let mut shaped_glyphs = Vec::new();
+            face.shape_text(text, &mut shaped_glyphs);
+
+            assert_eq!(shaped_glyphs.len(), 3);
+
+            shaped_glyphs.iter().map(|g| g.0.advance()).collect::<Vec<_>>()
+        };
+
+        face.letter_spacing = Some(20.);
+
+        let buffer = ShapeBuffer::new(face, text);
+
+        assert_eq!(buffer.glyphs.len(), advances.len());
+
+        let mut expected_advances = advances;
+        expected_advances[1] += face.letter_spacing.unwrap();
+        *expected_advances.last_mut().unwrap() += face.letter_spacing.unwrap();
+
+        assert_eq!(
+            buffer.glyphs.iter().map(|(glyph, _)| glyph.advance()).collect::<Vec<_>>(),
+            expected_advances
+        );
     });
 }

@@ -73,7 +73,7 @@ pub const DEFAULT_FONT_SIZE: Coord = 12 as Coord;
 pub struct PixelFont {
     bitmap_font: &'static BitmapFont,
     glyphs: &'static BitmapGlyphs,
-    //letter_spacing: PhysicalLength,
+    letter_spacing: Option<PhysicalLength>,
 }
 
 impl PixelFont {
@@ -93,6 +93,9 @@ impl PixelFont {
 impl GlyphMetrics<PhysicalLength> for Glyph {
     fn advance(&self) -> PhysicalLength {
         self.x_advance
+    }
+    fn advance_mut(&mut self) -> &mut PhysicalLength {
+        &mut self.x_advance
     }
 }
 
@@ -134,6 +137,10 @@ impl TextShaper for PixelFont {
                 Glyph { bitmap_glyph: Some(bitmap_glyph), x_advance }
             })
     }
+
+    fn letter_spacing(&self) -> Option<Self::Length> {
+        self.letter_spacing
+    }
 }
 
 pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> PixelFont {
@@ -167,10 +174,9 @@ pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> PixelFont
     PixelFont {
         bitmap_font: font,
         glyphs: matching_glyphs,
-        /*letter_spacing: (LogicalLength::new(request.letter_spacing.unwrap_or_default())
-        * scale_factor)
-        .cast(),
-        */
+        letter_spacing: request
+            .letter_spacing
+            .map(|spacing| (LogicalLength::new(spacing).cast() * scale_factor).cast()),
     }
 }
 
