@@ -247,17 +247,6 @@ pub trait Model {
     /// You can return `&()` if you your `Model` is constant and does not have a ModelNotify field.
     fn model_tracker(&self) -> &dyn ModelTracker;
 
-    /// Convenience function that calls [`ModelTracker::track_row_data_changes`]
-    /// before returning [`Self::row_data`].
-    ///
-    /// Calling [`row_data(row)`](Self::row_data) does not register the row as a dependency when calling it while
-    /// evaluating a property binding. This function calls [`track_row_data_changes(row)`](ModelTracker::track_row_data_changes)
-    /// on the [`self.model_tracker()`](Self::model_tracker) to enable tracking.
-    fn row_data_tracked(&self, row: usize) -> Option<Self::Data> {
-        self.model_tracker().track_row_data_changes(row);
-        self.row_data(row)
-    }
-
     /// Returns an iterator visiting all elements of the model.
     fn iter(&self) -> ModelIterator<Self::Data>
     where
@@ -289,6 +278,21 @@ pub trait Model {
         &()
     }
 }
+
+trait ModelExt: Model {
+    /// Convenience function that calls [`ModelTracker::track_row_data_changes`]
+    /// before returning [`Self::row_data`].
+    ///
+    /// Calling [`row_data(row)`](Self::row_data) does not register the row as a dependency when calling it while
+    /// evaluating a property binding. This function calls [`track_row_data_changes(row)`](ModelTracker::track_row_data_changes)
+    /// on the [`self.model_tracker()`](Self::model_tracker) to enable tracking.
+    fn row_data_tracked(&self, row: usize) -> Option<Self::Data> {
+        self.model_tracker().track_row_data_changes(row);
+        self.row_data(row)
+    }
+}
+
+impl<T: Model> ModelExt for T {}
 
 /// An iterator over the elements of a model.
 /// This struct is created by the [Model::iter()] trait function.
