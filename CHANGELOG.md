@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## Unreleased
+## [0.2.2] - 2022-05-04
 
 ### Changed
  - On wasm, the input event are handled via a hidden `<input>` element, allowing the keyboard
@@ -433,3 +433,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [0.1.6]: https://github.com/slint-ui/slint/releases/tag/v0.1.6
 [0.2.0]: https://github.com/slint-ui/slint/releases/tag/v0.2.0
 [0.2.1]: https://github.com/slint-ui/slint/releases/tag/v0.2.1
+[0.2.2]: https://github.com/slint-ui/slint/releases/tag/v0.2.2
