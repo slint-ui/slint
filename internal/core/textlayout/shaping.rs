@@ -36,7 +36,6 @@ pub trait TextShaper {
         glyphs: &mut GlyphStorage,
     );
     fn glyph_for_char(&self, ch: char) -> Option<Self::Glyph>;
-    fn glyph_advance_x(&self, glyph: &Self::Glyph) -> Self::Length;
 }
 
 pub struct ShapeBoundaries<'a> {
@@ -260,10 +259,6 @@ impl<'a> TextShaper for rustybuzz::Face<'a> {
 
     fn glyph_for_char(&self, _ch: char) -> Option<Self::Glyph> {
         todo!()
-    }
-
-    fn glyph_advance_x(&self, glyph: &Self::Glyph) -> Self::Length {
-        glyph.advance_x
     }
 }
 

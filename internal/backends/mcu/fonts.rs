@@ -41,9 +41,6 @@ impl Glyph {
     pub fn size(&self) -> PhysicalSize {
         PhysicalSize::from_lengths(self.width(), self.height())
     }
-    pub fn x_advance(&self) -> PhysicalLength {
-        self.x_advance
-    }
     pub fn data(&self) -> &Slice<'static, u8> {
         &self.bitmap_glyph.expect("invalid error: Glyph::data called on null").data
     }
@@ -136,9 +133,6 @@ impl TextShaper for PixelFont {
                 let x_advance = PhysicalLength::new(bitmap_glyph.x_advance);
                 Glyph { bitmap_glyph: Some(bitmap_glyph), x_advance }
             })
-    }
-    fn glyph_advance_x(&self, glyph: &Glyph) -> PhysicalLength {
-        glyph.x_advance
     }
 }
 

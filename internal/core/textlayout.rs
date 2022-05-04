@@ -102,8 +102,8 @@ impl<'a, Font: TextShaper> TextParagraphLayout<'a, Font> {
         } else {
             None
         };
-        let max_width_without_elision = self.max_width
-            - elide_glyph.as_ref().map_or(Font::Length::zero(), |g| self.font.glyph_advance_x(g));
+        let max_width_without_elision =
+            self.max_width - elide_glyph.as_ref().map_or(Font::Length::zero(), |g| g.advance());
 
         let shape_buffer = ShapeBuffer::new(self.font, self.string);
 
@@ -161,7 +161,7 @@ impl<'a, Font: TextShaper> TextParagraphLayout<'a, Font> {
                     }
                 }
                 let positioned_glyph = (glyph_x, glyph);
-                glyph_x += self.font.glyph_advance_x(glyph);
+                glyph_x += glyph.advance();
                 Some(positioned_glyph)
             });
 
@@ -236,10 +236,6 @@ impl TextShaper for FixedTestFont {
             char: Some(ch),
         }
         .into()
-    }
-
-    fn glyph_advance_x(&self, glyph: &Self::Glyph) -> Self::Length {
-        glyph.advance_x
     }
 }
 
