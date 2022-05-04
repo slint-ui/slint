@@ -10,11 +10,15 @@ fn cp_r(
     dst: &std::path::Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
     if src.is_dir() {
-        assert!(dst.is_dir() || !dst.exists());
+        if !dst.exists() {
+            sh.create_dir(&dst).unwrap();
+        } else {
+            assert!(dst.is_dir());
+        }
 
         for f in sh.read_dir(src)? {
-            let src = src.join(&f);
-            let dst = dst.join(&f);
+            let src = src.join(f.file_name().unwrap());
+            let dst = dst.join(f.file_name().unwrap());
 
             cp_r(sh, &src, &dst)?
         }
