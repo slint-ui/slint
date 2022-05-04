@@ -237,7 +237,7 @@ pub fn generate(doc: &Document) -> TokenStream {
             const _THE_SAME_VERSION_MUST_BE_USED_FOR_THE_COMPILER_AND_THE_RUNTIME : slint::#version_check = slint::#version_check;
         }
         pub use #compo_module::{#compo_id #(,#structs_ids)* #(,#globals_ids)* };
-        pub use slint::{ComponentHandle, Global};
+        pub use slint::{ComponentHandle, Global, ModelExt as _};
     }
 }
 
