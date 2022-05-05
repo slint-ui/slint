@@ -162,7 +162,7 @@ impl Item for NativeGroupBox {
         let enabled = this.enabled();
 
         cpp!(unsafe [
-            painter as "QPainter*",
+            painter as "QPainterPtr*",
             widget as "QWidget*",
             text as "QString",
             enabled as "bool",
@@ -187,7 +187,7 @@ impl Item for NativeGroupBox {
             }
             option.textColor = QColor(qApp->style()->styleHint(
                 QStyle::SH_GroupBox_TextLabelColor, &option));
-            qApp->style()->drawComplexControl(QStyle::CC_GroupBox, &option, painter, widget);
+            qApp->style()->drawComplexControl(QStyle::CC_GroupBox, &option, painter->get(), widget);
         });
     }
 }

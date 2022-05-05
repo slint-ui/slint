@@ -1,6 +1,16 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## Unreleased
+
+### Changed
+
+### Added
+
+### Fixed
+
+ - Fixed crashes with the Qt backend in release mode.
+
 ## [0.2.2] - 2022-05-04
 
 ### Changed

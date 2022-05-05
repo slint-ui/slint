@@ -207,7 +207,7 @@ impl Item for NativeSlider {
         let pressed = data.pressed;
 
         cpp!(unsafe [
-            painter as "QPainter*",
+            painter as "QPainterPtr*",
             widget as "QWidget*",
             enabled as "bool",
             value as "int",
@@ -224,7 +224,7 @@ impl Item for NativeSlider {
             option.rect = QRect(QPoint(), size / dpr);
             initQSliderOptions(option, pressed, enabled, active_controls, min, max, value);
             auto style = qApp->style();
-            style->drawComplexControl(QStyle::CC_Slider, &option, painter, widget);
+            style->drawComplexControl(QStyle::CC_Slider, &option, painter->get(), widget);
         });
     }
 }

@@ -252,7 +252,7 @@ impl Item for NativeTabWidget {
             height: this.tabbar_preferred_height() as _,
         };
         cpp!(unsafe [
-            painter as "QPainter*",
+            painter as "QPainterPtr*",
             widget as "QWidget*",
             size as "QSize",
             dpr as "float",
@@ -275,7 +275,7 @@ impl Item for NativeTabWidget {
             option.leftCornerWidgetSize = QSize(0, 0);
             option.tabBarRect = style->subElementRect(QStyle::SE_TabWidgetTabBar, &option, widget);
             option.rect = style->subElementRect(QStyle::SE_TabWidgetTabPane, &option, widget);
-            style->drawPrimitive(QStyle::PE_FrameTabWidget, &option, painter, widget);
+            style->drawPrimitive(QStyle::PE_FrameTabWidget, &option, painter->get(), widget);
 
             /* -- we don't need to draw the base since we already draw the frame
                 QStyleOptionTab tabOverlap;
@@ -290,7 +290,7 @@ impl Item for NativeTabWidget {
                 }
                 optTabBase.tabBarRect = option.tabBarRect;
                 optTabBase.selectedTabRect = option.selectedTabRect;
-                style->drawPrimitive(QStyle::PE_FrameTabBarBase, &optTabBase, painter, widget);*/
+                style->drawPrimitive(QStyle::PE_FrameTabBarBase, &optTabBase, painter->get(), widget);*/
         });
     }
 }
@@ -449,7 +449,7 @@ impl Item for NativeTab {
         let num_tabs: i32 = this.num_tabs();
 
         cpp!(unsafe [
-            painter as "QPainter*",
+            painter as "QPainterPtr*",
             widget as "QWidget*",
             text as "QString",
             icon as "QPixmap",
@@ -492,7 +492,7 @@ impl Item for NativeTab {
                 option.state |= QStyle::State_HasFocus | QStyle::State_KeyboardFocusChange | QStyle::State_Item;
             }
             option.features |= QStyleOptionTab::HasFrame;
-            qApp->style()->drawControl(QStyle::CE_TabBarTab, &option, painter, widget);
+            qApp->style()->drawControl(QStyle::CE_TabBarTab, &option, painter->get(), widget);
         });
     }
 }

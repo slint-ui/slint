@@ -22,7 +22,6 @@ use i_slint_core::window::{PlatformWindow, PopupWindow, PopupWindowLocation, Win
 use i_slint_core::{component::ComponentRc, SharedString};
 use i_slint_core::{ImageInner, PathData, Property};
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
-use qttypes::QPainter;
 
 use std::cell::RefCell;
 use std::pin::Pin;
@@ -53,6 +52,8 @@ cpp! {{
     #include <memory>
     void ensure_initialized(bool from_qt_backend);
 
+    using QPainterPtr = std::unique_ptr<QPainter>;
+
     struct TimerHandler : QObject {
         QBasicTimer timer;
         static TimerHandler& instance() {
@@ -81,12 +82,12 @@ cpp! {{
         }
 
         void paintEvent(QPaintEvent *) override {
-            QPainter painter(this);
-            painter.setClipRect(rect());
-            painter.setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
-            auto painter_ptr = &painter;
-            rust!(Slint_paintEvent [rust_window: &QtWindow as "void*", painter_ptr: &mut QPainter as "QPainter*"] {
-                rust_window.paint_event(painter_ptr)
+            auto painter = std::unique_ptr<QPainter>(new QPainter(this));
+            painter->setClipRect(rect());
+            painter->setRenderHints(QPainter::Antialiasing | QPainter::SmoothPixmapTransform);
+            QPainterPtr *painter_ptr = &painter;
+            rust!(Slint_paintEvent [rust_window: &QtWindow as "void*", painter_ptr: &mut QPainterPtr as "QPainterPtr*"] {
+                rust_window.paint_event(std::mem::take(painter_ptr))
             });
         }
 
@@ -270,6 +271,25 @@ cpp! {{
     }
 }}
 
+cpp_class!(
+    /// Wrapper around a pointer to a QPainter.
+    // We can't use [`qttypes::QPainter`] because it is not sound <https://github.com/woboq/qmetaobject-rs/issues/267>
+    pub unsafe struct QPainterPtr as "QPainterPtr"
+);
+impl QPainterPtr {
+    pub fn restore(&mut self) {
+        cpp!(unsafe [self as "QPainterPtr*"] {
+            (*self)->restore();
+        });
+    }
+
+    pub fn save(&mut self) {
+        cpp!(unsafe [self as "QPainterPtr*"] {
+            (*self)->save();
+        });
+    }
+}
+
 cpp_class! {pub unsafe struct QPainterPath as "QPainterPath"}
 
 impl QPainterPath {
@@ -401,27 +421,27 @@ impl Default for QtRenderingCacheItem {
 
 type QtRenderingCache = Rc<RefCell<RenderingCache<QtRenderingCacheItem>>>;
 
-struct QtItemRenderer<'a> {
-    painter: &'a mut QPainter,
+struct QtItemRenderer {
+    painter: QPainterPtr,
     cache: QtRenderingCache,
     default_font_properties: FontRequest,
     window: WindowRc,
     metrics: RenderingMetrics,
 }
 
-impl ItemRenderer for QtItemRenderer<'_> {
+impl ItemRenderer for QtItemRenderer {
     fn draw_rectangle(&mut self, rect: Pin<&items::Rectangle>) {
         let brush: qttypes::QBrush = into_qbrush(rect.background());
         let rect: qttypes::QRectF = get_geometry!(items::Rectangle, rect);
-        let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", brush as "QBrush", rect as "QRectF"] {
-            painter->fillRect(rect, brush);
+        let painter: &mut QPainterPtr = &mut self.painter;
+        cpp! { unsafe [painter as "QPainterPtr*", brush as "QBrush", rect as "QRectF"] {
+            (*painter)->fillRect(rect, brush);
         }}
     }
 
     fn draw_border_rectangle(&mut self, rect: std::pin::Pin<&items::BorderRectangle>) {
         Self::draw_rectangle_impl(
-            self.painter,
+            &mut self.painter,
             get_geometry!(items::BorderRectangle, rect),
             rect.background(),
             rect.border_color(),
@@ -485,13 +505,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
             TextWrap::word_wrap => key_generated::Qt_TextFlag_TextWordWrap,
         };
         let elide = text.overflow() == TextOverflow::elide;
-        let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", rect as "QRectF", fill_brush as "QBrush", mut string as "QString", flags as "int", font as "QFont", elide as "bool"] {
-            painter->setFont(font);
-            painter->setPen(QPen(fill_brush, 0));
-            painter->setBrush(Qt::NoBrush);
+        let painter: &mut QPainterPtr = &mut self.painter;
+        cpp! { unsafe [painter as "QPainterPtr*", rect as "QRectF", fill_brush as "QBrush", mut string as "QString", flags as "int", font as "QFont", elide as "bool"] {
+            (*painter)->setFont(font);
+            (*painter)->setPen(QPen(fill_brush, 0));
+            (*painter)->setBrush(Qt::NoBrush);
             if (!elide) {
-                painter->drawText(rect, flags, string);
+                (*painter)->drawText(rect, flags, string);
             } else if (!(flags & Qt::TextWordWrap)) {
                 QString elided;
                 QFontMetrics fm(font);
@@ -506,7 +526,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
                     elided += '\n';
                     string = string.mid(pos + 1);
                 }
-                painter->drawText(rect, flags, elided);
+                (*painter)->drawText(rect, flags, elided);
             } else {
                 // elide and word wrap: we need to add the ellipsis manually on the last line
                 string.replace(QChar('\n'), QChar::LineSeparator);
@@ -540,7 +560,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
                     QString to_elide = QStringView(string).mid(last_line_begin, last_line_size).trimmed() % QStringView(QT_UNICODE_LITERAL("…"));
                     elided += fm.elidedText(to_elide, Qt::ElideRight, rect.width());
                 }
-                painter->drawText(rect, flags, elided);
+                (*painter)->drawText(rect, flags, elided);
             }
         }}
     }
@@ -602,9 +622,9 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
         let single_line: bool = text_input.single_line();
 
-        let painter: &mut QPainter = &mut *self.painter;
+        let painter: &mut QPainterPtr = &mut self.painter;
         cpp! { unsafe [
-                painter as "QPainter*",
+                painter as "QPainterPtr*",
                 rect as "QRectF",
                 fill_brush as "QBrush",
                 selection_foreground_color as "QRgb",
@@ -621,7 +641,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             }
             QTextLayout layout(string, font);
             do_text_layout(layout, flags, rect);
-            painter->setPen(QPen(fill_brush, 0));
+            (*painter)->setPen(QPen(fill_brush, 0));
             QVector<QTextLayout::FormatRange> selections;
             if (anchor_position != cursor_position) {
                 QTextCharFormat fmt;
@@ -633,9 +653,9 @@ impl ItemRenderer for QtItemRenderer<'_> {
                     fmt
                 };
             }
-            layout.draw(painter, rect.topLeft(), selections);
+            layout.draw(painter->get(), rect.topLeft(), selections);
             if (text_cursor_width > 0) {
-                layout.drawCursor(painter, rect.topLeft(), cursor_position, text_cursor_width);
+                layout.drawCursor(painter->get(), rect.topLeft(), cursor_position, text_cursor_width);
             }
         }}
     }
@@ -686,20 +706,20 @@ impl ItemRenderer for QtItemRenderer<'_> {
             }
         }
 
-        let painter: &mut QPainter = &mut *self.painter;
+        let painter: &mut QPainterPtr = &mut self.painter;
         cpp! { unsafe [
-                painter as "QPainter*",
+                painter as "QPainterPtr*",
                 pos as "QPoint",
                 mut painter_path as "QPainterPath",
                 fill_brush as "QBrush",
                 stroke_brush as "QBrush",
                 stroke_width as "float"] {
-            painter->save();
-            auto cleanup = qScopeGuard([&] { painter->restore(); });
-            painter->translate(pos);
-            painter->setPen(stroke_width > 0 ? QPen(stroke_brush, stroke_width) : Qt::NoPen);
-            painter->setBrush(fill_brush);
-            painter->drawPath(painter_path);
+            (*painter)->save();
+            auto cleanup = qScopeGuard([&] { (*painter)->restore(); });
+            (*painter)->translate(pos);
+            (*painter)->setPen(stroke_width > 0 ? QPen(stroke_brush, stroke_width) : Qt::NoPen);
+            (*painter)->setBrush(fill_brush);
+            (*painter)->drawPath(painter_path);
         }}
     }
 
@@ -719,8 +739,9 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 source_image.fill(qttypes::QColor::from_rgba_f(0., 0., 0., 0.));
 
                 let img = &mut source_image;
-                let mut painter_ =
-                    cpp!(unsafe [img as "QImage*"] -> QPainter as "QPainter" { return QPainter(img); });
+                let mut painter_ = cpp!(unsafe [img as "QImage*"] -> QPainterPtr as "QPainterPtr" {
+                    return std::make_unique<QPainter>(img);
+                });
 
                 Self::draw_rectangle_impl(
                     &mut painter_,
@@ -787,13 +808,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
             y: (box_shadow.offset_y() - blur_radius) as f64,
         };
 
-        let painter: &mut QPainter = &mut *self.painter;
+        let painter: &mut QPainterPtr = &mut self.painter;
         cpp! { unsafe [
-                painter as "QPainter*",
+                painter as "QPainterPtr*",
                 shadow_offset as "QPointF",
                 pixmap as "QPixmap*"
             ] {
-            painter->drawPixmap(shadow_offset, *pixmap);
+            (*painter)->drawPixmap(shadow_offset, *pixmap);
         }}
     }
 
@@ -824,22 +845,22 @@ impl ItemRenderer for QtItemRenderer<'_> {
             height: rect.height() as _,
         };
         adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
-        let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", clip_rect as "QRectF", radius as "float"] {
+        let painter: &mut QPainterPtr = &mut self.painter;
+        cpp! { unsafe [painter as "QPainterPtr*", clip_rect as "QRectF", radius as "float"] {
             if (radius <= 0) {
-                painter->setClipRect(clip_rect, Qt::IntersectClip);
+                (*painter)->setClipRect(clip_rect, Qt::IntersectClip);
             } else {
                 QPainterPath path;
                 path.addRoundedRect(clip_rect, radius, radius);
-                painter->setClipPath(path, Qt::IntersectClip);
+                (*painter)->setClipPath(path, Qt::IntersectClip);
             }
         }}
     }
 
     fn get_current_clip(&self) -> Rect {
-        let painter: &QPainter = self.painter;
-        let res = cpp! { unsafe [painter as "const QPainter*" ] -> qttypes::QRectF as "QRectF" {
-            return painter->clipBoundingRect();
+        let painter: &QPainterPtr = &self.painter;
+        let res = cpp! { unsafe [painter as "const QPainterPtr*" ] -> qttypes::QRectF as "QRectF" {
+            return (*painter)->clipBoundingRect();
         }};
         Rect::new(Point::new(res.x as _, res.y as _), Size::new(res.width as _, res.height as _))
     }
@@ -854,8 +875,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
     fn scale_factor(&self) -> f32 {
         1.
-        /* cpp! { unsafe [painter as "QPainter*"] -> f32 as "float" {
-            return painter->paintEngine()->paintDevice()->devicePixelRatioF();
+        /* cpp! { unsafe [painter as "QPainterPtr*"] -> f32 as "float" {
+            return (*painter)->paintEngine()->paintDevice()->devicePixelRatioF();
         }} */
     }
 
@@ -866,10 +887,10 @@ impl ItemRenderer for QtItemRenderer<'_> {
     ) {
         update_fn(&mut |width: u32, height: u32, data: &[u8]| {
             let data = data.as_ptr();
-            let painter: &mut QPainter = &mut *self.painter;
-            cpp! { unsafe [painter as "QPainter*",  width as "int", height as "int", data as "const unsigned char *"] {
+            let painter: &mut QPainterPtr = &mut self.painter;
+            cpp! { unsafe [painter as "QPainterPtr*",  width as "int", height as "int", data as "const unsigned char *"] {
                 QImage img(data, width, height, width * 4, QImage::Format_RGBA8888_Premultiplied);
-                painter->drawImage(QPoint(), img);
+                (*painter)->drawImage(QPoint(), img);
             }}
         })
     }
@@ -878,12 +899,12 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let fill_brush: qttypes::QBrush = into_qbrush(color.into());
         let mut string: qttypes::QString = string.into();
         let font: QFont = get_font(self.default_font_properties.clone());
-        let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", fill_brush as "QBrush", mut string as "QString", font as "QFont"] {
-            painter->setFont(font);
-            painter->setPen(QPen(fill_brush, 0));
-            painter->setBrush(Qt::NoBrush);
-            painter->drawText(0, QFontMetrics(painter->font()).ascent(), string);
+        let painter: &mut QPainterPtr = &mut self.painter;
+        cpp! { unsafe [painter as "QPainterPtr*", fill_brush as "QBrush", mut string as "QString", font as "QFont"] {
+            (*painter)->setFont(font);
+            (*painter)->setPen(QPen(fill_brush, 0));
+            (*painter)->setBrush(Qt::NoBrush);
+            (*painter)->drawText(0, QFontMetrics((*painter)->font()).ascent(), string);
         }}
     }
 
@@ -892,27 +913,27 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 
     fn as_any(&mut self) -> &mut dyn std::any::Any {
-        self.painter
+        &mut self.painter
     }
 
     fn translate(&mut self, x: f32, y: f32) {
-        let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", x as "float", y as "float"] {
-            painter->translate(x, y);
+        let painter: &mut QPainterPtr = &mut self.painter;
+        cpp! { unsafe [painter as "QPainterPtr*", x as "float", y as "float"] {
+            (*painter)->translate(x, y);
         }}
     }
 
     fn rotate(&mut self, angle_in_degrees: f32) {
-        let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", angle_in_degrees as "float"] {
-            painter->rotate(angle_in_degrees);
+        let painter: &mut QPainterPtr = &mut self.painter;
+        cpp! { unsafe [painter as "QPainterPtr*", angle_in_degrees as "float"] {
+            (*painter)->rotate(angle_in_degrees);
         }}
     }
 
     fn apply_opacity(&mut self, opacity: f32) {
-        let painter: &mut QPainter = &mut *self.painter;
-        cpp! { unsafe [painter as "QPainter*", opacity as "float"] {
-            painter->setOpacity(painter->opacity() * opacity);
+        let painter: &mut QPainterPtr = &mut self.painter;
+        cpp! { unsafe [painter as "QPainterPtr*", opacity as "float"] {
+            (*painter)->setOpacity((*painter)->opacity() * opacity);
         }}
     }
 
@@ -1059,7 +1080,7 @@ fn is_svg(resource: &ImageInner) -> bool {
     }
 }
 
-impl QtItemRenderer<'_> {
+impl QtItemRenderer {
     fn draw_image_impl(
         &mut self,
         item_cache: &CachedRenderingData,
@@ -1122,23 +1143,23 @@ impl QtItemRenderer<'_> {
         });
         let mut dest_rect = dest_rect;
         adjust_to_image_fit(image_fit, &mut source_rect, &mut dest_rect);
-        let painter: &mut QPainter = &mut *self.painter;
+        let painter: &mut QPainterPtr = &mut self.painter;
         let smooth: bool = rendering == ImageRendering::smooth;
         cpp! { unsafe [
-                painter as "QPainter*",
+                painter as "QPainterPtr*",
                 pixmap as "QPixmap*",
                 source_rect as "QRectF",
                 dest_rect as "QRectF",
                 smooth as "bool"] {
-            painter->save();
-            painter->setRenderHint(QPainter::SmoothPixmapTransform, smooth);
-            painter->drawPixmap(dest_rect, *pixmap, source_rect);
-            painter->restore();
+            (*painter)->save();
+            (*painter)->setRenderHint(QPainter::SmoothPixmapTransform, smooth);
+            (*painter)->drawPixmap(dest_rect, *pixmap, source_rect);
+            (*painter)->restore();
         }};
     }
 
     fn draw_rectangle_impl(
-        painter: &mut QPainter,
+        painter: &mut QPainterPtr,
         mut rect: qttypes::QRectF,
         brush: Brush,
         border_color: Brush,
@@ -1148,13 +1169,13 @@ impl QtItemRenderer<'_> {
         let brush: qttypes::QBrush = into_qbrush(brush);
         let border_color: qttypes::QBrush = into_qbrush(border_color);
         adjust_rect_and_border_for_inner_drawing(&mut rect, &mut border_width);
-        cpp! { unsafe [painter as "QPainter*", brush as "QBrush",  border_color as "QBrush", border_width as "float", border_radius as "float", rect as "QRectF"] {
-            painter->setPen(border_width > 0 ? QPen(border_color, border_width) : Qt::NoPen);
-            painter->setBrush(brush);
+        cpp! { unsafe [painter as "QPainterPtr*", brush as "QBrush",  border_color as "QBrush", border_width as "float", border_radius as "float", rect as "QRectF"] {
+            (*painter)->setPen(border_width > 0 ? QPen(border_color, border_width) : Qt::NoPen);
+            (*painter)->setBrush(brush);
             if (border_radius > 0) {
-                painter->drawRoundedRect(rect, border_radius, border_radius);
+                (*painter)->drawRoundedRect(rect, border_radius, border_radius);
             } else {
-                painter->drawRect(rect);
+                (*painter)->drawRect(rect);
             }
         }}
     }
@@ -1172,22 +1193,14 @@ impl QtItemRenderer<'_> {
 
             *self.metrics.layers_created.as_mut().unwrap() += 1;
 
-            let mut layer_painter = {
-                let img_ref: &mut qttypes::QImage = &mut layer_image;
-                cpp!(unsafe [img_ref as "QImage*"] -> QPainter as "QPainter" { return QPainter(img_ref); })
-            };
+            let img_ref: &mut qttypes::QImage = &mut layer_image;
+            let mut layer_painter = cpp!(unsafe [img_ref as "QImage*"] -> QPainterPtr as "QPainterPtr" {
+                auto painter = std::make_unique<QPainter>(img_ref);
+                painter->setClipRect(0, 0, img_ref->width(), img_ref->height());
+                return painter;
+            });
 
-            std::mem::swap(self.painter, &mut layer_painter);
-
-            {
-                let painter: &mut QPainter = &mut *self.painter;
-                cpp! { unsafe [
-                        painter as "QPainter*",
-                        layer_size as "QSize"
-                    ] {
-                    painter->setClipRect(0, 0, layer_size.width(), layer_size.height());
-                }}
-            }
+            std::mem::swap(&mut self.painter, &mut layer_painter);
 
             i_slint_core::item_rendering::render_item_children(
                 self,
@@ -1195,11 +1208,10 @@ impl QtItemRenderer<'_> {
                 item_rc.index() as isize,
             );
 
-            std::mem::swap(self.painter, &mut layer_painter);
+            std::mem::swap(&mut self.painter, &mut layer_painter);
             drop(layer_painter);
 
-            let img_ref = &mut layer_image;
-            QtRenderingCacheItem::Pixmap(cpp!(unsafe [img_ref as "QImage*"] -> qttypes::QPixmap as "QPixmap" { return QPixmap::fromImage(*img_ref); }))
+            QtRenderingCacheItem::Pixmap(qttypes::QPixmap::from(layer_image))
         });
         match &cache_entry {
             QtRenderingCacheItem::Pixmap(pixmap) => Some(pixmap.clone()),
@@ -1234,13 +1246,13 @@ impl QtItemRenderer<'_> {
             self.save_state();
             self.apply_opacity(alpha_tint);
             {
-                let painter: &mut QPainter = &mut *self.painter;
+                let painter: &mut QPainterPtr = &mut self.painter;
                 let layer_image_ref: &mut qttypes::QPixmap = &mut layer_image;
                 cpp! { unsafe [
-                        painter as "QPainter*",
+                        painter as "QPainterPtr*",
                         layer_image_ref as "QPixmap*"
                     ] {
-                    painter->drawPixmap(0, 0, *layer_image_ref);
+                    (*painter)->drawPixmap(0, 0, *layer_image_ref);
                 }}
             }
             self.restore_state();
@@ -1287,7 +1299,7 @@ impl QtWindow {
         unsafe { std::mem::transmute_copy::<QWidgetPtr, NonNull<_>>(&self.widget_ptr) }
     }
 
-    fn paint_event(&self, painter: &mut QPainter) {
+    fn paint_event(&self, painter: QPainterPtr) {
         let runtime_window = self.self_weak.upgrade().unwrap();
         runtime_window.clone().draw_contents(|components| {
             i_slint_core::animations::update_animations();

@@ -115,7 +115,7 @@ impl Item for NativeLineEdit {
         let enabled: bool = this.enabled();
 
         cpp!(unsafe [
-            painter as "QPainter*",
+            painter as "QPainterPtr*",
             widget as "QWidget*",
             size as "QSize",
             dpr as "float",
@@ -135,7 +135,7 @@ impl Item for NativeLineEdit {
             } else {
                 option.palette.setCurrentColorGroup(QPalette::Disabled);
             }
-            qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, painter, widget);
+            qApp->style()->drawPrimitive(QStyle::PE_PanelLineEdit, &option, painter->get(), widget);
         });
     }
 }

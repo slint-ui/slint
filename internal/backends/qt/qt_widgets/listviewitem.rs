@@ -90,7 +90,7 @@ impl Item for NativeStandardListViewItem {
         let item = this.item();
         let text: qttypes::QString = item.text.as_str().into();
         cpp!(unsafe [
-            painter as "QPainter*",
+            painter as "QPainterPtr*",
             widget as "QWidget*",
             size as "QSize",
             dpr as "float",
@@ -120,14 +120,14 @@ impl Item for NativeStandardListViewItem {
             option.features |= QStyleOptionViewItem::HasDisplay;
             option.text = text;
             // CE_ItemViewItem in QCommonStyle calls setClipRect on the painter and replace the clips. So we need to cheat.
-            auto engine = painter->paintEngine();
+            auto engine = (*painter)->paintEngine();
             auto old_clip = engine->systemClip();
-            auto new_clip = old_clip & (painter->clipRegion() * painter->transform());
+            auto new_clip = old_clip & ((*painter)->clipRegion() * (*painter)->transform());
             if (new_clip.isEmpty()) return;
             engine->setSystemClip(new_clip);
 
-            qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, painter, widget);
-            qApp->style()->drawControl(QStyle::CE_ItemViewItem, &option, painter, widget);
+            qApp->style()->drawPrimitive(QStyle::PE_PanelItemViewRow, &option, painter->get(), widget);
+            qApp->style()->drawControl(QStyle::CE_ItemViewItem, &option, painter->get(), widget);
             engine->setSystemClip(old_clip);
         });
     }

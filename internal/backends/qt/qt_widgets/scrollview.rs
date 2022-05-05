@@ -272,7 +272,7 @@ impl Item for NativeScrollView {
         let enabled: bool = this.enabled();
         let has_focus: bool = this.has_focus();
         let frame_around_contents = cpp!(unsafe [
-            painter as "QPainter*",
+            painter as "QPainterPtr*",
             widget as "QWidget*",
             size as "QSize",
             dpr as "float",
@@ -303,13 +303,13 @@ impl Item for NativeScrollView {
             QSize corner_size = QSize(margins.right() - margins.left(), margins.bottom() - margins.top());
             if (foac) {
                 frameOption.rect = QRect(QPoint(), (size / dpr) - corner_size);
-                qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, painter, widget);
+                qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, painter->get(), widget);
                 frameOption.rect = QRect(frameOption.rect.bottomRight() + QPoint(1, 1), corner_size);
-                qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, painter, widget);
+                qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, painter->get(), widget);
             } else {
-                qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, painter, widget);
+                qApp->style()->drawControl(QStyle::CE_ShapedFrame, &frameOption, painter->get(), widget);
                 frameOption.rect = QRect(frameOption.rect.bottomRight() + QPoint(1, 1) - QPoint(margins.right(), margins.bottom()), corner_size);
-                qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, painter, widget);
+                qApp->style()->drawPrimitive(QStyle::PE_PanelScrollAreaCorner, &frameOption, painter->get(), widget);
             }
             return foac;
         });
@@ -323,7 +323,7 @@ impl Item for NativeScrollView {
                               pressed: bool,
                               initial_state: i32| {
             cpp!(unsafe [
-                painter as "QPainter*",
+                painter as "QPainterPtr*",
                 widget as "QWidget*",
                 value as "int",
                 page_size as "int",
@@ -336,6 +336,7 @@ impl Item for NativeScrollView {
                 has_focus as "bool",
                 initial_state as "int"
             ] {
+                QPainter *painter_ = painter->get();
                 auto r = rect.toAlignedRect();
                 // The mac style may crash on invalid rectangles (#595)
                 if (!r.isValid())
@@ -345,11 +346,11 @@ impl Item for NativeScrollView {
             #if defined(Q_OS_MAC)
                 QImage scrollbar_image(r.size(), QImage::Format_ARGB32_Premultiplied);
                 scrollbar_image.fill(Qt::transparent);
-                {QPainter p(&scrollbar_image); QPainter *painter = &p;
+                {QPainter p(&scrollbar_image); QPainter *painter_ = &p;
             #else
-                painter->save();
-                auto cleanup = qScopeGuard([&] { painter->restore(); });
-                painter->translate(r.topLeft()); // There is bugs in the styles if the scrollbar is not in (0,0)
+                painter_->save();
+                auto cleanup = qScopeGuard([&] { painter_->restore(); });
+                painter_->translate(r.topLeft()); // There is bugs in the styles if the scrollbar is not in (0,0)
             #endif
                 QStyleOptionSlider option;
                 option.state |= QStyle::State(initial_state);
@@ -366,10 +367,10 @@ impl Item for NativeScrollView {
                 }
 
                 auto style = qApp->style();
-                style->drawComplexControl(QStyle::CC_ScrollBar, &option, painter, widget);
+                style->drawComplexControl(QStyle::CC_ScrollBar, &option, painter_, widget);
             #if defined(Q_OS_MAC)
                 }
-                painter->drawImage(r.topLeft(), scrollbar_image);
+                (painter_)->drawImage(r.topLeft(), scrollbar_image);
             #endif
             });
         };
