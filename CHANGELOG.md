@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file.
 ### Fixed
 
  - Fixed crashes with the Qt backend in release mode.
+ - Fixed panic when drop-shadow is used in a ListView
 
 ## [0.2.2] - 2022-05-04
 
