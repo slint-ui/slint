@@ -12,12 +12,12 @@
   "dependencies": {
     "@types/jquery": "^3.5.4",
     "install": "^0.13.0",
-    "monaco-editor": "^0.21.3",
-    "npm": "^6.14.8"
+    "monaco-editor": "^0.33",
+    "npm": "^8.9.0"
   },
   "devDependencies": {
     "rimraf": "^3.0.2",
     "typescript": "^4.0.3",
-    "vite": "^2.7.10"
+    "vite": "^2.9.8"
   }
 }
