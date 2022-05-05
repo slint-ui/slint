@@ -231,7 +231,7 @@ impl Item for NativeSpinBox {
         let pressed = data.pressed;
 
         cpp!(unsafe [
-            painter as "QPainter*",
+            painter as "QPainterPtr*",
             widget as "QWidget*",
             value as "int",
             enabled as "bool",
@@ -250,7 +250,7 @@ impl Item for NativeSpinBox {
             }
             option.rect = QRect(QPoint(), size / dpr);
             initQSpinBoxOptions(option, pressed, enabled, active_controls);
-            style->drawComplexControl(QStyle::CC_SpinBox, &option, painter, widget);
+            style->drawComplexControl(QStyle::CC_SpinBox, &option, painter->get(), widget);
 
             QStyleOptionFrame frame;
             frame.state = option.state;
@@ -259,11 +259,11 @@ impl Item for NativeSpinBox {
                 : style->pixelMetric(QStyle::PM_DefaultFrameWidth, &option, widget);
             frame.midLineWidth = 0;
             frame.rect = style->subControlRect(QStyle::CC_SpinBox, &option, QStyle::SC_SpinBoxEditField, widget);
-            style->drawPrimitive(QStyle::PE_PanelLineEdit, &frame, painter, widget);
+            style->drawPrimitive(QStyle::PE_PanelLineEdit, &frame, painter->get(), widget);
             QRect text_rect = qApp->style()->subElementRect(QStyle::SE_LineEditContents, &frame, widget);
             text_rect.adjust(1, 2, 1, 2);
-            painter->setPen(option.palette.color(QPalette::Text));
-            painter->drawText(text_rect, QString::number(value));
+            (*painter)->setPen(option.palette.color(QPalette::Text));
+            (*painter)->drawText(text_rect, QString::number(value));
         });
     }
 }

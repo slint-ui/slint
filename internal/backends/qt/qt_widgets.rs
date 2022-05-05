@@ -17,6 +17,7 @@ it needs to be kept in sync with different place.
 
 #![allow(non_upper_case_globals)]
 
+use crate::qt_window::QPainterPtr;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
@@ -37,8 +38,6 @@ use i_slint_core_macros::*;
 use std::rc::Rc;
 
 type ItemRendererRef<'a> = &'a mut dyn ItemRenderer;
-
-use qttypes::QPainter;
 
 /// Helper macro to get the size from the width and height property,
 /// and return Default::default in case the size is too small
@@ -69,12 +68,12 @@ macro_rules! fn_render {
                 return (int)state;
             });
 
-            if let Some(painter) = <dyn std::any::Any>::downcast_mut::<QPainter>(backend.as_any()) {
+            if let Some(painter) = <dyn std::any::Any>::downcast_mut::<QPainterPtr>(backend.as_any()) {
                 let $size: qttypes::QSize = get_size!(self);
                 let $this = self;
                 painter.save();
-                let $widget = cpp!(unsafe [painter as "QPainter*"] -> * const () as "QWidget*" {
-                    return painter->device()->devType() == QInternal::Widget ? static_cast<QWidget *>(painter->device()) : nullptr;
+                let $widget = cpp!(unsafe [painter as "QPainterPtr*"] -> * const () as "QWidget*" {
+                    return (*painter)->device()->devType() == QInternal::Widget ? static_cast<QWidget *>((*painter)->device()) : nullptr;
                 });
                 let $painter = painter;
                 $($tt)*
@@ -92,12 +91,14 @@ macro_rules! fn_render {
                         let $size = qttypes::QSize { width: width as _, height: height as _ };
                         let mut imgarray = QImageWrapArray::new($size, $dpr);
                         let img = &mut imgarray.img;
-                        let mut painter_ = cpp!(unsafe [img as "QImage*"] -> QPainter as "QPainter" { return QPainter(img); });
+                        let mut painter = cpp!(unsafe [img as "QImage*"] -> QPainterPtr as "std::unique_ptr<QPainter>" {
+                            return std::make_unique<QPainter>(img);
+                        });
                         let $widget: * const () = core::ptr::null();
-                        let $painter = &mut painter_;
+                        let $painter = &mut painter;
                         let $this = self;
                         $($tt)*
-                        drop(painter_);
+                        drop(painter);
                         imgarray.draw(callback);
                     },
                 );
@@ -143,6 +144,8 @@ cpp! {{
     #include <QtCore/QMimeData>
     #include <QtCore/QDebug>
     #include <QtCore/QScopeGuard>
+
+    using QPainterPtr = std::unique_ptr<QPainter>;
 
     /// Make sure there is an instance of QApplication.
     /// The `from_qt_backend` argument specifies if we know that we are running

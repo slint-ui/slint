@@ -103,7 +103,7 @@ impl Item for NativeComboBox {
             this.current_value().as_str().into();
         let enabled = this.enabled();
         cpp!(unsafe [
-            painter as "QPainter*",
+            painter as "QPainterPtr*",
             widget as "QWidget*",
             text as "QString",
             enabled as "bool",
@@ -132,8 +132,8 @@ impl Item for NativeComboBox {
             //    option.state |= QStyle::State_On;
             }
             option.subControls = QStyle::SC_All;
-            qApp->style()->drawComplexControl(QStyle::CC_ComboBox, &option, painter, widget);
-            qApp->style()->drawControl(QStyle::CE_ComboBoxLabel, &option, painter, widget);
+            qApp->style()->drawComplexControl(QStyle::CC_ComboBox, &option, painter->get(), widget);
+            qApp->style()->drawControl(QStyle::CE_ComboBoxLabel, &option, painter->get(), widget);
         });
     }
 }

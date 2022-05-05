@@ -298,7 +298,7 @@ impl Item for NativeButton {
         let has_focus = this.has_focus();
 
         cpp!(unsafe [
-            painter as "QPainter*",
+            painter as "QPainterPtr*",
             widget as "QWidget*",
             text as "QString",
             icon as "QPixmap",
@@ -328,7 +328,7 @@ impl Item for NativeButton {
             if (has_focus) {
                 option.state |= QStyle::State_HasFocus | QStyle::State_KeyboardFocusChange | QStyle::State_Item;
             }
-            qApp->style()->drawControl(QStyle::CE_PushButton, &option, painter, widget);
+            qApp->style()->drawControl(QStyle::CE_PushButton, &option, painter->get(), widget);
         });
     }
 }

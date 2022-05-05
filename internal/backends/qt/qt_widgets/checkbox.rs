@@ -109,7 +109,7 @@ impl Item for NativeCheckBox {
         let text: qttypes::QString = this.text().as_str().into();
 
         cpp!(unsafe [
-            painter as "QPainter*",
+            painter as "QPainterPtr*",
             widget as "QWidget*",
             enabled as "bool",
             text as "QString",
@@ -132,7 +132,7 @@ impl Item for NativeCheckBox {
             if (has_focus) {
                 option.state |= QStyle::State_HasFocus | QStyle::State_KeyboardFocusChange | QStyle::State_Item;
             }
-            qApp->style()->drawControl(QStyle::CE_CheckBox, &option, painter, widget);
+            qApp->style()->drawControl(QStyle::CE_CheckBox, &option, painter->get(), widget);
         });
     }
 }
