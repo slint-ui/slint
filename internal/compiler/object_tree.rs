@@ -1934,4 +1934,14 @@ pub fn adjust_geometry_for_injected_parent(injected_parent: &ElementRc, old_elem
             )
         }),
     ));
+    injected_parent.borrow().property_analysis.borrow_mut().extend(
+        ["x", "y", "z"].into_iter().filter_map(|x| {
+            old_elem
+                .borrow()
+                .property_analysis
+                .borrow()
+                .get_key_value(x)
+                .map(|(k, v)| (k.clone(), v.clone()))
+        }),
+    );
 }

@@ -1,0 +1,34 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+import { ListView } from "std-widgets.slint";
+
+App := Window {
+    width: 100px;
+    height: 600px;
+
+    ListView {
+        for item in [
+            {}, {},
+        ] : Rectangle {
+            drop-shadow-blur: 5px;
+            HorizontalLayout {
+                Image {
+                    source: @image-url("../../../logo/slint-logo-square-light-128x128.png");
+                }
+            }
+        }
+    }
+}
+
+
+/*
+
+```rust
+let ui = App::new();
+// this should not panic
+slint::testing::send_mouse_click(&ui, 50., 50.);
+```
+
+*/
