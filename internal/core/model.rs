@@ -219,6 +219,11 @@ impl<'a, T> Iterator for ModelIterator<'a, T> {
         let len = self.model.row_count();
         (len, Some(len))
     }
+
+    fn nth(&mut self, n: usize) -> Option<Self::Item> {
+        self.row = self.row.checked_add(n)?;
+        self.next()
+    }
 }
 
 impl<'a, T> ExactSizeIterator for ModelIterator<'a, T> {}
