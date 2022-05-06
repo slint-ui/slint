@@ -56,7 +56,7 @@ impl<Length: Clone + Copy + Default + core::ops::AddAssign> TextLine<Length> {
 }
 
 pub struct TextLineBreaker<'a, Font: TextShaper> {
-    fragments: TextFragmentIterator<'a, Font::Length, Font::Glyph>,
+    fragments: TextFragmentIterator<'a, Font::Length, Font::PlatformGlyphData>,
     available_width: Option<Font::Length>,
     current_line: TextLine<Font::Length>,
     num_emitted_lines: usize,
@@ -66,7 +66,7 @@ pub struct TextLineBreaker<'a, Font: TextShaper> {
 impl<'a, Font: TextShaper> TextLineBreaker<'a, Font> {
     pub fn new(
         text: &'a str,
-        shape_buffer: &'a ShapeBuffer<Font::Glyph>,
+        shape_buffer: &'a ShapeBuffer<Font::Length, Font::PlatformGlyphData>,
         available_width: Option<Font::Length>,
     ) -> Self {
         Self {

@@ -667,16 +667,15 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
 
         paragraph.layout_lines(|glyphs, line_x, line_y| {
             let baseline_y = line_y + font.ascent();
-            while let Some((glyph_baseline_x, glyph)) = glyphs.next() {
-                if glyph.bitmap_glyph.is_none() {
-                    continue;
-                }
+            while let Some(positioned_glyph) = glyphs.next() {
                 let src_rect = PhysicalRect::new(
                     PhysicalPoint::from_lengths(
-                        line_x + glyph_baseline_x + glyph.x(),
-                        baseline_y - glyph.y() - glyph.height(),
+                        line_x + positioned_glyph.x + positioned_glyph.platform_glyph.x(),
+                        baseline_y
+                            - positioned_glyph.platform_glyph.y()
+                            - positioned_glyph.platform_glyph.height(),
                     ),
-                    glyph.size(),
+                    positioned_glyph.platform_glyph.size(),
                 )
                 .cast();
 
@@ -688,12 +687,13 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
                     let origin = (geometry.origin - offset.round()).cast::<usize>();
                     let actual_x = origin.x - src_rect.origin.x as usize;
                     let actual_y = origin.y - src_rect.origin.y as usize;
-                    let stride = glyph.width().get() as u16;
+                    let stride = positioned_glyph.platform_glyph.width().get() as u16;
                     let geometry = geometry.cast();
                     self.new_scene_texture(
                         geometry,
                         SceneTexture {
-                            data: &glyph.data().as_slice()[actual_x + actual_y * stride as usize..],
+                            data: &positioned_glyph.platform_glyph.data().as_slice()
+                                [actual_x + actual_y * stride as usize..],
                             stride,
                             source_size: geometry.size,
                             format: PixelFormat::AlphaMap,

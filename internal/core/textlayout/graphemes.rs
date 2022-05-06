@@ -5,7 +5,7 @@ use core::{marker::PhantomData, ops::Range};
 
 use euclid::num::Zero;
 
-use super::{GlyphProperties, ShapeBuffer};
+use super::ShapeBuffer;
 
 #[derive(Clone)]
 pub struct Grapheme<Length: Clone> {
@@ -16,9 +16,9 @@ pub struct Grapheme<Length: Clone> {
 }
 
 #[derive(Clone)]
-pub struct GraphemeIterator<'a, Length, Glyph> {
+pub struct GraphemeIterator<'a, Length, PlatformGlyph> {
     text: &'a str,
-    shaped_text: &'a ShapeBuffer<Glyph>,
+    shaped_text: &'a ShapeBuffer<Length, PlatformGlyph>,
     current_run: usize,
     // absolute byte offset in the entire text
     byte_offset: usize,
@@ -26,8 +26,8 @@ pub struct GraphemeIterator<'a, Length, Glyph> {
     marker: PhantomData<Length>,
 }
 
-impl<'a, Length, Glyph> GraphemeIterator<'a, Length, Glyph> {
-    pub fn new(text: &'a str, shaped_text: &'a ShapeBuffer<Glyph>) -> Self {
+impl<'a, Length, PlatformGlyph> GraphemeIterator<'a, Length, PlatformGlyph> {
+    pub fn new(text: &'a str, shaped_text: &'a ShapeBuffer<Length, PlatformGlyph>) -> Self {
         Self {
             text,
             shaped_text,
@@ -39,8 +39,8 @@ impl<'a, Length, Glyph> GraphemeIterator<'a, Length, Glyph> {
     }
 }
 
-impl<'a, Length: Clone + Zero + core::ops::AddAssign, Glyph: GlyphProperties<Length>> Iterator
-    for GraphemeIterator<'a, Length, Glyph>
+impl<'a, Length: Copy + Clone + Zero + core::ops::AddAssign, PlatformGlyph> Iterator
+    for GraphemeIterator<'a, Length, PlatformGlyph>
 {
     type Item = Grapheme<Length>;
 
@@ -65,11 +65,11 @@ impl<'a, Length: Clone + Zero + core::ops::AddAssign, Glyph: GlyphProperties<Len
         loop {
             let glyph = &self.shaped_text.glyphs[self.glyph_index];
             // Rustybuzz uses a relative byte offset as cluster index
-            cluster_byte_offset = current_run.byte_range.start + glyph.byte_offset();
+            cluster_byte_offset = current_run.byte_range.start + glyph.byte_offset;
             if cluster_byte_offset != self.byte_offset {
                 break;
             }
-            grapheme_width += glyph.advance();
+            grapheme_width += glyph.advance;
 
             self.glyph_index += 1;
 

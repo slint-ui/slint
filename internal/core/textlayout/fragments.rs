@@ -6,7 +6,7 @@ use core::ops::Range;
 use euclid::num::Zero;
 
 use super::graphemes::GraphemeIterator;
-use super::{BreakOpportunity, GlyphProperties, LineBreakIterator, ShapeBuffer};
+use super::{BreakOpportunity, LineBreakIterator, ShapeBuffer};
 
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct TextFragment<Length> {
@@ -18,15 +18,15 @@ pub struct TextFragment<Length> {
 }
 
 #[derive(Clone)]
-pub struct TextFragmentIterator<'a, Length, Glyph> {
+pub struct TextFragmentIterator<'a, Length, PlatformGlyph> {
     line_breaks: LineBreakIterator<'a>,
-    grapheme_cursor: GraphemeIterator<'a, Length, Glyph>,
+    grapheme_cursor: GraphemeIterator<'a, Length, PlatformGlyph>,
     text_len: usize,
     pub break_anywhere: bool,
 }
 
-impl<'a, Length, Glyph> TextFragmentIterator<'a, Length, Glyph> {
-    pub fn new(text: &'a str, shape_buffer: &'a ShapeBuffer<Glyph>) -> Self {
+impl<'a, Length, PlatformGlyph> TextFragmentIterator<'a, Length, PlatformGlyph> {
+    pub fn new(text: &'a str, shape_buffer: &'a ShapeBuffer<Length, PlatformGlyph>) -> Self {
         Self {
             line_breaks: LineBreakIterator::new(text),
             grapheme_cursor: GraphemeIterator::new(text, shape_buffer),
@@ -36,11 +36,8 @@ impl<'a, Length, Glyph> TextFragmentIterator<'a, Length, Glyph> {
     }
 }
 
-impl<
-        'a,
-        Length: Clone + Default + core::ops::AddAssign + Zero + Copy,
-        Glyph: GlyphProperties<Length>,
-    > Iterator for TextFragmentIterator<'a, Length, Glyph>
+impl<'a, Length: Clone + Default + core::ops::AddAssign + Zero + Copy, PlatformGlyph> Iterator
+    for TextFragmentIterator<'a, Length, PlatformGlyph>
 {
     type Item = TextFragment<Length>;
 
