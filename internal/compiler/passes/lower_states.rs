@@ -201,7 +201,9 @@ fn expression_for_property(element: &ElementRc, name: &str) -> ExpressionForProp
             None
         };
     }
-    ExpressionForProperty::Expression(Expression::default_value_for_type(
-        &element.borrow().lookup_property(name).property_type,
-    ))
+    let expr = super::materialize_fake_properties::initialize(element, name).unwrap_or_else(|| {
+        Expression::default_value_for_type(&element.borrow().lookup_property(name).property_type)
+    });
+
+    ExpressionForProperty::Expression(expr)
 }

@@ -121,7 +121,7 @@ fn has_declared_property(elem: &Element, prop: &str) -> bool {
 }
 
 /// Initialize a sensible default binding for the now materialized property
-fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
+pub fn initialize(elem: &ElementRc, name: &str) -> Option<Expression> {
     let expr = match name {
         "min-height" => layout_constraint_prop(elem, "min", Orientation::Vertical),
         "min-width" => layout_constraint_prop(elem, "min", Orientation::Horizontal),
