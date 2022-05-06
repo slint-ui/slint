@@ -1222,16 +1222,17 @@ impl Element {
     }
 }
 
-/// Apply default property values defined in `builtins.60` to the element.
+/// Apply default property values defined in `builtins.slint` to the element.
 fn apply_default_type_properties(element: &mut Element) {
     // Apply default property values on top:
     if let Type::Builtin(builtin_base) = &element.base_type {
         for (prop, info) in &builtin_base.properties {
             if let Some(expr) = &info.default_value {
-                element
-                    .bindings
-                    .entry(prop.clone())
-                    .or_insert_with(|| RefCell::new(expr.clone().into()));
+                element.bindings.entry(prop.clone()).or_insert_with(|| {
+                    let mut binding = BindingExpression::from(expr.clone());
+                    binding.priority = i32::MAX;
+                    RefCell::new(binding)
+                });
             }
         }
     }

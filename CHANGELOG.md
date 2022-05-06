@@ -13,6 +13,7 @@ All notable changes to this project are documented in this file.
  - Fixed panic when drop-shadow is used in a ListView (#1233)
  - Fixed combining a brush and a color to always convert to brush, to avoid loosing gradient information (#1235)
  - Fixed properties not having the right default value when set by some states (#1237)
+ - Fixed properties with multiples aliases, and default values.
 
 ## [0.2.2] - 2022-05-04
 
