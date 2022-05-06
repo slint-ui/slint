@@ -61,7 +61,9 @@ pub fn materialize_fake_properties(component: &Rc<Component>) {
             let span = elem_mut.to_source_location();
             match elem_mut.bindings.entry(nr.name().into()) {
                 std::collections::btree_map::Entry::Vacant(e) => {
-                    e.insert(BindingExpression::new_with_span(init_expr, span).into());
+                    let mut binding = BindingExpression::new_with_span(init_expr, span);
+                    binding.priority = i32::MAX;
+                    e.insert(binding.into());
                 }
                 std::collections::btree_map::Entry::Occupied(mut e) => {
                     e.get_mut().get_mut().expression = init_expr;
