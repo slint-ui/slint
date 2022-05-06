@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
 ================================================================================
 A single line comment
 ================================================================================
@@ -13,7 +16,7 @@ A single line comment
 A multi-line comment
 ================================================================================
 
-/* 
+/*
    This is a multi line comment
    And this an extension to it
  */
