@@ -16,8 +16,9 @@ Test := Rectangle {
         }
     }
     property <color> r2_col: r2.background;
+    property <brush> conditional: false ? Colors.white : true ? r2.background : Colors.green;
 
-    property<bool> test: ligher == Colors.blue.brighter(50%) && r2_col == Colors.red.darker(50%);
+    property<bool> test: ligher == Colors.blue.brighter(50%) && r2_col == Colors.red.darker(50%) && conditional == r2.background && conditional != r2_col;
 }
 
 /*

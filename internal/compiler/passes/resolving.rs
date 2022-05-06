@@ -959,6 +959,7 @@ impl Expression {
                             node: result_node.or(elem_node),
                         }
                     }
+                    (Type::Color, Type::Brush) | (Type::Brush, Type::Color) => Type::Brush,
                     (target_type, expr_ty) => {
                         if expr_ty.can_convert(&target_type) {
                             target_type
