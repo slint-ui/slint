@@ -385,11 +385,14 @@ export PathLayout := _ {
 }
 
 Tab := _ {
+    property <bool> enabled;
     property <string> title;
 }
 
 // Note: not a native class, handled in the lower_tabs pass
 export TabWidget := _ {
+    property <bool> enabled;
+
     property <length> x;
     property <length> y;
     property <length> width;

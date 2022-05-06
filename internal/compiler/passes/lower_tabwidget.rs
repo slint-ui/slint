@@ -109,6 +109,10 @@ fn process_tabwidget(
             BindingExpression::new_two_way(NamedReference::new(child, "title")).into(),
         );
         tab.bindings.insert(
+            "enabled".to_owned(),
+            BindingExpression::new_two_way(NamedReference::new(elem, "enabled")).into(),
+        );
+        tab.bindings.insert(
             "current".to_owned(),
             BindingExpression::new_two_way(NamedReference::new(elem, "current-index")).into(),
         );
@@ -146,6 +150,10 @@ fn process_tabwidget(
     tabbar.borrow_mut().bindings.insert(
         "current".to_owned(),
         BindingExpression::new_two_way(NamedReference::new(elem, "current-index")).into(),
+    );
+    tabbar.borrow_mut().bindings.insert(
+        "enabled".to_owned(),
+        BindingExpression::new_two_way(NamedReference::new(elem, "enabled")).into(),
     );
     tabbar.borrow_mut().bindings.insert(
         "current-focused".to_owned(),

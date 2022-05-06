@@ -290,6 +290,8 @@ export GroupBox := VerticalLayout {
 
 
 export TabWidgetImpl := Rectangle {
+    property <bool> enabled;
+
     property <length> content-x: 0;
     property <length> content-y: tabbar-preferred-height;
     property <length> content-height: height - tabbar-preferred-height;
@@ -365,6 +367,7 @@ export TabImpl := Rectangle {
 
 export TabBarImpl := Rectangle {
     // injected properties:
+    property<bool> enabled; // Is the tab widget enabled?
     property<int> current; // The currently selected tab
     property<int> current-focused: fs.has-focus ? fs.focused-tab : -1; // The currently focused tab
     property<int> num-tabs; // The total number of tabs
@@ -376,6 +379,7 @@ export TabBarImpl := Rectangle {
     }
 
     fs := FocusScope {
+        enabled <=> root.enabled;
         width: 0px; // Do not react on clicks
         property<int> focused-tab: 0;
 
