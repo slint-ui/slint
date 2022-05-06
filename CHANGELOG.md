@@ -9,9 +9,10 @@ All notable changes to this project are documented in this file.
 
 ### Fixed
 
- - Fixed crashes with the Qt backend in release mode.
- - Fixed panic when drop-shadow is used in a ListView
- - Fixed combining a brush and a color to always convert to brush, to avoid loosing gradient information
+ - Fixed crashes with the Qt backend in release mode. (#1230)
+ - Fixed panic when drop-shadow is used in a ListView (#1233)
+ - Fixed combining a brush and a color to always convert to brush, to avoid loosing gradient information (#1235)
+ - Fixed properties not having the right default value when set by some states (#1237)
 
 ## [0.2.2] - 2022-05-04
 
