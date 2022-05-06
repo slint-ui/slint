@@ -11,7 +11,7 @@ use crate::{LogicalLength, LogicalSize, PhysicalLength, PhysicalSize, ScaleFacto
 use i_slint_core::{
     graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, FontRequest},
     slice::Slice,
-    textlayout::{GlyphMetrics, TextShaper},
+    textlayout::{GlyphProperties, TextShaper},
     Coord,
 };
 
@@ -23,6 +23,7 @@ thread_local! {
 pub struct Glyph {
     pub(crate) bitmap_glyph: Option<&'static BitmapGlyph>,
     x_advance: PhysicalLength,
+    byte_offset: usize,
 }
 
 impl Glyph {
@@ -90,12 +91,15 @@ impl PixelFont {
     }
 }
 
-impl GlyphMetrics<PhysicalLength> for Glyph {
+impl GlyphProperties<PhysicalLength> for Glyph {
     fn advance(&self) -> PhysicalLength {
         self.x_advance
     }
     fn advance_mut(&mut self) -> &mut PhysicalLength {
         &mut self.x_advance
+    }
+    fn byte_offset(&self) -> usize {
+        self.byte_offset
     }
 }
 
@@ -103,7 +107,7 @@ impl TextShaper for PixelFont {
     type LengthPrimitive = i16;
     type Length = PhysicalLength;
     type Glyph = self::Glyph;
-    fn shape_text<GlyphStorage: core::iter::Extend<(Glyph, usize)>>(
+    fn shape_text<GlyphStorage: core::iter::Extend<Glyph>>(
         &self,
         text: &str,
         glyphs: &mut GlyphStorage,
@@ -120,7 +124,7 @@ impl TextShaper for PixelFont {
                 });
             let x_advance = bitmap_glyph
                 .map_or_else(|| self.pixel_size(), |g| PhysicalLength::new(g.x_advance));
-            (Glyph { bitmap_glyph, x_advance }, byte_offset)
+            Glyph { bitmap_glyph, x_advance, byte_offset }
         });
         glyphs.extend(glyphs_iter);
     }
@@ -134,7 +138,7 @@ impl TextShaper for PixelFont {
                 let glyph_index = self.bitmap_font.character_map[char_map_index].glyph_index;
                 let bitmap_glyph = &self.glyphs.glyph_data[glyph_index as usize];
                 let x_advance = PhysicalLength::new(bitmap_glyph.x_advance);
-                Glyph { bitmap_glyph: Some(bitmap_glyph), x_advance }
+                Glyph { bitmap_glyph: Some(bitmap_glyph), x_advance, byte_offset: 0 }
             })
     }
 

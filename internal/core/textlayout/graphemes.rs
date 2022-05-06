@@ -5,7 +5,7 @@ use core::{marker::PhantomData, ops::Range};
 
 use euclid::num::Zero;
 
-use super::{GlyphMetrics, ShapeBuffer};
+use super::{GlyphProperties, ShapeBuffer};
 
 #[derive(Clone)]
 pub struct Grapheme<Length: Clone> {
@@ -39,7 +39,7 @@ impl<'a, Length, Glyph> GraphemeIterator<'a, Length, Glyph> {
     }
 }
 
-impl<'a, Length: Clone + Zero + core::ops::AddAssign, Glyph: GlyphMetrics<Length>> Iterator
+impl<'a, Length: Clone + Zero + core::ops::AddAssign, Glyph: GlyphProperties<Length>> Iterator
     for GraphemeIterator<'a, Length, Glyph>
 {
     type Item = Grapheme<Length>;
@@ -63,9 +63,9 @@ impl<'a, Length: Clone + Zero + core::ops::AddAssign, Glyph: GlyphMetrics<Length
 
         let mut cluster_byte_offset;
         loop {
-            let (glyph, glyph_byte_offset) = &self.shaped_text.glyphs[self.glyph_index];
+            let glyph = &self.shaped_text.glyphs[self.glyph_index];
             // Rustybuzz uses a relative byte offset as cluster index
-            cluster_byte_offset = current_run.byte_range.start + glyph_byte_offset;
+            cluster_byte_offset = current_run.byte_range.start + glyph.byte_offset();
             if cluster_byte_offset != self.byte_offset {
                 break;
             }

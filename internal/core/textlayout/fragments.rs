@@ -6,7 +6,7 @@ use core::ops::Range;
 use euclid::num::Zero;
 
 use super::graphemes::GraphemeIterator;
-use super::{BreakOpportunity, GlyphMetrics, LineBreakIterator, ShapeBuffer};
+use super::{BreakOpportunity, GlyphProperties, LineBreakIterator, ShapeBuffer};
 
 #[derive(Debug, PartialEq, Eq, Default)]
 pub struct TextFragment<Length> {
@@ -39,7 +39,7 @@ impl<'a, Length, Glyph> TextFragmentIterator<'a, Length, Glyph> {
 impl<
         'a,
         Length: Clone + Default + core::ops::AddAssign + Zero + Copy,
-        Glyph: GlyphMetrics<Length>,
+        Glyph: GlyphProperties<Length>,
     > Iterator for TextFragmentIterator<'a, Length, Glyph>
 {
     type Item = TextFragment<Length>;

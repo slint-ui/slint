@@ -41,7 +41,7 @@ mod fragments;
 mod graphemes;
 mod shaping;
 use shaping::ShapeBuffer;
-pub use shaping::{GlyphMetrics, TextShaper};
+pub use shaping::{GlyphProperties, TextShaper};
 
 mod linebreaker;
 pub use linebreaker::TextLine;
@@ -135,7 +135,7 @@ impl<'a, Font: TextShaper> TextParagraphLayout<'a, Font> {
 
         let mut y = baseline_y;
 
-        let mut process_line = |line: &TextLine<Font::Length>, glyphs: &[(Font::Glyph, usize)]| {
+        let mut process_line = |line: &TextLine<Font::Length>, glyphs: &[Font::Glyph]| {
             let x = match self.horizontal_alignment {
                 TextHorizontalAlignment::left => Font::Length::zero(),
                 TextHorizontalAlignment::center => {
@@ -151,7 +151,7 @@ impl<'a, Font: TextShaper> TextParagraphLayout<'a, Font> {
 
             let glyph_it = glyphs[line.glyph_range.clone()].iter();
             let mut glyph_x = Font::Length::zero();
-            let mut positioned_glyph_it = glyph_it.filter_map(|(glyph, _)| {
+            let mut positioned_glyph_it = glyph_it.filter_map(|glyph| {
                 // TODO: cut off at grapheme boundaries
                 if glyph_x > max_width_without_elision {
                     if let Some(elide_glyph) = elide_glyph.take() {
@@ -199,26 +199,22 @@ impl TextShaper for FixedTestFont {
     type LengthPrimitive = f32;
     type Length = f32;
     type Glyph = shaping::ShapedGlyph;
-    fn shape_text<GlyphStorage: std::iter::Extend<(shaping::ShapedGlyph, usize)>>(
+    fn shape_text<GlyphStorage: std::iter::Extend<shaping::ShapedGlyph>>(
         &self,
         text: &str,
         glyphs: &mut GlyphStorage,
     ) {
-        let glyph_iter = text.char_indices().map(|(byte_offset, char)| {
-            (
-                shaping::ShapedGlyph {
-                    offset_x: 0.,
-                    offset_y: 0.,
-                    bearing_x: 0.,
-                    bearing_y: 0.,
-                    width: 10.,
-                    height: 10.,
-                    advance_x: 10.,
-                    glyph_id: None,
-                    char: Some(char),
-                },
-                byte_offset,
-            )
+        let glyph_iter = text.char_indices().map(|(byte_offset, char)| shaping::ShapedGlyph {
+            offset_x: 0.,
+            offset_y: 0.,
+            bearing_x: 0.,
+            bearing_y: 0.,
+            width: 10.,
+            height: 10.,
+            advance_x: 10.,
+            glyph_id: None,
+            char: Some(char),
+            byte_offset,
         });
         glyphs.extend(glyph_iter);
     }
@@ -234,6 +230,7 @@ impl TextShaper for FixedTestFont {
             advance_x: 10.,
             glyph_id: None,
             char: Some(ch),
+            byte_offset: 0,
         }
         .into()
     }

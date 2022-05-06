@@ -4,9 +4,19 @@
 use alloc::vec::Vec;
 use core::ops::Range;
 
-pub trait GlyphMetrics<Length> {
+/// This trait describes the functionality the text layout needs from glyps
+/// produced by implementations of the TextShaper trait. This includes metrics
+/// as well as glyph clustering information.
+pub trait GlyphProperties<Length> {
+    /// The horizontal advance of the glyph
     fn advance(&self) -> Length;
+    /// Returns a mutable reference to the horizontal advance. This is used to
+    /// apply for example letter spacing.
     fn advance_mut(&mut self) -> &mut Length;
+    /// The offset within the original text this glyph originates from. When
+    /// one character produces multiple glyphs, those glyphs will point to
+    /// the same offset.
+    fn byte_offset(&self) -> usize;
 }
 
 pub trait TextShaper {
@@ -28,10 +38,10 @@ pub trait TextShaper {
         + core::cmp::PartialOrd
         + core::ops::Mul<Self::LengthPrimitive, Output = Self::Length>
         + core::ops::Div<Self::LengthPrimitive, Output = Self::Length>;
-    type Glyph: GlyphMetrics<Self::Length> + Clone;
+    type Glyph: GlyphProperties<Self::Length> + Clone;
     // Shapes the given string and emits the result into the given glyphs buffer,
     // as tuples of glyph handle and corresponding byte offset in the originating string.
-    fn shape_text<GlyphStorage: core::iter::Extend<(Self::Glyph, usize)>>(
+    fn shape_text<GlyphStorage: core::iter::Extend<Self::Glyph>>(
         &self,
         text: &str,
         glyphs: &mut GlyphStorage,
@@ -130,7 +140,7 @@ pub struct TextRun {
 }
 
 pub struct ShapeBuffer<Glyph> {
-    pub glyphs: Vec<(Glyph, usize)>,
+    pub glyphs: Vec<Glyph>,
     pub text_runs: Vec<TextRun>,
 }
 
@@ -138,7 +148,7 @@ impl<Glyph> ShapeBuffer<Glyph> {
     pub fn new<Font>(font: &Font, text: &str) -> Self
     where
         Font: TextShaper<Glyph = Glyph>,
-        Glyph: GlyphMetrics<Font::Length>,
+        Glyph: GlyphProperties<Font::Length>,
     {
         let mut glyphs = Vec::new();
         let text_runs = ShapeBoundaries::new(text)
@@ -149,17 +159,17 @@ impl<Glyph> ShapeBuffer<Glyph> {
 
                 if let Some(letter_spacing) = font.letter_spacing() {
                     if glyphs.len() > glyphs_start {
-                        let mut last_byte_offset = glyphs[glyphs_start].1;
+                        let mut last_byte_offset = glyphs[glyphs_start].byte_offset();
                         for index in glyphs_start + 1..glyphs.len() {
-                            let current_glyph_byte_offset = glyphs[index].1;
+                            let current_glyph_byte_offset = glyphs[index].byte_offset();
                             if current_glyph_byte_offset != last_byte_offset {
-                                let previous_glyph = &mut glyphs[index - 1].0;
+                                let previous_glyph = &mut glyphs[index - 1];
                                 *previous_glyph.advance_mut() += letter_spacing;
                             }
                             last_byte_offset = current_glyph_byte_offset;
                         }
 
-                        *glyphs.last_mut().unwrap().0.advance_mut() += letter_spacing;
+                        *glyphs.last_mut().unwrap().advance_mut() += letter_spacing;
                     }
                 }
 
@@ -225,15 +235,19 @@ pub struct ShapedGlyph {
     pub advance_x: f32,
     pub glyph_id: Option<core::num::NonZeroU16>,
     pub char: Option<char>,
+    pub byte_offset: usize,
 }
 
 #[cfg(test)]
-impl GlyphMetrics<f32> for ShapedGlyph {
+impl GlyphProperties<f32> for ShapedGlyph {
     fn advance(&self) -> f32 {
         self.advance_x
     }
     fn advance_mut(&mut self) -> &mut f32 {
         &mut self.advance_x
+    }
+    fn byte_offset(&self) -> usize {
+        self.byte_offset
     }
 }
 
@@ -256,7 +270,7 @@ impl<'a> TextShaper for RustyBuzzFont<'a> {
     type LengthPrimitive = f32;
     type Length = f32;
     type Glyph = ShapedGlyph;
-    fn shape_text<GlyphStorage: std::iter::Extend<(ShapedGlyph, usize)>>(
+    fn shape_text<GlyphStorage: std::iter::Extend<ShapedGlyph>>(
         &self,
         text: &str,
         glyphs: &mut GlyphStorage,
@@ -287,7 +301,9 @@ impl<'a> TextShaper for RustyBuzzFont<'a> {
                         out_glyph.bearing_y = bounding_box.y_min as _;
                     }
 
-                    (out_glyph, info.cluster as usize)
+                    out_glyph.byte_offset = info.cluster as usize;
+
+                    out_glyph
                 },
             );
 
@@ -333,14 +349,14 @@ fn test_shaping() {
             face.shape_text("a\u{0304}\u{0301}b", &mut shaped_glyphs);
 
             assert_eq!(shaped_glyphs.len(), 3);
-            assert_eq!(shaped_glyphs[0].0.glyph_id, NonZeroU16::new(195));
-            assert_eq!(shaped_glyphs[0].1, 0);
+            assert_eq!(shaped_glyphs[0].glyph_id, NonZeroU16::new(195));
+            assert_eq!(shaped_glyphs[0].byte_offset, 0);
 
-            assert_eq!(shaped_glyphs[1].0.glyph_id, NonZeroU16::new(690));
-            assert_eq!(shaped_glyphs[1].1, 0);
+            assert_eq!(shaped_glyphs[1].glyph_id, NonZeroU16::new(690));
+            assert_eq!(shaped_glyphs[1].byte_offset, 0);
 
-            assert_eq!(shaped_glyphs[2].0.glyph_id, NonZeroU16::new(69));
-            assert_eq!(shaped_glyphs[2].1, 5);
+            assert_eq!(shaped_glyphs[2].glyph_id, NonZeroU16::new(69));
+            assert_eq!(shaped_glyphs[2].byte_offset, 5);
         }
 
         {
@@ -349,20 +365,20 @@ fn test_shaping() {
             face.shape_text("a b", &mut shaped_glyphs);
 
             assert_eq!(shaped_glyphs.len(), 3);
-            assert_eq!(shaped_glyphs[0].0.glyph_id, NonZeroU16::new(68));
-            assert_eq!(shaped_glyphs[0].1, 0);
+            assert_eq!(shaped_glyphs[0].glyph_id, NonZeroU16::new(68));
+            assert_eq!(shaped_glyphs[0].byte_offset, 0);
 
-            assert_eq!(shaped_glyphs[1].1, 1);
+            assert_eq!(shaped_glyphs[1].byte_offset, 1);
 
-            assert_eq!(shaped_glyphs[2].0.glyph_id, NonZeroU16::new(69));
-            assert_eq!(shaped_glyphs[2].1, 2);
+            assert_eq!(shaped_glyphs[2].glyph_id, NonZeroU16::new(69));
+            assert_eq!(shaped_glyphs[2].byte_offset, 2);
         }
     });
 }
 
 #[test]
 fn test_letter_spacing() {
-    use GlyphMetrics;
+    use GlyphProperties;
     use TextShaper;
 
     with_dejavu_font(|mut face| {
@@ -374,7 +390,7 @@ fn test_letter_spacing() {
 
             assert_eq!(shaped_glyphs.len(), 3);
 
-            shaped_glyphs.iter().map(|g| g.0.advance()).collect::<Vec<_>>()
+            shaped_glyphs.iter().map(|g| g.advance()).collect::<Vec<_>>()
         };
 
         face.letter_spacing = Some(20.);
@@ -388,7 +404,7 @@ fn test_letter_spacing() {
         *expected_advances.last_mut().unwrap() += face.letter_spacing.unwrap();
 
         assert_eq!(
-            buffer.glyphs.iter().map(|(glyph, _)| glyph.advance()).collect::<Vec<_>>(),
+            buffer.glyphs.iter().map(|glyph| glyph.advance()).collect::<Vec<_>>(),
             expected_advances
         );
     });
