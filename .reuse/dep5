@@ -51,7 +51,7 @@ Files: editor/sublime/LSP.sublime-settings
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-Files: editor/tree-sitter-slint/binding.gyp
+Files: editor/tree-sitter-slint/binding.gyp editor/tree-sitter-slint/CONTRIBUTING.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
