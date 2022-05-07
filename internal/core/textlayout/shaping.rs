@@ -15,6 +15,20 @@ pub struct Glyph<Length, PlatformGlyphData> {
     pub byte_offset: usize,
 }
 
+/// This trait defines the interface between the text layout and the platform specific
+/// mapping of text to glyphs. An implementation of the TextShaper trait must provide
+/// metric types (Length, LengthPrimitive), which is used for the line breaking calculation
+/// and glyph positioning, as well as an opaque platform specific glyph data type.
+///
+/// Functionality wise it provides the ability to convert a string into a set of glyphs,
+/// each of which has basic metric fields as well as an offset back into the original string.
+/// Typically this is implemented by using a general text shaper, which performans an M:N mapping
+/// from unicode characters to glyphs, via glyph substitions and script specific rules. In addition
+/// the glyphs may be positioned for the required appearance (such as stacked diacritics).
+///
+/// Finally, for convenience the TextShaper also provides a single glyph_for_char function, for example
+/// used to lookup single glyphs (such as the elision character) as well as additional metrics
+/// used for text paragraph layout.
 pub trait TextShaper {
     type LengthPrimitive: core::ops::Mul
         + core::ops::Div
@@ -35,8 +49,7 @@ pub trait TextShaper {
         + core::ops::Mul<Self::LengthPrimitive, Output = Self::Length>
         + core::ops::Div<Self::LengthPrimitive, Output = Self::Length>;
     type PlatformGlyphData: Clone;
-    // Shapes the given string and emits the result into the given glyphs buffer,
-    // as tuples of glyph handle and corresponding byte offset in the originating string.
+    // Shapes the given string and emits the result into the given glyphs buffer.
     fn shape_text<GlyphStorage: core::iter::Extend<Glyph<Self::Length, Self::PlatformGlyphData>>>(
         &self,
         text: &str,
