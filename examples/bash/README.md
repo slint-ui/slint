@@ -2,7 +2,7 @@
 
 This shows how to use [`slint-viewer`](../../tools/viewer) to display dialog from a bash script.
 
-This assume that the `slint-viewer` tool is in patch. This can be achieved with cargo install.
+This assume that the `slint-viewer` tool is in path. This can be achieved with cargo install.
 (use the `--path tools/viewer` option to install it from the current repository.)
 
 ```bash
