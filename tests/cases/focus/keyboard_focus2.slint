@@ -1,0 +1,132 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+// cSpell: ignore backtab
+
+import { VerticalBox, ListView } from "std-widgets.slint";
+
+TestCase := Window {
+  width: 300px;
+
+  property <[string]> features : [ "f" ];
+  property <string> result;
+
+  VerticalBox {
+    VerticalBox {
+      if true: ListView {
+        for f in features: FocusScope {
+          key-pressed(event) => {
+              if (event.text == "X") {
+                  result += "1:";
+                  return accept;
+              }
+              return reject;
+          }
+        }
+      }
+      if false: Rectangle { }
+    }
+    FocusScope {
+      key-pressed(event) => {
+          if (event.text == "X") {
+              result += "2:";
+              return accept;
+          }
+          return reject;
+      }
+    }
+  }
+}
+
+/*
+```rust
+let instance = TestCase::new();
+
+// Forward:
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "1:", "one tab");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "1:2:", "two tab");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "1:2:1:", "three tab");
+
+instance.set_result("".into());
+
+// Backwards:
+slint::testing::send_keyboard_string_sequence(&instance, "\u{19}");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "2:", "one backtab");
+slint::testing::send_keyboard_string_sequence(&instance, "\u{19}");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "2:1:", "two backtab");
+slint::testing::send_keyboard_string_sequence(&instance, "\u{19}");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq!(instance.get_result(), "2:1:2:", "three backtab");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// Forward:
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "1:");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "1:2:");
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "1:2:1:");
+
+instance.set_result("");
+
+// Backwards:
+slint::testing::send_keyboard_string_sequence(&instance, "\u0019");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "2:");
+slint::testing::send_keyboard_string_sequence(&instance, "\u0019");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "2:1:");
+slint::testing::send_keyboard_string_sequence(&instance, "\u0019");
+slint::testing::send_keyboard_string_sequence(&instance, "X");
+assert_eq(instance.get_result(), "2:1:2:");
+```
+
+```js
+var instance = new slint.TestCase();
+
+// Forward:
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "");
+instance.send_keyboard_string_sequence("\t");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "1:");
+instance.send_keyboard_string_sequence("\t");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "1:2:");
+instance.send_keyboard_string_sequence("\t");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "1:2:1:");
+
+// Backwards:
+instance.result = "";
+assert.equal(instance.result, "");
+instance.send_keyboard_string_sequence("\u0019");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "2:");
+instance.send_keyboard_string_sequence("\u0019");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "2:1:");
+instance.send_keyboard_string_sequence("\u0019");
+instance.send_keyboard_string_sequence("X");
+assert.equal(instance.result, "2:1:2:");
+```
+*/
