@@ -60,7 +60,7 @@ web-sys = { version = "0.3", features=["console", "WebGlContextAttributes", "Can
 wasm-bindgen = { version = "0.2" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-fontdb = { version = "0.9.0", features = ["memmap"] }
+fontdb = { version = "0.9.0", features = ["memmap", "fontconfig"] }
 glutin = { version = "0.28", default-features = false }
 usvg = { version= "0.22", optional = true, default-features = false, features = ["text", "memmap-fonts"] }
 
