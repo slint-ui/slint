@@ -232,7 +232,7 @@ impl TextShaper for FixedTestFont {
                 char: Some(char),
             },
             advance: 10.,
-            byte_offset,
+            text_byte_offset: byte_offset,
         });
         glyphs.extend(glyph_iter);
     }
@@ -250,7 +250,7 @@ impl TextShaper for FixedTestFont {
                 char: Some(ch),
             },
             advance: 10.,
-            byte_offset: 0,
+            text_byte_offset: 0,
         }
         .into()
     }

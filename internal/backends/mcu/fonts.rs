@@ -113,7 +113,7 @@ impl TextShaper for PixelFont {
             Glyph {
                 platform_glyph: PlatformGlyph { bitmap_glyph },
                 advance: x_advance,
-                byte_offset,
+                text_byte_offset: byte_offset,
                 ..Default::default()
             }
         });
@@ -132,7 +132,7 @@ impl TextShaper for PixelFont {
                 Glyph {
                     platform_glyph: PlatformGlyph { bitmap_glyph: Some(bitmap_glyph) },
                     advance: x_advance,
-                    byte_offset: 0,
+                    text_byte_offset: 0,
                     ..Default::default()
                 }
             })

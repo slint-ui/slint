@@ -12,7 +12,10 @@ pub struct Glyph<Length, PlatformGlyphData> {
     pub offset_x: Length,
     pub offset_y: Length,
     pub platform_glyph: PlatformGlyphData,
-    pub byte_offset: usize,
+    /// The byte offset back in the original (Rust) string to the character that
+    /// "produced" this glyph. When one character produces multiple glyphs (for example
+    /// decomposed ligature), then all glyphs have the same offset.
+    pub text_byte_offset: usize,
 }
 
 /// This trait defines the interface between the text layout and the platform specific
@@ -168,9 +171,9 @@ impl<Length, PlatformGlyphData> ShapeBuffer<Length, PlatformGlyphData> {
 
                 if let Some(letter_spacing) = font.letter_spacing() {
                     if glyphs.len() > glyphs_start {
-                        let mut last_byte_offset = glyphs[glyphs_start].byte_offset;
+                        let mut last_byte_offset = glyphs[glyphs_start].text_byte_offset;
                         for index in glyphs_start + 1..glyphs.len() {
-                            let current_glyph_byte_offset = glyphs[index].byte_offset;
+                            let current_glyph_byte_offset = glyphs[index].text_byte_offset;
                             if current_glyph_byte_offset != last_byte_offset {
                                 let previous_glyph = &mut glyphs[index - 1];
                                 previous_glyph.advance += letter_spacing;
@@ -297,7 +300,7 @@ impl<'a> TextShaper for RustyBuzzFont<'a> {
                         out_glyph.platform_glyph.bearing_y = bounding_box.y_min as _;
                     }
 
-                    out_glyph.byte_offset = info.cluster as usize;
+                    out_glyph.text_byte_offset = info.cluster as usize;
 
                     out_glyph
                 },
@@ -346,13 +349,13 @@ fn test_shaping() {
 
             assert_eq!(shaped_glyphs.len(), 3);
             assert_eq!(shaped_glyphs[0].platform_glyph.glyph_id, NonZeroU16::new(195));
-            assert_eq!(shaped_glyphs[0].byte_offset, 0);
+            assert_eq!(shaped_glyphs[0].text_byte_offset, 0);
 
             assert_eq!(shaped_glyphs[1].platform_glyph.glyph_id, NonZeroU16::new(690));
-            assert_eq!(shaped_glyphs[1].byte_offset, 0);
+            assert_eq!(shaped_glyphs[1].text_byte_offset, 0);
 
             assert_eq!(shaped_glyphs[2].platform_glyph.glyph_id, NonZeroU16::new(69));
-            assert_eq!(shaped_glyphs[2].byte_offset, 5);
+            assert_eq!(shaped_glyphs[2].text_byte_offset, 5);
         }
 
         {
@@ -362,12 +365,12 @@ fn test_shaping() {
 
             assert_eq!(shaped_glyphs.len(), 3);
             assert_eq!(shaped_glyphs[0].platform_glyph.glyph_id, NonZeroU16::new(68));
-            assert_eq!(shaped_glyphs[0].byte_offset, 0);
+            assert_eq!(shaped_glyphs[0].text_byte_offset, 0);
 
-            assert_eq!(shaped_glyphs[1].byte_offset, 1);
+            assert_eq!(shaped_glyphs[1].text_byte_offset, 1);
 
             assert_eq!(shaped_glyphs[2].platform_glyph.glyph_id, NonZeroU16::new(69));
-            assert_eq!(shaped_glyphs[2].byte_offset, 2);
+            assert_eq!(shaped_glyphs[2].text_byte_offset, 2);
         }
     });
 }

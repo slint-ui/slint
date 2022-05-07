@@ -65,7 +65,7 @@ impl<'a, Length: Copy + Clone + Zero + core::ops::AddAssign, PlatformGlyph> Iter
         loop {
             let glyph = &self.shaped_text.glyphs[self.glyph_index];
             // Rustybuzz uses a relative byte offset as cluster index
-            cluster_byte_offset = current_run.byte_range.start + glyph.byte_offset;
+            cluster_byte_offset = current_run.byte_range.start + glyph.text_byte_offset;
             if cluster_byte_offset != self.byte_offset {
                 break;
             }
