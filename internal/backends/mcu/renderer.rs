@@ -17,7 +17,7 @@ use embedded_graphics::pixelcolor::Rgb888;
 use i_slint_core::graphics::{FontRequest, IntRect, PixelFormat, Rect as RectF};
 use i_slint_core::item_rendering::{ItemRenderer, PartialRenderingCache};
 use i_slint_core::items::ImageFit;
-use i_slint_core::textlayout::TextParagraphLayout;
+use i_slint_core::textlayout::{FontMetrics as _, TextParagraphLayout};
 use i_slint_core::{Color, Coord, ImageInner, StaticTextures};
 
 type DirtyRegion = PhysicalRect;
@@ -648,14 +648,14 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
 
         let font_request = text.unresolved_font_request().merge(&self.default_font);
         let font = crate::fonts::match_font(&font_request, self.scale_factor);
+        let layout = crate::fonts::text_layout_for_font(&font, &font_request, self.scale_factor);
 
         let color = text.color().color();
         let max_size = (geom.size.cast() * self.scale_factor).cast();
 
         let paragraph = TextParagraphLayout {
             string: &string,
-            font: &font,
-            font_height: font.height(),
+            layout,
             max_width: max_size.width_length(),
             max_height: max_size.height_length(),
             horizontal_alignment: text.horizontal_alignment(),

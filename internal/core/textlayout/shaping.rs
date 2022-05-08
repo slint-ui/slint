@@ -4,6 +4,8 @@
 use alloc::vec::Vec;
 use core::ops::Range;
 
+use super::TextLayout;
+
 /// This struct describes a glyph from shaping to rendering. This includes the relative shaping
 /// offsets, advance (in abstract lengths) and platform specific glyph data.
 #[derive(Clone, Default, Debug)]
@@ -59,11 +61,19 @@ pub trait TextShaper {
         glyphs: &mut GlyphStorage,
     );
     fn glyph_for_char(&self, ch: char) -> Option<Glyph<Self::Length, Self::PlatformGlyphData>>;
-
-    fn letter_spacing(&self) -> Option<Self::Length> {
-        None
-    }
 }
+
+pub trait FontMetrics<Length: Copy + core::ops::Sub<Output = Length>> {
+    fn height(&self) -> Length {
+        self.ascent() - self.descent()
+    }
+    fn ascent(&self) -> Length;
+    fn descent(&self) -> Length;
+}
+
+pub trait AbstractFont: TextShaper + FontMetrics<<Self as TextShaper>::Length> {}
+
+impl<T> AbstractFont for T where T: TextShaper + FontMetrics<<Self as TextShaper>::Length> {}
 
 pub struct ShapeBoundaries<'a> {
     text: &'a str,
@@ -157,9 +167,9 @@ pub struct ShapeBuffer<Length, PlatformGlyphData> {
 }
 
 impl<Length, PlatformGlyphData> ShapeBuffer<Length, PlatformGlyphData> {
-    pub fn new<Font>(font: &Font, text: &str) -> Self
+    pub fn new<Font>(layout: &TextLayout<Font>, text: &str) -> Self
     where
-        Font: TextShaper<Length = Length, PlatformGlyphData = PlatformGlyphData>,
+        Font: AbstractFont<Length = Length, PlatformGlyphData = PlatformGlyphData>,
         Length: Copy + core::ops::AddAssign,
     {
         let mut glyphs = Vec::new();
@@ -167,9 +177,9 @@ impl<Length, PlatformGlyphData> ShapeBuffer<Length, PlatformGlyphData> {
             .scan(0, |run_start, run_end| {
                 let glyphs_start = glyphs.len();
 
-                font.shape_text(&text[*run_start..run_end], &mut glyphs);
+                layout.font.shape_text(&text[*run_start..run_end], &mut glyphs);
 
-                if let Some(letter_spacing) = font.letter_spacing() {
+                if let Some(letter_spacing) = layout.letter_spacing {
                     if glyphs.len() > glyphs_start {
                         let mut last_byte_offset = glyphs[glyphs_start].text_byte_offset;
                         for index in glyphs_start + 1..glyphs.len() {
@@ -247,21 +257,7 @@ pub struct TestGlyphData {
 }
 
 #[cfg(test)]
-struct RustyBuzzFont<'a> {
-    face: rustybuzz::Face<'a>,
-    letter_spacing: Option<f32>,
-}
-
-#[cfg(test)]
-impl<'a> core::convert::From<rustybuzz::Face<'a>> for RustyBuzzFont<'a> {
-    fn from(face: rustybuzz::Face<'a>) -> Self {
-        Self { face, letter_spacing: None }
-    }
-}
-
-#[cfg(test)]
-
-impl<'a> TextShaper for RustyBuzzFont<'a> {
+impl<'a> TextShaper for &rustybuzz::Face<'a> {
     type LengthPrimitive = f32;
     type Length = f32;
     type PlatformGlyphData = TestGlyphData;
@@ -272,7 +268,7 @@ impl<'a> TextShaper for RustyBuzzFont<'a> {
     ) {
         let mut buffer = rustybuzz::UnicodeBuffer::new();
         buffer.push_str(text);
-        let glyph_buffer = rustybuzz::shape(&self.face, &[], buffer);
+        let glyph_buffer = rustybuzz::shape(&self, &[], buffer);
 
         let output_glyph_generator =
             glyph_buffer.glyph_infos().iter().zip(glyph_buffer.glyph_positions().iter()).map(
@@ -292,7 +288,7 @@ impl<'a> TextShaper for RustyBuzzFont<'a> {
                     if let Some(bounding_box) = out_glyph
                         .platform_glyph
                         .glyph_id
-                        .and_then(|id| self.face.glyph_bounding_box(ttf_parser::GlyphId(id.get())))
+                        .and_then(|id| self.glyph_bounding_box(ttf_parser::GlyphId(id.get())))
                     {
                         out_glyph.platform_glyph.width = bounding_box.width() as _;
                         out_glyph.platform_glyph.height = bounding_box.height() as _;
@@ -313,14 +309,21 @@ impl<'a> TextShaper for RustyBuzzFont<'a> {
     fn glyph_for_char(&self, _ch: char) -> Option<Glyph<f32, Self::PlatformGlyphData>> {
         todo!()
     }
+}
 
-    fn letter_spacing(&self) -> Option<Self::Length> {
-        self.letter_spacing
+#[cfg(test)]
+impl<'a> FontMetrics<f32> for &rustybuzz::Face<'a> {
+    fn ascent(&self) -> f32 {
+        self.ascender() as _
+    }
+
+    fn descent(&self) -> f32 {
+        self.descender() as _
     }
 }
 
 #[cfg(test)]
-fn with_dejavu_font<R>(mut callback: impl FnMut(&mut RustyBuzzFont) -> R) -> Option<R> {
+fn with_dejavu_font<R>(mut callback: impl FnMut(&rustybuzz::Face<'_>) -> R) -> Option<R> {
     let mut fontdb = fontdb::Database::new();
     let dejavu_path: std::path::PathBuf =
         [env!("CARGO_MANIFEST_DIR"), "..", "backends", "gl", "fonts", "DejaVuSans.ttf"]
@@ -329,10 +332,9 @@ fn with_dejavu_font<R>(mut callback: impl FnMut(&mut RustyBuzzFont) -> R) -> Opt
     fontdb.load_font_file(dejavu_path).expect("unable to load test dejavu font");
     let font_id = fontdb.faces()[0].id;
     fontdb.with_face_data(font_id, |data, font_index| {
-        let mut face: RustyBuzzFont = rustybuzz::Face::from_slice(data, font_index)
-            .expect("unable to parse dejavu font")
-            .into();
-        callback(&mut face)
+        let face =
+            rustybuzz::Face::from_slice(data, font_index).expect("unable to parse dejavu font");
+        callback(&face)
     })
 }
 
@@ -379,7 +381,7 @@ fn test_shaping() {
 fn test_letter_spacing() {
     use TextShaper;
 
-    with_dejavu_font(|mut face| {
+    with_dejavu_font(|face| {
         // two glyph clusters: ā́b
         let text = "a\u{0304}\u{0301}b";
         let advances = {
@@ -391,15 +393,14 @@ fn test_letter_spacing() {
             shaped_glyphs.iter().map(|g| g.advance).collect::<Vec<_>>()
         };
 
-        face.letter_spacing = Some(20.);
-
-        let buffer = ShapeBuffer::new(face, text);
+        let layout = TextLayout { font: &face, letter_spacing: Some(20.) };
+        let buffer = ShapeBuffer::new(&layout, text);
 
         assert_eq!(buffer.glyphs.len(), advances.len());
 
         let mut expected_advances = advances;
-        expected_advances[1] += face.letter_spacing.unwrap();
-        *expected_advances.last_mut().unwrap() += face.letter_spacing.unwrap();
+        expected_advances[1] += layout.letter_spacing.unwrap();
+        *expected_advances.last_mut().unwrap() += layout.letter_spacing.unwrap();
 
         assert_eq!(
             buffer.glyphs.iter().map(|glyph| glyph.advance).collect::<Vec<_>>(),

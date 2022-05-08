@@ -11,7 +11,7 @@ use crate::{LogicalLength, LogicalSize, PhysicalLength, PhysicalSize, ScaleFacto
 use i_slint_core::{
     graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, FontRequest},
     slice::Slice,
-    textlayout::{Glyph, TextShaper},
+    textlayout::{FontMetrics as _, Glyph, TextLayout, TextShaper},
     Coord,
 };
 
@@ -47,6 +47,7 @@ impl PlatformGlyph {
 
 trait FontMetrics {
     fn ascent(&self, font: &BitmapFont) -> PhysicalLength;
+    fn descent(&self, font: &BitmapFont) -> PhysicalLength;
     fn height(&self, font: &BitmapFont) -> PhysicalLength;
     fn pixel_size(&self) -> PhysicalLength;
 }
@@ -54,6 +55,9 @@ trait FontMetrics {
 impl FontMetrics for BitmapGlyphs {
     fn ascent(&self, font: &BitmapFont) -> PhysicalLength {
         (PhysicalLength::new(self.pixel_size).cast() * font.ascent / font.units_per_em).cast()
+    }
+    fn descent(&self, font: &BitmapFont) -> PhysicalLength {
+        (PhysicalLength::new(self.pixel_size).cast() * font.descent / font.units_per_em).cast()
     }
     fn height(&self, font: &BitmapFont) -> PhysicalLength {
         // The descent is negative (relative to the baseline)
@@ -72,18 +76,9 @@ pub const DEFAULT_FONT_SIZE: Coord = 12 as Coord;
 pub struct PixelFont {
     bitmap_font: &'static BitmapFont,
     glyphs: &'static BitmapGlyphs,
-    letter_spacing: Option<PhysicalLength>,
 }
 
 impl PixelFont {
-    pub fn ascent(&self) -> PhysicalLength {
-        self.glyphs.ascent(self.bitmap_font)
-    }
-
-    pub fn height(&self) -> PhysicalLength {
-        self.glyphs.height(self.bitmap_font)
-    }
-
     pub fn pixel_size(&self) -> PhysicalLength {
         self.glyphs.pixel_size()
     }
@@ -137,9 +132,19 @@ impl TextShaper for PixelFont {
                 }
             })
     }
+}
 
-    fn letter_spacing(&self) -> Option<Self::Length> {
-        self.letter_spacing
+impl i_slint_core::textlayout::FontMetrics<PhysicalLength> for PixelFont {
+    fn ascent(&self) -> PhysicalLength {
+        self.glyphs.ascent(self.bitmap_font)
+    }
+
+    fn height(&self) -> PhysicalLength {
+        self.glyphs.height(self.bitmap_font)
+    }
+
+    fn descent(&self) -> PhysicalLength {
+        self.glyphs.descent(self.bitmap_font)
     }
 }
 
@@ -171,13 +176,19 @@ pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> PixelFont
 
     let matching_glyphs = &font.glyphs[nearest_pixel_size];
 
-    PixelFont {
-        bitmap_font: font,
-        glyphs: matching_glyphs,
-        letter_spacing: request
-            .letter_spacing
-            .map(|spacing| (LogicalLength::new(spacing).cast() * scale_factor).cast()),
-    }
+    PixelFont { bitmap_font: font, glyphs: matching_glyphs }
+}
+
+pub fn text_layout_for_font<'a>(
+    font: &'a PixelFont,
+    font_request: &FontRequest,
+    scale_factor: ScaleFactor,
+) -> TextLayout<'a, PixelFont> {
+    let letter_spacing = font_request
+        .letter_spacing
+        .map(|spacing| (LogicalLength::new(spacing).cast() * scale_factor).cast());
+
+    TextLayout { font, letter_spacing }
 }
 
 pub fn register_bitmap_font(font_data: &'static BitmapFont) {
@@ -191,9 +202,9 @@ pub fn text_size(
     scale_factor: ScaleFactor,
 ) -> LogicalSize {
     let font = match_font(&font_request, scale_factor);
+    let layout = text_layout_for_font(&font, &font_request, scale_factor);
 
-    let (longest_line_width, num_lines) = i_slint_core::textlayout::text_size(
-        &font,
+    let (longest_line_width, num_lines) = layout.text_size(
         text,
         max_width.map(|max_width| (LogicalLength::new(max_width).cast() * scale_factor).cast()),
     );

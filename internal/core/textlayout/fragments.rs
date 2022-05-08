@@ -100,13 +100,13 @@ impl<'a, Length: Clone + Default + core::ops::AddAssign + Zero + Copy, PlatformG
 }
 
 #[cfg(test)]
-use super::FixedTestFont;
+use super::{FixedTestFont, TextLayout};
 
 #[test]
 fn fragment_iterator_simple() {
     let font = FixedTestFont;
     let text = "H WX";
-    let shape_buffer = ShapeBuffer::new(&font, text);
+    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
     let fragments = TextFragmentIterator::new(text, &shape_buffer).collect::<Vec<_>>();
     let expected = vec![
         TextFragment {
@@ -131,7 +131,7 @@ fn fragment_iterator_simple() {
 fn fragment_iterator_simple_v2() {
     let font = FixedTestFont;
     let text = "Hello World";
-    let shape_buffer = ShapeBuffer::new(&font, text);
+    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
     let fragments = TextFragmentIterator::new(text, &shape_buffer).collect::<Vec<_>>();
     let expected = vec![
         TextFragment {
@@ -156,7 +156,7 @@ fn fragment_iterator_simple_v2() {
 fn fragment_iterator_forced_break() {
     let font = FixedTestFont;
     let text = "H\nW";
-    let shape_buffer = ShapeBuffer::new(&font, text);
+    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
     let fragments = TextFragmentIterator::new(text, &shape_buffer).collect::<Vec<_>>();
     assert_eq!(
         fragments,
@@ -183,7 +183,7 @@ fn fragment_iterator_forced_break() {
 fn fragment_iterator_forced_break_multi() {
     let font = FixedTestFont;
     let text = "H\n\n\nW";
-    let shape_buffer = ShapeBuffer::new(&font, text);
+    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
     let fragments = TextFragmentIterator::new(text, &shape_buffer).collect::<Vec<_>>();
     assert_eq!(
         fragments,
@@ -224,7 +224,7 @@ fn fragment_iterator_forced_break_multi() {
 fn fragment_iterator_nbsp() {
     let font = FixedTestFont;
     let text = "X H\u{00a0}W";
-    let shape_buffer = ShapeBuffer::new(&font, text);
+    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
     let fragments = TextFragmentIterator::new(text, &shape_buffer).collect::<Vec<_>>();
     assert_eq!(
         fragments,
@@ -251,7 +251,7 @@ fn fragment_iterator_nbsp() {
 fn fragment_iterator_break_anywhere() {
     let font = FixedTestFont;
     let text = "AB\nCD\nEF";
-    let shape_buffer = ShapeBuffer::new(&font, text);
+    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
     let mut fragments = TextFragmentIterator::new(text, &shape_buffer);
     assert_eq!(
         fragments.next(),
