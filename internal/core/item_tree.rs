@@ -268,14 +268,16 @@ impl ItemRc {
         step_in: &dyn Fn(ItemRc) -> ItemRc,
         step_out: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
     ) -> Self {
-        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
-        let item_tree = crate::item_tree::ComponentItemTree::new(&comp_ref_pin);
+        let mut component = self.component().clone();
+        let mut comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        let mut item_tree = crate::item_tree::ComponentItemTree::new(&comp_ref_pin);
 
         let mut to_focus = self.index();
-        loop {
+
+        'in_tree: loop {
             if let Some(next) = focus_step(&item_tree, to_focus) {
                 if let Some(item) = step_into_node(
-                    &self.component(),
+                    &component,
                     &comp_ref_pin,
                     next,
                     &item_tree,
@@ -288,46 +290,58 @@ impl ItemRc {
                 // Loop: We stepped into an empty repeater!
             } else {
                 // Step out of this component:
-                let mut root = ItemRc::new(self.component(), 0);
+                let mut root = ItemRc::new(component, 0);
                 if let Some(item) = subtree_step(root.clone()) {
+                    // Next component inside same repeater
                     return step_in(item);
-                } else {
-                    // Go up a level!
-                    let root_component = root.component();
-                    let root_comp_ref = vtable::VRc::borrow_pin(&root_component);
-                    let mut parent_node = Default::default();
-                    root_comp_ref.as_ref().parent_node(&mut parent_node);
+                }
 
-                    while let Some(parent) = parent_node.upgrade() {
-                        let parent_ref_pin = vtable::VRc::borrow_pin(&parent.component);
-                        let parent_item_tree =
-                            crate::item_tree::ComponentItemTree::new(&parent_ref_pin);
-                        if let Some(next) = step_out(&parent_item_tree, parent.index()) {
-                            if let Some(item) = step_into_node(
-                                &parent.component(),
-                                &parent_ref_pin,
-                                next,
-                                &parent_item_tree,
-                                subtree_child,
-                                step_in,
-                            ) {
-                                return item;
-                            }
+                // Step out of the repeater
+                let root_component = root.component();
+                let root_comp_ref = vtable::VRc::borrow_pin(&root_component);
+                let mut parent_node = Default::default();
+                root_comp_ref.as_ref().parent_node(&mut parent_node);
+
+                while let Some(parent) = parent_node.upgrade() {
+                    // .. not at the root of the item tree:
+                    component = parent.component();
+                    comp_ref_pin = vtable::VRc::borrow_pin(&component);
+                    item_tree = crate::item_tree::ComponentItemTree::new(&comp_ref_pin);
+
+                    let index = parent.index();
+
+                    if let Some(next) = step_out(&item_tree, index) {
+                        if let Some(item) = step_into_node(
+                            &parent.component(),
+                            &comp_ref_pin,
+                            next,
+                            &item_tree,
+                            subtree_child,
+                            step_in,
+                        ) {
+                            // Step into a dynamic node
+                            return item;
+                        } else {
+                            // The dynamic node was empty, proceed in normal tree
+                            to_focus = parent.index();
+                            continue 'in_tree; // Find a node in the current (parent!) tree
                         }
-                        root = ItemRc::new(parent.component(), 0);
-
-                        if let Some(item) = subtree_step(root.clone()) {
-                            return step_in(item);
-                        }
-
-                        let root_component = root.component();
-                        let root_comp_ref = vtable::VRc::borrow_pin(&root_component);
-                        parent_node = Default::default();
-                        root_comp_ref.as_ref().parent_node(&mut parent_node);
                     }
 
-                    return step_in(root);
+                    root = ItemRc::new(component, 0);
+                    if let Some(item) = subtree_step(root.clone()) {
+                        return step_in(item);
+                    }
+
+                    // Go up one more level:
+                    let root_component = root.component();
+                    let root_comp_ref = vtable::VRc::borrow_pin(&root_component);
+                    parent_node = Default::default();
+                    root_comp_ref.as_ref().parent_node(&mut parent_node);
                 }
+
+                // Loop around after hitting the root node:
+                return step_in(root);
             }
         }
     }
