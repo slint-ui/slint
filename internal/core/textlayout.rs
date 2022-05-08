@@ -57,21 +57,17 @@ impl<'a, Font: AbstractFont> TextLayout<'a, Font> {
     // Measures the size of the given text when rendered with the specified font and optionally constrained
     // by the provided `max_width`.
     // Returns a tuple of the width of the longest line as well as the number of lines.
-    pub fn text_size(
-        &self,
-        text: &str,
-        max_width: Option<Font::Length>,
-    ) -> (Font::Length, Font::LengthPrimitive)
+    pub fn text_size(&self, text: &str, max_width: Option<Font::Length>) -> (Font::Length, usize)
     where
         Font::Length: core::fmt::Debug,
     {
         let mut max_line_width = Font::Length::zero();
-        let mut line_count = Font::LengthPrimitive::zero();
+        let mut line_count = 0;
         let shape_buffer = ShapeBuffer::new(self, text);
 
         for line in TextLineBreaker::<Font>::new(text, &shape_buffer, max_width) {
             max_line_width = euclid::approxord::max(max_line_width, line.text_width);
-            line_count += Font::LengthPrimitive::one();
+            line_count += 1;
         }
 
         (max_line_width, line_count)
