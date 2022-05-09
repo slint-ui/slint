@@ -3,6 +3,10 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Fixed
+
+ - Fixed crash when opening a native (Qt) ComboBox
+
 ## [0.2.3] - 2033-05-09
 
 ### Fixed
