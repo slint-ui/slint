@@ -11,7 +11,7 @@ use crate::{LogicalLength, LogicalSize, PhysicalLength, PhysicalSize, ScaleFacto
 use i_slint_core::{
     graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, FontRequest},
     slice::Slice,
-    textlayout::{FontMetrics as _, Glyph, TextLayout, TextShaper},
+    textlayout::{Glyph, TextLayout, TextShaper},
     Coord,
 };
 
@@ -204,12 +204,10 @@ pub fn text_size(
     let font = match_font(&font_request, scale_factor);
     let layout = text_layout_for_font(&font, &font_request, scale_factor);
 
-    let (longest_line_width, num_lines) = layout.text_size(
+    let (longest_line_width, height) = layout.text_size(
         text,
         max_width.map(|max_width| (LogicalLength::new(max_width).cast() * scale_factor).cast()),
     );
 
-    (PhysicalSize::from_lengths(longest_line_width, font.height() * (num_lines as i16)).cast()
-        / scale_factor)
-        .cast()
+    (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
 }

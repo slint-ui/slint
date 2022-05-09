@@ -56,13 +56,17 @@ pub struct TextLayout<'a, Font: AbstractFont> {
 impl<'a, Font: AbstractFont> TextLayout<'a, Font> {
     // Measures the size of the given text when rendered with the specified font and optionally constrained
     // by the provided `max_width`.
-    // Returns a tuple of the width of the longest line as well as the number of lines.
-    pub fn text_size(&self, text: &str, max_width: Option<Font::Length>) -> (Font::Length, usize)
+    // Returns a tuple of the width of the longest line as well as height of all lines.
+    pub fn text_size(
+        &self,
+        text: &str,
+        max_width: Option<Font::Length>,
+    ) -> (Font::Length, Font::Length)
     where
         Font::Length: core::fmt::Debug,
     {
         let mut max_line_width = Font::Length::zero();
-        let mut line_count = 0;
+        let mut line_count: i16 = 0;
         let shape_buffer = ShapeBuffer::new(self, text);
 
         for line in TextLineBreaker::<Font>::new(text, &shape_buffer, max_width) {
@@ -70,7 +74,7 @@ impl<'a, Font: AbstractFont> TextLayout<'a, Font> {
             line_count += 1;
         }
 
-        (max_line_width, line_count)
+        (max_line_width, self.font.height() * line_count.into())
     }
 }
 
