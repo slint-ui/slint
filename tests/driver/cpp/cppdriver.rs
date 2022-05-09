@@ -81,6 +81,17 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     compiler_command.arg(&*cpp_file);
 
+
+    if keep_temp_files {
+        println!(
+            "Leaving temporary files behind for {} : source {} binary {}",
+            testcase.absolute_path.display(),
+            cpp_file.display(),
+            binary_path.display()
+        );
+        cpp_file.keep()?;
+    }
+
     if compiler.is_like_clang() || compiler.is_like_gnu() {
         compiler_command.arg("-std=c++20");
         compiler_command.arg("-g");
@@ -130,15 +141,6 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         }
     }
 
-    if keep_temp_files {
-        println!(
-            "Left temporary files behind for {} : source {} binary {}",
-            testcase.absolute_path.display(),
-            cpp_file.display(),
-            binary_path.display()
-        );
-        cpp_file.keep()?;
-    }
 
     Ok(())
 }
