@@ -1,13 +1,11 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
-## Unreleased
-
-### Fixed
+## [0.2.4] - 2022-05-09
 
  - Fixed crash when opening a native (Qt) ComboBox
 
-## [0.2.3] - 2033-05-09
+## [0.2.3] - 2022-05-09
 
 ### Fixed
 
@@ -452,3 +450,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [0.2.1]: https://github.com/slint-ui/slint/releases/tag/v0.2.1
 [0.2.2]: https://github.com/slint-ui/slint/releases/tag/v0.2.2
 [0.2.3]: https://github.com/slint-ui/slint/releases/tag/v0.2.3
+[0.2.4]: https://github.com/slint-ui/slint/releases/tag/v0.2.3
