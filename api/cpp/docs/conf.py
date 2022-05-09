@@ -26,7 +26,7 @@ copyright = "2022, info@slint-ui.com"
 author = "info@slint-ui.com"
 
 # The full version, including alpha/beta/rc tags
-version = "0.2.3"
+version = "0.2.4"
 
 cpp_index_common_prefix = ["slint::", "slint::interpreter::"]
 

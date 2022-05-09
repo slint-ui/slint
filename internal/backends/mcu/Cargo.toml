@@ -3,7 +3,7 @@
 
 [package]
 name = "i-slint-backend-mcu"
-version = "0.2.3"
+version = "0.2.4"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -30,9 +30,9 @@ std = ["i-slint-core/std"]
 default = ["simulator"]
 
 [dependencies]
-i-slint-common = { version = "=0.2.3", path = "../../../internal/common", default-features = false }
-i-slint-core = { version = "=0.2.3", path = "../../../internal/core", default-features = false, features = ["libm", "text_layout"] }
-i-slint-core-macros = { version = "=0.2.3", path = "../../../internal/core-macros" }
+i-slint-common = { version = "=0.2.4", path = "../../../internal/common", default-features = false }
+i-slint-core = { version = "=0.2.4", path = "../../../internal/core", default-features = false, features = ["libm", "text_layout"] }
+i-slint-core-macros = { version = "=0.2.4", path = "../../../internal/core-macros" }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { version = "0.1.6", path = "../../../helper_crates/vtable" }
