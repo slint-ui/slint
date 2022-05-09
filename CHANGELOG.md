@@ -3,9 +3,7 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
-### Changed
-
-### Added
+## [0.2.3] - 2033-05-09
 
 ### Fixed
 
@@ -14,6 +12,7 @@ All notable changes to this project are documented in this file.
  - Fixed combining a brush and a color to always convert to brush, to avoid loosing gradient information (#1235)
  - Fixed properties not having the right default value when set by some states (#1237)
  - Fixed properties with multiples aliases, and default values.
+ - Enable fontdb's fontconfig feature to fix finding some fonts (#1240)
 
 ## [0.2.2] - 2022-05-04
 
@@ -448,3 +447,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [0.2.0]: https://github.com/slint-ui/slint/releases/tag/v0.2.0
 [0.2.1]: https://github.com/slint-ui/slint/releases/tag/v0.2.1
 [0.2.2]: https://github.com/slint-ui/slint/releases/tag/v0.2.2
+[0.2.2]: https://github.com/slint-ui/slint/releases/tag/v0.2.3
