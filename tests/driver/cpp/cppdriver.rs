@@ -81,7 +81,6 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     compiler_command.arg(&*cpp_file);
 
-
     if keep_temp_files {
         println!(
             "Leaving temporary files behind for {} : source {} binary {}",
@@ -140,7 +139,6 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
             return Err("Test case exited by signal".into());
         }
     }
-
 
     Ok(())
 }
