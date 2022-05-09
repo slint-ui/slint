@@ -1,6 +1,6 @@
 {
     "name": "todo",
-    "version": "0.2.4",
+    "version": "0.2.5",
     "main": "main.js",
     "dependencies": {
         "slint-ui": "../../../api/node"

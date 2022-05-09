@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-lsp"
-version = "0.2.4"
+version = "0.2.5"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -30,10 +30,10 @@ backend-gl-x11 = ["slint-interpreter/backend-gl-x11"]
 default = ["backend-qt", "backend-gl-all"]
 
 [dependencies]
-i-slint-compiler = { version = "=0.2.4", path = "../../internal/compiler"}
-i-slint-core = { version = "=0.2.4", path = "../../internal/core"}
-slint-interpreter = { version = "=0.2.4", path = "../../internal/interpreter", default-features = false, features = ["compat-0-2-0"] }
-i-slint-backend-selector = { version = "=0.2.4", path="../../internal/backends/selector" }
+i-slint-compiler = { version = "=0.2.5", path = "../../internal/compiler"}
+i-slint-core = { version = "=0.2.5", path = "../../internal/core"}
+slint-interpreter = { version = "=0.2.5", path = "../../internal/interpreter", default-features = false, features = ["compat-0-2-0"] }
+i-slint-backend-selector = { version = "=0.2.5", path="../../internal/backends/selector" }
 
 clap = { version = "3.1", features = ["derive", "wrap_help"] }
 crossbeam-channel = "0.5"  # must match the version used by lsp-server
