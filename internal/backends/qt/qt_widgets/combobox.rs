@@ -197,7 +197,7 @@ impl Item for NativeComboBoxPopup {
 
     fn_render! { _this dpr size painter widget initial_state =>
         cpp!(unsafe [
-            painter as "QPainter*",
+            painter as "QPainterPtr*",
             widget as "QWidget*",
             size as "QSize",
             dpr as "float",
@@ -214,7 +214,7 @@ impl Item for NativeComboBoxPopup {
             auto style = qApp->style();
 
             if (style->styleHint(QStyle::SH_ComboBox_Popup, &option, widget)) {
-                style->drawPrimitive(QStyle::PE_PanelMenu, &option, painter, widget);
+                style->drawPrimitive(QStyle::PE_PanelMenu, &option, painter->get(), widget);
             } else {
                 option.lineWidth = 1;
             }
@@ -224,7 +224,7 @@ impl Item for NativeComboBoxPopup {
             else if ((frameStyle & QFrame::Shadow_Mask) == QFrame::Raised)
                 option.state |= QStyle::State_Raised;
             option.frameShape = QFrame::Shape(frameStyle & QFrame::Shape_Mask);
-            style->drawControl(QStyle::CE_ShapedFrame, &option, painter, widget);
+            style->drawControl(QStyle::CE_ShapedFrame, &option, painter->get(), widget);
         });
     }
 }
