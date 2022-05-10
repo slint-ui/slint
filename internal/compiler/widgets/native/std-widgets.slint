@@ -8,6 +8,8 @@ export { StyleMetrics, ScrollView, TextEdit, AboutSlint, AboutSlint as AboutSixt
 // FIXME: the font-size should be removed but is required right now to compile the printer-demo
 export Button := NativeButton {
     property<length> font-size;
+    accessible-label <=> text;
+    accessible-role: button;
     enabled: true;
 }
 
@@ -15,7 +17,10 @@ export StandardButton := NativeButton {
     property<StandardButtonKind> kind <=> self.standard-button-kind;
     is-standard-button: true;
 }
-export CheckBox := NativeCheckBox { }
+export CheckBox := NativeCheckBox {
+    accessible-role: checkbox;
+    accessible-label <=> text;
+}
 export SpinBox := NativeSpinBox {
     property<length> font-size;
 }
