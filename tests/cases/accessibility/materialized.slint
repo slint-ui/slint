@@ -15,6 +15,12 @@ Btn := Rectangle {
     accessible-role: button;
 }
 
+Cb := Rectangle {
+    property <string> text;
+    accessible-label: text;
+    accessible-role: checkbox;
+}
+
 TestCase := Rectangle {
     width: 300phx;
     height: 300phx;
@@ -32,6 +38,8 @@ TestCase := Rectangle {
         b2 := Btn {
             text : "minus";
         }
+
+        cb := Cb { text: "hello"; }
     }
 
     for t in ["abc"] : Text { text: t; accessible-description: t;  }
@@ -49,3 +57,24 @@ TestCase := Rectangle {
         && materialized_txt_label == "automatic text value" && materialized_txt_role == AccessibleRole.text;
 }
 
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase();
+assert(instance.test);
+```
+
+*/
