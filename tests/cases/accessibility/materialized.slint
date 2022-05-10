@@ -6,7 +6,7 @@
 Btn := Rectangle {
     property <string> text;
 
-    Text {
+    t := Text {
         text: root.text;
         width: 100%; height: 100%;
     }
@@ -18,6 +18,8 @@ Btn := Rectangle {
 Cb := Rectangle {
     property <string> text;
     accessible-label: text;
+    t := Text { }
+    accessible-description <=> t.text;
     accessible-role: checkbox;
 }
 

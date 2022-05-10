@@ -146,6 +146,9 @@ fn analyze_element(
             diag,
         );
     }
+    for (_, nr) in &elem.borrow().accessibility_props.0 {
+        process_property(&PropertyPath::from(nr.clone()), context, reverse_aliases, diag);
+    }
 }
 
 #[derive(Copy, Clone, dm::BitAnd, dm::BitOr, dm::BitAndAssign, dm::BitOrAssign)]
