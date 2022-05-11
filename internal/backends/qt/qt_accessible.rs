@@ -6,6 +6,7 @@
 use cpp::*;
 
 use i_slint_core::item_tree::{ItemRc, ItemWeak};
+use i_slint_core::SharedVector;
 use qttypes::QString;
 
 use std::pin::Pin;
@@ -70,35 +71,28 @@ cpp! {{
     public:
         Descendents(void *root_item) {
             rustDescendents = rust!(Descendents_ctor [root_item: *mut core::ffi::c_void as "void*"] ->
-                    *mut core::ffi::c_void as "void*" {
+                    SharedVector<ItemRc> as "void*" {
                 let mut descendents = i_slint_core::accessibility::accessible_descendents(
                         &*(root_item as *mut ItemRc));
-                descendents.shrink_to_fit();
-                Box::into_raw(Box::new(descendents)) as _
+                SharedVector::from_slice(&descendents)
             });
         }
 
         size_t count() {
-            return rust!(Descendents_count [rustDescendents: *mut core::ffi::c_void as "void*"] -> usize as "size_t" {
-               let vector = Box::from_raw(rustDescendents as *mut Vec<ItemRc>);
-               let result = vector.len();
-               std::mem::forget(vector);
-
-               result
+            return rust!(Descendents_count [rustDescendents: SharedVector<ItemRc> as "void*"] -> usize as "size_t" {
+               rustDescendents.len()
             });
         }
 
         void* itemAt(size_t index) {
-            return rust!(Descendents_itemAt [rustDescendents: *mut core::ffi::c_void as "void*",
+            return rust!(Descendents_itemAt [rustDescendents: SharedVector<ItemRc> as "void*",
                                              index: usize as "size_t"]
                     -> *mut core::ffi::c_void as "void*" {
-                let mut vector = Box::from_raw(rustDescendents as *mut Vec<ItemRc>);
-                let item_rc = vector[index].clone();
+                let item_rc = rustDescendents[index].clone();
                 let mut item_weak = Box::new(item_rc.downgrade());
 
                 let result = core::ptr::addr_of_mut!(*item_weak);
 
-                std::mem::forget(vector);
                 std::mem::forget(item_weak);
 
                 result as _
@@ -106,25 +100,22 @@ cpp! {{
         }
 
         QAccessible::Role roleAt(size_t index) {
-            return rust!(Descendents_roleAt [rustDescendents: *mut core::ffi::c_void as "void*",
+            return rust!(Descendents_roleAt [rustDescendents: SharedVector<ItemRc> as "void*",
                                              index: usize as "size_t"]
                     -> u32 as "QAccessible::Role" {
-                let vector = Box::from_raw(rustDescendents as *mut Vec<ItemRc>);
-                let result = match vector[index].accessible_role() {
+                match rustDescendents[index].accessible_role() {
                     i_slint_core::items::AccessibleRole::none => 0x00, // QAccessible::NoRole
                     i_slint_core::items::AccessibleRole::text => 0x29, // QAccessible::StaticText
                     i_slint_core::items::AccessibleRole::button => 0x2b, // QAccessible::Button
                     i_slint_core::items::AccessibleRole::checkbox => 0x2c, // QAccessible::CheckBox
-                };
-                std::mem::forget(vector);
-
-                result
+                }
             });
         }
 
         ~Descendents() {
-            rust!(Descendents_dtor [rustDescendents: *mut core::ffi::c_void as "void*"] {
-               Box::from_raw(rustDescendents as *mut Vec<ItemRc>);
+            auto descendentsPtr = &rustDescendents;
+            rust!(Descendents_dtor [descendentsPtr: *mut SharedVector<ItemRc> as "void**"] {
+                core::ptr::read(descendentsPtr);
             });
         }
 
@@ -142,18 +133,16 @@ cpp! {{
         });
     }
 
-    QString item_string_property(void *rustItem, QAccessible::Text what) {
+    QString item_string_property(void *rustItem, uint32_t what) {
         return rust!(item_string_property_
-            [rustItem: *const core::ffi::c_void as "void*", what: u32 as "QAccessible::Text"]
+            [rustItem: &ItemWeak as "void*", what: u32 as "uint32_t"]
                 -> QString as "QString" {
-            let item = rustItem as *const ItemWeak;
-            assert!(!item.is_null());
-
-            if let Some(item) = item.as_ref().and_then(|i| i.upgrade()) {
+            if let Some(item) = rustItem.upgrade() {
                 let string = match what {
                     0 /* Name */ => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Label),
                     1 /* Description */ => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Description),
-                    0xffff /* UserText */ => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Has_focus),
+                    0xffff /* UserText */ => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::HasFocus),
+                    0x10000 /* UserText + 1 */ => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Checked),
                     _ => Default::default(),
                 };
                 QString::from(string.as_ref())
@@ -205,8 +194,7 @@ cpp! {{
                 return const_cast<QAccessibleInterface *>(static_cast<const QAccessibleInterface *>(this));
             }
             for (int i = 0; i < childCount(); ++i)  {
-                auto focus = child(i)->focusChild();
-                if (focus) return focus;
+                if (auto focus = child(i)->focusChild()) return focus;
             }
             return nullptr;
         }
@@ -337,7 +325,7 @@ cpp! {{
                     let m_focusTracker = unsafe { Pin::new_unchecked(m_focusTracker) };
                     m_focusTracker.evaluate_as_dependency_root(move || {
                         if let Some(item_rc) = item.upgrade() {
-                            item_rc.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Has_focus);
+                            item_rc.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::HasFocus);
                         }
                     });
                     unsafe { Pin::into_inner_unchecked(m_focusTracker) };
@@ -368,6 +356,7 @@ cpp! {{
             state.active = 1;
             state.focusable = 1;
             state.focused = (item_string_property(m_rustItem, QAccessible::UserText) == "true") ? 1 : 0;
+            state.checked = (item_string_property(m_rustItem, QAccessible::UserText + 1) == "true") ? 1 : 0;
             return state; /* FIXME */
         }
 

@@ -7,6 +7,7 @@
 
 use crate::component::{ComponentRc, ComponentVTable};
 use crate::items::{ItemRef, ItemVTable};
+use crate::SharedString;
 use core::pin::Pin;
 use vtable::*;
 
@@ -151,11 +152,11 @@ impl ItemRc {
     pub fn accessible_string_property(
         &self,
         what: crate::accessibility::AccessibleStringProperty,
-    ) -> String {
+    ) -> SharedString {
         let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
         let mut result = Default::default();
         comp_ref_pin.as_ref().accessible_string_property(self.index, what, &mut result);
-        result.to_string()
+        result
     }
 
     /// Return the index of the item within the component

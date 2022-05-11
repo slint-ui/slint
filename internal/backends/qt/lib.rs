@@ -5,7 +5,7 @@
 
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
-#![recursion_limit = "4096"]
+#![recursion_limit = "2048"]
 
 extern crate alloc;
 

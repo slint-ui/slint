@@ -18,8 +18,9 @@ export CheckBox := Rectangle {
     horizontal-stretch: 0;
     vertical-stretch: 0;
 
-    accessible-has-focus: has-focus ? "true" : "false";
+    accessible-has-focus <=> has-focus;
     accessible-label <=> text.text;
+    accessible-checked <=> checked;
     accessible-role: checkbox;
 
     HorizontalLayout {

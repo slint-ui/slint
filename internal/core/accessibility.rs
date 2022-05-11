@@ -1,9 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// sSpell: ignore descendents
+// cSpell: ignore descendents
 
 use crate::items::ItemRc;
+use alloc::vec::Vec;
 
 #[repr(C)]
 #[derive(PartialEq, Eq, Copy, Clone, strum::Display)]
