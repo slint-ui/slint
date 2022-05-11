@@ -3,19 +3,26 @@
 
 import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
 
-Timer := Window {
+MainWindow := Window {
     property <duration> total-time: slider.value * 1s;
-    property <float> progress: 0.5;
-    animate progress { duration: total-time; }
+    property <duration> elapsed-time;
+    
+    callback tick(duration);
+    tick(passed-time) => {
+        elapsed-time += passed-time;
+        elapsed-time = min(elapsed-time, total-time);
+    }
+
     VerticalBox {
         HorizontalBox {
             Text { text: "Elapsed Time:"; }
             Rectangle {
+                min-width: 200px;
                 max-height: 30px;
                 background: gray;
                 Rectangle {
                     height: 100%;
-                    width: parent.width * progress;
+                    width: parent.width * (elapsed-time/total-time);
                     background: lightblue;
                 }
             }
@@ -28,16 +35,16 @@ Timer := Window {
             slider := Slider {
                 maximum: 30s / 1s;
                 value: 10s / 1s;
+                changed(new-duration) => {
+                    root.total-time = new-duration * 1s;
+                    root.elapsed-time = min(root.elapsed-time, root.total-time);
+                }
             }
         }
         Button {
             text: "Reset";
             clicked => {
-                if (progress > 0.5) {
-                    progress = 0;
-                } else {
-                    progress = 1;
-                }
+                elapsed-time = 0
             }
         }
     }
