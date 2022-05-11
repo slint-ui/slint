@@ -3,8 +3,10 @@
 
 #[repr(C)]
 #[derive(PartialEq, Eq, Copy, Clone, strum::Display)]
+#[strum(serialize_all = "kebab-case")]
 pub enum AccessibleStringProperty {
     Label,
     Description,
     Checked,
+    HasFocus,
 }
