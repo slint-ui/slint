@@ -396,10 +396,15 @@ fn lower_sub_component(
     sub_component.accessible_prop = accessible_prop
         .into_iter()
         .map(|(idx, key, nr)| {
-            (
-                (idx, key),
-                super::Expression::PropertyReference(ctx.map_property_reference(&nr)).into(),
-            )
+            let mut expr = super::Expression::PropertyReference(ctx.map_property_reference(&nr));
+            if nr.ty() == Type::Bool {
+                expr = super::Expression::Condition {
+                    condition: expr.into(),
+                    true_expr: super::Expression::StringLiteral("true".into()).into(),
+                    false_expr: super::Expression::StringLiteral("false".into()).into(),
+                };
+            }
+            ((idx, key), expr.into())
         })
         .collect();
 

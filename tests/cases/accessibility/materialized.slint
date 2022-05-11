@@ -21,6 +21,7 @@ Cb := Rectangle {
     t := Text { }
     accessible-description <=> t.text;
     accessible-role: checkbox;
+    accessible-checked: true;
 }
 
 TestCase := Rectangle {
@@ -56,7 +57,8 @@ TestCase := Rectangle {
     property <bool> test:
         materialized_b1_role == AccessibleRole.button && materialized_b2_label == "minus"
         && materialized_vl_label == "" && materialized_vl_role == AccessibleRole.none
-        && materialized_txt_label == "automatic text value" && materialized_txt_role == AccessibleRole.text;
+        && materialized_txt_label == "automatic text value" && materialized_txt_role == AccessibleRole.text
+        && cb.accessible-checked && !b1.accessible-checked;
 }
 
 

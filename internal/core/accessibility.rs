@@ -6,4 +6,5 @@
 pub enum AccessibleStringProperty {
     Label,
     Description,
+    Checked,
 }

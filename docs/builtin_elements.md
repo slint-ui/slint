@@ -35,7 +35,7 @@ The following `accessible-` properties are used to enable accessibility of appli
   The  default value is empty for most elements, or is the value of the `text` property for the Text
   element.
 * **`accessible-description`** (*string*) defines a string value that describes or annotates the current element.
-
+* **`accessible-checked`** (*bool*) indicates the current "checked" state of checkboxes, radio buttons, and other widgets.
 
 ### Drop Shadows
 
