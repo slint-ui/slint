@@ -55,12 +55,20 @@ pub trait TextShaper {
         + core::ops::Div<Self::LengthPrimitive, Output = Self::Length>;
     type PlatformGlyphData: Clone;
     // Shapes the given string and emits the result into the given glyphs buffer.
-    fn shape_text<GlyphStorage: core::iter::Extend<Glyph<Self::Length, Self::PlatformGlyphData>>>(
+    fn shape_text<
+        GlyphStorage: core::iter::Extend<Glyph<Self::Length, Self::PlatformGlyphData>>
+            + core::convert::AsRef<[Glyph<Self::Length, Self::PlatformGlyphData>]>
+            + core::ops::Index<usize, Output = Glyph<Self::Length, Self::PlatformGlyphData>>
+            + core::ops::IndexMut<usize, Output = Glyph<Self::Length, Self::PlatformGlyphData>>,
+    >(
         &self,
         text: &str,
         glyphs: &mut GlyphStorage,
     );
     fn glyph_for_char(&self, ch: char) -> Option<Glyph<Self::Length, Self::PlatformGlyphData>>;
+    fn has_glyph_for_char(&self, ch: char) -> bool {
+        self.glyph_for_char(ch).is_some()
+    }
 }
 
 pub trait FontMetrics<Length: Copy + core::ops::Sub<Output = Length>> {
@@ -69,6 +77,84 @@ pub trait FontMetrics<Length: Copy + core::ops::Sub<Output = Length>> {
     }
     fn ascent(&self) -> Length;
     fn descent(&self) -> Length;
+}
+
+impl<SubShaper: TextShaper> TextShaper for &[SubShaper] {
+    type LengthPrimitive = SubShaper::LengthPrimitive;
+    type Length = SubShaper::Length;
+    type PlatformGlyphData = SubShaper::PlatformGlyphData;
+
+    fn shape_text<
+        GlyphStorage: core::iter::Extend<Glyph<Self::Length, Self::PlatformGlyphData>>
+            + core::convert::AsRef<[Glyph<Self::Length, Self::PlatformGlyphData>]>
+            + core::ops::Index<usize, Output = Glyph<Self::Length, Self::PlatformGlyphData>>
+            + core::ops::IndexMut<usize, Output = Glyph<Self::Length, Self::PlatformGlyphData>>,
+    >(
+        &self,
+        text: &str,
+        glyphs: &mut GlyphStorage,
+    ) {
+        // TODO maintain control characters
+
+        let mut shape_substr = |shaper_index: usize, text_range: Range<usize>| {
+            let sub_str =
+                text.split_at(text_range.start).1.split_at(text_range.end - text_range.start).0;
+            let first_glyph_index = glyphs.as_ref().len();
+            self[shaper_index].shape_text(sub_str, glyphs);
+            for i in first_glyph_index..glyphs.as_ref().len() {
+                glyphs[i].text_byte_offset += text_range.start;
+            }
+        };
+
+        let mut last_shaper_index = self.len();
+        let mut shaper_boundaries = text.char_indices().flat_map(|(byte_offset, char)| {
+            let shaper_index = (0..self.len())
+                .find_map(|shaper_index| {
+                    self[shaper_index].has_glyph_for_char(char).then(|| shaper_index)
+                })
+                .unwrap_or_default();
+
+            if shaper_index != last_shaper_index {
+                last_shaper_index = shaper_index;
+                Some((byte_offset, shaper_index))
+            } else {
+                None
+            }
+        });
+
+        let (mut span_start, mut shaper_index) = match shaper_boundaries.next() {
+            Some(start) => start,
+            None => return,
+        };
+
+        while let Some((span_end, next_shaper_index)) = shaper_boundaries.next() {
+            shape_substr(shaper_index, span_start..span_end);
+            span_start = span_end;
+            shaper_index = next_shaper_index;
+        }
+
+        if span_start < text.len() {
+            shape_substr(shaper_index, span_start..text.len());
+        }
+    }
+
+    fn glyph_for_char(&self, ch: char) -> Option<Glyph<Self::Length, Self::PlatformGlyphData>> {
+        self.iter().find_map(|shaper| shaper.glyph_for_char(ch))
+    }
+}
+
+impl<T, Length: Copy + core::ops::Sub<Output = Length> + core::cmp::Ord + Default>
+    FontMetrics<Length> for &[T]
+where
+    T: FontMetrics<Length>,
+{
+    fn ascent(&self) -> Length {
+        self.iter().map(|f| f.ascent()).reduce(Length::max).unwrap_or_default()
+    }
+
+    fn descent(&self) -> Length {
+        self.iter().map(|f| f.descent()).reduce(Length::min).unwrap_or_default()
+    }
 }
 
 pub trait AbstractFont: TextShaper + FontMetrics<<Self as TextShaper>::Length> {}
@@ -407,4 +493,87 @@ fn test_letter_spacing() {
             expected_advances
         );
     });
+}
+
+#[cfg(test)]
+struct CoverageTestFont {
+    id: char,
+    range: core::ops::Range<u32>,
+}
+
+#[cfg(test)]
+impl TextShaper for CoverageTestFont {
+    type LengthPrimitive = f32;
+    type Length = f32;
+    // boolean indicates coverage and char is test font id
+    type PlatformGlyphData = (char, bool);
+
+    fn shape_text<
+        GlyphStorage: core::iter::Extend<Glyph<Self::Length, Self::PlatformGlyphData>>,
+    >(
+        &self,
+        text: &str,
+        glyphs: &mut GlyphStorage,
+    ) {
+        let glyph_iter = text.char_indices().map(|(byte_offset, char)| Glyph {
+            advance: 10.,
+            offset_x: 0.,
+            offset_y: 0.,
+            platform_glyph: (self.id, self.range.contains(&(char as u32))),
+            text_byte_offset: byte_offset,
+        });
+        glyphs.extend(glyph_iter);
+    }
+
+    fn glyph_for_char(&self, ch: char) -> Option<Glyph<Self::Length, Self::PlatformGlyphData>> {
+        self.range.contains(&(ch as u32)).then(|| Glyph {
+            advance: 10.,
+            offset_x: 0.,
+            offset_y: 0.,
+            platform_glyph: (self.id, true),
+            text_byte_offset: 0,
+        })
+    }
+}
+
+#[test]
+fn test_shaper_fallback() {
+    let fallbacks = [
+        CoverageTestFont { id: 'a', range: ('a' as u32..'b' as u32) },
+        CoverageTestFont { id: 'b', range: ('c' as u32..'d' as u32) },
+    ];
+
+    let text = "aacaac";
+    let mut glyphs = Vec::new();
+
+    fallbacks.as_slice().shape_text(text, &mut glyphs);
+
+    let shapers =
+        glyphs.iter().map(|&Glyph { platform_glyph: (id, ..), .. }| id).collect::<String>();
+    assert_eq!(shapers, "aabaab");
+    let byte_offsets = glyphs.iter().map(|glyph| glyph.text_byte_offset).collect::<Vec<_>>();
+    assert_eq!(byte_offsets, vec![0, 1, 2, 3, 4, 5]);
+}
+
+#[test]
+fn test_shaper_fallback_missing_glyph() {
+    let fallbacks = [
+        CoverageTestFont { id: 'a', range: ('a' as u32..'b' as u32) },
+        CoverageTestFont { id: 'b', range: ('c' as u32..'d' as u32) },
+    ];
+
+    let text = "acx";
+    let mut glyphs = Vec::new();
+
+    fallbacks.as_slice().shape_text(text, &mut glyphs);
+
+    let shapers = glyphs
+        .iter()
+        .flat_map(|&Glyph { platform_glyph: (id, covered), .. }| {
+            vec![id, if covered { '1' } else { '0' }]
+        })
+        .collect::<String>();
+    assert_eq!(shapers, "a1b1a0");
+    let byte_offsets = glyphs.iter().map(|glyph| glyph.text_byte_offset).collect::<Vec<_>>();
+    assert_eq!(byte_offsets, vec![0, 1, 2]);
 }
