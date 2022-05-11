@@ -283,13 +283,8 @@ fn lower_sub_component(
             _ => unreachable!(),
         };
         for (key, nr) in &elem.accessibility_props.0 {
-            let key_bytes = key.strip_prefix("accessible-").unwrap().as_bytes();
             // TODO: we also want to split by type (role/string/...)
-            let enum_value = format!(
-                "{}{}",
-                std::str::from_utf8(&[key_bytes[0].to_ascii_uppercase()]).unwrap(),
-                std::str::from_utf8(&key_bytes[1..]).unwrap()
-            );
+            let enum_value = to_camel_case(key.strip_prefix("accessible-").unwrap());
             accessible_prop.push((*elem.item_index.get().unwrap(), enum_value, nr.clone()));
         }
         Some(element.clone())
@@ -409,6 +404,23 @@ fn lower_sub_component(
         .collect();
 
     LoweredSubComponent { sub_component: Rc::new(sub_component), mapping }
+}
+
+// Convert a ascii kebab string to camel case
+fn to_camel_case(str: &str) -> String {
+    let mut result = Vec::with_capacity(str.len());
+    let mut next_upper = true;
+    for x in str.as_bytes() {
+        if *x == b'-' {
+            next_upper = true;
+        } else if next_upper {
+            result.push(x.to_ascii_uppercase());
+            next_upper = false;
+        } else {
+            result.push(*x);
+        }
+    }
+    String::from_utf8(result).unwrap()
 }
 
 fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::PropertyAnalysis {

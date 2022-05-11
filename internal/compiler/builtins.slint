@@ -448,6 +448,7 @@ export NativeButton := _ {
     property <string> text;
     property <image> icon;
     property <bool> pressed: native_output;
+    property <bool> has-focus: native_output;
     callback clicked;
     property <bool> enabled: true;
     property <StandardButtonKind> standard-button-kind;
@@ -463,6 +464,7 @@ export NativeCheckBox := _ {
     property <bool> enabled: true;
     property <string> text;
     property <bool> checked: native_output;
+    property <bool> has-focus: native_output;
     callback toggled;
     //-is_internal
 }

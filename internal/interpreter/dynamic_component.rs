@@ -1654,7 +1654,7 @@ extern "C" fn accessible_string_property(
 ) {
     generativity::make_guard!(guard);
     let instance_ref = unsafe { InstanceRef::from_pin_ref(component, guard) };
-    let prop_name = format!("accessible-{}", what.to_string().to_lowercase());
+    let prop_name = format!("accessible-{}", what.to_string());
     let nr = instance_ref.component_type.original_elements[item_index]
         .borrow()
         .accessibility_props
