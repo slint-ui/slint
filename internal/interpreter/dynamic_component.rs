@@ -1661,10 +1661,12 @@ extern "C" fn accessible_string_property(
         .get(&prop_name)
         .cloned();
     if let Some(nr) = nr {
-        *result = crate::eval::load_property(instance_ref, &nr.element(), nr.name())
-            .unwrap()
-            .try_into()
-            .unwrap();
+        let value = crate::eval::load_property(instance_ref, &nr.element(), nr.name()).unwrap();
+        match value {
+            Value::String(s) => *result = s,
+            Value::Bool(b) => *result = if b { "true" } else { "false }" }.into(),
+            _ => unimplemented!("invalid type for accessible_string_property"),
+        };
     }
 }
 

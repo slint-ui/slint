@@ -88,6 +88,7 @@ pub(crate) const RESERVED_ACCESSIBILITY_PROPERTIES: &[(&str, Type)] = &[
     //("accessible-role", ...)
     ("accessible-label", Type::String),
     ("accessible-description", Type::String),
+    ("accessible-checked", Type::Bool),
 ];
 
 /// list of reserved property injected in every item
