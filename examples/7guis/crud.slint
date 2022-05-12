@@ -6,7 +6,11 @@ import { LineEdit, Button, Slider, StandardListView, GridBox, HorizontalBox } fr
 MainWindow := Window {
 
     GridBox {
-        Text { text: "Filter prefix:"; }
+        Text {
+            text: "Filter prefix:";
+            vertical-alignment: center;
+            horizontal-alignment: right;
+        }
         LineEdit {
             text <=> root.prefix;
             edited => { root.prefixEdited() }
@@ -19,12 +23,27 @@ MainWindow := Window {
             model: root.names-list;
         }
 
-        Text { col: 2; row: 1; text: "Name: "; }
+        Text {
+            col: 2;
+            row: 1;
+            text: "Name: "; 
+            vertical-alignment: center;
+            horizontal-alignment: right;
+        }
         LineEdit { text <=> root.name; }
-        Text { col: 2; row: 2; text: "Surname: "; }
+
+        Text {
+            col: 2;
+            row: 2;
+            text: "Surname: "; 
+            vertical-alignment: center;
+            horizontal-alignment: right;
+        }
         LineEdit { text <=> root.surname; }
 
         HorizontalBox {
+            padding-left: 0;
+            padding-bottom: 0;
             row: 4;
             alignment: start;
             Button {

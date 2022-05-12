@@ -15,6 +15,7 @@ MainWindow := Window {
 
     VerticalBox {
         HorizontalBox {
+            padding-left: 0;
             Text { text: "Elapsed Time:"; }
             Rectangle {
                 min-width: 200px;
@@ -31,7 +32,11 @@ MainWindow := Window {
             text: (total-time / 1s) + "s";
         }
         HorizontalBox {
-            Text { text: "Duration:"; }
+            padding-left: 0;
+            Text {
+                text: "Duration:";
+                vertical-alignment: center;
+            }
             slider := Slider {
                 maximum: 30s / 1s;
                 value: 10s / 1s;
