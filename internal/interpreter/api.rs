@@ -208,7 +208,7 @@ macro_rules! declare_value_conversion {
                 type Error = Value;
                 fn try_from(v: Value) -> Result<$ty, Self::Error> {
                     match v {
-                        Value::$value(x) => Ok(x),
+                        Value::$value(x) => Ok(x as _),
                         _ => Err(v)
                     }
                 }
@@ -280,8 +280,8 @@ macro_rules! declare_value_enum_conversion {
             type Error = ();
             fn try_from(v: Value) -> Result<i_slint_core::items::$Name, ()> {
                 use std::str::FromStr;
-                match self {
-                    Self::EnumerationValue(enumeration, value) => {
+                match v {
+                    Value::EnumerationValue(enumeration, value) => {
                         if enumeration != stringify!($Name) {
                             return Err(());
                         }
@@ -311,7 +311,7 @@ impl From<i_slint_core::animations::Instant> for Value {
 impl TryFrom<Value> for i_slint_core::animations::Instant {
     type Error = ();
     fn try_from(v: Value) -> Result<i_slint_core::animations::Instant, Self::Error> {
-        match self {
+        match v {
             Value::Number(x) => Ok(i_slint_core::animations::Instant(x as _)),
             _ => Err(()),
         }
@@ -327,7 +327,7 @@ impl From<()> for Value {
 impl TryFrom<Value> for () {
     type Error = ();
     #[inline]
-    fn try_into(v: Value) -> Result<(), Self::Error> {
+    fn try_from(_: Value) -> Result<(), Self::Error> {
         Ok(())
     }
 }
@@ -342,9 +342,9 @@ impl TryFrom<Value> for i_slint_core::Color {
     type Error = Value;
     #[inline]
     fn try_from(v: Value) -> Result<i_slint_core::Color, Self::Error> {
-        match self {
+        match v {
             Value::Brush(Brush::SolidColor(c)) => Ok(c),
-            _ => Err(self),
+            _ => Err(v),
         }
     }
 }
