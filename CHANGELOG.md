@@ -3,7 +3,13 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Added
+
  - Added the Model Adapters `FilterModel` and `MapModel`.
+
+### Fixed
+
+ - GL backend: Fixed animation sometimes not starting from input event (#1255)
 
 ## [0.2.4] - 2022-05-09
 
