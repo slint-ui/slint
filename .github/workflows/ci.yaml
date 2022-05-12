@@ -22,6 +22,10 @@ jobs:
       matrix:
         os: [ubuntu-20.04, macOS-11, windows-2019]
         rust_version: [stable, 1.59]
+        include:
+          - rust_version: 1.59
+            extra_args: --exclude _7guis
+
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -83,7 +87,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
           command: build
-          args: --verbose --all-features --workspace --exclude i-slint-backend-mcu --exclude printerdemo_mcu # mcu backend requires nightly
+          args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude i-slint-backend-mcu --exclude printerdemo_mcu  # mcu backend requires nightly
     - name: Run tests
       uses: actions-rs/cargo@v1
       with:
