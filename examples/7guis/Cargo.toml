@@ -14,16 +14,21 @@ path = "booker.rs"
 name = "booker"
 
 [[bin]]
-path = "circledraw.rs"
-name = "circledraw"
+path = "timer.rs"
+name = "timer"
 
 [[bin]]
 path = "crud.rs"
 name = "crud"
 
 [[bin]]
-path = "timer.rs"
-name = "timer"
+path = "circledraw.rs"
+name = "circledraw"
+
+[[bin]]
+path = "cells.rs"
+name = "cells"
+
 
 [dependencies]
 slint = { path = "../../api/rs/slint" }

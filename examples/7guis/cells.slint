@@ -3,13 +3,19 @@
 
 import { LineEdit, ScrollView} from "std-widgets.slint";
 
+struct CellContent := { value: float, formula: string }
 
-Cells := Window {
+
+export MainWindow := Window {
 
     property<length> cell-height: 32px;
-    property<length> cell-width: 80px;
+    property<length> cell-width: 100px;
 
-    ScrollView {
+    property <[[CellContent]]> cells;
+
+    property <{r: int, c: int}> active-cell: { r: -1, c: -1 };
+
+        ScrollView {
         width: 100%;
         height: 100%;
         viewport-width: 20px + 26 * cell-width;
@@ -21,18 +27,58 @@ Cells := Window {
             width: cell-width;
             Text { text: letter; }
         }
-        for __[idx] in 100 : Rectangle {
-            y: cell-height + idx * cell-height;
+        for row[row-idx] in cells : Rectangle {
+            y: cell-height + row-idx * cell-height;
             height: cell-height;
-            Text { text: idx; }
-            for ___[idx-x] in 26 :   LineEdit {
-                height: cell-height - 1px;
-                width: cell-width - 2px;
-                x: 20px + idx-x * cell-width;
+            Text { text: row_idx; }
+            for cell[col-idx] in row: Rectangle {
+                height: cell-height;
+                width: cell-width;
+                border-color: gray;
+                border-width: 1px;
+                x: 20px + col-idx * cell-width;
+                property <bool> is-active: root.active-cell.r == row-idx && root.active-cell.c == col-idx;
+
+                Text {
+                    visible: !is-active && cell.formula != "";
+                    text: " " + cell.value;
+                    vertical-alignment: center;
+                    width: 100%;
+                    height: 100%;
+                }
+
+                TouchArea {
+                    clicked => {
+                        l.text = cell.formula;
+                        active-cell = {r: row-idx, c: col-idx};
+                        l.focus();
+                    }
+                }
+
+                l := LineEdit {
+                    visible: is-active;
+                    width: 100%;
+                    height: 100%;
+                    edited => {
+                        cell = { value: self.text.to-float(), formula: self.text };
+                    }
+                    accepted => {
+                        root.active-cell = { r: -1, c: -1};
+                    }
+                }
             }
-
         }
-
     }
+}
 
+Cell := MainWindow {
+    // initialize the cells with demy value to be viewed in the preview
+    property <[CellContent]> _row: [{}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}, {}];
+    cells: [
+        _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row,
+        _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row,
+        _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row,
+        _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row,
+        _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row, _row,
+    ];
 }
