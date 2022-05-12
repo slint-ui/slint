@@ -241,7 +241,7 @@ impl FlickableData {
                     InputEventFilterResult::ForwardEvent
                 }
             }
-            MouseEvent::MouseWheel { .. } => InputEventFilterResult::Intercept,
+            MouseEvent::MouseWheel { .. } => InputEventFilterResult::ForwardAndIntercept,
             // Not the left button
             MouseEvent::MousePressed { .. } | MouseEvent::MouseReleased { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
@@ -295,7 +295,8 @@ impl FlickableData {
                 (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
                     .apply_pin(flick)
                     .set(new_pos.y);
-                InputEventResult::EventAccepted
+                // Although the event was handled, child items also have to handle it
+                InputEventResult::EventIgnored
             }
         }
     }
