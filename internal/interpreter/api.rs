@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use core::convert::TryInto;
+use core::convert::{TryFrom, TryInto};
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::graphics::Image;
 use i_slint_core::model::{Model, ModelRc};
@@ -188,7 +188,7 @@ impl std::fmt::Debug for Value {
     }
 }
 
-/// Helper macro to implement the From / TryInto for Value
+/// Helper macro to implement the From / TryFrom for Value
 ///
 /// For example
 /// `declare_value_conversion!(Number => [u32, u64, i32, i64, f32, f64] );`
@@ -204,13 +204,12 @@ macro_rules! declare_value_conversion {
                     Value::$value(v as _)
                 }
             }
-            impl TryInto<$ty> for Value {
+            impl TryFrom<Value> for $ty {
                 type Error = Value;
-                fn try_into(self) -> Result<$ty, Value> {
-                    match self {
-                        //Self::$value(x) => x.try_into().map_err(|_|()),
-                        Self::$value(x) => Ok(x as _),
-                        _ => Err(self)
+                fn try_from(v: Value) -> Result<$ty, Self::Error> {
+                    match v {
+                        Value::$value(x) => Ok(x),
+                        _ => Err(v)
                     }
                 }
             }
@@ -237,11 +236,11 @@ macro_rules! declare_value_struct_conversion {
                 Value::Struct(struct_)
             }
         }
-        impl TryInto<$name> for Value {
+        impl TryFrom<Value> for $name {
             type Error = ();
-            fn try_into(self) -> Result<$name, ()> {
-                match self {
-                    Self::Struct(x) => {
+            fn try_from(v: Value) -> Result<$name, Self::Error> {
+                match v {
+                    Value::Struct(x) => {
                         type Ty = $name;
                         Ok(Ty {
                             $($field: x.get_field(stringify!($field)).ok_or(())?.clone().try_into().map_err(|_|())?),*
