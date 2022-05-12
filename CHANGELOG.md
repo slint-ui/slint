@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file.
 ### Fixed
 
  - GL backend: Fixed animation sometimes not starting from input event (#1255)
+ - C++ fix compilation when writing to the model data
 
 ## [0.2.4] - 2022-05-09
 

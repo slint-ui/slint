@@ -1401,7 +1401,7 @@ fn generate_sub_component(
         ));
 
         target_struct.members.push((
-            Access::Private,
+            field_access,
             Declaration::Var(Var {
                 ty: format!(
                     "slint::private_api::Repeater<class {}, {}>",
