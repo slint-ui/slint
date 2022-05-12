@@ -104,6 +104,8 @@ pub enum InputEventFilterResult {
     /// The Event will not be forwarded to children, if a children already had the grab, the
     /// grab will be cancelled with a [`MouseEvent::MouseExit`] event
     Intercept,
+    // TODO: add docs
+    ForwardAndIntercept,
 }
 
 impl Default for InputEventFilterResult {
@@ -430,8 +432,6 @@ pub fn process_mouse_input(
         return mouse_input_state;
     }
 
-    send_exit_events(&mouse_input_state, mouse_event.pos(), window);
-
     let mut result = MouseInputState::default();
     type State = (Vector2D<Coord>, Vec<(ItemWeak, InputEventFilterResult)>);
     crate::item_tree::visit_items_with_post_visit(
@@ -460,6 +460,9 @@ pub fn process_mouse_input(
                     InputEventFilterResult::ForwardAndIgnore => None,
                     InputEventFilterResult::ForwardEvent => {
                         Some((event2, mouse_grabber_stack.clone(), item_rc, false))
+                    }
+                    InputEventFilterResult::ForwardAndIntercept => {
+                        Some((event2, mouse_grabber_stack.clone(), item_rc, true))
                     }
                     InputEventFilterResult::ForwardAndInterceptGrab => {
                         Some((event2, mouse_grabber_stack.clone(), item_rc, false))
@@ -509,6 +512,9 @@ pub fn process_mouse_input(
         },
         (Vector2D::new(0 as Coord, 0 as Coord), Vec::new()),
     );
+
+    send_exit_events(&mouse_input_state, mouse_event.pos(), window);
+
     result
 }
 
