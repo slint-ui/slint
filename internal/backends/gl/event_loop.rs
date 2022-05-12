@@ -600,7 +600,7 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
                     *control_flow = winit::event_loop::ControlFlow::Poll;
                 }
 
-                winit::event::Event::MainEventsCleared => {
+                winit::event::Event::NewEvents(_) => {
                     corelib::timers::TimerList::maybe_activate_timers();
                     corelib::animations::update_animations();
                 }
