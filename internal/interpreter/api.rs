@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use core::convert::{TryFrom, TryInto};
+use core::convert::TryFrom;
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::graphics::Image;
 use i_slint_core::model::{Model, ModelRc};
@@ -71,7 +71,7 @@ impl From<LangType> for ValueType {
 
 /// This is a dynamically typed value used in the Slint interpreter.
 /// It can hold a value of different types, and you should use the
-/// [`From`] or [`TryInto`] traits to access the value.
+/// [`From`] or [`TryFrom`] traits to access the value.
 ///
 /// ```
 /// # use slint_interpreter::*;
@@ -226,7 +226,7 @@ declare_value_conversion!(PathData => [PathData]);
 declare_value_conversion!(EasingCurve => [i_slint_core::animations::EasingCurve]);
 declare_value_conversion!(LayoutCache => [SharedVector<f32>] );
 
-/// Implement From / TryInto for Value that convert a `struct` to/from `Value::Object`
+/// Implement From / TryFrom for Value that convert a `struct` to/from `Value::Object`
 macro_rules! declare_value_struct_conversion {
     (struct $name:path { $($field:ident),* $(, ..$extra:expr)? }) => {
         impl From<$name> for Value {
@@ -262,7 +262,7 @@ declare_value_struct_conversion!(struct i_slint_core::layout::LayoutInfo { min, 
 declare_value_struct_conversion!(struct i_slint_core::graphics::Point { x, y, ..Default::default()});
 declare_value_struct_conversion!(struct i_slint_core::items::PointerEvent { kind, button });
 
-/// Implement From / TryInto for Value that convert an `enum` to/from `Value::EnumerationValue`
+/// Implement From / TryFrom for Value that convert an `enum` to/from `Value::EnumerationValue`
 ///
 /// The `enum` must derive `Display` and `FromStr`
 /// (can be done with `strum_macros::EnumString`, `strum_macros::Display` derive macro)
@@ -276,9 +276,9 @@ macro_rules! declare_value_enum_conversion {
                 )
             }
         }
-        impl TryInto<i_slint_core::items::$Name> for Value {
+        impl TryFrom<Value> for i_slint_core::items::$Name {
             type Error = ();
-            fn try_into(self) -> Result<i_slint_core::items::$Name, ()> {
+            fn try_from(v: Value) -> Result<i_slint_core::items::$Name, ()> {
                 use std::str::FromStr;
                 match self {
                     Self::EnumerationValue(enumeration, value) => {
@@ -308,9 +308,9 @@ impl From<i_slint_core::animations::Instant> for Value {
         Value::Number(value.0 as _)
     }
 }
-impl TryInto<i_slint_core::animations::Instant> for Value {
+impl TryFrom<Value> for i_slint_core::animations::Instant {
     type Error = ();
-    fn try_into(self) -> Result<i_slint_core::animations::Instant, ()> {
+    fn try_from(v: Value) -> Result<i_slint_core::animations::Instant, Self::Error> {
         match self {
             Value::Number(x) => Ok(i_slint_core::animations::Instant(x as _)),
             _ => Err(()),
@@ -324,10 +324,10 @@ impl From<()> for Value {
         Value::Void
     }
 }
-impl TryInto<()> for Value {
+impl TryFrom<Value> for () {
     type Error = ();
     #[inline]
-    fn try_into(self) -> Result<(), ()> {
+    fn try_into(v: Value) -> Result<(), Self::Error> {
         Ok(())
     }
 }
@@ -338,10 +338,10 @@ impl From<i_slint_core::Color> for Value {
         Value::Brush(Brush::SolidColor(c))
     }
 }
-impl TryInto<i_slint_core::Color> for Value {
+impl TryFrom<Value> for i_slint_core::Color {
     type Error = Value;
     #[inline]
-    fn try_into(self) -> Result<i_slint_core::Color, Value> {
+    fn try_from(v: Value) -> Result<i_slint_core::Color, Self::Error> {
         match self {
             Value::Brush(Brush::SolidColor(c)) => Ok(c),
             _ => Err(self),
@@ -365,7 +365,7 @@ pub(crate) fn normalize_identifier(ident: &str) -> Cow<'_, str> {
 /// written with the `{ key: value, }`  notation.
 ///
 /// It can be constructed with the [`FromIterator`] trait, and converted
-/// into or from a [`Value`] with the [`From`] and [`TryInto`] trait
+/// into or from a [`Value`] with the [`From`], [`TryFrom`] trait
 ///
 ///
 /// ```
