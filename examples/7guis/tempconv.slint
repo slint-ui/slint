@@ -14,7 +14,10 @@ TempConv := Window {
                 }
             }
         }
-        Text { text: "Celcius = "; }
+        Text {
+            text: "°Celcius = ";
+            vertical-alignment: center;
+        }
         f := LineEdit {
             text: "32";
             edited(text) => {
@@ -23,6 +26,9 @@ TempConv := Window {
                 }
             }
         }
-        Text { text: "Fahrenheit"; }
+        Text {
+            text: "°Fahrenheit";
+            vertical-alignment: center;
+        }
     }
 }
