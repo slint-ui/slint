@@ -9,51 +9,98 @@ use i_slint_core::item_tree::{ItemRc, ItemWeak};
 use i_slint_core::SharedVector;
 use qttypes::QString;
 
+use alloc::boxed::Box;
+use core::ffi::c_void;
 use std::pin::Pin;
-use std::rc::Weak;
 
 pub struct HasFocusPropertyTracker {
-    accessible_item: *mut core::ffi::c_void,
+    accessible_item: *mut c_void,
 }
 
 impl i_slint_core::properties::PropertyChangeHandler for HasFocusPropertyTracker {
     fn notify(&self) {
         let accessible_item = self.accessible_item;
-        cpp!(unsafe [accessible_item as "Slint_accessible_item*"] {
-            QTimer::singleShot(0, [accessible_item]() {
-                // Delete this once we have returned from here: This is owned by the old
-                // QAccessibleInterface!
-                auto obj = accessible_item->object();
-                auto event = QAccessibleEvent(obj, QAccessible::Focus);
-                QAccessible::updateAccessibility(&event);
-            });
+        let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> &SlintAccessibleItemData as "void*" {
+            auto obj = accessible_item->object();
+            auto event = QAccessibleEvent(obj, QAccessible::Focus);
 
-            accessible_item->armFocusTracker();
+            QAccessible::updateAccessibility(&event);
+
+            return accessible_item->data();
         });
+        data.arm_focus_tracker();
     }
 }
 
 pub struct AccessibleItemPropertiesTracker {
-    accessible_item: *mut core::ffi::c_void,
+    accessible_item: *mut c_void,
 }
 
 impl i_slint_core::properties::PropertyChangeHandler for AccessibleItemPropertiesTracker {
     fn notify(&self) {
         let accessible_item = self.accessible_item;
-        cpp!(unsafe [accessible_item as "Slint_accessible_item*"] {
-            QTimer::singleShot(0, [accessible_item]() {
-                // Delete this once we have returned from here: This is owned by the old
-                // QAccessibleInterface!
-                auto obj = accessible_item->object();
-                auto id = QAccessible::uniqueId(accessible_item);
-                auto new_ai = new Slint_accessible_item(accessible_item->takeRustItem(), obj,
-                    accessible_item->role(), accessible_item->parent());
-                QAccessible::deleteAccessibleInterface(id);
-                QAccessible::registerAccessibleInterface(new_ai);
+        let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> &SlintAccessibleItemData as "void*"{
+            auto obj = accessible_item->object();
 
-                auto event = QAccessibleStateChangeEvent(obj, new_ai->state());
-                QAccessible::updateAccessibility(&event);
-            });
+            auto event = QAccessibleStateChangeEvent(obj, accessible_item->state());
+            QAccessible::updateAccessibility(&event);
+
+            return accessible_item->data();
+        });
+        data.arm_state_tracker();
+    }
+}
+
+pub struct SlintAccessibleItemData {
+    state_tracker:
+        Pin<Box<i_slint_core::properties::PropertyTracker<AccessibleItemPropertiesTracker>>>,
+    focus_tracker: Pin<Box<i_slint_core::properties::PropertyTracker<HasFocusPropertyTracker>>>,
+    item: ItemWeak,
+}
+
+impl SlintAccessibleItemData {
+    fn new(accessible_item: *mut c_void, item: &ItemWeak) -> Self {
+        let state_tracker = i_slint_core::properties::PropertyTracker::new_with_change_handler(
+            AccessibleItemPropertiesTracker { accessible_item },
+        );
+        let focus_tracker = i_slint_core::properties::PropertyTracker::new_with_change_handler(
+            HasFocusPropertyTracker { accessible_item },
+        );
+
+        let result = Self {
+            state_tracker: Box::pin(state_tracker),
+            focus_tracker: Box::pin(focus_tracker),
+            item: item.clone(),
+        };
+
+        result.arm_state_tracker();
+        result.arm_focus_tracker();
+
+        result
+    }
+
+    fn arm_state_tracker(&self) {
+        let item = self.item.clone();
+        self.state_tracker.as_ref().evaluate_as_dependency_root(move || {
+            if let Some(item_rc) = item.upgrade() {
+                item_rc.accessible_string_property(
+                    i_slint_core::accessibility::AccessibleStringProperty::Label,
+                );
+                item_rc.accessible_string_property(
+                    i_slint_core::accessibility::AccessibleStringProperty::Description,
+                );
+            }
+        });
+    }
+
+    fn arm_focus_tracker(&self) {
+        let item = self.item.clone();
+        self.focus_tracker.as_ref().evaluate_as_dependency_root(move || {
+            if let Some(item_rc) = item.upgrade() {
+                item_rc.accessible_string_property(
+                    i_slint_core::accessibility::AccessibleStringProperty::HasFocus,
+                );
+            }
         });
     }
 }
@@ -70,7 +117,7 @@ cpp! {{
     class Descendents {
     public:
         Descendents(void *root_item) {
-            rustDescendents = rust!(Descendents_ctor [root_item: *mut core::ffi::c_void as "void*"] ->
+            rustDescendents = rust!(Descendents_ctor [root_item: *mut c_void as "void*"] ->
                     SharedVector<ItemRc> as "void*" {
                 let mut descendents = i_slint_core::accessibility::accessible_descendents(
                         &*(root_item as *mut ItemRc));
@@ -87,7 +134,7 @@ cpp! {{
         void* itemAt(size_t index) {
             return rust!(Descendents_itemAt [rustDescendents: SharedVector<ItemRc> as "void*",
                                              index: usize as "size_t"]
-                    -> *mut core::ffi::c_void as "void*" {
+                    -> *mut c_void as "void*" {
                 let item_rc = rustDescendents[index].clone();
                 let mut item_weak = Box::new(item_rc.downgrade());
 
@@ -124,20 +171,18 @@ cpp! {{
     };
 
     void *root_item_for_window(void *rustWindow) {
-        return rust!(root_item_for_window_ [rustWindow: *const core::ffi::c_void as "void*"]
-                -> *mut core::ffi::c_void as "void*" {
-            let window = &*(rustWindow as *const i_slint_core::window::Window);
-
-            let root_item = Box::new(ItemRc::new(window.component(), 0).downgrade());
+        return rust!(root_item_for_window_ [rustWindow: &i_slint_core::window::Window as "void*"]
+                -> *mut c_void as "void*" {
+            let root_item = Box::new(ItemRc::new(rustWindow.component(), 0).downgrade());
             Box::into_raw(root_item) as _
         });
     }
 
-    QString item_string_property(void *rustItem, uint32_t what) {
+    QString item_string_property(void *data, uint32_t what) {
         return rust!(item_string_property_
-            [rustItem: &ItemWeak as "void*", what: u32 as "uint32_t"]
+            [data: &SlintAccessibleItemData as "void*", what: u32 as "uint32_t"]
                 -> QString as "QString" {
-            if let Some(item) = rustItem.upgrade() {
+            if let Some(item) = data.item.upgrade() {
                 let string = match what {
                     0 /* Name */ => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Label),
                     1 /* Description */ => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Description),
@@ -222,7 +267,7 @@ cpp! {{
         QRect rect() const override {
             auto item = rustItem();
             QRectF r = rust!(Slint_accessible_item_rect
-                [item: *mut ItemWeak as "void*"] -> qttypes::QRectF as "QRectF" {
+                [item: *const ItemWeak as "void*"] -> qttypes::QRectF as "QRectF" {
                     if let Some(item_rc) = item.as_ref().unwrap().upgrade() {
                         let geometry = item_rc.borrow().as_ref().geometry();
 
@@ -273,73 +318,32 @@ cpp! {{
     class Slint_accessible_item : public Slint_accessible {
     public:
         Slint_accessible_item(void *item, QObject *obj, QAccessible::Role role, QAccessibleInterface *parent) :
-            Slint_accessible(obj, role, parent), m_rustItem(item)
+            Slint_accessible(obj, role, parent)
         {
-            m_stateTracker = rust!(Slint_accessible_item_ctor [this: *mut core::ffi::c_void as "Slint_accessible_item*",
-                    m_rustItem: &ItemWeak as "void*"] ->
-                    *mut i_slint_core::properties::PropertyTracker<AccessibleItemPropertiesTracker> as "void*" {
-                        let item = m_rustItem.clone();
-                        let property_tracker =
-                            i_slint_core::properties::PropertyTracker::new_with_change_handler(AccessibleItemPropertiesTracker {
-                                accessible_item: this,
-                            });
-                        let property_tracker = Box::pin(property_tracker);
-                        property_tracker.as_ref().evaluate_as_dependency_root(move || {
-                            if let Some(item_rc) = item.upgrade() {
-                                item_rc.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Label);
-                                item_rc.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Description);
-                            }
-                        });
-                        Box::into_raw(unsafe { core::pin::Pin::into_inner_unchecked(property_tracker) })
-                    });
-            m_focusTracker = rust!(Slint_accessible_item_ctor_2 [this: *mut core::ffi::c_void as "Slint_accessible_item*"] ->
-                    *mut i_slint_core::properties::PropertyTracker<HasFocusPropertyTracker> as "void*" {
-                        let property_tracker =
-                            i_slint_core::properties::PropertyTracker::new_with_change_handler(HasFocusPropertyTracker {
-                                accessible_item: this,
-                            });
-                        let property_tracker = Box::pin(property_tracker);
-                        Box::into_raw(unsafe { core::pin::Pin::into_inner_unchecked(property_tracker) })
-                    });
-            armFocusTracker();
-        }
-
-        ~Slint_accessible_item() {
-            rust!(Slint_accessible_item_dtor [
-                m_rustItem: *mut ItemWeak as "void*",
-                m_focusTracker: *mut i_slint_core::properties::PropertyTracker<HasFocusPropertyTracker> as "void*",
-                m_stateTracker: *mut i_slint_core::properties::PropertyTracker<AccessibleItemPropertiesTracker> as "void*"] {
-                if !m_rustItem.is_null() {
-                    Box::from_raw(m_rustItem);
-                };
-                Box::from_raw(m_stateTracker);
-                Box::from_raw(m_focusTracker);
+            m_data = rust!(Slint_accessible_item_ctor [this: *mut c_void as "Slint_accessible_item*",
+                    item: &ItemWeak as "void*"] ->
+                    *mut SlintAccessibleItemData as "void*" {
+                        let data = Box::new(SlintAccessibleItemData::new(this, item));
+                        Box::into_raw(data)
             });
         }
 
-        void armFocusTracker() {
-            rust!(Slint_accessible_item_arm_focus_tracker [
-                m_rustItem: &ItemWeak as "void*",
-                m_focusTracker: &i_slint_core::properties::PropertyTracker<HasFocusPropertyTracker> as "void*"] {
-                    let item = m_rustItem.clone();
-                    let m_focusTracker = unsafe { Pin::new_unchecked(m_focusTracker) };
-                    m_focusTracker.evaluate_as_dependency_root(move || {
-                        if let Some(item_rc) = item.upgrade() {
-                            item_rc.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::HasFocus);
-                        }
-                    });
-                    unsafe { Pin::into_inner_unchecked(m_focusTracker) };
+        ~Slint_accessible_item() {
+            rust!(Slint_accessible_item_dtor [m_data: *mut SlintAccessibleItemData as "void*"] {
+                if !m_data.is_null() {
+                    Box::from_raw(m_data);
+                };
             });
         }
 
         void *rustItem() const override {
-            return m_rustItem;
+            return rust!(Slint_accessible_item_rustItem [m_data: &SlintAccessibleItemData as "void*"] -> *const ItemWeak as "void*" {
+                &m_data.item
+            });
         }
 
-        void *takeRustItem() {
-            auto item = m_rustItem;
-            m_rustItem = nullptr;
-            return item;
+        void *data() const {
+            return m_data;
         }
 
         QWindow *window() const override {
@@ -348,22 +352,20 @@ cpp! {{
 
         // properties and state
         QString text(QAccessible::Text t) const override {
-            return item_string_property(m_rustItem, t);
+            return item_string_property(m_data, t);
         }
 
         QAccessible::State state() const override {
             QAccessible::State state;
             state.active = 1;
             state.focusable = 1;
-            state.focused = (item_string_property(m_rustItem, QAccessible::UserText) == "true") ? 1 : 0;
-            state.checked = (item_string_property(m_rustItem, QAccessible::UserText + 1) == "true") ? 1 : 0;
+            state.focused = (item_string_property(m_data, QAccessible::UserText) == "true") ? 1 : 0;
+            state.checked = (item_string_property(m_data, QAccessible::UserText + 1) == "true") ? 1 : 0;
             return state; /* FIXME */
         }
 
     private:
-        void *m_rustItem = nullptr; // A rust item to make accessible (Actually a ItemWeak!)
-        void *m_stateTracker = nullptr; // (Actually a Pin<Box<PropertyTracker<AccessibleItemPropertiesTracker>>>)
-        void *m_focusTracker = nullptr; // (Actually a Pin<Box<PropertyTracker<AccessibleItemPropertiesTracker>>>)
+        mutable void *m_data = nullptr;
     };
 
     // ------------------------------------------------------------------------------
@@ -379,8 +381,8 @@ cpp! {{
 
         ~Slint_accessible_window()
         {
-            rust!(Slint_accessible_window_dtor [m_rustWindow: *mut core::ffi::c_void as "void*"] {
-                Weak::from_raw(m_rustWindow as _); // Consume the Weak wo hold in our void*!
+            rust!(Slint_accessible_window_dtor [m_rustWindow: *mut c_void as "void*"] {
+                alloc::rc::Weak::from_raw(m_rustWindow as _); // Consume the Weak wo hold in our void*!
             });
         }
 
