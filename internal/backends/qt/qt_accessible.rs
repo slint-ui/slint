@@ -53,28 +53,54 @@ impl i_slint_core::properties::PropertyChangeHandler for AccessibleItemPropertie
     }
 }
 
+pub struct ValuePropertyTracker {
+    accessible_item: *mut c_void,
+}
+
+impl i_slint_core::properties::PropertyChangeHandler for ValuePropertyTracker {
+    fn notify(&self) {
+        let accessible_item = self.accessible_item;
+        let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> Pin<&SlintAccessibleItemData> as "void*" {
+            auto obj = accessible_item->object();
+
+            auto event = QAccessibleValueChangeEvent(obj, accessible_item->text(QAccessible::Value));
+            QAccessible::updateAccessibility(&event);
+
+            return accessible_item->data();
+        });
+        data.arm_value_tracker();
+    }
+}
+
 #[pin_project]
 pub struct SlintAccessibleItemData {
     #[pin]
+    focus_tracker: i_slint_core::properties::PropertyTracker<HasFocusPropertyTracker>,
+    #[pin]
     state_tracker: i_slint_core::properties::PropertyTracker<AccessibleItemPropertiesTracker>,
     #[pin]
-    focus_tracker: i_slint_core::properties::PropertyTracker<HasFocusPropertyTracker>,
+    value_tracker: i_slint_core::properties::PropertyTracker<ValuePropertyTracker>,
     item: ItemWeak,
 }
 
 impl SlintAccessibleItemData {
     fn new(accessible_item: *mut c_void, item: &ItemWeak) -> Pin<Box<Self>> {
-        let state_tracker = i_slint_core::properties::PropertyTracker::new_with_change_handler(
-            AccessibleItemPropertiesTracker { accessible_item },
-        );
         let focus_tracker = i_slint_core::properties::PropertyTracker::new_with_change_handler(
             HasFocusPropertyTracker { accessible_item },
         );
+        let state_tracker = i_slint_core::properties::PropertyTracker::new_with_change_handler(
+            AccessibleItemPropertiesTracker { accessible_item },
+        );
+        let value_tracker = i_slint_core::properties::PropertyTracker::new_with_change_handler(
+            ValuePropertyTracker { accessible_item },
+        );
 
-        let result = Box::pin(Self { state_tracker, focus_tracker, item: item.clone() });
+        let result =
+            Box::pin(Self { focus_tracker, state_tracker, value_tracker, item: item.clone() });
 
-        result.as_ref().arm_state_tracker();
         result.as_ref().arm_focus_tracker();
+        result.as_ref().arm_state_tracker();
+        result.as_ref().arm_value_tracker();
 
         result
     }
@@ -104,6 +130,27 @@ impl SlintAccessibleItemData {
             if let Some(item_rc) = item.upgrade() {
                 item_rc.accessible_string_property(
                     i_slint_core::accessibility::AccessibleStringProperty::HasFocus,
+                );
+            }
+        });
+    }
+
+    fn arm_value_tracker(self: Pin<&Self>) {
+        let item = self.item.clone();
+        let p = self.project_ref();
+        p.value_tracker.evaluate_as_dependency_root(move || {
+            if let Some(item_rc) = item.upgrade() {
+                item_rc.accessible_string_property(
+                    i_slint_core::accessibility::AccessibleStringProperty::Value,
+                );
+                item_rc.accessible_string_property(
+                    i_slint_core::accessibility::AccessibleStringProperty::ValueMinimum,
+                );
+                item_rc.accessible_string_property(
+                    i_slint_core::accessibility::AccessibleStringProperty::ValueMaximum,
+                );
+                item_rc.accessible_string_property(
+                    i_slint_core::accessibility::AccessibleStringProperty::ValueStep,
                 );
             }
         });
@@ -160,6 +207,7 @@ cpp! {{
                     i_slint_core::items::AccessibleRole::button => 0x2b, // QAccessible::Button
                     i_slint_core::items::AccessibleRole::checkbox => 0x2c, // QAccessible::CheckBox
                     i_slint_core::items::AccessibleRole::combobox => 0x2e, // QAccessible::ComboBox
+                    i_slint_core::items::AccessibleRole::slider => 0x33, // QAccessible::Slider
                     i_slint_core::items::AccessibleRole::spinbox => 0x34, // QAccessible::SpinBox
                     i_slint_core::items::AccessibleRole::tab => 0x25, // QAccessible::TabPage
                     i_slint_core::items::AccessibleRole::text => 0x29, // QAccessible::StaticText
@@ -194,8 +242,12 @@ cpp! {{
                 let string = match what {
                     0 /* Name */ => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Label),
                     1 /* Description */ => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Description),
+                    2 /* Value */ => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Value),
                     0xffff /* UserText */ => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::HasFocus),
                     0x10000 /* UserText + 1 */ => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Checked),
+                    0x10001 /* UserText + 2 */ => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::ValueMinimum),
+                    0x10002 /* UserText + 3 */ => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::ValueMaximum),
+                    0x10003 /* UserText + 4 */ => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::ValueStep),
                     _ => Default::default(),
                 };
                 QString::from(string.as_ref())
@@ -323,7 +375,7 @@ cpp! {{
     // Slint_accessible_item:
     // ------------------------------------------------------------------------------
 
-    class Slint_accessible_item : public Slint_accessible {
+    class Slint_accessible_item : public Slint_accessible, public QAccessibleValueInterface {
     public:
         Slint_accessible_item(void *item, QObject *obj, QAccessible::Role role, QAccessibleInterface *parent) :
             Slint_accessible(obj, role, parent)
@@ -370,6 +422,35 @@ cpp! {{
             state.focused = (item_string_property(m_data, QAccessible::UserText) == "true") ? 1 : 0;
             state.checked = (item_string_property(m_data, QAccessible::UserText + 1) == "true") ? 1 : 0;
             return state; /* FIXME */
+        }
+
+        void *interface_cast(QAccessible::InterfaceType t) {
+            if (t == QAccessible::ValueInterface && !item_string_property(m_data, QAccessible::Value).isEmpty()) {
+                return static_cast<QAccessibleValueInterface*>(this);
+            }
+            return QAccessibleInterface::interface_cast(t);
+        }
+
+        // AccessibleValueInterface:
+        QVariant currentValue() const override {
+            return item_string_property(m_data, QAccessible::Value);
+        }
+
+        void setCurrentValue(const QVariant &value) override {
+            // FIXME: Implement this?
+            Q_UNUSED(value);
+        }
+
+        QVariant maximumValue() const override {
+            return item_string_property(m_data, QAccessible::UserText + 2);
+        }
+
+        QVariant minimumValue() const override {
+            return item_string_property(m_data, QAccessible::UserText + 3);
+        }
+
+        QVariant minimumStepSize() const override {
+            return item_string_property(m_data, QAccessible::UserText + 4);
         }
 
     private:
