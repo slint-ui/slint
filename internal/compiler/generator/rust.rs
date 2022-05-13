@@ -1565,7 +1565,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::CallBackCall { callback, arguments } => {
             let f = access_member(callback, ctx);
             let a = arguments.iter().map(|a| compile_expression(a, ctx));
-            quote! { #f.call(&(#(#a.clone() as _,)*).into())}
+            quote! { #f.call(&(#(#a as _,)*).into())}
         }
         Expression::ExtraBuiltinFunctionCall { function, arguments, return_ty: _ } => {
             let f = ident(function);
@@ -1787,7 +1787,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         Expression::ReadLocalVariable { name, .. } => {
             let name = ident(name);
-            quote!(#name)
+            quote!(#name.clone())
         }
         Expression::EasingCurve(EasingCurve::Linear) => {
             quote!(slint::re_exports::EasingCurve::Linear)

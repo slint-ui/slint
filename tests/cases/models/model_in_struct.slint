@@ -14,4 +14,9 @@ struct Bar := {
 
 TestCase := Rectangle {
     property <[Bar]> bars: [];
+
+    // make sure the generated code compiles (that we generate .clone() properly)
+    property <Foo> foo: {ok: true};
+    property <Bar> bar: {foos: [foo, foo]};
+    property <[Bar]> bars2: [bar, bar];
 }
