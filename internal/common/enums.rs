@@ -87,7 +87,7 @@ macro_rules! for_each_enums {
                 ignore,
             }
 
-            /// This enum represent the value of the `dialog-button-role` property which can be added to
+            /// This enum represents the value of the `dialog-button-role` property which can be added to
             /// any element within a `Dialog` to put that item in the button row, and its exact position
             /// depends on the role and the platform.
             enum DialogButtonRole {
@@ -103,7 +103,7 @@ macro_rules! for_each_enums {
                 reset,
                 /// This is the role of the  "Help" button
                 help,
-                /// This is the role of any other button that perform another action.
+                /// This is the role of any other button that performs another action.
                 action,
             }
 

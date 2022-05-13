@@ -69,7 +69,7 @@ The default value of each enum type is always the first value.
 
 ## `DialogButtonRole`
 
- This enum represent the value of the `dialog-button-role` property which can be added to
+ This enum represents the value of the `dialog-button-role` property which can be added to
  any element within a `Dialog` to put that item in the button row, and its exact position
  depends on the role and the platform.
 
@@ -79,7 +79,7 @@ The default value of each enum type is always the first value.
 * **`apply`**: This is the role of the "Apply" button
 * **`reset`**: This is the role of the "Reset" button
 * **`help`**: This is the role of the  "Help" button
-* **`action`**: This is the role of any other button that perform another action.
+* **`action`**: This is the role of any other button that performs another action.
 
 ## `PointerEventKind`
 
