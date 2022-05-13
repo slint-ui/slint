@@ -12,28 +12,28 @@ slint::slint!(import { MainWindow } from "cells.slint";);
 const ROW_COUNT: usize = 100;
 const COL_COUNT: usize = 26;
 
-/// Graph of dependences so that node B depends on node A.
+/// Graph of dependencies so that node B depends on node A.
 /// So when node A is updated, node B also need to re updated.
 #[derive(Default)]
 struct DepGraph<A, B> {
-    index1: HashMap<A, HashSet<B>>,
-    index2: HashMap<B, HashSet<A>>,
+    dependent_index: HashMap<A, HashSet<B>>,
+    dependency_index: HashMap<B, HashSet<A>>,
 }
 
 impl<A: Clone + Eq + Hash, B: Clone + Eq + Hash> DepGraph<A, B> {
     pub fn add_dep(&mut self, a: A, b: B) {
-        self.index1.entry(a.clone()).or_default().insert(b.clone());
-        self.index2.entry(b).or_default().insert(a);
+        self.dependent_index.entry(a.clone()).or_default().insert(b.clone());
+        self.dependency_index.entry(b).or_default().insert(a);
     }
 
-    pub fn deps<'a>(&'a self, a: &A) -> impl Iterator<Item = &B> + 'a {
-        self.index1.get(a).into_iter().flat_map(|x| x.iter())
+    pub fn dependents<'a>(&'a self, a: &A) -> impl Iterator<Item = &B> + 'a {
+        self.dependent_index.get(a).into_iter().flat_map(|x| x.iter())
     }
 
-    pub fn remove_rev_deps(&mut self, b: &B) {
-        if let Some(h) = self.index2.remove(b) {
+    pub fn remove_dependencies(&mut self, b: &B) {
+        if let Some(h) = self.dependency_index.remove(b) {
             for a in h {
-                self.index1.get_mut(&a).map(|x| x.remove(b));
+                self.dependent_index.get_mut(&a).map(|x| x.remove(b));
             }
         }
     }
@@ -42,7 +42,7 @@ impl<A: Clone + Eq + Hash, B: Clone + Eq + Hash> DepGraph<A, B> {
 #[derive(Debug, PartialEq)]
 enum Expr {
     Value(f32),
-    Cell(usize, usize),
+    Cell(usize, usize), // (row, column)
     Add(Box<(Expr, Expr)>),
     Sub(Box<(Expr, Expr)>),
 }
@@ -108,7 +108,7 @@ fn test_parse_formula() {
 
 struct RowModel {
     row: usize,
-    row_data: RefCell<Vec<CellContent>>,
+    row_elements: RefCell<Vec<CellContent>>,
     base_model: Weak<CellsModel>,
     notify: slint::ModelNotify,
 }
@@ -117,11 +117,11 @@ impl slint::Model for RowModel {
     type Data = CellContent;
 
     fn row_count(&self) -> usize {
-        self.row_data.borrow().len()
+        self.row_elements.borrow().len()
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
-        self.row_data.borrow().get(row).cloned()
+        self.row_elements.borrow().get(row).cloned()
     }
 
     fn model_tracker(&self) -> &dyn slint::ModelTracker {
@@ -147,7 +147,7 @@ impl CellsModel {
                 .map(|row| {
                     Rc::new(RowModel {
                         row,
-                        row_data: vec![CellContent::default(); COL_COUNT].into(),
+                        row_elements: vec![CellContent::default(); COL_COUNT].into(),
                         base_model: w.clone(),
                         notify: Default::default(),
                     })
@@ -158,13 +158,13 @@ impl CellsModel {
     }
 
     fn get_cell_value(&self, row: usize, col: usize) -> Option<f32> {
-        self.rows.get(row)?.row_data.borrow().get(col)?.value.into()
+        self.rows.get(row)?.row_elements.borrow().get(col)?.value.into()
     }
 
-    /// Update a cell to a new formula, or re_avaluate the current formula of that cell
+    /// Update a cell to a new formula, or re-evaluate the current formula of that cell
     fn update_cell(&self, row: usize, col: usize, new_formula: Option<SharedString>) -> Option<()> {
         let r_model = self.rows.get(row)?;
-        let mut r = r_model.row_data.borrow_mut();
+        let mut r = r_model.row_elements.borrow_mut();
         let data = r.get_mut(col)?;
         let new_form = new_formula.is_some();
         if let Some(new_formula) = new_formula {
@@ -173,15 +173,15 @@ impl CellsModel {
         let exp = parse_formula(&data.formula).unwrap_or(Expr::Value(0.));
 
         drop(r);
-        self.dep_graph.borrow_mut().remove_rev_deps(&(row, col));
+        self.dep_graph.borrow_mut().remove_dependencies(&(row, col));
         let new = self.eval(&exp);
-        let mut r = r_model.row_data.borrow_mut();
+        let mut r = r_model.row_elements.borrow_mut();
         let data = r.get_mut(col)?;
         if data.value != new {
             data.value = new;
             drop(r);
             r_model.notify.row_changed(col);
-            let deps = self.dep_graph.borrow().deps(&(row, col)).cloned().collect::<Vec<_>>();
+            let deps = self.dep_graph.borrow().dependents(&(row, col)).cloned().collect::<Vec<_>>();
             for (r, c) in deps {
                 self.update_cell(r, c, None);
             }
