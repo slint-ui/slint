@@ -74,7 +74,7 @@ jobs:
     - name: Check Enum docs
       run: |
         cargo xtask enumdocs
-        echo "Check that the docs were actual. If there is a diff you need co call 'cargo xtask enumdocs'"
+        echo "Check that the docs were actual. If there is a diff you need to run 'cargo xtask enumdocs'"
         git diff --exit-code
     - name: Check reuse compliance
       run: cargo xtask check_reuse_compliance
