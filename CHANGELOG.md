@@ -3,6 +3,10 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Changed
+
+ - Interpreter: Implement `TryFrom<Value>` instead of `TryInto for Value` (#1258)
+
 ### Added
 
  - Added the Model Adapters `FilterModel` and `MapModel`.
