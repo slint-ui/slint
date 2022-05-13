@@ -8,7 +8,7 @@ use euclid::num::Zero;
 use super::ShapeBuffer;
 
 #[derive(Clone)]
-pub struct Grapheme<Length: Clone> {
+pub struct GlyphCluster<Length: Clone> {
     pub byte_range: Range<usize>,
     pub glyph_range: Range<usize>,
     pub width: Length,
@@ -16,7 +16,7 @@ pub struct Grapheme<Length: Clone> {
 }
 
 #[derive(Clone)]
-pub struct GraphemeIterator<'a, Length, PlatformGlyph> {
+pub struct GlyphClusterIterator<'a, Length, PlatformGlyph> {
     text: &'a str,
     shaped_text: &'a ShapeBuffer<Length, PlatformGlyph>,
     current_run: usize,
@@ -26,7 +26,7 @@ pub struct GraphemeIterator<'a, Length, PlatformGlyph> {
     marker: PhantomData<Length>,
 }
 
-impl<'a, Length, PlatformGlyph> GraphemeIterator<'a, Length, PlatformGlyph> {
+impl<'a, Length, PlatformGlyph> GlyphClusterIterator<'a, Length, PlatformGlyph> {
     pub fn new(text: &'a str, shaped_text: &'a ShapeBuffer<Length, PlatformGlyph>) -> Self {
         Self {
             text,
@@ -40,9 +40,9 @@ impl<'a, Length, PlatformGlyph> GraphemeIterator<'a, Length, PlatformGlyph> {
 }
 
 impl<'a, Length: Copy + Clone + Zero + core::ops::AddAssign, PlatformGlyph> Iterator
-    for GraphemeIterator<'a, Length, PlatformGlyph>
+    for GlyphClusterIterator<'a, Length, PlatformGlyph>
 {
-    type Item = Grapheme<Length>;
+    type Item = GlyphCluster<Length>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current_run >= self.shaped_text.text_runs.len() {
@@ -57,9 +57,9 @@ impl<'a, Length: Copy + Clone + Zero + core::ops::AddAssign, PlatformGlyph> Iter
                 self.shaped_text.text_runs.get(self.current_run)?
             };
 
-        let mut grapheme_width: Length = Length::zero();
+        let mut cluster_width: Length = Length::zero();
 
-        let grapheme_glyph_start = self.glyph_index;
+        let cluster_start = self.glyph_index;
 
         let mut cluster_byte_offset;
         loop {
@@ -69,7 +69,7 @@ impl<'a, Length: Copy + Clone + Zero + core::ops::AddAssign, PlatformGlyph> Iter
             if cluster_byte_offset != self.byte_offset {
                 break;
             }
-            grapheme_width += glyph.advance;
+            cluster_width += glyph.advance;
 
             self.glyph_index += 1;
 
@@ -78,8 +78,7 @@ impl<'a, Length: Copy + Clone + Zero + core::ops::AddAssign, PlatformGlyph> Iter
                 break;
             }
         }
-        let grapheme_byte_offset = self.byte_offset;
-        let grapheme_byte_len = cluster_byte_offset - self.byte_offset;
+        let byte_range = self.byte_offset..cluster_byte_offset;
         let is_whitespace = self.text[self.byte_offset..]
             .chars()
             .next()
@@ -87,13 +86,10 @@ impl<'a, Length: Copy + Clone + Zero + core::ops::AddAssign, PlatformGlyph> Iter
             .unwrap_or_default();
         self.byte_offset = cluster_byte_offset;
 
-        Some(Grapheme {
-            byte_range: Range {
-                start: grapheme_byte_offset,
-                end: grapheme_byte_offset + grapheme_byte_len,
-            },
-            glyph_range: Range { start: grapheme_glyph_start, end: self.glyph_index },
-            width: grapheme_width,
+        Some(GlyphCluster {
+            byte_range,
+            glyph_range: Range { start: cluster_start, end: self.glyph_index },
+            width: cluster_width,
             is_whitespace,
         })
     }

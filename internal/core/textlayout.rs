@@ -8,13 +8,13 @@
 //!    writing systems, we split up the text into chunks that maximize our chances of finding a font that covers all glyphs in the chunk. This way for
 //!    example arabic text can be covered by a font that has excellent arabic coverage while latin text is rendered using a different font.
 //!    Shaping boundaries are always also grapheme boundaries.
-//! 2. Then we shape the text at shaping boundaries, to determine the metrics of glyphs and glyph clusters (grapheme boundaries with the shapable)
-//! 3. Loop over all graphemes as well as the line break opportunities produced by the unicode line break algorithm:
-//!     Sum up the width of all graphemes until the next line break opportunity (encapsulated in FragmentIterator), record separately the width of
+//! 2. Then we shape the text at shaping boundaries, to determine the metrics of glyphs and glyph clusters
+//! 3. Loop over all glyph clusters as well as the line break opportunities produced by the unicode line break algorithm:
+//!     Sum up the width of all glyph clusters until the next line break opportunity (encapsulated in FragmentIterator), record separately the width of
 //!     trailing space within the fragment.
-//!     If the width of the current line (including trailing whitespace) and the new fragment of graphemes (without trailing whitepace) is less or
+//!     If the width of the current line (including trailing whitespace) and the new fragment of glyph clusters (without trailing whitepace) is less or
 //!         equal to the available width:
-//!         Add fragment of graphenes to the current line
+//!         Add fragment of glyph clusters to the current line
 //!     Else:
 //!         Emit current line as new line
 //!     If encountering a mandatory line break opportunity:
@@ -38,7 +38,7 @@ mod linebreak_simple;
 use linebreak_simple::{BreakOpportunity, LineBreakIterator};
 
 mod fragments;
-mod graphemes;
+mod glyphclusters;
 mod shaping;
 use shaping::ShapeBuffer;
 pub use shaping::{Glyph, TextShaper};

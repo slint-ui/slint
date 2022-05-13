@@ -5,7 +5,7 @@ use core::ops::Range;
 
 use euclid::num::Zero;
 
-use super::graphemes::GraphemeIterator;
+use super::glyphclusters::GlyphClusterIterator;
 use super::{BreakOpportunity, LineBreakIterator, ShapeBuffer};
 
 #[derive(Debug, PartialEq, Eq, Default)]
@@ -20,7 +20,7 @@ pub struct TextFragment<Length> {
 #[derive(Clone)]
 pub struct TextFragmentIterator<'a, Length, PlatformGlyph> {
     line_breaks: LineBreakIterator<'a>,
-    grapheme_cursor: GraphemeIterator<'a, Length, PlatformGlyph>,
+    glyph_clusters: GlyphClusterIterator<'a, Length, PlatformGlyph>,
     text_len: usize,
     pub break_anywhere: bool,
 }
@@ -29,7 +29,7 @@ impl<'a, Length, PlatformGlyph> TextFragmentIterator<'a, Length, PlatformGlyph> 
     pub fn new(text: &'a str, shape_buffer: &'a ShapeBuffer<Length, PlatformGlyph>) -> Self {
         Self {
             line_breaks: LineBreakIterator::new(text),
-            grapheme_cursor: GraphemeIterator::new(text, shape_buffer),
+            glyph_clusters: GlyphClusterIterator::new(text, shape_buffer),
             text_len: text.len(),
             break_anywhere: false,
         }
@@ -42,7 +42,7 @@ impl<'a, Length: Clone + Default + core::ops::AddAssign + Zero + Copy, PlatformG
     type Item = TextFragment<Length>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let first_grapheme = self.grapheme_cursor.next()?;
+        let first_glyph_cluster = self.glyph_clusters.next()?;
 
         let mut fragment = Self::Item::default();
 
@@ -57,41 +57,43 @@ impl<'a, Length: Clone + Default + core::ops::AddAssign + Zero + Copy, PlatformG
             self.text_len
         };
 
-        if first_grapheme.is_whitespace {
-            fragment.trailing_whitespace_width = first_grapheme.width;
+        if first_glyph_cluster.is_whitespace {
+            fragment.trailing_whitespace_width = first_glyph_cluster.width;
         } else {
-            fragment.width = first_grapheme.width;
-            fragment.byte_range = first_grapheme.byte_range.clone();
+            fragment.width = first_glyph_cluster.width;
+            fragment.byte_range = first_glyph_cluster.byte_range.clone();
         }
 
-        let mut last_grapheme = first_grapheme.clone();
+        let mut last_glyph_cluster = first_glyph_cluster.clone();
 
-        while last_grapheme.byte_range.end < next_break_offset {
-            let next_grapheme = match self.grapheme_cursor.next() {
-                Some(grapheme) => grapheme,
+        while last_glyph_cluster.byte_range.end < next_break_offset {
+            let next_glyph_cluster = match self.glyph_clusters.next() {
+                Some(cluster) => cluster,
                 None => break,
             };
 
-            if next_grapheme.is_whitespace {
-                fragment.trailing_whitespace_width += next_grapheme.width;
+            if next_glyph_cluster.is_whitespace {
+                fragment.trailing_whitespace_width += next_glyph_cluster.width;
             } else {
                 // transition from whitespace to characters by treating previous trailing whitespace
                 // as regular characters
-                if last_grapheme.is_whitespace {
+                if last_glyph_cluster.is_whitespace {
                     fragment.width += core::mem::take(&mut fragment.trailing_whitespace_width);
-                    fragment.width += next_grapheme.width;
-                    fragment.byte_range.end = next_grapheme.byte_range.end;
+                    fragment.width += next_glyph_cluster.width;
+                    fragment.byte_range.end = next_glyph_cluster.byte_range.end;
                 } else {
-                    fragment.width += next_grapheme.width;
-                    fragment.byte_range.end = next_grapheme.byte_range.end;
+                    fragment.width += next_glyph_cluster.width;
+                    fragment.byte_range.end = next_glyph_cluster.byte_range.end;
                 }
             }
 
-            last_grapheme = next_grapheme.clone();
+            last_glyph_cluster = next_glyph_cluster.clone();
         }
 
-        fragment.glyph_range =
-            Range { start: first_grapheme.glyph_range.start, end: last_grapheme.glyph_range.end };
+        fragment.glyph_range = Range {
+            start: first_glyph_cluster.glyph_range.start,
+            end: last_glyph_cluster.glyph_range.end,
+        };
 
         Some(fragment)
     }
