@@ -40,6 +40,11 @@ fn can_optimize(elem: &ElementRc) -> bool {
         return false;
     };
 
+    if e.child_of_layout {
+        // The `LayoutItem` still has reference to this component, so we cannot remove it
+        return false;
+    }
+
     let base_type = match &e.base_type {
         Type::Builtin(base_type) if base_type.name == "Rectangle" => base_type,
         _ => return false,
