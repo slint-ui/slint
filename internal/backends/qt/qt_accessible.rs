@@ -90,6 +90,9 @@ impl SlintAccessibleItemData {
                 item_rc.accessible_string_property(
                     i_slint_core::accessibility::AccessibleStringProperty::Description,
                 );
+                item_rc.accessible_string_property(
+                    i_slint_core::accessibility::AccessibleStringProperty::Checked,
+                );
             }
         });
     }
