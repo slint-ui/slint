@@ -251,6 +251,8 @@ macro_rules! for_each_enums {
                 none,
                 button,
                 checkbox,
+                combobox,
+                spinbox,
                 tab,
                 text,
                 //...
