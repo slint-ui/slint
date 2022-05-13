@@ -21,7 +21,7 @@ pub enum AccessibleStringProperty {
 /// This will recurse through all children of `root_item`, but will not recurse
 /// into nodes that are accessible.
 pub fn accessible_descendents(root_item: &ItemRc) -> Vec<ItemRc> {
-    let mut result = vec![];
+    let mut result = Vec::new();
 
     // Do not look on the root_item: That is either a component root or an
     // accessible item already handled!
