@@ -156,6 +156,8 @@ cpp! {{
                     i_slint_core::items::AccessibleRole::none => 0x00, // QAccessible::NoRole
                     i_slint_core::items::AccessibleRole::button => 0x2b, // QAccessible::Button
                     i_slint_core::items::AccessibleRole::checkbox => 0x2c, // QAccessible::CheckBox
+                    i_slint_core::items::AccessibleRole::combobox => 0x2e, // QAccessible::ComboBox
+                    i_slint_core::items::AccessibleRole::spinbox => 0x34, // QAccessible::SpinBox
                     i_slint_core::items::AccessibleRole::tab => 0x25, // QAccessible::TabPage
                     i_slint_core::items::AccessibleRole::text => 0x29, // QAccessible::StaticText
                 }

@@ -131,6 +131,10 @@ export SpinBox := FocusScope {
     horizontal-stretch: 1;
     vertical-stretch: 0;
 
+    accessible-role: spinbox;
+    accessible-label: value;
+    accessible-has-focus <=> has-focus;
+
     Rectangle {
         background: !enabled ? Palette.neutralLighter : Palette.white;
     }
@@ -338,6 +342,10 @@ export TabImpl := Rectangle {
     horizontal-stretch: 0;
     vertical-stretch: 0;
 
+    accessible-role: tab;
+    accessible-has-focus <=> has-focus;
+    accessible-label <=> title;
+
     touch := TouchArea {
         enabled <=> root.enabled;
         clicked => {
@@ -490,6 +498,10 @@ export ComboBox := FocusScope {
     property <string> current-value: model[current-index];
     //property <bool> is-open: false;
     callback selected(string);
+
+    accessible-label <=> current-value;
+    accessible-role: combobox;
+    accessible-has-focus <=> has-focus;
 
     key-pressed(event) => {
         if (event.text == Keys.UpArrow) {
