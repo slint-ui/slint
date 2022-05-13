@@ -17,6 +17,7 @@ If you are already familiar with Slint, the following topics provide related inf
  * [Examples and Recipes](docs::recipes)
  * [The `.slint` language reference](docs::langref)
  * [Builtin Elements](docs::builtin_elements)
+ * [Builtin Enums](docs::builtin_enums)
  * [Widgets](docs::widgets)
  * [Positioning and Layout of Elements](docs::layouting)
  * [Debugging Techniques](docs::debugging_techniques)

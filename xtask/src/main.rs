@@ -7,6 +7,7 @@ use std::error::Error;
 use std::path::PathBuf;
 
 mod cppdocs;
+mod enumdocs;
 mod license_headers_check;
 mod nodepackage;
 mod reuse_compliance_check;
@@ -22,6 +23,8 @@ pub enum TaskCommand {
     NodePackage,
     #[clap(name = "check_reuse_compliance")]
     ReuseComplianceCheck(reuse_compliance_check::ReuseComplianceCheck),
+    #[clap(name = "enumdocs")]
+    EnumDocs,
 }
 
 #[derive(Debug, clap::Parser)]
@@ -85,6 +88,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         TaskCommand::CppDocs(cmd) => cppdocs::generate(cmd.show_warnings)?,
         TaskCommand::NodePackage => nodepackage::generate()?,
         TaskCommand::ReuseComplianceCheck(cmd) => cmd.check_reuse_compliance()?,
+        TaskCommand::EnumDocs => enumdocs::generate()?,
     };
 
     Ok(())
