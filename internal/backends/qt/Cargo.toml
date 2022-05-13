@@ -30,6 +30,7 @@ cpp = "0.5.5"
 euclid = "0.22.1"
 lyon_path = "0.17"
 once_cell = "1"
+pin-project = "1"
 pin-weak = "1"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
