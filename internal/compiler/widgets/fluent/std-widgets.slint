@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// cSpell: ignore standardbutton
+// cSpell: ignore combobox spinbox standardbutton
 
 import { LineEditInner, TextEdit, AboutSlint } from "../common/common.slint";
 import { StandardButton } from "../common/standardbutton.slint";
@@ -215,6 +215,7 @@ export Slider := Rectangle {
     property<float> maximum: 100;
     property<float> minimum: 0;
     property<float> value;
+    property<bool> has-focus <=> fs.has-focus;
     property<bool> enabled <=> touch.enabled;
     callback changed(float);
 
@@ -246,8 +247,9 @@ export Slider := Rectangle {
     }
 
     handle := Rectangle {
+        property<length> border: 3px;
         width: height;
-        height: parent.height;
+        height: parent.height - 2 * border;
         border-width: 3px;
         border-radius: height / 2;
         border-color: !root.enabled ? Palette.neutralTertiaryAlt
@@ -255,6 +257,7 @@ export Slider := Rectangle {
             : Palette.neutralSecondary;
         background: Palette.white;
         x: (root.width - handle.width) * (value - minimum)/(maximum - minimum);
+        y: border;
     }
     touch := TouchArea {
         width: parent.width;
@@ -272,6 +275,27 @@ export Slider := Rectangle {
                 root.changed(value);
             }
         }
+    }
+
+    fs := FocusScope {
+        width: 0px;
+
+        key-pressed(event) => {
+            if (enabled && event.text == Keys.RightArrow && value < maximum) {
+                value += 1;
+                accept
+            } else if (enabled && event.text == Keys.LeftArrow && value > minimum) {
+                value -= 1;
+                accept
+            } else {
+                reject
+            }
+        }
+    }
+
+    Rectangle { // Focus rectangle
+        border-width: enabled && has-focus ? 1px : 0px;
+        border-color: Palette.black;
     }
 }
 
