@@ -45,8 +45,6 @@ pub trait SyntaxNodeVerify {
 /// Check that a node has the assumed children
 #[cfg(test)]
 macro_rules! verify_node {
-    // nothing to verify
-    ($node:ident, _) => {};
     // Some combination of children
     ($node:ident, [ $($t1:tt $($t2:ident)?),* ]) => {
         // Check that every children is there
@@ -97,8 +95,6 @@ macro_rules! verify_node {
 }
 
 macro_rules! node_accessors {
-    // nothing
-    (_) => {};
     // Some combination of children
     ([ $($t1:tt $($t2:ident)?),* ]) => {
         $(node_accessors!{@ $t1 $($t2)*} )*
