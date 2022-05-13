@@ -7,6 +7,8 @@ use cpp::*;
 
 use i_slint_core::item_tree::{ItemRc, ItemWeak};
 use i_slint_core::SharedVector;
+
+use pin_project::pin_project;
 use qttypes::QString;
 
 use alloc::boxed::Box;
@@ -20,7 +22,7 @@ pub struct HasFocusPropertyTracker {
 impl i_slint_core::properties::PropertyChangeHandler for HasFocusPropertyTracker {
     fn notify(&self) {
         let accessible_item = self.accessible_item;
-        let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> &SlintAccessibleItemData as "void*" {
+        let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> Pin<&SlintAccessibleItemData> as "void*" {
             auto obj = accessible_item->object();
             auto event = QAccessibleEvent(obj, QAccessible::Focus);
 
@@ -39,7 +41,7 @@ pub struct AccessibleItemPropertiesTracker {
 impl i_slint_core::properties::PropertyChangeHandler for AccessibleItemPropertiesTracker {
     fn notify(&self) {
         let accessible_item = self.accessible_item;
-        let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> &SlintAccessibleItemData as "void*"{
+        let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> Pin<&SlintAccessibleItemData> as "void*"{
             auto obj = accessible_item->object();
 
             auto event = QAccessibleStateChangeEvent(obj, accessible_item->state());
@@ -51,15 +53,17 @@ impl i_slint_core::properties::PropertyChangeHandler for AccessibleItemPropertie
     }
 }
 
+#[pin_project]
 pub struct SlintAccessibleItemData {
-    state_tracker:
-        Pin<Box<i_slint_core::properties::PropertyTracker<AccessibleItemPropertiesTracker>>>,
-    focus_tracker: Pin<Box<i_slint_core::properties::PropertyTracker<HasFocusPropertyTracker>>>,
+    #[pin]
+    state_tracker: i_slint_core::properties::PropertyTracker<AccessibleItemPropertiesTracker>,
+    #[pin]
+    focus_tracker: i_slint_core::properties::PropertyTracker<HasFocusPropertyTracker>,
     item: ItemWeak,
 }
 
 impl SlintAccessibleItemData {
-    fn new(accessible_item: *mut c_void, item: &ItemWeak) -> Self {
+    fn new(accessible_item: *mut c_void, item: &ItemWeak) -> Pin<Box<Self>> {
         let state_tracker = i_slint_core::properties::PropertyTracker::new_with_change_handler(
             AccessibleItemPropertiesTracker { accessible_item },
         );
@@ -67,21 +71,18 @@ impl SlintAccessibleItemData {
             HasFocusPropertyTracker { accessible_item },
         );
 
-        let result = Self {
-            state_tracker: Box::pin(state_tracker),
-            focus_tracker: Box::pin(focus_tracker),
-            item: item.clone(),
-        };
+        let result = Box::pin(Self { state_tracker, focus_tracker, item: item.clone() });
 
-        result.arm_state_tracker();
-        result.arm_focus_tracker();
+        result.as_ref().arm_state_tracker();
+        result.as_ref().arm_focus_tracker();
 
         result
     }
 
-    fn arm_state_tracker(&self) {
+    fn arm_state_tracker(self: Pin<&Self>) {
         let item = self.item.clone();
-        self.state_tracker.as_ref().evaluate_as_dependency_root(move || {
+        let p = self.project_ref();
+        p.state_tracker.evaluate_as_dependency_root(move || {
             if let Some(item_rc) = item.upgrade() {
                 item_rc.accessible_string_property(
                     i_slint_core::accessibility::AccessibleStringProperty::Label,
@@ -93,9 +94,10 @@ impl SlintAccessibleItemData {
         });
     }
 
-    fn arm_focus_tracker(&self) {
+    fn arm_focus_tracker(self: Pin<&Self>) {
         let item = self.item.clone();
-        self.focus_tracker.as_ref().evaluate_as_dependency_root(move || {
+        let p = self.project_ref();
+        p.focus_tracker.evaluate_as_dependency_root(move || {
             if let Some(item_rc) = item.upgrade() {
                 item_rc.accessible_string_property(
                     i_slint_core::accessibility::AccessibleStringProperty::HasFocus,
@@ -323,21 +325,21 @@ cpp! {{
             m_data = rust!(Slint_accessible_item_ctor [this: *mut c_void as "Slint_accessible_item*",
                     item: &ItemWeak as "void*"] ->
                     *mut SlintAccessibleItemData as "void*" {
-                        let data = Box::new(SlintAccessibleItemData::new(this, item));
-                        Box::into_raw(data)
+                        let data = SlintAccessibleItemData::new(this, item);
+                        unsafe { Box::into_raw(Pin::into_inner_unchecked(data)) }
             });
         }
 
         ~Slint_accessible_item() {
             rust!(Slint_accessible_item_dtor [m_data: *mut SlintAccessibleItemData as "void*"] {
                 if !m_data.is_null() {
-                    Box::from_raw(m_data);
+                    unsafe { Pin::new_unchecked(Box::from_raw(m_data)) };
                 };
             });
         }
 
         void *rustItem() const override {
-            return rust!(Slint_accessible_item_rustItem [m_data: &SlintAccessibleItemData as "void*"] -> *const ItemWeak as "void*" {
+            return rust!(Slint_accessible_item_rustItem [m_data: Pin<&SlintAccessibleItemData> as "void*"] -> *const ItemWeak as "void*" {
                 &m_data.item
             });
         }
