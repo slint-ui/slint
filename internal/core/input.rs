@@ -20,7 +20,7 @@ use euclid::default::Vector2D;
 
 /// A Mouse event
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[allow(missing_docs)]
 pub enum MouseEvent {
     /// The mouse was pressed
@@ -90,7 +90,7 @@ impl Default for InputEventResult {
 /// can specify how to further process the event.
 /// See [`crate::items::ItemVTable::input_event_filter_before_children`].
 #[repr(C)]
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum InputEventFilterResult {
     /// The event is going to be forwarded to children, then the [`crate::items::ItemVTable::input_event`]
     /// function is called
@@ -105,7 +105,7 @@ pub enum InputEventFilterResult {
     /// grab will be cancelled with a [`MouseEvent::MouseExit`] event
     Intercept,
     // TODO: add docs
-    ForwardAndIntercept,
+    InterceptAndDispatch(MouseEvent),
 }
 
 impl Default for InputEventFilterResult {
@@ -433,15 +433,17 @@ pub fn process_mouse_input(
     }
 
     let mut result = MouseInputState::default();
-    type State = (Vector2D<Coord>, Vec<(ItemWeak, InputEventFilterResult)>);
+    type State = (Vector2D<Coord>, Vec<(ItemWeak, InputEventFilterResult)>, MouseEvent);
     crate::item_tree::visit_items_with_post_visit(
         &component,
         crate::item_tree::TraversalOrder::FrontToBack,
         |comp_rc: &ComponentRc,
          item: core::pin::Pin<ItemRef>,
          item_index: usize,
-         (offset, mouse_grabber_stack): &State| {
+         (offset, mouse_grabber_stack, mouse_event): &State| {
             let item_rc = ItemRc::new(comp_rc.clone(), item_index);
+
+            let mut mouse_event = *mouse_event;
 
             let geom = item.as_ref().geometry();
             let geom = geom.translate(*offset);
@@ -461,11 +463,13 @@ pub fn process_mouse_input(
                     InputEventFilterResult::ForwardEvent => {
                         Some((event2, mouse_grabber_stack.clone(), item_rc, false))
                     }
-                    InputEventFilterResult::ForwardAndIntercept => {
-                        Some((event2, mouse_grabber_stack.clone(), item_rc, true))
-                    }
                     InputEventFilterResult::ForwardAndInterceptGrab => {
                         Some((event2, mouse_grabber_stack.clone(), item_rc, false))
+                    }
+                    InputEventFilterResult::InterceptAndDispatch(mut next_event) => {
+                        next_event.translate(geom.origin.to_vector());
+                        mouse_event = next_event;
+                        Some((event2, mouse_grabber_stack.clone(), item_rc, true))
                     }
                     InputEventFilterResult::Intercept => {
                         return (
@@ -481,7 +485,11 @@ pub fn process_mouse_input(
             };
 
             (
-                ItemVisitorResult::Continue((geom.origin.to_vector(), mouse_grabber_stack)),
+                ItemVisitorResult::Continue((
+                    geom.origin.to_vector(),
+                    mouse_grabber_stack,
+                    mouse_event,
+                )),
                 post_visit_state,
             )
         },
@@ -510,7 +518,7 @@ pub fn process_mouse_input(
             }
             r
         },
-        (Vector2D::new(0 as Coord, 0 as Coord), Vec::new()),
+        (Vector2D::new(0 as Coord, 0 as Coord), Vec::new(), mouse_event),
     );
 
     send_exit_events(&mouse_input_state, mouse_event.pos(), window);
