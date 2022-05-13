@@ -940,6 +940,8 @@ any element .
 * **`none`**: This element is not accessible
 * **`button`**: This element is accessible as a button
 * **`checkbox`**: This element is accessible as a checkbox
+* **`combobox`**: This element is accessible as a combobox
+* **`spinbox`**: This element is accessible as a spinbox
 * **`tab`**: This element is a accessible as a tab
 * **`text`**: This element is a static text
 
