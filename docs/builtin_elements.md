@@ -938,9 +938,10 @@ any element .
 ### Values
 
 * **`none`**: This element is not accessible
-* **`text`**: This element is a static text
 * **`button`**: This element is accessible as a button
 * **`checkbox`**: This element is accessible as a checkbox
+* **`tab`**: This element is a accessible as a tab
+* **`text`**: This element is a static text
 
 # Namespaces
 
