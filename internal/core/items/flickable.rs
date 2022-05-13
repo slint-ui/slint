@@ -241,7 +241,9 @@ impl FlickableData {
                     InputEventFilterResult::ForwardEvent
                 }
             }
-            MouseEvent::MouseWheel { .. } => InputEventFilterResult::ForwardAndIntercept,
+            MouseEvent::MouseWheel { pos, .. } => {
+                InputEventFilterResult::InterceptAndDispatch(MouseEvent::MouseMoved { pos })
+            }
             // Not the left button
             MouseEvent::MousePressed { .. } | MouseEvent::MouseReleased { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
@@ -295,7 +297,8 @@ impl FlickableData {
                 (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
                     .apply_pin(flick)
                     .set(new_pos.y);
-                // Although the event was handled, child items also have to handle it
+                // Although the event was handled, the mouse grabber stack
+                // should extend into child items and don't end at this point
                 InputEventResult::EventIgnored
             }
         }
