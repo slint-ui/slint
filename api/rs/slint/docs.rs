@@ -35,6 +35,13 @@ pub mod builtin_elements {
     #![doc = include_str!("docs/builtin_elements.md")]
     //!
     //! #
+    //! Next: [Builtin Enums](super::builtin_enums)
+}
+
+pub mod builtin_enums {
+    #![doc = include_str!("docs/builtin_enums.md")]
+    //!
+    //! #
     //! Next: [Widgets](super::widgets)
 }
 

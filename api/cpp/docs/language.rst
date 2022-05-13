@@ -8,5 +8,6 @@ The .slint UI Design Language
 
     Language Reference<markdown/langref.md>
     markdown/builtin_elements.md
+    markdown/builtin_enums.md
     markdown/widgets.md
     markdown/layouting.md

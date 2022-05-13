@@ -210,10 +210,10 @@ and the text itself.
 * **`font-size`** (*length*): The font size of the text
 * **`font-weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 * **`color`** (*brush*): The color of the text (default value: depends on the style)
-* **`horizontal-alignment`** (*enum [`TextHorizontalAlignment`](#texthorizontalalignment)*): The horizontal alignment of the text.
-* **`vertical-alignment`** (*enum [`TextVerticalAlignment`](#textverticalalignment)*): The vertical alignment of the text.
-* **`wrap`** (*enum [`TextWrap`](#textwrap)*): The way the text wraps (default: no-wrap).
-* **`overflow`** (*enum [`TextOverflow`](#textoverflow)*): What happens when the text overflows (default: clip).
+* **`horizontal-alignment`** (*enum [`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)*): The horizontal alignment of the text.
+* **`vertical-alignment`** (*enum [`TextVerticalAlignment`](builtin_enums.md#textverticalalignment)*): The vertical alignment of the text.
+* **`wrap`** (*enum [`TextWrap`](builtin_enums.md#textwrap)*): The way the text wraps (default: no-wrap).
+* **`overflow`** (*enum [`TextOverflow`](builtin_enums.md#textoverflow)*): What happens when the text overflows (default: clip).
 * **`letter-spacing`** (*length*): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing
   and a negative value decreases the distance. The default value is 0.
 
@@ -270,7 +270,7 @@ accordingly.
 ### Common Path Properties
 
 * **`fill`** (*brush*): The color for filling the shape of the path.
-* **`fill-rule`** (enum *[`FillRule`](#fillrule)*): The fill rule to use for the path. (default value: `nonzero`)
+* **`fill-rule`** (enum *[`FillRule`](builtin_enums.md#fillrule)*): The fill rule to use for the path. (default value: `nonzero`)
 * **`stroke`** (*brush*): The color for drawing the outline of the path.
 * **`stroke-width`** (*length*): The width of the outline.
 * **`width`** (*length*): If non-zero, the path will be scaled to fit into the specified width.
@@ -432,7 +432,7 @@ When not part of a layout, its width or height default to 100% of the parent ele
 * **`has-hover`** (*bool*): Set to `true` by the TouchArea when the mouse is over it.
 * **`mouse-x`**, **`mouse-y`** (*length*): Set by the TouchArea to the position of the mouse within it.
 * **`pressed-x`**, **`pressed-y`** (*length*): Set to `true` by the TouchArea to the position of the mouse at the moment it was last pressed.
-* **`mouse-cursor`** (enum *[`MouseCursor`](#mousecursor)*): The mouse cursor type when the mouse is hovering the TouchArea.
+* **`mouse-cursor`** (enum *[`MouseCursor`](builtin_enums.md#mousecursor)*): The mouse cursor type when the mouse is hovering the TouchArea.
 
 ### Callbacks
 
@@ -645,14 +645,14 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 * **`font-size`** (*length*): The font size of the text
 * **`font-weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 * **`color`** (*brush*): The color of the text (default value: depends on the style)
-* **`horizontal-alignment`** (enum *[`TextHorizontalAlignment`](#texthorizontalalignment)*): The horizontal alignment of the text.
-* **`vertical-alignment`** (enum *[`TextVerticalAlignment`](#textverticalalignment)*): The vertical alignment of the text.
+* **`horizontal-alignment`** (enum *[`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)*): The horizontal alignment of the text.
+* **`vertical-alignment`** (enum *[`TextVerticalAlignment`](builtin_enums.md#textverticalalignment)*): The vertical alignment of the text.
 * **`has-focus`** (*bool*): Set to `true` when item is focused and receives keyboard events.
 * **`letter-spacing`** (*length*): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing
   and a negative value decreases the distance. The default value is 0.
 * **`single-line`** (bool): When set to `true`, no newlines are allowed (default value: `true`)
-* **`wrap`** (*enum [`TextWrap`](#textwrap)*): The way the text input wraps.  Only makes sense when `single-line` is false. (default: no-wrap)
-* **`input-type`** (*enum [`InputType`](#InputType)*): The way to allow special input viewing properties such as password fields (default value: `text`).
+* **`wrap`** (*enum [`TextWrap`](builtin_enums.md#textwrap)*): The way the text input wraps.  Only makes sense when `single-line` is false. (default: no-wrap)
+* **`input-type`** (*enum [`InputType`](builtin_enums.md#InputType)*): The way to allow special input viewing properties such as password fields (default value: `text`).
 
 ### Methods
 
@@ -791,131 +791,6 @@ This structure is generated and passed to the `pointer-event` callback of the `T
    - `up`: The button was released.
    - `cancel`: Another element or window took hold of the grab. This applies to all pressed button and the `button` is not relevent.
 * **`button`** (*enum PointerEventButton*): The button that was pressed or released. `left`, `right`, `middle`, or `none`.
-
-# Builtin Enums
-
-The default value of each enum type is always the first value.
-
-## `TextHorizontalAlignment`
-
-This enum describes the different types of alignment of text along the horizontal axis.
-
-### Values
-
-* **`TextHorizontalAlignment.left`**: The text will be aligned with the left edge of the containing box.
-* **`TextHorizontalAlignment.center`**: The text will be horizontally centered within the containing box.
-* **`TextHorizontalAlignment.right`** The text will be aligned to the right of the containing box.
-
-## `TextVerticalAlignment`
-
-This enum describes the different types of alignment of text along the vertical axis.
-
-### Values
-
-* **`TextVerticalAlignment.top`**: The text will be aligned to the top of the containing box.
-* **`TextVerticalAlignment.center`**: The text will be vertically centered within the containing box.
-* **`TextVerticalAlignment.bottom`** The text will be alignt to the bottom of the containing box.
-
-## `TextWrap`
-
-This enum describes the how the text wrap if it is too wide to fit in the Text width.
-
-### Values
-
-* **`TextWrap.no-wrap`**: The text will not wrap, but instead will overflow.
-* **`TextWrap.word-wrap`**: The text will be wrapped at word boundaries.
-
-## `TextOverflow`
-
-This enum describes the how the text appear if it is too wide to fit in the Text width.
-
-### Values
-
-* **`TextOverflow.clip`**: The text will simply be clipped.
-* **`TextOverflow.elide`**: The text will be elided with `…`.
-
-## `EventResult`
-
-This enum describes whether an event was rejected or accepted by an event handler.
-
-### Values
-
-* **`EventResult.reject`**: The event is rejected by this event handler and may then be handled by the parent item
-* **`EventResult.accept`**: The event is accepted and won't be processed further
-
-## `FillRule`
-
-This enum describes the different ways of deciding what the inside of a shape described by a path shall be.
-
-### Values
-
-* **`FillRule.nonzero`**: The ["nonzero" fill rule as defined in SVG](https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/fill-rule#nonzero).
-* **`FillRule.evenodd`**: The ["evenodd" fill rule as defined in SVG](https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/fill-rule#evenodd).
-
-## `DialogButtonRole`
-
-This enum represent the value of the `dialog-button-role` property which can be added to
-any element within a `Dialog` to put that item in the button row, and its exact position
-depends on the role and the platform.
-
-### Values
-
-* **`none`**: This is not a button means to go in the row of button of the dialog
-* **`accept`**: This is the role of the main button to click to accept the dialog. e.g. "Ok" or "Yes"
-* **`reject`**: This is the role of the main button to click to reject the dialog. e.g. "Cancel" or "No"
-* **`apply`**: This is the role of the "Apply" button
-* **`reset`**: This is the role of the "Reset" button
-* **`help`**: This is the role of the  "Help" button
-* **`action`**: This is the role of any other button that perform another action.
-
-## `MouseCursor`
-
-This enum represents different types of mouse cursors. It is a subset of the mouse cursors available in CSS.
-For details and pictograms see the [MDN Documentation for cursor](https://developer.mozilla.org/en-US/docs/Web/CSS/cursor#values).
-Depending on the backend and used OS unidirectional resize cursors may be replaced with bidirectional ones.
-
-### Values
-
-* **`default`**: The systems default cursor.
-* **`none`**: No cursor is displayed.
-* **`help`**: A cursor indicating help information.
-* **`pointer`**: A pointing hand indicating a link.
-* **`progress`**: The program is busy but can still be interacted with.
-* **`wait`**: The program is busy.
-* **`crosshair`**: A crosshair.
-* **`text`**: A cursor indicating selectable text.
-* **`alias`**: An alias or shortcut is being created.
-* **`copy`**: A copy is being created.
-* **`move`**: Something is to be moved.
-* **`no-drop`**: Something cannot be dropped here.
-* **`not-allowed`**: An action is not allowed
-* **`grab`**: Something is grabbable.
-* **`grabbing`**: Something is being grabbed.
-* **`col-resize`**: Indicating that a column is resizable horizontally.
-* **`row-resize`**: Indicating that a row is resizable vertically.
-* **`n-resize`**: Unidirectional resize north.
-* **`e-resize`**: Unidirectional resize east.
-* **`s-resize`**: Unidirectional resize south.
-* **`w-resize`**: Unidirectional resize west.
-* **`ne-resize`**: Unidirectional resize north-east.
-* **`nw-resize`**: Unidirectional resize north-west.
-* **`se-resize`**: Unidirectional resize south-east.
-* **`sw-resize`**: Unidirectional resize south-west.
-* **`ew-resize`**: Bidirectional resize east-west.
-* **`ns-resize`**: Bidirectional resize north-south.
-* **`nesw-resize`**: Bidirectional resize north-east-south-west.
-* **`nwse-resize`**: Bidirectional resize north-west-south-east.
-
-## `InputType`
-
-This enum is used to define the type of the input field. Currently this only differentiates between
-text and password inputs but in the future it could be expanded to also define what type of virtual keyboard
-should be shown, for example.
-
-### Values
-
-* **`text`**: The default value. This will render all characters normally
-* **`password`**: This will render all characters with a character that defaults to "*"
 
 # Namespaces
 

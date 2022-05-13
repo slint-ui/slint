@@ -205,7 +205,7 @@ shortcut will be implemented in a future version: <https://github.com/slint-ui/s
 * **`font-size`** (*length*): the size of the font of the input text
 * **`has-focus`**: (*bool*): Set to true when the widget currently has the focus
 * **`enabled`**: (*bool*): Defaults to true. When false, nothing can be entered
-* **`wrap`** (*enum [`TextWrap`](builtin_elements.md#textwrap)*): The way the text wraps (default: word-wrap).
+* **`wrap`** (*enum [`TextWrap`](builtin_enums.md#textwrap)*): The way the text wraps (default: word-wrap).
 
 ### Callbacks
 
