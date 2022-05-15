@@ -99,12 +99,12 @@ pub enum InputEventFilterResult {
     /// going to be called for this item
     ForwardAndIgnore,
     /// Just like `ForwardEvent`, but even in the case the children grabs the mouse, this function
-    /// Will still be called for further event.
+    /// will still be called for further event
     ForwardAndInterceptGrab,
-    /// The Event will not be forwarded to children, if a children already had the grab, the
+    /// The event will not be forwarded to children, if a children already had the grab, the
     /// grab will be cancelled with a [`MouseEvent::MouseExit`] event
     Intercept,
-    // TODO: add docs
+    /// Similar to `Intercept` but the contained [`MouseEvent`] will be forwarded to children
     InterceptAndDispatch(MouseEvent),
 }
 
