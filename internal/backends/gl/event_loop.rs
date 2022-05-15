@@ -552,7 +552,14 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
         let running_instance =
             RunningEventLoop { event_loop_target, event_loop_proxy: &event_loop_proxy };
         CURRENT_WINDOW_TARGET.set(&running_instance, || {
-            *control_flow = ControlFlow::Wait;
+            // MainEventsCleared and RedrawEventsCleared are passed after flush of the event loop
+            // by winit. Make sure not to overwrite a previously set ControlFlow::Poll in that process.
+            if !matches!(
+                event,
+                winit::event::Event::MainEventsCleared | winit::event::Event::RedrawEventsCleared
+            ) {
+                *control_flow = ControlFlow::Wait;
+            }
 
             match event {
                 winit::event::Event::WindowEvent { event, window_id } => {
