@@ -162,3 +162,16 @@ To setup the LSP:
 In order to **preview a component**, when you have a .slint file open, place your cursor to
 the name of the component you would like to preview and select the "Show preview" button that
 will appear on the right of the editor pane.
+
+## JetBrains IDE
+Tested with: CLion 2022.1 (on linux)
+
+*Note: This may/should work for other JetBrains-products also. If you test it please add your results to the above list.*
+
+### LSP Support
+1. Install the "LSP Support"-plugin (https://plugins.jetbrains.com/plugin/10209-lsp-support). The docs can be found at https://github.com/gtache/intellij-lsp
+2. Install slint-lsp `cargo install slint-lsp`
+4. Go to File -> Settings -> Languages & Frameworks -> Language Server Protocol -> Server Definitions
+5. Choose "Executable". In "Extension" put "slint" and set "Path" to "/home/<user>/.cargo/bin/slint-lsp"
+6. Press the "+"-button
+7. Restart IDE
