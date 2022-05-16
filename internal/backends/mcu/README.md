@@ -57,7 +57,7 @@ slint-build = { git = "https://github.com/slint-ui/slint" }
 
 
 ```sh
-cargo run -p printerdemo_mcu --features=i-slint-backend-mcu/simulator --release
+cargo run -p printerdemo_mcu --features=mcu-simulator --release
 ```
 
 ### On the Raspberry Pi Pico
