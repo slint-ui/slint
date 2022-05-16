@@ -23,6 +23,7 @@ mod qt_widgets;
 #[cfg(not(no_qt))]
 mod qt_window;
 
+mod accessible_generated;
 mod key_generated;
 
 #[doc(hidden)]
