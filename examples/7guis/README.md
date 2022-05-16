@@ -8,14 +8,14 @@ These 7 challenges have implementations for multiple frameworks already and the 
 ## [Counter](https://eugenkiss.github.io/7guis/tasks#counter)
 Just a Button that increases a value in a text field.
 
-<!-- ![Screenshot of the 7GUIs Counter](counter.png "Counter") -->
+![Screenshot of the 7GUIs Counter](https://user-images.githubusercontent.com/22800467/168557310-60219332-4774-4ebc-8584-7a973c7918c0.png "Counter")
 
 [`.slint` code in web editor](https://slint-ui.com/editor/?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/7guis/counter.slint)
 
 ## [Temperature Converter](https://eugenkiss.github.io/7guis/tasks/#temp)
 Converts Celsius to Fahrenheit and vice versa.
 
-<!-- ![Screenshot of the 7GUIs Temperature Converter](tempconv.png "Temperature Converter") -->
+![Screenshot of the 7GUIs Temperature Converter](https://user-images.githubusercontent.com/22800467/168557382-d00e22e5-c65b-430a-a6a4-72665445f98d.png "Temperature Converter")
 
 [`.slint` code in web editor](https://slint-ui.com/editor/?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/7guis/tempconv.slint)
 
@@ -23,7 +23,7 @@ Converts Celsius to Fahrenheit and vice versa.
 Performs some validation checking on dates.
 Does not actually book flights.
 
-<!-- ![Screenshot of the 7GUIs Flight Booker](booker.png "Flight Booker") -->
+![Screenshot of the 7GUIs Flight Booker](https://user-images.githubusercontent.com/22800467/168557449-769df1cd-f967-4e14-bc5c-d8eeccc33305.png "Flight Booker")
 
 [`.slint` code in web editor](https://slint-ui.com/editor/?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/7guis/booker.slint)
 (Not functional on its own, logic in the Rust file)
@@ -31,7 +31,7 @@ Does not actually book flights.
 ## [Timer](https://eugenkiss.github.io/7guis/tasks/#timer)
 A simple timer. The time is adjustable while running.
 
-<!-- ![Screenshot of the 7GUIs Timer](timer.png "Timer") -->
+![Screenshot of the 7GUIs Timer](https://user-images.githubusercontent.com/22800467/168557131-68382191-9228-4d58-9683-6648ab5e7efd.png "Timer")
 
 [`.slint` code in web editor](https://slint-ui.com/editor/?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/7guis/timer.slint)
 (Not functional on its own, logic in the Rust file)
@@ -40,7 +40,7 @@ A simple timer. The time is adjustable while running.
 Lets you create, read, update and delete names from a list as well as filter them by prefix.
 Our implementation makes use of `MapModel` and `FilterModel` to achieve this.
 
-<!-- ![Screenshot of the 7GUIs CRUD](crud.png "CRUD") -->
+![Screenshot of the 7GUIs CRUD](https://user-images.githubusercontent.com/22800467/168557502-93c87141-3eb5-410c-9b83-4b7342727e37.png "CRUD")
 
 [`.slint` code in web editor](https://slint-ui.com/editor/?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/7guis/crud.slint)
 (Not functional on its own, logic in the Rust file)
@@ -48,7 +48,7 @@ Our implementation makes use of `MapModel` and `FilterModel` to achieve this.
 ## [Circle Drawer](https://eugenkiss.github.io/7guis/tasks/#circle)
 Draw some circles on a canvas and change their sizes. It has undo and redo capabilities.
 
-<!-- ![Screenshot of the 7GUIs Circle Drawer](circledraw.png "Circle Drawer") -->
+![Screenshot of the 7GUIs Circle Drawer](https://user-images.githubusercontent.com/22800467/168557533-7632efba-3b3b-459d-a8c0-6f166fa42e23.png "Circle Drawer")
 
 [`.slint` code in web editor](https://slint-ui.com/editor/?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/7guis/circledraw.slint)
 (Not functional on its own, logic in the Rust file)
@@ -56,7 +56,7 @@ Draw some circles on a canvas and change their sizes. It has undo and redo capab
 ## [Cells](https://eugenkiss.github.io/7guis/tasks/#cells)
 Almost MS Excel. It uses nested models to create the table.
 
-<!-- ![Screenshot of the 7GUIs Cells](cells.png "Cells") -->
+![Screenshot of the 7GUIs Cells](https://user-images.githubusercontent.com/22800467/168557595-95ad3255-006c-416a-bccd-8f5251adebd7.png "Cells")
 
 [`.slint` code in web editor](https://slint-ui.com/editor/?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/7guis/cells.slint)
 (Not functional on its own, logic in the Rust file)
