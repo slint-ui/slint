@@ -73,6 +73,9 @@ pub struct CompilerConfiguration {
 
     /// Compile time scale factor to apply to embedded resources such as images and glyphs.
     pub scale_factor: f64,
+
+    /// expose the accessible role and properties
+    pub accessibility: bool,
 }
 
 impl CompilerConfiguration {
@@ -122,6 +125,7 @@ impl CompilerConfiguration {
             open_import_fallback: Default::default(),
             inline_all_elements,
             scale_factor,
+            accessibility: true,
         }
     }
 }
