@@ -202,6 +202,7 @@ pub fn compile_with_config(
 
     if env::var_os("DEP_I_SLINT_BACKEND_MCU_EMBED_TEXTURES").is_some() {
         compiler_config.embed_resources = EmbedResourcesKind::EmbedTextures;
+        compiler_config.accessibility = false;
     } else if let (Ok(target), Ok(host)) = (env::var("TARGET"), env::var("HOST")) {
         if target != host {
             compiler_config.embed_resources = EmbedResourcesKind::EmbedAllResources;
