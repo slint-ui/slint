@@ -183,6 +183,7 @@ macro_rules! for_each_enums {
                 button,
                 checkbox,
                 combobox,
+                slider,
                 spinbox,
                 tab,
                 text,

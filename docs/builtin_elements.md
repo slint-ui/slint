@@ -37,6 +37,10 @@ The following `accessible-` properties are used to enable accessibility of appli
 * **`accessible-description`** (*string*) defines a string value that describes or annotates the current element.
 * **`accessible-checked`** (*bool*) indicates the current "checked" state of checkboxes, radio buttons, and other widgets.
 * **`accessible-has-focus`** (*bool*) indicates that the element currently is in the focused state.
+* **`accessible-value`** (_string_) indicates the current value of the item.
+* **`accessible-value-maximum`** (_string_) indicates the maximum value of the item.
+* **`accessible-value-minimum`** (_istring_) indicates the minimum value of the item.
+* **`accessible-value-step`** (_string_) indicates the minimum value by which the current value can change.
 
 ### Drop Shadows
 
@@ -941,6 +945,7 @@ any element .
 * **`button`**: This element is accessible as a button
 * **`checkbox`**: This element is accessible as a checkbox
 * **`combobox`**: This element is accessible as a combobox
+* **`slider`**: This element is accessible as a slider
 * **`spinbox`**: This element is accessible as a spinbox
 * **`tab`**: This element is a accessible as a tab
 * **`text`**: This element is a static text
