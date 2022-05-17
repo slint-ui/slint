@@ -34,6 +34,8 @@ jobs:
           - "https://github.com/b1tg/copy-net-info"
           - "https://github.com/planet0104/wxcode-client"
           - "https://github.com/SeriousBug/kiraz"
+          - "https://github.com/jamesblacklock/budget"
+          - "https://github.com/LuXts/toy-parse"
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
