@@ -64,6 +64,7 @@ thread_local! {static CURRENT_INSTANCE: std::cell::RefCell<Option<ComponentInsta
 static EXIT_CODE: std::sync::atomic::AtomicI32 = std::sync::atomic::AtomicI32::new(0);
 
 fn main() -> Result<()> {
+    env_logger::init();
     let args = Cli::parse();
 
     if args.auto_reload && args.save_data.is_some() {
