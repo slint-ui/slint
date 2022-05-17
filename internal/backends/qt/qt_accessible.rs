@@ -16,25 +16,6 @@ use alloc::boxed::Box;
 use core::ffi::c_void;
 use std::pin::Pin;
 
-pub struct HasFocusPropertyTracker {
-    accessible_item: *mut c_void,
-}
-
-impl i_slint_core::properties::PropertyChangeHandler for HasFocusPropertyTracker {
-    fn notify(&self) {
-        let accessible_item = self.accessible_item;
-        let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> Pin<&SlintAccessibleItemData> as "void*" {
-            auto obj = accessible_item->object();
-            auto event = QAccessibleEvent(obj, QAccessible::Focus);
-
-            QAccessible::updateAccessibility(&event);
-
-            return accessible_item->data();
-        });
-        data.arm_focus_tracker();
-    }
-}
-
 pub struct AccessibleItemPropertiesTracker {
     accessible_item: *mut c_void,
 }
@@ -76,8 +57,6 @@ impl i_slint_core::properties::PropertyChangeHandler for ValuePropertyTracker {
 #[pin_project]
 pub struct SlintAccessibleItemData {
     #[pin]
-    focus_tracker: i_slint_core::properties::PropertyTracker<HasFocusPropertyTracker>,
-    #[pin]
     state_tracker: i_slint_core::properties::PropertyTracker<AccessibleItemPropertiesTracker>,
     #[pin]
     value_tracker: i_slint_core::properties::PropertyTracker<ValuePropertyTracker>,
@@ -86,9 +65,6 @@ pub struct SlintAccessibleItemData {
 
 impl SlintAccessibleItemData {
     fn new(accessible_item: *mut c_void, item: &ItemWeak) -> Pin<Box<Self>> {
-        let focus_tracker = i_slint_core::properties::PropertyTracker::new_with_change_handler(
-            HasFocusPropertyTracker { accessible_item },
-        );
         let state_tracker = i_slint_core::properties::PropertyTracker::new_with_change_handler(
             AccessibleItemPropertiesTracker { accessible_item },
         );
@@ -96,10 +72,8 @@ impl SlintAccessibleItemData {
             ValuePropertyTracker { accessible_item },
         );
 
-        let result =
-            Box::pin(Self { focus_tracker, state_tracker, value_tracker, item: item.clone() });
+        let result = Box::pin(Self { state_tracker, value_tracker, item: item.clone() });
 
-        result.as_ref().arm_focus_tracker();
         result.as_ref().arm_state_tracker();
         result.as_ref().arm_value_tracker();
 
@@ -119,18 +93,6 @@ impl SlintAccessibleItemData {
                 );
                 item_rc.accessible_string_property(
                     i_slint_core::accessibility::AccessibleStringProperty::Checked,
-                );
-            }
-        });
-    }
-
-    fn arm_focus_tracker(self: Pin<&Self>) {
-        let item = self.item.clone();
-        let p = self.project_ref();
-        p.focus_tracker.evaluate_as_dependency_root(move || {
-            if let Some(item_rc) = item.upgrade() {
-                item_rc.accessible_string_property(
-                    i_slint_core::accessibility::AccessibleStringProperty::HasFocus,
                 );
             }
         });
@@ -243,8 +205,7 @@ cpp! {{
             const NAME: u32 = QAccessible_Text_Name;
             const DESCRIPTION: u32 = QAccessible_Text_Description;
             const VALUE: u32 = QAccessible_Text_Value;
-            const HAS_FOCUS: u32 = QAccessible_Text_UserText as u32;
-            const CHECKED: u32 = HAS_FOCUS + 1;
+            const CHECKED: u32 = QAccessible_Text_UserText as u32;
             const VALUE_MINIMUM: u32 = CHECKED + 1;
             const VALUE_MAXIMUM: u32 = VALUE_MINIMUM + 1;
             const VALUE_STEP: u32 = VALUE_MAXIMUM + 1;
@@ -254,7 +215,6 @@ cpp! {{
                     NAME => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Label),
                     DESCRIPTION => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Description),
                     VALUE => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Value),
-                    HAS_FOCUS => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::HasFocus),
                     CHECKED => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Checked),
                     VALUE_MINIMUM => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::ValueMinimum),
                     VALUE_MAXIMUM => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::ValueMaximum),
@@ -284,6 +244,24 @@ cpp! {{
         }
 
         virtual void *rustItem() const = 0;
+
+        bool focusItem(void *item) {
+            auto my_item = rustItem();
+            if (rust!(Slint_accessible_findItem [item: &ItemWeak as "void *", my_item: &ItemWeak as "void*"] -> bool as "bool" {
+                item == my_item
+            })) {
+                auto event = QAccessibleEvent(object(), QAccessible::Focus);
+                QAccessible::updateAccessibility(&event);
+
+                return true;
+            }
+            for (int i = 0; i < childCount(); ++i) {
+                if (static_cast<Slint_accessible *>(child(i))->focusItem(item)) {
+                    return true;
+                }
+            }
+            return false;
+        }
 
         bool isValid() const override {
             return true;

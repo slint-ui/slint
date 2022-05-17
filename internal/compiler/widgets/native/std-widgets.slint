@@ -9,7 +9,6 @@ export { StyleMetrics, ScrollView, TextEdit, AboutSlint, AboutSlint as AboutSixt
 export Button := NativeButton {
     property<length> font-size;
     accessible-label <=> text;
-    accessible-has-focus <=> has-focus;
     accessible-role: button;
     enabled: true;
 }
@@ -21,7 +20,6 @@ export StandardButton := NativeButton {
 export CheckBox := NativeCheckBox {
     accessible-role: checkbox;
     accessible-label <=> text;
-    accessible-has-focus <=> has-focus;
 }
 export SpinBox := NativeSpinBox {
     property<length> font-size;

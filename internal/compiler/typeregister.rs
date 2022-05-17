@@ -88,7 +88,6 @@ pub(crate) const RESERVED_ACCESSIBILITY_PROPERTIES: &[(&str, Type)] = &[
     //("accessible-role", ...)
     ("accessible-checked", Type::Bool),
     ("accessible-description", Type::String),
-    ("accessible-has-focus", Type::Bool),
     ("accessible-label", Type::String),
     ("accessible-value", Type::String),
     ("accessible-value-maximum", Type::Float32),

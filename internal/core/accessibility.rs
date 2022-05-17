@@ -13,7 +13,6 @@ pub enum AccessibleStringProperty {
     Label,
     Description,
     Checked,
-    HasFocus,
     Value,
     ValueMinimum,
     ValueMaximum,

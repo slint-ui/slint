@@ -18,7 +18,6 @@ export CheckBox := Rectangle {
     horizontal-stretch: 0;
     vertical-stretch: 0;
 
-    accessible-has-focus <=> has-focus;
     accessible-label <=> text.text;
     accessible-checked <=> checked;
     accessible-role: checkbox;
@@ -133,7 +132,6 @@ export SpinBox := FocusScope {
     vertical-stretch: 0;
 
     accessible-role: spinbox;
-    accessible-has-focus <=> has-focus;
     accessible-value: value;
     accessible-value-minimum: minimum;
     accessible-value-maximum: maximum;
@@ -231,7 +229,6 @@ export Slider := Rectangle {
 
     accessible-role: slider;
     accessible-value: value;
-    accessible-has-focus <=> has-focus;
     accessible-value-minimum: minimum;
     accessible-value-maximum: maximum;
     accessible-value-step: step-size;
@@ -380,7 +377,6 @@ export TabImpl := Rectangle {
     vertical-stretch: 0;
 
     accessible-role: tab;
-    accessible-has-focus <=> has-focus;
     accessible-label <=> title;
 
     touch := TouchArea {
@@ -537,7 +533,6 @@ export ComboBox := FocusScope {
     callback selected(string);
 
     accessible-role: combobox;
-    accessible-has-focus <=> has-focus;
     accessible-value <=> current-value;
 
     key-pressed(event) => {
