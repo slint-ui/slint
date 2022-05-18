@@ -26,7 +26,7 @@ Does not actually book flights.
 ![Screenshot of the 7GUIs Flight Booker](https://user-images.githubusercontent.com/22800467/168557449-769df1cd-f967-4e14-bc5c-d8eeccc33305.png "Flight Booker")
 
 [`.slint` code in web editor](https://slint-ui.com/editor/?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/7guis/booker.slint)
-Note that the logic for date validation and date comparison is implemented in [Rust](./booker.rs).
+(Note that the logic for date validation and date comparison is implemented in [Rust](./booker.rs).)
 
 ## [Timer](https://eugenkiss.github.io/7guis/tasks/#timer)
 A simple timer where the duration is adjustable while running.
@@ -34,7 +34,7 @@ A simple timer where the duration is adjustable while running.
 ![Screenshot of the 7GUIs Timer](https://user-images.githubusercontent.com/22800467/168557131-68382191-9228-4d58-9683-6648ab5e7efd.png "Timer")
 
 [`.slint` code in web editor](https://slint-ui.com/editor/?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/7guis/timer.slint)
-Note that the actual timer functionality is implemented in [Rust](./timer.rs).
+(Note that the actual timer functionality is implemented in [Rust](./timer.rs).)
 
 ## [CRUD](https://eugenkiss.github.io/7guis/tasks/#crud)
 Lets you create, read, update and delete names from a list as well as filter them by prefix.
@@ -43,7 +43,7 @@ Our implementation makes use of `MapModel` and `FilterModel` to achieve this.
 ![Screenshot of the 7GUIs CRUD](https://user-images.githubusercontent.com/22800467/168557502-93c87141-3eb5-410c-9b83-4b7342727e37.png "CRUD")
 
 [`.slint` code in web editor](https://slint-ui.com/editor/?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/7guis/crud.slint)
-Note that the changes to the data model and filtering is implemented in [Rust](./crud.rs).
+(Note that the changes to the data model and filtering is implemented in [Rust](./crud.rs).)
 
 ## [Circle Drawer](https://eugenkiss.github.io/7guis/tasks/#circle)
 Draw some circles on a canvas and change their sizes. It has undo and redo capabilities.
@@ -51,7 +51,7 @@ Draw some circles on a canvas and change their sizes. It has undo and redo capab
 ![Screenshot of the 7GUIs Circle Drawer](https://user-images.githubusercontent.com/22800467/168557533-7632efba-3b3b-459d-a8c0-6f166fa42e23.png "Circle Drawer")
 
 [`.slint` code in web editor](https://slint-ui.com/editor/?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/7guis/circledraw.slint)
-Note that the undo-redo stack is implemented in [Rust](./circledraw.rs).
+(Note that the undo-redo stack is implemented in [Rust](./circledraw.rs).)
 
 ## [Cells](https://eugenkiss.github.io/7guis/tasks/#cells)
 Almost MS Excel. It uses nested models to create the table.
@@ -59,4 +59,4 @@ Almost MS Excel. It uses nested models to create the table.
 ![Screenshot of the 7GUIs Cells](https://user-images.githubusercontent.com/22800467/168557595-95ad3255-006c-416a-bccd-8f5251adebd7.png "Cells")
 
 [`.slint` code in web editor](https://slint-ui.com/editor/?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/7guis/cells.slint)
-Note that the cell model, expression evaluation and dependency handling is implemented in [Rust](./cells.rs).
+(Note that the cell model, expression evaluation and dependency handling is implemented in [Rust](./cells.rs).)
