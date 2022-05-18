@@ -6,6 +6,7 @@
 //! This module contains code that helps navigating the tree of item
 
 use crate::component::{ComponentRc, ComponentVTable};
+use crate::graphics::{Point, Rect};
 use crate::items::{ItemRef, ItemVTable};
 use crate::SharedString;
 use core::pin::Pin;
@@ -157,6 +158,21 @@ impl ItemRc {
         let mut result = Default::default();
         comp_ref_pin.as_ref().accessible_string_property(self.index, what, &mut result);
         result
+    }
+
+    pub fn geometry(&self) -> Rect {
+        self.borrow().as_ref().geometry()
+    }
+
+    pub fn map_to_window(&self, p: Point) -> Point {
+        let mut current = self.clone();
+        let mut result = p;
+        while let Some(parent) = current.parent_item() {
+            let geometry = parent.geometry();
+            result += geometry.origin.to_vector();
+            current = parent.clone();
+        }
+        return result;
     }
 
     /// Return the index of the item within the component

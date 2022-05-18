@@ -245,6 +245,17 @@ cpp! {{
 
         virtual void *rustItem() const = 0;
 
+        // Returns the SlintWidget of the window... we have no other.
+        virtual QWidget *qwidget() const = 0;
+
+        QPoint mapToGlobal(const QPoint p) const {
+            return qwidget()->mapToGlobal(p);
+        }
+
+        QPoint mapFromGlobal(const QPoint p) const {
+            return qwidget()->mapFromGlobal(p);
+        }
+
         bool focusItem(void *item) {
             auto my_item = rustItem();
             if (rust!(Slint_accessible_findItem [item: &ItemWeak as "void *", my_item: &ItemWeak as "void*"] -> bool as "bool" {
@@ -320,9 +331,11 @@ cpp! {{
                     if let Some(item_rc) = item.as_ref().unwrap().upgrade() {
                         let geometry = item_rc.borrow().as_ref().geometry();
 
+                        let mapped = item_rc.map_to_window(geometry.origin);
+
                         qttypes::QRectF {
-                            x: geometry.origin.x as _,
-                            y: geometry.origin.y as _,
+                            x: mapped.x as _,
+                            y: mapped.y as _,
                             width: geometry.width() as _,
                             height: geometry.height() as _,
                         }
@@ -330,8 +343,9 @@ cpp! {{
                         Default::default()
                     }
                 });
-            return QRect(static_cast<int>(r.left()), static_cast<int>(r.top()),
-                         static_cast<int>(r.right()), static_cast<int>(r.bottom()));
+            auto topLeft = mapToGlobal(QPoint(static_cast<int>(r.left()), static_cast<int>(r.top())));
+            auto bottomRight = mapToGlobal(QPoint(static_cast<int>(r.right()), static_cast<int>(r.bottom())));
+            return QRect(topLeft, bottomRight);
         }
 
         QAccessibleInterface *childAt(int x, int y) const override {
@@ -389,6 +403,10 @@ cpp! {{
             return rust!(Slint_accessible_item_rustItem [m_data: Pin<&SlintAccessibleItemData> as "void*"] -> *const ItemWeak as "void*" {
                 &m_data.item
             });
+        }
+
+        QWidget *qwidget() const override {
+            return dynamic_cast<Slint_accessible *>(parent())->qwidget();
         }
 
         void *data() const {
@@ -466,6 +484,10 @@ cpp! {{
 
         void *rustItem() const override {
             return root_item_for_window(m_rustWindow);
+        }
+
+        QWidget *qwidget() const override {
+            return qobject_cast<QWidget *>(object());
         }
 
         QWindow *window() const override {
