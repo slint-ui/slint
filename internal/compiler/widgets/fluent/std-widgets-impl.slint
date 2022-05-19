@@ -2,6 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 export global Palette := {
+    property<bool> dark-style: NativeStyleMetrics.dark-style;
+
+    // The colors in light mode are default palette. In the
+    // Fluent UI Theme Designer they match the colors produced
+    // with Primary Color = #0078d4, Text Color = #201f1e and Background Color = #ffffff
+    // The dark mode colors are produced in the Fluent UI Theme Designer by swapping
+    // Text Color and Background Color from light mode, applying the variations below
+    // and darkening the "white" and brightening the "neutralLight" variants for improved
+    // contrast (esp. on buttons).
+
     property<color> themeDarker: #004578;
     property<color> themeDark: #005a9e;
     property<color> themeDarkAlt: #106ebe;
@@ -11,22 +21,22 @@ export global Palette := {
     property<color> themeLight: #c7e0f4;
     property<color> themeLighter: #deecf9;
     property<color> themeLighterAlt: #eff6fc;
-    property<color> black: #000000;
+    property<color> black: !dark-style ? #000000 : #f8f8f8;
     property<color> blackTranslucent40: rgba(0,0,0,0.4);
-    property<color> neutralDark: #201f1e;
-    property<color> neutralPrimary: #323130;
-    property<color> neutralPrimaryAlt: #3b3a39;
-    property<color> neutralSecondary: #605e5c;
+    property<color> neutralDark: !dark-style ? #201f1e : #f4f4f4;
+    property<color> neutralPrimary: !dark-style ? #323130 : #ffffff;
+    property<color> neutralPrimaryAlt: !dark-style ? #3b3a39 : #dadada;
+    property<color> neutralSecondary: !dark-style ? #605e5c : #d0d0d0;
     property<color> neutralSecondaryAlt: #8a8886;
-    property<color> neutralTertiary: #a19f9d;
-    property<color> neutralTertiaryAlt: #c8c6c4;
+    property<color> neutralTertiary: !dark-style ? #a19f9d : #c8c8c8;
+    property<color> neutralTertiaryAlt: !dark-style ? #c8c6c4 : #6d6d6d;
     property<color> neutralQuaternary: #d2d0ce;
-    property<color> neutralQuaternaryAlt: #e1dfdd;
-    property<color> neutralLight: #edebe9;
-    property<color> neutralLighter: #f3f2f1;
-    property<color> neutralLighterAlt: #faf9f8;
+    property<color> neutralQuaternaryAlt: !dark-style ? #e1dfdd : #484848;
+    property<color> neutralLight: !dark-style ? #edebe9 : #3f3f3f;
+    property<color> neutralLighter: !dark-style ? #f3f2f1 : #313131;
+    property<color> neutralLighterAlt: !dark-style ? #faf9f8 : #282828;
     property<color> accent: #0078d4;
-    property<color> white: #ffffff;
+    property<color> white: !dark-style ? #ffffff : #1f1f1f;
     property<color> whiteTranslucent40: rgba(255,255,255,0.4);
     property<color> yellowDark: #d29200;
     property<color> yellow: #ffb900;
