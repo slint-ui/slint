@@ -101,6 +101,12 @@ A Rust and C++ example that shows how render SixtyFPS on top of graphical effect
 
 ![Screenshot of the OpenGL Underlay Example on Windows](https://slint-ui.com/resources/opengl_underlay_screenshot.png "OpenGL Underlay")
 
+### [`7guis`](./7guis)
+
+Our implementations of the ["7GUIs"](https://eugenkiss.github.io/7guis/) Tasks.
+
+![Composition of 7GUIs Screenshots](https://user-images.githubusercontent.com/22800467/169002497-5b90e63b-5717-4290-8ac7-c618d9e2a4f1.png "7GUIs")
+
 ### External examples
 
 * [Cargo UI](https://github.com/slint-ui/cargo-ui): A rust application that makes use of threads in the background.
