@@ -86,3 +86,5 @@ panic = "abort"
 [patch.crates-io]
 # Pull in https://github.com/rust-windowing/winit/pull/2255
 winit = { git = "https://github.com/slint-ui/winit", branch = "simon/v0.26-with-touch-fix" }
+# Pull in https://github.com/femtovg/femtovg/pull/92
+femtovg = { git = "https://github.com/slint-ui/femtovg", branch = "simon/split-fragment-shader" }
