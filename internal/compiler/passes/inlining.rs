@@ -459,7 +459,7 @@ fn component_requires_inlining(component: &Rc<Component>) -> bool {
         let binding = binding.borrow();
         // The passes that dp the drop shadow or the opacity currently won't allow this property
         // on the top level of a component. This could be changed in the future.
-        if prop.starts_with("drop-shadow-") || prop == "opacity" {
+        if prop.starts_with("drop-shadow-") || prop == "opacity" || prop == "cache-rendering-hint" {
             return true;
         }
         if (prop == "height" || prop == "width") && binding.expression.ty() == Type::Percent {

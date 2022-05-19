@@ -7,6 +7,22 @@ import { Button } from "std-widgets.slint";
 // output, and to have a compile-time verification that the lowering to the Layer
 // element compiles.
 
+MyLayer := Rectangle {
+    cache-rendering-hint: true;
+    background: red;
+    for i in 1000: Rectangle {
+        cache-rendering-hint: i == 8;
+        background: blue;
+        drop-shadow-blur: 10px;
+        drop-shadow-offset-x: 5px;
+        drop-shadow-offset-y: 5px;
+        drop-shadow-color: green;
+        Text {
+            text: "Many text items over each other";
+        }
+    }
+}
+
 export TestCase := Window {
     preferred-width: 800px;
     preferred-height: 600px;
@@ -24,8 +40,7 @@ export TestCase := Window {
         Rectangle {
 
             // This will be a layer
-            layered := Rectangle {
-                cache-rendering-hint: true;
+            layered := MyLayer {
                 width: 200px;
                 height: 100px;
 
@@ -42,21 +57,7 @@ export TestCase := Window {
                 animate x {
                     duration: 15s;
                 }
-
-                background: red;
-                
-                for i in 1000: Rectangle {
-                    cache-rendering-hint: i == 8;
-                    background: blue;
-                    drop-shadow-blur: 10px;
-                    drop-shadow-offset-x: 5px;
-                    drop-shadow-offset-y: 5px;
-                    drop-shadow-color: green;
-                    Text {
-                        text: "Many text items over each other";
-                    }
-                }
             }
         }
-    }    
+    }
 }
