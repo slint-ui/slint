@@ -31,6 +31,13 @@ pub(crate) fn completion_at(
             );
         }
     } else if let Some(element) = syntax_nodes::Element::new(node.clone()) {
+        if token.kind() == SyntaxKind::At
+            || (token.kind() == SyntaxKind::Identifier
+                && token.prev_token().map_or(false, |t| t.kind() == SyntaxKind::At))
+        {
+            return Some(vec![CompletionItem::new_simple("children".into(), String::new())]);
+        }
+
         return resolve_element_scope(element, document_cache).map(|mut r| {
             // add snipets
             for c in r.iter_mut() {
@@ -126,7 +133,32 @@ pub(crate) fn completion_at(
             | SyntaxKind::BinaryExpression
             | SyntaxKind::UnaryOpExpression
             | SyntaxKind::Array
+            | SyntaxKind::AtGradient
+            | SyntaxKind::StringTemplate
+            | SyntaxKind::IndexExpression
     ) {
+        if token.kind() == SyntaxKind::At
+            || (token.kind() == SyntaxKind::Identifier
+                && token.prev_token().map_or(false, |t| t.kind() == SyntaxKind::At))
+        {
+            return Some(
+                [
+                    ("image-url", "image-url(\"$1\")"),
+                    ("linear-gradient", "linear-gradient($1)"),
+                    ("radial-gradient", "radial-gradient(circle, $1)"),
+                ]
+                .into_iter()
+                .map(|(label, insert)| {
+                    with_insert_text(
+                        CompletionItem::new_simple(label.into(), String::new()),
+                        insert,
+                        client_caps,
+                    )
+                })
+                .collect(),
+            );
+        }
+
         return crate::util::with_lookup_ctx(document_cache, node, |ctx| {
             resolve_expression_scope(ctx)
         })?;
