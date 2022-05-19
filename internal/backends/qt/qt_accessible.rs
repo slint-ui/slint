@@ -5,7 +5,9 @@
 
 use crate::accessible_generated::*;
 
+use i_slint_core::accessibility::AccessibleStringProperty;
 use i_slint_core::item_tree::{ItemRc, ItemWeak};
+use i_slint_core::properties::{PropertyChangeHandler, PropertyTracker};
 use i_slint_core::SharedVector;
 
 use cpp::*;
@@ -20,7 +22,7 @@ pub struct AccessibleItemPropertiesTracker {
     accessible_item: *mut c_void,
 }
 
-impl i_slint_core::properties::PropertyChangeHandler for AccessibleItemPropertiesTracker {
+impl PropertyChangeHandler for AccessibleItemPropertiesTracker {
     fn notify(&self) {
         let accessible_item = self.accessible_item;
         let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> Pin<&SlintAccessibleItemData> as "void*"{
@@ -39,7 +41,7 @@ pub struct ValuePropertyTracker {
     accessible_item: *mut c_void,
 }
 
-impl i_slint_core::properties::PropertyChangeHandler for ValuePropertyTracker {
+impl PropertyChangeHandler for ValuePropertyTracker {
     fn notify(&self) {
         let accessible_item = self.accessible_item;
         let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> Pin<&SlintAccessibleItemData> as "void*" {
@@ -54,28 +56,85 @@ impl i_slint_core::properties::PropertyChangeHandler for ValuePropertyTracker {
     }
 }
 
+pub struct LabelPropertyTracker {
+    accessible_item: *mut c_void,
+}
+
+impl PropertyChangeHandler for LabelPropertyTracker {
+    fn notify(&self) {
+        println!("*** *** Label updated *** ***");
+        let accessible_item = self.accessible_item;
+        let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> Pin<&SlintAccessibleItemData> as "void*" {
+            auto obj = accessible_item->object();
+
+            auto event = QAccessibleEvent(obj, QAccessible::NameChanged);
+            QAccessible::updateAccessibility(&event);
+
+            return accessible_item->data();
+        });
+        data.arm_label_tracker();
+    }
+}
+
+pub struct DescriptionPropertyTracker {
+    accessible_item: *mut c_void,
+}
+
+impl PropertyChangeHandler for DescriptionPropertyTracker {
+    fn notify(&self) {
+        let accessible_item = self.accessible_item;
+        let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> Pin<&SlintAccessibleItemData> as "void*" {
+            auto obj = accessible_item->object();
+
+            auto event = QAccessibleEvent(obj, QAccessible::DescriptionChanged);
+            QAccessible::updateAccessibility(&event);
+
+            return accessible_item->data();
+        });
+        data.arm_description_tracker();
+    }
+}
+
 #[pin_project]
 pub struct SlintAccessibleItemData {
     #[pin]
-    state_tracker: i_slint_core::properties::PropertyTracker<AccessibleItemPropertiesTracker>,
+    state_tracker: PropertyTracker<AccessibleItemPropertiesTracker>,
     #[pin]
-    value_tracker: i_slint_core::properties::PropertyTracker<ValuePropertyTracker>,
+    value_tracker: PropertyTracker<ValuePropertyTracker>,
+    #[pin]
+    label_tracker: PropertyTracker<LabelPropertyTracker>,
+    #[pin]
+    description_tracker: PropertyTracker<DescriptionPropertyTracker>,
     item: ItemWeak,
 }
 
 impl SlintAccessibleItemData {
     fn new(accessible_item: *mut c_void, item: &ItemWeak) -> Pin<Box<Self>> {
-        let state_tracker = i_slint_core::properties::PropertyTracker::new_with_change_handler(
-            AccessibleItemPropertiesTracker { accessible_item },
-        );
-        let value_tracker = i_slint_core::properties::PropertyTracker::new_with_change_handler(
-            ValuePropertyTracker { accessible_item },
-        );
+        let state_tracker =
+            PropertyTracker::new_with_change_handler(AccessibleItemPropertiesTracker {
+                accessible_item,
+            });
+        let value_tracker =
+            PropertyTracker::new_with_change_handler(ValuePropertyTracker { accessible_item });
+        let label_tracker =
+            PropertyTracker::new_with_change_handler(LabelPropertyTracker { accessible_item });
+        let description_tracker =
+            PropertyTracker::new_with_change_handler(DescriptionPropertyTracker {
+                accessible_item,
+            });
 
-        let result = Box::pin(Self { state_tracker, value_tracker, item: item.clone() });
+        let result = Box::pin(Self {
+            state_tracker,
+            value_tracker,
+            label_tracker,
+            description_tracker,
+            item: item.clone(),
+        });
 
         result.as_ref().arm_state_tracker();
         result.as_ref().arm_value_tracker();
+        result.as_ref().arm_label_tracker();
+        result.as_ref().arm_description_tracker();
 
         result
     }
@@ -85,15 +144,7 @@ impl SlintAccessibleItemData {
         let p = self.project_ref();
         p.state_tracker.evaluate_as_dependency_root(move || {
             if let Some(item_rc) = item.upgrade() {
-                item_rc.accessible_string_property(
-                    i_slint_core::accessibility::AccessibleStringProperty::Label,
-                );
-                item_rc.accessible_string_property(
-                    i_slint_core::accessibility::AccessibleStringProperty::Description,
-                );
-                item_rc.accessible_string_property(
-                    i_slint_core::accessibility::AccessibleStringProperty::Checked,
-                );
+                item_rc.accessible_string_property(AccessibleStringProperty::Checked);
             }
         });
     }
@@ -103,18 +154,30 @@ impl SlintAccessibleItemData {
         let p = self.project_ref();
         p.value_tracker.evaluate_as_dependency_root(move || {
             if let Some(item_rc) = item.upgrade() {
-                item_rc.accessible_string_property(
-                    i_slint_core::accessibility::AccessibleStringProperty::Value,
-                );
-                item_rc.accessible_string_property(
-                    i_slint_core::accessibility::AccessibleStringProperty::ValueMinimum,
-                );
-                item_rc.accessible_string_property(
-                    i_slint_core::accessibility::AccessibleStringProperty::ValueMaximum,
-                );
-                item_rc.accessible_string_property(
-                    i_slint_core::accessibility::AccessibleStringProperty::ValueStep,
-                );
+                item_rc.accessible_string_property(AccessibleStringProperty::Value);
+                item_rc.accessible_string_property(AccessibleStringProperty::ValueMinimum);
+                item_rc.accessible_string_property(AccessibleStringProperty::ValueMaximum);
+                item_rc.accessible_string_property(AccessibleStringProperty::ValueStep);
+            }
+        });
+    }
+
+    fn arm_label_tracker(self: Pin<&Self>) {
+        let item = self.item.clone();
+        let p = self.project_ref();
+        p.value_tracker.evaluate_as_dependency_root(move || {
+            if let Some(item_rc) = item.upgrade() {
+                item_rc.accessible_string_property(AccessibleStringProperty::Label);
+            }
+        });
+    }
+
+    fn arm_description_tracker(self: Pin<&Self>) {
+        let item = self.item.clone();
+        let p = self.project_ref();
+        p.value_tracker.evaluate_as_dependency_root(move || {
+            if let Some(item_rc) = item.upgrade() {
+                item_rc.accessible_string_property(AccessibleStringProperty::Description);
             }
         });
     }
@@ -212,13 +275,13 @@ cpp! {{
 
             if let Some(item) = data.item.upgrade() {
                 let string = match what {
-                    NAME => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Label),
-                    DESCRIPTION => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Description),
-                    VALUE => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Value),
-                    CHECKED => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::Checked),
-                    VALUE_MINIMUM => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::ValueMinimum),
-                    VALUE_MAXIMUM => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::ValueMaximum),
-                    VALUE_STEP => item.accessible_string_property(i_slint_core::accessibility::AccessibleStringProperty::ValueStep),
+                    NAME => item.accessible_string_property(AccessibleStringProperty::Label),
+                    DESCRIPTION => item.accessible_string_property(AccessibleStringProperty::Description),
+                    VALUE => item.accessible_string_property(AccessibleStringProperty::Value),
+                    CHECKED => item.accessible_string_property(AccessibleStringProperty::Checked),
+                    VALUE_MINIMUM => item.accessible_string_property(AccessibleStringProperty::ValueMinimum),
+                    VALUE_MAXIMUM => item.accessible_string_property(AccessibleStringProperty::ValueMaximum),
+                    VALUE_STEP => item.accessible_string_property(AccessibleStringProperty::ValueStep),
                     _ => Default::default(),
                 };
                 QString::from(string.as_ref())
