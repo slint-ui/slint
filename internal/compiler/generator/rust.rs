@@ -1803,7 +1803,17 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 quote!(slint::re_exports::GradientStop{ color: #color, position: #position as _ })
             });
             quote!(slint::Brush::LinearGradient(
-                slint::re_exports::LinearGradientBrush::new(#angle as _, [#(#stops),*].iter().cloned())
+                slint::re_exports::LinearGradientBrush::new(#angle as _, [#(#stops),*])
+            ))
+        }
+        Expression::RadialGradient { stops } => {
+            let stops = stops.iter().map(|(color, stop)| {
+                let color = compile_expression(color, ctx);
+                let position = compile_expression(stop, ctx);
+                quote!(slint::re_exports::GradientStop{ color: #color, position: #position as _ })
+            });
+            quote!(slint::Brush::RadialGradient(
+                slint::re_exports::RadialGradientBrush::new_circle([#(#stops),*])
             ))
         }
         Expression::EnumerationValue(value) => {

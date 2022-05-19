@@ -2178,6 +2178,17 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 stops_it.join(", "), angle, stops.len()
             )
         }
+        Expression::RadialGradient{ stops} => {
+            let mut stops_it = stops.iter().map(|(color, stop)| {
+                let color = compile_expression(color, ctx);
+                let position = compile_expression(stop, ctx);
+                format!("slint::private_api::GradientStop{{ {}, {}, }}", color, position)
+            });
+            format!(
+                "[&] {{ const slint::private_api::GradientStop stops[] = {{ {} }}; return slint::Brush(slint::private_api::RadialGradientBrush(stops, {})); }}()",
+                stops_it.join(", "), stops.len()
+            )
+        }
         Expression::EnumerationValue(value) => {
             format!(
                 "slint::cbindgen_private::{}::{}",

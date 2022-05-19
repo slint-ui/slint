@@ -453,6 +453,11 @@ pub enum Expression {
         stops: Vec<(Expression, Expression)>,
     },
 
+    RadialGradient {
+        /// First expression in the tuple is a color, second expression is the stop position
+        stops: Vec<(Expression, Expression)>,
+    },
+
     EnumerationValue(EnumerationValue),
 
     ReturnStatement(Option<Box<Expression>>),
@@ -604,6 +609,7 @@ impl Expression {
             Expression::ReadLocalVariable { ty, .. } => ty.clone(),
             Expression::EasingCurve(_) => Type::Easing,
             Expression::LinearGradient { .. } => Type::Brush,
+            Expression::RadialGradient { .. } => Type::Brush,
             Expression::EnumerationValue(value) => Type::Enumeration(value.enumeration.clone()),
             // invalid because the expression is unreachable
             Expression::ReturnStatement(_) => Type::Invalid,
@@ -687,6 +693,12 @@ impl Expression {
             Expression::EasingCurve(_) => {}
             Expression::LinearGradient { angle, stops } => {
                 visitor(angle);
+                for (c, s) in stops {
+                    visitor(c);
+                    visitor(s);
+                }
+            }
+            Expression::RadialGradient { stops } => {
                 for (c, s) in stops {
                     visitor(c);
                     visitor(s);
@@ -785,6 +797,12 @@ impl Expression {
                     visitor(s);
                 }
             }
+            Expression::RadialGradient { stops } => {
+                for (c, s) in stops {
+                    visitor(c);
+                    visitor(s);
+                }
+            }
             Expression::EnumerationValue(_) => {}
             Expression::ReturnStatement(expr) => {
                 expr.as_deref_mut().map(visitor);
@@ -855,6 +873,9 @@ impl Expression {
             Expression::EasingCurve(_) => true,
             Expression::LinearGradient { angle, stops } => {
                 angle.is_constant() && stops.iter().all(|(c, s)| c.is_constant() && s.is_constant())
+            }
+            Expression::RadialGradient { stops } => {
+                stops.iter().all(|(c, s)| c.is_constant() && s.is_constant())
             }
             Expression::EnumerationValue(_) => true,
             Expression::ReturnStatement(expr) => {
@@ -1380,6 +1401,16 @@ pub fn pretty_print(f: &mut dyn std::fmt::Write, expression: &Expression) -> std
         Expression::LinearGradient { angle, stops } => {
             write!(f, "@linear-gradient(")?;
             pretty_print(f, angle)?;
+            for (c, s) in stops {
+                write!(f, ", ")?;
+                pretty_print(f, c)?;
+                write!(f, "  ")?;
+                pretty_print(f, s)?;
+            }
+            write!(f, ")")
+        }
+        Expression::RadialGradient { stops } => {
+            write!(f, "@radial-gradient(circle")?;
             for (c, s) in stops {
                 write!(f, ", ")?;
                 pretty_print(f, c)?;

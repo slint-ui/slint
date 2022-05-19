@@ -140,6 +140,11 @@ pub enum Expression {
         stops: Vec<(Expression, Expression)>,
     },
 
+    RadialGradient {
+        /// First expression in the tuple is a color, second expression is the stop position
+        stops: Vec<(Expression, Expression)>,
+    },
+
     EnumerationValue(crate::langtype::EnumerationValue),
 
     ReturnStatement(Option<Box<Expression>>),
@@ -276,6 +281,7 @@ impl Expression {
             Self::Struct { ty, .. } => ty.clone(),
             Self::EasingCurve(_) => Type::Easing,
             Self::LinearGradient { .. } => Type::Brush,
+            Self::RadialGradient { .. } => Type::Brush,
             Self::EnumerationValue(e) => Type::Enumeration(e.enumeration.clone()),
             Self::ReturnStatement(_) => Type::Invalid,
             Self::LayoutCacheAccess { .. } => Type::LogicalLength,
@@ -336,6 +342,12 @@ macro_rules! visit_impl {
             Expression::EasingCurve(_) => {}
             Expression::LinearGradient { angle, stops } => {
                 $visitor(angle);
+                for (a, b) in stops {
+                    $visitor(a);
+                    $visitor(b);
+                }
+            }
+            Expression::RadialGradient { stops } => {
                 for (a, b) in stops {
                     $visitor(a);
                     $visitor(b);

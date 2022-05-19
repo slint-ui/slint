@@ -339,7 +339,11 @@ impl QPainterPath {
     }
 }
 
-fn into_qbrush(brush: i_slint_core::Brush) -> qttypes::QBrush {
+fn into_qbrush(
+    brush: i_slint_core::Brush,
+    width: qttypes::qreal,
+    height: qttypes::qreal,
+) -> qttypes::QBrush {
     match brush {
         i_slint_core::Brush::SolidColor(color) => {
             let color: u32 = color.as_argb_encoded();
@@ -368,6 +372,25 @@ fn into_qbrush(brush: i_slint_core::Brush) -> qttypes::QBrush {
             }
             cpp! {unsafe [qlg as "QLinearGradient"] -> qttypes::QBrush as "QBrush" {
                 return QBrush(qlg);
+            }}
+        }
+        i_slint_core::Brush::RadialGradient(g) => {
+            cpp_class!(unsafe struct QRadialGradient as "QRadialGradient");
+            let mut qrg = cpp! {
+                unsafe [width as "qreal", height as "qreal"] -> QRadialGradient as "QRadialGradient" {
+                    QRadialGradient qrg(width / 2, height / 2, (width + height) / 4);
+                    return qrg;
+                }
+            };
+            for s in g.stops() {
+                let pos: f32 = s.position;
+                let color: u32 = s.color.as_argb_encoded();
+                cpp! {unsafe [mut qrg as "QRadialGradient", pos as "float", color as "QRgb"] {
+                    qrg.setColorAt(pos, QColor::fromRgba(color));
+                }};
+            }
+            cpp! {unsafe [qrg as "QRadialGradient"] -> qttypes::QBrush as "QBrush" {
+                return QBrush(qrg);
             }}
         }
         _ => qttypes::QBrush::default(),
@@ -430,9 +453,9 @@ struct QtItemRenderer {
 }
 
 impl ItemRenderer for QtItemRenderer {
-    fn draw_rectangle(&mut self, rect: Pin<&items::Rectangle>) {
-        let brush: qttypes::QBrush = into_qbrush(rect.background());
-        let rect: qttypes::QRectF = get_geometry!(items::Rectangle, rect);
+    fn draw_rectangle(&mut self, rect_: Pin<&items::Rectangle>) {
+        let rect: qttypes::QRectF = get_geometry!(items::Rectangle, rect_);
+        let brush: qttypes::QBrush = into_qbrush(rect_.background(), rect.width, rect.height);
         let painter: &mut QPainterPtr = &mut self.painter;
         cpp! { unsafe [painter as "QPainterPtr*", brush as "QBrush", rect as "QRectF"] {
             (*painter)->fillRect(rect, brush);
@@ -488,7 +511,7 @@ impl ItemRenderer for QtItemRenderer {
 
     fn draw_text(&mut self, text: std::pin::Pin<&items::Text>) {
         let rect: qttypes::QRectF = get_geometry!(items::Text, text);
-        let fill_brush: qttypes::QBrush = into_qbrush(text.color());
+        let fill_brush: qttypes::QBrush = into_qbrush(text.color(), rect.width, rect.height);
         let mut string: qttypes::QString = text.text().as_str().into();
         let font: QFont =
             get_font(text.unresolved_font_request().merge(&self.default_font_properties));
@@ -567,7 +590,7 @@ impl ItemRenderer for QtItemRenderer {
 
     fn draw_text_input(&mut self, text_input: std::pin::Pin<&items::TextInput>) {
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
-        let fill_brush: qttypes::QBrush = into_qbrush(text_input.color());
+        let fill_brush: qttypes::QBrush = into_qbrush(text_input.color(), rect.width, rect.height);
         let selection_foreground_color: u32 =
             text_input.selection_foreground_color().as_argb_encoded();
         let selection_background_color: u32 =
@@ -665,10 +688,9 @@ impl ItemRenderer for QtItemRenderer {
         if matches!(elements, PathData::None) {
             return;
         }
-        // FIXME: handle width/height
-        //let rect: qttypes::QRectF = get_geometry!(pos, items::Path, path);
-        let fill_brush: qttypes::QBrush = into_qbrush(path.fill());
-        let stroke_brush: qttypes::QBrush = into_qbrush(path.stroke());
+        let rect: qttypes::QRectF = get_geometry!(items::Path, path);
+        let fill_brush: qttypes::QBrush = into_qbrush(path.fill(), rect.width, rect.height);
+        let stroke_brush: qttypes::QBrush = into_qbrush(path.stroke(), rect.width, rect.height);
         let stroke_width: f32 = path.stroke_width();
         let (offset, path_events) = path.fitted_path_events();
         let pos = qttypes::QPoint { x: offset.x as _, y: offset.y as _ };
@@ -896,7 +918,7 @@ impl ItemRenderer for QtItemRenderer {
     }
 
     fn draw_string(&mut self, string: &str, color: Color) {
-        let fill_brush: qttypes::QBrush = into_qbrush(color.into());
+        let fill_brush: qttypes::QBrush = into_qbrush(color.into(), 1., 1.);
         let mut string: qttypes::QString = string.into();
         let font: QFont = get_font(self.default_font_properties.clone());
         let painter: &mut QPainterPtr = &mut self.painter;
@@ -1120,7 +1142,8 @@ impl QtItemRenderer {
                 .map_or(QtRenderingCacheItem::Invalid, |mut pixmap: qttypes::QPixmap| {
                     let colorize = colorize_property.map_or(Brush::default(), |c| c.get());
                     if !colorize.is_transparent() {
-                        let brush: qttypes::QBrush = into_qbrush(colorize);
+                        let brush: qttypes::QBrush =
+                            into_qbrush(colorize, dest_rect.width, dest_rect.height);
                         cpp!(unsafe [mut pixmap as "QPixmap", brush as "QBrush"] {
                             QPainter p(&pixmap);
                             p.setCompositionMode(QPainter::CompositionMode_SourceIn);
@@ -1166,8 +1189,8 @@ impl QtItemRenderer {
         mut border_width: f32,
         border_radius: f32,
     ) {
-        let brush: qttypes::QBrush = into_qbrush(brush);
-        let border_color: qttypes::QBrush = into_qbrush(border_color);
+        let brush: qttypes::QBrush = into_qbrush(brush, rect.width, rect.height);
+        let border_color: qttypes::QBrush = into_qbrush(border_color, rect.width, rect.height);
         adjust_rect_and_border_for_inner_drawing(&mut rect, &mut border_width);
         cpp! { unsafe [painter as "QPainterPtr*", brush as "QBrush",  border_color as "QBrush", border_width as "float", border_radius as "float", rect as "QRectF"] {
             (*painter)->setPen(border_width > 0 ? QPen(border_color, border_width) : Qt::NoPen);

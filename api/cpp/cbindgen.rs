@@ -277,7 +277,11 @@ fn gen_corelib(
             vec![],
             "slint_pathdata_internal.h",
         ),
-        (vec!["Brush", "LinearGradient", "GradientStop"], vec!["Color"], "slint_brush_internal.h"),
+        (
+            vec!["Brush", "LinearGradient", "GradientStop", "RadialGradient"],
+            vec!["Color"],
+            "slint_brush_internal.h",
+        ),
     ]
     .iter()
     {

@@ -5,7 +5,7 @@ use crate::api::{SetPropertyError, Struct, Value};
 use crate::dynamic_component::InstanceRef;
 use core::convert::TryInto;
 use core::pin::Pin;
-use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement};
+use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement, RadialGradientBrush};
 use corelib::items::{ItemRef, PropertyAnimation};
 use corelib::model::{Model, ModelRc};
 use corelib::rtti::AnimatedBindingKind;
@@ -598,6 +598,13 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
         Expression::LinearGradient{angle, stops} => {
             let angle = eval_expression(angle, local_context);
             Value::Brush(Brush::LinearGradient(LinearGradientBrush::new(angle.try_into().unwrap(), stops.iter().map(|(color, stop)| {
+                let color = eval_expression(color, local_context).try_into().unwrap();
+                let position = eval_expression(stop, local_context).try_into().unwrap();
+                GradientStop{ color, position }
+            }))))
+        }
+        Expression::RadialGradient{stops} => {
+            Value::Brush(Brush::RadialGradient(RadialGradientBrush::new_circle(stops.iter().map(|(color, stop)| {
                 let color = eval_expression(color, local_context).try_into().unwrap();
                 let position = eval_expression(stop, local_context).try_into().unwrap();
                 GradientStop{ color, position }

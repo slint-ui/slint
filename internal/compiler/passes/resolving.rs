@@ -236,7 +236,7 @@ impl Expression {
         node.Expression()
             .map(|n| Self::from_expression_node(n, ctx))
             .or_else(|| node.AtImageUrl().map(|n| Self::from_at_image_url_node(n, ctx)))
-            .or_else(|| node.AtLinearGradient().map(|n| Self::from_at_linear_gradient(n, ctx)))
+            .or_else(|| node.AtGradient().map(|n| Self::from_at_gradient(n, ctx)))
             .or_else(|| {
                 node.QualifiedName().map(|n| {
                     let exp = Self::from_qualified_name_node(n.clone(), ctx);
@@ -346,30 +346,67 @@ impl Expression {
         }
     }
 
-    fn from_at_linear_gradient(node: syntax_nodes::AtLinearGradient, ctx: &mut LookupCtx) -> Self {
+    fn from_at_gradient(node: syntax_nodes::AtGradient, ctx: &mut LookupCtx) -> Self {
+        enum GradKind {
+            Linear { angle: Box<Expression> },
+            Radial,
+        }
+
         let mut subs = node
             .children_with_tokens()
             .filter(|n| matches!(n.kind(), SyntaxKind::Comma | SyntaxKind::Expression));
-        let angle_expr = match subs.next() {
-            Some(e) if e.kind() == SyntaxKind::Expression => {
-                syntax_nodes::Expression::from(e.into_node().unwrap())
-            }
-            _ => {
-                ctx.diag.push_error("Expected angle expression".into(), &node);
+
+        let grad_token = node.child_token(SyntaxKind::Identifier).unwrap();
+        let grad_text = grad_token.text();
+
+        let grad_kind = if grad_text.starts_with("linear") {
+            let angle_expr = match subs.next() {
+                Some(e) if e.kind() == SyntaxKind::Expression => {
+                    syntax_nodes::Expression::from(e.into_node().unwrap())
+                }
+                _ => {
+                    ctx.diag.push_error("Expected angle expression".into(), &node);
+                    return Expression::Invalid;
+                }
+            };
+            if subs.next().map_or(false, |s| s.kind() != SyntaxKind::Comma) {
+                ctx.diag.push_error(
+                    "Angle expression must be an angle followed by a comma".into(),
+                    &node,
+                );
                 return Expression::Invalid;
             }
+            let angle = Box::new(
+                Expression::from_expression_node(angle_expr.clone(), ctx).maybe_convert_to(
+                    Type::Angle,
+                    &angle_expr,
+                    ctx.diag,
+                ),
+            );
+            GradKind::Linear { angle }
+        } else if grad_text.starts_with("radial") {
+            if !matches!(subs.next(), Some(NodeOrToken::Node(n)) if n.text().to_string().trim() == "circle")
+            {
+                ctx.diag.push_error("Expected 'circle': currently, only @radial-gradient(circle, ...) are supported".into(), &node);
+                return Expression::Invalid;
+            }
+            let comma = subs.next();
+            if matches!(&comma, Some(NodeOrToken::Node(n)) if n.text().to_string().trim() == "at") {
+                ctx.diag.push_error("'at' in @radial-gradient is not yet supported".into(), &comma);
+                return Expression::Invalid;
+            }
+            if comma.as_ref().map_or(false, |s| s.kind() != SyntaxKind::Comma) {
+                ctx.diag.push_error(
+                    "'circle' must be followed by a comma".into(),
+                    comma.as_ref().map_or(&node, |x| x as &dyn Spanned),
+                );
+                return Expression::Invalid;
+            }
+            GradKind::Radial
+        } else {
+            // Parser should have ensured we have one of the linear or radial gradient
+            panic!("Not a gradient {grad_text:?}");
         };
-        if subs.next().map_or(false, |s| s.kind() != SyntaxKind::Comma) {
-            ctx.diag
-                .push_error("Angle expression must be an angle followed by a comma".into(), &node);
-            return Expression::Invalid;
-        }
-        let angle =
-            Box::new(Expression::from_expression_node(angle_expr.clone(), ctx).maybe_convert_to(
-                Type::Angle,
-                &angle_expr,
-                ctx.diag,
-            ));
 
         let mut stops = vec![];
         enum Stop {
@@ -467,7 +504,10 @@ impl Expression {
             start += pos + 1;
         }
 
-        Expression::LinearGradient { angle, stops }
+        match grad_kind {
+            GradKind::Linear { angle } => Expression::LinearGradient { angle, stops },
+            GradKind::Radial => Expression::RadialGradient { stops },
+        }
     }
 
     /// Perform the lookup
