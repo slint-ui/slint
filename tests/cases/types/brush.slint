@@ -18,7 +18,16 @@ Test := Rectangle {
     property <color> r2_col: r2.background;
     property <brush> conditional: false ? Colors.white : true ? r2.background : Colors.green;
 
-    property<bool> test: ligher == Colors.blue.brighter(50%) && r2_col == Colors.red.darker(50%) && conditional == r2.background && conditional != r2_col;
+    test_circl := Rectangle {
+        background: @radial_gradient(circle, #abc, #123 10%, #fed);
+        property <color> colo: background;
+        property <bool> test: colo == #abc
+            && background.brighter(10%) == @radial_gradient(circle, (#abc).brighter(10%), (#123).brighter(10%) 10%, (#fed).brighter(10%))
+            && background != colo;
+    }
+
+    property<bool> test: ligher == Colors.blue.brighter(50%) && r2_col == Colors.red.darker(50%) && conditional == r2.background && conditional != r2_col
+        && test_circl.test;
 }
 
 /*

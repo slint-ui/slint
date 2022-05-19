@@ -193,6 +193,11 @@ impl<'a> Display for DisplayExpression<'a> {
                 e(&angle),
                 stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
             ),
+            Expression::RadialGradient { stops } => write!(
+                f,
+                "@radial-gradient(circle, {})",
+                stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
+            ),
             Expression::EnumerationValue(x) => write!(f, "{}", x),
             Expression::ReturnStatement(Some(x)) => write!(f, "return {}", e(&x)),
             Expression::ReturnStatement(None) => f.write_str("return"),

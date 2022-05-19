@@ -167,6 +167,12 @@ pub fn lower_expression(
                 .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
                 .collect::<_>(),
         },
+        tree_Expression::RadialGradient { stops } => llr_Expression::RadialGradient {
+            stops: stops
+                .iter()
+                .map(|(a, b)| (lower_expression(a, ctx), lower_expression(b, ctx)))
+                .collect::<_>(),
+        },
         tree_Expression::EnumerationValue(e) => llr_Expression::EnumerationValue(e.clone()),
         tree_Expression::ReturnStatement(x) => {
             llr_Expression::ReturnStatement(x.as_ref().map(|e| lower_expression(e, ctx).into()))

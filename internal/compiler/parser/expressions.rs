@@ -224,11 +224,14 @@ fn parse_at_keyword(p: &mut impl Parser) {
             p.expect(SyntaxKind::RParent);
         }
         "linear-gradient" | "linear_gradient" => {
-            parse_at_linear_gradient(p);
+            parse_gradient(p);
+        }
+        "radial-gradient" | "radial_gradient" => {
+            parse_gradient(p);
         }
         _ => {
             p.consume();
-            p.error("Expected 'image-url' or 'linear-gradient' after '@'");
+            p.error("Expected 'image-url', 'linear-gradient' or 'radial-gradient' after '@'");
         }
     }
 }
@@ -323,18 +326,19 @@ fn parse_template_string(p: &mut impl Parser) {
 }
 
 #[cfg_attr(test, parser_test)]
-/// ```test,AtLinearGradient
+/// ```test,AtGradient
 /// @linear-gradient(#e66465, #9198e5)
 /// @linear-gradient(0.25turn, #3f87a6, #ebf8e1, #f69d3c)
 /// @linear-gradient(to left, #333, #333 50%, #eee 75%, #333 75%)
 /// @linear-gradient(217deg, rgba(255,0,0,0.8), rgba(255,0,0,0) 70.71%)
 /// @linear_gradient(217deg, rgba(255,0,0,0.8), rgba(255,0,0,0) 70.71%)
+/// @radial-gradient(circle, #e66465, blue 50%, #9198e5)
 /// ```
-fn parse_at_linear_gradient(p: &mut impl Parser) {
-    let mut p = p.start_node(SyntaxKind::AtLinearGradient);
+fn parse_gradient(p: &mut impl Parser) {
+    let mut p = p.start_node(SyntaxKind::AtGradient);
     p.expect(SyntaxKind::At);
-    debug_assert!(p.peek().as_str() == "linear-gradient" || p.peek().as_str() == "linear_gradient");
-    p.consume(); //"linear-gradient"
+    debug_assert!(p.peek().as_str().ends_with("gradient"));
+    p.expect(SyntaxKind::Identifier); //eg "linear-gradient"
 
     p.expect(SyntaxKind::LParent);
 

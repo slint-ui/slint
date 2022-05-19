@@ -523,7 +523,7 @@ All colors and brushes have methods that can be called on them:
     For example if the factor is .5 (or for example 50%) the returned color is 50% darker. Negative factors
     increase the brightness.
 
-#### Gradients
+#### Linear Gradients
 
 Gradients allow creating smooth colorful surfaces. They are specified using an angle and a series of
 color stops. The colors will be linearly interpolated between the stops, aligned to an imaginary line
@@ -549,6 +549,28 @@ Example := Window {
 
     Rectangle {
         background: @linear-gradient(90deg, #3f87a6 0%, #ebf8e1 50%, #f69d3c 100%);
+    }
+}
+```
+
+#### Radial Gradients
+
+Linear gradiants are like real gradiant but the colors is interpolated in a circle instead of
+along a line. To describe a readial gradiant, use the `@radial-gradient` macro with the following signature:
+
+**`@radial-gradient(circle, color percentage, color percentage, ...)`**
+
+The first parameter to the macro is always `circle` because only circular radients are supported.
+The syntax is otherwise based on the CSS `radial-gradient` function.
+
+Example:
+
+```slint
+Example := Window {
+    preferred-width: 100px;
+    preferred-height: 100px;
+    Rectangle {
+        background: @radial-gradient(circle, #f00 0%, #0f0 50%, #00f 100%);
     }
 }
 ```

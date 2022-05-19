@@ -1281,6 +1281,24 @@ impl GLItemRenderer {
                     .collect::<Vec<_>>();
                 femtovg::Paint::linear_gradient_stops(start.x, start.y, end.x, end.y, &stops)
             }
+            Brush::RadialGradient(gradient) => {
+                let path_bounds = path_bounding_box(&self.canvas, path);
+
+                let path_width = path_bounds.width();
+                let path_height = path_bounds.height();
+
+                let stops = gradient
+                    .stops()
+                    .map(|stop| (stop.position, to_femtovg_color(&stop.color)))
+                    .collect::<Vec<_>>();
+                femtovg::Paint::radial_gradient_stops(
+                    path_width / 2.,
+                    path_height / 2.,
+                    0.,
+                    (path_width + path_height) / 4.,
+                    &stops,
+                )
+            }
             _ => return None,
         })
     }

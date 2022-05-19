@@ -10,6 +10,7 @@ All notable changes to this project are documented in this file.
 ### Added
 
  - Added the Model Adapters `FilterModel` and `MapModel`.
+ - Added `@linear-gradient(circle, ...)`
 
 ### Fixed
 
