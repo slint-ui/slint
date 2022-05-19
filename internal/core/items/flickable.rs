@@ -297,9 +297,7 @@ impl FlickableData {
                 (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
                     .apply_pin(flick)
                     .set(new_pos.y);
-                // Although the event was handled, the mouse grabber stack
-                // should extend into child items and don't end at this point
-                InputEventResult::EventIgnored
+                InputEventResult::EventAccepted
             }
         }
     }
