@@ -1959,7 +1959,7 @@ fn compile_builtin_function_call(
             let window_tokens = access_window_field(ctx);
             quote!(#window_tokens.scale_factor())
         }
-        BuiltinFunction::Debug => quote!(println!("{:?}", #(#a)*)),
+        BuiltinFunction::Debug => quote!(slint::internal::debug(#(#a)*)),
         BuiltinFunction::Mod => quote!((#(#a as i32)%*)),
         BuiltinFunction::Round => quote!((#(#a)* as f64).round()),
         BuiltinFunction::Ceil => quote!((#(#a)* as f64).ceil()),
