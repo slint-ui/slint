@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+TestCase := Window {
+  width: 500phx;
+  height: 500phx;
+
+  Flickable {
+    x: 0phx;
+    width: 250phx;
+    viewport-height: 800phx;
+
+    t1 := TouchArea {
+      height: 50phx;
+    }
+  }
+
+  Flickable {
+    x: 250phx;
+    width: 250phx;
+    viewport-width: 800phx;
+
+    t2 := TouchArea {
+      width: 50phx;
+    }
+  }
+
+  property<bool> t1-has-hover: t1.has-hover;
+  property<bool> t2-has-hover: t2.has-hover;
+}
+
+/*
+```rust
+// Test that mouse exit events are dispatched while scrolling
+use slint::re_exports::{MouseEvent, euclid::point2, vtable, WindowHandleAccess};
+let instance = TestCase::new();
+let window = vtable::VRc::from(instance.clone_strong()).window_handle().clone();
+// Vertical
+assert_eq!(instance.get_t1_has_hover(), false);
+window.clone().process_mouse_input(MouseEvent::MouseMoved { pos: point2(25.0, 25.0) });
+assert_eq!(instance.get_t1_has_hover(), true);
+window.clone().process_mouse_input(MouseEvent::MouseWheel { pos: point2(25.0, 25.0), delta: point2(0.0, -30.0) });
+assert_eq!(instance.get_t1_has_hover(), false);
+// Horizontal
+assert_eq!(instance.get_t2_has_hover(), false);
+window.clone().process_mouse_input(MouseEvent::MouseMoved { pos: point2(275.0, 25.0) });
+assert_eq!(instance.get_t2_has_hover(), true);
+window.clone().process_mouse_input(MouseEvent::MouseWheel { pos: point2(275.0, 25.0), delta: point2(-30.0, 0.0) });
+assert_eq!(instance.get_t2_has_hover(), false);
+```
+*/
