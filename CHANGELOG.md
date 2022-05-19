@@ -16,6 +16,7 @@ All notable changes to this project are documented in this file.
 
  - GL backend: Fixed animation sometimes not starting from input event (#1255)
  - C++ fix compilation when writing to the model data
+ - Fix mouse exit events not triggered by scrolling a Flickable (#1107)
 
 ## [0.2.4] - 2022-05-09
 
