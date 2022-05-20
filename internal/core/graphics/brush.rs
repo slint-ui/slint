@@ -208,8 +208,8 @@ impl InterpolatedPropertyValue for Brush {
                         let angle = &mut iter.next().unwrap().position;
                         *angle = angle.interpolate(&rhs.angle(), t);
                     }
-                    let mut rhs_stops = rhs.stops();
-                    while let (Some(s1), Some(s2)) = (iter.next(), rhs_stops.next()) {
+                    for s2 in rhs.stops() {
+                        let s1 = iter.next().unwrap();
                         s1.color = s1.color.interpolate(&s2.color, t);
                         s1.position = s1.position.interpolate(&s2.position, t);
                     }
@@ -235,13 +235,16 @@ impl InterpolatedPropertyValue for Brush {
                 } else {
                     let mut new_grad = lhs.clone();
                     let mut iter = new_grad.0.make_mut_slice().iter_mut();
-                    let mut rhs_stops = rhs.stops();
-                    while let (Some(s1), Some(s2)) = (iter.next(), rhs_stops.next()) {
+                    let mut last_color = Color::default();
+                    for s2 in rhs.stops() {
+                        let s1 = iter.next().unwrap();
+                        last_color = s2.color;
                         s1.color = s1.color.interpolate(&s2.color, t);
                         s1.position = s1.position.interpolate(&s2.position, t);
                     }
                     for x in iter {
                         x.position = x.position.interpolate(&1.0, t);
+                        x.color = x.color.interpolate(&last_color, t);
                     }
                     Brush::RadialGradient(new_grad)
                 }
