@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore combobox spinbox
+
 import { LineEditInner, TextEdit, AboutSlint } from "../common/common.slint";
 import { StyleMetrics, ScrollView  } from "std-widgets-impl.slint";
 export { StyleMetrics, ScrollView, TextEdit, AboutSlint, AboutSlint as AboutSixtyFPS }
@@ -17,14 +19,50 @@ export StandardButton := NativeButton {
     property<StandardButtonKind> kind <=> self.standard-button-kind;
     is-standard-button: true;
 }
+
 export CheckBox := NativeCheckBox {
     accessible-role: checkbox;
     accessible-label <=> text;
+    accessible-checked <=> checked;
 }
 export SpinBox := NativeSpinBox {
     property<length> font-size;
+
+    accessible-role: spinbox;
+    accessible-value: value;
+    accessible-value-minimum: minimum;
+    accessible-value-maximum: maximum;
+    accessible-value-step: (maximum - minimum) / 100;
+
 }
-export Slider := NativeSlider { }
+
+export Slider := NativeSlider {
+    accessible-role: slider;
+    accessible-value: value;
+    accessible-value-minimum: minimum;
+    accessible-value-maximum: maximum;
+    accessible-value-step: (maximum - minimum) / 100;
+
+    property <bool> has-focus <=> fs.has-focus;
+
+    fs := FocusScope {
+        width: 0px;
+
+        key-pressed(event) => {
+            if (root.enabled && event.text == Keys.RightArrow) {
+                root.value = Math.min(root.value + 1, root.maximum);
+                accept
+            } else if (root.enabled && event.text == Keys.LeftArrow) {
+                root.value = Math.max(root.value - 1, root.minimum);
+                accept
+            } else {
+                reject
+            }
+        }
+    }
+
+}
+
 export GroupBox := NativeGroupBox {
     GridLayout {
         padding-left: root.native-padding-left;
@@ -33,7 +71,8 @@ export GroupBox := NativeGroupBox {
         padding-bottom: root.native-padding-bottom;
         @children
     }
- }
+}
+
 export LineEdit := NativeLineEdit {
     property <length> font-size <=> inner.font-size;
     property <string> text <=> inner.text;
@@ -90,13 +129,15 @@ export StandardListView := ListView {
     }
 }
 
-
 export ComboBox := NativeComboBox {
     property <[string]> model;
     property <int> current-index : -1;
     enabled: true;
     open-popup => { popup.show(); }
     callback selected(string);
+
+    accessible-role: combobox;
+    accessible-value <=> current-value;
 
     popup := PopupWindow {
         Rectangle { background: NativeStyleMetrics.window-background; }
@@ -125,17 +166,42 @@ export ComboBox := NativeComboBox {
             }
         }
     }
+
+    fs := FocusScope {
+        key-pressed(event) => {
+            if (event.text == Keys.UpArrow) {
+                root.current-index = Math.max(root.current-index - 1, 0);
+                root.current-value = model[root.current-index];
+                return accept;
+            } else if (event.text == Keys.DownArrow) {
+                root.current-index = Math.min(root.current-index + 1, root.model.length - 1);
+                root.current-value = model[root.current-index];
+                return accept;
+            // PopupWindow can not get hidden again at this time, so do not allow to pop that up.
+            // } else if (event.text == Keys.Return) {
+            //     touch.clicked()
+            //     return accept;
+            }
+            return reject;
+        }
+    }
 }
 
 export TabWidgetImpl := NativeTabWidget { }
 
-export TabImpl := NativeTab { }
+export TabImpl := NativeTab {
+    accessible-role: tab;
+    accessible-label <=> title;
+}
 
 export TabBarImpl := Rectangle {
     // injected properties:
     property<int> current; // The currently selected tab
     property<int> current-focused: fs.has-focus ? current : -1; // The currently focused tab
     property<int> num-tabs; // The total number of tabs
+
+    accessible-role: tab;
+    // accessible-delegate-focus: current;
 
     HorizontalLayout {
         spacing: 0px; // Qt renders Tabs next to each other and renders "spacing" as part of the tab itself
@@ -165,10 +231,12 @@ export VerticalBox := VerticalLayout {
     spacing: NativeStyleMetrics.layout-spacing;
     padding: NativeStyleMetrics.layout-spacing;
 }
+
 export HorizontalBox := HorizontalLayout {
     spacing: NativeStyleMetrics.layout-spacing;
     padding: NativeStyleMetrics.layout-spacing;
 }
+
 export GridBox := GridLayout {
     spacing: NativeStyleMetrics.layout-spacing;
     padding: NativeStyleMetrics.layout-spacing;

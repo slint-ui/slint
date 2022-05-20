@@ -164,7 +164,7 @@ export SpinBox := FocusScope {
             }
             clicked => {
                 if (root.value < root.maximum) {
-                    root.value += root.step;
+                    root.value += 1;
                 }
             }
         }
@@ -180,7 +180,7 @@ export SpinBox := FocusScope {
             }
             clicked => {
                 if (root.value > root.minimum) {
-                    root.value -= root.step;
+                    root.value -= 1;
                 }
             }
         }
@@ -289,11 +289,11 @@ export Slider := Rectangle {
         width: 0px;
 
         key-pressed(event) => {
-            if (enabled && event.text == Keys.RightArrow && value < maximum) {
-                value += step-size;
+            if (enabled && event.text == Keys.RightArrow) {
+                value = Math.min(value + 1, maximum);
                 accept
-            } else if (enabled && event.text == Keys.LeftArrow && value > minimum) {
-                value -= step-size;
+            } else if (enabled && event.text == Keys.LeftArrow) {
+                value = Math.max(value - 1, minimum);
                 accept
             } else {
                 reject
