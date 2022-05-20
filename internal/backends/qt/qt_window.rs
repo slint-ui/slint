@@ -1723,6 +1723,7 @@ impl PlatformWindow for QtWindow {
             cpp! {unsafe [widget_ptr as "QWidget*", item as "void*"] {
                 auto accessible = QAccessible::queryAccessibleInterface(widget_ptr);
                 if (auto slint_accessible = dynamic_cast<Slint_accessible*>(accessible)) {
+                    slint_accessible->clearFocus();
                     slint_accessible->focusItem(item);
                 } else {
                     qDebug() << "Accessible was null or not a Slint_accessible!";

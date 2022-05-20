@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// cspell:ignore descendents qobject
+// cspell:ignore descendents qobject qwidget
 
 use crate::accessible_generated::*;
 
@@ -21,6 +21,15 @@ use std::pin::Pin;
 pub struct AccessibleItemPropertiesTracker {
     accessible_item: *mut c_void,
 }
+
+// KEEP IN SYNC WITH CONSTANTS IN C++
+const NAME: u32 = QAccessible_Text_Name;
+const DESCRIPTION: u32 = QAccessible_Text_Description;
+const VALUE: u32 = QAccessible_Text_Value;
+const CHECKED: u32 = QAccessible_Text_UserText as u32;
+const VALUE_MINIMUM: u32 = CHECKED + 1;
+const VALUE_MAXIMUM: u32 = VALUE_MINIMUM + 1;
+const VALUE_STEP: u32 = VALUE_MAXIMUM + 1;
 
 impl PropertyChangeHandler for AccessibleItemPropertiesTracker {
     fn notify(&self) {
@@ -62,7 +71,6 @@ pub struct LabelPropertyTracker {
 
 impl PropertyChangeHandler for LabelPropertyTracker {
     fn notify(&self) {
-        println!("*** *** Label updated *** ***");
         let accessible_item = self.accessible_item;
         let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> Pin<&SlintAccessibleItemData> as "void*" {
             auto obj = accessible_item->object();
@@ -95,6 +103,22 @@ impl PropertyChangeHandler for DescriptionPropertyTracker {
     }
 }
 
+pub struct FocusDelegationPropertyTracker {
+    accessible_item: *mut c_void,
+}
+
+impl PropertyChangeHandler for FocusDelegationPropertyTracker {
+    fn notify(&self) {
+        let accessible_item = self.accessible_item;
+        let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> Pin<&SlintAccessibleItemData> as "void*" {
+            accessible_item->delegateFocus();
+
+            return accessible_item->data();
+        });
+        data.arm_focus_delegation_tracker();
+    }
+}
+
 #[pin_project]
 pub struct SlintAccessibleItemData {
     #[pin]
@@ -105,6 +129,8 @@ pub struct SlintAccessibleItemData {
     label_tracker: PropertyTracker<LabelPropertyTracker>,
     #[pin]
     description_tracker: PropertyTracker<DescriptionPropertyTracker>,
+    #[pin]
+    focus_delegation_tracker: PropertyTracker<FocusDelegationPropertyTracker>,
     item: ItemWeak,
 }
 
@@ -122,12 +148,17 @@ impl SlintAccessibleItemData {
             PropertyTracker::new_with_change_handler(DescriptionPropertyTracker {
                 accessible_item,
             });
+        let focus_delegation_tracker =
+            PropertyTracker::new_with_change_handler(FocusDelegationPropertyTracker {
+                accessible_item,
+            });
 
         let result = Box::pin(Self {
             state_tracker,
             value_tracker,
             label_tracker,
             description_tracker,
+            focus_delegation_tracker,
             item: item.clone(),
         });
 
@@ -135,6 +166,7 @@ impl SlintAccessibleItemData {
         result.as_ref().arm_value_tracker();
         result.as_ref().arm_label_tracker();
         result.as_ref().arm_description_tracker();
+        result.as_ref().arm_focus_delegation_tracker();
 
         result
     }
@@ -165,7 +197,7 @@ impl SlintAccessibleItemData {
     fn arm_label_tracker(self: Pin<&Self>) {
         let item = self.item.clone();
         let p = self.project_ref();
-        p.value_tracker.evaluate_as_dependency_root(move || {
+        p.label_tracker.evaluate_as_dependency_root(move || {
             if let Some(item_rc) = item.upgrade() {
                 item_rc.accessible_string_property(AccessibleStringProperty::Label);
             }
@@ -175,9 +207,19 @@ impl SlintAccessibleItemData {
     fn arm_description_tracker(self: Pin<&Self>) {
         let item = self.item.clone();
         let p = self.project_ref();
-        p.value_tracker.evaluate_as_dependency_root(move || {
+        p.description_tracker.evaluate_as_dependency_root(move || {
             if let Some(item_rc) = item.upgrade() {
                 item_rc.accessible_string_property(AccessibleStringProperty::Description);
+            }
+        });
+    }
+
+    fn arm_focus_delegation_tracker(self: Pin<&Self>) {
+        let item = self.item.clone();
+        let p = self.project_ref();
+        p.focus_delegation_tracker.evaluate_as_dependency_root(move || {
+            if let Some(item_rc) = item.upgrade() {
+                item_rc.accessible_string_property(AccessibleStringProperty::DelegateFocus);
             }
         });
     }
@@ -187,6 +229,15 @@ cpp! {{
     #include <QtWidgets/QtWidgets>
 
     #include <memory>
+
+    /// KEEP IN SYNC WITH CONSTANTS IN RUST!
+    const uint32_t NAME { QAccessible::Name };
+    const uint32_t DESCRIPTION { QAccessible::Description };
+    const uint32_t VALUE { QAccessible::Value};
+    const uint32_t CHECKED { QAccessible::UserText };
+    const uint32_t VALUE_MINIMUM { CHECKED + 1 };
+    const uint32_t VALUE_MAXIMUM { VALUE_MINIMUM + 1 };
+    const uint32_t VALUE_STEP { VALUE_MAXIMUM + 1 };
 
     // ------------------------------------------------------------------------------
     // Helper:
@@ -265,14 +316,6 @@ cpp! {{
             [data: &SlintAccessibleItemData as "void*", what: u32 as "uint32_t"]
                 -> QString as "QString" {
 
-            const NAME: u32 = QAccessible_Text_Name;
-            const DESCRIPTION: u32 = QAccessible_Text_Description;
-            const VALUE: u32 = QAccessible_Text_Value;
-            const CHECKED: u32 = QAccessible_Text_UserText as u32;
-            const VALUE_MINIMUM: u32 = CHECKED + 1;
-            const VALUE_MAXIMUM: u32 = VALUE_MINIMUM + 1;
-            const VALUE_STEP: u32 = VALUE_MAXIMUM + 1;
-
             if let Some(item) = data.item.upgrade() {
                 let string = match what {
                     NAME => item.accessible_string_property(AccessibleStringProperty::Label),
@@ -299,7 +342,7 @@ cpp! {{
     class Slint_accessible : public QAccessibleInterface {
     public:
         Slint_accessible(QObject *obj, QAccessible::Role role, QAccessibleInterface *parent) :
-            m_role(role), m_parent(parent), m_object(obj)
+             has_focus(false), has_focus_delegation(false), m_role(role), m_parent(parent), m_object(obj)
         { }
 
         ~Slint_accessible() {
@@ -319,22 +362,42 @@ cpp! {{
             return qwidget()->mapFromGlobal(p);
         }
 
-        bool focusItem(void *item) {
+        void clearFocus() {
+            has_focus = false;
+            has_focus_delegation = false;
+
+            for (int i = 0; i < childCount(); ++i) {
+                static_cast<Slint_accessible *>(child(i))->clearFocus();
+            }
+        }
+
+        virtual void delegateFocus() const {
+            sendFocusChangeEvent();
+        }
+
+        bool focusItem(void *item) const {
             auto my_item = rustItem();
             if (rust!(Slint_accessible_findItem [item: &ItemWeak as "void *", my_item: &ItemWeak as "void*"] -> bool as "bool" {
                 item == my_item
             })) {
-                auto event = QAccessibleEvent(object(), QAccessible::Focus);
-                QAccessible::updateAccessibility(&event);
+                has_focus = true;
 
+                delegateFocus();
                 return true;
             }
+
             for (int i = 0; i < childCount(); ++i) {
                 if (static_cast<Slint_accessible *>(child(i))->focusItem(item)) {
                     return true;
                 }
             }
             return false;
+        }
+
+        void sendFocusChangeEvent() const {
+            auto event = QAccessibleEvent(object(), QAccessible::Focus);
+            QAccessible::updateAccessibility(&event);
+            has_focus_delegation = true;
         }
 
         bool isValid() const override {
@@ -358,7 +421,7 @@ cpp! {{
         }
 
         QAccessibleInterface *focusChild() const override {
-            if (state().focused) {
+            if (has_focus_delegation) {
                 return const_cast<QAccessibleInterface *>(static_cast<const QAccessibleInterface *>(this));
             }
             for (int i = 0; i < childCount(); ++i)  {
@@ -430,6 +493,10 @@ cpp! {{
 
         void virtual_hook(int id, void *data) override { Q_UNUSED(id); Q_UNUSED(data); /* FIXME */ }
 
+    protected:
+        mutable bool has_focus;
+        mutable bool has_focus_delegation;
+
     private:
         QAccessible::Role m_role = QAccessible::NoRole;
         QAccessibleInterface *m_parent = nullptr;
@@ -480,6 +547,22 @@ cpp! {{
             return parent()->window();
         }
 
+        void delegateFocus() const override {
+            if (!has_focus) { return; }
+
+            auto index = rust!(Slint_accessible_item_delegate_focus [m_data: Pin<&SlintAccessibleItemData> as "void*"] -> i32 as "int" {
+                m_data.item.upgrade()
+                    .map(|i| { i.accessible_string_property(AccessibleStringProperty::DelegateFocus) })
+                    .map(|s| s.as_str().parse::<i32>().unwrap_or(-1)).unwrap_or(-1)
+            });
+
+            if (index >= 0 && index < childCount()) {
+                static_cast<Slint_accessible_item*>(child(index))->sendFocusChangeEvent();
+            } else {
+                sendFocusChangeEvent();
+            }
+        }
+
         // properties and state
         QString text(QAccessible::Text t) const override {
             return item_string_property(m_data, t);
@@ -489,8 +572,8 @@ cpp! {{
             QAccessible::State state;
             state.active = 1;
             state.focusable = 1;
-            state.focused = (item_string_property(m_data, QAccessible::UserText) == "true") ? 1 : 0;
-            state.checked = (item_string_property(m_data, QAccessible::UserText + 1) == "true") ? 1 : 0;
+            state.focused = has_focus_delegation;
+            state.checked = (item_string_property(m_data, CHECKED) == "true") ? 1 : 0;
             return state; /* FIXME */
         }
 
@@ -512,15 +595,15 @@ cpp! {{
         }
 
         QVariant maximumValue() const override {
-            return item_string_property(m_data, QAccessible::UserText + 2);
+            return item_string_property(m_data, VALUE_MAXIMUM);
         }
 
         QVariant minimumValue() const override {
-            return item_string_property(m_data, QAccessible::UserText + 3);
+            return item_string_property(m_data, VALUE_MINIMUM);
         }
 
         QVariant minimumStepSize() const override {
-            return item_string_property(m_data, QAccessible::UserText + 4);
+            return item_string_property(m_data, VALUE_STEP);
         }
 
     private:

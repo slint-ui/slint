@@ -330,8 +330,6 @@ export GroupBox := VerticalLayout {
     }
 }
 
-
-
 export TabWidgetImpl := Rectangle {
     property <length> content-x: 0;
     property <length> content-y: tabbar-preferred-height;
@@ -420,6 +418,9 @@ export TabBarImpl := Rectangle {
         alignment: start;
         @children
     }
+
+    accessible-role: tab;
+    accessible-delegate-focus: current-focused >= 0 ? current-focused : current;
 
     fs := FocusScope {
         width: 0px; // Do not react on clicks
