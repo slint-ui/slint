@@ -1716,7 +1716,6 @@ impl PlatformWindow for QtWindow {
     }
 
     fn handle_focus_change(&self, old: Option<ItemRc>, new: Option<ItemRc>) {
-        println!("QtWindow: Focus changed from {old:?} to {new:?}.");
         let widget_ptr = self.widget_ptr();
         if let Some(ai) = accessible_item(new) {
             let item = &ai;
