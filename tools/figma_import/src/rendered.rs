@@ -143,8 +143,7 @@ fn render_frame(frame: &Frame, rc: &mut Ctx) -> Result<bool, Box<dyn std::error:
         writeln!(rc, "background: {};", frame.backgroundColor)?;
     }
     if frame.clipsContent || frame.isMask {
-        writeln!(rc, "Clip {{")?;
-        rc.indent += 1;
+        writeln!(rc, "clip: true;")?;
     }
     Ok(frame.isMask)
 }
