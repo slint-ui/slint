@@ -454,7 +454,12 @@ pub mod internal {
         }
         #[cfg(not(feature = "log"))]
         {
+            #[cfg(feature = "std")]
             println!("{:?}", s);
+            #[cfg(not(feature = "std"))]
+            panic!(
+                "debug() is not supported if you don't have the 'log' or 'std' feature enabled!"
+            );
         }
     }
 }
