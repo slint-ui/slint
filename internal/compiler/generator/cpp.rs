@@ -2413,39 +2413,47 @@ fn box_layout_function(
     for item in elements {
         match item {
             Either::Left(value) => {
-                push_code +=
-                    &format!("cells_vector.push_back({{ {} }});", compile_expression(value, ctx));
+                write!(
+                    push_code,
+                    "cells_vector.push_back({{ {} }});",
+                    compile_expression(value, ctx)
+                )
+                .unwrap();
             }
             Either::Right(repeater) => {
-                push_code += &format!("self->repeater_{}.ensure_updated(self);", repeater);
+                write!(push_code, "self->repeater_{}.ensure_updated(self);", repeater).unwrap();
 
                 if let Some(ri) = &repeated_indices {
-                    push_code +=
-                        &format!("{}_array[{}] = cells_vector.size();", ri, repeater_idx * 2);
-                    push_code += &format!(
+                    write!(push_code, "{}_array[{}] = cells_vector.size();", ri, repeater_idx * 2)
+                        .unwrap();
+                    write!(push_code,
                         "{ri}_array[{c}] = self->repeater_{id}.inner ? self->repeater_{id}.inner->data.size() : 0;",
                         ri = ri,
                         c = repeater_idx * 2 + 1,
                         id = repeater,
-                    );
+                    ).unwrap();
                 }
                 repeater_idx += 1;
-                push_code += &format!(
+                write!(
+                    push_code,
                     "if (self->repeater_{id}.inner) \
                         for (auto &&sub_comp : self->repeater_{id}.inner->data) \
                            cells_vector.push_back((*sub_comp.ptr)->box_layout_data({o}));",
                     id = repeater,
                     o = to_cpp_orientation(orientation),
-                );
+                )
+                .unwrap();
             }
         }
     }
 
     let ri = repeated_indices.as_ref().map_or(String::new(), |ri| {
-        push_code += &format!(
+        write!(
+            push_code,
             "slint::cbindgen_private::Slice<int> {ri}{{ {ri}_array.data(), {ri}_array.size() }};",
             ri = ri
-        );
+        )
+        .unwrap();
         format!("std::array<int, {}> {}_array;", 2 * repeater_idx, ri)
     });
     format!(
