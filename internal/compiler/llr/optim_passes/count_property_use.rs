@@ -81,8 +81,8 @@ pub fn count_property_use(root: &PublicComponent) {
 
         // 6. aliases (if they were not optimize, they are probably used)
         for (a, b) in &sc.two_way_bindings {
-            visit_property(a, &ctx);
-            visit_property(b, &ctx);
+            visit_property(a, ctx);
+            visit_property(b, ctx);
         }
     })
 }

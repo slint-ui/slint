@@ -232,7 +232,7 @@ pub(crate) fn property_binding_and_analysis<'a>(
             for _ in 0..level.get() {
                 ctx = ctx.parent.as_ref().unwrap().ctx;
             }
-            let mut ret = property_binding_and_analysis(&ctx, parent_reference);
+            let mut ret = property_binding_and_analysis(ctx, parent_reference);
             match &mut ret.binding {
                 Some((_, m @ ContextMap::Identity)) => {
                     *m = ContextMap::InSubElement { path: Default::default(), parent: level.get() };

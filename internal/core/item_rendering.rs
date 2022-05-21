@@ -326,9 +326,7 @@ impl<'a, T> PartialRenderer<'a, T> {
             crate::item_tree::visit_items(
                 component,
                 crate::item_tree::TraversalOrder::BackToFront,
-                |_, item, _, offset| match item
-                    .cached_rendering_data_offset()
-                    .get_entry(&mut self.cache)
+                |_, item, _, offset| match item.cached_rendering_data_offset().get_entry(self.cache)
                 {
                     Some(CachedGraphicsData { data, dependency_tracker: Some(tr) }) => {
                         if tr.is_dirty() {
@@ -401,7 +399,7 @@ macro_rules! forward_rendering_call {
 impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
     fn filter_item(&mut self, item: Pin<ItemRef>) -> (bool, Rect) {
         let rendering_data = item.cached_rendering_data_offset();
-        let item_geometry = match rendering_data.get_entry(&mut self.cache) {
+        let item_geometry = match rendering_data.get_entry(self.cache) {
             Some(CachedGraphicsData { data, dependency_tracker }) => {
                 dependency_tracker
                     .get_or_insert_with(|| Box::pin(crate::properties::PropertyTracker::default()))
