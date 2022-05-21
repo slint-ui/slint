@@ -211,7 +211,7 @@ where
             .filter_map(|(i, e)| (self.filter_function)(&e).then(|| i))
             .collect();
 
-        if insertion.len() > 0 {
+        if !insertion.is_empty() {
             let mut mapping = self.mapping.borrow_mut();
             let insertion_point = mapping.binary_search(&index).unwrap_or_else(|ip| ip);
 
