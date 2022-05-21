@@ -44,7 +44,7 @@ impl const_field_offset::PinnedDrop for NativeStyleMetrics {
 
 impl NativeStyleMetrics {
     pub fn new() -> Pin<Rc<Self>> {
-        let new = Rc::pin(NativeStyleMetrics {
+        Rc::pin(NativeStyleMetrics {
             layout_spacing: Default::default(),
             layout_padding: Default::default(),
             text_cursor_width: Default::default(),
@@ -58,8 +58,7 @@ impl NativeStyleMetrics {
             placeholder_color: Default::default(),
             placeholder_color_disabled: Default::default(),
             tab_bar_alignment: Default::default(),
-        });
-        new
+        })
     }
 
     pub fn init<T>(self: Pin<Rc<Self>>, _root: T) {

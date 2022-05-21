@@ -159,12 +159,10 @@ fn process_file(
     mut file: impl Write,
 ) -> std::io::Result<()> {
     match path.extension() {
-        Some(ext) if ext == "rs" => return process_rust_file(source, file),
-        Some(ext) if ext == "md" => return process_markdown_file(source, file),
+        Some(ext) if ext == "rs" => process_rust_file(source, file),
+        Some(ext) if ext == "md" => process_markdown_file(source, file),
         // Formatting .60 files because of backwards compatibility (project was recently renamed)
-        Some(ext) if ext == "slint" || ext == ".60" => {
-            return process_slint_file(source, path, file)
-        }
+        Some(ext) if ext == "slint" || ext == ".60" => process_slint_file(source, path, file),
         _ => {
             // This allows usage like `cat x.slint | slint-fmt /dev/stdin`
             if path.as_path() == Path::new("/dev/stdin") {

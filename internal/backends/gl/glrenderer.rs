@@ -990,7 +990,7 @@ impl GLItemRenderer {
     ) -> RenderingResult {
         let current_clip = self.get_current_clip();
         if let Some((layer_image, layer_size)) = self
-            .render_layer(&item_cache, &self_rc.clone(), &|| {
+            .render_layer(item_cache, &self_rc.clone(), &|| {
                 // We don't need to include the size of the opacity item itself, since it has no content.
                 let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
                     let self_ref = self_rc.borrow();

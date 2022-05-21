@@ -21,7 +21,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
 
     let component = match component {
         None => {
-            slint_interpreter::print_diagnostics(&compiler.diagnostics());
+            slint_interpreter::print_diagnostics(compiler.diagnostics());
 
             match std::env::var("SLINT_INTERPRETER_ERROR_WHITELIST") {
                 Ok(wl) if !wl.is_empty() => {
@@ -31,7 +31,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
                         .filter(|d| d.level() == DiagnosticLevel::Error)
                         .collect::<Vec<_>>();
                     if !errors.is_empty()
-                        && errors.iter().all(|d| wl.split(";").any(|w| d.message().contains(w)))
+                        && errors.iter().all(|d| wl.split(';').any(|w| d.message().contains(w)))
                     {
                         eprintln!(
                             "{}: Ignoring Error because of the error whitelist!",

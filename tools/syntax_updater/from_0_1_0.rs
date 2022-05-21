@@ -14,7 +14,7 @@ pub(crate) fn fold_node(
     if let Some(binding) = syntax_nodes::Binding::new(node.clone()) {
         let property_name = state.property_name.as_deref().unwrap_or_default();
         if (property_name == "loop-count" || property_name == "loop_count")
-            && has_parent_anim(&binding.clone().into())
+            && has_parent_anim(&binding.into())
         {
             let text = node.text().to_string();
             let text = text.replace("loop-count", "iteration-count");

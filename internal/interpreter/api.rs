@@ -1313,7 +1313,7 @@ fn component_definition_struct_properties() {
         instance.set_property("test", Value::Struct(invalid_struct)),
         Err(SetPropertyError::WrongType)
     );
-    let mut invalid_struct = valid_struct.clone();
+    let mut invalid_struct = valid_struct;
     invalid_struct.set_field("string_value".into(), Value::Number(44.));
     assert_eq!(
         instance.set_property("test", Value::Struct(invalid_struct)),

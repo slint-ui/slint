@@ -290,19 +290,15 @@ pub fn print_rustc_flags() -> std::io::Result<()> {
         let toml = config.parse::<toml_edit::Document>().expect("invalid board config toml");
 
         for link_arg in
-            toml.get("link_args").map(toml_edit::Item::as_array).flatten().into_iter().flatten()
+            toml.get("link_args").and_then(toml_edit::Item::as_array).into_iter().flatten()
         {
             if let Some(option) = link_arg.as_str() {
                 println!("cargo:rustc-link-arg={}", option);
             }
         }
 
-        for link_search_path in toml
-            .get("link_search_path")
-            .map(toml_edit::Item::as_array)
-            .flatten()
-            .into_iter()
-            .flatten()
+        for link_search_path in
+            toml.get("link_search_path").and_then(toml_edit::Item::as_array).into_iter().flatten()
         {
             if let Some(mut path) = link_search_path.as_str().map(std::path::PathBuf::from) {
                 if path.is_relative() {

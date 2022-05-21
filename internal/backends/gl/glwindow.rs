@@ -171,7 +171,7 @@ impl WinitWindow for GLWindow {
     fn draw(self: Rc<Self>) {
         let runtime_window = self.self_weak.upgrade().unwrap();
         let scale_factor = runtime_window.scale_factor();
-        runtime_window.clone().draw_contents(|components| {
+        runtime_window.draw_contents(|components| {
             let window = match self.borrow_mapped_window() {
                 Some(window) => window,
                 None => return, // caller bug, doesn't make sense to call draw() when not mapped
