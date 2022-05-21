@@ -344,6 +344,17 @@ fn into_qbrush(
     width: qttypes::qreal,
     height: qttypes::qreal,
 ) -> qttypes::QBrush {
+    /// Mangle the position to work around the fact that Qt merge stop at equal position
+    fn mangle_position(position: f32, idx: usize, count: usize) -> f32 {
+        // Add or substract a small amount to make sure each stop is different but still in [0..1].
+        // It is possible that we swap stops that are both really really close to 0.54321+ε,
+        // but that is really unlikely
+        if position < 0.54321 + 67.8 * f32::EPSILON {
+            position + f32::EPSILON * idx as f32
+        } else {
+            position - f32::EPSILON * (count - idx - 1) as f32
+        }
+    }
     match brush {
         i_slint_core::Brush::SolidColor(color) => {
             let color: u32 = color.as_argb_encoded();
@@ -363,8 +374,9 @@ fn into_qbrush(
                     return qlg;
                 }
             };
-            for s in g.stops() {
-                let pos: f32 = s.position;
+            let count = g.stops().count();
+            for (idx, s) in g.stops().enumerate() {
+                let pos: f32 = mangle_position(s.position, idx, count);
                 let color: u32 = s.color.as_argb_encoded();
                 cpp! {unsafe [mut qlg as "QLinearGradient", pos as "float", color as "QRgb"] {
                     qlg.setColorAt(pos, QColor::fromRgba(color));
@@ -382,8 +394,9 @@ fn into_qbrush(
                     return qrg;
                 }
             };
-            for s in g.stops() {
-                let pos: f32 = s.position;
+            let count = g.stops().count();
+            for (idx, s) in g.stops().enumerate() {
+                let pos: f32 = mangle_position(s.position, idx, count);
                 let color: u32 = s.color.as_argb_encoded();
                 cpp! {unsafe [mut qrg as "QRadialGradient", pos as "float", color as "QRgb"] {
                     qrg.setColorAt(pos, QColor::fromRgba(color));
