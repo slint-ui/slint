@@ -29,7 +29,7 @@ struct PrettyPrinter<'a> {
 impl<'a> PrettyPrinter<'a> {
     fn print_root(&mut self, root: &PublicComponent) -> Result {
         for c in &root.sub_components {
-            self.print_component(root, &c, None)?
+            self.print_component(root, c, None)?
         }
         self.print_component(root, &root.item_tree.root, None)
     }
@@ -116,7 +116,7 @@ impl Display for DisplayPropertyRef<'_> {
                 for _ in 0..level.get() {
                     ctx = ctx.parent.unwrap().ctx;
                 }
-                write!(f, "{}", Self(&parent_reference, ctx))
+                write!(f, "{}", Self(parent_reference, ctx))
             }
             PropertyReference::Global { global_index, property_index } => {
                 let g = &ctx.public_component.globals[*global_index];
@@ -138,12 +138,12 @@ impl<'a> Display for DisplayExpression<'a> {
             Expression::PropertyReference(x) => write!(f, "{}", DisplayPropertyRef(x, ctx)),
             Expression::FunctionParameterReference { index } => write!(f, "arg_{}", index),
             Expression::StoreLocalVariable { name, value } => {
-                write!(f, "{} = {}", name, e(&value))
+                write!(f, "{} = {}", name, e(value))
             }
             Expression::ReadLocalVariable { name, .. } => write!(f, "{}", name),
-            Expression::StructFieldAccess { base, name } => write!(f, "{}.{}", e(&base), name),
-            Expression::ArrayIndex { array, index } => write!(f, "{}[{}]", e(&array), e(&index)),
-            Expression::Cast { from, to } => write!(f, "{} /*as {:?}*/", e(&from), to),
+            Expression::StructFieldAccess { base, name } => write!(f, "{}.{}", e(base), name),
+            Expression::ArrayIndex { array, index } => write!(f, "{}[{}]", e(array), e(index)),
+            Expression::Cast { from, to } => write!(f, "{} /*as {:?}*/", e(from), to),
             Expression::CodeBlock(v) => {
                 write!(f, "{{ {} }}", v.iter().map(e).join("; "))
             }
@@ -162,21 +162,21 @@ impl<'a> Display for DisplayExpression<'a> {
                 write!(f, "{}({})", function, arguments.iter().map(e).join(", "))
             }
             Expression::PropertyAssignment { property, value } => {
-                write!(f, "{} = {}", DisplayPropertyRef(property, ctx), e(&value))
+                write!(f, "{} = {}", DisplayPropertyRef(property, ctx), e(value))
             }
             Expression::ModelDataAssignment { level, value } => {
-                write!(f, "data_{} = {}", level, e(&value))
+                write!(f, "data_{} = {}", level, e(value))
             }
             Expression::ArrayIndexAssignment { array, index, value } => {
-                write!(f, "{}[{}] = {}", e(&array), e(&index), e(&value))
+                write!(f, "{}[{}] = {}", e(array), e(index), e(value))
             }
             Expression::BinaryExpression { lhs, rhs, op } => {
-                write!(f, "({} {} {})", e(&lhs), op, e(&rhs))
+                write!(f, "({} {} {})", e(lhs), op, e(rhs))
             }
-            Expression::UnaryOp { sub, op } => write!(f, "{}{}", op, e(&sub)),
+            Expression::UnaryOp { sub, op } => write!(f, "{}{}", op, e(sub)),
             Expression::ImageReference { resource_ref } => write!(f, "{:?}", resource_ref),
             Expression::Condition { condition, true_expr, false_expr } => {
-                write!(f, "({} ? {} : {})", e(&condition), e(&true_expr), e(&false_expr))
+                write!(f, "({} ? {} : {})", e(condition), e(true_expr), e(false_expr))
             }
             Expression::Array { values, .. } => {
                 write!(f, "[{}]", values.iter().map(e).join(", "))
@@ -190,7 +190,7 @@ impl<'a> Display for DisplayExpression<'a> {
             Expression::LinearGradient { angle, stops } => write!(
                 f,
                 "@linear-gradient({}, {})",
-                e(&angle),
+                e(angle),
                 stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
             ),
             Expression::RadialGradient { stops } => write!(
@@ -199,7 +199,7 @@ impl<'a> Display for DisplayExpression<'a> {
                 stops.iter().map(|(e1, e2)| format!("{} {}", e(e1), e(e2))).join(", ")
             ),
             Expression::EnumerationValue(x) => write!(f, "{}", x),
-            Expression::ReturnStatement(Some(x)) => write!(f, "return {}", e(&x)),
+            Expression::ReturnStatement(Some(x)) => write!(f, "return {}", e(x)),
             Expression::ReturnStatement(None) => f.write_str("return"),
             Expression::LayoutCacheAccess { layout_cache_prop, index, repeater_index: None } => {
                 write!(f, "{}[{}]", DisplayPropertyRef(layout_cache_prop, ctx), index)

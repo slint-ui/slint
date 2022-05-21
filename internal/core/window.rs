@@ -389,7 +389,7 @@ impl Window {
         let focus_item = self.as_ref().focus_item.take();
 
         if let Some(focus_item_rc) = focus_item.upgrade() {
-            focus_item_rc.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusOut, &self);
+            focus_item_rc.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusOut, self);
             Some(focus_item_rc)
         } else {
             None

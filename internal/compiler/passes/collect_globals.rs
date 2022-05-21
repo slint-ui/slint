@@ -46,7 +46,7 @@ fn collect_in_component(
             }
         }
     };
-    visit_all_named_references(&component, &mut maybe_collect_global);
+    visit_all_named_references(component, &mut maybe_collect_global);
     for component in &component.used_types.borrow().sub_components {
         visit_all_named_references(component, &mut maybe_collect_global);
     }
