@@ -478,7 +478,7 @@ impl Expression {
             if pos > 0 {
                 let (middle, after) = rest.split_at_mut(pos);
                 let begin = &before.last().expect("The first should never be invalid").1;
-                let end = &after.last().expect("The last should never be invalid").1;
+                let end = &after.first().expect("The last should never be invalid").1;
                 for (i, (_, e)) in middle.iter_mut().enumerate() {
                     debug_assert!(matches!(e, Expression::Invalid));
                     // e = begin + (i+1) * (end - begin) / (pos+1)
