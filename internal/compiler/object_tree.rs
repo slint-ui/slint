@@ -5,6 +5,8 @@
  This module contains the intermediate representation of the code in the form of an object tree
 */
 
+// cSpell: ignore qualname
+
 use itertools::Either;
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
@@ -681,7 +683,7 @@ impl Element {
         for prop_decl in node.PropertyDeclaration() {
             let prop_type = prop_decl
                 .Type()
-                .map(|type_node| type_from_node(type_node.clone(), diag, tr))
+                .map(|type_node| type_from_node(type_node, diag, tr))
                 // Type::Void is used for two way bindings without type specified
                 .unwrap_or(Type::InferredProperty);
 
