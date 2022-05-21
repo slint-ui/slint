@@ -268,7 +268,7 @@ impl ItemRc {
         step_in: &dyn Fn(ItemRc) -> ItemRc,
         step_out: &dyn Fn(&crate::item_tree::ComponentItemTree, usize) -> Option<usize>,
     ) -> Self {
-        let mut component = self.component().clone();
+        let mut component = self.component();
         let mut comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
         let mut item_tree = crate::item_tree::ComponentItemTree::new(&comp_ref_pin);
 
