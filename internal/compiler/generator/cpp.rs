@@ -1583,10 +1583,10 @@ fn generate_repeated_component(
 
     if let Some(index_prop) = repeated.index_prop {
         // Override default subtree_index function implementation
-        let subtree_index_func = repeater_struct.members.iter_mut().find(|(_, d)| match d {
-            Declaration::Function(f) if f.name == "subtree_index" => true,
-            _ => false,
-        });
+        let subtree_index_func = repeater_struct
+            .members
+            .iter_mut()
+            .find(|(_, d)| matches!(d, Declaration::Function(f) if f.name == "subtree_index"));
 
         if let Declaration::Function(f) = &mut subtree_index_func.unwrap().1 {
             let index = access_prop(&index_prop);
