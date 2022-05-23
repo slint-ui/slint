@@ -141,12 +141,8 @@ impl PlatformWindow for SimulatorWindow {
         &self,
         items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'a>>>,
     ) {
-        super::PARTIAL_RENDERING_CACHE.with(|cache| {
-            for item in items {
-                let cache_entry =
-                    item.cached_rendering_data_offset().release(&mut cache.borrow_mut());
-                drop(cache_entry);
-            }
+        super::LINE_RENDERER.with(|cache| {
+            cache.borrow_mut().free_graphics_resources(items);
         });
     }
 
@@ -304,7 +300,7 @@ impl WinitWindow for SimulatorWindow {
                         width: size.width,
                         height: size.height,
                     }));
-                    super::PARTIAL_RENDERING_CACHE.with(|cache| {
+                    super::LINE_RENDERER.with(|cache| {
                         *cache.borrow_mut() = Default::default();
                     });
                     buffer.clear(background).unwrap();
@@ -312,14 +308,32 @@ impl WinitWindow for SimulatorWindow {
                 }
             };
 
-            super::PARTIAL_RENDERING_CACHE.with(|cache| {
-                crate::renderer::render_window_frame(
+            struct BufferProvider<'a> {
+                devices: &'a mut dyn crate::Devices,
+                line_buffer: Vec<crate::TargetPixel>,
+            }
+            impl crate::renderer::LineBufferProvider for BufferProvider<'_> {
+                fn process_line(
+                    &mut self,
+                    line: crate::PhysicalLength,
+                    render_fn: impl FnOnce(&mut [super::TargetPixel]),
+                ) {
+                    render_fn(&mut self.line_buffer);
+                    self.devices.fill_region(
+                        euclid::rect(0, line.get(), self.line_buffer.len() as _, 1),
+                        &self.line_buffer,
+                    );
+                }
+            }
+            super::LINE_RENDERER.with(|renderer| {
+                renderer.borrow_mut().render(
                     runtime_window,
-                    background.into(),
-                    &mut *display,
                     self.initial_dirty_region_for_next_frame.take(),
-                    &mut cache.borrow_mut(),
-                );
+                    BufferProvider {
+                        devices: display,
+                        line_buffer: vec![Default::default(); size.width as usize],
+                    },
+                )
             });
 
             let output_image = display
