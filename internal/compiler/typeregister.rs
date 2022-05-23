@@ -91,9 +91,9 @@ pub(crate) const RESERVED_ACCESSIBILITY_PROPERTIES: &[(&str, Type)] = &[
     ("accessible-has-focus", Type::Bool),
     ("accessible-label", Type::String),
     ("accessible-value", Type::String),
-    ("accessible-value-maximum", Type::String),
-    ("accessible-value-minimum", Type::String),
-    ("accessible-value-step", Type::String),
+    ("accessible-value-maximum", Type::Float32),
+    ("accessible-value-minimum", Type::Float32),
+    ("accessible-value-step", Type::Float32),
 ];
 
 /// list of reserved property injected in every item
