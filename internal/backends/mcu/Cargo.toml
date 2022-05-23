@@ -42,7 +42,7 @@ derive_more = "0.99.5"
 embedded-graphics = "0.7.1"
 embedded-graphics-simulator = { version = "0.3.0", optional = true, default-features = false }
 euclid = { version = "0.22.1", default-features = false }
-femtovg = { version = "0.3.4", optional = true }
+femtovg = { version = "0.3.5", optional = true }
 glutin = { version = "0.28", default-features = false, optional = true, features = ["x11"] }
 imgref = { version = "1.6.1", optional = true }
 integer-sqrt = "0.1.5"
