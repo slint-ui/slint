@@ -5,9 +5,8 @@ mod draw_functions;
 
 use crate::lengths::PhysicalPx;
 use crate::{
-    profiler, Devices, LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect,
-    PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize, PointLengths, RectLengths,
-    ScaleFactor, SizeLengths,
+    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, PhysicalLength, PhysicalPoint,
+    PhysicalRect, PhysicalSize, PointLengths, RectLengths, ScaleFactor, SizeLengths,
 };
 use alloc::rc::Rc;
 use alloc::{vec, vec::Vec};
@@ -22,82 +21,130 @@ use i_slint_core::{Color, Coord, ImageInner, StaticTextures};
 
 type DirtyRegion = PhysicalRect;
 
-pub fn render_window_frame(
+pub trait LineBufferProvider {
+    /// Called before the frame is being drawn, with the dirty region. Return the actual dirty region
+    ///
+    /// The default implementation simply returns the dirty_region
+    fn set_dirty_region(&mut self, dirty_region: PhysicalRect) -> PhysicalRect {
+        dirty_region
+    }
+
+    /// Called once per line, you will have to call the render_fn back with the buffer.
+    fn process_line(
+        &mut self,
+        line: PhysicalLength,
+        render_fn: impl FnOnce(&mut [super::TargetPixel]),
+    );
+}
+
+#[derive(Default)]
+pub struct LineRenderer {
+    partial_cache: i_slint_core::item_rendering::PartialRenderingCache,
+}
+
+impl LineRenderer {
+    /// Render the window, line by line, into the buffer provided by the `line_buffer` function.
+    ///
+    /// The renderer uses a cache internally and will only render the part of the window
+    /// which are dirty. The `initial_dirty_region` is an extra dirty regin which will also
+    /// be rendered.
+    ///
+    /// TODO: the window should be the public slint::Window type
+    /// TODO: what about async and threading.
+    ///       (can we call the line_buffer function from different thread?)
+    /// TODO: should `initial_dirty_region` be set from a different call?
+    pub fn render(
+        &mut self,
+        window: Rc<i_slint_core::window::Window>,
+        initial_dirty_region: i_slint_core::item_rendering::DirtyRegion,
+        line_buffer: impl LineBufferProvider,
+    ) {
+        let component_rc = window.component();
+        let component = i_slint_core::component::ComponentRc::borrow_pin(&component_rc);
+        if let Some(window_item) = i_slint_core::items::ItemRef::downcast_pin::<
+            i_slint_core::items::WindowItem,
+        >(component.as_ref().get_item_ref(0))
+        {
+            let size = euclid::size2(window_item.width() as f32, window_item.height() as f32)
+                * ScaleFactor::new(window.scale_factor());
+            let background = to_rgb888_color_discard_alpha(window_item.background());
+            render_window_frame(
+                window,
+                background.into(),
+                size.cast(),
+                initial_dirty_region,
+                &mut self.partial_cache,
+                line_buffer,
+            );
+        }
+    }
+
+    pub fn free_graphics_resources(
+        &mut self,
+        items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
+    ) {
+        for item in items {
+            let cache_entry = item.cached_rendering_data_offset().release(&mut self.partial_cache);
+            drop(cache_entry);
+        }
+    }
+}
+
+fn render_window_frame(
     runtime_window: Rc<i_slint_core::window::Window>,
     background: super::TargetPixel,
-    devices: &mut dyn Devices,
+    size: PhysicalSize,
     initial_dirty_region: i_slint_core::item_rendering::DirtyRegion,
     cache: &mut PartialRenderingCache,
+    mut line_buffer: impl LineBufferProvider,
 ) {
-    let size = devices.screen_size();
-    let mut scene = prepare_scene(runtime_window, size, devices, initial_dirty_region, cache);
+    let mut scene =
+        prepare_scene(runtime_window, size, initial_dirty_region, &mut line_buffer, cache);
 
-    let mut line_processing_profiler = profiler::Timer::new_stopped();
-    let mut span_drawing_profiler = profiler::Timer::new_stopped();
-    let mut screen_fill_profiler = profiler::Timer::new_stopped();
-
-    let mut line_buffer = vec![background; size.width as usize];
     let dirty_region = scene.dirty_region;
 
     debug_assert!(scene.current_line >= dirty_region.origin.y_length());
     while scene.current_line < dirty_region.origin.y_length() + dirty_region.size.height_length() {
-        line_buffer[dirty_region.min_x() as usize..dirty_region.max_x() as usize].fill(background);
-        span_drawing_profiler.start(devices);
-        for span in scene.items[0..scene.current_items_index].iter().rev() {
-            debug_assert!(scene.current_line >= span.pos.y_length());
-            debug_assert!(scene.current_line < span.pos.y_length() + span.size.height_length(),);
-            match span.command {
-                SceneCommand::Rectangle { color } => {
-                    TargetPixel::blend_buffer(
-                        &mut line_buffer[span.pos.x as usize
-                            ..(span.pos.x_length() + span.size.width_length()).get() as usize],
-                        color,
-                    );
-                }
-                SceneCommand::Texture { texture_index } => {
-                    let texture = &scene.textures[texture_index as usize];
-                    draw_functions::draw_texture_line(
-                        span,
-                        scene.current_line,
-                        texture,
-                        &mut line_buffer,
-                    );
-                }
-                SceneCommand::RoundedRectangle { rectangle_index } => {
-                    let rr = &scene.rounded_rectangles[rectangle_index as usize];
-                    draw_functions::draw_rounded_rectangle_line(
-                        span,
-                        scene.current_line,
-                        rr,
-                        &mut line_buffer,
-                    );
+        line_buffer.process_line(scene.current_line, |line_buffer| {
+            line_buffer[dirty_region.min_x() as usize..dirty_region.max_x() as usize]
+                .fill(background);
+            for span in scene.items[0..scene.current_items_index].iter().rev() {
+                debug_assert!(scene.current_line >= span.pos.y_length());
+                debug_assert!(scene.current_line < span.pos.y_length() + span.size.height_length(),);
+                match span.command {
+                    SceneCommand::Rectangle { color } => {
+                        TargetPixel::blend_buffer(
+                            &mut line_buffer[span.pos.x as usize
+                                ..(span.pos.x_length() + span.size.width_length()).get() as usize],
+                            color,
+                        );
+                    }
+                    SceneCommand::Texture { texture_index } => {
+                        let texture = &scene.textures[texture_index as usize];
+                        draw_functions::draw_texture_line(
+                            span,
+                            scene.current_line,
+                            texture,
+                             line_buffer,
+                        );
+                    }
+                    SceneCommand::RoundedRectangle { rectangle_index } => {
+                        let rr = &scene.rounded_rectangles[rectangle_index as usize];
+                        draw_functions::draw_rounded_rectangle_line(
+                            span,
+                            scene.current_line,
+                            rr,
+                             line_buffer,
+                        );
+                    }
                 }
             }
-        }
-        span_drawing_profiler.stop(devices);
-        screen_fill_profiler.start(devices);
-        devices.fill_region(
-            euclid::rect(
-                dirty_region.origin.x,
-                scene.current_line.get() as i16,
-                dirty_region.size.width,
-                1,
-            ),
-            &line_buffer[dirty_region.min_x() as usize..dirty_region.max_x() as usize],
-        );
-        screen_fill_profiler.stop(devices);
-        line_processing_profiler.start(devices);
+        });
+
         if scene.current_line < dirty_region.origin.y_length() + dirty_region.size.height_length() {
             scene.next_line();
         }
-        line_processing_profiler.stop(devices);
     }
-
-    line_processing_profiler.stop_profiling(devices, "line processing");
-    span_drawing_profiler.stop_profiling(devices, "span drawing");
-    screen_fill_profiler.stop_profiling(devices, "screen fill");
-
-    devices.flush_frame();
 }
 
 struct Scene {
@@ -318,12 +365,10 @@ struct RoundedRectangle {
 fn prepare_scene(
     runtime_window: Rc<i_slint_core::window::Window>,
     size: PhysicalSize,
-    devices: &mut dyn Devices,
     initial_dirty_region: i_slint_core::item_rendering::DirtyRegion,
+    line_buffer: &mut impl LineBufferProvider,
     cache: &mut PartialRenderingCache,
 ) -> Scene {
-    let prepare_scene_profiler = profiler::Timer::new(devices);
-    let mut compute_dirty_region_profiler = profiler::Timer::new_stopped();
     let factor = ScaleFactor::new(runtime_window.scale_factor());
     let prepare_scene = PrepareScene::new(size, factor, runtime_window.default_font_properties());
     let mut renderer = i_slint_core::item_rendering::PartialRenderer::new(
@@ -334,7 +379,6 @@ fn prepare_scene(
 
     let mut dirty_region = PhysicalRect::default();
     runtime_window.draw_contents(|components| {
-        compute_dirty_region_profiler.start(devices);
         for (component, origin) in components {
             renderer.compute_dirty_regions(component, *origin);
         }
@@ -345,17 +389,14 @@ fn prepare_scene(
             .cast()
             .intersection(&PhysicalRect { origin: euclid::point2(0, 0), size })
             .unwrap_or_default();
-        dirty_region = devices.prepare_frame(dirty_region);
+        dirty_region = line_buffer.set_dirty_region(dirty_region);
 
         renderer.combine_clip((dirty_region.cast() / factor).to_untyped().cast(), 0 as _, 0 as _);
-        compute_dirty_region_profiler.stop(devices);
         for (component, origin) in components {
             i_slint_core::item_rendering::render_component_items(component, &mut renderer, *origin);
         }
     });
 
-    prepare_scene_profiler.stop_profiling(devices, "prepare_scene");
-    compute_dirty_region_profiler.stop_profiling(devices, "+    dirty_region");
     let prepare_scene = renderer.into_inner();
     Scene::new(
         prepare_scene.items,

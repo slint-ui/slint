@@ -91,7 +91,7 @@ where
 }
 
 thread_local! { static DEVICES: RefCell<Option<Box<dyn Devices + 'static>>> = RefCell::new(None) }
-thread_local! { static PARTIAL_RENDERING_CACHE: RefCell<i_slint_core::item_rendering::PartialRenderingCache> = RefCell::new(Default::default()) }
+thread_local! { static LINE_RENDERER: RefCell<crate::renderer::LineRenderer> = RefCell::new(Default::default()) }
 
 mod the_backend {
     use super::*;
@@ -136,12 +136,8 @@ mod the_backend {
             &self,
             items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'a>>>,
         ) {
-            super::PARTIAL_RENDERING_CACHE.with(|cache| {
-                for item in items {
-                    let cache_entry =
-                        item.cached_rendering_data_offset().release(&mut cache.borrow_mut());
-                    drop(cache_entry);
-                }
+            super::LINE_RENDERER.with(|renderer| {
+                renderer.borrow_mut().free_graphics_resources(items);
             });
         }
 
@@ -285,15 +281,79 @@ mod the_backend {
                 let devices = devices.as_mut().unwrap();
                 let size = devices.screen_size().to_f32() / runtime_window.scale_factor();
                 runtime_window.set_window_item_geometry(size.width as _, size.height as _);
-                let background =
-                    crate::renderer::to_rgb888_color_discard_alpha(window.background_color.get());
-                PARTIAL_RENDERING_CACHE.with(|cache| {
-                    crate::renderer::render_window_frame(
+
+                struct BufferProvider<'a> {
+                    screen_fill_profiler: profiler::Timer,
+                    span_drawing_profiler: profiler::Timer,
+                    prepare_scene_profiler: profiler::Timer,
+                    compute_dirty_regions_profiler: profiler::Timer,
+                    line_processing_profiler: profiler::Timer,
+                    devices: &'a mut dyn Devices,
+                    line_buffer: alloc::vec::Vec<TargetPixel>,
+                    dirty_region: PhysicalRect,
+                }
+                impl renderer::LineBufferProvider for BufferProvider<'_> {
+                    fn set_dirty_region(&mut self, mut dirty_region: PhysicalRect) -> PhysicalRect {
+                        self.compute_dirty_regions_profiler.stop(self.devices);
+                        dirty_region = self.devices.prepare_frame(dirty_region);
+                        self.dirty_region = dirty_region;
+                        self.prepare_scene_profiler.start(self.devices);
+                        dirty_region
+                    }
+
+                    fn process_line(
+                        &mut self,
+                        line: PhysicalLength,
+                        render_fn: impl FnOnce(&mut [super::TargetPixel]),
+                    ) {
+                        self.prepare_scene_profiler.stop(self.devices);
+                        self.span_drawing_profiler.start(self.devices);
+                        render_fn(&mut self.line_buffer);
+                        self.span_drawing_profiler.stop(self.devices);
+
+                        self.screen_fill_profiler.start(self.devices);
+                        self.devices.fill_region(
+                            euclid::rect(
+                                self.dirty_region.min_x(),
+                                line.get(),
+                                self.dirty_region.width(),
+                                1,
+                            ),
+                            &self.line_buffer[self.dirty_region.min_x() as usize
+                                ..self.dirty_region.max_x() as usize],
+                        );
+                        self.screen_fill_profiler.stop(self.devices);
+                    }
+                }
+                impl Drop for BufferProvider<'_> {
+                    fn drop(&mut self) {
+                        self.devices.flush_frame();
+                        self.compute_dirty_regions_profiler
+                            .stop_profiling(self.devices, "compute dirty regions");
+                        self.prepare_scene_profiler.stop_profiling(self.devices, "prepare scene");
+                        self.line_processing_profiler
+                            .stop_profiling(self.devices, "line processing");
+                        self.span_drawing_profiler.stop_profiling(self.devices, "span drawing");
+                        self.screen_fill_profiler.stop_profiling(self.devices, "screen fill");
+                    }
+                }
+
+                let buffer_provider = BufferProvider {
+                    compute_dirty_regions_profiler: profiler::Timer::new(&**devices),
+                    screen_fill_profiler: profiler::Timer::new_stopped(),
+                    span_drawing_profiler: profiler::Timer::new_stopped(),
+                    prepare_scene_profiler: profiler::Timer::new_stopped(),
+                    line_processing_profiler: profiler::Timer::new_stopped(),
+                    devices: &mut **devices,
+                    line_buffer: alloc::vec![Default::default(); size.width as usize],
+                    dirty_region: PhysicalRect::default(),
+                };
+
+                LINE_RENDERER.with(|renderer| {
+                    renderer.borrow_mut().render(
                         runtime_window,
-                        background.into(),
-                        &mut **devices,
                         window.initial_dirty_region_for_next_frame.take(),
-                        &mut cache.borrow_mut(),
+                        buffer_provider,
                     )
                 });
             });
