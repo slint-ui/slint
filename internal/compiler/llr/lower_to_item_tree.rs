@@ -392,13 +392,22 @@ fn lower_sub_component(
         .into_iter()
         .map(|(idx, key, nr)| {
             let mut expr = super::Expression::PropertyReference(ctx.map_property_reference(&nr));
-            if nr.ty() == Type::Bool {
-                expr = super::Expression::Condition {
-                    condition: expr.into(),
-                    true_expr: super::Expression::StringLiteral("true".into()).into(),
-                    false_expr: super::Expression::StringLiteral("false".into()).into(),
-                };
+            match nr.ty() {
+                Type::Bool => {
+                    expr = super::Expression::Condition {
+                        condition: expr.into(),
+                        true_expr: super::Expression::StringLiteral("true".into()).into(),
+                        false_expr: super::Expression::StringLiteral("false".into()).into(),
+                    };
+                }
+                Type::Int32 | Type::Float32 => {
+                    expr = super::Expression::Cast { from: expr.into(), to: Type::String };
+                }
+                Type::String => {}
+                Type::Enumeration(e) if e.name == "AccessibleRole" => {}
+                _ => panic!("Invalid type for accessible property"),
             }
+
             ((idx, key), expr.into())
         })
         .collect();
