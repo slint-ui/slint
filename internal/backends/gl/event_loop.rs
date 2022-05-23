@@ -32,6 +32,8 @@ pub trait WinitWindow: PlatformWindow {
         &self,
         constraints: (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo),
     );
+    fn size(&self) -> winit::dpi::LogicalSize<f32>;
+    fn set_size(&self, size: winit::dpi::LogicalSize<f32>);
     fn set_background_color(&self, color: Color);
     fn set_icon(&self, icon: corelib::graphics::Image);
 
@@ -118,8 +120,7 @@ pub trait WinitWindow: PlatformWindow {
                 winit_window.set_decorations(true);
             }
 
-            let existing_size =
-                winit_window.inner_size().to_logical(self.runtime_window().scale_factor() as f64);
+            let existing_size = self.size();
 
             if width <= 0. {
                 width = existing_size.width;
@@ -364,6 +365,7 @@ fn process_window_event(
         WindowEvent::Resized(size) => {
             let size = size.to_logical(runtime_window.scale_factor() as f64);
             runtime_window.set_window_item_geometry(size.width, size.height);
+            window.set_size(size);
         }
         WindowEvent::CloseRequested => {
             if runtime_window.request_close() {

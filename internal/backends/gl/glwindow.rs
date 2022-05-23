@@ -258,6 +258,22 @@ impl WinitWindow for GLWindow {
         }
     }
 
+    fn size(&self) -> winit::dpi::LogicalSize<f32> {
+        match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped => Default::default(),
+            GraphicsWindowBackendState::Mapped(mapped_window) => mapped_window.size,
+        }
+    }
+
+    fn set_size(&self, size: winit::dpi::LogicalSize<f32>) {
+        match &mut *self.map_state.borrow_mut() {
+            GraphicsWindowBackendState::Unmapped => {
+                panic!("Cannot set window_size of Unmapped Window");
+            }
+            GraphicsWindowBackendState::Mapped(mapped_window) => mapped_window.size = size,
+        }
+    }
+
     fn set_background_color(&self, color: Color) {
         if let Some(mut window) = self.borrow_mapped_window_mut() {
             window.clear_color = color;
@@ -513,6 +529,7 @@ impl PlatformWindow for GLWindow {
             opengl_context,
             clear_color: RgbaColor { red: 255_u8, green: 255, blue: 255, alpha: 255 }.into(),
             constraints: Default::default(),
+            size: Default::default(),
         }));
 
         crate::event_loop::register_window(id, self);
@@ -750,6 +767,7 @@ struct MappedWindow {
     opengl_context: crate::OpenGLContext,
     clear_color: Color,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
+    size: winit::dpi::LogicalSize<f32>,
 }
 
 impl Drop for MappedWindow {
