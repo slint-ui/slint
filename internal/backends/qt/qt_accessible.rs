@@ -553,7 +553,7 @@ cpp! {{
             auto index = rust!(Slint_accessible_item_delegate_focus [m_data: Pin<&SlintAccessibleItemData> as "void*"] -> i32 as "int" {
                 m_data.item.upgrade()
                     .map(|i| { i.accessible_string_property(AccessibleStringProperty::DelegateFocus) })
-                    .map(|s| s.as_str().parse::<i32>().unwrap_or(-1)).unwrap_or(-1)
+                    .and_then(|s| s.as_str().parse::<i32>().ok()).unwrap_or(-1)
             });
 
             if (index >= 0 && index < childCount()) {
