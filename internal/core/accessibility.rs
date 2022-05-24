@@ -11,9 +11,9 @@ use alloc::vec::Vec;
 #[strum(serialize_all = "kebab-case")]
 pub enum AccessibleStringProperty {
     Label,
+    DelegateFocus,
     Description,
     Checked,
-    HasFocus,
     Value,
     ValueMinimum,
     ValueMaximum,

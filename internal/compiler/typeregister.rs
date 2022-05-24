@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore imum
+
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
@@ -87,8 +89,8 @@ pub(crate) const RESERVED_DROP_SHADOW_PROPERTIES: &[(&str, Type)] = &[
 pub(crate) const RESERVED_ACCESSIBILITY_PROPERTIES: &[(&str, Type)] = &[
     //("accessible-role", ...)
     ("accessible-checked", Type::Bool),
+    ("accessible-delegate-focus", Type::String),
     ("accessible-description", Type::String),
-    ("accessible-has-focus", Type::Bool),
     ("accessible-label", Type::String),
     ("accessible-value", Type::String),
     ("accessible-value-maximum", Type::Float32),

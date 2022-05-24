@@ -18,7 +18,6 @@ export CheckBox := Rectangle {
     horizontal-stretch: 0;
     vertical-stretch: 0;
 
-    accessible-has-focus <=> has-focus;
     accessible-label <=> text.text;
     accessible-checked <=> checked;
     accessible-role: checkbox;
@@ -124,7 +123,6 @@ export SpinBox := FocusScope {
     property <int> value;
     property <int> minimum;
     property <int> maximum: 100;
-    property <int> step: 1;
     property <image> icon;
     property <length> font-size <=> button.font-size;
 
@@ -133,11 +131,10 @@ export SpinBox := FocusScope {
     vertical-stretch: 0;
 
     accessible-role: spinbox;
-    accessible-has-focus <=> has-focus;
     accessible-value: value;
     accessible-value-minimum: minimum;
     accessible-value-maximum: maximum;
-    accessible-value-step: step;
+    accessible-value-step: (maximum - minimum) / 100;
 
     Rectangle {
         background: !enabled ? Palette.neutralLighter : Palette.white;
@@ -167,7 +164,7 @@ export SpinBox := FocusScope {
             }
             clicked => {
                 if (root.value < root.maximum) {
-                    root.value += root.step;
+                    root.value += 1;
                 }
             }
         }
@@ -183,7 +180,7 @@ export SpinBox := FocusScope {
             }
             clicked => {
                 if (root.value > root.minimum) {
-                    root.value -= root.step;
+                    root.value -= 1;
                 }
             }
         }
@@ -218,7 +215,6 @@ export SpinBox := FocusScope {
 export Slider := Rectangle {
     property<float> maximum: 100;
     property<float> minimum: 0;
-    property<float> step-size: 1;
     property<float> value;
     property<bool> has-focus <=> fs.has-focus;
     property<bool> enabled <=> touch.enabled;
@@ -231,10 +227,9 @@ export Slider := Rectangle {
 
     accessible-role: slider;
     accessible-value: value;
-    accessible-has-focus <=> has-focus;
     accessible-value-minimum: minimum;
     accessible-value-maximum: maximum;
-    accessible-value-step: step-size;
+    accessible-value-step: (maximum - minimum) / 100;
 
 
     Rectangle {
@@ -294,11 +289,11 @@ export Slider := Rectangle {
         width: 0px;
 
         key-pressed(event) => {
-            if (enabled && event.text == Keys.RightArrow && value < maximum) {
-                value += step-size;
+            if (enabled && event.text == Keys.RightArrow) {
+                value = Math.min(value + 1, maximum);
                 accept
-            } else if (enabled && event.text == Keys.LeftArrow && value > minimum) {
-                value -= step-size;
+            } else if (enabled && event.text == Keys.LeftArrow) {
+                value = Math.max(value - 1, minimum);
                 accept
             } else {
                 reject
@@ -332,8 +327,6 @@ export GroupBox := VerticalLayout {
         }
     }
 }
-
-
 
 export TabWidgetImpl := Rectangle {
     property <length> content-x: 0;
@@ -380,7 +373,6 @@ export TabImpl := Rectangle {
     vertical-stretch: 0;
 
     accessible-role: tab;
-    accessible-has-focus <=> has-focus;
     accessible-label <=> title;
 
     touch := TouchArea {
@@ -424,6 +416,9 @@ export TabBarImpl := Rectangle {
         alignment: start;
         @children
     }
+
+    accessible-role: tab;
+    accessible-delegate-focus: current-focused >= 0 ? current-focused : current;
 
     fs := FocusScope {
         width: 0px; // Do not react on clicks
@@ -537,7 +532,6 @@ export ComboBox := FocusScope {
     callback selected(string);
 
     accessible-role: combobox;
-    accessible-has-focus <=> has-focus;
     accessible-value <=> current-value;
 
     key-pressed(event) => {

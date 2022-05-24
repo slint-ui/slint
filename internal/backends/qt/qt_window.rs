@@ -1713,6 +1713,37 @@ impl PlatformWindow for QtWindow {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    fn handle_focus_change(&self, old: Option<ItemRc>, new: Option<ItemRc>) {
+        let widget_ptr = self.widget_ptr();
+        if let Some(ai) = accessible_item(new) {
+            let item = &ai;
+            cpp! {unsafe [widget_ptr as "QWidget*", item as "void*"] {
+                auto accessible = QAccessible::queryAccessibleInterface(widget_ptr);
+                if (auto slint_accessible = dynamic_cast<Slint_accessible*>(accessible)) {
+                    slint_accessible->clearFocus();
+                    slint_accessible->focusItem(item);
+                } else {
+                    qDebug() << "Accessible was null or not a Slint_accessible!";
+                }
+            }};
+        } else {
+            // FIXME: How to unfocus?!
+            println!("Accessible: No idea how to unfocus!");
+        }
+    }
+}
+
+fn accessible_item(item: Option<ItemRc>) -> Option<ItemRc> {
+    let mut current = item;
+    while let Some(c) = current {
+        if c.is_accessible() {
+            return Some(c);
+        } else {
+            current = c.parent_item();
+        }
+    }
+    None
 }
 
 fn get_font(request: FontRequest) -> QFont {
