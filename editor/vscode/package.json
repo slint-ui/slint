@@ -21,6 +21,7 @@
 		"onLanguage:slint"
 	],
 	"main": "./out/extension.js",
+	"browser": "./out/browser.js",
 	"contributes": {
 		"languages": [
 			{
@@ -88,6 +89,7 @@
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
 		"compile": "tsc -p ./",
+		"compile-web": "webpack",
 		"local-package": "mkdir -p bin && cp ../../target/debug/slint-lsp bin/ && npx vsce package",
 		"watch": "tsc -watch -p ./",
 		"pretest": "npm run compile && npm run lint",
@@ -105,6 +107,18 @@
 		"glob": "^7.1.6",
 		"mocha": "^8.1.3",
 		"typescript": "^4.1.2",
-		"vscode-test": "^1.4.1"
+		"vscode-test": "^1.4.1",
+		"ts-loader": "^9.2.2",
+		"webpack": "^5.38.1",
+		"webpack-cli": "^4.7.0",
+		"@types/webpack-env": "^1.16.0",
+		"path-browserify": "^1.0.1",
+		"@wasm-tool/wasm-pack-plugin": "github:wasm-tool/wasm-pack-plugin"
+	},
+	"__metadata": {
+		"id": "73b2e4cc-8183-4df0-bc22-29b5f748d788",
+		"publisherDisplayName": null,
+		"publisherId": "2422c2de-310a-4652-beea-b5eacbeaae40",
+		"isPreReleaseVersion": false
 	}
 }

@@ -9,12 +9,11 @@ use std::pin::Pin;
 use std::sync::{Arc, Condvar, Mutex};
 use std::task::Wake;
 
-use lsp_server::Message;
 use lsp_types::notification::Notification;
 
-use clap::Parser;
-
 use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
 
 use slint_interpreter::ComponentHandle;
 
@@ -131,7 +130,7 @@ pub enum PostLoadBehavior {
 }
 
 pub fn load_preview(
-    sender: crossbeam_channel::Sender<Message>,
+    sender: crate::ServerNotifier,
     component: PreviewComponent,
     post_load_behavior: PostLoadBehavior,
 ) {
@@ -161,7 +160,7 @@ struct ContentCache {
     source_code: HashMap<PathBuf, String>,
     dependency: HashSet<PathBuf>,
     current: PreviewComponent,
-    sender: Option<crossbeam_channel::Sender<Message>>,
+    sender: Option<crate::ServerNotifier>,
 }
 
 static CONTENT_CACHE: once_cell::sync::OnceCell<Mutex<ContentCache>> =
@@ -190,7 +189,7 @@ fn get_file_from_cache(path: PathBuf) -> Option<String> {
 }
 
 async fn reload_preview(
-    sender: crossbeam_channel::Sender<Message>,
+    sender: crate::ServerNotifier,
     preview_component: PreviewComponent,
     post_load_behavior: PostLoadBehavior,
 ) {
@@ -203,11 +202,15 @@ async fn reload_preview(
     }
 
     let mut builder = slint_interpreter::ComponentCompiler::default();
-    let cli_args = super::Cli::parse();
-    if !cli_args.style.is_empty() {
-        builder.set_style(cli_args.style)
-    };
-    builder.set_include_paths(cli_args.include_paths);
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        use clap::Parser;
+        let cli_args = super::Cli::parse();
+        if !cli_args.style.is_empty() {
+            builder.set_style(cli_args.style)
+        };
+        builder.set_include_paths(cli_args.include_paths);
+    }
 
     builder.set_file_loader(|path| {
         let path = path.to_owned();
@@ -257,7 +260,7 @@ async fn reload_preview(
 
 fn notify_diagnostics(
     diagnostics: &[slint_interpreter::Diagnostic],
-    sender: &crossbeam_channel::Sender<Message>,
+    sender: &crate::ServerNotifier,
 ) -> Option<()> {
     let mut lsp_diags: HashMap<lsp_types::Url, Vec<lsp_types::Diagnostic>> = Default::default();
     for d in diagnostics {
@@ -270,20 +273,20 @@ fn notify_diagnostics(
 
     for (uri, diagnostics) in lsp_diags {
         sender
-            .send(Message::Notification(lsp_server::Notification::new(
+            .send_notification(
                 "textDocument/publishDiagnostics".into(),
                 lsp_types::PublishDiagnosticsParams { uri, diagnostics, version: None },
-            )))
+            )
             .ok()?;
     }
     Some(())
 }
 
-fn send_notification(sender: &crossbeam_channel::Sender<Message>, arg: &str, health: Health) {
+fn send_notification(sender: &crate::ServerNotifier, arg: &str, health: Health) {
     sender
-        .send(Message::Notification(lsp_server::Notification::new(
+        .send_notification(
             ServerStatusNotification::METHOD.into(),
             ServerStatusParams { health, quiescent: false, message: Some(arg.into()) },
-        )))
+        )
         .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
 }

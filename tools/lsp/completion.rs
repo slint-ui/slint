@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use std::path::Path;
-
 use super::util::lookup_current_element_type;
 use super::DocumentCache;
 use i_slint_compiler::diagnostics::Spanned;
@@ -11,15 +9,17 @@ use i_slint_compiler::langtype::Type;
 use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
 use lsp_types::{
-    CompletionClientCapabilities, CompletionItem, CompletionItemKind, InsertTextFormat,
+    CompletionClientCapabilities, CompletionItem, CompletionItemKind, CompletionResponse,
+    InsertTextFormat,
 };
+use std::path::Path;
 
 pub(crate) fn completion_at(
     document_cache: &DocumentCache,
     token: SyntaxToken,
     offset: u32,
     client_caps: Option<&CompletionClientCapabilities>,
-) -> Option<Vec<CompletionItem>> {
+) -> Option<CompletionResponse> {
     let node = token.parent();
 
     if token.kind() == SyntaxKind::StringLiteral {
@@ -28,14 +28,15 @@ pub(crate) fn completion_at(
                 token.source_file()?.path(),
                 token.text(),
                 offset.checked_sub(token.text_range().start().into())?,
-            );
+            )
+            .map(Into::into);
         }
     } else if let Some(element) = syntax_nodes::Element::new(node.clone()) {
         if token.kind() == SyntaxKind::At
             || (token.kind() == SyntaxKind::Identifier
                 && token.prev_token().map_or(false, |t| t.kind() == SyntaxKind::At))
         {
-            return Some(vec![CompletionItem::new_simple("children".into(), String::new())]);
+            return Some(vec![CompletionItem::new_simple("children".into(), String::new())].into());
         }
 
         return resolve_element_scope(element, document_cache).map(|mut r| {
@@ -81,7 +82,7 @@ pub(crate) fn completion_at(
                     with_insert_text(c, ins_tex, client_caps)
                 }),
             );
-            r
+            r.into()
         });
     } else if let Some(n) = syntax_nodes::Binding::new(node.clone()) {
         if token.kind() != SyntaxKind::Identifier {
@@ -89,7 +90,10 @@ pub(crate) fn completion_at(
         }
         let all = resolve_element_scope(syntax_nodes::Element::new(n.parent()?)?, document_cache)?;
         return Some(
-            all.into_iter().filter(|ce| ce.kind == Some(CompletionItemKind::PROPERTY)).collect(),
+            all.into_iter()
+                .filter(|ce| ce.kind == Some(CompletionItemKind::PROPERTY))
+                .collect::<Vec<_>>()
+                .into(),
         );
     } else if let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone()) {
         if token.kind() != SyntaxKind::Identifier {
@@ -97,7 +101,10 @@ pub(crate) fn completion_at(
         }
         let all = resolve_element_scope(syntax_nodes::Element::new(n.parent()?)?, document_cache)?;
         return Some(
-            all.into_iter().filter(|ce| ce.kind == Some(CompletionItemKind::PROPERTY)).collect(),
+            all.into_iter()
+                .filter(|ce| ce.kind == Some(CompletionItemKind::PROPERTY))
+                .collect::<Vec<_>>()
+                .into(),
         );
     } else if let Some(n) = syntax_nodes::CallbackConnection::new(node.clone()) {
         if token.kind() != SyntaxKind::Identifier {
@@ -105,21 +112,24 @@ pub(crate) fn completion_at(
         }
         let all = resolve_element_scope(syntax_nodes::Element::new(n.parent()?)?, document_cache)?;
         return Some(
-            all.into_iter().filter(|ce| ce.kind == Some(CompletionItemKind::METHOD)).collect(),
+            all.into_iter()
+                .filter(|ce| ce.kind == Some(CompletionItemKind::METHOD))
+                .collect::<Vec<_>>()
+                .into(),
         );
     } else if matches!(
         node.kind(),
         SyntaxKind::Type | SyntaxKind::ArrayType | SyntaxKind::ObjectType | SyntaxKind::ReturnType
     ) {
-        return resolve_type_scope(token, document_cache);
+        return resolve_type_scope(token, document_cache).map(Into::into);
     } else if syntax_nodes::PropertyDeclaration::new(node.clone()).is_some() {
         if token.kind() == SyntaxKind::LAngle {
-            return resolve_type_scope(token, document_cache);
+            return resolve_type_scope(token, document_cache).map(Into::into);
         }
     } else if let Some(n) = syntax_nodes::CallbackDeclaration::new(node.clone()) {
         let paren = n.child_token(SyntaxKind::LParent)?;
         if token.token.text_range().start() >= paren.token.text_range().end() {
-            return resolve_type_scope(token, document_cache);
+            return resolve_type_scope(token, document_cache).map(Into::into);
         }
     } else if matches!(
         node.kind(),
@@ -155,12 +165,13 @@ pub(crate) fn completion_at(
                         client_caps,
                     )
                 })
-                .collect(),
+                .collect::<Vec<_>>()
+                .into(),
             );
         }
 
         return crate::util::with_lookup_ctx(document_cache, node, |ctx| {
-            resolve_expression_scope(ctx)
+            resolve_expression_scope(ctx).map(Into::into)
         })?;
     } else if let Some(q) = syntax_nodes::QualifiedName::new(node.clone()) {
         match q.parent()?.kind() {
@@ -187,11 +198,12 @@ pub(crate) fn completion_at(
                             c.kind = Some(CompletionItemKind::CLASS);
                             Some(c)
                         })
-                        .collect(),
+                        .collect::<Vec<_>>()
+                        .into(),
                 );
             }
             SyntaxKind::Type => {
-                return resolve_type_scope(token, document_cache);
+                return resolve_type_scope(token, document_cache).map(Into::into);
             }
             SyntaxKind::Expression => {
                 return crate::util::with_lookup_ctx(document_cache, node, |ctx| {
@@ -201,7 +213,7 @@ pub(crate) fn completion_at(
                     });
                     let first = it.next();
                     if first.as_ref().map_or(true, |f| f.token == token.token) {
-                        return resolve_expression_scope(ctx);
+                        return resolve_expression_scope(ctx).map(Into::into);
                     }
                     let first = i_slint_compiler::parser::normalize_identifier(first?.text());
                     let global = i_slint_compiler::lookup::global_lookup();
@@ -225,7 +237,7 @@ pub(crate) fn completion_at(
                             r.push(completion_item_from_expression(str, expr));
                             None
                         });
-                        r
+                        r.into()
                     })
                 })?;
             }
