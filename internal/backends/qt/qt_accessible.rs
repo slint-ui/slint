@@ -34,15 +34,18 @@ const VALUE_STEP: u32 = VALUE_MAXIMUM + 1;
 impl PropertyChangeHandler for AccessibleItemPropertiesTracker {
     fn notify(&self) {
         let accessible_item = self.accessible_item;
-        let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> Pin<&SlintAccessibleItemData> as "void*"{
-            auto obj = accessible_item->object();
+        cpp!(unsafe [accessible_item as "Slint_accessible_item*"] {
+            QTimer::singleShot(0, [accessible_item]() {
+                auto data = accessible_item->data();
+                rust!(AccessibleItemPropertiesTracker_rearm [data: Pin<&SlintAccessibleItemData> as "void*"] {
+                    data.arm_state_tracker();
+                });
 
-            auto event = QAccessibleStateChangeEvent(obj, accessible_item->state());
-            QAccessible::updateAccessibility(&event);
-
-            return accessible_item->data();
+                auto obj = accessible_item->object();
+                auto event = QAccessibleStateChangeEvent(obj, accessible_item->state());
+                QAccessible::updateAccessibility(&event);
+            });
         });
-        data.arm_state_tracker();
     }
 }
 
@@ -53,15 +56,18 @@ pub struct ValuePropertyTracker {
 impl PropertyChangeHandler for ValuePropertyTracker {
     fn notify(&self) {
         let accessible_item = self.accessible_item;
-        let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> Pin<&SlintAccessibleItemData> as "void*" {
-            auto obj = accessible_item->object();
+        cpp!(unsafe [accessible_item as "Slint_accessible_item*"] {
+            QTimer::singleShot(0, [accessible_item]() {
+                auto data = accessible_item->data();
+                rust!(ValuePropertyTracker_rearm [data: Pin<&SlintAccessibleItemData> as "void*"] {
+                    data.arm_value_tracker();
+                });
 
-            auto event = QAccessibleValueChangeEvent(obj, accessible_item->text(QAccessible::Value));
-            QAccessible::updateAccessibility(&event);
-
-            return accessible_item->data();
+                auto obj = accessible_item->object();
+                auto event = QAccessibleValueChangeEvent(obj, accessible_item->text(QAccessible::Value));
+                QAccessible::updateAccessibility(&event);
+            });
         });
-        data.arm_value_tracker();
     }
 }
 
@@ -72,15 +78,18 @@ pub struct LabelPropertyTracker {
 impl PropertyChangeHandler for LabelPropertyTracker {
     fn notify(&self) {
         let accessible_item = self.accessible_item;
-        let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> Pin<&SlintAccessibleItemData> as "void*" {
-            auto obj = accessible_item->object();
+        cpp!(unsafe [accessible_item as "Slint_accessible_item*"] {
+            QTimer::singleShot(0, [accessible_item]() {
+                auto data = accessible_item->data();
+                rust!(LabelPropertyTracker_rearm [data: Pin<&SlintAccessibleItemData> as "void*"] {
+                    data.arm_label_tracker();
+                });
 
-            auto event = QAccessibleEvent(obj, QAccessible::NameChanged);
-            QAccessible::updateAccessibility(&event);
-
-            return accessible_item->data();
+                auto obj = accessible_item->object();
+                auto event = QAccessibleEvent(obj, QAccessible::NameChanged);
+                QAccessible::updateAccessibility(&event);
+            });
         });
-        data.arm_label_tracker();
     }
 }
 
@@ -91,15 +100,19 @@ pub struct DescriptionPropertyTracker {
 impl PropertyChangeHandler for DescriptionPropertyTracker {
     fn notify(&self) {
         let accessible_item = self.accessible_item;
-        let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> Pin<&SlintAccessibleItemData> as "void*" {
-            auto obj = accessible_item->object();
+        cpp!(unsafe [accessible_item as "Slint_accessible_item*"] {
+            QTimer::singleShot(0, [accessible_item]() {
+                auto data = accessible_item->data();
+                rust!(DescriptionPropertyTracker_rearm [data: Pin<&SlintAccessibleItemData> as "void*"] {
+                    data.arm_description_tracker();
+                });
 
-            auto event = QAccessibleEvent(obj, QAccessible::DescriptionChanged);
-            QAccessible::updateAccessibility(&event);
+                auto obj = accessible_item->object();
+                auto event = QAccessibleEvent(obj, QAccessible::DescriptionChanged);
+                QAccessible::updateAccessibility(&event);
+            });
 
-            return accessible_item->data();
         });
-        data.arm_description_tracker();
     }
 }
 
@@ -110,12 +123,18 @@ pub struct FocusDelegationPropertyTracker {
 impl PropertyChangeHandler for FocusDelegationPropertyTracker {
     fn notify(&self) {
         let accessible_item = self.accessible_item;
-        let data = cpp!(unsafe [accessible_item as "Slint_accessible_item*"] -> Pin<&SlintAccessibleItemData> as "void*" {
-            accessible_item->delegateFocus();
+        cpp!(unsafe [accessible_item as "Slint_accessible_item*"] {
+            QTimer::singleShot(0, [accessible_item]() {
+                auto data = accessible_item->data();
+                rust!(FocusDelegationPropertyTracker_rearm [data: Pin<&SlintAccessibleItemData> as "void*"] {
+                    data.arm_focus_delegation_tracker();
+                });
 
-            return accessible_item->data();
+                accessible_item->delegateFocus();
+
+                return accessible_item->data();
+            });
         });
-        data.arm_focus_delegation_tracker();
     }
 }
 
@@ -135,7 +154,7 @@ pub struct SlintAccessibleItemData {
 }
 
 impl SlintAccessibleItemData {
-    fn new(accessible_item: *mut c_void, item: &ItemWeak) -> Pin<Box<Self>> {
+    fn new_pin_box(accessible_item: *mut c_void, item: &ItemWeak) -> Pin<Box<Self>> {
         let state_tracker =
             PropertyTracker::new_with_change_handler(AccessibleItemPropertiesTracker {
                 accessible_item,
@@ -516,16 +535,14 @@ cpp! {{
             m_data = rust!(Slint_accessible_item_ctor [this: *mut c_void as "Slint_accessible_item*",
                     item: &ItemWeak as "void*"] ->
                     *mut SlintAccessibleItemData as "void*" {
-                        let data = SlintAccessibleItemData::new(this, item);
+                        let data = SlintAccessibleItemData::new_pin_box(this, item);
                         unsafe { Box::into_raw(Pin::into_inner_unchecked(data)) }
             });
         }
 
         ~Slint_accessible_item() {
             rust!(Slint_accessible_item_dtor [m_data: *mut SlintAccessibleItemData as "void*"] {
-                if !m_data.is_null() {
-                    unsafe { Pin::new_unchecked(Box::from_raw(m_data)) };
-                };
+                unsafe { Pin::new_unchecked(Box::from_raw(m_data)) };
             });
         }
 
