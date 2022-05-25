@@ -4,6 +4,8 @@
 use std::path::Path;
 
 use super::DocumentCache;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::Type;
