@@ -248,15 +248,22 @@ macro_rules! for_each_enums {
 
             /// The role for the `accessible-role` property
             enum AccessibleRole {
+                /// An item with role `none` is not accessible
                 none,
+                /// A role for anything that is a Button or behaves like one.
                 button,
+                /// A role for anything that is a CheckBox or behaves like one.
                 checkbox,
+                /// A role for anything that is a ComboBox or behaves like one.
                 combobox,
+                /// A role for anything that is a Slider or behaves like one.
                 slider,
+                /// A role for anything that is a SpinBox or behaves like one.
                 spinbox,
+                /// A role for anything that is a Tab or behaves like one.
                 tab,
+                /// A role for static Text items.
                 text,
-                //...
             }
         ];
     };
