@@ -586,11 +586,14 @@ cpp! {{
         }
 
         QAccessible::State state() const override {
+            auto checked = item_string_property(m_data, CHECKED);
+
             QAccessible::State state;
             state.active = 1;
             state.focusable = 1;
             state.focused = has_focus_delegation;
-            state.checked = (item_string_property(m_data, CHECKED) == "true") ? 1 : 0;
+            state.checked = (checked == "true") ? 1 : 0;
+            state.checkable = checked.isEmpty() ? 0 : 1;
             return state; /* FIXME */
         }
 
