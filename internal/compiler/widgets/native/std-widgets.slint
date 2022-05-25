@@ -201,7 +201,7 @@ export TabBarImpl := Rectangle {
     property<int> num-tabs; // The total number of tabs
 
     accessible-role: tab;
-    // accessible-delegate-focus: current;
+    accessible-delegate-focus: current;
 
     HorizontalLayout {
         spacing: 0px; // Qt renders Tabs next to each other and renders "spacing" as part of the tab itself

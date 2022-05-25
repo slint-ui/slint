@@ -65,7 +65,6 @@ impl PropertyChangeHandler for ValuePropertyTracker {
                     data.arm_value_tracker();
                 });
 
-                qDebug() << "Value Change signalled!";
                 auto obj = accessible_item->object();
                 auto event = QAccessibleValueChangeEvent(obj, accessible_item->currentValue());
                 QAccessible::updateAccessibility(&event);
