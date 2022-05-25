@@ -42,7 +42,9 @@ impl PropertyChangeHandler for AccessibleItemPropertiesTracker {
                 });
 
                 auto obj = accessible_item->object();
-                auto event = QAccessibleStateChangeEvent(obj, accessible_item->state());
+                QAccessible::State s = {};
+                s.checked = true; // Mark checked as changed!
+                auto event = QAccessibleStateChangeEvent(obj, s);
                 QAccessible::updateAccessibility(&event);
             });
         });
@@ -63,8 +65,9 @@ impl PropertyChangeHandler for ValuePropertyTracker {
                     data.arm_value_tracker();
                 });
 
+                qDebug() << "Value Change signalled!";
                 auto obj = accessible_item->object();
-                auto event = QAccessibleValueChangeEvent(obj, accessible_item->text(QAccessible::Value));
+                auto event = QAccessibleValueChangeEvent(obj, accessible_item->currentValue());
                 QAccessible::updateAccessibility(&event);
             });
         });
