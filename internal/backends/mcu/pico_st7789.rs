@@ -4,11 +4,14 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
+use core::cell::RefCell;
+use cortex_m::interrupt::Mutex;
 pub use cortex_m_rt::entry;
 use embedded_hal::blocking::spi::Transfer;
 use embedded_hal::digital::v2::{InputPin, OutputPin};
 use embedded_time::rate::*;
-use rp_pico::hal::pac;
+use rp_pico::hal::gpio::{self, Interrupt};
+use rp_pico::hal::pac::{self, interrupt};
 use rp_pico::hal::prelude::*;
 use rp_pico::hal::{self, Timer};
 
@@ -30,6 +33,12 @@ static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
+
+type IrqPin = gpio::Pin<gpio::bank0::Gpio17, gpio::PullDownInput>;
+static TOUCH_INTERRUPT_HAPPENED: Mutex<RefCell<(bool, Option<IrqPin>)>> =
+    Mutex::new(RefCell::new((false, None)));
+
+static INT: Interrupt = Interrupt::EdgeLow;
 
 // 16ns for serial clock cycle (write), page 43 of https://www.waveshare.com/w/upload/a/ae/ST7789_Datasheet.pdf
 const SPI_ST7789VW_MAX_FREQ: embedded_time::rate::Hertz = embedded_time::rate::Hertz(62_500_000u32);
@@ -94,12 +103,19 @@ pub fn init() {
     display.init(&mut delay).unwrap();
     display.set_orientation(st7789::Orientation::Landscape).unwrap();
 
-    let touch = xpt2046::XPT2046::new(
-        pins.gpio17.into_pull_down_input(),
-        pins.gpio16.into_push_pull_output(),
-        spi.acquire_spi(),
-    )
-    .unwrap();
+    let touch =
+        xpt2046::XPT2046::new(pins.gpio16.into_push_pull_output(), spi.acquire_spi()).unwrap();
+
+    let touch_irq = pins.gpio17.into_pull_down_input();
+    touch_irq.set_interrupt_enabled(INT, true);
+
+    cortex_m::interrupt::free(|cs| {
+        TOUCH_INTERRUPT_HAPPENED.borrow(cs).replace((false, Some(touch_irq)));
+    });
+
+    unsafe {
+        pac::NVIC::unmask(pac::Interrupt::IO_IRQ_BANK0);
+    }
 
     let timer = Timer::new(pac.TIMER, &mut pac.RESETS);
 
@@ -113,8 +129,8 @@ struct PicoDevices<Display, Touch> {
     timer: Timer,
 }
 
-impl<Display: Devices, IRQ: InputPin, CS: OutputPin<Error = IRQ::Error>, SPI: Transfer<u8>> Devices
-    for PicoDevices<Display, xpt2046::XPT2046<IRQ, CS, SPI>>
+impl<Display: Devices, CS: OutputPin, SPI: Transfer<u8>> Devices
+    for PicoDevices<Display, xpt2046::XPT2046<CS, SPI>>
 {
     fn screen_size(&self) -> PhysicalSize {
         self.display.screen_size()
@@ -160,19 +176,16 @@ mod xpt2046 {
     use embedded_time::rate::Extensions;
     use euclid::default::Point2D;
 
-    pub struct XPT2046<IRQ: InputPin, CS: OutputPin, SPI: Transfer<u8>> {
-        irq: IRQ,
+    pub struct XPT2046<CS: OutputPin, SPI: Transfer<u8>> {
         cs: CS,
         spi: SPI,
         pressed: bool,
     }
 
-    impl<PinE, IRQ: InputPin<Error = PinE>, CS: OutputPin<Error = PinE>, SPI: Transfer<u8>>
-        XPT2046<IRQ, CS, SPI>
-    {
-        pub fn new(irq: IRQ, mut cs: CS, spi: SPI) -> Result<Self, PinE> {
+    impl<PinE, CS: OutputPin<Error = PinE>, SPI: Transfer<u8>> XPT2046<CS, SPI> {
+        pub fn new(mut cs: CS, spi: SPI) -> Result<Self, PinE> {
             cs.set_high()?;
-            Ok(Self { irq, cs, spi, pressed: false })
+            Ok(Self { cs, spi, pressed: false })
         }
 
         pub fn read(&mut self) -> Result<Option<Point2D<f32>>, Error<PinE, SPI::Error>> {
@@ -180,7 +193,13 @@ mod xpt2046 {
             const RELEASE_THRESHOLD: i32 = -30_000;
             let threshold = if self.pressed { RELEASE_THRESHOLD } else { PRESS_THRESHOLD };
             self.pressed = false;
-            if self.irq.is_low().map_err(|e| Error::Pin(e))? {
+            if cortex_m::interrupt::free(|cs| {
+                let mut tih = super::TOUCH_INTERRUPT_HAPPENED.borrow(cs).borrow_mut();
+                let has_hallpened = tih.0;
+                tih.0 = false;
+                tih.1.as_mut().unwrap().set_interrupt_enabled(super::INT, true);
+                has_hallpened
+            }) {
                 const CMD_X_READ: u8 = 0b10010000;
                 const CMD_Y_READ: u8 = 0b11010000;
                 const CMD_Z1_READ: u8 = 0b10110001;
@@ -265,6 +284,17 @@ mod xpt2046 {
         rp_pico::hal::spi::Spi::<_, _, 8>::new(rp_pico::hal::pac::Peripherals::steal().SPI1)
             .set_baudrate(125_000_000u32.Hz(), freq);
     }
+}
+
+#[interrupt]
+fn IO_IRQ_BANK0() {
+    cortex_m::interrupt::free(|cs| {
+        let mut tih = TOUCH_INTERRUPT_HAPPENED.borrow(cs).borrow_mut();
+        tih.0 = true;
+        let mut pin = tih.1.as_mut().unwrap();
+        pin.set_interrupt_enabled(INT, false);
+        pin.clear_interrupt(INT);
+    });
 }
 
 #[cfg(not(feature = "panic-probe"))]
