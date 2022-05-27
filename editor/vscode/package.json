@@ -101,10 +101,8 @@
 		"@types/mocha": "^8.0.4",
 		"@types/node": "^12.11.7",
 		"@types/vscode": "^1.52.0",
-		"@types/webpack-env": "^1.16.0",
 		"@typescript-eslint/eslint-plugin": "^4.9.0",
 		"@typescript-eslint/parser": "^4.9.0",
-		"@wasm-tool/wasm-pack-plugin": "github:wasm-tool/wasm-pack-plugin",
 		"esbuild": "^0.14.39",
 		"eslint": "^7.15.0",
 		"glob": "^7.1.6",
@@ -116,11 +114,5 @@
 		"vscode-test": "^1.4.1",
 		"webpack": "^5.38.1",
 		"webpack-cli": "^4.7.0"
-	},
-	"__metadata": {
-		"id": "73b2e4cc-8183-4df0-bc22-29b5f748d788",
-		"publisherDisplayName": null,
-		"publisherId": "2422c2de-310a-4652-beea-b5eacbeaae40",
-		"isPreReleaseVersion": false
 	}
 }

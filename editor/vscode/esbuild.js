@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
 let wasmPlugin = {
     name: 'wasm',
     setup(build) {
@@ -25,17 +28,22 @@ let wasmPlugin = {
     },
 }
 
-require('esbuild').build({
+let esbuild = require('esbuild')
+esbuild.build({
     entryPoints: ['src/browser.ts'],
     bundle: true,
     external: ['vscode'],
     outfile: 'out/browser.js',
+    format: 'cjs',
 }).catch(() => process.exit(1))
 
 
-require('esbuild').build({
+esbuild.build({
     entryPoints: ['browser-language-server/browserServerMain.ts'],
     bundle: true,
     outfile: 'out/browserServerMain.js',
+    format: 'iife',
     plugins: [wasmPlugin],
 }).catch(() => process.exit(1))
+
+
