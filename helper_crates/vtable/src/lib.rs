@@ -127,8 +127,8 @@ where
 #[allow(dead_code)]
 #[repr(C)]
 struct Inner {
-    vtable: *const u8,
-    ptr: *const u8,
+    vtable: NonNull<u8>,
+    ptr: NonNull<u8>,
 }
 
 impl Inner {
@@ -196,10 +196,7 @@ impl<T: ?Sized + VTableMetaDrop> VBox<T> {
     /// The `ptr` needs to be a valid object fitting the `vtable`.
     /// ptr must be properly allocated so it can be dropped.
     pub unsafe fn from_raw(vtable: NonNull<T::VTable>, ptr: NonNull<u8>) -> Self {
-        Self {
-            inner: Inner { vtable: vtable.cast().as_ptr(), ptr: ptr.cast().as_ptr() },
-            phantom: PhantomData,
-        }
+        Self { inner: Inner { vtable: vtable.cast(), ptr }, phantom: PhantomData }
     }
 
     /// Gets a VRef pointing to this box
@@ -253,8 +250,8 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
     pub fn new<X: HasStaticVTable<T>>(value: &'a X) -> Self {
         Self {
             inner: Inner {
-                vtable: X::static_vtable() as *const T::VTable as *const u8,
-                ptr: value as *const X as *const u8,
+                vtable: NonNull::from(X::static_vtable()).cast(),
+                ptr: NonNull::from(value).cast(),
             },
             phantom: PhantomData,
         }
@@ -266,8 +263,8 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
         unsafe {
             Pin::new_unchecked(Self {
                 inner: Inner {
-                    vtable: X::static_vtable() as *const T::VTable as *const u8,
-                    ptr: value.get_ref() as *const X as *const u8,
+                    vtable: NonNull::from(X::static_vtable()).cast(),
+                    ptr: NonNull::from(value.get_ref()).cast(),
                 },
                 phantom: PhantomData,
             })
@@ -283,17 +280,14 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
     /// The `ptr` needs to be a valid object fitting the `vtable`.
     /// Both vtable and ptr lifetime must outlive 'a
     pub unsafe fn from_raw(vtable: NonNull<T::VTable>, ptr: NonNull<u8>) -> Self {
-        Self {
-            inner: Inner { vtable: vtable.cast().as_ptr(), ptr: ptr.cast().as_ptr() },
-            phantom: PhantomData,
-        }
+        Self { inner: Inner { vtable: vtable.cast(), ptr }, phantom: PhantomData }
     }
 
     /// Return a reference of the given type if the type is matching.
     pub fn downcast<X: HasStaticVTable<T>>(&self) -> Option<&X> {
-        if self.inner.vtable == X::static_vtable() as *const _ as *const u8 {
+        if self.inner.vtable == NonNull::from(X::static_vtable()).cast() {
             // Safety: We just checked that the vtable fits
-            unsafe { Some(&*(self.inner.ptr as *const X)) }
+            unsafe { Some(self.inner.ptr.cast().as_ref()) }
         } else {
             None
         }
@@ -302,9 +296,9 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
     /// Return a reference of the given type if the type is matching
     pub fn downcast_pin<X: HasStaticVTable<T>>(this: Pin<Self>) -> Option<Pin<&'a X>> {
         let inner = unsafe { Pin::into_inner_unchecked(this).inner };
-        if inner.vtable == X::static_vtable() as *const _ as *const u8 {
+        if inner.vtable == NonNull::from(X::static_vtable()).cast() {
             // Safety: We just checked that the vtable fits
-            unsafe { Some(Pin::new_unchecked(&*(inner.ptr as *const X))) }
+            unsafe { Some(Pin::new_unchecked(inner.ptr.cast().as_ref())) }
         } else {
             None
         }
@@ -341,8 +335,8 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
     pub fn new<X: HasStaticVTable<T>>(value: &'a mut X) -> Self {
         Self {
             inner: Inner {
-                vtable: X::static_vtable() as *const T::VTable as *const u8,
-                ptr: value as *mut X as *const u8,
+                vtable: NonNull::from(X::static_vtable()).cast(),
+                ptr: NonNull::from(value).cast(),
             },
             phantom: PhantomData,
         }
@@ -359,10 +353,7 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
     /// Can create mutable reference to ptr, so no other code can create mutable reference of ptr
     /// during the life time 'a.
     pub unsafe fn from_raw(vtable: NonNull<T::VTable>, ptr: NonNull<u8>) -> Self {
-        Self {
-            inner: Inner { vtable: vtable.cast().as_ptr(), ptr: ptr.cast().as_ptr() },
-            phantom: PhantomData,
-        }
+        Self { inner: Inner { vtable: vtable.cast(), ptr: ptr }, phantom: PhantomData }
     }
 
     /// Borrow this to obtain a VRef.
@@ -382,9 +373,9 @@ impl<'a, T: ?Sized + VTableMeta> VRefMut<'a, T> {
 
     /// Return a reference of the given type if the type is matching.
     pub fn downcast<X: HasStaticVTable<T>>(&mut self) -> Option<&mut X> {
-        if self.inner.vtable == X::static_vtable() as *const _ as *const u8 {
+        if self.inner.vtable == NonNull::from(X::static_vtable()).cast() {
             // Safety: We just checked that the vtable fits
-            unsafe { Some(&mut *(self.inner.ptr as *mut X)) }
+            unsafe { Some(self.inner.ptr.cast().as_mut()) }
         } else {
             None
         }
