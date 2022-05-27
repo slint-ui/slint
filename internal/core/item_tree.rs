@@ -822,7 +822,9 @@ mod tests {
 
     use super::*;
 
-    use crate::component::{Component, ComponentRc, ComponentVTable, ComponentWeak, IndexRange};
+    use crate::component::{
+        Component, ComponentRc, ComponentRenderingData, ComponentVTable, ComponentWeak, IndexRange,
+    };
     use crate::layout::{LayoutInfo, Orientation};
     use crate::slice::Slice;
 
@@ -884,6 +886,10 @@ mod tests {
             *result = vtable::VRc::downgrade(&vtable::VRc::into_dyn(
                 self.subtrees.borrow()[subtree_index][component_index].clone(),
             ))
+        }
+
+        fn rendering_data(&self) -> &ComponentRenderingData {
+            unimplemented!("Not needed for this test")
         }
     }
 

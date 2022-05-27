@@ -996,7 +996,7 @@ fn generate_item_tree(
         &sub_tree.root,
         root,
         parent_ctx.clone(),
-        extra_fields,
+        quote!(rendering_data: slint::re_exports::ComponentRenderingData, #extra_fields),
         index_property,
     );
     let inner_component_id = self::inner_component_id(&sub_tree.root);
@@ -1184,6 +1184,10 @@ fn generate_item_tree(
 
             fn layout_info(self: ::core::pin::Pin<&Self>, orientation: slint::re_exports::Orientation) -> slint::re_exports::LayoutInfo {
                 self.layout_info(orientation)
+            }
+
+            fn rendering_data(&self) -> &slint::re_exports::ComponentRenderingData {
+                &self.rendering_data
             }
         }
 

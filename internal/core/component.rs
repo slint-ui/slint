@@ -5,6 +5,7 @@
 
 //! This module contains the basic datastructures that are exposed to the C API
 
+use crate::item_rendering::PartialRenderingCache;
 use crate::item_tree::{
     ItemTreeNode, ItemVisitorVTable, ItemWeak, TraversalOrder, VisitChildrenResult,
 };
@@ -75,6 +76,9 @@ pub struct ComponentVTable {
     pub layout_info:
         extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, Orientation) -> LayoutInfo,
 
+    /// Returns a reference to the ComponentRenderingData for this component
+    pub rendering_data: extern "C" fn(VRef<ComponentVTable>) -> &ComponentRenderingData,
+
     /// in-place destructor (for VRc)
     pub drop_in_place: unsafe fn(VRefMut<ComponentVTable>) -> vtable::Layout,
     /// dealloc function (for VRc)
@@ -112,6 +116,40 @@ pub fn free_component_item_graphics_resources<Base>(
     window: &WindowRc,
 ) {
     window.free_graphics_resources(&mut item_array.iter().map(|item| item.apply_pin(base)));
+}
+
+/// This is a vtable for a type that's internal to the renderer
+#[vtable]
+#[repr(C)]
+pub struct RenderingDataVTable {
+    /// return a PartialRenderingCache for this component
+    partial_rendering_cache:
+        extern "C" fn(VRefMut<'_, RenderingDataVTable>) -> &mut PartialRenderingCache,
+
+    /// destructor for the VBox
+    drop: extern "C" fn(VRefMut<'_, RenderingDataVTable>),
+}
+
+//pub use RenderingDataVTable_static;
+
+/// This is the data needed for the rendering that must be present in the component
+#[repr(transparent)]
+#[derive(Default)]
+pub struct ComponentRenderingData(core::cell::Cell<Option<VBox<RenderingDataVTable>>>);
+
+impl ComponentRenderingData {
+    /// Get, update, and modify the component cache.
+    /// This allow the renderer to read the cache, or to initialize it if not set.
+    /// The cache must be returned by the function
+    pub fn with<R>(
+        &self,
+        f: impl FnOnce(Option<VBox<RenderingDataVTable>>) -> (Option<VBox<RenderingDataVTable>>, R),
+    ) -> R {
+        let (old, r) = f(self.0.take());
+        let old = self.0.replace(old);
+        assert!(old.is_none());
+        r
+    }
 }
 
 #[cfg(feature = "ffi")]

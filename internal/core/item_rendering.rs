@@ -6,16 +6,17 @@
 
 use super::graphics::RenderingCache;
 use super::items::*;
-use crate::component::ComponentRc;
+use crate::component::{ComponentRc, RenderingDataVTable};
 use crate::graphics::{CachedGraphicsData, Point, Rect};
 use crate::item_tree::{
     ItemRc, ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult,
 };
+use crate::properties::PropertyTracker;
 use crate::Coord;
 use alloc::boxed::Box;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
-use vtable::VRc;
+use vtable::{VBox, VRc};
 
 /// This structure must be present in items that are Rendered and contains information.
 /// Used by the backend.
@@ -116,7 +117,9 @@ pub fn render_item_children(
         |component: &ComponentRc, index: usize, item: Pin<ItemRef>| -> VisitChildrenResult {
             renderer.save_state();
 
-            let (do_draw, item_geometry) = renderer.filter_item(item);
+            let item_rc = ItemRc::new(component.clone(), index);
+
+            let (do_draw, item_geometry) = renderer.filter_item(&item_rc);
 
             let item_origin = item_geometry.origin;
             renderer.translate(item_origin.x, item_origin.y);
@@ -128,10 +131,7 @@ pub fn render_item_children(
                // HACK, the geometry of the box shadow does not include the shadow, because when the shadow is the root for repeated elements it would translate the children
                || ItemRef::downcast_pin::<BoxShadow>(item).is_some()
             {
-                item.as_ref().render(
-                    &mut (renderer as &mut dyn ItemRenderer),
-                    &ItemRc::new(component.clone(), index),
-                )
+                item.as_ref().render(&mut (renderer as &mut dyn ItemRenderer), &item_rc)
             } else {
                 RenderingResult::ContinueRenderingChildren
             };
@@ -209,15 +209,15 @@ pub fn item_children_bounding_rect(
 /// draw_rectangle should draw a rectangle in `(pos.x + rect.x, pos.y + rect.y)`
 #[allow(missing_docs)]
 pub trait ItemRenderer {
-    fn draw_rectangle(&mut self, rect: Pin<&Rectangle>);
-    fn draw_border_rectangle(&mut self, rect: Pin<&BorderRectangle>);
-    fn draw_image(&mut self, image: Pin<&ImageItem>);
-    fn draw_clipped_image(&mut self, image: Pin<&ClippedImage>);
-    fn draw_text(&mut self, text: Pin<&Text>);
-    fn draw_text_input(&mut self, text_input: Pin<&TextInput>);
+    fn draw_rectangle(&mut self, rect: Pin<&Rectangle>, _self_rc: &ItemRc);
+    fn draw_border_rectangle(&mut self, rect: Pin<&BorderRectangle>, _self_rc: &ItemRc);
+    fn draw_image(&mut self, image: Pin<&ImageItem>, _self_rc: &ItemRc);
+    fn draw_clipped_image(&mut self, image: Pin<&ClippedImage>, _self_rc: &ItemRc);
+    fn draw_text(&mut self, text: Pin<&Text>, _self_rc: &ItemRc);
+    fn draw_text_input(&mut self, text_input: Pin<&TextInput>, _self_rc: &ItemRc);
     #[cfg(feature = "std")]
-    fn draw_path(&mut self, path: Pin<&Path>);
-    fn draw_box_shadow(&mut self, box_shadow: Pin<&BoxShadow>);
+    fn draw_path(&mut self, path: Pin<&Path>, _self_rc: &ItemRc);
+    fn draw_box_shadow(&mut self, box_shadow: Pin<&BoxShadow>, _self_rc: &ItemRc);
     fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, _self_rc: &ItemRc) -> RenderingResult {
         self.apply_opacity(opacity_item.opacity());
         RenderingResult::ContinueRenderingChildren
@@ -278,9 +278,13 @@ pub trait ItemRenderer {
     /// Returns
     ///  - if the item needs to be drawn (false means it is clipped or doesn't need to be drawn)
     ///  - the geometry of the item
-    fn filter_item(&mut self, item: Pin<ItemRef>) -> (bool, Rect) {
-        let item_geometry = item.as_ref().geometry();
+    fn filter_item(&mut self, item: &ItemRc) -> (bool, Rect) {
+        let item_geometry = item.borrow().as_ref().geometry();
         (self.get_current_clip().intersects(&item_geometry), item_geometry)
+    }
+
+    fn create_rendering_data(&self, _component: &ComponentRc) -> VBox<RenderingDataVTable> {
+        panic!("This renderer don't have rendering data")
     }
 
     fn window(&self) -> crate::window::WindowRc;
@@ -297,27 +301,34 @@ pub trait ItemRenderer {
 }
 
 /// The cache that needs to be held by the Window for the partial rendering
-pub type PartialRenderingCache = RenderingCache<Rect>;
+pub struct PartialRenderingCache {
+    item_geometry_tracker: Vec<CachedGraphicsData<Rect>>,
+}
+
+impl PartialRenderingCache {
+    /// Initialize a cache for a given component
+    pub fn new(component: &ComponentRc) -> Self {
+        let len = ComponentRc::borrow_pin(component).as_ref().get_item_tree().len();
+        let item_geometry_tracker =
+            core::iter::repeat_with(|| CachedGraphicsData::default()).take(len).collect();
+        Self { item_geometry_tracker }
+    }
+}
 
 /// FIXME: Should actually be a region and not just a rectangle
 pub type DirtyRegion = euclid::default::Box2D<Coord>;
 
 /// Put this structure in the renderer to help with partial rendering
-pub struct PartialRenderer<'a, T> {
-    cache: &'a mut PartialRenderingCache,
+pub struct PartialRenderer<T> {
     /// The region of the screen which is considered dirty and that should be repainted
     pub dirty_region: DirtyRegion,
     actual_renderer: T,
 }
 
-impl<'a, T> PartialRenderer<'a, T> {
+impl<T: ItemRenderer> PartialRenderer<T> {
     /// Create a new PartialRenderer
-    pub fn new(
-        cache: &'a mut PartialRenderingCache,
-        initial_dirty_region: DirtyRegion,
-        actual_renderer: T,
-    ) -> Self {
-        Self { cache, dirty_region: initial_dirty_region, actual_renderer }
+    pub fn new(initial_dirty_region: DirtyRegion, actual_renderer: T) -> Self {
+        Self { dirty_region: initial_dirty_region, actual_renderer }
     }
 
     /// Visit the tree of item and compute what are the dirty regions
@@ -326,23 +337,19 @@ impl<'a, T> PartialRenderer<'a, T> {
             crate::item_tree::visit_items(
                 component,
                 crate::item_tree::TraversalOrder::BackToFront,
-                |_, item, _, offset| match item.cached_rendering_data_offset().get_entry(self.cache)
-                {
-                    Some(CachedGraphicsData { data, dependency_tracker: Some(tr) }) => {
-                        if tr.is_dirty() {
-                            let geom = item.as_ref().geometry();
-                            let old_geom = *data;
-                            self.mark_dirty_rect(old_geom, *offset);
-                            self.mark_dirty_rect(geom, *offset);
-                            ItemVisitorResult::Continue(*offset + geom.origin.to_vector())
-                        } else {
-                            ItemVisitorResult::Continue(*offset + data.origin.to_vector())
-                        }
-                    }
-                    _ => {
+                |component, item, index, offset| {
+                    let item_rc = ItemRc::new(component.clone(), index);
+                    let (old_geom, is_dirty) = self
+                        .with_cached_entry(&item_rc, |rect, tracker, _| {
+                            (*rect, tracker.is_dirty())
+                        });
+                    if is_dirty {
                         let geom = item.as_ref().geometry();
+                        self.mark_dirty_rect(old_geom, *offset);
                         self.mark_dirty_rect(geom, *offset);
                         ItemVisitorResult::Continue(*offset + geom.origin.to_vector())
+                    } else {
+                        ItemVisitorResult::Continue(*offset + old_geom.origin.to_vector())
                     }
                 },
                 origin.to_vector(),
@@ -356,35 +363,42 @@ impl<'a, T> PartialRenderer<'a, T> {
         }
     }
 
-    fn do_rendering(
-        cache: &mut PartialRenderingCache,
-        rendering_data: &CachedRenderingData,
-        render_fn: impl FnOnce() -> Rect,
-    ) {
-        if let Some(entry) = rendering_data.get_entry(cache) {
-            entry
-                .dependency_tracker
-                .get_or_insert_with(|| Box::pin(crate::properties::PropertyTracker::default()))
-                .as_ref()
-                .evaluate(render_fn);
-        } else {
-            let cache_entry = crate::graphics::CachedGraphicsData::new(render_fn);
-            rendering_data.cache_index.set(cache.insert(cache_entry));
-            rendering_data.cache_generation.set(cache.generation());
-        }
+    fn do_rendering(&mut self, item_rc: &ItemRc, render_fn: impl FnOnce(&mut T) -> Rect) {
+        self.with_cached_entry(item_rc, |rect, tracker, actual_renderer| {
+            *rect = tracker.as_ref().evaluate(|| render_fn(actual_renderer))
+        });
     }
 
     /// Move the actual renderer
     pub fn into_inner(self) -> T {
         self.actual_renderer
     }
+
+    fn with_cached_entry<R>(
+        &mut self,
+        item_rc: &ItemRc,
+        f: impl FnOnce(&mut Rect, Pin<&PropertyTracker>, &mut T) -> R,
+    ) -> R {
+        let component = item_rc.component();
+        VRc::borrow(&component).rendering_data().with(|data| {
+            let mut data =
+                data.unwrap_or_else(|| self.actual_renderer.create_rendering_data(&component));
+
+            let c: &mut PartialRenderingCache = data.partial_rendering_cache();
+            let entry = &mut c.item_geometry_tracker[item_rc.index()];
+            let tracker =
+                entry.dependency_tracker.get_or_insert_with(|| Box::pin(Default::default()));
+            let r = f(&mut entry.data, tracker.as_ref(), &mut self.actual_renderer);
+            (Some(data), r)
+        })
+    }
 }
 
 macro_rules! forward_rendering_call {
     (fn $fn:ident($Ty:ty)) => {
-        fn $fn(&mut self, obj: Pin<&$Ty>) {
-            Self::do_rendering(&mut self.cache, &obj.cached_rendering_data, || {
-                self.actual_renderer.$fn(obj);
+        fn $fn(&mut self, obj: Pin<&$Ty>, item_rc: &ItemRc) {
+            self.do_rendering(item_rc, |actual_renderer| {
+                actual_renderer.$fn(obj, item_rc);
                 type Ty = $Ty;
                 let width = Ty::FIELD_OFFSETS.width.apply_pin(obj).get_untracked();
                 let height = Ty::FIELD_OFFSETS.height.apply_pin(obj).get_untracked();
@@ -396,26 +410,12 @@ macro_rules! forward_rendering_call {
     };
 }
 
-impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
-    fn filter_item(&mut self, item: Pin<ItemRef>) -> (bool, Rect) {
-        let rendering_data = item.cached_rendering_data_offset();
-        let item_geometry = match rendering_data.get_entry(self.cache) {
-            Some(CachedGraphicsData { data, dependency_tracker }) => {
-                dependency_tracker
-                    .get_or_insert_with(|| Box::pin(crate::properties::PropertyTracker::default()))
-                    .as_ref()
-                    .evaluate_if_dirty(|| *data = item.as_ref().geometry());
-                *data
-            }
-            None => {
-                let cache_entry =
-                    crate::graphics::CachedGraphicsData::new(|| item.as_ref().geometry());
-                let geom = cache_entry.data;
-                rendering_data.cache_index.set(self.cache.insert(cache_entry));
-                rendering_data.cache_generation.set(self.cache.generation());
-                geom
-            }
-        };
+impl<T: ItemRenderer> ItemRenderer for PartialRenderer<T> {
+    fn filter_item(&mut self, item: &ItemRc) -> (bool, Rect) {
+        let item_geometry = self.with_cached_entry(item, |rect, tracker, _| {
+            tracker.evaluate_if_dirty(|| *rect = item.borrow().as_ref().geometry());
+            *rect
+        });
 
         //let clip = self.get_current_clip().intersection(&self.dirty_region.to_rect());
         //let draw = clip.map_or(false, |r| r.intersects(&item_geometry));

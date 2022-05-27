@@ -466,7 +466,7 @@ struct QtItemRenderer {
 }
 
 impl ItemRenderer for QtItemRenderer {
-    fn draw_rectangle(&mut self, rect_: Pin<&items::Rectangle>) {
+    fn draw_rectangle(&mut self, rect_: Pin<&items::Rectangle>, _: &ItemRc) {
         let rect: qttypes::QRectF = get_geometry!(items::Rectangle, rect_);
         let brush: qttypes::QBrush = into_qbrush(rect_.background(), rect.width, rect.height);
         let painter: &mut QPainterPtr = &mut self.painter;
@@ -475,7 +475,7 @@ impl ItemRenderer for QtItemRenderer {
         }}
     }
 
-    fn draw_border_rectangle(&mut self, rect: std::pin::Pin<&items::BorderRectangle>) {
+    fn draw_border_rectangle(&mut self, rect: std::pin::Pin<&items::BorderRectangle>, _: &ItemRc) {
         Self::draw_rectangle_impl(
             &mut self.painter,
             get_geometry!(items::BorderRectangle, rect),
@@ -486,7 +486,7 @@ impl ItemRenderer for QtItemRenderer {
         );
     }
 
-    fn draw_image(&mut self, image: Pin<&items::ImageItem>) {
+    fn draw_image(&mut self, image: Pin<&items::ImageItem>, _: &ItemRc) {
         let dest_rect: qttypes::QRectF = get_geometry!(items::ImageItem, image);
         self.draw_image_impl(
             &image.cached_rendering_data,
@@ -501,7 +501,7 @@ impl ItemRenderer for QtItemRenderer {
         );
     }
 
-    fn draw_clipped_image(&mut self, image: Pin<&items::ClippedImage>) {
+    fn draw_clipped_image(&mut self, image: Pin<&items::ClippedImage>, _: &ItemRc) {
         let dest_rect: qttypes::QRectF = get_geometry!(items::ClippedImage, image);
         let source_rect = qttypes::QRectF {
             x: image.source_clip_x() as _,
@@ -522,7 +522,7 @@ impl ItemRenderer for QtItemRenderer {
         );
     }
 
-    fn draw_text(&mut self, text: std::pin::Pin<&items::Text>) {
+    fn draw_text(&mut self, text: std::pin::Pin<&items::Text>, _: &ItemRc) {
         let rect: qttypes::QRectF = get_geometry!(items::Text, text);
         let fill_brush: qttypes::QBrush = into_qbrush(text.color(), rect.width, rect.height);
         let mut string: qttypes::QString = text.text().as_str().into();
@@ -601,7 +601,7 @@ impl ItemRenderer for QtItemRenderer {
         }}
     }
 
-    fn draw_text_input(&mut self, text_input: std::pin::Pin<&items::TextInput>) {
+    fn draw_text_input(&mut self, text_input: std::pin::Pin<&items::TextInput>, _: &ItemRc) {
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
         let fill_brush: qttypes::QBrush = into_qbrush(text_input.color(), rect.width, rect.height);
         let selection_foreground_color: u32 =
@@ -696,7 +696,7 @@ impl ItemRenderer for QtItemRenderer {
         }}
     }
 
-    fn draw_path(&mut self, path: Pin<&items::Path>) {
+    fn draw_path(&mut self, path: Pin<&items::Path>, _: &ItemRc) {
         let elements = path.elements();
         if matches!(elements, PathData::None) {
             return;
@@ -758,7 +758,7 @@ impl ItemRenderer for QtItemRenderer {
         }}
     }
 
-    fn draw_box_shadow(&mut self, box_shadow: Pin<&items::BoxShadow>) {
+    fn draw_box_shadow(&mut self, box_shadow: Pin<&items::BoxShadow>, _: &ItemRc) {
         let cached_shadow_pixmap = box_shadow
             .cached_rendering_data
             .get_or_update(&self.cache, || {

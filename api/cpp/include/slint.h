@@ -179,6 +179,10 @@ private:
     cbindgen_private::WindowRcOpaque inner;
 };
 
+class ComponentRenderingData {
+    vtable::VBox<cbindgen_private::RenderingDataVTable> data;
+};
+
 constexpr inline ItemTreeNode make_item_node(uint32_t child_count, uint32_t child_index,
                                              uint32_t parent_index, uint32_t item_array_index)
 {

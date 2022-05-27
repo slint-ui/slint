@@ -15,7 +15,8 @@ use i_slint_compiler::*;
 use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
 use i_slint_core::api::Window;
 use i_slint_core::component::{
-    Component, ComponentRef, ComponentRefPin, ComponentVTable, ComponentWeak, IndexRange,
+    Component, ComponentRef, ComponentRefPin, ComponentRenderingData, ComponentVTable,
+    ComponentWeak, IndexRange,
 };
 use i_slint_core::item_tree::{
     ItemRc, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak, TraversalOrder,
@@ -199,6 +200,10 @@ impl Component for ErasedComponentBox {
     fn subtree_index(self: Pin<&Self>) -> usize {
         self.borrow().as_ref().subtree_index()
     }
+
+    fn rendering_data(&self) -> &ComponentRenderingData {
+        unsafe { rendering_data(Pin::into_inner(self.borrow())) }
+    }
 }
 
 i_slint_core::ComponentVTable_static!(static COMPONENT_BOX_VT for ErasedComponentBox);
@@ -210,6 +215,7 @@ pub(crate) struct ComponentExtraData {
         once_cell::unsync::OnceCell<vtable::VWeak<ComponentVTable, ErasedComponentBox>>,
     // resource id -> file path
     pub(crate) embedded_file_resources: HashMap<usize, String>,
+    rendering_data: ComponentRenderingData,
 }
 
 struct ErasedRepeaterWithinComponent<'id>(RepeaterWithinComponent<'id, 'static>);
@@ -1049,6 +1055,7 @@ pub(crate) fn generate_component<'id>(
         get_subtree_component,
         parent_node,
         subtree_index,
+        rendering_data,
         drop_in_place,
         dealloc,
     };
@@ -1519,6 +1526,16 @@ extern "C" fn layout_info(component: ComponentRefPin, orientation: Orientation) 
         );
     }
     result
+}
+
+unsafe extern "C" fn rendering_data<'a>(component: ComponentRef<'a>) -> &'a ComponentRenderingData {
+    let instance = component.as_ptr() as *const Instance<'a>;
+    let component_type =
+        component.get_vtable() as *const ComponentVTable as *const ComponentDescription<'a>;
+    // Safety: we now that this function can only be called with a component created as a dynamic component
+    // and that therefore the component points to an instance and its vtable to a ComponentDescription
+    let extra_data = (*component_type).extra_data_offset.apply(&*instance);
+    &extra_data.rendering_data
 }
 
 unsafe extern "C" fn get_item_ref(component: ComponentRefPin, index: usize) -> Pin<ItemRef> {

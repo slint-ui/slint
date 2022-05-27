@@ -151,6 +151,7 @@ fn gen_corelib(
         "PointerEventKind",
         "PointerEventButton",
         "PointerEvent",
+        "RenderingDataVTable",
     ]
     .iter()
     .chain(items.iter())
@@ -199,6 +200,7 @@ fn gen_corelib(
         "slint_image_size",
         "slint_image_path",
         "Coord",
+        "ComponentRenderingData",
     ]
     .iter()
     .chain(public_exported_types.iter())
@@ -433,9 +435,10 @@ fn gen_corelib(
         .with_after_include(
             r"
 namespace slint {
-    namespace private_api { class WindowRc; }
+    namespace private_api { class WindowRc; class ComponentRenderingData; }
     namespace cbindgen_private {
         using slint::private_api::WindowRc;
+        using slint::private_api::ComponentRenderingData;
         using namespace vtable;
         struct KeyEvent; struct PointerEvent;
         using private_api::Property;

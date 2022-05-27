@@ -288,7 +288,7 @@ pub mod re_exports {
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::component::{
         free_component_item_graphics_resources, init_component_items, Component, ComponentRefPin,
-        ComponentVTable, ComponentWeak, IndexRange,
+        ComponentRenderingData, ComponentVTable, ComponentWeak, IndexRange,
     };
     pub use i_slint_core::graphics::*;
     pub use i_slint_core::input::{
