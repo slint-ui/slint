@@ -12,6 +12,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use i_slint_compiler::CompilerConfiguration;
+use i_slint_core::debug_log;
 use lsp_types::InitializeParams;
 use serde::{Deserialize, Serialize};
 pub use server_loop::{DocumentCache, Error};
@@ -33,18 +34,17 @@ pub mod wasm_prelude {
         }
     }
 }
-/*
+
 #[wasm_bindgen]
 extern "C" {
     fn send_notification(method: String, params: JsValue) -> bool;
-    fn send_response(id: JsValue, result: JsValue) -> bool;
 }
-*/
+
 #[derive(Clone)]
 pub struct ServerNotifier;
 impl ServerNotifier {
     pub fn send_notification(&self, method: String, params: impl Serialize) -> Result<(), Error> {
-        match false /*send_notification(method, JsValue::from_serde(&params)?)*/ {
+        match send_notification(method, JsValue::from_serde(&params)?) {
             true => Ok(()),
             false => Err("Failed to send notification".into()),
         }
@@ -59,7 +59,11 @@ pub struct Request {
     // #[serde(default = "serde_json::Value::default")]
     params: serde_json::Value,
 }
-pub struct RequestHolder(Request);
+pub struct RequestHolder {
+    req: Request,
+    /// The result will be assigned there
+    reply: Rc<RefCell<Option<JsValue>>>,
+}
 impl RequestHolder {
     pub fn handle_request<
         Kind: lsp_types::request::Request,
@@ -68,13 +72,12 @@ impl RequestHolder {
         &self,
         f: F,
     ) -> Result<bool, Error> {
-        if self.0.method != Kind::METHOD {
+        if self.req.method != Kind::METHOD {
             return Ok(false);
         }
-        let result = f(serde_json::from_value(self.0.params.clone())?)?;
-        /*if !send_response(self.0.id.clone(), JsValue::from_serde(&result)?) {
-            return Err("Failed to send response".into());
-        }*/
+        let result = f(serde_json::from_value(self.req.params.clone())?)?;
+        *self.reply.borrow_mut() = Some(JsValue::from_serde(&result)?);
+
         Ok(true)
     }
 
@@ -88,7 +91,10 @@ pub struct SlintServer(Rc<RefCell<DocumentCache<'static>>>, InitializeParams);
 
 #[wasm_bindgen]
 pub fn create(init_param: JsValue) -> Result<SlintServer, JsError> {
-    let init_param = init_param.into_serde()?;
+    i_slint_core::debug_log!("HELLO FROM WASM {init_param:?}");
+    let serde = init_param.into_serde();
+    i_slint_core::debug_log!("Parsed: {serde:?}");
+    let init_param = serde?;
 
     let compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
@@ -133,9 +139,17 @@ impl SlintServer {
         id: JsValue,
         method: String,
         params: JsValue,
-    ) -> Result<(), JsError> {
-        let r = Request { id, method, params: params.into_serde()? };
-        server_loop::handle_request(RequestHolder(r), &self.1, &mut self.0.borrow_mut())
-            .map_err(|e| JsError::new(&e.to_string()))
+    ) -> Result<JsValue, JsError> {
+        let req = Request { id, method, params: params.into_serde()? };
+        let result = Rc::new(RefCell::new(None));
+        server_loop::handle_request(
+            RequestHolder { req, reply: result.clone() },
+            &self.1,
+            &mut self.0.borrow_mut(),
+        )
+        .map_err(|e| JsError::new(&e.to_string()))?;
+
+        let result = result.borrow_mut().take();
+        Ok(result.ok_or(JsError::new("Empty reply".into()))?)
     }
 }

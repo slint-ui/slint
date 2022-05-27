@@ -25,19 +25,26 @@ function startClient(context: vscode.ExtensionContext) {
 
     const serverMain = Uri.joinPath(context.extensionUri, 'out/browserServerMain.js');
     const worker = new Worker(serverMain.toString(true));
-    client = new LanguageClient('slint-lsp', 'Slint LSP', clientOptions, worker);
-    const disposable = client.start();
-    context.subscriptions.push(disposable);
+    worker.onmessage = m => {
+        console.log("CLIENT MESSAGE", m);
+        // We cannot start sending messages to the client before we start listening which
+        // the server only does in a future after the wasm is loaded.
+        if (m.data === "OK") {
 
-    client.onReady().then(() => {
-        //client.onNotification(serverStatus, (params) => setServerStatus(params, statusBar));
-    });
+            client = new LanguageClient('slint-lsp', 'Slint LSP', clientOptions, worker);
+            const disposable = client.start();
+            context.subscriptions.push(disposable);
+
+            client.onReady().then(() => {
+                console.log("READY");
+                //client.onNotification(serverStatus, (params) => setServerStatus(params, statusBar));
+            });
+        }
+    };
 }
-
 
 // this method is called when vs code is activated
 export function activate(context: vscode.ExtensionContext) {
-
     statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
     context.subscriptions.push(statusBar);
     statusBar.text = "Slint";
@@ -58,5 +65,3 @@ export function activate(context: vscode.ExtensionContext) {
         startClient(context);
     }));
 }
-
-
