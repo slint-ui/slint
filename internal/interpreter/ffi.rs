@@ -4,6 +4,7 @@
 use crate::dynamic_component::ErasedComponentBox;
 
 use super::*;
+use core::ptr::NonNull;
 use i_slint_core::model::{Model, ModelNotify, SharedVectorModel};
 use i_slint_core::slice::Slice;
 use i_slint_core::window::{WindowHandleAccess, WindowRc};
@@ -110,10 +111,17 @@ pub unsafe extern "C" fn slint_interpreter_value_new_image(img: &Image, val: *mu
 /// Construct a new Value containing a model in the given memory location
 #[no_mangle]
 pub unsafe extern "C" fn slint_interpreter_value_new_model(
-    model: vtable::VBox<ModelAdaptorVTable>,
+    model: NonNull<u8>,
+    vtable: &ModelAdaptorVTable,
     val: *mut ValueOpaque,
 ) {
-    std::ptr::write(val as *mut Value, Value::Model(ModelRc::new(ModelAdaptorWrapper(model))))
+    std::ptr::write(
+        val as *mut Value,
+        Value::Model(ModelRc::new(ModelAdaptorWrapper(vtable::VBox::from_raw(
+            NonNull::from(vtable),
+            model,
+        )))),
+    )
 }
 
 #[no_mangle]

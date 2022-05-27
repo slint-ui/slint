@@ -492,8 +492,7 @@ inline Value::Value(const std::shared_ptr<slint::Model<Value>> &model)
     };
 
     static const ModelAdaptorVTable vt { row_count, row_data, set_row_data, get_notify, drop };
-    vtable::VBox<ModelAdaptorVTable> wrap { &vt, wrapper.get() };
-    cbindgen_private::slint_interpreter_value_new_model(wrap, &inner);
+    cbindgen_private::slint_interpreter_value_new_model(reinterpret_cast<uint8_t *>(wrapper.get()), &vt, &inner);
 }
 
 inline Struct::Struct(std::initializer_list<std::pair<std::string_view, Value>> args)
