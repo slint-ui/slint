@@ -445,6 +445,23 @@ pub mod internal {
     pub fn register_bitmap_font(font_data: &'static super::re_exports::BitmapFont) {
         i_slint_backend_selector::backend().register_bitmap_font(font_data)
     }
+
+    #[doc(hidden)]
+    pub fn debug(s: SharedString) {
+        #[cfg(feature = "log")]
+        {
+            log::debug!("{:?}", s);
+        }
+        #[cfg(not(feature = "log"))]
+        {
+            #[cfg(feature = "std")]
+            println!("{:?}", s);
+            #[cfg(not(feature = "std"))]
+            panic!(
+                "debug() is not supported if you don't have the 'log' or 'std' feature enabled!"
+            );
+        }
+    }
 }
 
 /// Creates a new window to render components in.
