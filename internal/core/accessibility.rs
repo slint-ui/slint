@@ -4,7 +4,6 @@
 // cSpell: ignore descendents
 
 use crate::items::ItemRc;
-use alloc::vec::Vec;
 
 #[repr(C)]
 #[derive(PartialEq, Eq, Copy, Clone, strum::Display)]
@@ -24,20 +23,16 @@ pub enum AccessibleStringProperty {
 ///
 /// This will recurse through all children of `root_item`, but will not recurse
 /// into nodes that are accessible.
-pub fn accessible_descendents(root_item: &ItemRc) -> Vec<ItemRc> {
-    let mut result = Vec::new();
-
+pub fn accessible_descendents(root_item: &ItemRc, descendents: &mut impl Extend<ItemRc>) {
     // Do not look on the root_item: That is either a component root or an
     // accessible item already handled!
     let mut child = root_item.first_child();
     while let Some(c) = &child {
         if c.is_accessible() {
-            result.push(c.clone());
+            descendents.extend(core::iter::once(c.clone()));
         } else {
-            result.append(&mut accessible_descendents(c))
+            accessible_descendents(c, descendents)
         }
         child = c.next_sibling();
     }
-
-    result
 }
