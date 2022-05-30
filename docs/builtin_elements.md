@@ -26,7 +26,7 @@ These properties are valid on all visible items
 
 ### Accessibility
 
-The following `accessible-` properties are used to enable accessibility of applications.
+Use the following `accessible-` properties to make your items interact well with software like screen readers, braille terminals and other software to make your application accessible.
 
 * **`accessible-role`** (*enum AccessibleRole*): describe the role of the element. This property is
   mandatory to be able to use any other accessible properties. It should be set to a constant value.
