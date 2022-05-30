@@ -397,6 +397,7 @@ cpp! {{
             sendFocusChangeEvent();
         }
 
+        // Returns true if the item accepted the focus; false otherwise.
         bool focusItem(void *item) const {
             auto my_item = rustItem();
             if (rust!(Slint_accessible_findItem [item: &ItemWeak as "void *", my_item: &ItemWeak as "void*"] -> bool as "bool" {
