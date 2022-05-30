@@ -78,7 +78,7 @@ impl Item for Text {
                         .min(window.text_size(self.unresolved_font_request(), "…", None).width),
                     TextOverflow::clip => match self.wrap() {
                         TextWrap::no_wrap => implicit_size.width,
-                        TextWrap::word_wrap => 0 as _,
+                        TextWrap::word_wrap => 0 as Coord,
                     },
                 };
                 LayoutInfo {
@@ -160,7 +160,7 @@ impl Text {
             },
             pixel_size: {
                 let font_size = self.font_size();
-                if font_size == 0 as _ {
+                if font_size == 0 as Coord {
                     None
                 } else {
                     Some(font_size)
@@ -241,7 +241,7 @@ impl Item for TextInput {
                 let implicit_size = implicit_size(None);
                 let min = match self.wrap() {
                     TextWrap::no_wrap => implicit_size.width,
-                    TextWrap::word_wrap => 0 as _,
+                    TextWrap::word_wrap => 0 as Coord,
                 };
                 LayoutInfo {
                     min: min.ceil(),
@@ -747,7 +747,7 @@ impl TextInput {
             },
             pixel_size: {
                 let font_size = self.font_size();
-                if font_size == 0 as _ {
+                if font_size == 0 as Coord {
                     None
                 } else {
                     Some(font_size)
