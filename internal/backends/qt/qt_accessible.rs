@@ -297,7 +297,7 @@ cpp! {{
             });
         }
 
-        QAccessible::Role roleAt(size_t index) {
+        QAccessible::Role roleAt(size_t index) const {
             return rust!(Descendents_roleAt [rustDescendents: SharedVector<ItemRc> as "void*",
                                              index: usize as "size_t"]
                     -> u32 as "QAccessible::Role" {
