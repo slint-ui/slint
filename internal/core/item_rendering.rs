@@ -209,15 +209,15 @@ pub fn item_children_bounding_rect(
 /// draw_rectangle should draw a rectangle in `(pos.x + rect.x, pos.y + rect.y)`
 #[allow(missing_docs)]
 pub trait ItemRenderer {
-    fn draw_rectangle(&mut self, rect: Pin<&Rectangle>);
-    fn draw_border_rectangle(&mut self, rect: Pin<&BorderRectangle>);
-    fn draw_image(&mut self, image: Pin<&ImageItem>);
-    fn draw_clipped_image(&mut self, image: Pin<&ClippedImage>);
-    fn draw_text(&mut self, text: Pin<&Text>);
-    fn draw_text_input(&mut self, text_input: Pin<&TextInput>);
+    fn draw_rectangle(&mut self, rect: Pin<&Rectangle>, _self_rc: &ItemRc);
+    fn draw_border_rectangle(&mut self, rect: Pin<&BorderRectangle>, _self_rc: &ItemRc);
+    fn draw_image(&mut self, image: Pin<&ImageItem>, _self_rc: &ItemRc);
+    fn draw_clipped_image(&mut self, image: Pin<&ClippedImage>, _self_rc: &ItemRc);
+    fn draw_text(&mut self, text: Pin<&Text>, _self_rc: &ItemRc);
+    fn draw_text_input(&mut self, text_input: Pin<&TextInput>, _self_rc: &ItemRc);
     #[cfg(feature = "std")]
-    fn draw_path(&mut self, path: Pin<&Path>);
-    fn draw_box_shadow(&mut self, box_shadow: Pin<&BoxShadow>);
+    fn draw_path(&mut self, path: Pin<&Path>, _self_rc: &ItemRc);
+    fn draw_box_shadow(&mut self, box_shadow: Pin<&BoxShadow>, _self_rc: &ItemRc);
     fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, _self_rc: &ItemRc) -> RenderingResult {
         self.apply_opacity(opacity_item.opacity());
         RenderingResult::ContinueRenderingChildren
@@ -382,9 +382,9 @@ impl<'a, T> PartialRenderer<'a, T> {
 
 macro_rules! forward_rendering_call {
     (fn $fn:ident($Ty:ty)) => {
-        fn $fn(&mut self, obj: Pin<&$Ty>) {
+        fn $fn(&mut self, obj: Pin<&$Ty>, item_rc: &ItemRc) {
             Self::do_rendering(&mut self.cache, &obj.cached_rendering_data, || {
-                self.actual_renderer.$fn(obj);
+                self.actual_renderer.$fn(obj, item_rc);
                 type Ty = $Ty;
                 let width = Ty::FIELD_OFFSETS.width.apply_pin(obj).get_untracked();
                 let height = Ty::FIELD_OFFSETS.height.apply_pin(obj).get_untracked();

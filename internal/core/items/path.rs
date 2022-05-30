@@ -97,14 +97,14 @@ impl Item for Path {
     fn render(
         self: Pin<&Self>,
         backend: &mut ItemRendererRef,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
     ) -> RenderingResult {
         let clip = self.clip();
         if clip {
             (*backend).save_state();
             (*backend).combine_clip(self.geometry(), 0 as _, 0 as _)
         }
-        (*backend).draw_path(self);
+        (*backend).draw_path(self, self_rc);
         if clip {
             (*backend).restore_state();
         }

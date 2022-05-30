@@ -10,7 +10,7 @@ use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{Image, IntRect, Point, Rect, RenderingCache, Size};
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
 use i_slint_core::items::{
-    Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, Layer, Opacity,
+    self, Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, Layer, Opacity,
     RenderingResult,
 };
 use i_slint_core::window::WindowRc;
@@ -102,7 +102,7 @@ fn adjust_rect_and_border_for_inner_drawing(rect: &mut Rect, border_width: &mut 
     rect.size.height -= *border_width;
 }
 
-fn item_rect<Item: i_slint_core::items::Item>(item: Pin<&Item>, scale_factor: f32) -> Rect {
+fn item_rect<Item: items::Item>(item: Pin<&Item>, scale_factor: f32) -> Rect {
     let geometry = item.geometry();
     euclid::rect(0., 0., geometry.width() * scale_factor, geometry.height() * scale_factor)
 }
@@ -147,7 +147,7 @@ fn clip_path_for_rect_alike_item(
 }
 
 impl ItemRenderer for GLItemRenderer {
-    fn draw_rectangle(&mut self, rect: std::pin::Pin<&i_slint_core::items::Rectangle>) {
+    fn draw_rectangle(&mut self, rect: Pin<&items::Rectangle>, _: &ItemRc) {
         let geometry = item_rect(rect, self.scale_factor);
         if geometry.is_empty() {
             return;
@@ -164,10 +164,7 @@ impl ItemRenderer for GLItemRenderer {
         self.canvas.borrow_mut().fill_path(&mut path, paint)
     }
 
-    fn draw_border_rectangle(
-        &mut self,
-        rect: std::pin::Pin<&i_slint_core::items::BorderRectangle>,
-    ) {
+    fn draw_border_rectangle(&mut self, rect: Pin<&items::BorderRectangle>, _: &ItemRc) {
         let mut geometry = item_rect(rect, self.scale_factor);
         if geometry.is_empty() {
             return;
@@ -198,23 +195,20 @@ impl ItemRenderer for GLItemRenderer {
         }
     }
 
-    fn draw_image(&mut self, image: std::pin::Pin<&i_slint_core::items::ImageItem>) {
+    fn draw_image(&mut self, image: Pin<&items::ImageItem>, _: &ItemRc) {
         self.draw_image_impl(
             &image.cached_rendering_data,
-            i_slint_core::items::ImageItem::FIELD_OFFSETS.source.apply_pin(image),
+            items::ImageItem::FIELD_OFFSETS.source.apply_pin(image),
             IntRect::default(),
-            i_slint_core::items::ImageItem::FIELD_OFFSETS.width.apply_pin(image),
-            i_slint_core::items::ImageItem::FIELD_OFFSETS.height.apply_pin(image),
+            items::ImageItem::FIELD_OFFSETS.width.apply_pin(image),
+            items::ImageItem::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
             None,
             image.image_rendering(),
         );
     }
 
-    fn draw_clipped_image(
-        &mut self,
-        clipped_image: std::pin::Pin<&i_slint_core::items::ClippedImage>,
-    ) {
+    fn draw_clipped_image(&mut self, clipped_image: Pin<&items::ClippedImage>, _: &ItemRc) {
         let source_clip_rect = IntRect::new(
             [clipped_image.source_clip_x(), clipped_image.source_clip_y()].into(),
             [clipped_image.source_clip_width(), clipped_image.source_clip_height()].into(),
@@ -222,19 +216,17 @@ impl ItemRenderer for GLItemRenderer {
 
         self.draw_image_impl(
             &clipped_image.cached_rendering_data,
-            i_slint_core::items::ClippedImage::FIELD_OFFSETS.source.apply_pin(clipped_image),
+            items::ClippedImage::FIELD_OFFSETS.source.apply_pin(clipped_image),
             source_clip_rect,
-            i_slint_core::items::ClippedImage::FIELD_OFFSETS.width.apply_pin(clipped_image),
-            i_slint_core::items::ClippedImage::FIELD_OFFSETS.height.apply_pin(clipped_image),
+            items::ClippedImage::FIELD_OFFSETS.width.apply_pin(clipped_image),
+            items::ClippedImage::FIELD_OFFSETS.height.apply_pin(clipped_image),
             clipped_image.image_fit(),
-            Some(
-                i_slint_core::items::ClippedImage::FIELD_OFFSETS.colorize.apply_pin(clipped_image),
-            ),
+            Some(items::ClippedImage::FIELD_OFFSETS.colorize.apply_pin(clipped_image)),
             clipped_image.image_rendering(),
         );
     }
 
-    fn draw_text(&mut self, text: std::pin::Pin<&i_slint_core::items::Text>) {
+    fn draw_text(&mut self, text: Pin<&items::Text>, _: &ItemRc) {
         let max_width = text.width() * self.scale_factor;
         let max_height = text.height() * self.scale_factor;
 
@@ -276,7 +268,7 @@ impl ItemRenderer for GLItemRenderer {
         );
     }
 
-    fn draw_text_input(&mut self, text_input: std::pin::Pin<&i_slint_core::items::TextInput>) {
+    fn draw_text_input(&mut self, text_input: Pin<&items::TextInput>, _: &ItemRc) {
         let width = text_input.width() * self.scale_factor;
         let height = text_input.height() * self.scale_factor;
         if width <= 0. || height <= 0. {
@@ -324,7 +316,7 @@ impl ItemRenderer for GLItemRenderer {
             Size::new(width, height),
             (text_input.horizontal_alignment(), text_input.vertical_alignment()),
             text_input.wrap(),
-            i_slint_core::items::TextOverflow::clip,
+            items::TextOverflow::clip,
             text_input.single_line(),
             paint,
             |to_draw, pos, start, metrics| {
@@ -435,7 +427,7 @@ impl ItemRenderer for GLItemRenderer {
         }
     }
 
-    fn draw_path(&mut self, path: std::pin::Pin<&i_slint_core::items::Path>) {
+    fn draw_path(&mut self, path: Pin<&items::Path>, _: &ItemRc) {
         let elements = path.elements();
         if matches!(elements, i_slint_core::PathData::None) {
             return;
@@ -549,7 +541,7 @@ impl ItemRenderer for GLItemRenderer {
     ///  * Blur the image
     ///  * Fill the image with the shadow color and SourceIn as composition mode
     ///  * Draw the shadow image
-    fn draw_box_shadow(&mut self, box_shadow: std::pin::Pin<&i_slint_core::items::BoxShadow>) {
+    fn draw_box_shadow(&mut self, box_shadow: Pin<&items::BoxShadow>, _item_rc: &ItemRc) {
         if box_shadow.color().alpha() == 0
             || (box_shadow.blur() == 0.0
                 && box_shadow.offset_x() == 0.
@@ -1097,10 +1089,10 @@ impl GLItemRenderer {
     fn draw_image_impl(
         &mut self,
         item_cache: &CachedRenderingData,
-        source_property: std::pin::Pin<&Property<Image>>,
+        source_property: Pin<&Property<Image>>,
         source_clip_rect: IntRect,
-        target_width: std::pin::Pin<&Property<f32>>,
-        target_height: std::pin::Pin<&Property<f32>>,
+        target_width: Pin<&Property<f32>>,
+        target_height: Pin<&Property<f32>>,
         image_fit: ImageFit,
         colorize_property: Option<Pin<&Property<Brush>>>,
         image_rendering: ImageRendering,
