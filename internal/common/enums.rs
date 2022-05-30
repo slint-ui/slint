@@ -261,7 +261,7 @@ macro_rules! for_each_enums {
                 slider,
                 /// The element is a SpinBox or behaves like one.
                 spinbox,
-                /// A role for anything that is a Tab or behaves like one.
+                /// The element is a Tab or behaves like one.
                 tab,
                 /// A role for static Text items.
                 text,
