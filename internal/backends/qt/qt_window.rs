@@ -349,7 +349,7 @@ fn into_qbrush(
 ) -> qttypes::QBrush {
     /// Mangle the position to work around the fact that Qt merge stop at equal position
     fn mangle_position(position: f32, idx: usize, count: usize) -> f32 {
-        // Add or substract a small amount to make sure each stop is different but still in [0..1].
+        // Add or subtract a small amount to make sure each stop is different but still in [0..1].
         // It is possible that we swap stops that are both really really close to 0.54321+ε,
         // but that is really unlikely
         if position < 0.54321 + 67.8 * f32::EPSILON {
@@ -1723,13 +1723,8 @@ impl PlatformWindow for QtWindow {
                 if (auto slint_accessible = dynamic_cast<Slint_accessible*>(accessible)) {
                     slint_accessible->clearFocus();
                     slint_accessible->focusItem(item);
-                } else {
-                    qDebug() << "Accessible was null or not a Slint_accessible!";
                 }
             }};
-        } else {
-            // FIXME: How to unfocus?!
-            println!("Accessible: No idea how to unfocus!");
         }
     }
 }
