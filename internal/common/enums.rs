@@ -251,7 +251,7 @@ macro_rules! for_each_enums {
             enum AccessibleRole {
                 /// An item with role `none` is not accessible
                 none,
-                /// A role for anything that is a Button or behaves like one.
+                /// The element is a Button or behaves like one.
                 button,
                 /// A role for anything that is a CheckBox or behaves like one.
                 checkbox,
