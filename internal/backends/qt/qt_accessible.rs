@@ -284,15 +284,11 @@ cpp! {{
         void* itemAt(size_t index) {
             return rust!(Descendents_itemAt [rustDescendents: SharedVector<ItemRc> as "void*",
                                              index: usize as "size_t"]
-                    -> *mut c_void as "void*" {
+                    -> *mut ItemWeak as "void*" {
                 let item_rc = rustDescendents[index].clone();
                 let mut item_weak = Box::new(item_rc.downgrade());
 
-                let result = core::ptr::addr_of_mut!(*item_weak);
-
-                std::mem::forget(item_weak);
-
-                result as _
+                Box::into_raw(item_weak)
             });
         }
 
