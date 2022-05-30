@@ -54,6 +54,7 @@ spin_on = "0.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = { version = "0.2", features = ["serde-serialize"] }
+console_error_panic_hook = "0.1.5"
 
 # [package.metadata.wasm-pack.profile.release]
 # wasm-opt = false
