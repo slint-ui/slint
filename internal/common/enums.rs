@@ -255,7 +255,7 @@ macro_rules! for_each_enums {
                 button,
                 /// The element is a CheckBox or behaves like one.
                 checkbox,
-                /// A role for anything that is a ComboBox or behaves like one.
+                /// The element is a ComboBox or behaves like one.
                 combobox,
                 /// A role for anything that is a Slider or behaves like one.
                 slider,
