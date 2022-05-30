@@ -430,13 +430,6 @@ cpp! {{
             return m_object;
         }
 
-        // relations
-        QVector<QPair<QAccessibleInterface *, QAccessible::Relation>>
-        relations(QAccessible::Relation match = QAccessible::AllRelations) const override {
-            Q_UNUSED(match);
-            return {}; /* FIXME */
-        }
-
         // navigation, hierarchy
         QAccessibleInterface *parent() const override {
             return m_parent;
@@ -508,12 +501,6 @@ cpp! {{
             }
             return nullptr;
         }
-
-
-        QColor foregroundColor() const override { return {}; /* FIXME */ }
-        QColor backgroundColor() const override { return {}; /* FIXME */ }
-
-        void virtual_hook(int id, void *data) override { Q_UNUSED(id); Q_UNUSED(data); /* FIXME */ }
 
     protected:
         mutable bool has_focus;
