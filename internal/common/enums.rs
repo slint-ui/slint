@@ -37,7 +37,7 @@ macro_rules! for_each_enums {
                 top,
                 /// The text will be vertically centered within the containing box.
                 center,
-                /// The text will be alignt to the bottom of the containing box.
+                /// The text will be aligned to the bottom of the containing box.
                 bottom,
             }
 
