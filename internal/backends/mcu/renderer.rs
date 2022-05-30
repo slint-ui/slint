@@ -15,7 +15,7 @@ pub use draw_functions::TargetPixel;
 use embedded_graphics::pixelcolor::Rgb888;
 use i_slint_core::graphics::{FontRequest, IntRect, PixelFormat, Rect as RectF};
 use i_slint_core::item_rendering::{ItemRenderer, PartialRenderingCache};
-use i_slint_core::items::ImageFit;
+use i_slint_core::items::{ImageFit, ItemRc};
 use i_slint_core::textlayout::{FontMetrics as _, TextParagraphLayout};
 use i_slint_core::{Color, Coord, ImageInner, StaticTextures};
 
@@ -558,7 +558,7 @@ struct RenderState {
 }
 
 impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
-    fn draw_rectangle(&mut self, rect: Pin<&i_slint_core::items::Rectangle>) {
+    fn draw_rectangle(&mut self, rect: Pin<&i_slint_core::items::Rectangle>, _: &ItemRc) {
         let geom = LogicalRect::new(LogicalPoint::default(), rect.logical_geometry().size_length());
         if self.should_draw(&geom) {
             let geom = match geom.intersection(&self.current_state.clip) {
@@ -575,7 +575,11 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         }
     }
 
-    fn draw_border_rectangle(&mut self, rect: Pin<&i_slint_core::items::BorderRectangle>) {
+    fn draw_border_rectangle(
+        &mut self,
+        rect: Pin<&i_slint_core::items::BorderRectangle>,
+        _: &ItemRc,
+    ) {
         let geom = LogicalRect::new(LogicalPoint::default(), rect.logical_geometry().size_length());
         if self.should_draw(&geom) {
             let border = rect.border_width();
@@ -641,7 +645,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         }
     }
 
-    fn draw_image(&mut self, image: Pin<&i_slint_core::items::ImageItem>) {
+    fn draw_image(&mut self, image: Pin<&i_slint_core::items::ImageItem>, _: &ItemRc) {
         let geom =
             LogicalRect::new(LogicalPoint::default(), image.logical_geometry().size_length());
         if self.should_draw(&geom) {
@@ -655,7 +659,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         }
     }
 
-    fn draw_clipped_image(&mut self, image: Pin<&i_slint_core::items::ClippedImage>) {
+    fn draw_clipped_image(&mut self, image: Pin<&i_slint_core::items::ClippedImage>, _: &ItemRc) {
         // when the source_clip size is empty, make it full
         let a = |v| if v == 0 { i32::MAX } else { v };
 
@@ -677,7 +681,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         }
     }
 
-    fn draw_text(&mut self, text: Pin<&i_slint_core::items::Text>) {
+    fn draw_text(&mut self, text: Pin<&i_slint_core::items::Text>, _: &ItemRc) {
         let string = text.text();
         if string.trim().is_empty() {
             return;
@@ -746,18 +750,18 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         });
     }
 
-    fn draw_text_input(&mut self, text_input: Pin<&i_slint_core::items::TextInput>) {
+    fn draw_text_input(&mut self, text_input: Pin<&i_slint_core::items::TextInput>, _: &ItemRc) {
         text_input.logical_geometry();
         // TODO
     }
 
     #[cfg(feature = "std")]
-    fn draw_path(&mut self, path: Pin<&i_slint_core::items::Path>) {
+    fn draw_path(&mut self, path: Pin<&i_slint_core::items::Path>, _: &ItemRc) {
         path.logical_geometry();
         // TODO
     }
 
-    fn draw_box_shadow(&mut self, box_shadow: Pin<&i_slint_core::items::BoxShadow>) {
+    fn draw_box_shadow(&mut self, box_shadow: Pin<&i_slint_core::items::BoxShadow>, _: &ItemRc) {
         box_shadow.logical_geometry();
         // TODO
     }
@@ -806,7 +810,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
 
     fn draw_cached_pixmap(
         &mut self,
-        _item_cache: &i_slint_core::item_rendering::CachedRenderingData,
+        _: &ItemRc,
         _update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
         todo!()

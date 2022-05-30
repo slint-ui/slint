@@ -89,9 +89,9 @@ impl Item for ImageItem {
     fn render(
         self: Pin<&Self>,
         backend: &mut &mut dyn ItemRenderer,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
     ) -> RenderingResult {
-        (*backend).draw_image(self);
+        (*backend).draw_image(self, self_rc);
         RenderingResult::ContinueRenderingChildren
     }
 }
@@ -173,9 +173,9 @@ impl Item for ClippedImage {
     fn render(
         self: Pin<&Self>,
         backend: &mut &mut dyn ItemRenderer,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
     ) -> RenderingResult {
-        (*backend).draw_clipped_image(self);
+        (*backend).draw_clipped_image(self, self_rc);
         RenderingResult::ContinueRenderingChildren
     }
 }

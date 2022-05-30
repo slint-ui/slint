@@ -220,9 +220,9 @@ impl Item for Rectangle {
     fn render(
         self: Pin<&Self>,
         backend: &mut ItemRendererRef,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
     ) -> RenderingResult {
-        (*backend).draw_rectangle(self);
+        (*backend).draw_rectangle(self, self_rc);
         RenderingResult::ContinueRenderingChildren
     }
 }
@@ -294,9 +294,9 @@ impl Item for BorderRectangle {
     fn render(
         self: Pin<&Self>,
         backend: &mut ItemRendererRef,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
     ) -> RenderingResult {
-        (*backend).draw_border_rectangle(self);
+        (*backend).draw_border_rectangle(self, self_rc);
         RenderingResult::ContinueRenderingChildren
     }
 }
@@ -1091,9 +1091,9 @@ impl Item for BoxShadow {
     fn render(
         self: Pin<&Self>,
         backend: &mut ItemRendererRef,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
     ) -> RenderingResult {
-        (*backend).draw_box_shadow(self);
+        (*backend).draw_box_shadow(self, self_rc);
         RenderingResult::ContinueRenderingChildren
     }
 }
