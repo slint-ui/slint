@@ -299,7 +299,11 @@ impl PlatformWindow for GLWindow {
         }
     }
 
-    fn free_graphics_resources<'a>(&self, items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>) {
+    fn free_graphics_resources<'a>(
+        &self,
+        _: corelib::component::ComponentRef,
+        items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
+    ) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(_) => {

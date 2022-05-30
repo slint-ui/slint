@@ -95,6 +95,7 @@ impl PlatformWindow for TestingWindow {
 
     fn free_graphics_resources<'a>(
         &self,
+        _: i_slint_core::component::ComponentRef,
         _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'a>>>,
     ) {
     }

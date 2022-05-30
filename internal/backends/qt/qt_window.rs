@@ -5,25 +5,26 @@
 
 use cpp::*;
 use euclid::approxeq::ApproxEq;
+use i_slint_core::component::{ComponentRc, ComponentRef};
 use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
 use i_slint_core::graphics::{
-    Brush, Color, FontRequest, Image, Point, Rect, RenderingCache, SharedImageBuffer, Size,
+    Brush, CachedGraphicsData, Color, FontRequest, Image, Point, Rect, SharedImageBuffer, Size,
 };
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
-use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
+use i_slint_core::item_rendering::ItemRenderer;
 use i_slint_core::items::{
     self, FillRule, ImageRendering, InputType, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
     PointerEventButton, RenderingResult, TextOverflow, TextWrap,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::window::{PlatformWindow, PopupWindow, PopupWindowLocation, WindowRc};
-use i_slint_core::{component::ComponentRc, SharedString};
-use i_slint_core::{ImageInner, PathData, Property};
+use i_slint_core::{ImageInner, PathData, Property, SharedString};
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::pin::Pin;
 use std::ptr::NonNull;
 use std::rc::{Rc, Weak};
@@ -443,29 +444,63 @@ fn adjust_rect_and_border_for_inner_drawing(rect: &mut qttypes::QRectF, border_w
     rect.height -= *border_width as f64;
 }
 
-#[derive(Clone)]
-enum QtRenderingCacheItem {
-    Pixmap(qttypes::QPixmap),
-    Invalid,
+#[derive(Default)]
+struct ItemCache<T> {
+    /// The pointer is a pointer to a component
+    map: RefCell<HashMap<*const vtable::Dyn, HashMap<usize, CachedGraphicsData<T>>>>,
 }
+impl<T: Clone> ItemCache<T> {
+    pub fn get_or_update_cache_entry(&self, item_rc: &ItemRc, update_fn: impl FnOnce() -> T) -> T {
+        let component = &(*item_rc.component()) as *const _;
+        let mut borrowed = self.map.borrow_mut();
+        match borrowed.entry(component).or_default().entry(item_rc.index()) {
+            std::collections::hash_map::Entry::Occupied(mut entry) => {
+                let mut tracker = entry.get_mut().dependency_tracker.take();
+                drop(borrowed);
+                let maybe_new_data = tracker
+                    .get_or_insert_with(|| Box::pin(Default::default()))
+                    .as_ref()
+                    .evaluate_if_dirty(update_fn);
+                let mut borrowed = self.map.borrow_mut();
+                let e = borrowed.get_mut(&component).unwrap().get_mut(&item_rc.index()).unwrap();
+                if let Some(new_data) = maybe_new_data {
+                    e.data = new_data.clone();
+                    new_data
+                } else {
+                    e.data.clone()
+                }
+            }
+            std::collections::hash_map::Entry::Vacant(entry) => {
+                entry.insert(CachedGraphicsData::new(update_fn)).data.clone()
+            }
+        }
+    }
 
-impl Default for QtRenderingCacheItem {
-    fn default() -> Self {
-        Self::Invalid
+    pub fn clear_all(&self) {
+        self.map.borrow_mut().clear();
+    }
+    pub fn component_destroyed(&self, component: ComponentRef) {
+        let component_ptr: *const _ = ComponentRef::as_ptr(component).cast().as_ptr();
+        self.map.borrow_mut().remove(&component_ptr);
+    }
+
+    pub fn release(&self, item_rc: &ItemRc) {
+        let component = &(*item_rc.component()) as *const _;
+        if let Some(sub) = self.map.borrow_mut().get_mut(&component) {
+            sub.remove(&item_rc.index());
+        }
     }
 }
 
-type QtRenderingCache = Rc<RefCell<RenderingCache<QtRenderingCacheItem>>>;
-
-struct QtItemRenderer {
+struct QtItemRenderer<'a> {
     painter: QPainterPtr,
-    cache: QtRenderingCache,
+    cache: &'a ItemCache<qttypes::QPixmap>,
     default_font_properties: FontRequest,
     window: WindowRc,
     metrics: RenderingMetrics,
 }
 
-impl ItemRenderer for QtItemRenderer {
+impl ItemRenderer for QtItemRenderer<'_> {
     fn draw_rectangle(&mut self, rect_: Pin<&items::Rectangle>, _: &ItemRc) {
         let rect: qttypes::QRectF = get_geometry!(items::Rectangle, rect_);
         let brush: qttypes::QBrush = into_qbrush(rect_.background(), rect.width, rect.height);
@@ -486,10 +521,10 @@ impl ItemRenderer for QtItemRenderer {
         );
     }
 
-    fn draw_image(&mut self, image: Pin<&items::ImageItem>, _: &ItemRc) {
+    fn draw_image(&mut self, image: Pin<&items::ImageItem>, item_rc: &ItemRc) {
         let dest_rect: qttypes::QRectF = get_geometry!(items::ImageItem, image);
         self.draw_image_impl(
-            &image.cached_rendering_data,
+            item_rc,
             items::ImageItem::FIELD_OFFSETS.source.apply_pin(image),
             dest_rect,
             None,
@@ -501,7 +536,7 @@ impl ItemRenderer for QtItemRenderer {
         );
     }
 
-    fn draw_clipped_image(&mut self, image: Pin<&items::ClippedImage>, _: &ItemRc) {
+    fn draw_clipped_image(&mut self, image: Pin<&items::ClippedImage>, item_rc: &ItemRc) {
         let dest_rect: qttypes::QRectF = get_geometry!(items::ClippedImage, image);
         let source_rect = qttypes::QRectF {
             x: image.source_clip_x() as _,
@@ -510,7 +545,7 @@ impl ItemRenderer for QtItemRenderer {
             height: image.source_clip_height() as _,
         };
         self.draw_image_impl(
-            &image.cached_rendering_data,
+            item_rc,
             items::ClippedImage::FIELD_OFFSETS.source.apply_pin(image),
             dest_rect,
             Some(source_rect),
@@ -758,10 +793,8 @@ impl ItemRenderer for QtItemRenderer {
         }}
     }
 
-    fn draw_box_shadow(&mut self, box_shadow: Pin<&items::BoxShadow>, _: &ItemRc) {
-        let cached_shadow_pixmap = box_shadow
-            .cached_rendering_data
-            .get_or_update(&self.cache, || {
+    fn draw_box_shadow(&mut self, box_shadow: Pin<&items::BoxShadow>, item_rc: &ItemRc) {
+        let pixmap : qttypes::QPixmap = self.cache.get_or_update_cache_entry( item_rc, || {
                 let shadow_rect = get_geometry!(items::BoxShadow, box_shadow);
 
                 let source_size = qttypes::QSize {
@@ -791,7 +824,7 @@ impl ItemRenderer for QtItemRenderer {
 
                 let blur_radius = box_shadow.blur();
 
-                let shadow_pixmap = if blur_radius > 0. {
+                if blur_radius > 0. {
                     cpp! {
                     unsafe[img as "QImage*", blur_radius as "float"] -> qttypes::QPixmap as "QPixmap" {
                         class PublicGraphicsBlurEffect : public QGraphicsBlurEffect {
@@ -827,14 +860,8 @@ impl ItemRenderer for QtItemRenderer {
                     cpp! { unsafe[img as "QImage*"] -> qttypes::QPixmap as "QPixmap" {
                         return QPixmap::fromImage(*img);
                     }}
-                };
-                QtRenderingCacheItem::Pixmap(shadow_pixmap)
+                }
             });
-
-        let pixmap: &qttypes::QPixmap = match &cached_shadow_pixmap {
-            QtRenderingCacheItem::Pixmap(pixmap) => pixmap,
-            _ => return,
-        };
 
         let blur_radius = box_shadow.blur();
 
@@ -847,26 +874,26 @@ impl ItemRenderer for QtItemRenderer {
         cpp! { unsafe [
                 painter as "QPainterPtr*",
                 shadow_offset as "QPointF",
-                pixmap as "QPixmap*"
+                pixmap as "QPixmap"
             ] {
-            (*painter)->drawPixmap(shadow_offset, *pixmap);
+            (*painter)->drawPixmap(shadow_offset, pixmap);
         }}
     }
 
-    fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, self_rc: &ItemRc) -> RenderingResult {
+    fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, item_rc: &ItemRc) -> RenderingResult {
         let opacity = opacity_item.opacity();
-        if Opacity::need_layer(self_rc, opacity) {
-            self.render_and_blend_layer(&opacity_item.cached_rendering_data, opacity, self_rc)
+        if Opacity::need_layer(item_rc, opacity) {
+            self.render_and_blend_layer(opacity, item_rc)
         } else {
             self.apply_opacity(opacity);
-            opacity_item.cached_rendering_data.release(&mut self.cache.borrow_mut());
+            self.cache.release(item_rc);
             RenderingResult::ContinueRenderingChildren
         }
     }
 
     fn visit_layer(&mut self, layer_item: Pin<&Layer>, self_rc: &ItemRc) -> RenderingResult {
         if layer_item.cache_rendering_hint() {
-            self.render_and_blend_layer(&layer_item.cached_rendering_data, 1.0, self_rc)
+            self.render_and_blend_layer(1.0, self_rc)
         } else {
             RenderingResult::ContinueRenderingChildren
         }
@@ -1115,10 +1142,10 @@ fn is_svg(resource: &ImageInner) -> bool {
     }
 }
 
-impl QtItemRenderer {
+impl QtItemRenderer<'_> {
     fn draw_image_impl(
         &mut self,
-        item_cache: &CachedRenderingData,
+        item_rc: &ItemRc,
         source_property: Pin<&Property<Image>>,
         dest_rect: qttypes::QRectF,
         source_rect: Option<qttypes::QRectF>,
@@ -1132,7 +1159,7 @@ impl QtItemRenderer {
         debug_assert!(target_width.get() > 0.);
         debug_assert!(target_height.get() > 0.);
 
-        let cached = item_cache.get_or_update(&self.cache, || {
+        let pixmap: qttypes::QPixmap = self.cache.get_or_update_cache_entry(item_rc, || {
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
             let target_width = target_width.get() as f64;
             let target_height = target_height.get() as f64;
@@ -1152,7 +1179,7 @@ impl QtItemRenderer {
             };
 
             load_image_from_resource((&source_property.get()).into(), source_size, image_fit)
-                .map_or(QtRenderingCacheItem::Invalid, |mut pixmap: qttypes::QPixmap| {
+                .map_or_else(Default::default, |mut pixmap: qttypes::QPixmap| {
                     let colorize = colorize_property.map_or(Brush::default(), |c| c.get());
                     if !colorize.is_transparent() {
                         let brush: qttypes::QBrush =
@@ -1163,13 +1190,10 @@ impl QtItemRenderer {
                             p.fillRect(QRect(QPoint(), pixmap.size()), brush);
                         });
                     }
-                    QtRenderingCacheItem::Pixmap(pixmap)
+                    pixmap
                 })
         });
-        let pixmap: &qttypes::QPixmap = match &cached {
-            QtRenderingCacheItem::Pixmap(pixmap) => pixmap,
-            _ => return,
-        };
+
         let image_size = pixmap.size();
         let mut source_rect = source_rect.filter(|r| r.is_valid()).unwrap_or(qttypes::QRectF {
             x: 0.,
@@ -1183,13 +1207,13 @@ impl QtItemRenderer {
         let smooth: bool = rendering == ImageRendering::smooth;
         cpp! { unsafe [
                 painter as "QPainterPtr*",
-                pixmap as "QPixmap*",
+                pixmap as "QPixmap",
                 source_rect as "QRectF",
                 dest_rect as "QRectF",
                 smooth as "bool"] {
             (*painter)->save();
             (*painter)->setRenderHint(QPainter::SmoothPixmapTransform, smooth);
-            (*painter)->drawPixmap(dest_rect, *pixmap, source_rect);
+            (*painter)->drawPixmap(dest_rect, pixmap, source_rect);
             (*painter)->restore();
         }};
     }
@@ -1218,11 +1242,10 @@ impl QtItemRenderer {
 
     fn render_layer(
         &mut self,
-        item_cache: &CachedRenderingData,
         item_rc: &ItemRc,
         layer_size_fn: &dyn Fn() -> qttypes::QSize,
-    ) -> Option<qttypes::QPixmap> {
-        let cache_entry = item_cache.get_or_update(&self.cache.clone(), || {
+    ) -> qttypes::QPixmap {
+        self.cache.get_or_update_cache_entry(item_rc,  || {
             let layer_size: qttypes::QSize = layer_size_fn();
             let mut layer_image = qttypes::QImage::new(layer_size, qttypes::ImageFormat::ARGB32_Premultiplied);
             layer_image.fill(qttypes::QColor::from_rgba_f(0., 0., 0., 0.));
@@ -1247,22 +1270,13 @@ impl QtItemRenderer {
             std::mem::swap(&mut self.painter, &mut layer_painter);
             drop(layer_painter);
 
-            QtRenderingCacheItem::Pixmap(qttypes::QPixmap::from(layer_image))
-        });
-        match &cache_entry {
-            QtRenderingCacheItem::Pixmap(pixmap) => Some(pixmap.clone()),
-            _ => None,
-        }
+            qttypes::QPixmap::from(layer_image)
+        })
     }
 
-    fn render_and_blend_layer(
-        &mut self,
-        item_cache: &CachedRenderingData,
-        alpha_tint: f32,
-        self_rc: &ItemRc,
-    ) -> RenderingResult {
+    fn render_and_blend_layer(&mut self, alpha_tint: f32, self_rc: &ItemRc) -> RenderingResult {
         let current_clip = self.get_current_clip();
-        if let Some(mut layer_image) = self.render_layer(item_cache, self_rc, &|| {
+        let mut layer_image = self.render_layer(self_rc, &|| {
             // We don't need to include the size of the opacity item itself, since it has no content.
             let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
                 let self_ref = self_rc.borrow();
@@ -1278,21 +1292,20 @@ impl QtItemRenderer {
                 width: children_rect.size.width as _,
                 height: children_rect.size.height as _,
             }
-        }) {
-            self.save_state();
-            self.apply_opacity(alpha_tint);
-            {
-                let painter: &mut QPainterPtr = &mut self.painter;
-                let layer_image_ref: &mut qttypes::QPixmap = &mut layer_image;
-                cpp! { unsafe [
-                        painter as "QPainterPtr*",
-                        layer_image_ref as "QPixmap*"
-                    ] {
-                    (*painter)->drawPixmap(0, 0, *layer_image_ref);
-                }}
-            }
-            self.restore_state();
+        });
+        self.save_state();
+        self.apply_opacity(alpha_tint);
+        {
+            let painter: &mut QPainterPtr = &mut self.painter;
+            let layer_image_ref: &mut qttypes::QPixmap = &mut layer_image;
+            cpp! { unsafe [
+                    painter as "QPainterPtr*",
+                    layer_image_ref as "QPixmap*"
+                ] {
+                (*painter)->drawPixmap(0, 0, *layer_image_ref);
+            }}
         }
+        self.restore_state();
         RenderingResult::ContinueRenderingWithoutChildren
     }
 }
@@ -1305,7 +1318,7 @@ pub struct QtWindow {
 
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
 
-    cache: QtRenderingCache,
+    cache: ItemCache<qttypes::QPixmap>,
 }
 
 impl QtWindow {
@@ -1339,10 +1352,9 @@ impl QtWindow {
         let runtime_window = self.self_weak.upgrade().unwrap();
         runtime_window.clone().draw_contents(|components| {
             i_slint_core::animations::update_animations();
-            let cache = self.cache.clone();
             let mut renderer = QtItemRenderer {
                 painter,
-                cache,
+                cache: &self.cache,
                 default_font_properties: self.default_font_properties(),
                 window: runtime_window,
                 metrics: RenderingMetrics { layers_created: Some(0) },
@@ -1552,11 +1564,12 @@ impl PlatformWindow for QtWindow {
         }};
     }
 
-    fn free_graphics_resources<'a>(&self, items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>) {
-        for item in items {
-            let cached_rendering_data = item.cached_rendering_data_offset();
-            cached_rendering_data.release(&mut self.cache.borrow_mut());
-        }
+    fn free_graphics_resources<'a>(
+        &self,
+        component: ComponentRef,
+        _: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
+    ) {
+        self.cache.component_destroyed(component);
     }
 
     fn show_popup(&self, popup: &i_slint_core::component::ComponentRc, position: Point) {
