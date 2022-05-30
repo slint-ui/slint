@@ -2,19 +2,22 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::pin::Pin;
 use std::rc::Rc;
 
 use euclid::approxeq::ApproxEq;
+use i_slint_core::component::{ComponentRc, RenderingData, RenderingDataVTable};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{Image, IntRect, Point, Rect, RenderingCache, Size};
-use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
+use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer, PartialRenderingCache};
 use i_slint_core::items::{
     self, Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, Layer, Opacity,
     RenderingResult,
 };
 use i_slint_core::window::WindowRc;
 use i_slint_core::{Brush, Color, ImageInner, Property, SharedString};
+use vtable::{VBox, VRef};
 
 use crate::event_loop::WinitWindow;
 use crate::fonts;
@@ -47,7 +50,30 @@ impl ItemGraphicsCacheEntry {
     }
 }
 
-pub type ItemGraphicsCache = RenderingCache<Option<ItemGraphicsCacheEntry>>;
+pub struct ItemGraphicsCache {
+    cache: Rc<RefCell<HashMap<usize, ItemGraphicsCacheEntry>>>,
+    window: Rc<GLWindow>,
+}
+
+impl RenderingData for ItemGraphicsCache {
+    fn partial_rendering_cache(
+        &mut self,
+    ) -> &mut i_slint_core::item_rendering::PartialRenderingCache {
+        unimplemented!()
+    }
+}
+
+impl Drop for ItemGraphicsCache {
+    fn drop(&mut self) {
+        if !self.cache.borrow().is_empty() {
+            self.window.with_current_context(|_| self.cache.borrow_mut().clear());
+        }
+    }
+}
+
+i_slint_core::RenderingDataVTable_static! {
+    pub static ItemGraphicsCache_VTable for ItemGraphicsCache
+}
 
 const KAPPA90: f32 = 0.55228;
 
@@ -549,6 +575,17 @@ impl ItemRenderer for GLItemRenderer {
         {
             return;
         }
+
+        let component = item_rc.component();
+        ComponentRc::borrow(&component).rendering_data().with(|data| {
+            let mut data = data
+                .filter(|d| VRef::downcast::<ItemGraphicsCache>(&VBox::borrow(d)).is_some())
+                .unwrap_or_else(|| self.create_rendering_data(&component));
+
+            let cache = VRef::downcast::<ItemGraphicsCache>(&VBox::borrow(&data)).unwrap();
+
+            (Some(data), ())
+        });
 
         let cache_entry = box_shadow.cached_rendering_data.get_or_update(
             &self.graphics_window.clone().graphics_cache,

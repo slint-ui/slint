@@ -7,12 +7,13 @@
 
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
+use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 
 use super::TextureCache;
 use crate::event_loop::WinitWindow;
 use crate::glcontext::OpenGLContext;
-use crate::glrenderer::{CanvasRc, ItemGraphicsCache};
+use crate::glrenderer::{CanvasRc, ItemGraphicsCache, ItemGraphicsCacheEntry};
 use const_field_offset::FieldOffsets;
 use corelib::api::{GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use corelib::component::ComponentRc;
@@ -36,7 +37,8 @@ pub struct GLWindow {
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
 
-    pub(crate) graphics_cache: RefCell<ItemGraphicsCache>,
+    pub(crate) graphics_cache:
+        HashMap<*const ItemGraphicsCache, Rc<RefCell<HashMap<usize, ItemGraphicsCacheEntry>>>>,
     // This cache only contains textures. The cache for decoded CPU side images is in crate::IMAGE_CACHE.
     pub(crate) texture_cache: RefCell<TextureCache>,
 
@@ -78,7 +80,10 @@ impl GLWindow {
         })
     }
 
-    fn with_current_context<T>(&self, cb: impl FnOnce(&OpenGLContext) -> T) -> Option<T> {
+    pub(crate) fn with_current_context<T>(
+        &self,
+        cb: impl FnOnce(&OpenGLContext) -> T,
+    ) -> Option<T> {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => None,
             GraphicsWindowBackendState::Mapped(window) => {
