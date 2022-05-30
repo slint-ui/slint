@@ -287,8 +287,8 @@ pub mod re_exports {
     pub use i_slint_core::animations::EasingCurve;
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::component::{
-        init_component_items, Component, ComponentRefPin, ComponentVTable, ComponentWeak,
-        IndexRange,
+        free_component_item_graphics_resources, init_component_items, Component, ComponentRefPin,
+        ComponentVTable, ComponentWeak, IndexRange,
     };
     pub use i_slint_core::graphics::*;
     pub use i_slint_core::input::{

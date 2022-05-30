@@ -93,7 +93,12 @@ impl PlatformWindow for TestingWindow {
 
     fn request_redraw(&self) {}
 
-    fn component_destroyed<'a>(&self, _: i_slint_core::component::ComponentRef) {}
+    fn free_graphics_resources<'a>(
+        &self,
+        _: i_slint_core::component::ComponentRef,
+        _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'a>>>,
+    ) {
+    }
 
     fn show_popup(&self, _popup: &ComponentRc, _position: i_slint_core::graphics::Point) {
         todo!()
