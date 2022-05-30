@@ -1515,11 +1515,7 @@ impl PlatformWindow for QtWindow {
         }};
     }
 
-    fn free_graphics_resources<'a>(
-        &self,
-        component: ComponentRef,
-        _: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
-    ) {
+    fn component_destroyed<'a>(&self, component: ComponentRef) {
         self.cache.component_destroyed(component);
     }
 
