@@ -7,8 +7,8 @@ use std::rc::Rc;
 
 use euclid::approxeq::ApproxEq;
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
-use i_slint_core::graphics::{Image, IntRect, Point, Rect, RenderingCache, Size};
-use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
+use i_slint_core::graphics::{Image, IntRect, Point, Rect, Size};
+use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{
     self, Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, Layer, Opacity,
     RenderingResult,
@@ -47,7 +47,7 @@ impl ItemGraphicsCacheEntry {
     }
 }
 
-pub type ItemGraphicsCache = RenderingCache<Option<ItemGraphicsCacheEntry>>;
+pub type ItemGraphicsCache = ItemCache<Option<ItemGraphicsCacheEntry>>;
 
 const KAPPA90: f32 = 0.55228;
 
@@ -195,9 +195,9 @@ impl ItemRenderer for GLItemRenderer {
         }
     }
 
-    fn draw_image(&mut self, image: Pin<&items::ImageItem>, _: &ItemRc) {
+    fn draw_image(&mut self, image: Pin<&items::ImageItem>, item_rc: &ItemRc) {
         self.draw_image_impl(
-            &image.cached_rendering_data,
+            item_rc,
             items::ImageItem::FIELD_OFFSETS.source.apply_pin(image),
             IntRect::default(),
             items::ImageItem::FIELD_OFFSETS.width.apply_pin(image),
@@ -208,14 +208,14 @@ impl ItemRenderer for GLItemRenderer {
         );
     }
 
-    fn draw_clipped_image(&mut self, clipped_image: Pin<&items::ClippedImage>, _: &ItemRc) {
+    fn draw_clipped_image(&mut self, clipped_image: Pin<&items::ClippedImage>, item_rc: &ItemRc) {
         let source_clip_rect = IntRect::new(
             [clipped_image.source_clip_x(), clipped_image.source_clip_y()].into(),
             [clipped_image.source_clip_width(), clipped_image.source_clip_height()].into(),
         );
 
         self.draw_image_impl(
-            &clipped_image.cached_rendering_data,
+            item_rc,
             items::ClippedImage::FIELD_OFFSETS.source.apply_pin(clipped_image),
             source_clip_rect,
             items::ClippedImage::FIELD_OFFSETS.width.apply_pin(clipped_image),
@@ -541,7 +541,7 @@ impl ItemRenderer for GLItemRenderer {
     ///  * Blur the image
     ///  * Fill the image with the shadow color and SourceIn as composition mode
     ///  * Draw the shadow image
-    fn draw_box_shadow(&mut self, box_shadow: Pin<&items::BoxShadow>, _item_rc: &ItemRc) {
+    fn draw_box_shadow(&mut self, box_shadow: Pin<&items::BoxShadow>, item_rc: &ItemRc) {
         if box_shadow.color().alpha() == 0
             || (box_shadow.blur() == 0.0
                 && box_shadow.offset_x() == 0.
@@ -550,9 +550,8 @@ impl ItemRenderer for GLItemRenderer {
             return;
         }
 
-        let cache_entry = box_shadow.cached_rendering_data.get_or_update(
-            &self.graphics_window.clone().graphics_cache,
-            || {
+        let cache_entry =
+            self.graphics_window.clone().graphics_cache.get_or_update_cache_entry(item_rc, || {
                 ItemGraphicsCacheEntry::Image({
                     let blur = box_shadow.blur() * self.scale_factor;
                     let width = box_shadow.width() * self.scale_factor;
@@ -632,8 +631,7 @@ impl ItemRenderer for GLItemRenderer {
                     Rc::new(shadow_image)
                 })
                 .into()
-            },
-        );
+            });
 
         let shadow_image = match &cache_entry {
             Some(cached_shadow_image) => cached_shadow_image.as_image(),
@@ -666,28 +664,26 @@ impl ItemRenderer for GLItemRenderer {
         });
     }
 
-    fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, self_rc: &ItemRc) -> RenderingResult {
+    fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, item_rc: &ItemRc) -> RenderingResult {
         let opacity = opacity_item.opacity();
-        if Opacity::need_layer(self_rc, opacity) {
-            self.render_and_blend_layer(&opacity_item.cached_rendering_data, opacity, self_rc)
+        if Opacity::need_layer(item_rc, opacity) {
+            self.render_and_blend_layer(opacity, item_rc)
         } else {
             self.apply_opacity(opacity);
-            opacity_item
-                .cached_rendering_data
-                .release(&mut self.graphics_window.graphics_cache.borrow_mut());
+            self.graphics_window.graphics_cache.release(item_rc);
             RenderingResult::ContinueRenderingChildren
         }
     }
 
     fn visit_layer(&mut self, layer_item: Pin<&Layer>, self_rc: &ItemRc) -> RenderingResult {
         if layer_item.cache_rendering_hint() {
-            self.render_and_blend_layer(&layer_item.cached_rendering_data, 1.0, self_rc)
+            self.render_and_blend_layer(1.0, self_rc)
         } else {
             RenderingResult::ContinueRenderingChildren
         }
     }
 
-    fn visit_clip(&mut self, clip_item: Pin<&Clip>, self_rc: &ItemRc) -> RenderingResult {
+    fn visit_clip(&mut self, clip_item: Pin<&Clip>, item_rc: &ItemRc) -> RenderingResult {
         if !clip_item.clip() {
             return RenderingResult::ContinueRenderingChildren;
         }
@@ -705,9 +701,7 @@ impl ItemRenderer for GLItemRenderer {
 
         if radius > 0. {
             if let Some(layer_image) =
-                self.render_layer(&clip_item.cached_rendering_data, self_rc, &|| {
-                    clip_item.as_ref().geometry().size
-                })
+                self.render_layer(item_rc, &|| clip_item.as_ref().geometry().size)
             {
                 let layer_image_paint = layer_image.as_paint();
 
@@ -723,10 +717,7 @@ impl ItemRenderer for GLItemRenderer {
 
             RenderingResult::ContinueRenderingWithoutChildren
         } else {
-            clip_item
-                .cached_rendering_data
-                .release(&mut self.graphics_window.graphics_cache.borrow_mut());
-
+            self.graphics_window.graphics_cache.release(item_rc);
             self.combine_clip(
                 euclid::rect(0., 0., geometry.width(), geometry.height()),
                 radius,
@@ -784,26 +775,27 @@ impl ItemRenderer for GLItemRenderer {
 
     fn draw_cached_pixmap(
         &mut self,
-        item_cache: &CachedRenderingData,
+        item_rc: &ItemRc,
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
         let canvas = &self.canvas;
 
-        let cache_entry = item_cache.get_or_update(&self.graphics_window.graphics_cache, || {
-            let mut cached_image = None;
-            update_fn(&mut |width: u32, height: u32, data: &[u8]| {
-                use rgb::FromSlice;
-                let img = imgref::Img::new(data.as_rgba(), width as usize, height as usize);
-                if let Ok(image_id) =
-                    canvas.borrow_mut().create_image(img, femtovg::ImageFlags::PREMULTIPLIED)
-                {
-                    cached_image = Some(ItemGraphicsCacheEntry::Image(Rc::new(
-                        CachedImage::new_on_gpu(canvas, image_id),
-                    )))
-                };
+        let cache_entry =
+            self.graphics_window.graphics_cache.get_or_update_cache_entry(item_rc, || {
+                let mut cached_image = None;
+                update_fn(&mut |width: u32, height: u32, data: &[u8]| {
+                    use rgb::FromSlice;
+                    let img = imgref::Img::new(data.as_rgba(), width as usize, height as usize);
+                    if let Ok(image_id) =
+                        canvas.borrow_mut().create_image(img, femtovg::ImageFlags::PREMULTIPLIED)
+                    {
+                        cached_image = Some(ItemGraphicsCacheEntry::Image(Rc::new(
+                            CachedImage::new_on_gpu(canvas, image_id),
+                        )))
+                    };
+                });
+                cached_image
             });
-            cached_image
-        });
         let image_id = match cache_entry {
             Some(ItemGraphicsCacheEntry::Image(image)) => image.ensure_uploaded_to_gpu(self, None),
             Some(ItemGraphicsCacheEntry::ColorizedImage { .. }) => unreachable!(),
@@ -909,12 +901,11 @@ impl GLItemRenderer {
 
     fn render_layer(
         &mut self,
-        item_cache: &CachedRenderingData,
         item_rc: &ItemRc,
         layer_logical_size_fn: &dyn Fn() -> Size,
     ) -> Option<Rc<CachedImage>> {
         let cache_entry =
-            item_cache.get_or_update(&self.graphics_window.clone().graphics_cache, || {
+            self.graphics_window.clone().graphics_cache.get_or_update_cache_entry(item_rc, || {
                 ItemGraphicsCacheEntry::Image({
                     let size = layer_logical_size_fn() * self.scale_factor;
 
@@ -974,22 +965,17 @@ impl GLItemRenderer {
         cache_entry.map(|item_cache_entry| item_cache_entry.as_image().clone())
     }
 
-    fn render_and_blend_layer(
-        &mut self,
-        item_cache: &CachedRenderingData,
-        alpha_tint: f32,
-        self_rc: &ItemRc,
-    ) -> RenderingResult {
+    fn render_and_blend_layer(&mut self, alpha_tint: f32, item_rc: &ItemRc) -> RenderingResult {
         let current_clip = self.get_current_clip();
         if let Some((layer_image, layer_size)) = self
-            .render_layer(item_cache, &self_rc.clone(), &|| {
+            .render_layer(item_rc, &|| {
                 // We don't need to include the size of the opacity item itself, since it has no content.
                 let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
-                    let self_ref = self_rc.borrow();
+                    let self_ref = item_rc.borrow();
                     self_ref.as_ref().geometry().union(
                         &i_slint_core::item_rendering::item_children_bounding_rect(
-                            &self_rc.component(),
-                            self_rc.index() as isize,
+                            &item_rc.component(),
+                            item_rc.index() as isize,
                             &current_clip,
                         ),
                     )
@@ -1088,7 +1074,7 @@ impl GLItemRenderer {
 
     fn draw_image_impl(
         &mut self,
-        item_cache: &CachedRenderingData,
+        item_rc: &ItemRc,
         source_property: Pin<&Property<Image>>,
         source_clip_rect: IntRect,
         target_width: Pin<&Property<f32>>,
@@ -1106,7 +1092,7 @@ impl GLItemRenderer {
 
         let cached_image = loop {
             let image_cache_entry =
-                item_cache.get_or_update(&self.graphics_window.graphics_cache, || {
+                self.graphics_window.graphics_cache.get_or_update_cache_entry(item_rc, || {
                     let image = source_property.get();
                     let image_inner: &ImageInner = (&image).into();
 
@@ -1167,8 +1153,7 @@ impl GLItemRenderer {
             if colorize_property.map_or(false, |prop| !prop.get().is_transparent())
                 && !cached_image.is_colorized_image()
             {
-                let mut cache = self.graphics_window.graphics_cache.borrow_mut();
-                item_cache.release(&mut cache);
+                self.graphics_window.graphics_cache.release(item_rc);
                 continue;
             }
 

@@ -36,7 +36,7 @@ pub struct GLWindow {
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
 
-    pub(crate) graphics_cache: RefCell<ItemGraphicsCache>,
+    pub(crate) graphics_cache: ItemGraphicsCache,
     // This cache only contains textures. The cache for decoded CPU side images is in crate::IMAGE_CACHE.
     pub(crate) texture_cache: RefCell<TextureCache>,
 
@@ -124,7 +124,7 @@ impl GLWindow {
     fn release_graphics_resources(&self) {
         // Release GL textures and other GPU bound resources.
         self.with_current_context(|context| {
-            self.graphics_cache.borrow_mut().clear();
+            self.graphics_cache.clear_all();
             self.texture_cache.borrow_mut().clear();
 
             self.invoke_rendering_notifier(RenderingState::RenderingTeardown, context);
@@ -301,23 +301,13 @@ impl PlatformWindow for GLWindow {
 
     fn free_graphics_resources<'a>(
         &self,
-        _: corelib::component::ComponentRef,
-        items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
+        component: corelib::component::ComponentRef,
+        _items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
     ) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped => {}
             GraphicsWindowBackendState::Mapped(_) => {
-                let mut cache_entries_to_clear = items
-                    .flat_map(|item| {
-                        let cached_rendering_data = item.cached_rendering_data_offset();
-                        cached_rendering_data.release(&mut *self.graphics_cache.borrow_mut())
-                    })
-                    .peekable();
-                if cache_entries_to_clear.peek().is_some() {
-                    self.with_current_context(|_| {
-                        cache_entries_to_clear.for_each(drop);
-                    });
-                }
+                self.with_current_context(|_| self.graphics_cache.component_destroyed(component));
             }
         }
     }

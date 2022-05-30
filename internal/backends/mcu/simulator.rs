@@ -139,6 +139,7 @@ impl PlatformWindow for SimulatorWindow {
 
     fn free_graphics_resources<'a>(
         &self,
+        _: i_slint_core::component::ComponentRef,
         items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'a>>>,
     ) {
         super::LINE_RENDERER.with(|cache| {

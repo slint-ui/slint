@@ -10,10 +10,10 @@ use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
 use i_slint_core::graphics::{
-    Brush, CachedGraphicsData, Color, FontRequest, Image, Point, Rect, SharedImageBuffer, Size,
+    Brush, Color, FontRequest, Image, Point, Rect, SharedImageBuffer, Size,
 };
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
-use i_slint_core::item_rendering::ItemRenderer;
+use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{
     self, FillRule, ImageRendering, InputType, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
     PointerEventButton, RenderingResult, TextOverflow, TextWrap,
@@ -24,7 +24,6 @@ use i_slint_core::{ImageInner, PathData, Property, SharedString};
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 
 use std::cell::RefCell;
-use std::collections::HashMap;
 use std::pin::Pin;
 use std::ptr::NonNull;
 use std::rc::{Rc, Weak};
@@ -442,54 +441,6 @@ fn adjust_rect_and_border_for_inner_drawing(rect: &mut qttypes::QRectF, border_w
     rect.y += *border_width as f64 / 2.;
     rect.width -= *border_width as f64;
     rect.height -= *border_width as f64;
-}
-
-#[derive(Default)]
-struct ItemCache<T> {
-    /// The pointer is a pointer to a component
-    map: RefCell<HashMap<*const vtable::Dyn, HashMap<usize, CachedGraphicsData<T>>>>,
-}
-impl<T: Clone> ItemCache<T> {
-    pub fn get_or_update_cache_entry(&self, item_rc: &ItemRc, update_fn: impl FnOnce() -> T) -> T {
-        let component = &(*item_rc.component()) as *const _;
-        let mut borrowed = self.map.borrow_mut();
-        match borrowed.entry(component).or_default().entry(item_rc.index()) {
-            std::collections::hash_map::Entry::Occupied(mut entry) => {
-                let mut tracker = entry.get_mut().dependency_tracker.take();
-                drop(borrowed);
-                let maybe_new_data = tracker
-                    .get_or_insert_with(|| Box::pin(Default::default()))
-                    .as_ref()
-                    .evaluate_if_dirty(update_fn);
-                let mut borrowed = self.map.borrow_mut();
-                let e = borrowed.get_mut(&component).unwrap().get_mut(&item_rc.index()).unwrap();
-                if let Some(new_data) = maybe_new_data {
-                    e.data = new_data.clone();
-                    new_data
-                } else {
-                    e.data.clone()
-                }
-            }
-            std::collections::hash_map::Entry::Vacant(entry) => {
-                entry.insert(CachedGraphicsData::new(update_fn)).data.clone()
-            }
-        }
-    }
-
-    pub fn clear_all(&self) {
-        self.map.borrow_mut().clear();
-    }
-    pub fn component_destroyed(&self, component: ComponentRef) {
-        let component_ptr: *const _ = ComponentRef::as_ptr(component).cast().as_ptr();
-        self.map.borrow_mut().remove(&component_ptr);
-    }
-
-    pub fn release(&self, item_rc: &ItemRc) {
-        let component = &(*item_rc.component()) as *const _;
-        if let Some(sub) = self.map.borrow_mut().get_mut(&component) {
-            sub.remove(&item_rc.index());
-        }
-    }
 }
 
 struct QtItemRenderer<'a> {
@@ -944,7 +895,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
 
     fn draw_cached_pixmap(
         &mut self,
-        _item_cache: &i_slint_core::item_rendering::CachedRenderingData,
+        _item_rc: &ItemRc,
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
         update_fn(&mut |width: u32, height: u32, data: &[u8]| {

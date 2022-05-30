@@ -134,6 +134,7 @@ mod the_backend {
         }
         fn free_graphics_resources<'a>(
             &self,
+            _: i_slint_core::component::ComponentRef,
             items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'a>>>,
         ) {
             super::LINE_RENDERER.with(|renderer| {

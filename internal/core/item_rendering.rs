@@ -15,6 +15,8 @@ use crate::Coord;
 use alloc::boxed::Box;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
+#[cfg(feature = "std")]
+use std::collections::HashMap;
 use vtable::VRc;
 
 /// This structure must be present in items that are Rendered and contains information.
@@ -88,6 +90,82 @@ impl CachedRenderingData {
             cache.get_mut(index)
         } else {
             None
+        }
+    }
+}
+
+/// A per-item cache.
+///
+/// Cache rendering information for a given item.
+///
+/// Use [`ItemCache::get_or_update_cache_entry`] to get or update the items, the
+/// cache is automatically invalided when the property gets dirty.
+/// [`ItemCache::component_destroyed`] must be called to clear the cache for that
+/// component.
+#[cfg(feature = "std")]
+#[derive(Default)]
+pub struct ItemCache<T> {
+    /// The pointer is a pointer to a component
+    map: RefCell<HashMap<*const vtable::Dyn, HashMap<usize, CachedGraphicsData<T>>>>,
+}
+#[cfg(feature = "std")]
+impl<T: Clone> ItemCache<T> {
+    /// Returns the cached value associated to the `item_rc` if it is still valid.
+    /// Otherwise call the `update_fn` to compute that value, and track property access
+    /// so it is automatically invalided when property becomes dirty.
+    pub fn get_or_update_cache_entry(&self, item_rc: &ItemRc, update_fn: impl FnOnce() -> T) -> T {
+        let component = &(*item_rc.component()) as *const _;
+        let mut borrowed = self.map.borrow_mut();
+        match borrowed.entry(component).or_default().entry(item_rc.index()) {
+            std::collections::hash_map::Entry::Occupied(mut entry) => {
+                let mut tracker = entry.get_mut().dependency_tracker.take();
+                drop(borrowed);
+                let maybe_new_data = tracker
+                    .get_or_insert_with(|| Box::pin(Default::default()))
+                    .as_ref()
+                    .evaluate_if_dirty(update_fn);
+                let mut borrowed = self.map.borrow_mut();
+                let e = borrowed.get_mut(&component).unwrap().get_mut(&item_rc.index()).unwrap();
+                if let Some(new_data) = maybe_new_data {
+                    e.data = new_data.clone();
+                    new_data
+                } else {
+                    e.data.clone()
+                }
+            }
+            std::collections::hash_map::Entry::Vacant(_) => {
+                drop(borrowed);
+                let new_entry = CachedGraphicsData::new(update_fn);
+                let data = new_entry.data.clone();
+                self.map
+                    .borrow_mut()
+                    .get_mut(&component)
+                    .unwrap()
+                    .insert(item_rc.index(), new_entry);
+                data
+            }
+        }
+    }
+
+    /// free the whole cache
+    pub fn clear_all(&self) {
+        self.map.borrow_mut().clear();
+    }
+
+    /// Function that must be called when a component is destroyed.
+    ///
+    /// Usually can be called from [`crate::window::PlatformWindow::free_graphics_resources`]
+    pub fn component_destroyed(&self, component: crate::component::ComponentRef) {
+        let component_ptr: *const _ =
+            crate::component::ComponentRef::as_ptr(component).cast().as_ptr();
+        self.map.borrow_mut().remove(&component_ptr);
+    }
+
+    /// free the cache for a given item
+    pub fn release(&self, item_rc: &ItemRc) {
+        let component = &(*item_rc.component()) as *const _;
+        if let Some(sub) = self.map.borrow_mut().get_mut(&component) {
+            sub.remove(&item_rc.index());
         }
     }
 }
@@ -266,7 +344,7 @@ pub trait ItemRenderer {
     /// RGBA premultiplied pixel values
     fn draw_cached_pixmap(
         &mut self,
-        item_cache: &CachedRenderingData,
+        item_cache: &ItemRc,
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     );
 
@@ -468,10 +546,10 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
 
     fn draw_cached_pixmap(
         &mut self,
-        item_cache: &CachedRenderingData,
+        item_rc: &ItemRc,
         update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
-        self.actual_renderer.draw_cached_pixmap(item_cache, update_fn)
+        self.actual_renderer.draw_cached_pixmap(item_rc, update_fn)
     }
 
     fn draw_string(&mut self, string: &str, color: crate::Color) {
