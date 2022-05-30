@@ -5,7 +5,7 @@ import { createConnection, BrowserMessageReader, BrowserMessageWriter } from 'vs
 
 import { InitializeParams, InitializeResult } from 'vscode-languageserver';
 
-import { default as slint_lsp_init } from "../../../tools/lsp/pkg/index.js";
+import slint_init, * as slint_lsp from "../../../tools/lsp/pkg/index.js";
 import slint_wasm_data from "../../../tools/lsp/pkg/index_bg.wasm";
 
 const messageReader = new BrowserMessageReader(self);
@@ -13,16 +13,12 @@ const messageWriter = new BrowserMessageWriter(self);
 
 const connection = createConnection(messageReader, messageWriter);
 
-slint_lsp_init(slint_wasm_data).then((slint_lsp) => {
-
-    console.log('Hello from the worker', slint_lsp);
+slint_init(slint_wasm_data).then((_) => {
 
     let the_lsp: slint_lsp.SlintServer;
 
     connection.onInitialize((params: InitializeParams): InitializeResult => {
-        console.log("INITIALIZE", params);
-        the_lsp = slint_lsp.create("foo", params);
-        console.log("HELLO", the_lsp);
+        the_lsp = slint_lsp.create(params);
         return { capabilities: the_lsp.capabilities() };
     });
 
@@ -34,12 +30,10 @@ slint_lsp_init(slint_wasm_data).then((slint_lsp) => {
     });
 
     connection.onDidChangeTextDocument((param) => {
-        console.log("DOCUMENT CHANGE", param.textDocument.uri);
         the_lsp.reload_document(param.contentChanges[param.contentChanges.length - 1].text, param.textDocument.uri);
     });
 
     connection.onDidOpenTextDocument((param) => {
-        console.log("OPEN DOC", param.textDocument.uri);
         the_lsp.reload_document(param.textDocument.text, param.textDocument.uri);
     });
 

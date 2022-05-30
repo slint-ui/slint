@@ -91,10 +91,9 @@ pub struct SlintServer(Rc<RefCell<DocumentCache<'static>>>, InitializeParams);
 
 #[wasm_bindgen]
 pub fn create(init_param: JsValue) -> Result<SlintServer, JsError> {
-    i_slint_core::debug_log!("HELLO FROM WASM {init_param:?}");
-    let serde = init_param.into_serde();
-    i_slint_core::debug_log!("Parsed: {serde:?}");
-    let init_param = serde?;
+    console_error_panic_hook::set_once();
+
+    let init_param = init_param.into_serde()?;
 
     let compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);

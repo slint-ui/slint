@@ -26,7 +26,6 @@ function startClient(context: vscode.ExtensionContext) {
     const serverMain = Uri.joinPath(context.extensionUri, 'out/browserServerMain.js');
     const worker = new Worker(serverMain.toString(true));
     worker.onmessage = m => {
-        console.log("CLIENT MESSAGE", m);
         // We cannot start sending messages to the client before we start listening which
         // the server only does in a future after the wasm is loaded.
         if (m.data === "OK") {
@@ -36,7 +35,6 @@ function startClient(context: vscode.ExtensionContext) {
             context.subscriptions.push(disposable);
 
             client.onReady().then(() => {
-                console.log("READY");
                 //client.onNotification(serverStatus, (params) => setServerStatus(params, statusBar));
             });
         }
