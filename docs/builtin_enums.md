@@ -22,7 +22,7 @@ The default value of each enum type is always the first value.
 
 * **`top`**: The text will be aligned to the top of the containing box.
 * **`center`**: The text will be vertically centered within the containing box.
-* **`bottom`**: The text will be alignt to the bottom of the containing box.
+* **`bottom`**: The text will be aligned to the bottom of the containing box.
 
 ## `TextWrap`
 
@@ -183,4 +183,18 @@ The default value of each enum type is always the first value.
 
 * **`KeyPressed`**: A key on a keyboard was pressed.
 * **`KeyReleased`**: A key on a keyboard was released.
+
+## `AccessibleRole`
+
+ This enum represents the different values for the `accessible-role` property, used to describe the
+ role of an element in the context of assistive technology such as screen readers.
+
+* **`none`**: The element is not accessible.
+* **`button`**: The element is a Button or behaves like one.
+* **`checkbox`**: The element is a CheckBox or behaves like one.
+* **`combobox`**: The element is a ComboBox or behaves like one.
+* **`slider`**: The element is a Slider or behaves like one.
+* **`spinbox`**: The element is a SpinBox or behaves like one.
+* **`tab`**: The element is a Tab or behaves like one.
+* **`text`**: A role for static Text items.
 
