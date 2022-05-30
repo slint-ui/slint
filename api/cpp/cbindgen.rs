@@ -295,7 +295,6 @@ fn gen_corelib(
             "slint_windowrc_hide",
             "slint_windowrc_get_scale_factor",
             "slint_windowrc_set_scale_factor",
-            "slint_windowrc_free_graphics_resources",
             "slint_windowrc_set_focus_item",
             "slint_windowrc_set_component",
             "slint_windowrc_show_popup",

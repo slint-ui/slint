@@ -7,7 +7,7 @@
 //! Exposed Window API
 
 use crate::api::CloseRequestResponse;
-use crate::component::{ComponentRc, ComponentWeak};
+use crate::component::{ComponentRc, ComponentRef, ComponentWeak};
 use crate::graphics::{Point, Rect, Size};
 use crate::input::{key_codes, KeyEvent, MouseEvent, MouseInputState, TextCursorBlinker};
 use crate::item_tree::ItemRc;
@@ -41,7 +41,11 @@ pub trait PlatformWindow {
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
-    fn free_graphics_resources<'a>(&self, items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>);
+    fn free_graphics_resources<'a>(
+        &self,
+        component: ComponentRef,
+        items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
+    );
 
     /// This function is called through the public API to register a callback that the backend needs to invoke during
     /// different phases of rendering.
@@ -697,7 +701,6 @@ pub mod ffi {
 
     use super::*;
     use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
-    use crate::slice::Slice;
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
@@ -762,16 +765,6 @@ pub mod ffi {
     ) {
         let window = &*(handle as *const WindowRc);
         window.set_scale_factor(value)
-    }
-
-    /// Sets the window scale factor, merely for testing purposes.
-    #[no_mangle]
-    pub unsafe extern "C" fn slint_windowrc_free_graphics_resources<'a>(
-        handle: *const WindowRcOpaque,
-        items: &Slice<'a, Pin<ItemRef<'a>>>,
-    ) {
-        let window = &*(handle as *const WindowRc);
-        window.free_graphics_resources(&mut items.iter().cloned())
     }
 
     /// Sets the focus item.

@@ -70,6 +70,7 @@ impl<'id> Drop for ComponentBox<'id> {
         if let Some(window) = eval::window_ref(instance_ref) {
             i_slint_core::component::free_component_item_graphics_resources(
                 instance_ref.instance,
+                Pin::into_inner(instance_ref.borrow()),
                 instance_ref.component_type.item_array.as_slice(),
                 window,
             );

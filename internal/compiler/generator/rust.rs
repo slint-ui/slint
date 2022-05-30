@@ -1122,7 +1122,9 @@ fn generate_item_tree(
 
         impl slint::re_exports::PinnedDrop for #inner_component_id {
             fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
-                slint::re_exports::free_component_item_graphics_resources(self.as_ref(), Self::item_array(), self.window.get().unwrap().window_handle());
+                use slint::re_exports::*;
+                new_vref!(let vref : VRef<ComponentVTable> for Component = self.as_ref().get_ref());
+                slint::re_exports::free_component_item_graphics_resources(self.as_ref(), vref, Self::item_array(), self.window.get().unwrap().window_handle());
             }
         }
 

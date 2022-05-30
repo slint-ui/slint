@@ -303,6 +303,11 @@ impl<'a, T: ?Sized + VTableMeta> VRef<'a, T> {
             None
         }
     }
+
+    /// Returns a pointer to the VRef's instance. This is primarily useful for comparisons.
+    pub fn as_ptr(this: Self) -> NonNull<u8> {
+        this.inner.ptr
+    }
 }
 
 /// `VRefMut<'a MyTraitVTable>` can be thought as a `&'a mut dyn MyTrait`

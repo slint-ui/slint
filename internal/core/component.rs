@@ -108,10 +108,14 @@ pub fn init_component_items<Base>(
 /// Free the backend graphics resources allocated by the component's items.
 pub fn free_component_item_graphics_resources<Base>(
     base: core::pin::Pin<&Base>,
+    component: ComponentRef,
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
     window: &WindowRc,
 ) {
-    window.free_graphics_resources(&mut item_array.iter().map(|item| item.apply_pin(base)));
+    window.free_graphics_resources(
+        component,
+        &mut item_array.iter().map(|item| item.apply_pin(base)),
+    );
 }
 
 #[cfg(feature = "ffi")]
@@ -145,6 +149,7 @@ pub(crate) mod ffi {
         let window = &*(window_handle as *const WindowRc);
         super::free_component_item_graphics_resources(
             core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
+            core::pin::Pin::into_inner(component),
             item_array.as_slice(),
             window,
         )
