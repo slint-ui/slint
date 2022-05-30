@@ -112,11 +112,11 @@ public:
     float scale_factor() const { return slint_windowrc_get_scale_factor(&inner); }
     void set_scale_factor(float value) const { slint_windowrc_set_scale_factor(&inner, value); }
 
-    template<typename Component, typename ItemArray>
-    void free_graphics_resources(Component *c, ItemArray items) const
+    template<typename Component>
+    void component_destroyed(Component *c) const
     {
-        cbindgen_private::slint_component_free_item_array_graphics_resources(
-                vtable::VRef<ComponentVTable> { &Component::static_vtable, c }, items, &inner);
+        cbindgen_private::slint_component_destroyed(
+                vtable::VRef<ComponentVTable> { &Component::static_vtable, c }, &inner);
     }
 
     void set_focus_item(const ComponentRc &component_rc, uintptr_t item_index)

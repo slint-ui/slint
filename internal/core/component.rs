@@ -105,19 +105,6 @@ pub fn init_component_items<Base>(
     item_array.iter().for_each(|item| item.apply_pin(base).as_ref().init(window));
 }
 
-/// Free the backend graphics resources allocated by the component's items.
-pub fn free_component_item_graphics_resources<Base>(
-    base: core::pin::Pin<&Base>,
-    component: ComponentRef,
-    item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
-    window: &WindowRc,
-) {
-    window.free_graphics_resources(
-        component,
-        &mut item_array.iter().map(|item| item.apply_pin(base)),
-    );
-}
-
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
@@ -141,17 +128,11 @@ pub(crate) mod ffi {
 
     /// Free the backend graphics resources allocated in the item array.
     #[no_mangle]
-    pub unsafe extern "C" fn slint_component_free_item_array_graphics_resources(
-        component: ComponentRefPin,
-        item_array: Slice<vtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
+    pub unsafe extern "C" fn slint_component_destroyed(
+        component: ComponentRef,
         window_handle: *const crate::window::ffi::WindowRcOpaque,
     ) {
         let window = &*(window_handle as *const WindowRc);
-        super::free_component_item_graphics_resources(
-            core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
-            core::pin::Pin::into_inner(component),
-            item_array.as_slice(),
-            window,
-        )
+        window.component_destroyed(component)
     }
 }
