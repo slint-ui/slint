@@ -276,7 +276,7 @@ cpp! {{
             });
         }
 
-        size_t count() {
+        size_t count() const {
             return rust!(Descendents_count [rustDescendents: SharedVector<ItemRc> as "void*"] -> usize as "size_t" {
                rustDescendents.len()
             });
