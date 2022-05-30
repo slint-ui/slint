@@ -54,7 +54,7 @@ macro_rules! get_size {
 
 macro_rules! fn_render {
     ($this:ident $dpr:ident $size:ident $painter:ident $widget:ident $initial_state:ident => $($tt:tt)*) => {
-        fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer, _self_rc: &ItemRc) -> RenderingResult {
+        fn render(self: Pin<&Self>, backend: &mut &mut dyn ItemRenderer, item_rc: &ItemRc) -> RenderingResult {
             let $dpr: f32 = backend.scale_factor();
 
             let window = backend.window();
@@ -81,7 +81,7 @@ macro_rules! fn_render {
             } else {
                 // Fallback: this happen when the Qt backend is not used and the gl backend is used instead
                 backend.draw_cached_pixmap(
-                    &self.cached_rendering_data,
+                    item_rc,
                     &|callback| {
                         let width = self.width() * $dpr;
                         let height = self.height() * $dpr;

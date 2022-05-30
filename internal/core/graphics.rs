@@ -74,6 +74,8 @@ impl<T> CachedGraphicsData<T> {
 /// The RenderingCache, in combination with CachedGraphicsData, allows back ends to store data that's either
 /// intensive to compute or has bad CPU locality. Back ends typically keep a RenderingCache instance and use
 /// the item's cached_rendering_data() integer as index in the vec_arena::Arena.
+///
+/// This is used only for the [`crate::item_rendering::PartialRenderingCache`]
 pub struct RenderingCache<T> {
     slab: slab::Slab<CachedGraphicsData<T>>,
     generation: usize,
