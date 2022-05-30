@@ -1091,8 +1091,10 @@ fn generate_item_tree(
 
     let mut destructor = vec!["auto self = this;".to_owned()];
 
-    destructor
-        .push(format!("{}->m_window.window_handle().component_destroyed(self);", root_access));
+    destructor.push(format!(
+        "{}->m_window.window_handle().free_graphics_resources(self, item_array());",
+        root_access
+    ));
 
     target_struct.members.push((
         Access::Public,
