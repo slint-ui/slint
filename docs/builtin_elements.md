@@ -31,16 +31,16 @@ Use the following `accessible-` properties to make your items interact well with
 * **`accessible-role`** (*enum AccessibleRole*): describe the role of the element. This property is
   mandatory to be able to use any other accessible properties. It should be set to a constant value.
   The default value is `none` for most elements, but is `text` for the Text element.
-* **`accessible-label`** (*string*): defines a string value that labels an interactive element.
-  The  default value is empty for most elements, or is the value of the `text` property for the Text
-  element.
-* **`accessible-description`** (*string*) defines a string value that describes or annotates the current element.
-* **`accessible-checked`** (*bool*) indicates the current "checked" state of checkboxes, radio buttons, and other widgets.
-* **`accessible-has-focus`** (*bool*) indicates that the element currently is in the focused state.
-* **`accessible-value`** (*string*) indicates the current value of the item.
-* **`accessible-value-maximum`** (*float*) indicates the maximum value of the item.
-* **`accessible-value-minimum`** (*float*) indicates the minimum value of the item.
-* **`accessible-value-step`** (*float*) indicates the minimum value by which the current value can change.
+* **`accessible-label`** (*string*): The label for an interactive element.
+  The  default value is empty for most elements, or is the value of the `text` property for Text
+  elements.
+* **`accessible-description`** (*string*): The description for the current element.
+* **`accessible-checked`** (*bool*): Whether the element is checked or not. This maps to the "checked" state of checkboxes, radio buttons, and other widgets.
+* **`accessible-has-focus`** (*bool*): Set to true when the current element currently has the focus.
+* **`accessible-value`** (*string*): The current value of the item.
+* **`accessible-value-maximum`** (*float*): The maximum value of the item. This is used for example by spin boxes.
+* **`accessible-value-minimum`** (*float*): The minimum value of the item.
+* **`accessible-value-step`** (*float*) The smallest increment or decrement by which the current value can change. This corresponds to the step by which a handle on a slider can be dragged.
 
 ### Drop Shadows
 
