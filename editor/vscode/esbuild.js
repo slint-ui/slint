@@ -47,3 +47,10 @@ esbuild.build({
 }).catch(() => process.exit(1))
 
 
+esbuild.build({
+    entryPoints: ['src/extension.ts'],
+    bundle: false,
+    outfile: 'out/extension.js',
+    format: 'cjs',
+}).catch(() => process.exit(1))
+
