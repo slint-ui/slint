@@ -8,25 +8,26 @@ import { InitializeParams, InitializeResult } from 'vscode-languageserver';
 import slint_init, * as slint_lsp from "../../../tools/lsp/pkg/index.js";
 import slint_wasm_data from "../../../tools/lsp/pkg/index_bg.wasm";
 
-const messageReader = new BrowserMessageReader(self);
-const messageWriter = new BrowserMessageWriter(self);
-
-const connection = createConnection(messageReader, messageWriter);
-
 slint_init(slint_wasm_data).then((_) => {
+
+    const messageReader = new BrowserMessageReader(self);
+    const messageWriter = new BrowserMessageWriter(self);
+    const connection = createConnection(messageReader, messageWriter);
 
     let the_lsp: slint_lsp.SlintServer;
 
+    function send_notification(method: string, params: any): bool {
+        connection.sendNotification(method, params);
+        return true;
+    }
+
     connection.onInitialize((params: InitializeParams): InitializeResult => {
-        the_lsp = slint_lsp.create(params);
+        the_lsp = slint_lsp.create(params, send_notification);
         return { capabilities: the_lsp.capabilities() };
     });
 
     connection.onRequest((method, params, token) => {
-        console.log("request", method);
-        let x = the_lsp.handle_request(token, method, params);
-        console.log("REPLY", x);
-        return x;
+        return the_lsp.handle_request(token, method, params);
     });
 
     connection.onDidChangeTextDocument((param) => {
@@ -40,12 +41,11 @@ slint_init(slint_wasm_data).then((_) => {
     // Listen on the connection
     connection.listen();
 
+    // Now that we listen, the client is ready to send the init message
     self.postMessage("OK");
 });
 
-export function send_notification(method: string, params: any): bool {
-    connection.sendNotification(method, params);
-    return true;
-}
+
+
 
 

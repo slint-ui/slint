@@ -1,21 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
+use lsp_types::notification::Notification;
 use once_cell::sync::Lazy;
+use slint_interpreter::ComponentHandle;
 use std::collections::{HashMap, HashSet};
 use std::future::Future;
 use std::path::{Path, PathBuf};
 use std::pin::Pin;
 use std::sync::{Arc, Condvar, Mutex};
 use std::task::Wake;
-
-use lsp_types::notification::Notification;
-
-use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
-#[cfg(target_arch = "wasm32")]
-use crate::wasm_prelude::*;
-
-use slint_interpreter::ComponentHandle;
 
 #[derive(PartialEq)]
 enum RequestedGuiEventLoopState {
