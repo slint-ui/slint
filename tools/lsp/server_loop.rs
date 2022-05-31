@@ -3,7 +3,7 @@
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
-use crate::{completion, goto, preview, semantic_tokens, util, RequestHolder};
+use crate::{completion, goto, semantic_tokens, util, RequestHolder};
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
@@ -129,6 +129,7 @@ pub fn handle_request(
             params.text_document_position_params.position,
         )
         .and_then(|token| {
+            #[cfg(not(target_arch = "wasm32"))]
             if token.0.kind() == SyntaxKind::Comment {
                 maybe_goto_preview(token.0, token.1, req.server_notifier());
                 return None;
@@ -173,6 +174,7 @@ pub fn handle_request(
     })? {
     } else if req.handle_request::<ExecuteCommand, _>(|params| {
         if params.command.as_str() == SHOW_PREVIEW_COMMAND {
+            #[cfg(not(target_arch = "wasm32"))]
             show_preview_command(&params.arguments, &req.server_notifier(), document_cache)?
         }
         Ok(None::<serde_json::Value>)
@@ -217,11 +219,13 @@ pub fn handle_request(
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn show_preview_command(
     params: &[serde_json::Value],
     connection: &crate::ServerNotifier,
     _document_cache: &DocumentCache,
 ) -> Result<(), Error> {
+    use crate::preview;
     let e = || -> Error { "InvalidParameter".into() };
     let path = if let serde_json::Value::String(s) = params.get(0).ok_or_else(e)? {
         std::path::PathBuf::from(s)
@@ -238,6 +242,7 @@ pub fn show_preview_command(
     Ok(())
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 /// Workaround for editor that do not support code action: using the goto definition on a comment
 /// that says "preview" will show the preview.
 fn maybe_goto_preview(
@@ -245,6 +250,7 @@ fn maybe_goto_preview(
     offset: u32,
     sender: crate::ServerNotifier,
 ) -> Option<()> {
+    use crate::preview;
     let text = token.text();
     let offset = offset.checked_sub(token.text_range().start().into())? as usize;
     if offset > text.len() || offset == 0 {
@@ -288,7 +294,8 @@ pub fn reload_document(
 
     let path = uri.to_file_path().unwrap();
     let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
-    preview::set_contents(&path_canon, content.clone());
+    #[cfg(not(target_arch = "wasm32"))]
+    crate::preview::set_contents(&path_canon, content.clone());
     let mut diag = BuildDiagnostics::default();
     spin_on::spin_on(document_cache.documents.load_file(
         &path_canon,
