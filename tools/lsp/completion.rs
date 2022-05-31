@@ -3,6 +3,8 @@
 
 use super::util::lookup_current_element_type;
 use super::DocumentCache;
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::Expression;
 use i_slint_compiler::langtype::Type;
@@ -10,12 +12,13 @@ use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
 use lsp_types::{
     CompletionClientCapabilities, CompletionItem, CompletionItemKind, CompletionResponse,
-    InsertTextFormat,
+    InsertTextFormat, Position, Range, TextEdit,
 };
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
 pub(crate) fn completion_at(
-    document_cache: &DocumentCache,
+    document_cache: &mut DocumentCache,
     token: SyntaxToken,
     offset: u32,
     client_caps: Option<&CompletionClientCapabilities>,
@@ -40,13 +43,13 @@ pub(crate) fn completion_at(
         }
 
         return resolve_element_scope(element, document_cache).map(|mut r| {
-            // add snipets
-            for c in r.iter_mut() {
-                if client_caps
-                    .and_then(|caps| caps.completion_item.as_ref())
-                    .and_then(|caps| caps.snippet_support)
-                    .unwrap_or(false)
-                {
+            let mut available_types = HashSet::new();
+            let snippet_support = client_caps
+                .and_then(|caps| caps.completion_item.as_ref())
+                .and_then(|caps| caps.snippet_support)
+                .unwrap_or(false);
+            if snippet_support {
+                for c in r.iter_mut() {
                     c.insert_text_format = Some(InsertTextFormat::SNIPPET);
                     match c.kind {
                         Some(CompletionItemKind::PROPERTY) => {
@@ -56,6 +59,7 @@ pub(crate) fn completion_at(
                             c.insert_text = Some(format!("{} => {{ $1 }}", c.label))
                         }
                         Some(CompletionItemKind::CLASS) => {
+                            available_types.insert(c.label.clone());
                             c.insert_text = Some(format!("{} {{ $1 }}", c.label))
                         }
                         _ => (),
@@ -82,6 +86,98 @@ pub(crate) fn completion_at(
                     with_insert_text(c, ins_tex, client_caps)
                 }),
             );
+
+            // Find out types that can be imported
+            let import_locations = Some(()).filter(|()| snippet_support).and_then(|()| {
+                let current_file = token.source_file.path().to_owned();
+                let current_doc =
+                    document_cache.documents.get_document(&current_file)?.node.as_ref()?;
+                let current_uri = lsp_types::Url::from_file_path(&current_file).ok()?;
+                let mut import_locations = HashMap::new();
+                let mut last = 0u32;
+                for import in current_doc.ImportSpecifier() {
+                    if let Some((loc, file)) = import.ImportIdentifierList().and_then(|list| {
+                        Some((
+                            document_cache.byte_offset_to_position(
+                                list.ImportIdentifier().last()?.text_range().end().into(),
+                                &current_uri,
+                            )?,
+                            import.child_token(SyntaxKind::StringLiteral)?,
+                        ))
+                    }) {
+                        import_locations
+                            .insert(file.text().to_string().trim_matches('\"').to_string(), loc);
+                    }
+                    last = import.text_range().end().into();
+                }
+                let last = if last == 0 {
+                    0
+                } else {
+                    document_cache
+                        .byte_offset_to_position(last, &current_uri)
+                        .map_or(0, |p| p.line + 1)
+                };
+                Some((import_locations, last, current_uri))
+            });
+
+            if let Some((import_locations, last, current_uri)) = import_locations {
+                for file in document_cache.documents.all_files() {
+                    let doc = document_cache.documents.get_document(file).unwrap();
+                    let file = if file.starts_with("builtin:/") {
+                        match file.file_name() {
+                            Some(file) if file == "std-widgets.slint" => "std-widgets.slint".into(),
+                            _ => continue,
+                        }
+                    } else {
+                        match lsp_types::Url::make_relative(
+                            &current_uri,
+                            &lsp_types::Url::from_file_path(dbg!(file)).unwrap(),
+                        ) {
+                            Some(file) => file,
+                            None => continue,
+                        }
+                    };
+
+                    for (exported_name, _) in &doc.exports.0 {
+                        if available_types.contains(&exported_name.name) {
+                            continue;
+                        }
+                        available_types.insert(exported_name.name.clone());
+                        let the_import = import_locations.get(&file).map_or_else(
+                            || {
+                                let pos = Position::new(last, 0);
+                                TextEdit::new(
+                                    Range::new(pos, pos),
+                                    format!(
+                                        "import {{ {} }} from \"{}\";\n",
+                                        exported_name.name, file
+                                    ),
+                                )
+                            },
+                            |pos| {
+                                TextEdit::new(
+                                    Range::new(*pos, *pos),
+                                    format!(", {}", exported_name.name),
+                                )
+                            },
+                        );
+                        r.push(CompletionItem {
+                            label: format!(
+                                "{} (import from from \"{}\")",
+                                exported_name.name, file
+                            ),
+                            insert_text: Some(format!("{} {{ $1 }}", exported_name.name)),
+                            insert_text_format: Some(InsertTextFormat::SNIPPET),
+                            filter_text: Some(exported_name.name.clone()),
+                            kind: Some(CompletionItemKind::CLASS),
+                            detail: Some(format!("(import from \"{}\")", file)),
+                            additional_text_edits: Some(vec![the_import.into()]),
+                            ..Default::default()
+                        });
+                    }
+                }
+            }
+
             r.into()
         });
     } else if let Some(n) = syntax_nodes::Binding::new(node.clone()) {
