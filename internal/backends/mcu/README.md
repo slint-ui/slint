@@ -57,3 +57,7 @@ slint-build = { git = "https://github.com/slint-ui/slint" }
 
 Check the [MCU Setup](../../../docs/mcu_setup.md) guide for instructions on how to install
 the required tooling.
+
+## MCU specific Examples
+
+- [Printerdemo MCU](../../../examples/printerdemo_mcu/)
