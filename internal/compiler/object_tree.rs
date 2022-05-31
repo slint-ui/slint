@@ -47,7 +47,7 @@ pub struct Document {
     /// A list of paths to .ttf/.ttc files that are supposed to be registered on
     /// startup for custom font use.
     pub custom_fonts: Vec<(String, crate::parser::SyntaxToken)>,
-    exports: Exports,
+    pub exports: Exports,
 }
 
 impl Document {
@@ -1707,7 +1707,7 @@ impl ExportedName {
 }
 
 #[derive(Default, Debug, derive_more::Deref)]
-pub struct Exports(Vec<(ExportedName, Type)>);
+pub struct Exports(pub Vec<(ExportedName, Type)>);
 
 impl Exports {
     pub fn from_node(
