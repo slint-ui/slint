@@ -441,25 +441,19 @@ pub mod internal {
 
     /// This function can be used to register a pre-rendered, embedded bitmap font with Slint,
     /// for use with the `font-family` property.
-    #[doc(hidden)]
     pub fn register_bitmap_font(font_data: &'static super::re_exports::BitmapFont) {
         i_slint_backend_selector::backend().register_bitmap_font(font_data)
     }
 
-    #[doc(hidden)]
     pub fn debug(s: SharedString) {
         #[cfg(feature = "log")]
-        {
-            log::debug!("{:?}", s);
-        }
+        log::debug!("{s}");
         #[cfg(not(feature = "log"))]
         {
-            #[cfg(feature = "std")]
-            println!("{:?}", s);
-            #[cfg(not(feature = "std"))]
-            panic!(
-                "debug() is not supported if you don't have the 'log' or 'std' feature enabled!"
-            );
+            #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
+            println!("{s}");
+            #[cfg(any(not(feature = "std"), target_arch = "wasm32"))]
+            i_slint_core::debug_log!("{s}");
         }
     }
 }
