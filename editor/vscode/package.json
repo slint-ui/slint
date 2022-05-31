@@ -87,7 +87,7 @@
 		"bin/slint-lsp-*"
 	],
 	"scripts": {
-		"vscode:prepublish": "npm run compile",
+		"vscode:prepublish": "npm run compile && npm run compile-web",
 		"compile": "tsc -p ./",
 		"compile-web": "wasm-pack build --target web --out-name index ../../tools/lsp && node ./esbuild.js",
 		"local-package": "mkdir -p bin && cp ../../target/debug/slint-lsp bin/ && npx vsce package",
