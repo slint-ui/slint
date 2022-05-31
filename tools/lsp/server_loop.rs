@@ -315,6 +315,7 @@ pub fn reload_document(
         .collect();
 
     for d in diag.into_iter() {
+        #[cfg(not(target_arch = "wasm32"))]
         if d.source_file().unwrap().is_relative() {
             continue;
         }
