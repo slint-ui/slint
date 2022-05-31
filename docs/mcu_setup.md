@@ -1,7 +1,7 @@
 # MCU Setup
 
 > **NOTE**: Please make sure to have Rust installed first, following the
-> [building](building.md) guide!
+> Prerequisites section of the [building](building.md) guide!
 
 At this time microcontroller support needs a nightly rust toolchain set up.
 

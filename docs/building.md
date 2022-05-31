@@ -48,6 +48,11 @@ To use Slint from C++, the following extra dependencies are needed:
 - **[cmake](https://cmake.org/download/)** (3.19 or newer)
 - A C++ compiler that can do C++20 (e.g., **MSVC 2019 16.6** on Windows)
 
+### Microcontroller Support (optional)
+
+When using Slint on MCUs, special tools are required. Please check the
+[MCU Setup](mcu_setup.md) guide for details.
+
 ## Building and Testing
 
 Most of the project is written in Rust, and compiling and running the test can
