@@ -88,7 +88,10 @@ pub(crate) fn completion_at(
             );
 
             // Find out types that can be imported
-            let import_locations = Some(()).filter(|()| snippet_support).and_then(|()| {
+            let import_locations = (|| {
+                if !snippet_support {
+                    return None;
+                };
                 let current_file = token.source_file.path().to_owned();
                 let current_doc =
                     document_cache.documents.get_document(&current_file)?.node.as_ref()?;
@@ -118,7 +121,7 @@ pub(crate) fn completion_at(
                         .map_or(0, |p| p.line + 1)
                 };
                 Some((import_locations, last, current_uri))
-            });
+            })();
 
             if let Some((import_locations, last, current_uri)) = import_locations {
                 for file in document_cache.documents.all_files() {
@@ -138,8 +141,15 @@ pub(crate) fn completion_at(
                         }
                     };
 
-                    for (exported_name, _) in &doc.exports.0 {
+                    for (exported_name, ty) in &doc.exports.0 {
                         if available_types.contains(&exported_name.name) {
+                            continue;
+                        }
+                        if let Type::Component(c) = ty {
+                            if c.is_global() {
+                                continue;
+                            }
+                        } else {
                             continue;
                         }
                         available_types.insert(exported_name.name.clone());
