@@ -1,9 +1,9 @@
-**NOTE**: This library is an **internal** crate of the [Slint project](https://slint-ui.com).
-This crate should **not be used directly** by applications using Slint.
-You should use the `slint` crate instead.
+> **NOTE**: This library is an **internal** crate of the [Slint project](https://slint-ui.com).
+> This crate should **not be used directly** by applications using Slint.
+> You should use the `slint` crate instead.
 
-**WARNING**: This crate does not follow the semver convention for versioning and can
-only be used with `version = "=x.y.z"` in Cargo.toml.
+> **WARNING**: This crate does not follow the semver convention for versioning and can
+> only be used with `version = "=x.y.z"` in Cargo.toml.
 
 # Slint MCU backend
 
@@ -51,43 +51,20 @@ i_slint_backend_mcu = { git = "https://github.com/slint-ui/slint" }
 slint-build = { git = "https://github.com/slint-ui/slint" }
 ```
 
+## MCU-specific Setup
+
+Check the [MCU Setup](../../../docs/mcu_setup.md) guide for instructions on how to install
+the required tooling.
+
 ## Run the demo:
 
 ### The simulator
-
 
 ```sh
 cargo run -p printerdemo_mcu --features=mcu-simulator --release
 ```
 
 ### On the Raspberry Pi Pico
-
-You need nightly rust because that's the only way to get an allocator.
-
-Build the demo with:
-
-```sh
-cargo +nightly build -p printerdemo_mcu --features=mcu-pico-st7789 --target=thumbv6m-none-eabi --release
-```
-
-You should process the file with  [elf2uf2-rs](https://github.com/jonil/elf2uf2-rs)
-
-```sh
-cargo install elf2uf2-rs
-elf2uf2-rs target/thumbv6m-none-eabi/release/printerdemo_mcu
-```
-
-Then upload the demo to the raspberry pi: push the "bootsel" white button on the device while connecting the
-micro-usb cable to the device, this connect some storage where you can store the binary.
-
-Or from the command on linux: (connect the device while pressing the "bootsel" button.
-
-```
-# mount the device
-udisksctl mount -b /dev/sda1
-# upload
-elf2uf2-rs -d target/thumbv6m-none-eabi/release/printerdemo_mcu
-```
 
 #### Using probe-run
 
@@ -98,6 +75,27 @@ Then you can simply run with `cargo run`
 
 ```sh
 CARGO_TARGET_THUMBV6M_NONE_EABI_LINKER="flip-link" CARGO_TARGET_THUMBV6M_NONE_EABI_RUNNER="probe-run --chip RP2040" cargo +nightly run -p printerdemo_mcu --features=mcu-pico-st7789 --target=thumbv6m-none-eabi --release
+```
+
+#### Without probe-run (Linux only!)
+
+Build the demo with:
+
+```sh
+cargo +nightly build -p printerdemo_mcu --features=mcu-pico-st7789 --target=thumbv6m-none-eabi --release
+elf2uf2-rs target/thumbv6m-none-eabi/release/printerdemo_mcu
+```
+
+Then upload the demo to the Raspberry Pi: push the white "bootsel" button on the device while connecting the
+micro-usb cable to the device. This will make the Raspberry Pi expose an USB storage device to your computer.
+
+On linux the following commands should install the demo:
+
+```
+# mount the device
+udisksctl mount -b /dev/<DEVICE_OF_PICO> ## Replace with actual device name!
+# upload
+elf2uf2-rs -d target/thumbv6m-none-eabi/release/printerdemo_mcu
 ```
 
 ### STM32H735G-DK
