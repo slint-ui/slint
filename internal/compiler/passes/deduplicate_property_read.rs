@@ -25,6 +25,8 @@ struct PropertyReadCounts {
     counts: HashMap<NamedReference, usize>,
     /// If at least one element of the map has duplicates
     has_duplicate: bool,
+    /// if there is an assignment of a property we currently disable this optimization
+    has_set: bool,
 }
 
 #[derive(Default)]
@@ -82,9 +84,16 @@ impl<'a> DedupPropState<'a> {
 }
 
 fn process_expression(expr: &mut Expression, old_state: &DedupPropState) {
+    if old_state.counts.borrow().has_set {
+        return;
+    }
     let new_state = DedupPropState { parent_state: Some(old_state), ..DedupPropState::default() };
     collect_unconditional_read_count(expr, &new_state);
     process_conditional_expressions(expr, &new_state);
+    if new_state.counts.borrow().has_set {
+        old_state.counts.borrow_mut().has_set = true;
+        return;
+    }
     do_replacements(expr, &new_state);
     if new_state.counts.borrow().has_duplicate {
         let mut stores = vec![];
@@ -116,11 +125,18 @@ fn collect_unconditional_read_count(expr: &Expression, result: &DedupPropState) 
         Expression::Condition { condition, .. } => {
             condition.visit(|sub| collect_unconditional_read_count(sub, result))
         }
+        Expression::SelfAssignment { .. } => {
+            result.counts.borrow_mut().has_set = true;
+            return;
+        }
         _ => expr.visit(|sub| collect_unconditional_read_count(sub, result)),
     }
 }
 
 fn process_conditional_expressions(expr: &mut Expression, state: &DedupPropState) {
+    if state.counts.borrow().has_set {
+        return;
+    }
     match expr {
         Expression::BinaryExpression { lhs, rhs, op } if matches!(op, '|' | '&') => {
             lhs.visit_mut(|sub| process_conditional_expressions(sub, state));
@@ -130,6 +146,10 @@ fn process_conditional_expressions(expr: &mut Expression, state: &DedupPropState
             condition.visit_mut(|sub| process_conditional_expressions(sub, state));
             process_expression(true_expr, state);
             process_expression(false_expr, state);
+        }
+        Expression::SelfAssignment { .. } => {
+            state.counts.borrow_mut().has_set = true;
+            return;
         }
         _ => expr.visit_mut(|sub| process_conditional_expressions(sub, state)),
     }
