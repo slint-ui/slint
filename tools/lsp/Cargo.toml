@@ -26,6 +26,10 @@ path = "main.rs"
 # lib is there only for the web
 crate-type = ["cdylib"]
 path = "wasm_main.rs"
+# On windows building this package creates slint-lsp.exe and slint-lsp.dll.
+# To avoid that both end up trying to create slint-lsp.pdb for their debug
+# symbols, rename the lib.
+name = "slint_lsp_wasm"
 
 [features]
 backend-qt = ["slint-interpreter/backend-qt"]
