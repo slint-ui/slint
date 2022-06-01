@@ -82,7 +82,7 @@ jobs:
           override: true
     - uses: Swatinem/rust-cache@v1
       with:
-          key: x-${{ steps.nodeversion.outputs.node-version }} # The cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
+          key: x-v1-${{ steps.nodeversion.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
     - name: Build
       uses: actions-rs/cargo@v1
       with:
