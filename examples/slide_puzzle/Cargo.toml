@@ -15,6 +15,7 @@ name = "slide_puzzle"
 
 [features]
 default = ["slint/default"]
+mcu-simulator = ["i-slint-backend-mcu/simulator"]
 
 [dependencies]
 rand = { version = "0.8", optional = true }
