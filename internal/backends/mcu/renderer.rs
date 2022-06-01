@@ -473,7 +473,7 @@ impl PrepareScene {
         &mut self,
         geom: LogicalRect,
         source: &i_slint_core::graphics::Image,
-        mut source_clip: IntRect,
+        mut source_rect: IntRect,
         image_fit: ImageFit,
         colorize: Color,
     ) {
@@ -484,29 +484,30 @@ impl PrepareScene {
                 unimplemented!()
             }
             ImageInner::EmbeddedImage(_) => todo!(),
-            ImageInner::StaticTextures(StaticTextures { size, data, textures, .. }) => {
+            ImageInner::StaticTextures(StaticTextures { data, textures, .. }) => {
+                let size: euclid::default::Size2D<u32> = source_rect.size.cast();
                 let phys_size = geom.size_length().cast() * self.scale_factor;
-                let sx = phys_size.width / (size.width as f32);
-                let sy = phys_size.height / (size.height as f32);
+                let source_to_target_x = phys_size.width / (size.width as f32);
+                let source_to_target_y = phys_size.height / (size.height as f32);
                 let mut image_fit_offset = euclid::Vector2D::default();
-                let (sx, sy) = match image_fit {
-                    ImageFit::fill => (sx, sy),
+                let (source_to_target_x, source_to_target_y) = match image_fit {
+                    ImageFit::fill => (source_to_target_x, source_to_target_y),
                     ImageFit::cover => {
-                        let ratio = f32::max(sx, sy);
+                        let ratio = f32::max(source_to_target_x, source_to_target_y);
                         if size.width as f32 > phys_size.width / ratio {
                             let diff = (size.width as f32 - phys_size.width / ratio) as i32;
-                            source_clip.origin.x += diff / 2;
-                            source_clip.size.width -= diff;
+                            source_rect.origin.x += diff / 2;
+                            source_rect.size.width -= diff;
                         }
                         if size.height as f32 > phys_size.height / ratio {
                             let diff = (size.height as f32 - phys_size.height / ratio) as i32;
-                            source_clip.origin.y += diff / 2;
-                            source_clip.size.height -= diff;
+                            source_rect.origin.y += diff / 2;
+                            source_rect.size.height -= diff;
                         }
                         (ratio, ratio)
                     }
                     ImageFit::contain => {
-                        let ratio = f32::min(sx, sy);
+                        let ratio = f32::min(source_to_target_x, source_to_target_y);
                         if (size.width as f32) < phys_size.width / ratio {
                             image_fit_offset.x = (phys_size.width - size.width as f32 * ratio) / 2.;
                         }
@@ -520,25 +521,43 @@ impl PrepareScene {
 
                 let offset = self.current_state.offset.to_vector().cast() * self.scale_factor
                     + image_fit_offset;
-                let scaled_clip =
-                    (self.current_state.clip.cast() * self.scale_factor).scale(1. / sx, 1. / sy);
+
+                let renderer_clip_in_source_rect_space = (self.current_state.clip.cast()
+                    * self.scale_factor)
+                    .scale(1. / source_to_target_x, 1. / source_to_target_y);
+
                 for t in textures.as_slice() {
-                    if let Some(clipped_src) = t.rect.intersection(&source_clip).and_then(|r| {
-                        euclid::Rect::<_, PhysicalPx>::from_untyped(&r.cast())
-                            .intersection(&scaled_clip)
-                    }) {
-                        let geometry = clipped_src.scale(sx, sy).translate(offset).round();
-                        let actual_x = clipped_src.origin.x as usize - t.rect.origin.x as usize;
-                        let actual_y = clipped_src.origin.y as usize - t.rect.origin.y as usize;
+                    if let Some(clipped_relative_source_rect) =
+                        t.rect.intersection(&source_rect).and_then(|clipped_source_rect| {
+                            let relative_clipped_source_rect = clipped_source_rect
+                                .translate(-source_rect.origin.to_vector())
+                                .cast();
+                            euclid::Rect::<_, PhysicalPx>::from_untyped(
+                                &relative_clipped_source_rect,
+                            )
+                            .intersection(&renderer_clip_in_source_rect_space)
+                        })
+                    {
+                        let target_rect = clipped_relative_source_rect
+                            .scale(source_to_target_x, source_to_target_y)
+                            .translate(offset)
+                            .round();
+
+                        let actual_x = clipped_relative_source_rect.origin.x as usize
+                            + source_rect.origin.x as usize
+                            - t.rect.origin.x as usize;
+                        let actual_y = clipped_relative_source_rect.origin.y as usize
+                            + source_rect.origin.y as usize
+                            - t.rect.origin.y as usize;
                         let stride = t.rect.width() as u16 * bpp(t.format);
                         self.new_scene_texture(
-                            geometry.cast(),
+                            target_rect.cast(),
                             SceneTexture {
                                 data: &data.as_slice()[(t.index
                                     + (stride as usize) * actual_y
                                     + (bpp(t.format) as usize) * actual_x)..],
                                 stride,
-                                source_size: clipped_src.size.ceil().cast(),
+                                source_size: clipped_relative_source_rect.size.ceil().cast(),
                                 format: t.format,
                                 color: if colorize.alpha() > 0 { colorize } else { t.color },
                             },
@@ -649,10 +668,11 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         let geom =
             LogicalRect::new(LogicalPoint::default(), image.logical_geometry().size_length());
         if self.should_draw(&geom) {
+            let source = image.source();
             self.draw_image_impl(
                 geom,
-                &image.source(),
-                euclid::rect(0, 0, i32::MAX, i32::MAX),
+                &source,
+                euclid::Rect::new(Default::default(), source.size().cast()),
                 image.image_fit(),
                 Default::default(),
             );
@@ -660,21 +680,28 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
     }
 
     fn draw_clipped_image(&mut self, image: Pin<&i_slint_core::items::ClippedImage>, _: &ItemRc) {
-        // when the source_clip size is empty, make it full
-        let a = |v| if v == 0 { i32::MAX } else { v };
-
         let geom =
             LogicalRect::new(LogicalPoint::default(), image.logical_geometry().size_length());
         if self.should_draw(&geom) {
+            let source = image.source();
+
+            let source_clip_x = image.source_clip_x();
+            let source_clip_y = image.source_clip_y();
+            let source_size = source.size();
+            let mut source_clip_width = image.source_clip_width();
+            // when the source_clip size is empty, make it full
+            if source_clip_width == 0 {
+                source_clip_width = source_size.width as i32 - source_clip_x;
+            }
+            let mut source_clip_height = image.source_clip_height();
+            if source_clip_height == 0 {
+                source_clip_height = source_size.height as i32 - source_clip_y;
+            }
+
             self.draw_image_impl(
                 geom,
-                &image.source(),
-                euclid::rect(
-                    image.source_clip_x(),
-                    image.source_clip_y(),
-                    a(image.source_clip_width()),
-                    a(image.source_clip_height()),
-                ),
+                &source,
+                euclid::rect(source_clip_x, source_clip_y, source_clip_width, source_clip_height),
                 image.image_fit(),
                 image.colorize().color(),
             );
