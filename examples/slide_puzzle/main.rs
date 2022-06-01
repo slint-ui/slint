@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 #![no_std]
-#![cfg_attr(feature = "i-slint-backend-mcu", no_main)]
+#![cfg_attr(not(feature = "mcu-simulator"), no_main)]
 
 extern crate alloc;
 
