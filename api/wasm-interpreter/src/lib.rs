@@ -194,6 +194,30 @@ impl WrappedInstance {
     pub fn hide(&self) {
         self.0.hide();
     }
+
+    #[wasm_bindgen]
+    pub fn get_property(&self, name: &str) -> Result<JsValue, JsValue> {
+        let v = self.0.get_property(name).map_err(|e| e.to_string())?;
+        to_js_value(v)
+    }
+
+    #[wasm_bindgen]
+    pub fn set_property(&self, name: &str, value: JsValue) -> Result<(), JsValue> {
+        self.0.set_property(name, to_eval_value(value)?).map_err(|e| e.to_string())
+    }
+
+    #[wasm_bindgen]
+    pub fn set_callback_handler(
+        &self,
+        name: &str,
+        handler: js_sys::Function,
+    ) -> Result<(), JsValue> {
+        self.0
+            .set_callback(name, move |args| {
+                to_js_value(handler.call(args.map(|a| to_eval_value(a).unwrap()))).unwrap()
+            })
+            .map_err(|e| e.to_string())
+    }
 }
 
 /// Register DOM event handlers on all instance and set up the event loop for that.
@@ -203,4 +227,58 @@ impl WrappedInstance {
 pub fn run_event_loop() -> Result<(), JsValue> {
     slint_interpreter::run_event_loop();
     Ok(())
+}
+
+fn to_js_value(value: slint_interpreter::Value) -> Result<JsValue, JsValue> {
+    use slint_interpreter::Value;
+    Ok(match value {
+        Value::Void => JsValue::UNDEFINED,
+        Value::Number(n) => n.into(),
+        Value::String(s) => s.as_str().into(),
+        Value::Bool(b) => b.into(),
+        // Value::Image(r) => return Err("Image type not support in Javascript".into()),
+        value => WrappedValue(value).into(),
+    })
+}
+
+fn to_eval_value(value: JsValue) -> Result<slint_interpreter::Value, JsValue> {
+    use slint_interpreter::Value;
+    if value.is_undefined() || value.is_null() {
+        Ok(Value::Void)
+    } else if let Some(v) = value.as_bool() {
+        Ok(Value::Bool(v))
+    } else if let Some(v) = value.as_f64() {
+        Ok(Value::Number(v))
+    } else if let Some(v) = value.as_string() {
+        Ok(Value::String(v.into()))
+    } else if let Some(v) = value.as_f64() {
+        Ok(Value::Number(v))
+    } else if let Some(v) = js_sys::Object::try_from(&value) {
+        let s = slint_interpreter::Struct::default();
+        for k in js_sys::Reflect::own_keys(&value)?.iter() {
+            s.set_field(
+                k.as_string().ok_or_else(|| "object key not a string".into())?,
+                to_eval_value(js_sys::Reflect::get(&v, &k)?)?,
+            );
+        }
+        Ok(Value::Struct(s))
+    } else {
+        todo!()
+    }
+}
+
+#[wasm_bindgen]
+#[derive(Clone)]
+pub struct WrappedValue(slint_interpreter::Value);
+
+#[wasm_bindgen]
+impl WrappedValue {
+    #[wasm_bindgen]
+    pub fn get_field(&self, name: &str) -> Result<JsValue, JsValue> {
+        if let slint_interpreter::Value::Struct(s) = self.0 {
+            s.get_field(name).ok_or_else(|| "no such field".into()).and_then(to_js_value)
+        } else {
+            Err("Cannot read field of non-struct value".into())
+        }
+    }
 }
