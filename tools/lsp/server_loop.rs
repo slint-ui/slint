@@ -4,7 +4,7 @@
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 use crate::{completion, goto, semantic_tokens, util, RequestHolder};
-use i_slint_compiler::diagnostics::BuildDiagnostics;
+use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 use i_slint_compiler::typeloader::TypeLoader;
@@ -30,7 +30,7 @@ const SHOW_PREVIEW_COMMAND: &str = "showPreview";
 
 pub struct DocumentCache {
     pub(crate) documents: TypeLoader,
-    pub(crate) newline_offsets: HashMap<Url, Vec<u32>>,
+    newline_offsets: HashMap<Url, Vec<u32>>,
 }
 
 impl DocumentCache {
@@ -40,7 +40,7 @@ impl DocumentCache {
         Self { documents, newline_offsets: Default::default() }
     }
 
-    pub(crate) fn newline_offsets_from_content(content: &str) -> Vec<u32> {
+    fn newline_offsets_from_content(content: &str) -> Vec<u32> {
         let mut ln_offs = 0;
         content
             .split('\n')
@@ -60,9 +60,10 @@ impl DocumentCache {
         let newline_offsets = match self.newline_offsets.entry(target_uri.clone()) {
             std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
             std::collections::hash_map::Entry::Vacant(e) => {
-                e.insert(Self::newline_offsets_from_content(
-                    &std::fs::read_to_string(target_uri.to_file_path().ok()?).ok()?,
-                ))
+                let path = target_uri.to_file_path().ok()?;
+                let content =
+                    self.documents.get_document(&path)?.node.as_ref()?.source_file()?.source()?;
+                e.insert(Self::newline_offsets_from_content(content))
             }
         };
         let pos = newline_offsets.binary_search(&offset).map_or_else(

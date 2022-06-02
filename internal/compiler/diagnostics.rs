@@ -104,6 +104,10 @@ impl SourceFileInner {
                 .unwrap_or_default()
         })
     }
+
+    pub fn source(&self) -> Option<&str> {
+        self.source.as_ref().map(|s| s.as_str())
+    }
 }
 
 pub type SourceFile = Rc<SourceFileInner>;
