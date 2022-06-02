@@ -36,6 +36,7 @@ jobs:
           - "https://github.com/SeriousBug/kiraz"
           - "https://github.com/jamesblacklock/budget"
           - "https://github.com/LuXts/toy-parse"
+          - "https://codeberg.org/flovan/phoenix-wing-rust"
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
