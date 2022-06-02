@@ -17,7 +17,7 @@ use std::rc::Rc;
 
 pub async fn lower_tabwidget(
     component: &Rc<Component>,
-    type_loader: &mut crate::typeloader::TypeLoader<'_>,
+    type_loader: &mut crate::typeloader::TypeLoader,
     diag: &mut BuildDiagnostics,
 ) {
     // Ignore import errors

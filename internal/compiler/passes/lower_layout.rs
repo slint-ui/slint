@@ -19,7 +19,7 @@ use std::rc::Rc;
 
 pub async fn lower_layouts(
     component: &Rc<Component>,
-    type_loader: &mut TypeLoader<'_>,
+    type_loader: &mut TypeLoader,
     diag: &mut BuildDiagnostics,
 ) {
     // Ignore import errors
