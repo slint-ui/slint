@@ -462,7 +462,7 @@ impl CachedImage {
 
 #[derive(PartialEq, Eq, Hash, Debug, derive_more::From)]
 pub enum ImageCacheKey {
-    Path(String),
+    Path(SharedString),
     EmbeddedData(by_address::ByAddress<&'static [u8]>),
 }
 
@@ -474,7 +474,7 @@ impl ImageCacheKey {
                 if path.is_empty() {
                     return None;
                 }
-                path.to_string().into()
+                path.clone().into()
             }
             ImageInner::EmbeddedData { data, format: _ } => {
                 by_address::ByAddress(data.as_slice()).into()
