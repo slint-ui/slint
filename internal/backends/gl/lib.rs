@@ -9,7 +9,6 @@ extern crate alloc;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use i_slint_core::graphics::{Image, IntSize};
 use i_slint_core::window::Window;
 
 mod glwindow;
@@ -140,15 +139,5 @@ impl i_slint_core::backend::Backend for Backend {
                 proxy.send_event(e);
             });
         }
-    }
-
-    fn image_size(&'static self, image: &Image) -> IntSize {
-        IMAGE_CACHE.with(|image_cache| {
-            image_cache
-                .borrow_mut()
-                .load_image_resource(image.into())
-                .and_then(|image| image.size())
-                .unwrap_or_default()
-        })
     }
 }

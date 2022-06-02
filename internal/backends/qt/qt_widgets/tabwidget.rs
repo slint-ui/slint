@@ -332,12 +332,8 @@ impl Item for NativeTab {
 
     fn layout_info(self: Pin<&Self>, orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
         let text: qttypes::QString = self.title().as_str().into();
-        let icon: qttypes::QPixmap = crate::qt_window::load_image_from_resource(
-            (&self.icon()).into(),
-            None,
-            Default::default(),
-        )
-        .unwrap_or_default();
+        let icon: qttypes::QPixmap =
+            crate::qt_window::image_to_pixmap((&self.icon()).into(), None).unwrap_or_default();
         let tab_index: i32 = self.tab_index();
         let num_tabs: i32 = self.num_tabs();
         let size = cpp!(unsafe [
@@ -436,10 +432,9 @@ impl Item for NativeTab {
     fn_render! { this dpr size painter widget initial_state =>
         let down: bool = this.pressed();
         let text: qttypes::QString = this.title().as_str().into();
-        let icon: qttypes::QPixmap = crate::qt_window::load_image_from_resource(
+        let icon: qttypes::QPixmap = crate::qt_window::image_to_pixmap(
             (&this.icon()).into(),
             None,
-            Default::default(),
         )
         .unwrap_or_default();
         let enabled: bool = this.enabled();

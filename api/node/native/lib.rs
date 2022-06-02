@@ -254,12 +254,9 @@ fn to_js_value<'cx>(
         Value::Bool(b) => JsBoolean::new(cx, b).as_value(cx),
         Value::Image(r) => match (&r).into() {
             &ImageInner::None => JsUndefined::new().as_value(cx),
-            &ImageInner::AbsoluteFilePath(ref path) => {
-                JsString::new(cx, path.as_str()).as_value(cx)
-            }
-            &ImageInner::EmbeddedData { .. }
-            | &ImageInner::EmbeddedImage { .. }
-            | &ImageInner::StaticTextures { .. } => JsNull::new().as_value(cx), // TODO: maybe pass around node buffers?
+            &ImageInner::EmbeddedImage { .. }
+            | &ImageInner::StaticTextures { .. }
+            | &ImageInner::Svg(..) => JsNull::new().as_value(cx), // TODO: maybe pass around node buffers?
         },
         Value::Model(model) => {
             if let Some(js_model) = model.as_any().downcast_ref::<js_model::JsModel>() {

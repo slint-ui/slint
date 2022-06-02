@@ -164,12 +164,8 @@ impl NativeButton {
             Some(StandardButtonKind::retry) => QStyle_StandardPixmap_SP_DialogRetryButton,
             Some(StandardButtonKind::ignore) => QStyle_StandardPixmap_SP_DialogIgnoreButton,
             None => {
-                return crate::qt_window::load_image_from_resource(
-                    (&self.icon()).into(),
-                    None,
-                    Default::default(),
-                )
-                .unwrap_or_default();
+                return crate::qt_window::image_to_pixmap((&self.icon()).into(), None)
+                    .unwrap_or_default();
             }
         };
         cpp!(unsafe [style_icon as "QStyle::StandardPixmap"] -> qttypes::QPixmap as "QPixmap" {

@@ -542,10 +542,10 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                         let virtual_file_extension = std::path::Path::new(static_path).extension().unwrap().to_str().unwrap();
                         debug_assert_eq!(virtual_file_extension, extension);
                         Ok(corelib::graphics::Image::from(
-                            corelib::graphics::ImageInner::EmbeddedData {
-                                data: corelib::slice::Slice::from_slice(static_data),
-                                format: corelib::slice::Slice::from_slice(virtual_file_extension.as_bytes())
-                            }
+                            (
+                                corelib::slice::Slice::from_slice(static_data),
+                                 corelib::slice::Slice::from_slice(virtual_file_extension.as_bytes())
+                            )
                         ))
                     } else {
                         corelib::debug_log!("Cannot embed images from disk {}", path);

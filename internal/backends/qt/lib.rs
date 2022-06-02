@@ -9,14 +9,7 @@
 
 extern crate alloc;
 
-#[cfg(not(no_qt))]
-use i_slint_core::api::euclid;
-use i_slint_core::graphics::{Image, IntSize};
-#[cfg(not(no_qt))]
-use i_slint_core::items::ImageFit;
 use i_slint_core::window::Window;
-#[cfg(not(no_qt))]
-use i_slint_core::ImageInner;
 
 #[cfg(not(no_qt))]
 mod qt_accessible;
@@ -295,24 +288,5 @@ impl i_slint_core::backend::Backend for Backend {
                 QTimer::singleShot(0, qApp, EventHolder{fnbox});
             }}
         };
-    }
-
-    fn image_size(&'static self, _image: &Image) -> IntSize {
-        #[cfg(not(no_qt))]
-        {
-            let inner: &ImageInner = _image.into();
-            match inner {
-                i_slint_core::ImageInner::None => Default::default(),
-                i_slint_core::ImageInner::EmbeddedImage(buffer) => buffer.size(),
-                _ => qt_window::load_image_from_resource(inner, None, ImageFit::fill)
-                    .map(|img| {
-                        let qsize = img.size();
-                        euclid::size2(qsize.width, qsize.height)
-                    })
-                    .unwrap_or_default(),
-            }
-        }
-        #[cfg(no_qt)]
-        Default::default()
     }
 }

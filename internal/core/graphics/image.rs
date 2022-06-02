@@ -6,6 +6,13 @@ use crate::{SharedString, SharedVector};
 
 use super::{IntRect, IntSize};
 
+#[cfg(feature = "image-decoders")]
+mod cache;
+#[cfg(target_arch = "wasm32")]
+mod htmlimage;
+#[cfg(feature = "svg")]
+mod svg;
+
 /// SharedPixelBuffer is a container for storing image data as pixels. It is
 /// internally reference counted and cheap to clone.
 ///
@@ -245,33 +252,19 @@ pub struct StaticTextures {
 pub enum ImageInner {
     /// A resource that does not represent any data.
     None,
-    /// A resource that points to a file in the file system
-    AbsoluteFilePath(SharedString),
-    /// A image file that is embedded in the program as is. The format is the extension
-    EmbeddedData {
-        data: Slice<'static, u8>,
-        format: Slice<'static, u8>,
+    EmbeddedImage {
+        path: SharedString, // Should be Option, but can't be because of cbindgen, so empty means none.
+        buffer: SharedImageBuffer,
     },
-    EmbeddedImage(SharedImageBuffer),
+    Svg(svg::ParsedSVG),
     StaticTextures(&'static StaticTextures),
+    #[cfg(target_arch = "wasm32")]
+    HTMLImage(HTMLImage),
 }
 
 impl Default for ImageInner {
     fn default() -> Self {
         ImageInner::None
-    }
-}
-
-impl ImageInner {
-    /// Returns true if the image is a scalable vector image.
-    pub fn is_svg(&self) -> bool {
-        match self {
-            ImageInner::AbsoluteFilePath(path) => path.ends_with(".svg") || path.ends_with(".svgz"),
-            ImageInner::EmbeddedData { format, .. } => {
-                format.as_slice() == b"svg" || format.as_slice() == b"svgz"
-            }
-            _ => false,
-        }
     }
 }
 
@@ -362,26 +355,37 @@ pub struct LoadImageError(());
 /// let image = Image::from_rgba8_premultiplied(pixel_buffer);
 /// ```
 #[repr(transparent)]
-#[derive(Default, Clone, Debug, PartialEq, derive_more::From)]
+#[derive(Default, Clone, Debug, PartialEq)]
 pub struct Image(ImageInner);
 
 impl Image {
-    #[cfg(feature = "std")]
+    #[cfg(feature = "image-decoders")]
     /// Load an Image from a path to a file containing an image
     pub fn load_from_path(path: &std::path::Path) -> Result<Self, LoadImageError> {
-        Ok(Image(ImageInner::AbsoluteFilePath(path.to_str().ok_or(LoadImageError(()))?.into())))
+        self::cache::IMAGE_CACHE.with(|global_cache| {
+            let path: SharedString = path.to_str().ok_or(LoadImageError(()))?.into();
+            let image_inner =
+                global_cache.borrow_mut().load_image_from_path(&path).ok_or(LoadImageError(()))?;
+            Ok(Image(image_inner))
+        })
     }
 
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has three color
     /// channels (red, green and blue) encoded as u8.
     pub fn from_rgb8(buffer: SharedPixelBuffer<Rgb8Pixel>) -> Self {
-        Image(ImageInner::EmbeddedImage(SharedImageBuffer::RGB8(buffer)))
+        Image(ImageInner::EmbeddedImage {
+            path: Default::default(),
+            buffer: SharedImageBuffer::RGB8(buffer),
+        })
     }
 
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has four color
     /// channels (red, green, blue and alpha) encoded as u8.
     pub fn from_rgba8(buffer: SharedPixelBuffer<Rgba8Pixel>) -> Self {
-        Image(ImageInner::EmbeddedImage(SharedImageBuffer::RGBA8(buffer)))
+        Image(ImageInner::EmbeddedImage {
+            path: Default::default(),
+            buffer: SharedImageBuffer::RGBA8(buffer),
+        })
     }
 
     /// Creates a new Image from the specified shared pixel buffer, where each pixel has four color
@@ -390,22 +394,20 @@ impl Image {
     ///
     /// Only construct an Image with this function if you know that your pixels are encoded this way.
     pub fn from_rgba8_premultiplied(buffer: SharedPixelBuffer<Rgba8Pixel>) -> Self {
-        Image(ImageInner::EmbeddedImage(SharedImageBuffer::RGBA8Premultiplied(buffer)))
+        Image(ImageInner::EmbeddedImage {
+            path: Default::default(),
+            buffer: SharedImageBuffer::RGBA8Premultiplied(buffer),
+        })
     }
 
     /// Returns the size of the Image in pixels.
     pub fn size(&self) -> IntSize {
         match &self.0 {
             ImageInner::None => Default::default(),
-            ImageInner::AbsoluteFilePath(_) |  ImageInner::EmbeddedData { .. } => {
-                match crate::backend::instance() {
-                    Some(backend) => backend.image_size(self),
-                    None => panic!("slint::Image::size() called too early (before a graphics backend was chosen). You need to create a component first."),
-                }
-            },
-            ImageInner::EmbeddedImage(buffer) => buffer.size(),
+            ImageInner::EmbeddedImage { buffer, .. } => buffer.size(),
             ImageInner::StaticTextures(StaticTextures { original_size, .. }) => *original_size,
-
+            #[cfg(feature = "svg")]
+            ImageInner::Svg(svg) => svg.size(),
         }
     }
 
@@ -423,9 +425,29 @@ impl Image {
     /// ```
     pub fn path(&self) -> Option<&std::path::Path> {
         match &self.0 {
-            ImageInner::AbsoluteFilePath(path) => Some(std::path::Path::new(path.as_str())),
+            ImageInner::EmbeddedImage { path, .. } => {
+                (!path.is_empty()).then(|| std::path::Path::new(path.as_str()))
+            }
             _ => None,
         }
+    }
+}
+
+// FIXME: this shouldn't be in the public API
+#[cfg(feature = "image-decoders")]
+impl From<(Slice<'static, u8>, Slice<'static, u8>)> for Image {
+    fn from((data, format): (Slice<'static, u8>, Slice<'static, u8>)) -> Self {
+        self::cache::IMAGE_CACHE.with(|global_cache| {
+            let image_inner = global_cache
+                .borrow_mut()
+                .load_image_from_embedded_data(data, format)
+                .unwrap_or_else(|| {
+                    panic!(
+                        "internal error: embedded image data is not supported by run-time library",
+                    )
+                });
+            Image(image_inner)
+        })
     }
 }
 
@@ -467,6 +489,14 @@ pub(crate) mod ffi {
     }
 
     #[no_mangle]
+    pub unsafe extern "C" fn slint_image_load_from_path(path: &SharedString, image: *mut Image) {
+        std::ptr::write(
+            image,
+            Image::load_from_path(std::path::Path::new(path.as_str())).unwrap_or(Image::default()),
+        )
+    }
+
+    #[no_mangle]
     pub unsafe extern "C" fn slint_image_size(image: &Image) -> IntSize {
         image.size()
     }
@@ -474,7 +504,7 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_image_path(image: &Image) -> Option<&SharedString> {
         match &image.0 {
-            ImageInner::AbsoluteFilePath(path) => Some(&path),
+            ImageInner::EmbeddedImage { path, .. } => (!path.is_empty()).then(|| path),
             _ => None,
         }
     }

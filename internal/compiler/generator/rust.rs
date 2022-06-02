@@ -1825,7 +1825,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 let format = proc_macro2::Literal::byte_string(extension.as_bytes());
                 quote!(
                     slint::re_exports::Image::from(
-                        slint::re_exports::ImageInner::EmbeddedData{ data: #symbol.into(), format: Slice::from_slice(#format) }
+                        ( #symbol.into(),  Slice::from_slice(#format) )
                     )
                 )
             }

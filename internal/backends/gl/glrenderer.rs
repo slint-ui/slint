@@ -1116,15 +1116,16 @@ impl GLItemRenderer {
                     let image = source_property.get();
                     let image_inner: &ImageInner = (&image).into();
 
-                    let target_size_for_scalable_source = image_inner.is_svg().then(|| {
-                        // get the scale factor as a property again, to ensure the cache is invalidated when the scale factor changes
-                        let scale_factor = self.window().scale_factor();
-                        [
-                            (target_width.get() * scale_factor) as u32,
-                            (target_height.get() * scale_factor) as u32,
-                        ]
-                        .into()
-                    });
+                    let target_size_for_scalable_source =
+                        matches!(image_inner, ImageInner::Svg(..)).then(|| {
+                            // get the scale factor as a property again, to ensure the cache is invalidated when the scale factor changes
+                            let scale_factor = self.window().scale_factor();
+                            [
+                                (target_width.get() * scale_factor) as u32,
+                                (target_height.get() * scale_factor) as u32,
+                            ]
+                            .into()
+                        });
 
                     TextureCacheKey::new(
                         image_inner,
