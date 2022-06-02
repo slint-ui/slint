@@ -11,16 +11,19 @@ mod server_loop;
 mod util;
 
 use i_slint_compiler::CompilerConfiguration;
+use js_sys::Function;
 use lsp_types::InitializeParams;
 use serde::Serialize;
 pub use server_loop::{DocumentCache, Error};
 use std::cell::RefCell;
+use std::io::ErrorKind;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
 
 pub mod wasm_prelude {
     use std::path::{Path, PathBuf};
 
+    /// lsp_url doesn't have method to convert to and from PathBuf for wasm, so just make some
     pub trait UrlWasm {
         fn to_file_path(&self) -> Result<PathBuf, ()>;
         fn from_file_path<P: AsRef<Path>>(path: P) -> Result<lsp_types::Url, ()>;
@@ -36,7 +39,7 @@ pub mod wasm_prelude {
 }
 
 #[derive(Clone)]
-pub struct ServerNotifier(js_sys::Function);
+pub struct ServerNotifier(Function);
 impl ServerNotifier {
     pub fn send_notification(&self, method: String, params: impl Serialize) -> Result<(), Error> {
         self.0
@@ -79,32 +82,82 @@ impl RequestHolder {
     }
 }
 
+#[derive(Default)]
+struct ReentryGuard {
+    locked: bool,
+    waker: Vec<std::task::Waker>,
+}
+
+impl ReentryGuard {
+    pub async fn lock(this: Rc<RefCell<Self>>) -> ReentryGuardLock {
+        struct ReentryGuardLocker(Rc<RefCell<ReentryGuard>>);
+
+        impl std::future::Future for ReentryGuardLocker {
+            type Output = ReentryGuardLock;
+            fn poll(
+                self: std::pin::Pin<&mut Self>,
+                cx: &mut std::task::Context<'_>,
+            ) -> std::task::Poll<Self::Output> {
+                let mut s = self.0.borrow_mut();
+                if s.locked {
+                    s.waker.push(cx.waker().clone());
+                    std::task::Poll::Pending
+                } else {
+                    s.locked = true;
+                    std::task::Poll::Ready(ReentryGuardLock(self.0.clone()))
+                }
+            }
+        }
+        ReentryGuardLocker(this).await
+    }
+}
+
+struct ReentryGuardLock(Rc<RefCell<ReentryGuard>>);
+
+impl Drop for ReentryGuardLock {
+    fn drop(&mut self) {
+        let mut s = self.0.borrow_mut();
+        s.locked = false;
+        let wakers = std::mem::take(&mut s.waker);
+        drop(s);
+        for w in wakers {
+            w.wake()
+        }
+    }
+}
+
 #[wasm_bindgen]
 pub struct SlintServer {
-    document_cache: Rc<RefCell<DocumentCache<'static>>>,
+    document_cache: Rc<RefCell<DocumentCache>>,
     init_param: InitializeParams,
     notifier: ServerNotifier,
+    reentry_guard: Rc<RefCell<ReentryGuard>>,
 }
 
 #[wasm_bindgen]
 pub fn create(
     init_param: JsValue,
-    send_notification: js_sys::Function,
+    send_notification: Function,
+    load_file: Function,
 ) -> Result<SlintServer, JsError> {
     console_error_panic_hook::set_once();
 
     let init_param = init_param.into_serde()?;
 
-    let compiler_config =
+    let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
+    compiler_config.open_import_fallback = Some(Rc::new(move |path| {
+        let load_file = load_file.clone();
+        Box::pin(async move { Some(self::load_file(path, &load_file).await) })
+    }));
 
-    // FIXME: we leak one compiler_config
-    let document_cache = DocumentCache::new(Box::leak(Box::new(compiler_config)));
+    let document_cache = DocumentCache::new(compiler_config);
 
     Ok(SlintServer {
         document_cache: Rc::new(RefCell::new(document_cache)),
         init_param,
         notifier: ServerNotifier(send_notification),
+        reentry_guard: Default::default(),
     })
 }
 
@@ -116,15 +169,18 @@ impl SlintServer {
     }
 
     #[wasm_bindgen]
-    pub fn reload_document(&self, content: String, uri: JsValue) -> Result<(), JsError> {
-        server_loop::reload_document(
-            &self.notifier,
-            content,
-            uri.into_serde()?,
-            &mut self.document_cache.borrow_mut(),
-        )
-        .map_err(|e| JsError::new(&e.to_string()))?;
-        Ok(())
+    pub fn reload_document(&self, content: String, uri: JsValue) -> js_sys::Promise {
+        let document_cache = self.document_cache.clone();
+        let notifier = self.notifier.clone();
+        let guard = self.reentry_guard.clone();
+        wasm_bindgen_futures::future_to_promise(async move {
+            let _lock = ReentryGuard::lock(guard).await;
+            let uri: lsp_types::Url = uri.into_serde().map_err(|e| JsError::new(&e.to_string()))?;
+            server_loop::reload_document(&notifier, content, uri, &mut document_cache.borrow_mut())
+                .await
+                .map_err(|e| JsError::new(&e.to_string()))?;
+            Ok(JsValue::UNDEFINED)
+        })
     }
 
     /*  #[wasm_bindgen]
@@ -138,22 +194,40 @@ impl SlintServer {
     }*/
 
     #[wasm_bindgen]
-    pub fn handle_request(
-        &self,
-        _id: JsValue,
-        method: String,
-        params: JsValue,
-    ) -> Result<JsValue, JsError> {
-        let req = Request { method, params: params.into_serde()? };
-        let result = Rc::new(RefCell::new(None));
-        server_loop::handle_request(
-            RequestHolder { req, reply: result.clone(), notifier: self.notifier.clone() },
-            &self.init_param,
-            &mut self.document_cache.borrow_mut(),
-        )
-        .map_err(|e| JsError::new(&e.to_string()))?;
+    pub fn handle_request(&self, _id: JsValue, method: String, params: JsValue) -> js_sys::Promise {
+        let document_cache = self.document_cache.clone();
+        let notifier = self.notifier.clone();
+        let guard = self.reentry_guard.clone();
+        let init_param = self.init_param.clone();
+        wasm_bindgen_futures::future_to_promise(async move {
+            let _lock = ReentryGuard::lock(guard).await;
+            let req = Request {
+                method,
+                params: params
+                    .into_serde()
+                    .map_err(|x| format!("invalid param to handle_request: {x:?}"))?,
+            };
+            let result = Rc::new(RefCell::new(None));
+            server_loop::handle_request(
+                RequestHolder { req, reply: result.clone(), notifier: notifier.clone() },
+                &init_param,
+                &mut document_cache.borrow_mut(),
+            )
+            .map_err(|e| JsError::new(&e.to_string()))?;
 
-        let result = result.borrow_mut().take();
-        Ok(result.ok_or(JsError::new("Empty reply".into()))?)
+            let result = result.borrow_mut().take();
+            Ok(result.ok_or(JsError::new("Empty reply".into()))?)
+        })
     }
+}
+
+async fn load_file(path: String, load_file: &Function) -> std::io::Result<String> {
+    let value = load_file
+        .call1(&JsValue::UNDEFINED, &path.into())
+        .map_err(|x| std::io::Error::new(ErrorKind::Other, format!("{x:?}")))?;
+    let array = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(value))
+        .await
+        .map_err(|e| std::io::Error::new(ErrorKind::Other, format!("{e:?}")))?;
+    String::from_utf8(js_sys::Uint8Array::from(array).to_vec())
+        .map_err(|e| std::io::Error::new(ErrorKind::InvalidData, e.to_string()))
 }

@@ -21,21 +21,25 @@ slint_init(slint_wasm_data).then((_) => {
         return true;
     }
 
+    async function load_file(path: string): Promise<Uint8Array> {
+        return await connection.sendRequest("slint/load_file", path);
+    }
+
     connection.onInitialize((params: InitializeParams): InitializeResult => {
-        the_lsp = slint_lsp.create(params, send_notification);
+        the_lsp = slint_lsp.create(params, send_notification, load_file);
         return { capabilities: the_lsp.capabilities() };
     });
 
-    connection.onRequest((method, params, token) => {
-        return the_lsp.handle_request(token, method, params);
+    connection.onRequest(async (method, params, token) => {
+        return await the_lsp.handle_request(token, method, params);
     });
 
-    connection.onDidChangeTextDocument((param) => {
-        the_lsp.reload_document(param.contentChanges[param.contentChanges.length - 1].text, param.textDocument.uri);
+    connection.onDidChangeTextDocument(async (param) => {
+        await the_lsp.reload_document(param.contentChanges[param.contentChanges.length - 1].text, param.textDocument.uri);
     });
 
-    connection.onDidOpenTextDocument((param) => {
-        the_lsp.reload_document(param.textDocument.text, param.textDocument.uri);
+    connection.onDidOpenTextDocument(async (param) => {
+        await the_lsp.reload_document(param.textDocument.text, param.textDocument.uri);
     });
 
     // Listen on the connection

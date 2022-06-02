@@ -38,7 +38,7 @@ pub struct LookupCtx<'a> {
 
     /// The type loader instance, which may be used to resolve relative path references
     /// for example for img!
-    pub type_loader: Option<&'a crate::typeloader::TypeLoader<'a>>,
+    pub type_loader: Option<&'a crate::typeloader::TypeLoader>,
 
     /// The token currently processed
     pub current_token: Option<NodeOrToken>,

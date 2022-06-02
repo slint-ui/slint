@@ -47,7 +47,7 @@ use crate::langtype::Type;
 pub async fn run_passes(
     doc: &crate::object_tree::Document,
     diag: &mut crate::diagnostics::BuildDiagnostics,
-    type_loader: &mut crate::typeloader::TypeLoader<'_>,
+    type_loader: &mut crate::typeloader::TypeLoader,
     compiler_config: &crate::CompilerConfiguration,
 ) {
     if matches!(doc.root_component.root_element.borrow().base_type, Type::Invalid | Type::Void) {
@@ -216,7 +216,7 @@ pub async fn run_passes(
 /// Run the passes on imported documents
 pub fn run_import_passes(
     doc: &crate::object_tree::Document,
-    type_loader: &crate::typeloader::TypeLoader<'_>,
+    type_loader: &crate::typeloader::TypeLoader,
     diag: &mut crate::diagnostics::BuildDiagnostics,
 ) {
     infer_aliases_types::resolve_aliases(doc, diag);

@@ -28,19 +28,19 @@ pub type Error = Box<dyn std::error::Error>;
 
 const SHOW_PREVIEW_COMMAND: &str = "showPreview";
 
-pub struct DocumentCache<'a> {
-    pub(crate) documents: TypeLoader<'a>,
-    newline_offsets: HashMap<Url, Vec<u32>>,
+pub struct DocumentCache {
+    pub(crate) documents: TypeLoader,
+    pub(crate) newline_offsets: HashMap<Url, Vec<u32>>,
 }
 
-impl<'a> DocumentCache<'a> {
-    pub fn new(config: &'a CompilerConfiguration) -> Self {
+impl DocumentCache {
+    pub fn new(config: CompilerConfiguration) -> Self {
         let documents =
             TypeLoader::new(TypeRegister::builtin(), config, &mut BuildDiagnostics::default());
         Self { documents, newline_offsets: Default::default() }
     }
 
-    fn newline_offsets_from_content(content: &str) -> Vec<u32> {
+    pub(crate) fn newline_offsets_from_content(content: &str) -> Vec<u32> {
         let mut ln_offs = 0;
         content
             .split('\n')
@@ -283,7 +283,7 @@ fn maybe_goto_preview(
     }
 }
 
-pub fn reload_document(
+pub async fn reload_document(
     connection: &crate::ServerNotifier,
     content: String,
     uri: lsp_types::Url,
@@ -297,13 +297,7 @@ pub fn reload_document(
     #[cfg(not(target_arch = "wasm32"))]
     crate::preview::set_contents(&path_canon, content.clone());
     let mut diag = BuildDiagnostics::default();
-    spin_on::spin_on(document_cache.documents.load_file(
-        &path_canon,
-        &path,
-        content,
-        false,
-        &mut diag,
-    ));
+    document_cache.documents.load_file(&path_canon, &path, content, false, &mut diag).await;
 
     // Always provide diagnostics for all files. Empty diagnostics clear any previous ones.
     let mut lsp_diags: HashMap<Url, Vec<lsp_types::Diagnostic>> = core::iter::once(&path)
@@ -329,7 +323,6 @@ pub fn reload_document(
             PublishDiagnosticsParams { uri, diagnostics, version: None },
         )?;
     }
-
     Ok(())
 }
 

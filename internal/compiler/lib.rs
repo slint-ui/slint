@@ -137,8 +137,11 @@ pub async fn compile_syntax_node(
 
     let doc_node: parser::syntax_nodes::Document = doc_node.into();
 
-    let mut loader =
-        typeloader::TypeLoader::new(global_type_registry, &compiler_config, &mut diagnostics);
+    let mut loader = typeloader::TypeLoader::new(
+        global_type_registry,
+        compiler_config.clone(),
+        &mut diagnostics,
+    );
 
     if diagnostics.has_error() {
         return (crate::object_tree::Document::default(), diagnostics);

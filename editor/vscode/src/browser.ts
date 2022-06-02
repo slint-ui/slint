@@ -35,6 +35,9 @@ function startClient(context: vscode.ExtensionContext) {
             context.subscriptions.push(disposable);
 
             client.onReady().then(() => {
+                client.onRequest("slint/load_file", async (param: string) => {
+                    return await vscode.workspace.fs.readFile(Uri.parse(param));
+                });
                 //client.onNotification(serverStatus, (params) => setServerStatus(params, statusBar));
             });
         }

@@ -130,7 +130,7 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
         Some(if cli_args.style.is_empty() { "fluent".into() } else { cli_args.style });
     compiler_config.include_paths = cli_args.include_paths;
 
-    let mut document_cache = DocumentCache::new(&compiler_config);
+    let mut document_cache = DocumentCache::new(compiler_config);
     for msg in &connection.receiver {
         match msg {
             Message::Request(req) => {
@@ -160,21 +160,21 @@ pub fn handle_notification(
     match &*req.method {
         DidOpenTextDocument::METHOD => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(req.params)?;
-            reload_document(
+            spin_on::spin_on(reload_document(
                 &ServerNotifier(connection.sender.clone()),
                 params.text_document.text,
                 params.text_document.uri,
                 document_cache,
-            )?;
+            ))?;
         }
         DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;
-            reload_document(
+            spin_on::spin_on(reload_document(
                 &ServerNotifier(connection.sender.clone()),
                 params.content_changes.pop().unwrap().text,
                 params.text_document.uri,
                 document_cache,
-            )?;
+            ))?;
         }
         "slint/showPreview" => {
             show_preview_command(
