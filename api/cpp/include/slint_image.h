@@ -21,7 +21,7 @@ public:
     static Image load_from_path(const SharedString &file_path)
     {
         Image img;
-        img.data = Data::ImageInner_AbsoluteFilePath(file_path);
+        cbindgen_private::types::slint_image_load_from_path(&file_path, &img.data);
         return img;
     }
 

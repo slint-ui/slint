@@ -7,11 +7,8 @@
 use i_slint_core::api::euclid;
 use i_slint_core::api::PhysicalPx;
 use i_slint_core::component::ComponentRc;
-use i_slint_core::graphics::{Image, IntSize, Point, Rect, Size};
+use i_slint_core::graphics::{Point, Rect, Size};
 use i_slint_core::window::{PlatformWindow, Window};
-use i_slint_core::{ImageInner, StaticTextures};
-use image::GenericImageView;
-use std::path::Path;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Mutex;
@@ -56,25 +53,6 @@ impl i_slint_core::backend::Backend for TestingBackend {
 
     fn post_event(&'static self, _event: Box<dyn FnOnce() + Send>) {
         // The event will never be invoked
-    }
-
-    fn image_size(&'static self, image: &Image) -> IntSize {
-        let inner: &ImageInner = image.into();
-        match inner {
-            ImageInner::None => Default::default(),
-            ImageInner::EmbeddedImage(buffer) => buffer.size(),
-            ImageInner::AbsoluteFilePath(path) => image::open(Path::new(path.as_str()))
-                .map(|img| img.dimensions().into())
-                .unwrap_or_default(),
-            ImageInner::EmbeddedData { data, format } => image::load_from_memory_with_format(
-                data.as_slice(),
-                image::ImageFormat::from_extension(std::str::from_utf8(format.as_slice()).unwrap())
-                    .unwrap(),
-            )
-            .map(|img| img.dimensions().into())
-            .unwrap_or_default(),
-            ImageInner::StaticTextures(StaticTextures { original_size, .. }) => *original_size,
-        }
     }
 
     fn duration_since_start(&'static self) -> core::time::Duration {

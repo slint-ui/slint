@@ -198,6 +198,7 @@ fn gen_corelib(
         "slint_color_darker",
         "slint_image_size",
         "slint_image_path",
+        "slint_image_load_from_path",
         "Coord",
     ]
     .iter()
@@ -260,6 +261,7 @@ fn gen_corelib(
                 "Size",
                 "slint_image_size",
                 "slint_image_path",
+                "slint_image_load_from_path",
                 "SharedPixelBuffer",
                 "SharedImageBuffer",
                 "StaticTextures",
@@ -311,6 +313,7 @@ fn gen_corelib(
             "slint_color_darker",
             "slint_image_size",
             "slint_image_path",
+            "slint_image_load_from_path",
         ]
         .iter()
         .filter(|exclusion| !rust_types.iter().any(|inclusion| inclusion == *exclusion))

@@ -11,7 +11,7 @@ use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
 use i_slint_core::graphics::{
-    Brush, Color, FontRequest, Image, Point, Rect, SharedImageBuffer, Size,
+    Brush, Color, FontRequest, Image, IntSize, Point, Rect, SharedImageBuffer, Size,
 };
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
@@ -960,88 +960,42 @@ impl ItemRenderer for QtItemRenderer<'_> {
     }
 }
 
-pub(crate) fn load_image_from_resource(
-    resource: &ImageInner,
-    source_size: Option<qttypes::QSize>,
-    image_fit: ImageFit,
-) -> Option<qttypes::QPixmap> {
-    let (is_path, data, format) = match resource {
-        ImageInner::None => return None,
-        ImageInner::AbsoluteFilePath(path) => {
-            (true, qttypes::QByteArray::from(path.as_str()), Default::default())
+fn shared_image_buffer_to_pixmap(buffer: &SharedImageBuffer) -> Option<qttypes::QPixmap> {
+    let (format, bytes_per_line, buffer_ptr) = match buffer {
+        SharedImageBuffer::RGBA8(img) => {
+            (qttypes::ImageFormat::RGBA8888, img.stride() * 4, img.as_bytes().as_ptr())
         }
-        ImageInner::EmbeddedData { data, format } => (
-            false,
-            qttypes::QByteArray::from(data.as_slice()),
-            qttypes::QByteArray::from(format.as_slice()),
+        SharedImageBuffer::RGBA8Premultiplied(img) => (
+            qttypes::ImageFormat::RGBA8888_Premultiplied,
+            img.stride() * 4,
+            img.as_bytes().as_ptr(),
         ),
-        ImageInner::EmbeddedImage(buffer) => {
-            let (format, bytes_per_line, buffer_ptr) = match buffer {
-                SharedImageBuffer::RGBA8(img) => {
-                    (qttypes::ImageFormat::RGBA8888, img.stride() * 4, img.as_bytes().as_ptr())
-                }
-                SharedImageBuffer::RGBA8Premultiplied(img) => (
-                    qttypes::ImageFormat::RGBA8888_Premultiplied,
-                    img.stride() * 4,
-                    img.as_bytes().as_ptr(),
-                ),
-                SharedImageBuffer::RGB8(img) => {
-                    (qttypes::ImageFormat::RGB888, img.stride() * 3, img.as_bytes().as_ptr())
-                }
-            };
-            let width: i32 = buffer.width() as _;
-            let height: i32 = buffer.height() as _;
-            let pixmap = cpp! { unsafe [format as "QImage::Format", width as "int", height as "int", bytes_per_line as "uint32_t", buffer_ptr as "const uchar *"] -> qttypes::QPixmap as "QPixmap" {
-                QImage img(buffer_ptr, width, height, bytes_per_line, format);
-                return QPixmap::fromImage(img);
-            } };
-            return Some(pixmap);
+        SharedImageBuffer::RGB8(img) => {
+            (qttypes::ImageFormat::RGB888, img.stride() * 3, img.as_bytes().as_ptr())
         }
-        ImageInner::StaticTextures { .. } => todo!(),
     };
-    let size_requested = is_svg(resource) && source_size.is_some();
-    let source_size = source_size.unwrap_or_default();
-    debug_assert_eq!(ImageFit::contain as i32, 1);
-    debug_assert_eq!(ImageFit::cover as i32, 2);
-    Some(cpp! { unsafe [
-            data as "QByteArray",
-            is_path as "bool",
-            format as "QByteArray",
-            size_requested as "bool",
-            source_size as "QSize",
-            image_fit as "int"] -> qttypes::QPixmap as "QPixmap" {
-        QImageReader reader;
-        QBuffer buffer;
-        if (is_path) {
-            reader.setFileName(QString::fromUtf8(data));
-        } else {
-            buffer.setBuffer(const_cast<QByteArray *>(&data));
-            reader.setDevice(&buffer);
+    let width: i32 = buffer.width() as _;
+    let height: i32 = buffer.height() as _;
+    let pixmap = cpp! { unsafe [format as "QImage::Format", width as "int", height as "int", bytes_per_line as "uint32_t", buffer_ptr as "const uchar *"] -> qttypes::QPixmap as "QPixmap" {
+        QImage img(buffer_ptr, width, height, bytes_per_line, format);
+        return QPixmap::fromImage(img);
+    } };
+    return Some(pixmap);
+}
+
+pub(crate) fn image_to_pixmap(
+    image: &ImageInner,
+    source_size: Option<IntSize>,
+) -> Option<qttypes::QPixmap> {
+    match image {
+        ImageInner::None => return None,
+        ImageInner::EmbeddedImage { buffer, .. } => shared_image_buffer_to_pixmap(buffer),
+        ImageInner::StaticTextures { .. } => todo!(),
+        ImageInner::Svg(svg) => {
+            let pixel_buffer = svg.render(source_size.unwrap_or_default()).ok()?;
+            shared_image_buffer_to_pixmap(&SharedImageBuffer::RGBA8Premultiplied(pixel_buffer))
         }
-        if (!reader.canRead()) {
-            QString fileName = reader.fileName();
-            if (!fileName.isEmpty()) {
-                qWarning("Error loading image \"%s\": %s", QFile::encodeName(fileName).constData(), qPrintable(reader.errorString()));
-            } else {
-                qWarning("Error loading image of format %s: %s", format.constData(), qPrintable(reader.errorString()));
-            }
-            return QPixmap();
-        }
-        if (size_requested) {
-            if (reader.supportsOption(QImageIOHandler::ScaledSize)) {
-                auto target_size = source_size;
-                if (image_fit == 1) { //ImageFit::contain
-                    QSizeF s = reader.size();
-                    target_size = (s * qMin(source_size.width() / s.width(), source_size.height() / s.height())).toSize();
-                } else if (image_fit == 2) { //ImageFit::cover
-                    QSizeF s = reader.size();
-                    target_size = (s * qMax(source_size.width() / s.width(), source_size.height() / s.height())).toSize();
-                }
-                reader.setScaledSize(target_size);
-            }
-        }
-        return QPixmap::fromImageReader(&reader);
-    }})
+    }
 }
 
 /// Changes the source or the destination rectangle to respect the image fit
@@ -1083,21 +1037,6 @@ fn adjust_to_image_fit(
     };
 }
 
-/// Return true if this image is a SVG that is scalable
-fn is_svg(resource: &ImageInner) -> bool {
-    match resource {
-        ImageInner::None => false,
-        ImageInner::AbsoluteFilePath(path) => {
-            path.as_str().ends_with(".svg") || path.as_str().ends_with(".svgz")
-        }
-        ImageInner::EmbeddedData { format, .. } => {
-            format.as_slice() == b"svg" || format.as_slice() == b"svgz"
-        }
-        ImageInner::EmbeddedImage { .. } => false,
-        ImageInner::StaticTextures { .. } => false,
-    }
-}
-
 impl QtItemRenderer<'_> {
     fn draw_image_impl(
         &mut self,
@@ -1128,14 +1067,15 @@ impl QtItemRenderer<'_> {
                         || !rect.height.approx_eq(&target_height))
             });
             let source_size = if !has_source_clipping {
-                Some(qttypes::QSize { width: target_width as u32, height: target_height as u32 })
+                Some(IntSize::new(target_width as u32, target_height as u32))
             } else {
                 // Source size & clipping is not implemented yet
                 None
             };
 
-            load_image_from_resource((&source_property.get()).into(), source_size, image_fit)
-                .map_or_else(Default::default, |mut pixmap: qttypes::QPixmap| {
+            image_to_pixmap((&source_property.get()).into(), source_size).map_or_else(
+                Default::default,
+                |mut pixmap: qttypes::QPixmap| {
                     let colorize = colorize_property.map_or(Brush::default(), |c| c.get());
                     if !colorize.is_transparent() {
                         let brush: qttypes::QBrush =
@@ -1147,7 +1087,8 @@ impl QtItemRenderer<'_> {
                         });
                     }
                     pixmap
-                })
+                },
+            )
         });
 
         let image_size = pixmap.size();
@@ -1482,15 +1423,9 @@ impl PlatformWindow for QtWindow {
         let background: u32 = window_item.background().as_argb_encoded();
 
         match (&window_item.icon()).into() {
-            &ImageInner::AbsoluteFilePath(ref path) => {
-                let icon_name: qttypes::QString = path.as_str().into();
-                cpp! {unsafe [widget_ptr as "QWidget*", icon_name as "QString"] {
-                    widget_ptr->setWindowIcon(QIcon(icon_name));
-                }};
-            }
             &ImageInner::None => (),
             r => {
-                if let Some(pixmap) = load_image_from_resource(r, None, ImageFit::contain) {
+                if let Some(pixmap) = image_to_pixmap(r, None) {
                     cpp! {unsafe [widget_ptr as "QWidget*", pixmap as "QPixmap"] {
                         widget_ptr->setWindowIcon(QIcon(pixmap));
                     }};

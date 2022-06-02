@@ -10,7 +10,6 @@ use embedded_graphics::prelude::*;
 use embedded_graphics_simulator::SimulatorDisplay;
 use i_slint_core::api::{euclid, PhysicalPx};
 use i_slint_core::component::ComponentRc;
-use i_slint_core::graphics::{Image, ImageInner, StaticTextures};
 use i_slint_core::input::KeyboardModifiers;
 use i_slint_core::item_rendering::DirtyRegion;
 use i_slint_core::items::{Item, ItemRef, WindowItem};
@@ -474,15 +473,5 @@ impl i_slint_core::backend::Backend for SimulatorBackend {
             .lock()
             .unwrap()
             .send_event(self::event_loop::CustomEvent::UserEvent(event));
-    }
-
-    fn image_size(&'static self, image: &Image) -> i_slint_core::graphics::IntSize {
-        let inner: &ImageInner = image.into();
-        match inner {
-            ImageInner::None => Default::default(),
-            ImageInner::AbsoluteFilePath(_) | ImageInner::EmbeddedData { .. } => unimplemented!(),
-            ImageInner::EmbeddedImage(buffer) => buffer.size(),
-            ImageInner::StaticTextures(StaticTextures { original_size, .. }) => *original_size,
-        }
     }
 }

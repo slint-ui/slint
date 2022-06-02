@@ -618,10 +618,9 @@ impl<T: ProcessScene> SceneBuilder<T> {
         let image_inner: &ImageInner = source.into();
         match image_inner {
             ImageInner::None => (),
-            ImageInner::AbsoluteFilePath(_) | ImageInner::EmbeddedData { .. } => {
-                unimplemented!()
-            }
-            ImageInner::EmbeddedImage(_) => todo!(),
+            ImageInner::EmbeddedImage { .. } => todo!(),
+            #[cfg(feature = "svg")]
+            ImageInner::Svg { .. } => todo!(),
             ImageInner::StaticTextures(StaticTextures { data, textures, .. }) => {
                 let size: euclid::default::Size2D<u32> = source_rect.size.cast();
                 let phys_size = geom.size_length().cast() * self.scale_factor;

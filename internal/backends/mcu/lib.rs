@@ -126,7 +126,7 @@ mod the_backend {
     use i_slint_core::items::ItemRef;
     use i_slint_core::window::PlatformWindow;
     use i_slint_core::window::Window;
-    use i_slint_core::{Coord, ImageInner, StaticTextures};
+    use i_slint_core::Coord;
 
     thread_local! { static WINDOWS: RefCell<Option<Rc<McuWindow>>> = RefCell::new(None) }
 
@@ -504,21 +504,6 @@ mod the_backend {
 
         fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
             self.with_inner(|inner| inner.post_event(McuEvent::Custom(event)));
-        }
-
-        fn image_size(
-            &'static self,
-            image: &i_slint_core::graphics::Image,
-        ) -> i_slint_core::graphics::IntSize {
-            let inner: &ImageInner = image.into();
-            match inner {
-                ImageInner::None => Default::default(),
-                ImageInner::AbsoluteFilePath(_) | ImageInner::EmbeddedData { .. } => {
-                    unimplemented!()
-                }
-                ImageInner::EmbeddedImage(buffer) => buffer.size(),
-                ImageInner::StaticTextures(StaticTextures { original_size, .. }) => *original_size,
-            }
         }
 
         #[cfg(feature = "std")]
