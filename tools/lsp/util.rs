@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use i_slint_compiler::diagnostics::Spanned;
+use i_slint_compiler::diagnostics::{DiagnosticLevel, Spanned};
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::lookup::LookupCtx;
 use i_slint_compiler::object_tree;
@@ -145,12 +145,10 @@ fn to_range(span: (usize, usize)) -> lsp_types::Range {
     lsp_types::Range::new(pos, pos)
 }
 
-fn to_lsp_diag_level(
-    level: i_slint_compiler::diagnostics::DiagnosticLevel,
-) -> lsp_types::DiagnosticSeverity {
+fn to_lsp_diag_level(level: DiagnosticLevel) -> lsp_types::DiagnosticSeverity {
     match level {
-        slint_interpreter::DiagnosticLevel::Error => lsp_types::DiagnosticSeverity::ERROR,
-        slint_interpreter::DiagnosticLevel::Warning => lsp_types::DiagnosticSeverity::WARNING,
+        DiagnosticLevel::Error => lsp_types::DiagnosticSeverity::ERROR,
+        DiagnosticLevel::Warning => lsp_types::DiagnosticSeverity::WARNING,
         _ => lsp_types::DiagnosticSeverity::INFORMATION,
     }
 }

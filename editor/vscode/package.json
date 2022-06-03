@@ -88,7 +88,7 @@
 	],
 	"scripts": {
 		"vscode:prepublish": "npm run compile",
-		"compile": "wasm-pack build --target web --out-name index ../../tools/lsp && node ./esbuild.js",
+		"compile": "wasm-pack build --target web --out-name index ../../tools/lsp --no-default-features && node ./esbuild.js",
 		"local-package": "mkdir -p bin && cp ../../target/debug/slint-lsp bin/ && npx vsce package",
 		"watch": "tsc -watch -p ./",
 		"pretest": "npm run compile && npm run lint",
