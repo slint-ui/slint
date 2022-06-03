@@ -263,7 +263,7 @@ macro_rules! for_each_enums {
                 spinbox,
                 /// The element is a Tab or behaves like one.
                 tab,
-                /// A role for static Text items.
+                /// The role for a Text element. It is automatically applied.
                 text,
             }
         ];
