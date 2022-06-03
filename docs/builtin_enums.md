@@ -196,5 +196,5 @@ The default value of each enum type is always the first value.
 * **`slider`**: The element is a Slider or behaves like one.
 * **`spinbox`**: The element is a SpinBox or behaves like one.
 * **`tab`**: The element is a Tab or behaves like one.
-* **`text`**: A role for static Text items.
+* **`text`**: The role for a Text element. It is automatically applied.
 
