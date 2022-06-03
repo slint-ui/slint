@@ -28,7 +28,7 @@ These properties are valid on all visible items
 
 Use the following `accessible-` properties to make your items interact well with software like screen readers, braille terminals and other software to make your application accessible.
 
-* **`accessible-role`** (*enum AccessibleRole*): describe the role of the element. This property is
+* **`accessible-role`** (*enum [`AccessibleRole`](builtin_enums.md#accessiblerole)*): The accessibility role of the element. This property is
   mandatory to be able to use any other accessible properties. It should be set to a constant value.
   The default value is `none` for most elements, but is `text` for the Text element.
 * **`accessible-label`** (*string*): The label for an interactive element.
