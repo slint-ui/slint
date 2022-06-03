@@ -16,11 +16,10 @@ use lsp_types::request::{
 };
 use lsp_types::{
     CodeActionOrCommand, CodeActionProviderCapability, CodeLens, CodeLensOptions, Color,
-    ColorInformation, ColorPresentation, Command, CompletionOptions, DocumentSymbolResponse,
-    ExecuteCommandOptions, Hover, InitializeParams, Location, OneOf, Position,
-    PublishDiagnosticsParams, Range, SemanticTokensFullOptions, SemanticTokensLegend,
-    SemanticTokensOptions, ServerCapabilities, SymbolInformation, TextDocumentSyncCapability, Url,
-    WorkDoneProgressOptions,
+    ColorInformation, ColorPresentation, Command, CompletionOptions, DocumentSymbolResponse, Hover,
+    InitializeParams, Location, OneOf, Position, PublishDiagnosticsParams, Range,
+    SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions, ServerCapabilities,
+    SymbolInformation, TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
 };
 use std::collections::HashMap;
 
@@ -96,7 +95,8 @@ pub fn server_capabilities() -> ServerCapabilities {
             lsp_types::TextDocumentSyncKind::FULL,
         )),
         code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
-        execute_command_provider: Some(ExecuteCommandOptions {
+        #[cfg(feature = "preview")]
+        execute_command_provider: Some(lsp_types::ExecuteCommandOptions {
             commands: vec![SHOW_PREVIEW_COMMAND.into()],
             ..Default::default()
         }),
@@ -130,7 +130,7 @@ pub fn handle_request(
             params.text_document_position_params.position,
         )
         .and_then(|token| {
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(feature = "preview")]
             if token.0.kind() == SyntaxKind::Comment {
                 maybe_goto_preview(token.0, token.1, req.server_notifier());
                 return None;
@@ -175,7 +175,7 @@ pub fn handle_request(
     })? {
     } else if req.handle_request::<ExecuteCommand, _>(|params| {
         if params.command.as_str() == SHOW_PREVIEW_COMMAND {
-            #[cfg(not(target_arch = "wasm32"))]
+            #[cfg(feature = "preview")]
             show_preview_command(&params.arguments, &req.server_notifier(), document_cache)?
         }
         Ok(None::<serde_json::Value>)
@@ -220,7 +220,7 @@ pub fn handle_request(
     Ok(())
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "preview")]
 pub fn show_preview_command(
     params: &[serde_json::Value],
     connection: &crate::ServerNotifier,
@@ -243,7 +243,7 @@ pub fn show_preview_command(
     Ok(())
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "preview")]
 /// Workaround for editor that do not support code action: using the goto definition on a comment
 /// that says "preview" will show the preview.
 fn maybe_goto_preview(
@@ -295,7 +295,7 @@ pub async fn reload_document(
 
     let path = uri.to_file_path().unwrap();
     let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(feature = "preview")]
     crate::preview::set_contents(&path_canon, content.clone());
     let mut diag = BuildDiagnostics::default();
     document_cache.documents.load_file(&path_canon, &path, content, false, &mut diag).await;
@@ -367,6 +367,10 @@ fn get_code_actions(
     _document_cache: &mut DocumentCache,
     node: SyntaxNode,
 ) -> Option<Vec<CodeActionOrCommand>> {
+    if !cfg!(feature = "preview") {
+        return None;
+    }
+
     let component = syntax_nodes::Component::new(node.clone())
         .or_else(|| {
             syntax_nodes::DeclaredIdentifier::new(node.clone())
@@ -485,6 +489,10 @@ fn get_code_lenses(
     document_cache: &mut DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<Vec<CodeLens>> {
+    if !cfg!(feature = "preview") {
+        return None;
+    }
+
     let uri = &text_document.uri;
     let filepath = uri.to_file_path().ok()?;
     let doc = document_cache.documents.get_document(&filepath)?;

@@ -6,6 +6,7 @@
 mod completion;
 mod goto;
 mod lsp_ext;
+#[cfg(feature = "preview")]
 mod preview;
 mod semantic_tokens;
 mod server_loop;
@@ -88,26 +89,36 @@ fn main() {
         std::env::set_var("SLINT_BACKEND", &args.backend);
     }
 
-    let lsp_thread = std::thread::spawn(|| {
-        /// Make sure we quit the event loop even if we panic
-        struct QuitEventLoop;
-        impl Drop for QuitEventLoop {
-            fn drop(&mut self) {
-                preview::quit_ui_event_loop();
+    #[cfg(feature = "preview")]
+    {
+        let lsp_thread = std::thread::spawn(|| {
+            /// Make sure we quit the event loop even if we panic
+            struct QuitEventLoop;
+            impl Drop for QuitEventLoop {
+                fn drop(&mut self) {
+                    preview::quit_ui_event_loop();
+                }
             }
-        }
-        let _quit_ui_loop = QuitEventLoop;
+            let _quit_ui_loop = QuitEventLoop;
 
-        match run_lsp_server() {
-            Ok(_) => {}
-            Err(error) => {
-                eprintln!("Error running LSP server: {}", error);
+            match run_lsp_server() {
+                Ok(_) => {}
+                Err(error) => {
+                    eprintln!("Error running LSP server: {}", error);
+                }
             }
-        }
-    });
+        });
 
-    preview::start_ui_event_loop();
-    lsp_thread.join().unwrap();
+        preview::start_ui_event_loop();
+        lsp_thread.join().unwrap();
+    }
+    #[cfg(not(feature = "preview"))]
+    match run_lsp_server() {
+        Ok(_) => {}
+        Err(error) => {
+            eprintln!("Error running LSP server: {}", error);
+        }
+    }
 }
 
 pub fn run_lsp_server() -> Result<(), Error> {
@@ -176,6 +187,8 @@ pub fn handle_notification(
                 document_cache,
             ))?;
         }
+
+        #[cfg(feature = "preview")]
         "slint/showPreview" => {
             show_preview_command(
                 req.params.as_array().map_or(&[], |x| x.as_slice()),
