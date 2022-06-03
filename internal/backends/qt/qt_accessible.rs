@@ -18,10 +18,6 @@ use alloc::boxed::Box;
 use core::ffi::c_void;
 use std::pin::Pin;
 
-pub struct AccessibleItemPropertiesTracker {
-    accessible_item: *mut c_void,
-}
-
 // KEEP IN SYNC WITH CONSTANTS IN C++
 const NAME: u32 = QAccessible_Text_Name;
 const DESCRIPTION: u32 = QAccessible_Text_Description;
@@ -31,17 +27,24 @@ const VALUE_MINIMUM: u32 = CHECKED + 1;
 const VALUE_MAXIMUM: u32 = VALUE_MINIMUM + 1;
 const VALUE_STEP: u32 = VALUE_MAXIMUM + 1;
 
+pub struct AccessibleItemPropertiesTracker {
+    obj: *mut c_void,
+}
+
 impl PropertyChangeHandler for AccessibleItemPropertiesTracker {
     fn notify(&self) {
-        let accessible_item = self.accessible_item;
-        cpp!(unsafe [accessible_item as "Slint_accessible_item*"] {
-            QTimer::singleShot(0, [accessible_item]() {
+        let obj = self.obj;
+        cpp!(unsafe [obj as "QObject*"] {
+            QTimer::singleShot(0, [obj = QPointer(obj)]() {
+                if (!obj)
+                    return;
+
+                auto accessible_item = static_cast<Slint_accessible_item*>(QAccessible::queryAccessibleInterface(obj));
                 auto data = accessible_item->data();
                 rust!(AccessibleItemPropertiesTracker_rearm [data: Pin<&SlintAccessibleItemData> as "void*"] {
                     data.arm_state_tracker();
                 });
 
-                auto obj = accessible_item->object();
                 QAccessible::State s = {};
                 s.checked = true; // Mark checked as changed!
                 auto event = QAccessibleStateChangeEvent(obj, s);
@@ -52,20 +55,23 @@ impl PropertyChangeHandler for AccessibleItemPropertiesTracker {
 }
 
 pub struct ValuePropertyTracker {
-    accessible_item: *mut c_void,
+    obj: *mut c_void,
 }
 
 impl PropertyChangeHandler for ValuePropertyTracker {
     fn notify(&self) {
-        let accessible_item = self.accessible_item;
-        cpp!(unsafe [accessible_item as "Slint_accessible_item*"] {
-            QTimer::singleShot(0, [accessible_item]() {
+        let obj = self.obj;
+        cpp!(unsafe [obj as "QObject*"] {
+            QTimer::singleShot(0, [ obj = QPointer(obj)]() {
+                if (!obj)
+                    return;
+
+                auto accessible_item = static_cast<Slint_accessible_item*>(QAccessible::queryAccessibleInterface(obj));
                 auto data = accessible_item->data();
                 rust!(ValuePropertyTracker_rearm [data: Pin<&SlintAccessibleItemData> as "void*"] {
                     data.arm_value_tracker();
                 });
 
-                auto obj = accessible_item->object();
                 auto event = QAccessibleValueChangeEvent(obj, accessible_item->currentValue());
                 QAccessible::updateAccessibility(&event);
             });
@@ -74,20 +80,23 @@ impl PropertyChangeHandler for ValuePropertyTracker {
 }
 
 pub struct LabelPropertyTracker {
-    accessible_item: *mut c_void,
+    obj: *mut c_void,
 }
 
 impl PropertyChangeHandler for LabelPropertyTracker {
     fn notify(&self) {
-        let accessible_item = self.accessible_item;
-        cpp!(unsafe [accessible_item as "Slint_accessible_item*"] {
-            QTimer::singleShot(0, [accessible_item]() {
+        let obj = self.obj;
+        cpp!(unsafe [obj as "QObject*"] {
+            QTimer::singleShot(0, [obj = QPointer(obj)]() {
+                if (!obj)
+                    return;
+
+                auto accessible_item = static_cast<Slint_accessible_item*>(QAccessible::queryAccessibleInterface(obj));
                 auto data = accessible_item->data();
                 rust!(LabelPropertyTracker_rearm [data: Pin<&SlintAccessibleItemData> as "void*"] {
                     data.arm_label_tracker();
                 });
 
-                auto obj = accessible_item->object();
                 auto event = QAccessibleEvent(obj, QAccessible::NameChanged);
                 QAccessible::updateAccessibility(&event);
             });
@@ -96,45 +105,49 @@ impl PropertyChangeHandler for LabelPropertyTracker {
 }
 
 pub struct DescriptionPropertyTracker {
-    accessible_item: *mut c_void,
+    obj: *mut c_void,
 }
 
 impl PropertyChangeHandler for DescriptionPropertyTracker {
     fn notify(&self) {
-        let accessible_item = self.accessible_item;
-        cpp!(unsafe [accessible_item as "Slint_accessible_item*"] {
-            QTimer::singleShot(0, [accessible_item]() {
+        let obj = self.obj;
+        cpp!(unsafe [obj as "QObject*"] {
+            QTimer::singleShot(0, [obj = QPointer(obj)]() {
+                if (!obj)
+                    return;
+
+                auto accessible_item = static_cast<Slint_accessible_item*>(QAccessible::queryAccessibleInterface(obj));
                 auto data = accessible_item->data();
                 rust!(DescriptionPropertyTracker_rearm [data: Pin<&SlintAccessibleItemData> as "void*"] {
                     data.arm_description_tracker();
                 });
 
-                auto obj = accessible_item->object();
                 auto event = QAccessibleEvent(obj, QAccessible::DescriptionChanged);
                 QAccessible::updateAccessibility(&event);
             });
-
         });
     }
 }
 
 pub struct FocusDelegationPropertyTracker {
-    accessible_item: *mut c_void,
+    obj: *mut c_void,
 }
 
 impl PropertyChangeHandler for FocusDelegationPropertyTracker {
     fn notify(&self) {
-        let accessible_item = self.accessible_item;
-        cpp!(unsafe [accessible_item as "Slint_accessible_item*"] {
-            QTimer::singleShot(0, [accessible_item]() {
+        let obj = self.obj;
+        cpp!(unsafe [obj as "QObject*"] {
+            QTimer::singleShot(0, [obj = QPointer(obj)]() {
+                if (!obj)
+                    return;
+
+                auto accessible_item = static_cast<Slint_accessible_item*>(QAccessible::queryAccessibleInterface(obj));
                 auto data = accessible_item->data();
                 rust!(FocusDelegationPropertyTracker_rearm [data: Pin<&SlintAccessibleItemData> as "void*"] {
                     data.arm_focus_delegation_tracker();
                 });
 
                 accessible_item->delegateFocus();
-
-                return accessible_item->data();
             });
         });
     }
@@ -156,23 +169,15 @@ pub struct SlintAccessibleItemData {
 }
 
 impl SlintAccessibleItemData {
-    fn new_pin_box(accessible_item: *mut c_void, item: &ItemWeak) -> Pin<Box<Self>> {
+    fn new_pin_box(obj: *mut c_void, item: &ItemWeak) -> Pin<Box<Self>> {
         let state_tracker =
-            PropertyTracker::new_with_change_handler(AccessibleItemPropertiesTracker {
-                accessible_item,
-            });
-        let value_tracker =
-            PropertyTracker::new_with_change_handler(ValuePropertyTracker { accessible_item });
-        let label_tracker =
-            PropertyTracker::new_with_change_handler(LabelPropertyTracker { accessible_item });
+            PropertyTracker::new_with_change_handler(AccessibleItemPropertiesTracker { obj });
+        let value_tracker = PropertyTracker::new_with_change_handler(ValuePropertyTracker { obj });
+        let label_tracker = PropertyTracker::new_with_change_handler(LabelPropertyTracker { obj });
         let description_tracker =
-            PropertyTracker::new_with_change_handler(DescriptionPropertyTracker {
-                accessible_item,
-            });
+            PropertyTracker::new_with_change_handler(DescriptionPropertyTracker { obj });
         let focus_delegation_tracker =
-            PropertyTracker::new_with_change_handler(FocusDelegationPropertyTracker {
-                accessible_item,
-            });
+            PropertyTracker::new_with_change_handler(FocusDelegationPropertyTracker { obj });
 
         let result = Box::pin(Self {
             state_tracker,
@@ -359,8 +364,8 @@ cpp! {{
     // Base object for accessibility support
     class Slint_accessible : public QAccessibleInterface {
     public:
-        Slint_accessible(QObject *obj, QAccessible::Role role, QAccessibleInterface *parent) :
-             has_focus(false), has_focus_delegation(false), m_role(role), m_parent(parent), m_object(obj)
+        Slint_accessible(QAccessible::Role role, QAccessibleInterface *parent) :
+             has_focus(false), has_focus_delegation(false), m_role(role), m_parent(parent)
         { }
 
         ~Slint_accessible() {
@@ -421,10 +426,6 @@ cpp! {{
 
         bool isValid() const override {
             return true;
-        }
-
-        QObject *object() const override {
-            return m_object;
         }
 
         // navigation, hierarchy
@@ -506,7 +507,6 @@ cpp! {{
     private:
         QAccessible::Role m_role = QAccessible::NoRole;
         QAccessibleInterface *m_parent = nullptr;
-        QObject *m_object = nullptr; // A dummy QObject to use QAccessible // This is directly or indirectly owned by the Slint_accessible_window!
         mutable QList<QObject*> m_children;
     };
 
@@ -517,12 +517,12 @@ cpp! {{
     class Slint_accessible_item : public Slint_accessible, public QAccessibleValueInterface {
     public:
         Slint_accessible_item(void *item, QObject *obj, QAccessible::Role role, QAccessibleInterface *parent) :
-            Slint_accessible(obj, role, parent)
+            Slint_accessible(role, parent), m_object(obj)
         {
-            m_data = rust!(Slint_accessible_item_ctor [this: *mut c_void as "Slint_accessible_item*",
+            m_data = rust!(Slint_accessible_item_ctor [obj: *mut c_void as "QObject*",
                     item: &ItemWeak as "void*"] ->
                     *mut SlintAccessibleItemData as "void*" {
-                        let data = SlintAccessibleItemData::new_pin_box(this, item);
+                        let data = SlintAccessibleItemData::new_pin_box(obj, item);
                         unsafe { Box::into_raw(Pin::into_inner_unchecked(data)) }
             });
         }
@@ -537,6 +537,10 @@ cpp! {{
             return rust!(Slint_accessible_item_rustItem [m_data: Pin<&SlintAccessibleItemData> as "void*"] -> *const ItemWeak as "void*" {
                 &m_data.item
             });
+        }
+
+        QObject *object() const override {
+            return m_object;
         }
 
         QWidget *qwidget() const override {
@@ -614,6 +618,7 @@ cpp! {{
         }
 
     private:
+        QObject *m_object = nullptr;
         mutable void *m_data = nullptr;
     };
 
@@ -624,7 +629,8 @@ cpp! {{
     class Slint_accessible_window : public Slint_accessible {
     public:
         Slint_accessible_window(QWidget *widget, void *rust_window) :
-            Slint_accessible(widget, QAccessible::Window, QAccessible::queryAccessibleInterface(qApp)),
+            Slint_accessible(QAccessible::Window, QAccessible::queryAccessibleInterface(qApp)),
+            m_widget(widget),
             m_rustWindow(rust_window)
         { }
 
@@ -639,8 +645,12 @@ cpp! {{
             return root_item_for_window(m_rustWindow);
         }
 
+        QObject *object() const override {
+            return m_widget;
+        }
+
         QWidget *qwidget() const override {
-            return qobject_cast<QWidget *>(object());
+            return m_widget;
         }
 
         QWindow *window() const override {
@@ -663,6 +673,7 @@ cpp! {{
         }
 
     private:
+        QWidget *m_widget;
         void *m_rustWindow;
     };
 
