@@ -5,15 +5,13 @@ use alloc::vec::Vec;
 use core::cell::RefCell;
 
 #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
-use i_slint_core::thread_local_ as thread_local;
+use crate::thread_local_ as thread_local;
 
-use crate::{LogicalLength, LogicalSize, PhysicalLength, PhysicalSize, ScaleFactor};
-use i_slint_core::{
-    graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, FontRequest},
-    slice::Slice,
-    textlayout::{Glyph, TextLayout, TextShaper},
-    Coord,
-};
+use crate::graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, FontRequest};
+use crate::lengths::{LogicalLength, LogicalSize, PhysicalLength, PhysicalSize, ScaleFactor};
+use crate::slice::Slice;
+use crate::textlayout::{Glyph, TextLayout, TextShaper};
+use crate::Coord;
 
 thread_local! {
     static FONTS: RefCell<Vec<&'static BitmapFont>> = RefCell::default()
@@ -134,7 +132,7 @@ impl TextShaper for PixelFont {
     }
 }
 
-impl i_slint_core::textlayout::FontMetrics<PhysicalLength> for PixelFont {
+impl crate::textlayout::FontMetrics<PhysicalLength> for PixelFont {
     fn ascent(&self) -> PhysicalLength {
         self.glyphs.ascent(self.bitmap_font)
     }

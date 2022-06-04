@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use i_slint_core::Coord;
+use crate::Coord;
 pub struct PhysicalPx;
 pub type PhysicalLength = euclid::Length<i16, PhysicalPx>;
 pub type PhysicalRect = euclid::Rect<i16, PhysicalPx>;
@@ -74,7 +74,7 @@ pub trait LogicalItemGeometry {
     fn logical_geometry(self: core::pin::Pin<&Self>) -> LogicalRect;
 }
 
-impl<T: i_slint_core::items::Item> LogicalItemGeometry for T {
+impl<T: crate::items::Item> LogicalItemGeometry for T {
     fn logical_geometry(self: core::pin::Pin<&Self>) -> LogicalRect {
         LogicalRect::from_untyped(&self.geometry())
     }

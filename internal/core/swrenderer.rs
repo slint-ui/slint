@@ -2,26 +2,28 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 mod draw_functions;
+pub mod fonts;
 
-use crate::lengths::PhysicalPx;
-use crate::{
+use crate::graphics::{FontRequest, IntRect, PixelFormat, Rect as RectF};
+use crate::item_rendering::{ItemRenderer, PartialRenderingCache};
+use crate::items::{ImageFit, ItemRc};
+use crate::lengths::{
     LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, PhysicalLength, PhysicalPoint,
-    PhysicalRect, PhysicalSize, PointLengths, RectLengths, ScaleFactor, SizeLengths,
+    PhysicalPx, PhysicalRect, PhysicalSize, PointLengths, RectLengths, ScaleFactor, SizeLengths,
 };
+use crate::textlayout::{FontMetrics as _, TextParagraphLayout};
+use crate::{Color, Coord, ImageInner, StaticTextures};
 use alloc::rc::Rc;
 use alloc::{vec, vec::Vec};
 use core::pin::Pin;
 pub use draw_functions::TargetPixel;
-use embedded_graphics::pixelcolor::Rgb888;
-use i_slint_core::graphics::{FontRequest, IntRect, PixelFormat, Rect as RectF};
-use i_slint_core::item_rendering::{ItemRenderer, PartialRenderingCache};
-use i_slint_core::items::{ImageFit, ItemRc};
-use i_slint_core::textlayout::{FontMetrics as _, TextParagraphLayout};
-use i_slint_core::{Color, Coord, ImageInner, StaticTextures};
 
 type DirtyRegion = PhysicalRect;
 
 pub trait LineBufferProvider {
+    /// The pixel type of the buffer
+    type TargetPixel: TargetPixel;
+
     /// Called before the frame is being drawn, with the dirty region. Return the actual dirty region
     ///
     /// The default implementation simply returns the dirty_region
@@ -33,13 +35,13 @@ pub trait LineBufferProvider {
     fn process_line(
         &mut self,
         line: PhysicalLength,
-        render_fn: impl FnOnce(&mut [super::TargetPixel]),
+        render_fn: impl FnOnce(&mut [Self::TargetPixel]),
     );
 }
 
 #[derive(Default)]
 pub struct LineRenderer {
-    partial_cache: i_slint_core::item_rendering::PartialRenderingCache,
+    partial_cache: crate::item_rendering::PartialRenderingCache,
 }
 
 impl LineRenderer {
@@ -55,22 +57,20 @@ impl LineRenderer {
     /// TODO: should `initial_dirty_region` be set from a different call?
     pub fn render(
         &mut self,
-        window: Rc<i_slint_core::window::Window>,
-        initial_dirty_region: i_slint_core::item_rendering::DirtyRegion,
+        window: Rc<crate::window::Window>,
+        initial_dirty_region: crate::item_rendering::DirtyRegion,
         line_buffer: impl LineBufferProvider,
     ) {
         let component_rc = window.component();
-        let component = i_slint_core::component::ComponentRc::borrow_pin(&component_rc);
-        if let Some(window_item) = i_slint_core::items::ItemRef::downcast_pin::<
-            i_slint_core::items::WindowItem,
-        >(component.as_ref().get_item_ref(0))
-        {
+        let component = crate::component::ComponentRc::borrow_pin(&component_rc);
+        if let Some(window_item) = crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(
+            component.as_ref().get_item_ref(0),
+        ) {
             let size = euclid::size2(window_item.width() as f32, window_item.height() as f32)
                 * ScaleFactor::new(window.scale_factor());
-            let background = to_rgb888_color_discard_alpha(window_item.background());
             render_window_frame(
                 window,
-                background.into(),
+                window_item.background(),
                 size.cast(),
                 initial_dirty_region,
                 &mut self.partial_cache,
@@ -81,7 +81,7 @@ impl LineRenderer {
 
     pub fn free_graphics_resources(
         &mut self,
-        items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'_>>>,
+        items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
     ) {
         for item in items {
             let cache_entry = item.cached_rendering_data_offset().release(&mut self.partial_cache);
@@ -91,10 +91,10 @@ impl LineRenderer {
 }
 
 fn render_window_frame(
-    runtime_window: Rc<i_slint_core::window::Window>,
-    background: super::TargetPixel,
+    runtime_window: Rc<crate::window::Window>,
+    background: Color,
     size: PhysicalSize,
-    initial_dirty_region: i_slint_core::item_rendering::DirtyRegion,
+    initial_dirty_region: crate::item_rendering::DirtyRegion,
     cache: &mut PartialRenderingCache,
     mut line_buffer: impl LineBufferProvider,
 ) {
@@ -106,8 +106,8 @@ fn render_window_frame(
     debug_assert!(scene.current_line >= dirty_region.origin.y_length());
     while scene.current_line < dirty_region.origin.y_length() + dirty_region.size.height_length() {
         line_buffer.process_line(scene.current_line, |line_buffer| {
-            line_buffer[dirty_region.min_x() as usize..dirty_region.max_x() as usize]
-                .fill(background);
+            TargetPixel::blend_buffer(&mut line_buffer[dirty_region.min_x() as usize..dirty_region.max_x() as usize] , background);
+
             for span in scene.items[0..scene.current_items_index].iter().rev() {
                 debug_assert!(scene.current_line >= span.pos.y_length());
                 debug_assert!(scene.current_line < span.pos.y_length() + span.size.height_length(),);
@@ -363,19 +363,16 @@ struct RoundedRectangle {
 }
 
 fn prepare_scene(
-    runtime_window: Rc<i_slint_core::window::Window>,
+    runtime_window: Rc<crate::window::Window>,
     size: PhysicalSize,
-    initial_dirty_region: i_slint_core::item_rendering::DirtyRegion,
+    initial_dirty_region: crate::item_rendering::DirtyRegion,
     line_buffer: &mut impl LineBufferProvider,
     cache: &mut PartialRenderingCache,
 ) -> Scene {
     let factor = ScaleFactor::new(runtime_window.scale_factor());
     let prepare_scene = PrepareScene::new(size, factor, runtime_window.default_font_properties());
-    let mut renderer = i_slint_core::item_rendering::PartialRenderer::new(
-        cache,
-        initial_dirty_region,
-        prepare_scene,
-    );
+    let mut renderer =
+        crate::item_rendering::PartialRenderer::new(cache, initial_dirty_region, prepare_scene);
 
     let mut dirty_region = PhysicalRect::default();
     runtime_window.draw_contents(|components| {
@@ -393,7 +390,7 @@ fn prepare_scene(
 
         renderer.combine_clip((dirty_region.cast() / factor).to_untyped().cast(), 0 as _, 0 as _);
         for (component, origin) in components {
-            i_slint_core::item_rendering::render_component_items(component, &mut renderer, *origin);
+            crate::item_rendering::render_component_items(component, &mut renderer, *origin);
         }
     });
 
@@ -472,7 +469,7 @@ impl PrepareScene {
     fn draw_image_impl(
         &mut self,
         geom: LogicalRect,
-        source: &i_slint_core::graphics::Image,
+        source: &crate::graphics::Image,
         mut source_rect: IntRect,
         image_fit: ImageFit,
         colorize: Color,
@@ -576,8 +573,8 @@ struct RenderState {
     clip: LogicalRect,
 }
 
-impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
-    fn draw_rectangle(&mut self, rect: Pin<&i_slint_core::items::Rectangle>, _: &ItemRc) {
+impl crate::item_rendering::ItemRenderer for PrepareScene {
+    fn draw_rectangle(&mut self, rect: Pin<&crate::items::Rectangle>, _: &ItemRc) {
         let geom = LogicalRect::new(LogicalPoint::default(), rect.logical_geometry().size_length());
         if self.should_draw(&geom) {
             let geom = match geom.intersection(&self.current_state.clip) {
@@ -594,11 +591,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         }
     }
 
-    fn draw_border_rectangle(
-        &mut self,
-        rect: Pin<&i_slint_core::items::BorderRectangle>,
-        _: &ItemRc,
-    ) {
+    fn draw_border_rectangle(&mut self, rect: Pin<&crate::items::BorderRectangle>, _: &ItemRc) {
         let geom = LogicalRect::new(LogicalPoint::default(), rect.logical_geometry().size_length());
         if self.should_draw(&geom) {
             let border = rect.border_width();
@@ -664,7 +657,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         }
     }
 
-    fn draw_image(&mut self, image: Pin<&i_slint_core::items::ImageItem>, _: &ItemRc) {
+    fn draw_image(&mut self, image: Pin<&crate::items::ImageItem>, _: &ItemRc) {
         let geom =
             LogicalRect::new(LogicalPoint::default(), image.logical_geometry().size_length());
         if self.should_draw(&geom) {
@@ -679,7 +672,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         }
     }
 
-    fn draw_clipped_image(&mut self, image: Pin<&i_slint_core::items::ClippedImage>, _: &ItemRc) {
+    fn draw_clipped_image(&mut self, image: Pin<&crate::items::ClippedImage>, _: &ItemRc) {
         let geom =
             LogicalRect::new(LogicalPoint::default(), image.logical_geometry().size_length());
         if self.should_draw(&geom) {
@@ -708,7 +701,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         }
     }
 
-    fn draw_text(&mut self, text: Pin<&i_slint_core::items::Text>, _: &ItemRc) {
+    fn draw_text(&mut self, text: Pin<&crate::items::Text>, _: &ItemRc) {
         let string = text.text();
         if string.trim().is_empty() {
             return;
@@ -719,8 +712,8 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         }
 
         let font_request = text.unresolved_font_request().merge(&self.default_font);
-        let font = crate::fonts::match_font(&font_request, self.scale_factor);
-        let layout = crate::fonts::text_layout_for_font(&font, &font_request, self.scale_factor);
+        let font = fonts::match_font(&font_request, self.scale_factor);
+        let layout = fonts::text_layout_for_font(&font, &font_request, self.scale_factor);
 
         let color = text.color().color();
         let max_size = (geom.size.cast() * self.scale_factor).cast();
@@ -777,18 +770,18 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         });
     }
 
-    fn draw_text_input(&mut self, text_input: Pin<&i_slint_core::items::TextInput>, _: &ItemRc) {
+    fn draw_text_input(&mut self, text_input: Pin<&crate::items::TextInput>, _: &ItemRc) {
         text_input.logical_geometry();
         // TODO
     }
 
     #[cfg(feature = "std")]
-    fn draw_path(&mut self, path: Pin<&i_slint_core::items::Path>, _: &ItemRc) {
+    fn draw_path(&mut self, path: Pin<&crate::items::Path>, _: &ItemRc) {
         path.logical_geometry();
         // TODO
     }
 
-    fn draw_box_shadow(&mut self, box_shadow: Pin<&i_slint_core::items::BoxShadow>, _: &ItemRc) {
+    fn draw_box_shadow(&mut self, box_shadow: Pin<&crate::items::BoxShadow>, _: &ItemRc) {
         box_shadow.logical_geometry();
         // TODO
     }
@@ -805,7 +798,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         // TODO: handle radius and border
     }
 
-    fn get_current_clip(&self) -> i_slint_core::graphics::Rect {
+    fn get_current_clip(&self) -> crate::graphics::Rect {
         self.current_state.clip.to_untyped()
     }
 
@@ -847,7 +840,7 @@ impl i_slint_core::item_rendering::ItemRenderer for PrepareScene {
         todo!()
     }
 
-    fn window(&self) -> i_slint_core::window::WindowRc {
+    fn window(&self) -> crate::window::WindowRc {
         unreachable!("this backend don't query the window")
     }
 
@@ -863,8 +856,4 @@ fn bpp(format: PixelFormat) -> u16 {
         PixelFormat::Rgba => 4,
         PixelFormat::AlphaMap => 1,
     }
-}
-
-pub fn to_rgb888_color_discard_alpha(col: Color) -> Rgb888 {
-    Rgb888::new(col.red(), col.green(), col.blue())
 }

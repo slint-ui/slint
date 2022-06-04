@@ -11,14 +11,13 @@ extern crate alloc;
 use alloc::boxed::Box;
 use core::cell::RefCell;
 use embedded_graphics::prelude::*;
-
 use i_slint_core::items::{Item, WindowItem};
-
-#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
-use i_slint_core::unsafe_single_core;
-
+use i_slint_core::lengths::*;
+use i_slint_core::swrenderer as renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
 use i_slint_core::thread_local_ as thread_local;
+#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+use i_slint_core::unsafe_single_core;
 
 mod profiler;
 #[cfg(feature = "simulator")]
@@ -26,12 +25,6 @@ mod simulator;
 
 #[cfg(feature = "simulator")]
 use simulator::event_loop;
-
-mod fonts;
-mod lengths;
-mod renderer;
-
-use lengths::*;
 
 /// The Pixel type of the backing store
 pub type TargetPixel = embedded_graphics::pixelcolor::Rgb565;
@@ -203,7 +196,7 @@ mod the_backend {
             max_width: Option<Coord>,
         ) -> Size {
             let runtime_window = self.self_weak.upgrade().unwrap();
-            crate::fonts::text_size(
+            renderer::fonts::text_size(
                 font_request.merge(&runtime_window.default_font_properties()),
                 text,
                 max_width,
@@ -294,6 +287,8 @@ mod the_backend {
                     dirty_region: PhysicalRect,
                 }
                 impl renderer::LineBufferProvider for BufferProvider<'_> {
+                    type TargetPixel = super::TargetPixel;
+
                     fn set_dirty_region(&mut self, mut dirty_region: PhysicalRect) -> PhysicalRect {
                         self.compute_dirty_regions_profiler.stop(self.devices);
                         dirty_region = self.devices.prepare_frame(dirty_region);
@@ -421,7 +416,7 @@ mod the_backend {
             &'static self,
             font_data: &'static i_slint_core::graphics::BitmapFont,
         ) {
-            crate::fonts::register_bitmap_font(font_data);
+            crate::renderer::fonts::register_bitmap_font(font_data);
         }
 
         fn set_clipboard_text(&'static self, text: String) {

@@ -227,7 +227,7 @@ impl PlatformWindow for SimulatorWindow {
         max_width: Option<Coord>,
     ) -> i_slint_core::graphics::Size {
         let runtime_window = self.self_weak.upgrade().unwrap();
-        crate::fonts::text_size(
+        crate::renderer::fonts::text_size(
             font_request.merge(&self.self_weak.upgrade().unwrap().default_font_properties()),
             text,
             max_width,
@@ -286,9 +286,6 @@ impl WinitWindow for SimulatorWindow {
                 canvas.set_size(size.width, size.height, 1.0);
             }
 
-            let background =
-                crate::renderer::to_rgb888_color_discard_alpha(self.background_color.get());
-
             let mut frame_buffer = self.frame_buffer.borrow_mut();
             let display = match frame_buffer.as_mut() {
                 Some(buffer)
@@ -304,7 +301,6 @@ impl WinitWindow for SimulatorWindow {
                     super::LINE_RENDERER.with(|cache| {
                         *cache.borrow_mut() = Default::default();
                     });
-                    buffer.clear(background).unwrap();
                     buffer
                 }
             };
@@ -314,6 +310,8 @@ impl WinitWindow for SimulatorWindow {
                 line_buffer: Vec<crate::TargetPixel>,
             }
             impl crate::renderer::LineBufferProvider for BufferProvider<'_> {
+                type TargetPixel = crate::TargetPixel;
+
                 fn process_line(
                     &mut self,
                     line: crate::PhysicalLength,

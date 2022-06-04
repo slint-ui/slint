@@ -31,6 +31,9 @@ unsafe_single_core = []
 
 text_layout = []
 
+## The sofwtare renderer
+swrenderer = ["integer-sqrt", "text_layout"]
+
 unicode = ["unicode-script", "unicode-linebreak"]
 
 default = ["std", "text_layout", "unicode"]
@@ -67,6 +70,8 @@ strum = { version = "0.24.0", default-features = false, features = ["derive"] }
 unicode-segmentation = "1.8.0"
 unicode-linebreak = { version = "0.1.2", optional = true }
 unicode-script = { version = "0.5.3", optional = true }
+embedded-graphics = { version = "0.7.1", optional = true }
+integer-sqrt = { version = "0.1.5", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }
