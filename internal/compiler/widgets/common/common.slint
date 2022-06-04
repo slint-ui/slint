@@ -49,6 +49,7 @@ export TextEdit := ScrollView {
     has-focus <=> input.has-focus;
     enabled <=> input.enabled;
     property <TextWrap> wrap <=> input.wrap;
+    property horizontal-alignment <=> input.horizontal-alignment;
     callback edited(string);
     forward-focus: input;
 
