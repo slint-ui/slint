@@ -5,13 +5,12 @@
 //! on the line buffer
 
 use super::{SceneItem, SceneTexture};
-use crate::lengths::{PointLengths, SizeLengths};
-use crate::PhysicalLength;
+use crate::graphics::PixelFormat;
+use crate::lengths::{PhysicalLength, PointLengths, SizeLengths};
+use crate::Color;
 use derive_more::{Add, Mul, Sub};
-use embedded_graphics::pixelcolor::{Rgb565, Rgb888};
-use embedded_graphics::prelude::*;
-use i_slint_core::graphics::PixelFormat;
-use i_slint_core::Color;
+#[cfg(feature = "embedded-graphics")]
+use embedded_graphics::prelude::RgbColor as _;
 use integer_sqrt::IntegerSquareRoot;
 
 /// Draw one line of the texture in the line buffer
@@ -247,10 +246,11 @@ pub trait TargetPixel: Sized + Copy {
     fn blend_buffer(to_fill: &mut [Self], color: Color);
 }
 
-impl TargetPixel for Rgb888 {
-    fn blend_buffer(to_fill: &mut [Rgb888], color: Color) {
+#[cfg(feature = "embedded-graphics")]
+impl TargetPixel for embedded_graphics::pixelcolor::Rgb888 {
+    fn blend_buffer(to_fill: &mut [Self], color: Color) {
         if color.alpha() == u8::MAX {
-            to_fill.fill(super::to_rgb888_color_discard_alpha(color))
+            to_fill.fill(Self::new(color.red(), color.green(), color.blue()))
         } else {
             for pix in to_fill {
                 Self::blend_pixel(pix, color);
@@ -258,10 +258,10 @@ impl TargetPixel for Rgb888 {
         }
     }
 
-    fn blend_pixel(pix: &mut Rgb888, color: Color) {
+    fn blend_pixel(pix: &mut Self, color: Color) {
         let a = (u8::MAX - color.alpha()) as u16;
         let b = color.alpha() as u16;
-        *pix = Rgb888::new(
+        *pix = Self::new(
             ((pix.r() as u16 * a + color.red() as u16 * b) / 255) as u8,
             ((pix.g() as u16 * a + color.green() as u16 * b) / 255) as u8,
             ((pix.b() as u16 * a + color.blue() as u16 * b) / 255) as u8,
@@ -269,10 +269,11 @@ impl TargetPixel for Rgb888 {
     }
 }
 
-impl TargetPixel for Rgb565 {
-    fn blend_buffer(to_fill: &mut [Rgb565], color: Color) {
+#[cfg(feature = "embedded-graphics")]
+impl TargetPixel for embedded_graphics::pixelcolor::Rgb565 {
+    fn blend_buffer(to_fill: &mut [Self], color: Color) {
         if color.alpha() == u8::MAX {
-            to_fill.fill(Rgb565::new(color.red() >> 3, color.green() >> 2, color.blue() >> 3))
+            to_fill.fill(Self::new(color.red() >> 3, color.green() >> 2, color.blue() >> 3))
         } else {
             for pix in to_fill {
                 Self::blend_pixel(pix, color);
@@ -280,10 +281,10 @@ impl TargetPixel for Rgb565 {
         }
     }
 
-    fn blend_pixel(pix: &mut Rgb565, color: Color) {
+    fn blend_pixel(pix: &mut Self, color: Color) {
         let a = (u8::MAX - color.alpha()) as u16;
         let b = color.alpha() as u16;
-        *pix = Rgb565::new(
+        *pix = Self::new(
             ((((pix.r() as u16) << 3) * a + color.red() as u16 * b) / 2040) as u8,
             ((((pix.g() as u16) << 2) * a + color.green() as u16 * b) / 1020) as u8,
             ((((pix.b() as u16) << 3) * a + color.blue() as u16 * b) / 2040) as u8,

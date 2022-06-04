@@ -74,11 +74,14 @@ pub mod item_rendering;
 pub mod item_tree;
 pub mod items;
 pub mod layout;
+pub mod lengths;
 pub mod model;
 pub mod properties;
 pub mod sharedvector;
 pub mod slice;
 pub mod string;
+#[cfg(feature = "swrenderer")]
+pub mod swrenderer;
 pub mod tests;
 pub mod timers;
 pub mod window;

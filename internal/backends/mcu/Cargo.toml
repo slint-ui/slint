@@ -31,7 +31,7 @@ default = ["simulator"]
 
 [dependencies]
 i-slint-common = { version = "=0.2.5", path = "../../../internal/common", default-features = false }
-i-slint-core = { version = "=0.2.5", path = "../../../internal/core", default-features = false, features = ["libm", "text_layout"] }
+i-slint-core = { version = "=0.2.5", path = "../../../internal/core", default-features = false, features = ["libm", "swrenderer", "embedded-graphics"] }
 i-slint-core-macros = { version = "=0.2.5", path = "../../../internal/core-macros" }
 
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
@@ -45,7 +45,6 @@ euclid = { version = "0.22.1", default-features = false }
 femtovg = { version = "0.3.5", optional = true }
 glutin = { version = "0.28", default-features = false, optional = true, features = ["x11"] }
 imgref = { version = "1.6.1", optional = true }
-integer-sqrt = "0.1.5"
 once_cell = { version = "1.9", default-features = false, features = ["alloc", "atomic-polyfill"] }
 pin-weak = { version = "1", default-features = false }
 rgb = "0.8.27"
