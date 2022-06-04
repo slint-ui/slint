@@ -14,6 +14,7 @@ export LineEditInner := Rectangle {
     property has-focus <=> input.has-focus;
     property input-type <=> input.input-type;
     property horizontal-alignment <=> input.horizontal-alignment;
+    property read-only <=> input.read-only;
     min-height: input.preferred-height;
     min-width: max(50px, placeholder.min-width);
     clip: true;
@@ -50,6 +51,7 @@ export TextEdit := ScrollView {
     enabled <=> input.enabled;
     property <TextWrap> wrap <=> input.wrap;
     property horizontal-alignment <=> input.horizontal-alignment;
+    property read-only <=> input.read-only;
     callback edited(string);
     forward-focus: input;
 
