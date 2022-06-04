@@ -415,6 +415,7 @@ export LineEdit := Rectangle {
     property <bool> enabled <=> inner.enabled;
     property input-type <=> inner.input-type;
     property horizontal-alignment <=> inner.horizontal-alignment;
+    property read-only <=> inner.read-only;
     callback accepted <=> inner.accepted;
     callback edited <=> inner.edited;
     forward-focus: inner;
