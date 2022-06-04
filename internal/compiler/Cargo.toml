@@ -32,7 +32,7 @@ display-diagnostics = ["codemap", "codemap-diagnostic"]
 i-slint-common = { version = "=0.2.5", path = "../common" }
 
 num_enum = "0.5.1"
-rowan = "0.15.3"
+rowan = "0.15.5"
 smol_str = "0.1.17"
 derive_more = "0.99.5"
 codemap-diagnostic = { version = "0.1.1", optional = true }

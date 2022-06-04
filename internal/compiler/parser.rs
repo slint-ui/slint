@@ -705,12 +705,12 @@ impl SyntaxToken {
                 rowan::NodeOrToken::Token(t) => Some(t),
             })
             .or_else(|| {
-                self.token.ancestors().find_map(|it| it.next_sibling_or_token()).and_then(|e| {
-                    match e {
+                self.token.parent_ancestors().find_map(|it| it.next_sibling_or_token()).and_then(
+                    |e| match e {
                         rowan::NodeOrToken::Node(n) => n.first_token(),
                         rowan::NodeOrToken::Token(t) => Some(t),
-                    }
-                })
+                    },
+                )
             })?;
         Some(SyntaxToken { token, source_file: self.source_file.clone() })
     }
