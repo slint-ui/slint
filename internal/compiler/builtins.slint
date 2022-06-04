@@ -220,6 +220,7 @@ export TextInput := _ {
     callback cursor_position_changed(Point);
     property <bool> enabled: true;
     property <bool> single-line: true;
+    property <bool> read-only: false;
     //-default_size_binding:expands_to_parent_geometry
     //-accepts_focus
 }
