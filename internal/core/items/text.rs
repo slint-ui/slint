@@ -312,24 +312,24 @@ impl Item for TextInput {
             KeyEventType::KeyPressed => {
                 match event.text_shortcut() {
                     Some(text_shortcut) => match text_shortcut {
-                        TextShortcut::Move(direction) => {
+                        TextShortcut::Move(direction) if !self.read_only() => {
                             TextInput::move_cursor(self, direction, event.modifiers.into(), window);
                             return KeyEventResult::EventAccepted;
                         }
-                        TextShortcut::DeleteForward => {
+                        TextShortcut::DeleteForward if !self.read_only() => {
                             TextInput::delete_char(self, window);
                             return KeyEventResult::EventAccepted;
                         }
-                        TextShortcut::DeleteBackward => {
+                        TextShortcut::DeleteBackward if !self.read_only() => {
                             TextInput::delete_previous(self, window);
                             return KeyEventResult::EventAccepted;
                         }
                     },
                     None => (),
                 };
-
+                
                 if let Some(keycode) = event.text.chars().next() {
-                    if keycode == key_codes::Return && self.single_line() {
+                    if keycode == key_codes::Return && !self.read_only() && self.single_line() {
                         Self::FIELD_OFFSETS.accepted.apply_pin(self).call(&());
                         return KeyEventResult::EventAccepted;
                     }
@@ -354,11 +354,11 @@ impl Item for TextInput {
                             self.copy();
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Paste => {
+                        StandardShortcut::Paste if !self.read_only() => {
                             self.paste(window);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Cut => {
+                        StandardShortcut::Cut if !self.read_only() => {
                             self.copy();
                             self.delete_selection(window);
                             return KeyEventResult::EventAccepted;
@@ -367,7 +367,7 @@ impl Item for TextInput {
                     },
                     None => (),
                 }
-                if event.modifiers.control || self.read_only() {
+                if self.read_only() || event.modifiers.control {
                     return KeyEventResult::EventIgnored;
                 }
                 self.delete_selection(window);
@@ -634,9 +634,6 @@ impl TextInput {
     }
 
     fn delete_char(self: Pin<&Self>, window: &WindowRc) {
-        if self.read_only() {
-            return;
-        }
         if !self.has_selection() {
             self.move_cursor(TextCursorDirection::Forward, AnchorMode::KeepAnchor, window);
         }
@@ -644,9 +641,6 @@ impl TextInput {
     }
 
     fn delete_previous(self: Pin<&Self>, window: &WindowRc) {
-        if self.read_only() {
-            return;
-        }
         if self.has_selection() {
             self.delete_selection(window);
             return;
@@ -658,9 +652,6 @@ impl TextInput {
     }
 
     fn delete_selection(self: Pin<&Self>, window: &WindowRc) {
-        if self.read_only() {
-            return;
-        }
         let text: String = self.text().into();
         if text.is_empty() {
             return;
@@ -704,9 +695,6 @@ impl TextInput {
     }
 
     fn insert(self: Pin<&Self>, text_to_insert: &str, window: &WindowRc) {
-        if self.read_only() {
-            return;
-        }
         self.delete_selection(window);
         let mut text: String = self.text().into();
         let cursor_pos = self.selection_anchor_and_cursor().1;
@@ -734,9 +722,6 @@ impl TextInput {
     }
 
     fn paste(self: Pin<&Self>, window: &WindowRc) {
-        if self.read_only() {
-            return;
-        }
         if let Some(text) = crate::backend::instance().and_then(|backend| backend.clipboard_text())
         {
             self.insert(&text, window);
