@@ -367,7 +367,7 @@ impl Item for TextInput {
                     },
                     None => (),
                 }
-                if event.modifiers.control {
+                if event.modifiers.control || self.read_only() {
                     return KeyEventResult::EventIgnored;
                 }
                 self.delete_selection(window);
@@ -634,7 +634,7 @@ impl TextInput {
     }
 
     fn delete_char(self: Pin<&Self>, window: &WindowRc) {
-        if self.read_only {
+        if self.read_only() {
             return;
         }
         if !self.has_selection() {
@@ -644,7 +644,7 @@ impl TextInput {
     }
 
     fn delete_previous(self: Pin<&Self>, window: &WindowRc) {
-        if self.read_only {
+        if self.read_only() {
             return;
         }
         if self.has_selection() {
@@ -658,7 +658,7 @@ impl TextInput {
     }
 
     fn delete_selection(self: Pin<&Self>, window: &WindowRc) {
-        if self.read_only {
+        if self.read_only() {
             return;
         }
         let text: String = self.text().into();
@@ -704,7 +704,7 @@ impl TextInput {
     }
 
     fn insert(self: Pin<&Self>, text_to_insert: &str, window: &WindowRc) {
-        if self.read_only {
+        if self.read_only() {
             return;
         }
         self.delete_selection(window);
@@ -734,7 +734,7 @@ impl TextInput {
     }
 
     fn paste(self: Pin<&Self>, window: &WindowRc) {
-        if self.read_only {
+        if self.read_only() {
             return;
         }
         if let Some(text) = crate::backend::instance().and_then(|backend| backend.clipboard_text())
