@@ -169,6 +169,8 @@ A widget used to enter a single line of text
 * **`has-focus`**: (*bool*): Set to true when the line edit currently has the focus
 * **`placeholder-text`**: (*string*): A placeholder text being shown when there is no text in the edit field
 * **`enabled`**: (*bool*): Defaults to true. When false, nothing can be entered
+* **`read-only`** (bool): When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as 
+  editing text programatically (default value: `false`)
 * **`input-type`** (*enum [`InputType`](#InputType)*): The way to allow special input viewing properties such as password fields (default value: `text`).
 
 ### Callbacks
@@ -205,6 +207,8 @@ shortcut will be implemented in a future version: <https://github.com/slint-ui/s
 * **`font-size`** (*length*): the size of the font of the input text
 * **`has-focus`**: (*bool*): Set to true when the widget currently has the focus
 * **`enabled`**: (*bool*): Defaults to true. When false, nothing can be entered
+* **`read-only`** (bool): When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as 
+  editing text programatically (default value: `false`)
 * **`wrap`** (*enum [`TextWrap`](builtin_enums.md#textwrap)*): The way the text wraps (default: word-wrap).
 
 ### Callbacks
