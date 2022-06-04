@@ -13,6 +13,7 @@ export LineEditInner := Rectangle {
     property enabled <=> input.enabled;
     property has-focus <=> input.has-focus;
     property input-type <=> input.input-type;
+    property horizontal-alignment <=> input.horizontal-alignment;
     min-height: input.preferred-height;
     min-width: max(50px, placeholder.min-width);
     clip: true;
