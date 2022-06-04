@@ -34,6 +34,8 @@ export LineEdit := NativeLineEdit {
     property <string> text <=> inner.text;
     property <string> placeholder-text <=> inner.placeholder-text;
     property input-type <=> inner.input-type;
+    property horizontal-alignment <=> inner.horizontal-alignment;
+    property read-only <=> inner.read-only;
     enabled: true;
     has-focus <=> inner.has-focus;
     forward-focus: inner;

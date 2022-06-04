@@ -651,6 +651,8 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 * **`letter-spacing`** (*length*): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing
   and a negative value decreases the distance. The default value is 0.
 * **`single-line`** (bool): When set to `true`, no newlines are allowed (default value: `true`)
+* **`read-only`** (bool): When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as 
+  editing text programatically (default value: `false`)
 * **`wrap`** (*enum [`TextWrap`](builtin_enums.md#textwrap)*): The way the text input wraps.  Only makes sense when `single-line` is false. (default: no-wrap)
 * **`input-type`** (*enum [`InputType`](builtin_enums.md#InputType)*): The way to allow special input viewing properties such as password fields (default value: `text`).
 

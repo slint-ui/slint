@@ -203,6 +203,7 @@ pub struct TextInput {
     pub edited: Callback<VoidArg>,
     pub pressed: core::cell::Cell<bool>,
     pub single_line: Property<bool>,
+    pub read_only: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
     // The x position where the cursor wants to be.
     // It is not updated when moving up and down even when the line is shorter.
@@ -310,7 +311,7 @@ impl Item for TextInput {
         match event.event_type {
             KeyEventType::KeyPressed => {
                 match event.text_shortcut() {
-                    Some(text_shortcut) => match text_shortcut {
+                    Some(text_shortcut) if !self.read_only() => match text_shortcut {
                         TextShortcut::Move(direction) => {
                             TextInput::move_cursor(self, direction, event.modifiers.into(), window);
                             return KeyEventResult::EventAccepted;
@@ -324,11 +325,12 @@ impl Item for TextInput {
                             return KeyEventResult::EventAccepted;
                         }
                     },
+                    Some(_) => { return KeyEventResult::EventIgnored; }
                     None => (),
                 };
-
+                
                 if let Some(keycode) = event.text.chars().next() {
-                    if keycode == key_codes::Return && self.single_line() {
+                    if keycode == key_codes::Return && !self.read_only() && self.single_line() {
                         Self::FIELD_OFFSETS.accepted.apply_pin(self).call(&());
                         return KeyEventResult::EventAccepted;
                     }
@@ -353,20 +355,23 @@ impl Item for TextInput {
                             self.copy();
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Paste => {
+                        StandardShortcut::Paste if !self.read_only() => {
                             self.paste(window);
                             return KeyEventResult::EventAccepted;
                         }
-                        StandardShortcut::Cut => {
+                        StandardShortcut::Cut if !self.read_only() => {
                             self.copy();
                             self.delete_selection(window);
                             return KeyEventResult::EventAccepted;
+                        }
+                        StandardShortcut::Paste | StandardShortcut::Cut => {
+                            return KeyEventResult::EventIgnored;
                         }
                         _ => (),
                     },
                     None => (),
                 }
-                if event.modifiers.control {
+                if self.read_only() || event.modifiers.control {
                     return KeyEventResult::EventIgnored;
                 }
                 self.delete_selection(window);

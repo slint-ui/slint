@@ -636,7 +636,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             0
         };
 
-        let text_cursor_width: f32 = if text_input.cursor_visible() && text_input.enabled() {
+        let text_cursor_width: f32 = if text_input.cursor_visible() && text_input.enabled() && !text_input.read_only() {
             text_input.text_cursor_width()
         } else {
             0.
