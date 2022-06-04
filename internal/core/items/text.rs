@@ -203,6 +203,7 @@ pub struct TextInput {
     pub edited: Callback<VoidArg>,
     pub pressed: core::cell::Cell<bool>,
     pub single_line: Property<bool>,
+    pub read_only: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
     // The x position where the cursor wants to be.
     // It is not updated when moving up and down even when the line is shorter.
@@ -633,6 +634,9 @@ impl TextInput {
     }
 
     fn delete_char(self: Pin<&Self>, window: &WindowRc) {
+        if self.read_only {
+            return;
+        }
         if !self.has_selection() {
             self.move_cursor(TextCursorDirection::Forward, AnchorMode::KeepAnchor, window);
         }
@@ -640,6 +644,9 @@ impl TextInput {
     }
 
     fn delete_previous(self: Pin<&Self>, window: &WindowRc) {
+        if self.read_only {
+            return;
+        }
         if self.has_selection() {
             self.delete_selection(window);
             return;
@@ -651,6 +658,9 @@ impl TextInput {
     }
 
     fn delete_selection(self: Pin<&Self>, window: &WindowRc) {
+        if self.read_only {
+            return;
+        }
         let text: String = self.text().into();
         if text.is_empty() {
             return;
@@ -694,6 +704,9 @@ impl TextInput {
     }
 
     fn insert(self: Pin<&Self>, text_to_insert: &str, window: &WindowRc) {
+        if self.read_only {
+            return;
+        }
         self.delete_selection(window);
         let mut text: String = self.text().into();
         let cursor_pos = self.selection_anchor_and_cursor().1;
@@ -721,6 +734,9 @@ impl TextInput {
     }
 
     fn paste(self: Pin<&Self>, window: &WindowRc) {
+        if self.read_only {
+            return;
+        }
         if let Some(text) = crate::backend::instance().and_then(|backend| backend.clipboard_text())
         {
             self.insert(&text, window);
