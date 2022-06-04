@@ -312,7 +312,7 @@ impl Item for TextInput {
             KeyEventType::KeyPressed => {
                 match event.text_shortcut() {
                     Some(text_shortcut) => match text_shortcut {
-                        TextShortcut::Move(direction) if !self.read_only() => {
+                        TextShortcut::Move(direction) => {
                             TextInput::move_cursor(self, direction, event.modifiers.into(), window);
                             return KeyEventResult::EventAccepted;
                         }
