@@ -311,20 +311,21 @@ impl Item for TextInput {
         match event.event_type {
             KeyEventType::KeyPressed => {
                 match event.text_shortcut() {
-                    Some(text_shortcut) => match text_shortcut {
+                    Some(text_shortcut) if !self.read_only() => match text_shortcut {
                         TextShortcut::Move(direction) => {
                             TextInput::move_cursor(self, direction, event.modifiers.into(), window);
                             return KeyEventResult::EventAccepted;
                         }
-                        TextShortcut::DeleteForward if !self.read_only() => {
+                        TextShortcut::DeleteForward => {
                             TextInput::delete_char(self, window);
                             return KeyEventResult::EventAccepted;
                         }
-                        TextShortcut::DeleteBackward if !self.read_only() => {
+                        TextShortcut::DeleteBackward => {
                             TextInput::delete_previous(self, window);
                             return KeyEventResult::EventAccepted;
                         }
                     },
+                    Some(_) => { return KeyEventResult::EventIgnored; }
                     None => (),
                 };
                 
@@ -362,6 +363,9 @@ impl Item for TextInput {
                             self.copy();
                             self.delete_selection(window);
                             return KeyEventResult::EventAccepted;
+                        }
+                        StandardShortcut::Paste | StandardShortcut::Cut => {
+                            return KeyEventResult::EventIgnored;
                         }
                         _ => (),
                     },
@@ -480,6 +484,9 @@ impl From<KeyboardModifiers> for AnchorMode {
 
 impl TextInput {
     fn show_cursor(&self, window: &WindowRc) {
+        if self.read_only() {
+            return;
+        }
         window.set_cursor_blink_binding(&self.cursor_visible);
     }
 
