@@ -483,7 +483,7 @@ impl From<KeyboardModifiers> for AnchorMode {
 }
 
 impl TextInput {
-    fn show_cursor(self: Pin<&Self>, window: &WindowRc) {
+    fn show_cursor(&self, window: &WindowRc) {
         window.set_cursor_blink_binding(&self.cursor_visible);
     }
 
