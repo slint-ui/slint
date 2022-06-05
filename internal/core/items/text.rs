@@ -211,7 +211,13 @@ pub struct TextInput {
 }
 
 impl Item for TextInput {
-    fn init(self: Pin<&Self>, _window: &WindowRc) {}
+    fn init(self: Pin<&Self>, _window: &WindowRc) {
+        self.cursor_visible.set_binding({
+            let cursor_visible = self.cursor_visible.clone();
+            let read_only = self.read_only.clone();
+            move || cursor_visible.get() && !read_only.get()
+        });
+    }
 
     // FIXME: width / height.  or maybe it doesn't matter?  (
     fn geometry(self: Pin<&Self>) -> Rect {
@@ -484,7 +490,6 @@ impl From<KeyboardModifiers> for AnchorMode {
 
 impl TextInput {
     fn show_cursor(self: Pin<&Self>, window: &WindowRc) {
-	self.cursor_visible.set(self.read_only());
         window.set_cursor_blink_binding(&self.cursor_visible);
     }
 
