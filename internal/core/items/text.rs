@@ -484,9 +484,6 @@ impl From<KeyboardModifiers> for AnchorMode {
 
 impl TextInput {
     fn show_cursor(&self, window: &WindowRc) {
-        if self.read_only() {
-            return;
-        }
         window.set_cursor_blink_binding(&self.cursor_visible);
     }
 
