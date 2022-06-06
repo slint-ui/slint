@@ -101,11 +101,14 @@ cfg_if::cfg_if! {
             ($($t:tt)*) => ($crate::tests::log(&format_args!($($t)*).to_string()))
         }
     } else if #[cfg(feature = "std")] {
+        #[doc(hidden)]
+        pub use std::eprintln;
+
         /// This macro allows producing debug output that will appear on stderr in regular builds
         /// and in the console log for wasm builds.
         #[macro_export]
         macro_rules! debug_log {
-            ($($t:tt)*) => (eprintln!($($t)*))
+            ($($t:tt)*) => ($crate::tests::eprintln!($($t)*))
         }
     } else if #[cfg(feature = "defmt")] {
         #[doc(hidden)]

@@ -424,7 +424,7 @@ impl i_slint_core::backend::Backend for SimulatorBackend {
     }
 
     fn register_bitmap_font(&'static self, font_data: &'static i_slint_core::graphics::BitmapFont) {
-        crate::fonts::register_bitmap_font(font_data);
+        crate::renderer::fonts::register_bitmap_font(font_data);
     }
 
     fn set_clipboard_text(&'static self, _text: String) {
