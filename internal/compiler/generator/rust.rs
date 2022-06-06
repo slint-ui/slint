@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// cSpell: ignore conv powf punct
+// cSpell: ignore conv powf punct vref
 
 /*! module for the Rust code generator
 
@@ -632,16 +632,22 @@ fn generate_sub_component(
             let lv_w = access_member(&listview.listview_width, &ctx);
 
             quote! {
-                #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated_listview(
+                let ts = #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated_listview(
                     || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).into() },
                     #vp_w, #vp_h, #vp_y, #lv_w.get(), #lv_h
                 );
+                if ts {
+                    self.notify_about_subtree_change(#idx);
+                }
             }
         } else {
             quote! {
-                #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
+                let ts = #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
                     || #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).into()
                 );
+                if ts {
+                    self.notify_about_subtree_change(#idx);
+                }
             }
         };
         repeated_visit_branch.push(quote!(
@@ -1180,6 +1186,21 @@ fn generate_item_tree(
                 self.index_property()
             }
 
+            fn notify_about_subtree_change(self: ::core::pin::Pin<&Self>, repeater_index: usize)
+            {
+                println!("Rust Component Callback: Updating subtree below repeater {repeater_index}");
+                let item_tree = Self::item_tree();
+                let subtree_index = *item_tree.iter().find_map(
+                        |it|
+                        match it {
+                            slint::re_exports::ItemTreeNode::DynamicTree { index, parent_index, .. } if *index == repeater_index => Some(parent_index),
+                            _ => None,
+                        })
+                        .expect("The repeater must be used in the item tree!");
+                let self_rc = VRcMapped::origin(&self.self_weak.get().unwrap().upgrade().unwrap());
+                self.window_handle().process_item_structure_change(&slint::re_exports::ItemRc::new(self_rc, subtree_index as usize));
+            }
+
             fn parent_node(self: ::core::pin::Pin<&Self>, _result: &mut slint::re_exports::ItemWeak) {
                 #parent_item_expression
             }
@@ -1188,8 +1209,6 @@ fn generate_item_tree(
                 self.layout_info(orientation)
             }
         }
-
-
     )
 }
 
@@ -2063,13 +2082,16 @@ fn box_layout_function(
                 });
                 repeater_idx += 1;
                 push_code.push(quote!(
-                        #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
+                        let ts = #inner_component_id::FIELD_OFFSETS.#repeater_id.apply_pin(_self).ensure_updated(
                             || { #rep_inner_component_id::new(_self.self_weak.get().unwrap().clone()).into() }
                         );
                         let internal_vec = _self.#repeater_id.components_vec();
                         #ri
                         for sub_comp in &internal_vec {
                             items_vec.push(sub_comp.as_pin_ref().box_layout_data(#orientation))
+                        }
+                        if ts {
+                            self.notify_about_subtree_change(#repeater);
                         }
                     ));
             }

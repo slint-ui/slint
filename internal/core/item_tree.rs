@@ -112,6 +112,17 @@ impl ItemRc {
         r.upgrade()?.parent_item()
     }
 
+    pub fn has_ancestor(&self, ancestor: &ItemRc) -> bool {
+        let mut this = Some(self.clone());
+        while let Some(item) = this {
+            if item == *ancestor {
+                return true;
+            }
+            this = item.parent_item();
+        }
+        false
+    }
+
     // FIXME: This should be nicer/done elsewhere?
     pub fn is_visible(&self) -> bool {
         let item = self.borrow();

@@ -180,6 +180,9 @@ pub struct Window {
     active: Pin<Box<Property<bool>>>,
     active_popup: RefCell<Option<PopupWindow>>,
     close_requested: Callback<(), CloseRequestResponse>,
+
+    // The topmost item that has structural changes to the item tree
+    changed_item: RefCell<crate::item_tree::ItemWeak>,
 }
 
 impl Drop for Window {
@@ -209,6 +212,7 @@ impl Window {
             active: Box::pin(Property::new_named(false, "i_slint_core::Window::active")),
             active_popup: Default::default(),
             close_requested: Default::default(),
+            changed_item: Default::default(),
         });
         let window_weak = Rc::downgrade(&window);
         window.platform_window.set(platform_window_fn(&window_weak)).ok().unwrap();
@@ -257,6 +261,28 @@ impl Window {
     /// returns the component or None if it isn't set.
     pub fn try_component(&self) -> Option<ComponentRc> {
         self.component.borrow().upgrade()
+    }
+
+    /// Process item structure change
+    pub fn process_item_structure_change(&self, item_rc: &ItemRc) {
+        println!("Processing item structure change in {item_rc:?}.");
+        let mut value = self.changed_item.borrow_mut();
+        if let Some(old_top) = value.upgrade() {
+            let mut new_ancestor = Some(item_rc.clone());
+            while let Some(i) = new_ancestor {
+                if old_top.has_ancestor(&i) {
+                    // i is the common node from which the old and the new item
+                    // can be reached:
+                    println!("  >>> Using common ancestor {i:?}.");
+                    *value = i.downgrade();
+                    return;
+                }
+                new_ancestor = i.parent_item();
+            }
+        }
+
+        // No or no valid item stored:
+        *value = item_rc.downgrade();
     }
 
     /// Receive a mouse event and pass it to the items of the component to

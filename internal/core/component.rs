@@ -55,6 +55,10 @@ pub struct ComponentVTable {
         result: &mut vtable::VWeak<ComponentVTable, Dyn>,
     ),
 
+    /// Request notification about a change in the subtree below `index`
+    pub notify_about_subtree_change:
+        extern "C" fn(core::pin::Pin<VRef<ComponentVTable>>, index: usize),
+
     /// Return the item tree that is defined by this `Component`.
     /// The return value is an item weak because it can be null if there is no parent.
     /// And the return value is passed by &mut because ItemWeak has a destructor

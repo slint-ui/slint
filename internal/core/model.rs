@@ -586,11 +586,18 @@ struct RepeaterInner<C: RepeatedComponent> {
     offset: usize,
     /// The average visible item_height. Only used for ListView
     cached_item_height: Coord,
+    /// Was the tree structure below the repeater changed?
+    has_subtree_changed: bool,
 }
 
 impl<C: RepeatedComponent> Default for RepeaterInner<C> {
     fn default() -> Self {
-        RepeaterInner { components: Default::default(), offset: 0, cached_item_height: 0 as _ }
+        RepeaterInner {
+            components: Default::default(),
+            offset: 0,
+            cached_item_height: 0 as _,
+            has_subtree_changed: false,
+        }
     }
 }
 
@@ -642,6 +649,7 @@ impl<C: RepeatedComponent> ModelChangeListener for RepeaterTracker<C> {
             // Because all the indexes are dirty
             c.0 = RepeatedComponentState::Dirty;
         }
+        inner.has_subtree_changed = true;
     }
     /// Notify the peers that rows were removed
     fn row_removed(&self, mut index: usize, mut count: usize) {
@@ -667,11 +675,16 @@ impl<C: RepeatedComponent> ModelChangeListener for RepeaterTracker<C> {
             // Because all the indexes are dirty
             c.0 = RepeatedComponentState::Dirty;
         }
+        inner.has_subtree_changed = true;
     }
 
     fn reset(&self) {
         self.is_dirty.set(true);
-        self.inner.borrow_mut().components.clear();
+        let mut inner = self.inner.borrow_mut();
+        if !inner.components.is_empty() {
+            inner.components.clear();
+            inner.has_subtree_changed = true;
+        }
     }
 }
 
@@ -716,13 +729,21 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         }
     }
 
+    fn take_subtree_change(self: Pin<&Self>) -> bool {
+        let mut inner = self.0.inner.borrow_mut();
+        let result = inner.has_subtree_changed;
+        inner.has_subtree_changed = false;
+        result
+    }
+
     /// Call this function to make sure that the model is updated.
     /// The init function is the function to create a component
-    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ComponentRc<C>) {
+    pub fn ensure_updated(self: Pin<&Self>, init: impl Fn() -> ComponentRc<C>) -> bool {
         let model = self.model();
         if self.data().project_ref().is_dirty.get() {
             self.ensure_updated_impl(init, &model, model.row_count());
         }
+        self.take_subtree_change()
     }
 
     // returns true if new items were created
@@ -759,15 +780,16 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         viewport_y: Pin<&Property<Coord>>,
         listview_width: Coord,
         listview_height: Pin<&Property<Coord>>,
-    ) {
+    ) -> bool {
         let model = self.model();
         let row_count = model.row_count();
         if row_count == 0 {
-            self.0.inner.borrow_mut().components.clear();
+            let mut inner = self.0.inner.borrow_mut();
+            inner.components.clear();
             viewport_height.set(0 as _);
             viewport_y.set(0 as _);
 
-            return;
+            return self.take_subtree_change();
         }
 
         let init = &init;
@@ -873,6 +895,8 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
             self.ensure_updated_impl(init, &model, count);
             self.compute_layout_listview(viewport_width, listview_width);
         }
+
+        self.take_subtree_change()
     }
 
     fn set_offset(&self, offset: usize, count: usize) {
