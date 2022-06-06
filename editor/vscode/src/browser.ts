@@ -14,7 +14,7 @@ function startClient(context: vscode.ExtensionContext) {
 
     //let args = vscode.workspace.getConfiguration('slint').get<[string]>('lsp-args');
 
-    const documentSelector = [{ scheme: 'file', language: 'slint' }];
+    const documentSelector = [{ language: 'slint' }];
 
     // Options to control the language client
     const clientOptions: LanguageClientOptions = {
