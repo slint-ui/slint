@@ -59,13 +59,13 @@ assert!(instance.get_offset_y() > 60.);
 assert!(instance.get_offset_x() < 290.);
 assert!(instance.get_offset_y() < 70.);
 
-slint::testing::mock_elapsed_time(50);
+slint::testing::mock_elapsed_time(200);
 // end of the animation
-assert_eq!(instance.get_offset_x(), 300.);
-assert_eq!(instance.get_offset_y(), 75.);
+assert_eq!(instance.get_offset_x(), 450.);
+assert_eq!(instance.get_offset_y(), 112.5);
 slint::testing::mock_elapsed_time(50);
-assert_eq!(instance.get_offset_x(), 300.);
-assert_eq!(instance.get_offset_y(), 75.);
+assert_eq!(instance.get_offset_x(), 450.);
+assert_eq!(instance.get_offset_y(), 112.5);
 ```
 
 */
