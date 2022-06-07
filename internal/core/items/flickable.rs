@@ -308,7 +308,7 @@ impl FlickableData {
             let speed =
                 dist / ((crate::animations::current_tick() - pressed_time).as_millis() as f32);
 
-            let duration = 100;
+            let duration = 250;
             let final_pos = ensure_in_bound(
                 flick,
                 (inner.pressed_viewport_pos.cast() + dist + speed * (duration as f32)).cast(),
