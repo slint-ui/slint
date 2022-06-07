@@ -325,10 +325,12 @@ impl Item for TextInput {
                             return KeyEventResult::EventAccepted;
                         }
                     },
-                    Some(_) => { return KeyEventResult::EventIgnored; }
+                    Some(_) => {
+                        return KeyEventResult::EventIgnored;
+                    }
                     None => (),
                 };
-                
+
                 if let Some(keycode) = event.text.chars().next() {
                     if keycode == key_codes::Return && !self.read_only() && self.single_line() {
                         Self::FIELD_OFFSETS.accepted.apply_pin(self).call(&());
