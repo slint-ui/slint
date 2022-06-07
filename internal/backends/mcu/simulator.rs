@@ -384,6 +384,15 @@ impl WinitWindow for SimulatorWindow {
         self.constraints.set(constraints)
     }
 
+    fn size(&self) -> winit::dpi::LogicalSize<f32> {
+        self.frame_buffer.borrow().as_ref().map_or(Default::default(), |display| {
+            let eg_size = display.size();
+            winit::dpi::LogicalSize::new(eg_size.width as f32, eg_size.height as f32)
+        })
+    }
+    fn set_size(&self, _size: winit::dpi::LogicalSize<f32>) {
+        // dummy since it shouldn't be needed
+    }
     fn set_background_color(&self, color: Color) {
         self.background_color.set(color);
     }
