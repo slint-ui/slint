@@ -32,7 +32,13 @@ pub trait WinitWindow: PlatformWindow {
         &self,
         constraints: (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo),
     );
+    /// Get the size of the window. Unlike [`winit::window::Window::inner_size()`], this property does not
+    /// hold the most recent window size as known by the OS but the latest size that has been processed
+    /// as a [`WindowEvent::Resized`] by [`process_window_event()`].
     fn size(&self) -> winit::dpi::LogicalSize<f32>;
+    /// Set the size of the window. Unlike [`winit::window::Window::set_inner_size()`], this property does not
+    /// hold the most recent window size as known by the OS but the latest size that has been processed
+    /// as a [`WindowEvent::Resized`] by [`process_window_event()`].
     fn set_size(&self, size: winit::dpi::LogicalSize<f32>);
     fn set_background_color(&self, color: Color);
     fn set_icon(&self, icon: corelib::graphics::Image);
