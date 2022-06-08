@@ -19,24 +19,24 @@ use i_slint_core::{Brush, Color, ImageInner, Property, SharedString};
 use crate::event_loop::WinitWindow;
 use crate::fonts;
 use crate::glwindow::{GLWindow, PASSWORD_CHARACTER};
-use crate::images::{CachedImage, TextureCacheKey};
+use crate::images::{CachedImage, Texture, TextureCacheKey};
 
 pub type Canvas = femtovg::Canvas<femtovg::renderer::OpenGl>;
 pub type CanvasRc = Rc<RefCell<Canvas>>;
 
 #[derive(Clone)]
 pub enum ItemGraphicsCacheEntry {
-    Image(Rc<CachedImage>),
+    Image(Rc<Texture>),
     ColorizedImage {
         // This original image Rc is kept here to keep the image in the shared image cache, so that
         // changes to the colorization brush will not require re-uploading the image.
-        _original_image: Rc<CachedImage>,
-        colorized_image: Rc<CachedImage>,
+        _original_image: Rc<Texture>,
+        colorized_image: Rc<Texture>,
     },
 }
 
 impl ItemGraphicsCacheEntry {
-    fn as_image(&self) -> &Rc<CachedImage> {
+    fn as_image(&self) -> &Rc<Texture> {
         match self {
             ItemGraphicsCacheEntry::Image(image) => image,
             ItemGraphicsCacheEntry::ColorizedImage { colorized_image, .. } => colorized_image,
@@ -63,7 +63,7 @@ pub struct GLItemRenderer {
     // Layers that were scheduled for rendering where we can't delete the femtovg::ImageId yet
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
     // `set_render_target` commands with image ids that have been deleted.
-    layer_images_to_delete_after_flush: Vec<CachedImage>,
+    layer_images_to_delete_after_flush: Vec<Rc<crate::images::Texture>>,
     pub graphics_window: Rc<GLWindow>,
     scale_factor: f32,
     /// track the state manually since femtovg don't have accessor for its state
@@ -629,7 +629,7 @@ impl ItemRenderer for GLItemRenderer {
                         canvas.set_render_target(self.current_render_target());
                     }
 
-                    Rc::new(shadow_image)
+                    shadow_image
                 })
                 .into()
             });
@@ -790,15 +790,15 @@ impl ItemRenderer for GLItemRenderer {
                     if let Ok(image_id) =
                         canvas.borrow_mut().create_image(img, femtovg::ImageFlags::PREMULTIPLIED)
                     {
-                        cached_image = Some(ItemGraphicsCacheEntry::Image(Rc::new(
-                            CachedImage::new_on_gpu(canvas, image_id),
+                        cached_image = Some(ItemGraphicsCacheEntry::Image(CachedImage::new_on_gpu(
+                            canvas, image_id,
                         )))
                     };
                 });
                 cached_image
             });
         let image_id = match cache_entry {
-            Some(ItemGraphicsCacheEntry::Image(image)) => image.ensure_uploaded_to_gpu(self, None),
+            Some(ItemGraphicsCacheEntry::Image(image)) => image.id,
             Some(ItemGraphicsCacheEntry::ColorizedImage { .. }) => unreachable!(),
             None => return,
         };
@@ -904,7 +904,7 @@ impl GLItemRenderer {
         &mut self,
         item_rc: &ItemRc,
         layer_logical_size_fn: &dyn Fn() -> Size,
-    ) -> Option<Rc<CachedImage>> {
+    ) -> Option<Rc<Texture>> {
         let cache_entry =
             self.graphics_window.clone().graphics_cache.get_or_update_cache_entry(item_rc, || {
                 ItemGraphicsCacheEntry::Image({
@@ -958,7 +958,7 @@ impl GLItemRenderer {
                         canvas.set_render_target(previous_render_target);
                     }
 
-                    Rc::new(layer_image)
+                    layer_image
                 })
                 .into()
             });
@@ -1021,7 +1021,7 @@ impl GLItemRenderer {
             }
         };
 
-        let image_id = original_image.ensure_uploaded_to_gpu(self, Some(scaling));
+        let image_id = original_image.id;
         let colorized_image = self
             .canvas
             .borrow_mut()
@@ -1069,7 +1069,7 @@ impl GLItemRenderer {
 
         ItemGraphicsCacheEntry::ColorizedImage {
             _original_image: original_image.clone(),
-            colorized_image: Rc::new(CachedImage::new_on_gpu(&self.canvas, colorized_image)),
+            colorized_image: CachedImage::new_on_gpu(&self.canvas, colorized_image),
         }
     }
 
@@ -1122,17 +1122,23 @@ impl GLItemRenderer {
                                         global_cache.borrow_mut().load_image_resource(image_inner)
                                     })
                                     .and_then(|image| {
-                                        image
-                                            .upload_to_gpu(
-                                                self, // The condition at the entry of the function ensures that width/height are positive
-                                                target_size_for_scalable_source,
-                                                image_rendering,
-                                            )
-                                            .map(Rc::new)
+                                        image.upload_to_gpu(
+                                            self, // The condition at the entry of the function ensures that width/height are positive
+                                            target_size_for_scalable_source,
+                                            image_rendering,
+                                        )
                                     })
                             })
                     })
-                    .or_else(|| CachedImage::new_from_resource(image_inner).map(Rc::new))
+                    .or_else(|| {
+                        CachedImage::new_from_resource(image_inner).and_then(|image| {
+                            image.upload_to_gpu(
+                                self,
+                                target_size_for_scalable_source,
+                                image_rendering,
+                            )
+                        })
+                    })
                     .map(ItemGraphicsCacheEntry::Image)
                     .map(|cache_entry| {
                         self.colorize_image(cache_entry, colorize_property, image_rendering)
@@ -1161,7 +1167,7 @@ impl GLItemRenderer {
             break cached_image.as_image().clone();
         };
 
-        let image_id = cached_image.ensure_uploaded_to_gpu(self, Some(image_rendering));
+        let image_id = cached_image.id;
         let image_size = cached_image.size().unwrap_or_default().cast();
 
         let (source_width, source_height) = if source_clip_rect.is_empty() {
