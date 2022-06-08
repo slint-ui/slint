@@ -11,6 +11,7 @@ All notable changes to this project are documented in this file.
 
  - Added the Model Adapters `FilterModel` and `MapModel`.
  - Added `@radial-gradient(circle, ...)`
+ - Added `read-only` property to `TextInput`, `TextEdit` and `LineEdit`.
 
 ### Fixed
 
