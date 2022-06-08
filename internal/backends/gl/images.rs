@@ -402,14 +402,16 @@ impl CachedImage {
         }
     }
 
-    pub(crate) fn filter(&self, canvas: &CanvasRc, filter: femtovg::ImageFilter) -> Self {
-        let (image_id, size) = match &*self.0.borrow() {
-            ImageData::Texture(texture) => texture.size().map(|size| (texture.id, size)),
+    pub(crate) fn filter(&self, filter: femtovg::ImageFilter) -> Self {
+        let (canvas, image_id, size) = match &*self.0.borrow() {
+            ImageData::Texture(texture) => {
+                texture.size().map(|size| (texture.canvas.clone(), texture.id, size))
+            }
             _ => None,
         }
         .expect("internal error: Cannot filter non-GPU images");
 
-        let filtered_image = Self::new_empty_on_gpu(canvas, size.width, size.height).expect(
+        let filtered_image = Self::new_empty_on_gpu(&canvas, size.width, size.height).expect(
             "internal error: this can only fail if the filtered image was zero width or height",
         );
 

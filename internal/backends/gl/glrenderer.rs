@@ -595,10 +595,8 @@ impl ItemRenderer for GLItemRenderer {
                     }
 
                     let shadow_image = if blur > 0. {
-                        let blurred_image = shadow_image.filter(
-                            &self.canvas,
-                            femtovg::ImageFilter::GaussianBlur { sigma: blur / 2. },
-                        );
+                        let blurred_image = shadow_image
+                            .filter(femtovg::ImageFilter::GaussianBlur { sigma: blur / 2. });
 
                         self.canvas
                             .borrow_mut()
