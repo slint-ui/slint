@@ -121,7 +121,7 @@ pub fn generate(doc: &Document) -> TokenStream {
     let sub_compos = llr
         .sub_components
         .iter()
-        .map(|sub_compo| generate_sub_component(sub_compo, &llr, None, quote!(), None))
+        .map(|sub_compo| generate_sub_component(sub_compo, &llr, None, quote!(), None, false))
         .collect::<Vec<_>>();
 
     let compo = generate_public_component(&llr);
@@ -520,6 +520,7 @@ fn generate_sub_component(
     parent_ctx: Option<ParentCtx>,
     extra_fields: TokenStream,
     index_property: Option<llr::PropertyIndex>,
+    pinned_drop: bool,
 ) -> TokenStream {
     let inner_component_id = inner_component_id(component);
 
@@ -776,11 +777,13 @@ fn generate_sub_component(
         quote!(core::usize::MAX)
     };
 
+    let pin_macro = if pinned_drop { quote!(#[pin_drop]) } else { quote!(#[pin]) };
+
     quote!(
         #[derive(slint::re_exports::FieldOffsets, Default)]
         #[const_field_offset(slint::re_exports::const_field_offset)]
         #[repr(C)]
-        #[pin]
+        #pin_macro
         #visibility
         struct #inner_component_id {
             #(#item_names : slint::re_exports::#item_types,)*
@@ -998,6 +1001,7 @@ fn generate_item_tree(
         parent_ctx.clone(),
         extra_fields,
         index_property,
+        true,
     );
     let inner_component_id = self::inner_component_id(&sub_tree.root);
     let parent_component_type = parent_ctx.iter().map(|parent| {
