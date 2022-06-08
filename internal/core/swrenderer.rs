@@ -730,6 +730,9 @@ impl crate::item_rendering::ItemRenderer for PrepareScene {
             single_line: false,
         };
 
+        let clip = self.current_state.clip.cast() * self.scale_factor;
+        let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
+
         paragraph.layout_lines(|glyphs, line_x, line_y| {
             let baseline_y = line_y + font.ascent();
             while let Some(positioned_glyph) = glyphs.next() {
@@ -744,10 +747,7 @@ impl crate::item_rendering::ItemRenderer for PrepareScene {
                 )
                 .cast();
 
-                if let Some(clipped_src) =
-                    src_rect.intersection(&(self.current_state.clip.cast() * self.scale_factor))
-                {
-                    let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
+                if let Some(clipped_src) = src_rect.intersection(&clip) {
                     let geometry = clipped_src.translate(offset).round();
                     let origin = (geometry.origin - offset.round()).cast::<usize>();
                     let actual_x = origin.x - src_rect.origin.x as usize;

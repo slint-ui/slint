@@ -165,7 +165,7 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
 
                 let glyph_it = glyphs[line.glyph_range.clone()].iter();
                 let mut glyph_x = Font::Length::zero();
-                let mut positioned_glyph_it = glyph_it.filter_map(|glyph| {
+                let mut positioned_glyph_it = glyph_it.map_while(|glyph| {
                     // TODO: cut off at grapheme boundaries
                     if glyph_x > max_width_without_elision {
                         if let Some(elide_glyph) = elide_glyph.take() {
