@@ -202,6 +202,9 @@ pub fn compile_with_config(
 
     if env::var_os("DEP_I_SLINT_BACKEND_MCU_EMBED_TEXTURES").is_some() {
         compiler_config.embed_resources = EmbedResourcesKind::EmbedTextures;
+        // TODO: generalize by either having dedicated variable in mcu backend to disable a11y or
+        // use separate if block to disable features like this when any DEP_I_SLINT_BACKEND_MCU is set
+        compiler_config.accessibility = false;
     } else if let (Ok(target), Ok(host)) = (env::var("TARGET"), env::var("HOST")) {
         if target != host {
             compiler_config.embed_resources = EmbedResourcesKind::EmbedAllResources;

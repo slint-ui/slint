@@ -79,7 +79,12 @@ pub fn count_property_use(root: &PublicComponent) {
         sc.layout_info_h.borrow().visit_recursive(&mut |e| visit_expression(e, ctx));
         sc.layout_info_v.borrow().visit_recursive(&mut |e| visit_expression(e, ctx));
 
-        // 6. aliases (if they were not optimize, they are probably used)
+        // 6. accessibility props
+        for (_, b) in &sc.accessible_prop {
+            b.borrow().visit_recursive(&mut |e| visit_expression(e, ctx))
+        }
+
+        // 7. aliases (if they were not optimize, they are probably used)
         for (a, b) in &sc.two_way_bindings {
             visit_property(a, ctx);
             visit_property(b, ctx);

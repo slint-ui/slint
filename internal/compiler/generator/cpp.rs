@@ -832,8 +832,8 @@ fn generate_item_tree(
             let item_array_index = item_array.len() as u32;
 
             item_tree_array.push(format!(
-                "slint::private_api::make_item_node({}, {}, {}, {})",
-                children_count, children_index, parent_index, item_array_index,
+                "slint::private_api::make_item_node({}, {}, {}, {}, {})",
+                children_count, children_index, parent_index, item_array_index, node.is_accessible
             ));
             item_array.push(format!(
                 "{{ {}, {} offsetof({}, {}) }}",
@@ -1023,6 +1023,38 @@ fn generate_item_tree(
     ));
 
     target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "accessible_role".into(),
+            signature:
+                "([[maybe_unused]] slint::private_api::ComponentRef component, uintptr_t index) -> slint::cbindgen_private::AccessibleRole"
+                    .into(),
+            is_static: true,
+            statements: Some(vec![format!(
+                "return reinterpret_cast<const {}*>(component.instance)->accessible_role(index);",
+                item_tree_class_name
+            )]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        Access::Private,
+        Declaration::Function(Function {
+            name: "accessible_string_property".into(),
+            signature:
+                "([[maybe_unused]] slint::private_api::ComponentRef component, uintptr_t index, slint::cbindgen_private::AccessibleStringProperty what, slint::SharedString *result) -> void"
+                    .into(),
+            is_static: true,
+            statements: Some(vec![format!(
+                "*result = reinterpret_cast<const {}*>(component.instance)->accessible_string_property(index, what);",
+                item_tree_class_name
+            )]),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
         Access::Public,
         Declaration::Var(Var {
             ty: "static const slint::private_api::ComponentVTable".to_owned(),
@@ -1035,9 +1067,12 @@ fn generate_item_tree(
         ty: "const slint::private_api::ComponentVTable".to_owned(),
         name: format!("{}::static_vtable", item_tree_class_name),
         init: Some(format!(
-            "{{ visit_children, get_item_ref, get_subtree_range, get_subtree_component, get_item_tree, parent_node, subtree_index, layout_info, slint::private_api::drop_in_place<{}>, slint::private_api::dealloc }}",
-            item_tree_class_name)
-        ),
+            "{{ visit_children, get_item_ref, get_subtree_range, get_subtree_component, \
+                get_item_tree, parent_node, subtree_index, layout_info, \
+                accessible_role, accessible_string_property, \
+                slint::private_api::drop_in_place<{}>, slint::private_api::dealloc }}",
+            item_tree_class_name
+        )),
         ..Default::default()
     }));
 
@@ -1445,6 +1480,72 @@ fn generate_sub_component(
             ..Default::default()
         }),
     ));
+
+    let mut accessible_function = |name: &str,
+                                   signature: &str,
+                                   forward_args: &str,
+                                   code: Vec<String>| {
+        let mut code = ["[[maybe_unused]] auto self = this;".into()]
+            .into_iter()
+            .chain(code.into_iter())
+            .collect::<Vec<_>>();
+
+        let mut else_ = "";
+        for sub in &component.sub_components {
+            let sub_items_count = sub.ty.child_item_count();
+            code.push(format!("{else_}if (index == {}) {{", sub.index_in_tree,));
+            code.push(format!("    return self->{}.{name}(0{forward_args});", ident(&sub.name)));
+            if sub_items_count > 1 {
+                code.push(format!(
+                    "}} else if (index >= {} && index < {}) {{",
+                    sub.index_of_first_child_in_tree,
+                    sub.index_of_first_child_in_tree + sub_items_count - 1
+                ));
+                code.push(format!(
+                    "    return self->{}.{name}(index - {}{forward_args});",
+                    ident(&sub.name),
+                    sub.index_of_first_child_in_tree - 1
+                ));
+            }
+            else_ = "} else ";
+        }
+        code.push(format!("{else_}return {{}};"));
+        target_struct.members.push((
+            field_access,
+            Declaration::Function(Function {
+                name: name.into(),
+                signature: signature.into(),
+                statements: Some(code),
+                ..Default::default()
+            }),
+        ));
+    };
+
+    let mut accessible_role_cases = vec!["switch (index) {".into()];
+    let mut accessible_string_cases = vec!["switch ((index << 8) | uintptr_t(what)) {".into()];
+    for ((index, what), expr) in &component.accessible_prop {
+        let expr = compile_expression(&expr.borrow(), &ctx);
+        if what == "Role" {
+            accessible_role_cases.push(format!("    case {index}: return {expr};"));
+        } else {
+            accessible_string_cases.push(format!("    case ({index} << 8) | uintptr_t(slint::cbindgen_private::AccessibleStringProperty::{what}): return {expr};"));
+        }
+    }
+    accessible_role_cases.push("}".into());
+    accessible_string_cases.push("}".into());
+
+    accessible_function(
+        "accessible_role",
+        "(uintptr_t index) const -> slint::cbindgen_private::AccessibleRole",
+        "",
+        accessible_role_cases,
+    );
+    accessible_function(
+        "accessible_string_property",
+        "(uintptr_t index, slint::cbindgen_private::AccessibleStringProperty what) const -> slint::SharedString",
+        ", what",
+        accessible_string_cases,
+    );
 
     if !children_visitor_cases.is_empty() {
         target_struct.members.push((

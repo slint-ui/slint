@@ -1,0 +1,31 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+Button1 := Rectangle {
+    property <bool> cond;
+    accessible-role: cond ? button : AccessibleRole.text;
+    //              ^error{The `accessible-role` property must be a constant expression}
+}
+
+Button2 := Rectangle {
+    accessible-label: "the button";
+    //               ^error{The `accessible-label` property can only be set in combination to `accessible-role`}
+}
+
+Button3 := Rectangle {
+    Rectangle {
+        accessible-role: text;
+        accessible-label: "the button";
+    }
+}
+
+Test := Window {
+
+    Button1 { }
+    Button1 { accessible-description: "ok"; } // ok because Button1 has a role
+    Button2 { accessible-role: none; }
+    Button2 { }
+    Button3 {}
+    Button3 { accessible-description: "error";}
+    //                               ^error{The `accessible-description` property can only be set in combination to `accessible-role`}
+}

@@ -76,6 +76,9 @@ export Button := Rectangle {
     property<image> icon;
     property<length> font-size <=> text.font-size;
 
+    accessible-role: button;
+    accessible-label <=> text.text;
+
     border-width: 1px;
     border-radius: 2px;
     border-color: !enabled ? Palette.neutralLighter : Palette.neutralSecondaryAlt;

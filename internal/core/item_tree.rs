@@ -6,7 +6,9 @@
 //! This module contains code that helps navigating the tree of item
 
 use crate::component::{ComponentRc, ComponentVTable};
+use crate::graphics::{Point, Rect};
 use crate::items::{ItemRef, ItemVTable};
+use crate::SharedString;
 use core::pin::Pin;
 use vtable::*;
 
@@ -127,6 +129,50 @@ impl ItemRc {
         } else {
             true
         }
+    }
+
+    pub fn is_accessible(&self) -> bool {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        let item_tree = crate::item_tree::ComponentItemTree::new(&comp_ref_pin);
+
+        if let Some(n) = &item_tree.get(self.index) {
+            match n {
+                ItemTreeNode::Item { is_accessible, .. } => *is_accessible,
+                ItemTreeNode::DynamicTree { .. } => false,
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn accessible_role(&self) -> crate::items::AccessibleRole {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        comp_ref_pin.as_ref().accessible_role(self.index)
+    }
+
+    pub fn accessible_string_property(
+        &self,
+        what: crate::accessibility::AccessibleStringProperty,
+    ) -> SharedString {
+        let comp_ref_pin = vtable::VRc::borrow_pin(&self.component);
+        let mut result = Default::default();
+        comp_ref_pin.as_ref().accessible_string_property(self.index, what, &mut result);
+        result
+    }
+
+    pub fn geometry(&self) -> Rect {
+        self.borrow().as_ref().geometry()
+    }
+
+    pub fn map_to_window(&self, p: Point) -> Point {
+        let mut current = self.clone();
+        let mut result = p;
+        while let Some(parent) = current.parent_item() {
+            let geometry = parent.geometry();
+            result += geometry.origin.to_vector();
+            current = parent.clone();
+        }
+        return result;
     }
 
     /// Return the index of the item within the component
@@ -476,6 +522,9 @@ impl core::fmt::Debug for VisitChildrenResult {
 pub enum ItemTreeNode {
     /// Static item
     Item {
+        /// True when the item has accessibility properties attached
+        is_accessible: bool,
+
         /// number of children
         children_count: u32,
 
@@ -822,9 +871,12 @@ mod tests {
 
     use super::*;
 
+    use crate::accessibility::AccessibleStringProperty;
     use crate::component::{Component, ComponentRc, ComponentVTable, ComponentWeak, IndexRange};
+    use crate::items::AccessibleRole;
     use crate::layout::{LayoutInfo, Orientation};
     use crate::slice::Slice;
+    use crate::SharedString;
 
     use vtable::VRc;
 
@@ -885,6 +937,18 @@ mod tests {
                 self.subtrees.borrow()[subtree_index][component_index].clone(),
             ))
         }
+
+        fn accessible_role(self: Pin<&Self>, _: usize) -> AccessibleRole {
+            unimplemented!("Not needed for this test")
+        }
+
+        fn accessible_string_property(
+            self: Pin<&Self>,
+            _: usize,
+            _: AccessibleStringProperty,
+            _: &mut SharedString,
+        ) {
+        }
     }
 
     crate::component::ComponentVTable_static!(static TEST_COMPONENT_VT for TestComponent);
@@ -893,6 +957,7 @@ mod tests {
         let component = VRc::new(TestComponent {
             parent_component: None,
             item_tree: vec![ItemTreeNode::Item {
+                is_accessible: false,
                 children_count: 0,
                 children_index: 1,
                 parent_index: 0,
@@ -941,24 +1006,28 @@ mod tests {
             parent_component: None,
             item_tree: vec![
                 ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 3,
                     children_index: 1,
                     parent_index: 0,
                     item_array_index: 0,
                 },
                 ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 0,
                     children_index: 4,
                     parent_index: 0,
                     item_array_index: 1,
                 },
                 ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 0,
                     children_index: 4,
                     parent_index: 0,
                     item_array_index: 2,
                 },
                 ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 0,
                     children_index: 4,
                     parent_index: 0,
@@ -1067,6 +1136,7 @@ mod tests {
             parent_component: None,
             item_tree: vec![
                 ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 1,
                     children_index: 1,
                     parent_index: 0,
@@ -1121,12 +1191,14 @@ mod tests {
             parent_component: None,
             item_tree: vec![
                 ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 3,
                     children_index: 1,
                     parent_index: 0,
                     item_array_index: 0,
                 },
                 ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 0,
                     children_index: 4,
                     parent_index: 0,
@@ -1134,6 +1206,7 @@ mod tests {
                 },
                 ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
                 ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 0,
                     children_index: 4,
                     parent_index: 0,
@@ -1147,6 +1220,7 @@ mod tests {
         component.as_pin_ref().subtrees.replace(vec![vec![VRc::new(TestComponent {
             parent_component: Some(VRc::into_dyn(component.clone())),
             item_tree: vec![ItemTreeNode::Item {
+                is_accessible: false,
                 children_count: 0,
                 children_index: 1,
                 parent_index: 2,
@@ -1242,12 +1316,14 @@ mod tests {
             parent_component: None,
             item_tree: vec![
                 ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 3,
                     children_index: 1,
                     parent_index: 0,
                     item_array_index: 0,
                 },
                 ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 0,
                     children_index: 4,
                     parent_index: 0,
@@ -1255,6 +1331,7 @@ mod tests {
                 },
                 ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
                 ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 0,
                     children_index: 4,
                     parent_index: 0,
@@ -1269,6 +1346,7 @@ mod tests {
             parent_component: Some(VRc::into_dyn(component.clone())),
             item_tree: vec![
                 ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 1,
                     children_index: 1,
                     parent_index: 2,
@@ -1283,12 +1361,14 @@ mod tests {
             parent_component: Some(VRc::into_dyn(sub_component1.clone())),
             item_tree: vec![
                 ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 1,
                     children_index: 1,
                     parent_index: 1,
                     item_array_index: 0,
                 },
                 ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 0,
                     children_index: 2,
                     parent_index: 0,
@@ -1420,6 +1500,7 @@ mod tests {
             parent_component: None,
             item_tree: vec![
                 ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 2,
                     children_index: 1,
                     parent_index: 0,
@@ -1427,6 +1508,7 @@ mod tests {
                 },
                 ItemTreeNode::DynamicTree { index: 0, parent_index: 0 },
                 ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 0,
                     children_index: 4,
                     parent_index: 0,
@@ -1441,6 +1523,7 @@ mod tests {
             VRc::new(TestComponent {
                 parent_component: Some(VRc::into_dyn(component.clone())),
                 item_tree: vec![ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 0,
                     children_index: 1,
                     parent_index: 1,
@@ -1452,6 +1535,7 @@ mod tests {
             VRc::new(TestComponent {
                 parent_component: Some(VRc::into_dyn(component.clone())),
                 item_tree: vec![ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 0,
                     children_index: 1,
                     parent_index: 1,
@@ -1463,6 +1547,7 @@ mod tests {
             VRc::new(TestComponent {
                 parent_component: Some(VRc::into_dyn(component.clone())),
                 item_tree: vec![ItemTreeNode::Item {
+                    is_accessible: false,
                     children_count: 0,
                     children_index: 1,
                     parent_index: 1,
@@ -1510,6 +1595,7 @@ mod tests {
     #[test]
     fn test_component_item_tree_root_only() {
         let nodes = vec![ItemTreeNode::Item {
+            is_accessible: false,
             children_count: 0,
             children_index: 1,
             parent_index: 0,
@@ -1529,12 +1615,14 @@ mod tests {
     fn test_component_item_tree_one_child() {
         let nodes = vec![
             ItemTreeNode::Item {
+                is_accessible: false,
                 children_count: 1,
                 children_index: 1,
                 parent_index: 0,
                 item_array_index: 0,
             },
             ItemTreeNode::Item {
+                is_accessible: false,
                 children_count: 0,
                 children_index: 2,
                 parent_index: 0,
@@ -1558,24 +1646,28 @@ mod tests {
     fn test_component_item_tree_tree_children() {
         let nodes = vec![
             ItemTreeNode::Item {
+                is_accessible: false,
                 children_count: 3,
                 children_index: 1,
                 parent_index: 0,
                 item_array_index: 0,
             },
             ItemTreeNode::Item {
+                is_accessible: false,
                 children_count: 0,
                 children_index: 4,
                 parent_index: 0,
                 item_array_index: 0,
             },
             ItemTreeNode::Item {
+                is_accessible: false,
                 children_count: 0,
                 children_index: 4,
                 parent_index: 0,
                 item_array_index: 0,
             },
             ItemTreeNode::Item {
+                is_accessible: false,
                 children_count: 0,
                 children_index: 4,
                 parent_index: 0,

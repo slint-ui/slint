@@ -37,7 +37,7 @@ macro_rules! for_each_enums {
                 top,
                 /// The text will be vertically centered within the containing box.
                 center,
-                /// The text will be alignt to the bottom of the containing box.
+                /// The text will be aligned to the bottom of the containing box.
                 bottom,
             }
 
@@ -244,6 +244,27 @@ macro_rules! for_each_enums {
                 KeyPressed,
                 /// A key on a keyboard was released.
                 KeyReleased,
+            }
+
+            /// This enum represents the different values for the `accessible-role` property, used to describe the
+            /// role of an element in the context of assistive technology such as screen readers.
+            enum AccessibleRole {
+                /// The element is not accessible.
+                none,
+                /// The element is a Button or behaves like one.
+                button,
+                /// The element is a CheckBox or behaves like one.
+                checkbox,
+                /// The element is a ComboBox or behaves like one.
+                combobox,
+                /// The element is a Slider or behaves like one.
+                slider,
+                /// The element is a SpinBox or behaves like one.
+                spinbox,
+                /// The element is a Tab or behaves like one.
+                tab,
+                /// The role for a Text element. It is automatically applied.
+                text,
             }
         ];
     };

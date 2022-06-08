@@ -114,6 +114,9 @@ pub trait PlatformWindow {
 
     /// Return self as any so the backend can upcast
     fn as_any(&self) -> &dyn core::any::Any;
+
+    /// Handle focus change
+    fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {}
 }
 
 struct WindowPropertiesTracker {
@@ -368,8 +371,9 @@ impl Window {
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
     /// currently focused item.
     pub fn set_focus_item(self: Rc<Self>, focus_item: &ItemRc) {
-        self.take_focus_item();
-        self.move_focus(focus_item.clone(), next_focus_item);
+        let old = self.take_focus_item();
+        let new = self.clone().move_focus(focus_item.clone(), next_focus_item);
+        self.platform_window.get().unwrap().handle_focus_change(old, new);
     }
 
     /// Sets the focus on the window to true or false, depending on the have_focus argument.
@@ -416,7 +420,11 @@ impl Window {
         }
     }
 
-    fn move_focus(self: Rc<Self>, start_item: ItemRc, forward: impl Fn(ItemRc) -> ItemRc) {
+    fn move_focus(
+        self: Rc<Self>,
+        start_item: ItemRc,
+        forward: impl Fn(ItemRc) -> ItemRc,
+    ) -> Option<ItemRc> {
         let mut current_item = start_item;
         let mut visited = alloc::vec::Vec::new();
 
@@ -425,13 +433,13 @@ impl Window {
                 && self.clone().publish_focus_item(&Some(current_item.clone()))
                     == crate::input::FocusEventResult::FocusAccepted
             {
-                return; // Item was just published.
+                return Some(current_item); // Item was just published.
             }
             visited.push(current_item.clone());
             current_item = forward(current_item);
 
             if visited.iter().any(|i| *i == current_item) {
-                return; // Nothing to do: We took the focus_item already
+                return None; // Nothing to do: We took the focus_item already
             }
         }
     }
@@ -443,7 +451,8 @@ impl Window {
             .take_focus_item()
             .map(next_focus_item)
             .unwrap_or_else(|| ItemRc::new(component, 0));
-        self.move_focus(start_item, next_focus_item);
+        let end_item = self.clone().move_focus(start_item.clone(), next_focus_item);
+        self.platform_window.get().unwrap().handle_focus_change(Some(start_item), end_item);
     }
 
     /// Move keyboard focus to the previous item.
@@ -452,7 +461,8 @@ impl Window {
         let start_item = previous_focus_item(
             self.take_focus_item().unwrap_or_else(|| ItemRc::new(component, 0)),
         );
-        self.move_focus(start_item, previous_focus_item);
+        let end_item = self.clone().move_focus(start_item.clone(), previous_focus_item);
+        self.platform_window.get().unwrap().handle_focus_change(Some(start_item), end_item);
     }
 
     /// Marks the window to be the active window. This typically coincides with the keyboard

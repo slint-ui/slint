@@ -24,6 +24,23 @@ These properties are valid on all visible items
   merely a hint. (default: `false`)
 * **`dialog-button-role`** (*enum DialogButtonRole*): Specify that this is a button in a `Dialog`.
 
+### Accessibility
+
+Use the following `accessible-` properties to make your items interact well with software like screen readers, braille terminals and other software to make your application accessible.
+
+* **`accessible-role`** (*enum [`AccessibleRole`](builtin_enums.md#accessiblerole)*): The accessibility role of the element. This property is
+  mandatory to be able to use any other accessible properties. It should be set to a constant value.
+  The default value is `none` for most elements, but is `text` for the Text element.
+* **`accessible-label`** (*string*): The label for an interactive element.
+  The  default value is empty for most elements, or is the value of the `text` property for Text
+  elements.
+* **`accessible-description`** (*string*): The description for the current element.
+* **`accessible-checked`** (*bool*): Whether the element is checked or not. This maps to the "checked" state of checkboxes, radio buttons, and other widgets.
+* **`accessible-has-focus`** (*bool*): Set to true when the current element currently has the focus.
+* **`accessible-value`** (*string*): The current value of the item.
+* **`accessible-value-maximum`** (*float*): The maximum value of the item. This is used for example by spin boxes.
+* **`accessible-value-minimum`** (*float*): The minimum value of the item.
+* **`accessible-value-step`** (*float*) The smallest increment or decrement by which the current value can change. This corresponds to the step by which a handle on a slider can be dragged.
 
 ### Drop Shadows
 

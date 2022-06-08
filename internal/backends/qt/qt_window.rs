@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// cspell:ignore corelib SFPS QWIDGETSIZE pixmap qpointf qreal Antialiasing ARGB Rgba
+// cSpell: ignore antialiasing frameless qbrush qpointf qreal qwidgetsize svgz
 
 use cpp::*;
 use euclid::approxeq::ApproxEq;
@@ -35,6 +35,7 @@ cpp! {{
     #include <QtWidgets/QGraphicsScene>
     #include <QtWidgets/QGraphicsBlurEffect>
     #include <QtWidgets/QGraphicsPixmapItem>
+    #include <QtGui/QAccessible>
     #include <QtGui/QPainter>
     #include <QtGui/QPaintEngine>
     #include <QtGui/QPainterPath>
@@ -49,7 +50,9 @@ cpp! {{
     #include <QtCore/QBuffer>
     #include <QtCore/QEvent>
     #include <QtCore/QFileInfo>
+
     #include <memory>
+
     void ensure_initialized(bool from_qt_backend);
 
     using QPainterPtr = std::unique_ptr<QPainter>;
@@ -111,7 +114,7 @@ cpp! {{
         void mouseReleaseEvent(QMouseEvent *event) override {
             // HACK: Qt on windows is a bit special when clicking on the window
             //       close button and when the resulting close event is ignored.
-            //       In that case a release event that was not preceeded by
+            //       In that case a release event that was not preceded by
             //       a press event is sent on Windows.
             //       This confuses Slint, so eat this event.
             //
@@ -183,7 +186,7 @@ cpp! {{
 
         void customEvent(QEvent *event) override {
             if (event->type() == QEvent::User) {
-                rust!(Slint_updateWindowProps [rust_window: &QtWindow as "void*"]{
+                rust!(Slint_updateWindowProps [rust_window: &QtWindow as "void*"] {
                    if let Some(window) = rust_window.self_weak.upgrade() { window.update_window_properties() }
                 });
             } else {
@@ -194,7 +197,7 @@ cpp! {{
         void changeEvent(QEvent *event) override {
             if (event->type() == QEvent::ActivationChange) {
                 bool active = isActiveWindow();
-                rust!(Slint_updateWindowActivation [rust_window: &QtWindow as "void*", active: bool as "bool"]{
+                rust!(Slint_updateWindowActivation [rust_window: &QtWindow as "void*", active: bool as "bool"] {
                     if let Some(window) = rust_window.self_weak.upgrade() { window.set_active(active) }
                  });
             }
@@ -346,7 +349,7 @@ fn into_qbrush(
 ) -> qttypes::QBrush {
     /// Mangle the position to work around the fact that Qt merge stop at equal position
     fn mangle_position(position: f32, idx: usize, count: usize) -> f32 {
-        // Add or substract a small amount to make sure each stop is different but still in [0..1].
+        // Add or subtract a small amount to make sure each stop is different but still in [0..1].
         // It is possible that we swap stops that are both really really close to 0.54321+ε,
         // but that is really unlikely
         if position < 0.54321 + 67.8 * f32::EPSILON {
@@ -1275,9 +1278,15 @@ pub struct QtWindow {
 
 impl QtWindow {
     pub fn new(window_weak: &Weak<i_slint_core::window::Window>) -> Rc<Self> {
-        let widget_ptr = cpp! {unsafe [] -> QWidgetPtr as "std::unique_ptr<QWidget>" {
+        let window_ptr = window_weak.clone().into_raw();
+        let widget_ptr = cpp! {unsafe [window_ptr as "void*"] -> QWidgetPtr as "std::unique_ptr<QWidget>" {
             ensure_initialized(true);
-            return std::make_unique<SlintWidget>();
+            auto widget = std::make_unique<SlintWidget>();
+
+            auto accessibility = new Slint_accessible_window(widget.get(), window_ptr);
+            QAccessible::registerAccessibleInterface(accessibility);
+
+            return widget;
         }};
         let rc = Rc::new(QtWindow {
             widget_ptr,
@@ -1705,6 +1714,32 @@ impl PlatformWindow for QtWindow {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    fn handle_focus_change(&self, old: Option<ItemRc>, new: Option<ItemRc>) {
+        let widget_ptr = self.widget_ptr();
+        if let Some(ai) = accessible_item(new) {
+            let item = &ai;
+            cpp! {unsafe [widget_ptr as "QWidget*", item as "void*"] {
+                auto accessible = QAccessible::queryAccessibleInterface(widget_ptr);
+                if (auto slint_accessible = dynamic_cast<Slint_accessible*>(accessible)) {
+                    slint_accessible->clearFocus();
+                    slint_accessible->focusItem(item);
+                }
+            }};
+        }
+    }
+}
+
+fn accessible_item(item: Option<ItemRc>) -> Option<ItemRc> {
+    let mut current = item;
+    while let Some(c) = current {
+        if c.is_accessible() {
+            return Some(c);
+        } else {
+            current = c.parent_item();
+        }
+    }
+    None
 }
 
 fn get_font(request: FontRequest) -> QFont {

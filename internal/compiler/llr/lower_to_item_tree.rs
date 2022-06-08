@@ -191,10 +191,12 @@ fn lower_sub_component(
         // just initialize to dummy expression right now and it will be set later
         layout_info_h: super::Expression::BoolLiteral(false).into(),
         layout_info_v: super::Expression::BoolLiteral(false).into(),
+        accessible_prop: Default::default(),
         prop_analysis: Default::default(),
     };
     let mut mapping = LoweredSubComponentMapping::default();
     let mut repeated = vec![];
+    let mut accessible_prop = Vec::new();
 
     if let Some(parent) = component.parent_element.upgrade() {
         // Add properties for the model data and index
@@ -280,6 +282,11 @@ fn lower_sub_component(
             }
             _ => unreachable!(),
         };
+        for (key, nr) in &elem.accessibility_props.0 {
+            // TODO: we also want to split by type (role/string/...)
+            let enum_value = to_camel_case(key.strip_prefix("accessible-").unwrap());
+            accessible_prop.push((*elem.item_index.get().unwrap(), enum_value, nr.clone()));
+        }
         Some(element.clone())
     });
     let ctx = ExpressionContext { mapping: &mapping, state, parent: parent_context, component };
@@ -381,7 +388,48 @@ fn lower_sub_component(
     )
     .into();
 
+    sub_component.accessible_prop = accessible_prop
+        .into_iter()
+        .map(|(idx, key, nr)| {
+            let mut expr = super::Expression::PropertyReference(ctx.map_property_reference(&nr));
+            match nr.ty() {
+                Type::Bool => {
+                    expr = super::Expression::Condition {
+                        condition: expr.into(),
+                        true_expr: super::Expression::StringLiteral("true".into()).into(),
+                        false_expr: super::Expression::StringLiteral("false".into()).into(),
+                    };
+                }
+                Type::Int32 | Type::Float32 => {
+                    expr = super::Expression::Cast { from: expr.into(), to: Type::String };
+                }
+                Type::String => {}
+                Type::Enumeration(e) if e.name == "AccessibleRole" => {}
+                _ => panic!("Invalid type for accessible property"),
+            }
+
+            ((idx, key), expr.into())
+        })
+        .collect();
+
     LoweredSubComponent { sub_component: Rc::new(sub_component), mapping }
+}
+
+// Convert a ascii kebab string to camel case
+fn to_camel_case(str: &str) -> String {
+    let mut result = Vec::with_capacity(str.len());
+    let mut next_upper = true;
+    for x in str.as_bytes() {
+        if *x == b'-' {
+            next_upper = true;
+        } else if next_upper {
+            result.push(x.to_ascii_uppercase());
+            next_upper = false;
+        } else {
+            result.push(*x);
+        }
+    }
+    String::from_utf8(result).unwrap()
 }
 
 fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::PropertyAnalysis {
@@ -595,15 +643,18 @@ fn make_tree(
                 &new_sub_component_path,
             );
             tree_node.children.extend(children);
+            tree_node.is_accessible |= !e.accessibility_props.0.is_empty();
             tree_node
         }
         LoweredElement::NativeItem { item_index } => TreeNode {
+            is_accessible: !e.accessibility_props.0.is_empty(),
             sub_component_path: sub_component_path.into(),
             item_index: *item_index,
             children: children.collect(),
             repeated: false,
         },
         LoweredElement::Repeated { repeated_index } => TreeNode {
+            is_accessible: false,
             sub_component_path: sub_component_path.into(),
             item_index: *repeated_index,
             children: vec![],
