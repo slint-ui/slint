@@ -39,6 +39,11 @@ Slint is in active development. Its state of development depends on the kind of 
  - **Web**: Our focus is on Embedded and Desktop applications. We do not intend to compete in
    the web space as a primary platform. That said, Slint can compile to WebAssembly and the
    demos are running in a web browser. But the web support is currently limited to demo purposes.
+ - **Accessibility**: Slint supports keyboard based navigation of many widgets, and user interfaces
+   are scalable. The basic infrastructure for assistive technology like screen readers is in place,
+   but requires the Qt backend at this time.
+
+   We are aware that more work is needed to get best-of-class support for users with special needs.
 
 ### Stay up to date
 
