@@ -15,6 +15,7 @@ use crate::textlayout::{FontMetrics as _, TextParagraphLayout};
 use crate::{Color, Coord, ImageInner, StaticTextures};
 use alloc::rc::Rc;
 use alloc::{vec, vec::Vec};
+use core::cell::RefCell;
 use core::pin::Pin;
 pub use draw_functions::TargetPixel;
 
@@ -41,7 +42,7 @@ pub trait LineBufferProvider {
 
 #[derive(Default)]
 pub struct LineRenderer {
-    partial_cache: crate::item_rendering::PartialRenderingCache,
+    partial_cache: RefCell<crate::item_rendering::PartialRenderingCache>,
 }
 
 impl LineRenderer {
@@ -56,7 +57,7 @@ impl LineRenderer {
     ///       (can we call the line_buffer function from different thread?)
     /// TODO: should `initial_dirty_region` be set from a different call?
     pub fn render(
-        &mut self,
+        &self,
         window: Rc<crate::window::Window>,
         initial_dirty_region: crate::item_rendering::DirtyRegion,
         line_buffer: impl LineBufferProvider,
@@ -73,18 +74,19 @@ impl LineRenderer {
                 window_item.background(),
                 size.cast(),
                 initial_dirty_region,
-                &mut self.partial_cache,
+                &self.partial_cache,
                 line_buffer,
             );
         }
     }
 
     pub fn free_graphics_resources(
-        &mut self,
+        &self,
         items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
     ) {
         for item in items {
-            let cache_entry = item.cached_rendering_data_offset().release(&mut self.partial_cache);
+            let cache_entry =
+                item.cached_rendering_data_offset().release(&mut self.partial_cache.borrow_mut());
             drop(cache_entry);
         }
     }
@@ -95,7 +97,7 @@ fn render_window_frame(
     background: Color,
     size: PhysicalSize,
     initial_dirty_region: crate::item_rendering::DirtyRegion,
-    cache: &mut PartialRenderingCache,
+    cache: &RefCell<PartialRenderingCache>,
     mut line_buffer: impl LineBufferProvider,
 ) {
     let mut scene =
@@ -367,7 +369,7 @@ fn prepare_scene(
     size: PhysicalSize,
     initial_dirty_region: crate::item_rendering::DirtyRegion,
     line_buffer: &mut impl LineBufferProvider,
-    cache: &mut PartialRenderingCache,
+    cache: &RefCell<PartialRenderingCache>,
 ) -> Scene {
     let factor = ScaleFactor::new(runtime_window.scale_factor());
     let prepare_scene = PrepareScene::new(size, factor, runtime_window.default_font_properties());

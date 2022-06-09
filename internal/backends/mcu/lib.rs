@@ -131,7 +131,7 @@ mod the_backend {
             items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'a>>>,
         ) {
             super::LINE_RENDERER.with(|renderer| {
-                renderer.borrow_mut().free_graphics_resources(items);
+                renderer.borrow().free_graphics_resources(items);
             });
         }
 
@@ -346,7 +346,7 @@ mod the_backend {
                 };
 
                 LINE_RENDERER.with(|renderer| {
-                    renderer.borrow_mut().render(
+                    renderer.borrow().render(
                         runtime_window,
                         window.initial_dirty_region_for_next_frame.take(),
                         buffer_provider,
