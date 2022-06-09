@@ -44,6 +44,10 @@ function startClient(context: vscode.ExtensionContext) {
     };
 }
 
+let previewPanel: vscode.WebviewPanel | undefined = undefined;
+let previewUrl: string = "";
+
+
 // this method is called when vs code is activated
 export function activate(context: vscode.ExtensionContext) {
     statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left);
@@ -57,7 +61,41 @@ export function activate(context: vscode.ExtensionContext) {
         if (!ae) {
             return;
         }
-        client.sendNotification("slint/showPreview", ae.document.uri.fsPath.toString());
+
+        if (previewPanel) {
+            previewPanel.reveal(vscode.ViewColumn.Beside);
+        } else {
+            // Create and show a new webview
+            previewPanel = vscode.window.createWebviewPanel(
+                'slint-preview',
+                'Slint Preview',
+                vscode.ViewColumn.Beside,
+                { enableScripts: true }
+            );
+            previewPanel.webview.onDidReceiveMessage(
+                async message => {
+                    console.log("MESSAGE ", message);
+                    switch (message.command) {
+                        case 'load_file':
+                            const actual_url = Uri.parse(message.url);
+                            console.log("actual = ", actual_url);
+                            const content = await vscode.workspace.fs.readFile(actual_url);
+                            console.log("content = ", content);
+                            return content;
+                    }
+                },
+                undefined,
+                context.subscriptions
+            );
+            previewPanel.webview.html = getPreviewHtml();
+            previewPanel.onDidDispose(
+                () => { previewPanel = undefined; },
+                undefined,
+                context.subscriptions);
+        }
+
+        previewUrl = ae.document.uri.toString();
+        previewPanel.webview.postMessage({ command: "preview", base_url: ae.document.uri.toString(), content: ae.document.getText() });
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand('slint.reload', async function () {
@@ -65,4 +103,70 @@ export function activate(context: vscode.ExtensionContext) {
         await client.stop();
         startClient(context);
     }));
+
+    vscode.workspace.onDidChangeTextDocument(event => {
+        if (previewPanel && event.document.uri.toString() === previewUrl) {
+            previewPanel.webview.postMessage({
+                command: "preview",
+                base_url: event.document.uri.toString(),
+                content: event.document.getText()
+
+            });
+        }
+    });
+}
+
+function getPreviewHtml(): string {
+    // FIXME this should be bundled in the extension, or we need to change this before the release to the release variant
+    let slint_wasm_interpreter_url = "https://slint-ui.com/snapshots/master/wasm-interpreter/slint_wasm_interpreter.js";
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slint Preview</title>
+    <script type="module">
+    "use strict";
+    import * as slint from '${slint_wasm_interpreter_url}';
+    await slint.default();
+
+    const vscode = acquireVsCodeApi();
+
+    async function load_file(url) {
+        console.log("LOAD ", url);
+        let xxx = await vscode.postMessage({
+                        command: 'load_file',
+                        url: url,
+        });
+        console.log(xxx);
+
+        return "/* nothing */";
+    }
+
+    async function render(source, base_url) {
+        let { component, error_string } = await slint.compile_from_string(source, base_url, async(url) => await load_file(url));
+        if (error_string != "") {
+            var text = document.createTextNode(error_string);
+            var p = document.createElement('pre');
+            p.appendChild(text);
+            document.getElementById("slint_error_div").innerHTML = "<pre style='color: red; background-color:#fee; margin:0'>" + p.innerHTML + "</pre>";
+        }
+        if (component !== undefined) {
+            document.getElementById("slint_error_div").innerHTML = "";
+            let instance = component.run("slint_canvas");
+        }
+    }
+
+    window.addEventListener('message', async event => {
+        if (event.data.command === "preview") {
+            await render(event.data.content, event.data.base_url);
+        }
+    })
+    </script>
+</head>
+<body>
+  <div id="slint_error_div"></div>
+  <canvas id="slint_canvas"></canvas>
+</body>
+</html>`;
 }
