@@ -143,7 +143,7 @@ impl PlatformWindow for SimulatorWindow {
         items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'a>>>,
     ) {
         super::LINE_RENDERER.with(|cache| {
-            cache.borrow_mut().free_graphics_resources(items);
+            cache.borrow().free_graphics_resources(items);
         });
     }
 
@@ -325,7 +325,7 @@ impl WinitWindow for SimulatorWindow {
                 }
             }
             super::LINE_RENDERER.with(|renderer| {
-                renderer.borrow_mut().render(
+                renderer.borrow().render(
                     runtime_window,
                     self.initial_dirty_region_for_next_frame.take(),
                     BufferProvider {

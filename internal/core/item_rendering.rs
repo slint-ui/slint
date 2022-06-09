@@ -382,7 +382,7 @@ pub type DirtyRegion = euclid::default::Box2D<Coord>;
 
 /// Put this structure in the renderer to help with partial rendering
 pub struct PartialRenderer<'a, T> {
-    cache: &'a mut PartialRenderingCache,
+    cache: &'a RefCell<PartialRenderingCache>,
     /// The region of the screen which is considered dirty and that should be repainted
     pub dirty_region: DirtyRegion,
     actual_renderer: T,
@@ -391,7 +391,7 @@ pub struct PartialRenderer<'a, T> {
 impl<'a, T> PartialRenderer<'a, T> {
     /// Create a new PartialRenderer
     pub fn new(
-        cache: &'a mut PartialRenderingCache,
+        cache: &'a RefCell<PartialRenderingCache>,
         initial_dirty_region: DirtyRegion,
         actual_renderer: T,
     ) -> Self {
@@ -404,7 +404,9 @@ impl<'a, T> PartialRenderer<'a, T> {
             crate::item_tree::visit_items(
                 component,
                 crate::item_tree::TraversalOrder::BackToFront,
-                |_, item, _, offset| match item.cached_rendering_data_offset().get_entry(self.cache)
+                |_, item, _, offset| match item
+                    .cached_rendering_data_offset()
+                    .get_entry(&mut self.cache.borrow_mut())
                 {
                     Some(CachedGraphicsData { data, dependency_tracker: Some(tr) }) => {
                         if tr.is_dirty() {
@@ -435,11 +437,11 @@ impl<'a, T> PartialRenderer<'a, T> {
     }
 
     fn do_rendering(
-        cache: &mut PartialRenderingCache,
+        cache: &RefCell<PartialRenderingCache>,
         rendering_data: &CachedRenderingData,
         render_fn: impl FnOnce() -> Rect,
     ) {
-        if let Some(entry) = rendering_data.get_entry(cache) {
+        if let Some(entry) = rendering_data.get_entry(&mut cache.borrow_mut()) {
             entry
                 .dependency_tracker
                 .get_or_insert_with(|| Box::pin(crate::properties::PropertyTracker::default()))
@@ -447,6 +449,7 @@ impl<'a, T> PartialRenderer<'a, T> {
                 .evaluate(render_fn);
         } else {
             let cache_entry = crate::graphics::CachedGraphicsData::new(render_fn);
+            let mut cache = cache.borrow_mut();
             rendering_data.cache_index.set(cache.insert(cache_entry));
             rendering_data.cache_generation.set(cache.generation());
         }
@@ -461,7 +464,7 @@ impl<'a, T> PartialRenderer<'a, T> {
 macro_rules! forward_rendering_call {
     (fn $fn:ident($Ty:ty)) => {
         fn $fn(&mut self, obj: Pin<&$Ty>, item_rc: &ItemRc) {
-            Self::do_rendering(&mut self.cache, &obj.cached_rendering_data, || {
+            Self::do_rendering(&self.cache, &obj.cached_rendering_data, || {
                 self.actual_renderer.$fn(obj, item_rc);
                 type Ty = $Ty;
                 let width = Ty::FIELD_OFFSETS.width.apply_pin(obj).get_untracked();
@@ -477,7 +480,8 @@ macro_rules! forward_rendering_call {
 impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
     fn filter_item(&mut self, item: Pin<ItemRef>) -> (bool, Rect) {
         let rendering_data = item.cached_rendering_data_offset();
-        let item_geometry = match rendering_data.get_entry(self.cache) {
+        let mut cache = self.cache.borrow_mut();
+        let item_geometry = match rendering_data.get_entry(&mut cache) {
             Some(CachedGraphicsData { data, dependency_tracker }) => {
                 dependency_tracker
                     .get_or_insert_with(|| Box::pin(crate::properties::PropertyTracker::default()))
@@ -489,8 +493,8 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
                 let cache_entry =
                     crate::graphics::CachedGraphicsData::new(|| item.as_ref().geometry());
                 let geom = cache_entry.data;
-                rendering_data.cache_index.set(self.cache.insert(cache_entry));
-                rendering_data.cache_generation.set(self.cache.generation());
+                rendering_data.cache_index.set(cache.insert(cache_entry));
+                rendering_data.cache_generation.set(cache.generation());
                 geom
             }
         };
