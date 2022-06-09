@@ -47,9 +47,19 @@ npm install
 
 ## How to debug the LSP
 
-At the moment you need to load this directory in VS code and then start debugging (Run -> Start Debugging).
+From another VS Code instance: Load this directory in VS code and then start debugging (Run -> Start Debugging).
 That will "debug" the vs code extension and create a new VS code window. The LSP server binary will be started if previously built
+
 You can see the output in the output pane "Slint LSP" (that's the drop-down that usually shows "Tasks").
+
+Alternatively, you can start vscode with the following options:
+
+```sh
+cd editor/vscode
+code --extensionDevelopmentPath=$PWD ../..
+```
+
+If you want to load the web extension, add `--extensionDevelopmentKind=web`
 
 ## How to build the extension package
 
