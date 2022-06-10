@@ -63,86 +63,117 @@ pub fn embed_glyphs<'a>(
         .query(&fontdb::Query { families: &[fontdb::Family::SansSerif], ..Default::default() })
         .expect("internal error: Failed to locate default system font");
 
+    let mut custom_fonts = Vec::new();
+
     // add custom fonts
     for doc in all_docs {
         for (font_path, import_token) in doc.custom_fonts.iter() {
+            let face_count = fontdb.faces().len();
             if let Err(e) = fontdb.load_font_file(&font_path) {
                 diag.push_error(format!("Error loading font: {}", e), import_token);
+            } else {
+                custom_fonts.extend(fontdb.faces()[face_count..].iter().map(|info| info.id))
             }
         }
     }
 
-    // TODO: improve heuristics in choice of which fonts to embed. use default-font-family, etc.
-    let (family, source_location) = component
-        .root_element
-        .borrow()
-        .bindings
-        .get("default-font-family")
-        .and_then(|binding| match &binding.borrow().expression {
-            Expression::StringLiteral(family) => {
-                Some((Some(family.clone()), binding.borrow().span.clone()))
-            }
-            _ => None,
-        })
-        .unwrap_or_default();
+    let (default_font_face_id, default_font_path) = {
+        // TODO: improve heuristics in choice of which fonts to embed. use default-font-family, etc.
+        let (family, source_location) = component
+            .root_element
+            .borrow()
+            .bindings
+            .get("default-font-family")
+            .and_then(|binding| match &binding.borrow().expression {
+                Expression::StringLiteral(family) => {
+                    Some((Some(family.clone()), binding.borrow().span.clone()))
+                }
+                _ => None,
+            })
+            .unwrap_or_default();
 
-    let query = fontdb::Query {
-        families: &[family
-            .as_ref()
-            .map_or(fontdb::Family::SansSerif, |name| fontdb::Family::Name(name))],
-        ..Default::default()
-    };
-    let face_id = fontdb
-        .query(&query)
-        .unwrap_or_else(|| {
+        let query = fontdb::Query {
+            families: &[family
+                .as_ref()
+                .map_or(fontdb::Family::SansSerif, |name| fontdb::Family::Name(name))],
+            ..Default::default()
+        };
+        let face_id = fontdb.query(&query).unwrap_or_else(|| {
             if let Some(source_location) = source_location {
                 diag.push_warning_with_span(format!("could not find font that provides specified family, falling back to Sans-Serif"), source_location);
             }
             fallback_font
         });
 
-    let (family_name, path) = {
         let face_info = fontdb
             .face(face_id)
             .expect("internal error: fontdb query returned a font that does not exist");
         (
-            face_info.family.clone(),
+            face_id,
             match &face_info.source {
-                fontdb::Source::File(path) => path.clone(),
+                fontdb::Source::File(path) => path.to_string_lossy().to_string(),
                 _ => panic!("internal errormemory fonts are not supported in the compiler"),
             },
         )
     };
 
-    let font =
-        fontdb
+    // Map from path to family name
+    let mut fonts = std::collections::BTreeMap::<String, fontdb::ID>::new();
+    fonts.insert(default_font_path.clone(), default_font_face_id);
+
+    // add custom fonts
+    fonts.extend(custom_fonts.iter().filter_map(|face_id| {
+        fontdb.face(*face_id).map(|face_info| {
+            (
+                match &face_info.source {
+                    fontdb::Source::File(path) => path.to_string_lossy().to_string(),
+                    _ => panic!("internal errormemory fonts are not supported in the compiler"),
+                },
+                *face_id,
+            )
+        })
+    }));
+
+    let embed_font_by_path_and_face_id = |path, face_id| {
+        let font = fontdb
             .with_face_data(face_id, |font_data, face_index| {
                 let font = fontdue::Font::from_bytes(
-            font_data,
-            fontdue::FontSettings { collection_index: face_index, scale: 40. },
-        )
-        .expect("internal error: fontdb returned a font that ttf-parser/fontdue could not parse");
-                embed_font(family_name, font, &pixel_sizes)
+        font_data,
+        fontdue::FontSettings { collection_index: face_index, scale: 40. },
+    )
+    .expect("internal error: fontdb returned a font that ttf-parser/fontdue could not parse");
+                embed_font(fontdb.face(face_id).unwrap().family.clone(), font, &pixel_sizes)
             })
             .unwrap();
 
-    let resource_id = component.embedded_file_resources.borrow().len();
-    component.embedded_file_resources.borrow_mut().insert(
-        path.to_string_lossy().to_string(),
-        crate::embedded_resources::EmbeddedResources {
-            id: resource_id,
-            kind: crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(font),
-        },
+        let resource_id = component.embedded_file_resources.borrow().len();
+        component.embedded_file_resources.borrow_mut().insert(
+            path,
+            crate::embedded_resources::EmbeddedResources {
+                id: resource_id,
+                kind: crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(font),
+            },
+        );
+
+        component.setup_code.borrow_mut().push(Expression::FunctionCall {
+            function: Box::new(Expression::BuiltinFunctionReference(
+                BuiltinFunction::RegisterBitmapFont,
+                None,
+            )),
+            arguments: vec![Expression::NumberLiteral(resource_id as _, Unit::None)],
+            source_location: None,
+        });
+    };
+
+    // Make sure to embed the default font first, because that becomes the default at run-time.
+    embed_font_by_path_and_face_id(
+        default_font_path.clone(),
+        fonts.remove(&default_font_path).unwrap(),
     );
 
-    component.setup_code.borrow_mut().push(Expression::FunctionCall {
-        function: Box::new(Expression::BuiltinFunctionReference(
-            BuiltinFunction::RegisterBitmapFont,
-            None,
-        )),
-        arguments: vec![Expression::NumberLiteral(resource_id as _, Unit::None)],
-        source_location: None,
-    });
+    for (path, face_id) in fonts {
+        embed_font_by_path_and_face_id(path, face_id);
+    }
 }
 
 #[cfg(not(target_arch = "wasm32"))]
