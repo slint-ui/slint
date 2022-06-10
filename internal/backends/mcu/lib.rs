@@ -44,6 +44,9 @@ pub trait Devices {
     fn time(&self) -> core::time::Duration {
         core::time::Duration::ZERO
     }
+    fn random_seed(&mut self) -> u64 {
+        0
+    }
 }
 
 impl<T: embedded_graphics::draw_target::DrawTarget> crate::Devices for T
@@ -510,6 +513,10 @@ pub fn init() {
         }
     }
     init_with_display(EmptyDisplay);
+}
+
+pub fn random_seed() -> u64 {
+    DEVICES.with(|d| d.borrow_mut().as_mut().unwrap().random_seed())
 }
 
 #[cfg(feature = "pico-st7789")]
