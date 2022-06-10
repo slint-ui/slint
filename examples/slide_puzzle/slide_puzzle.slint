@@ -103,7 +103,7 @@ import "./plaster-font/Plaster-Regular.ttf";
 
 export MainWindow := Window {
     title: "Slide Puzzle - Slint Demo";
-    default-font-size: 16px;
+    default-font-size: 18px;
 
     callback piece-clicked(int);
     callback reset();
@@ -325,19 +325,18 @@ export MainWindow := Window {
             ]
         }
 
-        if (root.tiles-left == 0) : Text {
-            width: pieces-size;
-            height: pieces-size;
+        if (root.tiles-left == 0) : Rectangle {
+            width: pieces-size - pieces-size / 2;
+            height: pieces-size - pieces-size / 3;
             x: 3 * (pieces-size + pieces-spacing)
-                + (parent.width - (4*pieces-size + 3*pieces-spacing))/2;
+                + (parent.width - (4*pieces-size + 3*pieces-spacing))/2
+                + pieces-size / 4;
             y: 3 * (pieces-size + pieces-spacing)
-                + (parent.height - (4*pieces-size + 3*pieces-spacing))/2;
+                + (parent.height - (4*pieces-size + 3*pieces-spacing))/2
+                + pieces-size / 5;
 
-            color: current-theme.game-highlight-color;
-            font-size: pieces-size / 2;
-            vertical-alignment: center;
-            horizontal-alignment: center;
-            text: "🖒";
+            border-color: current-theme.game-highlight-color;
+            border-width: 3px;
 
             if (current-theme.game-use-background-image) : Image {
                 height: 100%; width: 100%;
