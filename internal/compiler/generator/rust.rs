@@ -181,7 +181,11 @@ pub fn generate(doc: &Document) -> TokenStream {
                 },
                 crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(crate::embedded_resources::BitmapFont { family_name, character_map, units_per_em, ascent, descent, glyphs }) => {
 
-                    let character_map = character_map.iter().map(|crate::embedded_resources::CharacterMapEntry{code_point, glyph_index}| quote!(slint::re_exports::CharacterMapEntry { code_point: #code_point, glyph_index: #glyph_index }));
+                    let character_map = character_map.iter()
+                        .map(|crate::embedded_resources::CharacterMapEntry{code_point, glyph_index}| {
+                            let code_point = *code_point as u32;
+                            quote!(slint::re_exports::CharacterMapEntry { code_point: #code_point, glyph_index: #glyph_index })
+                        });
 
                     let glyphs = glyphs.iter().map(|crate::embedded_resources::BitmapGlyphs{pixel_size, glyph_data}| {
                         let glyph_data = glyph_data.iter().map(|crate::embedded_resources::BitmapGlyph{x, y, width, height, x_advance, data}|{
