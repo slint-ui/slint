@@ -37,7 +37,7 @@ pub struct BitmapGlyphs {
 /// An entry in the character map of a [`BitmapFont`].
 pub struct CharacterMapEntry {
     /// The unicode code point for a given glyph
-    pub code_point: char,
+    pub code_point: u32,
     /// The corresponding index in the `glyph_data` of [`BitmapGlyphs`]
     pub glyph_index: u16,
 }
