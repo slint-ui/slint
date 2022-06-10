@@ -167,6 +167,10 @@ cpp! {{
         // (because the QGuiApplication destructor access some Q_GLOBAL_STATIC which are already gone)
         new QApplication(argc, argv2);
     }
+
+    void setDesktopFileName(const QString &name) {
+        QGuiApplication::setDesktopFileName(name);
+    }
 }}
 
 mod button;

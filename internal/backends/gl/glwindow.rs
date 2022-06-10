@@ -390,20 +390,23 @@ impl PlatformWindow for GLWindow {
         let component = ComponentRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
 
-        let (window_title, no_frame, is_resizable) = if let Some(window_item) =
+        let (window_title, no_frame, is_resizable, app_id) = if let Some(window_item) =
             ItemRef::downcast_pin::<corelib::items::WindowItem>(root_item)
         {
             (
                 window_item.title().to_string(),
                 window_item.no_frame(),
                 window_item.height() <= 0 as _ && window_item.width() <= 0 as _,
+                window_item.app_id().to_string(),
             )
         } else {
-            ("Slint Window".to_string(), false, true)
+            ("Slint Window".to_string(), false, true, "".to_string())
         };
 
+        use winit::platform::unix::WindowBuilderExtUnix;
         let window_builder = winit::window::WindowBuilder::new()
             .with_title(window_title)
+            .with_app_id(app_id)
             .with_resizable(is_resizable);
 
         let scale_factor_override = runtime_window.scale_factor();
