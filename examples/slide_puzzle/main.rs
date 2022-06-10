@@ -19,6 +19,14 @@ use wasm_bindgen::prelude::*;
 
 slint::include_modules!();
 
+#[cfg(feature = "rand")]
+fn new_rng() -> impl rand::Rng {
+    use rand::SeedableRng;
+
+    let seed = i_slint_backend_mcu::random_seed();
+    rand::rngs::SmallRng::seed_from_u64(seed)
+}
+
 fn shuffle() -> Vec<i8> {
     fn is_solvable(positions: &[i8]) -> bool {
         // Same source as the flutter's slide_puzzle:
@@ -40,7 +48,7 @@ fn shuffle() -> Vec<i8> {
     #[cfg(feature = "rand")]
     {
         use rand::seq::SliceRandom;
-        let mut rng = rand::thread_rng();
+        let mut rng = new_rng();
         vec.shuffle(&mut rng);
         while !is_solvable(&vec) {
             vec.shuffle(&mut rng);
@@ -124,7 +132,7 @@ impl AppState {
 
     fn random_move(&mut self) {
         #[cfg(feature = "rand")]
-        let mut rng = rand::thread_rng();
+        let mut rng = new_rng();
         let hole = self.positions.iter().position(|x| *x == -1).unwrap() as i8;
         let mut p = 1;
         loop {
