@@ -233,20 +233,21 @@ jobs:
       run: npm install
     - name: Install wasm-pack
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-    - name: Build package and optionally publish to Open VSX Registry
-      id: publishToOpenVSX
-      uses: HaaLeo/publish-vscode-extension@v1
-      with:
-        pat: ${{ secrets.OPENVSX_PAT }}
-        dryRun: ${{ github.event.inputs.private == 'true' || github.ref != 'refs/heads/master' }}
-        packagePath: editor/vscode
-    - name: Publish to Visual Studio Marketplace
-      if: ${{ github.event.inputs.private != 'true' && github.ref == 'refs/heads/master' }}
+    - name: Build package and optionally publish to Visual Studio Marketplace
+      id: publishToVSCM
       uses: HaaLeo/publish-vscode-extension@v1
       with:
         pat: ${{ secrets.VSCODE_MARKETPLACE_PAT }}
         registryUrl: https://marketplace.visualstudio.com
-        extensionFile: ${{ steps.publishToOpenVSX.outputs.vsixPath }}
+        dryRun: ${{ github.event.inputs.private == 'true' || github.ref != 'refs/heads/master' }}
+        packagePath: editor/vscode
+    - name: Publish to Open VSX Registry
+      continue-on-error: true
+      if: ${{ github.event.inputs.private != 'true' && github.ref == 'refs/heads/master' }}
+      uses: HaaLeo/publish-vscode-extension@v1
+      with:
+        pat: ${{ secrets.OPENVSX_PAT }}
+        extensionFile: ${{ steps.publishToVSCM.outputs.vsixPath }}
         packagePath: ''
     - name: "Upload extension artifact"
       uses: actions/upload-artifact@v2
