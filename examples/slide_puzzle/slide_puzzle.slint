@@ -388,6 +388,7 @@ export MainWindow := Window {
             font-size: parent.width * 40%;
             color: current-theme.game-highlight-color;
             horizontal-alignment: center;
+            height: width;
             TouchArea {
                 clicked => { root.reset(); }
             }
