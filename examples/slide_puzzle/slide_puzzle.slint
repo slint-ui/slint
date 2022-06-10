@@ -63,15 +63,6 @@ component Checkbox inherits Rectangle {
          }
      ]
 
-    hover-rect := Rectangle {
-        background: #f5f5f5;
-        x: - parent.width / 4;
-        y: - parent.height / 4;
-        width: ta.has-hover ? root.width * 1.5 : 0px;
-        height: self.width;
-        border-radius: self.width;
-    }
-
     checkbox-rect := Rectangle {
         border-width: self.height * 10%;
         border-color: root.unchecked-color;
@@ -109,6 +100,7 @@ component Checkbox inherits Rectangle {
 import "./plaster-font/Plaster-Regular.ttf";
 
 export component MainWindow inherits Window {
+    default-font-size: 16px;
     in property <[Piece]> pieces: [
         { pos-x: 0, pos-y: 0 },
         { pos-x: 0, pos-y: 1 },
@@ -205,7 +197,7 @@ export component MainWindow inherits Window {
         },
     ];
     private property <Theme> current-theme: root.themes[root.current-theme-index];
-    private property <length> pieces-size: min(root.width, root.height) / 6;
+    private property<length> pieces-size: min(root.width, root.height) / 5;
     private property <length> pieces-spacing: root.current-theme.game-use-background-image && root.tiles-left == 0 ?
         2px : (root.pieces-size * root.current-theme.piece-spacing);
 
@@ -232,7 +224,7 @@ export component MainWindow inherits Window {
         animate background { duration: 500ms; easing: ease-out; }
     }
 
-    Rectangle {
+    grid := Rectangle {
         background: root.current-theme.game-background-color;
         border-color: root.current-theme.game-text-color;
         border-width: root.current-theme.game-border;
@@ -242,36 +234,7 @@ export component MainWindow inherits Window {
         x: (parent.width - self.width)/2;
         y: (parent.height - self.height)/2;
         animate background, border-color, border-width, border-radius { duration: 500ms; easing: ease-out; }
-
-        Rectangle {
-            y:0;
-            width: parent.width * 90%;
-            height: root.pieces-size/2;
-            x: (parent.width - self.width) / 2;
-
-            HorizontalLayout {
-                spacing: 0px;
-
-                for theme[idx] in root.themes: TouchArea {
-                    t := Text {
-                        width: 100%; height: 100%;
-                        text: theme.name;
-                        color: idx == root.current-theme-index ? root.current-theme.game-highlight-color : root.current-theme.game-text-color;
-                        vertical-alignment: center;
-                        horizontal-alignment: center;
-                    }
-                    Rectangle {
-                        background: t.color;
-                        height: idx == root.current-theme-index ? 2px: 1px;
-                        y: parent.height - self.height;
-                    }
-                    clicked => {
-                        root.current-theme = theme;
-                        root.current-theme-index = idx;
-                    }
-                }
-            }
-        }
+       
 
 
         for p[i] in root.pieces : Rectangle {
@@ -389,65 +352,89 @@ export component MainWindow inherits Window {
                 source-clip-width: self.source.width / 4;
                 source-clip-height: self.source.height / 4;
             }
-        }
+        }    
+    }    
 
-        Rectangle {
-            width: parent.width;
-            height: 1px;
-            background: root.current-theme.game-text-color;
-            y: parent.height - root.pieces-size / 2;
-        }
+    VerticalLayout {
+        y: 0px;
+        x: grid.x - self.width;
+        width: parent.width / 5;
+        padding: 10px;
+        spacing: 40px;
+        alignment: center;
+        for theme[idx] in themes: t := Text {
+            vertical-stretch: 1;
+            text: theme.name;
+            color: idx == current-theme-index ? current-theme.game-highlight-color : current-theme.game-text-color;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+            Rectangle {
+                background: t.color;
+                height: idx == current-theme-index ? 2px: 1px;
+                y: parent.height - self.height;
+            }
 
-        HorizontalLayout {
-            height: root.pieces-size / 2;
-            y: parent.height - root.pieces-size / 2;
-            width: parent.width;
-            padding: self.height * 25%;
-
-            Text {
-                text: " ↻ ";
-                font-size: parent.height * 40%;
-                color: root.current-theme.game-highlight-color;
-                vertical-alignment: center;
-                TouchArea {
-                    clicked => { root.reset(); }
+            TouchArea {
+                clicked => {
+                    root.current-theme = theme;
+                    root.current-theme-index = idx;
                 }
-            }
-
-            Checkbox {
-                toggled(checked) => { root.enable-auto-mode(self.checked) }
-
-                width: parent.height - 2 * parent.padding;
-                checked <=> root.auto-play;
-                checked-color: root.current-theme.game-highlight-color;
-                unchecked-color: root.current-theme.game-text-color;
-            }
-
-            Rectangle {} // stretch
-
-            Text {
-                text: root.moves;
-                color: root.current-theme.game-highlight-color;
-                vertical-alignment: center;
-            }
-
-            Text {
-                text: "Moves ";
-                color: root.current-theme.game-text-color;
-                vertical-alignment: center;
-            }
-
-            Text {
-                text: root.tiles-left;
-                color: root.current-theme.game-highlight-color;
-                vertical-alignment: center;
-            }
-
-            Text {
-                text: "Tiles left";
-                color: root.current-theme.game-text-color;
-                vertical-alignment: center;
             }
         }
     }
+        
+    VerticalLayout {
+        y: 0px;
+        x: grid.x + grid.width;
+        width: parent.width / 6.4;
+        padding: 10px;
+        spacing: 40px;
+        alignment: center;
+        Text {
+            text: " ↻ ";
+            font-size: parent.width * 40%;
+            color: current-theme.game-highlight-color;
+            horizontal-alignment: center;
+            TouchArea {
+                clicked => { root.reset(); }
+            }
+        }
+
+        Checkbox {
+            height: self.width;
+            checked <=> auto-play;
+            toggled(checked) => { root.enable-auto-mode(checked) }
+            checked-color: current-theme.game-highlight-color;
+            unchecked-color: current-theme.game-text-color;
+        }
+        GridLayout {
+            spacing: 5px;
+            Row {
+                Text {
+                    text: root.moves;
+                    color: current-theme.game-highlight-color;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: "Moves ";
+                    color: current-theme.game-text-color;
+                    vertical-alignment: center;
+                }    
+            }
+            Row {
+                Text {
+                    text: root.tiles-left;
+                    color: current-theme.game-highlight-color;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: "Tiles left";
+                    color: current-theme.game-text-color;
+                    vertical-alignment: center;
+                }    
+            }
+        }
+    }   
 }
