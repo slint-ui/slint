@@ -20,41 +20,11 @@ use wasm_bindgen::prelude::*;
 slint::include_modules!();
 
 #[cfg(feature = "rand")]
-fn new_rng() -> impl rand::Rng {
+fn new_rng() -> rand::rngs::SmallRng {
     use rand::SeedableRng;
 
     let seed = i_slint_backend_mcu::random_seed();
     rand::rngs::SmallRng::seed_from_u64(seed)
-}
-
-fn shuffle() -> Vec<i8> {
-    fn is_solvable(positions: &[i8]) -> bool {
-        // Same source as the flutter's slide_puzzle:
-        // https://www.cs.bham.ac.uk/~mdr/teaching/modules04/java2/TilesSolvability.html
-        // This page seems to be no longer available, a copy can be found here:
-        // https://horatiuvlad.com/unitbv/inteligenta_artificiala/2015/TilesSolvability.html
-
-        let mut inversions = 0;
-        for x in 0..positions.len() - 1 {
-            let v = positions[x];
-            inversions += positions[x + 1..].iter().filter(|x| **x >= 0 && **x < v).count();
-        }
-        //((blank on odd row from bottom) == (#inversions even))
-        let blank_row = positions.iter().position(|x| *x == -1).unwrap() as usize / 4;
-        inversions % 2 != blank_row % 2
-    }
-
-    let mut vec = ((-1)..15).into_iter().collect::<Vec<i8>>();
-    #[cfg(feature = "rand")]
-    {
-        use rand::seq::SliceRandom;
-        let mut rng = new_rng();
-        vec.shuffle(&mut rng);
-        while !is_solvable(&vec) {
-            vec.shuffle(&mut rng);
-        }
-    }
-    vec
 }
 
 struct AppState {
@@ -68,6 +38,8 @@ struct AppState {
     /// The speed in the x and y direction for the associated tile
     speed_for_kick_animation: [(f32, f32); 15],
     finished: bool,
+    #[cfg(feature = "rand")]
+    rng: rand::rngs::SmallRng,
 }
 
 impl AppState {
@@ -81,12 +53,41 @@ impl AppState {
     }
 
     fn randomize(&mut self) {
-        self.positions = shuffle();
+        self.positions = self.shuffle();
         for (i, p) in self.positions.iter().enumerate() {
             self.set_pieces_pos(*p, i as _);
         }
         self.main_window.unwrap().set_moves(0);
         self.apply_tiles_left();
+    }
+
+    fn shuffle(&mut self) -> Vec<i8> {
+        fn is_solvable(positions: &[i8]) -> bool {
+            // Same source as the flutter's slide_puzzle:
+            // https://www.cs.bham.ac.uk/~mdr/teaching/modules04/java2/TilesSolvability.html
+            // This page seems to be no longer available, a copy can be found here:
+            // https://horatiuvlad.com/unitbv/inteligenta_artificiala/2015/TilesSolvability.html
+
+            let mut inversions = 0;
+            for x in 0..positions.len() - 1 {
+                let v = positions[x];
+                inversions += positions[x + 1..].iter().filter(|x| **x >= 0 && **x < v).count();
+            }
+            //((blank on odd row from bottom) == (#inversions even))
+            let blank_row = positions.iter().position(|x| *x == -1).unwrap() as usize / 4;
+            inversions % 2 != blank_row % 2
+        }
+
+        let mut vec = ((-1)..15).into_iter().collect::<Vec<i8>>();
+        #[cfg(feature = "rand")]
+        {
+            use rand::seq::SliceRandom;
+            vec.shuffle(&mut self.rng);
+            while !is_solvable(&vec) {
+                vec.shuffle(&mut self.rng);
+            }
+        }
+        vec
     }
 
     fn apply_tiles_left(&mut self) {
@@ -131,15 +132,13 @@ impl AppState {
     }
 
     fn random_move(&mut self) {
-        #[cfg(feature = "rand")]
-        let mut rng = new_rng();
         let hole = self.positions.iter().position(|x| *x == -1).unwrap() as i8;
         let mut p = 1;
         loop {
             p = p + 1;
             #[cfg(feature = "rand")]
             {
-                p = rand::Rng::gen_range(&mut rng, 0..16);
+                p = rand::Rng::gen_range(&mut self.rng, 0..16);
             }
             if hole == p {
                 continue;
@@ -209,6 +208,8 @@ fn main() -> ! {
         kick_animation_timer: Default::default(),
         speed_for_kick_animation: Default::default(),
         finished: false,
+        #[cfg(feature = "rand")]
+        rng: new_rng(),
     }));
     state.borrow_mut().randomize();
     main_window.set_pieces(state.borrow().pieces.clone().into());
