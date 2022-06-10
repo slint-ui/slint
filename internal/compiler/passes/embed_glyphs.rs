@@ -59,6 +59,32 @@ pub fn embed_glyphs<'a>(
         fontdb.set_sans_serif_family(default_sans_serif_family);
     }
 
+    #[cfg(target_os = "macos")]
+    let fallback_families = ["Menlo", "Apple Symbols", "Apple Color Emoji"];
+    #[cfg(not(target_os = "macos"))]
+    let fallback_families: [&str; 0] = [];
+    let fallback_fonts = fallback_families
+        .iter()
+        .filter_map(|fallback_family| {
+            fontdb
+                .query(&fontdb::Query {
+                    families: &[fontdb::Family::Name(*fallback_family)],
+                    ..Default::default()
+                })
+                .and_then(|face_id| {
+                    fontdb
+                        .with_face_data(face_id, |face_data, face_index| {
+                            fontdue::Font::from_bytes(
+                                face_data,
+                                fontdue::FontSettings { collection_index: face_index, scale: 40. },
+                            )
+                            .ok()
+                        })
+                        .flatten()
+                })
+        })
+        .collect::<Vec<_>>();
+
     let fallback_font = fontdb
         .query(&fontdb::Query { families: &[fontdb::Family::SansSerif], ..Default::default() })
         .expect("internal error: Failed to locate default system font");
@@ -142,7 +168,12 @@ pub fn embed_glyphs<'a>(
         fontdue::FontSettings { collection_index: face_index, scale: 40. },
     )
     .expect("internal error: fontdb returned a font that ttf-parser/fontdue could not parse");
-                embed_font(fontdb.face(face_id).unwrap().family.clone(), font, &pixel_sizes)
+                embed_font(
+                    fontdb.face(face_id).unwrap().family.clone(),
+                    font,
+                    &pixel_sizes,
+                    &fallback_fonts,
+                )
             })
             .unwrap();
 
@@ -177,13 +208,20 @@ pub fn embed_glyphs<'a>(
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn embed_font(family_name: String, font: fontdue::Font, pixel_sizes: &[i16]) -> BitmapFont {
+fn embed_font(
+    family_name: String,
+    font: fontdue::Font,
+    pixel_sizes: &[i16],
+    fallback_fonts: &[fontdue::Font],
+) -> BitmapFont {
     // TODO: configure coverage
     let coverage = ('a'..='z')
         .chain('A'..='Z')
         .chain('0'..='9')
         .chain(" !\"#$%&'()*+,-./:;<=>?@\\]^_|~".chars())
-        .chain(std::iter::once('…'));
+        .chain(std::iter::once('…'))
+        .chain(std::iter::once('↻'))
+        .chain(std::iter::once('✓'));
 
     let mut character_map: Vec<CharacterMapEntry> = coverage
         .enumerate()
@@ -202,7 +240,15 @@ fn embed_font(family_name: String, font: fontdue::Font, pixel_sizes: &[i16]) -> 
             glyph_data.resize(character_map.len(), Default::default());
 
             for CharacterMapEntry { code_point, glyph_index } in &character_map {
-                let (metrics, bitmap) = font.rasterize(*code_point, *pixel_size as _);
+                let (metrics, bitmap) = core::iter::once(&font)
+                    .chain(fallback_fonts.iter())
+                    .find_map(|font| {
+                        font.chars()
+                            .contains_key(code_point)
+                            .then(|| font.rasterize(*code_point, *pixel_size as _))
+                    })
+                    .unwrap_or_else(|| font.rasterize(*code_point, *pixel_size as _));
+
                 let glyph = BitmapGlyph {
                     x: i16::try_from(metrics.xmin).expect("large glyph x coordinate"),
                     y: i16::try_from(metrics.ymin).expect("large glyph y coordinate"),
