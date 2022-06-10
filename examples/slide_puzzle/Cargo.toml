@@ -14,11 +14,11 @@ path = "main.rs"
 name = "slide_puzzle"
 
 [features]
-default = ["slint/default"]
+default = ["slint/default", "rand/default"]
 mcu-simulator = ["i-slint-backend-mcu/simulator"]
 
 [dependencies]
-rand = { version = "0.8", optional = true }
+rand = { version = "0.8", optional = true, default-features = false, features = ["small_rng"] }
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-0-2-0"] }
 i-slint-core = { path = "../../internal/core", default-features = false, features = ["libm"] }
 i-slint-backend-mcu = { path = "../../internal/backends/mcu", optional = true, default-features = false }

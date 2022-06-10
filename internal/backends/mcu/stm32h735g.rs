@@ -276,6 +276,9 @@ pub fn init() {
     let mut timer = dp.TIM2.tick_timer(10000.Hz(), ccdr.peripheral.TIM2, &ccdr.clocks);
     timer.listen(hal::timer::Event::TimeOut);
 
+    // Init RNG
+    let rng = dp.RNG.constrain(ccdr.peripheral.RNG, &ccdr.clocks);
+
     // Init Touch screen
     let scl = gpiof.pf14.into_alternate::<4>().set_open_drain().speed(High).internal_pull_up(true);
     let sda = gpiof.pf15.into_alternate::<4>().set_open_drain().speed(High).internal_pull_up(true);
@@ -292,6 +295,7 @@ pub fn init() {
         line_buffer: alloc::vec![TargetPixel::default(); DISPLAY_WIDTH],
         layer,
         timer,
+        rng,
         delay,
         touch_i2c,
         system_control_block: cp.SCB,
@@ -309,6 +313,7 @@ struct StmDevices {
     line_buffer: alloc::vec::Vec<TargetPixel>,
     layer: LtdcLayer1,
     timer: hal::timer::Timer<pac::TIM2>,
+    rng: hal::rng::Rng,
     delay: Delay,
     touch_i2c: TouchI2C,
     last_touch: Option<i_slint_core::graphics::Point>,
@@ -379,6 +384,11 @@ impl Devices for StmDevices {
         // FIXME! the timer can overflow
         let val = self.timer.counter() / 10;
         core::time::Duration::from_millis(val.into())
+    }
+
+    fn random_seed(&mut self) -> u64 {
+        ((self.rng.value().unwrap_or_default() as u64) << 32)
+            | (self.rng.value().unwrap_or_default() as u64)
     }
 }
 
