@@ -100,7 +100,7 @@ component Checkbox inherits Rectangle {
 import "./plaster-font/Plaster-Regular.ttf";
 
 export component MainWindow inherits Window {
-    default-font-size: 16px;
+    default-font-size: 18px;
     in property <[Piece]> pieces: [
         { pos-x: 0, pos-y: 0 },
         { pos-x: 0, pos-y: 1 },
@@ -329,19 +329,18 @@ export component MainWindow inherits Window {
             }
         }
 
-        if (root.tiles-left == 0) : Text {
+        if (root.tiles-left == 0) : Rectangle {
             width: root.pieces-size;
             height: root.pieces-size;
             x: 3 * (root.pieces-size + root.pieces-spacing)
-                + (parent.width - (4*root.pieces-size + 3*root.pieces-spacing))/2;
+                + (parent.width - (4*root.pieces-size + 3*root.pieces-spacing))/2
+                + pieces-size / 4;
             y: 3 * (root.pieces-size + root.pieces-spacing)
-                + (parent.height - (4*root.pieces-size + 3*root.pieces-spacing))/2;
+                + (parent.height - (4*root.pieces-size + 3*root.pieces-spacing))/2
+                + pieces-size / 5;
 
-            color: root.current-theme.game-highlight-color;
-            font-size: root.pieces-size / 2;
-            vertical-alignment: center;
-            horizontal-alignment: center;
-            text: "🖒";
+            border-color: current-theme.game-highlight-color;
+            border-width: 3px;
 
             if (root.current-theme.game-use-background-image) : Image {
                 height: 100%; width: 100%;
