@@ -92,10 +92,11 @@ impl TextShaper for PixelFont {
         glyphs: &mut GlyphStorage,
     ) {
         let glyphs_iter = text.char_indices().map(|(byte_offset, char)| {
+            let char_u32 = char as u32;
             let bitmap_glyph = self
                 .bitmap_font
                 .character_map
-                .binary_search_by_key(&char, |char_map_entry| char_map_entry.code_point)
+                .binary_search_by_key(&char_u32, |char_map_entry| char_map_entry.code_point)
                 .ok()
                 .map_or(None, |char_map_index| {
                     let glyph_index = self.bitmap_font.character_map[char_map_index].glyph_index;
@@ -114,9 +115,10 @@ impl TextShaper for PixelFont {
     }
 
     fn glyph_for_char(&self, ch: char) -> Option<Glyph<PhysicalLength, PlatformGlyph>> {
+        let ch_u32 = ch as u32;
         self.bitmap_font
             .character_map
-            .binary_search_by_key(&ch, |char_map_entry| char_map_entry.code_point)
+            .binary_search_by_key(&ch_u32, |char_map_entry| char_map_entry.code_point)
             .ok()
             .map(|char_map_index| {
                 let glyph_index = self.bitmap_font.character_map[char_map_index].glyph_index;
