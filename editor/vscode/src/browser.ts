@@ -46,6 +46,23 @@ function startClient(context: vscode.ExtensionContext) {
 
 let previewPanel: vscode.WebviewPanel | undefined = undefined;
 let previewUrl: string = "";
+let queuedPreviewMsg: any = undefined;
+let previewBusy = false;
+
+function reload_preview(url: string, content: string) {
+    if (!previewPanel) { return; }
+    const msg = {
+        command: "preview",
+        base_url: url,
+        content: content
+    };
+    if (previewBusy) {
+        queuedPreviewMsg = msg;
+    } else {
+        previewPanel.webview.postMessage(msg);
+        previewBusy = true;
+    }
+}
 
 
 // this method is called when vs code is activated
@@ -66,21 +83,30 @@ export function activate(context: vscode.ExtensionContext) {
             previewPanel.reveal(vscode.ViewColumn.Beside);
         } else {
             // Create and show a new webview
-            previewPanel = vscode.window.createWebviewPanel(
+            const panel = vscode.window.createWebviewPanel(
                 'slint-preview',
                 'Slint Preview',
                 vscode.ViewColumn.Beside,
                 { enableScripts: true }
             );
-            previewPanel.webview.onDidReceiveMessage(
+            previewPanel = panel;
+            // we will get a preview_ready when the html is loaded and message are ready to be sent
+            previewBusy = true;
+            panel.webview.onDidReceiveMessage(
                 async message => {
                     switch (message.command) {
                         case 'load_file':
                             const actual_url = Uri.parse(message.url);
                             const content = await vscode.workspace.fs.readFile(actual_url);
-                            if (previewPanel) {
-                                let content_str = new TextDecoder().decode(content);
-                                previewPanel.webview.postMessage({ command: "file_loaded", url: message.url, content: content_str });
+                            let content_str = new TextDecoder().decode(content);
+                            panel.webview.postMessage({ command: "file_loaded", url: message.url, content: content_str });
+                            return;
+                        case 'preview_ready':
+                            if (queuedPreviewMsg) {
+                                panel.webview.postMessage(queuedPreviewMsg);
+                                queuedPreviewMsg = undefined;
+                            } else {
+                                previewBusy = false;
                             }
                             return;
                     }
@@ -88,15 +114,17 @@ export function activate(context: vscode.ExtensionContext) {
                 undefined,
                 context.subscriptions
             );
-            previewPanel.webview.html = getPreviewHtml();
-            previewPanel.onDidDispose(
-                () => { previewPanel = undefined; },
+            panel.webview.html = getPreviewHtml();
+            panel.onDidDispose(
+                () => {
+                    previewPanel = undefined;
+                },
                 undefined,
                 context.subscriptions);
         }
 
         previewUrl = ae.document.uri.toString();
-        previewPanel.webview.postMessage({ command: "preview", base_url: ae.document.uri.toString(), content: ae.document.getText() });
+        reload_preview(previewUrl, ae.document.getText());
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand('slint.reload', async function () {
@@ -106,13 +134,8 @@ export function activate(context: vscode.ExtensionContext) {
     }));
 
     vscode.workspace.onDidChangeTextDocument(event => {
-        if (previewPanel && event.document.uri.toString() === previewUrl) {
-            previewPanel.webview.postMessage({
-                command: "preview",
-                base_url: event.document.uri.toString(),
-                content: event.document.getText()
-
-            });
+        if (event.document.uri.toString() === previewUrl) {
+            reload_preview(event.document.uri.toString(), event.document.getText());
         }
     });
 }
@@ -150,6 +173,7 @@ function getPreviewHtml(): string {
             p.appendChild(text);
             document.getElementById("slint_error_div").innerHTML = "<pre style='color: red; background-color:#fee; margin:0'>" + p.innerHTML + "</pre>";
         }
+        vscode.postMessage({ command: 'preview_ready' });
         if (component !== undefined) {
             document.getElementById("slint_error_div").innerHTML = "";
             let instance = component.run("slint_canvas");
@@ -166,7 +190,9 @@ function getPreviewHtml(): string {
                 resolve(event.data.content);
             }
         }
-    })
+    });
+
+    vscode.postMessage({ command: 'preview_ready' });
     </script>
 </head>
 <body>
