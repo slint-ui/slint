@@ -74,14 +74,15 @@ export function activate(context: vscode.ExtensionContext) {
             );
             previewPanel.webview.onDidReceiveMessage(
                 async message => {
-                    console.log("MESSAGE ", message);
                     switch (message.command) {
                         case 'load_file':
                             const actual_url = Uri.parse(message.url);
-                            console.log("actual = ", actual_url);
                             const content = await vscode.workspace.fs.readFile(actual_url);
-                            console.log("content = ", content);
-                            return content;
+                            if (previewPanel) {
+                                let content_str = new TextDecoder().decode(content);
+                                previewPanel.webview.postMessage({ command: "file_loaded", url: message.url, content: content_str });
+                            }
+                            return;
                     }
                 },
                 undefined,
@@ -131,16 +132,14 @@ function getPreviewHtml(): string {
     await slint.default();
 
     const vscode = acquireVsCodeApi();
+    let promises = {};
 
     async function load_file(url) {
-        console.log("LOAD ", url);
-        let xxx = await vscode.postMessage({
-                        command: 'load_file',
-                        url: url,
+        let promise = new Promise(resolve => {
+            promises[url] = resolve;
         });
-        console.log(xxx);
-
-        return "/* nothing */";
+        vscode.postMessage({ command: 'load_file',  url: url });
+        return await promise;
     }
 
     async function render(source, base_url) {
@@ -160,6 +159,12 @@ function getPreviewHtml(): string {
     window.addEventListener('message', async event => {
         if (event.data.command === "preview") {
             await render(event.data.content, event.data.base_url);
+        } else if (event.data.command === "file_loaded") {
+            let resolve = promises[event.data.url];
+            if (resolve) {
+                promises[event.data.url] = undefined;
+                resolve(event.data.content);
+            }
         }
     })
     </script>
