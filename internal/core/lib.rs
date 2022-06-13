@@ -18,7 +18,7 @@ pub mod unsafe_single_core {
     macro_rules! thread_local_ {
         ($(#[$($meta:tt)*])* $vis:vis static $ident:ident : $ty:ty = $expr:expr) => {
             $(#[$($meta)*])*
-            pub(crate) static $ident: crate::unsafe_single_core::FakeThreadStorage<$ty> = {
+            $vis static $ident: crate::unsafe_single_core::FakeThreadStorage<$ty> = {
                 fn init() -> $ty { $expr }
                 crate::unsafe_single_core::FakeThreadStorage::new(init)
             };
