@@ -13,6 +13,9 @@ All notable changes to this project are documented in this file.
  - Added `@radial-gradient(circle, ...)`
  - Added `read-only` property to `TextInput`, `TextEdit` and `LineEdit`.
  - VSCode extension can be installed as a web extension. (eg, from https://vscode.dev)
+ - LSP: completion of `@` macros
+ - LSP: completion of element that require an import
+ - Basic accessibility support using the `accessible-` properties
 
 ### Fixed
 
