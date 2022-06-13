@@ -167,6 +167,7 @@ jobs:
       matrix:
         target:
           - armv7-unknown-linux-gnueabihf
+          - aarch64-unknown-linux-gnu
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
@@ -213,6 +214,10 @@ jobs:
     - uses: actions/download-artifact@v2
       with:
         name: vscode-lsp-binary-armv7-unknown-linux-gnueabihf
+        path: editor/vscode/bin
+    - uses: actions/download-artifact@v2
+      with:
+        name: vscode-lsp-binary-aarch64-unknown-linux-gnu
         path: editor/vscode/bin
     - name: Fix permissions
       run: chmod 755 editor/vscode/bin/* editor/vscode/bin/*.app/Contents/MacOS/*
