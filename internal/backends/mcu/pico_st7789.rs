@@ -38,8 +38,6 @@ static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 type IrqPin = gpio::Pin<gpio::bank0::Gpio17, gpio::PullUpInput>;
 static IRQ_PIN: Mutex<RefCell<Option<IrqPin>>> = Mutex::new(RefCell::new(None));
 
-static INT: GpioInterrupt = GpioInterrupt::LevelLow;
-
 static ALARM0: Mutex<RefCell<Option<Alarm0>>> = Mutex::new(RefCell::new(None));
 
 // 16ns for serial clock cycle (write), page 43 of https://www.waveshare.com/w/upload/a/ae/ST7789_Datasheet.pdf
@@ -109,7 +107,7 @@ pub fn init() {
         xpt2046::XPT2046::new(pins.gpio16.into_push_pull_output(), spi.acquire_spi()).unwrap();
 
     let touch_irq = pins.gpio17.into_pull_up_input();
-    touch_irq.set_interrupt_enabled(INT, true);
+    touch_irq.set_interrupt_enabled(GpioInterrupt::LevelLow, true);
 
     cortex_m::interrupt::free(|cs| {
         IRQ_PIN.borrow(cs).replace(Some(touch_irq));
@@ -187,7 +185,12 @@ impl<Display: Devices, CS: OutputPin, SPI: Transfer<u8>> Devices
 
     fn sleep(&self) {
         cortex_m::interrupt::free(|cs| {
-            IRQ_PIN.borrow(cs).borrow_mut().as_ref().unwrap().set_interrupt_enabled(INT, true);
+            IRQ_PIN
+                .borrow(cs)
+                .borrow_mut()
+                .as_ref()
+                .unwrap()
+                .set_interrupt_enabled(GpioInterrupt::LevelLow, true);
         });
         cortex_m::asm::wfe();
     }
@@ -311,8 +314,8 @@ fn IO_IRQ_BANK0() {
     cortex_m::interrupt::free(|cs| {
         let mut pin = IRQ_PIN.borrow(cs).borrow_mut();
         let pin = pin.as_mut().unwrap();
-        pin.set_interrupt_enabled(INT, false);
-        pin.clear_interrupt(INT);
+        pin.set_interrupt_enabled(GpioInterrupt::LevelLow, false);
+        pin.clear_interrupt(GpioInterrupt::LevelLow);
     });
 }
 
