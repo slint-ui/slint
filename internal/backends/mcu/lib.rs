@@ -45,7 +45,7 @@ pub trait Devices {
         core::time::Duration::ZERO
     }
     fn set_timer_interrupt(&mut self, _duration: core::time::Duration) {}
-    fn wait_for_interrupt(&self) {}
+    fn sleep(&self) {}
 }
 
 impl<T: embedded_graphics::draw_target::DrawTarget> crate::Devices for T
@@ -409,7 +409,7 @@ mod the_backend {
                                 time_to_sleep.0,
                             ));
                         }
-                        devices.borrow_mut().as_mut().unwrap().wait_for_interrupt();
+                        devices.borrow_mut().as_mut().unwrap().sleep();
                     }
                 });
                 match behavior {

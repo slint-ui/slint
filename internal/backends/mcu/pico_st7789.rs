@@ -124,7 +124,6 @@ pub fn init() {
     });
 
     crate::init_with_display(PicoDevices { display, touch, last_touch: Default::default(), timer });
-    i_slint_core::debug_log!("Hello there");
     unsafe {
         pac::NVIC::unmask(pac::Interrupt::IO_IRQ_BANK0);
         pac::NVIC::unmask(pac::Interrupt::TIMER_IRQ_0);
@@ -186,23 +185,11 @@ impl<Display: Devices, CS: OutputPin, SPI: Transfer<u8>> Devices
         });
     }
 
-    fn wait_for_interrupt(&self) {
+    fn sleep(&self) {
         cortex_m::interrupt::free(|cs| {
             IRQ_PIN.borrow(cs).borrow_mut().as_ref().unwrap().set_interrupt_enabled(INT, true);
         });
-        i_slint_core::debug_log!("before wfe");
         cortex_m::asm::wfe();
-        i_slint_core::debug_log!("after wfe");
-        //steal pin and print state
-        // let is_low = cortex_m::interrupt::free(|cs| {
-        //     let mut tih = TOUCH_INTERRUPT_HAPPENED.borrow(cs).borrow_mut();
-        //     tih.1.as_mut().unwrap().is_low()
-        // });
-        // if is_low.unwrap() {
-        //     i_slint_core::debug_log!("is low");
-        // } else {
-        //     i_slint_core::debug_log!("is high");
-        // }
     }
 }
 
@@ -229,13 +216,7 @@ mod xpt2046 {
             const RELEASE_THRESHOLD: i32 = -30_000;
             let threshold = if self.pressed { RELEASE_THRESHOLD } else { PRESS_THRESHOLD };
             self.pressed = false;
-            // if cortex_m::interrupt::free(|cs| {
-            //     let mut tih = super::TOUCH_INTERRUPT_HAPPENED.borrow(cs).borrow_mut();
-            //     let has_happened = tih.0;
-            //     tih.0 = false;
-            //     tih.1.as_mut().unwrap().set_interrupt_enabled(super::INT, true);
-            //     has_happened
-            // })
+
             if cortex_m::interrupt::free(|cs| {
                 super::IRQ_PIN.borrow(cs).borrow_mut().as_ref().unwrap().is_low().unwrap()
             }) {
@@ -327,27 +308,12 @@ mod xpt2046 {
 
 #[interrupt]
 fn IO_IRQ_BANK0() {
-    //     static mut count: u32 = 0;
-    // panic!("in handler");
     cortex_m::interrupt::free(|cs| {
         let mut pin = IRQ_PIN.borrow(cs).borrow_mut();
         let pin = pin.as_mut().unwrap();
-        //tih.0 = true;
-        //let mut pin = tih.1.as_mut().unwrap();
         pin.set_interrupt_enabled(INT, false);
         pin.clear_interrupt(INT);
-        //cortex_m::asm::sev();
     });
-    // unsafe {
-    //     let reader = (*rp_pico::hal::pac::PPB::ptr()).scr.read();
-    //     panic!("{}", reader.sleeponexit().bit_is_set());
-    // };
-    // *count += 1;
-    // if *count > 100 {
-    //     panic!("too many interrupts");
-    // }
-
-    i_slint_core::debug_log!("in interrupt");
 }
 
 #[interrupt]
@@ -355,7 +321,6 @@ fn TIMER_IRQ_0() {
     cortex_m::interrupt::free(|cs| {
         ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().clear_interrupt();
     });
-    i_slint_core::debug_log!("timerrupt");
 }
 
 #[cfg(not(feature = "panic-probe"))]
