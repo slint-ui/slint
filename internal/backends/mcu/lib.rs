@@ -44,6 +44,8 @@ pub trait Devices {
     fn time(&self) -> core::time::Duration {
         core::time::Duration::ZERO
     }
+    fn set_timer_interrupt(&mut self, _duration: core::time::Duration) {}
+    fn wait_for_interrupt(&self) {}
 }
 
 impl<T: embedded_graphics::draw_target::DrawTarget> crate::Devices for T
@@ -395,6 +397,19 @@ mod the_backend {
                             }
                             w.process_mouse_input(event);
                         }
+                    } else if i_slint_core::animations::CURRENT_ANIMATION_DRIVER
+                        .with(|driver| !driver.has_active_animations())
+                    {
+                        if let Some(instant) = i_slint_core::timers::TimerList::next_timeout() {
+                            let mut devices = devices.borrow_mut();
+                            let devices = devices.as_mut().unwrap();
+
+                            let time_to_sleep = instant - devices.time();
+                            devices.set_timer_interrupt(core::time::Duration::from_millis(
+                                time_to_sleep.0,
+                            ));
+                        }
+                        devices.borrow_mut().as_mut().unwrap().wait_for_interrupt();
                     }
                 });
                 match behavior {
