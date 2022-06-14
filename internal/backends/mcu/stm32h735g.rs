@@ -47,16 +47,16 @@ pub fn init() {
     let pwrcfg = pwr.smps().freeze();
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
-        .sys_ck(320.MHz())
+        .sys_ck(400.MHz())
         .pll3_p_ck(800.MHz() / 2)
         .pll3_q_ck(800.MHz() / 2)
         .pll3_r_ck(800.MHz() / 83)
         .freeze(pwrcfg, &dp.SYSCFG);
 
-    // Octospi from HCLK at 160MHz
-    assert_eq!(ccdr.clocks.hclk(), 160.MHz::<1, 1>());
+    assert_eq!(ccdr.clocks.hclk(), 200.MHz::<1, 1>());
+    // Octospi from HCLK at 200MHz
     assert_eq!(
-        ccdr.peripheral.OCTOSPI1.get_kernel_clk_mux(),
+        ccdr.peripheral.OCTOSPI2.get_kernel_clk_mux(),
         hal::rcc::rec::OctospiClkSel::RCC_HCLK3
     );
 
