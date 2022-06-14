@@ -43,7 +43,7 @@ default = ["backend-qt", "backend-gl-all", "preview"]
 
 [dependencies]
 i-slint-compiler = { version = "=0.2.5", path = "../../internal/compiler"}
-clap = { version = "3.1", features = ["derive", "wrap_help"] }
+clap = { version = "3.2", features = ["derive", "wrap_help"] }
 dunce = "1.0.1"
 euclid = "0.22"
 lsp-types = "0.93.0"

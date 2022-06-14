@@ -28,7 +28,7 @@ i-slint-backend-selector = { version = "=0.2.5", path="../../internal/backends/s
 
 vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
 
-clap = { version = "3.1", features = ["derive", "wrap_help"] }
+clap = { version = "3.2", features = ["derive", "wrap_help"] }
 codemap = "0.1"
 codemap-diagnostic = "0.1.1"
 notify = "4.0.15"
