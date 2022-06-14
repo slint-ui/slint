@@ -27,16 +27,16 @@ struct Cli {
         short = 'I',
         name = "Add include paths for the import statements",
         number_of_values = 1,
-        parse(from_os_str)
+        action
     )]
     include_paths: Vec<std::path::PathBuf>,
 
     /// The style name for the preview ('native' or 'fluent')
-    #[clap(long, name = "style name", default_value_t)]
+    #[clap(long, name = "style name", default_value_t, action)]
     style: String,
 
     /// The backend used for the preview ('GL' or 'Qt')
-    #[clap(long, name = "backend", default_value_t)]
+    #[clap(long, name = "backend", default_value_t, action)]
     backend: String,
 }
 

@@ -30,15 +30,15 @@ mod from_0_1_0;
 #[derive(clap::Parser)]
 #[clap(author, version, about, long_about = None)]
 struct Cli {
-    #[clap(name = "path to .slint file(s)", parse(from_os_str))]
+    #[clap(name = "path to .slint file(s)", action)]
     paths: Vec<std::path::PathBuf>,
 
     /// modify the file inline instead of printing to stdout
-    #[clap(short, long)]
+    #[clap(short, long, action)]
     inline: bool,
 
     /// Version to update from
-    #[clap(long, name = "version")]
+    #[clap(long, name = "version", action)]
     from: String,
 }
 
