@@ -41,11 +41,81 @@ pub trait LineBufferProvider {
 }
 
 #[derive(Default)]
-pub struct LineRenderer {
+pub struct SoftwareRenderer {
     partial_cache: RefCell<crate::item_rendering::PartialRenderingCache>,
 }
 
-impl LineRenderer {
+impl SoftwareRenderer {
+    /// Render the window to the given frame buffer.
+    ///
+    /// returns the dirty region for this frame (not including the initial_dirty_region)
+    pub fn render(
+        &self,
+        window: Rc<crate::window::Window>,
+        initial_dirty_region: DirtyRegion,
+        buffer: &mut [impl TargetPixel],
+        buffer_stride: PhysicalLength,
+    ) -> DirtyRegion {
+        let component_rc = window.component();
+        let component = crate::component::ComponentRc::borrow_pin(&component_rc);
+        let factor = ScaleFactor::new(window.scale_factor());
+        let (size, background) = if let Some(window_item) =
+            crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(
+                component.as_ref().get_item_ref(0),
+            ) {
+            (
+                (euclid::size2(window_item.width() as f32, window_item.height() as f32) * factor)
+                    .cast(),
+                window_item.background(),
+            )
+        } else {
+            (
+                euclid::size2(
+                    buffer_stride.get(),
+                    (buffer.len() / (buffer_stride.get() as usize)) as _,
+                ),
+                Color::default(),
+            )
+        };
+        let buffer_renderer = SceneBuilder::new(
+            size,
+            factor,
+            window.default_font_properties(),
+            RenderToBuffer { buffer, stride: buffer_stride },
+        );
+        let mut renderer = crate::item_rendering::PartialRenderer::new(
+            &self.partial_cache,
+            Default::default(),
+            buffer_renderer,
+        );
+
+        let mut dirty_region = PhysicalRect::default();
+        window.draw_contents(|components| {
+            for (component, origin) in components {
+                renderer.compute_dirty_regions(component, *origin);
+            }
+
+            dirty_region = (LogicalRect::from_untyped(&renderer.dirty_region.to_rect()).cast()
+                * factor)
+                .round_out()
+                .cast();
+
+            let to_draw = dirty_region
+                .union(&initial_dirty_region)
+                .intersection(&PhysicalRect { origin: euclid::point2(0, 0), size })
+                .unwrap_or_default();
+            renderer.combine_clip((to_draw.cast() / factor).to_untyped().cast(), 0 as _, 0 as _);
+
+            if background.alpha() != 0 {
+                renderer.actual_renderer.processor.process_rectangle(to_draw, background);
+            }
+            for (component, origin) in components {
+                crate::item_rendering::render_component_items(component, &mut renderer, *origin);
+            }
+        });
+        dirty_region
+    }
+
     /// Render the window, line by line, into the buffer provided by the `line_buffer` function.
     ///
     /// The renderer uses a cache internally and will only render the part of the window
@@ -56,7 +126,7 @@ impl LineRenderer {
     /// TODO: what about async and threading.
     ///       (can we call the line_buffer function from different thread?)
     /// TODO: should `initial_dirty_region` be set from a different call?
-    pub fn render(
+    pub fn render_by_line(
         &self,
         window: Rc<crate::window::Window>,
         initial_dirty_region: crate::item_rendering::DirtyRegion,
@@ -69,7 +139,7 @@ impl LineRenderer {
         ) {
             let size = euclid::size2(window_item.width() as f32, window_item.height() as f32)
                 * ScaleFactor::new(window.scale_factor());
-            render_window_frame(
+            render_window_frame_by_line(
                 window,
                 window_item.background(),
                 size.cast(),
@@ -92,7 +162,7 @@ impl LineRenderer {
     }
 }
 
-fn render_window_frame(
+fn render_window_frame_by_line(
     runtime_window: Rc<crate::window::Window>,
     background: Color,
     size: PhysicalSize,
@@ -124,7 +194,7 @@ fn render_window_frame(
                     SceneCommand::Texture { texture_index } => {
                         let texture = &scene.textures[texture_index as usize];
                         draw_functions::draw_texture_line(
-                            span,
+                            &PhysicalRect{ origin: span.pos, size: span.size }  ,
                             scene.current_line,
                             texture,
                              line_buffer,
@@ -133,7 +203,7 @@ fn render_window_frame(
                     SceneCommand::RoundedRectangle { rectangle_index } => {
                         let rr = &scene.rounded_rectangles[rectangle_index as usize];
                         draw_functions::draw_rounded_rectangle_line(
-                            span,
+                            &PhysicalRect{ origin: span.pos, size: span.size } ,
                             scene.current_line,
                             rr,
                              line_buffer,
@@ -372,8 +442,12 @@ fn prepare_scene(
     cache: &RefCell<PartialRenderingCache>,
 ) -> Scene {
     let factor = ScaleFactor::new(runtime_window.scale_factor());
-    let prepare_scene =
-        SceneBuilder::<PrepareScene>::new(size, factor, runtime_window.default_font_properties());
+    let prepare_scene = SceneBuilder::new(
+        size,
+        factor,
+        runtime_window.default_font_properties(),
+        PrepareScene::default(),
+    );
     let mut renderer =
         crate::item_rendering::PartialRenderer::new(cache, initial_dirty_region, prepare_scene);
 
@@ -410,6 +484,45 @@ trait ProcessScene {
     fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture);
     fn process_rectangle(&mut self, geometry: PhysicalRect, color: Color);
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle);
+}
+
+struct RenderToBuffer<'a, TargetPixel> {
+    buffer: &'a mut [TargetPixel],
+    stride: PhysicalLength,
+}
+
+impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
+    fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture) {
+        for line in geometry.min_y()..geometry.max_y() {
+            draw_functions::draw_texture_line(
+                &geometry,
+                PhysicalLength::new(line),
+                &texture,
+                &mut self.buffer[line as usize * self.stride.get() as usize..],
+            );
+        }
+    }
+
+    fn process_rectangle(&mut self, geometry: PhysicalRect, color: Color) {
+        for line in geometry.min_y()..geometry.max_y() {
+            let begin = line as usize * self.stride.get() as usize + geometry.origin.x as usize;
+            TargetPixel::blend_buffer(
+                &mut self.buffer[begin..begin + geometry.width() as usize],
+                color,
+            );
+        }
+    }
+
+    fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, rr: RoundedRectangle) {
+        for line in geometry.min_y()..geometry.max_y() {
+            draw_functions::draw_rounded_rectangle_line(
+                &geometry,
+                PhysicalLength::new(line),
+                &rr,
+                &mut self.buffer[line as usize * self.stride.get() as usize..],
+            );
+        }
+    }
 }
 
 #[derive(Default)]
@@ -466,10 +579,15 @@ struct SceneBuilder<T> {
     default_font: FontRequest,
 }
 
-impl<T: ProcessScene + Default> SceneBuilder<T> {
-    fn new(size: PhysicalSize, scale_factor: ScaleFactor, default_font: FontRequest) -> Self {
+impl<T: ProcessScene> SceneBuilder<T> {
+    fn new(
+        size: PhysicalSize,
+        scale_factor: ScaleFactor,
+        default_font: FontRequest,
+        processor: T,
+    ) -> Self {
         Self {
-            processor: Default::default(),
+            processor,
             state_stack: vec![],
             current_state: RenderState {
                 alpha: 1.,
@@ -597,7 +715,7 @@ struct RenderState {
     clip: LogicalRect,
 }
 
-impl<T: ProcessScene + Default + 'static> crate::item_rendering::ItemRenderer for SceneBuilder<T> {
+impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<T> {
     fn draw_rectangle(&mut self, rect: Pin<&crate::items::Rectangle>, _: &ItemRc) {
         let geom = LogicalRect::new(LogicalPoint::default(), rect.logical_geometry().size_length());
         if self.should_draw(&geom) {
@@ -891,7 +1009,7 @@ impl<T: ProcessScene + Default + 'static> crate::item_rendering::ItemRenderer fo
     }
 
     fn as_any(&mut self) -> &mut dyn core::any::Any {
-        self
+        unimplemented!()
     }
 }
 

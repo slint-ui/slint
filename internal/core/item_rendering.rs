@@ -385,7 +385,8 @@ pub struct PartialRenderer<'a, T> {
     cache: &'a RefCell<PartialRenderingCache>,
     /// The region of the screen which is considered dirty and that should be repainted
     pub dirty_region: DirtyRegion,
-    actual_renderer: T,
+    /// The actual renderer which the drawing call will be forwarded to
+    pub actual_renderer: T,
 }
 
 impl<'a, T> PartialRenderer<'a, T> {

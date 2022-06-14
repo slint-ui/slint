@@ -237,6 +237,10 @@ impl Devices for StmDevices {
         PhysicalSize::new(DISPLAY_WIDTH as _, DISPLAY_HEIGHT as _)
     }
 
+    fn get_buffer(&mut self) -> Option<(&mut [TargetPixel], PhysicalRect)> {
+        Some((self.work_fb, self.prev_dirty))
+    }
+
     fn prepare_frame(&mut self, dirty_region: PhysicalRect) -> PhysicalRect {
         dirty_region.union(&core::mem::replace(&mut self.prev_dirty, dirty_region))
     }

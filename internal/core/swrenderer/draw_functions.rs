@@ -4,9 +4,8 @@
 //! This is the module for the functions that are drawing the pixels
 //! on the line buffer
 
-use super::{SceneItem, SceneTexture};
 use crate::graphics::PixelFormat;
-use crate::lengths::{PhysicalLength, PointLengths, SizeLengths};
+use crate::lengths::{PhysicalLength, PhysicalRect, PointLengths, SizeLengths};
 use crate::Color;
 use derive_more::{Add, Mul, Sub};
 #[cfg(feature = "embedded-graphics")]
@@ -15,19 +14,19 @@ use integer_sqrt::IntegerSquareRoot;
 
 /// Draw one line of the texture in the line buffer
 pub(super) fn draw_texture_line(
-    span: &SceneItem,
+    span: &PhysicalRect,
     line: PhysicalLength,
     texture: &super::SceneTexture,
     line_buffer: &mut [impl TargetPixel],
 ) {
-    let SceneTexture { data, format, stride, source_size, color } = *texture;
+    let super::SceneTexture { data, format, stride, source_size, color } = *texture;
     let source_size = source_size.cast::<usize>();
     let span_size = span.size.cast::<usize>();
     let bpp = super::bpp(format) as usize;
-    let y = (line - span.pos.y_length()).cast::<usize>();
+    let y = (line - span.origin.y_length()).cast::<usize>();
     let y_pos = (y.get() * source_size.height / span_size.height) * stride as usize;
     for (x, pix) in line_buffer
-        [span.pos.x as usize..(span.pos.x_length() + span.size.width_length()).get() as usize]
+        [span.origin.x as usize..(span.origin.x_length() + span.size.width_length()).get() as usize]
         .iter_mut()
         .enumerate()
     {
@@ -77,7 +76,7 @@ pub(super) fn draw_texture_line(
 
 /// draw one line of the rounded rectangle in the line buffer
 pub(super) fn draw_rounded_rectangle_line(
-    span: &SceneItem,
+    span: &PhysicalRect,
     line: PhysicalLength,
     rr: &super::RoundedRectangle,
     line_buffer: &mut [impl TargetPixel],
@@ -111,9 +110,9 @@ pub(super) fn draw_rounded_rectangle_line(
             Self(self.0 * rhs.0)
         }
     }
-    let pos_x = span.pos.x as usize;
-    let y1 = (line - span.pos.y_length()) + rr.top_clip;
-    let y2 = (span.pos.y_length() + span.size.height_length() - line) + rr.bottom_clip
+    let pos_x = span.origin.x as usize;
+    let y1 = (line - span.origin.y_length()) + rr.top_clip;
+    let y2 = (span.origin.y_length() + span.size.height_length() - line) + rr.bottom_clip
         - PhysicalLength::new(1);
     let y = y1.min(y2);
     debug_assert!(y.get() >= 0,);
