@@ -44,6 +44,11 @@ pub fn init() {
 
     let pwr = dp.PWR.constrain();
     let pwrcfg = pwr.smps().freeze();
+
+    // Enable DMA2D clock
+    dp.RCC.ahb3enr.modify(|_, w| w.dma2den().set_bit());
+    while dp.RCC.ahb3enr.read().dma2den().bit_is_clear() {}
+
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
         .sys_ck(400.MHz())
@@ -316,12 +321,44 @@ impl i_slint_core::swrenderer::TargetPixel for TargetPixel {
     }
 
     fn blend_buffer(to_fill: &mut [Self], color: Color) {
+        if color.alpha() == 0 {
+            return;
+        }
         if color.alpha() == u8::MAX {
-            to_fill.fill(Self(embedded_graphics::pixelcolor::Rgb565::from_rgb(
-                color.red(),
-                color.green(),
-                color.blue(),
-            )))
+            use embedded_graphics::prelude::IntoStorage;
+            use stm32h7xx_hal::device::dma2d;
+
+            let dma2d_registers = unsafe { &*stm32h7xx_hal::device::DMA2D::ptr() };
+
+            // Transfer mode: from color register to memory
+
+            dma2d_registers.cr.modify(|_, w| w.mode().variant(dma2d::cr::MODE_A::REGISTERTOMEMORY));
+            // Output color mode
+            dma2d_registers.opfccr.modify(|_, w| w.cm().variant(dma2d::opfccr::CM_A::RGB565));
+
+            // Output offset: 0
+            dma2d_registers.oor.modify(|_, w| w.lo().bits(0));
+
+            // Number of pixels per line (pl) and number of lines (nl)
+            dma2d_registers.nlr.modify(|_, w| w.pl().bits(to_fill.len() as u16).nl().bits(1));
+
+            // Output address
+            dma2d_registers.omar.modify(|_, w| unsafe { w.bits(to_fill.as_ptr() as u32) });
+
+            // Color register
+            dma2d_registers.ocolr.modify(|_, w| unsafe {
+                let color_bits = embedded_graphics::pixelcolor::Rgb565::from_rgb(
+                    color.red(),
+                    color.green(),
+                    color.blue(),
+                )
+                .into_storage();
+                w.bits(color_bits as u32)
+            });
+
+            // Start transfer and wait
+            dma2d_registers.cr.modify(|_, w| w.start().set_bit());
+            while dma2d_registers.cr.read().start().bit_is_set() {}
         } else {
             for pix in to_fill {
                 embedded_graphics::pixelcolor::Rgb565::blend_pixel(
