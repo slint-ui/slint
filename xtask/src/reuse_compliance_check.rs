@@ -353,9 +353,9 @@ pub fn scan_symlinks(sh: &Shell, reuse: &Path, fix_it: bool) -> Result<()> {
 
 #[derive(Debug, clap::Parser)]
 pub struct ReuseComplianceCheck {
-    #[clap(long)]
+    #[clap(long, action)]
     fix_symlinks: bool,
-    #[clap(long)]
+    #[clap(long, action)]
     download_missing_licenses: bool,
 }
 

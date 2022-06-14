@@ -36,7 +36,7 @@ pub struct ApplicationArguments {
 
 #[derive(Debug, clap::Parser)]
 pub struct CppDocsCommand {
-    #[clap(long)]
+    #[clap(long, action)]
     show_warnings: bool,
 }
 
