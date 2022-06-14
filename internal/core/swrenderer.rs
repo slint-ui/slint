@@ -856,6 +856,7 @@ fn bpp(format: PixelFormat) -> u16 {
     match format {
         PixelFormat::Rgb => 3,
         PixelFormat::Rgba => 4,
+        PixelFormat::RgbaPremultiplied => 4,
         PixelFormat::AlphaMap => 1,
     }
 }

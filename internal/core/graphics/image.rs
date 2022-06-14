@@ -195,11 +195,13 @@ impl PartialEq for SharedImageBuffer {
 #[derive(Clone, PartialEq, Debug, Copy)]
 /// The pixel format of a StaticTexture
 pub enum PixelFormat {
-    /// red, green, blue
+    /// red, green, blue. 24bits.
     Rgb,
-    /// Red, green, blue, alpha
+    /// Red, green, blue, alpha. 32bits.
     Rgba,
-    /// A map
+    /// Red, green, blue, alpha. 32bits. The color are premultiplied by alpha
+    RgbaPremultiplied,
+    /// Alpha map. 8bits. Each pixel is an alpha value. The color is specified separately.
     AlphaMap,
 }
 

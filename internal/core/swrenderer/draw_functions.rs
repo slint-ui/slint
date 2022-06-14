@@ -34,18 +34,42 @@ pub(super) fn draw_texture_line(
         let pos = y_pos + (x * source_size.width / span_size.width) * bpp;
         let c = match format {
             PixelFormat::Rgb => {
-                Color::from_argb_u8(255, data[pos + 0], data[pos + 1], data[pos + 2])
+                let p = &data[pos..pos + 3];
+                *pix = TargetPixel::from_rgb(p[0], p[1], p[2]);
+                continue;
             }
             PixelFormat::Rgba => {
-                if color.alpha() == 0 {
-                    Color::from_argb_u8(data[pos + 3], data[pos + 0], data[pos + 1], data[pos + 2])
+                let alpha = data[pos + 3];
+                Premultiplied::premultiply(if color.alpha() == 0 {
+                    Color::from_argb_u8(alpha, data[pos + 0], data[pos + 1], data[pos + 2])
                 } else {
-                    Color::from_argb_u8(data[pos + 3], color.red(), color.green(), color.blue())
+                    Color::from_argb_u8(alpha, color.red(), color.green(), color.blue())
+                })
+            }
+            PixelFormat::RgbaPremultiplied => {
+                let alpha = data[pos + 3];
+                if color.alpha() == 0 {
+                    Premultiplied(Color::from_argb_u8(
+                        alpha,
+                        data[pos + 0],
+                        data[pos + 1],
+                        data[pos + 2],
+                    ))
+                } else {
+                    Premultiplied::premultiply(Color::from_argb_u8(
+                        alpha,
+                        color.red(),
+                        color.green(),
+                        color.blue(),
+                    ))
                 }
             }
-            PixelFormat::AlphaMap => {
-                Color::from_argb_u8(data[pos], color.red(), color.green(), color.blue())
-            }
+            PixelFormat::AlphaMap => Premultiplied::premultiply(Color::from_argb_u8(
+                data[pos],
+                color.red(),
+                color.green(),
+                color.blue(),
+            )),
         };
         TargetPixel::blend_pixel(pix, c);
     }
@@ -134,7 +158,7 @@ pub(super) fn draw_rounded_rectangle_line(
             let c = if border == Shifted(0) { rr.inner_color } else { rr.border_color };
             let alpha = ((c.alpha() as u32) * cov as u32) / 255;
             let col = Color::from_argb_u8(alpha as u8, c.red(), c.green(), c.blue());
-            TargetPixel::blend_pixel(&mut line_buffer[pos_x + x], col)
+            TargetPixel::blend_pixel(&mut line_buffer[pos_x + x], Premultiplied::premultiply(col))
         },
     );
     if y < rr.width {
@@ -210,12 +234,12 @@ pub(super) fn draw_rounded_rectangle_line(
         let c = if border == Shifted(0) { rr.inner_color } else { rr.border_color };
         let alpha = ((c.alpha() as u32) * (255 - cov) as u32) / 255;
         let col = Color::from_argb_u8(alpha as u8, c.red(), c.green(), c.blue());
-        TargetPixel::blend_pixel(&mut line_buffer[pos_x + x], col)
+        TargetPixel::blend_pixel(&mut line_buffer[pos_x + x], Premultiplied::premultiply(col))
     });
 }
 
 // a is between 0 and 255. When 0, we get color1, when 2 we get color2
-fn interpolate_color(a: u32, color1: Color, color2: Color) -> Color {
+fn interpolate_color(a: u32, color1: Color, color2: Color) -> Premultiplied {
     let b = 255 - a;
 
     let al1 = color1.alpha() as u32;
@@ -226,24 +250,43 @@ fn interpolate_color(a: u32, color1: Color, color2: Color) -> Color {
     let m = a_ + b_;
 
     if m == 0 {
-        return Color::default();
+        return Premultiplied(Color::default());
     }
 
-    let col = Color::from_argb_u8(
+    let div = 255 * 255;
+    Premultiplied(Color::from_argb_u8(
         (m / 255) as u8,
-        ((b_ * color1.red() as u32 + a_ * color2.red() as u32) / m) as u8,
-        ((b_ * color1.green() as u32 + a_ * color2.green() as u32) / m) as u8,
-        ((b_ * color1.blue() as u32 + a_ * color2.blue() as u32) / m) as u8,
-    );
-    col
+        ((b_ * color1.red() as u32 + a_ * color2.red() as u32) / div) as u8,
+        ((b_ * color1.green() as u32 + a_ * color2.green() as u32) / div) as u8,
+        ((b_ * color1.blue() as u32 + a_ * color2.blue() as u32) / div) as u8,
+    ))
+}
+
+/// Wrap a color whose component have been pre-multiplied by alpha
+#[derive(Clone, Copy)]
+pub struct Premultiplied(pub Color);
+
+impl Premultiplied {
+    /// Convert a non premultiplied color to a premultiplied one
+    pub fn premultiply(col: Color) -> Self {
+        let a = col.alpha() as u16;
+        Self(Color::from_argb_u8(
+            col.alpha(),
+            (col.red() as u16 * a / 255) as u8,
+            (col.green() as u16 * a / 255) as u8,
+            (col.blue() as u16 * a / 255) as u8,
+        ))
+    }
 }
 
 /// Trait for the pixels in the buffer
 pub trait TargetPixel: Sized + Copy {
     /// blend a single pixel
-    fn blend_pixel(pix: &mut Self, color: Color);
+    fn blend_pixel(pix: &mut Self, color: Premultiplied);
     /// Fill (or blend) the color in the buffer
     fn blend_buffer(to_fill: &mut [Self], color: Color);
+    /// Create a pixel from the red, gree, blue component in the range 0..=255
+    fn from_rgb(r: u8, g: u8, b: u8) -> Self;
 }
 
 #[cfg(feature = "embedded-graphics")]
@@ -253,19 +296,22 @@ impl TargetPixel for embedded_graphics::pixelcolor::Rgb888 {
             to_fill.fill(Self::new(color.red(), color.green(), color.blue()))
         } else {
             for pix in to_fill {
-                Self::blend_pixel(pix, color);
+                Self::blend_pixel(pix, Premultiplied::premultiply(color));
             }
         }
     }
 
-    fn blend_pixel(pix: &mut Self, color: Color) {
-        let a = (u8::MAX - color.alpha()) as u16;
-        let b = color.alpha() as u16;
+    fn blend_pixel(pix: &mut Self, color: Premultiplied) {
+        let a = (u8::MAX - color.0.alpha()) as u16;
         *pix = Self::new(
-            ((pix.r() as u16 * a + color.red() as u16 * b) / 255) as u8,
-            ((pix.g() as u16 * a + color.green() as u16 * b) / 255) as u8,
-            ((pix.b() as u16 * a + color.blue() as u16 * b) / 255) as u8,
+            (pix.r() as u16 * a / 255) as u8 + color.0.red(),
+            (pix.g() as u16 * a / 255) as u8 + color.0.green(),
+            (pix.b() as u16 * a / 255) as u8 + color.0.blue(),
         );
+    }
+
+    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
+        Self::new(r, g, b)
     }
 }
 
@@ -273,21 +319,24 @@ impl TargetPixel for embedded_graphics::pixelcolor::Rgb888 {
 impl TargetPixel for embedded_graphics::pixelcolor::Rgb565 {
     fn blend_buffer(to_fill: &mut [Self], color: Color) {
         if color.alpha() == u8::MAX {
-            to_fill.fill(Self::new(color.red() >> 3, color.green() >> 2, color.blue() >> 3))
+            to_fill.fill(Self::from_rgb(color.red(), color.green(), color.blue()))
         } else {
             for pix in to_fill {
-                Self::blend_pixel(pix, color);
+                Self::blend_pixel(pix, Premultiplied::premultiply(color));
             }
         }
     }
 
-    fn blend_pixel(pix: &mut Self, color: Color) {
-        let a = (u8::MAX - color.alpha()) as u16;
-        let b = color.alpha() as u16;
+    fn blend_pixel(pix: &mut Self, color: Premultiplied) {
+        let a = (u8::MAX - color.0.alpha()) as u16;
         *pix = Self::new(
-            ((((pix.r() as u16) << 3) * a + color.red() as u16 * b) / 2040) as u8,
-            ((((pix.g() as u16) << 2) * a + color.green() as u16 * b) / 1020) as u8,
-            ((((pix.b() as u16) << 3) * a + color.blue() as u16 * b) / 2040) as u8,
+            (((pix.r() as u16) * a) / 255) as u8 + (color.0.red() >> 3),
+            (((pix.g() as u16) * a) / 255) as u8 + (color.0.green() >> 2),
+            (((pix.b() as u16) * a) / 255) as u8 + (color.0.blue() >> 3),
         )
+    }
+
+    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
+        Self::new(r >> 3, g >> 2, b >> 3)
     }
 }

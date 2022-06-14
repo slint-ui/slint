@@ -224,7 +224,7 @@ pub fn generate_texture(image: image::RgbaImage, original_size: Size) -> Texture
     } else if is_opaque {
         PixelFormat::Rgb
     } else {
-        PixelFormat::Rgba
+        PixelFormat::RgbaPremultiplied
     };
 
     let rect = Rect::from_ltrb(left as _, top as _, (right + 1) as _, (bottom + 1) as _).unwrap();
@@ -247,6 +247,16 @@ fn convert_image(image: image::RgbaImage, format: PixelFormat, rect: Rect) -> Ve
         PixelFormat::Rgba => {
             i.pixels().flat_map(|(_, _, p)| IntoIterator::into_iter(p.0)).collect()
         }
+        PixelFormat::RgbaPremultiplied => i
+            .pixels()
+            .flat_map(|(_, _, p)| {
+                let a = p.0[3] as u32;
+                IntoIterator::into_iter(p.0)
+                    .take(3)
+                    .map(move |x| (x as u32 * a / 255) as u8)
+                    .chain(std::iter::once(a as u8))
+            })
+            .collect(),
         PixelFormat::AlphaMap(_) => i.pixels().map(|(_, _, p)| p[3]).collect(),
     }
 }
