@@ -371,7 +371,8 @@ fn prepare_scene(
     cache: &RefCell<PartialRenderingCache>,
 ) -> Scene {
     let factor = ScaleFactor::new(runtime_window.scale_factor());
-    let prepare_scene = PrepareScene::new(size, factor, runtime_window.default_font_properties());
+    let prepare_scene =
+        SceneBuilder::<PrepareScene>::new(size, factor, runtime_window.default_font_properties());
     let mut renderer =
         crate::item_rendering::PartialRenderer::new(cache, initial_dirty_region, prepare_scene);
 
@@ -397,29 +398,77 @@ fn prepare_scene(
 
     let prepare_scene = renderer.into_inner();
     Scene::new(
-        prepare_scene.items,
-        prepare_scene.textures,
-        prepare_scene.rounded_rectangles,
+        prepare_scene.processor.items,
+        prepare_scene.processor.textures,
+        prepare_scene.processor.rounded_rectangles,
         dirty_region,
     )
 }
 
+trait ProcessScene {
+    fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture);
+    fn process_rectangle(&mut self, geometry: PhysicalRect, color: Color);
+    fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle);
+}
+
+#[derive(Default)]
 struct PrepareScene {
     items: Vec<SceneItem>,
     textures: Vec<SceneTexture>,
     rounded_rectangles: Vec<RoundedRectangle>,
+}
+
+impl ProcessScene for PrepareScene {
+    fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture) {
+        let size = geometry.size;
+        if !size.is_empty() {
+            let texture_index = self.textures.len() as u16;
+            self.textures.push(texture);
+            self.items.push(SceneItem {
+                pos: geometry.origin,
+                size,
+                z: self.items.len() as u16,
+                command: SceneCommand::Texture { texture_index },
+            });
+        }
+    }
+
+    fn process_rectangle(&mut self, geometry: PhysicalRect, color: Color) {
+        let size = geometry.size;
+        if !size.is_empty() {
+            let z = self.items.len() as u16;
+            let pos = geometry.origin;
+            self.items.push(SceneItem { pos, size, z, command: SceneCommand::Rectangle { color } });
+        }
+    }
+
+    fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle) {
+        let size = geometry.size;
+        if !size.is_empty() {
+            let rectangle_index = self.rounded_rectangles.len() as u16;
+            self.rounded_rectangles.push(data);
+            self.items.push(SceneItem {
+                pos: geometry.origin,
+                size,
+                z: self.items.len() as u16,
+                command: SceneCommand::RoundedRectangle { rectangle_index },
+            });
+        }
+    }
+}
+
+struct SceneBuilder<T> {
+    processor: T,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     scale_factor: ScaleFactor,
     default_font: FontRequest,
 }
 
-impl PrepareScene {
+impl<T: ProcessScene + Default> SceneBuilder<T> {
     fn new(size: PhysicalSize, scale_factor: ScaleFactor, default_font: FontRequest) -> Self {
         Self {
-            items: vec![],
-            rounded_rectangles: vec![],
-            textures: vec![],
+            processor: Default::default(),
             state_stack: vec![],
             current_state: RenderState {
                 alpha: 1.,
@@ -438,33 +487,6 @@ impl PrepareScene {
         !rect.size.is_empty()
             && self.current_state.alpha > 0.01
             && self.current_state.clip.intersects(rect)
-    }
-
-    fn new_scene_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture) {
-        let size = geometry.size;
-        if !size.is_empty() {
-            let texture_index = self.textures.len() as u16;
-            self.textures.push(texture);
-            self.items.push(SceneItem {
-                pos: geometry.origin,
-                size,
-                z: self.items.len() as u16,
-                command: SceneCommand::Texture { texture_index },
-            });
-        }
-    }
-
-    fn new_scene_item(&mut self, geometry: LogicalRect, command: SceneCommand) {
-        let geometry = (geometry.translate(self.current_state.offset.to_vector()).cast()
-            * self.scale_factor)
-            .round()
-            .cast();
-        let size = geometry.size;
-        if !size.is_empty() {
-            let z = self.items.len() as u16;
-            let pos = geometry.origin;
-            self.items.push(SceneItem { pos, size, z, command });
-        }
     }
 
     fn draw_image_impl(
@@ -548,7 +570,7 @@ impl PrepareScene {
                             + source_rect.origin.y as usize
                             - t.rect.origin.y as usize;
                         let stride = t.rect.width() as u16 * bpp(t.format);
-                        self.new_scene_texture(
+                        self.processor.process_texture(
                             target_rect.cast(),
                             SceneTexture {
                                 data: &data.as_slice()[(t.index
@@ -574,7 +596,7 @@ struct RenderState {
     clip: LogicalRect,
 }
 
-impl crate::item_rendering::ItemRenderer for PrepareScene {
+impl<T: ProcessScene + Default + 'static> crate::item_rendering::ItemRenderer for SceneBuilder<T> {
     fn draw_rectangle(&mut self, rect: Pin<&crate::items::Rectangle>, _: &ItemRc) {
         let geom = LogicalRect::new(LogicalPoint::default(), rect.logical_geometry().size_length());
         if self.should_draw(&geom) {
@@ -588,7 +610,12 @@ impl crate::item_rendering::ItemRenderer for PrepareScene {
             if color.alpha() == 0 {
                 return;
             }
-            self.new_scene_item(geom, SceneCommand::Rectangle { color: color });
+            self.processor.process_rectangle(
+                (geom.translate(self.current_state.offset.to_vector()).cast() * self.scale_factor)
+                    .round()
+                    .cast(),
+                color,
+            );
         }
     }
 
@@ -606,26 +633,31 @@ impl crate::item_rendering::ItemRenderer for PrepareScene {
                 if let Some(clipped) = geom.intersection(&self.current_state.clip) {
                     let geom2 = geom.cast() * self.scale_factor;
                     let clipped2 = clipped.cast() * self.scale_factor;
-                    let rectangle_index = self.rounded_rectangles.len() as u16;
                     // Add a small value to make sure that the clip is always positive despite floating point shenanigans
                     const E: f32 = 0.00001;
-                    self.rounded_rectangles.push(RoundedRectangle {
-                        radius: (radius.cast() * self.scale_factor).cast(),
-                        width: (LogicalLength::new(border).cast() * self.scale_factor).cast(),
-                        border_color: rect.border_color().color(),
-                        inner_color: color,
-                        top_clip: PhysicalLength::new((clipped2.min_y() - geom2.min_y() + E) as _),
-                        bottom_clip: PhysicalLength::new(
-                            (geom2.max_y() - clipped2.max_y() + E) as _,
-                        ),
-                        left_clip: PhysicalLength::new((clipped2.min_x() - geom2.min_x() + E) as _),
-                        right_clip: PhysicalLength::new(
-                            (geom2.max_x() - clipped2.max_x() + E) as _,
-                        ),
-                    });
-                    self.new_scene_item(
-                        clipped,
-                        SceneCommand::RoundedRectangle { rectangle_index },
+                    self.processor.process_rounded_rectangle(
+                        (clipped.translate(self.current_state.offset.to_vector()).cast()
+                            * self.scale_factor)
+                            .round()
+                            .cast(),
+                        RoundedRectangle {
+                            radius: (radius.cast() * self.scale_factor).cast(),
+                            width: (LogicalLength::new(border).cast() * self.scale_factor).cast(),
+                            border_color: rect.border_color().color(),
+                            inner_color: color,
+                            top_clip: PhysicalLength::new(
+                                (clipped2.min_y() - geom2.min_y() + E) as _,
+                            ),
+                            bottom_clip: PhysicalLength::new(
+                                (geom2.max_y() - clipped2.max_y() + E) as _,
+                            ),
+                            left_clip: PhysicalLength::new(
+                                (clipped2.min_x() - geom2.min_x() + E) as _,
+                            ),
+                            right_clip: PhysicalLength::new(
+                                (geom2.max_x() - clipped2.max_x() + E) as _,
+                            ),
+                        },
                     );
                 }
                 return;
@@ -635,7 +667,13 @@ impl crate::item_rendering::ItemRenderer for PrepareScene {
                 if let Some(r) =
                     geom.inflate(-border, -border).intersection(&self.current_state.clip)
                 {
-                    self.new_scene_item(r, SceneCommand::Rectangle { color });
+                    self.processor.process_rectangle(
+                        (r.translate(self.current_state.offset.to_vector()).cast()
+                            * self.scale_factor)
+                            .round()
+                            .cast(),
+                        color,
+                    );
                 }
             }
             if border > 0.01 as Coord {
@@ -645,7 +683,13 @@ impl crate::item_rendering::ItemRenderer for PrepareScene {
                 if border_color.alpha() > 0 {
                     let mut add_border = |r: LogicalRect| {
                         if let Some(r) = r.intersection(&self.current_state.clip) {
-                            self.new_scene_item(r, SceneCommand::Rectangle { color: border_color });
+                            self.processor.process_rectangle(
+                                (r.translate(self.current_state.offset.to_vector()).cast()
+                                    * self.scale_factor)
+                                    .round()
+                                    .cast(),
+                                border_color,
+                            );
                         }
                     };
                     let b = border;
@@ -763,7 +807,7 @@ impl crate::item_rendering::ItemRenderer for PrepareScene {
                     let actual_y = origin.y - src_rect.origin.y as usize;
                     let stride = positioned_glyph.platform_glyph.width().get() as u16;
                     let geometry = geometry.cast();
-                    self.new_scene_texture(
+                    self.processor.process_texture(
                         geometry,
                         SceneTexture {
                             data: &positioned_glyph.platform_glyph.data().as_slice()
