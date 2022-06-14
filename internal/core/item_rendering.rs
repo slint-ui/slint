@@ -404,25 +404,27 @@ impl<'a, T> PartialRenderer<'a, T> {
             crate::item_tree::visit_items(
                 component,
                 crate::item_tree::TraversalOrder::BackToFront,
-                |_, item, _, offset| match item
-                    .cached_rendering_data_offset()
-                    .get_entry(&mut self.cache.borrow_mut())
-                {
-                    Some(CachedGraphicsData { data, dependency_tracker: Some(tr) }) => {
-                        if tr.is_dirty() {
+                |_, item, _, offset| {
+                    let mut borrowed = self.cache.borrow_mut();
+                    match item.cached_rendering_data_offset().get_entry(&mut borrowed) {
+                        Some(CachedGraphicsData { data, dependency_tracker: Some(tr) }) => {
+                            if tr.is_dirty() {
+                                let old_geom = *data;
+                                drop(borrowed);
+                                let geom = item.as_ref().geometry();
+                                self.mark_dirty_rect(old_geom, *offset);
+                                self.mark_dirty_rect(geom, *offset);
+                                ItemVisitorResult::Continue(*offset + geom.origin.to_vector())
+                            } else {
+                                ItemVisitorResult::Continue(*offset + data.origin.to_vector())
+                            }
+                        }
+                        _ => {
+                            drop(borrowed);
                             let geom = item.as_ref().geometry();
-                            let old_geom = *data;
-                            self.mark_dirty_rect(old_geom, *offset);
                             self.mark_dirty_rect(geom, *offset);
                             ItemVisitorResult::Continue(*offset + geom.origin.to_vector())
-                        } else {
-                            ItemVisitorResult::Continue(*offset + data.origin.to_vector())
                         }
-                    }
-                    _ => {
-                        let geom = item.as_ref().geometry();
-                        self.mark_dirty_rect(geom, *offset);
-                        ItemVisitorResult::Continue(*offset + geom.origin.to_vector())
                     }
                 },
                 origin.to_vector(),
