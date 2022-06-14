@@ -3,7 +3,6 @@
 
 extern crate alloc;
 
-use super::TargetPixel;
 pub use cortex_m_rt::entry;
 use embedded_display_controller::{DisplayController, DisplayControllerLayer};
 use embedded_graphics::prelude::RgbColor;
@@ -298,4 +297,47 @@ fn touch_device<'a>(
     touch_i2c: &mut TouchI2C,
 ) -> ft5336::Ft5336<'a, TouchI2C> {
     ft5336::Ft5336::new(touch_i2c, 0x70 >> 1, delay).unwrap()
+}
+
+use i_slint_core::graphics::Color;
+use i_slint_core::swrenderer::draw_functions::Premultiplied;
+
+#[derive(Clone, Default, Copy, Eq, PartialEq)]
+pub struct TargetPixel(embedded_graphics::pixelcolor::Rgb565);
+
+impl TargetPixel {
+    pub const BLACK: Self = Self(embedded_graphics::pixelcolor::Rgb565::BLACK);
+    pub const RED: Self = Self(embedded_graphics::pixelcolor::Rgb565::RED);
+}
+
+impl i_slint_core::swrenderer::TargetPixel for TargetPixel {
+    fn blend_pixel(pix: &mut Self, color: Premultiplied) {
+        embedded_graphics::pixelcolor::Rgb565::blend_pixel(&mut pix.0, color)
+    }
+
+    fn blend_buffer(to_fill: &mut [Self], color: Color) {
+        if color.alpha() == u8::MAX {
+            to_fill.fill(Self(embedded_graphics::pixelcolor::Rgb565::from_rgb(
+                color.red(),
+                color.green(),
+                color.blue(),
+            )))
+        } else {
+            for pix in to_fill {
+                embedded_graphics::pixelcolor::Rgb565::blend_pixel(
+                    &mut pix.0,
+                    Premultiplied::premultiply(color),
+                );
+            }
+        }
+    }
+
+    fn from_rgb(r: u8, g: u8, b: u8) -> Self {
+        Self(embedded_graphics::pixelcolor::Rgb565::from_rgb(r, g, b))
+    }
+}
+
+impl embedded_graphics::pixelcolor::PixelColor for TargetPixel {
+    type Raw =
+        <embedded_graphics::pixelcolor::Rgb565 as embedded_graphics::pixelcolor::PixelColor>::Raw;
 }

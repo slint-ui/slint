@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-mod draw_functions;
+pub mod draw_functions;
 pub mod fonts;
 
 use crate::graphics::{FontRequest, IntRect, PixelFormat, Rect as RectF};
