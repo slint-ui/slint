@@ -53,6 +53,7 @@ impl quote::ToTokens for crate::embedded_resources::PixelFormat {
         let tks = match self {
             Rgb => quote!(slint::re_exports::PixelFormat::Rgb),
             Rgba => quote!(slint::re_exports::PixelFormat::Rgba),
+            RgbaPremultiplied => quote!(slint::re_exports::PixelFormat::RgbaPremultiplied),
             AlphaMap(_) => quote!(slint::re_exports::PixelFormat::AlphaMap),
         };
         tokens.extend(tks);

@@ -16,6 +16,8 @@ pub enum PixelFormat {
     Rgb,
     // 32 bit RGBA
     Rgba,
+    // 32 bit RGBA, but the RGB values are pre-multiplied by the alpha
+    RgbaPremultiplied,
     // 8bit alpha map with a given color
     AlphaMap([u8; 3]),
 }
