@@ -31,6 +31,11 @@ pub type TargetPixel = embedded_graphics::pixelcolor::Rgb565;
 
 pub trait Devices {
     fn screen_size(&self) -> PhysicalSize;
+    /// If the device supports it, return the target buffer where to draw the frame. Must be width * height large.
+    /// Also return the dirty area.
+    fn get_buffer(&mut self) -> Option<(&mut [TargetPixel], PhysicalRect)> {
+        None
+    }
     /// Called before the frame is being drawn, with the dirty region. Return the actual dirty region
     fn prepare_frame(&mut self, dirty_region: PhysicalRect) -> PhysicalRect {
         dirty_region
@@ -87,7 +92,7 @@ where
 }
 
 thread_local! { static DEVICES: RefCell<Option<Box<dyn Devices + 'static>>> = RefCell::new(None) }
-thread_local! { static LINE_RENDERER: RefCell<crate::renderer::LineRenderer> = RefCell::new(Default::default()) }
+thread_local! { static RENDERER: RefCell<crate::renderer::SoftwareRenderer> = RefCell::new(Default::default()) }
 
 mod the_backend {
     use super::*;
@@ -133,7 +138,7 @@ mod the_backend {
             _: i_slint_core::component::ComponentRef,
             items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'a>>>,
         ) {
-            super::LINE_RENDERER.with(|renderer| {
+            super::RENDERER.with(|renderer| {
                 renderer.borrow().free_graphics_resources(items);
             });
         }
@@ -276,8 +281,34 @@ mod the_backend {
             DEVICES.with(|devices| {
                 let mut devices = devices.borrow_mut();
                 let devices = devices.as_mut().unwrap();
-                let size = devices.screen_size().to_f32() / runtime_window.scale_factor();
+                let mut frame_profiler = profiler::Timer::new(&**devices);
+                let screen_size = devices.screen_size();
+                let scale_factor = runtime_window.scale_factor();
+                let size = screen_size.to_f32() / scale_factor;
                 runtime_window.set_window_item_geometry(size.width as _, size.height as _);
+
+                if let Some((buffer, prev_dirty)) = devices.get_buffer() {
+                    let init_dirty = PhysicalRect::from_untyped(
+                        &window
+                            .initial_dirty_region_for_next_frame
+                            .take()
+                            .to_rect()
+                            .scale(scale_factor, scale_factor)
+                            .cast(),
+                    );
+                    let new_dirty_region = RENDERER.with(|renderer| {
+                        renderer.borrow().render(
+                            runtime_window,
+                            init_dirty.union(&prev_dirty),
+                            buffer,
+                            screen_size.width_length(),
+                        )
+                    });
+                    devices.prepare_frame(new_dirty_region.union(&init_dirty));
+                    devices.flush_frame();
+                    frame_profiler.stop_profiling(&mut **devices, "=> frame total");
+                    return;
+                }
 
                 struct BufferProvider<'a> {
                     screen_fill_profiler: profiler::Timer,
@@ -348,13 +379,14 @@ mod the_backend {
                     dirty_region: PhysicalRect::default(),
                 };
 
-                LINE_RENDERER.with(|renderer| {
-                    renderer.borrow().render(
+                RENDERER.with(|renderer| {
+                    renderer.borrow().render_by_line(
                         runtime_window,
                         window.initial_dirty_region_for_next_frame.take(),
                         buffer_provider,
                     )
                 });
+                frame_profiler.stop_profiling(&mut **devices, "=> frame total");
             });
         }
     }
