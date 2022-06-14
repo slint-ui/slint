@@ -59,12 +59,20 @@ pub fn embed_glyphs<'a>(
         fontdb.set_sans_serif_family(default_sans_serif_family);
     }
 
-    #[cfg(target_os = "macos")]
-    let fallback_families = ["Menlo", "Apple Symbols", "Apple Color Emoji"];
-    #[cfg(not(target_os = "macos"))]
-    let fallback_families: [&str; 0] = [];
+    let fallback_families = if cfg!(target_os = "macos") {
+        ["Menlo", "Apple Symbols", "Apple Color Emoji"].iter()
+    } else if cfg!(not(any(
+        target_family = "windows",
+        target_os = "macos",
+        target_os = "ios",
+        target_arch = "wasm32"
+    ))) {
+        ["Noto Sans Symbols", "Noto Sans Symbols2", "DejaVu Sans"].iter()
+    } else {
+        [].iter()
+    };
+
     let fallback_fonts = fallback_families
-        .iter()
         .filter_map(|fallback_family| {
             fontdb
                 .query(&fontdb::Query {
