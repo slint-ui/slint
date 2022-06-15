@@ -15,7 +15,7 @@ use crate::textlayout::{FontMetrics as _, TextParagraphLayout};
 use crate::{Color, Coord, ImageInner, StaticTextures};
 use alloc::rc::Rc;
 use alloc::{vec, vec::Vec};
-use core::cell::RefCell;
+use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 pub use draw_functions::TargetPixel;
 
@@ -43,6 +43,7 @@ pub trait LineBufferProvider {
 #[derive(Default)]
 pub struct SoftwareRenderer {
     partial_cache: RefCell<crate::item_rendering::PartialRenderingCache>,
+    last_scene_capacities: Cell<SceneCapacities>,
 }
 
 impl SoftwareRenderer {
@@ -130,7 +131,7 @@ impl SoftwareRenderer {
         &self,
         window: Rc<crate::window::Window>,
         initial_dirty_region: crate::item_rendering::DirtyRegion,
-        line_buffer: impl LineBufferProvider,
+        mut line_buffer: impl LineBufferProvider,
     ) {
         let component_rc = window.component();
         let component = crate::component::ComponentRc::borrow_pin(&component_rc);
@@ -139,14 +140,20 @@ impl SoftwareRenderer {
         ) {
             let size = euclid::size2(window_item.width() as f32, window_item.height() as f32)
                 * ScaleFactor::new(window.scale_factor());
-            render_window_frame_by_line(
+            let mut scene = prepare_scene(
                 window,
-                window_item.background(),
                 size.cast(),
                 initial_dirty_region,
+                &mut line_buffer,
                 &self.partial_cache,
-                line_buffer,
+                self.last_scene_capacities.get(),
             );
+
+            render_window_frame_by_line(window_item.background(), line_buffer, &mut scene);
+
+            self.last_scene_capacities.set((&scene).into());
+        } else {
+            Default::default()
         }
     }
 
@@ -163,16 +170,10 @@ impl SoftwareRenderer {
 }
 
 fn render_window_frame_by_line(
-    runtime_window: Rc<crate::window::Window>,
     background: Color,
-    size: PhysicalSize,
-    initial_dirty_region: crate::item_rendering::DirtyRegion,
-    cache: &RefCell<PartialRenderingCache>,
     mut line_buffer: impl LineBufferProvider,
+    scene: &mut Scene,
 ) {
-    let mut scene =
-        prepare_scene(runtime_window, size, initial_dirty_region, &mut line_buffer, cache);
-
     let dirty_region = scene.dirty_region;
 
     debug_assert!(scene.current_line >= dirty_region.origin.y_length());
@@ -439,13 +440,14 @@ fn prepare_scene(
     initial_dirty_region: crate::item_rendering::DirtyRegion,
     line_buffer: &mut impl LineBufferProvider,
     cache: &RefCell<PartialRenderingCache>,
+    scene_capacities: SceneCapacities,
 ) -> Scene {
     let factor = ScaleFactor::new(runtime_window.scale_factor());
     let prepare_scene = SceneBuilder::new(
         size,
         factor,
         runtime_window.default_font_properties(),
-        PrepareScene::default(),
+        PrepareScene::with_capacities(scene_capacities),
     );
     let mut renderer =
         crate::item_rendering::PartialRenderer::new(cache, initial_dirty_region, prepare_scene);
@@ -524,11 +526,37 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
     }
 }
 
-#[derive(Default)]
+#[derive(Copy, Clone, Default)]
+struct SceneCapacities {
+    num_items: usize,
+    num_textures: usize,
+    num_rounded_rectangles: usize,
+}
+
+impl From<&Scene> for SceneCapacities {
+    fn from(scene: &Scene) -> Self {
+        Self {
+            num_items: scene.items.len(),
+            num_textures: scene.textures.len(),
+            num_rounded_rectangles: scene.rounded_rectangles.len(),
+        }
+    }
+}
+
 struct PrepareScene {
     items: Vec<SceneItem>,
     textures: Vec<SceneTexture>,
     rounded_rectangles: Vec<RoundedRectangle>,
+}
+
+impl PrepareScene {
+    fn with_capacities(capacities: SceneCapacities) -> Self {
+        Self {
+            items: Vec::with_capacity(capacities.num_items),
+            textures: Vec::with_capacity(capacities.num_textures),
+            rounded_rectangles: Vec::with_capacity(capacities.num_rounded_rectangles),
+        }
+    }
 }
 
 impl ProcessScene for PrepareScene {
