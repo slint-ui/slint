@@ -176,19 +176,20 @@ impl<Display: Devices, IRQ: InputPin, CS: OutputPin<Error = IRQ::Error>, SPI: Tr
         core::time::Duration::from_micros(self.timer.get_counter())
     }
 
-    fn set_timer_interrupt(&mut self, duration: core::time::Duration) {
-        let duration = core::cmp::max(duration, core::time::Duration::from_micros(10));
-        let duration = embedded_time::duration::Microseconds::new(duration.as_micros() as u32);
-        cortex_m::interrupt::free(|cs| {
-            ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().schedule(duration).unwrap();
+    fn sleep(&self, duration: Option<core::time::Duration>) {
+        let duration = duration.map(|d| {
+            let d = core::cmp::max(d, core::time::Duration::from_micros(10));
+            embedded_time::duration::Microseconds::new(d.as_micros() as u32)
         });
-    }
 
-    fn sleep(&self) {
         cortex_m::interrupt::free(|cs| {
+            if let Some(duration) = duration {
+                ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().schedule(duration).unwrap();
+            }
+
             IRQ_PIN
                 .borrow(cs)
-                .borrow_mut()
+                .borrow()
                 .as_ref()
                 .unwrap()
                 .set_interrupt_enabled(GpioInterrupt::LevelLow, true);
