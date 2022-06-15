@@ -111,52 +111,6 @@ pub enum CompileError {
     SaveError(std::io::Error),
 }
 
-struct CodeFormatter<Sink> {
-    indentation: usize,
-    in_string: bool,
-    sink: Sink,
-}
-
-impl<Sink: Write> Write for CodeFormatter<Sink> {
-    fn write(&mut self, mut s: &[u8]) -> std::io::Result<usize> {
-        let len = s.len();
-        while let Some(idx) = s.iter().position(|c| match c {
-            b'{' if !self.in_string => {
-                self.indentation += 1;
-                true
-            }
-            b'}' if !self.in_string => {
-                self.indentation -= 1;
-                true
-            }
-            b';' if !self.in_string => true,
-            b'"' if !self.in_string => {
-                self.in_string = true;
-                false
-            }
-            b'"' if self.in_string => {
-                // FIXME! escape character
-                self.in_string = false;
-                false
-            }
-            _ => false,
-        }) {
-            let idx = idx + 1;
-            self.sink.write_all(&s[..idx])?;
-            self.sink.write_all(b"\n")?;
-            for _ in 0..self.indentation {
-                self.sink.write_all(b"    ")?;
-            }
-            s = &s[idx..];
-        }
-        self.sink.write_all(s)?;
-        Ok(len)
-    }
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.sink.flush()
-    }
-}
-
 /// Compile the `.slint` file and generate rust code for it.
 ///
 /// The generated code code will be created in the directory specified by
@@ -248,8 +202,7 @@ pub fn compile_with_config(
                 .with_extension("rs"),
         );
 
-    let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
-    let mut code_formatter = CodeFormatter { indentation: 0, in_string: false, sink: file };
+    let mut file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
     let generated = i_slint_compiler::generator::rust::generate(&doc);
 
     for x in &diag.all_loaded_files {
@@ -265,7 +218,14 @@ pub fn compile_with_config(
         }
     });
 
-    write!(code_formatter, "{}", generated).map_err(CompileError::SaveError)?;
+    if let Ok(formatted_code) =
+        syn::parse2(generated.clone()).and_then(|syn_file| Ok(prettyplease::unparse(&syn_file)))
+    {
+        write!(file, "{}", formatted_code).map_err(CompileError::SaveError)?;
+    } else {
+        write!(file, "{}", generated).map_err(CompileError::SaveError)?;
+    }
+
     println!("{}\ncargo:rerun-if-changed={}", rerun_if_changed, path.display());
 
     for resource in doc.root_component.embedded_file_resources.borrow().keys() {
