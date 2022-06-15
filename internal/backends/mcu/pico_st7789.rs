@@ -13,7 +13,7 @@ use embedded_time::rate::*;
 use rp_pico::hal::gpio::{self, Interrupt as GpioInterrupt};
 use rp_pico::hal::pac::{self, interrupt};
 use rp_pico::hal::prelude::*;
-use rp_pico::hal::timer::Alarm0;
+use rp_pico::hal::timer::{Alarm, Alarm0};
 use rp_pico::hal::{self, Timer};
 
 use defmt_rtt as _; // global logger
