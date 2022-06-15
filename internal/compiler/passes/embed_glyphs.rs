@@ -8,6 +8,7 @@ use crate::embedded_resources::{BitmapFont, BitmapGlyph, BitmapGlyphs, Character
 use crate::expression_tree::BuiltinFunction;
 use crate::expression_tree::{Expression, Unit};
 use crate::object_tree::*;
+use std::collections::HashSet;
 use std::rc::Rc;
 
 #[cfg(target_arch = "wasm32")]
@@ -26,9 +27,18 @@ pub fn embed_glyphs<'a>(
     component: &Rc<Component>,
     scale_factor: f64,
     mut pixel_sizes: Vec<i16>,
+    mut characters_seen: HashSet<char>,
     all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
     diag: &mut BuildDiagnostics,
 ) {
+    characters_seen.extend(
+        ('a'..='z')
+            .chain('A'..='Z')
+            .chain('0'..='9')
+            .chain(" !\"#$%&'()*+,-./:;<=>?@\\]^_|~".chars())
+            .chain(std::iter::once('…')),
+    );
+
     if let Ok(sizes_str) = std::env::var("SLINT_FONT_SIZES") {
         for custom_size in sizes_str.split(',').map(|size_str| {
             (size_str.parse::<f64>().expect("invalid font size") * scale_factor) as i16
@@ -180,6 +190,7 @@ pub fn embed_glyphs<'a>(
                     fontdb.face(face_id).unwrap().family.clone(),
                     font,
                     &pixel_sizes,
+                    characters_seen.iter().cloned(),
                     &fallback_fonts,
                 )
             })
@@ -220,16 +231,10 @@ fn embed_font(
     family_name: String,
     font: fontdue::Font,
     pixel_sizes: &[i16],
+    character_coverage: impl Iterator<Item = char>,
     fallback_fonts: &[fontdue::Font],
 ) -> BitmapFont {
-    // TODO: configure coverage
-    let coverage = ('a'..='z')
-        .chain('A'..='Z')
-        .chain('0'..='9')
-        .chain(" !\"#$%&'()*+,-./:;<=>?@\\]^_|~".chars())
-        .chain(std::iter::once('…'));
-
-    let mut character_map: Vec<CharacterMapEntry> = coverage
+    let mut character_map: Vec<CharacterMapEntry> = character_coverage
         .enumerate()
         .map(|(glyph_index, code_point)| CharacterMapEntry {
             code_point,
@@ -326,6 +331,16 @@ pub fn collect_font_sizes_used(
         }
         _ => {}
     });
+}
+
+pub fn scan_string_literals(component: &Rc<Component>, characters_seen: &mut HashSet<char>) {
+    visit_all_expressions(component, |expr, _| {
+        expr.visit_recursive(&mut |expr| {
+            if let Expression::StringLiteral(string) = expr {
+                characters_seen.extend(string.chars());
+            }
+        })
+    })
 }
 
 #[cfg(not(any(
