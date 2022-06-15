@@ -479,6 +479,17 @@ trait ProcessScene {
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle);
 }
 
+#[doc(hidden)]
+pub fn log2(s: &str) {
+    defmt::println!("{=str}", s);
+}
+
+#[macro_export]
+/// This macro allows producing debug output that will appear on the output of the debug probe
+macro_rules! debug_log2 {
+    ($($t:tt)*) => (log2({ use alloc::string::ToString; &format_args!($($t)*).to_string() }))
+}
+
 struct RenderToBuffer<'a, TargetPixel> {
     buffer: &'a mut [TargetPixel],
     stride: PhysicalLength,
@@ -486,6 +497,149 @@ struct RenderToBuffer<'a, TargetPixel> {
 
 impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
     fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture) {
+        if false {
+            match texture.format {
+                PixelFormat::Rgb if texture.source_size.width == geometry.width() => {
+                    //debug_log2!("texture copy");
+                    use stm32h7xx_hal::device::dma2d;
+
+                    let begin = geometry.min_y() as usize * self.stride.get() as usize
+                        + geometry.origin.x as usize;
+                    let to_fill = &mut self.buffer[begin..begin + geometry.width() as usize];
+
+                    let dma2d_registers = unsafe { &*stm32h7xx_hal::device::DMA2D::ptr() };
+
+                    // Transfer mode: from memory to memory
+                    dma2d_registers
+                        .cr
+                        .modify(|_, w| w.mode().variant(dma2d::cr::MODE_A::MEMORYTOMEMORYPFC));
+
+                    // foreground color mode
+                    dma2d_registers.fgpfccr.modify(|_, w| {
+                        w.cm()
+                            .variant(dma2d::fgpfccr::CM_A::RGB888)
+                            .am()
+                            .variant(dma2d::fgpfccr::AM_A::NOMODIFY)
+                            .rbs()
+                            .variant(dma2d::fgpfccr::RBS_A::SWAP)
+                    });
+
+                    // Foreground address
+                    dma2d_registers
+                        .fgmar
+                        .modify(|_, w| unsafe { w.bits(texture.data.as_ptr() as u32) });
+
+                    // Output color mode
+                    dma2d_registers
+                        .opfccr
+                        .modify(|_, w| w.cm().variant(dma2d::opfccr::CM_A::RGB565));
+
+                    // Output offset: 0
+                    dma2d_registers.oor.modify(|_, w| {
+                        w.lo().bits(self.stride.get() as u16 - geometry.width() as u16)
+                    });
+
+                    // Number of pixels per line (pl) and number of lines (nl)
+                    dma2d_registers.nlr.modify(|_, w| {
+                        w.pl().bits(to_fill.len() as u16).nl().bits(geometry.height() as u16)
+                    });
+
+                    // Output address
+                    dma2d_registers.omar.modify(|_, w| unsafe { w.bits(to_fill.as_ptr() as u32) });
+
+                    // Start transfer and wait
+                    dma2d_registers.cr.modify(|_, w| w.start().set_bit());
+                    while dma2d_registers.cr.read().start().bit_is_set() {}
+                    return;
+                }
+                PixelFormat::RgbaPremultiplied => {
+                    //debug_log2!("premultiplied alpha texture")
+                }
+                PixelFormat::AlphaMap if texture.source_size.width == geometry.width() => {
+                    //debug_log2!("glyph render");
+
+                    use embedded_graphics::prelude::IntoStorage;
+                    use stm32h7xx_hal::device::dma2d;
+
+                    let begin = geometry.min_y() as usize * self.stride.get() as usize
+                        + geometry.origin.x as usize;
+                    let to_fill = &mut self.buffer[begin..begin + geometry.width() as usize];
+
+                    let dma2d_registers = unsafe { &*stm32h7xx_hal::device::DMA2D::ptr() };
+
+                    // Transfer mode: from memory to memory
+                    dma2d_registers.cr.modify(|_, w| {
+                        w.mode().variant(dma2d::cr::MODE_A::MEMORYTOMEMORYPFCBLENDING)
+                    });
+
+                    // background
+                    dma2d_registers.bgor.modify(|_, w| {
+                        w.lo().bits(self.stride.get() as u16 - geometry.width() as u16)
+                    });
+
+                    dma2d_registers.bgmar.modify(|_, w| unsafe { w.bits(to_fill.as_ptr() as u32) });
+
+                    dma2d_registers
+                        .bgpfccr
+                        .modify(|_, w| w.cm().variant(dma2d::bgpfccr::CM_A::RGB565));
+
+                    // foreground
+
+                    // foreground color mode
+                    dma2d_registers.fgpfccr.modify(|_, w| {
+                        w.cm()
+                            .variant(dma2d::fgpfccr::CM_A::A8)
+                            .am()
+                            .variant(dma2d::fgpfccr::AM_A::NOMODIFY)
+                    });
+
+                    let color = texture.color;
+                    dma2d_registers.fgcolr.modify(|_, w| unsafe {
+                        let color_bits = embedded_graphics::pixelcolor::Rgb888::from_rgb(
+                            color.red(),
+                            color.green(),
+                            color.blue(),
+                        )
+                        .into_storage();
+                        w.bits(color_bits as u32)
+                    });
+
+                    // Foreground address
+                    dma2d_registers
+                        .fgmar
+                        .modify(|_, w| unsafe { w.bits(texture.data.as_ptr() as u32) });
+
+                    dma2d_registers.fgor.modify(|_, w| w.lo().bits(0));
+
+                    // output
+
+                    // Output color mode
+                    dma2d_registers
+                        .opfccr
+                        .modify(|_, w| w.cm().variant(dma2d::opfccr::CM_A::RGB565));
+
+                    // Output offset: 0
+                    dma2d_registers.oor.modify(|_, w| {
+                        w.lo().bits(self.stride.get() as u16 - geometry.width() as u16)
+                    });
+
+                    // Number of pixels per line (pl) and number of lines (nl)
+                    dma2d_registers.nlr.modify(|_, w| {
+                        w.pl().bits(to_fill.len() as u16).nl().bits(geometry.height() as u16)
+                    });
+
+                    // Output address
+                    dma2d_registers.omar.modify(|_, w| unsafe { w.bits(to_fill.as_ptr() as u32) });
+
+                    // Start transfer and wait
+                    dma2d_registers.cr.modify(|_, w| w.start().set_bit());
+                    while dma2d_registers.cr.read().start().bit_is_set() {}
+                    return;
+                }
+                _ => {}
+            }
+        }
+
         for line in geometry.min_y()..geometry.max_y() {
             draw_functions::draw_texture_line(
                 &geometry,
@@ -497,12 +651,60 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
     }
 
     fn process_rectangle(&mut self, geometry: PhysicalRect, color: Color) {
-        for line in geometry.min_y()..geometry.max_y() {
-            let begin = line as usize * self.stride.get() as usize + geometry.origin.x as usize;
-            TargetPixel::blend_buffer(
-                &mut self.buffer[begin..begin + geometry.width() as usize],
-                color,
-            );
+        if color.alpha() == 0 {
+            return;
+        }
+        if color.alpha() == u8::MAX && false {
+            use embedded_graphics::prelude::IntoStorage;
+            use stm32h7xx_hal::device::dma2d;
+
+            let begin =
+                geometry.min_y() as usize * self.stride.get() as usize + geometry.origin.x as usize;
+            let to_fill = &mut self.buffer[begin..begin + geometry.width() as usize];
+
+            let dma2d_registers = unsafe { &*stm32h7xx_hal::device::DMA2D::ptr() };
+
+            // Transfer mode: from color register to memory
+
+            dma2d_registers.cr.modify(|_, w| w.mode().variant(dma2d::cr::MODE_A::REGISTERTOMEMORY));
+            // Output color mode
+            dma2d_registers.opfccr.modify(|_, w| w.cm().variant(dma2d::opfccr::CM_A::RGB565));
+
+            // Output offset: 0
+            dma2d_registers
+                .oor
+                .modify(|_, w| w.lo().bits(self.stride.get() as u16 - geometry.width() as u16));
+
+            // Number of pixels per line (pl) and number of lines (nl)
+            dma2d_registers.nlr.modify(|_, w| {
+                w.pl().bits(to_fill.len() as u16).nl().bits(geometry.height() as u16)
+            });
+
+            // Output address
+            dma2d_registers.omar.modify(|_, w| unsafe { w.bits(to_fill.as_ptr() as u32) });
+
+            // Color register
+            dma2d_registers.ocolr.modify(|_, w| unsafe {
+                let color_bits = embedded_graphics::pixelcolor::Rgb565::from_rgb(
+                    color.red(),
+                    color.green(),
+                    color.blue(),
+                )
+                .into_storage();
+                w.bits(color_bits as u32)
+            });
+
+            // Start transfer and wait
+            dma2d_registers.cr.modify(|_, w| w.start().set_bit());
+            while dma2d_registers.cr.read().start().bit_is_set() {}
+        } else {
+            for line in geometry.min_y()..geometry.max_y() {
+                let begin = line as usize * self.stride.get() as usize + geometry.origin.x as usize;
+                TargetPixel::blend_buffer(
+                    &mut self.buffer[begin..begin + geometry.width() as usize],
+                    color,
+                );
+            }
         }
     }
 

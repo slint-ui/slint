@@ -45,6 +45,11 @@ pub fn init() {
 
     let pwr = dp.PWR.constrain();
     let pwrcfg = pwr.smps().freeze();
+
+    // Enable DMA2D clock
+    dp.RCC.ahb3enr.modify(|_, w| w.dma2den().set_bit());
+    while dp.RCC.ahb3enr.read().dma2den().bit_is_clear() {}
+
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
         .sys_ck(400.MHz())

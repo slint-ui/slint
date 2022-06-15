@@ -32,7 +32,7 @@ unsafe_single_core = []
 text_layout = []
 
 ## The sofwtare renderer
-swrenderer = ["integer-sqrt", "text_layout"]
+swrenderer = ["integer-sqrt", "text_layout", "stm32h7xx-hal"]
 
 unicode = ["unicode-script", "unicode-linebreak"]
 
@@ -72,10 +72,12 @@ unicode-linebreak = { version = "0.1.2", optional = true }
 unicode-script = { version = "0.5.3", optional = true }
 embedded-graphics = { version = "0.7.1", optional = true }
 integer-sqrt = { version = "0.1.5", optional = true }
+stm32h7xx-hal = { version = "0.12.1", optional = true, features = ["log-rtt", "ltdc", "xspi"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }
 wasm-bindgen = { version = "0.2" }
+
 
 [dev-dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-0-2-0"] }

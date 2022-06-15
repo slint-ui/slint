@@ -358,6 +358,7 @@ mod the_backend {
                 impl Drop for BufferProvider<'_> {
                     fn drop(&mut self) {
                         self.devices.flush_frame();
+                        /*
                         self.compute_dirty_regions_profiler
                             .stop_profiling(self.devices, "compute dirty regions");
                         self.prepare_scene_profiler.stop_profiling(self.devices, "prepare scene");
@@ -365,6 +366,7 @@ mod the_backend {
                             .stop_profiling(self.devices, "line processing");
                         self.span_drawing_profiler.stop_profiling(self.devices, "span drawing");
                         self.screen_fill_profiler.stop_profiling(self.devices, "screen fill");
+                        */
                     }
                 }
 
