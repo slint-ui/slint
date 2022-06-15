@@ -41,7 +41,7 @@ mod unique_id;
 mod visible;
 mod z_order;
 
-use std::rc::Rc;
+use std::{collections::HashSet, rc::Rc};
 
 use crate::langtype::Type;
 
@@ -186,6 +186,8 @@ pub async fn run_passes(
     collect_globals::collect_globals(doc, diag);
 
     if compiler_config.embed_resources == crate::EmbedResourcesKind::EmbedTextures {
+        let mut characters_seen = HashSet::new();
+
         // Include at least the default font sizes used in the MCU backend
         let mut font_pixel_sizes = vec![(12. * compiler_config.scale_factor) as i16];
         for component in (root_component.used_types.borrow().sub_components.iter())
@@ -196,12 +198,14 @@ pub async fn run_passes(
                 compiler_config.scale_factor,
                 &mut font_pixel_sizes,
             );
+            embed_glyphs::scan_string_literals(component, &mut characters_seen);
         }
 
         embed_glyphs::embed_glyphs(
             root_component,
             compiler_config.scale_factor,
             font_pixel_sizes,
+            characters_seen,
             std::iter::once(&*doc).chain(type_loader.all_documents()),
             diag,
         );
