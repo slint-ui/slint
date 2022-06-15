@@ -324,6 +324,7 @@ impl Devices for StmDevices {
     }
 
     fn get_buffer(&mut self) -> Option<(&mut [TargetPixel], PhysicalRect)> {
+        while self.layer.is_swap_pending() {}
         Some((self.work_fb, self.prev_dirty))
     }
 
