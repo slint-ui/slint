@@ -62,6 +62,7 @@ pub fn init() {
 
     cp.SCB.invalidate_icache();
     cp.SCB.enable_icache();
+    cp.SCB.enable_dcache(&mut cp.CPUID);
     cp.DWT.enable_cycle_counter();
 
     let gpioa = dp.GPIOA.split(ccdr.peripheral.GPIOA);
@@ -211,6 +212,7 @@ pub fn init() {
         timer,
         delay,
         touch_i2c,
+        system_control_block: cp.SCB,
         last_touch: Default::default(),
         prev_dirty: Default::default(),
     });
@@ -224,6 +226,7 @@ struct StmDevices {
     delay: Delay,
     touch_i2c: TouchI2C,
     last_touch: Option<i_slint_core::graphics::Point>,
+    system_control_block: hal::device::SCB,
 
     /// When using double frame buffer, this is the part still dirty in the other buffer
     prev_dirty: PhysicalRect,
@@ -246,6 +249,7 @@ impl Devices for StmDevices {
     }
 
     fn flush_frame(&mut self) {
+        self.system_control_block.clean_dcache_by_slice(self.work_fb);
         // Safety: the frame buffer has the right size
         unsafe { self.layer.swap_framebuffer(self.work_fb.as_ptr() as *const u8) };
         // Swap the buffer pointer so we will work now on the second buffer
