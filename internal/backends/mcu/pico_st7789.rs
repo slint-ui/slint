@@ -8,7 +8,7 @@ use core::cell::RefCell;
 use cortex_m::interrupt::Mutex;
 pub use cortex_m_rt::entry;
 use embedded_hal::blocking::spi::Transfer;
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::v2::{InputPin, OutputPin};
 use embedded_time::rate::*;
 use rp_pico::hal::gpio::{self, Interrupt as GpioInterrupt};
 use rp_pico::hal::pac::{self, interrupt};
@@ -103,15 +103,16 @@ pub fn init() {
     display.init(&mut delay).unwrap();
     display.set_orientation(st7789::Orientation::Landscape).unwrap();
 
-    let touch =
-        xpt2046::XPT2046::new(pins.gpio16.into_push_pull_output(), spi.acquire_spi()).unwrap();
-
     let touch_irq = pins.gpio17.into_pull_up_input();
     touch_irq.set_interrupt_enabled(GpioInterrupt::LevelLow, true);
 
     cortex_m::interrupt::free(|cs| {
         IRQ_PIN.borrow(cs).replace(Some(touch_irq));
     });
+
+    let touch =
+        xpt2046::XPT2046::new(&IRQ_PIN, pins.gpio16.into_push_pull_output(), spi.acquire_spi())
+            .unwrap();
 
     let mut timer = Timer::new(pac.TIMER, &mut pac.RESETS);
     let mut alarm0 = timer.alarm_0().unwrap();
@@ -135,8 +136,8 @@ struct PicoDevices<Display, Touch> {
     timer: Timer,
 }
 
-impl<Display: Devices, CS: OutputPin, SPI: Transfer<u8>> Devices
-    for PicoDevices<Display, xpt2046::XPT2046<CS, SPI>>
+impl<Display: Devices, IRQ: InputPin, CS: OutputPin<Error = IRQ::Error>, SPI: Transfer<u8>> Devices
+    for PicoDevices<Display, xpt2046::XPT2046<IRQ, CS, SPI>>
 {
     fn screen_size(&self) -> PhysicalSize {
         self.display.screen_size()
@@ -197,21 +198,30 @@ impl<Display: Devices, CS: OutputPin, SPI: Transfer<u8>> Devices
 }
 
 mod xpt2046 {
+    use core::cell::RefCell;
+    use cortex_m::interrupt::Mutex;
     use embedded_hal::blocking::spi::Transfer;
     use embedded_hal::digital::v2::{InputPin, OutputPin};
     use embedded_time::rate::Extensions;
     use euclid::default::Point2D;
 
-    pub struct XPT2046<CS: OutputPin, SPI: Transfer<u8>> {
+    pub struct XPT2046<IRQ: InputPin + 'static, CS: OutputPin, SPI: Transfer<u8>> {
+        irq: &'static Mutex<RefCell<Option<IRQ>>>,
         cs: CS,
         spi: SPI,
         pressed: bool,
     }
 
-    impl<PinE, CS: OutputPin<Error = PinE>, SPI: Transfer<u8>> XPT2046<CS, SPI> {
-        pub fn new(mut cs: CS, spi: SPI) -> Result<Self, PinE> {
+    impl<PinE, IRQ: InputPin<Error = PinE>, CS: OutputPin<Error = PinE>, SPI: Transfer<u8>>
+        XPT2046<IRQ, CS, SPI>
+    {
+        pub fn new(
+            irq: &'static Mutex<RefCell<Option<IRQ>>>,
+            mut cs: CS,
+            spi: SPI,
+        ) -> Result<Self, PinE> {
             cs.set_high()?;
-            Ok(Self { cs, spi, pressed: false })
+            Ok(Self { irq, cs, spi, pressed: false })
         }
 
         pub fn read(&mut self) -> Result<Option<Point2D<f32>>, Error<PinE, SPI::Error>> {
@@ -221,8 +231,10 @@ mod xpt2046 {
             self.pressed = false;
 
             if cortex_m::interrupt::free(|cs| {
-                super::IRQ_PIN.borrow(cs).borrow_mut().as_ref().unwrap().is_low().unwrap()
-            }) {
+                self.irq.borrow(cs).borrow().as_ref().unwrap().is_low()
+            })
+            .map_err(|e| Error::Pin(e))?
+            {
                 const CMD_X_READ: u8 = 0b10010000;
                 const CMD_Y_READ: u8 = 0b11010000;
                 const CMD_Z1_READ: u8 = 0b10110000;
