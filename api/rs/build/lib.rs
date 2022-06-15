@@ -114,6 +114,7 @@ pub enum CompileError {
 struct CodeFormatter<Sink> {
     indentation: usize,
     in_string: bool,
+    in_char: bool,
     sink: Sink,
 }
 
@@ -121,15 +122,15 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
     fn write(&mut self, mut s: &[u8]) -> std::io::Result<usize> {
         let len = s.len();
         while let Some(idx) = s.iter().position(|c| match c {
-            b'{' if !self.in_string => {
+            b'{' if !self.in_string && !self.in_char => {
                 self.indentation += 1;
                 true
             }
-            b'}' if !self.in_string => {
+            b'}' if !self.in_string && !self.in_char => {
                 self.indentation -= 1;
                 true
             }
-            b';' if !self.in_string => true,
+            b';' if !self.in_string && !self.in_char => true,
             b'"' if !self.in_string => {
                 self.in_string = true;
                 false
@@ -137,6 +138,15 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
             b'"' if self.in_string => {
                 // FIXME! escape character
                 self.in_string = false;
+                false
+            }
+            b'\'' if !self.in_char => {
+                self.in_char = true;
+                false
+            }
+            b'\'' if self.in_char => {
+                // FIXME! escape character
+                self.in_char = false;
                 false
             }
             _ => false,
@@ -249,7 +259,8 @@ pub fn compile_with_config(
         );
 
     let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
-    let mut code_formatter = CodeFormatter { indentation: 0, in_string: false, sink: file };
+    let mut code_formatter =
+        CodeFormatter { indentation: 0, in_string: false, in_char: false, sink: file };
     let generated = i_slint_compiler::generator::rust::generate(&doc);
 
     for x in &diag.all_loaded_files {
