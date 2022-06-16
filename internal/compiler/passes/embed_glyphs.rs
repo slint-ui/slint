@@ -16,6 +16,7 @@ pub fn embed_glyphs<'a>(
     _component: &Rc<Component>,
     _scale_factor: f64,
     _pixel_sizes: Vec<i16>,
+    _characters_seen: HashSet<char>,
     _all_docs: impl Iterator<Item = &'a crate::object_tree::Document> + 'a,
     _diag: &mut BuildDiagnostics,
 ) -> bool {
