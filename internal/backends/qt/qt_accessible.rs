@@ -258,8 +258,8 @@ cpp! {{
 
     /// KEEP IN SYNC WITH CONSTANTS IN RUST!
     const uint32_t NAME { QAccessible::Name };
-    const uint32_t DESCRIPTION { QAccessible::Description };
-    const uint32_t VALUE { QAccessible::Value};
+    // const uint32_t DESCRIPTION { QAccessible::Description }; // unused!
+    // const uint32_t VALUE { QAccessible::Value}; // unused!
     const uint32_t CHECKED { QAccessible::UserText };
     const uint32_t VALUE_MINIMUM { CHECKED + 1 };
     const uint32_t VALUE_MAXIMUM { VALUE_MINIMUM + 1 };
@@ -588,7 +588,7 @@ cpp! {{
             return state; /* FIXME */
         }
 
-        void *interface_cast(QAccessible::InterfaceType t) {
+        void *interface_cast(QAccessible::InterfaceType t) override {
             if (t == QAccessible::ValueInterface && !item_string_property(m_data, QAccessible::Value).isEmpty()) {
                 return static_cast<QAccessibleValueInterface*>(this);
             }
