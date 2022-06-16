@@ -29,6 +29,8 @@ use alloc_cortex_m::CortexMHeap;
 
 use crate::{Devices, PhysicalRect, PhysicalSize};
 
+mod display_interface_spi;
+
 const HEAP_SIZE: usize = 200 * 1024;
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 
