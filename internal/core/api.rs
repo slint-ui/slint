@@ -491,6 +491,17 @@ impl WindowEvent {
     }
 }
 
+#[cfg(feature = "std")]
+unsafe impl raw_window_handle::HasRawWindowHandle for Window {
+    #![allow(unsafe_code)]
+    fn raw_window_handle(&self) -> raw_window_handle::RawWindowHandle {
+        self.0
+            .window_adapter()
+            .raw_window_handle()
+            .expect("Current rendering backend does not support RawWindowHandle")
+    }
+}
+
 /// This trait is used to obtain references to global singletons exported in `.slint`
 /// markup. Alternatively, you can use [`ComponentHandle::global`] to obtain access.
 ///

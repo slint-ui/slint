@@ -154,6 +154,12 @@ pub trait WindowAdapterSealed {
     fn is_visible(&self) -> bool {
         false
     }
+
+    /// Returns the raw window handle for the given window, if the backend implements that.
+    #[cfg(feature = "std")]
+    fn raw_window_handle(&self) -> Option<raw_window_handle::RawWindowHandle> {
+        None
+    }
 }
 
 struct WindowPropertiesTracker {
@@ -753,6 +759,16 @@ pub mod ffi {
         NativeOpenGL,
     }
 
+    /// This enum describes the types of windowing system specific resources that
+    /// can be queried on a Window
+    #[repr(C)]
+    pub enum WindowSystemResource {
+        /// The returned pointer points to the wl_display the window is connected to.
+        WaylandDisplay,
+        /// The returned pointer points to the wl_surface that is backing the window.
+        WaylandSurface,
+    }
+
     #[allow(non_camel_case_types)]
     type c_void = ();
 
@@ -1032,5 +1048,30 @@ pub mod ffi {
     ) -> bool {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         window_adapter.dark_color_scheme()
+    }
+
+    /// Returns a point to the window system resource or null if not available.
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_window_system_resource(
+        handle: *const WindowAdapterRcOpaque,
+        resource: WindowSystemResource,
+    ) -> *mut c_void {
+        use raw_window_handle::{RawWindowHandle, WaylandHandle};
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        let window_handle = match window_adapter.raw_window_handle() {
+            Some(handle) => handle,
+            None => return core::ptr::null_mut(),
+        };
+        match (resource, window_handle) {
+            (
+                WindowSystemResource::WaylandDisplay,
+                RawWindowHandle::Wayland(WaylandHandle { display, .. }),
+            ) => display as _,
+            (
+                WindowSystemResource::WaylandSurface,
+                RawWindowHandle::Wayland(WaylandHandle { surface, .. }),
+            ) => surface as _,
+            _ => core::ptr::null_mut(),
+        }
     }
 }

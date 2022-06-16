@@ -621,6 +621,13 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         self
     }
 
+    fn raw_window_handle(&self) -> Option<raw_window_handle::RawWindowHandle> {
+        use raw_window_handle::HasRawWindowHandle;
+        self.borrow_mapped_window().map(|mapped_window| {
+            mapped_window.canvas.with_window_handle(|winit_window| winit_window.raw_window_handle())
+        })
+    }
+
     fn position(&self) -> corelib::api::PhysicalPosition {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped { requested_position, .. } => requested_position

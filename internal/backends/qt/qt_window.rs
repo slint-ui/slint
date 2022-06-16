@@ -1708,6 +1708,10 @@ impl WindowAdapterSealed for QtWindow {
         self
     }
 
+    fn raw_window_handle(&self) -> Option<raw_window_handle::RawWindowHandle> {
+        None
+    }
+
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }

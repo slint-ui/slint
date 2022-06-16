@@ -243,6 +243,11 @@ public:
         }
     }
 
+    void *window_system_resource(WindowSystemResource resource)
+    {
+        return cbindgen_private::slint_windowrc_window_system_resource(&inner, resource);
+    }
+
 private:
     cbindgen_private::WindowAdapterRcOpaque inner;
 };
