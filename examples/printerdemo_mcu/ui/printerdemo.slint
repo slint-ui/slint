@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore noto subpage
+
 import { DemoPalette, Page } from "common.slint";
 import { HomePage } from "./home_page.slint";
 import { InkLevel, InkPage } from "./ink_page.slint";
@@ -17,7 +19,11 @@ SideBarIcon := Rectangle {
     property <bool> active;
     callback activate;
     TouchArea {
-        clicked => { root.activate(); }
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                root.activate();
+            }
+        }
     }
 }
 
@@ -31,7 +37,7 @@ MainWindow := Window {
     default-font-family: "Noto Sans";
     default-font-size: DemoPalette.base-font-size;
 
-    /// Note that this property is overwriten in the .cpp and .rs code.
+    /// Note that this property is overwritten in the .cpp and .rs code.
     /// The data is only in this file so it looks good in the viewer
     property <[InkLevel]> ink-levels: [
                 {color: #0ff, level: 60%},
