@@ -21,6 +21,7 @@ mcu-simulator = ["i-slint-backend-mcu/simulator"]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-0-2-0"] }
 i-slint-backend-mcu = { path = "../../internal/backends/mcu", default-features = false }
 printerdemo_mcu = { path = "../printerdemo_mcu", features = ["from_launcher"] }
+memory = { path = "../memory", features = ["from_launcher"], default-features = false }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }

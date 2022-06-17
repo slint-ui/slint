@@ -1,9 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint.dev>
 // SPDX-License-Identifier: MIT
 
+#![cfg_attr(feature = "from_launcher", no_std)]
+extern crate alloc;
+
+use alloc::rc::Rc;
+use alloc::vec::Vec;
+use core::time::Duration;
 use slint::{Model, Timer, VecModel};
-use std::rc::Rc;
-use std::time::Duration;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -25,6 +29,9 @@ pub fn main() {
     tiles.extend(tiles.clone());
 
     use rand::seq::SliceRandom;
+    #[cfg(feature = "from_launcher")]
+    let mut rng = <rand::rngs::SmallRng as rand::SeedableRng>::seed_from_u64(0);
+    #[cfg(not(feature = "from_launcher"))]
     let mut rng = rand::thread_rng();
     tiles.shuffle(&mut rng);
 
