@@ -243,10 +243,20 @@ export CheckBox := Rectangle {
     HorizontalLayout {
         spacing: 12px;
         padding: 0;
-        SquareButton {
-            width: root.height - parent.padding * 2;
-            img: checked ? @image-url("images/check.svg") : @image-url("");
-            clicked => { checked = !checked; }
+        Rectangle {
+            width: height;
+            border-radius: 3px;
+            border-width: 2px;
+            border-color: DemoPalette.control-outline-color;
+
+            Rectangle {
+               x: parent.width * 0.3;
+               y: parent.height * 0.3;
+               width: 40%;
+               height: 40%;
+               border-radius: 3px;
+               background: root.checked ? DemoPalette.control-secondary : Colors.transparent;
+            }
         }
 
         if text != "" : Text {
