@@ -731,7 +731,14 @@ impl crate::item_rendering::ItemRenderer for PrepareScene {
             single_line: false,
         };
 
-        let clip = self.current_state.clip.cast() * self.scale_factor;
+        // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
+        // of its boundaries (that break partial rendering).
+        let physical_clip =
+            if let Some(logical_clip) = self.current_state.clip.cast().intersection(&geom) {
+                logical_clip * self.scale_factor
+            } else {
+                return; // This should have been caught earlier already
+            };
         let offset = self.current_state.offset.to_vector().cast() * self.scale_factor;
 
         paragraph.layout_lines(|glyphs, line_x, line_y| {
@@ -748,7 +755,7 @@ impl crate::item_rendering::ItemRenderer for PrepareScene {
                 )
                 .cast();
 
-                if let Some(clipped_src) = src_rect.intersection(&clip) {
+                if let Some(clipped_src) = src_rect.intersection(&physical_clip) {
                     let geometry = clipped_src.translate(offset).round();
                     let origin = (geometry.origin - offset.round()).cast::<usize>();
                     let actual_x = origin.x - src_rect.origin.x as usize;
