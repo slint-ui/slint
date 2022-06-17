@@ -94,12 +94,12 @@ MainWindow := Window {
 
         Image {
             source: @image-url("images/page_selection.svg");
-            y: sidebar.icon-y(root.active-page) - 25px;
+            y: sidebar.icon-y(root.active-page) - 23px;
             animate y {
                 duration: 125ms;
             }
-            width: parent.width + 1px;
-            height: 1.77 * self.width;
+            width: 49px;
+            height: 86px;
             colorize: DemoPalette.page-background-color;
         }
 
