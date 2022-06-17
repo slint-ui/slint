@@ -63,5 +63,11 @@ export SettingsPage := Page {
         Rectangle {}
 
     }
-
+    Image {
+        source: DemoPalette.night-mode ? @image-url("slint-logo-square-dark-80x80.png") : @image-url("slint-logo-square-light-80x80.png");
+        width: 80px;
+        height: 80px;
+        x: parent.width - width;
+        y: parent.height - height;
+    }
 }
