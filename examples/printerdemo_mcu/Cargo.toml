@@ -14,9 +14,13 @@ license = "MIT"
 path = "main.rs"
 name = "printerdemo_mcu"
 
+[lib]
+path = "main.rs"
+
 [features]
 simulator = ["slint/renderer-software", "slint/backend-winit", "slint/std"]
 default = ["simulator"]
+from_launcher = []
 
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-1-2"] }
