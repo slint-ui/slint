@@ -328,3 +328,14 @@ fn test_basic_line_break_space_v4() {
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0].line_text(&text), "H W  H");
 }
+
+#[test]
+fn test_line_width_with_whitespace() {
+    let font = FixedTestFont;
+    let text = "Hello World";
+    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let lines =
+        TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(200.)).collect::<Vec<_>>();
+    assert_eq!(lines.len(), 1);
+    assert_eq!(lines[0].text_width, text.len() as f32 * 10.);
+}
