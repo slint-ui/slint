@@ -1,0 +1,39 @@
+import { AboutSlint , VerticalBox, Button} from "std-widgets.slint";
+
+
+Launcher := Window {
+    width: 480px;
+    height: 272px;
+    callback launch(int);
+    launch(value) => {
+        to_launch = value;
+        quit();
+    }
+    callback quit();
+    background: black;
+    property <int> to_launch;
+
+    VerticalBox {
+        width: 50%;
+        alignment: start;
+        Button { text: "🖨 Printer demo"; clicked => { launch(1); } }
+        Button { text: "🎮 Slide puzzle"; clicked => { launch(2); } }
+        Button { text: "▦ Memory game"; clicked => { launch(3); } }
+    }
+
+   /* Image {
+        source: @image-url("../common/slint-logo-dark.svg");
+        //width: 25%;
+        //height: 50%;
+        x: parent.width - width;
+        y: parent.height - height;
+    }*/
+
+   /* AboutSlint {
+        width: 50%;
+        height: 50%;
+        x: parent.width - width;
+        y: parent.height - height;
+    }*/
+
+}
