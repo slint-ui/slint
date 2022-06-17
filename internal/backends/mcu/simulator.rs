@@ -16,6 +16,8 @@ use i_slint_core::window::{PlatformWindow, Window};
 use i_slint_core::{Color, Coord};
 use rgb::FromSlice;
 
+use crate::PhysicalRect;
+
 use self::event_loop::WinitWindow;
 
 type Canvas = femtovg::Canvas<femtovg::renderer::OpenGl>;
@@ -307,7 +309,7 @@ impl WinitWindow for SimulatorWindow {
 
             struct BufferProvider<'a> {
                 devices: &'a mut dyn crate::Devices,
-                line_buffer: Vec<crate::TargetPixel>,
+                dirty_region: PhysicalRect,
             }
             impl crate::renderer::LineBufferProvider for BufferProvider<'_> {
                 type TargetPixel = crate::TargetPixel;
@@ -318,21 +320,21 @@ impl WinitWindow for SimulatorWindow {
                     render_fn: impl FnOnce(&mut [super::TargetPixel]),
                 ) {
                     let mut render_fn = Some(render_fn);
-                    self.devices.render_line(
-                        line,
-                        euclid::rect(0, line.get(), self.line_buffer.len() as _, 1),
-                        &mut |buffer| (render_fn.take().unwrap())(buffer),
-                    );
+                    self.devices.render_line(line, self.dirty_region, &mut |buffer| {
+                        (render_fn.take().unwrap())(buffer)
+                    });
+                }
+
+                fn set_dirty_region(&mut self, dirty_region: PhysicalRect) -> PhysicalRect {
+                    self.dirty_region = dirty_region;
+                    dirty_region
                 }
             }
             super::LINE_RENDERER.with(|renderer| {
                 renderer.borrow().render(
                     runtime_window,
                     self.initial_dirty_region_for_next_frame.take(),
-                    BufferProvider {
-                        devices: display,
-                        line_buffer: vec![Default::default(); size.width as usize],
-                    },
+                    BufferProvider { devices: display, dirty_region: Default::default() },
                 )
             });
 
