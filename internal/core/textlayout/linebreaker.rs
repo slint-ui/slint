@@ -50,6 +50,10 @@ impl<Length: Clone + Copy + Default + core::ops::AddAssign> TextLine<Length> {
         } else {
             self.glyph_range.end = fragment.glyph_range.end;
         }
+        if !fragment.byte_range.is_empty() {
+            self.text_width += self.trailing_whitespace;
+            self.trailing_whitespace = Length::default();
+        }
         self.text_width += fragment.width;
         self.trailing_whitespace += fragment.trailing_whitespace_width;
     }
