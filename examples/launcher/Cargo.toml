@@ -1,0 +1,27 @@
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+[package]
+name = "launcher"
+version = "0.2.5"
+authors = ["Slint Developers <info@slint-ui.com>"]
+edition = "2021"
+build = "build.rs"
+publish = false
+license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
+
+[[bin]]
+path = "main.rs"
+name = "launcher"
+
+[features]
+mcu-simulator = ["i-slint-backend-mcu/simulator"]
+
+[dependencies]
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-0-2-0"] }
+i-slint-backend-mcu = { path = "../../internal/backends/mcu", default-features = false }
+printerdemo_mcu = { path = "../printerdemo_mcu", features = ["from_launcher"] }
+
+[build-dependencies]
+slint-build = { path = "../../api/rs/build" }
+
