@@ -208,6 +208,7 @@ pub fn init() {
     crate::init_with_display(StmDevices {
         work_fb: fb2,
         displayed_fb: fb1,
+        line_buffer: alloc::vec![TargetPixel::default(); DISPLAY_WIDTH],
         layer,
         timer,
         delay,
@@ -219,8 +220,12 @@ pub fn init() {
 }
 
 struct StmDevices {
+    /// The frame buffer which is not currently shown and on which we can operate
     work_fb: &'static mut [TargetPixel],
+    /// The frame buffer which is currently displayed
     displayed_fb: &'static mut [TargetPixel],
+    /// A buffer that holds the line in the "fast" ram
+    line_buffer: alloc::vec::Vec<TargetPixel>,
     layer: LtdcLayer1,
     timer: hal::timer::Timer<pac::TIM2>,
     delay: Delay,
@@ -247,9 +252,15 @@ impl Devices for StmDevices {
         dirty_region: crate::renderer::DirtyRegion,
         fill_buffer: &mut dyn FnMut(&mut [TargetPixel]),
     ) {
-        while self.layer.is_swap_pending() {}
         let line = line.get() as usize;
-        fill_buffer(&mut self.work_fb[line * DISPLAY_WIDTH..(line + 1) * DISPLAY_WIDTH])
+        fill_buffer(&mut self.line_buffer);
+        while self.layer.is_swap_pending() {}
+        let region = dirty_region.cast::<usize>();
+        self.work_fb[line * DISPLAY_WIDTH + region.min_x()..line * DISPLAY_WIDTH + region.max_x()]
+            .copy_from_slice(&self.line_buffer[region.min_x()..region.max_x()]);
+
+        // We don't render directly to the frame buffer because the frame buffer is in a slower RAM
+        //fill_buffer(&mut self.work_fb[line * DISPLAY_WIDTH..(line + 1) * DISPLAY_WIDTH])
     }
 
     fn flush_frame(&mut self) {
