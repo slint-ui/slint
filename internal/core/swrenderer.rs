@@ -732,7 +732,8 @@ impl crate::item_rendering::ItemRenderer for PrepareScene {
         };
 
         // Clip glyphs not only against the global clip but also against the Text's geometry to avoid drawing outside
-        // of its boundaries (that break partial rendering).
+        // of its boundaries (that breaks partial rendering and the cast to usize for the item relative coordinate below).
+        // FIXME: we should allow drawing outside of the Text element's boundaries.
         let physical_clip = if let Some(logical_clip) = self.current_state.clip.intersection(&geom)
         {
             logical_clip.cast() * self.scale_factor
