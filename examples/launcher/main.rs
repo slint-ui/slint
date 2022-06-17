@@ -19,6 +19,9 @@ fn main() -> ! {
 
     match to_launch {
         1 => printerdemo_mcu::run(),
+        3 => memory::main(),
         _ => panic!("Cannot launch yet {to_launch}"),
     }
+
+    panic!("shouldn't terminate");
 }

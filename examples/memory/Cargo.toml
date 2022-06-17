@@ -9,16 +9,25 @@ edition = "2021"
 publish = false
 license = "MIT"
 
+[lib]
+path = "main.rs"
+
 [[bin]]
 path = "main.rs"
 name = "memory"
 
 [dependencies]
-rand = "0.8"
-slint = { path = "../../api/rs/slint" }
+rand = { version = "0.8",  default-features = false }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-0-2-0"] }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
+
+[features]
+default = ["slint/default", "rand/default"]
+from_launcher = ["rand/small_rng"]
+
+
 
 # Remove the `#wasm#` to uncomment the wasm build.
 # This is commented out by default because we don't want to build it as a library by default
