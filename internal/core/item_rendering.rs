@@ -174,13 +174,6 @@ impl<T: Clone> ItemCache<T> {
 pub(crate) fn is_clipping_item(item: Pin<ItemRef>) -> bool {
     //(FIXME: there should be some flag in the vtable instead of downcasting)
     ItemRef::downcast_pin::<Flickable>(item).is_some()
-        || ItemRef::downcast_pin::<Clip>(item).is_some()
-}
-
-/// Return true if the item might be a clipping item and it has clipping enabled
-pub(crate) fn is_enabled_clipping_item(item: Pin<ItemRef>) -> bool {
-    //(FIXME: there should be some flag in the vtable instead of downcasting)
-    ItemRef::downcast_pin::<Flickable>(item).is_some()
         || ItemRef::downcast_pin::<Clip>(item).map_or(false, |clip_item| clip_item.as_ref().clip())
 }
 
@@ -262,7 +255,7 @@ pub fn item_children_bounding_rect(
                 bounding_rect = bounding_rect.union(&clipped_item_geometry);
             }
 
-            if !is_enabled_clipping_item(item) {
+            if !is_clipping_item(item) {
                 bounding_rect = bounding_rect.union(&item_children_bounding_rect(
                     component,
                     index as isize,

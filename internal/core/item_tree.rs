@@ -117,7 +117,7 @@ impl ItemRc {
     // FIXME: This should be nicer/done elsewhere?
     pub fn is_visible(&self) -> bool {
         let item = self.borrow();
-        let is_clipping = crate::item_rendering::is_enabled_clipping_item(item);
+        let is_clipping = crate::item_rendering::is_clipping_item(item);
         let geometry = item.as_ref().geometry();
 
         if is_clipping && (geometry.width() <= 0.01 as _ || geometry.height() <= 0.01 as _) {
