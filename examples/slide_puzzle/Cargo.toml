@@ -13,9 +13,13 @@ license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
 path = "main.rs"
 name = "slide_puzzle"
 
+[lib]
+path = "main.rs"
+
 [features]
 default = ["slint/default", "rand/default"]
 mcu-simulator = ["i-slint-backend-mcu/simulator"]
+from_launcher = []
 
 [dependencies]
 rand = { version = "0.8", optional = true, default-features = false, features = ["small_rng"] }

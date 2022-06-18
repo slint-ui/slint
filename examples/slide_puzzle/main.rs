@@ -189,9 +189,12 @@ impl AppState {
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-#[cfg_attr(feature = "i-slint-backend-mcu", i_slint_backend_mcu::entry)]
-fn main() -> ! {
-    #[cfg(feature = "i-slint-backend-mcu")]
+#[cfg_attr(
+    all(feature = "i-slint-backend-mcu", not(feature = "from_launcher")),
+    i_slint_backend_mcu::entry
+)]
+pub fn main() -> ! {
+    #[cfg(all(feature = "i-slint-backend-mcu", not(feature = "from_launcher")))]
     i_slint_backend_mcu::init();
 
     // This provides better error messages in debug mode.
