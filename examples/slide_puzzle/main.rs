@@ -184,9 +184,12 @@ impl AppState {
 }
 
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
-#[cfg_attr(feature = "mcu-board-support", mcu_board_support::entry)]
-fn main() -> ! {
-    #[cfg(feature = "mcu-board-support")]
+#[cfg_attr(
+    all(feature = "mcu-board-support", not(feature = "from_launcher")),
+    i_slint_backend_mcu::entry
+)]
+pub fn main() -> ! {
+    #[cfg(all(feature = "mcu-board-support", not(feature = "from_launcher")))]
     mcu_board_support::init();
 
     // This provides better error messages in debug mode.

@@ -13,8 +13,12 @@ license = "MIT"
 path = "main.rs"
 name = "slide_puzzle"
 
+[lib]
+path = "main.rs"
+
 [features]
 default = ["slint/default", "rand"]
+from_launcher = []
 
 [dependencies]
 rand = { version = "0.8", optional = true, default-features = false, features = ["small_rng", "getrandom"] }
