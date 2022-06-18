@@ -48,6 +48,13 @@ pub fn init() {
     let rcc = dp.RCC.constrain();
     let ccdr = rcc
         .sys_ck(400.MHz())
+        // numbers adapted from Drivers/BSP/STM32H735G-DK/stm32h735g_discovery_ospi.c
+        // MX_OSPI_ClockConfig
+        .pll2_p_ck(400.MHz() / 5)
+        .pll2_q_ck(400.MHz() / 2)
+        .pll2_r_ck(400.MHz() / 2)
+        // numbers adapted from Drivers/BSP/STM32H735G-DK/stm32h735g_discovery_lcd.c
+        // MX_LTDC_ClockConfig
         .pll3_p_ck(800.MHz() / 2)
         .pll3_q_ck(800.MHz() / 2)
         .pll3_r_ck(800.MHz() / 83)
@@ -59,6 +66,12 @@ pub fn init() {
         ccdr.peripheral.OCTOSPI2.get_kernel_clk_mux(),
         hal::rcc::rec::OctospiClkSel::RCC_HCLK3
     );
+    assert_eq!(
+        ccdr.peripheral.OCTOSPI1.get_kernel_clk_mux(),
+        hal::rcc::rec::OctospiClkSel::RCC_HCLK3
+    );
+
+    let mut delay = Delay::new(cp.SYST, ccdr.clocks);
 
     cp.SCB.invalidate_icache();
     cp.SCB.enable_icache();
@@ -98,6 +111,75 @@ pub fn init() {
     let hyperram =
         dp.OCTOSPI2.octospi_hyperbus_unchecked(config, &ccdr.clocks, ccdr.peripheral.OCTOSPI2);
     let hyperram_ptr: *mut u32 = hyperram.init();
+
+    let _ncs = gpiog.pg6.into_alternate::<10>().speed(High).internal_pull_up(true);
+    let _clk = gpiof.pf10.into_alternate::<9>().speed(High).internal_pull_up(true);
+    let _dqs = gpiob.pb2.into_alternate::<10>().speed(High).internal_pull_up(true);
+    let _io0 = gpiod.pd11.into_alternate::<9>().speed(High).internal_pull_up(true);
+    let _io1 = gpiod.pd12.into_alternate::<9>().speed(High).internal_pull_up(true);
+    let _io2 = gpioe.pe2.into_alternate::<9>().speed(High).internal_pull_up(true);
+    let _io3 = gpiod.pd13.into_alternate::<9>().speed(High).internal_pull_up(true);
+    let _io4 = gpiod.pd4.into_alternate::<10>().speed(High).internal_pull_up(true);
+    let _io5 = gpiod.pd5.into_alternate::<10>().speed(High).internal_pull_up(true);
+    let _io6 = gpiog.pg9.into_alternate::<9>().speed(High).internal_pull_up(true);
+    let _io7 = gpiod.pd7.into_alternate::<10>().speed(High).internal_pull_up(true);
+
+    use stm32h7xx_hal::xspi::*;
+    use OctospiWord as XW;
+
+    let mut octospi =
+        dp.OCTOSPI1.octospi_unchecked(12.MHz(), &ccdr.clocks, ccdr.peripheral.OCTOSPI1);
+
+    // Switch Macronix MX25LM51245GXDI00 to SDR OPI
+    // Set WREN bit
+    octospi.write_extended(XW::U8(0x06), XW::None, XW::None, &[]).unwrap();
+    // Write Configuration Register 2
+    octospi.write_extended(XW::U8(0x72), XW::U32(0), XW::None, &[1]).unwrap();
+    // Change bus mode
+    octospi.configure_mode(OctospiMode::EightBit).unwrap();
+
+    const MX25LM51245G_OCTA_READ_CFG_REG2_CMD: u16 = 0x718E;
+    const MX25LM51245G_CR2_REG1_ADDR: u32 = 0x00000000;
+    const MX25LM51245G_OCTA_READ_CMD: u16 = 0xEC13;
+
+    // check the config register
+    let mut read: [u8; 1] = [0];
+    octospi
+        .read_extended(
+            XW::U16(MX25LM51245G_OCTA_READ_CFG_REG2_CMD),
+            XW::U32(MX25LM51245G_CR2_REG1_ADDR),
+            XW::None,
+            5,
+            &mut read,
+        )
+        .unwrap();
+    assert_eq!(read[0], 1);
+
+    extern "C" {
+        static mut __s_slint_assets: u8;
+        static __e_slint_assets: u8;
+        static __si_slint_assets: u8;
+    }
+
+    unsafe {
+        let asset_mem_slice = core::slice::from_raw_parts_mut(
+            &mut __s_slint_assets as *mut u8,
+            &__e_slint_assets as *const u8 as usize - &__s_slint_assets as *const u8 as usize,
+        );
+        let mut asset_flash_addr = &__si_slint_assets as *const u8 as usize - 0x9000_0000;
+        for chunk in asset_mem_slice.chunks_mut(32) {
+            octospi
+                .read_extended(
+                    XW::U16(MX25LM51245G_OCTA_READ_CMD),
+                    XW::U32(asset_flash_addr as u32),
+                    XW::None,
+                    20,
+                    chunk,
+                )
+                .unwrap();
+            asset_flash_addr += chunk.len();
+        }
+    }
 
     /*
     let mut led_red = gpioc.pc2.into_push_pull_output();
@@ -153,7 +235,6 @@ pub fn init() {
     let mut lcd_disp_ctrl = gpiod.pd10.into_push_pull_output();
     let mut lcd_bl_ctrl = gpiog.pg15.into_push_pull_output();
 
-    let mut delay = Delay::new(cp.SYST, ccdr.clocks);
     delay.delay_ms(40u8);
     // End LTDC_MspInit
 
