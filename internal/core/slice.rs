@@ -93,3 +93,8 @@ impl<'a, T> Default for Slice<'a, T> {
         Self::from_slice(&[])
     }
 }
+
+/// Safety: Slice is the same as a rust slice, and a slice of Sync T is Sync
+unsafe impl<T: Sync> Sync for Slice<'_, T> {}
+/// Safety: Slice is the same as a rust slice, and a slice of Send T is Sync
+unsafe impl<T: Sync> Send for Slice<'_, T> {}
