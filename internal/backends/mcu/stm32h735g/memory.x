@@ -13,11 +13,17 @@ _stack_start = ORIGIN(RAM) + LENGTH(RAM);
 
 SECTIONS {
      .frame_buffer (NOLOAD) : {
+       . = ALIGN(4);
        *(.frame_buffer);
        . = ALIGN(4);
      } > SDRAM
      .slint_assets : {
+       . = ALIGN(4);
+      __s_slint_assets = .;
        *(.slint_assets);
        . = ALIGN(4);
-     } > OSPI_ROM
+     } > SDRAM  AT>OSPI_ROM
+
+    __e_slint_assets = .;
+    __si_slint_assets = LOADADDR(.slint_assets);
 }
