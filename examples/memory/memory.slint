@@ -80,6 +80,8 @@ component MemoryTile inherits Rectangle {
 
 export component MainWindow inherits Window {
     in property <bool> disable-tiles;
+    private property<length> tile-size: 60px;
+    private property<length> tile-spacing: 6px;
     in property <[TileData]> memory-tiles : [
         { image: @image-url("icons/at.png") },
         { image: @image-url("icons/balance-scale.png") },
