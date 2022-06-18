@@ -22,6 +22,7 @@ slint = { path = "../../api/rs/slint", default-features = false, features = ["co
 i-slint-backend-mcu = { path = "../../internal/backends/mcu", default-features = false }
 printerdemo_mcu = { path = "../printerdemo_mcu", features = ["from_launcher"] }
 memory = { path = "../memory", features = ["from_launcher"], default-features = false }
+slide_puzzle = { path = "../slide_puzzle", features = ["from_launcher", "rand", "i-slint-backend-mcu"], default-features = false }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
