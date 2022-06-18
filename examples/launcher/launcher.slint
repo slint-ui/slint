@@ -34,7 +34,8 @@ Launcher := Window {
                         color: {
                             // Workaround to quit after the animation
                             if (width >= parent.width*2) {
-                                quit()
+                                quit();
+                                return red;
                             };
                             #0025ff;
                         }
