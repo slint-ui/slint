@@ -1180,6 +1180,9 @@ fn generate_item_tree(
     let item_tree_array_len = item_tree_array.len();
     let item_array_len = item_array.len();
 
+    let link_section =
+        std::env::var("SLINT_ASSET_SECTION").ok().map(|section| quote!(#[link_section = #section]));
+
     quote!(
         #sub_comp
 
@@ -1201,7 +1204,8 @@ fn generate_item_tree(
             }
 
             fn item_tree() -> &'static [slint::re_exports::ItemTreeNode] {
-                const ITEM_TREE : [slint::re_exports::ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
+                #link_section
+                static ITEM_TREE : [slint::re_exports::ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
                 &ITEM_TREE
             }
 
