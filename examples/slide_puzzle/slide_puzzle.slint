@@ -326,14 +326,14 @@ export MainWindow := Window {
         }
 
         if (root.tiles-left == 0) : Rectangle {
-            width: pieces-size - pieces-size / 2;
-            height: pieces-size - pieces-size / 3;
+            width: pieces-size - (current-theme.game-use-background-image ? 0 : pieces-size / 2);
+            height: pieces-size - (current-theme.game-use-background-image ? 0 : pieces-size / 3 );
             x: 3 * (pieces-size + pieces-spacing)
                 + (parent.width - (4*pieces-size + 3*pieces-spacing))/2
-                + pieces-size / 4;
+                + (current-theme.game-use-background-image ? 0 : (pieces-size / 4));
             y: 3 * (pieces-size + pieces-spacing)
                 + (parent.height - (4*pieces-size + 3*pieces-spacing))/2
-                + pieces-size / 5;
+                + (current-theme.game-use-background-image ? 0 : (pieces-size / 5));
 
             border-color: current-theme.game-highlight-color;
             border-width: 3px;
