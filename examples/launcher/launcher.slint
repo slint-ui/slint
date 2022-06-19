@@ -88,4 +88,8 @@ Launcher := Window {
         y: parent.height - height;
     }*/
 
+    // Workaround that the default font for the launcher becomes the global default font and it's missing these glyphs.
+    // By mentioning the characters here in the literal they'll also be see and added to the launcher's glyph coverage.
+    property <string> hack_for_glyph_coverage: "↻✓";
+
 }
