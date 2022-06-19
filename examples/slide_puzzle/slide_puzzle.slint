@@ -330,14 +330,14 @@ export component MainWindow inherits Window {
         }
 
         if (root.tiles-left == 0) : Rectangle {
-            width: root.pieces-size;
-            height: root.pieces-size;
+            width: root.pieces-size - (root.current-theme.game-use-background-image ? 0 : root.pieces-size / 2);
+            height: root.pieces-size - (root.current-theme.game-use-background-image ? 0 : root.pieces-size / 3 );
             x: 3 * (root.pieces-size + root.pieces-spacing)
                 + (parent.width - (4*root.pieces-size + 3*root.pieces-spacing))/2
-                + pieces-size / 4;
+                + (root.current-theme.game-use-background-image ? 0 : (root.pieces-size / 4));
             y: 3 * (root.pieces-size + root.pieces-spacing)
                 + (parent.height - (4*root.pieces-size + 3*root.pieces-spacing))/2
-                + pieces-size / 5;
+                + (root.current-theme.game-use-background-image ? 0 : (root.pieces-size / 5));
 
             border-color: current-theme.game-highlight-color;
             border-width: 3px;
