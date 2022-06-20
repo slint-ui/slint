@@ -72,3 +72,25 @@ Yes, check out our [Ambassador program](https://slint-ui.com/ambassador-program.
 You can still publish your own source code under a permissive license compatible with the GPL, such as BSD, MIT, or Apache license.
 The distribution of a binary or a package containing Slint still needs to be licensed under the GPL.
 It is up to those who want to distribute a non-free version of the application to acquire a commercial license.
+
+## Broken files on Windows
+
+The slint repository makes use of symbolic links to avoid duplication
+of data in its repository, which can cause problems on Windows. There are two options to fix this:
+
+- Using git version <code>2.11.1</code> or later you can make use of symbolic links on Windows by
+  running:
+
+  ```powershell
+  > git clone -c core.symlinks=true https://github.com/slint-ui/slint
+  ```
+
+  Unfortunately this requires the checkout to be run as _Administrator_ (or have Windows switched
+  into _developer mode_), so that the symbolic links can be created.
+
+- You can manually create copies of the files needed: Check github for link targets when the buildi
+  fails and copy over files as needed.
+
+  E.g. to run the `printerdemo_mcu`, you need to remove
+  `examples/printerdemo_mcu/ui/fonts` and `examples/printerdemo_mcu/ui/images` and copy these
+  folders over from `examples/printerdemo/ui`.
