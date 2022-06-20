@@ -10,10 +10,10 @@ Launcher := Window {
     property <int> to_launch;
 
 
-    property <[{ title: string, icon: string }]> demos : [
-        {title: "Printer demo", icon: "🖨"},
-        {title: "Slide puzzle", icon: "🎮"},
-        {title: "Memory game", icon: "▦"},
+    property <[{ title: string, icon: image, text: string }]> demos : [
+        {title: "Printer demo", icon: @image-url("printer.svg") },
+        {title: "Slide puzzle", icon: @image-url("gamepad.svg") },
+        {title: "Memory game", icon: @image-url("brain.svg") },
     ];
 
     HorizontalLayout {
@@ -22,33 +22,29 @@ Launcher := Window {
         spacing: 20px;
         padding: 20px;
         for d[idx] in demos: rect := Rectangle {
-            background: !touch.pressed ? #131619 : #2c2f36;
+            property <bool> activated: to-launch == idx+1;
+            background: !touch.pressed ? ((to-launch != 0) ? transparent : #131619) : #2c2f36;
             touch := TouchArea {
                 clicked => { to-launch = idx + 1; }
             }
             VerticalLayout {
                 padding: 5px;
                 Rectangle {
-                    Text {
-                        text: d.icon;
-                        color: {
-                            // Workaround to quit after the animation
-                            if (width >= parent.width*2) {
-                                quit();
-                                return red;
-                            };
-                            #0025ff;
-                        }
-                        font-size: min(self.width, self.height) * 0.6;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
-                        property <bool> activated: to-launch == idx+1;
-                        width: activated ? parent.width*2 : parent.width;
-                        height: activated ? parent.height*2 : parent.height;
+                    background: {
+                        // Workaround to quit after the animation
+                        if (img.width >= self.width*2) {
+                            quit();
+                            return transparent;
+                        };
+                        transparent;
+                    }
+                    img := Image {
+                        source: d.icon;
+                        width: rect.activated ? parent.width*2 : parent.width;
+                        height: rect.activated ? parent.height*2 : parent.height;
                         x: (parent.width - width) / 2;
-                        y: (parent.height - height) / 2;
+                        y: (parent.height - height) / 2;                        
                         animate width, height { duration: 500ms; easing: ease-out; }
-
                     }
                 }
 
@@ -58,6 +54,7 @@ Launcher := Window {
                     horizontal-alignment: center;
                     vertical-alignment: center;
                     font-size: 18px;
+                    z: -1;
                 }
             }
         }
