@@ -27,7 +27,7 @@ The Raspberry Pi Pico uses an ARM-based CPU, so please make sure this target arc
 available:
 
 ```sh
-rustup target add thumbv6m-none-eabi
+rustup target add --toolchain nightly thumbv6m-none-eabi
 ```
 
 ### Additional tools
@@ -46,7 +46,7 @@ The STM32H735G-DK uses an ARM based CPU, so please make sure this target archite
 available:
 
 ```sh
-rustup target add thumbv7em-none-eabihf
+rustup target add --toolchain nightly thumbv7em-none-eabihf
 ```
 
 ### Additional tools
