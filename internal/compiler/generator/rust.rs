@@ -1213,6 +1213,7 @@ fn generate_item_tree(
                 use slint::re_exports::*;
                 ComponentVTable_static!(static VT for #inner_component_id);
                 // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
+                #link_section
                 static ITEM_ARRAY : slint::re_exports::OnceBox<
                     [vtable::VOffset<#inner_component_id, ItemVTable, vtable::AllowPin>; #item_array_len]
                 > = slint::re_exports::OnceBox::new();
