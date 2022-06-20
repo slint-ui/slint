@@ -37,8 +37,11 @@ export SettingsPage := Page {
                 horizontal-stretch: 2;
             }
             Rectangle {}
-            Label { text: "EcoMode"; }
-            CheckBox { checked: false; }
+            Label {
+                text: "EcoMode";
+                TouchArea { clicked => { cb1.checked = !cb1.checked; } }
+            }
+            cb1 := CheckBox { checked: false; }
         }
         Row {
             Label { text: "Quality"; }
@@ -48,8 +51,11 @@ export SettingsPage := Page {
                 horizontal-stretch: 2;
             }
             Rectangle {}
-            Label { text: "TURBO "; }
-            CheckBox { checked: true; }
+            Label {
+                text: "TURBO ";
+                TouchArea { clicked => { cb2.checked = !cb2.checked; } }
+            }
+            cb2 := CheckBox { checked: true; }
         }
         Row {
             Label { text: "Color"; }
