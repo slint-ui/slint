@@ -41,7 +41,7 @@ Checkbox := Rectangle {
     callback toggled(bool);
     property<color> checked-color;
     property<color> unchecked-color;
-    
+
 
     checkbox-rect := Rectangle {
         border-width: height * 10%;
@@ -202,7 +202,7 @@ export MainWindow := Window {
     property<int> current-theme-index;
     property <Theme> current-theme: themes[current-theme-index];
 
-    property<length> pieces-size: min(width, height) / 5;
+    property<length> pieces-size: min(width, height) / 4.9;
     property<length> pieces-spacing: current-theme.game-use-background-image && tiles-left == 0 ?
         2px : (pieces-size * current-theme.piece-spacing);
 
@@ -226,11 +226,11 @@ export MainWindow := Window {
         border-width: current-theme.game-border;
         border-radius: current-theme.game-radius;
         width: pieces-size * 4.6;
-        height: pieces-size * 4.9;
+        height: pieces-size * 4.6;
         x: (parent.width - width)/2;
         y: (parent.height - height)/2;
         animate background, border-color, border-width, border-radius { duration: 500ms; easing: ease-out; }
-       
+
         for p[i] in pieces : Rectangle {
             x: py * (pieces-size + pieces-spacing) + p.offset-x
                 + (parent.width - (4*pieces-size + 3*pieces-spacing))/2;
@@ -347,7 +347,7 @@ export MainWindow := Window {
                 source-clip-width: source.width / 4;
                 source-clip-height: source.height / 4;
             }
-        }    
+        }
     }
 
     VerticalLayout {
@@ -411,7 +411,7 @@ export MainWindow := Window {
                     text: "Moves ";
                     color: current-theme.game-text-color;
                     vertical-alignment: center;
-                }    
+                }
             }
             Row {
                 Text {
@@ -423,8 +423,8 @@ export MainWindow := Window {
                     text: "Tiles left";
                     color: current-theme.game-text-color;
                     vertical-alignment: center;
-                }    
+                }
             }
         }
-    }   
+    }
 }
