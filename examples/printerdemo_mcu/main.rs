@@ -54,7 +54,7 @@ fn main() -> ! {
     let default_queue: Vec<PrinterQueueItem> =
         main_window.global::<PrinterQueue>().get_printer_queue().iter().collect();
     let printer_queue = Rc::new(PrinterQueueData {
-        data: Rc::new(slint::VecModel::from(default_queue)),
+        data: Rc::new(slint::VecModel::from(default_queue.clone())),
         print_progress_timer: Default::default(),
     });
     main_window.global::<PrinterQueue>().set_printer_queue(printer_queue.data.clone().into());
@@ -93,7 +93,7 @@ fn main() -> ! {
                     }
                     printer_queue.data.set_row_data(0, top_item);
                 } else {
-                    // FIXME: stop this timer?
+                    printer_queue.data.set_vec(default_queue.clone());
                 }
             }
         },
