@@ -24,6 +24,7 @@ Launcher := Window {
         for d[idx] in demos: rect := Rectangle {
             property <bool> activated: to-launch == idx+1;
             background: !touch.pressed ? ((to-launch != 0) ? transparent : #131619) : #2c2f36;
+            animate background { duration: 70ms;  }
             touch := TouchArea {
                 clicked => { to-launch = idx + 1; }
             }
@@ -43,8 +44,10 @@ Launcher := Window {
                         width: rect.activated ? parent.width*2 : parent.width;
                         height: rect.activated ? parent.height*2 : parent.height;
                         x: (parent.width - width) / 2;
-                        y: (parent.height - height) / 2;                        
-                        animate width, height { duration: 500ms; easing: ease-out; }
+                        y: (parent.height - height) / 2;
+                        animate width, height, opacity { duration: 150ms; easing: ease-in; }
+                        opacity: to-launch == 0 ? 1 : 0.8;
+                        image-fit: contain;
                     }
                 }
 
