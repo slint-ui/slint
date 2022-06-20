@@ -197,7 +197,7 @@ export component MainWindow inherits Window {
         },
     ];
     private property <Theme> current-theme: root.themes[root.current-theme-index];
-    private property<length> pieces-size: min(root.width, root.height) / 5;
+    private property<length> pieces-size: min(root.width, root.height) / 4.9;
     private property <length> pieces-spacing: root.current-theme.game-use-background-image && root.tiles-left == 0 ?
         2px : (root.pieces-size * root.current-theme.piece-spacing);
 
@@ -230,7 +230,7 @@ export component MainWindow inherits Window {
         border-width: root.current-theme.game-border;
         border-radius: root.current-theme.game-radius;
         width: root.pieces-size * 4.6;
-        height: root.pieces-size * 4.9;
+        height: root.pieces-size * 4.6;
         x: (parent.width - self.width)/2;
         y: (parent.height - self.height)/2;
         animate background, border-color, border-width, border-radius { duration: 500ms; easing: ease-out; }
@@ -420,7 +420,7 @@ export component MainWindow inherits Window {
                     text: "Moves ";
                     color: current-theme.game-text-color;
                     vertical-alignment: center;
-                }    
+                }
             }
             Row {
                 Text {
@@ -433,8 +433,8 @@ export component MainWindow inherits Window {
                     text: "Tiles left";
                     color: current-theme.game-text-color;
                     vertical-alignment: center;
-                }    
+                }
             }
         }
-    }   
+    }
 }
