@@ -31,9 +31,12 @@ Check the [online demos](#demos-running-in-webassembly-simulation) or
 Slint is in active development. Its state of development depends on the kind of application.
 
  - **Embedded**: *Ready!* Slint is already happily used by customers on embedded devices
-   (running on an Arm processor with Linux). We are also looking into supporting microcontrollers.
+   (running on an Arm processor with Linux).
+ - **Microcontrollers**: *Partial*. [We have ported Slint](https://slint-ui.com/blog/porting-slint-to-microcontrollers.html)
+   to a couple of MCUs. We are still working on a public API for the platform adaptation layer.
+   Contact us to get your board supported. 
  - **Desktop**: *In Progress*. Slint is usable on Windows, Linux and Mac. We plan on building
-    up the desktop support in subsequent releases to reach the level of integration we're aiming for.
+   up the desktop support in subsequent releases to reach the level of integration we're aiming for.
  - **Mobile** (Android/iOS): *Todo*. We haven't started supporting mobile platforms yet, but it
    is our intention to do so in the future.
  - **Web**: Our focus is on Embedded and Desktop applications. We do not intend to compete in
