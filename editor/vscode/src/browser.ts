@@ -191,6 +191,7 @@ function getPreviewHtml(): string {
 
     const vscode = acquireVsCodeApi();
     let promises = {};
+    let current_instance = undefined;
 
     async function load_file(url) {
         let promise = new Promise(resolve => {
@@ -211,7 +212,14 @@ function getPreviewHtml(): string {
         vscode.postMessage({ command: 'preview_ready' });
         if (component !== undefined) {
             document.getElementById("slint_error_div").innerHTML = "";
-            let instance = component.run("slint_canvas");
+            let instance = component.create("slint_canvas");
+            instance.show();
+            if (current_instance) {
+                current_instance.hide();
+            } else {
+                slint.run_event_loop();
+            }
+            current_instance = instance;
         }
     }
 
