@@ -38,6 +38,10 @@ function startClient(context: vscode.ExtensionContext) {
                 client.onRequest("slint/load_file", async (param: string) => {
                     return await vscode.workspace.fs.readFile(Uri.parse(param));
                 });
+                client.onRequest("slint/showPreview", async (param: string[]) => {
+                    showPreview(context, param[0], param[1]);
+                    return;
+                });
                 //client.onNotification(serverStatus, (params) => setServerStatus(params, statusBar));
             });
         }
@@ -46,11 +50,15 @@ function startClient(context: vscode.ExtensionContext) {
 
 let previewPanel: vscode.WebviewPanel | undefined = undefined;
 let previewUrl: string = "";
+let previewAccessedFiles = new Set();
+let previewComponent: string = "";
 let queuedPreviewMsg: any = undefined;
 let previewBusy = false;
 
 function reload_preview(url: string, content: string) {
     if (!previewPanel) { return; }
+    previewAccessedFiles.clear();
+    previewAccessedFiles.add(url);
     const msg = {
         command: "preview",
         base_url: url,
@@ -73,58 +81,12 @@ export function activate(context: vscode.ExtensionContext) {
 
     startClient(context);
 
-    context.subscriptions.push(vscode.commands.registerCommand('slint.showPreview', function () {
+    context.subscriptions.push(vscode.commands.registerCommand('slint.showPreview', async function () {
         let ae = vscode.window.activeTextEditor;
         if (!ae) {
             return;
         }
-
-        if (previewPanel) {
-            previewPanel.reveal(vscode.ViewColumn.Beside);
-        } else {
-            // Create and show a new webview
-            const panel = vscode.window.createWebviewPanel(
-                'slint-preview',
-                'Slint Preview',
-                vscode.ViewColumn.Beside,
-                { enableScripts: true }
-            );
-            previewPanel = panel;
-            // we will get a preview_ready when the html is loaded and message are ready to be sent
-            previewBusy = true;
-            panel.webview.onDidReceiveMessage(
-                async message => {
-                    switch (message.command) {
-                        case 'load_file':
-                            const actual_url = Uri.parse(message.url);
-                            const content = await vscode.workspace.fs.readFile(actual_url);
-                            let content_str = new TextDecoder().decode(content);
-                            panel.webview.postMessage({ command: "file_loaded", url: message.url, content: content_str });
-                            return;
-                        case 'preview_ready':
-                            if (queuedPreviewMsg) {
-                                panel.webview.postMessage(queuedPreviewMsg);
-                                queuedPreviewMsg = undefined;
-                            } else {
-                                previewBusy = false;
-                            }
-                            return;
-                    }
-                },
-                undefined,
-                context.subscriptions
-            );
-            panel.webview.html = getPreviewHtml();
-            panel.onDidDispose(
-                () => {
-                    previewPanel = undefined;
-                },
-                undefined,
-                context.subscriptions);
-        }
-
-        previewUrl = ae.document.uri.toString();
-        reload_preview(previewUrl, ae.document.getText());
+        await showPreview(context, ae.document.uri.toString(), "");
     }));
 
     context.subscriptions.push(vscode.commands.registerCommand('slint.reload', async function () {
@@ -133,12 +95,85 @@ export function activate(context: vscode.ExtensionContext) {
         startClient(context);
     }));
 
-    vscode.workspace.onDidChangeTextDocument(event => {
-        if (event.document.uri.toString() === previewUrl) {
-            reload_preview(event.document.uri.toString(), event.document.getText());
+    vscode.workspace.onDidChangeTextDocument(async event => {
+        let uri = event.document.uri.toString();
+        if (previewAccessedFiles.has(event.document.uri.toString())) {
+            let content_str = uri === previewUrl ? event.document.getText() :
+                await getDocumentSource(previewUrl);
+            if (previewComponent) {
+                content_str += "\n_Preview := " + previewComponent + " {}\n";
+            }
+            reload_preview(previewUrl, content_str);
         }
     });
 }
+
+async function showPreview(context: vscode.ExtensionContext, path: string, component: string) {
+
+    previewUrl = path;
+    previewComponent = component;
+
+    if (previewPanel) {
+        previewPanel.reveal(vscode.ViewColumn.Beside);
+    } else {
+        // Create and show a new webview
+        const panel = vscode.window.createWebviewPanel(
+            'slint-preview',
+            'Slint Preview',
+            vscode.ViewColumn.Beside,
+            { enableScripts: true }
+        );
+        previewPanel = panel;
+        // we will get a preview_ready when the html is loaded and message are ready to be sent
+        previewBusy = true;
+        panel.webview.onDidReceiveMessage(
+            async message => {
+                switch (message.command) {
+                    case 'load_file':
+                        let content_str = await getDocumentSource(message.url);
+                        previewAccessedFiles.add(message.url);
+                        panel.webview.postMessage({ command: "file_loaded", url: message.url, content: content_str });
+                        return;
+                    case 'preview_ready':
+                        if (queuedPreviewMsg) {
+                            panel.webview.postMessage(queuedPreviewMsg);
+                            queuedPreviewMsg = undefined;
+                        } else {
+                            previewBusy = false;
+                        }
+                        return;
+                }
+            },
+            undefined,
+            context.subscriptions
+        );
+        panel.webview.html = getPreviewHtml();
+        panel.onDidDispose(
+            () => {
+                previewPanel = undefined;
+            },
+            undefined,
+            context.subscriptions);
+    }
+
+    let content_str = await getDocumentSource(path);
+    if (component) {
+        content_str += "\n_Preview := " + component + " {}\n";
+    }
+    reload_preview(path, content_str);
+
+}
+
+async function getDocumentSource(url: string): Promise<string> {
+    // FIXME: is there a faster way to get the document
+    let x = vscode.workspace.textDocuments.find(d => d.uri.toString() === url);
+    if (x) {
+        return x.getText();
+    }
+    return new TextDecoder().decode(
+        await vscode.workspace.fs.readFile(Uri.parse(url)));
+}
+
 
 function getPreviewHtml(): string {
     // FIXME this should be bundled in the extension, or we need to change this before the release to the release variant
@@ -186,7 +221,7 @@ function getPreviewHtml(): string {
         } else if (event.data.command === "file_loaded") {
             let resolve = promises[event.data.url];
             if (resolve) {
-                promises[event.data.url] = undefined;
+                delete promises[event.data.url];
                 resolve(event.data.content);
             }
         }
