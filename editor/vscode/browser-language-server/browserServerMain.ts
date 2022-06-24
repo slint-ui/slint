@@ -31,9 +31,9 @@ slint_init(slint_wasm_data).then((_) => {
     });
 
     connection.onRequest(async (method, params, token) => {
-        if (method === "workspace/executeCommand" && (<ExecuteCommandParams>params).command === "showPreview") {
+        if (method === "workspace/executeCommand" && (params as ExecuteCommandParams).command === "showPreview") {
             // forward back to the client so it can send the command to the webview
-            return await connection.sendRequest("slint/showPreview", (<ExecuteCommandParams>params).arguments);
+            return await connection.sendRequest("slint/showPreview", (params as ExecuteCommandParams).arguments);
         }
         return await the_lsp.handle_request(token, method, params);
     });
