@@ -3,7 +3,7 @@
 
 import { createConnection, BrowserMessageReader, BrowserMessageWriter } from 'vscode-languageserver/browser';
 
-import { InitializeParams, InitializeResult } from 'vscode-languageserver';
+import { ExecuteCommandParams, InitializeParams, InitializeResult } from 'vscode-languageserver';
 
 import slint_init, * as slint_lsp from "../../../tools/lsp/pkg/index.js";
 import slint_wasm_data from "../../../tools/lsp/pkg/index_bg.wasm";
@@ -31,6 +31,10 @@ slint_init(slint_wasm_data).then((_) => {
     });
 
     connection.onRequest(async (method, params, token) => {
+        if (method === "workspace/executeCommand" && (<ExecuteCommandParams>params).command === "showPreview") {
+            // forward back to the client so it can send the command to the webview
+            return await connection.sendRequest("slint/showPreview", (<ExecuteCommandParams>params).arguments);
+        }
         return await the_lsp.handle_request(token, method, params);
     });
 

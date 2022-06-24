@@ -95,7 +95,7 @@ pub fn server_capabilities() -> ServerCapabilities {
             lsp_types::TextDocumentSyncKind::FULL,
         )),
         code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
-        #[cfg(feature = "preview")]
+        #[cfg(any(feature = "preview", target_arch = "wasm32"))]
         execute_command_provider: Some(lsp_types::ExecuteCommandOptions {
             commands: vec![SHOW_PREVIEW_COMMAND.into()],
             ..Default::default()
@@ -367,7 +367,7 @@ fn get_code_actions(
     _document_cache: &mut DocumentCache,
     node: SyntaxNode,
 ) -> Option<Vec<CodeActionOrCommand>> {
-    if !cfg!(feature = "preview") {
+    if !cfg!(feature = "preview") && !cfg!(target_arch = "wasm32") {
         return None;
     }
 
@@ -489,7 +489,7 @@ fn get_code_lenses(
     document_cache: &mut DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<Vec<CodeLens>> {
-    if !cfg!(feature = "preview") {
+    if !cfg!(feature = "preview") && !cfg!(target_arch = "wasm32") {
         return None;
     }
 
