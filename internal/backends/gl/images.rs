@@ -12,18 +12,72 @@ use i_slint_core::{items::ImageRendering, slice::Slice, ImageInner, SharedString
 
 use super::glrenderer::{CanvasRc, GLItemRenderer};
 
-struct Texture {
-    id: femtovg::ImageId,
+pub struct Texture {
+    pub id: femtovg::ImageId,
     canvas: CanvasRc,
 }
 
 impl Texture {
-    fn size(&self) -> Option<IntSize> {
+    pub fn size(&self) -> Option<IntSize> {
         self.canvas
             .borrow()
             .image_info(self.id)
             .map(|info| [info.width() as u32, info.height() as u32].into())
             .ok()
+    }
+
+    pub fn as_render_target(&self) -> femtovg::RenderTarget {
+        femtovg::RenderTarget::Image(self.id)
+    }
+
+    pub fn adopt(canvas: &CanvasRc, image_id: femtovg::ImageId) -> Rc<Texture> {
+        Texture { id: image_id, canvas: canvas.clone() }.into()
+    }
+
+    pub fn new_empty_on_gpu(canvas: &CanvasRc, width: u32, height: u32) -> Option<Rc<Texture>> {
+        if width == 0 || height == 0 {
+            return None;
+        }
+        let image_id = canvas
+            .borrow_mut()
+            .create_image_empty(
+                width as usize,
+                height as usize,
+                femtovg::PixelFormat::Rgba8,
+                femtovg::ImageFlags::PREMULTIPLIED | femtovg::ImageFlags::FLIP_Y,
+            )
+            .unwrap();
+        Some(Self { canvas: canvas.clone(), id: image_id }.into())
+    }
+
+    pub(crate) fn filter(&self, filter: femtovg::ImageFilter) -> Rc<Self> {
+        let size = self.size().unwrap();
+        let filtered_image = Self::new_empty_on_gpu(&self.canvas, size.width, size.height).expect(
+            "internal error: this can only fail if the filtered image was zero width or height",
+        );
+
+        self.canvas.borrow_mut().filter_image(filtered_image.id, filter, self.id);
+
+        filtered_image
+    }
+
+    pub fn as_paint(&self) -> femtovg::Paint {
+        self.as_paint_with_alpha(1.0)
+    }
+
+    pub fn as_paint_with_alpha(&self, alpha_tint: f32) -> femtovg::Paint {
+        let size = self
+            .size()
+            .expect("internal error: CachedImage::as_paint() called on zero-sized texture");
+        femtovg::Paint::image(
+            self.id,
+            0.,
+            0.,
+            size.width as f32,
+            size.height as f32,
+            0.,
+            alpha_tint,
+        )
     }
 }
 
@@ -87,7 +141,7 @@ impl HTMLImage {
 
 #[derive(derive_more::From)]
 enum ImageData {
-    Texture(Texture),
+    Texture(Rc<Texture>),
     DecodedImage {
         image: image::DynamicImage,
         premultiplied_alpha: bool,
@@ -139,26 +193,6 @@ pub struct CachedImage(RefCell<ImageData>);
 impl CachedImage {
     fn new_on_cpu(decoded_image: image::DynamicImage, premultiplied_alpha: bool) -> Self {
         Self(RefCell::new(ImageData::DecodedImage { image: decoded_image, premultiplied_alpha }))
-    }
-
-    pub fn new_on_gpu(canvas: &CanvasRc, image_id: femtovg::ImageId) -> Self {
-        Self(RefCell::new(Texture { id: image_id, canvas: canvas.clone() }.into()))
-    }
-
-    pub fn new_empty_on_gpu(canvas: &CanvasRc, width: u32, height: u32) -> Option<Self> {
-        if width == 0 || height == 0 {
-            return None;
-        }
-        let image_id = canvas
-            .borrow_mut()
-            .create_image_empty(
-                width as usize,
-                height as usize,
-                femtovg::PixelFormat::Rgba8,
-                femtovg::ImageFlags::PREMULTIPLIED | femtovg::ImageFlags::FLIP_Y,
-            )
-            .unwrap();
-        Self::new_on_gpu(canvas, image_id).into()
     }
 
     #[cfg(feature = "svg")]
@@ -241,59 +275,6 @@ impl CachedImage {
         ))
     }
 
-    // Upload the image to the GPU? if that hasn't happened yet. This function could take just a canvas
-    // as parameter, but since an upload requires a current context, this is "enforced" by taking
-    // a renderer instead (which implies a current context).
-    pub fn ensure_uploaded_to_gpu(
-        &self,
-        current_renderer: &GLItemRenderer,
-        scaling: Option<ImageRendering>,
-    ) -> femtovg::ImageId {
-        let canvas = &current_renderer.canvas;
-
-        let image_flags = match scaling.unwrap_or_default() {
-            ImageRendering::smooth => femtovg::ImageFlags::empty(),
-            ImageRendering::pixelated => femtovg::ImageFlags::NEAREST,
-        };
-
-        let img = &mut *self.0.borrow_mut();
-        if let ImageData::DecodedImage { image: decoded_image, premultiplied_alpha } = img {
-            let image_id = match femtovg::ImageSource::try_from(&*decoded_image) {
-                Ok(image_source) => canvas.borrow_mut().create_image(image_source, image_flags),
-                Err(_) => {
-                    let converted = image::DynamicImage::ImageRgba8(decoded_image.to_rgba8());
-                    let image_source = femtovg::ImageSource::try_from(&converted).unwrap();
-                    let image_flags = if *premultiplied_alpha {
-                        image_flags | femtovg::ImageFlags::PREMULTIPLIED
-                    } else {
-                        image_flags
-                    };
-                    canvas.borrow_mut().create_image(image_source, image_flags)
-                }
-            }
-            .unwrap();
-
-            *img = Texture { id: image_id, canvas: canvas.clone() }.into()
-        } else if let ImageData::EmbeddedImage(buffer) = img {
-            let (image_source, flags) = image_buffer_to_image_source(buffer);
-            let image_id =
-                canvas.borrow_mut().create_image(image_source, flags | image_flags).unwrap();
-            *img = Texture { id: image_id, canvas: canvas.clone() }.into()
-        }
-
-        #[cfg(target_arch = "wasm32")]
-        if let ImageData::HTMLImage(html_image) = img {
-            let image_id =
-                canvas.borrow_mut().create_image(&html_image.dom_element, image_flags).unwrap();
-            *img = Texture { id: image_id, canvas: canvas.clone() }.into()
-        }
-
-        match &img {
-            ImageData::Texture(Texture { id, .. }) => *id,
-            _ => unreachable!(),
-        }
-    }
-
     // Upload the image to the GPU. This function could take just a canvas as parameter,
     // but since an upload requires a current context, this is "enforced" by taking
     // a renderer instead (which implies a current context).
@@ -303,7 +284,7 @@ impl CachedImage {
         target_size_for_scalable_source: Option<euclid::default::Size2D<u32>>,
 
         scaling: ImageRendering,
-    ) -> Option<Self> {
+    ) -> Option<Rc<Texture>> {
         let canvas = &current_renderer.canvas;
 
         let image_flags = match scaling {
@@ -329,13 +310,13 @@ impl CachedImage {
                 }
                 .unwrap();
 
-                Some(Self::new_on_gpu(canvas, image_id))
+                Some(Texture::adopt(canvas, image_id))
             }
-            ImageData::EmbeddedImage(_) => {
-                // embedded images have no cache key and therefore it would be a bug if they entered this code path
-                // that is used to transition images from the image cache to the texture cache.
-                eprintln!("internal error: upload_to_gpu called on embedded image, which implies that the image was entered into the cache");
-                None
+            ImageData::EmbeddedImage(buffer) => {
+                let (image_source, flags) = image_buffer_to_image_source(buffer);
+                let image_id =
+                    canvas.borrow_mut().create_image(image_source, image_flags | flags).unwrap();
+                Some(Texture::adopt(canvas, image_id))
             }
             #[cfg(feature = "svg")]
             ImageData::Svg(svg_tree) => {
@@ -367,7 +348,7 @@ impl CachedImage {
                 };
                 let image_id =
                     canvas.borrow_mut().create_image(&html_image.dom_element, image_flags).unwrap();
-                Self::new_on_gpu(canvas, image_id)
+                Texture::adopt(canvas, image_id)
             }),
         }
     }
@@ -391,66 +372,6 @@ impl CachedImage {
             #[cfg(target_arch = "wasm32")]
             ImageData::HTMLImage(html_image) => html_image.size(),
         }
-    }
-
-    pub(crate) fn as_render_target(&self) -> femtovg::RenderTarget {
-        match &*self.0.borrow() {
-            ImageData::Texture(tex) => femtovg::RenderTarget::Image(tex.id),
-            _ => panic!(
-                "internal error: CachedImage::as_render_target() called on non-texture image"
-            ),
-        }
-    }
-
-    pub(crate) fn filter(&self, filter: femtovg::ImageFilter) -> Self {
-        let (canvas, image_id, size) = match &*self.0.borrow() {
-            ImageData::Texture(texture) => {
-                texture.size().map(|size| (texture.canvas.clone(), texture.id, size))
-            }
-            _ => None,
-        }
-        .expect("internal error: Cannot filter non-GPU images");
-
-        let filtered_image = Self::new_empty_on_gpu(&canvas, size.width, size.height).expect(
-            "internal error: this can only fail if the filtered image was zero width or height",
-        );
-
-        let filtered_image_id = match &*filtered_image.0.borrow() {
-            ImageData::Texture(tex) => tex.id,
-            _ => panic!("internal error: CachedImage::new_empty_on_gpu did not return texture!"),
-        };
-
-        canvas.borrow_mut().filter_image(filtered_image_id, filter, image_id);
-
-        filtered_image
-    }
-
-    pub(crate) fn as_paint(&self) -> femtovg::Paint {
-        self.as_paint_with_alpha(1.0)
-    }
-
-    pub(crate) fn as_paint_with_alpha(&self, alpha_tint: f32) -> femtovg::Paint {
-        match &*self.0.borrow() {
-            ImageData::Texture(tex) => {
-                let size = tex
-                    .size()
-                    .expect("internal error: CachedImage::as_paint() called on zero-sized texture");
-                femtovg::Paint::image(
-                    tex.id,
-                    0.,
-                    0.,
-                    size.width as f32,
-                    size.height as f32,
-                    0.,
-                    alpha_tint,
-                )
-            }
-            _ => panic!("internal error: CachedImage::as_paint() called on non-texture image"),
-        }
-    }
-
-    pub(crate) fn is_on_gpu(&self) -> bool {
-        matches!(&*self.0.borrow(), ImageData::Texture(_))
     }
 
     pub(crate) fn to_rgba(&self) -> Option<image::RgbaImage> {
@@ -548,7 +469,7 @@ impl TextureCacheKey {
 // Cache used to avoid repeatedly decoding images from disk. Entries with a count
 // of 1 are drained after flushing the renderer commands to the screen.
 #[derive(Default)]
-pub struct TextureCache(HashMap<TextureCacheKey, Rc<CachedImage>>);
+pub struct TextureCache(HashMap<TextureCacheKey, Rc<Texture>>);
 
 impl TextureCache {
     // Look up the given image cache key in the image cache and upgrade the weak reference to a strong one if found,
@@ -556,15 +477,14 @@ impl TextureCache {
     pub(crate) fn lookup_image_in_cache_or_create(
         &mut self,
         cache_key: TextureCacheKey,
-        image_create_fn: impl Fn() -> Option<Rc<CachedImage>>,
-    ) -> Option<Rc<CachedImage>> {
+        image_create_fn: impl Fn() -> Option<Rc<Texture>>,
+    ) -> Option<Rc<Texture>> {
         Some(match self.0.entry(cache_key) {
             std::collections::hash_map::Entry::Occupied(existing_entry) => {
                 existing_entry.get().clone()
             }
             std::collections::hash_map::Entry::Vacant(vacant_entry) => {
                 let new_image = image_create_fn()?;
-                debug_assert!(new_image.is_on_gpu());
                 vacant_entry.insert(new_image.clone());
                 new_image
             }
