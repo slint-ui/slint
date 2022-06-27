@@ -348,7 +348,7 @@ impl CachedImage {
                 };
                 let image_id =
                     canvas.borrow_mut().create_image(&html_image.dom_element, image_flags).unwrap();
-                Self::new_on_gpu(canvas, image_id)
+                Texture::adopt(canvas, image_id)
             }),
         }
     }
