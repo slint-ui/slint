@@ -86,8 +86,8 @@ impl<'a> PrettyPrinter<'a> {
     }
 }
 
-pub struct DisplayPropertyRef<'a>(pub &'a PropertyReference, pub &'a EvaluationContext<'a>);
-impl Display for DisplayPropertyRef<'_> {
+pub struct DisplayPropertyRef<'a, T>(pub &'a PropertyReference, pub &'a EvaluationContext<'a, T>);
+impl<T> Display for DisplayPropertyRef<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
         let mut ctx = self.1;
         match &self.0 {
@@ -126,8 +126,8 @@ impl Display for DisplayPropertyRef<'_> {
     }
 }
 
-pub struct DisplayExpression<'a>(pub &'a Expression, pub &'a EvaluationContext<'a>);
-impl<'a> Display for DisplayExpression<'a> {
+pub struct DisplayExpression<'a, T>(pub &'a Expression, pub &'a EvaluationContext<'a, T>);
+impl<'a, T> Display for DisplayExpression<'a, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result {
         let ctx = self.1;
         let e = |e: &'a Expression| DisplayExpression(e, ctx);

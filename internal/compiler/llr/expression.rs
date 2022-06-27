@@ -398,12 +398,18 @@ pub trait TypeResolutionContext {
     }
 }
 
-#[derive(Clone, Copy)]
 pub struct ParentCtx<'a, T = ()> {
     pub ctx: &'a EvaluationContext<'a, T>,
     // Index of the repeater within the ctx.current_sub_component
     pub repeater_index: Option<usize>,
 }
+
+impl<'a, T> Clone for ParentCtx<'a, T> {
+    fn clone(&self) -> Self {
+        Self { ctx: self.ctx, repeater_index: self.repeater_index }
+    }
+}
+impl<'a, T> Copy for ParentCtx<'a, T> {}
 
 impl<'a, T> ParentCtx<'a, T> {
     pub fn new(ctx: &'a EvaluationContext<'a, T>, repeater_index: Option<usize>) -> Self {

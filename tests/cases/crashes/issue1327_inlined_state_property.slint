@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+// based on https://github.com/slint-ui/slint/issues/1327#issuecomment-1151244049
+
+export RipplCircle := Rectangle {
+    property <length> radius: 0;
+    property <length> mx: 0;
+    property <length> my: 0;
+    property <float> fwidth: 0;
+    property <float> fheight: 0;
+    property <bool> running: false;
+    width: radius * 2;
+    height: radius * 2;
+    x: mx - width / 2;
+    y: my - height / 2;
+    background: rgba(0,0,0, 0.5);
+    border-radius: width / 2;
+
+    property <float> counter: 0;
+    animate counter { duration: 800ms; }
+
+    states [
+        ripple when counter > 0 && counter < 0.1 : {
+            radius: 100px;
+            opacity: 0.;
+            running: true;
+        }
+    ]
+
+    transitions [
+        in ripple: {
+            animate radius { duration: 800ms; }
+            animate opacity { duration: 800ms; }
+        }
+    ]
+}
+
+export InkEffect := Rectangle {
+
+    preferred-width: 200px;
+    preferred-height: 200px;
+    background: white;
+    clip: true;
+
+    circle1 := RipplCircle {}
+    // un commenting the next line causes macro proc panick
+    circle2 := RipplCircle { background: green; }
+
+
+    tch := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                if (!circle1.running) {
+                    circle1.mx = mouse-x;
+                    circle1.my = mouse-y;
+                    circle1.fwidth = parent.width / 1px;
+                    circle1.fheight = parent.height / 1px;
+                    circle1.counter = circle1.counter == 0 ? 0.1 : 0;
+                }
+            }
+        }
+
+    }
+}

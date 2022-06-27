@@ -419,7 +419,7 @@ fn handle_property_init(
     } else {
         let tokens_for_expression =
             compile_expression(&binding_expression.expression.borrow(), ctx);
-        init.push(if binding_expression.is_constant {
+        init.push(if binding_expression.is_constant && !binding_expression.is_state_info {
             let t = rust_type(prop_type).unwrap_or(quote!(_));
 
             // When there is a `return` statement, we must use a lambda expression in the generated code so that the
