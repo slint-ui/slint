@@ -346,7 +346,7 @@ export TabWidgetImpl := Rectangle {
     property <int> current-focused;
 
     preferred-width: content-min-width;
-    min-width: content-min-width;
+    min-width: max(content-min-width, tabbar-preferred-width);
     preferred-height: content-min-height + tabbar-preferred-height;
     min-height: content-min-height + tabbar-preferred-height;
 }
