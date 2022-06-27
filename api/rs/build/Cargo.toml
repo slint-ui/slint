@@ -24,7 +24,3 @@ i-slint-compiler = { version = "=0.2.5", path = "../../../internal/compiler", fe
 spin_on = "0.1"
 thiserror = "1"
 toml_edit = "0.14.2"
-prettyplease = "0.1.11"
-syn = { version = "1.0", features = ["full"] }
-proc-macro2 = "1.0.17"
-
