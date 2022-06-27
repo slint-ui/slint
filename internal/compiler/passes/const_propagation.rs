@@ -20,7 +20,9 @@ pub fn const_propagation(component: &Component) {
 fn simplify_expression(expr: &mut Expression) -> bool {
     match expr {
         Expression::PropertyReference(nr) => {
-            if nr.is_constant() {
+            if nr.is_constant()
+                && !matches!(nr.ty(), Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo"))
+            {
                 // Inline the constant value
                 if let Some(result) = extract_constant_property_reference(nr) {
                     *expr = result;

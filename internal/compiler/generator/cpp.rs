@@ -426,7 +426,7 @@ fn handle_property_init(
         let init_expr =
             compile_expression_wrap_return(&binding_expression.expression.borrow(), ctx);
 
-        init.push(if binding_expression.is_constant {
+        init.push(if binding_expression.is_constant && !binding_expression.is_state_info {
             format!("{}.set({});", prop_access, init_expr)
         } else {
             let binding_code = format!(
