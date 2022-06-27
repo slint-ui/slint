@@ -41,7 +41,7 @@ cargo build --bin slint-lsp
 2. run npm install in the vscode directory
 
 ```sh
-cd editor/vscode
+cd editors/vscode
 npm install
 ```
 
@@ -55,7 +55,7 @@ You can see the output in the output pane "Slint LSP" (that's the drop-down that
 Alternatively, you can start vscode with the following options:
 
 ```sh
-cd editor/vscode
+cd editors/vscode
 code --extensionDevelopmentPath=$PWD ../..
 ```
 

@@ -34,7 +34,7 @@ Slint is in active development. Its state of development depends on the kind of 
    (running on an Arm processor with Linux).
  - **Microcontrollers**: *Partial*. [We have ported Slint](https://slint-ui.com/blog/porting-slint-to-microcontrollers.html)
    to a couple of MCUs. We are still working on a public API for the platform adaptation layer.
-   Contact us to get your board supported. 
+   Contact us to get your board supported.
  - **Desktop**: *In Progress*. Slint is usable on Windows, Linux and Mac. We plan on building
    up the desktop support in subsequent releases to reach the level of integration we're aiming for.
  - **Mobile** (Android/iOS): *Todo*. We haven't started supporting mobile platforms yet, but it
@@ -139,14 +139,14 @@ Rendering backends and styles are configurable at compile time. Current there ar
 
 We have a few tools to help with the development of .slint files:
  - A [**LSP Server**](./tools/lsp) that adds features like auto-complete and live preview of the .slint files to many editors.
- - It is bundled in a [**Visual Studio Code Extension**](./editor/vscode) available from the market place.
+ - It is bundled in a [**Visual Studio Code Extension**](./editors/vscode) available from the market place.
  - A [**slint-viewer**](./tools/viewer) tool which displays the .slint files. The `--auto-reload` argument makes it easy to preview
    your UI while you are working on it (when using the LSP preview is not possible).
  - An [**online editor**](https://slint-ui.com/editor) to try out .slint syntax without installing anything ([sources](./tools/online_editor)).
  - An [**updater**](./tools/syntax_updater) to convert the .slint files from previous versions to newer versions.
  - An experimental [**Figma importer**](./tools/figma_import).
 
-Please check our [Editor README](./editor/README.md) for tips on how to configure your favorite editor to work well with Slint.
+Please check our [Editors README](./editors/README.md) for tips on how to configure your favorite editor to work well with Slint.
 
 ## Made with Slint
 
