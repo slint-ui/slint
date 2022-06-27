@@ -11,7 +11,7 @@ Files: .clang-format .gitattributes .gitignore */.gitignore .pre-commit-config.y
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-Files: CHANGELOG.md CONTRIBUTING.md FAQ.md README.md internal/*/README.md editor/README.md internal/*/CHANGELOG.md api/*/README.md api/*/README.md tools/*/README.md tools/*/CHANGELOG.md
+Files: CHANGELOG.md CONTRIBUTING.md FAQ.md README.md internal/*/README.md editors/README.md internal/*/CHANGELOG.md api/*/README.md api/*/README.md tools/*/README.md tools/*/CHANGELOG.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
@@ -47,11 +47,11 @@ Files: internal/backends/qt/QtThirdPartySoftware_Listing.txt
 Copyright: The Qt Company <https://qt.io/>
 License: LGPL-3.0-only
 
-Files: editor/sublime/LSP.sublime-settings
+Files: editors/sublime/LSP.sublime-settings
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-Files: editor/tree-sitter-slint/binding.gyp editor/tree-sitter-slint/CONTRIBUTING.md
+Files: editors/tree-sitter-slint/binding.gyp editors/tree-sitter-slint/CONTRIBUTING.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
@@ -59,6 +59,6 @@ Files: tools/online_editor/*.html tools/online_editor/*.json
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-Files: editor/vscode/*.json editor/vscode/README.md
+Files: editors/vscode/*.json editors/vscode/README.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial

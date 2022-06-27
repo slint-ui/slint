@@ -36,4 +36,4 @@ As the next step, configure your editor to use the binary, no arguments are requ
 
 # Editor configuration
 
-Please check the [editor folder](../../editor/README.md) in the Slint repository for instructions on how to set up different editors to work with Slint.
+Please check the [editors folder](../../editors/README.md) in the Slint repository for instructions on how to set up different editors to work with Slint.
