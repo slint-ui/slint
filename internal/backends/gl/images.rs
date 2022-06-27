@@ -30,6 +30,10 @@ impl Texture {
         femtovg::RenderTarget::Image(self.id)
     }
 
+    pub fn adopt(canvas: &CanvasRc, image_id: femtovg::ImageId) -> Rc<Texture> {
+        Texture { id: image_id, canvas: canvas.clone() }.into()
+    }
+
     pub fn new_empty_on_gpu(canvas: &CanvasRc, width: u32, height: u32) -> Option<Rc<Texture>> {
         if width == 0 || height == 0 {
             return None;
@@ -191,26 +195,6 @@ impl CachedImage {
         Self(RefCell::new(ImageData::DecodedImage { image: decoded_image, premultiplied_alpha }))
     }
 
-    pub fn new_on_gpu(canvas: &CanvasRc, image_id: femtovg::ImageId) -> Rc<Texture> {
-        Texture { id: image_id, canvas: canvas.clone() }.into()
-    }
-
-    pub fn new_empty_on_gpu(canvas: &CanvasRc, width: u32, height: u32) -> Option<Rc<Texture>> {
-        if width == 0 || height == 0 {
-            return None;
-        }
-        let image_id = canvas
-            .borrow_mut()
-            .create_image_empty(
-                width as usize,
-                height as usize,
-                femtovg::PixelFormat::Rgba8,
-                femtovg::ImageFlags::PREMULTIPLIED | femtovg::ImageFlags::FLIP_Y,
-            )
-            .unwrap();
-        Self::new_on_gpu(canvas, image_id).into()
-    }
-
     #[cfg(feature = "svg")]
     fn new_on_cpu_svg(tree: usvg::Tree) -> Self {
         Self(RefCell::new(ImageData::Svg(tree)))
@@ -326,13 +310,13 @@ impl CachedImage {
                 }
                 .unwrap();
 
-                Some(Self::new_on_gpu(canvas, image_id))
+                Some(Texture::adopt(canvas, image_id))
             }
             ImageData::EmbeddedImage(buffer) => {
                 let (image_source, flags) = image_buffer_to_image_source(buffer);
                 let image_id =
                     canvas.borrow_mut().create_image(image_source, image_flags | flags).unwrap();
-                Some(Self::new_on_gpu(canvas, image_id))
+                Some(Texture::adopt(canvas, image_id))
             }
             #[cfg(feature = "svg")]
             ImageData::Svg(svg_tree) => {

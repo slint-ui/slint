@@ -26,7 +26,7 @@ pub type CanvasRc = Rc<RefCell<Canvas>>;
 
 #[derive(Clone)]
 pub enum ItemGraphicsCacheEntry {
-    Image(Rc<Texture>),
+    Texture(Rc<Texture>),
     ColorizedImage {
         // This original image Rc is kept here to keep the image in the shared image cache, so that
         // changes to the colorization brush will not require re-uploading the image.
@@ -36,9 +36,9 @@ pub enum ItemGraphicsCacheEntry {
 }
 
 impl ItemGraphicsCacheEntry {
-    fn as_image(&self) -> &Rc<Texture> {
+    fn as_texture(&self) -> &Rc<Texture> {
         match self {
-            ItemGraphicsCacheEntry::Image(image) => image,
+            ItemGraphicsCacheEntry::Texture(image) => image,
             ItemGraphicsCacheEntry::ColorizedImage { colorized_image, .. } => colorized_image,
         }
     }
@@ -555,7 +555,7 @@ impl ItemRenderer for GLItemRenderer {
 
         let cache_entry =
             self.graphics_window.clone().graphics_cache.get_or_update_cache_entry(item_rc, || {
-                ItemGraphicsCacheEntry::Image({
+                ItemGraphicsCacheEntry::Texture({
                     let blur = box_shadow.blur() * self.scale_factor;
                     let width = box_shadow.width() * self.scale_factor;
                     let height = box_shadow.height() * self.scale_factor;
@@ -567,7 +567,7 @@ impl ItemRenderer for GLItemRenderer {
                     let shadow_image_width = shadow_rect.width().ceil() as u32;
                     let shadow_image_height = shadow_rect.height().ceil() as u32;
 
-                    let shadow_image = CachedImage::new_empty_on_gpu(
+                    let shadow_image = Texture::new_empty_on_gpu(
                         &self.canvas,
                         shadow_image_width,
                         shadow_image_height,
@@ -635,7 +635,7 @@ impl ItemRenderer for GLItemRenderer {
             });
 
         let shadow_image = match &cache_entry {
-            Some(cached_shadow_image) => cached_shadow_image.as_image(),
+            Some(cached_shadow_image) => cached_shadow_image.as_texture(),
             None => return, // Zero width or height shadow
         };
 
@@ -790,15 +790,14 @@ impl ItemRenderer for GLItemRenderer {
                     if let Ok(image_id) =
                         canvas.borrow_mut().create_image(img, femtovg::ImageFlags::PREMULTIPLIED)
                     {
-                        cached_image = Some(ItemGraphicsCacheEntry::Image(CachedImage::new_on_gpu(
-                            canvas, image_id,
-                        )))
+                        cached_image =
+                            Some(ItemGraphicsCacheEntry::Texture(Texture::adopt(canvas, image_id)))
                     };
                 });
                 cached_image
             });
         let image_id = match cache_entry {
-            Some(ItemGraphicsCacheEntry::Image(image)) => image.id,
+            Some(ItemGraphicsCacheEntry::Texture(image)) => image.id,
             Some(ItemGraphicsCacheEntry::ColorizedImage { .. }) => unreachable!(),
             None => return,
         };
@@ -907,10 +906,10 @@ impl GLItemRenderer {
     ) -> Option<Rc<Texture>> {
         let cache_entry =
             self.graphics_window.clone().graphics_cache.get_or_update_cache_entry(item_rc, || {
-                ItemGraphicsCacheEntry::Image({
+                ItemGraphicsCacheEntry::Texture({
                     let size = layer_logical_size_fn() * self.scale_factor;
 
-                    let layer_image = CachedImage::new_empty_on_gpu(
+                    let layer_image = Texture::new_empty_on_gpu(
                         &self.canvas,
                         size.width.ceil() as u32,
                         size.height.ceil() as u32,
@@ -963,7 +962,7 @@ impl GLItemRenderer {
                 .into()
             });
 
-        cache_entry.map(|item_cache_entry| item_cache_entry.as_image().clone())
+        cache_entry.map(|item_cache_entry| item_cache_entry.as_texture().clone())
     }
 
     fn render_and_blend_layer(&mut self, alpha_tint: f32, item_rc: &ItemRc) -> RenderingResult {
@@ -1007,7 +1006,7 @@ impl GLItemRenderer {
         if colorize_brush.is_transparent() {
             return original_cache_entry;
         };
-        let original_image = original_cache_entry.as_image();
+        let original_image = original_cache_entry.as_texture();
 
         let image_size = match original_image.size() {
             Some(size) => size,
@@ -1069,7 +1068,7 @@ impl GLItemRenderer {
 
         ItemGraphicsCacheEntry::ColorizedImage {
             _original_image: original_image.clone(),
-            colorized_image: CachedImage::new_on_gpu(&self.canvas, colorized_image),
+            colorized_image: Texture::adopt(&self.canvas, colorized_image),
         }
     }
 
@@ -1139,7 +1138,7 @@ impl GLItemRenderer {
                             )
                         })
                     })
-                    .map(ItemGraphicsCacheEntry::Image)
+                    .map(ItemGraphicsCacheEntry::Texture)
                     .map(|cache_entry| {
                         self.colorize_image(cache_entry, colorize_property, image_rendering)
                     })
@@ -1148,7 +1147,7 @@ impl GLItemRenderer {
             // Check if the image in the cache is loaded. If not, don't draw any image and we'll return
             // later when the callback from load_html_image has issued a repaint
             let cached_image = match image_cache_entry {
-                Some(entry) if entry.as_image().size().is_some() => entry,
+                Some(entry) if entry.as_texture().size().is_some() => entry,
                 _ => {
                     return;
                 }
@@ -1164,7 +1163,7 @@ impl GLItemRenderer {
                 continue;
             }
 
-            break cached_image.as_image().clone();
+            break cached_image.as_texture().clone();
         };
 
         let image_id = cached_image.id;
