@@ -113,8 +113,10 @@ pub enum CompileError {
 
 struct CodeFormatter<Sink> {
     indentation: usize,
+    /// We are currently in a string
     in_string: bool,
-    in_char: bool,
+    /// number of bytes after the last `'`, 0 if there was none
+    in_char: usize,
     sink: Sink,
 }
 
@@ -122,16 +124,16 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
     fn write(&mut self, mut s: &[u8]) -> std::io::Result<usize> {
         let len = s.len();
         while let Some(idx) = s.iter().position(|c| match c {
-            b'{' if !self.in_string && !self.in_char => {
+            b'{' if !self.in_string && self.in_char == 0 => {
                 self.indentation += 1;
                 true
             }
-            b'}' if !self.in_string && !self.in_char => {
+            b'}' if !self.in_string && self.in_char == 0 => {
                 self.indentation -= 1;
                 true
             }
-            b';' if !self.in_string && !self.in_char => true,
-            b'"' if !self.in_string => {
+            b';' if !self.in_string && self.in_char == 0 => true,
+            b'"' if !self.in_string && self.in_char == 0 => {
                 self.in_string = true;
                 false
             }
@@ -140,13 +142,21 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
                 self.in_string = false;
                 false
             }
-            b'\'' if !self.in_char => {
-                self.in_char = true;
+            b'\'' if !self.in_string && self.in_char == 0 => {
+                self.in_char = 1;
                 false
             }
-            b'\'' if self.in_char => {
-                // FIXME! escape character
-                self.in_char = false;
+            b'\'' if !self.in_string && self.in_char > 0 => {
+                self.in_char = 0;
+                false
+            }
+            _ if self.in_char > 2 => {
+                // probably a lifetime
+                self.in_char = 0;
+                false
+            }
+            _ if self.in_char > 0 => {
+                self.in_char += 1;
                 false
             }
             _ => false,
@@ -260,7 +270,7 @@ pub fn compile_with_config(
 
     let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
     let mut code_formatter =
-        CodeFormatter { indentation: 0, in_string: false, in_char: false, sink: file };
+        CodeFormatter { indentation: 0, in_string: false, in_char: 0, sink: file };
     let generated = i_slint_compiler::generator::rust::generate(&doc);
 
     for x in &diag.all_loaded_files {
