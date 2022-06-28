@@ -5,6 +5,8 @@ import { DemoPalette, Page, PushButton } from "./common.slint";
 import { CopyPage } from "./copy_page.slint";
 import { ScanPage } from "./scan_page.slint";
 import { PrinterQueueView } from "./printer_queue.slint";
+import { UsbPage } from "./usb_page.slint";
+
 
 component ActionButton inherits Rectangle {
 
@@ -24,8 +26,8 @@ component ActionButton inherits Rectangle {
             img := Image {
                 x: (parent.width / 2) - (self.width / 2);
                 y: (parent.height / 2) - (self.height / 2);
-                width: self.source.width * 1px / 2;
-                height: self.source.height * 1px / 2;
+                width: self.source.width * 1px;
+                height: self.source.height * 1px;
                 colorize: DemoPalette.text-foreground-color;
             }
         }
@@ -45,7 +47,7 @@ export component HomePage inherits Page {
     in-out property <length> header-row-height: 40px / 2;
 
     in-out property <length> button-spacing: 8px;
-    in-out property <length> button-width: 127px / 2;
+    in-out property <length> button-width: 160px / 2;
     in-out property <length> button-height: root.button-width + 20px;
 
     header: "Printer";
@@ -54,12 +56,13 @@ export component HomePage inherits Page {
 
 
     for action[idx] in [
-        { name: "Copy", icon: @image-url("images/copy.svg") },
+        { name: "Print", icon: @image-url("images/print.svg") },
         { name: "Scan", icon: @image-url("images/scan.svg") },
-
+        { name: "Copy", icon: @image-url("images/copy.svg") },
+        { name: "USB", icon: @image-url("images/usb.svg") },
     ]: ActionButton {
-        x: mod(idx, 1) * (root.button-width + root.button-spacing) + root.button-spacing;
-        y: floor(idx / 1) * (root.button-height + root.button-spacing)
+        x: mod(idx, 2) * (root.button-width + root.button-spacing) + root.button-spacing;
+        y: floor(idx / 2) * (root.button-height + root.button-spacing)
            + root.header-row-height
            + /* top-padding of printer queue */ 18px; // align with the first item of the printer queue
         width: root.button-width;
@@ -71,7 +74,7 @@ export component HomePage inherits Page {
 
     queue-view := PrinterQueueView {
 
-        x: root.button-width + root.button-spacing * 2;
+        x: root.button-width * 2 + root.button-spacing * 3;
         width: parent.width - self.x;
     }
 
@@ -81,7 +84,12 @@ export component HomePage inherits Page {
         back => { root.current-subpage = 0 }
     }
     CopyPage {
-        x: root.current-subpage == 1 ? 0 : parent.width + parent.x + 2px;
+        x: root.current-subpage == 3 || root.current-subpage == 1 ? 0 : parent.width + parent.x + 2px;
+        animate x { duration: 125ms; easing: ease; }
+        back => { root.current-subpage = 0 }
+    }
+    UsbPage {
+        x: current-subpage == 4 ? 0 : parent.width + parent.x + 2px;
         animate x { duration: 125ms; easing: ease; }
         back => { root.current-subpage = 0 }
     }

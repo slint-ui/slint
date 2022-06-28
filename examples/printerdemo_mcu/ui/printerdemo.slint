@@ -32,8 +32,8 @@ component SideBarIcon inherits Rectangle {
 component MainWindow inherits Window {
     callback quit();
 
-    width: 320px;
-    height: 240px;
+    width: 480px;
+    height: 272px;
     title: "Slint printer demo";
     background: DemoPalette.main-background;
     default-font-family: "Noto Sans";
@@ -133,7 +133,7 @@ component MainWindow inherits Window {
         }
 
         Rectangle {
-            y: sidebar.icon-y(3) ;
+            y: sidebar.icon-y(3) + 10px ;
             x: (parent.width - self.width) / 2;
             background: #6284FF;
             height: 2px;
@@ -142,7 +142,7 @@ component MainWindow inherits Window {
 
         SideBarIcon {
             //y: sidebar.icon-y(3) + 10px;
-            y: parent.height - self.height - main-view.margin * 2;
+            y: parent.height - self.height - main-view.margin * 4;
             x: (parent.width - self.width) / 2;
             height: 27px;
             width: 27px;
