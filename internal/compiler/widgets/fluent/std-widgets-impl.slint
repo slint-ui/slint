@@ -197,11 +197,10 @@ export ScrollView := Rectangle {
         @children
         x: 2px;
         y: 2px;
-        interactive: false;
         viewport-y <=> vbar.value;
-        viewport-x <=> hbar.value;
+        //viewport-x <=> hbar.value;
         width: parent.width - vbar.width - 4px;
-        height: parent.height - hbar.height - 4px;
+        height: parent.height /*- hbar.height*/ - 4px;
     }
     vbar := ScrollBar {
         width: 16px;
@@ -212,7 +211,7 @@ export ScrollView := Rectangle {
         maximum: fli.viewport-height - fli.height;
         page-size: fli.height;
     }
-    hbar := ScrollBar {
+    /*hbar := ScrollBar {
         height: 16px;
         y: fli.height + fli.y;
         x: fli.x;
@@ -220,5 +219,5 @@ export ScrollView := Rectangle {
         horizontal: true;
         maximum: fli.viewport-width - fli.width;
         page-size: fli.width;
-    }
+    }*/
 }
