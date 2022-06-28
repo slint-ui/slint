@@ -147,7 +147,8 @@ async function showPreview(context: vscode.ExtensionContext, path: string, compo
             undefined,
             context.subscriptions
         );
-        panel.webview.html = getPreviewHtml();
+        let slint_wasm_interpreter_url = panel.webview.asWebviewUri(Uri.joinPath(context.extensionUri, 'out/slint_wasm_interpreter.js'));
+        panel.webview.html = getPreviewHtml(slint_wasm_interpreter_url);
         panel.onDidDispose(
             () => {
                 previewPanel = undefined;
@@ -175,9 +176,7 @@ async function getDocumentSource(url: string): Promise<string> {
 }
 
 
-function getPreviewHtml(): string {
-    // FIXME this should be bundled in the extension, or we need to change this before the release to the release variant
-    let slint_wasm_interpreter_url = "https://slint-ui.com/snapshots/master/wasm-interpreter/slint_wasm_interpreter.js";
+function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
