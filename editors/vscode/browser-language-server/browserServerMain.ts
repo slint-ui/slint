@@ -16,7 +16,7 @@ slint_init(slint_wasm_data).then((_) => {
 
     let the_lsp: slint_lsp.SlintServer;
 
-    function send_notification(method: string, params: any): bool {
+    function send_notification(method: string, params: any): boolean {
         connection.sendNotification(method, params);
         return true;
     }
