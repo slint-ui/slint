@@ -1,0 +1,101 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { DemoPalette, Page, SpinBox, Label, ComboBox, PushButton, CheckBox } from "./common.slint";
+import { StandardListView } from "std-widgets.slint";
+import { PrinterQueue } from "./printer_queue.slint";
+
+struct File := { name: string, preview: image }
+
+export UsbPage := Page {
+    has-back-button: true;
+    header: "USB";
+
+    property <[File]> files: [
+        { name: ".." },
+        { name: "cat.jpg", preview: @image-url("images/cat.jpg") },
+        { name: "dog.jpg", preview: @image-url("images/dog.jpg") },
+        { name: "elephant.jpg",preview: @image-url("images/elephant.jpg") },
+        { name: "snake.jpg", preview: @image-url("images/snake.jpg") },
+    ];
+
+    GridLayout {
+        padding-top: 34px;
+        spacing: 20px / 2;
+
+        Rectangle {
+            width: 50%;
+            rowspan: 4;
+            border-radius: 30px;
+            clip: true;
+            Image {
+                height: 100%;
+                width: 100%;
+                source: files[list-view.current-item].preview;
+                image-fit: cover;
+            }
+
+        }
+
+        Label {
+            col: 1;
+            row: 0;
+            text: "Select File:";
+            vertical-stretch: 0;
+            max-height: 32px;
+        }
+
+        list-view := StandardListView {
+            current-item: 1;
+            col: 1;
+            row: 1;
+            colspan: 2;
+            horizontal-stretch: 1;
+            vertical-stretch: 1;
+            // TODO: maybe we want something like `model: files.map(item => { text: item.preview })`
+            model: [
+                { text: ".." },
+                { text: "cat.jpg" },
+                { text: "dog.jpg" },
+                { text: "elephant.jpg" },
+                { text: "snake.jpg" },
+            ];
+        }
+
+        Row {
+            Label { col: 1; text: "Copies"; }
+            SpinBox {
+                value: 1;
+                minimum: 1;
+            }
+        }
+        /*Row {
+            Label { col: 1; text: "Color"; }
+            ComboBox {
+                value: "Grayscale";
+                choices: ["Grayscale", "Color"];
+            }
+        }*/
+        HorizontalLayout {
+            row: 3;
+            col: 1;
+            colspan: 2;
+
+            Rectangle {
+                horizontal-stretch: 0;
+                width: 10%;
+            }
+            PushButton {
+                icon: @image-url("images/print.svg");
+                text: "Start printing";
+                clicked => {
+                    PrinterQueue.start-job(files[list-view.current-item].name);
+                }
+            }
+            Rectangle {
+                horizontal-stretch: 0;
+                width: 10%;
+            }
+        }
+    }
+}
