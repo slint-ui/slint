@@ -1274,6 +1274,8 @@ pub struct QtWindow {
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
 
     cache: ItemCache<qttypes::QPixmap>,
+
+    tree_structure_changed: RefCell<bool>,
 }
 
 impl QtWindow {
@@ -1293,6 +1295,7 @@ impl QtWindow {
             self_weak: window_weak.clone(),
             rendering_metrics_collector: RenderingMetricsCollector::new(window_weak.clone()),
             cache: Default::default(),
+            tree_structure_changed: RefCell::new(false),
         });
         let self_weak = Rc::downgrade(&rc);
         let widget_ptr = rc.widget_ptr();
@@ -1348,6 +1351,15 @@ impl QtWindow {
                 }}
             });
         });
+
+        // Update the accessibility tree (if the component tree has changed)
+        if self.tree_structure_changed.replace(false) {
+            let widget_ptr = self.widget_ptr();
+            cpp! { unsafe [widget_ptr as "QWidget*"] {
+                auto accessible = dynamic_cast<Slint_accessible_window*>(QAccessible::queryAccessibleInterface(widget_ptr));
+                if (accessible->isUsed()) { accessible->updateAccessibilityTree(); }
+            }};
+        }
     }
 
     fn resize_event(&self, size: qttypes::QSize) {
@@ -1390,6 +1402,11 @@ impl QtWindow {
 
     fn close_popup(&self) {
         self.self_weak.upgrade().unwrap().close_popup();
+    }
+
+    fn free_graphics_resources(&self, component: ComponentRef) {
+        // Invalidate caches:
+        self.cache.component_destroyed(component);
     }
 }
 
@@ -1525,14 +1542,18 @@ impl PlatformWindow for QtWindow {
         }};
     }
 
-    fn register_component(&self) {}
+    fn register_component(&self) {
+        self.tree_structure_changed.replace(true);
+    }
 
     fn unregister_component<'a>(
         &self,
         component: ComponentRef,
         _: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
     ) {
-        self.cache.component_destroyed(component);
+        self.free_graphics_resources(component);
+
+        self.tree_structure_changed.replace(true);
     }
 
     fn show_popup(&self, popup: &i_slint_core::component::ComponentRc, position: Point) {
