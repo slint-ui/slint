@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore deque pico
+
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 #![cfg_attr(not(feature = "std"), no_std)]
@@ -143,7 +145,7 @@ mod the_backend {
         fn request_redraw(&self) {
             self.backend.with_inner(|inner| inner.post_event(McuEvent::Repaint))
         }
-        fn free_graphics_resources<'a>(
+        fn unregister_component<'a>(
             &self,
             _: i_slint_core::component::ComponentRef,
             items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'a>>>,

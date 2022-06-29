@@ -41,7 +41,7 @@ pub trait PlatformWindow {
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
-    fn free_graphics_resources<'a>(
+    fn unregister_component<'a>(
         &self,
         component: ComponentRef,
         items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,

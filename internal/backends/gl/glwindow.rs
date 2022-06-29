@@ -3,7 +3,7 @@
 
 //! This module contains the GraphicsWindow that used to be within corelib.
 
-// cspell:ignore corelib winit Borderless
+// cspell:ignore borderless corelib nesw webgl winit winsys xlib
 
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
@@ -315,7 +315,7 @@ impl PlatformWindow for GLWindow {
         }
     }
 
-    fn free_graphics_resources<'a>(
+    fn unregister_component<'a>(
         &self,
         component: corelib::component::ComponentRef,
         _items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,

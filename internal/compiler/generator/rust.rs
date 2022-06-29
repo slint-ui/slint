@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// cSpell: ignore conv powf punct
+// cSpell: ignore conv gdata powf punct vref
 
 /*! module for the Rust code generator
 
@@ -1220,7 +1220,7 @@ fn generate_item_tree(
             fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
                 use slint::re_exports::*;
                 new_vref!(let vref : VRef<ComponentVTable> for Component = self.as_ref().get_ref());
-                slint::re_exports::free_component_item_graphics_resources(self.as_ref(), vref, Self::item_array(), self.window.get().unwrap().window_handle());
+                slint::re_exports::unregister_component(self.as_ref(), vref, Self::item_array(), self.window.get().unwrap().window_handle());
             }
         }
 
