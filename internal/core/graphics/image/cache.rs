@@ -46,7 +46,7 @@ impl ImageCache {
         self.lookup_image_in_cache_or_create(cache_key, || {
             if cfg!(feature = "svg") {
                 if path.ends_with(".svg") || path.ends_with(".svgz") {
-                    return Some(ImageInner::Svg(
+                    return Some(ImageInner::Svg(vtable::VRc::new(
                         super::svg::load_from_path(std::path::Path::new(&path.as_str()))
                             .map_or_else(
                                 |err| {
@@ -55,7 +55,7 @@ impl ImageCache {
                                 },
                                 Some,
                             )?,
-                    ));
+                    )));
                 }
             }
 
@@ -83,7 +83,7 @@ impl ImageCache {
         self.lookup_image_in_cache_or_create(cache_key, || {
             #[cfg(feature = "svg")]
             if format.as_slice() == b"svg" || format.as_slice() == b"svgz" {
-                return Some(ImageInner::Svg(
+                return Some(ImageInner::Svg(vtable::VRc::new(
                     super::svg::load_from_data(data.as_slice()).map_or_else(
                         |svg_err| {
                             eprintln!("Error loading SVG: {}", svg_err);
@@ -91,7 +91,7 @@ impl ImageCache {
                         },
                         Some,
                     )?,
-                ));
+                )));
             }
 
             let format = std::str::from_utf8(format.as_slice())

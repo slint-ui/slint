@@ -3,22 +3,15 @@
 
 #![cfg(feature = "svg")]
 
-use alloc::rc::Rc;
-
 use super::SharedPixelBuffer;
 
-#[derive(Clone)]
-pub struct ParsedSVG(Rc<usvg::Tree>);
+pub struct ParsedSVG(usvg::Tree);
+
+impl super::OpaqueRc for ParsedSVG {}
 
 impl core::fmt::Debug for ParsedSVG {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_tuple("ParsedSVG").finish()
-    }
-}
-
-impl PartialEq for ParsedSVG {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
     }
 }
 
@@ -35,7 +28,7 @@ impl ParsedSVG {
         &self,
         size: euclid::default::Size2D<u32>,
     ) -> Result<SharedPixelBuffer<super::Rgba8Pixel>, usvg::Error> {
-        let tree = &*self.0;
+        let tree = &self.0;
         // resvg doesn't support scaling to width/height, just fit to width.
         // FIXME: the fit should actually depends on the image-fit property
         let fit = usvg::FitTo::Width(size.width);
@@ -74,13 +67,11 @@ pub fn load_from_path(path: &std::path::Path) -> Result<ParsedSVG, std::io::Erro
 
     with_svg_options(|options| {
         usvg::Tree::from_data(&svg_data, &options)
-            .map(|svg| ParsedSVG(svg.into()))
+            .map(|svg| ParsedSVG(svg))
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     })
 }
 
 pub fn load_from_data(slice: &[u8]) -> Result<ParsedSVG, usvg::Error> {
-    with_svg_options(|options| {
-        usvg::Tree::from_data(slice, &options).map(|svg| ParsedSVG(svg.into()))
-    })
+    with_svg_options(|options| usvg::Tree::from_data(slice, &options).map(|svg| ParsedSVG(svg)))
 }

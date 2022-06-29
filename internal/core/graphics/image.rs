@@ -13,6 +13,16 @@ mod htmlimage;
 #[cfg(feature = "svg")]
 mod svg;
 
+#[vtable::vtable]
+#[repr(C)]
+pub struct OpaqueRcVTable {
+    drop_in_place: fn(VRefMut<OpaqueRcVTable>) -> Layout,
+    dealloc: fn(&OpaqueRcVTable, ptr: *mut u8, layout: Layout),
+}
+
+#[cfg(feature = "svg")]
+OpaqueRcVTable_static! { pub static PARSED_SVG_VT for svg::ParsedSVG }
+
 /// SharedPixelBuffer is a container for storing image data as pixels. It is
 /// internally reference counted and cheap to clone.
 ///
@@ -246,7 +256,7 @@ pub struct StaticTextures {
 /// system or embedded in the resulting binary. Or they might be URLs to a web server and a downloaded
 /// is necessary before they can be used.
 /// cbindgen:prefix-with-name
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Debug)]
 #[repr(u8)]
 #[allow(missing_docs)]
 pub enum ImageInner {
@@ -256,10 +266,28 @@ pub enum ImageInner {
         path: SharedString, // Should be Option, but can't be because of cbindgen, so empty means none.
         buffer: SharedImageBuffer,
     },
-    Svg(svg::ParsedSVG),
+    #[cfg(feature = "svg")]
+    Svg(vtable::VRc<OpaqueRcVTable, svg::ParsedSVG>),
     StaticTextures(&'static StaticTextures),
     #[cfg(target_arch = "wasm32")]
-    HTMLImage(HTMLImage),
+    HTMLImage(vtable::VRc<OpaqueRcVTable, htmlimage::HTMLImage>),
+}
+
+impl PartialEq for ImageInner {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (
+                Self::EmbeddedImage { path: l_path, buffer: l_buffer },
+                Self::EmbeddedImage { path: r_path, buffer: r_buffer },
+            ) => l_path == r_path && l_buffer == r_buffer,
+            #[cfg(feature = "svg")]
+            (Self::Svg(l0), Self::Svg(r0)) => vtable::VRc::ptr_eq(l0, r0),
+            (Self::StaticTextures(l0), Self::StaticTextures(r0)) => l0 == r0,
+            #[cfg(target_arch = "wasm32")]
+            (Self::HTMLImage(l0), Self::HTMLImage(r0)) => vtable::VRc::ptr_eq(l0, r0),
+            _ => core::mem::discriminant(self) == core::mem::discriminant(other),
+        }
+    }
 }
 
 impl Default for ImageInner {
@@ -408,6 +436,8 @@ impl Image {
             ImageInner::StaticTextures(StaticTextures { original_size, .. }) => *original_size,
             #[cfg(feature = "svg")]
             ImageInner::Svg(svg) => svg.size(),
+            #[cfg(target_arch = "wasm32")]
+            ImageInner::HTMLImage(htmlimage) => htmlimage.size().unwrap_or_default(),
         }
     }
 
@@ -437,18 +467,21 @@ impl Image {
 #[cfg(feature = "image-decoders")]
 impl From<(Slice<'static, u8>, Slice<'static, u8>)> for Image {
     fn from((data, format): (Slice<'static, u8>, Slice<'static, u8>)) -> Self {
-        self::cache::IMAGE_CACHE.with(|global_cache| {
-            let image_inner = global_cache
-                .borrow_mut()
-                .load_image_from_embedded_data(data, format)
-                .unwrap_or_else(|| {
-                    panic!(
-                        "internal error: embedded image data is not supported by run-time library",
-                    )
-                });
-            Image(image_inner)
-        })
+        load_image_from_embedded_data(data, format)
     }
+}
+
+#[cfg(feature = "image-decoders")]
+fn load_image_from_embedded_data(data: Slice<'static, u8>, format: Slice<'static, u8>) -> Image {
+    self::cache::IMAGE_CACHE.with(|global_cache| {
+        let image_inner = global_cache
+            .borrow_mut()
+            .load_image_from_embedded_data(data, format)
+            .unwrap_or_else(|| {
+                panic!("internal error: embedded image data is not supported by run-time library",)
+            });
+        Image(image_inner)
+    })
 }
 
 #[test]
@@ -494,6 +527,15 @@ pub(crate) mod ffi {
             image,
             Image::load_from_path(std::path::Path::new(path.as_str())).unwrap_or(Image::default()),
         )
+    }
+
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_image_load_from_embedded_data(
+        data: Slice<'static, u8>,
+        format: Slice<'static, u8>,
+        image: *mut Image,
+    ) {
+        std::ptr::write(image, super::load_image_from_embedded_data(data, format));
     }
 
     #[no_mangle]

@@ -451,6 +451,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
 
             if ident == "drop_in_place" {
                 vtable_ctor.push(quote!(#ident: {
+                    #[allow(unsafe_code)]
                     #sig_extern {
                         #[allow(unused_unsafe)]
                         unsafe { ::core::ptr::drop_in_place((#self_call).0 as *mut T) };
@@ -460,6 +461,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 },));
 
                 drop_impls.push(quote! {
+                    #[allow(unsafe_code)]
                     unsafe impl VTableMetaDropInPlace for #vtable_name {
                         unsafe fn #ident(vtable: &Self::VTable, ptr: *mut u8) -> vtable::Layout {
                             // Safety: The vtable is valid and ptr is a type corresponding to the vtable,
@@ -474,6 +476,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
             }
             if ident == "dealloc" {
                 vtable_ctor.push(quote!(#ident: {
+                    #[allow(unsafe_code)]
                     unsafe extern "C" fn #ident(_: &#vtable_name, ptr: *mut u8, layout: vtable::Layout) {
                         use ::core::convert::TryInto;
                         vtable::internal::dealloc(ptr, layout.try_into().unwrap())
@@ -762,6 +765,7 @@ and implements HasStaticVTable for it.
                         #(#vtable_ctor)*
                     }
                 };
+                #[allow(unsafe_code)]
                 unsafe impl vtable::HasStaticVTable<#vtable_name> for $ty {
                     fn static_vtable() -> &'static #vtable_name {
                         &$ident

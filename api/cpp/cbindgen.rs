@@ -199,6 +199,7 @@ fn gen_corelib(
         "slint_image_size",
         "slint_image_path",
         "slint_image_load_from_path",
+        "slint_image_load_from_embedded_data",
         "Coord",
     ]
     .iter()
@@ -253,7 +254,7 @@ fn gen_corelib(
         .context("Unable to generate bindings for slint_properties_internal.h")?
         .write_to_file(include_dir.join("slint_properties_internal.h"));
 
-    for (rust_types, extra_excluded_types, internal_header) in [
+    for (rust_types, extra_excluded_types, internal_header, prelude) in [
         (
             vec![
                 "ImageInner",
@@ -262,27 +263,32 @@ fn gen_corelib(
                 "slint_image_size",
                 "slint_image_path",
                 "slint_image_load_from_path",
+                "slint_image_load_from_embedded_data",
                 "SharedPixelBuffer",
                 "SharedImageBuffer",
                 "StaticTextures",
             ],
             vec!["Color"],
             "slint_image_internal.h",
+            "namespace slint::cbindgen_private { struct ParsedSVG{}; struct HTMLImage{}; using namespace vtable; }",
         ),
         (
             vec!["Color", "slint_color_brighter", "slint_color_darker"],
             vec![],
             "slint_color_internal.h",
+            "",
         ),
         (
             vec!["PathData", "PathElement", "slint_new_path_elements", "slint_new_path_events"],
             vec![],
             "slint_pathdata_internal.h",
+            "",
         ),
         (
             vec!["Brush", "LinearGradient", "GradientStop", "RadialGradient"],
             vec!["Color"],
             "slint_brush_internal.h",
+            "",
         ),
     ]
     .iter()
@@ -314,6 +320,7 @@ fn gen_corelib(
             "slint_image_size",
             "slint_image_path",
             "slint_image_load_from_path",
+            "slint_image_load_from_embedded_data",
         ]
         .iter()
         .filter(|exclusion| !rust_types.iter().any(|inclusion| inclusion == *exclusion))
@@ -337,6 +344,8 @@ fn gen_corelib(
             Some(vec!["slint".into(), "cbindgen_private".into(), "types".into()]);
 
         private_exported_types.extend(special_config.export.include.iter().cloned());
+
+        special_config.after_includes = (!prelude.is_empty()).then(|| prelude.to_string());
 
         cbindgen::Builder::new()
             .with_config(special_config)
