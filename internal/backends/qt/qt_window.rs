@@ -1525,7 +1525,7 @@ impl PlatformWindow for QtWindow {
         }};
     }
 
-    fn free_graphics_resources<'a>(
+    fn unregister_component<'a>(
         &self,
         component: ComponentRef,
         _: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,

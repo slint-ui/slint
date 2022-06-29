@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore borderless glcontext
+
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
 
@@ -139,7 +141,7 @@ impl PlatformWindow for SimulatorWindow {
         }
     }
 
-    fn free_graphics_resources<'a>(
+    fn unregister_component<'a>(
         &self,
         _: i_slint_core::component::ComponentRef,
         items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'a>>>,

@@ -121,7 +121,7 @@ impl<T: Clone> ItemCache<T> {
 
     /// Function that must be called when a component is destroyed.
     ///
-    /// Usually can be called from [`crate::window::PlatformWindow::free_graphics_resources`]
+    /// Usually can be called from [`crate::window::PlatformWindow::unregister_component`]
     pub fn component_destroyed(&self, component: crate::component::ComponentRef) {
         let component_ptr: *const _ =
             crate::component::ComponentRef::as_ptr(component).cast().as_ptr();
@@ -139,7 +139,7 @@ impl<T: Clone> ItemCache<T> {
 
 /// Return true if the item might be a clipping item
 pub(crate) fn is_clipping_item(item: Pin<ItemRef>) -> bool {
-    //(FIXME: there should be some flag in the vtable instead of downcasting)
+    //(FIXME: there should be some flag in the vtable instead of down-casting)
     ItemRef::downcast_pin::<Flickable>(item).is_some()
         || ItemRef::downcast_pin::<Clip>(item).map_or(false, |clip_item| clip_item.as_ref().clip())
 }

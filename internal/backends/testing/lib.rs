@@ -93,7 +93,7 @@ impl PlatformWindow for TestingWindow {
 
     fn request_redraw(&self) {}
 
-    fn free_graphics_resources<'a>(
+    fn unregister_component<'a>(
         &self,
         _: i_slint_core::component::ComponentRef,
         _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'a>>>,

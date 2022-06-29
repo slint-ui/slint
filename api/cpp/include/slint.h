@@ -113,9 +113,9 @@ public:
     void set_scale_factor(float value) const { slint_windowrc_set_scale_factor(&inner, value); }
 
     template<typename Component, typename ItemArray>
-    void free_graphics_resources(Component *c, ItemArray items) const
+    void unregister_component(Component *c, ItemArray items) const
     {
-        cbindgen_private::slint_component_free_item_array_graphics_resources(
+        cbindgen_private::slint_unregister_component(
                 vtable::VRef<ComponentVTable> { &Component::static_vtable, c }, items, &inner);
     }
 
