@@ -61,10 +61,12 @@ function reload_preview(url: string, content: string, component: string) {
         content += "\n_Preview := " + component + " {}\n";
     }
     previewAccessedFiles.clear();
-    previewAccessedFiles.add(url);
+    let webview_uri = previewPanel.webview.asWebviewUri(Uri.parse(url)).toString();
+    previewAccessedFiles.add(webview_uri);
     const msg = {
         command: "preview",
         base_url: url,
+        webview_uri: webview_uri,
         component: component,
         content: content
     };
@@ -101,7 +103,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     vscode.workspace.onDidChangeTextDocument(async event => {
         let uri = event.document.uri.toString();
-        if (previewAccessedFiles.has(event.document.uri.toString())) {
+        if (previewPanel && previewAccessedFiles.has(previewPanel.webview.asWebviewUri(event.document.uri).toString())) {
             let content_str = uri === previewUrl ? event.document.getText() :
                 await getDocumentSource(previewUrl);
             reload_preview(previewUrl, content_str, previewComponent);
@@ -166,7 +168,8 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
             promises[url] = resolve;
         });
         vscode.postMessage({ command: 'load_file',  url: url });
-        return await promise;
+        let from_editor = await promise;
+        return from_editor || await (await fetch(url)).text();
     }
 
     async function render(source, base_url) {
@@ -194,7 +197,7 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
     window.addEventListener('message', async event => {
         if (event.data.command === "preview") {
             vscode.setState({base_url: event.data.base_url, component: event.data.component});
-            await render(event.data.content, event.data.base_url);
+            await render(event.data.content, event.data.webview_uri);
         } else if (event.data.command === "file_loaded") {
             let resolve = promises[event.data.url];
             if (resolve) {
@@ -236,8 +239,13 @@ function initPreviewPanel(context: vscode.ExtensionContext, panel: vscode.Webvie
         async message => {
             switch (message.command) {
                 case 'load_file':
-                    let content_str = await getDocumentSource(message.url);
-                    previewAccessedFiles.add(message.url);
+                    let canonical = Uri.parse(message.url).toString();
+                    previewAccessedFiles.add(canonical);
+                    let content_str = undefined;
+                    let x = vscode.workspace.textDocuments.find(d => panel.webview.asWebviewUri(d.uri).toString() === canonical);
+                    if (x) {
+                        content_str = x.getText();
+                    }
                     panel.webview.postMessage({ command: "file_loaded", url: message.url, content: content_str });
                     return;
                 case 'preview_ready':
