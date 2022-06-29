@@ -111,12 +111,13 @@ pub type ComponentRc = vtable::VRc<ComponentVTable, Dyn>;
 pub type ComponentWeak = vtable::VWeak<ComponentVTable, Dyn>;
 
 /// Call init() on the ItemVTable for each item of the component.
-pub fn init_component_items<Base>(
+pub fn register_component<Base>(
     base: core::pin::Pin<&Base>,
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
     window: &WindowRc,
 ) {
     item_array.iter().for_each(|item| item.apply_pin(base).as_ref().init(window));
+    window.register_component();
 }
 
 /// Free the backend graphics resources allocated by the component's items.
@@ -137,13 +138,13 @@ pub(crate) mod ffi {
 
     /// Call init() on the ItemVTable of each item in the item array.
     #[no_mangle]
-    pub unsafe extern "C" fn slint_component_init_items(
+    pub unsafe extern "C" fn slint_register_component(
         component: ComponentRefPin,
         item_array: Slice<vtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
         window_handle: *const crate::window::ffi::WindowRcOpaque,
     ) {
         let window = &*(window_handle as *const WindowRc);
-        super::init_component_items(
+        super::register_component(
             core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
             item_array.as_slice(),
             window,

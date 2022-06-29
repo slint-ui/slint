@@ -1525,6 +1525,8 @@ impl PlatformWindow for QtWindow {
         }};
     }
 
+    fn register_component(&self) {}
+
     fn unregister_component<'a>(
         &self,
         component: ComponentRef,

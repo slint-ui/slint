@@ -145,6 +145,7 @@ mod the_backend {
         fn request_redraw(&self) {
             self.backend.with_inner(|inner| inner.post_event(McuEvent::Repaint))
         }
+        fn register_component(&self) {}
         fn unregister_component<'a>(
             &self,
             _: i_slint_core::component::ComponentRef,

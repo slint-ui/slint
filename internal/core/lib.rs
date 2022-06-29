@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// cSpell: ignore sharedvector textlayout
+// cSpell: ignore sharedvector swrenderer textlayout
 
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
@@ -144,7 +144,7 @@ pub fn use_modules() -> usize {
             + properties::ffi::slint_property_init as usize
             + string::ffi::slint_shared_string_bytes as usize
             + window::ffi::slint_windowrc_drop as usize
-            + component::ffi::slint_component_init_items as usize
+            + component::ffi::slint_register_component as usize
             + timers::ffi::slint_timer_start as usize
             + graphics::color::ffi::slint_color_brighter as usize
             + graphics::image::ffi::slint_image_size as usize
