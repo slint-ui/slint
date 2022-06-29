@@ -2201,10 +2201,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                 crate::expression_tree::ImageReference::AbsolutePath(path) => format!(r#"slint::Image::load_from_path(slint::SharedString(u8"{}"))"#, escape_string(path.as_str())),
                 crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
                     let symbol = format!("slint_embedded_resource_{}", resource_id);
-                    format!(
-                        r#"slint::Image(slint::cbindgen_private::types::ImageInner::ImageInner_EmbeddedData(slint::cbindgen_private::Slice<uint8_t>{{std::data({}), std::size({})}}, slint::cbindgen_private::Slice<uint8_t>{{const_cast<uint8_t *>(reinterpret_cast<const uint8_t *>(u8"{}")), {}}}))"#,
-                        symbol, symbol, escape_string(extension), extension.as_bytes().len()
-                    )
+                    format!(r#"slint::private_api::load_image_from_embedded_data({symbol}, "{}")"#, escape_string(extension))
                 }
                 crate::expression_tree::ImageReference::EmbeddedTexture{..} => todo!(),
             }
