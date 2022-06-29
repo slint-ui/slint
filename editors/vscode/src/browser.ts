@@ -55,13 +55,17 @@ let previewComponent: string = "";
 let queuedPreviewMsg: any = undefined;
 let previewBusy = false;
 
-function reload_preview(url: string, content: string) {
+function reload_preview(url: string, content: string, component: string) {
     if (!previewPanel) { return; }
+    if (component) {
+        content += "\n_Preview := " + component + " {}\n";
+    }
     previewAccessedFiles.clear();
     previewAccessedFiles.add(url);
     const msg = {
         command: "preview",
         base_url: url,
+        component: component,
         content: content
     };
     if (previewBusy) {
@@ -100,12 +104,11 @@ export function activate(context: vscode.ExtensionContext) {
         if (previewAccessedFiles.has(event.document.uri.toString())) {
             let content_str = uri === previewUrl ? event.document.getText() :
                 await getDocumentSource(previewUrl);
-            if (previewComponent) {
-                content_str += "\n_Preview := " + previewComponent + " {}\n";
-            }
-            reload_preview(previewUrl, content_str);
+            reload_preview(previewUrl, content_str, previewComponent);
         }
     });
+
+    vscode.window.registerWebviewPanelSerializer('slint-preview', new PreviewSerializer(context));
 }
 
 async function showPreview(context: vscode.ExtensionContext, path: string, component: string) {
@@ -121,47 +124,13 @@ async function showPreview(context: vscode.ExtensionContext, path: string, compo
             'slint-preview',
             'Slint Preview',
             vscode.ViewColumn.Beside,
-            { enableScripts: true }
+            { enableScripts: true, retainContextWhenHidden: true, }
         );
-        previewPanel = panel;
-        // we will get a preview_ready when the html is loaded and message are ready to be sent
-        previewBusy = true;
-        panel.webview.onDidReceiveMessage(
-            async message => {
-                switch (message.command) {
-                    case 'load_file':
-                        let content_str = await getDocumentSource(message.url);
-                        previewAccessedFiles.add(message.url);
-                        panel.webview.postMessage({ command: "file_loaded", url: message.url, content: content_str });
-                        return;
-                    case 'preview_ready':
-                        if (queuedPreviewMsg) {
-                            panel.webview.postMessage(queuedPreviewMsg);
-                            queuedPreviewMsg = undefined;
-                        } else {
-                            previewBusy = false;
-                        }
-                        return;
-                }
-            },
-            undefined,
-            context.subscriptions
-        );
-        let slint_wasm_interpreter_url = panel.webview.asWebviewUri(Uri.joinPath(context.extensionUri, 'out/slint_wasm_interpreter.js'));
-        panel.webview.html = getPreviewHtml(slint_wasm_interpreter_url);
-        panel.onDidDispose(
-            () => {
-                previewPanel = undefined;
-            },
-            undefined,
-            context.subscriptions);
+        initPreviewPanel(context, panel);
     }
 
     let content_str = await getDocumentSource(path);
-    if (component) {
-        content_str += "\n_Preview := " + component + " {}\n";
-    }
-    reload_preview(path, content_str);
+    reload_preview(path, content_str, previewComponent);
 
 }
 
@@ -224,6 +193,7 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
 
     window.addEventListener('message', async event => {
         if (event.data.command === "preview") {
+            vscode.setState({base_url: event.data.base_url, component: event.data.component});
             await render(event.data.content, event.data.base_url);
         } else if (event.data.command === "file_loaded") {
             let resolve = promises[event.data.url];
@@ -243,3 +213,53 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
 </body>
 </html>`;
 }
+
+class PreviewSerializer implements vscode.WebviewPanelSerializer {
+    context: vscode.ExtensionContext;
+    constructor(context: vscode.ExtensionContext) {
+        this.context = context;
+    }
+    async deserializeWebviewPanel(webviewPanel: vscode.WebviewPanel, state: any) {
+        initPreviewPanel(this.context, webviewPanel);
+        let content_str = await getDocumentSource(state.base_url);
+        previewComponent = state.component;
+        previewUrl = state.base_url;
+        reload_preview(state.base_url, content_str, state.component);
+    }
+}
+
+function initPreviewPanel(context: vscode.ExtensionContext, panel: vscode.WebviewPanel) {
+    previewPanel = panel;
+    // we will get a preview_ready when the html is loaded and message are ready to be sent
+    previewBusy = true;
+    panel.webview.onDidReceiveMessage(
+        async message => {
+            switch (message.command) {
+                case 'load_file':
+                    let content_str = await getDocumentSource(message.url);
+                    previewAccessedFiles.add(message.url);
+                    panel.webview.postMessage({ command: "file_loaded", url: message.url, content: content_str });
+                    return;
+                case 'preview_ready':
+                    if (queuedPreviewMsg) {
+                        panel.webview.postMessage(queuedPreviewMsg);
+                        queuedPreviewMsg = undefined;
+                    } else {
+                        previewBusy = false;
+                    }
+                    return;
+            }
+        },
+        undefined,
+        context.subscriptions
+    );
+    let slint_wasm_interpreter_url = panel.webview.asWebviewUri(Uri.joinPath(context.extensionUri, 'out/slint_wasm_interpreter.js'));
+    panel.webview.html = getPreviewHtml(slint_wasm_interpreter_url);
+    panel.onDidDispose(
+        () => {
+            previewPanel = undefined;
+        },
+        undefined,
+        context.subscriptions);
+}
+
