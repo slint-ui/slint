@@ -33,40 +33,6 @@ pub struct CachedRenderingData {
 }
 
 impl CachedRenderingData {
-    /// This function allows retrieving the backend specific per-item data cache, updating
-    /// it if depending properties have changed. The supplied update_fn will be called when
-    /// properties have changed or the cache is initialized the first time.
-    pub fn get_or_update<T: Clone>(
-        &self,
-        cache: &RefCell<RenderingCache<T>>,
-        update_fn: impl FnOnce() -> T,
-    ) -> T {
-        let mut cache_borrow = cache.borrow_mut();
-        if let Some(entry) = self.get_entry(&mut cache_borrow) {
-            let index = self.cache_index.get();
-            let tracker = entry.dependency_tracker.take();
-            drop(cache_borrow);
-
-            let maybe_new_data =
-                tracker.as_ref().and_then(|tracker| tracker.as_ref().evaluate_if_dirty(update_fn));
-
-            let mut cache = cache.borrow_mut();
-            let cache_entry = cache.get_mut(index).unwrap();
-            cache_entry.dependency_tracker = tracker;
-
-            if let Some(new_data) = maybe_new_data {
-                cache_entry.data = new_data
-            }
-
-            return cache_entry.data.clone();
-        }
-        drop(cache_borrow);
-        let cache_entry = crate::graphics::CachedGraphicsData::new(update_fn);
-        self.cache_index.set(cache.borrow_mut().insert(cache_entry));
-        self.cache_generation.set(cache.borrow().generation());
-        cache.borrow().get(self.cache_index.get()).unwrap().data.clone()
-    }
-
     /// This function can be used to remove an entry from the rendering cache for a given item, if it
     /// exists, i.e. if any data was ever cached. This is typically called by the graphics backend's
     /// implementation of the release_item_graphics_cache function.
@@ -126,6 +92,7 @@ impl<T: Clone> ItemCache<T> {
                     .evaluate_if_dirty(update_fn);
                 let mut borrowed = self.map.borrow_mut();
                 let e = borrowed.get_mut(&component).unwrap().get_mut(&item_rc.index()).unwrap();
+                e.dependency_tracker = tracker;
                 if let Some(new_data) = maybe_new_data {
                     e.data = new_data.clone();
                     new_data
