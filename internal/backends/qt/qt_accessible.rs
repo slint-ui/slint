@@ -440,10 +440,12 @@ cpp! {{
             return nullptr;
         }
 
-        int childCount() const override;
-
         int indexOfChild(const QAccessibleInterface *child) const override {
             return m_children.indexOf(child->object()); // FIXME: Theoretically we can have several QAIs per QObject!
+        }
+
+        int childCount() const override {
+            return m_children.count();
         }
 
         QAccessibleInterface *child(int index) const override {
@@ -496,6 +498,8 @@ cpp! {{
             }
             return nullptr;
         }
+
+        void updateAccessibilityTree() const;
 
     protected:
         mutable bool has_focus;
@@ -614,6 +618,7 @@ cpp! {{
             return item_string_property(m_data, VALUE_STEP);
         }
 
+
     private:
         QObject *m_object = nullptr;
         mutable void *m_data = nullptr;
@@ -634,8 +639,12 @@ cpp! {{
         ~Slint_accessible_window()
         {
             rust!(Slint_accessible_window_dtor [m_rustWindow: *mut c_void as "void*"] {
-                alloc::rc::Weak::from_raw(m_rustWindow as _); // Consume the Weak wo hold in our void*!
+                alloc::rc::Weak::from_raw(m_rustWindow as _); // Consume the Weak we hold in our void*!
             });
+        }
+
+        bool isUsed() const {
+            return is_used;
         }
 
         void *rustItem() const override {
@@ -652,6 +661,12 @@ cpp! {{
 
         QWindow *window() const override {
             return qobject_cast<QWidget *>(object())->windowHandle();
+        }
+
+        int childCount() const override {
+            if (!is_used) { updateAccessibilityTree(); }
+            is_used = true;
+            return Slint_accessible::childCount();
         }
 
         // properties and state
@@ -672,20 +687,85 @@ cpp! {{
     private:
         QWidget *m_widget;
         void *m_rustWindow;
+        mutable bool is_used = false;
     };
 
-    int Slint_accessible::childCount() const {
-        if (m_children.isEmpty()) {
-            auto descendents = Descendents(rustItem());
-            for (size_t i = 0; i < descendents.count(); ++i) {
-                auto object = new QObject();
-                auto ai = new Slint_accessible_item(descendents.itemAt(i),
-                    object, descendents.roleAt(i),
-                    const_cast<Slint_accessible *>(this));
-                QAccessible::registerAccessibleInterface(ai);
-                m_children.append(object);
+    QList<QObject *> deleteStaleItems(QList<QObject *> &&current_children) {
+        // Delete no longer valid objects:
+        current_children.erase(std::remove_if(current_children.begin(), current_children.end(), [](QObject *o) {
+            auto ai = dynamic_cast<Slint_accessible_item *>(QAccessible::queryAccessibleInterface(o));
+            Q_ASSERT(ai);
+            auto data = ai->data();
+
+            if (rust!(Slint_delete_stale_items
+                    [data: Pin<&SlintAccessibleItemData> as "void*"] -> bool as "bool" {
+                data.item.upgrade().is_none()
+            })) {
+                o->deleteLater();
+                return true;
+            } else {
+                return false;
+            }
+        }), current_children.end());
+
+        return current_children;
+    }
+
+    int indexOfItem(const QList<QObject *> &existing, void *item) {
+        for (int i = 0; i < existing.count(); ++i) {
+            auto data = dynamic_cast<Slint_accessible_item *>(QAccessible::queryAccessibleInterface(existing[i]));
+            if (rust!(Slint_indexOfItems [data: Pin<&SlintAccessibleItemData> as "void*", item: &ItemWeak as "void*"] -> bool as "bool" {
+                data.item == *item
+            })) {
+                return i;
             }
         }
-        return m_children.count();
+        return -1;
+    }
+
+    QList<QObject *> updateItems(QList<QObject *> &&current_children,
+                                 Descendents &descendents,
+                                 Slint_accessible *parent) {
+        QList<QObject *> children = {};
+        children.reserve(descendents.count());
+
+        for (size_t i = 0; i < descendents.count(); ++i) {
+            auto item = descendents.itemAt(i);
+            auto index = indexOfItem(current_children, item);
+            QObject *object = nullptr;
+            Slint_accessible_item *ai = nullptr;
+
+            if (index == -1) {
+                // Create new item:
+                object = new QObject();
+                auto role = descendents.roleAt(i);
+                ai = new Slint_accessible_item(item, object, role, parent);
+
+                QAccessible::registerAccessibleInterface(ai);
+            } else {
+                // Reuse existing item:
+                object = current_children[index];
+                ai = dynamic_cast<Slint_accessible_item *>(QAccessible::queryAccessibleInterface(object));
+
+                current_children.removeAt(index);
+            }
+
+            Q_ASSERT(ai);
+            Q_ASSERT(object);
+
+            ai->updateAccessibilityTree();
+
+            children.append(object);
+        }
+
+        return children;
+    }
+
+    void Slint_accessible::updateAccessibilityTree() const {
+        QList<QObject *> valid_objects = deleteStaleItems(std::move(m_children));
+        auto descendents = Descendents(rustItem());
+
+        m_children = updateItems(std::move(valid_objects), descendents,
+                                 const_cast<Slint_accessible *>(this));
     }
 }}
