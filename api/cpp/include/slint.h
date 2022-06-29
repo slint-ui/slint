@@ -126,9 +126,9 @@ public:
     }
 
     template<typename Component, typename ItemArray>
-    void init_items(Component *c, ItemArray items) const
+    void register_component(Component *c, ItemArray items) const
     {
-        cbindgen_private::slint_component_init_items(
+        cbindgen_private::slint_register_component(
                 vtable::VRef<ComponentVTable> { &Component::static_vtable, c }, items, &inner);
     }
 

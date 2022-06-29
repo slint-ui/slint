@@ -1189,7 +1189,7 @@ pub fn instantiate(
     let instance_ref = component_box.borrow_instance();
 
     if !component_type.original.is_global() {
-        i_slint_core::component::init_component_items(
+        i_slint_core::component::register_component(
             instance_ref.instance,
             instance_ref.component_type.item_array.as_slice(),
             eval::window_ref(instance_ref).unwrap(),

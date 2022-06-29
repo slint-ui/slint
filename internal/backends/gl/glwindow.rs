@@ -299,6 +299,8 @@ impl PlatformWindow for GLWindow {
         }
     }
 
+    fn register_component(&self) {}
+
     fn unregister_component<'a>(
         &self,
         component: corelib::component::ComponentRef,

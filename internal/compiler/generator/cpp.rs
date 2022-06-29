@@ -1104,7 +1104,10 @@ fn generate_item_tree(
     }
 
     create_code.extend([
-        format!("{}->m_window.window_handle().init_items(self, self->item_array());", root_access),
+        format!(
+            "{}->m_window.window_handle().register_component(self, self->item_array());",
+            root_access
+        ),
         format!("self->init({}, self->self_weak, 0, 1 {});", root_access, init_parent_parameters),
         format!("return slint::ComponentHandle<{0}>{{ self_rc }};", target_struct.name),
     ]);

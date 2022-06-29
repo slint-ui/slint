@@ -141,6 +141,8 @@ impl PlatformWindow for SimulatorWindow {
         }
     }
 
+    fn register_component(&self) {}
+
     fn unregister_component<'a>(
         &self,
         _: i_slint_core::component::ComponentRef,

@@ -39,6 +39,9 @@ pub trait PlatformWindow {
     /// request.
     fn request_redraw(&self);
 
+    /// This function is called by the generated code when a component and therefore its tree of items are created.
+    fn register_component(&self);
+
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
     fn unregister_component<'a>(

@@ -1195,7 +1195,7 @@ fn generate_item_tree(
                 let self_rc = VRc::new(_self);
                 let _self = self_rc.as_pin_ref();
                 #init_window
-                slint::re_exports::init_component_items(_self, Self::item_array(), #root_token.window.get().unwrap().window_handle());
+                slint::re_exports::register_component(_self, Self::item_array(), #root_token.window.get().unwrap().window_handle());
                 Self::init(slint::re_exports::VRc::map(self_rc.clone(), |x| x), #root_token, 0, 1);
                 self_rc
             }
