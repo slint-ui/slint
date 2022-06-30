@@ -11,6 +11,11 @@ use alloc::rc::Rc;
 use crate::component::ComponentVTable;
 use crate::window::WindowRc;
 
+pub use crate::lengths::LogicalPx;
+pub use crate::lengths::PhysicalPx;
+
+pub use euclid;
+
 /// This enum describes a low-level access to specific graphics APIs used
 /// by the renderer.
 #[derive(Clone)]
@@ -153,6 +158,25 @@ impl Window {
         #[cfg(any(target_arch = "wasm32", target_os = "windows"))]
         crate::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| driver.set_has_active_animations());
+    }
+
+    /// This function returns an euclid scale that allows conveniently converting between logical and
+    /// physical pixels based on the window's scale factor.
+    pub fn scale_factor(&self) -> euclid::Scale<f32, LogicalPx, PhysicalPx> {
+        euclid::Scale::new(self.0.scale_factor())
+    }
+
+    /// Returns the position of the window on the screen, in physical screen coordinates and including
+    /// a window frame (if present).
+    pub fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
+        self.0.position()
+    }
+
+    /// Sets the position of the window on the screen, in physical screen coordinates and including
+    /// a window frame (if present).
+    /// Note that on some windowing systems, such as Wayland, this functionality is not available.
+    pub fn set_position(&self, position: euclid::Point2D<i32, PhysicalPx>) {
+        self.0.set_position(position)
     }
 }
 

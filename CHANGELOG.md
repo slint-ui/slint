@@ -8,6 +8,9 @@ All notable changes to this project are documented in this file.
  - `Button`: Add a `checkable` property that turns the button into a toggle
    button. Use the new `checked` property to query whether the toggle button
    is pressed down or not.
+ - Added support for `slint::Window::set_position` and `slint::Window::position` to set and get the
+   placement of the window on the screen.
+ - Added `slint::Window::scale_factor()` as getter to read the system device pixel ratio.
 
 ## [0.2.5] - 2022-07-06
 

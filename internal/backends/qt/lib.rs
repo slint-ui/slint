@@ -9,6 +9,8 @@
 
 extern crate alloc;
 
+#[cfg(not(no_qt))]
+use i_slint_core::api::euclid;
 use i_slint_core::graphics::{Image, IntSize};
 #[cfg(not(no_qt))]
 use i_slint_core::items::ImageFit;

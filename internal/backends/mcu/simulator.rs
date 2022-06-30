@@ -8,6 +8,7 @@ use std::rc::{Rc, Weak};
 
 use embedded_graphics::prelude::*;
 use embedded_graphics_simulator::SimulatorDisplay;
+use i_slint_core::api::{euclid, PhysicalPx};
 use i_slint_core::component::ComponentRc;
 use i_slint_core::graphics::{Image, ImageInner, StaticTextures};
 use i_slint_core::input::KeyboardModifiers;
@@ -260,6 +261,14 @@ impl PlatformWindow for SimulatorWindow {
 
     fn as_any(&self) -> &dyn core::any::Any {
         self
+    }
+
+    fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
+        unimplemented!()
+    }
+
+    fn set_position(&self, _position: euclid::Point2D<i32, PhysicalPx>) {
+        unimplemented!()
     }
 }
 
