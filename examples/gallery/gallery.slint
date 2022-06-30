@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { ScrollView, Button, CheckBox, SpinBox, Slider, GroupBox, LineEdit, StandardListView,
-    ComboBox, HorizontalBox, VerticalBox, GridBox, TabWidget, TextEdit, AboutSlint } from "std-widgets.slint";
+    ComboBox, HorizontalBox, VerticalBox, GridBox, TabWidget, TextEdit, ToggleButton, AboutSlint } from "std-widgets.slint";
 
 App := Window {
     preferred-width: 500px;
@@ -50,6 +50,16 @@ App := Window {
                             Button {
                                 text: "Regular Button";
                                 icon: @image-url("thumbsup.png");
+                                enabled: !disable-toggle.checked;
+                            }
+                        }
+
+                        GroupBox {
+                            title: "ToggleButton";
+                            enabled: !disable-toggle.checked;
+
+                            ToggleButton {
+                                text: checked ? "ON" : "OFF";
                                 enabled: !disable-toggle.checked;
                             }
                         }

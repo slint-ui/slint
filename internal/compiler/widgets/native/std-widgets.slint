@@ -15,8 +15,18 @@ export Button := NativeButton {
     enabled: true;
 }
 
+export ToggleButton := NativeButton {
+    property<length> font-size;
+    accessible-label <=> text;
+    accessible-role: button;
+    enabled: true;
+    can-check: true;
+}
+
 export StandardButton := NativeButton {
     property<StandardButtonKind> kind <=> self.standard-button-kind;
+    accessible-label <=> text;
+    accessible-role: button;
     is-standard-button: true;
 }
 
