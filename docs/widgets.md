@@ -59,6 +59,32 @@ Example := Window {
 }
 ```
 
+## `ToggleButton`
+
+The ToggleButton looks like a button, but will stay `pressed` when clicked and can then be toggled
+back to un-`pressed` state by clicking again.
+
+### Properties
+
+- **`checked`** (_bool_): Shows whether the button is toggled or not
+
+### Callbacks
+
+- **`clicked`**
+
+### Example
+
+```slint
+import { ToggleButton, VerticalBox } from "std-widgets.slint";
+Example := Window {
+  VerticalBox {
+    ToggleButton {
+      text: is-checked ? "ON" : "OFF";
+    }
+  }
+}
+```
+
 ## `CheckBox`
 
 ### Properties
