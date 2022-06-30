@@ -2,12 +2,16 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use crate::Coord;
+/// This type is used as a tagging type for use with [`euclid::Scale`] to convert
+/// between physical and logical pixels.
 pub struct PhysicalPx;
 pub type PhysicalLength = euclid::Length<i16, PhysicalPx>;
 pub type PhysicalRect = euclid::Rect<i16, PhysicalPx>;
 pub type PhysicalSize = euclid::Size2D<i16, PhysicalPx>;
 pub type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
 
+/// This type is used as a tagging type for use with [`euclid::Scale`] to convert
+/// between physical and logical pixels.
 pub struct LogicalPx;
 pub type LogicalLength = euclid::Length<Coord, LogicalPx>;
 pub type LogicalRect = euclid::Rect<Coord, LogicalPx>;

@@ -14,7 +14,9 @@ use crate::event_loop::WinitWindow;
 use crate::glcontext::OpenGLContext;
 use crate::glrenderer::{CanvasRc, ItemGraphicsCache};
 use const_field_offset::FieldOffsets;
-use corelib::api::{GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError};
+use corelib::api::{
+    GraphicsAPI, PhysicalPx, RenderingNotifier, RenderingState, SetRenderingNotifierError,
+};
 use corelib::component::ComponentRc;
 use corelib::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use corelib::input::KeyboardModifiers;
@@ -64,7 +66,9 @@ impl GLWindow {
     ) -> Rc<Self> {
         Rc::new(Self {
             self_weak: window_weak.clone(),
-            map_state: RefCell::new(GraphicsWindowBackendState::Unmapped),
+            map_state: RefCell::new(GraphicsWindowBackendState::Unmapped {
+                requested_position: None,
+            }),
             keyboard_modifiers: Default::default(),
             currently_pressed_key_code: Default::default(),
             graphics_cache: Default::default(),
@@ -80,7 +84,7 @@ impl GLWindow {
 
     fn with_current_context<T>(&self, cb: impl FnOnce(&OpenGLContext) -> T) -> Option<T> {
         match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped => None,
+            GraphicsWindowBackendState::Unmapped { .. } => None,
             GraphicsWindowBackendState::Mapped(window) => {
                 Some(window.opengl_context.with_current_context(cb))
             }
@@ -94,7 +98,7 @@ impl GLWindow {
     fn borrow_mapped_window(&self) -> Option<std::cell::Ref<MappedWindow>> {
         if self.is_mapped() {
             std::cell::Ref::map(self.map_state.borrow(), |state| match state {
-                GraphicsWindowBackendState::Unmapped => {
+                GraphicsWindowBackendState::Unmapped{..} => {
                     panic!("borrow_mapped_window must be called after checking if the window is mapped")
                 }
                 GraphicsWindowBackendState::Mapped(window) => window,
@@ -107,7 +111,7 @@ impl GLWindow {
     fn borrow_mapped_window_mut(&self) -> Option<std::cell::RefMut<MappedWindow>> {
         if self.is_mapped() {
             std::cell::RefMut::map(self.map_state.borrow_mut(), |state| match state {
-            GraphicsWindowBackendState::Unmapped => {
+            GraphicsWindowBackendState::Unmapped{..} => {
                 panic!("borrow_mapped_window_mut must be called after checking if the window is mapped")
             }
             GraphicsWindowBackendState::Mapped(window) => window,
@@ -260,14 +264,14 @@ impl WinitWindow for GLWindow {
 
     fn size(&self) -> winit::dpi::LogicalSize<f32> {
         match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped => Default::default(),
+            GraphicsWindowBackendState::Unmapped { .. } => Default::default(),
             GraphicsWindowBackendState::Mapped(mapped_window) => mapped_window.size,
         }
     }
 
     fn set_size(&self, size: winit::dpi::LogicalSize<f32>) {
         match &mut *self.map_state.borrow_mut() {
-            GraphicsWindowBackendState::Unmapped => {
+            GraphicsWindowBackendState::Unmapped { .. } => {
                 panic!("Cannot set window_size of Unmapped Window");
             }
             GraphicsWindowBackendState::Mapped(mapped_window) => mapped_window.size = size,
@@ -308,7 +312,7 @@ impl WinitWindow for GLWindow {
 impl PlatformWindow for GLWindow {
     fn request_redraw(&self) {
         match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped => {}
+            GraphicsWindowBackendState::Unmapped { .. } => {}
             GraphicsWindowBackendState::Mapped(window) => {
                 window.opengl_context.window().request_redraw()
             }
@@ -323,7 +327,7 @@ impl PlatformWindow for GLWindow {
         _items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
     ) {
         match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped => {}
+            GraphicsWindowBackendState::Unmapped { .. } => {}
             GraphicsWindowBackendState::Mapped(_) => {
                 self.with_current_context(|_| self.graphics_cache.component_destroyed(component));
             }
@@ -365,7 +369,7 @@ impl PlatformWindow for GLWindow {
 
     fn request_window_properties_update(&self) {
         match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped => {
+            GraphicsWindowBackendState::Unmapped { .. } => {
                 // Nothing to be done if the window isn't visible. When it becomes visible,
                 // corelib::window::Window::show() calls update_window_properties()
             }
@@ -399,9 +403,12 @@ impl PlatformWindow for GLWindow {
     }
 
     fn show(self: Rc<Self>) {
-        if self.is_mapped() {
-            return;
-        }
+        let requested_position = match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped { requested_position } => {
+                requested_position.clone()
+            }
+            GraphicsWindowBackendState::Mapped(_) => return,
+        };
 
         let runtime_window = self.runtime_window();
         let component_rc = runtime_window.component();
@@ -462,6 +469,14 @@ impl PlatformWindow for GLWindow {
 
         let window_builder =
             if no_frame { window_builder.with_decorations(false) } else { window_builder };
+
+        let window_builder = if let Some(requested_position) = requested_position {
+            window_builder.with_position(winit::dpi::Position::new(
+                winit::dpi::PhysicalPosition::new(requested_position.x, requested_position.y),
+            ))
+        } else {
+            window_builder
+        };
 
         #[cfg(target_arch = "wasm32")]
         let (opengl_context, renderer) =
@@ -541,7 +556,7 @@ impl PlatformWindow for GLWindow {
         // Release GL textures and other GPU bound resources.
         self.release_graphics_resources();
 
-        self.map_state.replace(GraphicsWindowBackendState::Unmapped);
+        self.map_state.replace(GraphicsWindowBackendState::Unmapped { requested_position: None });
         /* FIXME:
         if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
             existing_blinker.stop();
@@ -756,6 +771,35 @@ impl PlatformWindow for GLWindow {
     fn as_any(&self) -> &dyn std::any::Any {
         self
     }
+
+    fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
+        match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped { requested_position } => {
+                requested_position.unwrap_or_default()
+            }
+            GraphicsWindowBackendState::Mapped(mapped_window) => {
+                let winit_window = &*mapped_window.opengl_context.window();
+                match winit_window.outer_position() {
+                    Ok(position) => euclid::Point2D::new(position.x, position.y),
+                    Err(_) => Default::default(),
+                }
+            }
+        }
+    }
+
+    fn set_position(&self, position: euclid::Point2D<i32, PhysicalPx>) {
+        match &mut *self.map_state.borrow_mut() {
+            GraphicsWindowBackendState::Unmapped { requested_position } => {
+                *requested_position = Some(position)
+            }
+            GraphicsWindowBackendState::Mapped(mapped_window) => {
+                let winit_window = &*mapped_window.opengl_context.window();
+                winit_window.set_outer_position(winit::dpi::Position::new(
+                    winit::dpi::PhysicalPosition::new(position.x, position.y),
+                ))
+            }
+        }
+    }
 }
 
 impl Drop for GLWindow {
@@ -788,7 +832,7 @@ impl Drop for MappedWindow {
 }
 
 enum GraphicsWindowBackendState {
-    Unmapped,
+    Unmapped { requested_position: Option<euclid::Point2D<i32, PhysicalPx>> },
     Mapped(MappedWindow),
 }
 

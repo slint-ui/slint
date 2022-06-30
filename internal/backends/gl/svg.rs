@@ -3,6 +3,8 @@
 
 #![cfg(feature = "svg")]
 
+use i_slint_core::api::euclid;
+
 fn with_svg_options<T>(callback: impl FnOnce(usvg::OptionsRef<'_>) -> T) -> T {
     crate::fonts::FONT_CACHE.with(|cache| {
         let options = usvg::Options::default();

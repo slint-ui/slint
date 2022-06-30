@@ -16,6 +16,7 @@ use embedded_hal::digital::v2::{InputPin, OutputPin};
 use embedded_hal::spi::FullDuplex;
 use embedded_time::rate::*;
 use hal::dma::{DMAExt, SingleChannel, WriteTarget};
+use i_slint_core::api::euclid;
 use rp_pico::hal::gpio::{self, Interrupt as GpioInterrupt};
 use rp_pico::hal::pac::interrupt;
 use rp_pico::hal::timer::{Alarm, Alarm0};
@@ -343,7 +344,8 @@ mod xpt2046 {
     use embedded_hal::blocking::spi::Transfer;
     use embedded_hal::digital::v2::{InputPin, OutputPin};
     use embedded_time::rate::Extensions;
-    use euclid::default::Point2D;
+    use i_slint_core::api::euclid;
+    use i_slint_core::api::euclid::default::Point2D;
 
     pub struct XPT2046<IRQ: InputPin + 'static, CS: OutputPin, SPI: Transfer<u8>> {
         irq: &'static Mutex<RefCell<Option<IRQ>>>,

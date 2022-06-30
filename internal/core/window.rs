@@ -6,7 +6,7 @@
 #![warn(missing_docs)]
 //! Exposed Window API
 
-use crate::api::CloseRequestResponse;
+use crate::api::{CloseRequestResponse, PhysicalPx};
 use crate::component::{ComponentRc, ComponentRef, ComponentWeak};
 use crate::graphics::{Point, Rect, Size};
 use crate::input::{key_codes, KeyEvent, MouseEvent, MouseInputState, TextCursorBlinker};
@@ -120,6 +120,13 @@ pub trait PlatformWindow {
 
     /// Handle focus change
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {}
+
+    /// Returns the position of the window on the screen, in physical screen coordinates and including
+    /// a window frame (if present).
+    fn position(&self) -> euclid::Point2D<i32, PhysicalPx>;
+    /// Sets the position of the window on the screen, in physical screen coordinates and including
+    /// a window frame (if present).
+    fn set_position(&self, position: euclid::Point2D<i32, PhysicalPx>);
 }
 
 struct WindowPropertiesTracker {

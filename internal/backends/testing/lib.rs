@@ -4,6 +4,8 @@
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 
+use i_slint_core::api::euclid;
+use i_slint_core::api::PhysicalPx;
 use i_slint_core::component::ComponentRc;
 use i_slint_core::graphics::{Image, IntSize, Point, Rect, Size};
 use i_slint_core::window::{PlatformWindow, Window};
@@ -148,6 +150,14 @@ impl PlatformWindow for TestingWindow {
 
     fn as_any(&self) -> &dyn std::any::Any {
         self
+    }
+
+    fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
+        unimplemented!()
+    }
+
+    fn set_position(&self, _position: euclid::Point2D<i32, PhysicalPx>) {
+        unimplemented!()
     }
 }
 

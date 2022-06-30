@@ -14,6 +14,7 @@ use alloc::boxed::Box;
 use alloc::vec;
 use core::cell::RefCell;
 use embedded_graphics::prelude::*;
+use i_slint_core::api::euclid;
 use i_slint_core::items::{Item, WindowItem};
 use i_slint_core::lengths::*;
 use i_slint_core::swrenderer as renderer;
@@ -119,6 +120,7 @@ mod the_backend {
     use alloc::string::String;
     use core::cell::{Cell, RefCell};
     use core::pin::Pin;
+    use i_slint_core::api::PhysicalPx;
     use i_slint_core::component::ComponentRc;
     use i_slint_core::graphics::{Color, Point, Rect, Size};
     use i_slint_core::items::ItemRef;
@@ -247,6 +249,14 @@ mod the_backend {
         }
         fn as_any(&self) -> &dyn core::any::Any {
             self
+        }
+
+        fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
+            unimplemented!()
+        }
+
+        fn set_position(&self, _position: euclid::Point2D<i32, PhysicalPx>) {
+            unimplemented!()
         }
     }
 
