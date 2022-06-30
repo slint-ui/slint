@@ -20,7 +20,7 @@ use i_slint_core::{Brush, Color, ImageInner, Property, SharedString};
 use crate::event_loop::WinitWindow;
 use crate::fonts;
 use crate::glwindow::{GLWindow, PASSWORD_CHARACTER};
-use crate::images::{CachedImage, Texture, TextureCacheKey};
+use crate::images::{Texture, TextureCacheKey};
 
 pub type Canvas = femtovg::Canvas<femtovg::renderer::OpenGl>;
 pub type CanvasRc = Rc<RefCell<Canvas>>;
@@ -1137,27 +1137,21 @@ impl GLItemRenderer {
                             .texture_cache
                             .borrow_mut()
                             .lookup_image_in_cache_or_create(cache_key, || {
-                                crate::IMAGE_CACHE
-                                    .with(|global_cache| {
-                                        global_cache.borrow_mut().load_image_resource(image_inner)
-                                    })
-                                    .and_then(|image| {
-                                        image.upload_to_gpu(
-                                            self, // The condition at the entry of the function ensures that width/height are positive
-                                            target_size_for_scalable_source,
-                                            image_rendering,
-                                        )
-                                    })
+                                Texture::new_from_image(
+                                    image_inner,
+                                    self,
+                                    target_size_for_scalable_source,
+                                    image_rendering,
+                                )
                             })
                     })
                     .or_else(|| {
-                        CachedImage::new_from_resource(image_inner).and_then(|image| {
-                            image.upload_to_gpu(
-                                self,
-                                target_size_for_scalable_source,
-                                image_rendering,
-                            )
-                        })
+                        Texture::new_from_image(
+                            image_inner,
+                            self,
+                            target_size_for_scalable_source,
+                            image_rendering,
+                        )
                     })
                     .map(ItemGraphicsCacheEntry::Texture)
                     .map(|cache_entry| {

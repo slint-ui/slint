@@ -7,7 +7,7 @@ use crate::{SharedString, SharedVector};
 use super::{IntRect, IntSize};
 
 #[cfg(feature = "image-decoders")]
-mod cache;
+pub mod cache;
 #[cfg(target_arch = "wasm32")]
 mod htmlimage;
 #[cfg(feature = "svg")]

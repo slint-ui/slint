@@ -3,9 +3,14 @@
 
 #![cfg(feature = "svg")]
 
+use crate::SharedString;
+
 use super::SharedPixelBuffer;
 
-pub struct ParsedSVG(usvg::Tree);
+pub struct ParsedSVG {
+    svg_tree: usvg::Tree,
+    path: SharedString,
+}
 
 impl super::OpaqueRc for ParsedSVG {}
 
@@ -17,8 +22,12 @@ impl core::fmt::Debug for ParsedSVG {
 
 impl ParsedSVG {
     pub fn size(&self) -> crate::graphics::IntSize {
-        let size = self.0.svg_node().size.to_screen_size();
+        let size = self.svg_tree.svg_node().size.to_screen_size();
         [size.width(), size.height()].into()
+    }
+
+    pub fn path(&self) -> &SharedString {
+        &self.path
     }
 
     /// Renders the SVG with the specified size.
@@ -28,7 +37,7 @@ impl ParsedSVG {
         &self,
         size: euclid::default::Size2D<u32>,
     ) -> Result<SharedPixelBuffer<super::Rgba8Pixel>, usvg::Error> {
-        let tree = &self.0;
+        let tree = &self.svg_tree;
         // resvg doesn't support scaling to width/height, just fit to width.
         // FIXME: the fit should actually depends on the image-fit property
         let fit = usvg::FitTo::Width(size.width);
@@ -62,16 +71,19 @@ fn with_svg_options<T>(callback: impl FnOnce(usvg::OptionsRef<'_>) -> T) -> T {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn load_from_path(path: &std::path::Path) -> Result<ParsedSVG, std::io::Error> {
-    let svg_data = std::fs::read(path)?;
+pub fn load_from_path(path: &SharedString) -> Result<ParsedSVG, std::io::Error> {
+    let svg_data = std::fs::read(std::path::Path::new(&path.as_str()))?;
 
     with_svg_options(|options| {
         usvg::Tree::from_data(&svg_data, &options)
-            .map(|svg| ParsedSVG(svg))
+            .map(|svg| ParsedSVG { svg_tree: svg, path: path.clone() })
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     })
 }
 
 pub fn load_from_data(slice: &[u8]) -> Result<ParsedSVG, usvg::Error> {
-    with_svg_options(|options| usvg::Tree::from_data(slice, &options).map(|svg| ParsedSVG(svg)))
+    with_svg_options(|options| {
+        usvg::Tree::from_data(slice, &options)
+            .map(|svg| ParsedSVG { svg_tree: svg, path: Default::default() })
+    })
 }

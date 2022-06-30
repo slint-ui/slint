@@ -17,7 +17,7 @@ mod glcontext;
 use glcontext::*;
 pub(crate) mod event_loop;
 mod images;
-mod svg;
+
 #[cfg(target_arch = "wasm32")]
 pub(crate) mod wasm_input_helper;
 use images::*;
@@ -68,8 +68,6 @@ cfg_if::cfg_if! {
 }
 
 thread_local!(pub(crate) static CLIPBOARD : RefCell<ClipboardBackend> = std::cell::RefCell::new(ClipboardBackend::new().unwrap()));
-
-thread_local!(pub(crate) static IMAGE_CACHE: RefCell<images::ImageCache> = Default::default());
 
 pub struct Backend;
 impl i_slint_core::backend::Backend for Backend {

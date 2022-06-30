@@ -280,17 +280,43 @@ impl WinitWindow for GLWindow {
     }
 
     fn set_icon(&self, icon: corelib::graphics::Image) {
-        if let Some(rgba) = crate::IMAGE_CACHE
-            .with(|c| c.borrow_mut().load_image_resource((&icon).into()))
-            .and_then(|i| i.to_rgba())
-        {
-            let (width, height) = rgba.dimensions();
-            if let Some(window) = self.borrow_mapped_window() {
-                window.opengl_context.window().set_window_icon(
-                    winit::window::Icon::from_rgba(rgba.into_raw(), width, height).ok(),
-                );
-            }
+        let image_inner: &ImageInner = (&icon).into();
+        let pixel_buffer = match image_inner {
+            ImageInner::EmbeddedImage { buffer, .. } => buffer.clone(),
+            _ => return,
         };
+
+        // This could become a method in SharedPixelBuffer...
+        let rgba_pixels: Vec<u8> = match &pixel_buffer {
+            SharedImageBuffer::RGB8(pixels) => pixels
+                .as_bytes()
+                .chunks(3)
+                .flat_map(|rgb| IntoIterator::into_iter([rgb[0], rgb[1], rgb[2], 255]))
+                .collect(),
+            SharedImageBuffer::RGBA8(pixels) => pixels.as_bytes().to_vec(),
+            SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels
+                .as_bytes()
+                .chunks(4)
+                .flat_map(|rgba| {
+                    let alpha = rgba[3] as u32;
+                    IntoIterator::into_iter(rgba)
+                        .take(3)
+                        .map(move |component| (*component as u32 * alpha / 255) as u8)
+                        .chain(std::iter::once(alpha as u8))
+                })
+                .collect(),
+        };
+
+        if let Some(window) = self.borrow_mapped_window() {
+            window.opengl_context.window().set_window_icon(
+                winit::window::Icon::from_rgba(
+                    rgba_pixels,
+                    pixel_buffer.width(),
+                    pixel_buffer.height(),
+                )
+                .ok(),
+            );
+        }
     }
 
     #[cfg(target_arch = "wasm32")]

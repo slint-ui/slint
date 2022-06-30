@@ -9,7 +9,24 @@ use crate::{slice::Slice, SharedString};
 #[derive(PartialEq, Eq, Hash, Debug, derive_more::From)]
 pub enum ImageCacheKey {
     Path(SharedString),
+    #[cfg(target_arch = "wasm32")]
+    URL(String),
     EmbeddedData(by_address::ByAddress<&'static [u8]>),
+}
+
+impl ImageCacheKey {
+    pub fn new(resource: &ImageInner) -> Option<Self> {
+        Some(match resource {
+            ImageInner::None => return None,
+            ImageInner::EmbeddedImage { path, .. } => path.clone().into(),
+            ImageInner::StaticTextures(textures) => {
+                by_address::ByAddress(textures.data.as_slice()).into()
+            }
+            ImageInner::Svg(parsed_svg) => parsed_svg.path().clone().into(),
+            #[cfg(target_arch = "wasm32")]
+            ImageInner::HTMLImage(htmlimage) => htmlimage.source().into(),
+        })
+    }
 }
 
 // Cache used to avoid repeatedly decoding images from disk.
@@ -44,17 +61,17 @@ impl ImageCache {
         }
         let cache_key = ImageCacheKey::from(path.clone());
         self.lookup_image_in_cache_or_create(cache_key, || {
+            #[cfg(not(target_arch = "wasm32"))]
             if cfg!(feature = "svg") {
                 if path.ends_with(".svg") || path.ends_with(".svgz") {
                     return Some(ImageInner::Svg(vtable::VRc::new(
-                        super::svg::load_from_path(std::path::Path::new(&path.as_str()))
-                            .map_or_else(
-                                |err| {
-                                    eprintln!("Error loading SVG from {}: {}", &path, err);
-                                    None
-                                },
-                                Some,
-                            )?,
+                        super::svg::load_from_path(path).map_or_else(
+                            |err| {
+                                eprintln!("Error loading SVG from {}: {}", &path, err);
+                                None
+                            },
+                            Some,
+                        )?,
                     )));
                 }
             }
