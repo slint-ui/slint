@@ -17,6 +17,7 @@ pub enum AccessibleStringProperty {
     ValueMinimum,
     ValueMaximum,
     ValueStep,
+    CanCheck,
 }
 
 /// Find accessible descendents of `root_item`.
