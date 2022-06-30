@@ -1,5 +1,7 @@
 # MCU Setup
 
+<!-- cSpell: ignore printerdemo -->
+
 > **NOTE**: Please make sure to have Rust installed first, following the
 > Prerequisites section of the [building](building.md) guide!
 
@@ -16,10 +18,12 @@ Working with embedded hardware in Rust becomes more convenient using
 using
 
 ```sh
-cargo install probe-run
+cargo install probe-run flip-link
 ```
 
-## Raspberry Pi Pico
+`flip-link` is a linker that `probe-run` likes to use.
+
+## Raspberry Pi Pico (RP2040)
 
 ### Target Support
 
@@ -38,7 +42,7 @@ The [elf2uf2-rs](https://github.com/jonil/elf2uf2-rs) tool is needed to work wit
 cargo install elf2uf2-rs
 ```
 
-### STM32H735G-DK
+## STM32H735G-DK
 
 ### Target Support
 
@@ -51,4 +55,8 @@ rustup target add --toolchain nightly thumbv7em-none-eabihf
 
 ### Additional tools
 
-The STM32H735G-DK uses probe-run. See above for instructions on how to install this
+The STM32H735G-DK uses `probe-run`. See above for instructions on how to install this
+
+## What to do next?
+
+Try out the [printerdemo_mcu](https://github.com/slint-ui/slint/tree/master/examples/printerdemo_mcu/README.sh)
