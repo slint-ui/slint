@@ -41,8 +41,8 @@ class Component {
         this.window.hide()
     }
 
-    get window(): Window {
-        return this.comp.window();
+    get window(): SlintWindow {
+        return new WindowAPI(this.comp.window());
     }
 
     send_mouse_click(x: number, y: number) {
@@ -54,9 +54,39 @@ class Component {
     }
 }
 
-interface Window {
+interface Point {
+    x: Number;
+    y: Number;
+}
+
+interface SlintWindow {
     show(): void;
     hide(): void;
+    position: Point;
+}
+
+/**
+ * @hidden
+ */
+class WindowAPI implements SlintWindow {
+    protected impl: any;
+
+    constructor(impl: any) {
+        this.impl = impl;
+    }
+
+    show(): void {
+        this.impl.show();
+    }
+    hide(): void {
+        this.impl.hide();
+    }
+    get position(): Point {
+        return this.impl.get_position();
+    }
+    set position(pos: Point) {
+        this.impl.set_position(pos);
+    }
 }
 
 /**
