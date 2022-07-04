@@ -610,12 +610,12 @@ impl FontCache {
         let remaining_required_script_coverage = scripts_without_coverage.len();
         let remaining_required_char_coverage = chars_without_coverage.len();
 
-        if remaining_required_script_coverage < old_uncovered_scripts_count
+        if scripts_without_coverage.is_empty() && chars_without_coverage.is_empty() {
+            GlyphCoverageCheckResult::Complete
+        } else if remaining_required_script_coverage < old_uncovered_scripts_count
             || remaining_required_char_coverage < old_uncovered_chars_count
         {
             GlyphCoverageCheckResult::Improved
-        } else if scripts_without_coverage.is_empty() && chars_without_coverage.is_empty() {
-            GlyphCoverageCheckResult::Complete
         } else {
             GlyphCoverageCheckResult::Incomplete
         }
