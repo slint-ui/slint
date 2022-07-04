@@ -581,16 +581,28 @@ enum RepeatedComponentState {
 }
 struct RepeaterInner<C: RepeatedComponent> {
     components: Vec<(RepeatedComponentState, Option<ComponentRc<C>>)>,
+
+    // The remaining properties only make sense for ListView
     /// The model row (index) of the first component in the `components` vector.
-    /// Only used for ListView
     offset: usize,
-    /// The average visible item_height. Only used for ListView
+    /// The average visible item height.
     cached_item_height: Coord,
+    /// The viewport_y last time the layout of the ListView was done
+    previous_viewport_y: Coord,
+    /// the position of the item in the row `offset` (which corresponds to `components[0]`).
+    /// We will try to keep this constant when re-layouting items
+    anchor_y: Coord,
 }
 
 impl<C: RepeatedComponent> Default for RepeaterInner<C> {
     fn default() -> Self {
-        RepeaterInner { components: Default::default(), offset: 0, cached_item_height: 0 as _ }
+        RepeaterInner {
+            components: Default::default(),
+            offset: 0,
+            cached_item_height: Default::default(),
+            previous_viewport_y: Default::default(),
+            anchor_y: Default::default(),
+        }
     }
 }
 
@@ -760,6 +772,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         listview_width: Coord,
         listview_height: Pin<&Property<Coord>>,
     ) {
+        viewport_width.set(listview_width);
         let model = self.model();
         let row_count = model.row_count();
         if row_count == 0 {
@@ -770,131 +783,183 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
             return;
         }
 
-        let init = &init;
+        let listview_height = listview_height.get();
+        let mut vp_y = viewport_y.get().min(0 as _);
 
-        let listview_geometry_tracker = self.data().project_ref().listview_geometry_tracker;
-        let geometry_updated = listview_geometry_tracker
-            .evaluate_if_dirty(|| {
-                // Fetch the model again to make sure that it is a dependency of this geometry tracker.
-                let model = self.model();
-                // Also register a dependency to "is_dirty"
-                let _ = self.data().project_ref().is_dirty.get();
-
-                let listview_height = listview_height.get();
-                // Compute the element height
-                let total_height = Cell::new(0 as Coord);
-                let min_height = Cell::new(listview_height);
-                let count = Cell::new(0);
-
-                let cached_item_height = self.data().inner.borrow_mut().cached_item_height;
-                let mut element_height = if cached_item_height > 0 as Coord {
-                    cached_item_height
-                } else {
-                    let get_height_visitor = |item: Pin<ItemRef>| {
-                        count.set(count.get() + 1);
-                        let height = item.as_ref().geometry().height();
-                        total_height.set(total_height.get() + height);
-                        min_height.set(min_height.get().min(height))
-                    };
-                    for c in self.data().inner.borrow().components.iter() {
-                        if let Some(x) = c.1.as_ref() {
-                            get_height_visitor(x.as_pin_ref().get_item_ref(0));
-                        }
-                    }
-
-                    if count.get() > 0 {
-                        total_height.get() / (count.get() as Coord)
-                    } else {
-                        // There seems to be currently no items. Just instantiate one item.
-                        {
-                            let mut inner = self.0.inner.borrow_mut();
-                            inner.offset = inner.offset.min(row_count - 1);
-                        }
-
-                        self.ensure_updated_impl(&init, &model, 1);
-                        if let Some(c) = self.data().inner.borrow().components.get(0) {
-                            if let Some(x) = c.1.as_ref() {
-                                get_height_visitor(x.as_pin_ref().get_item_ref(0));
-                            }
-                        } else {
-                            panic!("Could not determine size of items");
-                        }
-                        total_height.get()
-                    }
-                };
-
-                let min_height = min_height.get().min(element_height).max(1 as _);
-
-                let mut offset_y = -viewport_y.get().min(0 as _);
-                if offset_y > element_height * row_count as Coord - listview_height
-                    && offset_y > viewport_height.get() - listview_height
-                {
-                    offset_y =
-                        (element_height * row_count as Coord - listview_height).max(0 as Coord);
+        // We need some sort of estimation of the element height
+        let cached_item_height = self.data().inner.borrow_mut().cached_item_height;
+        let element_height = if cached_item_height > 0 as Coord {
+            cached_item_height
+        } else {
+            let total_height = Cell::new(0 as Coord);
+            let count = Cell::new(0);
+            let get_height_visitor = |item: Pin<ItemRef>| {
+                count.set(count.get() + 1);
+                let height = item.as_ref().geometry().height();
+                total_height.set(total_height.get() + height);
+            };
+            for c in self.data().inner.borrow().components.iter() {
+                if let Some(x) = c.1.as_ref() {
+                    get_height_visitor(x.as_pin_ref().get_item_ref(0));
                 }
-                let mut count = ((listview_height / min_height).ceil() as usize)
-                    // count never decreases to avoid too much flickering if items have different size
-                    .max(self.data().inner.borrow().components.len())
-                    .min(row_count);
-                let mut offset =
-                    ((offset_y / element_height).floor() as usize).min(row_count - count);
-                loop {
-                    self.data().inner.borrow_mut().cached_item_height = element_height;
-                    self.set_offset(offset, count);
-                    self.ensure_updated_impl(init, &model, count);
-                    let end = self.compute_layout_listview(viewport_width, listview_width);
-                    let adjusted_element_height =
-                        (end - element_height * offset as Coord) / count as Coord;
-                    element_height = adjusted_element_height;
-                    let diff = listview_height + offset_y - end;
-                    if diff > 0.5 as _ && count < row_count {
-                        // we did not create enough item, try increasing count until it matches
-                        count = (count + (diff / element_height).ceil() as usize).min(row_count);
-                        if offset + count > row_count {
-                            // apparently, we scrolled past the end, so decrease the offset and make offset_y
-                            // so we just are at the end
-                            offset = row_count - count;
-                            offset_y = (offset_y - diff).max(0 as _);
-                        }
-                        continue;
+            }
+
+            if count.get() > 0 {
+                total_height.get() / (count.get() as Coord)
+            } else {
+                // There seems to be currently no items. Just instantiate one item.
+                {
+                    let mut inner = self.0.inner.borrow_mut();
+                    inner.offset = inner.offset.min(row_count - 1);
+                }
+
+                self.ensure_updated_impl(&init, &model, 1);
+                if let Some(c) = self.data().inner.borrow().components.get(0) {
+                    if let Some(x) = c.1.as_ref() {
+                        get_height_visitor(x.as_pin_ref().get_item_ref(0));
                     }
-                    viewport_height.set((element_height * row_count as Coord).max(end));
-                    viewport_y.set(-offset_y);
+                } else {
+                    panic!("Could not determine size of items");
+                }
+                total_height.get()
+            }
+        };
+
+        let data = self.data();
+        let mut inner = data.inner.borrow_mut();
+        let one_and_a_half_screen = listview_height * 3 as Coord / 2 as Coord;
+        let first_item_y = inner.anchor_y;
+        let last_item_bottom = first_item_y + inner.components.len() as Coord * element_height;
+
+        let (mut new_offset, mut new_offset_y) = if first_item_y > -vp_y + one_and_a_half_screen
+            || last_item_bottom + element_height < -vp_y
+        {
+            // We are jumping more than 1.5 screens, consider this as a random seek.
+            inner.components.clear();
+            inner.offset = ((-vp_y / element_height).floor() as usize).min(row_count - 1);
+            (inner.offset, -vp_y)
+        } else if vp_y < inner.previous_viewport_y {
+            // we scrolled down, try to find out the new offset.
+            let mut it_y = first_item_y;
+            let mut new_offset = inner.offset;
+            debug_assert!(it_y <= -vp_y); // we scrolled down, the anchor should be hidden
+            for c in inner.components.iter_mut() {
+                if c.0 == RepeatedComponentState::Dirty {
+                    if c.1.is_none() {
+                        c.1 = Some(init());
+                    }
+                    c.1.as_ref().unwrap().update(new_offset, model.row_data(new_offset).unwrap());
+                    c.0 = RepeatedComponentState::Clean;
+                }
+                let h =
+                    c.1.as_ref().unwrap().as_pin_ref().get_item_ref(0).as_ref().geometry().height();
+                if it_y + h >= -vp_y || new_offset + 1 >= row_count {
                     break;
                 }
-            })
-            .is_some();
-
-        if !geometry_updated && self.data().project_ref().is_dirty.get() {
-            let count = self
-                .data()
-                .inner
-                .borrow()
-                .components
-                .len()
-                .min(row_count.saturating_sub(self.data().inner.borrow().offset));
-            self.ensure_updated_impl(init, &model, count);
-            self.compute_layout_listview(viewport_width, listview_width);
-        }
-    }
-
-    fn set_offset(&self, offset: usize, count: usize) {
-        let mut inner = self.0.inner.borrow_mut();
-        let old_offset = inner.offset;
-        // Remove the items before the offset, or add items until the old offset
-        let to_remove = offset.saturating_sub(old_offset);
-        if to_remove < inner.components.len() {
-            inner.components.splice(
-                0..to_remove,
-                core::iter::repeat((RepeatedComponentState::Dirty, None))
-                    .take(old_offset.saturating_sub(offset)),
-            );
+                it_y += h;
+                new_offset += 1;
+            }
+            (new_offset, it_y)
         } else {
-            inner.components.truncate(0);
+            // We scrolled up, we'll instantiate items before offset in the loop
+            (inner.offset, first_item_y)
+        };
+
+        loop {
+            // If there is a gap before the new_offset and the beginning of the visible viewport,
+            // try to fill it with items. First look at items that are before new_offset in the
+            // inner.components, if any.
+            while new_offset > inner.offset && new_offset_y > -vp_y {
+                new_offset -= 1;
+                new_offset_y -= inner.components[new_offset - inner.offset]
+                    .1
+                    .as_ref()
+                    .unwrap()
+                    .as_pin_ref()
+                    .get_item_ref(0)
+                    .as_ref()
+                    .geometry()
+                    .height();
+            }
+            // If there is still a gap, fill it with new component before
+            let mut new_components = Vec::new();
+            while new_offset > 0 && new_offset_y > -vp_y {
+                new_offset -= 1;
+                let new_component = init();
+                new_component.update(new_offset, model.row_data(new_offset).unwrap());
+                new_offset_y -=
+                    new_component.as_pin_ref().get_item_ref(0).as_ref().geometry().height();
+                new_components.push(new_component);
+            }
+            if !new_components.is_empty() {
+                inner.components.splice(
+                    0..0,
+                    new_components
+                        .into_iter()
+                        .rev()
+                        .map(|c| (RepeatedComponentState::Clean, Some(c))),
+                );
+                inner.offset = new_offset;
+            }
+            assert!(
+                new_offset >= inner.offset && new_offset <= inner.offset + inner.components.len()
+            );
+
+            // Now we will layout items until we fit the view, starting with the ones that are already instantiated
+            let mut y = new_offset_y;
+            let mut idx = new_offset;
+            let components_begin = new_offset - inner.offset;
+            for c in &mut inner.components[components_begin..] {
+                if c.0 == RepeatedComponentState::Dirty {
+                    if c.1.is_none() {
+                        c.1 = Some(init());
+                    }
+                    c.1.as_ref().unwrap().update(idx, model.row_data(idx).unwrap());
+                    c.0 = RepeatedComponentState::Clean;
+                }
+                if let Some(x) = c.1.as_ref() {
+                    x.as_pin_ref().listview_layout(&mut y, viewport_width);
+                }
+                idx += 1;
+                if y >= -vp_y + listview_height {
+                    break;
+                }
+            }
+
+            // create more items until there is no more room.
+            while y < -vp_y + listview_height && idx < row_count {
+                let new_component = init();
+                new_component.update(idx, model.row_data(idx).unwrap());
+                new_component.as_pin_ref().listview_layout(&mut y, viewport_width);
+                inner.components.push((RepeatedComponentState::Clean, Some(new_component)));
+                idx += 1;
+            }
+            if y < -vp_y + listview_height && vp_y < 0 as Coord {
+                assert!(idx >= row_count);
+                // we reached the end of the model, and we still have room. scroll a bit up.
+                vp_y = listview_height - y;
+                continue;
+            }
+
+            // Let's cleanup the components that are not shown.
+            if new_offset != inner.offset {
+                let components_begin = new_offset - inner.offset;
+                inner.components.splice(0..components_begin, core::iter::empty());
+                inner.offset = new_offset;
+            }
+            if inner.components.len() != idx - new_offset {
+                inner.components.splice(idx - new_offset.., core::iter::empty());
+            }
+
+            // Now re-compute some coordinate such a way that the scrollbar are adjusted.
+            inner.cached_item_height = (y - new_offset_y) / inner.components.len() as Coord;
+            inner.anchor_y = inner.offset as Coord * inner.cached_item_height;
+            viewport_height.set(inner.cached_item_height * row_count as Coord);
+            let new_viewport_y = -inner.anchor_y + vp_y + new_offset_y;
+            viewport_y.set(new_viewport_y);
+            inner.previous_viewport_y = new_viewport_y;
+            break;
         }
-        inner.components.resize_with(count, || (RepeatedComponentState::Dirty, None));
-        inner.offset = offset;
-        self.0.is_dirty.set(true);
     }
 
     /// Sets the data directly in the model
@@ -967,25 +1032,6 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     /// Returns a vector containing all components
     pub fn components_vec(&self) -> Vec<ComponentRc<C>> {
         self.0.inner.borrow().components.iter().flat_map(|x| x.1.clone()).collect()
-    }
-
-    /// Set the position of all the element in the listview
-    ///
-    /// Returns the offset of the end of the last element
-    pub fn compute_layout_listview(
-        &self,
-        viewport_width: Pin<&Property<Coord>>,
-        listview_width: Coord,
-    ) -> Coord {
-        let inner = self.0.inner.borrow();
-        let mut y_offset = inner.offset as Coord * inner.cached_item_height;
-        viewport_width.set(listview_width);
-        for c in self.0.inner.borrow().components.iter() {
-            if let Some(x) = c.1.as_ref() {
-                x.as_pin_ref().listview_layout(&mut y_offset, viewport_width);
-            }
-        }
-        y_offset
     }
 }
 
