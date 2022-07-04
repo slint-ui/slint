@@ -786,41 +786,37 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                 let min_height = Cell::new(listview_height);
                 let count = Cell::new(0);
 
-                let cached_item_height = self.data().inner.borrow_mut().cached_item_height;
-                let mut element_height = if cached_item_height > 0 as Coord {
-                    cached_item_height
+                let get_height_visitor = |item: Pin<ItemRef>| {
+                    count.set(count.get() + 1);
+                    let height = item.as_ref().geometry().height();
+                    total_height.set(total_height.get() + height);
+                    min_height.set(min_height.get().min(height))
+                };
+                for c in self.data().inner.borrow().components.iter() {
+                    if let Some(x) = c.1.as_ref() {
+                        get_height_visitor(x.as_pin_ref().get_item_ref(0));
+                    }
+                }
+
+                let mut element_height = if count.get() > 0 {
+                    total_height.get() / (count.get() as Coord)
                 } else {
-                    let get_height_visitor = |item: Pin<ItemRef>| {
-                        count.set(count.get() + 1);
-                        let height = item.as_ref().geometry().height();
-                        total_height.set(total_height.get() + height);
-                        min_height.set(min_height.get().min(height))
-                    };
-                    for c in self.data().inner.borrow().components.iter() {
+                    // There seems to be currently no items. Just instantiate one item.
+
+                    {
+                        let mut inner = self.0.inner.borrow_mut();
+                        inner.offset = inner.offset.min(row_count - 1);
+                    }
+
+                    self.ensure_updated_impl(&init, &model, 1);
+                    if let Some(c) = self.data().inner.borrow().components.get(0) {
                         if let Some(x) = c.1.as_ref() {
                             get_height_visitor(x.as_pin_ref().get_item_ref(0));
                         }
-                    }
-
-                    if count.get() > 0 {
-                        total_height.get() / (count.get() as Coord)
                     } else {
-                        // There seems to be currently no items. Just instantiate one item.
-                        {
-                            let mut inner = self.0.inner.borrow_mut();
-                            inner.offset = inner.offset.min(row_count - 1);
-                        }
-
-                        self.ensure_updated_impl(&init, &model, 1);
-                        if let Some(c) = self.data().inner.borrow().components.get(0) {
-                            if let Some(x) = c.1.as_ref() {
-                                get_height_visitor(x.as_pin_ref().get_item_ref(0));
-                            }
-                        } else {
-                            panic!("Could not determine size of items");
-                        }
-                        total_height.get()
+                        panic!("Could not determine size of items");
                     }
+                    total_height.get()
                 };
 
                 let min_height = min_height.get().min(element_height).max(1 as _);
@@ -838,6 +834,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     .min(row_count);
                 let mut offset =
                     ((offset_y / element_height).floor() as usize).min(row_count - count);
+                self.data().inner.borrow_mut().cached_item_height = element_height;
                 loop {
                     self.data().inner.borrow_mut().cached_item_height = element_height;
                     self.set_offset(offset, count);
