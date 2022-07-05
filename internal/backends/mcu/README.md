@@ -110,7 +110,7 @@ CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-run --chip STM32H735IGKx" cargo
 
 ## Flashing and Debugging the Pico with `probe-rs`'s VSCode Plugin
 
-Install `probe-rs-debugger` and the VSCode plugin as discribed [here](https://probe.rs/docs/tools/vscode/).
+Install `probe-rs-debugger` and the VSCode plugin as described [here](https://probe.rs/docs/tools/vscode/).
 
 Add this build task to your `.vscode/tasks.json`:
 ```json
