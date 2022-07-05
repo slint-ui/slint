@@ -949,11 +949,10 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     }
 
     pub fn component_at(&self, index: usize) -> Option<ComponentRc<C>> {
-        self.0
-            .inner
-            .borrow()
+        let inner = self.0.inner.borrow();
+        inner
             .components
-            .get(index)
+            .get(index - inner.offset)
             .map(|c| c.1.clone().expect("That was updated before!"))
     }
 
