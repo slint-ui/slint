@@ -1,0 +1,68 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Button, ListView } from "std-widgets.slint";
+
+TestCase := Rectangle {
+    width: 300phx;
+    height: 50phx;
+
+    property<[{name: string}]> model: [
+        { name: "1Olivier", },
+        { name: "1Simon", },
+        { name: "2Olivier", },
+        { name: "2Simon", },
+        { name: "3Olivier", },
+        { name: "3Simon", },
+        { name: "4Olivier", },
+        { name: "4Simon", },
+        { name: "5Olivier", },
+        { name: "6Simon", },
+        { name: "7Olivier", },
+        { name: "7Simon", },
+        { name: "8Olivier", },
+        { name: "8Simon", },
+        { name: "9Olivier", },
+        { name: "9Simon", },
+        { name: "10Olivier", },
+        { name: "10Simon", },
+        { name: "11Olivier", },
+        { name: "11Simon", }
+    ];
+
+    VerticalLayout {
+        ListView {
+            for data in model : Button {
+                height: 20px;
+                text: data.name;
+            }
+
+            viewport-y: -200px;
+        }
+    }
+}
+
+/*
+```rust
+let instance = TestCase::new();
+
+// This should not crash:
+slint::testing::send_keyboard_string_sequence(&instance, &"\t");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+// This should not crash:
+slint::testing::send_keyboard_string_sequence(&instance, "\t");
+```
+
+```js
+var instance = new slint.TestCase({});
+
+// This should not crash:
+instance.send_keyboard_string_sequence("\t");
+```
+
+*/
