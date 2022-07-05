@@ -386,7 +386,7 @@ cpp! {{
             has_focus = false;
             has_focus_delegation = false;
 
-            for (int i = 0; i < childCount(); ++i) {
+            for (int i = 0; i < rawChildCount(); ++i) {
                 static_cast<Slint_accessible *>(child(i))->clearFocus();
             }
         }
@@ -407,7 +407,7 @@ cpp! {{
                 return true;
             }
 
-            for (int i = 0; i < childCount(); ++i) {
+            for (int i = 0; i < rawChildCount(); ++i) {
                 if (static_cast<Slint_accessible *>(child(i))->focusItem(item)) {
                     return true;
                 }
@@ -444,12 +444,29 @@ cpp! {{
             return m_children.indexOf(child->object()); // FIXME: Theoretically we can have several QAIs per QObject!
         }
 
-        int childCount() const override {
+        // Will *not* trigger a build of the accessibility item tree!
+        // Use this from the Slint side to make sure the accessibility
+        // item tree is not generated needlessly.
+        int rawChildCount() const {
             return m_children.count();
         }
 
+        /// Will *not* trigger a build of the accessibility tree!
+        QAccessibleInterface *rawChild(int index) const {
+            if (0 <= index && index < rawChildCount())
+                return QAccessible::queryAccessibleInterface(m_children[index]);
+            return nullptr;
+        }
+
+        // May trigger a build of the accessibility item tree!
+        // Use this from the Qt API side (which is triggered by the OS accessibility
+        // layer to make sure accessibility information is up-to-date.
+        int childCount() const override {
+            return rawChildCount();
+        }
+
         QAccessibleInterface *child(int index) const override {
-            if (0 <= index && index < m_children.count())
+            if (0 <= index && index < childCount())
                 return QAccessible::queryAccessibleInterface(m_children[index]);
             return nullptr;
         }
@@ -565,8 +582,8 @@ cpp! {{
                     .and_then(|s| s.as_str().parse::<i32>().ok()).unwrap_or(-1)
             });
 
-            if (index >= 0 && index < childCount()) {
-                static_cast<Slint_accessible_item*>(child(index))->sendFocusChangeEvent();
+            if (index >= 0 && index < rawChildCount()) {
+                static_cast<Slint_accessible_item*>(rawChild(index))->sendFocusChangeEvent();
             } else {
                 sendFocusChangeEvent();
             }
