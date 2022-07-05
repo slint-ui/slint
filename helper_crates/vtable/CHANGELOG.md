@@ -1,7 +1,7 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
-## [0.1.8] - Unreleased
+## [0.1.8] - 2022-07-05
 
  - Changed the representation of the different types to use NonNull
  - Added `VRef::as_ptr`
