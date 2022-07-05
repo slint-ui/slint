@@ -108,7 +108,6 @@ Using [probe-run](https://github.com/knurling-rs/probe-run) (`cargo install prob
 CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-run --chip STM32H735IGKx" cargo +nightly run -p printerdemo_mcu --features=i-slint-backend-mcu/stm32h735g --target=thumbv7em-none-eabihf --release
 ```
 
-
 ## Flashing and Debugging the Pico with `probe-rs`'s VSCode Plugin
 
 Install `probe-rs-debugger` and the VSCode plugin as discribed [here](https://probe.rs/docs/tools/vscode/).
@@ -138,7 +137,6 @@ Add this build task to your `.vscode/tasks.json`:
 		},
 	]
 }
-
 ```
 
 The `release-with-debug` profile is needed, because the debug build does not fit into flash.
