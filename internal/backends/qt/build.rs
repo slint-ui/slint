@@ -37,6 +37,7 @@ fn main() {
     config.flag_if_supported("/std:c++17");
     config.include(std::env::var("DEP_QT_INCLUDE_PATH").unwrap()).build("lib.rs");
 
+    println!("cargo:rerun-if-changed=qt_accessible.rs");
     println!("cargo:rerun-if-changed=qt_window.rs");
     println!("cargo:rerun-if-changed=qt_widgets.rs");
     println!("cargo:rerun-if-changed=qt_widgets/button.rs");
