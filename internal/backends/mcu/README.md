@@ -107,3 +107,77 @@ Using [probe-run](https://github.com/knurling-rs/probe-run) (`cargo install prob
 ```sh
 CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-run --chip STM32H735IGKx" cargo +nightly run -p printerdemo_mcu --features=i-slint-backend-mcu/stm32h735g --target=thumbv7em-none-eabihf --release
 ```
+
+## Flashing and Debugging the Pico with `probe-rs`'s VSCode Plugin
+
+Install `probe-rs-debugger` and the VSCode plugin as described [here](https://probe.rs/docs/tools/vscode/).
+
+Add this build task to your `.vscode/tasks.json`:
+```json
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"type": "cargo",
+			"command": "build",
+			"env": {
+				"RUSTUP_TOOLCHAIN": "nightly"
+			},
+			"args": [
+				"--package=printerdemo_mcu",
+				"--features=mcu-pico-st7789",
+				"--target=thumbv6m-none-eabi",
+				"--profile=release-with-debug"
+			],
+			"problemMatcher": [
+				"$rustc"
+			],
+			"group": "build",
+			"label": "build mcu demo for pico"
+		},
+	]
+}
+```
+
+The `release-with-debug` profile is needed, because the debug build does not fit into flash.
+
+You can define it like this in your top level `Cargo.toml`:
+
+```toml
+[profile.release-with-debug]
+inherits = "release"
+debug = true
+```
+
+Now you can add the launch configuration to `.vscode/launch.json`:
+
+```json
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "preLaunchTask": "build mcu demo for pico",
+            "type": "probe-rs-debug",
+            "request": "launch",
+            "name": "Flash and Debug MCU Demo",
+            "cwd": "${workspaceFolder}",
+            "connectUnderReset": false,
+            "chip": "RP2040",
+            "flashingConfig": {
+                "flashingEnabled": true,
+                "resetAfterFlashing": true,
+                "haltAfterReset": true
+            },
+            "coreConfigs": [
+                {
+                    "coreIndex": 0,
+                    "rttEnabled": true,
+                    "programBinary": "./target/thumbv6m-none-eabi/release-with-debug/printerdemo_mcu"
+                }
+            ]
+        },
+    ]
+}
+```
+
+This was tested using a second Raspberry Pi Pico programmed as a probe with [DapperMime](https://github.com/majbthrd/DapperMime).
