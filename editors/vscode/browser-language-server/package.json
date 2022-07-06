@@ -1,7 +1,7 @@
 {
     "name": "slint-vscode-browser-language-server",
     "description": "The Slint LSP worker for the VScode extension.",
-    "version": "0.2.5",
+    "version": "0.2.6",
     "author": "Slint",
     "license": "GPL-3.0",
     "engines": {
