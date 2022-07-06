@@ -287,7 +287,7 @@ accordingly.
 ### Common Path Properties
 
 * **`fill`** (*brush*): The color for filling the shape of the path.
-* **`fill-rule`** (enum *[`FillRule`](builtin_enums.md#fillrule)*): The fill rule to use for the path. (default value: `nonzero`)
+* **`fill-rule`** (*enum [`FillRule`](builtin_enums.md#fillrule)*): The fill rule to use for the path. (default value: `nonzero`)
 * **`stroke`** (*brush*): The color for drawing the outline of the path.
 * **`stroke-width`** (*length*): The width of the outline.
 * **`width`** (*length*): If non-zero, the path will be scaled to fit into the specified width.
@@ -449,7 +449,7 @@ When not part of a layout, its width or height default to 100% of the parent ele
 * **`has-hover`** (*bool*): Set to `true` by the TouchArea when the mouse is over it.
 * **`mouse-x`**, **`mouse-y`** (*length*): Set by the TouchArea to the position of the mouse within it.
 * **`pressed-x`**, **`pressed-y`** (*length*): Set to `true` by the TouchArea to the position of the mouse at the moment it was last pressed.
-* **`mouse-cursor`** (enum *[`MouseCursor`](builtin_enums.md#mousecursor)*): The mouse cursor type when the mouse is hovering the TouchArea.
+* **`mouse-cursor`** (*enum [`MouseCursor`](builtin_enums.md#mousecursor)*): The mouse cursor type when the mouse is hovering the TouchArea.
 
 ### Callbacks
 
@@ -662,14 +662,14 @@ When not part of a layout, its width or height defaults to 100% of the parent el
 * **`font-size`** (*length*): The font size of the text
 * **`font-weight`** (*int*): The weight of the font. The values range from 100 (lightest) to 900 (thickest). 400 is the normal weight.
 * **`color`** (*brush*): The color of the text (default value: depends on the style)
-* **`horizontal-alignment`** (enum *[`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)*): The horizontal alignment of the text.
-* **`vertical-alignment`** (enum *[`TextVerticalAlignment`](builtin_enums.md#textverticalalignment)*): The vertical alignment of the text.
+* **`horizontal-alignment`** (*enum [`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)*): The horizontal alignment of the text.
+* **`vertical-alignment`** (*enum [`TextVerticalAlignment`](builtin_enums.md#textverticalalignment)*): The vertical alignment of the text.
 * **`has-focus`** (*bool*): Set to `true` when item is focused and receives keyboard events.
 * **`letter-spacing`** (*length*): The letter spacing allows changing the spacing between the glyphs. A positive value increases the spacing
   and a negative value decreases the distance. The default value is 0.
-* **`single-line`** (bool): When set to `true`, no newlines are allowed (default value: `true`)
-* **`read-only`** (bool): When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as 
-  editing text programatically (default value: `false`)
+* **`single-line`** (*bool*): When set to `true`, no newlines are allowed (default value: `true`)
+* **`read-only`** (*bool*): When set to `true`, text editing via keyboard and mouse is disabled but
+  selecting text is still enabled as well as editing text programatically (default value: `false`)
 * **`wrap`** (*enum [`TextWrap`](builtin_enums.md#textwrap)*): The way the text input wraps.  Only makes sense when `single-line` is false. (default: no-wrap)
 * **`input-type`** (*enum [`InputType`](builtin_enums.md#InputType)*): The way to allow special input viewing properties such as password fields (default value: `text`).
 

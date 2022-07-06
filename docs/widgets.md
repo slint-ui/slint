@@ -169,8 +169,8 @@ A widget used to enter a single line of text
 * **`has-focus`**: (*bool*): Set to true when the line edit currently has the focus
 * **`placeholder-text`**: (*string*): A placeholder text being shown when there is no text in the edit field
 * **`enabled`**: (*bool*): Defaults to true. When false, nothing can be entered
-* **`read-only`** (bool): When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as
-  editing text programatically (default value: `false`)
+* **`read-only`** (*bool*): When set to `true`, text editing via keyboard and mouse is disabled but
+    selecting text is still enabled as well as editing text programatically (default value: `false`)
 * **`input-type`** (*enum [`InputType`](builtin_enums.md#InputType)*): The way to allow special input viewing properties such as password fields (default value: `text`).
 * **`horizontal-alignment`** (*enum [`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)*): The horizontal alignment of the text.
 
@@ -208,8 +208,8 @@ shortcut will be implemented in a future version: <https://github.com/slint-ui/s
 * **`font-size`** (*length*): the size of the font of the input text
 * **`has-focus`**: (*bool*): Set to true when the widget currently has the focus
 * **`enabled`**: (*bool*): Defaults to true. When false, nothing can be entered
-* **`read-only`** (bool): When set to `true`, text editing via keyboard and mouse is disabled but selecting text is still enabled as well as
-  editing text programatically (default value: `false`)
+* **`read-only`** (*bool*): When set to `true`, text editing via keyboard and mouse is disabled but
+   selecting text is still enabled as well as editing text programatically (default value: `false`)
 * **`wrap`** (*enum [`TextWrap`](builtin_enums.md#textwrap)*): The way the text wraps (default: word-wrap).
 * **`horizontal-alignment`** (*enum [`TextHorizontalAlignment`](builtin_enums.md#texthorizontalalignment)*): The horizontal alignment of the text.
 
@@ -250,7 +250,7 @@ using for loops may be added in the future and is tracked in issue #407.
 * **`viewport-width`** and **`viewport-height`** (*length*): The `width` and `length` properties of the viewport
 * **`viewport-x`** and **`viewport-y`** (*length*): The `x` and `y` properties of the viewport. Usually these are negative
 * **`visible-width`** and **`visible-height`** (*length*): The size of the visible area of the ScrollView (not including the scrollbar)
-* **`enabled`** and **`has-focus`** (bool): property that are only used to render the frame as disabled or focused, but do not
+* **`enabled`** and **`has-focus`** (*bool*): property that are only used to render the frame as disabled or focused, but do not
   change the behavior of the widget.
 
 ### Example
