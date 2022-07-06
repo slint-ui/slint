@@ -52,13 +52,13 @@
     // resolved by rustdoc. This helper locates such links and resolves them, assuming that each
     // .md file gets its own sub-directory with an index.html.
     function fix_markdown_links() {
-        for (let anchor of document.querySelectorAll('a[href$=".md"], a[href~=".md#"]')) {
+        for (let anchor of document.querySelectorAll('a[href$=".md"], a[href*=".md#"]')) {
             let url = new URL(anchor.href);
             let dir_separator = Math.max(url.pathname.lastIndexOf("/"), 0);
             let base_name = url.pathname.slice(dir_separator + 1, -3);
             let base_path = url.pathname.slice(0, dir_separator);
             url.pathname = base_path + "/../" + base_name + "/index.html";
-            anchor.setAttribute("href", url.pathname);
+            anchor.setAttribute("href", url);
         }
     }
     fix_markdown_links()
