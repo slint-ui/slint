@@ -467,10 +467,10 @@ In C++ you can set the callback like this:
 int main(int argc, char **argv)
 {
     auto recipe = Recipe::create();
-    recipe->global<Logic>().on_to_uppercase([](SharedString str) -> SharedString {
+    recipe->global<Logic>().on_to_upper_case([](slint::SharedString str) -> slint::SharedString {
         std::string arg(str);
         std::transform(arg.begin(), arg.end(), arg.begin(), toupper);
-        return SharedString(arg);
+        return slint::SharedString(arg);
     });
     // ...
 }
