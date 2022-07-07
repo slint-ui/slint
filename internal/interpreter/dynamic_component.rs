@@ -1156,6 +1156,39 @@ pub fn animation_for_property(
     }
 }
 
+fn make_callback_eval_closure(
+    expr: Expression,
+    self_weak: &vtable::VWeak<ComponentVTable, ErasedComponentBox>,
+) -> impl Fn(&[Value]) -> Value {
+    let self_weak = self_weak.clone();
+    move |args| {
+        let self_rc = self_weak.upgrade().unwrap();
+        generativity::make_guard!(guard);
+        let self_ = self_rc.unerase(guard);
+        let instance_ref = self_.borrow_instance();
+        let mut local_context =
+            eval::EvalLocalContext::from_function_arguments(instance_ref, args.to_vec());
+        eval::eval_expression(&expr, &mut local_context)
+    }
+}
+
+fn make_binding_eval_closure(
+    expr: Expression,
+    self_weak: &vtable::VWeak<ComponentVTable, ErasedComponentBox>,
+) -> impl Fn() -> Value {
+    let self_weak = self_weak.clone();
+    move || {
+        let self_rc = self_weak.upgrade().unwrap();
+        generativity::make_guard!(guard);
+        let self_ = self_rc.unerase(guard);
+        let instance_ref = self_.borrow_instance();
+        eval::eval_expression(
+            &expr,
+            &mut eval::EvalLocalContext::from_component_instance(instance_ref),
+        )
+    }
+}
+
 pub fn instantiate(
     component_type: Rc<ComponentDescription>,
     parent_ctx: Option<ComponentRefPin>,
@@ -1196,6 +1229,15 @@ pub fn instantiate(
         );
     }
 
+    let self_rc = vtable::VRc::new(ErasedComponentBox::from(component_box));
+    let self_weak = vtable::VRc::downgrade(&self_rc);
+
+    generativity::make_guard!(guard);
+    let comp = self_rc.unerase(guard);
+    let instance_ref = comp.borrow_instance();
+    instance_ref.self_weak().set(self_weak.clone()).ok();
+    let component_type = comp.description();
+
     // Some properties are generated as Value, but for which the default constructed Value must be initialized
     for (prop_name, decl) in &component_type.original.root_element.borrow().property_declarations {
         if !matches!(decl.property_type, Type::Struct { .. } | Type::Array(_))
@@ -1229,39 +1271,19 @@ pub fn instantiate(
             if let Type::Callback { .. } = property_type {
                 let expr = binding.expression.clone();
                 let component_type = component_type.clone();
-                let instance = component_box.instance.as_ptr();
-                let c = Pin::new_unchecked(vtable::VRef::from_raw(
-                    NonNull::from(&component_type.ct).cast(),
-                    instance.cast(),
-                ));
                 if let Some(callback_offset) =
                     component_type.custom_callbacks.get(prop_name).filter(|_| is_root)
                 {
                     let callback = callback_offset.apply(instance_ref.as_ref());
-                    callback.set_handler(move |args| {
-                        generativity::make_guard!(guard);
-                        let mut local_context = eval::EvalLocalContext::from_function_arguments(
-                            InstanceRef::from_pin_ref(c, guard),
-                            args.to_vec(),
-                        );
-                        eval::eval_expression(&expr, &mut local_context)
-                    })
+                    callback.set_handler(make_callback_eval_closure(expr, &self_weak));
                 } else {
                     let item_within_component = &component_type.items[&elem.id];
                     let item = item_within_component.item_from_component(instance_ref.as_ptr());
                     if let Some(callback) = item_within_component.rtti.callbacks.get(prop_name) {
                         callback.set_handler(
                             item,
-                            Box::new(move |args| {
-                                generativity::make_guard!(guard);
-                                let mut local_context =
-                                    eval::EvalLocalContext::from_function_arguments(
-                                        InstanceRef::from_pin_ref(c, guard),
-                                        args.to_vec(),
-                                    );
-                                eval::eval_expression(&expr, &mut local_context)
-                            }),
-                        )
+                            Box::new(make_callback_eval_closure(expr, &self_weak)),
+                        );
                     } else {
                         panic!("unknown callback {}", prop_name)
                     }
@@ -1269,11 +1291,6 @@ pub fn instantiate(
             } else if let Some(PropertiesWithinComponent { offset, prop: prop_info, .. }) =
                 component_type.custom_properties.get(prop_name).filter(|_| is_root)
             {
-                let c = Pin::new_unchecked(vtable::VRef::from_raw(
-                    NonNull::from(&component_type.ct).cast(),
-                    component_box.instance.as_ptr().cast(),
-                ));
-
                 let is_state_info = matches!(property_type, Type::Struct { name: Some(name), .. } if name.ends_with("::StateInfo"));
                 if is_state_info {
                     let prop = Pin::new_unchecked(
@@ -1281,16 +1298,9 @@ pub fn instantiate(
                             as *const Property<i_slint_core::properties::StateInfo>),
                     );
                     let e = binding.expression.clone();
+                    let state_binding = make_binding_eval_closure(e, &self_weak);
                     i_slint_core::properties::set_state_binding(prop, move || {
-                        generativity::make_guard!(guard);
-                        eval::eval_expression(
-                            &e,
-                            &mut eval::EvalLocalContext::from_component_instance(
-                                InstanceRef::from_pin_ref(c, guard),
-                            ),
-                        )
-                        .try_into()
-                        .unwrap()
+                        state_binding().try_into().unwrap()
                     });
                     return;
                 }
@@ -1314,15 +1324,7 @@ pub fn instantiate(
                         prop_info
                             .set_binding(
                                 item,
-                                Box::new(move || {
-                                    generativity::make_guard!(guard);
-                                    eval::eval_expression(
-                                        &e,
-                                        &mut eval::EvalLocalContext::from_component_instance(
-                                            InstanceRef::from_pin_ref(c, guard),
-                                        ),
-                                    )
-                                }),
+                                Box::new(make_binding_eval_closure(e, &self_weak)),
                                 maybe_animation,
                             )
                             .unwrap();
@@ -1353,24 +1355,9 @@ pub fn instantiate(
                                 .unwrap();
                         } else {
                             let e = binding.expression.clone();
-                            let component_type = component_type.clone();
-                            let instance = component_box.instance.as_ptr();
-                            let c = Pin::new_unchecked(vtable::VRef::from_raw(
-                                NonNull::from(&component_type.ct).cast(),
-                                instance.cast(),
-                            ));
-
                             prop_rtti.set_binding(
                                 item,
-                                Box::new(move || {
-                                    generativity::make_guard!(guard);
-                                    eval::eval_expression(
-                                        &e,
-                                        &mut eval::EvalLocalContext::from_component_instance(
-                                            InstanceRef::from_pin_ref(c, guard),
-                                        ),
-                                    )
-                                }),
+                                Box::new(make_binding_eval_closure(e, &self_weak)),
                                 maybe_animation,
                             );
                         }
@@ -1388,36 +1375,14 @@ pub fn instantiate(
 
         let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
         let expr = rep_in_comp.model.clone();
-        let component_type = component_type.clone();
-        let instance = component_box.instance.as_ptr();
-        let c = unsafe {
-            Pin::new_unchecked(vtable::VRef::from_raw(
-                NonNull::from(&component_type.ct).cast(),
-                instance.cast(),
-            ))
-        };
+        let model_binding_closure = make_binding_eval_closure(expr, &self_weak);
         repeater.set_model_binding(move || {
-            generativity::make_guard!(guard);
-            let m = eval::eval_expression(
-                &expr,
-                &mut eval::EvalLocalContext::from_component_instance(unsafe {
-                    InstanceRef::from_pin_ref(c, guard)
-                }),
-            );
+            let m = model_binding_closure();
             i_slint_core::model::ModelRc::new(crate::value_model::ValueModel::new(m))
         });
     }
 
-    let comp_rc = vtable::VRc::new(ErasedComponentBox::from(component_box));
-    {
-        generativity::make_guard!(guard);
-        let comp = comp_rc.unerase(guard);
-        let weak = vtable::VRc::downgrade(&comp_rc);
-        let instance_ref = comp.borrow_instance();
-        instance_ref.self_weak().set(weak).ok();
-    }
-
-    comp_rc
+    self_rc
 }
 
 pub(crate) fn get_property_ptr(nr: &NamedReference, instance: InstanceRef) -> *const () {
