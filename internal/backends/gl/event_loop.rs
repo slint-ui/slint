@@ -127,16 +127,22 @@ pub trait WinitWindow: PlatformWindow {
                 winit_window.set_decorations(true);
             }
 
-            let existing_size = self.size();
+            if width <= 0. || height <= 0. {
+                must_resize = true;
 
-            if width <= 0. {
-                width = existing_size.width;
-                must_resize = true;
+                let winit_size = winit_window
+                    .inner_size()
+                    .to_logical(self.runtime_window().scale_factor() as f64);
+
+                if width <= 0. {
+                    width = winit_size.width;
+                }
+                if height <= 0. {
+                    height = winit_size.height;
+                }
             }
-            if height <= 0. {
-                height = existing_size.height;
-                must_resize = true;
-            }
+
+            let existing_size = self.size();
 
             if (existing_size.width as f32 - width).abs() > 1.
                 || (existing_size.height as f32 - height).abs() > 1.
@@ -145,7 +151,9 @@ pub trait WinitWindow: PlatformWindow {
                 // size we've been assigned to from the windowing system. Weston/Wayland don't like it
                 // when we create a surface that's bigger than the screen due to constraints (#532).
                 if winit_window.fullscreen().is_none() {
-                    winit_window.set_inner_size(winit::dpi::LogicalSize::new(width, height));
+                    let new_size = winit::dpi::LogicalSize::new(width, height);
+                    winit_window.set_inner_size(new_size);
+                    self.set_size(new_size);
                 }
             }
         });
@@ -372,7 +380,6 @@ fn process_window_event(
         WindowEvent::Resized(size) => {
             let size = size.to_logical(runtime_window.scale_factor() as f64);
             runtime_window.set_window_item_geometry(size.width, size.height);
-            window.set_size(size);
         }
         WindowEvent::CloseRequested => {
             if runtime_window.request_close() {
