@@ -37,6 +37,7 @@ pub struct GLWindow {
     map_state: RefCell<GraphicsWindowBackendState>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
+    size: Cell<winit::dpi::LogicalSize<f32>>,
 
     pub(crate) graphics_cache: ItemGraphicsCache,
     // This cache only contains textures. The cache for decoded CPU side images is in crate::IMAGE_CACHE.
@@ -72,6 +73,7 @@ impl GLWindow {
             }),
             keyboard_modifiers: Default::default(),
             currently_pressed_key_code: Default::default(),
+            size: Default::default(),
             graphics_cache: Default::default(),
             texture_cache: Default::default(),
             rendering_metrics_collector: RenderingMetricsCollector::new(window_weak.clone()),
@@ -264,19 +266,11 @@ impl WinitWindow for GLWindow {
     }
 
     fn size(&self) -> winit::dpi::LogicalSize<f32> {
-        match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped { .. } => Default::default(),
-            GraphicsWindowBackendState::Mapped(mapped_window) => mapped_window.size,
-        }
+        self.size.get()
     }
 
     fn set_size(&self, size: winit::dpi::LogicalSize<f32>) {
-        match &mut *self.map_state.borrow_mut() {
-            GraphicsWindowBackendState::Unmapped { .. } => {
-                panic!("Cannot set window_size of Unmapped Window");
-            }
-            GraphicsWindowBackendState::Mapped(mapped_window) => mapped_window.size = size,
-        }
+        self.size.set(size);
     }
 
     fn set_background_color(&self, color: Color) {
@@ -553,7 +547,6 @@ impl PlatformWindow for GLWindow {
             opengl_context,
             clear_color: RgbaColor { red: 255_u8, green: 255, blue: 255, alpha: 255 }.into(),
             constraints: Default::default(),
-            size: Default::default(),
         }));
 
         crate::event_loop::register_window(id, self);
@@ -851,7 +844,6 @@ struct MappedWindow {
     opengl_context: crate::OpenGLContext,
     clear_color: Color,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
-    size: winit::dpi::LogicalSize<f32>,
 }
 
 impl Drop for MappedWindow {
