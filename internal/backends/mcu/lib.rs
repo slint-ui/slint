@@ -258,6 +258,14 @@ mod the_backend {
         fn set_position(&self, _position: euclid::Point2D<i32, PhysicalPx>) {
             unimplemented!()
         }
+
+        fn inner_size(&self) -> euclid::Size2D<u32, PhysicalPx> {
+            unimplemented!()
+        }
+
+        fn set_inner_size(&self, _size: euclid::Size2D<u32, PhysicalPx>) {
+            unimplemented!()
+        }
     }
 
     enum McuEvent {

@@ -303,6 +303,8 @@ fn gen_corelib(
             "slint_windowrc_on_close_requested",
             "slint_windowrc_position",
             "slint_windowrc_set_position",
+            "slint_windowrc_size",
+            "slint_windowrc_set_size",
             "slint_new_path_elements",
             "slint_new_path_events",
             "slint_color_brighter",

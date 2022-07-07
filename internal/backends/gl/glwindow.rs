@@ -68,6 +68,7 @@ impl GLWindow {
             self_weak: window_weak.clone(),
             map_state: RefCell::new(GraphicsWindowBackendState::Unmapped {
                 requested_position: None,
+                requested_size: None,
             }),
             keyboard_modifiers: Default::default(),
             currently_pressed_key_code: Default::default(),
@@ -403,9 +404,9 @@ impl PlatformWindow for GLWindow {
     }
 
     fn show(self: Rc<Self>) {
-        let requested_position = match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped { requested_position } => {
-                requested_position.clone()
+        let (requested_position, requested_size) = match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped { requested_position, requested_size } => {
+                (requested_position.clone(), requested_size.clone())
             }
             GraphicsWindowBackendState::Mapped(_) => return,
         };
@@ -453,7 +454,13 @@ impl PlatformWindow for GLWindow {
                 layout_info_v.preferred_bounded(),
             );
 
-            if s.width > 0 as Coord && s.height > 0 as Coord {
+            if let Some(requested_size) = requested_size {
+                // It would be nice to bound this with our constraints, but those are in logical coordinates
+                // and we don't know the scale factor yet...
+                window_builder.with_inner_size(winit::dpi::Size::new(
+                    winit::dpi::PhysicalSize::new(requested_size.width, requested_size.height),
+                ))
+            } else if s.width > 0 as Coord && s.height > 0 as Coord {
                 // Make sure that the window's inner size is in sync with the root window item's
                 // width/height.
                 runtime_window.set_window_item_geometry(s.width, s.height);
@@ -556,7 +563,10 @@ impl PlatformWindow for GLWindow {
         // Release GL textures and other GPU bound resources.
         self.release_graphics_resources();
 
-        self.map_state.replace(GraphicsWindowBackendState::Unmapped { requested_position: None });
+        self.map_state.replace(GraphicsWindowBackendState::Unmapped {
+            requested_position: None,
+            requested_size: None,
+        });
         /* FIXME:
         if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
             existing_blinker.stop();
@@ -774,7 +784,7 @@ impl PlatformWindow for GLWindow {
 
     fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
         match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped { requested_position } => {
+            GraphicsWindowBackendState::Unmapped { requested_position, .. } => {
                 requested_position.unwrap_or_default()
             }
             GraphicsWindowBackendState::Mapped(mapped_window) => {
@@ -789,7 +799,7 @@ impl PlatformWindow for GLWindow {
 
     fn set_position(&self, position: euclid::Point2D<i32, PhysicalPx>) {
         match &mut *self.map_state.borrow_mut() {
-            GraphicsWindowBackendState::Unmapped { requested_position } => {
+            GraphicsWindowBackendState::Unmapped { requested_position, .. } => {
                 *requested_position = Some(position)
             }
             GraphicsWindowBackendState::Mapped(mapped_window) => {
@@ -797,6 +807,34 @@ impl PlatformWindow for GLWindow {
                 winit_window.set_outer_position(winit::dpi::Position::new(
                     winit::dpi::PhysicalPosition::new(position.x, position.y),
                 ))
+            }
+        }
+    }
+
+    fn inner_size(&self) -> euclid::Size2D<u32, PhysicalPx> {
+        match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped { requested_size, .. } => {
+                requested_size.unwrap_or_default()
+            }
+            GraphicsWindowBackendState::Mapped(mapped_window) => {
+                let winit_window = &*mapped_window.opengl_context.window();
+                let size = winit_window.inner_size();
+                euclid::Size2D::new(size.width, size.height)
+            }
+        }
+    }
+
+    fn set_inner_size(&self, size: euclid::Size2D<u32, PhysicalPx>) {
+        match &mut *self.map_state.borrow_mut() {
+            GraphicsWindowBackendState::Unmapped { requested_size, .. } => {
+                *requested_size = Some(size)
+            }
+            GraphicsWindowBackendState::Mapped(mapped_window) => {
+                let winit_window = &*mapped_window.opengl_context.window();
+                winit_window.set_inner_size(winit::dpi::Size::new(winit::dpi::PhysicalSize::new(
+                    size.width,
+                    size.height,
+                )))
             }
         }
     }
@@ -832,7 +870,10 @@ impl Drop for MappedWindow {
 }
 
 enum GraphicsWindowBackendState {
-    Unmapped { requested_position: Option<euclid::Point2D<i32, PhysicalPx>> },
+    Unmapped {
+        requested_position: Option<euclid::Point2D<i32, PhysicalPx>>,
+        requested_size: Option<euclid::Size2D<u32, PhysicalPx>>,
+    },
     Mapped(MappedWindow),
 }
 

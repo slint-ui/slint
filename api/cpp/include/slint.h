@@ -188,6 +188,13 @@ public:
         cbindgen_private::slint_windowrc_set_position(&inner, pos.x, pos.y);
     }
 
+    slint::Size<unsigned int> size() const { return cbindgen_private::slint_windowrc_size(&inner); }
+
+    void set_size(const slint::Size<unsigned int> &size)
+    {
+        cbindgen_private::slint_windowrc_set_size(&inner, &size);
+    }
+
 private:
     cbindgen_private::WindowRcOpaque inner;
 };
@@ -385,6 +392,14 @@ public:
     /// a window frame (if present).
     /// Note that on some windowing systems, such as Wayland, this functionality is not available.
     void set_position(const slint::Point<int> &pos) { inner.set_position(pos); }
+
+    /// Returns the size of the window on the screen, in physical screen coordinates and excluding
+    /// a window frame (if present).
+    slint::Size<unsigned int> size() const { return inner.size(); }
+
+    /// Resizes the window to the specified size on the screen, in physical pixels and excluding
+    /// a window frame (if present).
+    void set_size(const slint::Size<unsigned int> &size) { inner.set_size(size); }
 
     /// \private
     private_api::WindowRc &window_handle() { return inner; }
