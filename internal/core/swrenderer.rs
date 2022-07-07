@@ -151,7 +151,7 @@ impl SoftwareRenderer {
 
             render_window_frame_by_line(window_item.background(), line_buffer, &mut scene);
 
-            self.last_scene_capacities.set((&scene).into());
+            self.last_scene_capacities.set(scene.capacities());
         } else {
             Default::default()
         }
@@ -366,6 +366,14 @@ impl Scene {
         // check that current items are properly sorted
         debug_assert!(self.items[0..self.current_items_index].windows(2).all(|x| x[0].z >= x[1].z));
     }
+
+    fn capacities(&self) -> SceneCapacities {
+        SceneCapacities {
+            num_items: self.items.len(),
+            num_textures: self.textures.len(),
+            num_rounded_rectangles: self.rounded_rectangles.len(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -531,16 +539,6 @@ struct SceneCapacities {
     num_items: usize,
     num_textures: usize,
     num_rounded_rectangles: usize,
-}
-
-impl From<&Scene> for SceneCapacities {
-    fn from(scene: &Scene) -> Self {
-        Self {
-            num_items: scene.items.len(),
-            num_textures: scene.textures.len(),
-            num_rounded_rectangles: scene.rounded_rectangles.len(),
-        }
-    }
 }
 
 struct PrepareScene {
