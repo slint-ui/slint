@@ -11,6 +11,8 @@ All notable changes to this project are documented in this file.
  - Added support for `slint::Window::set_position` and `slint::Window::position` to set and get the
    placement of the window on the screen.
  - Added `slint::Window::scale_factor()` as getter to read the system device pixel ratio.
+ - Added support for `slint::Window::set_size` and `slint::Window::size` to set and get the
+   size of the window on the screen.
 
 ## [0.2.5] - 2022-07-06
 
