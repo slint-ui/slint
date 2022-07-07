@@ -35,12 +35,12 @@ pub trait WinitWindow: PlatformWindow {
     );
     /// Get the size of the window. Unlike [`winit::window::Window::inner_size()`], this property does not
     /// hold the most recent window size as known by the OS but the latest size that has been processed
-    /// as a [`WindowEvent::Resized`] by [`process_window_event()`].
-    fn size(&self) -> winit::dpi::LogicalSize<f32>;
+    /// by [`WinitWindow::apply_window_properties()`].
+    fn existing_size(&self) -> winit::dpi::LogicalSize<f32>;
     /// Set the size of the window. Unlike [`winit::window::Window::set_inner_size()`], this property does not
     /// hold the most recent window size as known by the OS but the latest size that has been processed
-    /// as a [`WindowEvent::Resized`] by [`process_window_event()`].
-    fn set_size(&self, size: winit::dpi::LogicalSize<f32>);
+    /// by [`WinitWindow::apply_window_properties()`].
+    fn set_existing_size(&self, size: winit::dpi::LogicalSize<f32>);
     fn set_background_color(&self, color: Color);
     fn set_icon(&self, icon: corelib::graphics::Image);
 
@@ -142,7 +142,7 @@ pub trait WinitWindow: PlatformWindow {
                 }
             }
 
-            let existing_size = self.size();
+            let existing_size = self.existing_size();
 
             if (existing_size.width as f32 - width).abs() > 1.
                 || (existing_size.height as f32 - height).abs() > 1.
@@ -153,7 +153,7 @@ pub trait WinitWindow: PlatformWindow {
                 if winit_window.fullscreen().is_none() {
                     let new_size = winit::dpi::LogicalSize::new(width, height);
                     winit_window.set_inner_size(new_size);
-                    self.set_size(new_size);
+                    self.set_existing_size(new_size);
                 }
             }
         });

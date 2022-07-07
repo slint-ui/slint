@@ -37,7 +37,7 @@ pub struct GLWindow {
     map_state: RefCell<GraphicsWindowBackendState>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
-    size: Cell<winit::dpi::LogicalSize<f32>>,
+    existing_size: Cell<winit::dpi::LogicalSize<f32>>,
 
     pub(crate) graphics_cache: ItemGraphicsCache,
     // This cache only contains textures. The cache for decoded CPU side images is in crate::IMAGE_CACHE.
@@ -73,7 +73,7 @@ impl GLWindow {
             }),
             keyboard_modifiers: Default::default(),
             currently_pressed_key_code: Default::default(),
-            size: Default::default(),
+            existing_size: Default::default(),
             graphics_cache: Default::default(),
             texture_cache: Default::default(),
             rendering_metrics_collector: RenderingMetricsCollector::new(window_weak.clone()),
@@ -265,12 +265,12 @@ impl WinitWindow for GLWindow {
         }
     }
 
-    fn size(&self) -> winit::dpi::LogicalSize<f32> {
-        self.size.get()
+    fn existing_size(&self) -> winit::dpi::LogicalSize<f32> {
+        self.existing_size.get()
     }
 
-    fn set_size(&self, size: winit::dpi::LogicalSize<f32>) {
-        self.size.set(size);
+    fn set_existing_size(&self, size: winit::dpi::LogicalSize<f32>) {
+        self.existing_size.set(size);
     }
 
     fn set_background_color(&self, color: Color) {
