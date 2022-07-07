@@ -915,4 +915,31 @@ pub mod ffi {
         let window = &*(handle as *const WindowRc);
         window.request_redraw();
     }
+
+    /// Returns the position of the window on the screen, in physical screen coordinates and including
+    /// a window frame (if present).
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_position(
+        handle: *const WindowRcOpaque,
+        x: &mut i32,
+        y: &mut i32,
+    ) {
+        let window = &*(handle as *const WindowRc);
+        let pos = window.position();
+        *x = pos.x;
+        *y = pos.y;
+    }
+
+    /// Sets the position of the window on the screen, in physical screen coordinates and including
+    /// a window frame (if present).
+    /// Note that on some windowing systems, such as Wayland, this functionality is not available.
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_set_position(
+        handle: *const WindowRcOpaque,
+        x: i32,
+        y: i32,
+    ) {
+        let window = &*(handle as *const WindowRc);
+        window.set_position([x, y].into());
+    }
 }

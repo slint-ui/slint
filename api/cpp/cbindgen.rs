@@ -301,6 +301,8 @@ fn gen_corelib(
             "slint_windowrc_set_rendering_notifier",
             "slint_windowrc_request_redraw",
             "slint_windowrc_on_close_requested",
+            "slint_windowrc_position",
+            "slint_windowrc_set_position",
             "slint_new_path_elements",
             "slint_new_path_events",
             "slint_color_brighter",
@@ -429,6 +431,7 @@ fn gen_corelib(
         .with_include("slint_brush.h")
         .with_include("slint_generated_public.h")
         .with_include("slint_enums_internal.h")
+        .with_include("slint_point.h")
         .with_after_include(
             r"
 namespace slint {

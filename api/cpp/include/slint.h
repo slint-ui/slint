@@ -175,6 +175,19 @@ public:
 
     void request_redraw() const { cbindgen_private::slint_windowrc_request_redraw(&inner); }
 
+    slint::Point<int> position() const
+    {
+        int x = 0;
+        int y = 0;
+        cbindgen_private::slint_windowrc_position(&inner, &x, &y);
+        return { x, y };
+    }
+
+    void set_position(const slint::Point<int> &pos)
+    {
+        cbindgen_private::slint_windowrc_set_position(&inner, pos.x, pos.y);
+    }
+
 private:
     cbindgen_private::WindowRcOpaque inner;
 };
@@ -363,6 +376,15 @@ public:
 
     /// This function issues a request to the windowing system to redraw the contents of the window.
     void request_redraw() const { inner.request_redraw(); }
+
+    /// Returns the position of the window on the screen, in physical screen coordinates and
+    /// including a window frame (if present).
+    slint::Point<int> position() const { return inner.position(); }
+
+    /// Sets the position of the window on the screen, in physical screen coordinates and including
+    /// a window frame (if present).
+    /// Note that on some windowing systems, such as Wayland, this functionality is not available.
+    void set_position(const slint::Point<int> &pos) { inner.set_position(pos); }
 
     /// \private
     private_api::WindowRc &window_handle() { return inner; }
@@ -614,7 +636,8 @@ protected:
     }
 
     /// Notify the views that the model has been changed and that everything needs to be reloaded
-    void reset() {
+    void reset()
+    {
         model_row_count_dirty_property.mark_dirty();
         tracked_rows.clear();
         model_row_data_dirty_property.mark_dirty();
@@ -776,7 +799,8 @@ class Repeater
                 data[i].state = State::Dirty;
             }
         }
-        void reset() override {
+        void reset() override
+        {
             is_dirty.set(true);
             data.clear();
         }
@@ -862,10 +886,11 @@ public:
     vtable::VWeak<private_api::ComponentVTable> component_at(int i) const
     {
         const auto &x = inner->data.at(i);
-        return vtable::VWeak<private_api::ComponentVTable>{x.ptr->into_dyn()};
+        return vtable::VWeak<private_api::ComponentVTable> { x.ptr->into_dyn() };
     }
 
-    private_api::IndexRange index_range() const {
+    private_api::IndexRange index_range() const
+    {
         return private_api::IndexRange { 0, inner->data.size() };
     }
 
