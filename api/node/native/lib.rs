@@ -533,6 +533,34 @@ declare_types! {
 
             Ok(JsUndefined::new().as_value(&mut cx))
         }
+
+        method get_size(mut cx) {
+            let this = cx.this();
+            let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
+            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let size = window.inner_size();
+
+            let size_object = JsObject::new(&mut cx);
+            let width_value = JsNumber::new(&mut cx, size.width).as_value(&mut cx);
+            size_object.set(&mut cx, "width", width_value)?;
+            let height_value = JsNumber::new(&mut cx, size.height).as_value(&mut cx);
+            size_object.set(&mut cx, "height", height_value)?;
+            Ok(size_object.as_value(&mut cx))
+        }
+
+        method set_size(mut cx) {
+            let this = cx.this();
+            let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
+            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+
+            let size_object = cx.argument::<JsObject>(0)?;
+            let width = size_object.get(&mut cx, "width")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
+            let height = size_object.get(&mut cx, "height")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
+
+            window.set_inner_size([width as u32, height as u32].into());
+
+            Ok(JsUndefined::new().as_value(&mut cx))
+        }
     }
 }
 

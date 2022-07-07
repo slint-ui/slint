@@ -59,10 +59,16 @@ interface Point {
     y: Number;
 }
 
+interface Size {
+    width: Number;
+    height: Number;
+}
+
 interface SlintWindow {
     show(): void;
     hide(): void;
     position: Point;
+    size: Size;
 }
 
 /**
@@ -86,6 +92,12 @@ class WindowAPI implements SlintWindow {
     }
     set position(pos: Point) {
         this.impl.set_position(pos);
+    }
+    get size(): Size {
+        return this.impl.get_size();
+    }
+    set size(size: Size) {
+        this.impl.set_size(size);
     }
 }
 
