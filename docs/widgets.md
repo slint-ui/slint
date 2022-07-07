@@ -79,7 +79,7 @@ import { ToggleButton, VerticalBox } from "std-widgets.slint";
 Example := Window {
   VerticalBox {
     ToggleButton {
-      text: is-checked ? "ON" : "OFF";
+      text: checked ? "ON" : "OFF";
     }
   }
 }
