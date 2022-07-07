@@ -17,15 +17,15 @@ TestCase := Rectangle {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-assert(instance.get_checked(),);
+assert(instance.get_checked());
 
 // click on button
 slint::testing::send_mouse_click(&instance, 50., 50.);
-assert(!instance.get_checked(),);
+assert(!instance.get_checked());
 
 // click on button again
 slint::testing::send_mouse_click(&instance, 50., 50.);
-assert(instance.get_checked(),);
+assert(instance.get_checked());
 
 ```
 
