@@ -1768,6 +1768,22 @@ impl PlatformWindow for QtWindow {
             widget_ptr->move(pos);
         }};
     }
+
+    fn inner_size(&self) -> euclid::Size2D<u32, PhysicalPx> {
+        let widget_ptr = self.widget_ptr();
+        let sz = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QSize as "QSize" {
+            return widget_ptr->size();
+        }};
+        euclid::Size2D::new(sz.width as _, sz.height as _)
+    }
+
+    fn set_inner_size(&self, size: euclid::Size2D<u32, PhysicalPx>) {
+        let widget_ptr = self.widget_ptr();
+        let sz = qttypes::QSize { width: size.width as _, height: size.height as _ };
+        cpp! {unsafe [widget_ptr as "QWidget*", sz as "QSize"] {
+            widget_ptr->resize(sz);
+        }};
+    }
 }
 
 fn accessible_item(item: Option<ItemRc>) -> Option<ItemRc> {

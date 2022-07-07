@@ -178,6 +178,18 @@ impl Window {
     pub fn set_position(&self, position: euclid::Point2D<i32, PhysicalPx>) {
         self.0.set_position(position)
     }
+
+    /// Returns the size of the window on the screen, in physical screen coordinates and excluding
+    /// a window frame (if present).
+    pub fn size(&self) -> euclid::Size2D<u32, PhysicalPx> {
+        self.0.inner_size()
+    }
+
+    /// Resizes the window to the specified size on the screen, in physical pixels and excluding
+    /// a window frame (if present).
+    pub fn set_size(&self, size: euclid::Size2D<u32, PhysicalPx>) {
+        self.0.set_inner_size(size)
+    }
 }
 
 impl crate::window::WindowHandleAccess for Window {

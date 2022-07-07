@@ -127,6 +127,14 @@ pub trait PlatformWindow {
     /// Sets the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     fn set_position(&self, position: euclid::Point2D<i32, PhysicalPx>);
+
+    /// Returns the size of the window on the screen, in physical screen coordinates and excluding
+    /// a window frame (if present).
+    fn inner_size(&self) -> euclid::Size2D<u32, PhysicalPx>;
+
+    /// Resizes the window to the specified size on the screen, in physical pixels and excluding
+    /// a window frame (if present).
+    fn set_inner_size(&self, size: euclid::Size2D<u32, PhysicalPx>);
 }
 
 struct WindowPropertiesTracker {
@@ -721,6 +729,7 @@ pub mod ffi {
 
     use super::*;
     use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
+    use crate::graphics::IntSize;
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
@@ -941,5 +950,24 @@ pub mod ffi {
     ) {
         let window = &*(handle as *const WindowRc);
         window.set_position([x, y].into());
+    }
+
+    /// Returns the size of the window on the screen, in physical screen coordinates and excluding
+    /// a window frame (if present).
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_size(handle: *const WindowRcOpaque) -> IntSize {
+        let window = &*(handle as *const WindowRc);
+        window.inner_size().to_untyped().cast()
+    }
+
+    /// Resizes the window to the specified size on the screen, in physical pixels and excluding
+    /// a window frame (if present).
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_set_size(
+        handle: *const WindowRcOpaque,
+        size: &IntSize,
+    ) {
+        let window = &*(handle as *const WindowRc);
+        window.set_inner_size([size.width, size.height].into());
     }
 }
