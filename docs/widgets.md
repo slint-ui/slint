@@ -66,7 +66,7 @@ back to un-`pressed` state by clicking again.
 
 ### Properties
 
-- **`checked`** (_bool_): Shows whether the button is toggled or not
+- **`checked`** (*bool*): Shows whether the button is toggled or not
 
 ### Callbacks
 
