@@ -729,7 +729,7 @@ cpp! {{
             }
         }), current_children.end());
 
-        return current_children;
+        return std::move(current_children);
     }
 
     int indexOfItem(const QList<QObject *> &existing, void *item) {
