@@ -84,7 +84,9 @@ fn lower_state_in_element(
                     e.get_mut().get_mut().expression = new_expr
                 }
                 std::collections::btree_map::Entry::Vacant(e) => {
-                    e.insert(RefCell::new(new_expr.into()));
+                    let mut r = BindingExpression::from(new_expr);
+                    r.priority = 1;
+                    e.insert(r.into());
                 }
             };
         }
