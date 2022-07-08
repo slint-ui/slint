@@ -9,6 +9,7 @@ export OpacityTwoWay := Rectangle {
 }
 
 export Compo := Rectangle {
+    preferred-height: 10px;
     property<int> foo <=> self.bar;
     property<int> bar: 120;
 }
@@ -23,11 +24,18 @@ TestCase := Window {
         otw2 := OpacityTwoWay { sub_opacity: 0.5; }
     }
 
+    property <int> override_bar: 22;
+    force_instance := VerticalLayout {
+        if true : Compo { bar <=> override_bar; }
+    }
+
     property <int> compo0_foo: compo0.foo;
     property <int> compo2_foo: compo2.foo;
     property <float> otw_opacity <=> otw.sub_opacity;
 
-    property <bool> test: compo0_foo == 140 && compo2_foo == 130 && otw_opacity == 0.5 && otw2.sub_opacity == 0.5;
+    property <bool> test_override_bar: force_instance.preferred-height == 10px && override_bar == 22;
+
+    property <bool> test: compo0_foo == 140 && compo2_foo == 130 && otw_opacity == 0.5 && otw2.sub_opacity == 0.5 && test_override_bar;
 }
 
 /*
@@ -37,6 +45,8 @@ let instance = TestCase::new();
 assert_eq!(instance.get_compo0_foo(), 140);
 assert_eq!(instance.get_compo2_foo(), 130);
 assert_eq!(instance.get_otw_opacity(), 0.5);
+assert!(instance.get_test_override_bar(), "override_bar = {}", instance.get_override_bar());
+assert!(instance.get_test());
 ```
 
 
@@ -47,6 +57,7 @@ const TestCase &instance = *handle;
 assert_eq(instance.get_compo0_foo(), 140);
 assert_eq(instance.get_compo2_foo(), 130);
 assert_eq(instance.get_otw_opacity(), 0.5);
+assert(instance.get_test());
 ```
 
 
@@ -55,6 +66,7 @@ let instance = new slint.TestCase({});
 assert.equal(instance.compo0_foo, 140);
 assert.equal(instance.compo2_foo, 130);
 assert.equal(instance.otw_opacity, 0.5);
+assert(instance.test);
 ```
 
 */
