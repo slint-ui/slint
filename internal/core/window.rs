@@ -930,13 +930,10 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_position(
         handle: *const WindowRcOpaque,
-        x: &mut i32,
-        y: &mut i32,
+        pos: &mut euclid::default::Point2D<i32>,
     ) {
         let window = &*(handle as *const WindowRc);
-        let pos = window.position();
-        *x = pos.x;
-        *y = pos.y;
+        *pos = window.position().to_untyped()
     }
 
     /// Sets the position of the window on the screen, in physical screen coordinates and including
