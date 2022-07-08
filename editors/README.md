@@ -172,6 +172,6 @@ Tested with: CLion 2022.1 (on linux)
 1. Install the "LSP Support"-plugin (https://plugins.jetbrains.com/plugin/10209-lsp-support). The docs can be found at https://github.com/gtache/intellij-lsp
 2. Install slint-lsp `cargo install slint-lsp`
 4. Go to File -> Settings -> Languages & Frameworks -> Language Server Protocol -> Server Definitions
-5. Choose "Executable". In "Extension" put "slint" and set "Path" to "/home/<user>/.cargo/bin/slint-lsp"
+5. Choose "Executable". In "Extension" put "slint" and set "Path" to "/home/\<username\>/.cargo/bin/slint-lsp"
 6. Press the "+"-button
 7. Restart IDE
