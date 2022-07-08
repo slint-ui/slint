@@ -151,9 +151,7 @@ pub trait WinitWindow: PlatformWindow {
                 // size we've been assigned to from the windowing system. Weston/Wayland don't like it
                 // when we create a surface that's bigger than the screen due to constraints (#532).
                 if winit_window.fullscreen().is_none() {
-                    let new_size = winit::dpi::LogicalSize::new(width, height);
-                    winit_window.set_inner_size(new_size);
-                    self.set_existing_size(new_size);
+                    winit_window.set_inner_size(winit::dpi::LogicalSize::new(width, height));
                 }
             }
         });
@@ -380,6 +378,7 @@ fn process_window_event(
         WindowEvent::Resized(size) => {
             let size = size.to_logical(runtime_window.scale_factor() as f64);
             runtime_window.set_window_item_geometry(size.width, size.height);
+            window.set_existing_size(size);
         }
         WindowEvent::CloseRequested => {
             if runtime_window.request_close() {
