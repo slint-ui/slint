@@ -110,10 +110,12 @@ pub struct NativeButton {
     pub height: Property<f32>,
     pub text: Property<SharedString>,
     pub icon: Property<i_slint_core::graphics::Image>,
-    pub enabled: Property<bool>,
     pub pressed: Property<bool>,
+    pub checkable: Property<bool>,
+    pub checked: Property<bool>,
     pub has_focus: Property<bool>,
     pub clicked: Callback<VoidArg>,
+    pub enabled: Property<bool>,
     pub standard_button_kind: Property<StandardButtonKind>,
     pub is_standard_button: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
@@ -177,6 +179,15 @@ impl NativeButton {
                 return QPixmap();
             return style->standardPixmap(style_icon);
         })
+    }
+
+    fn activate(self: Pin<&Self>) {
+        Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
+        if self.checkable() {
+            let checked = Self::FIELD_OFFSETS.checked.apply_pin(self);
+            checked.set(!checked.get());
+        }
+        Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
     }
 }
 
@@ -253,7 +264,7 @@ impl Item for NativeButton {
         });
         if let MouseEvent::MouseReleased { pos, .. } = event {
             if euclid::rect(0., 0., self.width(), self.height()).contains(pos) {
-                Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
+                self.activate();
             }
             InputEventResult::EventAccepted
         } else {
@@ -269,8 +280,7 @@ impl Item for NativeButton {
             }
             KeyEventType::KeyPressed => KeyEventResult::EventIgnored,
             KeyEventType::KeyReleased if event.text == " " || event.text == "\n" => {
-                Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
-                Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
+                self.activate();
                 KeyEventResult::EventAccepted
             }
             KeyEventType::KeyReleased => KeyEventResult::EventIgnored,
@@ -291,6 +301,7 @@ impl Item for NativeButton {
 
     fn_render! { this dpr size painter widget initial_state =>
         let down: bool = this.pressed();
+        let checked: bool = this.checked();
         let standard_button_kind = this.actual_standard_button_kind();
         let text: qttypes::QString = this.actual_text(standard_button_kind);
         let icon: qttypes::QPixmap = this.actual_icon(standard_button_kind);
@@ -305,6 +316,7 @@ impl Item for NativeButton {
             enabled as "bool",
             size as "QSize",
             down as "bool",
+            checked as "bool",
             has_focus as "bool",
             dpr as "float",
             initial_state as "int"
@@ -316,10 +328,14 @@ impl Item for NativeButton {
             auto iconSize = qApp->style()->pixelMetric(QStyle::PM_ButtonIconSize, 0, nullptr);
             option.iconSize = QSize(iconSize, iconSize);
             option.rect = QRect(QPoint(), size / dpr);
-            if (down)
+            if (down) {
                 option.state |= QStyle::State_Sunken;
-            else
+            } else {
                 option.state |= QStyle::State_Raised;
+            }
+            if (checked) {
+                option.state |= QStyle::State_On;
+            }
             if (enabled) {
                 option.state |= QStyle::State_Enabled;
             } else {

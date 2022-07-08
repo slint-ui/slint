@@ -5,17 +5,19 @@
 
 use crate::items::ItemRc;
 
+// The property names of the accessible-properties
 #[repr(C)]
 #[derive(PartialEq, Eq, Copy, Clone, strum::Display)]
 #[strum(serialize_all = "kebab-case")]
 pub enum AccessibleStringProperty {
-    Label,
+    Checkable,
+    Checked,
     DelegateFocus,
     Description,
-    Checked,
+    Label,
     Value,
-    ValueMinimum,
     ValueMaximum,
+    ValueMinimum,
     ValueStep,
 }
 

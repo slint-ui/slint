@@ -88,6 +88,7 @@ pub(crate) const RESERVED_DROP_SHADOW_PROPERTIES: &[(&str, Type)] = &[
 
 pub(crate) const RESERVED_ACCESSIBILITY_PROPERTIES: &[(&str, Type)] = &[
     //("accessible-role", ...)
+    ("accessible-checkable", Type::Bool),
     ("accessible-checked", Type::Bool),
     ("accessible-delegate-focus", Type::Int32),
     ("accessible-description", Type::String),

@@ -68,11 +68,13 @@ export global StyleMetrics := {
 }
 
 export Button := Rectangle {
-    callback clicked <=> touch.clicked;
+    callback clicked;
     property<string> text <=> text.text;
     property<bool> has-focus <=> fs.has-focus;
     property<bool> pressed: self.enabled && touch.pressed;
     property<bool> enabled <=> touch.enabled;
+    property<bool> checkable;
+    property<bool> checked;
     property<image> icon;
     property<length> font-size <=> text.font-size;
 
@@ -83,7 +85,7 @@ export Button := Rectangle {
     border-radius: 2px;
     border-color: !enabled ? Palette.neutralLighter : Palette.neutralSecondaryAlt;
     background: !enabled ? Palette.neutralLighter
-        : touch.pressed ? Palette.neutralLight
+        : (touch.pressed || checked) ? Palette.neutralLight
         : touch.has-hover ? Palette.neutralLighter
         : Palette.white;
     horizontal-stretch: 0;
@@ -109,7 +111,14 @@ export Button := Rectangle {
         }
     }
 
-    touch := TouchArea {}
+    touch := TouchArea {
+        clicked => {
+            if (root.checkable) {
+                root.checked = !root.checked;
+            }
+            root.clicked();
+        }
+    }
 
     fs := FocusScope {
         width: 0px; // Do not react on clicks

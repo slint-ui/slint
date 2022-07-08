@@ -55,6 +55,17 @@ App := Window {
                         }
 
                         GroupBox {
+                            title: "Button (checkable)";
+                            enabled: !disable-toggle.checked;
+
+                            Button {
+                                checkable: true;
+                                text: checked ? "ON" : "OFF";
+                                enabled: !disable-toggle.checked;
+                            }
+                        }
+
+                        GroupBox {
                             title: "CheckBox";
                             enabled: !disable-toggle.checked;
                             checkbox := CheckBox {

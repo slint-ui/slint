@@ -3,6 +3,12 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Added
+
+ - `Button`: Add a `checkable` property that turns the button into a toggle
+   button. Use the new `checked` property to query whether the toggle button
+   is pressed down or not.
+
 ## [0.2.5] - 2022-07-06
 
 ### Changed
@@ -220,7 +226,7 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 ### Fixed
 
  - Fixed panic when using `TabWidget` with `Text` elements and the native style.
- - Fixed panic when caling `hide()` on a `sixtyfps::Window` from within a callback triggered by keyboard/mouse input
+ - Fixed panic when calling `hide()` on a `sixtyfps::Window` from within a callback triggered by keyboard/mouse input
    when using the GL backend.
  - Rust: The implementation of <code>ModelModel::set_row_data</code> now forward the call to the inner model
 

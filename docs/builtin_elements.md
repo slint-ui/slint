@@ -35,6 +35,7 @@ Use the following `accessible-` properties to make your items interact well with
   The  default value is empty for most elements, or is the value of the `text` property for Text
   elements.
 * **`accessible-description`** (*string*): The description for the current element.
+* **`accessible-checkable`** (*bool*): Whether the element is can be checked or not.
 * **`accessible-checked`** (*bool*): Whether the element is checked or not. This maps to the "checked" state of checkboxes, radio buttons, and other widgets.
 * **`accessible-has-focus`** (*bool*): Set to true when the current element currently has the focus.
 * **`accessible-value`** (*string*): The current value of the item.
