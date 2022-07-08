@@ -19,6 +19,8 @@ Sub := Rectangle {
 
 }
 
+Interm := Sub {}
+
 X := Rectangle {
     property <string> some_value: "Hello";
 
@@ -51,9 +53,24 @@ X := Rectangle {
     property <string> b8;
     property <string> b9 <=> some_value;
     if false: Sub {
-        state_prop <=> b8; // warn
+        state_prop <=> b8;
 //      ^warning{Two way binding between the property 'state-prop' with a default value to the property 'root.b8' without value.}
         Sub {  state_prop <=> b9; }
     }
+
+    s10 := Interm {}
+    s11 := Interm {
+        default: "";
+        state_prop <=> s10.default;
+        alias_default <=> s10.alias-no-default;
+//      ^warning{Two way binding between the property 'alias-default' with a default value to the property 's10.alias-no-default' without value.}
+
+        Sub {
+            alias-default <=> s10.default;
+//          ^warning{Two way binding between the property 'alias-default' with a default value to the property 's10.default' without value.}
+            default <=> s11.default;
+        }
+    }
+
 
 }
