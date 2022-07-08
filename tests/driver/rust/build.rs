@@ -116,6 +116,8 @@ fn generate_source(
             std::io::ErrorKind::Other,
             format!("build error in {:?}", testcase.absolute_path),
         ));
+    } else {
+        diag.print();
     }
 
     generator::generate(generator::OutputFormat::Rust, output, &root_component)?;

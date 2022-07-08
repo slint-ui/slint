@@ -143,13 +143,13 @@ fn process_tabwidget(
         "num-tabs".to_owned(),
         RefCell::new(Expression::NumberLiteral(num_tabs as _, Unit::None).into()),
     );
-    tabbar.borrow_mut().bindings.insert(
-        "current".to_owned(),
-        BindingExpression::new_two_way(NamedReference::new(elem, "current-index")).into(),
+    elem.borrow_mut().bindings.insert(
+        "current-index".to_owned(),
+        BindingExpression::new_two_way(NamedReference::new(&tabbar, "current")).into(),
     );
-    tabbar.borrow_mut().bindings.insert(
+    elem.borrow_mut().bindings.insert(
         "current-focused".to_owned(),
-        BindingExpression::new_two_way(NamedReference::new(elem, "current-focused")).into(),
+        BindingExpression::new_two_way(NamedReference::new(&tabbar, "current-focused")).into(),
     );
     elem.borrow_mut().bindings.insert(
         "tabbar-preferred-width".to_owned(),

@@ -70,7 +70,12 @@ fn process_diagnostics(
 
     let mut diags = compile_diagnostics
         .iter()
-        .filter(|d| canonical(d.source_file().unwrap()) == path)
+        .filter(|d| {
+            canonical(
+                d.source_file()
+                    .unwrap_or_else(|| panic!("{path:?}: Error without a source file {d:?}",)),
+            ) == path
+        })
         .collect::<Vec<_>>();
 
     let lines = source
