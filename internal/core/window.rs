@@ -945,11 +945,10 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_set_position(
         handle: *const WindowRcOpaque,
-        x: i32,
-        y: i32,
+        pos: &euclid::default::Point2D<i32>,
     ) {
         let window = &*(handle as *const WindowRc);
-        window.set_position([x, y].into());
+        window.set_position(euclid::Point2D::from_untyped(*pos));
     }
 
     /// Returns the size of the window on the screen, in physical screen coordinates and excluding
