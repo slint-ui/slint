@@ -66,6 +66,7 @@ export TextEdit := ScrollView {
     }
 
     input := TextInput {
+        enabled: true;
         edited => { root.edited(self.text); }
         color: enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
         single-line: false;
