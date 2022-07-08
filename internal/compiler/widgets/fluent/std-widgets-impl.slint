@@ -85,7 +85,7 @@ export Button := Rectangle {
     border-radius: 2px;
     border-color: !enabled ? Palette.neutralLighter : Palette.neutralSecondaryAlt;
     background: !enabled ? Palette.neutralLighter
-        : touch.pressed || checked ? Palette.neutralLight
+        : (touch.pressed || checked) ? Palette.neutralLight
         : touch.has-hover ? Palette.neutralLighter
         : Palette.white;
     horizontal-stretch: 0;
