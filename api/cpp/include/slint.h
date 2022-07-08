@@ -177,10 +177,9 @@ public:
 
     slint::Point<int> position() const
     {
-        int x = 0;
-        int y = 0;
-        cbindgen_private::slint_windowrc_position(&inner, &x, &y);
-        return { x, y };
+        slint::Point<int> pos { 0, 0 };
+        cbindgen_private::slint_windowrc_position(&inner, &pos);
+        return pos;
     }
 
     void set_position(const slint::Point<int> &pos)
