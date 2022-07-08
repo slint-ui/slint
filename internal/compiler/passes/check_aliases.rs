@@ -20,12 +20,12 @@ pub fn check_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
             if b.borrow().two_way_bindings.is_empty() {
                 continue;
             }
-            if !has_default_binding(&base.root_element, prop) {
-                continue;
-            }
-            for nr in &b.borrow().two_way_bindings {
-                if !has_default_binding(&nr.element(), nr.name()) {
-                    diag.push_warning(
+            if let Some(lhs_prio) = explicit_binding_priority(&base.root_element, prop) {
+                for nr in &b.borrow().two_way_bindings {
+                    if explicit_binding_priority(&nr.element(), nr.name())
+                        .map_or(true, |rhs_prio| rhs_prio > lhs_prio.saturating_add(1))
+                    {
+                        diag.push_warning(
                         format!(
 r#"Two way binding between the property '{prop}' with a default value to the property '{nr:?}' without value.
 The current behavior is to keep the value from the left-hand-side, but this behavior will change in the next version to always keep the right-hand-side value.
@@ -33,28 +33,30 @@ This may cause panic at runtime. See https://github.com/slint-ui/slint/issues/13
 To fix this warning, add a default value to the property '{nr:?}'"#,
             ),
              &b.borrow().span);
+                    }
                 }
             }
         }
     });
 }
 
-/// return whether the property has an actual default binding value set
-fn has_default_binding(elem: &ElementRc, name: &str) -> bool {
+/// Return whether the property has an actual binding value set,
+/// in that case return its priority
+fn explicit_binding_priority(elem: &ElementRc, name: &str) -> Option<i32> {
     if let Some(b) = elem.borrow().bindings.get(name) {
         if !matches!(b.borrow().expression, Expression::Invalid) {
-            true
+            Some(b.borrow().priority.max(1))
         } else {
             for nr in &b.borrow().two_way_bindings {
-                if has_default_binding(&nr.element(), nr.name()) {
-                    return true;
+                if let Some(p) = explicit_binding_priority(&nr.element(), nr.name()) {
+                    return Some(p.saturating_add(b.borrow().priority.max(1)) - 1);
                 }
             }
-            false
+            None
         }
     } else if let Type::Component(base) = &elem.borrow().base_type {
-        has_default_binding(&base.root_element, name)
+        explicit_binding_priority(&base.root_element, name).map(|p| p.saturating_add(1))
     } else {
-        false
+        None
     }
 }
