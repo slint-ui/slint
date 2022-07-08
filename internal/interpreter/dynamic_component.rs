@@ -1308,10 +1308,6 @@ pub fn instantiate(
                 let maybe_animation = animation_for_property(instance_ref, &binding.animation);
                 let item = Pin::new_unchecked(&*instance_ref.as_ptr().add(*offset));
 
-                for nr in &binding.two_way_bindings {
-                    // Safety: The compiler must have ensured that the properties exist and are of the same type
-                    prop_info.link_two_ways(item, get_property_ptr(nr, instance_ref));
-                }
                 if !matches!(binding.expression, Expression::Invalid) {
                     if is_const {
                         let v = eval::eval_expression(
@@ -1329,6 +1325,10 @@ pub fn instantiate(
                             )
                             .unwrap();
                     }
+                }
+                for nr in &binding.two_way_bindings {
+                    // Safety: The compiler must have ensured that the properties exist and are of the same type
+                    prop_info.link_two_ways(item, get_property_ptr(nr, instance_ref));
                 }
             } else {
                 let item_within_component = &component_type.items[&elem.id];
