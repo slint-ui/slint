@@ -1756,7 +1756,7 @@ impl PlatformWindow for QtWindow {
     fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
         let widget_ptr = self.widget_ptr();
         let qp = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QPoint as "QPoint" {
-            return widget_ptr->pos();
+            return widget_ptr->pos()  * widget_ptr->devicePixelRatio();
         }};
         euclid::Point2D::new(qp.x as _, qp.y as _)
     }
@@ -1765,14 +1765,14 @@ impl PlatformWindow for QtWindow {
         let widget_ptr = self.widget_ptr();
         let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
         cpp! {unsafe [widget_ptr as "QWidget*", pos as "QPoint"] {
-            widget_ptr->move(pos);
+            widget_ptr->move(pos / widget_ptr->devicePixelRatio());
         }};
     }
 
     fn inner_size(&self) -> euclid::Size2D<u32, PhysicalPx> {
         let widget_ptr = self.widget_ptr();
         let sz = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QSize as "QSize" {
-            return widget_ptr->size();
+            return widget_ptr->size() * widget_ptr->devicePixelRatio();
         }};
         euclid::Size2D::new(sz.width as _, sz.height as _)
     }
@@ -1781,7 +1781,7 @@ impl PlatformWindow for QtWindow {
         let widget_ptr = self.widget_ptr();
         let sz = qttypes::QSize { width: size.width as _, height: size.height as _ };
         cpp! {unsafe [widget_ptr as "QWidget*", sz as "QSize"] {
-            widget_ptr->resize(sz);
+            widget_ptr->resize(sz  / widget_ptr->devicePixelRatio());
         }};
     }
 }
