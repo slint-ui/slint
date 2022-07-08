@@ -254,7 +254,9 @@ struct BindingVTable {
 }
 
 /// A binding trait object can be used to dynamically produces values for a property.
-trait BindingCallable {
+///
+/// Safety: IS_TWO_WAY_BINDNG cannot be true if Self is not a TwoWayBinding
+unsafe trait BindingCallable {
     /// This function is called by the property to evaluate the binding and produce a new value. The
     /// previous property value is provided in the value parameter.
     unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult;
@@ -278,9 +280,12 @@ trait BindingCallable {
     unsafe fn intercept_set_binding(self: Pin<&Self>, _new_binding: *mut BindingHolder) -> bool {
         false
     }
+
+    /// Set to true if and only if Self is a TwoWayBinding<T>
+    const IS_TWO_WAY_BINDNG: bool = false;
 }
 
-impl<F: Fn(*mut ()) -> BindingResult> BindingCallable for F {
+unsafe impl<F: Fn(*mut ()) -> BindingResult> BindingCallable for F {
     unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
         self(value)
     }
@@ -348,6 +353,8 @@ struct BindingHolder<B = ()> {
     vtable: &'static BindingVTable,
     /// The binding is dirty and need to be re_evaluated
     dirty: Cell<bool>,
+    /// Specify that B is a `TwoWayBinding<T>`
+    is_two_way_binding: bool,
     pinned: PhantomPinned,
     #[cfg(slint_debug_property)]
     pub debug_name: String,
@@ -426,6 +433,7 @@ fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut Bindin
         dep_nodes: Default::default(),
         vtable: <B as HasBindingVTable>::VT,
         dirty: Cell::new(true), // starts dirty so it evaluates the property when used
+        is_two_way_binding: B::IS_TWO_WAY_BINDNG,
         pinned: PhantomPinned,
         #[cfg(slint_debug_property)]
         debug_name: Default::default(),
@@ -1061,7 +1069,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         struct TwoWayBinding<T> {
             common_property: Pin<Rc<Property<T>>>,
         }
-        impl<T: PartialEq + Clone + 'static> BindingCallable for TwoWayBinding<T> {
+        unsafe impl<T: PartialEq + Clone + 'static> BindingCallable for TwoWayBinding<T> {
             unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
                 *(value as *mut T) = self.common_property.as_ref().get();
                 BindingResult::KeepBinding
@@ -1079,19 +1087,60 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
                 self.common_property.handle.set_binding_impl(new_binding);
                 true
             }
+
+            const IS_TWO_WAY_BINDNG: bool = true;
         }
 
+        #[cfg(slint_debug_property)]
+        let debug_name = format!("<{}<=>{}>", prop1.debug_name.borrow(), prop2.debug_name.borrow());
+
         let value = prop2.get();
+
+        let prop1_handle_val = prop1.handle.handle.get();
+        if prop1_handle_val & 0b10 == 0b10 {
+            // Safety: the handle is a pointer to a binding
+            let holder = unsafe { &*((prop1_handle_val & !0b11) as *const BindingHolder) };
+            if holder.is_two_way_binding {
+                unsafe {
+                    // Safety: the handle is a pointer to a binding whose B is a TwoWayBinding<T>
+                    let holder =
+                        &*((prop1_handle_val & !0b11) as *const BindingHolder<TwoWayBinding<T>>);
+                    // Safety: TwoWayBinding's T is the same as the type for both properties
+                    prop2.handle.set_binding(
+                        TwoWayBinding { common_property: holder.binding.common_property.clone() },
+                        #[cfg(slint_debug_property)]
+                        debug_name.as_str(),
+                    );
+                }
+                return;
+            }
+        };
+
         let prop2_handle_val = prop2.handle.handle.get();
         let handle = if prop2_handle_val & 0b10 == 0b10 {
+            // Safety: the handle is a pointer to a binding
+            let holder = unsafe { &*((prop2_handle_val & !0b11) as *const BindingHolder) };
+            if holder.is_two_way_binding {
+                unsafe {
+                    // Safety: the handle is a pointer to a binding whose B is a TwoWayBinding<T>
+                    let holder =
+                        &*((prop2_handle_val & !0b11) as *const BindingHolder<TwoWayBinding<T>>);
+                    // Safety: TwoWayBinding's T is the same as the type for both properties
+                    prop1.handle.set_binding(
+                        TwoWayBinding { common_property: holder.binding.common_property.clone() },
+                        #[cfg(slint_debug_property)]
+                        debug_name.as_str(),
+                    );
+                }
+                return;
+            }
             // If prop2 is a binding, just "steal it"
             prop2.handle.handle.set(0);
             PropertyHandle { handle: Cell::new(prop2_handle_val) }
         } else {
             PropertyHandle::default()
         };
-        #[cfg(slint_debug_property)]
-        let debug_name = format!("<{}<=>{}>", prop1.debug_name.borrow(), prop2.debug_name.borrow());
+
         let common_property = Rc::pin(Property {
             handle,
             value: UnsafeCell::new(value),
@@ -1269,7 +1318,7 @@ struct AnimatedBindingCallable<T, A> {
 
 type AnimationDetail = Option<(PropertyAnimation, crate::animations::Instant)>;
 
-impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCallable
+unsafe impl<T: InterpolatedPropertyValue + Clone, A: Fn() -> AnimationDetail> BindingCallable
     for AnimatedBindingCallable<T, A>
 {
     unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
@@ -2020,7 +2069,7 @@ struct StateInfoBinding<F> {
     binding: F,
 }
 
-impl<F: Fn() -> i32> crate::properties::BindingCallable for StateInfoBinding<F> {
+unsafe impl<F: Fn() -> i32> crate::properties::BindingCallable for StateInfoBinding<F> {
     unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
         // Safety: We should ony set this binding on a property of type StateInfo
         let value = &mut *(value as *mut StateInfo);
@@ -2090,6 +2139,7 @@ impl Default for PropertyTracker<()> {
             dep_nodes: Default::default(),
             vtable: VT,
             dirty: Cell::new(true), // starts dirty so it evaluates the property when used
+            is_two_way_binding: false,
             pinned: PhantomPinned,
             binding: (),
             #[cfg(slint_debug_property)]
@@ -2205,6 +2255,7 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
             dep_nodes: Default::default(),
             vtable: <ChangeHandler as HasBindingVTable>::VT,
             dirty: Cell::new(true), // starts dirty so it evaluates the property when used
+            is_two_way_binding: false,
             pinned: PhantomPinned,
             binding: handler,
             #[cfg(slint_debug_property)]
@@ -2425,7 +2476,7 @@ pub(crate) mod ffi {
             }
         }
 
-        impl<T> BindingCallable for CFunctionBinding<T> {
+        unsafe impl<T> BindingCallable for CFunctionBinding<T> {
             unsafe fn evaluate(self: Pin<&Self>, value: *mut ()) -> BindingResult {
                 (self.binding_function)(self.user_data, value as *mut T);
                 BindingResult::KeepBinding
