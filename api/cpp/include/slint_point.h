@@ -19,4 +19,11 @@ struct Point
     bool operator==(const Point &other) const = default;
 };
 
+namespace cbindgen_private {
+// The Size types are expanded to the Point2D<...> type from the euclid crate which
+// is binary compatible with Point<T>
+template<typename T>
+using Point2D = Point<T>;
+}
+
 }

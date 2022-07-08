@@ -185,7 +185,7 @@ public:
 
     void set_position(const slint::Point<int> &pos)
     {
-        cbindgen_private::slint_windowrc_set_position(&inner, pos.x, pos.y);
+        cbindgen_private::slint_windowrc_set_position(&inner, &pos);
     }
 
     slint::Size<unsigned int> size() const { return cbindgen_private::slint_windowrc_size(&inner); }
