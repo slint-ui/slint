@@ -26,7 +26,7 @@ const CHECKED: u32 = QAccessible_Text_UserText as u32;
 const VALUE_MINIMUM: u32 = CHECKED + 1;
 const VALUE_MAXIMUM: u32 = VALUE_MINIMUM + 1;
 const VALUE_STEP: u32 = VALUE_MAXIMUM + 1;
-const CAN_CHECK: u32 = VALUE_STEP + 1;
+const CHECKABLE: u32 = VALUE_STEP + 1;
 
 pub struct AccessibleItemPropertiesTracker {
     obj: *mut c_void,
@@ -203,7 +203,7 @@ impl SlintAccessibleItemData {
         let p = self.project_ref();
         p.state_tracker.evaluate_as_dependency_root(move || {
             if let Some(item_rc) = item.upgrade() {
-                item_rc.accessible_string_property(AccessibleStringProperty::CanCheck);
+                item_rc.accessible_string_property(AccessibleStringProperty::Checkable);
                 item_rc.accessible_string_property(AccessibleStringProperty::Checked);
             }
         });
@@ -263,7 +263,7 @@ cpp! {{
     const uint32_t VALUE_MINIMUM { CHECKED + 1 };
     const uint32_t VALUE_MAXIMUM { VALUE_MINIMUM + 1 };
     const uint32_t VALUE_STEP { VALUE_MAXIMUM + 1 };
-    const uint32_t CAN_CHECK { VALUE_STEP + 1 };
+    const uint32_t CHECKABLE { VALUE_STEP + 1 };
 
     // ------------------------------------------------------------------------------
     // Helper:
@@ -348,7 +348,7 @@ cpp! {{
                     VALUE_MINIMUM => item.accessible_string_property(AccessibleStringProperty::ValueMinimum),
                     VALUE_MAXIMUM => item.accessible_string_property(AccessibleStringProperty::ValueMaximum),
                     VALUE_STEP => item.accessible_string_property(AccessibleStringProperty::ValueStep),
-                    CAN_CHECK => item.accessible_string_property(AccessibleStringProperty::CanCheck),
+                    CHECKABLE => item.accessible_string_property(AccessibleStringProperty::Checkable),
                     _ => Default::default(),
                 };
                 QString::from(string.as_ref())
@@ -606,7 +606,7 @@ cpp! {{
             state.focusable = 1;
             state.focused = has_focus_delegation;
             state.checked = (checked == "true") ? 1 : 0;
-            state.checkable = (item_string_property(m_data, CAN_CHECK) == "true") ? 1 : 0;
+            state.checkable = (item_string_property(m_data, CHECKABLE) == "true") ? 1 : 0;
             return state; /* FIXME */
         }
 

@@ -111,7 +111,7 @@ pub struct NativeButton {
     pub text: Property<SharedString>,
     pub icon: Property<i_slint_core::graphics::Image>,
     pub pressed: Property<bool>,
-    pub can_check: Property<bool>,
+    pub checkable: Property<bool>,
     pub checked: Property<bool>,
     pub has_focus: Property<bool>,
     pub clicked: Callback<VoidArg>,
@@ -183,7 +183,7 @@ impl NativeButton {
 
     fn activate(self: Pin<&Self>) {
         Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
-        if self.can_check() {
+        if self.checkable() {
             let checked = Self::FIELD_OFFSETS.checked.apply_pin(self);
             checked.set(!checked.get());
         }

@@ -449,13 +449,13 @@ export NativeButton := _ {
     property <string> text;
     property <image> icon;
     property <bool> pressed: native_output;
+    property <bool> checkable;
     property <bool> checked: native_output;
     property <bool> has-focus: native_output;
     callback clicked;
     property <bool> enabled: true;
     property <StandardButtonKind> standard-button-kind;
     property <bool> is-standard-button;
-    property <bool> can-check;
     //-is_internal
 }
 

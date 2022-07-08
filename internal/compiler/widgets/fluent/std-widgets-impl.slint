@@ -73,7 +73,7 @@ export Button := Rectangle {
     property<bool> has-focus <=> fs.has-focus;
     property<bool> pressed: self.enabled && touch.pressed;
     property<bool> enabled <=> touch.enabled;
-    property<bool> can-check;
+    property<bool> checkable;
     property<bool> checked;
     property<image> icon;
     property<length> font-size <=> text.font-size;
@@ -113,7 +113,7 @@ export Button := Rectangle {
 
     touch := TouchArea {
         clicked => {
-            if (root.can-check) {
+            if (root.checkable) {
                 root.checked = !root.checked;
             }
             root.clicked();
