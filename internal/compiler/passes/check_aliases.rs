@@ -45,11 +45,11 @@ To fix this warning, add a default value to the property '{nr:?}'"#,
 fn explicit_binding_priority(elem: &ElementRc, name: &str) -> Option<i32> {
     if let Some(b) = elem.borrow().bindings.get(name) {
         if !matches!(b.borrow().expression, Expression::Invalid) {
-            Some(b.borrow().priority.max(1))
+            Some(b.borrow().priority)
         } else {
             for nr in &b.borrow().two_way_bindings {
                 if let Some(p) = explicit_binding_priority(&nr.element(), nr.name()) {
-                    return Some(p.saturating_add(b.borrow().priority.max(1)) - 1);
+                    return Some(p.saturating_add(b.borrow().priority) - 1);
                 }
             }
             None
