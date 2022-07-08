@@ -8,10 +8,12 @@ Their appearance can change depending on the style
 
 ### Properties
 
-* **`text`** (*string*): The text written in the button.
+* **`checkable`** (*bool*): Shows whether the button can be checked or not. This enables the `checked` property to possibly become `true`.
+* **`checked`** (*bool*): Shows whether the button is checked or not. Needs `checkable` to be `true` to work.
+* **`enabled`**: (*bool*): Defaults to true. When false, the button cannot be pressed
 * **`icon`** (*image*): The image to show in the button. Note that not all styles support drawing icons.
 * **`pressed`**: (*bool*): Set to true when the button is pressed.
-* **`enabled`**: (*bool*): Defaults to true. When false, the button cannot be pressed
+* **`text`** (*string*): The text written in the button.
 
 ### Callbacks
 
@@ -55,32 +57,6 @@ Example := Window {
     StandardButton { kind: ok; }
     StandardButton { kind: apply; }
     StandardButton { kind: cancel; }
-  }
-}
-```
-
-## `ToggleButton`
-
-The ToggleButton looks like a button, but will stay `pressed` when clicked and can then be toggled
-back to un-`pressed` state by clicking again.
-
-### Properties
-
-- **`checked`** (*bool*): Shows whether the button is toggled or not
-
-### Callbacks
-
-- **`clicked`**
-
-### Example
-
-```slint
-import { ToggleButton, VerticalBox } from "std-widgets.slint";
-Example := Window {
-  VerticalBox {
-    ToggleButton {
-      text: checked ? "ON" : "OFF";
-    }
   }
 }
 ```

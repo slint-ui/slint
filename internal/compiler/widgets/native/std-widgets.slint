@@ -18,12 +18,6 @@ export Button := NativeButton {
     enabled: true;
 }
 
-export ToggleButton := Button {
-    accessible-label <=> text;
-    enabled: true;
-    checkable: true;
-}
-
 export StandardButton := NativeButton {
     property<StandardButtonKind> kind <=> self.standard-button-kind;
     accessible-checkable <=> checkable;
