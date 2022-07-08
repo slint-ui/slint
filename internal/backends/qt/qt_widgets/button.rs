@@ -300,7 +300,8 @@ impl Item for NativeButton {
     }
 
     fn_render! { this dpr size painter widget initial_state =>
-        let down: bool = this.pressed() || this.checked();
+        let down: bool = this.pressed();
+        let checked: bool = this.checked();
         let standard_button_kind = this.actual_standard_button_kind();
         let text: qttypes::QString = this.actual_text(standard_button_kind);
         let icon: qttypes::QPixmap = this.actual_icon(standard_button_kind);
@@ -315,6 +316,7 @@ impl Item for NativeButton {
             enabled as "bool",
             size as "QSize",
             down as "bool",
+            checked as "bool",
             has_focus as "bool",
             dpr as "float",
             initial_state as "int"
@@ -326,10 +328,14 @@ impl Item for NativeButton {
             auto iconSize = qApp->style()->pixelMetric(QStyle::PM_ButtonIconSize, 0, nullptr);
             option.iconSize = QSize(iconSize, iconSize);
             option.rect = QRect(QPoint(), size / dpr);
-            if (down)
+            if (down) {
                 option.state |= QStyle::State_Sunken;
-            else
+            } else {
                 option.state |= QStyle::State_Raised;
+            }
+            if (checked) {
+                option.state |= QStyle::State_On;
+            }
             if (enabled) {
                 option.state |= QStyle::State_Enabled;
             } else {
