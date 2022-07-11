@@ -2072,7 +2072,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::AnimationTick => quote!(slint::re_exports::current_tick().0),
         BuiltinFunction::Debug => quote!(slint::internal::debug(#(#a)*)),
-        BuiltinFunction::Mod => quote!((#(#a as i32)%*)),
+        BuiltinFunction::Mod => quote!((#(#a as f64)%*)),
         BuiltinFunction::Round => quote!((#(#a)* as f64).round()),
         BuiltinFunction::Ceil => quote!((#(#a)* as f64).ceil()),
         BuiltinFunction::Floor => quote!((#(#a)* as f64).floor()),

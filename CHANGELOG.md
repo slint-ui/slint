@@ -3,6 +3,9 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Changed
+ - `mod` now works on any numeric type, not only integers.
+
 ### Added
 
  - `Button`: Add a `checkable` property that turns the button into a toggle

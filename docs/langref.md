@@ -1067,9 +1067,9 @@ These functions are available both in the global scope and in the `Math` namespa
 
 Return the arguments with the minimum (or maximum) value. All arguments must be of the same numeric type
 
-* **`mod(int, int) -> int`**
+* **`mod(T, T) -> T`**
 
-Perform a modulo operation.
+Perform a modulo operation, where T is some numeric type.
 
 * **`abs(float) -> float`**
 
