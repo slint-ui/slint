@@ -2359,6 +2359,7 @@ fn compile_builtin_function_call(
             let window = access_window_field(ctx);
             format!("{}.scale_factor()", window)
         }
+        BuiltinFunction::AnimationTick => "slint::cbindgen_private::slint_animation_tick()".into(),
         BuiltinFunction::Debug => {
             format!("std::cout << {} << std::endl;", a.join("<<"))
         }

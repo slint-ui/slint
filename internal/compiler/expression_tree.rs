@@ -18,6 +18,7 @@ pub use crate::namedreference::NamedReference;
 /// A function built into the run-time
 pub enum BuiltinFunction {
     GetWindowScaleFactor,
+    AnimationTick,
     Debug,
     Mod,
     Round,
@@ -67,6 +68,9 @@ impl BuiltinFunction {
                 return_type: Box::new(Type::UnitProduct(vec![(Unit::Phx, 1), (Unit::Px, -1)])),
                 args: vec![],
             },
+            BuiltinFunction::AnimationTick => {
+                Type::Function { return_type: Type::Duration.into(), args: vec![] }
+            }
             BuiltinFunction::Debug => {
                 Type::Function { return_type: Box::new(Type::Void), args: vec![Type::String] }
             }
@@ -151,6 +155,7 @@ impl BuiltinFunction {
     fn is_pure(&self) -> bool {
         match self {
             BuiltinFunction::GetWindowScaleFactor => false,
+            BuiltinFunction::AnimationTick => false,
             // Even if it is not pure, we optimize it away anyway
             BuiltinFunction::Debug => true,
             BuiltinFunction::Mod

@@ -564,16 +564,28 @@ impl LookupObject for BuiltinFunctionLookup {
         ctx: &LookupCtx,
         f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
-        (MathFunctions, ColorFunctions).for_each_entry(ctx, f).or_else(|| {
-            f(
-                "debug",
-                Expression::BuiltinMacroReference(
-                    BuiltinMacroFunction::Debug,
-                    ctx.current_token.clone(),
+        (MathFunctions, ColorFunctions)
+            .for_each_entry(ctx, f)
+            .or_else(|| {
+                f(
+                    "debug",
+                    Expression::BuiltinMacroReference(
+                        BuiltinMacroFunction::Debug,
+                        ctx.current_token.clone(),
+                    )
+                    .into(),
                 )
-                .into(),
-            )
-        })
+            })
+            .or_else(|| {
+                f(
+                    "animation-tick",
+                    Expression::BuiltinFunctionReference(
+                        BuiltinFunction::AnimationTick,
+                        ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                    )
+                    .into(),
+                )
+            })
     }
 }
 
