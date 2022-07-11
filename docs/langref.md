@@ -1055,6 +1055,10 @@ the focus the very first time the window receives the focus - it becomes the ini
 
 The debug function take a string as an argument and prints it
 
+* **`animation-tick() -> duration`**:  This function returns a monotonically increasing time, which can be used for animations.
+    Calling this function from a binding will constantly re-evaluate the binding.
+    It can be used like so: `x: 1000px + sin(animation_tick() / 1s * 360deg) * 100px;` or `y: 20px * mod(animation_tick(), 2s) / 2s `
+
 ### `Math` namespace
 
 These functions are available both in the global scope and in the `Math` namespace.

@@ -1,0 +1,37 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+TestCase := Rectangle {
+    property <int> xx: animation-tick() / 1ms;
+}
+
+/*
+
+```rust
+let instance = TestCase::new();
+let begin = instance.get_xx();
+assert_eq!(begin, instance.get_xx());
+slint::testing::mock_elapsed_time(600);
+assert_eq!(begin + 600, instance.get_xx());
+```
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+auto begin = instance.get_xx();
+assert_eq(begin, instance.get_xx());
+slint::testing::mock_elapsed_time(600);
+assert_eq(begin + 600, instance.get_xx());
+```
+
+```js
+var instance = new slint.TestCase({});
+
+let begin = instance.xx;
+assert_eq!(begin, instance.xx);
+slintlib.private_api.mock_elapsed_time(600);
+assert_eq!(begin + 600, instance.xx);
+```
+*/

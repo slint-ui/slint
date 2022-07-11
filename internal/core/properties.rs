@@ -2855,4 +2855,10 @@ pub(crate) mod ffi {
     pub unsafe extern "C" fn slint_property_tracker_drop(handle: *mut PropertyTrackerOpaque) {
         core::ptr::drop_in_place(handle as *mut PropertyTracker);
     }
+
+    /// return the current animation tick for the `animation-tick` function
+    #[no_mangle]
+    pub extern "C" fn slint_animation_tick() -> u64 {
+        crate::animations::current_tick().0
+    }
 }
