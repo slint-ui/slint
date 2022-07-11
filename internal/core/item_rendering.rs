@@ -114,6 +114,22 @@ impl<T: Clone> ItemCache<T> {
         }
     }
 
+    /// Returns the cached value associated with the `item_rc` if it is in the cache
+    /// and still valid.
+    pub fn with_entry<U>(
+        &self,
+        item_rc: &ItemRc,
+        callback: impl FnOnce(&T) -> Option<U>,
+    ) -> Option<U> {
+        let component = &(*item_rc.component()) as *const _;
+        self.map
+            .borrow()
+            .get(&component)
+            .and_then(|per_component_entries| per_component_entries.get(&item_rc.index()))
+            .map(|entry| callback(&entry.data))
+            .flatten()
+    }
+
     /// free the whole cache
     pub fn clear_all(&self) {
         self.map.borrow_mut().clear();

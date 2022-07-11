@@ -8,7 +8,7 @@ use std::rc::Rc;
 use euclid::approxeq::ApproxEq;
 use i_slint_core::api::euclid;
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
-use i_slint_core::graphics::{Image, IntRect, Point, Rect, Size};
+use i_slint_core::graphics::{Image, IntRect, IntSize, Point, Rect, Size};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{
     self, Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, Layer, Opacity,
@@ -905,17 +905,36 @@ impl GLItemRenderer {
         item_rc: &ItemRc,
         layer_logical_size_fn: &dyn Fn() -> Size,
     ) -> Option<Rc<Texture>> {
+        let existing_layer_texture = self.graphics_window.graphics_cache.with_entry(
+            item_rc,
+            |cache_entry| match cache_entry {
+                Some(ItemGraphicsCacheEntry::Texture(texture)) => Some(texture.clone()),
+                _ => None,
+            },
+        );
+
         let cache_entry =
             self.graphics_window.clone().graphics_cache.get_or_update_cache_entry(item_rc, || {
                 ItemGraphicsCacheEntry::Texture({
-                    let size = layer_logical_size_fn() * self.scale_factor;
+                    let size: IntSize = (layer_logical_size_fn() * self.scale_factor).ceil().cast();
 
-                    let layer_image = Texture::new_empty_on_gpu(
-                        &self.canvas,
-                        size.width.ceil() as u32,
-                        size.height.ceil() as u32,
-                    )?;
-                    *self.metrics.layers_created.as_mut().unwrap() += 1;
+                    let layer_image = existing_layer_texture
+                        .and_then(|layer_texture| {
+                            // If we have an existing layer texture, there must be only one reference from within
+                            // the existing cache entry and one through the `existing_layer_texture` variable.
+                            // Then it is safe to render new content into it in this callback and when we return
+                            // into `get_or_update_cache_entry` the first ref is dropped.
+                            debug_assert_eq!(Rc::strong_count(&layer_texture), 2);
+                            if layer_texture.size() == Some(size) {
+                                Some(layer_texture)
+                            } else {
+                                None
+                            }
+                        })
+                        .or_else(|| {
+                            *self.metrics.layers_created.as_mut().unwrap() += 1;
+                            Texture::new_empty_on_gpu(&self.canvas, size.width, size.height)
+                        })?;
 
                     let previous_render_target = self.current_render_target();
 
@@ -930,8 +949,8 @@ impl GLItemRenderer {
                         canvas.clear_rect(
                             0,
                             0,
-                            size.width.ceil() as u32,
-                            size.height.ceil() as u32,
+                            size.width,
+                            size.height,
                             femtovg::Color::rgba(0, 0, 0, 0),
                         );
                     }
