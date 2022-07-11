@@ -126,8 +126,7 @@ impl<T: Clone> ItemCache<T> {
             .borrow()
             .get(&component)
             .and_then(|per_component_entries| per_component_entries.get(&item_rc.index()))
-            .map(|entry| callback(&entry.data))
-            .flatten()
+            .and_then(|entry| callback(&entry.data))
     }
 
     /// free the whole cache
