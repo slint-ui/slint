@@ -24,6 +24,7 @@ pub fn lower_macro(
     match mac {
         BuiltinMacroFunction::Min => min_max_macro(n, '<', sub_expr.collect(), diag),
         BuiltinMacroFunction::Max => min_max_macro(n, '>', sub_expr.collect(), diag),
+        BuiltinMacroFunction::Mod => mod_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::Debug => debug_macro(n, sub_expr.collect(), diag),
         BuiltinMacroFunction::CubicBezier => {
             let mut has_error = None;
@@ -88,6 +89,51 @@ fn min_max_macro(
         base = min_max_expression(base, rhs, op);
     }
     base
+}
+
+fn mod_macro(
+    node: Option<NodeOrToken>,
+    args: Vec<(Expression, Option<NodeOrToken>)>,
+    diag: &mut BuildDiagnostics,
+) -> Expression {
+    if args.len() != 2 {
+        diag.push_error("Needs 2 arguments".into(), &node);
+        return Expression::Invalid;
+    }
+    let (lhs_ty, rhs_ty) = (args[0].0.ty(), args[1].0.ty());
+    let common_ty = if lhs_ty.default_unit().is_some() {
+        lhs_ty
+    } else if rhs_ty.default_unit().is_some() {
+        rhs_ty
+    } else if matches!(lhs_ty, Type::UnitProduct(_)) {
+        lhs_ty
+    } else if matches!(rhs_ty, Type::UnitProduct(_)) {
+        rhs_ty
+    } else {
+        Type::Float32
+    };
+
+    let source_location = node.map(|n| n.to_source_location());
+    let function = Box::new(Expression::BuiltinFunctionReference(
+        BuiltinFunction::Mod,
+        source_location.clone(),
+    ));
+    let arguments = args.into_iter().map(|(e, n)| e.maybe_convert_to(common_ty.clone(), &n, diag));
+    if matches!(common_ty, Type::Float32) {
+        Expression::FunctionCall { function, arguments: arguments.collect(), source_location }
+    } else {
+        Expression::Cast {
+            from: Expression::FunctionCall {
+                function,
+                arguments: arguments
+                    .map(|a| Expression::Cast { from: a.into(), to: Type::Float32 })
+                    .collect(),
+                source_location,
+            }
+            .into(),
+            to: common_ty.clone(),
+        }
+    }
 }
 
 fn rgb_macro(

@@ -2363,11 +2363,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::Debug => {
             format!("std::cout << {} << std::endl;", a.join("<<"))
         }
-        BuiltinFunction::Mod => format!(
-            "static_cast<int>({}) % static_cast<int>({})",
-            a.next().unwrap(),
-            a.next().unwrap()
-        ),
+        BuiltinFunction::Mod => format!("std::fmod({}, {})", a.next().unwrap(), a.next().unwrap()),
         BuiltinFunction::Round => format!("std::round({})", a.next().unwrap()),
         BuiltinFunction::Ceil => format!("std::ceil({})", a.next().unwrap()),
         BuiltinFunction::Floor => format!("std::floor({})", a.next().unwrap()),

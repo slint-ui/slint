@@ -523,7 +523,7 @@ impl LookupObject for MathFunctions {
         let t = &ctx.current_token;
         let sl = || t.as_ref().map(|t| t.to_source_location());
         let mut f = |n, e: Expression| f(n, e.into());
-        None.or_else(|| f("mod", BuiltinFunctionReference(BuiltinFunction::Mod, sl())))
+        None.or_else(|| f("mod", BuiltinMacroReference(BuiltinMacroFunction::Mod, t.clone())))
             .or_else(|| f("round", BuiltinFunctionReference(BuiltinFunction::Round, sl())))
             .or_else(|| f("ceil", BuiltinFunctionReference(BuiltinFunction::Ceil, sl())))
             .or_else(|| f("floor", BuiltinFunctionReference(BuiltinFunction::Floor, sl())))

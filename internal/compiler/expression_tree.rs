@@ -53,11 +53,22 @@ pub enum BuiltinFunction {
 
 #[derive(Debug, Clone)]
 /// A builtin function which is handled by the compiler pass
+///
+/// Builtin function expect their arguments in one and a specific type, so that's easier
+/// for the generator. Macro however can do some transformation on their argument.
+///
 pub enum BuiltinMacroFunction {
+    /// Transform `min(a, b, c, ..., z)` into a series of conditional expression and comparisons
     Min,
+    /// Transform `max(a, b, c, ..., z)` into  a series of conditional expression and comparisons
     Max,
+    /// Add the right conversion operations so that the return type is the same as the argument type
+    Mod,
     CubicBezier,
+    /// The argument can be r,g,b,a or r,g,b and they can be percentages or integer.
+    /// transform the argument so it is always rgb(r, g, b, a) with r, g, b between 0 and 255.
     Rgb,
+    /// transform `debug(a, b, c)` into debug `a + " " + b + " " + c`
     Debug,
 }
 
