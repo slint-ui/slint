@@ -62,11 +62,15 @@ pub fn compile_paths(
 
             match &commands_expr.expression {
                 Expression::StringLiteral(commands) => {
-                    if let Some(binding) = compile_path_from_string_literal(commands) {
-                        binding
-                    } else {
-                        diag.push_error("Error parsing SVG commands".into(), &commands_expr);
-                        return;
+                    match compile_path_from_string_literal(commands) {
+                        Ok(binding) => binding,
+                        Err(e) => {
+                            diag.push_error(
+                                format!("Error parsing SVG commands ({e:?})"),
+                                &commands_expr,
+                            );
+                            return;
+                        }
                     }
                 }
                 expr if expr.ty() == Type::String => Expression::PathData(
@@ -117,72 +121,80 @@ pub fn compile_paths(
     });
 }
 
-fn compile_path_from_string_literal(commands: &str) -> Option<BindingExpression> {
-    let path_builder = lyon_path::Path::builder().with_svg();
-    lyon_svg::path_utils::build_path(path_builder, commands).ok().map(|path| {
-        let event_enum = crate::typeregister::BUILTIN_ENUMS.with(|e| e.PathEvent.clone());
-        let point_type = Type::Struct {
-            fields: IntoIterator::into_iter([
-                ("x".to_owned(), Type::Float32),
-                ("y".to_owned(), Type::Float32),
+fn compile_path_from_string_literal(
+    commands: &str,
+) -> Result<BindingExpression, lyon_extra::parser::ParseError> {
+    let mut builder = lyon_path::Path::builder();
+    let mut parser = lyon_extra::parser::PathParser::new();
+    parser.parse(
+        &lyon_extra::parser::ParserOptions::DEFAULT,
+        &mut lyon_extra::parser::Source::new(commands.chars()),
+        &mut builder,
+    )?;
+    let path = builder.build();
+
+    let event_enum = crate::typeregister::BUILTIN_ENUMS.with(|e| e.PathEvent.clone());
+    let point_type = Type::Struct {
+        fields: IntoIterator::into_iter([
+            ("x".to_owned(), Type::Float32),
+            ("y".to_owned(), Type::Float32),
+        ])
+        .collect(),
+        name: Some("Point".into()),
+        node: None,
+    };
+
+    let mut points = Vec::new();
+    let events = path
+        .into_iter()
+        .map(|event| {
+            Expression::EnumerationValue(match event {
+                lyon_path::Event::Begin { at } => {
+                    points.push(at);
+                    event_enum.clone().try_value_from_string("begin").unwrap()
+                }
+                lyon_path::Event::Line { from, to } => {
+                    points.push(from);
+                    points.push(to);
+
+                    event_enum.clone().try_value_from_string("line").unwrap()
+                }
+                lyon_path::Event::Quadratic { from, ctrl, to } => {
+                    points.push(from);
+                    points.push(ctrl);
+                    points.push(to);
+
+                    event_enum.clone().try_value_from_string("quadratic").unwrap()
+                }
+                lyon_path::Event::Cubic { from, ctrl1, ctrl2, to } => {
+                    points.push(from);
+                    points.push(ctrl1);
+                    points.push(ctrl2);
+                    points.push(to);
+                    event_enum.clone().try_value_from_string("cubic").unwrap()
+                }
+                lyon_path::Event::End { first: _, last: _, close } => {
+                    if close {
+                        event_enum.clone().try_value_from_string("end-closed").unwrap()
+                    } else {
+                        event_enum.clone().try_value_from_string("end-open").unwrap()
+                    }
+                }
+            })
+        })
+        .collect();
+
+    let points = points
+        .into_iter()
+        .map(|point| Expression::Struct {
+            ty: point_type.clone(),
+            values: IntoIterator::into_iter([
+                ("x".to_owned(), Expression::NumberLiteral(point.x as _, Unit::None)),
+                ("y".to_owned(), Expression::NumberLiteral(point.y as _, Unit::None)),
             ])
             .collect(),
-            name: Some("Point".into()),
-            node: None,
-        };
+        })
+        .collect();
 
-        let mut points = Vec::new();
-        let events = path
-            .into_iter()
-            .map(|event| {
-                Expression::EnumerationValue(match event {
-                    lyon_path::Event::Begin { at } => {
-                        points.push(at);
-                        event_enum.clone().try_value_from_string("begin").unwrap()
-                    }
-                    lyon_path::Event::Line { from, to } => {
-                        points.push(from);
-                        points.push(to);
-
-                        event_enum.clone().try_value_from_string("line").unwrap()
-                    }
-                    lyon_path::Event::Quadratic { from, ctrl, to } => {
-                        points.push(from);
-                        points.push(ctrl);
-                        points.push(to);
-
-                        event_enum.clone().try_value_from_string("quadratic").unwrap()
-                    }
-                    lyon_path::Event::Cubic { from, ctrl1, ctrl2, to } => {
-                        points.push(from);
-                        points.push(ctrl1);
-                        points.push(ctrl2);
-                        points.push(to);
-                        event_enum.clone().try_value_from_string("cubic").unwrap()
-                    }
-                    lyon_path::Event::End { first: _, last: _, close } => {
-                        if close {
-                            event_enum.clone().try_value_from_string("end-closed").unwrap()
-                        } else {
-                            event_enum.clone().try_value_from_string("end-open").unwrap()
-                        }
-                    }
-                })
-            })
-            .collect();
-
-        let points = points
-            .into_iter()
-            .map(|point| Expression::Struct {
-                ty: point_type.clone(),
-                values: IntoIterator::into_iter([
-                    ("x".to_owned(), Expression::NumberLiteral(point.x as _, Unit::None)),
-                    ("y".to_owned(), Expression::NumberLiteral(point.y as _, Unit::None)),
-                ])
-                .collect(),
-            })
-            .collect();
-
-        Expression::PathData(Path::Events(events, points)).into()
-    })
+    Ok(Expression::PathData(Path::Events(events, points)).into())
 }

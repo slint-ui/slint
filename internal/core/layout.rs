@@ -625,27 +625,14 @@ pub fn solve_path_layout(
     repeater_indexes: Slice<u32>,
 ) -> SharedVector<Coord> {
     use lyon_geom::*;
-    use lyon_path::iterator::PathIterator;
+    use lyon_path::PathEvent;
 
     // Clone of path elements is cheap because it's a clone of underlying SharedVector
     let mut path_iter = data.elements.clone().iter();
     path_iter.fit(data.width as _, data.height as _, None);
 
     let tolerance: f32 = 0.1; // lyon::tessellation::StrokeOptions::DEFAULT_TOLERANCE
-
-    let segment_lengths: Vec<_> = path_iter
-        .iter()
-        .bezier_segments()
-        .map(|segment| match segment {
-            BezierSegment::Linear(line_segment) => line_segment.length(),
-            BezierSegment::Quadratic(quadratic_segment) => {
-                quadratic_segment.approximate_length(tolerance)
-            }
-            BezierSegment::Cubic(cubic_segment) => cubic_segment.approximate_length(tolerance),
-        })
-        .collect();
-
-    let path_length: f32 = segment_lengths.iter().sum();
+    let path_length = lyon_algorithms::length::approximate_length(path_iter.iter(), tolerance);
     // the max(2) is there to put the item in the middle when there is a single item
     let item_distance = 1. / ((data.item_count - 1) as f32).max(2.);
 
@@ -671,8 +658,21 @@ pub fn solve_path_layout(
         let mut current_length: f32 = 0.;
         next_t %= 1.;
 
-        for (seg_idx, segment) in path_iter.iter().bezier_segments().enumerate() {
-            let seg_len = segment_lengths[seg_idx];
+        for evt in path_iter.iter() {
+            let seg_len = match evt {
+                PathEvent::Line { from, to } => LineSegment { from, to }.length(),
+                PathEvent::Quadratic { from, ctrl, to } => {
+                    QuadraticBezierSegment { from, ctrl, to }.length()
+                }
+                PathEvent::Cubic { from, ctrl1, ctrl2, to } => {
+                    CubicBezierSegment { from, ctrl1, ctrl2, to }.approximate_length(tolerance)
+                }
+                PathEvent::End { last, first, close: true } => {
+                    LineSegment { from: last, to: first }.length()
+                }
+                _ => continue,
+            };
+
             let seg_start = current_length;
             current_length += seg_len;
 
@@ -681,7 +681,19 @@ pub fn solve_path_layout(
             while next_t <= seg_end_t {
                 let local_t = ((next_t * path_length) - seg_start) / seg_len;
 
-                let item_pos = segment.sample(local_t);
+                let item_pos = match evt {
+                    PathEvent::Line { from, to } => LineSegment { from, to }.sample(local_t),
+                    PathEvent::Quadratic { from, ctrl, to } => {
+                        QuadraticBezierSegment { from, ctrl, to }.sample(local_t)
+                    }
+                    PathEvent::Cubic { from, ctrl1, ctrl2, to } => {
+                        CubicBezierSegment { from, ctrl1, ctrl2, to }.sample(local_t)
+                    }
+                    PathEvent::End { last, first, close: true } => {
+                        LineSegment { from: last, to: first }.sample(local_t)
+                    }
+                    _ => unreachable!(),
+                };
 
                 let o = loop {
                     if let Some(nr) = repeater_indexes.get(next_rep * 2) {

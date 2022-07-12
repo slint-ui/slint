@@ -590,18 +590,14 @@ fn lower_dialog_layout(
 fn lower_path_layout(layout_element: &ElementRc, diag: &mut BuildDiagnostics) {
     let layout_cache_prop = create_new_prop(layout_element, "layout-cache", Type::LayoutCache);
 
-    let path_elements_expr = match layout_element
-        .borrow_mut()
-        .bindings
-        .remove("elements")
-        .map(RefCell::into_inner)
-    {
-        Some(BindingExpression { expression: Expression::PathData(data), .. }) => data,
-        _ => {
-            diag.push_error("Internal error: elements binding in PathLayout does not contain path elements expression".into(), &*layout_element.borrow());
-            return;
-        }
-    };
+    let path_elements_expr =
+        match layout_element.borrow_mut().bindings.remove("elements").map(RefCell::into_inner) {
+            Some(BindingExpression { expression: Expression::PathData(data), .. }) => data,
+            _ => {
+                assert!(diag.has_error());
+                return;
+            }
+        };
 
     let elements = layout_element.borrow().children.clone();
     if elements.is_empty() {

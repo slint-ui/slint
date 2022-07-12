@@ -131,7 +131,10 @@ impl Path {
         let mut elements_iter = self.elements().iter();
 
         let maybe_viewbox = if viewbox_width > 0. && viewbox_height > 0. {
-            Some(euclid::rect(self.viewbox_x(), self.viewbox_y(), viewbox_width, viewbox_height))
+            Some(
+                euclid::rect(self.viewbox_x(), self.viewbox_y(), viewbox_width, viewbox_height)
+                    .to_box2d(),
+            )
         } else {
             None
         };

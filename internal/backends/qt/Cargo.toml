@@ -27,7 +27,7 @@ const-field-offset = { version = "0.1", path = "../../../helper_crates/const-fie
 vtable = { version = "0.1.8", path = "../../../helper_crates/vtable" }
 
 cpp = "0.5.5"
-lyon_path = "0.17"
+lyon_path = "1"
 once_cell = "1"
 pin-project = "1"
 pin-weak = "1"
