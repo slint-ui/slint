@@ -2859,6 +2859,6 @@ pub(crate) mod ffi {
     /// return the current animation tick for the `animation-tick` function
     #[no_mangle]
     pub extern "C" fn slint_animation_tick() -> u64 {
-        crate::animations::current_tick().0
+        crate::animations::animation_tick()
     }
 }

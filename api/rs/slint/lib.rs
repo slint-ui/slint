@@ -285,7 +285,7 @@ pub mod re_exports {
     pub use core::iter::FromIterator;
     pub use i_slint_backend_selector::native_widgets::*;
     pub use i_slint_core::accessibility::AccessibleStringProperty;
-    pub use i_slint_core::animations::{current_tick, EasingCurve};
+    pub use i_slint_core::animations::{animation_tick, EasingCurve};
     pub use i_slint_core::callbacks::Callback;
     pub use i_slint_core::component::{
         register_component, unregister_component, Component, ComponentRefPin, ComponentVTable,

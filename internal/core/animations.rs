@@ -272,6 +272,15 @@ pub fn current_tick() -> Instant {
     CURRENT_ANIMATION_DRIVER.with(|driver| driver.current_tick())
 }
 
+/// Same as [`current_tick`], but also register that one should be running animation
+/// on next frame
+pub fn animation_tick() -> u64 {
+    CURRENT_ANIMATION_DRIVER.with(|driver| {
+        driver.set_has_active_animations();
+        driver.current_tick().0
+    })
+}
+
 /// map a value between 0 and 1 to another value between 0 and 1 according to the curve
 pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
     match curve {

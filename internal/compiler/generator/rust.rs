@@ -2070,7 +2070,7 @@ fn compile_builtin_function_call(
             let window_tokens = access_window_field(ctx);
             quote!(#window_tokens.scale_factor())
         }
-        BuiltinFunction::AnimationTick => quote!(slint::re_exports::current_tick().0),
+        BuiltinFunction::AnimationTick => quote!(slint::re_exports::animation_tick()),
         BuiltinFunction::Debug => quote!(slint::internal::debug(#(#a)*)),
         BuiltinFunction::Mod => quote!((#(#a as f64)%*)),
         BuiltinFunction::Round => quote!((#(#a)* as f64).round()),

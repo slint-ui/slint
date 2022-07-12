@@ -222,7 +222,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 }
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::AnimationTick, _) => {
-                Value::Number(i_slint_core::animations::current_tick().0 as f64)
+                Value::Number(i_slint_core::animations::animation_tick() as f64)
             }
             Expression::BuiltinFunctionReference(BuiltinFunction::Debug, _) => {
                 let to_print: SharedString = eval_expression(&arguments[0], local_context).try_into().unwrap();
