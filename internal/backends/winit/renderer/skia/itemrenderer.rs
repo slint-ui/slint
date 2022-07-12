@@ -158,12 +158,23 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         radius: i_slint_core::Coord,
         border_width: i_slint_core::Coord,
     ) -> bool {
-        //todo!()
-        true // clip region is valid and not empty
+        let mut rect = to_skia_rect(&rect.scale(self.scale_factor, self.scale_factor));
+        let mut border_width = border_width * self.scale_factor;
+        // In CSS the border is entirely towards the inside of the boundary
+        // geometry, while in femtovg the line with for a stroke is 50% in-
+        // and 50% outwards. We choose the CSS model, so the inner rectangle
+        // is adjusted accordingly.
+        adjust_rect_and_border_for_inner_drawing(&mut rect, &mut border_width);
+
+        let radius = radius * self.scale_factor;
+        let rounded_rect = skia_safe::RRect::new_rect_xy(rect, radius, radius);
+        self.canvas.clip_rrect(rounded_rect, None, true);
+        self.canvas.local_clip_bounds().is_some()
     }
 
     fn get_current_clip(&self) -> i_slint_core::graphics::Rect {
         from_skia_rect(&self.canvas.local_clip_bounds().unwrap())
+            .scale(1. / self.scale_factor, 1. / self.scale_factor)
     }
 
     fn translate(&mut self, x: i_slint_core::Coord, y: i_slint_core::Coord) {
@@ -240,6 +251,10 @@ pub fn from_skia_rect(rect: &skia_safe::Rect) -> i_slint_core::graphics::Rect {
     let top_left = euclid::Point2D::new(rect.left, rect.top);
     let bottom_right = euclid::Point2D::new(rect.right, rect.bottom);
     euclid::Box2D::new(top_left, bottom_right).to_rect()
+}
+
+pub fn to_skia_rect(rect: &i_slint_core::graphics::Rect) -> skia_safe::Rect {
+    skia_safe::Rect::from_xywh(rect.origin.x, rect.origin.y, rect.size.width, rect.size.height)
 }
 
 fn item_rect<Item: items::Item>(item: Pin<&Item>, scale_factor: f32) -> skia_safe::Rect {
