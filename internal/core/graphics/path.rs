@@ -247,13 +247,13 @@ impl PathDataIterator {
     /// Applies a transformation on the elements this iterator provides that tries to fit everything
     /// into the specified width/height, respecting the provided viewbox. If no viewbox is specified,
     /// the bounding rectangle of the path is used.
-    pub fn fit(&mut self, width: f32, height: f32, viewbox: Option<lyon_path::math::Rect>) {
+    pub fn fit(&mut self, width: f32, height: f32, viewbox: Option<lyon_path::math::Box2D>) {
         if width > 0. || height > 0. {
             let viewbox =
-                viewbox.unwrap_or_else(|| lyon_algorithms::aabb::bounding_rect(self.iter()));
-            self.transform = lyon_algorithms::fit::fit_rectangle(
+                viewbox.unwrap_or_else(|| lyon_algorithms::aabb::bounding_box(self.iter()));
+            self.transform = lyon_algorithms::fit::fit_box(
                 &viewbox,
-                &lyon_path::math::Rect::from_size(lyon_path::math::Size::new(width, height)),
+                &lyon_path::math::Box2D::from_size(lyon_path::math::Size::new(width, height)),
                 lyon_algorithms::fit::FitStyle::Min,
             );
         }
@@ -295,11 +295,19 @@ impl PathData {
                     LyonPathIteratorVariant::FromEvents(events, coordinates)
                 }
                 PathData::Commands(commands) => {
-                    let path_builder = lyon_path::Path::builder().with_svg();
-                    LyonPathIteratorVariant::FromPath(
-                        lyon_svg::path_utils::build_path(path_builder, &commands)
-                            .unwrap_or_default(),
-                    )
+                    let mut builder = lyon_path::Path::builder();
+                    let mut parser = lyon_extra::parser::PathParser::new();
+                    match parser.parse(
+                        &lyon_extra::parser::ParserOptions::DEFAULT,
+                        &mut lyon_extra::parser::Source::new(commands.chars()),
+                        &mut builder,
+                    ) {
+                        Ok(()) => LyonPathIteratorVariant::FromPath(builder.build()),
+                        Err(e) => {
+                            eprintln!("Error while parsing path commands '{commands}': {e:?}");
+                            LyonPathIteratorVariant::FromPath(Default::default())
+                        }
+                    }
                 }
             },
             transform: Default::default(),

@@ -7,13 +7,12 @@
 use alloc::boxed::Box;
 use core::cell::Cell;
 
-#[cfg(feature = "std")]
-use lyon_algorithms::geom::cubic_bezier;
-#[cfg(not(feature = "std"))]
 mod cubic_bezier {
     //! This is a copy from lyon_algorithms::geom::cubic_bezier implementation
+    //! (from lyon_algorithms 0.17)
     type S = f32;
     use euclid::default::Point2D as Point;
+    #[cfg(not(feature = "std"))]
     use num_traits::Float;
     trait Scalar {
         const ONE: f32 = 1.;
@@ -295,8 +294,6 @@ pub fn easing_curve(curve: &EasingCurve, value: f32) -> f32 {
                 ctrl2: (*c, *d).into(),
                 to: (1., 1.).into(),
             };
-            #[cfg(feature = "std")]
-            let curve = curve.assume_monotonic();
             curve.y(curve.solve_t_for_x(value, 0.0..1.0, 0.01))
         }
     }

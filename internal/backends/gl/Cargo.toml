@@ -36,7 +36,7 @@ derive_more = "0.99.5"
 femtovg = { version = "0.3.5" }
 fontdb = { version = "0.9.0", default-features = false }
 imgref = "1.6.1"
-lyon_path = "0.17.3"
+lyon_path = "1.0"
 once_cell = "1.5"
 pin-weak = "1"
 rgb = "0.8.27"
