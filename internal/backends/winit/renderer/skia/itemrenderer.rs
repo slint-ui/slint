@@ -77,7 +77,31 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         rect: std::pin::Pin<&i_slint_core::items::BorderRectangle>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) {
-        //todo!()
+        let mut geometry = item_rect(rect, self.scale_factor);
+        if geometry.is_empty() {
+            return;
+        }
+
+        let mut border_width = rect.border_width() * self.scale_factor;
+        // In CSS the border is entirely towards the inside of the boundary
+        // geometry, while in femtovg the line with for a stroke is 50% in-
+        // and 50% outwards. We choose the CSS model, so the inner rectangle
+        // is adjusted accordingly.
+        adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
+
+        let radius = rect.border_radius() * self.scale_factor;
+        let rounded_rect = skia_safe::RRect::new_rect_xy(geometry, radius, radius);
+
+        if let Some(mut fill_paint) = self.brush_to_paint(rect.background()) {
+            fill_paint.set_style(skia_safe::PaintStyle::Fill);
+            self.canvas.draw_rrect(rounded_rect, &fill_paint);
+        }
+
+        if let Some(mut border_paint) = self.brush_to_paint(rect.border_color()) {
+            border_paint.set_style(skia_safe::PaintStyle::Stroke);
+            border_paint.set_stroke_width(border_width);
+            self.canvas.draw_rrect(rounded_rect, &border_paint);
+        };
     }
 
     fn draw_image(
@@ -230,4 +254,15 @@ fn item_rect<Item: items::Item>(item: Pin<&Item>, scale_factor: f32) -> skia_saf
 
 pub fn to_skia_color(col: &Color) -> skia_safe::Color {
     skia_safe::Color::from_argb(col.alpha(), col.red(), col.green(), col.blue())
+}
+
+fn adjust_rect_and_border_for_inner_drawing(rect: &mut skia_safe::Rect, border_width: &mut f32) {
+    // If the border width exceeds the width, just fill the rectangle.
+    *border_width = border_width.min((rect.width() as f32) / 2.);
+    // adjust the size so that the border is drawn within the geometry
+
+    rect.left += *border_width / 2.;
+    rect.top += *border_width / 2.;
+    rect.right -= *border_width / 2.;
+    rect.bottom -= *border_width / 2.;
 }
