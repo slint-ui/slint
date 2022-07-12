@@ -829,8 +829,8 @@ impl ItemRenderer for GLItemRenderer {
         self.graphics_window.runtime_window()
     }
 
-    fn as_any(&mut self) -> &mut dyn std::any::Any {
-        self
+    fn as_any(&mut self) -> Option<&mut dyn std::any::Any> {
+        Some(self)
     }
 
     fn translate(&mut self, x: f32, y: f32) {

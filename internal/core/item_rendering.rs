@@ -339,7 +339,7 @@ pub trait ItemRenderer {
     fn window(&self) -> crate::window::WindowRc;
 
     /// Return the internal renderer
-    fn as_any(&mut self) -> &mut dyn core::any::Any;
+    fn as_any(&mut self) -> Option<&mut dyn core::any::Any>;
 
     /// Returns any rendering metrics collecting since the creation of the renderer (typically
     /// per frame)
@@ -542,7 +542,7 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
         self.actual_renderer.window()
     }
 
-    fn as_any(&mut self) -> &mut dyn core::any::Any {
+    fn as_any(&mut self) -> Option<&mut dyn core::any::Any> {
         self.actual_renderer.as_any()
     }
 }

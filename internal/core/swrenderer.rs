@@ -1015,8 +1015,8 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<T> {
         unreachable!("this backend don't query the window")
     }
 
-    fn as_any(&mut self) -> &mut dyn core::any::Any {
-        unimplemented!()
+    fn as_any(&mut self) -> Option<&mut dyn core::any::Any> {
+        None
     }
 }
 

@@ -69,7 +69,7 @@ macro_rules! fn_render {
                 return (int)state;
             });
 
-            if let Some(painter) = <dyn std::any::Any>::downcast_mut::<QPainterPtr>(backend.as_any()) {
+            if let Some(painter) = backend.as_any().and_then(|any| <dyn std::any::Any>::downcast_mut::<QPainterPtr>(any)) {
                 let $size: qttypes::QSize = get_size!(self);
                 let $this = self;
                 painter.save();

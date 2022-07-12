@@ -930,8 +930,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         self.window.clone()
     }
 
-    fn as_any(&mut self) -> &mut dyn std::any::Any {
-        &mut self.painter
+    fn as_any(&mut self) -> Option<&mut dyn std::any::Any> {
+        Some(&mut self.painter)
     }
 
     fn translate(&mut self, x: f32, y: f32) {
