@@ -6,12 +6,20 @@ use std::rc::Rc;
 
 use i_slint_core::graphics::euclid;
 use i_slint_core::item_rendering::ItemRenderer;
+use i_slint_core::items::{ItemRc, Opacity, RenderingResult};
 use i_slint_core::{items, Brush, Color};
+
+#[derive(Clone, Copy)]
+struct RenderState {
+    alpha: f32,
+}
 
 pub struct SkiaRenderer<'a> {
     pub canvas: &'a mut skia_safe::Canvas,
     pub window: Rc<i_slint_core::window::WindowInner>,
     pub scale_factor: f32,
+    state_stack: Vec<RenderState>,
+    current_state: RenderState,
 }
 
 impl<'a> SkiaRenderer<'a> {
@@ -19,7 +27,30 @@ impl<'a> SkiaRenderer<'a> {
         canvas: &'a mut skia_safe::Canvas,
         window: &Rc<i_slint_core::window::WindowInner>,
     ) -> Self {
-        Self { canvas, window: window.clone(), scale_factor: window.scale_factor() }
+        Self {
+            canvas,
+            window: window.clone(),
+            scale_factor: window.scale_factor(),
+            state_stack: vec![],
+            current_state: RenderState { alpha: 1.0 },
+        }
+    }
+
+    fn brush_to_paint(&self, brush: Brush) -> Option<skia_safe::Paint> {
+        if brush.is_transparent() {
+            return None;
+        }
+        let mut paint = skia_safe::Paint::default();
+        match brush {
+            Brush::SolidColor(color) => paint.set_color(to_skia_color(&color)),
+            Brush::LinearGradient(_) => todo!(),
+            Brush::RadialGradient(_) => todo!(),
+            _ => return None,
+        };
+
+        paint.set_alpha_f(paint.alpha_f() * self.current_state.alpha);
+
+        Some(paint)
     }
 }
 
@@ -112,7 +143,8 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
     }
 
     fn translate(&mut self, x: i_slint_core::Coord, y: i_slint_core::Coord) {
-        //todo!()
+        self.canvas
+            .translate(skia_safe::Vector::from((x * self.scale_factor, y * self.scale_factor)));
     }
 
     fn rotate(&mut self, angle_in_degrees: f32) {
@@ -120,14 +152,16 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
     }
 
     fn apply_opacity(&mut self, opacity: f32) {
-        //todo!()
+        self.current_state.alpha *= opacity;
     }
 
     fn save_state(&mut self) {
         self.canvas.save();
+        self.state_stack.push(self.current_state);
     }
 
     fn restore_state(&mut self) {
+        self.current_state = self.state_stack.pop().unwrap();
         self.canvas.restore();
     }
 
@@ -154,21 +188,27 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
     fn as_any(&mut self) -> Option<&mut dyn core::any::Any> {
         None
     }
-}
 
-impl<'a> SkiaRenderer<'a> {
-    fn brush_to_paint(&self, brush: Brush) -> Option<skia_safe::Paint> {
-        if brush.is_transparent() {
-            return None;
+    fn visit_opacity(&mut self, opacity_item: Pin<&Opacity>, item_rc: &ItemRc) -> RenderingResult {
+        let opacity = opacity_item.opacity();
+        if Opacity::need_layer(item_rc, opacity) {
+            self.canvas.save_layer_alpha(None, (opacity * 255.) as u32);
+            self.state_stack.push(self.current_state);
+            self.current_state.alpha = 1.0;
+
+            i_slint_core::item_rendering::render_item_children(
+                self,
+                &item_rc.component(),
+                item_rc.index() as isize,
+            );
+
+            self.current_state = self.state_stack.pop().unwrap();
+            self.canvas.restore();
+            RenderingResult::ContinueRenderingWithoutChildren
+        } else {
+            self.apply_opacity(opacity);
+            RenderingResult::ContinueRenderingChildren
         }
-        let mut paint = skia_safe::Paint::default();
-        match brush {
-            Brush::SolidColor(color) => paint.set_color(to_skia_color(&color)),
-            Brush::LinearGradient(_) => todo!(),
-            Brush::RadialGradient(_) => todo!(),
-            _ => return None,
-        };
-        Some(paint)
     }
 }
 
