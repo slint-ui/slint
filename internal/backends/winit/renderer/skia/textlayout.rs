@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use std::cell::RefCell;
-
 use i_slint_core::{graphics::FontRequest, Coord};
 
 pub const DEFAULT_FONT_SIZE: f32 = 12.;
