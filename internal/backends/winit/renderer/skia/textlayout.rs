@@ -28,8 +28,15 @@ pub fn create_layout(
 
     let pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE) * scale_factor;
 
-    // TODO: add more font properties
+    if let Some(letter_spacing) = font_request.letter_spacing {
+        text_style.set_letter_spacing(letter_spacing * scale_factor);
+    }
     text_style.set_font_size(pixel_size);
+    text_style.set_font_style(skia_safe::FontStyle::new(
+        font_request.weight.map_or(skia_safe::font_style::Weight::NORMAL, |w| w.into()),
+        skia_safe::font_style::Width::NORMAL,
+        skia_safe::font_style::Slant::Upright,
+    ));
 
     let style = skia_safe::textlayout::ParagraphStyle::new();
 
