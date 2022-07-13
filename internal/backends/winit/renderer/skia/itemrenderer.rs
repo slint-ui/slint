@@ -36,15 +36,42 @@ impl<'a> SkiaRenderer<'a> {
         }
     }
 
-    fn brush_to_paint(&self, brush: Brush) -> Option<skia_safe::Paint> {
+    fn brush_to_paint(&self, brush: Brush, width: f32, height: f32) -> Option<skia_safe::Paint> {
         if brush.is_transparent() {
             return None;
         }
         let mut paint = skia_safe::Paint::default();
         match brush {
             Brush::SolidColor(color) => paint.set_color(to_skia_color(&color)),
-            Brush::LinearGradient(_) => todo!(),
-            Brush::RadialGradient(_) => todo!(),
+            Brush::LinearGradient(g) => {
+                let (start, end) = i_slint_core::graphics::line_for_angle(g.angle());
+                let (colors, pos): (Vec<_>, Vec<_>) =
+                    g.stops().map(|s| (to_skia_color(&s.color), s.position)).unzip();
+                paint.set_shader(skia_safe::gradient_shader::linear(
+                    (to_skia_point(start), to_skia_point(end)),
+                    skia_safe::gradient_shader::GradientShaderColors::Colors(&colors),
+                    Some(&*pos),
+                    skia_safe::TileMode::Clamp,
+                    None,
+                    &skia_safe::Matrix::scale((width, height)),
+                ))
+            }
+            Brush::RadialGradient(g) => {
+                let (colors, pos): (Vec<_>, Vec<_>) =
+                    g.stops().map(|s| (to_skia_color(&s.color), s.position)).unzip();
+                let circle_scale = width.max(height) / 2.;
+                paint.set_shader(skia_safe::gradient_shader::radial(
+                    skia_safe::Point::new(0., 0.),
+                    1.,
+                    skia_safe::gradient_shader::GradientShaderColors::Colors(&colors),
+                    Some(&*pos),
+                    skia_safe::TileMode::Clamp,
+                    None,
+                    skia_safe::Matrix::scale((circle_scale, circle_scale))
+                        .post_translate((width / 2., height / 2.))
+                        as &skia_safe::Matrix,
+                ))
+            }
             _ => return None,
         };
 
@@ -65,10 +92,11 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             return;
         }
 
-        let paint = match self.brush_to_paint(rect.background()) {
-            Some(paint) => paint,
-            None => return,
-        };
+        let paint =
+            match self.brush_to_paint(rect.background(), geometry.width(), geometry.height()) {
+                Some(paint) => paint,
+                None => return,
+            };
         self.canvas.draw_rect(geometry, &paint);
     }
 
@@ -92,12 +120,16 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         let radius = rect.border_radius() * self.scale_factor;
         let rounded_rect = skia_safe::RRect::new_rect_xy(geometry, radius, radius);
 
-        if let Some(mut fill_paint) = self.brush_to_paint(rect.background()) {
+        if let Some(mut fill_paint) =
+            self.brush_to_paint(rect.background(), geometry.width(), geometry.height())
+        {
             fill_paint.set_style(skia_safe::PaintStyle::Fill);
             self.canvas.draw_rrect(rounded_rect, &fill_paint);
         }
 
-        if let Some(mut border_paint) = self.brush_to_paint(rect.border_color()) {
+        if let Some(mut border_paint) =
+            self.brush_to_paint(rect.border_color(), geometry.width(), geometry.height())
+        {
             border_paint.set_style(skia_safe::PaintStyle::Stroke);
             border_paint.set_stroke_width(border_width);
             self.canvas.draw_rrect(rounded_rect, &border_paint);
@@ -136,7 +168,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         let string = string.as_str();
         let font_request = text.font_request(&self.window);
 
-        let paint = match self.brush_to_paint(text.color()) {
+        let paint = match self.brush_to_paint(text.color(), max_width, max_height) {
             Some(paint) => paint,
             None => return,
         };
@@ -289,6 +321,10 @@ pub fn from_skia_rect(rect: &skia_safe::Rect) -> i_slint_core::graphics::Rect {
 
 pub fn to_skia_rect(rect: &i_slint_core::graphics::Rect) -> skia_safe::Rect {
     skia_safe::Rect::from_xywh(rect.origin.x, rect.origin.y, rect.size.width, rect.size.height)
+}
+
+pub fn to_skia_point(point: i_slint_core::graphics::Point) -> skia_safe::Point {
+    skia_safe::Point::new(point.x, point.y)
 }
 
 fn item_rect<Item: items::Item>(item: Pin<&Item>, scale_factor: f32) -> skia_safe::Rect {
