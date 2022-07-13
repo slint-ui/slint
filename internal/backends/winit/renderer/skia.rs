@@ -105,7 +105,13 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         max_width: Option<i_slint_core::Coord>,
         scale_factor: f32,
     ) -> i_slint_core::graphics::Size {
-        let layout = textlayout::create_layout(font_request, scale_factor, text, None, max_width);
+        let layout = textlayout::create_layout(
+            font_request,
+            scale_factor,
+            text,
+            None,
+            max_width.map(|w| w * scale_factor),
+        );
 
         [layout.max_width() / scale_factor, layout.height() / scale_factor].into()
     }
