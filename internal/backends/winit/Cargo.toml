@@ -49,7 +49,7 @@ winit = { version = "0.26", default-features = false }
 dark-light = "0.2.2"
 
 # For the Skia renderer
-skia-safe = { version = "0", optional = true, features = ["gl"] }
+skia-safe = { version = "0", optional = true, features = ["gl", "textlayout"] }
 glow = { version = "0.11", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
