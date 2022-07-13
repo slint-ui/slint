@@ -240,7 +240,14 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
     }
 
     fn draw_string(&mut self, string: &str, color: i_slint_core::Color) {
-        //todo!()
+        let mut paint = skia_safe::Paint::default();
+        paint.set_color(to_skia_color(&color));
+        self.canvas.draw_str(
+            string,
+            skia_safe::Point::new(0., 12.), // Default text size is 12 pixels
+            &skia_safe::Font::default(),
+            &paint,
+        );
     }
 
     fn window(&self) -> i_slint_core::window::WindowRc {
