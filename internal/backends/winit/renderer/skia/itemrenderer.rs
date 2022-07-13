@@ -232,7 +232,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
     }
 
     fn get_current_clip(&self) -> i_slint_core::graphics::Rect {
-        from_skia_rect(&self.canvas.local_clip_bounds().unwrap())
+        from_skia_rect(&self.canvas.local_clip_bounds().unwrap_or_default())
             .scale(1. / self.scale_factor, 1. / self.scale_factor)
     }
 
