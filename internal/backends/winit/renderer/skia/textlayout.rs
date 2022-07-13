@@ -1,9 +1,19 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+use std::cell::RefCell;
+
 use i_slint_core::{graphics::FontRequest, Coord};
 
 pub const DEFAULT_FONT_SIZE: f32 = 12.;
+
+thread_local! {
+    pub static FONT_COLLECTION: skia_safe::textlayout::FontCollection = {
+        let mut font_collection = skia_safe::textlayout::FontCollection::new();
+        font_collection.set_default_font_manager(skia_safe::FontMgr::new(), None);
+        font_collection
+    }
+}
 
 pub fn create_layout(
     font_request: FontRequest,
@@ -12,10 +22,6 @@ pub fn create_layout(
     text_style: Option<skia_safe::textlayout::TextStyle>,
     max_width: Option<Coord>,
 ) -> skia_safe::textlayout::Paragraph {
-    // TODO: don't create the font collection, etc. every time
-    let mut font_collection = skia_safe::textlayout::FontCollection::new();
-    font_collection.set_default_font_manager(skia_safe::FontMgr::new(), None);
-
     let mut text_style = text_style.unwrap_or_default();
 
     if let Some(family_name) = font_request.family {
@@ -28,7 +34,10 @@ pub fn create_layout(
     text_style.set_font_size(pixel_size);
 
     let style = skia_safe::textlayout::ParagraphStyle::new();
-    let mut builder = skia_safe::textlayout::ParagraphBuilder::new(&style, font_collection);
+
+    let mut builder = FONT_COLLECTION.with(|font_collection| {
+        skia_safe::textlayout::ParagraphBuilder::new(&style, font_collection)
+    });
     builder.push_style(&text_style);
     builder.add_text(text);
     let mut paragraph = builder.build();
