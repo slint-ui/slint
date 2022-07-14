@@ -4,10 +4,10 @@
 use std::pin::Pin;
 use std::rc::Rc;
 
-use i_slint_core::graphics::euclid;
-use i_slint_core::item_rendering::ItemRenderer;
-use i_slint_core::items::{ItemRc, Opacity, RenderingResult, TextWrap};
-use i_slint_core::{items, Brush, Color};
+use i_slint_core::graphics::{euclid, SharedImageBuffer};
+use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
+use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Opacity, RenderingResult, TextWrap};
+use i_slint_core::{items, Brush, Color, ImageInner, Property};
 
 #[derive(Clone, Copy)]
 struct RenderState {
@@ -20,12 +20,14 @@ pub struct SkiaRenderer<'a> {
     pub scale_factor: f32,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
+    image_cache: &'a ItemCache<Option<skia_safe::Image>>,
 }
 
 impl<'a> SkiaRenderer<'a> {
     pub fn new(
         canvas: &'a mut skia_safe::Canvas,
         window: &Rc<i_slint_core::window::WindowInner>,
+        image_cache: &'a ItemCache<Option<skia_safe::Image>>,
     ) -> Self {
         Self {
             canvas,
@@ -33,6 +35,7 @@ impl<'a> SkiaRenderer<'a> {
             scale_factor: window.scale_factor(),
             state_stack: vec![],
             current_state: RenderState { alpha: 1.0 },
+            image_cache,
         }
     }
 
@@ -78,6 +81,92 @@ impl<'a> SkiaRenderer<'a> {
         paint.set_alpha_f(paint.alpha_f() * self.current_state.alpha);
 
         Some(paint)
+    }
+
+    fn draw_image_impl(
+        &mut self,
+        item_rc: &ItemRc,
+        source_property: Pin<&Property<i_slint_core::graphics::Image>>,
+        mut dest_rect: skia_safe::Rect,
+        source_rect: Option<skia_safe::Rect>,
+        image_fit: ImageFit,
+        rendering: ImageRendering,
+        colorize_property: Option<Pin<&Property<Brush>>>,
+    ) {
+        // TODO: avoid doing creating an SkImage multiple times when the same source is used in multiple image elements
+        let skia_image = self.image_cache.get_or_update_cache_entry(item_rc, || {
+            let image = source_property.get();
+            let image_inner: &ImageInner = (&image).into();
+            match image_inner {
+                ImageInner::None => None,
+                ImageInner::EmbeddedImage { buffer, .. } => {
+                    let (data, bpl, size, color_type, alpha_type) = match buffer {
+                        SharedImageBuffer::RGB8(pixels) => {
+                            // RGB888 with one byte per component is not supported by Skia right now. Convert once to RGBA8 :-(
+                            let rgba = pixels
+                                .as_bytes()
+                                .chunks(3)
+                                .flat_map(|rgb| {
+                                    IntoIterator::into_iter([rgb[0], rgb[1], rgb[2], 255])
+                                })
+                                .collect::<Vec<u8>>();
+                            (
+                                skia_safe::Data::new_copy(&*rgba),
+                                pixels.stride() as usize * 4,
+                                pixels.size(),
+                                skia_safe::ColorType::RGBA8888,
+                                skia_safe::AlphaType::Unpremul,
+                            )
+                        }
+                        SharedImageBuffer::RGBA8(pixels) => (
+                            skia_safe::Data::new_copy(pixels.as_bytes()),
+                            pixels.stride() as usize * 4,
+                            pixels.size(),
+                            skia_safe::ColorType::RGBA8888,
+                            skia_safe::AlphaType::Unpremul,
+                        ),
+                        SharedImageBuffer::RGBA8Premultiplied(pixels) => (
+                            skia_safe::Data::new_copy(pixels.as_bytes()),
+                            pixels.stride() as usize * 4,
+                            pixels.size(),
+                            skia_safe::ColorType::RGBA8888,
+                            skia_safe::AlphaType::Premul,
+                        ),
+                    };
+
+                    let image_info = skia_safe::ImageInfo::new(
+                        skia_safe::ISize::new(size.width as i32, size.height as i32),
+                        color_type,
+                        alpha_type,
+                        None,
+                    );
+
+                    skia_safe::image::Image::from_raster_data(&image_info, data, bpl)
+                }
+                ImageInner::Svg(_) => None, // TODO
+                ImageInner::StaticTextures(_) => todo!(),
+            }
+        });
+
+        let skia_image = match skia_image {
+            Some(img) => img,
+            None => return,
+        };
+
+        self.canvas.save();
+
+        let mut source_rect = source_rect.filter(|r| !r.is_empty()).unwrap_or_else(|| {
+            skia_safe::Rect::from_wh(skia_image.width() as _, skia_image.height() as _)
+        });
+        adjust_to_image_fit(image_fit, &mut source_rect, &mut dest_rect);
+
+        self.canvas.clip_rect(dest_rect, None, None);
+
+        let transform =
+            skia_safe::Matrix::rect_to_rect(source_rect, dest_rect, None).unwrap_or_default();
+        self.canvas.concat(&transform);
+        self.canvas.draw_image(skia_image, skia_safe::Point::default(), None);
+        self.canvas.restore();
     }
 }
 
@@ -139,17 +228,50 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
     fn draw_image(
         &mut self,
         image: std::pin::Pin<&i_slint_core::items::ImageItem>,
-        _self_rc: &i_slint_core::items::ItemRc,
+        self_rc: &i_slint_core::items::ItemRc,
     ) {
-        //todo!()
+        let geometry = item_rect(image, self.scale_factor);
+        if geometry.is_empty() {
+            return;
+        }
+
+        self.draw_image_impl(
+            self_rc,
+            i_slint_core::items::ImageItem::FIELD_OFFSETS.source.apply_pin(image),
+            geometry,
+            None,
+            image.image_fit(),
+            image.image_rendering(),
+            None,
+        );
     }
 
     fn draw_clipped_image(
         &mut self,
         image: std::pin::Pin<&i_slint_core::items::ClippedImage>,
-        _self_rc: &i_slint_core::items::ItemRc,
+        self_rc: &i_slint_core::items::ItemRc,
     ) {
-        //todo!()
+        let geometry = item_rect(image, self.scale_factor);
+        if geometry.is_empty() {
+            return;
+        }
+
+        let source_rect = skia_safe::Rect::from_xywh(
+            image.source_clip_x() as _,
+            image.source_clip_y() as _,
+            image.source_clip_width() as _,
+            image.source_clip_height() as _,
+        );
+
+        self.draw_image_impl(
+            self_rc,
+            i_slint_core::items::ClippedImage::FIELD_OFFSETS.source.apply_pin(image),
+            geometry,
+            Some(source_rect),
+            image.image_fit(),
+            image.image_rendering(),
+            Some(items::ClippedImage::FIELD_OFFSETS.colorize.apply_pin(image)),
+        );
     }
 
     fn draw_text(
@@ -350,4 +472,39 @@ fn adjust_rect_and_border_for_inner_drawing(rect: &mut skia_safe::Rect, border_w
     rect.top += *border_width / 2.;
     rect.right -= *border_width / 2.;
     rect.bottom -= *border_width / 2.;
+}
+
+/// Changes the source or the destination rectangle to respect the image fit
+fn adjust_to_image_fit(
+    image_fit: ImageFit,
+    source_rect: &mut skia_safe::Rect,
+    dest_rect: &mut skia_safe::Rect,
+) {
+    match image_fit {
+        ImageFit::Fill => (),
+        ImageFit::Cover => {
+            let ratio = (dest_rect.width() / source_rect.width())
+                .max(dest_rect.height() / source_rect.height());
+            if source_rect.width() > dest_rect.width() / ratio {
+                source_rect.left += (source_rect.width() - dest_rect.width() / ratio) / 2.;
+                source_rect.right = source_rect.left + dest_rect.width() / ratio;
+            }
+            if source_rect.height() > dest_rect.height() / ratio {
+                source_rect.top += (source_rect.height() - dest_rect.height() / ratio) / 2.;
+                source_rect.bottom = source_rect.top + dest_rect.height() / ratio;
+            }
+        }
+        ImageFit::Contain => {
+            let ratio = (dest_rect.width() / source_rect.width())
+                .min(dest_rect.height() / source_rect.height());
+            if dest_rect.width() > source_rect.width() * ratio {
+                dest_rect.left += (dest_rect.width() - source_rect.width() * ratio) / 2.;
+                dest_rect.right = dest_rect.left + source_rect.width() * ratio;
+            }
+            if dest_rect.height() > source_rect.height() * ratio {
+                dest_rect.top += (dest_rect.height() - source_rect.height() * ratio) / 2.;
+                dest_rect.bottom = dest_rect.top + source_rect.height() * ratio;
+            }
+        }
+    };
 }

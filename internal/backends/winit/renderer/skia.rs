@@ -6,7 +6,9 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
+use i_slint_core::{
+    graphics::rendering_metrics_collector::RenderingMetricsCollector, item_rendering::ItemCache,
+};
 
 mod itemrenderer;
 mod textlayout;
@@ -44,7 +46,12 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
 
         let surface = create_surface(&gl_context, &mut gr_context).into();
 
-        SkiaCanvas { surface, gr_context: RefCell::new(gr_context), rendering_metrics_collector }
+        SkiaCanvas {
+            image_cache: Default::default(),
+            surface,
+            gr_context: RefCell::new(gr_context),
+            rendering_metrics_collector,
+        }
     }
 
     fn render(
@@ -75,7 +82,8 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
 
             skia_canvas.flush();
 
-            let mut item_renderer = itemrenderer::SkiaRenderer::new(skia_canvas, &window);
+            let mut item_renderer =
+                itemrenderer::SkiaRenderer::new(skia_canvas, &window, &canvas.image_cache);
 
             before_rendering_callback();
 
@@ -134,6 +142,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
 }
 
 pub struct SkiaCanvas {
+    image_cache: ItemCache<Option<skia_safe::Image>>,
     surface: RefCell<skia_safe::Surface>,
     gr_context: RefCell<skia_safe::gpu::DirectContext>,
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
@@ -145,7 +154,7 @@ impl super::WinitCompatibleCanvas for SkiaCanvas {
     }
 
     fn component_destroyed(&self, component: i_slint_core::component::ComponentRef) {
-        todo!()
+        self.image_cache.component_destroyed(component)
     }
 }
 
