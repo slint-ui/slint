@@ -205,7 +205,25 @@ impl<'a> SkiaRenderer<'a> {
         let transform =
             skia_safe::Matrix::rect_to_rect(source_rect, dest_rect, None).unwrap_or_default();
         self.canvas.concat(&transform);
-        self.canvas.draw_image(skia_image, skia_safe::Point::default(), None);
+
+        match colorize_property.and_then(|prop| {
+            self.brush_to_paint(prop.get(), source_rect.width(), source_rect.height())
+        }) {
+            None => {
+                self.canvas.draw_image(skia_image, skia_safe::Point::default(), None);
+            }
+
+            Some(brush) => {
+                let mut paint = skia_safe::Paint::default();
+                paint.set_image_filter(skia_safe::image_filters::blend(
+                    skia_safe::BlendMode::SrcIn,
+                    skia_safe::image_filters::image(skia_image, None, None, None),
+                    skia_safe::image_filters::paint(&brush, None),
+                    None,
+                ));
+                self.canvas.draw_rect(dest_rect, &paint);
+            }
+        }
         self.canvas.restore();
     }
 }
