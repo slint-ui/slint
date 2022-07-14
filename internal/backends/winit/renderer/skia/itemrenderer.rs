@@ -4,7 +4,8 @@
 use std::pin::Pin;
 use std::rc::Rc;
 
-use i_slint_core::graphics::{euclid, SharedImageBuffer};
+use i_slint_core::api::euclid::approxeq::ApproxEq;
+use i_slint_core::graphics::{euclid, IntSize, SharedImageBuffer};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Opacity, RenderingResult};
 use i_slint_core::{items, Brush, Color, ImageInner, Property};
@@ -89,6 +90,8 @@ impl<'a> SkiaRenderer<'a> {
         source_property: Pin<&Property<i_slint_core::graphics::Image>>,
         mut dest_rect: skia_safe::Rect,
         source_rect: Option<skia_safe::Rect>,
+        target_width: std::pin::Pin<&Property<f32>>,
+        target_height: std::pin::Pin<&Property<f32>>,
         image_fit: ImageFit,
         rendering: ImageRendering,
         colorize_property: Option<Pin<&Property<Brush>>>,
@@ -143,7 +146,44 @@ impl<'a> SkiaRenderer<'a> {
 
                     skia_safe::image::Image::from_raster_data(&image_info, data, bpl)
                 }
-                ImageInner::Svg(_) => None, // TODO
+                ImageInner::Svg(svg) => {
+                    // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
+                    let target_width = target_width.get();
+                    let target_height = target_height.get();
+
+                    let has_source_clipping = source_rect.map_or(false, |rect| {
+                        !rect.is_empty()
+                            && (rect.left != 0.
+                                || rect.top != 0.
+                                || !rect.width().approx_eq(&target_width)
+                                || !rect.height().approx_eq(&target_height))
+                    });
+                    let source_size = if !has_source_clipping {
+                        Some(IntSize::new(target_width as u32, target_height as u32))
+                    } else {
+                        // Source size & clipping is not implemented yet
+                        None
+                    };
+
+                    let pixels = match svg.render(source_size.unwrap_or_default()).ok()? {
+                        SharedImageBuffer::RGB8(_) => unreachable!(),
+                        SharedImageBuffer::RGBA8(_) => unreachable!(),
+                        SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels,
+                    };
+
+                    let image_info = skia_safe::ImageInfo::new(
+                        skia_safe::ISize::new(pixels.width() as i32, pixels.height() as i32),
+                        skia_safe::ColorType::RGBA8888,
+                        skia_safe::AlphaType::Premul,
+                        None,
+                    );
+
+                    skia_safe::image::Image::from_raster_data(
+                        &image_info,
+                        skia_safe::Data::new_copy(pixels.as_bytes()),
+                        pixels.stride() as usize * 4,
+                    )
+                }
                 ImageInner::StaticTextures(_) => todo!(),
             }
         });
@@ -240,6 +280,8 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             i_slint_core::items::ImageItem::FIELD_OFFSETS.source.apply_pin(image),
             geometry,
             None,
+            items::ImageItem::FIELD_OFFSETS.width.apply_pin(image),
+            items::ImageItem::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
             image.image_rendering(),
             None,
@@ -268,6 +310,8 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             i_slint_core::items::ClippedImage::FIELD_OFFSETS.source.apply_pin(image),
             geometry,
             Some(source_rect),
+            items::ClippedImage::FIELD_OFFSETS.width.apply_pin(image),
+            items::ClippedImage::FIELD_OFFSETS.height.apply_pin(image),
             image.image_fit(),
             image.image_rendering(),
             Some(items::ClippedImage::FIELD_OFFSETS.colorize.apply_pin(image)),
