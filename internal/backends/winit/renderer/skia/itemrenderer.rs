@@ -6,7 +6,7 @@ use std::rc::Rc;
 
 use i_slint_core::graphics::{euclid, SharedImageBuffer};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
-use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Opacity, RenderingResult, TextWrap};
+use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Opacity, RenderingResult};
 use i_slint_core::{items, Brush, Color, ImageInner, Property};
 
 #[derive(Clone, Copy)]
@@ -303,7 +303,10 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             self.scale_factor,
             string,
             Some(text_style),
-            if text.wrap() == TextWrap::WordWrap { Some(max_width) } else { None },
+            (Some(max_width), Some(max_height)),
+            (text.horizontal_alignment(), text.vertical_alignment()),
+            text.overflow(),
+            text.wrap(),
         );
 
         layout.paint(&mut self.canvas, skia_safe::Point::default());

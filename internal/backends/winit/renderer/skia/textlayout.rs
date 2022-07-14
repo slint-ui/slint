@@ -1,6 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+use i_slint_core::items;
 use i_slint_core::{graphics::FontRequest, Coord};
 
 pub const DEFAULT_FONT_SIZE: f32 = 12.;
@@ -18,7 +19,10 @@ pub fn create_layout(
     scale_factor: f32,
     text: &str,
     text_style: Option<skia_safe::textlayout::TextStyle>,
-    max_width: Option<Coord>,
+    (max_width, max_height): (Option<Coord>, Option<Coord>),
+    (h_align, v_align): (items::TextHorizontalAlignment, items::TextVerticalAlignment),
+    overflow: items::TextOverflow,
+    wrap: items::TextWrap,
 ) -> skia_safe::textlayout::Paragraph {
     let mut text_style = text_style.unwrap_or_default();
 
@@ -38,7 +42,19 @@ pub fn create_layout(
         skia_safe::font_style::Slant::Upright,
     ));
 
-    let style = skia_safe::textlayout::ParagraphStyle::new();
+    let mut style = skia_safe::textlayout::ParagraphStyle::new();
+    if let Some(h) = max_height {
+        style.set_height(h);
+    }
+    if overflow == items::TextOverflow::Elide {
+        style.set_ellipsis("…");
+    }
+
+    style.set_text_align(match h_align {
+        items::TextHorizontalAlignment::Left => skia_safe::textlayout::TextAlign::Left,
+        items::TextHorizontalAlignment::Center => skia_safe::textlayout::TextAlign::Center,
+        items::TextHorizontalAlignment::Right => skia_safe::textlayout::TextAlign::Right,
+    });
 
     let mut builder = FONT_COLLECTION.with(|font_collection| {
         skia_safe::textlayout::ParagraphBuilder::new(&style, font_collection)
@@ -46,6 +62,10 @@ pub fn create_layout(
     builder.push_style(&text_style);
     builder.add_text(text);
     let mut paragraph = builder.build();
-    paragraph.layout(max_width.unwrap_or(core::f32::MAX));
+    paragraph.layout(
+        max_width
+            .filter(|_| overflow == items::TextOverflow::Elide || wrap != items::TextWrap::NoWrap)
+            .unwrap_or(core::f32::MAX),
+    );
     paragraph
 }
