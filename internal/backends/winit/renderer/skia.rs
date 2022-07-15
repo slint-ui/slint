@@ -118,8 +118,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
             scale_factor,
             text,
             None,
-            (max_width.map(|w| w * scale_factor), None),
-            Default::default(),
+            max_width.map(|w| w * scale_factor),
             Default::default(),
             Default::default(),
         );

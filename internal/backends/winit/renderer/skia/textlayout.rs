@@ -19,10 +19,9 @@ pub fn create_layout(
     scale_factor: f32,
     text: &str,
     text_style: Option<skia_safe::textlayout::TextStyle>,
-    (max_width, max_height): (Option<Coord>, Option<Coord>),
-    (h_align, v_align): (items::TextHorizontalAlignment, items::TextVerticalAlignment),
+    max_width: Option<Coord>,
+    h_align: items::TextHorizontalAlignment,
     overflow: items::TextOverflow,
-    wrap: items::TextWrap,
 ) -> skia_safe::textlayout::Paragraph {
     let mut text_style = text_style.unwrap_or_default();
 
@@ -43,9 +42,7 @@ pub fn create_layout(
     ));
 
     let mut style = skia_safe::textlayout::ParagraphStyle::new();
-    if let Some(h) = max_height {
-        style.set_height(h);
-    }
+
     if overflow == items::TextOverflow::Elide {
         style.set_ellipsis("…");
     }
@@ -62,10 +59,6 @@ pub fn create_layout(
     builder.push_style(&text_style);
     builder.add_text(text);
     let mut paragraph = builder.build();
-    paragraph.layout(
-        max_width
-            .filter(|_| overflow == items::TextOverflow::Elide || wrap != items::TextWrap::NoWrap)
-            .unwrap_or(core::f32::MAX),
-    );
+    paragraph.layout(max_width.unwrap_or(core::f32::MAX));
     paragraph
 }
