@@ -35,12 +35,12 @@ pub trait WinitWindow: PlatformWindow {
     );
     /// Get the size of the window. Unlike [`winit::window::Window::inner_size()`], this property does not
     /// hold the most recent window size as known by the OS but the latest size that has been processed
-    /// as a [`WindowEvent::Resized`] by [`process_window_event()`].
-    fn size(&self) -> winit::dpi::LogicalSize<f32>;
+    /// by [`WinitWindow::apply_window_properties()`].
+    fn existing_size(&self) -> winit::dpi::LogicalSize<f32>;
     /// Set the size of the window. Unlike [`winit::window::Window::set_inner_size()`], this property does not
     /// hold the most recent window size as known by the OS but the latest size that has been processed
-    /// as a [`WindowEvent::Resized`] by [`process_window_event()`].
-    fn set_size(&self, size: winit::dpi::LogicalSize<f32>);
+    /// by [`WinitWindow::apply_window_properties()`].
+    fn set_existing_size(&self, size: winit::dpi::LogicalSize<f32>);
     fn set_background_color(&self, color: Color);
     fn set_icon(&self, icon: corelib::graphics::Image);
 
@@ -127,16 +127,22 @@ pub trait WinitWindow: PlatformWindow {
                 winit_window.set_decorations(true);
             }
 
-            let existing_size = self.size();
+            if width <= 0. || height <= 0. {
+                must_resize = true;
 
-            if width <= 0. {
-                width = existing_size.width;
-                must_resize = true;
+                let winit_size = winit_window
+                    .inner_size()
+                    .to_logical(self.runtime_window().scale_factor() as f64);
+
+                if width <= 0. {
+                    width = winit_size.width;
+                }
+                if height <= 0. {
+                    height = winit_size.height;
+                }
             }
-            if height <= 0. {
-                height = existing_size.height;
-                must_resize = true;
-            }
+
+            let existing_size = self.existing_size();
 
             if (existing_size.width as f32 - width).abs() > 1.
                 || (existing_size.height as f32 - height).abs() > 1.
@@ -372,7 +378,7 @@ fn process_window_event(
         WindowEvent::Resized(size) => {
             let size = size.to_logical(runtime_window.scale_factor() as f64);
             runtime_window.set_window_item_geometry(size.width, size.height);
-            window.set_size(size);
+            window.set_existing_size(size);
         }
         WindowEvent::CloseRequested => {
             if runtime_window.request_close() {
