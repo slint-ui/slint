@@ -392,7 +392,58 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         path: std::pin::Pin<&i_slint_core::items::Path>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) {
-        //todo!()
+        let geometry = item_rect(path, self.scale_factor);
+
+        let (offset, path_events) = path.fitted_path_events();
+
+        let mut skpath = skia_safe::Path::new();
+
+        for x in path_events.iter() {
+            match x {
+                lyon_path::Event::Begin { at } => {
+                    skpath.move_to((at.x * self.scale_factor, at.y * self.scale_factor));
+                }
+                lyon_path::Event::Line { from: _, to } => {
+                    skpath.line_to((to.x * self.scale_factor, to.y * self.scale_factor));
+                }
+                lyon_path::Event::Quadratic { from: _, ctrl, to } => {
+                    skpath.quad_to(
+                        (ctrl.x * self.scale_factor, ctrl.y * self.scale_factor),
+                        (to.x * self.scale_factor, to.y * self.scale_factor),
+                    );
+                }
+
+                lyon_path::Event::Cubic { from: _, ctrl1, ctrl2, to } => {
+                    skpath.cubic_to(
+                        (ctrl1.x * self.scale_factor, ctrl1.y * self.scale_factor),
+                        (ctrl2.x * self.scale_factor, ctrl2.y * self.scale_factor),
+                        (to.x * self.scale_factor, to.y * self.scale_factor),
+                    );
+                }
+                lyon_path::Event::End { last: _, first: _, close } => {
+                    if close {
+                        skpath.close();
+                    }
+                }
+            }
+        }
+
+        self.canvas.translate((offset.x, offset.y));
+
+        if let Some(mut fill_paint) =
+            self.brush_to_paint(path.fill(), geometry.width(), geometry.height())
+        {
+            fill_paint.set_anti_alias(true);
+            self.canvas.draw_path(&skpath, &fill_paint);
+        }
+        if let Some(mut border_paint) =
+            self.brush_to_paint(path.stroke(), geometry.width(), geometry.height())
+        {
+            border_paint.set_anti_alias(true);
+            border_paint.set_stroke_width(path.stroke_width());
+            border_paint.set_stroke(true);
+            self.canvas.draw_path(&skpath, &border_paint);
+        }
     }
 
     fn draw_box_shadow(
