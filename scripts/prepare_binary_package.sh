@@ -89,6 +89,7 @@ accepted = [
     "CC0-1.0",
     "BSL-1.0",
     "ISC",
+    "Unicode-DFS-2016",
     "GPL-3.0", # That's only for Slint
 ]
 targets = [
