@@ -7,7 +7,7 @@ use std::rc::Rc;
 use i_slint_core::api::euclid::approxeq::ApproxEq;
 use i_slint_core::graphics::{euclid, IntSize, SharedImageBuffer};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
-use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Opacity, RenderingResult};
+use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::{items, Brush, Color, ImageInner, Property};
 
 #[derive(Clone, Copy)]
@@ -225,6 +225,59 @@ impl<'a> SkiaRenderer<'a> {
             }
         }
         self.canvas.restore();
+    }
+
+    fn render_and_blend_layer(&mut self, item_rc: &ItemRc) -> RenderingResult {
+        let current_clip = self.get_current_clip();
+        if let Some(layer_image) = self.render_layer(item_rc, &|| {
+            // We don't need to include the size of the "layer" item itself, since it has no content.
+            let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
+                let self_ref = item_rc.borrow();
+                self_ref.as_ref().geometry().union(
+                    &i_slint_core::item_rendering::item_children_bounding_rect(
+                        &item_rc.component(),
+                        item_rc.index() as isize,
+                        &current_clip,
+                    ),
+                )
+            });
+            skia_safe::Size::new(children_rect.size.width, children_rect.size.height)
+        }) {
+            let mut tint = skia_safe::Paint::default();
+            tint.set_alpha_f(self.current_state.alpha);
+            self.canvas.draw_image(layer_image, skia_safe::Point::default(), Some(&tint));
+        }
+        RenderingResult::ContinueRenderingWithoutChildren
+    }
+
+    fn render_layer(
+        &mut self,
+        item_rc: &ItemRc,
+        layer_logical_size_fn: &dyn Fn() -> skia_safe::Size,
+    ) -> Option<skia_safe::Image> {
+        self.image_cache.get_or_update_cache_entry(item_rc, || {
+            let layer_size = (layer_logical_size_fn() * self.scale_factor).to_ceil();
+
+            let image_info = skia_safe::ImageInfo::new(
+                layer_size,
+                skia_safe::ColorType::RGBA8888,
+                skia_safe::AlphaType::Premul,
+                None,
+            );
+            let mut surface = self.canvas.new_surface(&image_info, None)?;
+            let canvas = surface.canvas();
+            canvas.clear(skia_safe::Color::TRANSPARENT);
+
+            let mut sub_renderer = SkiaRenderer::new(canvas, &self.window, self.image_cache);
+
+            i_slint_core::item_rendering::render_item_children(
+                &mut sub_renderer,
+                &item_rc.component(),
+                item_rc.index() as isize,
+            );
+
+            Some(surface.image_snapshot())
+        })
     }
 }
 
@@ -603,6 +656,14 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             RenderingResult::ContinueRenderingWithoutChildren
         } else {
             self.apply_opacity(opacity);
+            RenderingResult::ContinueRenderingChildren
+        }
+    }
+
+    fn visit_layer(&mut self, layer_item: Pin<&Layer>, self_rc: &ItemRc) -> RenderingResult {
+        if layer_item.cache_rendering_hint() {
+            self.render_and_blend_layer(self_rc)
+        } else {
             RenderingResult::ContinueRenderingChildren
         }
     }
