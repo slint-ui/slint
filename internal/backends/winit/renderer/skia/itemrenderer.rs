@@ -449,37 +449,61 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
     fn draw_box_shadow(
         &mut self,
         box_shadow: std::pin::Pin<&i_slint_core::items::BoxShadow>,
-        _self_rc: &i_slint_core::items::ItemRc,
+        self_rc: &i_slint_core::items::ItemRc,
     ) {
-        let mut geometry = item_rect(box_shadow, self.scale_factor);
-
-        let color = box_shadow.color();
-        if color.alpha() == 0 {
-            return;
-        }
-        let blur = box_shadow.blur();
         let ox = box_shadow.offset_x() * self.scale_factor;
         let oy = box_shadow.offset_y() * self.scale_factor;
 
-        if blur == 0.0 && ox == 0. && oy == 0. {
+        if ox == 0. && oy == 0. && box_shadow.blur() == 0.0 {
             return;
         }
 
-        let radius = box_shadow.border_radius() * self.scale_factor;
+        let cached_shadow_image = self.image_cache.get_or_update_cache_entry(self_rc, || {
+            let geometry = item_rect(box_shadow, self.scale_factor);
 
-        geometry.offset((ox, oy));
+            let color = box_shadow.color();
+            if color.alpha() == 0 {
+                return None;
+            }
+            let blur = box_shadow.blur();
 
-        let rounded_rect = skia_safe::RRect::new_rect_xy(geometry, radius, radius);
+            let mut shadow_size = geometry.size();
+            shadow_size.width += 2. * blur;
+            shadow_size.height += 2. * blur;
 
-        let mut paint = skia_safe::Paint::default();
-        paint.set_color(to_skia_color(&color));
-        paint.set_anti_alias(true);
-        paint.set_mask_filter(skia_safe::MaskFilter::blur(
-            skia_safe::BlurStyle::Normal,
-            blur / 2.,
-            None,
-        ));
-        self.canvas.draw_rrect(rounded_rect, &paint);
+            let image_info = skia_safe::ImageInfo::new(
+                shadow_size.to_ceil(),
+                skia_safe::ColorType::RGBA8888,
+                skia_safe::AlphaType::Premul,
+                None,
+            );
+
+            let radius = box_shadow.border_radius() * self.scale_factor;
+
+            let rounded_rect = skia_safe::RRect::new_rect_xy(geometry, radius, radius);
+
+            let mut paint = skia_safe::Paint::default();
+            paint.set_color(to_skia_color(&color));
+            paint.set_anti_alias(true);
+            paint.set_mask_filter(skia_safe::MaskFilter::blur(
+                skia_safe::BlurStyle::Normal,
+                blur / 2.,
+                None,
+            ));
+
+            let mut surface = self.canvas.new_surface(&image_info, None)?;
+            let canvas = surface.canvas();
+            canvas.clear(skia_safe::Color::TRANSPARENT);
+            canvas.draw_rrect(rounded_rect, &paint);
+            Some(surface.image_snapshot())
+        });
+
+        let cached_shadow_image = match cached_shadow_image {
+            Some(img) => img,
+            None => return,
+        };
+
+        self.canvas.draw_image(cached_shadow_image, skia_safe::Point::from((ox, oy)), None);
     }
 
     fn combine_clip(
