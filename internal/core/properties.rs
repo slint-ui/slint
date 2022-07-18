@@ -379,7 +379,7 @@ impl BindingHolder {
 fn alloc_binding_holder<B: BindingCallable + 'static>(binding: B) -> *mut BindingHolder {
     /// Safety: _self must be a pointer that comes from a `Box<BindingHolder<B>>::into_raw()`
     unsafe fn binding_drop<B>(_self: *mut BindingHolder) {
-        Box::from_raw(_self as *mut BindingHolder<B>);
+        drop(Box::from_raw(_self as *mut BindingHolder<B>));
     }
 
     /// Safety: _self must be a pointer to a `BindingHolder<B>`

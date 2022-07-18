@@ -424,7 +424,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 vtable_ctor.push(quote!(#ident: {
                     #sig_extern {
                         unsafe {
-                            Box::from_raw((#self_call).0 as *mut _);
+                            ::core::mem::drop(Box::from_raw((#self_call).0 as *mut _));
                         }
                     }
                     #ident::<T>

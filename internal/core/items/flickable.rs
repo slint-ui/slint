@@ -144,9 +144,7 @@ impl Default for FlickableDataBox {
 impl Drop for FlickableDataBox {
     fn drop(&mut self) {
         // Safety: the self.0 was constructed from a Box::leak in FlickableDataBox::default
-        unsafe {
-            Box::from_raw(self.0.as_ptr());
-        }
+        drop(unsafe { Box::from_raw(self.0.as_ptr()) });
     }
 }
 
