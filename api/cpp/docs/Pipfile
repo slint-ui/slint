@@ -9,12 +9,12 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-breathe = "*"
-sphinx-rtd-theme = "*"
-sphinx = "*"
-exhale = "*"
-myst_parser = "*"
-sphinx-markdown-tables = "0.0.14"
+breathe = "4.33.1"
+sphinx-rtd-theme = "1.0.0"
+sphinx = "4.5.0"
+exhale = "0.2.4"
+myst_parser = "0.17.2"
+sphinx-markdown-tables = "0.0.15"
 
 [requires]
 python_version = "3"
