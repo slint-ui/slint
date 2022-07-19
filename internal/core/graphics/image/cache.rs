@@ -1,20 +1,31 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+/*!
+This module contains image and caching related types for the run-time library.
+*/
+
 use std::collections::HashMap;
 
 use super::{ImageInner, SharedImageBuffer, SharedPixelBuffer};
 use crate::{slice::Slice, SharedString};
 
+/// ImageCacheKey encapsulates the different ways of indexing images in the
+/// cache of decoded images.
 #[derive(PartialEq, Eq, Hash, Debug, derive_more::From)]
 pub enum ImageCacheKey {
+    /// The image is identified by its path on the file system.
     Path(SharedString),
+    /// The image is identified by a URL.
     #[cfg(target_arch = "wasm32")]
     URL(String),
+    /// The image is identified by the static address of its encoded data.
     EmbeddedData(by_address::ByAddress<&'static [u8]>),
 }
 
 impl ImageCacheKey {
+    /// Returns a new cache key if decoded image data can be stored in image cache for
+    /// the given ImageInner.
     pub fn new(resource: &ImageInner) -> Option<Self> {
         Some(match resource {
             ImageInner::None => return None,
