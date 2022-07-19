@@ -173,6 +173,7 @@ fn gen_corelib(
         "SharedString",
         "SharedVector",
         "ImageInner",
+        "ImageCacheKey",
         "Image",
         "Color",
         "PathData",
@@ -259,6 +260,7 @@ fn gen_corelib(
             vec![
                 "ImageInner",
                 "Image",
+                "ImageCacheKey",
                 "Size",
                 "slint_image_size",
                 "slint_image_path",
@@ -354,6 +356,7 @@ fn gen_corelib(
             .with_src(crate_dir.join("graphics/path.rs"))
             .with_src(crate_dir.join("graphics/brush.rs"))
             .with_src(crate_dir.join("graphics/image.rs"))
+            .with_src(crate_dir.join("graphics/image/cache.rs"))
             .with_src(crate_dir.join("animations.rs"))
             //            .with_src(crate_dir.join("input.rs"))
             .with_src(crate_dir.join("item_rendering.rs"))
