@@ -541,11 +541,9 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     if let (std::borrow::Cow::Borrowed(static_path), Some(static_data)) = (virtual_file.path, virtual_file.builtin_contents) {
                         let virtual_file_extension = std::path::Path::new(static_path).extension().unwrap().to_str().unwrap();
                         debug_assert_eq!(virtual_file_extension, extension);
-                        Ok(corelib::graphics::Image::from(
-                            (
-                                corelib::slice::Slice::from_slice(static_data),
-                                 corelib::slice::Slice::from_slice(virtual_file_extension.as_bytes())
-                            )
+                        Ok(corelib::graphics::load_image_from_embedded_data(
+                            corelib::slice::Slice::from_slice(static_data),
+                            corelib::slice::Slice::from_slice(virtual_file_extension.as_bytes())
                         ))
                     } else {
                         corelib::debug_log!("Cannot embed images from disk {}", path);

@@ -471,16 +471,13 @@ impl Image {
     }
 }
 
-// FIXME: this shouldn't be in the public API
+/// Load an image from an image embedded in the binary.
+/// This is called by the generated code.
 #[cfg(feature = "image-decoders")]
-impl From<(Slice<'static, u8>, Slice<'static, u8>)> for Image {
-    fn from((data, format): (Slice<'static, u8>, Slice<'static, u8>)) -> Self {
-        load_image_from_embedded_data(data, format)
-    }
-}
-
-#[cfg(feature = "image-decoders")]
-fn load_image_from_embedded_data(data: Slice<'static, u8>, format: Slice<'static, u8>) -> Image {
+pub fn load_image_from_embedded_data(
+    data: Slice<'static, u8>,
+    format: Slice<'static, u8>,
+) -> Image {
     self::cache::IMAGE_CACHE.with(|global_cache| {
         let image_inner = global_cache
             .borrow_mut()
