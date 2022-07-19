@@ -1823,11 +1823,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
                 let format = proc_macro2::Literal::byte_string(extension.as_bytes());
-                quote!(
-                    slint::re_exports::Image::from(
-                        ( #symbol.into(),  Slice::from_slice(#format) )
-                    )
-                )
+                quote!(slint::re_exports::load_image_from_embedded_data(#symbol.into(), Slice::from_slice(#format)))
             }
             crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
