@@ -391,7 +391,7 @@ pub struct LoadImageError(());
 /// let image = Image::from_rgba8_premultiplied(pixel_buffer);
 /// ```
 #[repr(transparent)]
-#[derive(Default, Clone, Debug, PartialEq)]
+#[derive(Default, Clone, Debug, PartialEq, derive_more::From)]
 pub struct Image(ImageInner);
 
 impl Image {
