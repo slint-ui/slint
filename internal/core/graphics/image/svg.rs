@@ -6,11 +6,11 @@
 #[cfg(not(target_arch = "wasm32"))]
 use crate::SharedString;
 
-use super::SharedPixelBuffer;
+use super::{ImageCacheKey, SharedPixelBuffer};
 
 pub struct ParsedSVG {
     svg_tree: usvg::Tree,
-    cache_key: crate::graphics::cache::ImageCacheKey,
+    cache_key: ImageCacheKey,
 }
 
 impl super::OpaqueRc for ParsedSVG {}
@@ -27,7 +27,7 @@ impl ParsedSVG {
         [size.width(), size.height()].into()
     }
 
-    pub fn cache_key(&self) -> crate::graphics::cache::ImageCacheKey {
+    pub fn cache_key(&self) -> ImageCacheKey {
         self.cache_key.clone()
     }
 
@@ -74,7 +74,7 @@ fn with_svg_options<T>(callback: impl FnOnce(usvg::OptionsRef<'_>) -> T) -> T {
 #[cfg(not(target_arch = "wasm32"))]
 pub fn load_from_path(
     path: &SharedString,
-    cache_key: crate::graphics::cache::ImageCacheKey,
+    cache_key: ImageCacheKey,
 ) -> Result<ParsedSVG, std::io::Error> {
     let svg_data = std::fs::read(std::path::Path::new(&path.as_str()))?;
 
@@ -85,10 +85,7 @@ pub fn load_from_path(
     })
 }
 
-pub fn load_from_data(
-    slice: &[u8],
-    cache_key: crate::graphics::cache::ImageCacheKey,
-) -> Result<ParsedSVG, usvg::Error> {
+pub fn load_from_data(slice: &[u8], cache_key: ImageCacheKey) -> Result<ParsedSVG, usvg::Error> {
     with_svg_options(|options| {
         usvg::Tree::from_data(slice, &options).map(|svg| ParsedSVG { svg_tree: svg, cache_key })
     })

@@ -266,6 +266,51 @@ pub struct StaticTextures {
     pub textures: Slice<'static, StaticTexture>,
 }
 
+/// ImageCacheKey encapsulates the different ways of indexing images in the
+/// cache of decoded images.
+#[derive(PartialEq, Eq, Debug, Hash, Clone)]
+#[repr(C)]
+pub enum ImageCacheKey {
+    /// This variant indicates that no image cache key can be created for the image.
+    /// For example this is the case for programmatically created images.
+    Invalid,
+    /// The image is identified by its path on the file system.
+    Path(SharedString),
+    /// The image is identified by a URL.
+    #[cfg(target_arch = "wasm32")]
+    URL(SharedString),
+    /// The image is identified by the static address of its encoded data.
+    EmbeddedData(usize),
+}
+
+impl ImageCacheKey {
+    /// Returns a new cache key if decoded image data can be stored in image cache for
+    /// the given ImageInner.
+    pub fn new(resource: &ImageInner) -> Option<Self> {
+        let key = match resource {
+            ImageInner::None => return None,
+            ImageInner::EmbeddedImage { cache_key, .. } => cache_key.clone(),
+            ImageInner::StaticTextures(textures) => {
+                Self::from_embedded_image_data(textures.data.as_slice())
+            }
+            #[cfg(feature = "svg")]
+            ImageInner::Svg(parsed_svg) => parsed_svg.cache_key(),
+            #[cfg(target_arch = "wasm32")]
+            ImageInner::HTMLImage(htmlimage) => Self::URL(htmlimage.source().into()),
+        };
+        if matches!(key, ImageCacheKey::Invalid) {
+            None
+        } else {
+            Some(key)
+        }
+    }
+
+    /// Returns a cache key for static embedded image data.
+    pub fn from_embedded_image_data(data: &'static [u8]) -> Self {
+        Self::EmbeddedData(data.as_ptr() as usize)
+    }
+}
+
 /// A resource is a reference to binary data, for example images. They can be accessible on the file
 /// system or embedded in the resulting binary. Or they might be URLs to a web server and a downloaded
 /// is necessary before they can be used.
@@ -277,7 +322,7 @@ pub enum ImageInner {
     /// A resource that does not represent any data.
     None,
     EmbeddedImage {
-        cache_key: cache::ImageCacheKey,
+        cache_key: ImageCacheKey,
         buffer: SharedImageBuffer,
     },
     #[cfg(feature = "svg")]
@@ -414,7 +459,7 @@ impl Image {
     /// channels (red, green and blue) encoded as u8.
     pub fn from_rgb8(buffer: SharedPixelBuffer<Rgb8Pixel>) -> Self {
         Image(ImageInner::EmbeddedImage {
-            cache_key: cache::ImageCacheKey::Invalid,
+            cache_key: ImageCacheKey::Invalid,
             buffer: SharedImageBuffer::RGB8(buffer),
         })
     }
@@ -423,7 +468,7 @@ impl Image {
     /// channels (red, green, blue and alpha) encoded as u8.
     pub fn from_rgba8(buffer: SharedPixelBuffer<Rgba8Pixel>) -> Self {
         Image(ImageInner::EmbeddedImage {
-            cache_key: cache::ImageCacheKey::Invalid,
+            cache_key: ImageCacheKey::Invalid,
             buffer: SharedImageBuffer::RGBA8(buffer),
         })
     }
@@ -435,7 +480,7 @@ impl Image {
     /// Only construct an Image with this function if you know that your pixels are encoded this way.
     pub fn from_rgba8_premultiplied(buffer: SharedPixelBuffer<Rgba8Pixel>) -> Self {
         Image(ImageInner::EmbeddedImage {
-            cache_key: cache::ImageCacheKey::Invalid,
+            cache_key: ImageCacheKey::Invalid,
             buffer: SharedImageBuffer::RGBA8Premultiplied(buffer),
         })
     }
@@ -468,7 +513,7 @@ impl Image {
     pub fn path(&self) -> Option<&std::path::Path> {
         match &self.0 {
             ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
-                cache::ImageCacheKey::Path(path) => Some(std::path::Path::new(path.as_str())),
+                ImageCacheKey::Path(path) => Some(std::path::Path::new(path.as_str())),
                 _ => None,
             },
             _ => None,
@@ -553,7 +598,7 @@ pub(crate) mod ffi {
     pub unsafe extern "C" fn slint_image_path(image: &Image) -> Option<&SharedString> {
         match &image.0 {
             ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
-                cache::ImageCacheKey::Path(path) => Some(path),
+                ImageCacheKey::Path(path) => Some(path),
                 _ => None,
             },
             _ => None,

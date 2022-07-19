@@ -7,52 +7,8 @@ This module contains image and caching related types for the run-time library.
 
 use std::collections::HashMap;
 
-use super::{Image, ImageInner, SharedImageBuffer, SharedPixelBuffer};
+use super::{Image, ImageCacheKey, ImageInner, SharedImageBuffer, SharedPixelBuffer};
 use crate::{slice::Slice, SharedString};
-
-/// ImageCacheKey encapsulates the different ways of indexing images in the
-/// cache of decoded images.
-#[derive(PartialEq, Eq, Debug, Hash, Clone)]
-#[repr(C)]
-pub enum ImageCacheKey {
-    /// This variant indicates that no image cache key can be created for the image.
-    /// For example this is the case for programmatically created images.
-    Invalid,
-    /// The image is identified by its path on the file system.
-    Path(SharedString),
-    /// The image is identified by a URL.
-    #[cfg(target_arch = "wasm32")]
-    URL(SharedString),
-    /// The image is identified by the static address of its encoded data.
-    EmbeddedData(usize),
-}
-
-impl ImageCacheKey {
-    /// Returns a new cache key if decoded image data can be stored in image cache for
-    /// the given ImageInner.
-    pub fn new(resource: &ImageInner) -> Option<Self> {
-        let key = match resource {
-            ImageInner::None => return None,
-            ImageInner::EmbeddedImage { cache_key, .. } => cache_key.clone(),
-            ImageInner::StaticTextures(textures) => {
-                Self::from_embedded_image_data(textures.data.as_slice())
-            }
-            ImageInner::Svg(parsed_svg) => parsed_svg.cache_key(),
-            #[cfg(target_arch = "wasm32")]
-            ImageInner::HTMLImage(htmlimage) => Self::URL(htmlimage.source().into()),
-        };
-        if matches!(key, ImageCacheKey::Invalid) {
-            None
-        } else {
-            Some(key)
-        }
-    }
-
-    /// Returns a cache key for static embedded image data.
-    pub fn from_embedded_image_data(data: &'static [u8]) -> Self {
-        Self::EmbeddedData(data.as_ptr() as usize)
-    }
-}
 
 // Cache used to avoid repeatedly decoding images from disk.
 #[derive(Default)]
