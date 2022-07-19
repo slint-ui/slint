@@ -71,8 +71,14 @@ impl ImageCache {
             return None;
         }
         let cache_key = ImageCacheKey::from(path.clone());
-        self.lookup_image_in_cache_or_create(cache_key, || {
-            #[cfg(not(target_arch = "wasm32"))]
+        #[cfg(target_arch = "wasm32")]
+        return self.lookup_image_in_cache_or_create(cache_key, || {
+            return Some(ImageInner::HTMLImage(vtable::VRc::new(
+                super::htmlimage::HTMLImage::new(&path),
+            )));
+        });
+        #[cfg(not(target_arch = "wasm32"))]
+        return self.lookup_image_in_cache_or_create(cache_key, || {
             if cfg!(feature = "svg") {
                 if path.ends_with(".svg") || path.ends_with(".svgz") {
                     return Some(ImageInner::Svg(vtable::VRc::new(
@@ -99,7 +105,7 @@ impl ImageCache {
                     })
                 },
             )
-        })
+        });
     }
 
     pub(crate) fn load_image_from_embedded_data(
