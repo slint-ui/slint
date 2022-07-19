@@ -16,7 +16,7 @@ pub struct HTMLImage {
 }
 
 impl HTMLImage {
-    fn new(url: &str) -> Self {
+    pub fn new(url: &str) -> Self {
         let dom_element = web_sys::HtmlImageElement::new().unwrap();
 
         let image_load_pending = Rc::pin(Property::new(true));
@@ -32,23 +32,9 @@ impl HTMLImage {
                     // on a winit window only queues an additional internal event, that'll be
                     // be dispatched as the next event. We are however not in an event loop
                     // call, so we also need to wake up the event loop and redraw then.
-
-                    /*
-                    crate::event_loop::GLOBAL_PROXY.with(|global_proxy| {
-                        let mut maybe_proxy = global_proxy.borrow_mut();
-                        let proxy = maybe_proxy.get_or_insert_with(Default::default);
-                        // Calling send_event is usually done by winit at the bottom of the stack,
-                        // in event handlers, and thus winit might decide to process the event
-                        // immediately within that stack.
-                        // To prevent re-entrancy issues that might happen by getting the application
-                        // event processed on top of the current stack, set winit in Poll mode so that
-                        // events are queued and process on top of a clean stack during a requested animation
-                        // frame a few moments later.
-                        // This also allows batching multiple post_event calls and redraw their state changes
-                        // all at once.
-                        proxy.send_event(crate::event_loop::CustomEvent::RedrawAllWindows);
-                    });
-                    */
+                    if let Some(backend) = crate::backend::instance() {
+                        backend.post_event(Box::new(|| {}))
+                    }
                 }
             })
             .into(),
@@ -69,3 +55,5 @@ impl HTMLImage {
         self.dom_element.src()
     }
 }
+
+impl super::OpaqueRc for HTMLImage {}

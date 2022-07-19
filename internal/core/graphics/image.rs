@@ -31,6 +31,12 @@ OpaqueRcVTable_static! {
     pub static PARSED_SVG_VT for svg::ParsedSVG
 }
 
+#[cfg(target_arch = "wasm32")]
+OpaqueRcVTable_static! {
+    /// VTable for RC wrapped HtmlImage helper struct.
+    pub static HTML_IMAGE_VT for htmlimage::HTMLImage
+}
+
 /// SharedPixelBuffer is a container for storing image data as pixels. It is
 /// internally reference counted and cheap to clone.
 ///
