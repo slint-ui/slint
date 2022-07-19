@@ -1,6 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+/*!
+This module contains image decoding and caching related types for the run-time library.
+*/
+
 use crate::slice::Slice;
 use crate::{SharedString, SharedVector};
 
@@ -13,6 +17,7 @@ mod htmlimage;
 #[cfg(feature = "svg")]
 mod svg;
 
+#[allow(missing_docs)]
 #[vtable::vtable]
 #[repr(C)]
 pub struct OpaqueRcVTable {
@@ -21,7 +26,10 @@ pub struct OpaqueRcVTable {
 }
 
 #[cfg(feature = "svg")]
-OpaqueRcVTable_static! { pub static PARSED_SVG_VT for svg::ParsedSVG }
+OpaqueRcVTable_static! {
+    /// VTable for RC wrapped SVG helper struct.
+    pub static PARSED_SVG_VT for svg::ParsedSVG
+}
 
 /// SharedPixelBuffer is a container for storing image data as pixels. It is
 /// internally reference counted and cheap to clone.
