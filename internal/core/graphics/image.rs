@@ -406,9 +406,7 @@ impl Image {
     pub fn load_from_path(path: &std::path::Path) -> Result<Self, LoadImageError> {
         self::cache::IMAGE_CACHE.with(|global_cache| {
             let path: SharedString = path.to_str().ok_or(LoadImageError(()))?.into();
-            let image_inner =
-                global_cache.borrow_mut().load_image_from_path(&path).ok_or(LoadImageError(()))?;
-            Ok(Image(image_inner))
+            global_cache.borrow_mut().load_image_from_path(&path).ok_or(LoadImageError(()))
         })
     }
 
@@ -485,13 +483,9 @@ pub fn load_image_from_embedded_data(
     format: Slice<'static, u8>,
 ) -> Image {
     self::cache::IMAGE_CACHE.with(|global_cache| {
-        let image_inner = global_cache
-            .borrow_mut()
-            .load_image_from_embedded_data(data, format)
-            .unwrap_or_else(|| {
-                panic!("internal error: embedded image data is not supported by run-time library",)
-            });
-        Image(image_inner)
+        global_cache.borrow_mut().load_image_from_embedded_data(data, format).unwrap_or_else(|| {
+            panic!("internal error: embedded image data is not supported by run-time library",)
+        })
     })
 }
 

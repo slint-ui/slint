@@ -7,7 +7,7 @@ This module contains image and caching related types for the run-time library.
 
 use std::collections::HashMap;
 
-use super::{ImageInner, SharedImageBuffer, SharedPixelBuffer};
+use super::{Image, ImageInner, SharedImageBuffer, SharedPixelBuffer};
 use crate::{slice::Slice, SharedString};
 
 /// ImageCacheKey encapsulates the different ways of indexing images in the
@@ -53,8 +53,8 @@ impl ImageCache {
         &mut self,
         cache_key: ImageCacheKey,
         image_create_fn: impl Fn() -> Option<ImageInner>,
-    ) -> Option<ImageInner> {
-        Some(match self.0.entry(cache_key) {
+    ) -> Option<Image> {
+        Some(Image(match self.0.entry(cache_key) {
             std::collections::hash_map::Entry::Occupied(existing_entry) => {
                 existing_entry.get().clone()
             }
@@ -63,10 +63,10 @@ impl ImageCache {
                 vacant_entry.insert(new_image.clone());
                 new_image
             }
-        })
+        }))
     }
 
-    pub(crate) fn load_image_from_path(&mut self, path: &SharedString) -> Option<ImageInner> {
+    pub(crate) fn load_image_from_path(&mut self, path: &SharedString) -> Option<Image> {
         if path.is_empty() {
             return None;
         }
@@ -112,7 +112,7 @@ impl ImageCache {
         &mut self,
         data: Slice<'static, u8>,
         format: Slice<'static, u8>,
-    ) -> Option<ImageInner> {
+    ) -> Option<Image> {
         let cache_key = ImageCacheKey::from(by_address::ByAddress(data.as_slice()));
         self.lookup_image_in_cache_or_create(cache_key, || {
             #[cfg(feature = "svg")]
