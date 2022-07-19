@@ -12,31 +12,45 @@ use crate::{slice::Slice, SharedString};
 
 /// ImageCacheKey encapsulates the different ways of indexing images in the
 /// cache of decoded images.
-#[derive(PartialEq, Eq, Hash, Debug, derive_more::From)]
+#[derive(PartialEq, Eq, Debug, Hash, Clone)]
+#[repr(C)]
 pub enum ImageCacheKey {
+    /// This variant indicates that no image cache key can be created for the image.
+    /// For example this is the case for programmatically created images.
+    Invalid,
     /// The image is identified by its path on the file system.
     Path(SharedString),
     /// The image is identified by a URL.
     #[cfg(target_arch = "wasm32")]
-    URL(String),
+    URL(SharedString),
     /// The image is identified by the static address of its encoded data.
-    EmbeddedData(by_address::ByAddress<&'static [u8]>),
+    EmbeddedData(usize),
 }
 
 impl ImageCacheKey {
     /// Returns a new cache key if decoded image data can be stored in image cache for
     /// the given ImageInner.
     pub fn new(resource: &ImageInner) -> Option<Self> {
-        Some(match resource {
+        let key = match resource {
             ImageInner::None => return None,
-            ImageInner::EmbeddedImage { path, .. } => path.clone().into(),
+            ImageInner::EmbeddedImage { cache_key, .. } => cache_key.clone(),
             ImageInner::StaticTextures(textures) => {
-                by_address::ByAddress(textures.data.as_slice()).into()
+                Self::from_embedded_image_data(textures.data.as_slice())
             }
-            ImageInner::Svg(parsed_svg) => parsed_svg.path().clone().into(),
+            ImageInner::Svg(parsed_svg) => parsed_svg.cache_key(),
             #[cfg(target_arch = "wasm32")]
-            ImageInner::HTMLImage(htmlimage) => htmlimage.source().into(),
-        })
+            ImageInner::HTMLImage(htmlimage) => Self::URL(htmlimage.source().into()),
+        };
+        if matches!(key, ImageCacheKey::Invalid) {
+            None
+        } else {
+            Some(key)
+        }
+    }
+
+    /// Returns a cache key for static embedded image data.
+    pub fn from_embedded_image_data(data: &'static [u8]) -> Self {
+        Self::EmbeddedData(data.as_ptr() as usize)
     }
 }
 
@@ -52,14 +66,14 @@ impl ImageCache {
     fn lookup_image_in_cache_or_create(
         &mut self,
         cache_key: ImageCacheKey,
-        image_create_fn: impl Fn() -> Option<ImageInner>,
+        image_create_fn: impl Fn(ImageCacheKey) -> Option<ImageInner>,
     ) -> Option<Image> {
-        Some(Image(match self.0.entry(cache_key) {
+        Some(Image(match self.0.entry(cache_key.clone()) {
             std::collections::hash_map::Entry::Occupied(existing_entry) => {
                 existing_entry.get().clone()
             }
             std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-                let new_image = image_create_fn()?;
+                let new_image = image_create_fn(cache_key)?;
                 vacant_entry.insert(new_image.clone());
                 new_image
             }
@@ -70,19 +84,19 @@ impl ImageCache {
         if path.is_empty() {
             return None;
         }
-        let cache_key = ImageCacheKey::from(path.clone());
+        let cache_key = ImageCacheKey::Path(path.clone());
         #[cfg(target_arch = "wasm32")]
-        return self.lookup_image_in_cache_or_create(cache_key, || {
+        return self.lookup_image_in_cache_or_create(cache_key, |_| {
             return Some(ImageInner::HTMLImage(vtable::VRc::new(
                 super::htmlimage::HTMLImage::new(&path),
             )));
         });
         #[cfg(not(target_arch = "wasm32"))]
-        return self.lookup_image_in_cache_or_create(cache_key, || {
+        return self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
             if cfg!(feature = "svg") {
                 if path.ends_with(".svg") || path.ends_with(".svgz") {
                     return Some(ImageInner::Svg(vtable::VRc::new(
-                        super::svg::load_from_path(path).map_or_else(
+                        super::svg::load_from_path(path, cache_key).map_or_else(
                             |err| {
                                 eprintln!("Error loading SVG from {}: {}", &path, err);
                                 None
@@ -100,7 +114,7 @@ impl ImageCache {
                 },
                 |image| {
                     Some(ImageInner::EmbeddedImage {
-                        path: path.clone(),
+                        cache_key,
                         buffer: dynamic_image_to_shared_image_buffer(image),
                     })
                 },
@@ -113,12 +127,12 @@ impl ImageCache {
         data: Slice<'static, u8>,
         format: Slice<'static, u8>,
     ) -> Option<Image> {
-        let cache_key = ImageCacheKey::from(by_address::ByAddress(data.as_slice()));
-        self.lookup_image_in_cache_or_create(cache_key, || {
+        let cache_key = ImageCacheKey::from_embedded_image_data(data.as_slice());
+        self.lookup_image_in_cache_or_create(cache_key, |cache_key| {
             #[cfg(feature = "svg")]
             if format.as_slice() == b"svg" || format.as_slice() == b"svgz" {
                 return Some(ImageInner::Svg(vtable::VRc::new(
-                    super::svg::load_from_data(data.as_slice()).map_or_else(
+                    super::svg::load_from_data(data.as_slice(), cache_key).map_or_else(
                         |svg_err| {
                             eprintln!("Error loading SVG: {}", svg_err);
                             None
@@ -139,7 +153,7 @@ impl ImageCache {
 
             match maybe_image {
                 Ok(image) => Some(ImageInner::EmbeddedImage {
-                    path: Default::default(),
+                    cache_key,
                     buffer: dynamic_image_to_shared_image_buffer(image),
                 }),
                 Err(decode_err) => {

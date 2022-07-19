@@ -3,13 +3,14 @@
 
 #![cfg(feature = "svg")]
 
+#[cfg(not(target_arch = "wasm32"))]
 use crate::SharedString;
 
 use super::SharedPixelBuffer;
 
 pub struct ParsedSVG {
     svg_tree: usvg::Tree,
-    path: SharedString,
+    cache_key: crate::graphics::cache::ImageCacheKey,
 }
 
 impl super::OpaqueRc for ParsedSVG {}
@@ -26,8 +27,8 @@ impl ParsedSVG {
         [size.width(), size.height()].into()
     }
 
-    pub fn path(&self) -> &SharedString {
-        &self.path
+    pub fn cache_key(&self) -> crate::graphics::cache::ImageCacheKey {
+        self.cache_key.clone()
     }
 
     /// Renders the SVG with the specified size.
@@ -71,19 +72,24 @@ fn with_svg_options<T>(callback: impl FnOnce(usvg::OptionsRef<'_>) -> T) -> T {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-pub fn load_from_path(path: &SharedString) -> Result<ParsedSVG, std::io::Error> {
+pub fn load_from_path(
+    path: &SharedString,
+    cache_key: crate::graphics::cache::ImageCacheKey,
+) -> Result<ParsedSVG, std::io::Error> {
     let svg_data = std::fs::read(std::path::Path::new(&path.as_str()))?;
 
     with_svg_options(|options| {
         usvg::Tree::from_data(&svg_data, &options)
-            .map(|svg| ParsedSVG { svg_tree: svg, path: path.clone() })
+            .map(|svg| ParsedSVG { svg_tree: svg, cache_key })
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))
     })
 }
 
-pub fn load_from_data(slice: &[u8]) -> Result<ParsedSVG, usvg::Error> {
+pub fn load_from_data(
+    slice: &[u8],
+    cache_key: crate::graphics::cache::ImageCacheKey,
+) -> Result<ParsedSVG, usvg::Error> {
     with_svg_options(|options| {
-        usvg::Tree::from_data(slice, &options)
-            .map(|svg| ParsedSVG { svg_tree: svg, path: Default::default() })
+        usvg::Tree::from_data(slice, &options).map(|svg| ParsedSVG { svg_tree: svg, cache_key })
     })
 }

@@ -277,7 +277,7 @@ pub enum ImageInner {
     /// A resource that does not represent any data.
     None,
     EmbeddedImage {
-        path: SharedString, // Should be Option, but can't be because of cbindgen, so empty means none.
+        cache_key: cache::ImageCacheKey,
         buffer: SharedImageBuffer,
     },
     #[cfg(feature = "svg")]
@@ -291,9 +291,9 @@ impl PartialEq for ImageInner {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (
-                Self::EmbeddedImage { path: l_path, buffer: l_buffer },
-                Self::EmbeddedImage { path: r_path, buffer: r_buffer },
-            ) => l_path == r_path && l_buffer == r_buffer,
+                Self::EmbeddedImage { cache_key: l_cache_key, buffer: l_buffer },
+                Self::EmbeddedImage { cache_key: r_cache_key, buffer: r_buffer },
+            ) => l_cache_key == r_cache_key && l_buffer == r_buffer,
             #[cfg(feature = "svg")]
             (Self::Svg(l0), Self::Svg(r0)) => vtable::VRc::ptr_eq(l0, r0),
             (Self::StaticTextures(l0), Self::StaticTextures(r0)) => l0 == r0,
@@ -414,7 +414,7 @@ impl Image {
     /// channels (red, green and blue) encoded as u8.
     pub fn from_rgb8(buffer: SharedPixelBuffer<Rgb8Pixel>) -> Self {
         Image(ImageInner::EmbeddedImage {
-            path: Default::default(),
+            cache_key: cache::ImageCacheKey::Invalid,
             buffer: SharedImageBuffer::RGB8(buffer),
         })
     }
@@ -423,7 +423,7 @@ impl Image {
     /// channels (red, green, blue and alpha) encoded as u8.
     pub fn from_rgba8(buffer: SharedPixelBuffer<Rgba8Pixel>) -> Self {
         Image(ImageInner::EmbeddedImage {
-            path: Default::default(),
+            cache_key: cache::ImageCacheKey::Invalid,
             buffer: SharedImageBuffer::RGBA8(buffer),
         })
     }
@@ -435,7 +435,7 @@ impl Image {
     /// Only construct an Image with this function if you know that your pixels are encoded this way.
     pub fn from_rgba8_premultiplied(buffer: SharedPixelBuffer<Rgba8Pixel>) -> Self {
         Image(ImageInner::EmbeddedImage {
-            path: Default::default(),
+            cache_key: cache::ImageCacheKey::Invalid,
             buffer: SharedImageBuffer::RGBA8Premultiplied(buffer),
         })
     }
@@ -467,9 +467,10 @@ impl Image {
     /// ```
     pub fn path(&self) -> Option<&std::path::Path> {
         match &self.0 {
-            ImageInner::EmbeddedImage { path, .. } => {
-                (!path.is_empty()).then(|| std::path::Path::new(path.as_str()))
-            }
+            ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
+                cache::ImageCacheKey::Path(path) => Some(std::path::Path::new(path.as_str())),
+                _ => None,
+            },
             _ => None,
         }
     }
@@ -551,7 +552,10 @@ pub(crate) mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_image_path(image: &Image) -> Option<&SharedString> {
         match &image.0 {
-            ImageInner::EmbeddedImage { path, .. } => (!path.is_empty()).then(|| path),
+            ImageInner::EmbeddedImage { cache_key, .. } => match cache_key {
+                cache::ImageCacheKey::Path(path) => Some(path),
+                _ => None,
+            },
             _ => None,
         }
     }

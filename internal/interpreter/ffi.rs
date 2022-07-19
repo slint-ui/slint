@@ -13,11 +13,11 @@ use vtable::VRef;
 
 #[repr(C)]
 #[cfg(target_pointer_width = "64")]
-pub struct ValueOpaque([usize; 7]);
+pub struct ValueOpaque([usize; 8]);
 #[repr(C)]
 #[cfg(target_pointer_width = "32")]
 #[repr(align(8))]
-pub struct ValueOpaque([usize; 10]);
+pub struct ValueOpaque([usize; 11]);
 /// Asserts that ValueOpaque is as large as Value and has the same alignment, to make transmute safe.
 const _: [(); std::mem::size_of::<ValueOpaque>()] = [(); std::mem::size_of::<Value>()];
 const _: [(); std::mem::align_of::<ValueOpaque>()] = [(); std::mem::align_of::<Value>()];
