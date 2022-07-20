@@ -117,7 +117,6 @@ mod the_backend {
     use alloc::boxed::Box;
     use alloc::collections::VecDeque;
     use alloc::rc::{Rc, Weak};
-    use alloc::string::String;
     use core::cell::{Cell, RefCell};
     use core::pin::Pin;
     use i_slint_core::api::PhysicalPx;
@@ -277,7 +276,6 @@ mod the_backend {
     #[derive(Default)]
     struct MCUBackendInner {
         event_queue: VecDeque<McuEvent>,
-        clipboard: String,
     }
 
     impl MCUBackendInner {
@@ -491,15 +489,6 @@ mod the_backend {
             font_data: &'static i_slint_core::graphics::BitmapFont,
         ) {
             crate::renderer::fonts::register_bitmap_font(font_data);
-        }
-
-        fn set_clipboard_text(&'static self, text: String) {
-            self.with_inner(|inner| inner.clipboard = text)
-        }
-
-        fn clipboard_text(&'static self) -> Option<String> {
-            let c = self.with_inner(|inner| inner.clipboard.clone());
-            c.is_empty().then(|| c)
         }
 
         fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {

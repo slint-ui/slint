@@ -6,7 +6,6 @@
 
 extern crate alloc;
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use i_slint_core::window::Window;
@@ -48,27 +47,6 @@ pub const HAS_NATIVE_STYLE: bool = false;
 pub use stylemetrics::native_style_metrics_deinit;
 pub use stylemetrics::native_style_metrics_init;
 
-// TODO: We can't connect to the wayland clipboard yet because
-// it requires an external connection.
-cfg_if::cfg_if! {
-    if #[cfg(all(
-             unix,
-             not(any(
-                 target_os = "macos",
-                 target_os = "android",
-                 target_os = "ios",
-                 target_os = "emscripten"
-            )),
-            not(feature = "x11")
-        ))] {
-        type ClipboardBackend = copypasta::nop_clipboard::NopClipboardContext;
-    } else {
-        type ClipboardBackend = copypasta::ClipboardContext;
-    }
-}
-
-thread_local!(pub(crate) static CLIPBOARD : RefCell<ClipboardBackend> = std::cell::RefCell::new(ClipboardBackend::new().unwrap()));
-
 pub struct Backend;
 impl i_slint_core::backend::Backend for Backend {
     fn create_window(&'static self) -> Rc<Window> {
@@ -103,16 +81,6 @@ impl i_slint_core::backend::Backend for Backend {
         path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
         self::fonts::register_font_from_path(path)
-    }
-
-    fn set_clipboard_text(&'static self, text: String) {
-        use copypasta::ClipboardProvider;
-        CLIPBOARD.with(|clipboard| clipboard.borrow_mut().set_contents(text).ok());
-    }
-
-    fn clipboard_text(&'static self) -> Option<String> {
-        use copypasta::ClipboardProvider;
-        CLIPBOARD.with(|clipboard| clipboard.borrow_mut().get_contents().ok())
     }
 
     fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {

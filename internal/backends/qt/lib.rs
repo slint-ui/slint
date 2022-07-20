@@ -218,38 +218,6 @@ impl i_slint_core::backend::Backend for Backend {
         Ok(())
     }
 
-    fn set_clipboard_text(&'static self, _text: String) {
-        #[cfg(not(no_qt))]
-        {
-            use cpp::cpp;
-            let text: qttypes::QString = _text.into();
-            cpp! {unsafe [text as "QString"] {
-                ensure_initialized();
-                QGuiApplication::clipboard()->setText(text);
-            } }
-        }
-    }
-
-    fn clipboard_text(&'static self) -> Option<String> {
-        #[cfg(not(no_qt))]
-        {
-            use cpp::cpp;
-            let has_text = cpp! {unsafe [] -> bool as "bool" {
-                ensure_initialized();
-                return QGuiApplication::clipboard()->mimeData()->hasText();
-            } };
-            if has_text {
-                return Some(
-                    cpp! { unsafe [] -> qttypes::QString as "QString" {
-                        return QGuiApplication::clipboard()->text();
-                    }}
-                    .into(),
-                );
-            }
-        }
-        None
-    }
-
     fn post_event(&'static self, _event: Box<dyn FnOnce() + Send>) {
         #[cfg(not(no_qt))]
         {

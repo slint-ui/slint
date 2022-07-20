@@ -11,12 +11,9 @@ use i_slint_core::graphics::{Point, Rect, Size};
 use i_slint_core::window::{PlatformWindow, Window};
 use std::pin::Pin;
 use std::rc::Rc;
-use std::sync::Mutex;
 
 #[derive(Default)]
-pub struct TestingBackend {
-    clipboard: Mutex<Option<String>>,
-}
+pub struct TestingBackend {}
 
 impl i_slint_core::backend::Backend for TestingBackend {
     fn create_window(&'static self) -> Rc<Window> {
@@ -41,14 +38,6 @@ impl i_slint_core::backend::Backend for TestingBackend {
         _path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
         Ok(())
-    }
-
-    fn set_clipboard_text(&'static self, text: String) {
-        *self.clipboard.lock().unwrap() = Some(text);
-    }
-
-    fn clipboard_text(&'static self) -> Option<String> {
-        self.clipboard.lock().unwrap().clone()
     }
 
     fn post_event(&'static self, _event: Box<dyn FnOnce() + Send>) {

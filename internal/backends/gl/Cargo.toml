@@ -17,8 +17,8 @@ path = "lib.rs"
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt
 [features]
-wayland = ["winit/wayland", "glutin/wayland", "copypasta/wayland"]
-x11 = ["winit/x11", "glutin/x11", "copypasta/x11"]
+wayland = ["winit/wayland", "glutin/wayland"]
+x11 = ["winit/x11", "glutin/x11"]
 rtti = ["i-slint-core/rtti"]
 default = []
 
@@ -31,7 +31,6 @@ const-field-offset = { version = "0.1", path = "../../../helper_crates/const-fie
 vtable = { version = "0.1.6", path = "../../../helper_crates/vtable" }
 
 cfg-if = "1"
-copypasta = { version = "0.8.1", default-features = false }
 derive_more = "0.99.5"
 femtovg = { version = "0.3.5" }
 fontdb = { version = "0.9.0", default-features = false }

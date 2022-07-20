@@ -67,6 +67,7 @@ pub mod animations;
 pub mod api;
 pub mod backend;
 pub mod callbacks;
+mod clipboard;
 pub mod component;
 pub mod graphics;
 pub mod input;

@@ -722,14 +722,11 @@ impl TextInput {
     }
 
     fn copy(self: Pin<&Self>) {
-        if let Some(backend) = crate::backend::instance() {
-            backend.set_clipboard_text(self.selected_text());
-        }
+        crate::clipboard::set_clipboard_text(self.selected_text());
     }
 
     fn paste(self: Pin<&Self>, window: &WindowRc) {
-        if let Some(text) = crate::backend::instance().and_then(|backend| backend.clipboard_text())
-        {
+        if let Some(text) = crate::clipboard::clipboard_text() {
             self.insert(&text, window);
         }
     }
