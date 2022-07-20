@@ -30,4 +30,5 @@ set(_IMPORT_PREFIX)
 
 include("${CMAKE_CURRENT_LIST_DIR}/SlintTargets.cmake")
 
-set(SLINT_STYLE @SLINT_STYLE_DEFAULT@ CACHE STRING "The Slint widget style")
+set(SLINT_STYLE @_SLINT_STYLE@ CACHE STRING "The Slint widget style")
+set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE})

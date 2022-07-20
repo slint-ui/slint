@@ -130,7 +130,12 @@ else()
     set(SLINT_STYLE_DEFAULT "fluent")
 endif()
 
-set(SLINT_STYLE ${SLINT_STYLE_DEFAULT} CACHE STRING "The Slint widget style" FORCE)
+set(SLINT_STYLE "" CACHE STRING "The Slint widget style")
+if (SLINT_STYLE)
+    set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE})
+else (SLINT_STYLE)
+    set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE_DEFAULT})
+endif(SLINT_STYLE)
 
 file(GLOB api_headers RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/include/"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
@@ -213,6 +218,7 @@ foreach(prop
   endif()
 endforeach()
 
+get_property(_SLINT_STYLE GLOBAL PROPERTY SLINT_STYLE)
 configure_package_config_file("cmake/SlintConfig.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake" INSTALL_DESTINATION lib/cmake/Slint)
 
 write_basic_package_version_file(
