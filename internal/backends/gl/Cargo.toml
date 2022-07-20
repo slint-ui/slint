@@ -33,7 +33,6 @@ i-slint-common = { version = "=0.2.6", path = "../../../internal/common" }
 const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
 vtable = { version = "0.1.6", path = "../../../helper_crates/vtable" }
 
-by_address = "1.0.4"
 cfg-if = "1"
 copypasta = { version = "0.8.1", default-features = false }
 derive_more = "0.99.5"
