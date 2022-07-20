@@ -36,7 +36,7 @@ swrenderer = ["integer-sqrt", "text_layout"]
 
 unicode = ["unicode-script", "unicode-linebreak"]
 
-image-decoders = ["image"]
+image-decoders = ["image", "clru"]
 svg = ["resvg", "usvg", "tiny-skia"]
 
 default = ["std", "text_layout", "unicode"]
@@ -77,6 +77,7 @@ embedded-graphics = { version = "0.7.1", optional = true }
 integer-sqrt = { version = "0.1.5", optional = true }
 
 image = { version = "0.24.0", optional = true, default-features = false, features = [ "png", "jpeg" ] }
+clru = { version = "0.5.0", optional = true }
 
 resvg = { version= "0.23", optional = true, default-features = false }
 usvg = { version= "0.23", optional = true, default-features = false, features = ["text"] }
