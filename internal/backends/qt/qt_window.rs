@@ -55,6 +55,7 @@ cpp! {{
     #include <memory>
 
     void ensure_initialized(bool from_qt_backend);
+    void setDesktopFileName(const QString &name);
 
     using QPainterPtr = std::unique_ptr<QPainter>;
 
@@ -1237,6 +1238,7 @@ impl QtWindow {
         cpp! {unsafe [widget_ptr as "SlintWidget*", rust_window as "void*"]  {
             widget_ptr->rust_window = rust_window;
         }};
+
         ALL_WINDOWS.with(|aw| aw.borrow_mut().push(self_weak));
         rc
     }
@@ -1394,6 +1396,8 @@ impl PlatformWindow for QtWindow {
     fn apply_window_properties(&self, window_item: Pin<&items::WindowItem>) {
         let widget_ptr = self.widget_ptr();
         let title: qttypes::QString = window_item.title().as_str().into();
+        let app_id: qttypes::QString = window_item.app_id().as_str().into();
+
         let no_frame = window_item.no_frame();
         let mut size = qttypes::QSize {
             width: window_item.width().ceil() as _,
@@ -1446,6 +1450,10 @@ impl PlatformWindow for QtWindow {
             #endif
             pal.setColor(QPalette::Window, QColor::fromRgba(background));
             widget_ptr->setPalette(pal);
+        }};
+
+        cpp! {unsafe [app_id as "QString"] {
+            setDesktopFileName(app_id);
         }};
     }
 

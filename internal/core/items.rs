@@ -942,6 +942,7 @@ pub struct WindowItem {
     pub default_font_size: Property<Coord>,
     pub default_font_weight: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
+    pub app_id: Property<SharedString>,
 }
 
 impl Item for WindowItem {
