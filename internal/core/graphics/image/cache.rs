@@ -5,16 +5,49 @@
 This module contains image and caching related types for the run-time library.
 */
 
-use std::collections::HashMap;
-
 use super::{Image, ImageCacheKey, ImageInner, SharedImageBuffer, SharedPixelBuffer};
 use crate::{slice::Slice, SharedString};
 
-// Cache used to avoid repeatedly decoding images from disk.
-#[derive(Default)]
-pub(crate) struct ImageCache(HashMap<ImageCacheKey, ImageInner>);
+struct ImageWeightInBytes;
 
-thread_local!(pub(crate) static IMAGE_CACHE: core::cell::RefCell<ImageCache>  = Default::default());
+impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
+    fn weight(&self, _: &ImageCacheKey, value: &ImageInner) -> usize {
+        match value {
+            ImageInner::None => 0,
+            ImageInner::EmbeddedImage { buffer, .. } => match buffer {
+                SharedImageBuffer::RGB8(pixels) => pixels.as_bytes().len(),
+                SharedImageBuffer::RGBA8(pixels) => pixels.as_bytes().len(),
+                SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels.as_bytes().len(),
+            },
+            #[cfg(feature = "svg")]
+            ImageInner::Svg(_) => 512, // Don't know how to measure the size of the parsed SVG tree...
+            #[cfg(target_arch = "wasm32")]
+            ImageInner::HTMLImage(_) => 512, // Something... the web browser maintainers its own cache. The purpose of this cache is to reduce the amount of DOM elements.
+            ImageInner::StaticTextures(_) => 0,
+        }
+    }
+}
+
+// Cache used to avoid repeatedly decoding images from disk.
+pub(crate) struct ImageCache(
+    clru::CLruCache<
+        ImageCacheKey,
+        ImageInner,
+        std::collections::hash_map::RandomState,
+        ImageWeightInBytes,
+    >,
+);
+
+thread_local!(pub(crate) static IMAGE_CACHE: core::cell::RefCell<ImageCache>  =
+    core::cell::RefCell::new(
+        ImageCache(
+            clru::CLruCache::with_config(
+                clru::CLruCacheConfig::new(core::num::NonZeroUsize::new(5 * 1024 * 1024).unwrap())
+                    .with_scale(ImageWeightInBytes)
+            )
+        )
+    )
+);
 
 impl ImageCache {
     // Look up the given image cache key in the image cache and upgrade the weak reference to a strong one if found,
@@ -24,15 +57,12 @@ impl ImageCache {
         cache_key: ImageCacheKey,
         image_create_fn: impl Fn(ImageCacheKey) -> Option<ImageInner>,
     ) -> Option<Image> {
-        Some(Image(match self.0.entry(cache_key.clone()) {
-            std::collections::hash_map::Entry::Occupied(existing_entry) => {
-                existing_entry.get().clone()
-            }
-            std::collections::hash_map::Entry::Vacant(vacant_entry) => {
-                let new_image = image_create_fn(cache_key)?;
-                vacant_entry.insert(new_image.clone());
-                new_image
-            }
+        Some(Image(if let Some(entry) = self.0.get(&cache_key) {
+            entry.clone()
+        } else {
+            let new_image = image_create_fn(cache_key.clone())?;
+            self.0.put_with_weight(cache_key, new_image.clone()).ok();
+            new_image
         }))
     }
 
