@@ -11,7 +11,6 @@ use std::rc::{Rc, Weak};
 
 use crate::event_loop::WinitWindow;
 use crate::glcontext::OpenGLContext;
-use crate::renderer::femtovg::images::TextureCache;
 use crate::renderer::femtovg::itemrenderer::{CanvasRc, ItemGraphicsCache};
 use const_field_offset::FieldOffsets;
 use corelib::api::{
@@ -40,8 +39,8 @@ pub struct GLWindow {
     existing_size: Cell<winit::dpi::LogicalSize<f32>>,
 
     pub(crate) graphics_cache: ItemGraphicsCache,
-    // This cache only contains textures. The cache for decoded CPU side images is in crate::IMAGE_CACHE.
-    pub(crate) texture_cache: RefCell<TextureCache>,
+
+    pub(crate) femtovg_renderer: crate::renderer::femtovg::FemtoVGRenderer,
 
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
 
@@ -75,7 +74,7 @@ impl GLWindow {
             currently_pressed_key_code: Default::default(),
             existing_size: Default::default(),
             graphics_cache: Default::default(),
-            texture_cache: Default::default(),
+            femtovg_renderer: Default::default(),
             rendering_metrics_collector: RenderingMetricsCollector::new(window_weak.clone()),
             rendering_notifier: Default::default(),
             #[cfg(target_arch = "wasm32")]
@@ -132,7 +131,7 @@ impl GLWindow {
         // Release GL textures and other GPU bound resources.
         self.with_current_context(|context| {
             self.graphics_cache.clear_all();
-            self.texture_cache.borrow_mut().clear();
+            self.femtovg_renderer.release_graphics_resources();
 
             self.invoke_rendering_notifier(RenderingState::RenderingTeardown, context);
         });
@@ -231,13 +230,7 @@ impl WinitWindow for GLWindow {
                 collector.measure_frame_rendered(&mut renderer);
             }
 
-            renderer.canvas.borrow_mut().flush();
-
-            // Delete any images and layer images (and their FBOs) before making the context not current anymore, to
-            // avoid GPU memory leaks.
-            renderer.graphics_window.texture_cache.borrow_mut().drain();
-
-            drop(renderer);
+            self.femtovg_renderer.finish(renderer);
 
             self.invoke_rendering_notifier(RenderingState::AfterRendering, &window.opengl_context);
 

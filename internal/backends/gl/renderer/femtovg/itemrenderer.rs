@@ -1134,6 +1134,7 @@ impl GLItemRenderer {
                     )
                     .and_then(|cache_key| {
                         self.graphics_window
+                            .femtovg_renderer
                             .texture_cache
                             .borrow_mut()
                             .lookup_image_in_cache_or_create(cache_key, || {
