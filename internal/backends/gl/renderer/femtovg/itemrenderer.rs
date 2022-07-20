@@ -26,7 +26,7 @@ pub type Canvas = femtovg::Canvas<femtovg::renderer::OpenGl>;
 pub type CanvasRc = Rc<RefCell<Canvas>>;
 
 #[derive(Clone)]
-pub enum ItemGraphicsCacheEntry {
+pub(super) enum ItemGraphicsCacheEntry {
     Texture(Rc<Texture>),
     ColorizedImage {
         // This original image Rc is kept here to keep the image in the shared image cache, so that
@@ -48,7 +48,7 @@ impl ItemGraphicsCacheEntry {
     }
 }
 
-pub type ItemGraphicsCache = ItemCache<Option<ItemGraphicsCacheEntry>>;
+pub(super) type ItemGraphicsCache = ItemCache<Option<ItemGraphicsCacheEntry>>;
 
 const KAPPA90: f32 = 0.55228;
 
@@ -554,8 +554,12 @@ impl ItemRenderer for GLItemRenderer {
             return;
         }
 
-        let cache_entry =
-            self.graphics_window.clone().graphics_cache.get_or_update_cache_entry(item_rc, || {
+        let cache_entry = self
+            .graphics_window
+            .clone()
+            .femtovg_renderer
+            .graphics_cache
+            .get_or_update_cache_entry(item_rc, || {
                 ItemGraphicsCacheEntry::Texture({
                     let blur = box_shadow.blur() * self.scale_factor;
                     let width = box_shadow.width() * self.scale_factor;
@@ -672,7 +676,7 @@ impl ItemRenderer for GLItemRenderer {
             self.render_and_blend_layer(opacity, item_rc)
         } else {
             self.apply_opacity(opacity);
-            self.graphics_window.graphics_cache.release(item_rc);
+            self.graphics_window.femtovg_renderer.graphics_cache.release(item_rc);
             RenderingResult::ContinueRenderingChildren
         }
     }
@@ -719,7 +723,7 @@ impl ItemRenderer for GLItemRenderer {
 
             RenderingResult::ContinueRenderingWithoutChildren
         } else {
-            self.graphics_window.graphics_cache.release(item_rc);
+            self.graphics_window.femtovg_renderer.graphics_cache.release(item_rc);
             self.combine_clip(
                 euclid::rect(0., 0., geometry.width(), geometry.height()),
                 radius,
@@ -782,8 +786,11 @@ impl ItemRenderer for GLItemRenderer {
     ) {
         let canvas = &self.canvas;
 
-        let cache_entry =
-            self.graphics_window.graphics_cache.get_or_update_cache_entry(item_rc, || {
+        let cache_entry = self
+            .graphics_window
+            .femtovg_renderer
+            .graphics_cache
+            .get_or_update_cache_entry(item_rc, || {
                 let mut cached_image = None;
                 update_fn(&mut |width: u32, height: u32, data: &[u8]| {
                     use rgb::FromSlice;
@@ -905,16 +912,21 @@ impl GLItemRenderer {
         item_rc: &ItemRc,
         layer_logical_size_fn: &dyn Fn() -> Size,
     ) -> Option<Rc<Texture>> {
-        let existing_layer_texture = self.graphics_window.graphics_cache.with_entry(
-            item_rc,
-            |cache_entry| match cache_entry {
+        let existing_layer_texture = self
+            .graphics_window
+            .femtovg_renderer
+            .graphics_cache
+            .with_entry(item_rc, |cache_entry| match cache_entry {
                 Some(ItemGraphicsCacheEntry::Texture(texture)) => Some(texture.clone()),
                 _ => None,
-            },
-        );
+            });
 
-        let cache_entry =
-            self.graphics_window.clone().graphics_cache.get_or_update_cache_entry(item_rc, || {
+        let cache_entry = self
+            .graphics_window
+            .clone()
+            .femtovg_renderer
+            .graphics_cache
+            .get_or_update_cache_entry(item_rc, || {
                 ItemGraphicsCacheEntry::Texture({
                     let size: IntSize = (layer_logical_size_fn() * self.scale_factor).ceil().cast();
 
@@ -1111,8 +1123,11 @@ impl GLItemRenderer {
         }
 
         let cached_image = loop {
-            let image_cache_entry =
-                self.graphics_window.graphics_cache.get_or_update_cache_entry(item_rc, || {
+            let image_cache_entry = self
+                .graphics_window
+                .femtovg_renderer
+                .graphics_cache
+                .get_or_update_cache_entry(item_rc, || {
                     let image = source_property.get();
                     let image_inner: &ImageInner = (&image).into();
 
@@ -1175,7 +1190,7 @@ impl GLItemRenderer {
             if colorize_property.map_or(false, |prop| !prop.get().is_transparent())
                 && !cached_image.is_colorized_image()
             {
-                self.graphics_window.graphics_cache.release(item_rc);
+                self.graphics_window.femtovg_renderer.graphics_cache.release(item_rc);
                 continue;
             }
 

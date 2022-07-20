@@ -11,7 +11,7 @@ use std::rc::{Rc, Weak};
 
 use crate::event_loop::WinitWindow;
 use crate::glcontext::OpenGLContext;
-use crate::renderer::femtovg::itemrenderer::{CanvasRc, ItemGraphicsCache};
+use crate::renderer::femtovg::itemrenderer::CanvasRc;
 use const_field_offset::FieldOffsets;
 use corelib::api::{
     GraphicsAPI, PhysicalPx, RenderingNotifier, RenderingState, SetRenderingNotifierError,
@@ -37,8 +37,6 @@ pub struct GLWindow {
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
     existing_size: Cell<winit::dpi::LogicalSize<f32>>,
-
-    pub(crate) graphics_cache: ItemGraphicsCache,
 
     pub(crate) femtovg_renderer: crate::renderer::femtovg::FemtoVGRenderer,
 
@@ -73,7 +71,6 @@ impl GLWindow {
             keyboard_modifiers: Default::default(),
             currently_pressed_key_code: Default::default(),
             existing_size: Default::default(),
-            graphics_cache: Default::default(),
             femtovg_renderer: Default::default(),
             rendering_metrics_collector: RenderingMetricsCollector::new(window_weak.clone()),
             rendering_notifier: Default::default(),
@@ -130,7 +127,6 @@ impl GLWindow {
     fn release_graphics_resources(&self) {
         // Release GL textures and other GPU bound resources.
         self.with_current_context(|context| {
-            self.graphics_cache.clear_all();
             self.femtovg_renderer.release_graphics_resources();
 
             self.invoke_rendering_notifier(RenderingState::RenderingTeardown, context);
@@ -343,7 +339,7 @@ impl PlatformWindow for GLWindow {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped { .. } => {}
             GraphicsWindowBackendState::Mapped(_) => {
-                self.with_current_context(|_| self.graphics_cache.component_destroyed(component));
+                self.with_current_context(|_| self.femtovg_renderer.component_destroyed(component));
             }
         }
     }

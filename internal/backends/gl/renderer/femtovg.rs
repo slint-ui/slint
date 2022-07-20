@@ -9,12 +9,18 @@ pub mod itemrenderer;
 
 #[derive(Default)]
 pub struct FemtoVGRenderer {
+    graphics_cache: itemrenderer::ItemGraphicsCache,
     texture_cache: RefCell<images::TextureCache>,
 }
 
 impl FemtoVGRenderer {
     pub fn release_graphics_resources(&self) {
+        self.graphics_cache.clear_all();
         self.texture_cache.borrow_mut().clear();
+    }
+
+    pub fn component_destroyed(&self, component: i_slint_core::component::ComponentRef) {
+        self.graphics_cache.component_destroyed(component)
     }
 
     pub fn finish(&self, item_renderer: itemrenderer::GLItemRenderer) {
