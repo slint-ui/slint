@@ -100,7 +100,6 @@ impl Texture {
                 let (image_source, flags) = image_buffer_to_image_source(buffer);
                 canvas.borrow_mut().create_image(image_source, image_flags | flags).unwrap()
             }
-            #[cfg(feature = "svg")]
             ImageInner::Svg(parsed_svg) => {
                 match parsed_svg.render(target_size_for_scalable_source.unwrap_or_default()) {
                     Ok(rendered_svg_image) => {
