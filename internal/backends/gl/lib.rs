@@ -16,17 +16,12 @@ use glwindow::*;
 mod glcontext;
 use glcontext::*;
 pub(crate) mod event_loop;
-mod images;
+mod renderer;
 
 #[cfg(target_arch = "wasm32")]
 pub(crate) mod wasm_input_helper;
-use images::*;
-
-mod fonts;
 
 mod stylemetrics;
-
-mod glrenderer;
 
 #[cfg(target_arch = "wasm32")]
 pub fn create_gl_window_with_canvas_id(canvas_id: String) -> Rc<Window> {
@@ -95,14 +90,14 @@ impl i_slint_core::backend::Backend for Backend {
         &'static self,
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self::fonts::register_font_from_memory(data)
+        self::renderer::femtovg::fonts::register_font_from_memory(data)
     }
 
     fn register_font_from_path(
         &'static self,
         path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self::fonts::register_font_from_path(path)
+        self::renderer::femtovg::fonts::register_font_from_path(path)
     }
 
     fn set_clipboard_text(&'static self, text: String) {
