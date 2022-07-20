@@ -9,10 +9,10 @@ use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use std::rc::{Rc, Weak};
 
-use super::TextureCache;
 use crate::event_loop::WinitWindow;
 use crate::glcontext::OpenGLContext;
-use crate::glrenderer::{CanvasRc, ItemGraphicsCache};
+use crate::renderer::femtovg::images::TextureCache;
+use crate::renderer::femtovg::itemrenderer::{CanvasRc, ItemGraphicsCache};
 use const_field_offset::FieldOffsets;
 use corelib::api::{
     GraphicsAPI, PhysicalPx, RenderingNotifier, RenderingState, SetRenderingNotifierError,
@@ -200,7 +200,7 @@ impl WinitWindow for GLWindow {
                     0,
                     size.width,
                     size.height,
-                    crate::glrenderer::to_femtovg_color(&window.clear_color),
+                    crate::renderer::femtovg::itemrenderer::to_femtovg_color(&window.clear_color),
                 );
                 // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                 // the back buffer, in order to allow the callback to provide its own rendering of the background.
@@ -216,7 +216,7 @@ impl WinitWindow for GLWindow {
                 }
             }
 
-            let mut renderer = crate::glrenderer::GLItemRenderer::new(
+            let mut renderer = crate::renderer::femtovg::itemrenderer::GLItemRenderer::new(
                 window.canvas.as_ref().unwrap().clone(),
                 self.clone(),
                 scale_factor,
@@ -495,7 +495,8 @@ impl PlatformWindow for GLWindow {
 
         let canvas = femtovg::Canvas::new_with_text_context(
             renderer,
-            crate::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
+            crate::renderer::femtovg::fonts::FONT_CACHE
+                .with(|cache| cache.borrow().text_context.clone()),
         )
         .unwrap();
 
@@ -623,7 +624,7 @@ impl PlatformWindow for GLWindow {
     ) -> Size {
         let font_request = font_request.merge(&self.default_font_properties());
 
-        crate::fonts::text_size(
+        crate::renderer::femtovg::fonts::text_size(
             &font_request,
             self.self_weak.upgrade().unwrap().scale_factor(),
             text,
@@ -648,7 +649,7 @@ impl PlatformWindow for GLWindow {
             return 0;
         }
 
-        let font = crate::fonts::FONT_CACHE.with(|cache| {
+        let font = crate::renderer::femtovg::fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
                 text_input.unresolved_font_request().merge(&self.default_font_properties()),
                 scale_factor,
@@ -666,10 +667,10 @@ impl PlatformWindow for GLWindow {
         };
 
         let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
-        let text_context =
-            crate::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone());
+        let text_context = crate::renderer::femtovg::fonts::FONT_CACHE
+            .with(|cache| cache.borrow().text_context.clone());
         let font_height = text_context.measure_font(paint).unwrap().height();
-        crate::fonts::layout_text_lines(
+        crate::renderer::femtovg::fonts::layout_text_lines(
             actual_text,
             &font,
             Size::new(width, height),
@@ -707,6 +708,7 @@ impl PlatformWindow for GLWindow {
         text_input: Pin<&corelib::items::TextInput>,
         byte_offset: usize,
     ) -> Rect {
+        use crate::renderer::femtovg::fonts;
         let scale_factor = self.self_weak.upgrade().unwrap().scale_factor();
         let text = text_input.text();
 
@@ -714,7 +716,7 @@ impl PlatformWindow for GLWindow {
             .unresolved_font_request()
             .merge(&self.default_font_properties())
             .pixel_size
-            .unwrap_or(super::fonts::DEFAULT_FONT_SIZE);
+            .unwrap_or(fonts::DEFAULT_FONT_SIZE);
 
         let mut result = Point::default();
 
@@ -724,7 +726,7 @@ impl PlatformWindow for GLWindow {
             return Rect::new(result, Size::new(1.0, font_size));
         }
 
-        let font = crate::fonts::FONT_CACHE.with(|cache| {
+        let font = crate::renderer::femtovg::fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
                 text_input.unresolved_font_request().merge(&self.default_font_properties()),
                 scale_factor,
@@ -733,7 +735,7 @@ impl PlatformWindow for GLWindow {
         });
 
         let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
-        crate::fonts::layout_text_lines(
+        fonts::layout_text_lines(
             text.as_str(),
             &font,
             Size::new(width, height),

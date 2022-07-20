@@ -17,10 +17,10 @@ use i_slint_core::items::{
 use i_slint_core::window::WindowRc;
 use i_slint_core::{Brush, Color, ImageInner, Property, SharedString};
 
+use super::fonts;
+use super::images::{Texture, TextureCacheKey};
 use crate::event_loop::WinitWindow;
-use crate::fonts;
 use crate::glwindow::{GLWindow, PASSWORD_CHARACTER};
-use crate::images::{Texture, TextureCacheKey};
 
 pub type Canvas = femtovg::Canvas<femtovg::renderer::OpenGl>;
 pub type CanvasRc = Rc<RefCell<Canvas>>;
@@ -64,7 +64,7 @@ pub struct GLItemRenderer {
     // Layers that were scheduled for rendering where we can't delete the femtovg::ImageId yet
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
     // `set_render_target` commands with image ids that have been deleted.
-    layer_images_to_delete_after_flush: Vec<Rc<crate::images::Texture>>,
+    layer_images_to_delete_after_flush: Vec<Rc<super::images::Texture>>,
     pub graphics_window: Rc<GLWindow>,
     scale_factor: f32,
     /// track the state manually since femtovg don't have accessor for its state
