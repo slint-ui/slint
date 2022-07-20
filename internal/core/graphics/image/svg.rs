@@ -6,7 +6,7 @@
 #[cfg(not(target_arch = "wasm32"))]
 use crate::SharedString;
 
-use super::{ImageCacheKey, SharedPixelBuffer};
+use super::{ImageCacheKey, SharedImageBuffer, SharedPixelBuffer};
 
 pub struct ParsedSVG {
     svg_tree: usvg::Tree,
@@ -32,12 +32,10 @@ impl ParsedSVG {
     }
 
     /// Renders the SVG with the specified size.
-    ///
-    /// NOTE: returned Rgba8Pixel buffer has alpha pre-multiplied
     pub fn render(
         &self,
         size: euclid::default::Size2D<u32>,
-    ) -> Result<SharedPixelBuffer<super::Rgba8Pixel>, usvg::Error> {
+    ) -> Result<SharedImageBuffer, usvg::Error> {
         let tree = &self.svg_tree;
         // resvg doesn't support scaling to width/height, just fit to width.
         // FIXME: the fit should actually depends on the image-fit property
@@ -50,7 +48,7 @@ impl ParsedSVG {
                 .ok_or(usvg::Error::InvalidSize)?;
         resvg::render(tree, fit, Default::default(), skia_buffer)
             .ok_or(usvg::Error::InvalidSize)?;
-        Ok(buffer)
+        Ok(SharedImageBuffer::RGBA8Premultiplied(buffer))
     }
 }
 
