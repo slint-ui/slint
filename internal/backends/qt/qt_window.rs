@@ -987,15 +987,7 @@ pub(crate) fn image_to_pixmap(
     image: &ImageInner,
     source_size: Option<IntSize>,
 ) -> Option<qttypes::QPixmap> {
-    match image {
-        ImageInner::None => return None,
-        ImageInner::EmbeddedImage { buffer, .. } => shared_image_buffer_to_pixmap(buffer),
-        ImageInner::StaticTextures { .. } => todo!(),
-        ImageInner::Svg(svg) => {
-            let pixel_buffer = svg.render(source_size.unwrap_or_default()).ok()?;
-            shared_image_buffer_to_pixmap(&SharedImageBuffer::RGBA8Premultiplied(pixel_buffer))
-        }
-    }
+    shared_image_buffer_to_pixmap(&image.render_to_buffer(source_size)?)
 }
 
 /// Changes the source or the destination rectangle to respect the image fit

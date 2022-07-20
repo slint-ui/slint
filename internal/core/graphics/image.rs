@@ -332,6 +332,33 @@ pub enum ImageInner {
     HTMLImage(vtable::VRc<OpaqueRcVTable, htmlimage::HTMLImage>),
 }
 
+impl ImageInner {
+    /// Return or render the image into a buffer
+    ///
+    /// `target_size_for_scalable_source` is the size to use if the image is scalable.
+    ///
+    /// Returns None if the image can't be rendered in a buffer
+    pub fn render_to_buffer(
+        &self,
+        _target_size_for_scalable_source: Option<IntSize>,
+    ) -> Option<SharedImageBuffer> {
+        match self {
+            ImageInner::EmbeddedImage { buffer, .. } => Some(buffer.clone()),
+            #[cfg(feature = "svg")]
+            ImageInner::Svg(svg) => {
+                match svg.render(_target_size_for_scalable_source.unwrap_or_default()) {
+                    Ok(b) => Some(SharedImageBuffer::RGBA8Premultiplied(b)),
+                    Err(err) => {
+                        eprintln!("Error rendering SVG: {}", err);
+                        return None;
+                    }
+                }
+            }
+            _ => None,
+        }
+    }
+}
+
 impl PartialEq for ImageInner {
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
