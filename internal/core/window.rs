@@ -150,7 +150,7 @@ struct WindowPropertiesTracker {
     window_weak: Weak<Window>,
 }
 
-impl crate::properties::PropertyChangeHandler for WindowPropertiesTracker {
+impl crate::properties::PropertyDirtyHandler for WindowPropertiesTracker {
     fn notify(&self) {
         if let Some(platform_window) =
             self.window_weak.upgrade().and_then(|window| window.platform_window.get().cloned())
@@ -164,7 +164,7 @@ struct WindowRedrawTracker {
     window_weak: Weak<Window>,
 }
 
-impl crate::properties::PropertyChangeHandler for WindowRedrawTracker {
+impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
     fn notify(&self) {
         if let Some(platform_window) =
             self.window_weak.upgrade().and_then(|window| window.platform_window.get().cloned())
@@ -244,12 +244,12 @@ impl Window {
         window.platform_window.set(platform_window_fn(&window_weak)).ok().unwrap();
 
         let mut window_properties_tracker =
-            PropertyTracker::new_with_change_handler(WindowPropertiesTracker {
+            PropertyTracker::new_with_dirty_handler(WindowPropertiesTracker {
                 window_weak: window_weak.clone(),
             });
 
         let mut redraw_tracker =
-            PropertyTracker::new_with_change_handler(WindowRedrawTracker { window_weak });
+            PropertyTracker::new_with_dirty_handler(WindowRedrawTracker { window_weak });
 
         #[cfg(slint_debug_property)]
         {

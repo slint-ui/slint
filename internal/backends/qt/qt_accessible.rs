@@ -7,7 +7,7 @@ use crate::accessible_generated::*;
 
 use i_slint_core::accessibility::AccessibleStringProperty;
 use i_slint_core::item_tree::{ItemRc, ItemWeak};
-use i_slint_core::properties::{PropertyChangeHandler, PropertyTracker};
+use i_slint_core::properties::{PropertyDirtyHandler, PropertyTracker};
 use i_slint_core::SharedVector;
 
 use cpp::*;
@@ -32,7 +32,7 @@ pub struct AccessibleItemPropertiesTracker {
     obj: *mut c_void,
 }
 
-impl PropertyChangeHandler for AccessibleItemPropertiesTracker {
+impl PropertyDirtyHandler for AccessibleItemPropertiesTracker {
     fn notify(&self) {
         let obj = self.obj;
         cpp!(unsafe [obj as "QObject*"] {
@@ -59,7 +59,7 @@ pub struct ValuePropertyTracker {
     obj: *mut c_void,
 }
 
-impl PropertyChangeHandler for ValuePropertyTracker {
+impl PropertyDirtyHandler for ValuePropertyTracker {
     fn notify(&self) {
         let obj = self.obj;
         cpp!(unsafe [obj as "QObject*"] {
@@ -84,7 +84,7 @@ pub struct LabelPropertyTracker {
     obj: *mut c_void,
 }
 
-impl PropertyChangeHandler for LabelPropertyTracker {
+impl PropertyDirtyHandler for LabelPropertyTracker {
     fn notify(&self) {
         let obj = self.obj;
         cpp!(unsafe [obj as "QObject*"] {
@@ -109,7 +109,7 @@ pub struct DescriptionPropertyTracker {
     obj: *mut c_void,
 }
 
-impl PropertyChangeHandler for DescriptionPropertyTracker {
+impl PropertyDirtyHandler for DescriptionPropertyTracker {
     fn notify(&self) {
         let obj = self.obj;
         cpp!(unsafe [obj as "QObject*"] {
@@ -134,7 +134,7 @@ pub struct FocusDelegationPropertyTracker {
     obj: *mut c_void,
 }
 
-impl PropertyChangeHandler for FocusDelegationPropertyTracker {
+impl PropertyDirtyHandler for FocusDelegationPropertyTracker {
     fn notify(&self) {
         let obj = self.obj;
         cpp!(unsafe [obj as "QObject*"] {
@@ -172,13 +172,13 @@ pub struct SlintAccessibleItemData {
 impl SlintAccessibleItemData {
     fn new_pin_box(obj: *mut c_void, item: &ItemWeak) -> Pin<Box<Self>> {
         let state_tracker =
-            PropertyTracker::new_with_change_handler(AccessibleItemPropertiesTracker { obj });
-        let value_tracker = PropertyTracker::new_with_change_handler(ValuePropertyTracker { obj });
-        let label_tracker = PropertyTracker::new_with_change_handler(LabelPropertyTracker { obj });
+            PropertyTracker::new_with_dirty_handler(AccessibleItemPropertiesTracker { obj });
+        let value_tracker = PropertyTracker::new_with_dirty_handler(ValuePropertyTracker { obj });
+        let label_tracker = PropertyTracker::new_with_dirty_handler(LabelPropertyTracker { obj });
         let description_tracker =
-            PropertyTracker::new_with_change_handler(DescriptionPropertyTracker { obj });
+            PropertyTracker::new_with_dirty_handler(DescriptionPropertyTracker { obj });
         let focus_delegation_tracker =
-            PropertyTracker::new_with_change_handler(FocusDelegationPropertyTracker { obj });
+            PropertyTracker::new_with_dirty_handler(FocusDelegationPropertyTracker { obj });
 
         let result = Box::pin(Self {
             state_tracker,
