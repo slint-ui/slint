@@ -46,11 +46,11 @@ impl SimulatorWindow {
     pub(crate) fn new(window_weak: &Weak<i_slint_core::window::Window>) -> Rc<Self> {
         let window_builder = winit::window::WindowBuilder::new().with_visible(false);
 
-        #[cfg(target_arch = "wasm32")]
-        let (opengl_context, renderer) =
-            OpenGLContext::new_context_and_renderer(window_builder, &self.canvas_id);
-        #[cfg(not(target_arch = "wasm32"))]
-        let (opengl_context, renderer) = OpenGLContext::new_context_and_renderer(window_builder);
+        let opengl_context = OpenGLContext::new_context(window_builder);
+
+        let renderer =
+            femtovg::renderer::OpenGl::new_from_glutin_context(&opengl_context.glutin_context())
+                .unwrap();
 
         let canvas = femtovg::Canvas::new(renderer).unwrap();
 

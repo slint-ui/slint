@@ -480,24 +480,23 @@ impl PlatformWindow for GLWindow {
         };
 
         #[cfg(target_arch = "wasm32")]
-        let (opengl_context, renderer) =
-            crate::OpenGLContext::new_context_and_renderer(window_builder, &self.canvas_id);
+        let opengl_context = crate::OpenGLContext::new_context(window_builder, &self.canvas_id);
         #[cfg(not(target_arch = "wasm32"))]
-        let (opengl_context, renderer) =
-            crate::OpenGLContext::new_context_and_renderer(window_builder);
+        let opengl_context = crate::OpenGLContext::new_context(window_builder);
 
-        let canvas = femtovg::Canvas::new_with_text_context(
-            renderer,
-            crate::renderer::femtovg::fonts::FONT_CACHE
-                .with(|cache| cache.borrow().text_context.clone()),
-        )
-        .unwrap();
+        #[cfg(not(target_arch = "wasm32"))]
+        let femtovg_renderer = crate::renderer::femtovg::FemtoVGRenderer::new_from_glutin_context(
+            &opengl_context.glutin_context(),
+        );
+
+        #[cfg(target_arch = "wasm32")]
+        let femtovg_renderer = crate::renderer::femtovg::FemtoVGRenderer::new_from_html_canvas(
+            &opengl_context.html_canvas_element(),
+        );
 
         self.invoke_rendering_notifier(RenderingState::RenderingSetup, &opengl_context);
 
         opengl_context.make_not_current();
-
-        let canvas = Rc::new(RefCell::new(canvas));
 
         let platform_window = opengl_context.window();
         let runtime_window = self.self_weak.upgrade().unwrap();
@@ -544,7 +543,7 @@ impl PlatformWindow for GLWindow {
         drop(platform_window);
 
         self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
-            femtovg_renderer: crate::renderer::femtovg::FemtoVGRenderer::new(canvas),
+            femtovg_renderer,
             opengl_context,
             clear_color: RgbaColor { red: 255_u8, green: 255, blue: 255, alpha: 255 }.into(),
             constraints: Default::default(),

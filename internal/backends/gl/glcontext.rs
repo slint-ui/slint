@@ -37,6 +37,18 @@ impl OpenGLContext {
         })
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn glutin_context(
+        &self,
+    ) -> std::cell::Ref<glutin::WindowedContext<glutin::PossiblyCurrent>> {
+        std::cell::Ref::map(self.0.borrow(), |state| match state.as_ref().unwrap() {
+            OpenGLContextState::Current(gl_context) => gl_context,
+            OpenGLContextState::NotCurrent(..) => {
+                panic!("internal error: glutin_context() called without current context")
+            }
+        })
+    }
+
     pub fn make_current(&self) {
         let mut ctx = self.0.borrow_mut();
         *ctx = Some(match ctx.take().unwrap() {
@@ -97,10 +109,10 @@ impl OpenGLContext {
         }
     }
 
-    pub fn new_context_and_renderer(
+    pub fn new_context(
         window_builder: winit::window::WindowBuilder,
         #[cfg(target_arch = "wasm32")] canvas_id: &str,
-    ) -> (Self, femtovg::renderer::OpenGl) {
+    ) -> Self {
         #[cfg(not(target_arch = "wasm32"))]
         {
             use crate::event_loop::EventLoopInterface;
@@ -168,9 +180,6 @@ impl OpenGLContext {
             });
             let windowed_context = unsafe { windowed_context.make_current().unwrap() };
 
-            let renderer =
-                femtovg::renderer::OpenGl::new_from_glutin_context(&windowed_context).unwrap();
-
             #[cfg(target_os = "macos")]
             {
                 use cocoa::appkit::NSView;
@@ -182,7 +191,7 @@ impl OpenGLContext {
                 }
             }
 
-            (Self(RefCell::new(Some(OpenGLContextState::Current(windowed_context)))), renderer)
+            Self(RefCell::new(Some(OpenGLContextState::Current(windowed_context))))
         }
 
         #[cfg(target_arch = "wasm32")]
@@ -197,26 +206,6 @@ impl OpenGLContext {
                 .unwrap()
                 .dyn_into::<web_sys::HtmlCanvasElement>()
                 .unwrap();
-
-            let renderer = match femtovg::renderer::OpenGl::new_from_html_canvas(&canvas) {
-                Ok(renderer) => renderer,
-                Err(_) => {
-                    // I don't believe that there's a way of disabling the 2D canvas.
-                    let context_2d = canvas
-                        .get_context("2d")
-                        .unwrap()
-                        .unwrap()
-                        .dyn_into::<web_sys::CanvasRenderingContext2d>()
-                        .unwrap();
-                    context_2d.set_font("20px serif");
-                    // We don't know if we're rendering on dark or white background, so choose a "color" in the middle for the text.
-                    context_2d.set_fill_style(&wasm_bindgen::JsValue::from_str("red"));
-                    context_2d
-                        .fill_text("Slint requires WebGL to be enabled in your browser", 0., 30.)
-                        .unwrap();
-                    panic!("Cannot proceed without WebGL - aborting")
-                }
-            };
 
             use winit::platform::web::WindowBuilderExtWebSys;
 
@@ -282,7 +271,7 @@ impl OpenGLContext {
                 }
             }
 
-            (Self(RefCell::new(Some(OpenGLContextState::Current { window, canvas }))), renderer)
+            Self(RefCell::new(Some(OpenGLContextState::Current { window, canvas })))
         }
     }
 
