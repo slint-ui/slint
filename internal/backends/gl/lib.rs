@@ -16,7 +16,9 @@ use glwindow::*;
 mod glcontext;
 use glcontext::*;
 pub(crate) mod event_loop;
-mod renderer;
+mod renderer {
+    pub mod femtovg;
+}
 
 #[cfg(target_arch = "wasm32")]
 pub(crate) mod wasm_input_helper;
