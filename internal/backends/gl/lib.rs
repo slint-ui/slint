@@ -47,29 +47,6 @@ pub const HAS_NATIVE_STYLE: bool = false;
 pub use stylemetrics::native_style_metrics_deinit;
 pub use stylemetrics::native_style_metrics_init;
 
-// TODO: We can't connect to the wayland clipboard yet because
-// it requires an external connection.
-cfg_if::cfg_if! {
-    if #[cfg(all(
-             unix,
-             not(any(
-                 target_os = "macos",
-                 target_os = "android",
-                 target_os = "ios",
-                 target_os = "emscripten"
-            )),
-            not(feature = "x11")
-        ))] {
-        if #[cfg(feature = "wayland")] {
-            type ClipboardBackend = copypasta::wayland_clipboard::Clipboard;
-        } else {
-            type ClipboardBackend = copypasta::nop_clipboard::NopClipboardContext;
-        }
-    } else {
-        type ClipboardBackend = copypasta::ClipboardContext;
-    }
-}
-
 pub struct Backend;
 impl i_slint_core::backend::Backend for Backend {
     fn create_window(&'static self) -> Rc<Window> {
