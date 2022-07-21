@@ -8,7 +8,7 @@ use i_slint_core::api::euclid;
 use i_slint_core::graphics::{ImageCacheKey, IntSize, SharedImageBuffer};
 use i_slint_core::{items::ImageRendering, ImageInner};
 
-use super::itemrenderer::{CanvasRc, GLItemRenderer};
+use super::itemrenderer::CanvasRc;
 
 pub struct Texture {
     pub id: femtovg::ImageId,
@@ -83,12 +83,10 @@ impl Texture {
     // a renderer instead (which implies a current context).
     pub fn new_from_image(
         image: &ImageInner,
-        current_renderer: &GLItemRenderer,
+        canvas: &CanvasRc,
         target_size_for_scalable_source: Option<euclid::default::Size2D<u32>>,
         scaling: ImageRendering,
     ) -> Option<Rc<Self>> {
-        let canvas = &current_renderer.canvas;
-
         let image_flags = match scaling {
             ImageRendering::smooth => femtovg::ImageFlags::empty(),
             ImageRendering::pixelated => femtovg::ImageFlags::NEAREST,
