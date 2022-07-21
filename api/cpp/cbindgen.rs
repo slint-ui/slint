@@ -249,6 +249,7 @@ fn gen_corelib(
     cbindgen::Builder::new()
         .with_config(properties_config)
         .with_src(crate_dir.join("properties.rs"))
+        .with_src(crate_dir.join("properties/ffi.rs"))
         .with_src(crate_dir.join("callbacks.rs"))
         .with_after_include("namespace slint { class Color; class Brush; }")
         .generate()
