@@ -2104,15 +2104,15 @@ pub fn set_state_binding(property: Pin<&Property<StateInfo>>, binding: impl Fn()
 }
 
 #[doc(hidden)]
-pub trait PropertyChangeHandler {
+pub trait PropertyDirtyHandler {
     fn notify(&self);
 }
 
-impl PropertyChangeHandler for () {
+impl PropertyDirtyHandler for () {
     fn notify(&self) {}
 }
 
-impl<F: Fn()> PropertyChangeHandler for F {
+impl<F: Fn()> PropertyDirtyHandler for F {
     fn notify(&self) {
         self()
     }
@@ -2120,8 +2120,8 @@ impl<F: Fn()> PropertyChangeHandler for F {
 
 /// This structure allow to run a closure that queries properties, and can report
 /// if any property we accessed have become dirty
-pub struct PropertyTracker<ChangeHandler = ()> {
-    holder: BindingHolder<ChangeHandler>,
+pub struct PropertyTracker<DirtyHandler = ()> {
+    holder: BindingHolder<DirtyHandler>,
 }
 
 impl Default for PropertyTracker<()> {
@@ -2149,7 +2149,7 @@ impl Default for PropertyTracker<()> {
     }
 }
 
-impl<ChangeHandler> Drop for PropertyTracker<ChangeHandler> {
+impl<DirtyHandler> Drop for PropertyTracker<DirtyHandler> {
     fn drop(&mut self) {
         unsafe {
             DependencyListHead::drop(self.holder.dependencies.as_ptr() as *mut DependencyListHead);
@@ -2157,7 +2157,7 @@ impl<ChangeHandler> Drop for PropertyTracker<ChangeHandler> {
     }
 }
 
-impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
+impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
     #[cfg(slint_debug_property)]
     /// set the debug name when `cfg(slint_debug_property`
     pub fn set_debug_name(&mut self, debug_name: String) {
@@ -2203,7 +2203,7 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
         // Safety: it is safe to project the holder as we don't implement drop or unpin
         let pinned_holder = unsafe {
             self.map_unchecked(|s| {
-                core::mem::transmute::<&BindingHolder<ChangeHandler>, &BindingHolder<()>>(&s.holder)
+                core::mem::transmute::<&BindingHolder<DirtyHandler>, &BindingHolder<()>>(&s.holder)
             })
         };
         let r = CURRENT_BINDING.set(Some(pinned_holder), f);
@@ -2225,10 +2225,18 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
     }
 
     /// Sets the specified callback handler function, which will be called if any
-    /// properties that this tracker depends on change their value.
-    pub fn new_with_change_handler(handler: ChangeHandler) -> Self {
-        /// Safety: _self must be a pointer to a `BindingHolder<ChangeHandler>`
-        unsafe fn mark_dirty<B: PropertyChangeHandler>(
+    /// properties that this tracker depends on becomes dirty.
+    ///
+    /// The `handmer` `PropertyDirtyHandler` is a trait which is implemented for
+    /// any `Fn()` closure
+    ///
+    /// Note that the handler will be invoked immediatly when a property is modified or
+    /// marked as dirty. In particular, the involved property are still in a locked
+    /// state and should not be accessed while the handler is run. This function can be
+    /// usefull to mark some work to be done later.
+    pub fn new_with_dirty_handler(handler: DirtyHandler) -> Self {
+        /// Safety: _self must be a pointer to a `BindingHolder<DirtyHandler>`
+        unsafe fn mark_dirty<B: PropertyDirtyHandler>(
             _self: *const BindingHolder,
             was_dirty: bool,
         ) {
@@ -2240,7 +2248,7 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
         trait HasBindingVTable {
             const VT: &'static BindingVTable;
         }
-        impl<B: PropertyChangeHandler> HasBindingVTable for B {
+        impl<B: PropertyDirtyHandler> HasBindingVTable for B {
             const VT: &'static BindingVTable = &BindingVTable {
                 drop: |_| (),
                 evaluate: |_, _| BindingResult::KeepBinding,
@@ -2253,7 +2261,7 @@ impl<ChangeHandler: PropertyChangeHandler> PropertyTracker<ChangeHandler> {
         let holder = BindingHolder {
             dependencies: Cell::new(0),
             dep_nodes: Default::default(),
-            vtable: <ChangeHandler as HasBindingVTable>::VT,
+            vtable: <DirtyHandler as HasBindingVTable>::VT,
             dirty: Cell::new(true), // starts dirty so it evaluates the property when used
             is_two_way_binding: false,
             pinned: PhantomPinned,
@@ -2314,9 +2322,9 @@ fn test_nested_property_trackers() {
 }
 
 #[test]
-fn test_property_change_handler() {
+fn test_property_dirty_handler() {
     let call_flag = Rc::new(Cell::new(false));
-    let tracker = Box::pin(PropertyTracker::new_with_change_handler({
+    let tracker = Box::pin(PropertyTracker::new_with_dirty_handler({
         let call_flag = call_flag.clone();
         move || {
             (*call_flag).set(true);
