@@ -62,7 +62,7 @@ struct State {
 pub struct GLItemRenderer<'a> {
     graphics_cache: &'a ItemGraphicsCache,
     texture_cache: &'a RefCell<super::images::TextureCache>,
-    pub canvas: CanvasRc,
+    canvas: CanvasRc,
     // Layers that were scheduled for rendering where we can't delete the femtovg::ImageId yet
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
     // `set_render_target` commands with image ids that have been deleted.
@@ -879,7 +879,8 @@ impl<'a> GLItemRenderer<'a> {
         renderer: &'a super::FemtoVGRenderer,
         graphics_window: &'a GLWindow,
         scale_factor: f32,
-        size: winit::dpi::PhysicalSize<u32>,
+        width: u32,
+        height: u32,
     ) -> Self {
         Self {
             graphics_cache: &renderer.graphics_cache,
@@ -891,7 +892,7 @@ impl<'a> GLItemRenderer<'a> {
             state: vec![State {
                 scissor: Rect::new(
                     Point::default(),
-                    Size::new(size.width as f32, size.height as f32) / scale_factor,
+                    Size::new(width as f32, height as f32) / scale_factor,
                 ),
                 global_alpha: 1.,
                 current_render_target: femtovg::RenderTarget::Screen,
@@ -1130,7 +1131,7 @@ impl<'a> GLItemRenderer<'a> {
                             || {
                                 Texture::new_from_image(
                                     image_inner,
-                                    self,
+                                    &self.canvas,
                                     target_size_for_scalable_source,
                                     image_rendering,
                                 )
@@ -1140,7 +1141,7 @@ impl<'a> GLItemRenderer<'a> {
                     .or_else(|| {
                         Texture::new_from_image(
                             image_inner,
-                            self,
+                            &self.canvas,
                             target_size_for_scalable_source,
                             image_rendering,
                         )

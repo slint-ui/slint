@@ -3,6 +3,10 @@
 
 use std::{cell::RefCell, rc::Rc};
 
+use i_slint_core::Color;
+
+use crate::glwindow::GLWindow;
+
 use self::itemrenderer::CanvasRc;
 
 pub mod fonts;
@@ -10,7 +14,7 @@ mod images;
 pub mod itemrenderer;
 
 pub struct FemtoVGRenderer {
-    pub(crate) canvas: CanvasRc,
+    canvas: CanvasRc,
     graphics_cache: itemrenderer::ItemGraphicsCache,
     texture_cache: RefCell<images::TextureCache>,
 }
@@ -29,8 +33,41 @@ impl FemtoVGRenderer {
         self.graphics_cache.component_destroyed(component)
     }
 
-    pub fn finish(&self, item_renderer: itemrenderer::GLItemRenderer) {
-        item_renderer.canvas.borrow_mut().flush();
+    pub fn render(
+        &self,
+        width: u32,
+        height: u32,
+        scale_factor: f32,
+        clear_color: &Color,
+        window: &Rc<GLWindow>,
+        render_callback: &mut dyn FnMut(&mut dyn i_slint_core::item_rendering::ItemRenderer),
+    ) {
+        {
+            let mut canvas = self.canvas.as_ref().borrow_mut();
+            // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
+            // text metrics. Since we do the entire translation from logical pixels to physical
+            // pixels on our end, we don't need femtovg to scale a second time.
+            canvas.set_size(width, height, 1.0);
+            canvas.clear_rect(
+                0,
+                0,
+                width,
+                height,
+                self::itemrenderer::to_femtovg_color(&clear_color),
+            );
+            // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
+            // the back buffer, in order to allow the callback to provide its own rendering of the background.
+            // femtovg's clear_rect() will merely schedule a clear call, so flush right away to make it immediate.
+            canvas.flush();
+            canvas.set_size(width, height, 1.0);
+        }
+
+        let mut item_renderer =
+            self::itemrenderer::GLItemRenderer::new(&self, &window, scale_factor, width, height);
+
+        render_callback(&mut item_renderer);
+
+        self.canvas.borrow_mut().flush();
 
         // Delete any images and layer images (and their FBOs) before making the context not current anymore, to
         // avoid GPU memory leaks.
