@@ -153,29 +153,6 @@ impl PlatformWindow for SimulatorWindow {
         });
     }
 
-    fn show_popup(
-        &self,
-        popup: &i_slint_core::component::ComponentRc,
-        position: i_slint_core::graphics::Point,
-    ) {
-        let runtime_window = self.self_weak.upgrade().unwrap();
-        let size = runtime_window.set_active_popup(i_slint_core::window::PopupWindow {
-            location: i_slint_core::window::PopupWindowLocation::ChildWindow(position),
-            component: popup.clone(),
-        });
-
-        let popup = ComponentRc::borrow_pin(popup);
-        let popup_root = popup.as_ref().get_item_ref(0);
-        if let Some(window_item) = ItemRef::downcast_pin(popup_root) {
-            let width_property =
-                i_slint_core::items::WindowItem::FIELD_OFFSETS.width.apply_pin(window_item);
-            let height_property =
-                i_slint_core::items::WindowItem::FIELD_OFFSETS.height.apply_pin(window_item);
-            width_property.set(size.width);
-            height_property.set(size.height);
-        }
-    }
-
     fn close_popup(&self, popup: &i_slint_core::window::PopupWindow) {
         match popup.location {
             i_slint_core::window::PopupWindowLocation::TopLevel(_) => {}

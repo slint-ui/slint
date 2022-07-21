@@ -6,7 +6,6 @@
 
 use i_slint_core::api::euclid;
 use i_slint_core::api::PhysicalPx;
-use i_slint_core::component::ComponentRc;
 use i_slint_core::graphics::{Point, Rect, Size};
 use i_slint_core::window::{PlatformWindow, Window};
 use std::pin::Pin;
@@ -80,10 +79,6 @@ impl PlatformWindow for TestingWindow {
         _: i_slint_core::component::ComponentRef,
         _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'a>>>,
     ) {
-    }
-
-    fn show_popup(&self, _popup: &ComponentRc, _position: i_slint_core::graphics::Point) {
-        todo!()
     }
 
     fn request_window_properties_update(&self) {}

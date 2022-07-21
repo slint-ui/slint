@@ -22,7 +22,7 @@ use corelib::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};
 use corelib::layout::Orientation;
-use corelib::window::{PlatformWindow, PopupWindow, PopupWindowLocation};
+use corelib::window::PlatformWindow;
 use corelib::Property;
 use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
@@ -366,25 +366,6 @@ impl PlatformWindow for GLWindow {
             Err(SetRenderingNotifierError::AlreadySet)
         } else {
             Ok(())
-        }
-    }
-
-    fn show_popup(&self, popup: &ComponentRc, position: Point) {
-        let runtime_window = self.self_weak.upgrade().unwrap();
-        let size = runtime_window.set_active_popup(PopupWindow {
-            location: PopupWindowLocation::ChildWindow(position),
-            component: popup.clone(),
-        });
-
-        let popup = ComponentRc::borrow_pin(popup);
-        let popup_root = popup.as_ref().get_item_ref(0);
-        if let Some(window_item) = ItemRef::downcast_pin(popup_root) {
-            let width_property =
-                corelib::items::WindowItem::FIELD_OFFSETS.width.apply_pin(window_item);
-            let height_property =
-                corelib::items::WindowItem::FIELD_OFFSETS.height.apply_pin(window_item);
-            width_property.set(size.width);
-            height_property.set(size.height);
         }
     }
 
