@@ -521,8 +521,7 @@ impl PlatformWindow for GLWindow {
             collector.start(&format!("GL backend (windowing system: {})", winsys));
         }
 
-        let clipboard =
-            crate::ClipboardBackend::new().expect("internal error: unable to access clipboard");
+        let clipboard = create_clipboard(&platform_window);
 
         drop(platform_window);
 
@@ -820,16 +819,13 @@ impl PlatformWindow for GLWindow {
 
     fn set_clipboard_text(&self, text: String) {
         if let Some(mapped_window) = self.borrow_mapped_window() {
-            use copypasta::ClipboardProvider;
             mapped_window.clipboard.borrow_mut().set_contents(text).ok();
         }
     }
 
     fn clipboard_text(&self) -> Option<String> {
-        self.borrow_mapped_window().and_then(|mapped_window| {
-            use copypasta::ClipboardProvider;
-            mapped_window.clipboard.borrow_mut().get_contents().ok()
-        })
+        self.borrow_mapped_window()
+            .and_then(|mapped_window| mapped_window.clipboard.borrow_mut().get_contents().ok())
     }
 }
 
@@ -844,7 +840,7 @@ struct MappedWindow {
     opengl_context: crate::OpenGLContext,
     clear_color: Color,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
-    clipboard: RefCell<crate::ClipboardBackend>,
+    clipboard: RefCell<Box<dyn copypasta::ClipboardProvider>>,
 }
 
 impl Drop for MappedWindow {
@@ -874,4 +870,44 @@ impl Default for WindowProperties {
     fn default() -> Self {
         Self { scale_factor: Property::new(1.0) }
     }
+}
+
+fn create_clipboard(window: &winit::window::Window) -> Box<dyn copypasta::ClipboardProvider> {
+    let mut clipboard: Option<Box<dyn copypasta::ClipboardProvider>> = None;
+
+    cfg_if::cfg_if! {
+        if #[cfg(all(any(
+            target_os = "linux",
+            target_os = "dragonfly",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd"
+        ), feature = "wayland", not(feature = "x11")))] {
+            type DefaultClipboard = copypasta::nop_clipboard::NopClipboardContext;
+        } else {
+            type DefaultClipboard = copypasta::ClipboardContext;
+        }
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ))]
+    if cfg!(feature = "wayland") {
+        use winit::platform::unix::WindowExtUnix;
+        #[cfg(feature = "wayland")]
+        if let Some(wayland_display) = window.wayland_display() {
+            clipboard = unsafe {
+                Some(Box::new(
+                    copypasta::wayland_clipboard::create_clipboards_from_external(wayland_display)
+                        .1,
+                ))
+            };
+        }
+    }
+
+    clipboard.unwrap_or_else(|| Box::new(DefaultClipboard::new().unwrap()))
 }
