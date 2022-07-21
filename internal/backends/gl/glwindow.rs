@@ -213,7 +213,7 @@ impl WinitWindow for GLWindow {
 
             let mut renderer = crate::renderer::femtovg::itemrenderer::GLItemRenderer::new(
                 window.canvas.as_ref().unwrap().clone(),
-                self.clone(),
+                &self,
                 scale_factor,
                 size,
             );

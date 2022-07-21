@@ -59,13 +59,13 @@ struct State {
     current_render_target: femtovg::RenderTarget,
 }
 
-pub struct GLItemRenderer {
+pub struct GLItemRenderer<'a> {
     pub canvas: CanvasRc,
     // Layers that were scheduled for rendering where we can't delete the femtovg::ImageId yet
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
     // `set_render_target` commands with image ids that have been deleted.
     layer_images_to_delete_after_flush: Vec<Rc<super::images::Texture>>,
-    pub graphics_window: Rc<GLWindow>,
+    pub graphics_window: &'a GLWindow,
     scale_factor: f32,
     /// track the state manually since femtovg don't have accessor for its state
     state: Vec<State>,
@@ -147,7 +147,7 @@ fn clip_path_for_rect_alike_item(
     rect_with_radius_to_path(clip_rect, radius)
 }
 
-impl ItemRenderer for GLItemRenderer {
+impl<'a> ItemRenderer for GLItemRenderer<'a> {
     fn draw_rectangle(&mut self, rect: Pin<&items::Rectangle>, _: &ItemRc) {
         let geometry = item_rect(rect, self.scale_factor);
         if geometry.is_empty() {
@@ -556,7 +556,6 @@ impl ItemRenderer for GLItemRenderer {
 
         let cache_entry = self
             .graphics_window
-            .clone()
             .femtovg_renderer
             .graphics_cache
             .get_or_update_cache_entry(item_rc, || {
@@ -837,7 +836,7 @@ impl ItemRenderer for GLItemRenderer {
     }
 
     fn as_any(&mut self) -> Option<&mut dyn std::any::Any> {
-        Some(self)
+        None
     }
 
     fn translate(&mut self, x: f32, y: f32) {
@@ -883,10 +882,10 @@ impl ItemRenderer for GLItemRenderer {
     }
 }
 
-impl GLItemRenderer {
+impl<'a> GLItemRenderer<'a> {
     pub fn new(
         canvas: CanvasRc,
-        graphics_window: Rc<GLWindow>,
+        graphics_window: &'a GLWindow,
         scale_factor: f32,
         size: winit::dpi::PhysicalSize<u32>,
     ) -> Self {
@@ -923,7 +922,6 @@ impl GLItemRenderer {
 
         let cache_entry = self
             .graphics_window
-            .clone()
             .femtovg_renderer
             .graphics_cache
             .get_or_update_cache_entry(item_rc, || {
