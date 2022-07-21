@@ -60,6 +60,8 @@ struct State {
 }
 
 pub struct GLItemRenderer<'a> {
+    graphics_cache: &'a ItemGraphicsCache,
+    texture_cache: &'a RefCell<super::images::TextureCache>,
     pub canvas: CanvasRc,
     // Layers that were scheduled for rendering where we can't delete the femtovg::ImageId yet
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
@@ -554,89 +556,83 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             return;
         }
 
-        let cache_entry = self
-            .graphics_window
-            .femtovg_renderer
-            .graphics_cache
-            .get_or_update_cache_entry(item_rc, || {
-                ItemGraphicsCacheEntry::Texture({
-                    let blur = box_shadow.blur() * self.scale_factor;
-                    let width = box_shadow.width() * self.scale_factor;
-                    let height = box_shadow.height() * self.scale_factor;
-                    let radius = box_shadow.border_radius() * self.scale_factor;
+        let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
+            ItemGraphicsCacheEntry::Texture({
+                let blur = box_shadow.blur() * self.scale_factor;
+                let width = box_shadow.width() * self.scale_factor;
+                let height = box_shadow.height() * self.scale_factor;
+                let radius = box_shadow.border_radius() * self.scale_factor;
 
-                    let shadow_rect: euclid::Rect<f32, euclid::UnknownUnit> =
-                        euclid::rect(0., 0., width + 2. * blur, height + 2. * blur);
+                let shadow_rect: euclid::Rect<f32, euclid::UnknownUnit> =
+                    euclid::rect(0., 0., width + 2. * blur, height + 2. * blur);
 
-                    let shadow_image_width = shadow_rect.width().ceil() as u32;
-                    let shadow_image_height = shadow_rect.height().ceil() as u32;
+                let shadow_image_width = shadow_rect.width().ceil() as u32;
+                let shadow_image_height = shadow_rect.height().ceil() as u32;
 
-                    let shadow_image = Texture::new_empty_on_gpu(
-                        &self.canvas,
-                        shadow_image_width,
-                        shadow_image_height,
-                    )?;
+                let shadow_image = Texture::new_empty_on_gpu(
+                    &self.canvas,
+                    shadow_image_width,
+                    shadow_image_height,
+                )?;
 
-                    {
-                        let mut canvas = self.canvas.borrow_mut();
-                        canvas.save();
+                {
+                    let mut canvas = self.canvas.borrow_mut();
+                    canvas.save();
 
-                        canvas.set_render_target(shadow_image.as_render_target());
+                    canvas.set_render_target(shadow_image.as_render_target());
 
-                        canvas.reset();
+                    canvas.reset();
 
-                        canvas.clear_rect(
-                            0,
-                            0,
-                            shadow_rect.width().ceil() as u32,
-                            shadow_rect.height().ceil() as u32,
-                            femtovg::Color::rgba(0, 0, 0, 0),
-                        );
+                    canvas.clear_rect(
+                        0,
+                        0,
+                        shadow_rect.width().ceil() as u32,
+                        shadow_rect.height().ceil() as u32,
+                        femtovg::Color::rgba(0, 0, 0, 0),
+                    );
 
-                        let mut shadow_path = femtovg::Path::new();
-                        shadow_path.rounded_rect(blur, blur, width, height, radius);
-                        canvas.fill_path(
-                            &mut shadow_path,
-                            femtovg::Paint::color(femtovg::Color::rgb(255, 255, 255)),
-                        );
-                    }
+                    let mut shadow_path = femtovg::Path::new();
+                    shadow_path.rounded_rect(blur, blur, width, height, radius);
+                    canvas.fill_path(
+                        &mut shadow_path,
+                        femtovg::Paint::color(femtovg::Color::rgb(255, 255, 255)),
+                    );
+                }
 
-                    let shadow_image = if blur > 0. {
-                        let blurred_image = shadow_image
-                            .filter(femtovg::ImageFilter::GaussianBlur { sigma: blur / 2. });
+                let shadow_image = if blur > 0. {
+                    let blurred_image = shadow_image
+                        .filter(femtovg::ImageFilter::GaussianBlur { sigma: blur / 2. });
 
-                        self.canvas
-                            .borrow_mut()
-                            .set_render_target(blurred_image.as_render_target());
+                    self.canvas.borrow_mut().set_render_target(blurred_image.as_render_target());
 
-                        self.layer_images_to_delete_after_flush.push(shadow_image);
+                    self.layer_images_to_delete_after_flush.push(shadow_image);
 
-                        blurred_image
-                    } else {
-                        shadow_image
-                    };
-
-                    {
-                        let mut canvas = self.canvas.borrow_mut();
-
-                        canvas.global_composite_operation(femtovg::CompositeOperation::SourceIn);
-
-                        let mut shadow_image_rect = femtovg::Path::new();
-                        shadow_image_rect.rect(0., 0., shadow_rect.width(), shadow_rect.height());
-                        canvas.fill_path(
-                            &mut shadow_image_rect,
-                            femtovg::Paint::color(to_femtovg_color(&box_shadow.color())),
-                        );
-
-                        canvas.restore();
-
-                        canvas.set_render_target(self.current_render_target());
-                    }
-
+                    blurred_image
+                } else {
                     shadow_image
-                })
-                .into()
-            });
+                };
+
+                {
+                    let mut canvas = self.canvas.borrow_mut();
+
+                    canvas.global_composite_operation(femtovg::CompositeOperation::SourceIn);
+
+                    let mut shadow_image_rect = femtovg::Path::new();
+                    shadow_image_rect.rect(0., 0., shadow_rect.width(), shadow_rect.height());
+                    canvas.fill_path(
+                        &mut shadow_image_rect,
+                        femtovg::Paint::color(to_femtovg_color(&box_shadow.color())),
+                    );
+
+                    canvas.restore();
+
+                    canvas.set_render_target(self.current_render_target());
+                }
+
+                shadow_image
+            })
+            .into()
+        });
 
         let shadow_image = match &cache_entry {
             Some(cached_shadow_image) => cached_shadow_image.as_texture(),
@@ -675,7 +671,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             self.render_and_blend_layer(opacity, item_rc)
         } else {
             self.apply_opacity(opacity);
-            self.graphics_window.femtovg_renderer.graphics_cache.release(item_rc);
+            self.graphics_cache.release(item_rc);
             RenderingResult::ContinueRenderingChildren
         }
     }
@@ -722,7 +718,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
             RenderingResult::ContinueRenderingWithoutChildren
         } else {
-            self.graphics_window.femtovg_renderer.graphics_cache.release(item_rc);
+            self.graphics_cache.release(item_rc);
             self.combine_clip(
                 euclid::rect(0., 0., geometry.width(), geometry.height()),
                 radius,
@@ -785,24 +781,20 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
     ) {
         let canvas = &self.canvas;
 
-        let cache_entry = self
-            .graphics_window
-            .femtovg_renderer
-            .graphics_cache
-            .get_or_update_cache_entry(item_rc, || {
-                let mut cached_image = None;
-                update_fn(&mut |width: u32, height: u32, data: &[u8]| {
-                    use rgb::FromSlice;
-                    let img = imgref::Img::new(data.as_rgba(), width as usize, height as usize);
-                    if let Ok(image_id) =
-                        canvas.borrow_mut().create_image(img, femtovg::ImageFlags::PREMULTIPLIED)
-                    {
-                        cached_image =
-                            Some(ItemGraphicsCacheEntry::Texture(Texture::adopt(canvas, image_id)))
-                    };
-                });
-                cached_image
+        let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
+            let mut cached_image = None;
+            update_fn(&mut |width: u32, height: u32, data: &[u8]| {
+                use rgb::FromSlice;
+                let img = imgref::Img::new(data.as_rgba(), width as usize, height as usize);
+                if let Ok(image_id) =
+                    canvas.borrow_mut().create_image(img, femtovg::ImageFlags::PREMULTIPLIED)
+                {
+                    cached_image =
+                        Some(ItemGraphicsCacheEntry::Texture(Texture::adopt(canvas, image_id)))
+                };
             });
+            cached_image
+        });
         let image_id = match cache_entry {
             Some(ItemGraphicsCacheEntry::Texture(image)) => image.id,
             Some(ItemGraphicsCacheEntry::ColorizedImage { .. }) => unreachable!(),
@@ -884,12 +876,15 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
 impl<'a> GLItemRenderer<'a> {
     pub fn new(
+        renderer: &'a super::FemtoVGRenderer,
         canvas: CanvasRc,
         graphics_window: &'a GLWindow,
         scale_factor: f32,
         size: winit::dpi::PhysicalSize<u32>,
     ) -> Self {
         Self {
+            graphics_cache: &renderer.graphics_cache,
+            texture_cache: &renderer.texture_cache,
             canvas,
             layer_images_to_delete_after_flush: Default::default(),
             graphics_window,
@@ -911,86 +906,79 @@ impl<'a> GLItemRenderer<'a> {
         item_rc: &ItemRc,
         layer_logical_size_fn: &dyn Fn() -> Size,
     ) -> Option<Rc<Texture>> {
-        let existing_layer_texture = self
-            .graphics_window
-            .femtovg_renderer
-            .graphics_cache
-            .with_entry(item_rc, |cache_entry| match cache_entry {
+        let existing_layer_texture =
+            self.graphics_cache.with_entry(item_rc, |cache_entry| match cache_entry {
                 Some(ItemGraphicsCacheEntry::Texture(texture)) => Some(texture.clone()),
                 _ => None,
             });
 
-        let cache_entry = self
-            .graphics_window
-            .femtovg_renderer
-            .graphics_cache
-            .get_or_update_cache_entry(item_rc, || {
-                ItemGraphicsCacheEntry::Texture({
-                    let size: IntSize = (layer_logical_size_fn() * self.scale_factor).ceil().cast();
+        let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
+            ItemGraphicsCacheEntry::Texture({
+                let size: IntSize = (layer_logical_size_fn() * self.scale_factor).ceil().cast();
 
-                    let layer_image = existing_layer_texture
-                        .and_then(|layer_texture| {
-                            // If we have an existing layer texture, there must be only one reference from within
-                            // the existing cache entry and one through the `existing_layer_texture` variable.
-                            // Then it is safe to render new content into it in this callback and when we return
-                            // into `get_or_update_cache_entry` the first ref is dropped.
-                            debug_assert_eq!(Rc::strong_count(&layer_texture), 2);
-                            if layer_texture.size() == Some(size) {
-                                Some(layer_texture)
-                            } else {
-                                None
-                            }
-                        })
-                        .or_else(|| {
-                            *self.metrics.layers_created.as_mut().unwrap() += 1;
-                            Texture::new_empty_on_gpu(&self.canvas, size.width, size.height)
-                        })?;
+                let layer_image = existing_layer_texture
+                    .and_then(|layer_texture| {
+                        // If we have an existing layer texture, there must be only one reference from within
+                        // the existing cache entry and one through the `existing_layer_texture` variable.
+                        // Then it is safe to render new content into it in this callback and when we return
+                        // into `get_or_update_cache_entry` the first ref is dropped.
+                        debug_assert_eq!(Rc::strong_count(&layer_texture), 2);
+                        if layer_texture.size() == Some(size) {
+                            Some(layer_texture)
+                        } else {
+                            None
+                        }
+                    })
+                    .or_else(|| {
+                        *self.metrics.layers_created.as_mut().unwrap() += 1;
+                        Texture::new_empty_on_gpu(&self.canvas, size.width, size.height)
+                    })?;
 
-                    let previous_render_target = self.current_render_target();
+                let previous_render_target = self.current_render_target();
 
-                    {
-                        let mut canvas = self.canvas.borrow_mut();
-                        canvas.save();
+                {
+                    let mut canvas = self.canvas.borrow_mut();
+                    canvas.save();
 
-                        canvas.set_render_target(layer_image.as_render_target());
+                    canvas.set_render_target(layer_image.as_render_target());
 
-                        canvas.reset();
+                    canvas.reset();
 
-                        canvas.clear_rect(
-                            0,
-                            0,
-                            size.width,
-                            size.height,
-                            femtovg::Color::rgba(0, 0, 0, 0),
-                        );
-                    }
-
-                    *self.state.last_mut().unwrap() = State {
-                        scissor: Rect::new(
-                            Point::default(),
-                            Size::new(size.width as f32, size.height as f32),
-                        ),
-                        global_alpha: 1.,
-                        current_render_target: layer_image.as_render_target(),
-                    };
-
-                    i_slint_core::item_rendering::render_item_children(
-                        self,
-                        &item_rc.component(),
-                        item_rc.index() as isize,
+                    canvas.clear_rect(
+                        0,
+                        0,
+                        size.width,
+                        size.height,
+                        femtovg::Color::rgba(0, 0, 0, 0),
                     );
+                }
 
-                    {
-                        let mut canvas = self.canvas.borrow_mut();
-                        canvas.restore();
+                *self.state.last_mut().unwrap() = State {
+                    scissor: Rect::new(
+                        Point::default(),
+                        Size::new(size.width as f32, size.height as f32),
+                    ),
+                    global_alpha: 1.,
+                    current_render_target: layer_image.as_render_target(),
+                };
 
-                        canvas.set_render_target(previous_render_target);
-                    }
+                i_slint_core::item_rendering::render_item_children(
+                    self,
+                    &item_rc.component(),
+                    item_rc.index() as isize,
+                );
 
-                    layer_image
-                })
-                .into()
-            });
+                {
+                    let mut canvas = self.canvas.borrow_mut();
+                    canvas.restore();
+
+                    canvas.set_render_target(previous_render_target);
+                }
+
+                layer_image
+            })
+            .into()
+        });
 
         cache_entry.map(|item_cache_entry| item_cache_entry.as_texture().clone())
     }
@@ -1121,43 +1109,34 @@ impl<'a> GLItemRenderer<'a> {
         }
 
         let cached_image = loop {
-            let image_cache_entry = self
-                .graphics_window
-                .femtovg_renderer
-                .graphics_cache
-                .get_or_update_cache_entry(item_rc, || {
-                    let image = source_property.get();
-                    let image_inner: &ImageInner = (&image).into();
+            let image_cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
+                let image = source_property.get();
+                let image_inner: &ImageInner = (&image).into();
 
-                    let target_size_for_scalable_source =
-                        matches!(image_inner, ImageInner::Svg(..)).then(|| {
-                            // get the scale factor as a property again, to ensure the cache is invalidated when the scale factor changes
-                            let scale_factor = self.window().scale_factor();
-                            [
-                                (target_width.get() * scale_factor) as u32,
-                                (target_height.get() * scale_factor) as u32,
-                            ]
-                            .into()
-                        });
+                let target_size_for_scalable_source = matches!(image_inner, ImageInner::Svg(..))
+                    .then(|| {
+                        // get the scale factor as a property again, to ensure the cache is invalidated when the scale factor changes
+                        let scale_factor = self.window().scale_factor();
+                        [
+                            (target_width.get() * scale_factor) as u32,
+                            (target_height.get() * scale_factor) as u32,
+                        ]
+                        .into()
+                    });
 
-                    TextureCacheKey::new(
-                        image_inner,
-                        target_size_for_scalable_source,
-                        image_rendering,
-                    )
+                TextureCacheKey::new(image_inner, target_size_for_scalable_source, image_rendering)
                     .and_then(|cache_key| {
-                        self.graphics_window
-                            .femtovg_renderer
-                            .texture_cache
-                            .borrow_mut()
-                            .lookup_image_in_cache_or_create(cache_key, || {
+                        self.texture_cache.borrow_mut().lookup_image_in_cache_or_create(
+                            cache_key,
+                            || {
                                 Texture::new_from_image(
                                     image_inner,
                                     self,
                                     target_size_for_scalable_source,
                                     image_rendering,
                                 )
-                            })
+                            },
+                        )
                     })
                     .or_else(|| {
                         Texture::new_from_image(
@@ -1171,7 +1150,7 @@ impl<'a> GLItemRenderer<'a> {
                     .map(|cache_entry| {
                         self.colorize_image(cache_entry, colorize_property, image_rendering)
                     })
-                });
+            });
 
             // Check if the image in the cache is loaded. If not, don't draw any image and we'll return
             // later when the callback from load_html_image has issued a repaint
@@ -1188,7 +1167,7 @@ impl<'a> GLItemRenderer<'a> {
             if colorize_property.map_or(false, |prop| !prop.get().is_transparent())
                 && !cached_image.is_colorized_image()
             {
-                self.graphics_window.femtovg_renderer.graphics_cache.release(item_rc);
+                self.graphics_cache.release(item_rc);
                 continue;
             }
 

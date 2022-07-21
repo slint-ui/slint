@@ -38,7 +38,7 @@ pub struct GLWindow {
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
     existing_size: Cell<winit::dpi::LogicalSize<f32>>,
 
-    pub(crate) femtovg_renderer: crate::renderer::femtovg::FemtoVGRenderer,
+    femtovg_renderer: crate::renderer::femtovg::FemtoVGRenderer,
 
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
 
@@ -212,6 +212,7 @@ impl WinitWindow for GLWindow {
             }
 
             let mut renderer = crate::renderer::femtovg::itemrenderer::GLItemRenderer::new(
+                &self.femtovg_renderer,
                 window.canvas.as_ref().unwrap().clone(),
                 &self,
                 scale_factor,
