@@ -247,6 +247,15 @@ mod the_backend {
         fn set_inner_size(&self, _size: euclid::Size2D<u32, PhysicalPx>) {
             unimplemented!()
         }
+
+        fn set_clipboard_text(&self, text: String) {
+            self.backend.with_inner(|inner| inner.clipboard = text)
+        }
+
+        fn clipboard_text(&self) -> Option<String> {
+            let c = self.backend.with_inner(|inner| inner.clipboard.clone());
+            c.is_empty().then(|| c)
+        }
     }
 
     enum McuEvent {
@@ -472,15 +481,6 @@ mod the_backend {
             font_data: &'static i_slint_core::graphics::BitmapFont,
         ) {
             crate::renderer::fonts::register_bitmap_font(font_data);
-        }
-
-        fn set_clipboard_text(&'static self, text: String) {
-            self.with_inner(|inner| inner.clipboard = text)
-        }
-
-        fn clipboard_text(&'static self) -> Option<String> {
-            let c = self.with_inner(|inner| inner.clipboard.clone());
-            c.is_empty().then(|| c)
         }
 
         fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
