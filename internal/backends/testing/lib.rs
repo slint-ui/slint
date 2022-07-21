@@ -20,7 +20,7 @@ pub struct TestingBackend {
 
 impl i_slint_core::backend::Backend for TestingBackend {
     fn create_window(&'static self) -> Rc<Window> {
-        Window::new(|_| Rc::new(TestingWindow::default()))
+        Window::new(|_| Rc::new(TestingWindow { backend: self }))
     }
 
     fn run_event_loop(&'static self, _behavior: i_slint_core::backend::EventLoopQuitBehavior) {
@@ -43,14 +43,6 @@ impl i_slint_core::backend::Backend for TestingBackend {
         Ok(())
     }
 
-    fn set_clipboard_text(&'static self, text: String) {
-        *self.clipboard.lock().unwrap() = Some(text);
-    }
-
-    fn clipboard_text(&'static self) -> Option<String> {
-        self.clipboard.lock().unwrap().clone()
-    }
-
     fn post_event(&'static self, _event: Box<dyn FnOnce() + Send>) {
         // The event will never be invoked
     }
@@ -61,8 +53,9 @@ impl i_slint_core::backend::Backend for TestingBackend {
     }
 }
 
-#[derive(Default)]
-pub struct TestingWindow {}
+pub struct TestingWindow {
+    backend: &'static TestingBackend,
+}
 
 impl PlatformWindow for TestingWindow {
     fn show(self: Rc<Self>) {
@@ -144,6 +137,14 @@ impl PlatformWindow for TestingWindow {
 
     fn set_inner_size(&self, _size: euclid::Size2D<u32, PhysicalPx>) {
         unimplemented!()
+    }
+
+    fn set_clipboard_text(&self, text: String) {
+        *self.backend.clipboard.lock().unwrap() = Some(text);
+    }
+
+    fn clipboard_text(&self) -> Option<String> {
+        self.backend.clipboard.lock().unwrap().clone()
     }
 }
 

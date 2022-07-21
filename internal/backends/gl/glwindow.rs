@@ -857,6 +857,16 @@ impl PlatformWindow for GLWindow {
             }
         }
     }
+
+    fn set_clipboard_text(&self, text: String) {
+        use copypasta::ClipboardProvider;
+        crate::CLIPBOARD.with(|clipboard| clipboard.borrow_mut().set_contents(text).ok());
+    }
+
+    fn clipboard_text(&self) -> Option<String> {
+        use copypasta::ClipboardProvider;
+        crate::CLIPBOARD.with(|clipboard| clipboard.borrow_mut().get_contents().ok())
+    }
 }
 
 impl Drop for GLWindow {

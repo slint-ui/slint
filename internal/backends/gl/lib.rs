@@ -105,16 +105,6 @@ impl i_slint_core::backend::Backend for Backend {
         self::fonts::register_font_from_path(path)
     }
 
-    fn set_clipboard_text(&'static self, text: String) {
-        use copypasta::ClipboardProvider;
-        CLIPBOARD.with(|clipboard| clipboard.borrow_mut().set_contents(text).ok());
-    }
-
-    fn clipboard_text(&'static self) -> Option<String> {
-        use copypasta::ClipboardProvider;
-        CLIPBOARD.with(|clipboard| clipboard.borrow_mut().get_contents().ok())
-    }
-
     fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
         let e = crate::event_loop::CustomEvent::UserEvent(event);
         #[cfg(not(target_arch = "wasm32"))]

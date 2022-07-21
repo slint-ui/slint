@@ -16,6 +16,7 @@ use crate::properties::{Property, PropertyTracker};
 use crate::{Callback, Coord};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
+use alloc::string::String;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 
@@ -135,6 +136,13 @@ pub trait PlatformWindow {
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
     fn set_inner_size(&self, size: euclid::Size2D<u32, PhysicalPx>);
+
+    /// Sends the given text into the system clipboard
+    fn set_clipboard_text(&self, _text: String) {}
+    /// Returns a copy of text stored in the system clipboard, if any.
+    fn clipboard_text(&self) -> Option<String> {
+        None
+    }
 }
 
 struct WindowPropertiesTracker {

@@ -7,7 +7,6 @@ The backend is the abstraction for crates that need to do the actual drawing and
 
 use alloc::boxed::Box;
 use alloc::rc::Rc;
-use alloc::string::String;
 
 use crate::window::Window;
 
@@ -59,9 +58,6 @@ pub trait Backend: Send + Sync {
     fn register_bitmap_font(&'static self, _font_data: &'static crate::graphics::BitmapFont) {
         unimplemented!()
     }
-
-    fn set_clipboard_text(&'static self, text: String);
-    fn clipboard_text(&'static self) -> Option<String>;
 
     /// Send an user event to from another thread that should be run in the GUI event loop
     fn post_event(&'static self, event: Box<dyn FnOnce() + Send>);

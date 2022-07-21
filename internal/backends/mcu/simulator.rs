@@ -459,14 +459,6 @@ impl i_slint_core::backend::Backend for SimulatorBackend {
         crate::renderer::fonts::register_bitmap_font(font_data);
     }
 
-    fn set_clipboard_text(&'static self, _text: String) {
-        unimplemented!()
-    }
-
-    fn clipboard_text(&'static self) -> Option<String> {
-        unimplemented!()
-    }
-
     fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
         self::event_loop::GLOBAL_PROXY
             .get_or_init(Default::default)
