@@ -521,6 +521,9 @@ impl PlatformWindow for GLWindow {
             collector.start(&format!("GL backend (windowing system: {})", winsys));
         }
 
+        let clipboard =
+            crate::ClipboardBackend::new().expect("internal error: unable to access clipboard");
+
         drop(platform_window);
 
         self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
@@ -528,6 +531,7 @@ impl PlatformWindow for GLWindow {
             opengl_context,
             clear_color: RgbaColor { red: 255_u8, green: 255, blue: 255, alpha: 255 }.into(),
             constraints: Default::default(),
+            clipboard: RefCell::new(clipboard),
         }));
 
         crate::event_loop::register_window(id, self);
@@ -815,13 +819,17 @@ impl PlatformWindow for GLWindow {
     }
 
     fn set_clipboard_text(&self, text: String) {
-        use copypasta::ClipboardProvider;
-        crate::CLIPBOARD.with(|clipboard| clipboard.borrow_mut().set_contents(text).ok());
+        if let Some(mapped_window) = self.borrow_mapped_window() {
+            use copypasta::ClipboardProvider;
+            mapped_window.clipboard.borrow_mut().set_contents(text).ok();
+        }
     }
 
     fn clipboard_text(&self) -> Option<String> {
-        use copypasta::ClipboardProvider;
-        crate::CLIPBOARD.with(|clipboard| clipboard.borrow_mut().get_contents().ok())
+        self.borrow_mapped_window().and_then(|mapped_window| {
+            use copypasta::ClipboardProvider;
+            mapped_window.clipboard.borrow_mut().get_contents().ok()
+        })
     }
 }
 
@@ -836,6 +844,7 @@ struct MappedWindow {
     opengl_context: crate::OpenGLContext,
     clear_color: Color,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
+    clipboard: RefCell<crate::ClipboardBackend>,
 }
 
 impl Drop for MappedWindow {

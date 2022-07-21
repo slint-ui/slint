@@ -6,7 +6,6 @@
 
 extern crate alloc;
 
-use std::cell::RefCell;
 use std::rc::Rc;
 
 use i_slint_core::window::Window;
@@ -58,13 +57,15 @@ cfg_if::cfg_if! {
             )),
             not(feature = "x11")
         ))] {
-        type ClipboardBackend = copypasta::nop_clipboard::NopClipboardContext;
+        if #[cfg(feature = "wayland")] {
+            type ClipboardBackend = copypasta::wayland_clipboard::Clipboard;
+        } else {
+            type ClipboardBackend = copypasta::nop_clipboard::NopClipboardContext;
+        }
     } else {
         type ClipboardBackend = copypasta::ClipboardContext;
     }
 }
-
-thread_local!(pub(crate) static CLIPBOARD : RefCell<ClipboardBackend> = std::cell::RefCell::new(ClipboardBackend::new().unwrap()));
 
 pub struct Backend;
 impl i_slint_core::backend::Backend for Backend {
