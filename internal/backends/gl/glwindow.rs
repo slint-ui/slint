@@ -11,7 +11,6 @@ use std::rc::{Rc, Weak};
 
 use crate::event_loop::WinitWindow;
 use crate::glcontext::OpenGLContext;
-use crate::renderer::femtovg::itemrenderer::CanvasRc;
 use const_field_offset::FieldOffsets;
 use corelib::api::{
     GraphicsAPI, PhysicalPx, RenderingNotifier, RenderingState, SetRenderingNotifierError,
@@ -37,8 +36,6 @@ pub struct GLWindow {
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
     existing_size: Cell<winit::dpi::LogicalSize<f32>>,
-
-    femtovg_renderer: crate::renderer::femtovg::FemtoVGRenderer,
 
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
 
@@ -71,7 +68,6 @@ impl GLWindow {
             keyboard_modifiers: Default::default(),
             currently_pressed_key_code: Default::default(),
             existing_size: Default::default(),
-            femtovg_renderer: Default::default(),
             rendering_metrics_collector: RenderingMetricsCollector::new(window_weak.clone()),
             rendering_notifier: Default::default(),
             #[cfg(target_arch = "wasm32")]
@@ -81,12 +77,15 @@ impl GLWindow {
         })
     }
 
-    fn with_current_context<T>(&self, cb: impl FnOnce(&OpenGLContext) -> T) -> Option<T> {
+    fn with_current_context<T>(
+        &self,
+        cb: impl FnOnce(&MappedWindow, &OpenGLContext) -> T,
+    ) -> Option<T> {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped { .. } => None,
-            GraphicsWindowBackendState::Mapped(window) => {
-                Some(window.opengl_context.with_current_context(cb))
-            }
+            GraphicsWindowBackendState::Mapped(window) => Some(
+                window.opengl_context.with_current_context(|gl_context| cb(window, gl_context)),
+            ),
         }
     }
 
@@ -126,8 +125,8 @@ impl GLWindow {
 
     fn release_graphics_resources(&self) {
         // Release GL textures and other GPU bound resources.
-        self.with_current_context(|context| {
-            self.femtovg_renderer.release_graphics_resources();
+        self.with_current_context(|mapped_window, context| {
+            mapped_window.femtovg_renderer.release_graphics_resources();
 
             self.invoke_rendering_notifier(RenderingState::RenderingTeardown, context);
         });
@@ -185,7 +184,7 @@ impl WinitWindow for GLWindow {
             window.opengl_context.ensure_resized();
 
             {
-                let mut canvas = window.canvas.as_ref().unwrap().borrow_mut();
+                let mut canvas = window.femtovg_renderer.canvas.as_ref().borrow_mut();
                 // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
                 // text metrics. Since we do the entire translation from logical pixels to physical
                 // pixels on our end, we don't need femtovg to scale a second time.
@@ -212,8 +211,7 @@ impl WinitWindow for GLWindow {
             }
 
             let mut renderer = crate::renderer::femtovg::itemrenderer::GLItemRenderer::new(
-                &self.femtovg_renderer,
-                window.canvas.as_ref().unwrap().clone(),
+                &window.femtovg_renderer,
                 &self,
                 scale_factor,
                 size,
@@ -227,7 +225,7 @@ impl WinitWindow for GLWindow {
                 collector.measure_frame_rendered(&mut renderer);
             }
 
-            self.femtovg_renderer.finish(renderer);
+            window.femtovg_renderer.finish(renderer);
 
             self.invoke_rendering_notifier(RenderingState::AfterRendering, &window.opengl_context);
 
@@ -340,7 +338,9 @@ impl PlatformWindow for GLWindow {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped { .. } => {}
             GraphicsWindowBackendState::Mapped(_) => {
-                self.with_current_context(|_| self.femtovg_renderer.component_destroyed(component));
+                self.with_current_context(|mapped_window, _| {
+                    mapped_window.femtovg_renderer.component_destroyed(component)
+                });
             }
         }
     }
@@ -541,7 +541,7 @@ impl PlatformWindow for GLWindow {
         drop(platform_window);
 
         self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
-            canvas: Some(canvas),
+            femtovg_renderer: crate::renderer::femtovg::FemtoVGRenderer::new(canvas),
             opengl_context,
             clear_color: RgbaColor { red: 255_u8, green: 255, blue: 255, alpha: 255 }.into(),
             constraints: Default::default(),
@@ -839,7 +839,7 @@ impl Drop for GLWindow {
 }
 
 struct MappedWindow {
-    canvas: Option<CanvasRc>,
+    femtovg_renderer: crate::renderer::femtovg::FemtoVGRenderer,
     opengl_context: crate::OpenGLContext,
     clear_color: Color,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
@@ -847,15 +847,8 @@ struct MappedWindow {
 
 impl Drop for MappedWindow {
     fn drop(&mut self) {
-        if let Some(canvas) = self.canvas.take().map(|canvas| Rc::try_unwrap(canvas).ok()) {
-            // The canvas must be destructed with a GL context current, in order to clean up correctly
-            self.opengl_context.with_current_context(|_| {
-                drop(canvas);
-            });
-        } else {
-            corelib::debug_log!("internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked.")
-        }
-
+        // The GL renderer must be destructed with a GL context current, in order to clean up correctly.
+        self.opengl_context.make_current();
         crate::event_loop::unregister_window(self.opengl_context.window().id());
     }
 }

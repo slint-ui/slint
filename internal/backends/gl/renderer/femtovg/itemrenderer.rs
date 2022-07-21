@@ -877,7 +877,6 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 impl<'a> GLItemRenderer<'a> {
     pub fn new(
         renderer: &'a super::FemtoVGRenderer,
-        canvas: CanvasRc,
         graphics_window: &'a GLWindow,
         scale_factor: f32,
         size: winit::dpi::PhysicalSize<u32>,
@@ -885,7 +884,7 @@ impl<'a> GLItemRenderer<'a> {
         Self {
             graphics_cache: &renderer.graphics_cache,
             texture_cache: &renderer.texture_cache,
-            canvas,
+            canvas: renderer.canvas.clone(),
             layer_images_to_delete_after_flush: Default::default(),
             graphics_window,
             scale_factor,
