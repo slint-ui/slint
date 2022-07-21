@@ -20,7 +20,7 @@ use i_slint_core::items::{
     PointerEventButton, RenderingResult, TextOverflow, TextWrap,
 };
 use i_slint_core::layout::Orientation;
-use i_slint_core::window::{PlatformWindow, PopupWindow, PopupWindowLocation, WindowRc};
+use i_slint_core::window::{PlatformWindow, WindowRc};
 use i_slint_core::{ImageInner, PathData, Property, SharedString};
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 
@@ -1484,28 +1484,24 @@ impl PlatformWindow for QtWindow {
         self.tree_structure_changed.replace(true);
     }
 
-    fn show_popup(&self, popup: &i_slint_core::component::ComponentRc, position: Point) {
+    fn create_popup(&self, geometry: Rect) -> Option<Rc<i_slint_core::window::Window>> {
         let window = i_slint_core::window::Window::new(|window| QtWindow::new(window));
         let popup_window: &QtWindow =
             <dyn std::any::Any>::downcast_ref(window.as_ref().as_any()).unwrap();
-        window.set_component(popup);
 
         let runtime_window = self.self_weak.upgrade().unwrap();
-        let size = runtime_window.set_active_popup(PopupWindow {
-            location: PopupWindowLocation::TopLevel(window.clone()),
-            component: popup.clone(),
-        });
 
-        let size = qttypes::QSize { width: size.width as _, height: size.height as _ };
+        let size = qttypes::QSize { width: geometry.width() as _, height: geometry.height() as _ };
 
         let popup_ptr = popup_window.widget_ptr();
-        let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
+        let pos = qttypes::QPoint { x: geometry.origin.x as _, y: geometry.origin.y as _ };
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*", popup_ptr as "QWidget*", pos as "QPoint", size as "QSize"] {
             popup_ptr->setParent(widget_ptr, Qt::Popup);
             popup_ptr->setGeometry(QRect(pos + widget_ptr->mapToGlobal(QPoint(0,0)), size));
             popup_ptr->show();
         }};
+        Some(window)
     }
 
     fn set_mouse_cursor(&self, cursor: MouseCursor) {

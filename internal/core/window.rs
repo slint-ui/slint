@@ -59,10 +59,19 @@ pub trait PlatformWindow {
         Err(crate::api::SetRenderingNotifierError::Unsupported)
     }
 
-    /// Show a popup at the given position
-    fn show_popup(&self, popup: &ComponentRc, position: Point);
+    /// Create a window for a popup.
+    ///
+    /// `geometry` is the location of the popup in the window coordinate
+    ///
+    /// If this function return None (the default implementation), then the
+    /// popup will be rendered within the window itself.
+    fn create_popup(&self, _geometry: Rect) -> Option<Rc<Window>> {
+        None
+    }
 
     /// Notify the platform window about the closure of a previously opened popup.
+    ///
+    /// (This is currently used to mark the region where the popup was as dirty)
     fn close_popup(&self, _popup: &PopupWindow) {}
 
     /// Request for the event loop to wake up and call [`Window::update_window_properties()`].
@@ -567,14 +576,23 @@ impl Window {
         self.platform_window.get().unwrap().clone().hide();
     }
 
-    /// Registers the specified window and component to be considered the active popup.
-    /// Returns the size of the popup.
-    pub fn set_active_popup(&self, popup: PopupWindow) -> Size {
-        if matches!(popup.location, PopupWindowLocation::ChildWindow(..)) {
-            self.meta_properties_tracker.set_dirty();
+    /// Show a popup at the given position relative to the item
+    pub fn show_popup(
+        &self,
+        popup_componentrc: &ComponentRc,
+        mut position: Point,
+        parent_item: &ItemRc,
+    ) {
+        let mut parent_item = parent_item.clone();
+        loop {
+            position += parent_item.borrow().as_ref().geometry().origin.to_vector();
+            parent_item = match parent_item.parent_item() {
+                None => break,
+                Some(pi) => pi,
+            }
         }
 
-        let popup_component = ComponentRc::borrow_pin(&popup.component);
+        let popup_component = ComponentRc::borrow_pin(&popup_componentrc);
         let popup_root = popup_component.as_ref().get_item_ref(0);
 
         let (mut w, mut h) = if let Some(window_item) =
@@ -610,22 +628,21 @@ impl Window {
             height_property.set(size.height);
         };
 
-        self.active_popup.replace(Some(popup));
+        let location =
+            match self.platform_window.get().unwrap().create_popup(Rect::new(position, size)) {
+                None => {
+                    self.meta_properties_tracker.set_dirty();
+                    PopupWindowLocation::ChildWindow(position)
+                }
 
-        size
-    }
+                Some(window) => {
+                    window.set_component(popup_componentrc);
+                    PopupWindowLocation::TopLevel(window)
+                }
+            };
 
-    /// Show a popup at the given position relative to the item
-    pub fn show_popup(&self, popup: &ComponentRc, mut position: Point, parent_item: &ItemRc) {
-        let mut parent_item = parent_item.clone();
-        loop {
-            position += parent_item.borrow().as_ref().geometry().origin.to_vector();
-            parent_item = match parent_item.parent_item() {
-                None => break,
-                Some(pi) => pi,
-            }
-        }
-        self.platform_window.get().unwrap().show_popup(popup, position)
+        self.active_popup
+            .replace(Some(PopupWindow { location, component: popup_componentrc.clone() }));
     }
 
     /// Removes any active popup.
