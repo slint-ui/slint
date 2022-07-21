@@ -872,7 +872,8 @@ impl Default for WindowProperties {
     }
 }
 
-fn create_clipboard(window: &winit::window::Window) -> Box<dyn copypasta::ClipboardProvider> {
+fn create_clipboard(_window: &winit::window::Window) -> Box<dyn copypasta::ClipboardProvider> {
+    #[allow(unused_mut)]
     let mut clipboard: Option<Box<dyn copypasta::ClipboardProvider>> = None;
 
     cfg_if::cfg_if! {
@@ -899,7 +900,7 @@ fn create_clipboard(window: &winit::window::Window) -> Box<dyn copypasta::Clipbo
     if cfg!(feature = "wayland") {
         use winit::platform::unix::WindowExtUnix;
         #[cfg(feature = "wayland")]
-        if let Some(wayland_display) = window.wayland_display() {
+        if let Some(wayland_display) = _window.wayland_display() {
             clipboard = unsafe {
                 Some(Box::new(
                     copypasta::wayland_clipboard::create_clipboards_from_external(wayland_display)
