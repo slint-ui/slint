@@ -522,13 +522,16 @@ impl ItemRenderer for QtItemRenderer<'_> {
             TextHorizontalAlignment::left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::center => key_generated::Qt_AlignmentFlag_AlignHCenter,
             TextHorizontalAlignment::right => key_generated::Qt_AlignmentFlag_AlignRight,
+            _ => unimplemented!(),
         } | match text.vertical_alignment() {
             TextVerticalAlignment::top => key_generated::Qt_AlignmentFlag_AlignTop,
             TextVerticalAlignment::center => key_generated::Qt_AlignmentFlag_AlignVCenter,
             TextVerticalAlignment::bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
+            _ => unimplemented!(),
         } | match text.wrap() {
             TextWrap::no_wrap => 0,
             TextWrap::word_wrap => key_generated::Qt_TextFlag_TextWordWrap,
+            _ => unimplemented!(),
         };
         let elide = text.overflow() == TextOverflow::elide;
         let painter: &mut QPainterPtr = &mut self.painter;
@@ -614,13 +617,16 @@ impl ItemRenderer for QtItemRenderer<'_> {
             TextHorizontalAlignment::left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::center => key_generated::Qt_AlignmentFlag_AlignHCenter,
             TextHorizontalAlignment::right => key_generated::Qt_AlignmentFlag_AlignRight,
+            _ => unimplemented!(),
         } | match text_input.vertical_alignment() {
             TextVerticalAlignment::top => key_generated::Qt_AlignmentFlag_AlignTop,
             TextVerticalAlignment::center => key_generated::Qt_AlignmentFlag_AlignVCenter,
             TextVerticalAlignment::bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
+            _ => unimplemented!(),
         } | match text_input.wrap() {
             TextWrap::no_wrap => 0,
             TextWrap::word_wrap => key_generated::Qt_TextFlag_TextWordWrap,
+            _ => unimplemented!(),
         };
 
         // convert byte offsets to offsets in Qt UTF-16 encoded string, as that's
@@ -703,6 +709,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         painter_path.set_fill_rule(match path.fill_rule() {
             FillRule::nonzero => key_generated::Qt_FillRule_WindingFill,
             FillRule::evenodd => key_generated::Qt_FillRule_OddEvenFill,
+            _ => unimplemented!(),
         });
 
         for x in path_events.iter() {
@@ -1026,6 +1033,7 @@ fn adjust_to_image_fit(
                 dest_rect.height = source_rect.height * ratio;
             }
         }
+        _ => unimplemented!(),
     };
 }
 
@@ -1537,6 +1545,7 @@ impl PlatformWindow for QtWindow {
             MouseCursor::ns_resize => key_generated::Qt_CursorShape_SizeVerCursor,
             MouseCursor::nesw_resize => key_generated::Qt_CursorShape_SizeBDiagCursor,
             MouseCursor::nwse_resize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+            _ => unimplemented!(),
         };
         cpp! {unsafe [widget_ptr as "QWidget*", cursor_shape as "Qt::CursorShape"] {
             widget_ptr->setCursor(QCursor{cursor_shape});
@@ -1569,13 +1578,16 @@ impl PlatformWindow for QtWindow {
             TextHorizontalAlignment::left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::center => key_generated::Qt_AlignmentFlag_AlignHCenter,
             TextHorizontalAlignment::right => key_generated::Qt_AlignmentFlag_AlignRight,
+            _ => unimplemented!(),
         } | match text_input.vertical_alignment() {
             TextVerticalAlignment::top => key_generated::Qt_AlignmentFlag_AlignTop,
             TextVerticalAlignment::center => key_generated::Qt_AlignmentFlag_AlignVCenter,
             TextVerticalAlignment::bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
+            _ => unimplemented!(),
         } | match text_input.wrap() {
             TextWrap::no_wrap => 0,
             TextWrap::word_wrap => key_generated::Qt_TextFlag_TextWordWrap,
+            _ => unimplemented!(),
         };
         let single_line: bool = text_input.single_line();
         let is_password: bool = matches!(text_input.input_type(), InputType::password);
@@ -1627,13 +1639,16 @@ impl PlatformWindow for QtWindow {
             TextHorizontalAlignment::left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::center => key_generated::Qt_AlignmentFlag_AlignHCenter,
             TextHorizontalAlignment::right => key_generated::Qt_AlignmentFlag_AlignRight,
+            _ => unimplemented!(),
         } | match text_input.vertical_alignment() {
             TextVerticalAlignment::top => key_generated::Qt_AlignmentFlag_AlignTop,
             TextVerticalAlignment::center => key_generated::Qt_AlignmentFlag_AlignVCenter,
             TextVerticalAlignment::bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
+            _ => unimplemented!(),
         } | match text_input.wrap() {
             TextWrap::no_wrap => 0,
             TextWrap::word_wrap => key_generated::Qt_TextFlag_TextWordWrap,
+            _ => unimplemented!(),
         };
         let single_line: bool = text_input.single_line();
         let r = cpp! { unsafe [font as "QFont", mut string as "QString", offset as "int", flags as "int", rect as "QRectF", single_line as "bool"]

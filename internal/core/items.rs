@@ -1134,6 +1134,7 @@ macro_rules! declare_enums {
             #[derive(Copy, Clone, Debug, PartialEq, Eq, strum::EnumString, strum::Display, Hash)]
             #[repr(C)]
             #[allow(non_camel_case_types)]
+            #[non_exhaustive]
             $(#[$enum_doc])*
             pub enum $Name {
                 $( $(#[$value_doc])* $Value),*

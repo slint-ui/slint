@@ -311,6 +311,7 @@ cpp! {{
                     i_slint_core::items::AccessibleRole::spinbox => QAccessible_Role_SpinBox,
                     i_slint_core::items::AccessibleRole::tab => QAccessible_Role_PageTab,
                     i_slint_core::items::AccessibleRole::text => QAccessible_Role_StaticText,
+                    _ => unimplemented!(),
                 }
             });
         }

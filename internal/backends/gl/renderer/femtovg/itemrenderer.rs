@@ -518,6 +518,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                 fill_paint.set_fill_rule(match path.fill_rule() {
                     FillRule::nonzero => femtovg::FillRule::NonZero,
                     FillRule::evenodd => femtovg::FillRule::EvenOdd,
+                    _ => unimplemented!(),
                 });
                 fill_paint
             });
@@ -1036,6 +1037,7 @@ impl<'a> GLItemRenderer<'a> {
             ImageRendering::pixelated => {
                 femtovg::ImageFlags::empty() | femtovg::ImageFlags::NEAREST
             }
+            _ => unimplemented!(),
         };
 
         let image_id = original_image.id;
@@ -1216,6 +1218,7 @@ impl<'a> GLItemRenderer<'a> {
 
                 (ratio, ratio)
             }
+            _ => unimplemented!(),
         };
 
         let fill_paint = femtovg::Paint::image(

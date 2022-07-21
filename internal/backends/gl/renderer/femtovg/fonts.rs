@@ -669,6 +669,7 @@ pub(crate) fn layout_text_lines(
                 max_width / 2. - f32::min(max_width, line_metrics.width()) / 2.
             }
             TextHorizontalAlignment::right => max_width - f32::min(max_width, line_metrics.width()),
+            _ => unimplemented!(),
         };
         layout_line(text, Point::new(x, y), start, line_metrics);
     };
@@ -677,6 +678,7 @@ pub(crate) fn layout_text_lines(
         TextVerticalAlignment::top => 0.,
         TextVerticalAlignment::center => max_height / 2. - text_height() / 2.,
         TextVerticalAlignment::bottom => max_height - text_height(),
+        _ => unimplemented!(),
     };
     let mut y = baseline_y;
     let mut start = 0;

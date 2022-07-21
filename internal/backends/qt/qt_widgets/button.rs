@@ -143,6 +143,7 @@ impl NativeButton {
             Some(StandardButtonKind::abort) => "Abort".into(),
             Some(StandardButtonKind::retry) => "Retry".into(),
             Some(StandardButtonKind::ignore) => "Ignore".into(),
+            Some(_) => unimplemented!(),
             None => self.text().as_str().into(),
         }
     }
@@ -163,6 +164,7 @@ impl NativeButton {
             Some(StandardButtonKind::abort) => QStyle_StandardPixmap_SP_DialogAbortButton,
             Some(StandardButtonKind::retry) => QStyle_StandardPixmap_SP_DialogRetryButton,
             Some(StandardButtonKind::ignore) => QStyle_StandardPixmap_SP_DialogIgnoreButton,
+            Some(_) => unimplemented!(),
             None => {
                 return crate::qt_window::image_to_pixmap((&self.icon()).into(), None)
                     .unwrap_or_default();
@@ -280,6 +282,7 @@ impl Item for NativeButton {
                 KeyEventResult::EventAccepted
             }
             KeyEventType::KeyReleased => KeyEventResult::EventIgnored,
+            _ => KeyEventResult::EventIgnored,
         }
     }
 

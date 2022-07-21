@@ -90,6 +90,7 @@ impl Texture {
         let image_flags = match scaling {
             ImageRendering::smooth => femtovg::ImageFlags::empty(),
             ImageRendering::pixelated => femtovg::ImageFlags::NEAREST,
+            _ => unimplemented!(),
         };
 
         let image_id = match image {
