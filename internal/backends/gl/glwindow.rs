@@ -160,29 +160,14 @@ impl WinitWindow for GLWindow {
         window.opengl_context.make_current();
         window.opengl_context.ensure_resized();
 
-        self.femtovg_renderer.render(
-            &window.femtovg_canvas,
-            size.width,
-            size.height,
-            &mut |item_renderer| {
-                if self.has_rendering_notifier() {
-                    self.invoke_rendering_notifier(
-                        RenderingState::BeforeRendering,
-                        &window.opengl_context,
-                    );
-                }
-
-                self.runtime_window().draw_contents(|components| {
-                    for (component, origin) in components {
-                        corelib::item_rendering::render_component_items(
-                            component,
-                            item_renderer,
-                            *origin,
-                        );
-                    }
-                });
-            },
-        );
+        self.femtovg_renderer.render(&window.femtovg_canvas, size.width, size.height, &mut || {
+            if self.has_rendering_notifier() {
+                self.invoke_rendering_notifier(
+                    RenderingState::BeforeRendering,
+                    &window.opengl_context,
+                );
+            }
+        });
 
         self.invoke_rendering_notifier(RenderingState::AfterRendering, &window.opengl_context);
 
