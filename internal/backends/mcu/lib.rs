@@ -122,7 +122,7 @@ mod the_backend {
     use core::pin::Pin;
     use i_slint_core::api::PhysicalPx;
     use i_slint_core::component::ComponentRc;
-    use i_slint_core::graphics::{Color, Point, Rect, Size};
+    use i_slint_core::graphics::{Point, Rect, Size};
     use i_slint_core::items::ItemRef;
     use i_slint_core::window::PlatformWindow;
     use i_slint_core::window::WindowInner;
@@ -133,7 +133,6 @@ mod the_backend {
     pub struct McuWindow {
         backend: &'static MCUBackend,
         self_weak: Weak<WindowInner>,
-        background_color: Cell<Color>,
         initial_dirty_region_for_next_frame: Cell<i_slint_core::item_rendering::DirtyRegion>,
     }
 
@@ -187,17 +186,6 @@ mod the_backend {
             }
         }
 
-        fn request_window_properties_update(&self) {}
-        fn apply_window_properties(&self, window_item: Pin<&i_slint_core::items::WindowItem>) {
-            self.background_color.set(window_item.background());
-        }
-        fn apply_geometry_constraint(
-            &self,
-            _constraints_horizontal: i_slint_core::layout::LayoutInfo,
-            _constraints_vertical: i_slint_core::layout::LayoutInfo,
-        ) {
-        }
-        fn set_mouse_cursor(&self, _cursor: i_slint_core::items::MouseCursor) {}
         fn text_size(
             &self,
             font_request: i_slint_core::graphics::FontRequest,
@@ -414,7 +402,6 @@ mod the_backend {
                 Rc::new(McuWindow {
                     backend: self,
                     self_weak: window.clone(),
-                    background_color: Color::from_rgb_u8(0, 0, 0).into(),
                     initial_dirty_region_for_next_frame: Default::default(),
                 })
             })

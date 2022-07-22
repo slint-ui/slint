@@ -125,7 +125,6 @@ impl SoftwareRenderer {
     /// which are dirty. The `initial_dirty_region` is an extra dirty regin which will also
     /// be rendered.
     ///
-    /// TODO: the window should be the public slint::Window type
     /// TODO: what about async and threading.
     ///       (can we call the line_buffer function from different thread?)
     /// TODO: should `initial_dirty_region` be set from a different call?
