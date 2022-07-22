@@ -991,34 +991,30 @@ impl Item for WindowItem {
 }
 
 impl WindowItem {
-    /// Returns the font properties that can be used as defaults for child items
-    pub fn default_font_properties(self: Pin<&Self>) -> crate::graphics::FontRequest {
-        crate::graphics::FontRequest {
-            family: {
-                let maybe_family = self.default_font_family();
-                if !maybe_family.is_empty() {
-                    Some(maybe_family)
-                } else {
-                    None
-                }
-            },
-            pixel_size: {
-                let font_size = self.default_font_size();
-                if font_size <= 0 as Coord {
-                    None
-                } else {
-                    Some(font_size)
-                }
-            },
-            weight: {
-                let font_weight = self.default_font_weight();
-                if font_weight == 0 {
-                    None
-                } else {
-                    Some(font_weight)
-                }
-            },
-            ..Default::default()
+    pub fn font_family(self: Pin<&Self>) -> Option<SharedString> {
+        let maybe_family = self.default_font_family();
+        if !maybe_family.is_empty() {
+            Some(maybe_family)
+        } else {
+            None
+        }
+    }
+
+    pub fn font_size(self: Pin<&Self>) -> Option<f32> {
+        let font_size = self.default_font_size();
+        if font_size <= 0 as Coord {
+            None
+        } else {
+            Some(font_size)
+        }
+    }
+
+    pub fn font_weight(self: Pin<&Self>) -> Option<i32> {
+        let font_weight = self.default_font_weight();
+        if font_weight == 0 {
+            None
+        } else {
+            Some(font_weight)
         }
     }
 }

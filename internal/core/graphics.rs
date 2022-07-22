@@ -143,20 +143,6 @@ pub struct FontRequest {
     pub letter_spacing: Option<Coord>,
 }
 
-impl FontRequest {
-    /// Consumes the FontRequest, replaces any missing fields from the specified other request and
-    /// returns the new request.
-    #[must_use]
-    pub fn merge(self, other: &FontRequest) -> Self {
-        Self {
-            family: self.family.or_else(|| other.family.clone()),
-            weight: self.weight.or(other.weight),
-            pixel_size: self.pixel_size.or(other.pixel_size),
-            letter_spacing: self.letter_spacing.or(other.letter_spacing),
-        }
-    }
-}
-
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]

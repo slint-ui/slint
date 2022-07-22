@@ -116,10 +116,6 @@ impl GLWindow {
         }
     }
 
-    pub fn default_font_properties(&self) -> FontRequest {
-        self.self_weak.upgrade().unwrap().default_font_properties()
-    }
-
     fn release_graphics_resources(&self) {
         // Release GL textures and other GPU bound resources.
         self.with_current_context(|mapped_window, context| {
@@ -597,8 +593,6 @@ impl PlatformWindow for GLWindow {
         text: &str,
         max_width: Option<Coord>,
     ) -> Size {
-        let font_request = font_request.merge(&self.default_font_properties());
-
         crate::renderer::femtovg::fonts::text_size(
             &font_request,
             self.self_weak.upgrade().unwrap().scale_factor(),
@@ -624,9 +618,11 @@ impl PlatformWindow for GLWindow {
             return 0;
         }
 
+        let window = self.self_weak.upgrade().unwrap();
+
         let font = crate::renderer::femtovg::fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text_input.unresolved_font_request().merge(&self.default_font_properties()),
+                text_input.font_request(&window),
                 scale_factor,
                 &text_input.text(),
             )
@@ -686,12 +682,10 @@ impl PlatformWindow for GLWindow {
         use crate::renderer::femtovg::fonts;
         let scale_factor = self.self_weak.upgrade().unwrap().scale_factor();
         let text = text_input.text();
+        let window = self.self_weak.upgrade().unwrap();
 
-        let font_size = text_input
-            .unresolved_font_request()
-            .merge(&self.default_font_properties())
-            .pixel_size
-            .unwrap_or(fonts::DEFAULT_FONT_SIZE);
+        let font_size =
+            text_input.font_request(&window).pixel_size.unwrap_or(fonts::DEFAULT_FONT_SIZE);
 
         let mut result = Point::default();
 
@@ -703,7 +697,7 @@ impl PlatformWindow for GLWindow {
 
         let font = crate::renderer::femtovg::fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text_input.unresolved_font_request().merge(&self.default_font_properties()),
+                text_input.font_request(&window),
                 scale_factor,
                 &text_input.text(),
             )

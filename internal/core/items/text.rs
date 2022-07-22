@@ -9,7 +9,7 @@ Lookup the [`crate::items`] module documentation.
 */
 
 use super::{
-    InputType, Item, ItemConsts, ItemRc, KeyEventResult, KeyEventType, PointArg,
+    InputType, Item, ItemConsts, ItemRc, ItemRef, KeyEventResult, KeyEventType, PointArg,
     PointerEventButton, RenderingResult, TextHorizontalAlignment, TextOverflow,
     TextVerticalAlignment, TextWrap, VoidArg,
 };
@@ -63,7 +63,7 @@ impl Item for Text {
 
     fn layout_info(self: Pin<&Self>, orientation: Orientation, window: &WindowRc) -> LayoutInfo {
         let implicit_size = |max_width| {
-            window.text_size(self.unresolved_font_request(), self.text().as_str(), max_width)
+            window.text_size(self.font_request(window), self.text().as_str(), max_width)
         };
 
         // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
@@ -75,7 +75,7 @@ impl Item for Text {
                 let min = match self.overflow() {
                     TextOverflow::Elide => implicit_size
                         .width
-                        .min(window.text_size(self.unresolved_font_request(), "…", None).width),
+                        .min(window.text_size(self.font_request(window), "…", None).width),
                     TextOverflow::Clip => match self.wrap() {
                         TextWrap::NoWrap => implicit_size.width,
                         TextWrap::WordWrap => 0 as Coord,
@@ -140,20 +140,25 @@ impl ItemConsts for Text {
 }
 
 impl Text {
-    pub fn unresolved_font_request(self: Pin<&Self>) -> FontRequest {
+    pub fn font_request(self: Pin<&Self>, window: &WindowRc) -> FontRequest {
+        let window_item = window.window_item();
+        let window_item = window_item.as_ref().map(|window_item| ItemRc::borrow(window_item));
+        let window_item = window_item
+            .and_then(|window_item| ItemRef::downcast_pin::<crate::items::WindowItem>(window_item));
+
         FontRequest {
             family: {
                 let maybe_family = self.font_family();
                 if !maybe_family.is_empty() {
                     Some(maybe_family)
                 } else {
-                    None
+                    window_item.and_then(|item| item.font_family())
                 }
             },
             weight: {
                 let weight = self.font_weight();
                 if weight == 0 {
-                    None
+                    window_item.and_then(|item| item.font_weight())
                 } else {
                     Some(weight)
                 }
@@ -161,7 +166,7 @@ impl Text {
             pixel_size: {
                 let font_size = self.font_size();
                 if font_size == 0 as Coord {
-                    None
+                    window_item.and_then(|item| item.font_size())
                 } else {
                     Some(font_size)
                 }
@@ -222,7 +227,7 @@ impl Item for TextInput {
         let text = self.text();
         let implicit_size = |max_width| {
             window.text_size(
-                self.unresolved_font_request(),
+                self.font_request(window),
                 {
                     if text.is_empty() {
                         "*"
@@ -509,7 +514,7 @@ impl TextInput {
         let mut grapheme_cursor =
             unicode_segmentation::GraphemeCursor::new(last_cursor_pos, text.len(), true);
 
-        let font_height = window.text_size(self.unresolved_font_request(), " ", None).height;
+        let font_height = window.text_size(self.font_request(window), " ", None).height;
 
         let mut reset_preferred_x_pos = true;
 
@@ -730,20 +735,25 @@ impl TextInput {
         }
     }
 
-    pub fn unresolved_font_request(self: Pin<&Self>) -> FontRequest {
+    pub fn font_request(self: Pin<&Self>, window: &WindowRc) -> FontRequest {
+        let window_item = window.window_item();
+        let window_item = window_item.as_ref().map(|window_item| ItemRc::borrow(window_item));
+        let window_item = window_item
+            .and_then(|window_item| ItemRef::downcast_pin::<crate::items::WindowItem>(window_item));
+
         FontRequest {
             family: {
                 let maybe_family = self.font_family();
                 if !maybe_family.is_empty() {
                     Some(maybe_family)
                 } else {
-                    None
+                    window_item.and_then(|item| item.font_family())
                 }
             },
             weight: {
                 let weight = self.font_weight();
                 if weight == 0 {
-                    None
+                    window_item.and_then(|item| item.font_weight())
                 } else {
                     Some(weight)
                 }
@@ -751,7 +761,7 @@ impl TextInput {
             pixel_size: {
                 let font_size = self.font_size();
                 if font_size == 0 as Coord {
-                    None
+                    window_item.and_then(|item| item.font_size())
                 } else {
                     Some(font_size)
                 }
