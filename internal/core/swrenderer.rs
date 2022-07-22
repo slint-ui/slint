@@ -4,6 +4,7 @@
 mod draw_functions;
 pub mod fonts;
 
+use crate::api::Window;
 use crate::graphics::{FontRequest, IntRect, PixelFormat, Rect as RectF};
 use crate::item_rendering::{ItemRenderer, PartialRenderingCache};
 use crate::items::{ImageFit, ItemRc};
@@ -12,6 +13,7 @@ use crate::lengths::{
     PhysicalPx, PhysicalRect, PhysicalSize, PointLengths, RectLengths, ScaleFactor, SizeLengths,
 };
 use crate::textlayout::{FontMetrics as _, TextParagraphLayout};
+use crate::window::WindowHandleAccess;
 use crate::{Color, Coord, ImageInner, StaticTextures};
 use alloc::rc::Rc;
 use alloc::{vec, vec::Vec};
@@ -51,11 +53,12 @@ impl SoftwareRenderer {
     /// returns the dirty region for this frame (not including the initial_dirty_region)
     pub fn render(
         &self,
-        window: Rc<crate::window::WindowInner>,
+        window: &Window,
         initial_dirty_region: DirtyRegion,
         buffer: &mut [impl TargetPixel],
         buffer_stride: PhysicalLength,
     ) -> DirtyRegion {
+        let window = window.window_handle().clone();
         let component_rc = window.component();
         let component = crate::component::ComponentRc::borrow_pin(&component_rc);
         let factor = ScaleFactor::new(window.scale_factor());
@@ -128,10 +131,11 @@ impl SoftwareRenderer {
     /// TODO: should `initial_dirty_region` be set from a different call?
     pub fn render_by_line(
         &self,
-        window: Rc<crate::window::WindowInner>,
+        window: &Window,
         initial_dirty_region: crate::item_rendering::DirtyRegion,
         line_buffer: impl LineBufferProvider,
     ) {
+        let window = window.window_handle().clone();
         let component_rc = window.component();
         let component = crate::component::ComponentRc::borrow_pin(&component_rc);
         if let Some(window_item) = crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(
