@@ -160,7 +160,7 @@ impl WinitWindow for GLWindow {
         window.opengl_context.make_current();
         window.opengl_context.ensure_resized();
 
-        self.femtovg_renderer.render(&window.femtovg_canvas, size.width, size.height, &mut || {
+        self.femtovg_renderer.render(&window.femtovg_canvas, size.width, size.height, || {
             if self.has_rendering_notifier() {
                 self.invoke_rendering_notifier(
                     RenderingState::BeforeRendering,
