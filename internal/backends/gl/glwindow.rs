@@ -817,9 +817,9 @@ impl PlatformWindow for GLWindow {
         }
     }
 
-    fn set_clipboard_text(&self, text: String) {
+    fn set_clipboard_text(&self, text: &str) {
         if let Some(mapped_window) = self.borrow_mapped_window() {
-            mapped_window.clipboard.borrow_mut().set_contents(text).ok();
+            mapped_window.clipboard.borrow_mut().set_contents(text.into()).ok();
         }
     }
 

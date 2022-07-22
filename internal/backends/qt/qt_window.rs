@@ -1708,7 +1708,7 @@ impl PlatformWindow for QtWindow {
         }};
     }
 
-    fn set_clipboard_text(&self, _text: String) {
+    fn set_clipboard_text(&self, _text: &str) {
         use cpp::cpp;
         let text: qttypes::QString = _text.into();
         cpp! {unsafe [text as "QString"] {
