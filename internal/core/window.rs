@@ -78,20 +78,21 @@ pub trait PlatformWindow {
     fn close_popup(&self, _popup: &PopupWindow) {}
 
     /// Request for the event loop to wake up and call [`Window::update_window_properties()`].
-    fn request_window_properties_update(&self);
+    fn request_window_properties_update(&self) {}
     /// Request for the given title string to be set to the windowing system for use as window title.
-    fn apply_window_properties(&self, window_item: Pin<&crate::items::WindowItem>);
+    fn apply_window_properties(&self, _window_item: Pin<&crate::items::WindowItem>) {}
 
     /// Apply the given horizontal and vertical constraints to the window. This typically involves communication
     /// minimum/maximum sizes to the windowing system, for example.
     fn apply_geometry_constraint(
         &self,
-        constraints_horizontal: crate::layout::LayoutInfo,
-        constraints_vertical: crate::layout::LayoutInfo,
-    );
+        _constraints_horizontal: crate::layout::LayoutInfo,
+        _constraints_vertical: crate::layout::LayoutInfo,
+    ) {
+    }
 
     /// Set the mouse cursor
-    fn set_mouse_cursor(&self, cursor: MouseCursor);
+    fn set_mouse_cursor(&self, _cursor: MouseCursor) {}
 
     /// Returns the size of the given text in logical pixels.
     /// When set, `max_width` means that one need to wrap the text so it does not go further than that
