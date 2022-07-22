@@ -200,7 +200,7 @@ impl<VTable: VTableMetaDropInPlace + 'static> VRc<VTable, Dyn> {
     /// that, you need to provide a mapping function `map_fn` in which you need to provide and return a
     /// pinned reference to the object you would like to map. The returned `VRcMapped` allows obtaining
     /// that pinned reference again using [`VRcMapped::as_pin_ref`].
-    /// This works similar to `VRc::map` except that it works on a type-erased VRc.
+    /// This works similar to [`VRc::map`] except that it works on a type-erased VRc.
     pub fn map_dyn<MappedType: ?Sized>(
         this: Self,
         map_fn: impl for<'r> FnOnce(Pin<VRef<'r, VTable>>) -> Pin<&'r MappedType>,
