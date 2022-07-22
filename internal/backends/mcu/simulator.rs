@@ -329,7 +329,7 @@ impl WinitWindow for SimulatorWindow {
             }
             super::RENDERER.with(|renderer| {
                 renderer.borrow().render_by_line(
-                    runtime_window,
+                    &runtime_window.into(),
                     self.initial_dirty_region_for_next_frame.take(),
                     BufferProvider { devices: display, dirty_region: Default::default() },
                 )

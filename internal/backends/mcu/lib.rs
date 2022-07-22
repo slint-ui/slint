@@ -325,7 +325,7 @@ mod the_backend {
                     );
                     let new_dirty_region = RENDERER.with(|renderer| {
                         renderer.borrow().render(
-                            runtime_window,
+                            &runtime_window.into(),
                             init_dirty.union(&prev_dirty),
                             buffer,
                             screen_size.width_length(),
@@ -398,7 +398,7 @@ mod the_backend {
 
                 RENDERER.with(|renderer| {
                     renderer.borrow().render_by_line(
-                        runtime_window,
+                        &runtime_window.into(),
                         window.initial_dirty_region_for_next_frame.take(),
                         buffer_provider,
                     )
