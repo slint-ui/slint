@@ -234,6 +234,24 @@ fn rc_map_test() {
 }
 
 #[test]
+fn rc_map_dyn_test() {
+    fn get_struct_value(instance: &VRcMapped<AppVTable, SomeStruct>) -> u8 {
+        let field_ref = SomeStruct::FIELD_OFFSETS.e.apply_pin(instance.as_pin_ref());
+        *field_ref
+    }
+
+    let app_rc = AppStruct::new();
+    let app_dyn = VRc::into_dyn(app_rc);
+
+    let some_struct_ref = VRc::map_dyn(app_dyn.clone(), |app_dyn| {
+        let app_ref = VRef::downcast_pin(app_dyn).unwrap();
+        AppStruct::FIELD_OFFSETS.some.apply_pin(app_ref)
+    });
+
+    assert_eq!(get_struct_value(&some_struct_ref), 55);
+}
+
+#[test]
 fn rc_map_origin() {
     let app_rc = AppStruct::new();
 

@@ -1,6 +1,11 @@
 # Changelog
 All notable changes to this crate will be documented in this file.
 
+## [0.1.9] - Unreleased
+
+ - Added `VRc::map_dyn`, the equivalent of `VRc::map` to create a `VRcMapped`
+   when the VRc is already type erased
+
 ## [0.1.8] - 2022-07-05
 
  - Changed the representation of the different types to use NonNull
