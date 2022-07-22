@@ -7,7 +7,7 @@
 //! Exposed Window API
 
 use crate::api::{CloseRequestResponse, PhysicalPx, Window};
-use crate::component::{ComponentRc, ComponentRef, ComponentWeak};
+use crate::component::{ComponentRc, ComponentRef, ComponentVTable, ComponentWeak};
 use crate::graphics::{Point, Rect, Size};
 use crate::input::{
     key_codes, KeyEvent, KeyEventType, MouseEvent, MouseInputState, TextCursorBlinker,
@@ -21,6 +21,7 @@ use alloc::rc::{Rc, Weak};
 use alloc::string::String;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
+use vtable::VRcMapped;
 
 fn next_focus_item(item: ItemRc) -> ItemRc {
     item.next_focus_item()
@@ -685,13 +686,9 @@ impl WindowInner {
     }
 
     /// Returns the window item that is the first item in the component.
-    pub fn window_item(&self) -> Option<ItemRc> {
-        self.try_component().map(|component_rc| {
-            debug_assert!(ItemRef::downcast_pin::<crate::items::WindowItem>(
-                ComponentRc::borrow_pin(&component_rc).as_ref().get_item_ref(0)
-            )
-            .is_some());
-            ItemRc::new(component_rc, 0)
+    pub fn window_item(&self) -> Option<VRcMapped<ComponentVTable, crate::items::WindowItem>> {
+        self.try_component().and_then(|component_rc| {
+            ItemRc::new(component_rc, 0).downcast::<crate::items::WindowItem>()
         })
     }
 
