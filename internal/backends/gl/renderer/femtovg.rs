@@ -3,7 +3,7 @@
 
 use std::{cell::RefCell, rc::Rc};
 
-use i_slint_core::Color;
+use i_slint_core::{component::ComponentRc, items::ItemRef};
 
 use crate::glwindow::GLWindow;
 
@@ -78,7 +78,6 @@ impl FemtoVGRenderer {
         width: u32,
         height: u32,
         scale_factor: f32,
-        clear_color: &Color,
         window: &Rc<GLWindow>,
         render_callback: &mut dyn FnMut(&mut dyn i_slint_core::item_rendering::ItemRenderer),
     ) {
@@ -88,13 +87,27 @@ impl FemtoVGRenderer {
             // text metrics. Since we do the entire translation from logical pixels to physical
             // pixels on our end, we don't need femtovg to scale a second time.
             canvas.set_size(width, height, 1.0);
-            canvas.clear_rect(
-                0,
-                0,
-                width,
-                height,
-                self::itemrenderer::to_femtovg_color(&clear_color),
-            );
+
+            {
+                use crate::event_loop::WinitWindow;
+                let runtime_window = window.runtime_window();
+                let component_rc = runtime_window.component();
+                let component = ComponentRc::borrow_pin(&component_rc);
+                let root_item = component.as_ref().get_item_ref(0);
+
+                if let Some(window_item) =
+                    ItemRef::downcast_pin::<i_slint_core::items::WindowItem>(root_item)
+                {
+                    canvas.clear_rect(
+                        0,
+                        0,
+                        width,
+                        height,
+                        self::itemrenderer::to_femtovg_color(&window_item.background()),
+                    );
+                };
+            }
+
             // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
             // the back buffer, in order to allow the callback to provide its own rendering of the background.
             // femtovg's clear_rect() will merely schedule a clear call, so flush right away to make it immediate.

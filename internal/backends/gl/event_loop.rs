@@ -13,7 +13,7 @@ use i_slint_core as corelib;
 use corelib::api::euclid;
 use corelib::graphics::Point;
 use corelib::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
-use corelib::{window::*, Color};
+use corelib::window::*;
 use corelib::{Coord, SharedString};
 use std::cell::{Cell, RefCell};
 use std::rc::{Rc, Weak};
@@ -41,7 +41,6 @@ pub trait WinitWindow: PlatformWindow {
     /// hold the most recent window size as known by the OS but the latest size that has been processed
     /// by [`WinitWindow::apply_window_properties()`].
     fn set_existing_size(&self, size: winit::dpi::LogicalSize<f32>);
-    fn set_background_color(&self, color: Color);
     fn set_icon(&self, icon: corelib::graphics::Image);
 
     fn apply_constraints(
@@ -107,14 +106,12 @@ pub trait WinitWindow: PlatformWindow {
         &self,
         window_item: core::pin::Pin<&i_slint_core::items::WindowItem>,
     ) {
-        let background = window_item.background();
         let title = window_item.title();
         let no_frame = window_item.no_frame();
         let icon = window_item.icon();
         let mut width = window_item.width() as f32;
         let mut height = window_item.height() as f32;
 
-        self.set_background_color(background);
         self.set_icon(icon);
 
         let mut must_resize = false;

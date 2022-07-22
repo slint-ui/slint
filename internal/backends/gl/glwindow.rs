@@ -103,19 +103,6 @@ impl GLWindow {
         }
     }
 
-    fn borrow_mapped_window_mut(&self) -> Option<std::cell::RefMut<MappedWindow>> {
-        if self.is_mapped() {
-            std::cell::RefMut::map(self.map_state.borrow_mut(), |state| match state {
-            GraphicsWindowBackendState::Unmapped{..} => {
-                panic!("borrow_mapped_window_mut must be called after checking if the window is mapped")
-            }
-            GraphicsWindowBackendState::Mapped(window) => window,
-        }).into()
-        } else {
-            None
-        }
-    }
-
     fn release_graphics_resources(&self) {
         // Release GL textures and other GPU bound resources.
         self.with_current_context(|mapped_window, context| {
@@ -180,7 +167,6 @@ impl WinitWindow for GLWindow {
                 size.width,
                 size.height,
                 scale_factor,
-                &&window.clear_color,
                 &self,
                 &mut |item_renderer| {
                     if self.has_rendering_notifier() {
@@ -236,12 +222,6 @@ impl WinitWindow for GLWindow {
 
     fn set_existing_size(&self, size: winit::dpi::LogicalSize<f32>) {
         self.existing_size.set(size);
-    }
-
-    fn set_background_color(&self, color: Color) {
-        if let Some(mut window) = self.borrow_mapped_window_mut() {
-            window.clear_color = color;
-        }
     }
 
     fn set_icon(&self, icon: corelib::graphics::Image) {
@@ -522,7 +502,6 @@ impl PlatformWindow for GLWindow {
         self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
             femtovg_renderer,
             opengl_context,
-            clear_color: RgbaColor { red: 255_u8, green: 255, blue: 255, alpha: 255 }.into(),
             constraints: Default::default(),
             clipboard: RefCell::new(clipboard),
             rendering_metrics_collector,
@@ -831,7 +810,6 @@ impl Drop for GLWindow {
 struct MappedWindow {
     femtovg_renderer: crate::renderer::femtovg::FemtoVGRenderer,
     opengl_context: crate::OpenGLContext,
-    clear_color: Color,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
     clipboard: RefCell<Box<dyn copypasta::ClipboardProvider>>,
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,

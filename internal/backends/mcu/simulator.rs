@@ -15,7 +15,7 @@ use i_slint_core::item_rendering::DirtyRegion;
 use i_slint_core::items::{Item, ItemRef, WindowItem};
 use i_slint_core::layout::Orientation;
 use i_slint_core::window::{PlatformWindow, WindowInner};
-use i_slint_core::{Color, Coord};
+use i_slint_core::Coord;
 use rgb::FromSlice;
 
 use crate::PhysicalRect;
@@ -37,7 +37,6 @@ pub struct SimulatorWindow {
     opengl_context: OpenGLContext,
     constraints: Cell<(i_slint_core::layout::LayoutInfo, i_slint_core::layout::LayoutInfo)>,
     visible: Cell<bool>,
-    background_color: Cell<Color>,
     frame_buffer: RefCell<Option<SimulatorDisplay<embedded_graphics::pixelcolor::Rgb888>>>,
     initial_dirty_region_for_next_frame: Cell<DirtyRegion>,
 }
@@ -66,7 +65,6 @@ impl SimulatorWindow {
             opengl_context,
             constraints: Default::default(),
             visible: Default::default(),
-            background_color: Color::from_rgb_u8(0, 0, 0).into(),
             frame_buffer: RefCell::default(),
             initial_dirty_region_for_next_frame: Default::default(),
         });
@@ -392,9 +390,6 @@ impl WinitWindow for SimulatorWindow {
     }
     fn set_existing_size(&self, _size: winit::dpi::LogicalSize<f32>) {
         // dummy since it shouldn't be needed
-    }
-    fn set_background_color(&self, color: Color) {
-        self.background_color.set(color);
     }
     fn set_icon(&self, _icon: i_slint_core::graphics::Image) {}
 }
