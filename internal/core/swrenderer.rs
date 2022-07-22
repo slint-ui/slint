@@ -5,7 +5,7 @@ mod draw_functions;
 pub mod fonts;
 
 use crate::api::Window;
-use crate::graphics::{FontRequest, IntRect, PixelFormat, Rect as RectF};
+use crate::graphics::{IntRect, PixelFormat, Rect as RectF};
 use crate::item_rendering::{ItemRenderer, PartialRenderingCache};
 use crate::items::{ImageFit, ItemRc};
 use crate::lengths::{
@@ -83,7 +83,7 @@ impl SoftwareRenderer {
         let buffer_renderer = SceneBuilder::new(
             size,
             factor,
-            window.default_font_properties(),
+            window.clone(),
             RenderToBuffer { buffer, stride: buffer_stride },
         );
         let mut renderer = crate::item_rendering::PartialRenderer::new(
@@ -444,12 +444,8 @@ fn prepare_scene(
     cache: &RefCell<PartialRenderingCache>,
 ) -> Scene {
     let factor = ScaleFactor::new(runtime_window.scale_factor());
-    let prepare_scene = SceneBuilder::new(
-        size,
-        factor,
-        runtime_window.default_font_properties(),
-        PrepareScene::default(),
-    );
+    let prepare_scene =
+        SceneBuilder::new(size, factor, runtime_window.clone(), PrepareScene::default());
     let mut renderer =
         crate::item_rendering::PartialRenderer::new(cache, initial_dirty_region, prepare_scene);
 
@@ -578,14 +574,14 @@ struct SceneBuilder<T> {
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     scale_factor: ScaleFactor,
-    default_font: FontRequest,
+    window: Rc<crate::window::WindowInner>,
 }
 
 impl<T: ProcessScene> SceneBuilder<T> {
     fn new(
         size: PhysicalSize,
         scale_factor: ScaleFactor,
-        default_font: FontRequest,
+        window: Rc<crate::window::WindowInner>,
         processor: T,
     ) -> Self {
         Self {
@@ -600,7 +596,7 @@ impl<T: ProcessScene> SceneBuilder<T> {
                 ),
             },
             scale_factor,
-            default_font,
+            window,
         }
     }
 
@@ -876,7 +872,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<T> {
             return;
         }
 
-        let font_request = text.unresolved_font_request().merge(&self.default_font);
+        let font_request = text.font_request(&self.window);
         let font = fonts::match_font(&font_request, self.scale_factor);
         let layout = fonts::text_layout_for_font(&font, &font_request, self.scale_factor);
 

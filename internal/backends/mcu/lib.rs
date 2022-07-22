@@ -194,7 +194,7 @@ mod the_backend {
         ) -> Size {
             let runtime_window = self.self_weak.upgrade().unwrap();
             renderer::fonts::text_size(
-                font_request.merge(&runtime_window.default_font_properties()),
+                font_request,
                 text,
                 max_width,
                 ScaleFactor::new(runtime_window.scale_factor()),

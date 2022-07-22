@@ -211,7 +211,7 @@ impl PlatformWindow for SimulatorWindow {
     ) -> i_slint_core::graphics::Size {
         let runtime_window = self.self_weak.upgrade().unwrap();
         crate::renderer::fonts::text_size(
-            font_request.merge(&self.self_weak.upgrade().unwrap().default_font_properties()),
+            font_request,
             text,
             max_width,
             crate::ScaleFactor::new(runtime_window.scale_factor()),

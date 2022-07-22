@@ -450,7 +450,6 @@ fn adjust_rect_and_border_for_inner_drawing(rect: &mut qttypes::QRectF, border_w
 struct QtItemRenderer<'a> {
     painter: QPainterPtr,
     cache: &'a ItemCache<qttypes::QPixmap>,
-    default_font_properties: FontRequest,
     window: WindowRc,
     metrics: RenderingMetrics,
 }
@@ -516,8 +515,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let rect: qttypes::QRectF = get_geometry!(items::Text, text);
         let fill_brush: qttypes::QBrush = into_qbrush(text.color(), rect.width, rect.height);
         let mut string: qttypes::QString = text.text().as_str().into();
-        let font: QFont =
-            get_font(text.unresolved_font_request().merge(&self.default_font_properties));
+        let font: QFont = get_font(text.font_request(&self.window));
         let flags = match text.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
@@ -608,8 +606,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             }}
         }
 
-        let font: QFont =
-            get_font(text_input.unresolved_font_request().merge(&self.default_font_properties));
+        let font: QFont = get_font(text_input.font_request(&self.window));
         let flags = match text_input.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
@@ -916,7 +913,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
     fn draw_string(&mut self, string: &str, color: Color) {
         let fill_brush: qttypes::QBrush = into_qbrush(color.into(), 1., 1.);
         let mut string: qttypes::QString = string.into();
-        let font: QFont = get_font(self.default_font_properties.clone());
+        let font: QFont = get_font(Default::default());
         let painter: &mut QPainterPtr = &mut self.painter;
         cpp! { unsafe [painter as "QPainterPtr*", fill_brush as "QBrush", mut string as "QString", font as "QFont"] {
             (*painter)->setFont(font);
@@ -1253,7 +1250,6 @@ impl QtWindow {
             let mut renderer = QtItemRenderer {
                 painter,
                 cache: &self.cache,
-                default_font_properties: self.default_font_properties(),
                 window: runtime_window,
                 metrics: RenderingMetrics { layers_created: Some(0) },
             };
@@ -1328,10 +1324,6 @@ impl QtWindow {
         self.self_weak.upgrade().unwrap().process_key_input(&event);
 
         timer_event();
-    }
-
-    fn default_font_properties(&self) -> FontRequest {
-        self.self_weak.upgrade().unwrap().default_font_properties()
     }
 
     fn close_popup(&self) {
@@ -1551,7 +1543,7 @@ impl PlatformWindow for QtWindow {
         text: &str,
         max_width: Option<f32>,
     ) -> Size {
-        get_font(font_request.merge(&self.default_font_properties())).text_size(text, max_width)
+        get_font(font_request).text_size(text, max_width)
     }
 
     fn text_input_byte_offset_for_position(
@@ -1564,8 +1556,8 @@ impl PlatformWindow for QtWindow {
         }
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
         let pos = qttypes::QPointF { x: pos.x as _, y: pos.y as _ };
-        let font: QFont =
-            get_font(text_input.unresolved_font_request().merge(&self.default_font_properties()));
+        let runtime_window = self.self_weak.upgrade().unwrap();
+        let font: QFont = get_font(text_input.font_request(&runtime_window));
         let string = qttypes::QString::from(text_input.text().as_str());
         let flags = match text_input.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
@@ -1620,8 +1612,8 @@ impl PlatformWindow for QtWindow {
         byte_offset: usize,
     ) -> Rect {
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
-        let font: QFont =
-            get_font(text_input.unresolved_font_request().merge(&self.default_font_properties()));
+        let runtime_window = self.self_weak.upgrade().unwrap();
+        let font: QFont = get_font(text_input.font_request(&runtime_window));
         let text = text_input.text();
         let mut string = qttypes::QString::from(text.as_str());
         let offset: u32 = utf8_byte_offset_to_utf16_units(text.as_str(), byte_offset) as _;

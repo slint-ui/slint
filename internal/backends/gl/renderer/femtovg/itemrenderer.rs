@@ -241,8 +241,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         let string = string.as_str();
         let font = fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text.unresolved_font_request()
-                    .merge(&self.graphics_window.default_font_properties()),
+                text.font_request(&self.graphics_window.runtime_window()),
                 self.scale_factor,
                 &text.text(),
             )
@@ -280,9 +279,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         let font = fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text_input
-                    .unresolved_font_request()
-                    .merge(&self.graphics_window.default_font_properties()),
+                text_input.font_request(&self.graphics_window.runtime_window()),
                 self.scale_factor,
                 &text_input.text(),
             )
@@ -811,13 +808,8 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
     }
 
     fn draw_string(&mut self, string: &str, color: Color) {
-        let font = fonts::FONT_CACHE.with(|cache| {
-            cache.borrow_mut().font(
-                self.graphics_window.default_font_properties(),
-                self.scale_factor,
-                string,
-            )
-        });
+        let font = fonts::FONT_CACHE
+            .with(|cache| cache.borrow_mut().font(Default::default(), self.scale_factor, string));
         let paint = font.init_paint(0.0, femtovg::Paint::color(to_femtovg_color(&color)));
         let mut canvas = self.canvas.borrow_mut();
         canvas.fill_text(0., 0., string, paint).unwrap();
