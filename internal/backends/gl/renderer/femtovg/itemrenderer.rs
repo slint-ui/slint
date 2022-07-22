@@ -20,8 +20,6 @@ use i_slint_core::{Brush, Color, ImageInner, Property, SharedString};
 use super::fonts;
 use super::images::{Texture, TextureCacheKey};
 use super::PASSWORD_CHARACTER;
-use crate::event_loop::WinitWindow;
-use crate::glwindow::GLWindow;
 
 pub type Canvas = femtovg::Canvas<femtovg::renderer::OpenGl>;
 pub type CanvasRc = Rc<RefCell<Canvas>>;
@@ -68,7 +66,7 @@ pub struct GLItemRenderer<'a> {
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
     // `set_render_target` commands with image ids that have been deleted.
     layer_images_to_delete_after_flush: Vec<Rc<super::images::Texture>>,
-    pub graphics_window: &'a GLWindow,
+    pub window: &'a Rc<i_slint_core::window::WindowInner>,
     scale_factor: f32,
     /// track the state manually since femtovg don't have accessor for its state
     state: Vec<State>,
@@ -242,7 +240,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         let string = string.as_str();
         let font = fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text.font_request(&self.graphics_window.runtime_window()),
+                text.font_request(&self.window),
                 self.scale_factor,
                 &text.text(),
             )
@@ -280,7 +278,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         let font = fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text_input.font_request(&self.graphics_window.runtime_window()),
+                text_input.font_request(&self.window),
                 self.scale_factor,
                 &text_input.text(),
             )
@@ -817,7 +815,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
     }
 
     fn window(&self) -> WindowRc {
-        self.graphics_window.runtime_window()
+        self.window.clone()
     }
 
     fn as_any(&mut self) -> Option<&mut dyn std::any::Any> {
@@ -870,7 +868,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 impl<'a> GLItemRenderer<'a> {
     pub fn new(
         canvas: &'a super::FemtoVGCanvas,
-        graphics_window: &'a GLWindow,
+        window: &'a Rc<i_slint_core::window::WindowInner>,
         scale_factor: f32,
         width: u32,
         height: u32,
@@ -880,7 +878,7 @@ impl<'a> GLItemRenderer<'a> {
             texture_cache: &canvas.texture_cache,
             canvas: canvas.canvas.clone(),
             layer_images_to_delete_after_flush: Default::default(),
-            graphics_window,
+            window,
             scale_factor,
             state: vec![State {
                 scissor: Rect::new(

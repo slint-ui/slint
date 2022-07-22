@@ -67,7 +67,7 @@ impl GLWindow {
             currently_pressed_key_code: Default::default(),
             existing_size: Default::default(),
             rendering_notifier: Default::default(),
-            femtovg_renderer: Default::default(),
+            femtovg_renderer: crate::renderer::femtovg::FemtoVGRenderer::new(&window_weak),
             #[cfg(target_arch = "wasm32")]
             canvas_id,
             #[cfg(target_arch = "wasm32")]
@@ -169,7 +169,6 @@ impl WinitWindow for GLWindow {
                 size.width,
                 size.height,
                 scale_factor,
-                &self,
                 &mut |item_renderer| {
                     if self.has_rendering_notifier() {
                         self.invoke_rendering_notifier(
@@ -574,12 +573,7 @@ impl PlatformWindow for GLWindow {
         text: &str,
         max_width: Option<Coord>,
     ) -> Size {
-        self.femtovg_renderer.text_size(
-            font_request,
-            self.self_weak.upgrade().unwrap().scale_factor(),
-            text,
-            max_width,
-        )
+        self.femtovg_renderer.text_size(font_request, text, max_width)
     }
 
     fn text_input_byte_offset_for_position(
@@ -587,11 +581,7 @@ impl PlatformWindow for GLWindow {
         text_input: Pin<&i_slint_core::items::TextInput>,
         pos: Point,
     ) -> usize {
-        self.femtovg_renderer.text_input_byte_offset_for_position(
-            text_input,
-            pos,
-            &self.self_weak.upgrade().unwrap(),
-        )
+        self.femtovg_renderer.text_input_byte_offset_for_position(text_input, pos)
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -599,11 +589,7 @@ impl PlatformWindow for GLWindow {
         text_input: Pin<&corelib::items::TextInput>,
         byte_offset: usize,
     ) -> Rect {
-        self.femtovg_renderer.text_input_cursor_rect_for_byte_offset(
-            text_input,
-            byte_offset,
-            &self.self_weak.upgrade().unwrap(),
-        )
+        self.femtovg_renderer.text_input_cursor_rect_for_byte_offset(text_input, byte_offset)
     }
 
     #[cfg(target_arch = "wasm32")]
