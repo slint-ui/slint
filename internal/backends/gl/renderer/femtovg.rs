@@ -31,6 +31,61 @@ impl FemtoVGRenderer {
         Self { window_weak: window_weak.clone() }
     }
 
+    #[cfg(not(target_arch = "wasm32"))]
+    pub fn create_canvas_from_glutin_context(
+        &self,
+        gl_context: &glutin::WindowedContext<glutin::PossiblyCurrent>,
+    ) -> FemtoVGCanvas {
+        let gl_renderer = femtovg::renderer::OpenGl::new_from_glutin_context(gl_context).unwrap();
+        self.create_canvas_from_gl_renderer(gl_renderer)
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    pub fn create_canvas_from_html_canvas(
+        &self,
+        canvas_element: &web_sys::HtmlCanvasElement,
+    ) -> FemtoVGCanvas {
+        let gl_renderer = match femtovg::renderer::OpenGl::new_from_html_canvas(canvas_element) {
+            Ok(gl_renderer) => gl_renderer,
+            Err(_) => {
+                use wasm_bindgen::JsCast;
+
+                // I don't believe that there's a way of disabling the 2D canvas.
+                let context_2d = canvas_element
+                    .get_context("2d")
+                    .unwrap()
+                    .unwrap()
+                    .dyn_into::<web_sys::CanvasRenderingContext2d>()
+                    .unwrap();
+                context_2d.set_font("20px serif");
+                // We don't know if we're rendering on dark or white background, so choose a "color" in the middle for the text.
+                context_2d.set_fill_style(&wasm_bindgen::JsValue::from_str("red"));
+                context_2d
+                    .fill_text("Slint requires WebGL to be enabled in your browser", 0., 30.)
+                    .unwrap();
+                panic!("Cannot proceed without WebGL - aborting")
+            }
+        };
+        self.create_canvas_from_gl_renderer(gl_renderer)
+    }
+
+    fn create_canvas_from_gl_renderer(
+        &self,
+        gl_renderer: femtovg::renderer::OpenGl,
+    ) -> FemtoVGCanvas {
+        let canvas = femtovg::Canvas::new_with_text_context(
+            gl_renderer,
+            self::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
+        )
+        .unwrap();
+        let canvas = Rc::new(RefCell::new(canvas));
+        FemtoVGCanvas {
+            canvas,
+            graphics_cache: Default::default(),
+            texture_cache: Default::default(),
+        }
+    }
+
     pub fn render(
         &self,
         canvas: &FemtoVGCanvas,
@@ -263,50 +318,6 @@ pub struct FemtoVGCanvas {
 }
 
 impl FemtoVGCanvas {
-    #[cfg(not(target_arch = "wasm32"))]
-    pub fn new_from_glutin_context(
-        gl_context: &glutin::WindowedContext<glutin::PossiblyCurrent>,
-    ) -> Self {
-        let gl_renderer = femtovg::renderer::OpenGl::new_from_glutin_context(gl_context).unwrap();
-        Self::new_from_gl_renderer(gl_renderer)
-    }
-
-    #[cfg(target_arch = "wasm32")]
-    pub fn new_from_html_canvas(canvas_element: &web_sys::HtmlCanvasElement) -> Self {
-        let gl_renderer = match femtovg::renderer::OpenGl::new_from_html_canvas(canvas_element) {
-            Ok(gl_renderer) => gl_renderer,
-            Err(_) => {
-                use wasm_bindgen::JsCast;
-
-                // I don't believe that there's a way of disabling the 2D canvas.
-                let context_2d = canvas_element
-                    .get_context("2d")
-                    .unwrap()
-                    .unwrap()
-                    .dyn_into::<web_sys::CanvasRenderingContext2d>()
-                    .unwrap();
-                context_2d.set_font("20px serif");
-                // We don't know if we're rendering on dark or white background, so choose a "color" in the middle for the text.
-                context_2d.set_fill_style(&wasm_bindgen::JsValue::from_str("red"));
-                context_2d
-                    .fill_text("Slint requires WebGL to be enabled in your browser", 0., 30.)
-                    .unwrap();
-                panic!("Cannot proceed without WebGL - aborting")
-            }
-        };
-        Self::new_from_gl_renderer(gl_renderer)
-    }
-
-    fn new_from_gl_renderer(gl_renderer: femtovg::renderer::OpenGl) -> Self {
-        let canvas = femtovg::Canvas::new_with_text_context(
-            gl_renderer,
-            self::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
-        )
-        .unwrap();
-        let canvas = Rc::new(RefCell::new(canvas));
-        Self { canvas, graphics_cache: Default::default(), texture_cache: Default::default() }
-    }
-
     pub fn release_graphics_resources(&self) {
         self.graphics_cache.clear_all();
         self.texture_cache.borrow_mut().clear();
