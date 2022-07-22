@@ -869,10 +869,10 @@ impl<'a> GLItemRenderer<'a> {
     pub fn new(
         canvas: &'a super::FemtoVGCanvas,
         window: &'a Rc<i_slint_core::window::WindowInner>,
-        scale_factor: f32,
         width: u32,
         height: u32,
     ) -> Self {
+        let scale_factor = window.scale_factor();
         Self {
             graphics_cache: &canvas.graphics_cache,
             texture_cache: &canvas.texture_cache,

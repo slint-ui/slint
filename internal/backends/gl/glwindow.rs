@@ -152,7 +152,6 @@ impl WinitWindow for GLWindow {
     /// Draw the items of the specified `component` in the given window.
     fn draw(self: Rc<Self>) {
         let runtime_window = self.self_weak.upgrade().unwrap();
-        let scale_factor = runtime_window.scale_factor();
         runtime_window.draw_contents(|components| {
             let window = match self.borrow_mapped_window() {
                 Some(window) => window,
@@ -168,7 +167,6 @@ impl WinitWindow for GLWindow {
                 &window.femtovg_canvas,
                 size.width,
                 size.height,
-                scale_factor,
                 &mut |item_renderer| {
                     if self.has_rendering_notifier() {
                         self.invoke_rendering_notifier(
