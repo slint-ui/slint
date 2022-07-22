@@ -437,14 +437,14 @@ impl PlatformWindow for GLWindow {
         let opengl_context = crate::OpenGLContext::new_context(window_builder);
 
         #[cfg(not(target_arch = "wasm32"))]
-        let femtovg_canvas = crate::renderer::femtovg::FemtoVGCanvas::new_from_glutin_context(
-            &opengl_context.glutin_context(),
-        );
+        let femtovg_canvas = self
+            .femtovg_renderer
+            .create_canvas_from_glutin_context(&opengl_context.glutin_context());
 
         #[cfg(target_arch = "wasm32")]
-        let femtovg_canvas = crate::renderer::femtovg::FemtoVGCanvas::new_from_html_canvas(
-            &opengl_context.html_canvas_element(),
-        );
+        let femtovg_canvas = self
+            .femtovg_renderer
+            .create_canvas_from_html_canvas(&opengl_context.html_canvas_element());
 
         self.invoke_rendering_notifier(RenderingState::RenderingSetup, &opengl_context);
 
