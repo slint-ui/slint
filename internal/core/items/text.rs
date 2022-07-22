@@ -697,7 +697,7 @@ impl TextInput {
     fn with_selected_text<T>(self: Pin<&Self>, cb: impl FnOnce(&str) -> T) -> T {
         let (anchor, cursor) = self.selection_anchor_and_cursor();
         let text: String = self.text().into();
-        cb(text.split_at(anchor).1.split_at(cursor - anchor).0)
+        cb(&text[anchor..cursor])
     }
 
     fn insert(self: Pin<&Self>, text_to_insert: &str, window: &WindowRc) {
