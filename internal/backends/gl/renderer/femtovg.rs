@@ -132,7 +132,7 @@ impl FemtoVGRenderer {
         canvas: &FemtoVGCanvas,
         width: u32,
         height: u32,
-        render_callback: &mut dyn FnMut(&mut dyn i_slint_core::item_rendering::ItemRenderer),
+        before_rendering_callback: impl FnOnce(),
     ) {
         let window = match self.window_weak.upgrade() {
             Some(window) => window,
@@ -174,7 +174,17 @@ impl FemtoVGRenderer {
         let mut item_renderer =
             self::itemrenderer::GLItemRenderer::new(canvas, &window, width, height);
 
-        render_callback(&mut item_renderer);
+        before_rendering_callback();
+
+        window.draw_contents(|components| {
+            for (component, origin) in components {
+                i_slint_core::item_rendering::render_component_items(
+                    component,
+                    &mut item_renderer,
+                    *origin,
+                );
+            }
+        });
 
         if let Some(collector) = &canvas.rendering_metrics_collector {
             collector.measure_frame_rendered(&mut item_renderer);

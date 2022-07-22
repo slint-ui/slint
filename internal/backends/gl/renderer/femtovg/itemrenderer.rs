@@ -66,7 +66,7 @@ pub struct GLItemRenderer<'a> {
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
     // `set_render_target` commands with image ids that have been deleted.
     layer_images_to_delete_after_flush: Vec<Rc<super::images::Texture>>,
-    window: &'a Rc<i_slint_core::window::WindowInner>,
+    window: Rc<i_slint_core::window::WindowInner>,
     scale_factor: f32,
     /// track the state manually since femtovg don't have accessor for its state
     state: Vec<State>,
@@ -868,7 +868,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 impl<'a> GLItemRenderer<'a> {
     pub fn new(
         canvas: &'a super::FemtoVGCanvas,
-        window: &'a Rc<i_slint_core::window::WindowInner>,
+        window: &Rc<i_slint_core::window::WindowInner>,
         width: u32,
         height: u32,
     ) -> Self {
@@ -878,7 +878,7 @@ impl<'a> GLItemRenderer<'a> {
             texture_cache: &canvas.texture_cache,
             canvas: canvas.canvas.clone(),
             layer_images_to_delete_after_flush: Default::default(),
-            window,
+            window: window.clone(),
             scale_factor,
             state: vec![State {
                 scissor: Rect::new(
