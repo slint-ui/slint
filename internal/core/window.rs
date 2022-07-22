@@ -9,9 +9,11 @@
 use crate::api::{CloseRequestResponse, PhysicalPx};
 use crate::component::{ComponentRc, ComponentRef, ComponentWeak};
 use crate::graphics::{Point, Rect, Size};
-use crate::input::{key_codes, KeyEvent, MouseEvent, MouseInputState, TextCursorBlinker};
+use crate::input::{
+    key_codes, KeyEvent, KeyEventType, MouseEvent, MouseInputState, TextCursorBlinker,
+};
 use crate::item_tree::ItemRc;
-use crate::items::{ItemRef, KeyEventType, MouseCursor};
+use crate::items::{ItemRef, MouseCursor};
 use crate::properties::{Property, PropertyTracker};
 use crate::{Callback, Coord};
 use alloc::boxed::Box;

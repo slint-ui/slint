@@ -238,14 +238,6 @@ macro_rules! for_each_enums {
                 EndClosed,
             }
 
-            /// This enum defines the different kinds of key events that can happen.
-            enum KeyEventType {
-                /// A key on a keyboard was pressed.
-                KeyPressed,
-                /// A key on a keyboard was released.
-                KeyReleased,
-            }
-
             /// This enum represents the different values for the `accessible-role` property, used to describe the
             /// role of an element in the context of assistive technology such as screen readers.
             enum AccessibleRole {

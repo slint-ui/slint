@@ -177,13 +177,6 @@ The default value of each enum type is always the first value.
 * **`end-open`**: The end of the path that remains open.
 * **`end-closed`**: The end of a path that is closed.
 
-## `KeyEventType`
-
- This enum defines the different kinds of key events that can happen.
-
-* **`key-pressed`**: A key on a keyboard was pressed.
-* **`key-released`**: A key on a keyboard was released.
-
 ## `AccessibleRole`
 
  This enum represents the different values for the `accessible-role` property, used to describe the
