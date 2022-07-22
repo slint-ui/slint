@@ -149,7 +149,7 @@ pub trait PlatformWindow {
     fn set_inner_size(&self, size: euclid::Size2D<u32, PhysicalPx>);
 
     /// Sends the given text into the system clipboard
-    fn set_clipboard_text(&self, _text: String) {}
+    fn set_clipboard_text(&self, _text: &str) {}
     /// Returns a copy of text stored in the system clipboard, if any.
     fn clipboard_text(&self) -> Option<String> {
         None

@@ -694,10 +694,10 @@ impl TextInput {
         anchor_pos != cursor_pos
     }
 
-    fn selected_text(self: Pin<&Self>) -> String {
+    fn with_selected_text<T>(self: Pin<&Self>, cb: impl FnOnce(&str) -> T) -> T {
         let (anchor, cursor) = self.selection_anchor_and_cursor();
         let text: String = self.text().into();
-        text.split_at(anchor).1.split_at(cursor - anchor).0.into()
+        cb(text.split_at(anchor).1.split_at(cursor - anchor).0)
     }
 
     fn insert(self: Pin<&Self>, text_to_insert: &str, window: &WindowRc) {
@@ -722,7 +722,7 @@ impl TextInput {
     }
 
     fn copy(self: Pin<&Self>, window: &WindowRc) {
-        window.set_clipboard_text(self.selected_text());
+        self.with_selected_text(|text| window.set_clipboard_text(text));
     }
 
     fn paste(self: Pin<&Self>, window: &WindowRc) {

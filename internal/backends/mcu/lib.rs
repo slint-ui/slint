@@ -248,8 +248,8 @@ mod the_backend {
             unimplemented!()
         }
 
-        fn set_clipboard_text(&self, text: String) {
-            self.backend.with_inner(|inner| inner.clipboard = text)
+        fn set_clipboard_text(&self, text: &str) {
+            self.backend.with_inner(|inner| inner.clipboard = text.into())
         }
 
         fn clipboard_text(&self) -> Option<String> {

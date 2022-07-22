@@ -134,8 +134,8 @@ impl PlatformWindow for TestingWindow {
         unimplemented!()
     }
 
-    fn set_clipboard_text(&self, text: String) {
-        *self.backend.clipboard.lock().unwrap() = Some(text);
+    fn set_clipboard_text(&self, text: &str) {
+        *self.backend.clipboard.lock().unwrap() = Some(text.into());
     }
 
     fn clipboard_text(&self) -> Option<String> {
