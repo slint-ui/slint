@@ -36,7 +36,6 @@ impl FemtoVGRenderer {
         canvas: &FemtoVGCanvas,
         width: u32,
         height: u32,
-        scale_factor: f32,
         render_callback: &mut dyn FnMut(&mut dyn i_slint_core::item_rendering::ItemRenderer),
     ) {
         let window = match self.window_weak.upgrade() {
@@ -77,7 +76,7 @@ impl FemtoVGRenderer {
         }
 
         let mut item_renderer =
-            self::itemrenderer::GLItemRenderer::new(canvas, &window, scale_factor, width, height);
+            self::itemrenderer::GLItemRenderer::new(canvas, &window, width, height);
 
         render_callback(&mut item_renderer);
 
