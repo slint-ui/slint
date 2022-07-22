@@ -95,6 +95,26 @@ impl ItemRc {
         unsafe { core::mem::transmute::<Pin<ItemRef<'_>>, Pin<ItemRef<'a>>>(result) }
     }
 
+    /// Returns a `VRcMapped` of this item, to conveniently access specialized item API.
+    pub fn downcast<'a, T: HasStaticVTable<ItemVTable>>(
+        &'a self,
+    ) -> Option<VRcMapped<ComponentVTable, T>> {
+        #![allow(unsafe_code)]
+        let item = self.borrow();
+        if ItemRef::downcast_pin::<T>(item).is_none() {
+            return None;
+        }
+
+        Some(vtable::VRc::map_dyn(self.component.clone(), |comp_ref_pin| {
+            let result = comp_ref_pin.as_ref().get_item_ref(self.index);
+            // Safety: we can expand the lifetime of the ItemRef because we know it lives for at least the
+            // lifetime of the component, which is 'a.  Pin::as_ref removes the lifetime, but we can just put it back.
+            let item =
+                unsafe { core::mem::transmute::<Pin<ItemRef<'_>>, Pin<ItemRef<'_>>>(result) };
+            ItemRef::downcast_pin::<T>(item).unwrap()
+        }))
+    }
+
     pub fn downgrade(&self) -> ItemWeak {
         ItemWeak { component: VRc::downgrade(&self.component), index: self.index }
     }

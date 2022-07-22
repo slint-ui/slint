@@ -195,6 +195,19 @@ impl<VTable: VTableMetaDropInPlace + 'static, X: HasStaticVTable<VTable> + 'stat
     }
 }
 
+impl<VTable: VTableMetaDropInPlace + 'static> VRc<VTable, Dyn> {
+    /// This function allows safely holding a reference to a field inside the VRc. In order to accomplish
+    /// that, you need to provide a mapping function `map_fn` in which you need to provide and return a
+    /// pinned reference to the object you would like to map. The returned `VRcMapped` allows obtaining
+    /// that pinned reference again using [`VRcMapped::as_pin_ref`].
+    /// This works similar to `VRc::map` except that it works on a type-erased VRc.
+    pub fn map_dyn<MappedType: ?Sized>(
+        this: Self,
+        map_fn: impl for<'r> FnOnce(Pin<VRef<'r, VTable>>) -> Pin<&'r MappedType>,
+    ) -> VRcMapped<VTable, MappedType> {
+        VRcMapped { parent_strong: this.clone(), object: map_fn(Self::borrow_pin(&this)).get_ref() }
+    }
+}
 impl<VTable: VTableMetaDropInPlace, X> VRc<VTable, X> {
     /// Create a Pinned reference to the inner.
     ///
