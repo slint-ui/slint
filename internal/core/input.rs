@@ -7,8 +7,8 @@
 
 use crate::graphics::Point;
 use crate::item_tree::{ItemRc, ItemVisitorResult, ItemWeak, VisitChildrenResult};
+pub use crate::items::PointerEventButton;
 use crate::items::{ItemRef, TextCursorDirection};
-pub use crate::items::{KeyEventType, PointerEventButton};
 use crate::window::WindowRc;
 use crate::{component::ComponentRc, SharedString};
 use crate::{Coord, Property};
@@ -143,6 +143,22 @@ pub struct KeyboardModifiers {
     pub meta: bool,
     /// Indicates the shift key on a keyboard.
     pub shift: bool,
+}
+
+/// This enum defines the different kinds of key events that can happen.
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[repr(C)]
+pub enum KeyEventType {
+    /// A key on a keyboard was pressed.
+    KeyPressed,
+    /// A key on a keyboard was released.
+    KeyReleased,
+}
+
+impl Default for KeyEventType {
+    fn default() -> Self {
+        KeyEventType::KeyPressed
+    }
 }
 
 /// Represents a key event sent by the windowing system.

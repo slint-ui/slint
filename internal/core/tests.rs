@@ -5,8 +5,7 @@
 #![warn(missing_docs)]
 #![allow(unsafe_code)]
 
-use crate::input::{KeyEvent, KeyboardModifiers, MouseEvent};
-use crate::items::KeyEventType;
+use crate::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
 use crate::window::WindowRc;
 use crate::Coord;
 use crate::SharedString;

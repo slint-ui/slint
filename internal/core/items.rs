@@ -23,7 +23,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 use crate::graphics::{Brush, Color, Point, Rect};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
-    KeyEventResult, MouseEvent,
+    KeyEventResult, KeyEventType, MouseEvent,
 };
 use crate::item_rendering::CachedRenderingData;
 pub use crate::item_tree::ItemRc;
