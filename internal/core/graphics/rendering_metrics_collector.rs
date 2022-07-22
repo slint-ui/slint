@@ -112,9 +112,13 @@ impl RenderingMetricsCollector {
 
         eprintln!("Slint: Build config: {}; Backend: {}", build_config, winsys_info);
 
-        let this = self.clone();
+        let self_weak = Rc::downgrade(self);
         self.update_timer.stop();
         self.update_timer.start(TimerMode::Repeated, std::time::Duration::from_secs(1), move || {
+            let this = match self_weak.upgrade() {
+                Some(this) => this,
+                None => return,
+            };
             this.trim_frame_data_to_second_boundary();
 
             let mut last_frame_details = String::new();
