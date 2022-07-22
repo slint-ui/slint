@@ -147,14 +147,14 @@ impl Item for NativeSlider {
                 data.pressed = 0;
                 InputEventResult::EventIgnored
             }
-            MouseEvent::MousePressed { pos, button: PointerEventButton::left } => {
+            MouseEvent::MousePressed { pos, button: PointerEventButton::Left } => {
                 data.pressed_x = pos.x as f32;
                 data.pressed = 1;
                 data.pressed_val = value;
                 InputEventResult::GrabMouse
             }
             MouseEvent::MouseExit
-            | MouseEvent::MouseReleased { button: PointerEventButton::left, .. } => {
+            | MouseEvent::MouseReleased { button: PointerEventButton::Left, .. } => {
                 data.pressed = 0;
                 InputEventResult::EventAccepted
             }
@@ -179,7 +179,7 @@ impl Item for NativeSlider {
                 InputEventResult::EventAccepted
             }
             MouseEvent::MousePressed { button, .. } | MouseEvent::MouseReleased { button, .. } => {
-                debug_assert_ne!(button, PointerEventButton::left);
+                debug_assert_ne!(button, PointerEventButton::Left);
                 InputEventResult::EventIgnored
             }
         };

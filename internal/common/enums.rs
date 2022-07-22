@@ -24,67 +24,67 @@ macro_rules! for_each_enums {
             /// This enum describes the different types of alignment of text along the horizontal axis.
             enum TextHorizontalAlignment {
                 /// The text will be aligned with the left edge of the containing box.
-                left,
+                Left,
                 /// The text will be horizontally centered within the containing box.
-                center,
+                Center,
                 /// The text will be aligned to the right of the containing box.
-                right,
+                Right,
             }
 
             /// This enum describes the different types of alignment of text along the vertical axis.
             enum TextVerticalAlignment {
                 /// The text will be aligned to the top of the containing box.
-                top,
+                Top,
                 /// The text will be vertically centered within the containing box.
-                center,
+                Center,
                 /// The text will be aligned to the bottom of the containing box.
-                bottom,
+                Bottom,
             }
 
             /// This enum describes the how the text wrap if it is too wide to fit in the Text width.
             enum TextWrap {
                 /// The text will not wrap, but instead will overflow.
-                no_wrap,
+                NoWrap,
                 /// The text will be wrapped at word boundaries.
-                word_wrap,
+                WordWrap,
             }
 
             /// This enum describes the how the text appear if it is too wide to fit in the Text width.
             enum TextOverflow {
                 /// The text will simply be clipped.
-                clip,
+                Clip,
                 /// The text will be elided with `…`.
-                elide,
+                Elide,
             }
 
             /// This enum describes whether an event was rejected or accepted by an event handler.
             enum EventResult {
                 /// The event is rejected by this event handler and may then be handled by the parent item
-                reject,
+                Reject,
                 /// The event is accepted and won't be processed further
-                accept,
+                Accept,
             }
 
             /// This enum describes the different ways of deciding what the inside of a shape described by a path shall be.
             enum FillRule {
                 /// The ["nonzero" fill rule as defined in SVG](https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/fill-rule#nonzero).
-                nonzero,
+                Nonzero,
                 /// The ["evenodd" fill rule as defined in SVG](https://developer.mozilla.org/en-US/docs/Web/SVG/Attribute/fill-rule#evenodd)
-                evenodd,
+                Evenodd,
             }
 
             enum StandardButtonKind {
-                ok,
-                cancel,
-                apply,
-                close,
-                reset,
-                help,
-                yes,
-                no,
-                abort,
-                retry,
-                ignore,
+                Ok,
+                Cancel,
+                Apply,
+                Close,
+                Reset,
+                Help,
+                Yes,
+                No,
+                Abort,
+                Retry,
+                Ignore,
             }
 
             /// This enum represents the value of the `dialog-button-role` property which can be added to
@@ -92,32 +92,32 @@ macro_rules! for_each_enums {
             /// depends on the role and the platform.
             enum DialogButtonRole {
                 /// This is not a button means to go in the row of button of the dialog
-                none,
+                None,
                 /// This is the role of the main button to click to accept the dialog. e.g. "Ok" or "Yes"
-                accept,
+                Accept,
                 /// This is the role of the main button to click to reject the dialog. e.g. "Cancel" or "No"
-                reject,
+                Reject,
                 /// This is the role of the "Apply" button
-                apply,
+                Apply,
                 /// This is the role of the "Reset" button
-                reset,
+                Reset,
                 /// This is the role of the  "Help" button
-                help,
+                Help,
                 /// This is the role of any other button that performs another action.
-                action,
+                Action,
             }
 
             enum PointerEventKind {
-                cancel,
-                down,
-                up,
+                Cancel,
+                Down,
+                Up,
             }
 
             enum PointerEventButton {
-                none,
-                left,
-                right,
-                middle,
+                None,
+                Left,
+                Right,
+                Middle,
             }
 
             /// This enum represents different types of mouse cursors. It is a subset of the mouse cursors available in CSS.
@@ -125,80 +125,80 @@ macro_rules! for_each_enums {
             /// Depending on the backend and used OS unidirectional resize cursors may be replaced with bidirectional ones.
             enum MouseCursor {
                 /// The systems default cursor.
-                default,
+                Default,
                 /// No cursor is displayed.
-                none,
+                None,
                 //context_menu,
                 /// A cursor indicating help information.
-                help,
+                Help,
                 /// A pointing hand indicating a link.
-                pointer,
+                Pointer,
                 /// The program is busy but can still be interacted with.
-                progress,
+                Progress,
                 /// The program is busy.
-                wait,
+                Wait,
                 //cell,
                 /// A crosshair.
-                crosshair,
+                Crosshair,
                 /// A cursor indicating selectable text.
-                text,
+                Text,
                 //vertical_text,
                 /// An alias or shortcut is being created.
-                alias,
+                Alias,
                 /// A copy is being created.
-                copy,
+                Copy,
                 /// Something is to be moved.
-                r#move,
+                Move,
                 /// Something cannot be dropped here.
-                no_drop,
+                NoDrop,
                 /// An action is not allowed
-                not_allowed,
+                NotAllowed,
                 /// Something is grabbable.
-                grab,
+                Grab,
                 /// Something is being grabbed.
-                grabbing,
+                Grabbing,
                 //all_scroll,
                 /// Indicating that a column is resizable horizontally.
-                col_resize,
+                ColResize,
                 /// Indicating that a row is resizable vertically.
-                row_resize,
+                RowResize,
                 /// Unidirectional resize north.
-                n_resize,
+                NResize,
                 /// Unidirectional resize east.
-                e_resize,
+                EResize,
                 /// Unidirectional resize south.
-                s_resize,
+                SResize,
                 /// Unidirectional resize west.
-                w_resize,
+                WResize,
                 /// Unidirectional resize north-east.
-                ne_resize,
+                NeResize,
                 /// Unidirectional resize north-west.
-                nw_resize,
+                NwResize,
                 /// Unidirectional resize south-east.
-                se_resize,
+                SeResize,
                 /// Unidirectional resize south-west.
-                sw_resize,
+                SwResize,
                 /// Bidirectional resize east-west.
-                ew_resize,
+                EwResize,
                 /// Bidirectional resize north-south.
-                ns_resize,
+                NsResize,
                 /// Bidirectional resize north-east-south-west.
-                nesw_resize,
+                NeswResize,
                 /// Bidirectional resize north-west-south-east.
-                nwse_resize,
+                NwseResize,
                 //zoom_in,
                 //zoom_out,
             }
 
             enum ImageFit {
-                fill,
-                contain,
-                cover,
+                Fill,
+                Contain,
+                Cover,
             }
 
             enum ImageRendering {
-                smooth,
-                pixelated,
+                Smooth,
+                Pixelated,
             }
 
             /// This enum is used to define the type of the input field. Currently this only differentiates between
@@ -206,36 +206,36 @@ macro_rules! for_each_enums {
             /// should be shown, for example.
             enum InputType {
                 /// The default value. This will render all characters normally
-                text,
+                Text,
                 /// This will render all characters with a character that defaults to "*"
-                password,
+                Password,
             }
 
             /// Enum representing the alignment property of a BoxLayout or HorizontalLayout
             enum LayoutAlignment {
-                stretch,
-                center,
-                start,
-                end,
-                space_between,
-                space_around,
+                Stretch,
+                Center,
+                Start,
+                End,
+                SpaceBetween,
+                SpaceAround,
             }
 
             /// PathEvent is a low-level data structure describing the composition of a path. Typically it is
             /// generated at compile time from a higher-level description, such as SVG commands.
             enum PathEvent {
                 /// The beginning of the path.
-                begin,
+                Begin,
                 /// A straight line on the path.
-                line,
+                Line,
                 /// A quadratic bezier curve on the path.
-                quadratic,
+                Quadratic,
                 /// A cubic bezier curve on the path.
-                cubic,
+                Cubic,
                 /// The end of the path that remains open.
-                end_open,
+                EndOpen,
                 /// The end of a path that is closed.
-                end_closed,
+                EndClosed,
             }
 
             /// This enum defines the different kinds of key events that can happen.
@@ -250,30 +250,22 @@ macro_rules! for_each_enums {
             /// role of an element in the context of assistive technology such as screen readers.
             enum AccessibleRole {
                 /// The element is not accessible.
-                none,
+                None,
                 /// The element is a Button or behaves like one.
-                button,
+                Button,
                 /// The element is a CheckBox or behaves like one.
-                checkbox,
+                Checkbox,
                 /// The element is a ComboBox or behaves like one.
-                combobox,
+                Combobox,
                 /// The element is a Slider or behaves like one.
-                slider,
+                Slider,
                 /// The element is a SpinBox or behaves like one.
-                spinbox,
+                Spinbox,
                 /// The element is a Tab or behaves like one.
-                tab,
+                Tab,
                 /// The role for a Text element. It is automatically applied.
-                text,
+                Text,
             }
         ];
     };
-}
-
-/// add an underscore to a C++ keyword used as an enum
-pub fn cpp_escape_keyword(kw: &str) -> &str {
-    match kw {
-        "default" => "default_",
-        other => other,
-    }
 }

@@ -628,8 +628,8 @@ impl<T: ProcessScene> SceneBuilder<T> {
                 let source_to_target_y = phys_size.height / (size.height as f32);
                 let mut image_fit_offset = euclid::Vector2D::default();
                 let (source_to_target_x, source_to_target_y) = match image_fit {
-                    ImageFit::fill => (source_to_target_x, source_to_target_y),
-                    ImageFit::cover => {
+                    ImageFit::Fill => (source_to_target_x, source_to_target_y),
+                    ImageFit::Cover => {
                         let ratio = f32::max(source_to_target_x, source_to_target_y);
                         if size.width as f32 > phys_size.width / ratio {
                             let diff = (size.width as f32 - phys_size.width / ratio) as i32;
@@ -643,7 +643,7 @@ impl<T: ProcessScene> SceneBuilder<T> {
                         }
                         (ratio, ratio)
                     }
-                    ImageFit::contain => {
+                    ImageFit::Contain => {
                         let ratio = f32::min(source_to_target_x, source_to_target_y);
                         if (size.width as f32) < phys_size.width / ratio {
                             image_fit_offset.x = (phys_size.width - size.width as f32 * ratio) / 2.;

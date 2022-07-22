@@ -1925,7 +1925,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         Expression::EnumerationValue(value) => {
             let base_ident = ident(&value.enumeration.name);
-            let value_ident = ident(&value.to_string());
+            let value_ident = ident(&value.to_pascal_case());
             quote!(slint::re_exports::#base_ident::#value_ident)
         }
         Expression::ReturnStatement(expr) => {

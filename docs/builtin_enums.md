@@ -181,8 +181,8 @@ The default value of each enum type is always the first value.
 
  This enum defines the different kinds of key events that can happen.
 
-* **`KeyPressed`**: A key on a keyboard was pressed.
-* **`KeyReleased`**: A key on a keyboard was released.
+* **`key-pressed`**: A key on a keyboard was pressed.
+* **`key-released`**: A key on a keyboard was released.
 
 ## `AccessibleRole`
 

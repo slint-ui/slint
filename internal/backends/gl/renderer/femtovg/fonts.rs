@@ -638,8 +638,8 @@ pub(crate) fn layout_text_lines(
     paint: femtovg::Paint,
     mut layout_line: impl FnMut(&str, Point, usize, &femtovg::TextMetrics),
 ) -> f32 {
-    let wrap = wrap == TextWrap::word_wrap;
-    let elide = overflow == TextOverflow::elide;
+    let wrap = wrap == TextWrap::WordWrap;
+    let elide = overflow == TextOverflow::Elide;
 
     let text_context = FONT_CACHE.with(|cache| cache.borrow().text_context.clone());
     let font_metrics = text_context.measure_font(paint).unwrap();
@@ -664,19 +664,19 @@ pub(crate) fn layout_text_lines(
                             start: usize,
                             line_metrics: &femtovg::TextMetrics| {
         let x = match horizontal_alignment {
-            TextHorizontalAlignment::left => 0.,
-            TextHorizontalAlignment::center => {
+            TextHorizontalAlignment::Left => 0.,
+            TextHorizontalAlignment::Center => {
                 max_width / 2. - f32::min(max_width, line_metrics.width()) / 2.
             }
-            TextHorizontalAlignment::right => max_width - f32::min(max_width, line_metrics.width()),
+            TextHorizontalAlignment::Right => max_width - f32::min(max_width, line_metrics.width()),
         };
         layout_line(text, Point::new(x, y), start, line_metrics);
     };
 
     let baseline_y = match vertical_alignment {
-        TextVerticalAlignment::top => 0.,
-        TextVerticalAlignment::center => max_height / 2. - text_height() / 2.,
-        TextVerticalAlignment::bottom => max_height - text_height(),
+        TextVerticalAlignment::Top => 0.,
+        TextVerticalAlignment::Center => max_height / 2. - text_height() / 2.,
+        TextVerticalAlignment::Bottom => max_height - text_height(),
     };
     let mut y = baseline_y;
     let mut start = 0;

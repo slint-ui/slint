@@ -36,7 +36,7 @@ let instance = TestCase::new();
 let window = vtable::VRc::from(instance.clone_strong()).window_handle().clone();
 window.clone().process_mouse_input(MouseEvent::MouseMoved { pos: point2(300.0, 100.0) });
 slint::testing::mock_elapsed_time(5000);
-window.clone().process_mouse_input(MouseEvent::MousePressed { pos: point2(300.0, 100.0), button: PointerEventButton::left });
+window.clone().process_mouse_input(MouseEvent::MousePressed { pos: point2(300.0, 100.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_offset_x(), 0.);
 assert_eq!(instance.get_offset_y(), 0.);
 window.clone().process_mouse_input(MouseEvent::MouseMoved { pos: point2(200.0, 50.0) });
@@ -48,7 +48,7 @@ assert_eq!(instance.get_offset_y(), 50.);
 window.clone().process_mouse_input(MouseEvent::MouseMoved { pos: point2(100.0, 50.0) });
 assert_eq!(instance.get_offset_x(), 200.);
 assert_eq!(instance.get_offset_y(), 50.);
-window.clone().process_mouse_input(MouseEvent::MouseReleased { pos: point2(100.0, 50.0), button: PointerEventButton::left });
+window.clone().process_mouse_input(MouseEvent::MouseReleased { pos: point2(100.0, 50.0), button: PointerEventButton::Left });
 // Start of the animation, the position is still unchanged
 assert_eq!(instance.get_offset_x(), 200.);
 assert_eq!(instance.get_offset_y(), 50.);

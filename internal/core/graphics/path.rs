@@ -148,26 +148,26 @@ impl<'a> Iterator for ToLyonPathEventIterator<'a> {
         use lyon_path::Event;
 
         self.events_it.next().map(|event| match event {
-            PathEvent::begin => Event::Begin { at: *self.coordinates_it.next().unwrap() },
-            PathEvent::line => Event::Line {
+            PathEvent::Begin => Event::Begin { at: *self.coordinates_it.next().unwrap() },
+            PathEvent::Line => Event::Line {
                 from: *self.coordinates_it.next().unwrap(),
                 to: *self.coordinates_it.next().unwrap(),
             },
-            PathEvent::quadratic => Event::Quadratic {
+            PathEvent::Quadratic => Event::Quadratic {
                 from: *self.coordinates_it.next().unwrap(),
                 ctrl: *self.coordinates_it.next().unwrap(),
                 to: *self.coordinates_it.next().unwrap(),
             },
-            PathEvent::cubic => Event::Cubic {
+            PathEvent::Cubic => Event::Cubic {
                 from: *self.coordinates_it.next().unwrap(),
                 ctrl1: *self.coordinates_it.next().unwrap(),
                 ctrl2: *self.coordinates_it.next().unwrap(),
                 to: *self.coordinates_it.next().unwrap(),
             },
-            PathEvent::end_open => {
+            PathEvent::EndOpen => {
                 Event::End { first: *self.first.unwrap(), last: *self.last.unwrap(), close: false }
             }
-            PathEvent::end_closed => {
+            PathEvent::EndClosed => {
                 Event::End { first: *self.first.unwrap(), last: *self.last.unwrap(), close: true }
             }
         })

@@ -448,3 +448,42 @@ pub fn for_each_const_properties(component: &Rc<Component>, mut f: impl FnMut(&E
         }
     });
 }
+
+/// Convert a ascii kebab string to pascal case
+pub fn to_pascal_case(str: &str) -> String {
+    let mut result = Vec::with_capacity(str.len());
+    let mut next_upper = true;
+    for x in str.as_bytes() {
+        if *x == b'-' {
+            next_upper = true;
+        } else if next_upper {
+            result.push(x.to_ascii_uppercase());
+            next_upper = false;
+        } else {
+            result.push(*x);
+        }
+    }
+    String::from_utf8(result).unwrap()
+}
+
+/// Convert a ascii pascal case string to kebab case
+pub fn to_kebab_case(str: &str) -> String {
+    let mut result = Vec::with_capacity(str.len());
+    for x in str.as_bytes() {
+        if x.is_ascii_uppercase() {
+            if !result.is_empty() {
+                result.push(b'-');
+            }
+            result.push(x.to_ascii_lowercase());
+        } else {
+            result.push(*x);
+        }
+    }
+    String::from_utf8(result).unwrap()
+}
+
+#[test]
+fn case_conversions() {
+    assert_eq!(to_kebab_case("HelloWorld"), "hello-world");
+    assert_eq!(to_pascal_case("hello-world"), "HelloWorld");
+}

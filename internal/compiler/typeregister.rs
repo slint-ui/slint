@@ -49,7 +49,7 @@ macro_rules! declare_enums {
                 Self {
                     $($Name : Rc::new(Enumeration {
                         name: stringify!($Name).replace('_', "-"),
-                        values: vec![$(stringify!($Value).trim_start_matches("r#").replace('_', "-")),*],
+                        values: vec![$(crate::generator::to_kebab_case(stringify!($Value).trim_start_matches("r#"))),*],
                         default_value: 0,
                     })),*
                 }

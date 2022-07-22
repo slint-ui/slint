@@ -556,38 +556,38 @@ impl PlatformWindow for GLWindow {
 
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
         let winit_cursor = match cursor {
-            MouseCursor::default => winit::window::CursorIcon::Default,
-            MouseCursor::none => winit::window::CursorIcon::Default,
-            MouseCursor::help => winit::window::CursorIcon::Help,
-            MouseCursor::pointer => winit::window::CursorIcon::Hand,
-            MouseCursor::progress => winit::window::CursorIcon::Progress,
-            MouseCursor::wait => winit::window::CursorIcon::Wait,
-            MouseCursor::crosshair => winit::window::CursorIcon::Crosshair,
-            MouseCursor::text => winit::window::CursorIcon::Text,
-            MouseCursor::alias => winit::window::CursorIcon::Alias,
-            MouseCursor::copy => winit::window::CursorIcon::Copy,
-            MouseCursor::r#move => winit::window::CursorIcon::Move,
-            MouseCursor::no_drop => winit::window::CursorIcon::NoDrop,
-            MouseCursor::not_allowed => winit::window::CursorIcon::NotAllowed,
-            MouseCursor::grab => winit::window::CursorIcon::Grab,
-            MouseCursor::grabbing => winit::window::CursorIcon::Grabbing,
-            MouseCursor::col_resize => winit::window::CursorIcon::ColResize,
-            MouseCursor::row_resize => winit::window::CursorIcon::RowResize,
-            MouseCursor::n_resize => winit::window::CursorIcon::NResize,
-            MouseCursor::e_resize => winit::window::CursorIcon::EResize,
-            MouseCursor::s_resize => winit::window::CursorIcon::SResize,
-            MouseCursor::w_resize => winit::window::CursorIcon::WResize,
-            MouseCursor::ne_resize => winit::window::CursorIcon::NeResize,
-            MouseCursor::nw_resize => winit::window::CursorIcon::NwResize,
-            MouseCursor::se_resize => winit::window::CursorIcon::SeResize,
-            MouseCursor::sw_resize => winit::window::CursorIcon::SwResize,
-            MouseCursor::ew_resize => winit::window::CursorIcon::EwResize,
-            MouseCursor::ns_resize => winit::window::CursorIcon::NsResize,
-            MouseCursor::nesw_resize => winit::window::CursorIcon::NeswResize,
-            MouseCursor::nwse_resize => winit::window::CursorIcon::NwseResize,
+            MouseCursor::Default => winit::window::CursorIcon::Default,
+            MouseCursor::None => winit::window::CursorIcon::Default,
+            MouseCursor::Help => winit::window::CursorIcon::Help,
+            MouseCursor::Pointer => winit::window::CursorIcon::Hand,
+            MouseCursor::Progress => winit::window::CursorIcon::Progress,
+            MouseCursor::Wait => winit::window::CursorIcon::Wait,
+            MouseCursor::Crosshair => winit::window::CursorIcon::Crosshair,
+            MouseCursor::Text => winit::window::CursorIcon::Text,
+            MouseCursor::Alias => winit::window::CursorIcon::Alias,
+            MouseCursor::Copy => winit::window::CursorIcon::Copy,
+            MouseCursor::Move => winit::window::CursorIcon::Move,
+            MouseCursor::NoDrop => winit::window::CursorIcon::NoDrop,
+            MouseCursor::NotAllowed => winit::window::CursorIcon::NotAllowed,
+            MouseCursor::Grab => winit::window::CursorIcon::Grab,
+            MouseCursor::Grabbing => winit::window::CursorIcon::Grabbing,
+            MouseCursor::ColResize => winit::window::CursorIcon::ColResize,
+            MouseCursor::RowResize => winit::window::CursorIcon::RowResize,
+            MouseCursor::NResize => winit::window::CursorIcon::NResize,
+            MouseCursor::EResize => winit::window::CursorIcon::EResize,
+            MouseCursor::SResize => winit::window::CursorIcon::SResize,
+            MouseCursor::WResize => winit::window::CursorIcon::WResize,
+            MouseCursor::NeResize => winit::window::CursorIcon::NeResize,
+            MouseCursor::NwResize => winit::window::CursorIcon::NwResize,
+            MouseCursor::SeResize => winit::window::CursorIcon::SeResize,
+            MouseCursor::SwResize => winit::window::CursorIcon::SwResize,
+            MouseCursor::EwResize => winit::window::CursorIcon::EwResize,
+            MouseCursor::NsResize => winit::window::CursorIcon::NsResize,
+            MouseCursor::NeswResize => winit::window::CursorIcon::NeswResize,
+            MouseCursor::NwseResize => winit::window::CursorIcon::NwseResize,
         };
         self.with_window_handle(&mut |winit_window| {
-            winit_window.set_cursor_visible(cursor != MouseCursor::none);
+            winit_window.set_cursor_visible(cursor != MouseCursor::None);
             winit_window.set_cursor_icon(winit_cursor);
         });
     }
@@ -633,7 +633,7 @@ impl PlatformWindow for GLWindow {
             )
         });
 
-        let is_password = matches!(text_input.input_type(), corelib::items::InputType::password);
+        let is_password = matches!(text_input.input_type(), corelib::items::InputType::Password);
         let password_string;
         let actual_text = if is_password {
             password_string = PASSWORD_CHARACTER.repeat(text.chars().count());
@@ -652,7 +652,7 @@ impl PlatformWindow for GLWindow {
             Size::new(width, height),
             (text_input.horizontal_alignment(), text_input.vertical_alignment()),
             text_input.wrap(),
-            i_slint_core::items::TextOverflow::clip,
+            i_slint_core::items::TextOverflow::Clip,
             text_input.single_line(),
             paint,
             |line_text, line_pos, start, metrics| {
@@ -717,7 +717,7 @@ impl PlatformWindow for GLWindow {
             Size::new(width, height),
             (text_input.horizontal_alignment(), text_input.vertical_alignment()),
             text_input.wrap(),
-            i_slint_core::items::TextOverflow::clip,
+            i_slint_core::items::TextOverflow::Clip,
             text_input.single_line(),
             paint,
             |line_text, line_pos, start, metrics| {

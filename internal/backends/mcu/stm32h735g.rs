@@ -364,7 +364,7 @@ impl Devices for StmDevices {
     fn read_touch_event(&mut self) -> Option<i_slint_core::input::MouseEvent> {
         let mut ft5336 = touch_device(&mut self.delay, &mut self.touch_i2c);
         let touch = ft5336.detect_touch(&mut self.touch_i2c).unwrap();
-        let button = i_slint_core::items::PointerEventButton::left;
+        let button = i_slint_core::items::PointerEventButton::Left;
 
         if touch > 0 {
             let state = ft5336.get_touch(&mut self.touch_i2c, 1).unwrap();

@@ -21,7 +21,7 @@ fn enums(path: &Path) -> anyhow::Result<()> {
                 writeln!(enums, "enum class {} {{", stringify!($Name))?;
                 $(
                     $(writeln!(enums, "    ///{}", $value_doc)?;)*
-                    writeln!(enums, "    {},", i_slint_common::enums::cpp_escape_keyword(stringify!($Value).trim_start_matches("r#")))?;
+                    writeln!(enums, "    {},", stringify!($Value).trim_start_matches("r#"))?;
                 )*
                 writeln!(enums, "}};")?;
              )*

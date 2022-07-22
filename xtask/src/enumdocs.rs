@@ -32,7 +32,7 @@ The default value of each enum type is always the first value.
                 writeln!(file, "")?;
                 $(
                     let mut has_val = false;
-                    write!(file, "* **`{}`**:", stringify!($Value).trim_start_matches("r#").replace('_', "-"))?;
+                    write!(file, "* **`{}`**:", to_kebab_case(stringify!($Value)))?;
                     $(
                         if has_val {
                             write!(file, "\n   ")?;
@@ -53,4 +53,20 @@ The default value of each enum type is always the first value.
     }
 
     Ok(())
+}
+
+/// Convert a ascii pascal case string to kebab case
+fn to_kebab_case(str: &str) -> String {
+    let mut result = Vec::with_capacity(str.len());
+    for x in str.as_bytes() {
+        if x.is_ascii_uppercase() {
+            if !result.is_empty() {
+                result.push(b'-');
+            }
+            result.push(x.to_ascii_lowercase());
+        } else {
+            result.push(*x);
+        }
+    }
+    String::from_utf8(result).unwrap()
 }

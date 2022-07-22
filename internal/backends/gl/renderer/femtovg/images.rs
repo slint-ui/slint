@@ -88,8 +88,8 @@ impl Texture {
         scaling: ImageRendering,
     ) -> Option<Rc<Self>> {
         let image_flags = match scaling {
-            ImageRendering::smooth => femtovg::ImageFlags::empty(),
-            ImageRendering::pixelated => femtovg::ImageFlags::NEAREST,
+            ImageRendering::Smooth => femtovg::ImageFlags::empty(),
+            ImageRendering::Pixelated => femtovg::ImageFlags::NEAREST,
         };
 
         let image_id = match image {
