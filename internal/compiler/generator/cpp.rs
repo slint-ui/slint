@@ -2292,7 +2292,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
             format!(
                 "slint::cbindgen_private::{}::{}",
                 value.enumeration.name,
-                ident(i_slint_common::enums::cpp_escape_keyword(&value.to_string())),
+                ident(&value.to_pascal_case()),
             )
         }
         Expression::ReturnStatement(Some(expr)) => format!(

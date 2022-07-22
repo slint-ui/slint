@@ -282,7 +282,7 @@ impl<
     }
 
     fn read_touch_event(&mut self) -> Option<i_slint_core::input::MouseEvent> {
-        let button = i_slint_core::items::PointerEventButton::left;
+        let button = i_slint_core::items::PointerEventButton::Left;
         self.touch
             .read()
             .map_err(|_| ())

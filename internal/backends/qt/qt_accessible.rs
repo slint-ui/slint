@@ -303,14 +303,14 @@ cpp! {{
                                              index: usize as "size_t"]
                     -> u32 as "QAccessible::Role" {
                 match rustDescendents[index].accessible_role() {
-                    i_slint_core::items::AccessibleRole::none => QAccessible_Role_NoRole,
-                    i_slint_core::items::AccessibleRole::button => QAccessible_Role_Button,
-                    i_slint_core::items::AccessibleRole::checkbox => QAccessible_Role_CheckBox,
-                    i_slint_core::items::AccessibleRole::combobox => QAccessible_Role_ComboBox,
-                    i_slint_core::items::AccessibleRole::slider => QAccessible_Role_Slider,
-                    i_slint_core::items::AccessibleRole::spinbox => QAccessible_Role_SpinBox,
-                    i_slint_core::items::AccessibleRole::tab => QAccessible_Role_PageTab,
-                    i_slint_core::items::AccessibleRole::text => QAccessible_Role_StaticText,
+                    i_slint_core::items::AccessibleRole::None => QAccessible_Role_NoRole,
+                    i_slint_core::items::AccessibleRole::Button => QAccessible_Role_Button,
+                    i_slint_core::items::AccessibleRole::Checkbox => QAccessible_Role_CheckBox,
+                    i_slint_core::items::AccessibleRole::Combobox => QAccessible_Role_ComboBox,
+                    i_slint_core::items::AccessibleRole::Slider => QAccessible_Role_Slider,
+                    i_slint_core::items::AccessibleRole::Spinbox => QAccessible_Role_SpinBox,
+                    i_slint_core::items::AccessibleRole::Tab => QAccessible_Role_PageTab,
+                    i_slint_core::items::AccessibleRole::Text => QAccessible_Role_StaticText,
                 }
             });
         }

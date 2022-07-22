@@ -485,7 +485,7 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> S
     let spacings = data.spacing * num_spacings;
 
     let align = match data.alignment {
-        LayoutAlignment::stretch => {
+        LayoutAlignment::Stretch => {
             grid_internal::layout_items(
                 &mut layout_data,
                 data.padding.begin,
@@ -503,18 +503,18 @@ pub fn solve_box_layout(data: &BoxLayoutData, repeater_indexes: Slice<u32>) -> S
             );
             None
         }
-        LayoutAlignment::center => Some((
+        LayoutAlignment::Center => Some((
             data.padding.begin + (size_without_padding - pref_size - spacings) / 2 as Coord,
             data.spacing,
         )),
-        LayoutAlignment::start => Some((data.padding.begin, data.spacing)),
-        LayoutAlignment::end => {
+        LayoutAlignment::Start => Some((data.padding.begin, data.spacing)),
+        LayoutAlignment::End => {
             Some((data.padding.begin + (size_without_padding - pref_size - spacings), data.spacing))
         }
-        LayoutAlignment::space_between => {
+        LayoutAlignment::SpaceBetween => {
             Some((data.padding.begin, (size_without_padding - pref_size) / num_spacings))
         }
-        LayoutAlignment::space_around => {
+        LayoutAlignment::SpaceAround => {
             let spacing = (size_without_padding - pref_size) / (num_spacings + 1 as Coord);
             Some((data.padding.begin + spacing / 2 as Coord, spacing))
         }
@@ -575,7 +575,7 @@ pub fn box_layout_info(
     if count < 1 {
         return LayoutInfo { max: 0 as _, ..LayoutInfo::default() };
     };
-    let is_stretch = alignment == LayoutAlignment::stretch;
+    let is_stretch = alignment == LayoutAlignment::Stretch;
     let extra_w = padding.begin + padding.end + spacing * (count - 1) as Coord;
     let min = cells.iter().map(|c| c.constraint.min).sum::<Coord>() + extra_w;
     let max = if is_stretch {
@@ -756,39 +756,39 @@ pub fn reorder_dialog_button_layout(cells: &mut [GridLayoutCellData], roles: &[D
     let mut idx = 0;
 
     if cfg!(windows) {
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::reset);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
         idx += 1;
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::accept);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::action);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::reject);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::apply);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::help);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
     } else if cfg!(target_os = "macos") {
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::help);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::reset);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::apply);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::action);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
         idx += 1;
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::reject);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::accept);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
     } else if is_kde() {
         // KDE variant
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::help);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::reset);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
         idx += 1;
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::action);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::accept);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::apply);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::reject);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
     } else {
         // GNOME variant and fallback for WASM build
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::help);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::reset);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Help);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reset);
         idx += 1;
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::action);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::apply);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::reject);
-        add_buttons(cells, roles, &mut idx, DialogButtonRole::accept);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Action);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Apply);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Reject);
+        add_buttons(cells, roles, &mut idx, DialogButtonRole::Accept);
     }
 }
 

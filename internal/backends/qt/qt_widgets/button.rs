@@ -132,17 +132,17 @@ impl NativeButton {
     ) -> qttypes::QString {
         // We would need to use the private API to get the text from QPlatformTheme
         match standard_button_kind {
-            Some(StandardButtonKind::ok) => "OK".into(),
-            Some(StandardButtonKind::cancel) => "Cancel".into(),
-            Some(StandardButtonKind::apply) => "Apply".into(),
-            Some(StandardButtonKind::close) => "Close".into(),
-            Some(StandardButtonKind::reset) => "Reset".into(),
-            Some(StandardButtonKind::help) => "Help".into(),
-            Some(StandardButtonKind::yes) => "Yes".into(),
-            Some(StandardButtonKind::no) => "No".into(),
-            Some(StandardButtonKind::abort) => "Abort".into(),
-            Some(StandardButtonKind::retry) => "Retry".into(),
-            Some(StandardButtonKind::ignore) => "Ignore".into(),
+            Some(StandardButtonKind::Ok) => "OK".into(),
+            Some(StandardButtonKind::Cancel) => "Cancel".into(),
+            Some(StandardButtonKind::Apply) => "Apply".into(),
+            Some(StandardButtonKind::Close) => "Close".into(),
+            Some(StandardButtonKind::Reset) => "Reset".into(),
+            Some(StandardButtonKind::Help) => "Help".into(),
+            Some(StandardButtonKind::Yes) => "Yes".into(),
+            Some(StandardButtonKind::No) => "No".into(),
+            Some(StandardButtonKind::Abort) => "Abort".into(),
+            Some(StandardButtonKind::Retry) => "Retry".into(),
+            Some(StandardButtonKind::Ignore) => "Ignore".into(),
             None => self.text().as_str().into(),
         }
     }
@@ -152,17 +152,17 @@ impl NativeButton {
         standard_button_kind: ActualStandardButtonKind,
     ) -> qttypes::QPixmap {
         let style_icon = match standard_button_kind {
-            Some(StandardButtonKind::ok) => QStyle_StandardPixmap_SP_DialogOkButton,
-            Some(StandardButtonKind::cancel) => QStyle_StandardPixmap_SP_DialogCancelButton,
-            Some(StandardButtonKind::apply) => QStyle_StandardPixmap_SP_DialogApplyButton,
-            Some(StandardButtonKind::close) => QStyle_StandardPixmap_SP_DialogCloseButton,
-            Some(StandardButtonKind::reset) => QStyle_StandardPixmap_SP_DialogResetButton,
-            Some(StandardButtonKind::help) => QStyle_StandardPixmap_SP_DialogHelpButton,
-            Some(StandardButtonKind::yes) => QStyle_StandardPixmap_SP_DialogYesButton,
-            Some(StandardButtonKind::no) => QStyle_StandardPixmap_SP_DialogNoButton,
-            Some(StandardButtonKind::abort) => QStyle_StandardPixmap_SP_DialogAbortButton,
-            Some(StandardButtonKind::retry) => QStyle_StandardPixmap_SP_DialogRetryButton,
-            Some(StandardButtonKind::ignore) => QStyle_StandardPixmap_SP_DialogIgnoreButton,
+            Some(StandardButtonKind::Ok) => QStyle_StandardPixmap_SP_DialogOkButton,
+            Some(StandardButtonKind::Cancel) => QStyle_StandardPixmap_SP_DialogCancelButton,
+            Some(StandardButtonKind::Apply) => QStyle_StandardPixmap_SP_DialogApplyButton,
+            Some(StandardButtonKind::Close) => QStyle_StandardPixmap_SP_DialogCloseButton,
+            Some(StandardButtonKind::Reset) => QStyle_StandardPixmap_SP_DialogResetButton,
+            Some(StandardButtonKind::Help) => QStyle_StandardPixmap_SP_DialogHelpButton,
+            Some(StandardButtonKind::Yes) => QStyle_StandardPixmap_SP_DialogYesButton,
+            Some(StandardButtonKind::No) => QStyle_StandardPixmap_SP_DialogNoButton,
+            Some(StandardButtonKind::Abort) => QStyle_StandardPixmap_SP_DialogAbortButton,
+            Some(StandardButtonKind::Retry) => QStyle_StandardPixmap_SP_DialogRetryButton,
+            Some(StandardButtonKind::Ignore) => QStyle_StandardPixmap_SP_DialogIgnoreButton,
             None => {
                 return crate::qt_window::image_to_pixmap((&self.icon()).into(), None)
                     .unwrap_or_default();

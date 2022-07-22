@@ -383,13 +383,13 @@ impl Item for TouchArea {
     ) -> InputEventResult {
         if matches!(event, MouseEvent::MouseExit) {
             Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false);
-            window.set_mouse_cursor(MouseCursor::default);
+            window.set_mouse_cursor(MouseCursor::Default);
         }
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
         let result = if let MouseEvent::MouseReleased { pos, button } = event {
-            if button == PointerEventButton::left
+            if button == PointerEventButton::Left
                 && euclid::rect(0 as Coord, 0 as Coord, self.width(), self.height()).contains(pos)
             {
                 Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
@@ -402,7 +402,7 @@ impl Item for TouchArea {
         match event {
             MouseEvent::MousePressed { pos, button } => {
                 self.grabbed.set(true);
-                if button == PointerEventButton::left {
+                if button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(pos.x);
                     Self::FIELD_OFFSETS.pressed_y.apply_pin(self).set(pos.y);
                     Self::FIELD_OFFSETS.pressed.apply_pin(self).set(true);
@@ -410,26 +410,26 @@ impl Item for TouchArea {
                 Self::FIELD_OFFSETS
                     .pointer_event
                     .apply_pin(self)
-                    .call(&(PointerEvent { button, kind: PointerEventKind::down },));
+                    .call(&(PointerEvent { button, kind: PointerEventKind::Down },));
             }
             MouseEvent::MouseExit => {
                 Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
                 if self.grabbed.replace(false) {
                     Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
-                        button: PointerEventButton::none,
-                        kind: PointerEventKind::cancel,
+                        button: PointerEventButton::None,
+                        kind: PointerEventKind::Cancel,
                     },));
                 }
             }
             MouseEvent::MouseReleased { button, .. } => {
                 self.grabbed.set(false);
-                if button == PointerEventButton::left {
+                if button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
                 }
                 Self::FIELD_OFFSETS
                     .pointer_event
                     .apply_pin(self)
-                    .call(&(PointerEvent { button, kind: PointerEventKind::up },));
+                    .call(&(PointerEvent { button, kind: PointerEventKind::Up },));
             }
             MouseEvent::MouseMoved { .. } => {
                 return if self.grabbed.get() {
@@ -537,8 +537,8 @@ impl Item for FocusScope {
             }
         };
         match r {
-            EventResult::accept => KeyEventResult::EventAccepted,
-            EventResult::reject => KeyEventResult::EventIgnored,
+            EventResult::Accept => KeyEventResult::EventAccepted,
+            EventResult::Reject => KeyEventResult::EventIgnored,
         }
     }
 
@@ -1133,7 +1133,7 @@ macro_rules! declare_enums {
         $(
             #[derive(Copy, Clone, Debug, PartialEq, Eq, strum::EnumString, strum::Display, Hash)]
             #[repr(C)]
-            #[allow(non_camel_case_types)]
+            #[strum(serialize_all = "kebab-case")]
             $(#[$enum_doc])*
             pub enum $Name {
                 $( $(#[$value_doc])* $Value),*

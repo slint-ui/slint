@@ -307,7 +307,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         let font_height = canvas.measure_font(paint).unwrap().height();
         let mut text = text_input.text();
 
-        if let InputType::password = text_input.input_type() {
+        if let InputType::Password = text_input.input_type() {
             min_select = text[..min_select].chars().count() * PASSWORD_CHARACTER.len();
             max_select = text[..max_select].chars().count() * PASSWORD_CHARACTER.len();
             cursor_pos = text[..cursor_pos].chars().count() * PASSWORD_CHARACTER.len();
@@ -322,7 +322,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             Size::new(width, height),
             (text_input.horizontal_alignment(), text_input.vertical_alignment()),
             text_input.wrap(),
-            items::TextOverflow::clip,
+            items::TextOverflow::Clip,
             text_input.single_line(),
             paint,
             |to_draw, pos, start, metrics| {
@@ -516,8 +516,8 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         let fill_paint =
             self.brush_to_paint(path.fill(), &mut femtovg_path).map(|mut fill_paint| {
                 fill_paint.set_fill_rule(match path.fill_rule() {
-                    FillRule::nonzero => femtovg::FillRule::NonZero,
-                    FillRule::evenodd => femtovg::FillRule::EvenOdd,
+                    FillRule::Nonzero => femtovg::FillRule::NonZero,
+                    FillRule::Evenodd => femtovg::FillRule::EvenOdd,
                 });
                 fill_paint
             });
@@ -1032,8 +1032,8 @@ impl<'a> GLItemRenderer<'a> {
         };
 
         let scaling_flags = match scaling {
-            ImageRendering::smooth => femtovg::ImageFlags::empty(),
-            ImageRendering::pixelated => {
+            ImageRendering::Smooth => femtovg::ImageFlags::empty(),
+            ImageRendering::Pixelated => {
                 femtovg::ImageFlags::empty() | femtovg::ImageFlags::NEAREST
             }
         };
@@ -1191,8 +1191,8 @@ impl<'a> GLItemRenderer<'a> {
         // The source_to_target scale is applied to the paint that holds the image as well as path
         // begin rendered.
         let (source_to_target_scale_x, source_to_target_scale_y) = match image_fit {
-            ImageFit::fill => (target_w / source_width, target_h / source_height),
-            ImageFit::cover => {
+            ImageFit::Fill => (target_w / source_width, target_h / source_height),
+            ImageFit::Cover => {
                 let ratio = f32::max(target_w / source_width, target_h / source_height);
 
                 if source_width > target_w / ratio {
@@ -1204,7 +1204,7 @@ impl<'a> GLItemRenderer<'a> {
 
                 (ratio, ratio)
             }
-            ImageFit::contain => {
+            ImageFit::Contain => {
                 let ratio = f32::min(target_w / source_width, target_h / source_height);
 
                 if source_width < target_w / ratio {

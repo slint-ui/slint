@@ -108,8 +108,8 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
             Font::Length,
         ),
     ) -> Font::Length {
-        let wrap = self.wrap == TextWrap::word_wrap;
-        let elide_glyph = if self.overflow == TextOverflow::elide {
+        let wrap = self.wrap == TextWrap::WordWrap;
+        let elide_glyph = if self.overflow == TextOverflow::Elide {
             self.layout.font.glyph_for_char('…')
         } else {
             None
@@ -140,9 +140,9 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
         let two = Font::LengthPrimitive::one() + Font::LengthPrimitive::one();
 
         let baseline_y = match self.vertical_alignment {
-            TextVerticalAlignment::top => Font::Length::zero(),
-            TextVerticalAlignment::center => self.max_height / two - text_height() / two,
-            TextVerticalAlignment::bottom => self.max_height - text_height(),
+            TextVerticalAlignment::Top => Font::Length::zero(),
+            TextVerticalAlignment::Center => self.max_height / two - text_height() / two,
+            TextVerticalAlignment::Bottom => self.max_height - text_height(),
         };
 
         let mut y = baseline_y;
@@ -151,12 +151,12 @@ impl<'a, Font: AbstractFont> TextParagraphLayout<'a, Font> {
             |line: &TextLine<Font::Length>,
              glyphs: &[Glyph<Font::Length, Font::PlatformGlyphData>]| {
                 let x = match self.horizontal_alignment {
-                    TextHorizontalAlignment::left => Font::Length::zero(),
-                    TextHorizontalAlignment::center => {
+                    TextHorizontalAlignment::Left => Font::Length::zero(),
+                    TextHorizontalAlignment::Center => {
                         self.max_width / two
                             - euclid::approxord::min(self.max_width, line.text_width) / two
                     }
-                    TextHorizontalAlignment::right => {
+                    TextHorizontalAlignment::Right => {
                         self.max_width - euclid::approxord::min(self.max_width, line.text_width)
                     }
                 };
@@ -285,10 +285,10 @@ fn test_elision() {
         layout: TextLayout { font: &font, letter_spacing: None },
         max_width: 13. * 10.,
         max_height: 10.,
-        horizontal_alignment: TextHorizontalAlignment::left,
-        vertical_alignment: TextVerticalAlignment::top,
-        wrap: TextWrap::no_wrap,
-        overflow: TextOverflow::elide,
+        horizontal_alignment: TextHorizontalAlignment::Left,
+        vertical_alignment: TextVerticalAlignment::Top,
+        wrap: TextWrap::NoWrap,
+        overflow: TextOverflow::Elide,
         single_line: true,
     };
     paragraph.layout_lines(|glyphs, _, _| {
@@ -317,10 +317,10 @@ fn test_exact_fit() {
         layout: TextLayout { font: &font, letter_spacing: None },
         max_width: 4. * 10.,
         max_height: 10.,
-        horizontal_alignment: TextHorizontalAlignment::left,
-        vertical_alignment: TextVerticalAlignment::top,
-        wrap: TextWrap::no_wrap,
-        overflow: TextOverflow::elide,
+        horizontal_alignment: TextHorizontalAlignment::Left,
+        vertical_alignment: TextVerticalAlignment::Top,
+        wrap: TextWrap::NoWrap,
+        overflow: TextOverflow::Elide,
         single_line: true,
     };
     paragraph.layout_lines(|glyphs, _, _| {

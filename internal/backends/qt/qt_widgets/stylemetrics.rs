@@ -159,10 +159,10 @@ impl NativeStyleMetrics {
             }
         });
         self.tab_bar_alignment.set(match tab_bar_alignment {
-            1 => LayoutAlignment::start,
-            2 => LayoutAlignment::center,
-            3 => LayoutAlignment::end,
-            _ => LayoutAlignment::space_between, // Should not happen! If it does, it should be noticeable;-)
+            1 => LayoutAlignment::Start,
+            2 => LayoutAlignment::Center,
+            3 => LayoutAlignment::End,
+            _ => LayoutAlignment::SpaceBetween, // Should not happen! If it does, it should be noticeable;-)
         });
     }
 }

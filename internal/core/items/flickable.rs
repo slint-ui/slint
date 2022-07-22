@@ -184,7 +184,7 @@ impl FlickableData {
     ) -> InputEventFilterResult {
         let mut inner = self.inner.borrow_mut();
         match event {
-            MouseEvent::MousePressed { pos, button: PointerEventButton::left } => {
+            MouseEvent::MousePressed { pos, button: PointerEventButton::Left } => {
                 inner.pressed_pos = pos;
                 inner.pressed_time = Some(crate::animations::current_tick());
                 inner.pressed_viewport_pos = Point::new(
@@ -202,7 +202,7 @@ impl FlickableData {
                 }
             }
             MouseEvent::MouseExit
-            | MouseEvent::MouseReleased { button: PointerEventButton::left, .. } => {
+            | MouseEvent::MouseReleased { button: PointerEventButton::Left, .. } => {
                 let was_capturing = inner.capture_events;
                 Self::mouse_released(&mut inner, flick, event);
                 if was_capturing {

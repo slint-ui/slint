@@ -73,12 +73,12 @@ impl Item for Text {
             Orientation::Horizontal => {
                 let implicit_size = implicit_size(None);
                 let min = match self.overflow() {
-                    TextOverflow::elide => implicit_size
+                    TextOverflow::Elide => implicit_size
                         .width
                         .min(window.text_size(self.unresolved_font_request(), "…", None).width),
-                    TextOverflow::clip => match self.wrap() {
-                        TextWrap::no_wrap => implicit_size.width,
-                        TextWrap::word_wrap => 0 as Coord,
+                    TextOverflow::Clip => match self.wrap() {
+                        TextWrap::NoWrap => implicit_size.width,
+                        TextWrap::WordWrap => 0 as Coord,
                     },
                 };
                 LayoutInfo {
@@ -89,8 +89,8 @@ impl Item for Text {
             }
             Orientation::Vertical => {
                 let h = match self.wrap() {
-                    TextWrap::no_wrap => implicit_size(None).height,
-                    TextWrap::word_wrap => implicit_size(Some(self.width())).height,
+                    TextWrap::NoWrap => implicit_size(None).height,
+                    TextWrap::WordWrap => implicit_size(Some(self.width())).height,
                 }
                 .ceil();
                 LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
@@ -241,8 +241,8 @@ impl Item for TextInput {
             Orientation::Horizontal => {
                 let implicit_size = implicit_size(None);
                 let min = match self.wrap() {
-                    TextWrap::no_wrap => implicit_size.width,
-                    TextWrap::word_wrap => 0 as Coord,
+                    TextWrap::NoWrap => implicit_size.width,
+                    TextWrap::WordWrap => 0 as Coord,
                 };
                 LayoutInfo {
                     min: min.ceil(),
@@ -252,8 +252,8 @@ impl Item for TextInput {
             }
             Orientation::Vertical => {
                 let h = match self.wrap() {
-                    TextWrap::no_wrap => implicit_size(None).height,
-                    TextWrap::word_wrap => implicit_size(Some(self.width())).height,
+                    TextWrap::NoWrap => implicit_size(None).height,
+                    TextWrap::WordWrap => implicit_size(Some(self.width())).height,
                 }
                 .ceil();
                 LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
@@ -280,7 +280,7 @@ impl Item for TextInput {
             return InputEventResult::EventIgnored;
         }
         match event {
-            MouseEvent::MousePressed { pos, button: PointerEventButton::left } => {
+            MouseEvent::MousePressed { pos, button: PointerEventButton::Left } => {
                 let clicked_offset = window.text_input_byte_offset_for_position(self, pos) as i32;
                 self.as_ref().pressed.set(true);
                 self.as_ref().anchor_position.set(clicked_offset);
@@ -289,7 +289,7 @@ impl Item for TextInput {
                     window.clone().set_focus_item(self_rc);
                 }
             }
-            MouseEvent::MouseReleased { button: PointerEventButton::left, .. }
+            MouseEvent::MouseReleased { button: PointerEventButton::Left, .. }
             | MouseEvent::MouseExit => self.as_ref().pressed.set(false),
             MouseEvent::MouseMoved { pos } => {
                 if self.as_ref().pressed.get() {

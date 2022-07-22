@@ -416,10 +416,10 @@ fn into_qbrush(
 
 fn from_qt_button(qt_button: u32) -> PointerEventButton {
     match qt_button {
-        1 => PointerEventButton::left,
-        2 => PointerEventButton::right,
-        4 => PointerEventButton::middle,
-        _ => PointerEventButton::none,
+        1 => PointerEventButton::Left,
+        2 => PointerEventButton::Right,
+        4 => PointerEventButton::Middle,
+        _ => PointerEventButton::None,
     }
 }
 
@@ -519,18 +519,18 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let font: QFont =
             get_font(text.unresolved_font_request().merge(&self.default_font_properties));
         let flags = match text.horizontal_alignment() {
-            TextHorizontalAlignment::left => key_generated::Qt_AlignmentFlag_AlignLeft,
-            TextHorizontalAlignment::center => key_generated::Qt_AlignmentFlag_AlignHCenter,
-            TextHorizontalAlignment::right => key_generated::Qt_AlignmentFlag_AlignRight,
+            TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
+            TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
+            TextHorizontalAlignment::Right => key_generated::Qt_AlignmentFlag_AlignRight,
         } | match text.vertical_alignment() {
-            TextVerticalAlignment::top => key_generated::Qt_AlignmentFlag_AlignTop,
-            TextVerticalAlignment::center => key_generated::Qt_AlignmentFlag_AlignVCenter,
-            TextVerticalAlignment::bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
+            TextVerticalAlignment::Top => key_generated::Qt_AlignmentFlag_AlignTop,
+            TextVerticalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignVCenter,
+            TextVerticalAlignment::Bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
         } | match text.wrap() {
-            TextWrap::no_wrap => 0,
-            TextWrap::word_wrap => key_generated::Qt_TextFlag_TextWordWrap,
+            TextWrap::NoWrap => 0,
+            TextWrap::WordWrap => key_generated::Qt_TextFlag_TextWordWrap,
         };
-        let elide = text.overflow() == TextOverflow::elide;
+        let elide = text.overflow() == TextOverflow::Elide;
         let painter: &mut QPainterPtr = &mut self.painter;
         cpp! { unsafe [painter as "QPainterPtr*", rect as "QRectF", fill_brush as "QBrush", mut string as "QString", flags as "int", font as "QFont", elide as "bool"] {
             (*painter)->setFont(font);
@@ -602,7 +602,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let text = text_input.text();
         let mut string: qttypes::QString = text.as_str().into();
 
-        if let InputType::password = text_input.input_type() {
+        if let InputType::Password = text_input.input_type() {
             cpp! { unsafe [mut string as "QString"] {
                 string.fill(QChar(qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr)));
             }}
@@ -611,16 +611,16 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let font: QFont =
             get_font(text_input.unresolved_font_request().merge(&self.default_font_properties));
         let flags = match text_input.horizontal_alignment() {
-            TextHorizontalAlignment::left => key_generated::Qt_AlignmentFlag_AlignLeft,
-            TextHorizontalAlignment::center => key_generated::Qt_AlignmentFlag_AlignHCenter,
-            TextHorizontalAlignment::right => key_generated::Qt_AlignmentFlag_AlignRight,
+            TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
+            TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
+            TextHorizontalAlignment::Right => key_generated::Qt_AlignmentFlag_AlignRight,
         } | match text_input.vertical_alignment() {
-            TextVerticalAlignment::top => key_generated::Qt_AlignmentFlag_AlignTop,
-            TextVerticalAlignment::center => key_generated::Qt_AlignmentFlag_AlignVCenter,
-            TextVerticalAlignment::bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
+            TextVerticalAlignment::Top => key_generated::Qt_AlignmentFlag_AlignTop,
+            TextVerticalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignVCenter,
+            TextVerticalAlignment::Bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
         } | match text_input.wrap() {
-            TextWrap::no_wrap => 0,
-            TextWrap::word_wrap => key_generated::Qt_TextFlag_TextWordWrap,
+            TextWrap::NoWrap => 0,
+            TextWrap::WordWrap => key_generated::Qt_TextFlag_TextWordWrap,
         };
 
         // convert byte offsets to offsets in Qt UTF-16 encoded string, as that's
@@ -701,8 +701,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let mut painter_path = QPainterPath::default();
 
         painter_path.set_fill_rule(match path.fill_rule() {
-            FillRule::nonzero => key_generated::Qt_FillRule_WindingFill,
-            FillRule::evenodd => key_generated::Qt_FillRule_OddEvenFill,
+            FillRule::Nonzero => key_generated::Qt_FillRule_WindingFill,
+            FillRule::Evenodd => key_generated::Qt_FillRule_OddEvenFill,
         });
 
         for x in path_events.iter() {
@@ -997,8 +997,8 @@ fn adjust_to_image_fit(
     dest_rect: &mut qttypes::QRectF,
 ) {
     match image_fit {
-        i_slint_core::items::ImageFit::fill => (),
-        i_slint_core::items::ImageFit::cover => {
+        i_slint_core::items::ImageFit::Fill => (),
+        i_slint_core::items::ImageFit::Cover => {
             let ratio = qttypes::qreal::max(
                 dest_rect.width / source_rect.width,
                 dest_rect.height / source_rect.height,
@@ -1012,7 +1012,7 @@ fn adjust_to_image_fit(
                 source_rect.height = dest_rect.height / ratio;
             }
         }
-        i_slint_core::items::ImageFit::contain => {
+        i_slint_core::items::ImageFit::Contain => {
             let ratio = qttypes::qreal::min(
                 dest_rect.width / source_rect.width,
                 dest_rect.height / source_rect.height,
@@ -1093,7 +1093,7 @@ impl QtItemRenderer<'_> {
         let mut dest_rect = dest_rect;
         adjust_to_image_fit(image_fit, &mut source_rect, &mut dest_rect);
         let painter: &mut QPainterPtr = &mut self.painter;
-        let smooth: bool = rendering == ImageRendering::smooth;
+        let smooth: bool = rendering == ImageRendering::Smooth;
         cpp! { unsafe [
                 painter as "QPainterPtr*",
                 pixmap as "QPixmap",
@@ -1508,35 +1508,35 @@ impl PlatformWindow for QtWindow {
         let widget_ptr = self.widget_ptr();
         //unidirectional resize cursors are replaced with bidirectional ones
         let cursor_shape = match cursor {
-            MouseCursor::default => key_generated::Qt_CursorShape_ArrowCursor,
-            MouseCursor::none => key_generated::Qt_CursorShape_BlankCursor,
-            MouseCursor::help => key_generated::Qt_CursorShape_WhatsThisCursor,
-            MouseCursor::pointer => key_generated::Qt_CursorShape_PointingHandCursor,
-            MouseCursor::progress => key_generated::Qt_CursorShape_BusyCursor,
-            MouseCursor::wait => key_generated::Qt_CursorShape_WaitCursor,
-            MouseCursor::crosshair => key_generated::Qt_CursorShape_CrossCursor,
-            MouseCursor::text => key_generated::Qt_CursorShape_IBeamCursor,
-            MouseCursor::alias => key_generated::Qt_CursorShape_DragLinkCursor,
-            MouseCursor::copy => key_generated::Qt_CursorShape_DragCopyCursor,
-            MouseCursor::r#move => key_generated::Qt_CursorShape_DragMoveCursor,
-            MouseCursor::no_drop => key_generated::Qt_CursorShape_ForbiddenCursor,
-            MouseCursor::not_allowed => key_generated::Qt_CursorShape_ForbiddenCursor,
-            MouseCursor::grab => key_generated::Qt_CursorShape_OpenHandCursor,
-            MouseCursor::grabbing => key_generated::Qt_CursorShape_ClosedHandCursor,
-            MouseCursor::col_resize => key_generated::Qt_CursorShape_SplitHCursor,
-            MouseCursor::row_resize => key_generated::Qt_CursorShape_SplitVCursor,
-            MouseCursor::n_resize => key_generated::Qt_CursorShape_SizeVerCursor,
-            MouseCursor::e_resize => key_generated::Qt_CursorShape_SizeHorCursor,
-            MouseCursor::s_resize => key_generated::Qt_CursorShape_SizeVerCursor,
-            MouseCursor::w_resize => key_generated::Qt_CursorShape_SizeHorCursor,
-            MouseCursor::ne_resize => key_generated::Qt_CursorShape_SizeBDiagCursor,
-            MouseCursor::nw_resize => key_generated::Qt_CursorShape_SizeFDiagCursor,
-            MouseCursor::se_resize => key_generated::Qt_CursorShape_SizeFDiagCursor,
-            MouseCursor::sw_resize => key_generated::Qt_CursorShape_SizeBDiagCursor,
-            MouseCursor::ew_resize => key_generated::Qt_CursorShape_SizeHorCursor,
-            MouseCursor::ns_resize => key_generated::Qt_CursorShape_SizeVerCursor,
-            MouseCursor::nesw_resize => key_generated::Qt_CursorShape_SizeBDiagCursor,
-            MouseCursor::nwse_resize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+            MouseCursor::Default => key_generated::Qt_CursorShape_ArrowCursor,
+            MouseCursor::None => key_generated::Qt_CursorShape_BlankCursor,
+            MouseCursor::Help => key_generated::Qt_CursorShape_WhatsThisCursor,
+            MouseCursor::Pointer => key_generated::Qt_CursorShape_PointingHandCursor,
+            MouseCursor::Progress => key_generated::Qt_CursorShape_BusyCursor,
+            MouseCursor::Wait => key_generated::Qt_CursorShape_WaitCursor,
+            MouseCursor::Crosshair => key_generated::Qt_CursorShape_CrossCursor,
+            MouseCursor::Text => key_generated::Qt_CursorShape_IBeamCursor,
+            MouseCursor::Alias => key_generated::Qt_CursorShape_DragLinkCursor,
+            MouseCursor::Copy => key_generated::Qt_CursorShape_DragCopyCursor,
+            MouseCursor::Move => key_generated::Qt_CursorShape_DragMoveCursor,
+            MouseCursor::NoDrop => key_generated::Qt_CursorShape_ForbiddenCursor,
+            MouseCursor::NotAllowed => key_generated::Qt_CursorShape_ForbiddenCursor,
+            MouseCursor::Grab => key_generated::Qt_CursorShape_OpenHandCursor,
+            MouseCursor::Grabbing => key_generated::Qt_CursorShape_ClosedHandCursor,
+            MouseCursor::ColResize => key_generated::Qt_CursorShape_SplitHCursor,
+            MouseCursor::RowResize => key_generated::Qt_CursorShape_SplitVCursor,
+            MouseCursor::NResize => key_generated::Qt_CursorShape_SizeVerCursor,
+            MouseCursor::EResize => key_generated::Qt_CursorShape_SizeHorCursor,
+            MouseCursor::SResize => key_generated::Qt_CursorShape_SizeVerCursor,
+            MouseCursor::WResize => key_generated::Qt_CursorShape_SizeHorCursor,
+            MouseCursor::NeResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
+            MouseCursor::NwResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+            MouseCursor::SeResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
+            MouseCursor::SwResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
+            MouseCursor::EwResize => key_generated::Qt_CursorShape_SizeHorCursor,
+            MouseCursor::NsResize => key_generated::Qt_CursorShape_SizeVerCursor,
+            MouseCursor::NeswResize => key_generated::Qt_CursorShape_SizeBDiagCursor,
+            MouseCursor::NwseResize => key_generated::Qt_CursorShape_SizeFDiagCursor,
         };
         cpp! {unsafe [widget_ptr as "QWidget*", cursor_shape as "Qt::CursorShape"] {
             widget_ptr->setCursor(QCursor{cursor_shape});
@@ -1566,19 +1566,19 @@ impl PlatformWindow for QtWindow {
             get_font(text_input.unresolved_font_request().merge(&self.default_font_properties()));
         let string = qttypes::QString::from(text_input.text().as_str());
         let flags = match text_input.horizontal_alignment() {
-            TextHorizontalAlignment::left => key_generated::Qt_AlignmentFlag_AlignLeft,
-            TextHorizontalAlignment::center => key_generated::Qt_AlignmentFlag_AlignHCenter,
-            TextHorizontalAlignment::right => key_generated::Qt_AlignmentFlag_AlignRight,
+            TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
+            TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
+            TextHorizontalAlignment::Right => key_generated::Qt_AlignmentFlag_AlignRight,
         } | match text_input.vertical_alignment() {
-            TextVerticalAlignment::top => key_generated::Qt_AlignmentFlag_AlignTop,
-            TextVerticalAlignment::center => key_generated::Qt_AlignmentFlag_AlignVCenter,
-            TextVerticalAlignment::bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
+            TextVerticalAlignment::Top => key_generated::Qt_AlignmentFlag_AlignTop,
+            TextVerticalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignVCenter,
+            TextVerticalAlignment::Bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
         } | match text_input.wrap() {
-            TextWrap::no_wrap => 0,
-            TextWrap::word_wrap => key_generated::Qt_TextFlag_TextWordWrap,
+            TextWrap::NoWrap => 0,
+            TextWrap::WordWrap => key_generated::Qt_TextFlag_TextWordWrap,
         };
         let single_line: bool = text_input.single_line();
-        let is_password: bool = matches!(text_input.input_type(), InputType::password);
+        let is_password: bool = matches!(text_input.input_type(), InputType::Password);
         cpp! { unsafe [font as "QFont", string as "QString", pos as "QPointF", flags as "int",
                 rect as "QRectF", single_line as "bool", is_password as "bool"] -> usize as "size_t" {
             // we need to do the \n replacement in a copy because the original need to be kept to know the utf8 offset
@@ -1624,16 +1624,16 @@ impl PlatformWindow for QtWindow {
         let mut string = qttypes::QString::from(text.as_str());
         let offset: u32 = utf8_byte_offset_to_utf16_units(text.as_str(), byte_offset) as _;
         let flags = match text_input.horizontal_alignment() {
-            TextHorizontalAlignment::left => key_generated::Qt_AlignmentFlag_AlignLeft,
-            TextHorizontalAlignment::center => key_generated::Qt_AlignmentFlag_AlignHCenter,
-            TextHorizontalAlignment::right => key_generated::Qt_AlignmentFlag_AlignRight,
+            TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
+            TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
+            TextHorizontalAlignment::Right => key_generated::Qt_AlignmentFlag_AlignRight,
         } | match text_input.vertical_alignment() {
-            TextVerticalAlignment::top => key_generated::Qt_AlignmentFlag_AlignTop,
-            TextVerticalAlignment::center => key_generated::Qt_AlignmentFlag_AlignVCenter,
-            TextVerticalAlignment::bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
+            TextVerticalAlignment::Top => key_generated::Qt_AlignmentFlag_AlignTop,
+            TextVerticalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignVCenter,
+            TextVerticalAlignment::Bottom => key_generated::Qt_AlignmentFlag_AlignBottom,
         } | match text_input.wrap() {
-            TextWrap::no_wrap => 0,
-            TextWrap::word_wrap => key_generated::Qt_TextFlag_TextWordWrap,
+            TextWrap::NoWrap => 0,
+            TextWrap::WordWrap => key_generated::Qt_TextFlag_TextWordWrap,
         };
         let single_line: bool = text_input.single_line();
         let r = cpp! { unsafe [font as "QFont", mut string as "QString", offset as "int", flags as "int", rect as "QRectF", single_line as "bool"]
