@@ -6,7 +6,7 @@
 #![warn(missing_docs)]
 //! Exposed Window API
 
-use crate::api::{CloseRequestResponse, PhysicalPx};
+use crate::api::{CloseRequestResponse, PhysicalPx, Window};
 use crate::component::{ComponentRc, ComponentRef, ComponentWeak};
 use crate::graphics::{Point, Rect, Size};
 use crate::input::{
@@ -68,7 +68,7 @@ pub trait PlatformWindow {
     ///
     /// If this function return None (the default implementation), then the
     /// popup will be rendered within the window itself.
-    fn create_popup(&self, _geometry: Rect) -> Option<Rc<WindowInner>> {
+    fn create_popup(&self, _geometry: Rect) -> Option<Window> {
         None
     }
 
@@ -187,7 +187,7 @@ impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
 /// This enum describes the different ways a popup can be rendered by the back-end.
 pub enum PopupWindowLocation {
     /// The popup is rendered in its own top-level window that is know to the windowing system.
-    TopLevel(Rc<WindowInner>),
+    TopLevel(Window),
     /// The popup is rendered as an embedded child window at the given position.
     ChildWindow(Point),
 }
@@ -646,7 +646,7 @@ impl WindowInner {
                 }
 
                 Some(window) => {
-                    window.set_component(popup_componentrc);
+                    window.window_handle().set_component(popup_componentrc);
                     PopupWindowLocation::TopLevel(window)
                 }
             };
