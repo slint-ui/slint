@@ -151,30 +151,29 @@ impl WinitWindow for GLWindow {
 
     /// Draw the items of the specified `component` in the given window.
     fn draw(self: Rc<Self>) {
-        let runtime_window = self.self_weak.upgrade().unwrap();
-        runtime_window.draw_contents(|components| {
-            let window = match self.borrow_mapped_window() {
-                Some(window) => window,
-                None => return, // caller bug, doesn't make sense to call draw() when not mapped
-            };
+        let window = match self.borrow_mapped_window() {
+            Some(window) => window,
+            None => return, // caller bug, doesn't make sense to call draw() when not mapped
+        };
 
-            let size = window.opengl_context.window().inner_size();
+        let size = window.opengl_context.window().inner_size();
 
-            window.opengl_context.make_current();
-            window.opengl_context.ensure_resized();
+        window.opengl_context.make_current();
+        window.opengl_context.ensure_resized();
 
-            self.femtovg_renderer.render(
-                &window.femtovg_canvas,
-                size.width,
-                size.height,
-                &mut |item_renderer| {
-                    if self.has_rendering_notifier() {
-                        self.invoke_rendering_notifier(
-                            RenderingState::BeforeRendering,
-                            &window.opengl_context,
-                        );
-                    }
+        self.femtovg_renderer.render(
+            &window.femtovg_canvas,
+            size.width,
+            size.height,
+            &mut |item_renderer| {
+                if self.has_rendering_notifier() {
+                    self.invoke_rendering_notifier(
+                        RenderingState::BeforeRendering,
+                        &window.opengl_context,
+                    );
+                }
 
+                self.runtime_window().draw_contents(|components| {
                     for (component, origin) in components {
                         corelib::item_rendering::render_component_items(
                             component,
@@ -182,18 +181,18 @@ impl WinitWindow for GLWindow {
                             *origin,
                         );
                     }
+                });
 
-                    if let Some(collector) = &window.rendering_metrics_collector {
-                        collector.measure_frame_rendered(item_renderer);
-                    }
-                },
-            );
+                if let Some(collector) = &window.rendering_metrics_collector {
+                    collector.measure_frame_rendered(item_renderer);
+                }
+            },
+        );
 
-            self.invoke_rendering_notifier(RenderingState::AfterRendering, &window.opengl_context);
+        self.invoke_rendering_notifier(RenderingState::AfterRendering, &window.opengl_context);
 
-            window.opengl_context.swap_buffers();
-            window.opengl_context.make_not_current();
-        });
+        window.opengl_context.swap_buffers();
+        window.opengl_context.make_not_current();
     }
 
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window)) {
