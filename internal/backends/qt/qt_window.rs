@@ -1486,7 +1486,7 @@ impl PlatformWindow for QtWindow {
         self.tree_structure_changed.replace(true);
     }
 
-    fn create_popup(&self, geometry: Rect) -> Option<Rc<i_slint_core::window::WindowInner>> {
+    fn create_popup(&self, geometry: Rect) -> Option<i_slint_core::api::Window> {
         let window = i_slint_core::window::WindowInner::new(|window| QtWindow::new(window));
         let popup_window: &QtWindow =
             <dyn std::any::Any>::downcast_ref(window.as_ref().as_any()).unwrap();
@@ -1503,7 +1503,7 @@ impl PlatformWindow for QtWindow {
             popup_ptr->setGeometry(QRect(pos + widget_ptr->mapToGlobal(QPoint(0,0)), size));
             popup_ptr->show();
         }};
-        Some(window)
+        Some(window.into())
     }
 
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
