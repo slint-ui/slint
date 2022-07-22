@@ -31,6 +31,10 @@ T3 := Rectangle {
     }
 }
 
+T4 := Rectangle {
+    property <length> my_property <=> x;
+}
+
 App := Rectangle {
 
 
@@ -40,5 +44,8 @@ App := Rectangle {
 //               ^error{The binding for the property 'foo' is part of a binding loop}
         T3 { hello: al; }
 //                 ^error{The binding for the property 'hello' is part of a binding loop}
+
+        T4 { my_property: my_property; }
+//                       ^error{Property 'my-property' cannot refer to itself}
     }
 }
