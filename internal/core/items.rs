@@ -1000,7 +1000,7 @@ impl WindowItem {
         }
     }
 
-    pub fn font_size(self: Pin<&Self>) -> Option<f32> {
+    pub fn font_size(self: Pin<&Self>) -> Option<Coord> {
         let font_size = self.default_font_size();
         if font_size <= 0 as Coord {
             None
