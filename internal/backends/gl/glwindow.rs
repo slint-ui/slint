@@ -37,8 +37,6 @@ pub struct GLWindow {
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
     existing_size: Cell<winit::dpi::LogicalSize<f32>>,
 
-    rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
-
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
 
     #[cfg(target_arch = "wasm32")]
@@ -68,7 +66,6 @@ impl GLWindow {
             keyboard_modifiers: Default::default(),
             currently_pressed_key_code: Default::default(),
             existing_size: Default::default(),
-            rendering_metrics_collector: RenderingMetricsCollector::new(window_weak.clone()),
             rendering_notifier: Default::default(),
             #[cfg(target_arch = "wasm32")]
             canvas_id,
@@ -205,7 +202,7 @@ impl WinitWindow for GLWindow {
                         );
                     }
 
-                    if let Some(collector) = &self.rendering_metrics_collector {
+                    if let Some(collector) = &window.rendering_metrics_collector {
                         collector.measure_frame_rendered(item_renderer);
                     }
                 },
@@ -486,40 +483,41 @@ impl PlatformWindow for GLWindow {
         );
         let id = platform_window.id();
 
-        if let Some(collector) = &self.rendering_metrics_collector {
-            cfg_if::cfg_if! {
-                if #[cfg(target_arch = "wasm32")] {
-                    let winsys = "HTML Canvas";
-                } else if #[cfg(any(
-                    target_os = "linux",
-                    target_os = "dragonfly",
-                    target_os = "freebsd",
-                    target_os = "netbsd",
-                    target_os = "openbsd"
-                ))] {
-                    use winit::platform::unix::WindowExtUnix;
-                    let mut winsys = "unknown";
+        cfg_if::cfg_if! {
+            if #[cfg(target_arch = "wasm32")] {
+                let winsys = "HTML Canvas";
+            } else if #[cfg(any(
+                target_os = "linux",
+                target_os = "dragonfly",
+                target_os = "freebsd",
+                target_os = "netbsd",
+                target_os = "openbsd"
+            ))] {
+                use winit::platform::unix::WindowExtUnix;
+                let mut winsys = "unknown";
 
-                    #[cfg(feature = "x11")]
-                    if platform_window.xlib_window().is_some() {
-                        winsys = "x11";
-                    }
-
-                    #[cfg(feature = "wayland")]
-                    if platform_window.wayland_surface().is_some() {
-                        winsys = "wayland"
-                    }
-                } else if #[cfg(target_os = "windows")] {
-                    let winsys = "windows";
-                } else if #[cfg(target_os = "macos")] {
-                    let winsys = "macos";
-                } else {
-                    let winsys = "unknown";
+                #[cfg(feature = "x11")]
+                if platform_window.xlib_window().is_some() {
+                    winsys = "x11";
                 }
-            }
 
-            collector.start(&format!("GL backend (windowing system: {})", winsys));
+                #[cfg(feature = "wayland")]
+                if platform_window.wayland_surface().is_some() {
+                    winsys = "wayland"
+                }
+            } else if #[cfg(target_os = "windows")] {
+                let winsys = "windows";
+            } else if #[cfg(target_os = "macos")] {
+                let winsys = "macos";
+            } else {
+                let winsys = "unknown";
+            }
         }
+
+        let rendering_metrics_collector = RenderingMetricsCollector::new(
+            self.self_weak.clone(),
+            &format!("GL backend (windowing system: {})", winsys),
+        );
 
         let clipboard = create_clipboard(&platform_window);
 
@@ -531,6 +529,7 @@ impl PlatformWindow for GLWindow {
             clear_color: RgbaColor { red: 255_u8, green: 255, blue: 255, alpha: 255 }.into(),
             constraints: Default::default(),
             clipboard: RefCell::new(clipboard),
+            rendering_metrics_collector,
         }));
 
         crate::event_loop::register_window(id, self);
@@ -841,6 +840,7 @@ struct MappedWindow {
     clear_color: Color,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
     clipboard: RefCell<Box<dyn copypasta::ClipboardProvider>>,
+    rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
 }
 
 impl Drop for MappedWindow {

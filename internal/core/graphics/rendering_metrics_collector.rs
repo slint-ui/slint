@@ -69,7 +69,10 @@ impl RenderingMetricsCollector {
     ///     * `refresh_full_speed`: frames are continuously rendered
     ///     * `console`: the measurement is printed to the console
     ///     * `overlay`: the measurement is drawn as overlay on top of the scene
-    pub fn new(window: Weak<crate::window::Window>) -> Option<Rc<Self>> {
+    ///
+    /// If enabled, this will also print out some system information such as whether
+    /// this is a debug or release build, as well as the provided winsys_info string.
+    pub fn new(window: Weak<crate::window::Window>, winsys_info: &str) -> Option<Rc<Self>> {
         let options = match std::env::var("SLINT_DEBUG_PERFORMANCE") {
             Ok(var) => var,
             _ => return None,
@@ -92,19 +95,15 @@ impl RenderingMetricsCollector {
             return None;
         }
 
-        Some(Rc::new(Self {
+        let collector = Rc::new(Self {
             collected_frame_data_since_second_ago: Default::default(),
             update_timer: Default::default(),
             refresh_mode,
             output_console,
             output_overlay,
             window,
-        }))
-    }
+        });
 
-    /// Call this function if you want to start measurements. This will also print out some system information such as whether
-    /// this is a debug or release build, as well as the provided winsys_info string.
-    pub fn start(self: &Rc<Self>, winsys_info: &str) {
         #[cfg(debug_assertions)]
         let build_config = "debug";
         #[cfg(not(debug_assertions))]
@@ -112,35 +111,41 @@ impl RenderingMetricsCollector {
 
         eprintln!("Slint: Build config: {}; Backend: {}", build_config, winsys_info);
 
-        let self_weak = Rc::downgrade(self);
-        self.update_timer.stop();
-        self.update_timer.start(TimerMode::Repeated, std::time::Duration::from_secs(1), move || {
-            let this = match self_weak.upgrade() {
-                Some(this) => this,
-                None => return,
-            };
-            this.trim_frame_data_to_second_boundary();
+        let self_weak = Rc::downgrade(&collector);
+        collector.update_timer.stop();
+        collector.update_timer.start(
+            TimerMode::Repeated,
+            std::time::Duration::from_secs(1),
+            move || {
+                let this = match self_weak.upgrade() {
+                    Some(this) => this,
+                    None => return,
+                };
+                this.trim_frame_data_to_second_boundary();
 
-            let mut last_frame_details = String::new();
-            if let Some(last_frame_data) =
-                this.collected_frame_data_since_second_ago.borrow().last()
-            {
-                use core::fmt::Write;
-                if write!(&mut last_frame_details, "{}", last_frame_data.metrics).is_ok()
-                    && !last_frame_details.is_empty()
+                let mut last_frame_details = String::new();
+                if let Some(last_frame_data) =
+                    this.collected_frame_data_since_second_ago.borrow().last()
                 {
-                    last_frame_details.insert_str(0, "details from last frame: ");
+                    use core::fmt::Write;
+                    if write!(&mut last_frame_details, "{}", last_frame_data.metrics).is_ok()
+                        && !last_frame_details.is_empty()
+                    {
+                        last_frame_details.insert_str(0, "details from last frame: ");
+                    }
                 }
-            }
 
-            if this.output_console {
-                eprintln!(
-                    "average frames per second: {} {}",
-                    this.collected_frame_data_since_second_ago.borrow().len(),
-                    last_frame_details
-                );
-            }
-        })
+                if this.output_console {
+                    eprintln!(
+                        "average frames per second: {} {}",
+                        this.collected_frame_data_since_second_ago.borrow().len(),
+                        last_frame_details
+                    );
+                }
+            },
+        );
+
+        Some(collector)
     }
 
     fn trim_frame_data_to_second_boundary(self: &Rc<Self>) {
