@@ -11,7 +11,7 @@ use self::itemrenderer::CanvasRc;
 
 pub mod fonts;
 mod images;
-pub mod itemrenderer;
+mod itemrenderer;
 
 pub struct FemtoVGRenderer {
     canvas: CanvasRc,
