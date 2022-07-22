@@ -694,12 +694,6 @@ impl TextInput {
         anchor_pos != cursor_pos
     }
 
-    fn with_selected_text<T>(self: Pin<&Self>, cb: impl FnOnce(&str) -> T) -> T {
-        let (anchor, cursor) = self.selection_anchor_and_cursor();
-        let text: String = self.text().into();
-        cb(&text[anchor..cursor])
-    }
-
     fn insert(self: Pin<&Self>, text_to_insert: &str, window: &WindowRc) {
         self.delete_selection(window);
         let mut text: String = self.text().into();
@@ -722,7 +716,12 @@ impl TextInput {
     }
 
     fn copy(self: Pin<&Self>, window: &WindowRc) {
-        self.with_selected_text(|text| window.set_clipboard_text(text));
+        let (anchor, cursor) = self.selection_anchor_and_cursor();
+        if anchor == cursor {
+            return;
+        }
+        let text = self.text();
+        window.set_clipboard_text(&text[anchor..cursor]);
     }
 
     fn paste(self: Pin<&Self>, window: &WindowRc) {
