@@ -23,7 +23,7 @@ use winit::event::WindowEvent;
 use winit::platform::run_return::EventLoopExtRunReturn;
 
 pub trait WinitWindow: PlatformWindow {
-    fn runtime_window(&self) -> Rc<corelib::window::Window>;
+    fn runtime_window(&self) -> Rc<corelib::window::WindowInner>;
     fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>>;
     fn current_keyboard_modifiers(&self) -> &Cell<KeyboardModifiers>;
     fn draw(self: Rc<Self>);

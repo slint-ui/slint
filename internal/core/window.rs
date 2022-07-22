@@ -68,7 +68,7 @@ pub trait PlatformWindow {
     ///
     /// If this function return None (the default implementation), then the
     /// popup will be rendered within the window itself.
-    fn create_popup(&self, _geometry: Rect) -> Option<Rc<Window>> {
+    fn create_popup(&self, _geometry: Rect) -> Option<Rc<WindowInner>> {
         None
     }
 
@@ -157,7 +157,7 @@ pub trait PlatformWindow {
 }
 
 struct WindowPropertiesTracker {
-    window_weak: Weak<Window>,
+    window_weak: Weak<WindowInner>,
 }
 
 impl crate::properties::PropertyDirtyHandler for WindowPropertiesTracker {
@@ -171,7 +171,7 @@ impl crate::properties::PropertyDirtyHandler for WindowPropertiesTracker {
 }
 
 struct WindowRedrawTracker {
-    window_weak: Weak<Window>,
+    window_weak: Weak<WindowInner>,
 }
 
 impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
@@ -187,7 +187,7 @@ impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
 /// This enum describes the different ways a popup can be rendered by the back-end.
 pub enum PopupWindowLocation {
     /// The popup is rendered in its own top-level window that is know to the windowing system.
-    TopLevel(Rc<Window>),
+    TopLevel(Rc<WindowInner>),
     /// The popup is rendered as an embedded child window at the given position.
     ChildWindow(Point),
 }
@@ -201,8 +201,8 @@ pub struct PopupWindow {
     pub component: ComponentRc,
 }
 
-/// Structure that represent a Window in the runtime
-pub struct Window {
+/// Inner datastructure for the [`crate::api::Window`]
+pub struct WindowInner {
     /// FIXME! use Box instead;
     platform_window: once_cell::unsync::OnceCell<Rc<dyn PlatformWindow>>,
     component: RefCell<ComponentWeak>,
@@ -222,7 +222,7 @@ pub struct Window {
     close_requested: Callback<(), CloseRequestResponse>,
 }
 
-impl Drop for Window {
+impl Drop for WindowInner {
     fn drop(&mut self) {
         if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
             existing_blinker.stop();
@@ -230,10 +230,10 @@ impl Drop for Window {
     }
 }
 
-impl Window {
+impl WindowInner {
     /// Create a new instance of the window, given the platform_window factory fn
     pub fn new(
-        platform_window_fn: impl FnOnce(&Weak<Window>) -> Rc<dyn PlatformWindow>,
+        platform_window_fn: impl FnOnce(&Weak<WindowInner>) -> Rc<dyn PlatformWindow>,
     ) -> Rc<Self> {
         #![allow(unused_mut)]
         let window = Rc::new(Self {
@@ -729,7 +729,7 @@ impl Window {
     }
 }
 
-impl core::ops::Deref for Window {
+impl core::ops::Deref for WindowInner {
     type Target = dyn PlatformWindow;
 
     fn deref(&self) -> &Self::Target {
@@ -740,12 +740,12 @@ impl core::ops::Deref for Window {
 /// Internal trait used by generated code to access window internals.
 pub trait WindowHandleAccess {
     /// Returns a reference to the window implementation.
-    fn window_handle(&self) -> &Rc<Window>;
+    fn window_handle(&self) -> &Rc<WindowInner>;
 }
 
 /// Internal alias for Rc<Window> so that it can be used in the vtable
 /// functions and generate a good signature.
-pub type WindowRc = Rc<Window>;
+pub type WindowRc = Rc<WindowInner>;
 
 /// This module contains the functions needed to interface with the event loop and window traits
 /// from outside the Rust language.

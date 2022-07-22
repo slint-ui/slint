@@ -125,14 +125,14 @@ mod the_backend {
     use i_slint_core::graphics::{Color, Point, Rect, Size};
     use i_slint_core::items::ItemRef;
     use i_slint_core::window::PlatformWindow;
-    use i_slint_core::window::Window;
+    use i_slint_core::window::WindowInner;
     use i_slint_core::Coord;
 
     thread_local! { static WINDOWS: RefCell<Option<Rc<McuWindow>>> = RefCell::new(None) }
 
     pub struct McuWindow {
         backend: &'static MCUBackend,
-        self_weak: Weak<Window>,
+        self_weak: Weak<WindowInner>,
         background_color: Cell<Color>,
         initial_dirty_region_for_next_frame: Cell<i_slint_core::item_rendering::DirtyRegion>,
     }
@@ -409,8 +409,8 @@ mod the_backend {
     }
 
     impl i_slint_core::backend::Backend for MCUBackend {
-        fn create_window(&'static self) -> Rc<i_slint_core::window::Window> {
-            i_slint_core::window::Window::new(|window| {
+        fn create_window(&'static self) -> Rc<i_slint_core::window::WindowInner> {
+            i_slint_core::window::WindowInner::new(|window| {
                 Rc::new(McuWindow {
                     backend: self,
                     self_weak: window.clone(),

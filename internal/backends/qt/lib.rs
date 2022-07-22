@@ -9,7 +9,7 @@
 
 extern crate alloc;
 
-use i_slint_core::window::Window;
+use i_slint_core::window::WindowInner;
 
 #[cfg(not(no_qt))]
 mod qt_accessible;
@@ -137,12 +137,12 @@ pub fn native_style_metrics_deinit(_: core::pin::Pin<&mut native_widgets::Native
 
 pub struct Backend;
 impl i_slint_core::backend::Backend for Backend {
-    fn create_window(&'static self) -> std::rc::Rc<Window> {
+    fn create_window(&'static self) -> std::rc::Rc<WindowInner> {
         #[cfg(no_qt)]
         panic!("The Qt backend needs Qt");
         #[cfg(not(no_qt))]
         {
-            i_slint_core::window::Window::new(|window| qt_window::QtWindow::new(window))
+            i_slint_core::window::WindowInner::new(|window| qt_window::QtWindow::new(window))
         }
     }
 

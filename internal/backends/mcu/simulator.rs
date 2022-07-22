@@ -14,7 +14,7 @@ use i_slint_core::input::KeyboardModifiers;
 use i_slint_core::item_rendering::DirtyRegion;
 use i_slint_core::items::{Item, ItemRef, WindowItem};
 use i_slint_core::layout::Orientation;
-use i_slint_core::window::{PlatformWindow, Window};
+use i_slint_core::window::{PlatformWindow, WindowInner};
 use i_slint_core::{Color, Coord};
 use rgb::FromSlice;
 
@@ -30,7 +30,7 @@ mod glcontext;
 use glcontext::*;
 
 pub struct SimulatorWindow {
-    self_weak: Weak<i_slint_core::window::Window>,
+    self_weak: Weak<i_slint_core::window::WindowInner>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
     canvas: CanvasRc,
@@ -43,7 +43,7 @@ pub struct SimulatorWindow {
 }
 
 impl SimulatorWindow {
-    pub(crate) fn new(window_weak: &Weak<i_slint_core::window::Window>) -> Rc<Self> {
+    pub(crate) fn new(window_weak: &Weak<i_slint_core::window::WindowInner>) -> Rc<Self> {
         let window_builder = winit::window::WindowBuilder::new().with_visible(false);
 
         let opengl_context = OpenGLContext::new_context(window_builder);
@@ -257,7 +257,7 @@ impl PlatformWindow for SimulatorWindow {
 }
 
 impl WinitWindow for SimulatorWindow {
-    fn runtime_window(&self) -> Rc<i_slint_core::window::Window> {
+    fn runtime_window(&self) -> Rc<i_slint_core::window::WindowInner> {
         self.self_weak.upgrade().unwrap()
     }
 
@@ -402,8 +402,8 @@ impl WinitWindow for SimulatorWindow {
 pub struct SimulatorBackend;
 
 impl i_slint_core::backend::Backend for SimulatorBackend {
-    fn create_window(&'static self) -> Rc<Window> {
-        i_slint_core::window::Window::new(|window| SimulatorWindow::new(window))
+    fn create_window(&'static self) -> Rc<WindowInner> {
+        i_slint_core::window::WindowInner::new(|window| SimulatorWindow::new(window))
     }
 
     fn run_event_loop(&'static self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {

@@ -59,7 +59,7 @@ pub struct RenderingMetricsCollector {
     refresh_mode: RefreshMode,
     output_console: bool,
     output_overlay: bool,
-    window: Weak<crate::window::Window>,
+    window: Weak<crate::window::WindowInner>,
 }
 
 impl RenderingMetricsCollector {
@@ -72,7 +72,7 @@ impl RenderingMetricsCollector {
     ///
     /// If enabled, this will also print out some system information such as whether
     /// this is a debug or release build, as well as the provided winsys_info string.
-    pub fn new(window: Weak<crate::window::Window>, winsys_info: &str) -> Option<Rc<Self>> {
+    pub fn new(window: Weak<crate::window::WindowInner>, winsys_info: &str) -> Option<Rc<Self>> {
         let options = match std::env::var("SLINT_DEBUG_PERFORMANCE") {
             Ok(var) => var,
             _ => return None,

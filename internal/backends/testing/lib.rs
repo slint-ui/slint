@@ -7,7 +7,7 @@
 use i_slint_core::api::euclid;
 use i_slint_core::api::PhysicalPx;
 use i_slint_core::graphics::{Point, Rect, Size};
-use i_slint_core::window::{PlatformWindow, Window};
+use i_slint_core::window::{PlatformWindow, WindowInner};
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Mutex;
@@ -18,8 +18,8 @@ pub struct TestingBackend {
 }
 
 impl i_slint_core::backend::Backend for TestingBackend {
-    fn create_window(&'static self) -> Rc<Window> {
-        Window::new(|_| Rc::new(TestingWindow { backend: self }))
+    fn create_window(&'static self) -> Rc<WindowInner> {
+        WindowInner::new(|_| Rc::new(TestingWindow { backend: self }))
     }
 
     fn run_event_loop(&'static self, _behavior: i_slint_core::backend::EventLoopQuitBehavior) {
