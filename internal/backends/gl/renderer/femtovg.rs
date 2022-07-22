@@ -1,7 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use std::{cell::RefCell, pin::Pin, rc::Rc};
+use std::{
+    cell::RefCell,
+    pin::Pin,
+    rc::{Rc, Weak},
+};
 
 use i_slint_core::{
     api::euclid,
@@ -9,8 +13,6 @@ use i_slint_core::{
     Coord,
 };
 use i_slint_core::{component::ComponentRc, items::ItemRef};
-
-use crate::glwindow::GLWindow;
 
 use self::itemrenderer::CanvasRc;
 
@@ -20,19 +22,28 @@ mod itemrenderer;
 
 const PASSWORD_CHARACTER: &str = "●";
 
-#[derive(Default)]
-pub struct FemtoVGRenderer {}
+pub struct FemtoVGRenderer {
+    window_weak: Weak<i_slint_core::window::WindowInner>,
+}
 
 impl FemtoVGRenderer {
+    pub fn new(window_weak: &Weak<i_slint_core::window::WindowInner>) -> Self {
+        Self { window_weak: window_weak.clone() }
+    }
+
     pub fn render(
         &self,
         canvas: &FemtoVGCanvas,
         width: u32,
         height: u32,
         scale_factor: f32,
-        window: &Rc<GLWindow>,
         render_callback: &mut dyn FnMut(&mut dyn i_slint_core::item_rendering::ItemRenderer),
     ) {
+        let window = match self.window_weak.upgrade() {
+            Some(window) => window,
+            None => return,
+        };
+
         {
             let mut canvas = canvas.canvas.as_ref().borrow_mut();
             // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
@@ -41,9 +52,7 @@ impl FemtoVGRenderer {
             canvas.set_size(width, height, 1.0);
 
             {
-                use crate::event_loop::WinitWindow;
-                let runtime_window = window.runtime_window();
-                let component_rc = runtime_window.component();
+                let component_rc = window.component();
                 let component = ComponentRc::borrow_pin(&component_rc);
                 let root_item = component.as_ref().get_item_ref(0);
 
@@ -83,19 +92,31 @@ impl FemtoVGRenderer {
     pub fn text_size(
         &self,
         font_request: i_slint_core::graphics::FontRequest,
-        scale_factor: f32,
         text: &str,
         max_width: Option<Coord>,
     ) -> Size {
-        crate::renderer::femtovg::fonts::text_size(&font_request, scale_factor, text, max_width)
+        let window = match self.window_weak.upgrade() {
+            Some(window) => window,
+            None => return Default::default(),
+        };
+        crate::renderer::femtovg::fonts::text_size(
+            &font_request,
+            window.scale_factor(),
+            text,
+            max_width,
+        )
     }
 
     pub fn text_input_byte_offset_for_position(
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
         pos: Point,
-        window: &Rc<i_slint_core::window::WindowInner>,
     ) -> usize {
+        let window = match self.window_weak.upgrade() {
+            Some(window) => window,
+            None => return 0,
+        };
+
         let scale_factor = window.scale_factor();
         let pos = pos * scale_factor;
         let text = text_input.text();
@@ -110,7 +131,7 @@ impl FemtoVGRenderer {
 
         let font = crate::renderer::femtovg::fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text_input.font_request(window),
+                text_input.font_request(&window),
                 scale_factor,
                 &text_input.text(),
             )
@@ -167,13 +188,17 @@ impl FemtoVGRenderer {
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
-        window: &Rc<i_slint_core::window::WindowInner>,
     ) -> Rect {
+        let window = match self.window_weak.upgrade() {
+            Some(window) => window,
+            None => return Default::default(),
+        };
+
         let text = text_input.text();
         let scale_factor = window.scale_factor();
 
         let font_size =
-            text_input.font_request(window).pixel_size.unwrap_or(fonts::DEFAULT_FONT_SIZE);
+            text_input.font_request(&window).pixel_size.unwrap_or(fonts::DEFAULT_FONT_SIZE);
 
         let mut result = Point::default();
 
@@ -185,7 +210,7 @@ impl FemtoVGRenderer {
 
         let font = crate::renderer::femtovg::fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text_input.font_request(window),
+                text_input.font_request(&window),
                 scale_factor,
                 &text_input.text(),
             )
