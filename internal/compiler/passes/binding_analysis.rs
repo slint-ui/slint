@@ -166,8 +166,12 @@ fn analyse_binding(
     if context.currently_analyzing.back().map_or(false, |r| r == current)
         && !element.borrow().bindings[name].borrow().two_way_bindings.is_empty()
     {
-        // This is already reported as an error by the remove_alias pass.
-        // FIXME: maybe we should report it there instead
+        let span = element.borrow().bindings[name]
+            .borrow()
+            .span
+            .clone()
+            .or_else(|| element.borrow().node.as_ref().map(|n| n.to_source_location()));
+        diag.push_error(format!("Property '{name}' cannot refer to itself"), &span);
         return depends_on_external;
     }
 
