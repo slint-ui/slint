@@ -16,7 +16,6 @@ use corelib::api::{
     GraphicsAPI, PhysicalPx, RenderingNotifier, RenderingState, SetRenderingNotifierError,
 };
 use corelib::component::ComponentRc;
-use corelib::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};
 use corelib::layout::Orientation;
@@ -182,10 +181,6 @@ impl WinitWindow for GLWindow {
                         );
                     }
                 });
-
-                if let Some(collector) = &window.rendering_metrics_collector {
-                    collector.measure_frame_rendered(item_renderer);
-                }
             },
         );
 
@@ -457,42 +452,6 @@ impl PlatformWindow for GLWindow {
         );
         let id = platform_window.id();
 
-        cfg_if::cfg_if! {
-            if #[cfg(target_arch = "wasm32")] {
-                let winsys = "HTML Canvas";
-            } else if #[cfg(any(
-                target_os = "linux",
-                target_os = "dragonfly",
-                target_os = "freebsd",
-                target_os = "netbsd",
-                target_os = "openbsd"
-            ))] {
-                use winit::platform::unix::WindowExtUnix;
-                let mut winsys = "unknown";
-
-                #[cfg(feature = "x11")]
-                if platform_window.xlib_window().is_some() {
-                    winsys = "x11";
-                }
-
-                #[cfg(feature = "wayland")]
-                if platform_window.wayland_surface().is_some() {
-                    winsys = "wayland"
-                }
-            } else if #[cfg(target_os = "windows")] {
-                let winsys = "windows";
-            } else if #[cfg(target_os = "macos")] {
-                let winsys = "macos";
-            } else {
-                let winsys = "unknown";
-            }
-        }
-
-        let rendering_metrics_collector = RenderingMetricsCollector::new(
-            self.self_weak.clone(),
-            &format!("GL backend (windowing system: {})", winsys),
-        );
-
         let clipboard = create_clipboard(&platform_window);
 
         drop(platform_window);
@@ -502,7 +461,6 @@ impl PlatformWindow for GLWindow {
             opengl_context,
             constraints: Default::default(),
             clipboard: RefCell::new(clipboard),
-            rendering_metrics_collector,
         }));
 
         crate::event_loop::register_window(id, self);
@@ -691,7 +649,6 @@ struct MappedWindow {
     opengl_context: crate::OpenGLContext,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
     clipboard: RefCell<Box<dyn copypasta::ClipboardProvider>>,
-    rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
 }
 
 impl Drop for MappedWindow {

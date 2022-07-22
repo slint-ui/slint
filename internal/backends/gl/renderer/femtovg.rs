@@ -9,6 +9,7 @@ use std::{
 
 use i_slint_core::{
     api::euclid,
+    graphics::rendering_metrics_collector::RenderingMetricsCollector,
     graphics::{Point, Rect, Size},
     Coord,
 };
@@ -36,8 +37,46 @@ impl FemtoVGRenderer {
         &self,
         gl_context: &glutin::WindowedContext<glutin::PossiblyCurrent>,
     ) -> FemtoVGCanvas {
+        let _platform_window = gl_context.window();
+
+        cfg_if::cfg_if! {
+            if #[cfg(target_arch = "wasm32")] {
+                let winsys = "HTML Canvas";
+            } else if #[cfg(any(
+                target_os = "linux",
+                target_os = "dragonfly",
+                target_os = "freebsd",
+                target_os = "netbsd",
+                target_os = "openbsd"
+            ))] {
+                use winit::platform::unix::WindowExtUnix;
+                let mut winsys = "unknown";
+
+                #[cfg(feature = "x11")]
+                if _platform_window.xlib_window().is_some() {
+                    winsys = "x11";
+                }
+
+                #[cfg(feature = "wayland")]
+                if _platform_window.wayland_surface().is_some() {
+                    winsys = "wayland"
+                }
+            } else if #[cfg(target_os = "windows")] {
+                let winsys = "windows";
+            } else if #[cfg(target_os = "macos")] {
+                let winsys = "macos";
+            } else {
+                let winsys = "unknown";
+            }
+        }
+
+        let rendering_metrics_collector = RenderingMetricsCollector::new(
+            self.window_weak.clone(),
+            &format!("GL backend (windowing system: {})", winsys),
+        );
+
         let gl_renderer = femtovg::renderer::OpenGl::new_from_glutin_context(gl_context).unwrap();
-        self.create_canvas_from_gl_renderer(gl_renderer)
+        self.create_canvas_from_gl_renderer(gl_renderer, rendering_metrics_collector)
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -66,12 +105,13 @@ impl FemtoVGRenderer {
                 panic!("Cannot proceed without WebGL - aborting")
             }
         };
-        self.create_canvas_from_gl_renderer(gl_renderer)
+        self.create_canvas_from_gl_renderer(gl_renderer, None)
     }
 
     fn create_canvas_from_gl_renderer(
         &self,
         gl_renderer: femtovg::renderer::OpenGl,
+        rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
     ) -> FemtoVGCanvas {
         let canvas = femtovg::Canvas::new_with_text_context(
             gl_renderer,
@@ -83,6 +123,7 @@ impl FemtoVGRenderer {
             canvas,
             graphics_cache: Default::default(),
             texture_cache: Default::default(),
+            rendering_metrics_collector,
         }
     }
 
@@ -134,6 +175,10 @@ impl FemtoVGRenderer {
             self::itemrenderer::GLItemRenderer::new(canvas, &window, width, height);
 
         render_callback(&mut item_renderer);
+
+        if let Some(collector) = &canvas.rendering_metrics_collector {
+            collector.measure_frame_rendered(&mut item_renderer);
+        }
 
         canvas.canvas.borrow_mut().flush();
 
@@ -315,6 +360,7 @@ pub struct FemtoVGCanvas {
     canvas: CanvasRc,
     graphics_cache: itemrenderer::ItemGraphicsCache,
     texture_cache: RefCell<images::TextureCache>,
+    rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
 }
 
 impl FemtoVGCanvas {
