@@ -49,18 +49,18 @@ import slint_init, * as slint from "../../../wasm-interpreter/slint_wasm_interpr
     /// Index by url. Inline documents will use the empty string.
     var editor_documents: Map<string, ModelAndViewState> = new Map;
 
-    let hello_world = `
-import { SpinBox, Button, CheckBox, Slider, GroupBox } from "std-widgets.slint";
+    let hello_world = `import { VerticalBox } from "std-widgets.slint";
 export Demo := Window {
-    width:  300px;   // Width in logical pixels. All 'px' units are automatically scaled with screen resolution.
-    height: 300px;
-    t:= Text {
-        text: "Hello World";
-        font-size: 24px;
-    }
-    Image {
-        y: 50px;
-        source: @image-url("https://slint-ui.com/logo/slint-logo-full-light.svg");
+    VerticalBox {
+        Text {
+            text: "Hello World!";
+            font-size: 24px;
+        }
+        Image {
+            source: @image-url("https://slint-ui.com/logo/slint-logo-full-light.svg");
+            height: 100px;
+        }
+        Button { text: "OK!"; }
     }
 }
 `
