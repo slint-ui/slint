@@ -1205,7 +1205,7 @@ pub struct QtWindow {
     widget_ptr: QWidgetPtr,
     pub(crate) self_weak: Weak<i_slint_core::window::Window>,
 
-    rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
+    rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
 
     cache: ItemCache<qttypes::QPixmap>,
 
@@ -1227,7 +1227,7 @@ impl QtWindow {
         let rc = Rc::new(QtWindow {
             widget_ptr,
             self_weak: window_weak.clone(),
-            rendering_metrics_collector: RenderingMetricsCollector::new(window_weak.clone()),
+            rendering_metrics_collector: Default::default(),
             cache: Default::default(),
             tree_structure_changed: RefCell::new(false),
         });
@@ -1266,7 +1266,7 @@ impl QtWindow {
                 );
             }
 
-            if let Some(collector) = &self.rendering_metrics_collector {
+            if let Some(collector) = &*self.rendering_metrics_collector.borrow() {
                 collector.measure_frame_rendered(&mut renderer);
             }
 
@@ -1358,15 +1358,17 @@ impl PlatformWindow for QtWindow {
         cpp! {unsafe [widget_ptr as "QWidget*"] {
             widget_ptr->show();
         }};
-        if let Some(collector) = &self.rendering_metrics_collector {
-            let qt_platform_name = cpp! {unsafe [] -> qttypes::QString as "QString" {
-                return QGuiApplication::platformName();
-            }};
-            collector.start(&format!("Qt backend (platform {})", qt_platform_name));
-        }
+        let qt_platform_name = cpp! {unsafe [] -> qttypes::QString as "QString" {
+            return QGuiApplication::platformName();
+        }};
+        *self.rendering_metrics_collector.borrow_mut() = RenderingMetricsCollector::new(
+            self.self_weak.clone(),
+            &format!("Qt backend (platform {})", qt_platform_name),
+        );
     }
 
     fn hide(self: Rc<Self>) {
+        self.rendering_metrics_collector.take();
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*"] {
             widget_ptr->hide();
