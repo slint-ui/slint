@@ -19,8 +19,9 @@ use i_slint_core::{Brush, Color, ImageInner, Property, SharedString};
 
 use super::fonts;
 use super::images::{Texture, TextureCacheKey};
+use super::PASSWORD_CHARACTER;
 use crate::event_loop::WinitWindow;
-use crate::glwindow::{GLWindow, PASSWORD_CHARACTER};
+use crate::glwindow::GLWindow;
 
 pub type Canvas = femtovg::Canvas<femtovg::renderer::OpenGl>;
 pub type CanvasRc = Rc<RefCell<Canvas>>;
@@ -868,16 +869,16 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
 impl<'a> GLItemRenderer<'a> {
     pub fn new(
-        renderer: &'a super::FemtoVGRenderer,
+        canvas: &'a super::FemtoVGCanvas,
         graphics_window: &'a GLWindow,
         scale_factor: f32,
         width: u32,
         height: u32,
     ) -> Self {
         Self {
-            graphics_cache: &renderer.graphics_cache,
-            texture_cache: &renderer.texture_cache,
-            canvas: renderer.canvas.clone(),
+            graphics_cache: &canvas.graphics_cache,
+            texture_cache: &canvas.texture_cache,
+            canvas: canvas.canvas.clone(),
             layer_images_to_delete_after_flush: Default::default(),
             graphics_window,
             scale_factor,

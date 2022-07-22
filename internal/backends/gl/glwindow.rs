@@ -26,8 +26,6 @@ use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
 use winit::dpi::LogicalSize;
 
-pub const PASSWORD_CHARACTER: &str = "●";
-
 /// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
 pub struct GLWindow {
@@ -38,6 +36,8 @@ pub struct GLWindow {
     existing_size: Cell<winit::dpi::LogicalSize<f32>>,
 
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
+
+    femtovg_renderer: crate::renderer::femtovg::FemtoVGRenderer,
 
     #[cfg(target_arch = "wasm32")]
     canvas_id: String,
@@ -67,6 +67,7 @@ impl GLWindow {
             currently_pressed_key_code: Default::default(),
             existing_size: Default::default(),
             rendering_notifier: Default::default(),
+            femtovg_renderer: Default::default(),
             #[cfg(target_arch = "wasm32")]
             canvas_id,
             #[cfg(target_arch = "wasm32")]
@@ -106,7 +107,7 @@ impl GLWindow {
     fn release_graphics_resources(&self) {
         // Release GL textures and other GPU bound resources.
         self.with_current_context(|mapped_window, context| {
-            mapped_window.femtovg_renderer.release_graphics_resources();
+            mapped_window.femtovg_canvas.release_graphics_resources();
 
             self.invoke_rendering_notifier(RenderingState::RenderingTeardown, context);
         });
@@ -163,7 +164,8 @@ impl WinitWindow for GLWindow {
             window.opengl_context.make_current();
             window.opengl_context.ensure_resized();
 
-            window.femtovg_renderer.render(
+            self.femtovg_renderer.render(
+                &window.femtovg_canvas,
                 size.width,
                 size.height,
                 scale_factor,
@@ -296,7 +298,7 @@ impl PlatformWindow for GLWindow {
             GraphicsWindowBackendState::Unmapped { .. } => {}
             GraphicsWindowBackendState::Mapped(_) => {
                 self.with_current_context(|mapped_window, _| {
-                    mapped_window.femtovg_renderer.component_destroyed(component)
+                    mapped_window.femtovg_canvas.component_destroyed(component)
                 });
             }
         }
@@ -439,12 +441,12 @@ impl PlatformWindow for GLWindow {
         let opengl_context = crate::OpenGLContext::new_context(window_builder);
 
         #[cfg(not(target_arch = "wasm32"))]
-        let femtovg_renderer = crate::renderer::femtovg::FemtoVGRenderer::new_from_glutin_context(
+        let femtovg_canvas = crate::renderer::femtovg::FemtoVGCanvas::new_from_glutin_context(
             &opengl_context.glutin_context(),
         );
 
         #[cfg(target_arch = "wasm32")]
-        let femtovg_renderer = crate::renderer::femtovg::FemtoVGRenderer::new_from_html_canvas(
+        let femtovg_canvas = crate::renderer::femtovg::FemtoVGCanvas::new_from_html_canvas(
             &opengl_context.html_canvas_element(),
         );
 
@@ -500,7 +502,7 @@ impl PlatformWindow for GLWindow {
         drop(platform_window);
 
         self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
-            femtovg_renderer,
+            femtovg_canvas,
             opengl_context,
             constraints: Default::default(),
             clipboard: RefCell::new(clipboard),
@@ -572,8 +574,8 @@ impl PlatformWindow for GLWindow {
         text: &str,
         max_width: Option<Coord>,
     ) -> Size {
-        crate::renderer::femtovg::fonts::text_size(
-            &font_request,
+        self.femtovg_renderer.text_size(
+            font_request,
             self.self_weak.upgrade().unwrap().scale_factor(),
             text,
             max_width,
@@ -585,72 +587,11 @@ impl PlatformWindow for GLWindow {
         text_input: Pin<&i_slint_core::items::TextInput>,
         pos: Point,
     ) -> usize {
-        let scale_factor = self.self_weak.upgrade().unwrap().scale_factor();
-        let pos = pos * scale_factor;
-        let text = text_input.text();
-
-        let mut result = text.len();
-
-        let width = text_input.width() * scale_factor;
-        let height = text_input.height() * scale_factor;
-        if width <= 0. || height <= 0. || pos.y < 0. {
-            return 0;
-        }
-
-        let window = self.self_weak.upgrade().unwrap();
-
-        let font = crate::renderer::femtovg::fonts::FONT_CACHE.with(|cache| {
-            cache.borrow_mut().font(
-                text_input.font_request(&window),
-                scale_factor,
-                &text_input.text(),
-            )
-        });
-
-        let is_password = matches!(text_input.input_type(), corelib::items::InputType::Password);
-        let password_string;
-        let actual_text = if is_password {
-            password_string = PASSWORD_CHARACTER.repeat(text.chars().count());
-            password_string.as_str()
-        } else {
-            text.as_str()
-        };
-
-        let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
-        let text_context = crate::renderer::femtovg::fonts::FONT_CACHE
-            .with(|cache| cache.borrow().text_context.clone());
-        let font_height = text_context.measure_font(paint).unwrap().height();
-        crate::renderer::femtovg::fonts::layout_text_lines(
-            actual_text,
-            &font,
-            Size::new(width, height),
-            (text_input.horizontal_alignment(), text_input.vertical_alignment()),
-            text_input.wrap(),
-            i_slint_core::items::TextOverflow::Clip,
-            text_input.single_line(),
-            paint,
-            |line_text, line_pos, start, metrics| {
-                if (line_pos.y..(line_pos.y + font_height)).contains(&pos.y) {
-                    let mut current_x = 0.;
-                    for glyph in &metrics.glyphs {
-                        if line_pos.x + current_x + glyph.advance_x / 2. >= pos.x {
-                            result = start + glyph.byte_index;
-                            return;
-                        }
-                        current_x += glyph.advance_x;
-                    }
-                    result = start + line_text.trim_end().len();
-                }
-            },
-        );
-
-        if is_password {
-            text.char_indices()
-                .nth(result / PASSWORD_CHARACTER.len())
-                .map_or(text.len(), |(r, _)| r)
-        } else {
-            result
-        }
+        self.femtovg_renderer.text_input_byte_offset_for_position(
+            text_input,
+            pos,
+            &self.self_weak.upgrade().unwrap(),
+        )
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -658,56 +599,11 @@ impl PlatformWindow for GLWindow {
         text_input: Pin<&corelib::items::TextInput>,
         byte_offset: usize,
     ) -> Rect {
-        use crate::renderer::femtovg::fonts;
-        let scale_factor = self.self_weak.upgrade().unwrap().scale_factor();
-        let text = text_input.text();
-        let window = self.self_weak.upgrade().unwrap();
-
-        let font_size =
-            text_input.font_request(&window).pixel_size.unwrap_or(fonts::DEFAULT_FONT_SIZE);
-
-        let mut result = Point::default();
-
-        let width = text_input.width() * scale_factor;
-        let height = text_input.height() * scale_factor;
-        if width <= 0. || height <= 0. {
-            return Rect::new(result, Size::new(1.0, font_size));
-        }
-
-        let font = crate::renderer::femtovg::fonts::FONT_CACHE.with(|cache| {
-            cache.borrow_mut().font(
-                text_input.font_request(&window),
-                scale_factor,
-                &text_input.text(),
-            )
-        });
-
-        let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
-        fonts::layout_text_lines(
-            text.as_str(),
-            &font,
-            Size::new(width, height),
-            (text_input.horizontal_alignment(), text_input.vertical_alignment()),
-            text_input.wrap(),
-            i_slint_core::items::TextOverflow::Clip,
-            text_input.single_line(),
-            paint,
-            |line_text, line_pos, start, metrics| {
-                if (start..=(start + line_text.len())).contains(&byte_offset) {
-                    for glyph in &metrics.glyphs {
-                        if glyph.byte_index == (byte_offset - start) {
-                            result = line_pos + euclid::vec2(glyph.x, 0.0);
-                            return;
-                        }
-                    }
-                    if let Some(last) = metrics.glyphs.last() {
-                        result = line_pos + euclid::vec2(last.x + last.advance_x, last.y);
-                    }
-                }
-            },
-        );
-
-        Rect::new(result / scale_factor, Size::new(1.0, font_size))
+        self.femtovg_renderer.text_input_cursor_rect_for_byte_offset(
+            text_input,
+            byte_offset,
+            &self.self_weak.upgrade().unwrap(),
+        )
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -808,7 +704,7 @@ impl Drop for GLWindow {
 }
 
 struct MappedWindow {
-    femtovg_renderer: crate::renderer::femtovg::FemtoVGRenderer,
+    femtovg_canvas: crate::renderer::femtovg::FemtoVGCanvas,
     opengl_context: crate::OpenGLContext,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
     clipboard: RefCell<Box<dyn copypasta::ClipboardProvider>>,
