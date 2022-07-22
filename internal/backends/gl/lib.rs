@@ -8,7 +8,7 @@ extern crate alloc;
 
 use std::rc::Rc;
 
-use i_slint_core::window::Window;
+use i_slint_core::window::WindowInner;
 
 mod glwindow;
 use glwindow::*;
@@ -25,8 +25,8 @@ pub(crate) mod wasm_input_helper;
 mod stylemetrics;
 
 #[cfg(target_arch = "wasm32")]
-pub fn create_gl_window_with_canvas_id(canvas_id: String) -> Rc<Window> {
-    i_slint_core::window::Window::new(|window| GLWindow::new(window, canvas_id))
+pub fn create_gl_window_with_canvas_id(canvas_id: String) -> Rc<WindowInner> {
+    i_slint_core::window::WindowInner::new(|window| GLWindow::new(window, canvas_id))
 }
 
 #[doc(hidden)]
@@ -46,8 +46,8 @@ pub use stylemetrics::native_style_metrics_init;
 
 pub struct Backend;
 impl i_slint_core::backend::Backend for Backend {
-    fn create_window(&'static self) -> Rc<Window> {
-        i_slint_core::window::Window::new(|window| {
+    fn create_window(&'static self) -> Rc<WindowInner> {
+        i_slint_core::window::WindowInner::new(|window| {
             GLWindow::new(
                 window,
                 #[cfg(target_arch = "wasm32")]

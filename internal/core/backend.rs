@@ -8,7 +8,7 @@ The backend is the abstraction for crates that need to do the actual drawing and
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 
-use crate::window::Window;
+use crate::window::WindowInner;
 
 #[cfg(feature = "std")]
 use once_cell::sync::OnceCell;
@@ -29,7 +29,7 @@ pub enum EventLoopQuitBehavior {
 pub trait Backend: Send + Sync {
     /// Instantiate a window for a component.
     /// FIXME: should return a Box<dyn PlatformWindow>
-    fn create_window(&'static self) -> Rc<Window>;
+    fn create_window(&'static self) -> Rc<WindowInner>;
 
     /// Spins an event loop and renders the visible windows.
     fn run_event_loop(&'static self, behavior: EventLoopQuitBehavior);

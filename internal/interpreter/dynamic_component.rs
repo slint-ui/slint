@@ -1467,7 +1467,7 @@ impl<'id> From<ComponentBox<'id>> for ErasedComponentBox {
 }
 
 impl i_slint_core::window::WindowHandleAccess for ErasedComponentBox {
-    fn window_handle(&self) -> &Rc<i_slint_core::window::Window> {
+    fn window_handle(&self) -> &Rc<i_slint_core::window::WindowInner> {
         self.window().window_handle()
     }
 }

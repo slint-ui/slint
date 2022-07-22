@@ -51,7 +51,7 @@ impl SoftwareRenderer {
     /// returns the dirty region for this frame (not including the initial_dirty_region)
     pub fn render(
         &self,
-        window: Rc<crate::window::Window>,
+        window: Rc<crate::window::WindowInner>,
         initial_dirty_region: DirtyRegion,
         buffer: &mut [impl TargetPixel],
         buffer_stride: PhysicalLength,
@@ -128,7 +128,7 @@ impl SoftwareRenderer {
     /// TODO: should `initial_dirty_region` be set from a different call?
     pub fn render_by_line(
         &self,
-        window: Rc<crate::window::Window>,
+        window: Rc<crate::window::WindowInner>,
         initial_dirty_region: crate::item_rendering::DirtyRegion,
         line_buffer: impl LineBufferProvider,
     ) {
@@ -163,7 +163,7 @@ impl SoftwareRenderer {
 }
 
 fn render_window_frame_by_line(
-    runtime_window: Rc<crate::window::Window>,
+    runtime_window: Rc<crate::window::WindowInner>,
     background: Color,
     size: PhysicalSize,
     initial_dirty_region: crate::item_rendering::DirtyRegion,
@@ -434,7 +434,7 @@ struct RoundedRectangle {
 }
 
 fn prepare_scene(
-    runtime_window: Rc<crate::window::Window>,
+    runtime_window: Rc<crate::window::WindowInner>,
     size: PhysicalSize,
     initial_dirty_region: crate::item_rendering::DirtyRegion,
     line_buffer: &mut impl LineBufferProvider,

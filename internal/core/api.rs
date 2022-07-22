@@ -193,7 +193,7 @@ impl Window {
 }
 
 impl crate::window::WindowHandleAccess for Window {
-    fn window_handle(&self) -> &Rc<crate::window::Window> {
+    fn window_handle(&self) -> &Rc<crate::window::WindowInner> {
         &self.0
     }
 }

@@ -1225,7 +1225,7 @@ fn generate_item_tree(
         }
 
         impl slint::re_exports::WindowHandleAccess for #inner_component_id {
-            fn window_handle(&self) -> &slint::re_exports::Rc<slint::re_exports::Window> {
+            fn window_handle(&self) -> &slint::re_exports::Rc<slint::re_exports::WindowInner> {
                 self.window.get().unwrap().window_handle()
             }
         }

@@ -66,7 +66,7 @@ impl WasmInputState {
 impl WasmInputHelper {
     #[allow(unused)]
     pub fn new(
-        window: Weak<i_slint_core::window::Window>,
+        window: Weak<i_slint_core::window::WindowInner>,
         canvas: web_sys::HtmlCanvasElement,
     ) -> Self {
         let input = web_sys::window()

@@ -1203,7 +1203,7 @@ cpp_class!(unsafe struct QWidgetPtr as "std::unique_ptr<QWidget>");
 
 pub struct QtWindow {
     widget_ptr: QWidgetPtr,
-    pub(crate) self_weak: Weak<i_slint_core::window::Window>,
+    pub(crate) self_weak: Weak<i_slint_core::window::WindowInner>,
 
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
 
@@ -1213,7 +1213,7 @@ pub struct QtWindow {
 }
 
 impl QtWindow {
-    pub fn new(window_weak: &Weak<i_slint_core::window::Window>) -> Rc<Self> {
+    pub fn new(window_weak: &Weak<i_slint_core::window::WindowInner>) -> Rc<Self> {
         let window_ptr = window_weak.clone().into_raw();
         let widget_ptr = cpp! {unsafe [window_ptr as "void*"] -> QWidgetPtr as "std::unique_ptr<QWidget>" {
             ensure_initialized(true);
@@ -1486,8 +1486,8 @@ impl PlatformWindow for QtWindow {
         self.tree_structure_changed.replace(true);
     }
 
-    fn create_popup(&self, geometry: Rect) -> Option<Rc<i_slint_core::window::Window>> {
-        let window = i_slint_core::window::Window::new(|window| QtWindow::new(window));
+    fn create_popup(&self, geometry: Rect) -> Option<Rc<i_slint_core::window::WindowInner>> {
+        let window = i_slint_core::window::WindowInner::new(|window| QtWindow::new(window));
         let popup_window: &QtWindow =
             <dyn std::any::Any>::downcast_ref(window.as_ref().as_any()).unwrap();
 

@@ -31,7 +31,7 @@ pub const PASSWORD_CHARACTER: &str = "●";
 /// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
 pub struct GLWindow {
-    self_weak: Weak<corelib::window::Window>,
+    self_weak: Weak<corelib::window::WindowInner>,
     map_state: RefCell<GraphicsWindowBackendState>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
@@ -54,7 +54,7 @@ impl GLWindow {
     ///   of the window changes to mapped. The event loop and window builder parameters can be used to create a
     ///   backing window.
     pub(crate) fn new(
-        window_weak: &Weak<corelib::window::Window>,
+        window_weak: &Weak<corelib::window::WindowInner>,
         #[cfg(target_arch = "wasm32")] canvas_id: String,
     ) -> Rc<Self> {
         Rc::new(Self {
@@ -153,7 +153,7 @@ impl GLWindow {
 }
 
 impl WinitWindow for GLWindow {
-    fn runtime_window(&self) -> Rc<corelib::window::Window> {
+    fn runtime_window(&self) -> Rc<corelib::window::WindowInner> {
         self.self_weak.upgrade().unwrap()
     }
 
