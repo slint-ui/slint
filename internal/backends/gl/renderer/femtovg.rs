@@ -13,7 +13,6 @@ use i_slint_core::{
     graphics::{Point, Rect, Size},
     Coord,
 };
-use i_slint_core::{component::ComponentRc, items::ItemRef};
 
 use self::itemrenderer::CanvasRc;
 
