@@ -36,7 +36,7 @@ pub struct GLWindow {
 
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
 
-    femtovg_renderer: crate::renderer::femtovg::FemtoVGRenderer,
+    femtovg_renderer: crate::renderer::femtovg::Renderer,
 
     #[cfg(target_arch = "wasm32")]
     canvas_id: String,
@@ -66,7 +66,7 @@ impl GLWindow {
             currently_pressed_key_code: Default::default(),
             existing_size: Default::default(),
             rendering_notifier: Default::default(),
-            femtovg_renderer: crate::renderer::femtovg::FemtoVGRenderer::new(&window_weak),
+            femtovg_renderer: crate::renderer::femtovg::Renderer::new(&window_weak),
             #[cfg(target_arch = "wasm32")]
             canvas_id,
             #[cfg(target_arch = "wasm32")]
@@ -629,7 +629,7 @@ impl Drop for GLWindow {
 }
 
 struct MappedWindow {
-    femtovg_canvas: crate::renderer::femtovg::FemtoVGCanvas,
+    femtovg_canvas: crate::renderer::femtovg::Canvas,
     opengl_context: crate::OpenGLContext,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
     clipboard: RefCell<Box<dyn copypasta::ClipboardProvider>>,

@@ -70,14 +70,14 @@ impl i_slint_core::backend::Backend for Backend {
         &'static self,
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self::renderer::femtovg::FemtoVGRenderer::register_font_from_memory(data)
+        self::renderer::femtovg::Renderer::register_font_from_memory(data)
     }
 
     fn register_font_from_path(
         &'static self,
         path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self::renderer::femtovg::FemtoVGRenderer::register_font_from_path(path)
+        self::renderer::femtovg::Renderer::register_font_from_path(path)
     }
 
     fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {

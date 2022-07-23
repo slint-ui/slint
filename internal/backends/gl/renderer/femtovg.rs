@@ -14,7 +14,7 @@ use i_slint_core::{
     Coord,
 };
 
-use self::itemrenderer::CanvasRc;
+use self::itemrenderer::GLCanvasRc;
 
 mod fonts;
 mod images;
@@ -22,11 +22,11 @@ mod itemrenderer;
 
 const PASSWORD_CHARACTER: &str = "●";
 
-pub struct FemtoVGRenderer {
+pub struct Renderer {
     window_weak: Weak<i_slint_core::window::WindowInner>,
 }
 
-impl FemtoVGRenderer {
+impl Renderer {
     pub fn new(window_weak: &Weak<i_slint_core::window::WindowInner>) -> Self {
         Self { window_weak: window_weak.clone() }
     }
@@ -35,7 +35,7 @@ impl FemtoVGRenderer {
     pub fn create_canvas_from_glutin_context(
         &self,
         gl_context: &glutin::WindowedContext<glutin::PossiblyCurrent>,
-    ) -> FemtoVGCanvas {
+    ) -> Canvas {
         let _platform_window = gl_context.window();
 
         cfg_if::cfg_if! {
@@ -82,7 +82,7 @@ impl FemtoVGRenderer {
     pub fn create_canvas_from_html_canvas(
         &self,
         canvas_element: &web_sys::HtmlCanvasElement,
-    ) -> FemtoVGCanvas {
+    ) -> Canvas {
         let gl_renderer = match femtovg::renderer::OpenGl::new_from_html_canvas(canvas_element) {
             Ok(gl_renderer) => gl_renderer,
             Err(_) => {
@@ -111,14 +111,14 @@ impl FemtoVGRenderer {
         &self,
         gl_renderer: femtovg::renderer::OpenGl,
         rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
-    ) -> FemtoVGCanvas {
+    ) -> Canvas {
         let canvas = femtovg::Canvas::new_with_text_context(
             gl_renderer,
             self::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
         )
         .unwrap();
         let canvas = Rc::new(RefCell::new(canvas));
-        FemtoVGCanvas {
+        Canvas {
             canvas,
             graphics_cache: Default::default(),
             texture_cache: Default::default(),
@@ -128,7 +128,7 @@ impl FemtoVGRenderer {
 
     pub fn render(
         &self,
-        canvas: &FemtoVGCanvas,
+        canvas: &Canvas,
         width: u32,
         height: u32,
         before_rendering_callback: impl FnOnce(),
@@ -359,14 +359,14 @@ impl FemtoVGRenderer {
     }
 }
 
-pub struct FemtoVGCanvas {
-    canvas: CanvasRc,
+pub struct Canvas {
+    canvas: GLCanvasRc,
     graphics_cache: itemrenderer::ItemGraphicsCache,
     texture_cache: RefCell<images::TextureCache>,
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
 }
 
-impl FemtoVGCanvas {
+impl Canvas {
     pub fn release_graphics_resources(&self) {
         self.graphics_cache.clear_all();
         self.texture_cache.borrow_mut().clear();
@@ -377,7 +377,7 @@ impl FemtoVGCanvas {
     }
 }
 
-impl Drop for FemtoVGCanvas {
+impl Drop for Canvas {
     fn drop(&mut self) {
         if Rc::strong_count(&self.canvas) != 1 {
             i_slint_core::debug_log!("internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked.")
