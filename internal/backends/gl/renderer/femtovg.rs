@@ -139,44 +139,44 @@ impl FemtoVGRenderer {
             None => return,
         };
 
-        {
-            let mut canvas = canvas.canvas.as_ref().borrow_mut();
-            // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
-            // text metrics. Since we do the entire translation from logical pixels to physical
-            // pixels on our end, we don't need femtovg to scale a second time.
-            canvas.set_size(width, height, 1.0);
-
+        window.clone().draw_contents(|components| {
             {
-                let component_rc = window.component();
-                let component = ComponentRc::borrow_pin(&component_rc);
-                let root_item = component.as_ref().get_item_ref(0);
+                let mut canvas = canvas.canvas.as_ref().borrow_mut();
+                // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
+                // text metrics. Since we do the entire translation from logical pixels to physical
+                // pixels on our end, we don't need femtovg to scale a second time.
+                canvas.set_size(width, height, 1.0);
 
-                if let Some(window_item) =
-                    ItemRef::downcast_pin::<i_slint_core::items::WindowItem>(root_item)
                 {
-                    canvas.clear_rect(
-                        0,
-                        0,
-                        width,
-                        height,
-                        self::itemrenderer::to_femtovg_color(&window_item.background()),
-                    );
-                };
+                    let component_rc = window.component();
+                    let component = ComponentRc::borrow_pin(&component_rc);
+                    let root_item = component.as_ref().get_item_ref(0);
+
+                    if let Some(window_item) =
+                        ItemRef::downcast_pin::<i_slint_core::items::WindowItem>(root_item)
+                    {
+                        canvas.clear_rect(
+                            0,
+                            0,
+                            width,
+                            height,
+                            self::itemrenderer::to_femtovg_color(&window_item.background()),
+                        );
+                    };
+                }
+
+                // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
+                // the back buffer, in order to allow the callback to provide its own rendering of the background.
+                // femtovg's clear_rect() will merely schedule a clear call, so flush right away to make it immediate.
+                canvas.flush();
+                canvas.set_size(width, height, 1.0);
             }
 
-            // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
-            // the back buffer, in order to allow the callback to provide its own rendering of the background.
-            // femtovg's clear_rect() will merely schedule a clear call, so flush right away to make it immediate.
-            canvas.flush();
-            canvas.set_size(width, height, 1.0);
-        }
+            let mut item_renderer =
+                self::itemrenderer::GLItemRenderer::new(canvas, &window, width, height);
 
-        let mut item_renderer =
-            self::itemrenderer::GLItemRenderer::new(canvas, &window, width, height);
+            before_rendering_callback();
 
-        before_rendering_callback();
-
-        window.draw_contents(|components| {
             for (component, origin) in components {
                 i_slint_core::item_rendering::render_component_items(
                     component,
@@ -184,18 +184,18 @@ impl FemtoVGRenderer {
                     *origin,
                 );
             }
+
+            if let Some(collector) = &canvas.rendering_metrics_collector {
+                collector.measure_frame_rendered(&mut item_renderer);
+            }
+
+            canvas.canvas.borrow_mut().flush();
+
+            // Delete any images and layer images (and their FBOs) before making the context not current anymore, to
+            // avoid GPU memory leaks.
+            canvas.texture_cache.borrow_mut().drain();
+            drop(item_renderer);
         });
-
-        if let Some(collector) = &canvas.rendering_metrics_collector {
-            collector.measure_frame_rendered(&mut item_renderer);
-        }
-
-        canvas.canvas.borrow_mut().flush();
-
-        // Delete any images and layer images (and their FBOs) before making the context not current anymore, to
-        // avoid GPU memory leaks.
-        canvas.texture_cache.borrow_mut().drain();
-        drop(item_renderer);
     }
 
     pub fn text_size(
