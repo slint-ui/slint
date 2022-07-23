@@ -59,13 +59,10 @@ impl SoftwareRenderer {
         buffer_stride: PhysicalLength,
     ) -> DirtyRegion {
         let window = window.window_handle().clone();
-        let component_rc = window.component();
-        let component = crate::component::ComponentRc::borrow_pin(&component_rc);
         let factor = ScaleFactor::new(window.scale_factor());
         let (size, background) = if let Some(window_item) =
-            crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(
-                component.as_ref().get_item_ref(0),
-            ) {
+            window.window_item().as_ref().map(|item| item.as_pin_ref())
+        {
             (
                 (euclid::size2(window_item.width() as f32, window_item.height() as f32) * factor)
                     .cast(),

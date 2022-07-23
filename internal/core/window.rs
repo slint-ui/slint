@@ -524,14 +524,11 @@ impl WindowInner {
             // No `if !dirty { return; }` check here because the backend window may be newly mapped and not up-to-date, so force
             // an evaluation.
             window_properties_tracker.as_ref().evaluate_as_dependency_root(|| {
-                let component = self.component();
-                let component = ComponentRc::borrow_pin(&component);
-                let root_item = component.as_ref().get_item_ref(0);
-
-                if let Some(window_item) =
-                    ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
-                {
-                    self.platform_window.get().unwrap().apply_window_properties(window_item);
+                if let Some(window_item) = self.window_item() {
+                    self.platform_window
+                        .get()
+                        .unwrap()
+                        .apply_window_properties(window_item.as_pin_ref());
                 }
             });
         }

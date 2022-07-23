@@ -147,23 +147,17 @@ impl FemtoVGRenderer {
                 // pixels on our end, we don't need femtovg to scale a second time.
                 canvas.set_size(width, height, 1.0);
 
-                {
-                    let component_rc = window.component();
-                    let component = ComponentRc::borrow_pin(&component_rc);
-                    let root_item = component.as_ref().get_item_ref(0);
-
-                    if let Some(window_item) =
-                        ItemRef::downcast_pin::<i_slint_core::items::WindowItem>(root_item)
-                    {
-                        canvas.clear_rect(
-                            0,
-                            0,
-                            width,
-                            height,
-                            self::itemrenderer::to_femtovg_color(&window_item.background()),
-                        );
-                    };
-                }
+                if let Some(window_item) = window.window_item() {
+                    canvas.clear_rect(
+                        0,
+                        0,
+                        width,
+                        height,
+                        self::itemrenderer::to_femtovg_color(
+                            &window_item.as_pin_ref().background(),
+                        ),
+                    );
+                };
 
                 // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                 // the back buffer, in order to allow the callback to provide its own rendering of the background.

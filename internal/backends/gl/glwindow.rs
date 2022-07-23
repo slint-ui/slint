@@ -340,10 +340,9 @@ impl PlatformWindow for GLWindow {
         let runtime_window = self.runtime_window();
         let component_rc = runtime_window.component();
         let component = ComponentRc::borrow_pin(&component_rc);
-        let root_item = component.as_ref().get_item_ref(0);
 
         let (window_title, no_frame, is_resizable) = if let Some(window_item) =
-            ItemRef::downcast_pin::<corelib::items::WindowItem>(root_item)
+            runtime_window.window_item().as_ref().map(|i| i.as_pin_ref())
         {
             (
                 window_item.title().to_string(),

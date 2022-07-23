@@ -93,15 +93,12 @@ impl PlatformWindow for SimulatorWindow {
         let runtime_window = self.runtime_window();
         let component_rc = runtime_window.component();
         let component = ComponentRc::borrow_pin(&component_rc);
-        let root_item = component.as_ref().get_item_ref(0);
 
         let platform_window = self.opengl_context.window();
 
-        if let Some(window_item) =
-            ItemRef::downcast_pin::<i_slint_core::items::WindowItem>(root_item)
-        {
-            platform_window.set_title(&window_item.title());
-            platform_window.set_decorations(!window_item.no_frame());
+        if let Some(window_item) = runtime_window.window_item() {
+            platform_window.set_title(&window_item.as_pin_ref().title());
+            platform_window.set_decorations(!window_item.as_pin_ref().no_frame());
         };
 
         if std::env::var("SLINT_FULLSCREEN").is_ok() {
