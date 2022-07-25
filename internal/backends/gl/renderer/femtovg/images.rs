@@ -8,11 +8,11 @@ use i_slint_core::api::euclid;
 use i_slint_core::graphics::{ImageCacheKey, IntSize, SharedImageBuffer};
 use i_slint_core::{items::ImageRendering, ImageInner};
 
-use super::itemrenderer::GLCanvasRc;
+use super::itemrenderer::CanvasRc;
 
 pub struct Texture {
     pub id: femtovg::ImageId,
-    canvas: GLCanvasRc,
+    canvas: CanvasRc,
 }
 
 impl Texture {
@@ -28,11 +28,11 @@ impl Texture {
         femtovg::RenderTarget::Image(self.id)
     }
 
-    pub fn adopt(canvas: &GLCanvasRc, image_id: femtovg::ImageId) -> Rc<Texture> {
+    pub fn adopt(canvas: &CanvasRc, image_id: femtovg::ImageId) -> Rc<Texture> {
         Texture { id: image_id, canvas: canvas.clone() }.into()
     }
 
-    pub fn new_empty_on_gpu(canvas: &GLCanvasRc, width: u32, height: u32) -> Option<Rc<Texture>> {
+    pub fn new_empty_on_gpu(canvas: &CanvasRc, width: u32, height: u32) -> Option<Rc<Texture>> {
         if width == 0 || height == 0 {
             return None;
         }
@@ -83,7 +83,7 @@ impl Texture {
     // a renderer instead (which implies a current context).
     pub fn new_from_image(
         image: &ImageInner,
-        canvas: &GLCanvasRc,
+        canvas: &CanvasRc,
         target_size_for_scalable_source: Option<euclid::default::Size2D<u32>>,
         scaling: ImageRendering,
     ) -> Option<Rc<Self>> {
