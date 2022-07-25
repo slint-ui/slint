@@ -78,6 +78,7 @@ pub mod layout;
 pub mod lengths;
 pub mod model;
 pub mod properties;
+pub mod renderer;
 pub mod sharedvector;
 pub mod slice;
 pub mod string;

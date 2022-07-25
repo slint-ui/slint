@@ -110,7 +110,6 @@ where
 }
 
 thread_local! { static DEVICES: RefCell<Option<Box<dyn Devices + 'static>>> = RefCell::new(None) }
-thread_local! { static RENDERER: RefCell<crate::renderer::SoftwareRenderer> = RefCell::new(Default::default()) }
 
 mod the_backend {
     use super::*;
@@ -122,11 +121,9 @@ mod the_backend {
     use core::pin::Pin;
     use i_slint_core::api::PhysicalPx;
     use i_slint_core::component::ComponentRc;
-    use i_slint_core::graphics::{Point, Rect, Size};
     use i_slint_core::items::ItemRef;
     use i_slint_core::window::PlatformWindow;
     use i_slint_core::window::WindowInner;
-    use i_slint_core::Coord;
 
     thread_local! { static WINDOWS: RefCell<Option<Rc<McuWindow>>> = RefCell::new(None) }
 
@@ -134,6 +131,7 @@ mod the_backend {
         backend: &'static MCUBackend,
         self_weak: Weak<WindowInner>,
         initial_dirty_region_for_next_frame: Cell<i_slint_core::item_rendering::DirtyRegion>,
+        renderer: crate::renderer::SoftwareRenderer,
     }
 
     impl PlatformWindow for McuWindow {
@@ -157,9 +155,11 @@ mod the_backend {
             _: i_slint_core::component::ComponentRef,
             items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'a>>>,
         ) {
-            super::RENDERER.with(|renderer| {
-                renderer.borrow().free_graphics_resources(items);
-            });
+            self.renderer.free_graphics_resources(items);
+        }
+
+        fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
+            &self.renderer
         }
 
         fn close_popup(&self, popup: &i_slint_core::window::PopupWindow) {
@@ -186,36 +186,6 @@ mod the_backend {
             }
         }
 
-        fn text_size(
-            &self,
-            font_request: i_slint_core::graphics::FontRequest,
-            text: &str,
-            max_width: Option<Coord>,
-        ) -> Size {
-            let runtime_window = self.self_weak.upgrade().unwrap();
-            renderer::fonts::text_size(
-                font_request,
-                text,
-                max_width,
-                ScaleFactor::new(runtime_window.scale_factor()),
-            )
-            .to_untyped()
-        }
-
-        fn text_input_byte_offset_for_position(
-            &self,
-            _text_input: Pin<&i_slint_core::items::TextInput>,
-            _pos: Point,
-        ) -> usize {
-            0
-        }
-        fn text_input_cursor_rect_for_byte_offset(
-            &self,
-            _text_input: Pin<&i_slint_core::items::TextInput>,
-            _byte_offset: usize,
-        ) -> Rect {
-            Default::default()
-        }
         fn as_any(&self) -> &dyn core::any::Any {
             self
         }
@@ -311,14 +281,13 @@ mod the_backend {
                             .scale(scale_factor, scale_factor)
                             .cast(),
                     );
-                    let new_dirty_region = RENDERER.with(|renderer| {
-                        renderer.borrow().render(
-                            &runtime_window.into(),
-                            init_dirty.union(&prev_dirty),
-                            buffer,
-                            screen_size.width_length(),
-                        )
-                    });
+                    let new_dirty_region = window.renderer.render(
+                        &runtime_window.into(),
+                        init_dirty.union(&prev_dirty),
+                        buffer,
+                        screen_size.width_length(),
+                    );
+
                     devices.prepare_frame(new_dirty_region.union(&init_dirty));
                     devices.flush_frame();
                     frame_profiler.stop_profiling(&mut **devices, "=> frame total");
@@ -384,13 +353,11 @@ mod the_backend {
                     dirty_region: PhysicalRect::default(),
                 };
 
-                RENDERER.with(|renderer| {
-                    renderer.borrow().render_by_line(
-                        &runtime_window.into(),
-                        window.initial_dirty_region_for_next_frame.take(),
-                        buffer_provider,
-                    )
-                });
+                window.renderer.render_by_line(
+                    &runtime_window.into(),
+                    window.initial_dirty_region_for_next_frame.take(),
+                    buffer_provider,
+                );
                 frame_profiler.stop_profiling(&mut **devices, "=> frame total");
             });
         }
@@ -403,6 +370,7 @@ mod the_backend {
                     backend: self,
                     self_weak: window.clone(),
                     initial_dirty_region_for_next_frame: Default::default(),
+                    renderer: Default::default(),
                 })
             })
         }

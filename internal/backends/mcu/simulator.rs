@@ -28,6 +28,7 @@ type CanvasRc = Rc<RefCell<Canvas>>;
 pub mod event_loop;
 mod glcontext;
 use glcontext::*;
+use i_slint_core::swrenderer::SoftwareRenderer;
 
 pub struct SimulatorWindow {
     self_weak: Weak<i_slint_core::window::WindowInner>,
@@ -39,6 +40,7 @@ pub struct SimulatorWindow {
     visible: Cell<bool>,
     frame_buffer: RefCell<Option<SimulatorDisplay<embedded_graphics::pixelcolor::Rgb888>>>,
     initial_dirty_region_for_next_frame: Cell<DirtyRegion>,
+    renderer: SoftwareRenderer,
 }
 
 impl SimulatorWindow {
@@ -67,6 +69,7 @@ impl SimulatorWindow {
             visible: Default::default(),
             frame_buffer: RefCell::default(),
             initial_dirty_region_for_next_frame: Default::default(),
+            renderer: Default::default(),
         });
 
         let runtime_window = window_weak.upgrade().unwrap();
@@ -143,9 +146,11 @@ impl PlatformWindow for SimulatorWindow {
         _: i_slint_core::component::ComponentRef,
         items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'a>>>,
     ) {
-        super::RENDERER.with(|cache| {
-            cache.borrow().free_graphics_resources(items);
-        });
+        self.renderer.free_graphics_resources(items);
+    }
+
+    fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
+        &self.renderer
     }
 
     fn close_popup(&self, popup: &i_slint_core::window::PopupWindow) {
@@ -197,38 +202,6 @@ impl PlatformWindow for SimulatorWindow {
     }
 
     fn set_mouse_cursor(&self, _cursor: i_slint_core::items::MouseCursor) {}
-
-    fn text_size(
-        &self,
-        font_request: i_slint_core::graphics::FontRequest,
-        text: &str,
-        max_width: Option<Coord>,
-    ) -> i_slint_core::graphics::Size {
-        let runtime_window = self.self_weak.upgrade().unwrap();
-        crate::renderer::fonts::text_size(
-            font_request,
-            text,
-            max_width,
-            crate::ScaleFactor::new(runtime_window.scale_factor()),
-        )
-        .to_untyped()
-    }
-
-    fn text_input_byte_offset_for_position(
-        &self,
-        _text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
-        _pos: i_slint_core::graphics::Point,
-    ) -> usize {
-        todo!()
-    }
-
-    fn text_input_cursor_rect_for_byte_offset(
-        &self,
-        _text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
-        _byte_offset: usize,
-    ) -> i_slint_core::graphics::Rect {
-        todo!()
-    }
 
     fn as_any(&self) -> &dyn core::any::Any {
         self
@@ -292,9 +265,6 @@ impl WinitWindow for SimulatorWindow {
                         width: size.width,
                         height: size.height,
                     }));
-                    super::RENDERER.with(|cache| {
-                        *cache.borrow_mut() = Default::default();
-                    });
                     buffer
                 }
             };
@@ -322,13 +292,11 @@ impl WinitWindow for SimulatorWindow {
                     dirty_region
                 }
             }
-            super::RENDERER.with(|renderer| {
-                renderer.borrow().render_by_line(
-                    &runtime_window.into(),
-                    self.initial_dirty_region_for_next_frame.take(),
-                    BufferProvider { devices: display, dirty_region: Default::default() },
-                )
-            });
+            self.renderer.render_by_line(
+                &runtime_window.into(),
+                self.initial_dirty_region_for_next_frame.take(),
+                BufferProvider { devices: display, dirty_region: Default::default() },
+            );
 
             let output_image = display
                 .to_rgb_output_image(&embedded_graphics_simulator::OutputSettings::default());

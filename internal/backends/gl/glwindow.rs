@@ -19,6 +19,7 @@ use corelib::component::ComponentRc;
 use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};
 use corelib::layout::Orientation;
+use corelib::renderer::Renderer;
 use corelib::window::PlatformWindow;
 use corelib::Property;
 use corelib::{graphics::*, Coord};
@@ -506,29 +507,8 @@ impl PlatformWindow for GLWindow {
         });
     }
 
-    fn text_size(
-        &self,
-        font_request: corelib::graphics::FontRequest,
-        text: &str,
-        max_width: Option<Coord>,
-    ) -> Size {
-        self.femtovg_renderer.text_size(font_request, text, max_width)
-    }
-
-    fn text_input_byte_offset_for_position(
-        &self,
-        text_input: Pin<&i_slint_core::items::TextInput>,
-        pos: Point,
-    ) -> usize {
-        self.femtovg_renderer.text_input_byte_offset_for_position(text_input, pos)
-    }
-
-    fn text_input_cursor_rect_for_byte_offset(
-        &self,
-        text_input: Pin<&corelib::items::TextInput>,
-        byte_offset: usize,
-    ) -> Rect {
-        self.femtovg_renderer.text_input_cursor_rect_for_byte_offset(text_input, byte_offset)
+    fn renderer(&self) -> &dyn Renderer {
+        &self.femtovg_renderer
     }
 
     #[cfg(target_arch = "wasm32")]

@@ -11,6 +11,7 @@ use i_slint_core::{
     api::euclid,
     graphics::rendering_metrics_collector::RenderingMetricsCollector,
     graphics::{Point, Rect, Size},
+    renderer::Renderer,
     Coord,
 };
 
@@ -190,26 +191,20 @@ impl FemtoVGRenderer {
             drop(item_renderer);
         });
     }
+}
 
-    pub fn text_size(
+impl Renderer for FemtoVGRenderer {
+    fn text_size(
         &self,
         font_request: i_slint_core::graphics::FontRequest,
         text: &str,
         max_width: Option<Coord>,
+        scale_factor: f32,
     ) -> Size {
-        let window = match self.window_weak.upgrade() {
-            Some(window) => window,
-            None => return Default::default(),
-        };
-        crate::renderer::femtovg::fonts::text_size(
-            &font_request,
-            window.scale_factor(),
-            text,
-            max_width,
-        )
+        crate::renderer::femtovg::fonts::text_size(&font_request, scale_factor, text, max_width)
     }
 
-    pub fn text_input_byte_offset_for_position(
+    fn text_input_byte_offset_for_position(
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
         pos: Point,
@@ -286,7 +281,7 @@ impl FemtoVGRenderer {
         }
     }
 
-    pub fn text_input_cursor_rect_for_byte_offset(
+    fn text_input_cursor_rect_for_byte_offset(
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
@@ -345,7 +340,9 @@ impl FemtoVGRenderer {
 
         Rect::new(result / scale_factor, Size::new(1.0, font_size))
     }
+}
 
+impl FemtoVGRenderer {
     pub fn register_font_from_memory(
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
