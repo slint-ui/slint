@@ -21,8 +21,8 @@ use super::fonts;
 use super::images::{Texture, TextureCacheKey};
 use super::PASSWORD_CHARACTER;
 
-pub type GLCanvas = femtovg::Canvas<femtovg::renderer::OpenGl>;
-pub type GLCanvasRc = Rc<RefCell<GLCanvas>>;
+pub type Canvas = femtovg::Canvas<femtovg::renderer::OpenGl>;
+pub type CanvasRc = Rc<RefCell<Canvas>>;
 
 #[derive(Clone)]
 pub(super) enum ItemGraphicsCacheEntry {
@@ -61,7 +61,7 @@ struct State {
 pub struct GLItemRenderer<'a> {
     graphics_cache: &'a ItemGraphicsCache,
     texture_cache: &'a RefCell<super::images::TextureCache>,
-    canvas: GLCanvasRc,
+    canvas: CanvasRc,
     // Layers that were scheduled for rendering where we can't delete the femtovg::ImageId yet
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
     // `set_render_target` commands with image ids that have been deleted.
@@ -109,7 +109,7 @@ fn item_rect<Item: items::Item>(item: Pin<&Item>, scale_factor: f32) -> Rect {
     euclid::rect(0., 0., geometry.width() * scale_factor, geometry.height() * scale_factor)
 }
 
-fn path_bounding_box(canvas: &GLCanvasRc, path: &mut femtovg::Path) -> euclid::default::Box2D<f32> {
+fn path_bounding_box(canvas: &CanvasRc, path: &mut femtovg::Path) -> euclid::default::Box2D<f32> {
     // `canvas.path_bbox()` applies the current transform. However we're not interested in that, since
     // we operate in item local coordinates with the `path` parameter as well as the resulting
     // paint.
@@ -867,7 +867,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
 impl<'a> GLItemRenderer<'a> {
     pub fn new(
-        canvas: &'a super::Canvas,
+        canvas: &'a super::FemtoVGCanvas,
         window: &Rc<i_slint_core::window::WindowInner>,
         width: u32,
         height: u32,
