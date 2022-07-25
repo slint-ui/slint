@@ -244,6 +244,7 @@ impl WinitWindow for SimulatorWindow {
             }
 
             let mut frame_buffer = self.frame_buffer.borrow_mut();
+            let mut dirty_region = Default::default();
             let display = match frame_buffer.as_mut() {
                 Some(buffer)
                     if buffer.size().width == size.width && buffer.size().height == size.height =>
@@ -255,6 +256,7 @@ impl WinitWindow for SimulatorWindow {
                         width: size.width,
                         height: size.height,
                     }));
+                    dirty_region = euclid::rect(0, 0, size.width as _, size.height as _);
                     buffer
                 }
             };
@@ -285,7 +287,11 @@ impl WinitWindow for SimulatorWindow {
             self.renderer.render_by_line(
                 &runtime_window.into(),
                 self.initial_dirty_region_for_next_frame.take(),
-                BufferProvider { devices: display, dirty_region: Default::default() },
+                BufferProvider {
+                    devices: display,
+                    // We must redraw the whole
+                    dirty_region,
+                },
             );
 
             let output_image = display
