@@ -150,17 +150,6 @@ impl SoftwareRenderer {
             );
         }
     }
-
-    pub fn free_graphics_resources(
-        &self,
-        items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
-    ) {
-        for item in items {
-            let cache_entry =
-                item.cached_rendering_data_offset().release(&mut self.partial_cache.borrow_mut());
-            drop(cache_entry);
-        }
-    }
 }
 
 impl Renderer for SoftwareRenderer {
@@ -187,6 +176,17 @@ impl Renderer for SoftwareRenderer {
         _byte_offset: usize,
     ) -> crate::graphics::Rect {
         Default::default()
+    }
+
+    fn free_graphics_resources(
+        &self,
+        items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
+    ) {
+        for item in items {
+            let cache_entry =
+                item.cached_rendering_data_offset().release(&mut self.partial_cache.borrow_mut());
+            drop(cache_entry);
+        }
     }
 }
 

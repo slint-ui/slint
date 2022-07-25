@@ -45,15 +45,17 @@ pub trait PlatformWindow {
     fn request_redraw(&self);
 
     /// This function is called by the generated code when a component and therefore its tree of items are created.
-    fn register_component(&self);
+    fn register_component(&self) {}
 
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
     fn unregister_component<'a>(
         &self,
-        component: ComponentRef,
+        _component: ComponentRef,
         items: &mut dyn Iterator<Item = Pin<ItemRef<'a>>>,
-    );
+    ) {
+        self.renderer().free_graphics_resources(items);
+    }
 
     /// This function is called through the public API to register a callback that the backend needs to invoke during
     /// different phases of rendering.

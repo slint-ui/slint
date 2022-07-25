@@ -139,16 +139,6 @@ impl PlatformWindow for SimulatorWindow {
         }
     }
 
-    fn register_component(&self) {}
-
-    fn unregister_component<'a>(
-        &self,
-        _: i_slint_core::component::ComponentRef,
-        items: &mut dyn Iterator<Item = std::pin::Pin<i_slint_core::items::ItemRef<'a>>>,
-    ) {
-        self.renderer.free_graphics_resources(items);
-    }
-
     fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
         &self.renderer
     }
