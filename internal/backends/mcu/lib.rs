@@ -15,7 +15,6 @@ use alloc::vec;
 use core::cell::RefCell;
 use embedded_graphics::prelude::*;
 use i_slint_core::api::euclid;
-use i_slint_core::items::{Item, WindowItem};
 use i_slint_core::lengths::*;
 use i_slint_core::swrenderer as renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
@@ -117,10 +116,8 @@ mod the_backend {
     use alloc::collections::VecDeque;
     use alloc::rc::{Rc, Weak};
     use alloc::string::String;
-    use core::cell::{Cell, RefCell};
+    use core::cell::RefCell;
     use i_slint_core::api::PhysicalPx;
-    use i_slint_core::component::ComponentRc;
-    use i_slint_core::items::ItemRef;
     use i_slint_core::window::PlatformWindow;
     use i_slint_core::window::WindowInner;
 
@@ -129,7 +126,6 @@ mod the_backend {
     pub struct McuWindow {
         backend: &'static MCUBackend,
         self_weak: Weak<WindowInner>,
-        initial_dirty_region_for_next_frame: Cell<i_slint_core::item_rendering::DirtyRegion>,
         renderer: crate::renderer::SoftwareRenderer,
     }
 
@@ -151,30 +147,6 @@ mod the_backend {
 
         fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
             &self.renderer
-        }
-
-        fn close_popup(&self, popup: &i_slint_core::window::PopupWindow) {
-            match popup.location {
-                i_slint_core::window::PopupWindowLocation::TopLevel(_) => {}
-                i_slint_core::window::PopupWindowLocation::ChildWindow(offset) => {
-                    let popup_component = ComponentRc::borrow_pin(&popup.component);
-                    let popup_root = popup_component.as_ref().get_item_ref(0);
-                    if let Some(window_item) = ItemRef::downcast_pin::<WindowItem>(popup_root) {
-                        let popup_region = i_slint_core::properties::evaluate_no_tracking(|| {
-                            window_item.geometry()
-                        })
-                        .translate(offset.to_vector());
-
-                        if !popup_region.is_empty() {
-                            self.initial_dirty_region_for_next_frame.set(
-                                self.initial_dirty_region_for_next_frame
-                                    .get()
-                                    .union(&popup_region.to_box2d()),
-                            );
-                        }
-                    }
-                }
-            }
         }
 
         fn as_any(&self) -> &dyn core::any::Any {
@@ -246,23 +218,14 @@ mod the_backend {
                 runtime_window.set_window_item_geometry(size.width as _, size.height as _);
 
                 if let Some((buffer, prev_dirty)) = devices.get_buffer() {
-                    let init_dirty = PhysicalRect::from_untyped(
-                        &window
-                            .initial_dirty_region_for_next_frame
-                            .take()
-                            .to_rect()
-                            .cast::<f32>()
-                            .scale(scale_factor, scale_factor)
-                            .cast(),
-                    );
                     let new_dirty_region = window.renderer.render(
                         &runtime_window.into(),
-                        init_dirty.union(&prev_dirty),
+                        prev_dirty,
                         buffer,
                         screen_size.width_length(),
                     );
 
-                    devices.prepare_frame(new_dirty_region.union(&init_dirty));
+                    devices.prepare_frame(new_dirty_region);
                     devices.flush_frame();
                     frame_profiler.stop_profiling(&mut **devices, "=> frame total");
                     return;
@@ -327,11 +290,7 @@ mod the_backend {
                     dirty_region: PhysicalRect::default(),
                 };
 
-                window.renderer.render_by_line(
-                    &runtime_window.into(),
-                    window.initial_dirty_region_for_next_frame.take(),
-                    buffer_provider,
-                );
+                window.renderer.render_by_line(&runtime_window.into(), buffer_provider);
                 frame_profiler.stop_profiling(&mut **devices, "=> frame total");
             });
         }
@@ -343,7 +302,6 @@ mod the_backend {
                 Rc::new(McuWindow {
                     backend: self,
                     self_weak: window.clone(),
-                    initial_dirty_region_for_next_frame: Default::default(),
                     renderer: Default::default(),
                 })
             })

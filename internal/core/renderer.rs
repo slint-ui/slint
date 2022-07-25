@@ -42,4 +42,9 @@ pub trait Renderer {
         _items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
     ) {
     }
+
+    /// Mark a given region as dirty regardless whether the items actually are dirty.
+    ///
+    /// Example: when a PopupWindow disapear, the region under the popup needs to be redrawn
+    fn mark_dirty_region(&self, _region: crate::item_rendering::DirtyRegion) {}
 }
