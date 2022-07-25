@@ -18,7 +18,7 @@ use crate::window::WindowHandleAccess;
 use crate::{Color, Coord, ImageInner, StaticTextures};
 use alloc::rc::Rc;
 use alloc::{vec, vec::Vec};
-use core::cell::RefCell;
+use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 pub use draw_functions::TargetPixel;
 
@@ -46,16 +46,22 @@ pub trait LineBufferProvider {
 #[derive(Default)]
 pub struct SoftwareRenderer {
     partial_cache: RefCell<crate::item_rendering::PartialRenderingCache>,
+    /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not
+    force_dirty: Cell<crate::item_rendering::DirtyRegion>,
 }
 
 impl SoftwareRenderer {
     /// Render the window to the given frame buffer.
     ///
-    /// returns the dirty region for this frame (not including the initial_dirty_region)
+    /// The renderer uses a cache internally and will only render the part of the window
+    /// which are dirty. The `extra_draw_region` is an extra regin which will also
+    /// be rendered. (eg: the previous dirty region in case of double buffering)
+    ///
+    /// returns the dirty region for this frame (not including the extra_draw_region)
     pub fn render(
         &self,
         window: &Window,
-        initial_dirty_region: DirtyRegion,
+        extra_draw_region: DirtyRegion,
         buffer: &mut [impl TargetPixel],
         buffer_stride: PhysicalLength,
     ) -> DirtyRegion {
@@ -86,7 +92,7 @@ impl SoftwareRenderer {
         );
         let mut renderer = crate::item_rendering::PartialRenderer::new(
             &self.partial_cache,
-            Default::default(),
+            self.force_dirty.take(),
             buffer_renderer,
         );
 
@@ -102,7 +108,7 @@ impl SoftwareRenderer {
                 .cast();
 
             let to_draw = dirty_region
-                .union(&initial_dirty_region)
+                .union(&extra_draw_region)
                 .intersection(&PhysicalRect { origin: euclid::point2(0, 0), size })
                 .unwrap_or_default();
             renderer.combine_clip((to_draw.cast() / factor).to_untyped().cast(), 0 as _, 0 as _);
@@ -120,31 +126,25 @@ impl SoftwareRenderer {
     /// Render the window, line by line, into the buffer provided by the `line_buffer` function.
     ///
     /// The renderer uses a cache internally and will only render the part of the window
-    /// which are dirty. The `initial_dirty_region` is an extra dirty regin which will also
-    /// be rendered.
+    /// which are dirty.
     ///
     /// TODO: what about async and threading.
     ///       (can we call the line_buffer function from different thread?)
-    /// TODO: should `initial_dirty_region` be set from a different call?
-    pub fn render_by_line(
-        &self,
-        window: &Window,
-        initial_dirty_region: crate::item_rendering::DirtyRegion,
-        line_buffer: impl LineBufferProvider,
-    ) {
+    pub fn render_by_line(&self, window: &Window, line_buffer: impl LineBufferProvider) {
         let window = window.window_handle().clone();
         let component_rc = window.component();
         let component = crate::component::ComponentRc::borrow_pin(&component_rc);
         if let Some(window_item) = crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(
             component.as_ref().get_item_ref(0),
         ) {
-            let size = euclid::size2(window_item.width() as f32, window_item.height() as f32)
-                * ScaleFactor::new(window.scale_factor());
+            let factor = ScaleFactor::new(window.scale_factor());
+            let size =
+                euclid::size2(window_item.width() as f32, window_item.height() as f32) * factor;
             render_window_frame_by_line(
                 window,
                 window_item.background(),
                 size.cast(),
-                initial_dirty_region,
+                self.force_dirty.take(),
                 &self.partial_cache,
                 line_buffer,
             );
@@ -187,6 +187,10 @@ impl Renderer for SoftwareRenderer {
                 item.cached_rendering_data_offset().release(&mut self.partial_cache.borrow_mut());
             drop(cache_entry);
         }
+    }
+
+    fn mark_dirty_region(&self, region: crate::item_rendering::DirtyRegion) {
+        self.force_dirty.set(self.force_dirty.get().union(&region))
     }
 }
 

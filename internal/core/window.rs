@@ -75,11 +75,6 @@ pub trait PlatformWindow {
         None
     }
 
-    /// Notify the platform window about the closure of a previously opened popup.
-    ///
-    /// (This is currently used to mark the region where the popup was as dirty)
-    fn close_popup(&self, _popup: &PopupWindow) {}
-
     /// Request for the event loop to wake up and call [`Window::update_window_properties()`].
     fn request_window_properties_update(&self) {}
     /// Request for the given title string to be set to the windowing system for use as window title.
@@ -635,12 +630,18 @@ impl WindowInner {
     /// Removes any active popup.
     pub fn close_popup(&self) {
         if let Some(current_popup) = self.active_popup.replace(None) {
-            if matches!(current_popup.location, PopupWindowLocation::ChildWindow(..)) {
-                self.platform_window.get().unwrap().close_popup(&current_popup);
-                // Refresh the area that was previously covered by the popup. I wonder if this
-                // is still needed, shouldn't the redraw tracker be dirty due to the removal of
-                // dependent properties?
-                self.request_redraw();
+            if let PopupWindowLocation::ChildWindow(offset) = current_popup.location {
+                // Refresh the area that was previously covered by the popup.
+                let popup_region = crate::properties::evaluate_no_tracking(|| {
+                    let popup_component = ComponentRc::borrow_pin(&current_popup.component);
+                    popup_component.as_ref().get_item_ref(0).as_ref().geometry()
+                })
+                .translate(offset.to_vector());
+
+                if !popup_region.is_empty() {
+                    self.renderer().mark_dirty_region(popup_region.to_box2d());
+                    self.request_redraw();
+                }
             }
         }
     }
