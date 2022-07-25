@@ -102,4 +102,16 @@ impl i_slint_core::backend::Backend for Backend {
             });
         }
     }
+
+    fn set_clipboard_text(&self, text: &str) {
+        crate::event_loop::with_window_target(|event_loop_target| {
+            event_loop_target.clipboard().set_contents(text.into()).ok()
+        });
+    }
+
+    fn clipboard_text(&self) -> Option<String> {
+        crate::event_loop::with_window_target(|event_loop_target| {
+            event_loop_target.clipboard().get_contents().ok()
+        })
+    }
 }

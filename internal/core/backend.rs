@@ -6,6 +6,7 @@ The backend is the abstraction for crates that need to do the actual drawing and
 */
 
 use alloc::boxed::Box;
+use alloc::string::String;
 
 #[cfg(feature = "std")]
 use once_cell::sync::OnceCell;
@@ -77,6 +78,13 @@ pub trait Backend: Send + Sync {
         }
         #[cfg(not(feature = "std"))]
         core::time::Duration::ZERO
+    }
+
+    /// Sends the given text into the system clipboard
+    fn set_clipboard_text(&'static self, _text: &str) {}
+    /// Returns a copy of text stored in the system clipboard, if any.
+    fn clipboard_text(&'static self) -> Option<String> {
+        None
     }
 }
 

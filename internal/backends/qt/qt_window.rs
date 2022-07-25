@@ -1591,32 +1591,6 @@ impl PlatformWindow for QtWindow {
             widget_ptr->resize(sz  / widget_ptr->devicePixelRatio());
         }};
     }
-
-    fn set_clipboard_text(&self, _text: &str) {
-        use cpp::cpp;
-        let text: qttypes::QString = _text.into();
-        cpp! {unsafe [text as "QString"] {
-            ensure_initialized();
-            QGuiApplication::clipboard()->setText(text);
-        } }
-    }
-
-    fn clipboard_text(&self) -> Option<String> {
-        use cpp::cpp;
-        let has_text = cpp! {unsafe [] -> bool as "bool" {
-            ensure_initialized();
-            return QGuiApplication::clipboard()->mimeData()->hasText();
-        } };
-        if has_text {
-            return Some(
-                cpp! { unsafe [] -> qttypes::QString as "QString" {
-                    return QGuiApplication::clipboard()->text();
-                }}
-                .into(),
-            );
-        }
-        None
-    }
 }
 
 impl Renderer for QtWindow {

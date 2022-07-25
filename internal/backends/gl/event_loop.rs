@@ -7,6 +7,7 @@
     [PlatformWindow] trait used by the generated code and the run-time to change
     aspects of windows on the screen.
 */
+use copypasta::ClipboardProvider;
 use corelib::items::PointerEventButton;
 use i_slint_core as corelib;
 
@@ -15,7 +16,7 @@ use corelib::graphics::Point;
 use corelib::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
 use corelib::window::*;
 use corelib::{Coord, SharedString};
-use std::cell::{Cell, RefCell};
+use std::cell::{Cell, RefCell, RefMut};
 use std::rc::{Rc, Weak};
 use winit::event::WindowEvent;
 
@@ -165,6 +166,7 @@ pub trait WinitWindow: PlatformWindow {
 }
 
 struct NotRunningEventLoop {
+    clipboard: RefCell<Box<dyn copypasta::ClipboardProvider>>,
     instance: winit::event_loop::EventLoop<CustomEvent>,
     event_loop_proxy: winit::event_loop::EventLoopProxy<CustomEvent>,
 }
@@ -173,18 +175,21 @@ impl NotRunningEventLoop {
     fn new() -> Self {
         let instance = winit::event_loop::EventLoop::with_user_event();
         let event_loop_proxy = instance.create_proxy();
-        Self { instance, event_loop_proxy }
+        let clipboard = RefCell::new(create_clipboard(&instance));
+        Self { clipboard, instance, event_loop_proxy }
     }
 }
 
 struct RunningEventLoop<'a> {
     event_loop_target: &'a winit::event_loop::EventLoopWindowTarget<CustomEvent>,
     event_loop_proxy: &'a winit::event_loop::EventLoopProxy<CustomEvent>,
+    clipboard: &'a RefCell<Box<dyn copypasta::ClipboardProvider>>,
 }
 
 pub(crate) trait EventLoopInterface {
     fn event_loop_target(&self) -> &winit::event_loop::EventLoopWindowTarget<CustomEvent>;
     fn event_loop_proxy(&self) -> &winit::event_loop::EventLoopProxy<CustomEvent>;
+    fn clipboard(&self) -> RefMut<'_, dyn ClipboardProvider>;
 }
 
 impl EventLoopInterface for NotRunningEventLoop {
@@ -195,6 +200,10 @@ impl EventLoopInterface for NotRunningEventLoop {
     fn event_loop_proxy(&self) -> &winit::event_loop::EventLoopProxy<CustomEvent> {
         &self.event_loop_proxy
     }
+
+    fn clipboard(&self) -> RefMut<'_, dyn ClipboardProvider> {
+        RefMut::map(self.clipboard.borrow_mut(), |clipboard_box| clipboard_box.as_mut())
+    }
 }
 
 impl<'a> EventLoopInterface for RunningEventLoop<'a> {
@@ -204,6 +213,10 @@ impl<'a> EventLoopInterface for RunningEventLoop<'a> {
 
     fn event_loop_proxy(&self) -> &winit::event_loop::EventLoopProxy<CustomEvent> {
         self.event_loop_proxy
+    }
+
+    fn clipboard(&self) -> RefMut<'_, dyn ClipboardProvider> {
+        RefMut::map(self.clipboard.borrow_mut(), |clipboard_box| clipboard_box.as_mut())
     }
 }
 
@@ -554,6 +567,7 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
     });
 
     let mut winit_loop = not_running_loop_instance.instance;
+    let clipboard = not_running_loop_instance.clipboard;
 
     // last seen cursor position, (physical coordinate)
     let mut cursor_pos = Point::default();
@@ -561,8 +575,11 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
     let mut run_fn = move |event: Event<CustomEvent>,
                            event_loop_target: &EventLoopWindowTarget<CustomEvent>,
                            control_flow: &mut ControlFlow| {
-        let running_instance =
-            RunningEventLoop { event_loop_target, event_loop_proxy: &event_loop_proxy };
+        let running_instance = RunningEventLoop {
+            event_loop_target,
+            event_loop_proxy: &event_loop_proxy,
+            clipboard: &clipboard,
+        };
         CURRENT_WINDOW_TARGET.set(&running_instance, || {
             // MainEventsCleared and RedrawEventsCleared are passed after flush of the event loop
             // by winit. Make sure not to overwrite a previously set ControlFlow::Poll in that process.
@@ -717,4 +734,47 @@ fn winit_key_code_to_string(virtual_keycode: winit::event::VirtualKeyCode) -> Op
         }
         .into(),
     )
+}
+
+fn create_clipboard<T>(
+    _event_loop: &winit::event_loop::EventLoopWindowTarget<T>,
+) -> Box<dyn copypasta::ClipboardProvider> {
+    #[allow(unused_mut)]
+    let mut clipboard: Option<Box<dyn copypasta::ClipboardProvider>> = None;
+
+    cfg_if::cfg_if! {
+        if #[cfg(all(any(
+            target_os = "linux",
+            target_os = "dragonfly",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd"
+        ), feature = "wayland", not(feature = "x11")))] {
+            type DefaultClipboard = copypasta::nop_clipboard::NopClipboardContext;
+        } else {
+            type DefaultClipboard = copypasta::ClipboardContext;
+        }
+    }
+
+    #[cfg(any(
+        target_os = "linux",
+        target_os = "dragonfly",
+        target_os = "freebsd",
+        target_os = "netbsd",
+        target_os = "openbsd"
+    ))]
+    if cfg!(feature = "wayland") {
+        use winit::platform::unix::EventLoopWindowTargetExtUnix;
+        #[cfg(feature = "wayland")]
+        if let Some(wayland_display) = _event_loop.wayland_display() {
+            clipboard = unsafe {
+                Some(Box::new(
+                    copypasta::wayland_clipboard::create_clipboards_from_external(wayland_display)
+                        .1,
+                ))
+            };
+        }
+    }
+
+    clipboard.unwrap_or_else(|| Box::new(DefaultClipboard::new().unwrap()))
 }

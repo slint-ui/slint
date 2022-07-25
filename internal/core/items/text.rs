@@ -366,7 +366,7 @@ impl Item for TextInput {
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Copy => {
-                            self.copy(window);
+                            self.copy();
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Paste if !self.read_only() => {
@@ -374,7 +374,7 @@ impl Item for TextInput {
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Cut if !self.read_only() => {
-                            self.copy(window);
+                            self.copy();
                             self.delete_selection(window);
                             return KeyEventResult::EventAccepted;
                         }
@@ -732,17 +732,20 @@ impl TextInput {
         self.move_cursor(TextCursorDirection::EndOfText, AnchorMode::KeepAnchor, window);
     }
 
-    fn copy(self: Pin<&Self>, window: &WindowRc) {
+    fn copy(self: Pin<&Self>) {
         let (anchor, cursor) = self.selection_anchor_and_cursor();
         if anchor == cursor {
             return;
         }
-        let text = self.text();
-        window.set_clipboard_text(&text[anchor..cursor]);
+        if let Some(backend) = crate::backend::instance() {
+            let text = self.text();
+            backend.set_clipboard_text(&text[anchor..cursor]);
+        }
     }
 
     fn paste(self: Pin<&Self>, window: &WindowRc) {
-        if let Some(text) = window.clipboard_text() {
+        if let Some(text) = crate::backend::instance().and_then(|backend| backend.clipboard_text())
+        {
             self.insert(&text, window);
         }
     }
