@@ -15,8 +15,6 @@ sphinx = "4.5.0"
 exhale = "0.2.4"
 myst_parser = "0.17.2"
 sphinx-markdown-tables = "0.0.15"
-# Workaround for https://github.com/ryanfox/sphinx-markdown-tables/issues/36
-markdown = "==3.3.7"
 
 [requires]
 python_version = "3"
