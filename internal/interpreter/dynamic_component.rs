@@ -404,9 +404,10 @@ impl<'id> ComponentDescription<'id> {
     #[doc(hidden)]
     pub fn create_with_existing_window(
         self: Rc<Self>,
-        window: &i_slint_core::window::WindowRc,
+        window: &i_slint_core::api::Window,
     ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
-        let component_ref = instantiate(self, None, Some(window), Default::default());
+        let component_ref =
+            instantiate(self, None, Some(window.window_handle()), Default::default());
         component_ref
             .as_pin_ref()
             .window()

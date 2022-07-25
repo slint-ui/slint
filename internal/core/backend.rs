@@ -6,9 +6,6 @@ The backend is the abstraction for crates that need to do the actual drawing and
 */
 
 use alloc::boxed::Box;
-use alloc::rc::Rc;
-
-use crate::window::WindowInner;
 
 #[cfg(feature = "std")]
 use once_cell::sync::OnceCell;
@@ -29,13 +26,17 @@ pub enum EventLoopQuitBehavior {
 pub trait Backend: Send + Sync {
     /// Instantiate a window for a component.
     /// FIXME: should return a Box<dyn PlatformWindow>
-    fn create_window(&'static self) -> Rc<WindowInner>;
+    fn create_window(&'static self) -> crate::api::Window;
 
     /// Spins an event loop and renders the visible windows.
-    fn run_event_loop(&'static self, behavior: EventLoopQuitBehavior);
+    fn run_event_loop(&'static self, _behavior: EventLoopQuitBehavior) {
+        unimplemented!()
+    }
 
     /// Exits the event loop.
-    fn quit_event_loop(&'static self);
+    fn quit_event_loop(&'static self) {
+        unimplemented!()
+    }
 
     #[cfg(feature = "std")] // FIXME: just because of the Error
     /// This function can be used to register a custom TrueType font with Slint,
@@ -43,8 +44,10 @@ pub trait Backend: Send + Sync {
     /// font.
     fn register_font_from_memory(
         &'static self,
-        data: &'static [u8],
-    ) -> Result<(), Box<dyn std::error::Error>>;
+        _data: &'static [u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        unimplemented!()
+    }
 
     #[cfg(feature = "std")]
     /// This function can be used to register a custom TrueType font with Slint,
@@ -52,15 +55,19 @@ pub trait Backend: Send + Sync {
     /// font.
     fn register_font_from_path(
         &'static self,
-        path: &std::path::Path,
-    ) -> Result<(), Box<dyn std::error::Error>>;
+        _path: &std::path::Path,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        unimplemented!()
+    }
 
     fn register_bitmap_font(&'static self, _font_data: &'static crate::graphics::BitmapFont) {
         unimplemented!()
     }
 
     /// Send an user event to from another thread that should be run in the GUI event loop
-    fn post_event(&'static self, event: Box<dyn FnOnce() + Send>);
+    fn post_event(&'static self, _event: Box<dyn FnOnce() + Send>) {
+        unimplemented!()
+    }
 
     fn duration_since_start(&'static self) -> core::time::Duration {
         #[cfg(feature = "std")]

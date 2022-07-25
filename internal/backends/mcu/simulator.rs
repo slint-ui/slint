@@ -14,7 +14,7 @@ use i_slint_core::input::KeyboardModifiers;
 use i_slint_core::item_rendering::DirtyRegion;
 use i_slint_core::items::{Item, ItemRef, WindowItem};
 use i_slint_core::layout::Orientation;
-use i_slint_core::window::{PlatformWindow, WindowInner};
+use i_slint_core::window::PlatformWindow;
 use i_slint_core::Coord;
 use rgb::FromSlice;
 
@@ -358,8 +358,8 @@ impl WinitWindow for SimulatorWindow {
 pub struct SimulatorBackend;
 
 impl i_slint_core::backend::Backend for SimulatorBackend {
-    fn create_window(&'static self) -> Rc<WindowInner> {
-        i_slint_core::window::WindowInner::new(|window| SimulatorWindow::new(window))
+    fn create_window(&'static self) -> i_slint_core::api::Window {
+        i_slint_core::window::WindowInner::new(|window| SimulatorWindow::new(window)).into()
     }
 
     fn run_event_loop(&'static self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {

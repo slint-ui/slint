@@ -5,8 +5,8 @@
 
 use core::ffi::c_void;
 use i_slint_backend_selector::backend;
+use i_slint_core::api::Window;
 use i_slint_core::window::ffi::WindowRcOpaque;
-use i_slint_core::window::WindowRc;
 
 #[doc(hidden)]
 #[cold]
@@ -19,8 +19,8 @@ pub fn use_modules() -> usize {
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowRcOpaque) {
-    assert_eq!(core::mem::size_of::<WindowRc>(), core::mem::size_of::<WindowRcOpaque>());
-    core::ptr::write(out as *mut WindowRc, crate::backend().create_window());
+    assert_eq!(core::mem::size_of::<Window>(), core::mem::size_of::<WindowRcOpaque>());
+    core::ptr::write(out as *mut Window, crate::backend().create_window());
 }
 
 #[no_mangle]

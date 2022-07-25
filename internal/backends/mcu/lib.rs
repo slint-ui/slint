@@ -181,14 +181,6 @@ mod the_backend {
             self
         }
 
-        fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
-            unimplemented!()
-        }
-
-        fn set_position(&self, _position: euclid::Point2D<i32, PhysicalPx>) {
-            unimplemented!()
-        }
-
         fn inner_size(&self) -> euclid::Size2D<u32, PhysicalPx> {
             unimplemented!()
         }
@@ -355,7 +347,7 @@ mod the_backend {
     }
 
     impl i_slint_core::backend::Backend for MCUBackend {
-        fn create_window(&'static self) -> Rc<i_slint_core::window::WindowInner> {
+        fn create_window(&'static self) -> i_slint_core::api::Window {
             i_slint_core::window::WindowInner::new(|window| {
                 Rc::new(McuWindow {
                     backend: self,
@@ -364,6 +356,7 @@ mod the_backend {
                     renderer: Default::default(),
                 })
             })
+            .into()
         }
 
         fn run_event_loop(&'static self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {
@@ -431,21 +424,6 @@ mod the_backend {
 
         fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
             self.with_inner(|inner| inner.post_event(McuEvent::Custom(event)));
-        }
-
-        #[cfg(feature = "std")]
-        fn register_font_from_memory(
-            &'static self,
-            _data: &'static [u8],
-        ) -> Result<(), Box<dyn std::error::Error>> {
-            unimplemented!()
-        }
-        #[cfg(feature = "std")]
-        fn register_font_from_path(
-            &'static self,
-            _path: &std::path::Path,
-        ) -> Result<(), Box<dyn std::error::Error>> {
-            unimplemented!()
         }
 
         fn duration_since_start(&'static self) -> core::time::Duration {
