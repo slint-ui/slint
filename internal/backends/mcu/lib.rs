@@ -118,7 +118,6 @@ mod the_backend {
     use alloc::rc::{Rc, Weak};
     use alloc::string::String;
     use core::cell::{Cell, RefCell};
-    use core::pin::Pin;
     use i_slint_core::api::PhysicalPx;
     use i_slint_core::component::ComponentRc;
     use i_slint_core::items::ItemRef;
@@ -148,14 +147,6 @@ mod the_backend {
         }
         fn request_redraw(&self) {
             self.backend.with_inner(|inner| inner.post_event(McuEvent::Repaint))
-        }
-        fn register_component(&self) {}
-        fn unregister_component<'a>(
-            &self,
-            _: i_slint_core::component::ComponentRef,
-            items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'a>>>,
-        ) {
-            self.renderer.free_graphics_resources(items);
         }
 
         fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer {

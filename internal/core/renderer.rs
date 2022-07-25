@@ -35,4 +35,11 @@ pub trait Renderer {
         text_input: Pin<&crate::items::TextInput>,
         byte_offset: usize,
     ) -> Rect;
+
+    /// Clear the caches for the items that are being removed
+    fn free_graphics_resources(
+        &self,
+        _items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
+    ) {
+    }
 }
