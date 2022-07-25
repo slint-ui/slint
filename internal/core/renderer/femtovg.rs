@@ -7,7 +7,7 @@ use std::{
     rc::{Rc, Weak},
 };
 
-use i_slint_core::{
+use crate::{
     api::euclid,
     graphics::rendering_metrics_collector::RenderingMetricsCollector,
     graphics::{Point, Rect, Size},
@@ -24,11 +24,11 @@ mod itemrenderer;
 const PASSWORD_CHARACTER: &str = "●";
 
 pub struct FemtoVGRenderer {
-    window_weak: Weak<i_slint_core::window::WindowInner>,
+    window_weak: Weak<crate::window::WindowInner>,
 }
 
 impl FemtoVGRenderer {
-    pub fn new(window_weak: &Weak<i_slint_core::window::WindowInner>) -> Self {
+    pub fn new(window_weak: &Weak<crate::window::WindowInner>) -> Self {
         Self { window_weak: window_weak.clone() }
     }
 
@@ -144,7 +144,7 @@ impl FemtoVGRenderer {
             before_rendering_callback();
 
             for (component, origin) in components {
-                i_slint_core::item_rendering::render_component_items(
+                crate::item_rendering::render_component_items(
                     component,
                     &mut item_renderer,
                     *origin,
@@ -168,7 +168,7 @@ impl FemtoVGRenderer {
 impl Renderer for FemtoVGRenderer {
     fn text_size(
         &self,
-        font_request: i_slint_core::graphics::FontRequest,
+        font_request: crate::graphics::FontRequest,
         text: &str,
         max_width: Option<Coord>,
         scale_factor: f32,
@@ -178,7 +178,7 @@ impl Renderer for FemtoVGRenderer {
 
     fn text_input_byte_offset_for_position(
         &self,
-        text_input: Pin<&i_slint_core::items::TextInput>,
+        text_input: Pin<&crate::items::TextInput>,
         pos: Point,
     ) -> usize {
         let window = match self.window_weak.upgrade() {
@@ -206,8 +206,7 @@ impl Renderer for FemtoVGRenderer {
             )
         });
 
-        let is_password =
-            matches!(text_input.input_type(), i_slint_core::items::InputType::Password);
+        let is_password = matches!(text_input.input_type(), crate::items::InputType::Password);
         let password_string;
         let actual_text = if is_password {
             password_string = PASSWORD_CHARACTER.repeat(text.chars().count());
@@ -226,7 +225,7 @@ impl Renderer for FemtoVGRenderer {
             Size::new(width, height),
             (text_input.horizontal_alignment(), text_input.vertical_alignment()),
             text_input.wrap(),
-            i_slint_core::items::TextOverflow::Clip,
+            crate::items::TextOverflow::Clip,
             text_input.single_line(),
             paint,
             |line_text, line_pos, start, metrics| {
@@ -255,7 +254,7 @@ impl Renderer for FemtoVGRenderer {
 
     fn text_input_cursor_rect_for_byte_offset(
         &self,
-        text_input: Pin<&i_slint_core::items::TextInput>,
+        text_input: Pin<&crate::items::TextInput>,
         byte_offset: usize,
     ) -> Rect {
         let window = match self.window_weak.upgrade() {
@@ -292,7 +291,7 @@ impl Renderer for FemtoVGRenderer {
             Size::new(width, height),
             (text_input.horizontal_alignment(), text_input.vertical_alignment()),
             text_input.wrap(),
-            i_slint_core::items::TextOverflow::Clip,
+            crate::items::TextOverflow::Clip,
             text_input.single_line(),
             paint,
             |line_text, line_pos, start, metrics| {
@@ -341,7 +340,7 @@ impl FemtoVGCanvas {
         self.texture_cache.borrow_mut().clear();
     }
 
-    pub fn component_destroyed(&self, component: i_slint_core::component::ComponentRef) {
+    pub fn component_destroyed(&self, component: crate::component::ComponentRef) {
         self.graphics_cache.component_destroyed(component)
     }
 }
@@ -349,7 +348,7 @@ impl FemtoVGCanvas {
 impl Drop for FemtoVGCanvas {
     fn drop(&mut self) {
         if Rc::strong_count(&self.canvas) != 1 {
-            i_slint_core::debug_log!("internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked.")
+            //crate::debug_log!("internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked.")
         }
     }
 }

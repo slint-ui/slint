@@ -31,8 +31,11 @@ unsafe_single_core = []
 
 text_layout = []
 
-## The sofwtare renderer
+## The software renderer
 swrenderer = ["integer-sqrt", "text_layout"]
+## The FemtoVG based renderer
+renderer-femtovg = [ "femtovg", "ttf-parser", "unicode-script", "fontdb", "imgref", "glutin", "core-foundation", "core-text", "dwrote", "winapi", "libc", "servo-fontconfig" ]
+
 
 unicode = ["unicode-script", "unicode-linebreak"]
 
@@ -72,7 +75,8 @@ static_assertions = "1.1"
 strum = { version = "0.24.0", default-features = false, features = ["derive"] }
 unicode-segmentation = "1.8.0"
 unicode-linebreak = { version = "0.1.2", optional = true }
-unicode-script = { version = "0.5.3", optional = true }
+# Use the same version was femtovg's rustybuzz, to avoid duplicate crates
+unicode-script = { version = "0.5.4", optional = true }
 embedded-graphics = { version = "0.7.1", optional = true }
 integer-sqrt = { version = "0.1.5", optional = true }
 
@@ -83,20 +87,46 @@ resvg = { version= "0.23", optional = true, default-features = false }
 usvg = { version= "0.23", optional = true, default-features = false, features = ["text"] }
 tiny-skia = { version= "0.6", optional = true, default-features = false }
 
+# For Femtovg renderer
+femtovg = { version = "0.3.5", optional = true }
+ # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
+ttf-parser = { version = "0.15.0", optional = true }
+fontdb = { version = "0.9.0", optional = true, default-features = false }
+imgref = { version = "1.6.1", optional = true }
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 instant = { version = "0.1", features = [ "wasm-bindgen", "now" ] }
 wasm-bindgen = { version = "0.2" }
 web-sys = { version = "0.3", features = [ "HtmlImageElement" ] }
 
+# For Femtovg Renderer
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 usvg = { version= "0.23", optional = true, default-features = false, features = ["text", "memmap-fonts"] }
+fontdb = { version = "0.9.0", optional = true, features = ["memmap", "fontconfig"] }
+glutin = { version = "0.28", optional = true, default-features = false }
+
+# For Femtovg Renderer
+[target.'cfg(target_os = "macos")'.dependencies]
+core-foundation = { version = "0.9.1", optional = true }
+core-text = { version = "19.1.0", optional = true }
+
+# For Femtovg Renderer
+[target.'cfg(target_family = "windows")'.dependencies]
+dwrote = { version = "0.11.0", optional = true }
+winapi = { version = "0.3", optional = true, features = ["dwrite"] }
+
+[target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
+libc = { version = "0.2", optional = true }
+# Require font-config from the system on Linux. Issue #88 indicates that the copy provided by servo-fontconfig may be incompatible
+# with distros at times.
+servo-fontconfig = { version = "0.5", optional = true, features = [ "force_system_lib" ] }
 
 [dev-dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-0-2-0"] }
 i-slint-backend-testing = { path="../backends/testing" }
 rustybuzz = "0.5.0"
 ttf-parser = "0.15.0"
-fontdb = { version = "0.8.0" }
+fontdb = { version = "0.9.0" }
 
 image = { version = "0.24.0", default-features = false, features = [ "png" ] }
 pin-weak = "1"

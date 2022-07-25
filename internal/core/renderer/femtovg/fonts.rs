@@ -3,16 +3,16 @@
 
 // cspell:ignore Noto fontconfig
 
+use crate::api::euclid;
+use crate::graphics::{FontRequest, Point, Size};
+use crate::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
+use crate::{SharedString, SharedVector};
 use femtovg::TextContext;
-use i_slint_core::api::euclid;
-use i_slint_core::graphics::{FontRequest, Point, Size};
-use i_slint_core::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
-use i_slint_core::{SharedString, SharedVector};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 
-pub const DEFAULT_FONT_SIZE: f32 = 12.;
-pub const DEFAULT_FONT_WEIGHT: i32 = 400; // CSS normal
+pub(super) const DEFAULT_FONT_SIZE: f32 = 12.;
+const DEFAULT_FONT_WEIGHT: i32 = 400; // CSS normal
 
 #[cfg(not(any(
     target_family = "windows",
@@ -116,7 +116,7 @@ impl Font {
 }
 
 pub(crate) fn text_size(
-    font_request: &i_slint_core::graphics::FontRequest,
+    font_request: &crate::graphics::FontRequest,
     scale_factor: f32,
     text: &str,
     max_width: Option<f32>,
@@ -280,6 +280,7 @@ impl FontCache {
         // replacing files. Unlinking OTOH is safe and doesn't destroy the file mapping,
         // the backing file becomes an orphan in a special area of the file system. That works
         // on Unixy platforms and on Windows the default file flags prevent the deletion.
+        #[cfg_attr(not(target_arch = "wasm32"), allow(unsafe_code))]
         #[cfg(not(target_arch = "wasm32"))]
         let (shared_data, face_index) = unsafe {
             self.available_fonts.make_shared_face_data(fontdb_face_id).expect("unable to mmap font")

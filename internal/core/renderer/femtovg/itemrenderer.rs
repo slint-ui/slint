@@ -5,17 +5,17 @@ use std::cell::RefCell;
 use std::pin::Pin;
 use std::rc::Rc;
 
-use euclid::approxeq::ApproxEq;
-use i_slint_core::api::euclid;
-use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
-use i_slint_core::graphics::{Image, IntRect, IntSize, Point, Rect, Size};
-use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
-use i_slint_core::items::{
+use crate::api::euclid;
+use crate::graphics::rendering_metrics_collector::RenderingMetrics;
+use crate::graphics::{Image, IntRect, IntSize, Point, Rect, Size};
+use crate::item_rendering::{ItemCache, ItemRenderer};
+use crate::items::{
     self, Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, Layer, Opacity,
     RenderingResult,
 };
-use i_slint_core::window::WindowRc;
-use i_slint_core::{Brush, Color, ImageInner, Property, SharedString};
+use crate::window::WindowRc;
+use crate::{Brush, Color, ImageInner, Property, SharedString};
+use euclid::approxeq::ApproxEq;
 
 use super::fonts;
 use super::images::{Texture, TextureCacheKey};
@@ -66,7 +66,7 @@ pub struct GLItemRenderer<'a> {
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
     // `set_render_target` commands with image ids that have been deleted.
     layer_images_to_delete_after_flush: Vec<Rc<super::images::Texture>>,
-    window: Rc<i_slint_core::window::WindowInner>,
+    window: Rc<crate::window::WindowInner>,
     scale_factor: f32,
     /// track the state manually since femtovg don't have accessor for its state
     state: Vec<State>,
@@ -431,7 +431,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
     fn draw_path(&mut self, path: Pin<&items::Path>, _: &ItemRc) {
         let elements = path.elements();
-        if matches!(elements, i_slint_core::PathData::None) {
+        if matches!(elements, crate::PathData::None) {
             return;
         }
 
@@ -868,7 +868,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 impl<'a> GLItemRenderer<'a> {
     pub fn new(
         canvas: &'a super::FemtoVGCanvas,
-        window: &Rc<i_slint_core::window::WindowInner>,
+        window: &Rc<crate::window::WindowInner>,
         width: u32,
         height: u32,
     ) -> Self {
@@ -953,7 +953,7 @@ impl<'a> GLItemRenderer<'a> {
                     current_render_target: layer_image.as_render_target(),
                 };
 
-                i_slint_core::item_rendering::render_item_children(
+                crate::item_rendering::render_item_children(
                     self,
                     &item_rc.component(),
                     item_rc.index() as isize,
@@ -979,10 +979,10 @@ impl<'a> GLItemRenderer<'a> {
         if let Some((layer_image, layer_size)) = self
             .render_layer(item_rc, &|| {
                 // We don't need to include the size of the opacity item itself, since it has no content.
-                let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
+                let children_rect = crate::properties::evaluate_no_tracking(|| {
                     let self_ref = item_rc.borrow();
                     self_ref.as_ref().geometry().union(
-                        &i_slint_core::item_rendering::item_children_bounding_rect(
+                        &crate::item_rendering::item_children_bounding_rect(
                             &item_rc.component(),
                             item_rc.index() as isize,
                             &current_clip,
@@ -1252,7 +1252,7 @@ impl<'a> GLItemRenderer<'a> {
                 let transform = euclid::Transform2D::scale(path_width, path_height)
                     .then_translate(path_bounds.min.to_vector());
 
-                let (start, end) = i_slint_core::graphics::line_for_angle(gradient.angle());
+                let (start, end) = crate::graphics::line_for_angle(gradient.angle());
 
                 let start: Point = transform.transform_point(start);
                 let end: Point = transform.transform_point(end);
@@ -1281,7 +1281,6 @@ impl<'a> GLItemRenderer<'a> {
                     &stops,
                 )
             }
-            _ => return None,
         })
     }
 

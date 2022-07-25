@@ -6,6 +6,9 @@ use core::pin::Pin;
 use crate::graphics::{Point, Rect, Size};
 use crate::Coord;
 
+#[cfg(feature = "renderer-femtovg")]
+pub mod femtovg;
+
 pub trait Renderer {
     /// Returns the size of the given text in logical pixels.
     /// When set, `max_width` means that one need to wrap the text so it does not go further than that

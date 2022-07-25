@@ -4,9 +4,9 @@
 use std::collections::HashMap;
 use std::rc::Rc;
 
-use i_slint_core::api::euclid;
-use i_slint_core::graphics::{ImageCacheKey, IntSize, SharedImageBuffer};
-use i_slint_core::{items::ImageRendering, ImageInner};
+use crate::api::euclid;
+use crate::graphics::{ImageCacheKey, IntSize, SharedImageBuffer};
+use crate::{items::ImageRendering, ImageInner};
 
 use super::itemrenderer::CanvasRc;
 

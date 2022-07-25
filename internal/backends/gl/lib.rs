@@ -13,9 +13,6 @@ use glwindow::*;
 mod glcontext;
 use glcontext::*;
 pub(crate) mod event_loop;
-mod renderer {
-    pub mod femtovg;
-}
 
 #[cfg(target_arch = "wasm32")]
 pub(crate) mod wasm_input_helper;
@@ -69,14 +66,14 @@ impl i_slint_core::backend::Backend for Backend {
         &'static self,
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self::renderer::femtovg::FemtoVGRenderer::register_font_from_memory(data)
+        i_slint_core::renderer::femtovg::FemtoVGRenderer::register_font_from_memory(data)
     }
 
     fn register_font_from_path(
         &'static self,
         path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        self::renderer::femtovg::FemtoVGRenderer::register_font_from_path(path)
+        i_slint_core::renderer::femtovg::FemtoVGRenderer::register_font_from_path(path)
     }
 
     fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
