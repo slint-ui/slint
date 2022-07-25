@@ -462,7 +462,8 @@ pub mod internal {
 /// Creates a new window to render components in.
 #[doc(hidden)]
 pub fn create_window() -> re_exports::WindowRc {
-    i_slint_backend_selector::backend().create_window()
+    use i_slint_core::window::WindowHandleAccess;
+    i_slint_backend_selector::backend().create_window().window_handle().clone()
 }
 
 /// Enters the main event loop. This is necessary in order to receive

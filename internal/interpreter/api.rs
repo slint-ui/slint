@@ -579,14 +579,9 @@ impl ComponentDefinition {
     /// Instantiate the component using an existing window.
     #[doc(hidden)]
     pub fn create_with_existing_window(&self, window: &Window) -> ComponentInstance {
-        use i_slint_core::window::WindowHandleAccess;
         generativity::make_guard!(guard);
         ComponentInstance {
-            inner: self
-                .inner
-                .unerase(guard)
-                .clone()
-                .create_with_existing_window(window.window_handle()),
+            inner: self.inner.unerase(guard).clone().create_with_existing_window(window),
         }
     }
 

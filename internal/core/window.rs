@@ -37,12 +37,12 @@ fn previous_focus_item(item: ItemRc) -> ItemRc {
 /// window resizing and other typically windowing system related tasks.
 pub trait PlatformWindow {
     /// Registers the window with the windowing system.
-    fn show(self: Rc<Self>);
+    fn show(self: Rc<Self>) {}
     /// De-registers the window from the windowing system.
-    fn hide(self: Rc<Self>);
+    fn hide(self: Rc<Self>) {}
     /// Issue a request to the windowing system to re-render the contents of the window. This is typically an asynchronous
     /// request.
-    fn request_redraw(&self);
+    fn request_redraw(&self) {}
 
     /// This function is called by the generated code when a component and therefore its tree of items are created.
     fn register_component(&self) {}
@@ -112,10 +112,16 @@ pub trait PlatformWindow {
 
     /// Returns the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
-    fn position(&self) -> euclid::Point2D<i32, PhysicalPx>;
+    ///
+    /// The default implementation returns `(0,0)`
+    fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
+        Default::default()
+    }
     /// Sets the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
-    fn set_position(&self, position: euclid::Point2D<i32, PhysicalPx>);
+    ///
+    /// The default implementation does nothing
+    fn set_position(&self, _position: euclid::Point2D<i32, PhysicalPx>) {}
 
     /// Returns the size of the window on the screen, in physical screen coordinates and excluding
     /// a window frame (if present).
@@ -123,7 +129,9 @@ pub trait PlatformWindow {
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
-    fn set_inner_size(&self, size: euclid::Size2D<u32, PhysicalPx>);
+    ///
+    /// The default implementation does nothing
+    fn set_inner_size(&self, _size: euclid::Size2D<u32, PhysicalPx>) {}
 
     /// Sends the given text into the system clipboard
     fn set_clipboard_text(&self, _text: &str) {}
