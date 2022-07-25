@@ -21,7 +21,7 @@ pub struct TestingBackend {
 
 impl i_slint_core::backend::Backend for TestingBackend {
     fn create_window(&'static self) -> Window {
-        WindowInner::new(|_| Rc::new(TestingWindow { backend: self })).into()
+        WindowInner::new(|_| Rc::new(TestingWindow::default())).into()
     }
 
     fn run_event_loop(&'static self, _behavior: i_slint_core::backend::EventLoopQuitBehavior) {
@@ -52,11 +52,18 @@ impl i_slint_core::backend::Backend for TestingBackend {
         // The slint::testing::mock_elapsed_time updates the animation tick directly
         core::time::Duration::from_millis(i_slint_core::animations::current_tick().0)
     }
+
+    fn set_clipboard_text(&'static self, text: &str) {
+        *self.clipboard.lock().unwrap() = Some(text.into());
+    }
+
+    fn clipboard_text(&'static self) -> Option<String> {
+        self.clipboard.lock().unwrap().clone()
+    }
 }
 
-pub struct TestingWindow {
-    backend: &'static TestingBackend,
-}
+#[derive(Default)]
+pub struct TestingWindow {}
 
 impl PlatformWindow for TestingWindow {
     fn show(self: Rc<Self>) {
@@ -113,14 +120,6 @@ impl PlatformWindow for TestingWindow {
 
     fn set_inner_size(&self, _size: euclid::Size2D<u32, PhysicalPx>) {
         unimplemented!()
-    }
-
-    fn set_clipboard_text(&self, text: &str) {
-        *self.backend.clipboard.lock().unwrap() = Some(text.into());
-    }
-
-    fn clipboard_text(&self) -> Option<String> {
-        self.backend.clipboard.lock().unwrap().clone()
     }
 }
 

@@ -19,7 +19,6 @@ use crate::renderer::Renderer;
 use crate::{Callback, Coord};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
-use alloc::string::String;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 use vtable::VRcMapped;
@@ -132,13 +131,6 @@ pub trait PlatformWindow {
     ///
     /// The default implementation does nothing
     fn set_inner_size(&self, _size: euclid::Size2D<u32, PhysicalPx>) {}
-
-    /// Sends the given text into the system clipboard
-    fn set_clipboard_text(&self, _text: &str) {}
-    /// Returns a copy of text stored in the system clipboard, if any.
-    fn clipboard_text(&self) -> Option<String> {
-        None
-    }
 
     /// Return the renderer
     fn renderer(&self) -> &dyn Renderer;

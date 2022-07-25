@@ -188,15 +188,6 @@ mod the_backend {
         fn set_inner_size(&self, _size: euclid::Size2D<u32, PhysicalPx>) {
             unimplemented!()
         }
-
-        fn set_clipboard_text(&self, text: &str) {
-            self.backend.with_inner(|inner| inner.clipboard = text.into())
-        }
-
-        fn clipboard_text(&self) -> Option<String> {
-            let c = self.backend.with_inner(|inner| inner.clipboard.clone());
-            c.is_empty().then(|| c)
-        }
     }
 
     enum McuEvent {
@@ -428,6 +419,15 @@ mod the_backend {
 
         fn duration_since_start(&'static self) -> core::time::Duration {
             DEVICES.with(|devices| devices.borrow_mut().as_mut().unwrap().time())
+        }
+
+        fn set_clipboard_text(&self, text: &str) {
+            self.with_inner(|inner| inner.clipboard = text.into())
+        }
+
+        fn clipboard_text(&self) -> Option<String> {
+            let c = self.with_inner(|inner| inner.clipboard.clone());
+            c.is_empty().then(|| c)
         }
     }
 }
