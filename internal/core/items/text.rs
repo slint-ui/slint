@@ -63,7 +63,12 @@ impl Item for Text {
 
     fn layout_info(self: Pin<&Self>, orientation: Orientation, window: &WindowRc) -> LayoutInfo {
         let implicit_size = |max_width| {
-            window.text_size(self.font_request(window), self.text().as_str(), max_width)
+            window.renderer().text_size(
+                self.font_request(window),
+                self.text().as_str(),
+                max_width,
+                window.scale_factor(),
+            )
         };
 
         // Stretch uses `round_layout` to explicitly align the top left and bottom right of layout nodes
@@ -73,9 +78,12 @@ impl Item for Text {
             Orientation::Horizontal => {
                 let implicit_size = implicit_size(None);
                 let min = match self.overflow() {
-                    TextOverflow::Elide => implicit_size
-                        .width
-                        .min(window.text_size(self.font_request(window), "…", None).width),
+                    TextOverflow::Elide => implicit_size.width.min(
+                        window
+                            .renderer()
+                            .text_size(self.font_request(window), "…", None, window.scale_factor())
+                            .width,
+                    ),
                     TextOverflow::Clip => match self.wrap() {
                         TextWrap::NoWrap => implicit_size.width,
                         TextWrap::WordWrap => 0 as Coord,
@@ -223,7 +231,7 @@ impl Item for TextInput {
     fn layout_info(self: Pin<&Self>, orientation: Orientation, window: &WindowRc) -> LayoutInfo {
         let text = self.text();
         let implicit_size = |max_width| {
-            window.text_size(
+            window.renderer().text_size(
                 self.font_request(window),
                 {
                     if text.is_empty() {
@@ -233,6 +241,7 @@ impl Item for TextInput {
                     }
                 },
                 max_width,
+                window.scale_factor(),
             )
         };
 
@@ -283,7 +292,8 @@ impl Item for TextInput {
         }
         match event {
             MouseEvent::MousePressed { pos, button: PointerEventButton::Left } => {
-                let clicked_offset = window.text_input_byte_offset_for_position(self, pos) as i32;
+                let clicked_offset =
+                    window.renderer().text_input_byte_offset_for_position(self, pos) as i32;
                 self.as_ref().pressed.set(true);
                 self.as_ref().anchor_position.set(clicked_offset);
                 self.set_cursor_position(clicked_offset, true, window);
@@ -296,7 +306,7 @@ impl Item for TextInput {
             MouseEvent::MouseMoved { pos } => {
                 if self.as_ref().pressed.get() {
                     let clicked_offset =
-                        window.text_input_byte_offset_for_position(self, pos) as i32;
+                        window.renderer().text_input_byte_offset_for_position(self, pos) as i32;
                     self.set_cursor_position(clicked_offset, true, window);
                 }
             }
@@ -511,7 +521,10 @@ impl TextInput {
         let mut grapheme_cursor =
             unicode_segmentation::GraphemeCursor::new(last_cursor_pos, text.len(), true);
 
-        let font_height = window.text_size(self.font_request(window), " ", None).height;
+        let font_height = window
+            .renderer()
+            .text_size(self.font_request(window), " ", None, window.scale_factor())
+            .height;
 
         let mut reset_preferred_x_pos = true;
 
@@ -526,23 +539,23 @@ impl TextInput {
                 reset_preferred_x_pos = false;
 
                 let cursor_rect =
-                    window.text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
+                    window.renderer().text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
                 let mut cursor_xy_pos = cursor_rect.center();
 
                 cursor_xy_pos.y += font_height;
                 cursor_xy_pos.x = self.preferred_x_pos.get();
-                window.text_input_byte_offset_for_position(self, cursor_xy_pos)
+                window.renderer().text_input_byte_offset_for_position(self, cursor_xy_pos)
             }
             TextCursorDirection::PreviousLine => {
                 reset_preferred_x_pos = false;
 
                 let cursor_rect =
-                    window.text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
+                    window.renderer().text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
                 let mut cursor_xy_pos = cursor_rect.center();
 
                 cursor_xy_pos.y -= font_height;
                 cursor_xy_pos.x = self.preferred_x_pos.get();
-                window.text_input_byte_offset_for_position(self, cursor_xy_pos)
+                window.renderer().text_input_byte_offset_for_position(self, cursor_xy_pos)
             }
             TextCursorDirection::PreviousCharacter => {
                 let mut i = last_cursor_pos;
@@ -574,19 +587,19 @@ impl TextInput {
             }
             TextCursorDirection::StartOfLine => {
                 let cursor_rect =
-                    window.text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
+                    window.renderer().text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
                 let mut cursor_xy_pos = cursor_rect.center();
 
                 cursor_xy_pos.x = 0 as Coord;
-                window.text_input_byte_offset_for_position(self, cursor_xy_pos)
+                window.renderer().text_input_byte_offset_for_position(self, cursor_xy_pos)
             }
             TextCursorDirection::EndOfLine => {
                 let cursor_rect =
-                    window.text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
+                    window.renderer().text_input_cursor_rect_for_byte_offset(self, last_cursor_pos);
                 let mut cursor_xy_pos = cursor_rect.center();
 
                 cursor_xy_pos.x = Coord::MAX;
-                window.text_input_byte_offset_for_position(self, cursor_xy_pos)
+                window.renderer().text_input_byte_offset_for_position(self, cursor_xy_pos)
             }
             TextCursorDirection::StartOfParagraph => text
                 .as_bytes()
@@ -632,8 +645,10 @@ impl TextInput {
     ) {
         self.cursor_position.set(new_position);
         if new_position >= 0 {
-            let pos =
-                window.text_input_cursor_rect_for_byte_offset(self, new_position as usize).origin;
+            let pos = window
+                .renderer()
+                .text_input_cursor_rect_for_byte_offset(self, new_position as usize)
+                .origin;
             if reset_preferred_x_pos {
                 self.preferred_x_pos.set(pos.x);
             }

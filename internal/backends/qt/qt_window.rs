@@ -30,6 +30,7 @@ use std::ptr::NonNull;
 use std::rc::{Rc, Weak};
 
 use crate::key_generated;
+use i_slint_core::renderer::Renderer;
 
 cpp! {{
     #include <QtWidgets/QtWidgets>
@@ -1537,11 +1538,94 @@ impl PlatformWindow for QtWindow {
         }};
     }
 
+    fn renderer(&self) -> &dyn Renderer {
+        self
+    }
+
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
+    }
+
+    fn handle_focus_change(&self, old: Option<ItemRc>, new: Option<ItemRc>) {
+        let widget_ptr = self.widget_ptr();
+        if let Some(ai) = accessible_item(new) {
+            let item = &ai;
+            cpp! {unsafe [widget_ptr as "QWidget*", item as "void*"] {
+                auto accessible = QAccessible::queryAccessibleInterface(widget_ptr);
+                if (auto slint_accessible = dynamic_cast<Slint_accessible*>(accessible)) {
+                    slint_accessible->clearFocus();
+                    slint_accessible->focusItem(item);
+                }
+            }};
+        }
+    }
+
+    fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
+        let widget_ptr = self.widget_ptr();
+        let qp = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QPoint as "QPoint" {
+            return widget_ptr->pos()  * widget_ptr->devicePixelRatio();
+        }};
+        euclid::Point2D::new(qp.x as _, qp.y as _)
+    }
+
+    fn set_position(&self, position: euclid::Point2D<i32, PhysicalPx>) {
+        let widget_ptr = self.widget_ptr();
+        let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
+        cpp! {unsafe [widget_ptr as "QWidget*", pos as "QPoint"] {
+            widget_ptr->move(pos / widget_ptr->devicePixelRatio());
+        }};
+    }
+
+    fn inner_size(&self) -> euclid::Size2D<u32, PhysicalPx> {
+        let widget_ptr = self.widget_ptr();
+        let sz = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QSize as "QSize" {
+            return widget_ptr->size() * widget_ptr->devicePixelRatio();
+        }};
+        euclid::Size2D::new(sz.width as _, sz.height as _)
+    }
+
+    fn set_inner_size(&self, size: euclid::Size2D<u32, PhysicalPx>) {
+        let widget_ptr = self.widget_ptr();
+        let sz = qttypes::QSize { width: size.width as _, height: size.height as _ };
+        cpp! {unsafe [widget_ptr as "QWidget*", sz as "QSize"] {
+            widget_ptr->resize(sz  / widget_ptr->devicePixelRatio());
+        }};
+    }
+
+    fn set_clipboard_text(&self, _text: &str) {
+        use cpp::cpp;
+        let text: qttypes::QString = _text.into();
+        cpp! {unsafe [text as "QString"] {
+            ensure_initialized();
+            QGuiApplication::clipboard()->setText(text);
+        } }
+    }
+
+    fn clipboard_text(&self) -> Option<String> {
+        use cpp::cpp;
+        let has_text = cpp! {unsafe [] -> bool as "bool" {
+            ensure_initialized();
+            return QGuiApplication::clipboard()->mimeData()->hasText();
+        } };
+        if has_text {
+            return Some(
+                cpp! { unsafe [] -> qttypes::QString as "QString" {
+                    return QGuiApplication::clipboard()->text();
+                }}
+                .into(),
+            );
+        }
+        None
+    }
+}
+
+impl Renderer for QtWindow {
     fn text_size(
         &self,
         font_request: i_slint_core::graphics::FontRequest,
         text: &str,
         max_width: Option<f32>,
+        _scale_factor: f32,
     ) -> Size {
         get_font(font_request).text_size(text, max_width)
     }
@@ -1650,82 +1734,6 @@ impl PlatformWindow for QtWindow {
         }};
 
         Rect::new(Point::new(r.x as _, r.y as _), Size::new(1.0, font_size as f32))
-    }
-
-    fn as_any(&self) -> &dyn std::any::Any {
-        self
-    }
-
-    fn handle_focus_change(&self, old: Option<ItemRc>, new: Option<ItemRc>) {
-        let widget_ptr = self.widget_ptr();
-        if let Some(ai) = accessible_item(new) {
-            let item = &ai;
-            cpp! {unsafe [widget_ptr as "QWidget*", item as "void*"] {
-                auto accessible = QAccessible::queryAccessibleInterface(widget_ptr);
-                if (auto slint_accessible = dynamic_cast<Slint_accessible*>(accessible)) {
-                    slint_accessible->clearFocus();
-                    slint_accessible->focusItem(item);
-                }
-            }};
-        }
-    }
-
-    fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
-        let widget_ptr = self.widget_ptr();
-        let qp = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QPoint as "QPoint" {
-            return widget_ptr->pos()  * widget_ptr->devicePixelRatio();
-        }};
-        euclid::Point2D::new(qp.x as _, qp.y as _)
-    }
-
-    fn set_position(&self, position: euclid::Point2D<i32, PhysicalPx>) {
-        let widget_ptr = self.widget_ptr();
-        let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
-        cpp! {unsafe [widget_ptr as "QWidget*", pos as "QPoint"] {
-            widget_ptr->move(pos / widget_ptr->devicePixelRatio());
-        }};
-    }
-
-    fn inner_size(&self) -> euclid::Size2D<u32, PhysicalPx> {
-        let widget_ptr = self.widget_ptr();
-        let sz = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QSize as "QSize" {
-            return widget_ptr->size() * widget_ptr->devicePixelRatio();
-        }};
-        euclid::Size2D::new(sz.width as _, sz.height as _)
-    }
-
-    fn set_inner_size(&self, size: euclid::Size2D<u32, PhysicalPx>) {
-        let widget_ptr = self.widget_ptr();
-        let sz = qttypes::QSize { width: size.width as _, height: size.height as _ };
-        cpp! {unsafe [widget_ptr as "QWidget*", sz as "QSize"] {
-            widget_ptr->resize(sz  / widget_ptr->devicePixelRatio());
-        }};
-    }
-
-    fn set_clipboard_text(&self, _text: &str) {
-        use cpp::cpp;
-        let text: qttypes::QString = _text.into();
-        cpp! {unsafe [text as "QString"] {
-            ensure_initialized();
-            QGuiApplication::clipboard()->setText(text);
-        } }
-    }
-
-    fn clipboard_text(&self) -> Option<String> {
-        use cpp::cpp;
-        let has_text = cpp! {unsafe [] -> bool as "bool" {
-            ensure_initialized();
-            return QGuiApplication::clipboard()->mimeData()->hasText();
-        } };
-        if has_text {
-            return Some(
-                cpp! { unsafe [] -> qttypes::QString as "QString" {
-                    return QGuiApplication::clipboard()->text();
-                }}
-                .into(),
-            );
-        }
-        None
     }
 }
 

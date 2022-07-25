@@ -15,6 +15,7 @@ use crate::input::{
 use crate::item_tree::ItemRc;
 use crate::items::{ItemRef, MouseCursor};
 use crate::properties::{Property, PropertyTracker};
+use crate::renderer::Renderer;
 use crate::{Callback, Coord};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
@@ -95,34 +96,6 @@ pub trait PlatformWindow {
     /// Set the mouse cursor
     fn set_mouse_cursor(&self, _cursor: MouseCursor) {}
 
-    /// Returns the size of the given text in logical pixels.
-    /// When set, `max_width` means that one need to wrap the text so it does not go further than that
-    fn text_size(
-        &self,
-        font_request: crate::graphics::FontRequest,
-        text: &str,
-        max_width: Option<Coord>,
-    ) -> Size;
-
-    /// Returns the (UTF-8) byte offset in the text property that refers to the character that contributed to
-    /// the glyph cluster that's visually nearest to the given coordinate. This is used for hit-testing,
-    /// for example when receiving a mouse click into a text field. Then this function returns the "cursor"
-    /// position.
-    fn text_input_byte_offset_for_position(
-        &self,
-        text_input: Pin<&crate::items::TextInput>,
-        pos: Point,
-    ) -> usize;
-
-    /// That's the opposite of [`Self::text_input_byte_offset_for_position`]
-    /// It takes a (UTF-8) byte offset in the text property, and returns a Rectangle
-    /// left to the char. It is one logical pixel wide and ends at the baseline.
-    fn text_input_cursor_rect_for_byte_offset(
-        &self,
-        text_input: Pin<&crate::items::TextInput>,
-        byte_offset: usize,
-    ) -> Rect;
-
     /// This is called when the virtual keyboard should be shown because a widget that
     /// uses input has the focus.
     fn show_virtual_keyboard(&self, _: crate::items::InputType) {}
@@ -156,6 +129,9 @@ pub trait PlatformWindow {
     fn clipboard_text(&self) -> Option<String> {
         None
     }
+
+    /// Return the renderer
+    fn renderer(&self) -> &dyn Renderer;
 }
 
 struct WindowPropertiesTracker {

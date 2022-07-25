@@ -12,6 +12,7 @@ use crate::lengths::{
     LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, PhysicalLength, PhysicalPoint,
     PhysicalPx, PhysicalRect, PhysicalSize, PointLengths, RectLengths, ScaleFactor, SizeLengths,
 };
+use crate::renderer::Renderer;
 use crate::textlayout::{FontMetrics as _, TextParagraphLayout};
 use crate::window::WindowHandleAccess;
 use crate::{Color, Coord, ImageInner, StaticTextures};
@@ -159,6 +160,33 @@ impl SoftwareRenderer {
                 item.cached_rendering_data_offset().release(&mut self.partial_cache.borrow_mut());
             drop(cache_entry);
         }
+    }
+}
+
+impl Renderer for SoftwareRenderer {
+    fn text_size(
+        &self,
+        font_request: crate::graphics::FontRequest,
+        text: &str,
+        max_width: Option<Coord>,
+        scale_factor: f32,
+    ) -> crate::graphics::Size {
+        fonts::text_size(font_request, text, max_width, ScaleFactor::new(scale_factor)).to_untyped()
+    }
+
+    fn text_input_byte_offset_for_position(
+        &self,
+        _text_input: Pin<&crate::items::TextInput>,
+        _pos: crate::graphics::Point,
+    ) -> usize {
+        0
+    }
+    fn text_input_cursor_rect_for_byte_offset(
+        &self,
+        _text_input: Pin<&crate::items::TextInput>,
+        _byte_offset: usize,
+    ) -> crate::graphics::Rect {
+        Default::default()
     }
 }
 

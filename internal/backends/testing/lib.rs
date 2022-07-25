@@ -7,6 +7,7 @@
 use i_slint_core::api::euclid;
 use i_slint_core::api::PhysicalPx;
 use i_slint_core::graphics::{Point, Rect, Size};
+use i_slint_core::renderer::Renderer;
 use i_slint_core::window::{PlatformWindow, WindowInner};
 use std::pin::Pin;
 use std::rc::Rc;
@@ -89,29 +90,8 @@ impl PlatformWindow for TestingWindow {
 
     fn set_mouse_cursor(&self, _cursor: i_slint_core::items::MouseCursor) {}
 
-    fn text_size(
-        &self,
-        _font_request: i_slint_core::graphics::FontRequest,
-        text: &str,
-        _max_width: Option<f32>,
-    ) -> Size {
-        Size::new(text.len() as f32 * 10., 10.)
-    }
-
-    fn text_input_byte_offset_for_position(
-        &self,
-        _text_input: Pin<&i_slint_core::items::TextInput>,
-        _pos: Point,
-    ) -> usize {
-        0
-    }
-
-    fn text_input_cursor_rect_for_byte_offset(
-        &self,
-        _text_input: Pin<&i_slint_core::items::TextInput>,
-        _byte_offset: usize,
-    ) -> Rect {
-        Default::default()
+    fn renderer(&self) -> &dyn Renderer {
+        self
     }
 
     fn as_any(&self) -> &dyn std::any::Any {
@@ -140,6 +120,34 @@ impl PlatformWindow for TestingWindow {
 
     fn clipboard_text(&self) -> Option<String> {
         self.backend.clipboard.lock().unwrap().clone()
+    }
+}
+
+impl Renderer for TestingWindow {
+    fn text_size(
+        &self,
+        _font_request: i_slint_core::graphics::FontRequest,
+        text: &str,
+        _max_width: Option<f32>,
+        _scale_factor: f32,
+    ) -> Size {
+        Size::new(text.len() as f32 * 10., 10.)
+    }
+
+    fn text_input_byte_offset_for_position(
+        &self,
+        _text_input: Pin<&i_slint_core::items::TextInput>,
+        _pos: Point,
+    ) -> usize {
+        0
+    }
+
+    fn text_input_cursor_rect_for_byte_offset(
+        &self,
+        _text_input: Pin<&i_slint_core::items::TextInput>,
+        _byte_offset: usize,
+    ) -> Rect {
+        Default::default()
     }
 }
 
