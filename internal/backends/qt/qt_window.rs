@@ -1712,9 +1712,9 @@ impl Renderer for QtWindow {
 
     fn register_font_from_memory(
         &self,
-        _data: &'static [u8],
+        data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let data = qttypes::QByteArray::from(_data);
+        let data = qttypes::QByteArray::from(data);
         cpp! {unsafe [data as "QByteArray"] {
             ensure_initialized(true);
             QFontDatabase::addApplicationFontFromData(data);
@@ -1724,9 +1724,9 @@ impl Renderer for QtWindow {
 
     fn register_font_from_path(
         &self,
-        _path: &std::path::Path,
+        path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let encoded_path: qttypes::QByteArray = _path.to_string_lossy().as_bytes().into();
+        let encoded_path: qttypes::QByteArray = path.to_string_lossy().as_bytes().into();
         cpp! {unsafe [encoded_path as "QByteArray"] {
             ensure_initialized(true);
 
