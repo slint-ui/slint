@@ -68,7 +68,7 @@ impl FontMetrics for BitmapGlyphs {
     }
 }
 
-pub const DEFAULT_FONT_SIZE: Coord = 12 as Coord;
+const DEFAULT_FONT_SIZE: Coord = 12 as Coord;
 
 // A font that is resolved to a specific pixel size.
 pub struct PixelFont {
