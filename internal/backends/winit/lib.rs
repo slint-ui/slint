@@ -40,6 +40,9 @@ mod renderer {
             canvas: &Self::Canvas,
             width: u32,
             height: u32,
+            #[cfg(not(target_arch = "wasm32"))] gl_context: &glutin::WindowedContext<
+                glutin::PossiblyCurrent,
+            >,
             before_rendering_callback: impl FnOnce(),
         );
     }
@@ -51,6 +54,8 @@ mod renderer {
     }
 
     pub(crate) mod femtovg;
+    #[cfg(feature = "renderer-skia")]
+    pub(crate) mod skia;
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -100,6 +105,17 @@ impl Backend {
 
         let factory_fn = match renderer_name {
             Some("gl") | Some("femtovg") | None => femtovg_factory,
+            #[cfg(feature = "renderer-skia")]
+            Some("skia") => || {
+                i_slint_core::window::WindowInner::new(|window| {
+                    GLWindow::<renderer::skia::SkiaRenderer>::new(
+                        window,
+                        #[cfg(target_arch = "wasm32")]
+                        "canvas".into(),
+                    )
+                })
+                .into()
+            },
             Some(renderer_name) => {
                 eprintln!(
                     "slint winit: unrecognized renderer {}, falling back to FemtoVG",

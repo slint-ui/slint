@@ -20,6 +20,7 @@ path = "lib.rs"
 wayland = ["winit/wayland", "glutin/wayland", "copypasta/wayland"]
 x11 = ["winit/x11", "glutin/x11", "copypasta/x11"]
 renderer-femtovg = []
+renderer-skia = ["skia-safe", "glow"]
 rtti = ["i-slint-core/rtti"]
 default = []
 
@@ -46,6 +47,10 @@ ttf-parser = "0.15.0" # Use the same version was femtovg's rustybuzz, to avoid d
 unicode-script = "0.5.4" # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
 winit = { version = "0.26", default-features = false }
 dark-light = "0.2.2"
+
+# For the Skia renderer
+skia-safe = { version = "0", optional = true, features = ["gl"] }
+glow = { version = "0.11", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 web-sys = { version = "0.3", features=["console", "WebGlContextAttributes", "CanvasRenderingContext2d", "HtmlInputElement", "HtmlCanvasElement", "Window", "Document", "CssStyleDeclaration", "Event", "KeyboardEvent", "InputEvent", "CompositionEvent"] }

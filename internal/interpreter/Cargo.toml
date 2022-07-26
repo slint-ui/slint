@@ -68,6 +68,9 @@ eventloop-qt = ["backend-qt"]
 ## The `femtovg` crate is available for rendering. 
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "std"]
 
+## The Skia based rendering engine.
+renderer-skia = ["i-slint-backend-selector/renderer-skia", "std"]
+
 ## This feature is an alias for `backend-qt`
 renderer-qt = ["backend-qt"]
 

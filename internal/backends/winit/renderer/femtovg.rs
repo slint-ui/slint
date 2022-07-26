@@ -87,6 +87,9 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         canvas: &FemtoVGCanvas,
         width: u32,
         height: u32,
+        #[cfg(not(target_arch = "wasm32"))] _gl_context: &glutin::WindowedContext<
+            glutin::PossiblyCurrent,
+        >,
         before_rendering_callback: impl FnOnce(),
     ) {
         let window = match self.window_weak.upgrade() {

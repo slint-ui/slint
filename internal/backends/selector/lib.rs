@@ -41,6 +41,7 @@ cfg_if::cfg_if! {
                 if let Some((event_loop, _renderer)) = backend_config.split_once('-').or_else(|| match backend_config.as_str() {
                     "qt" => Some(("qt", "qpainter")),
                     "gl" => Some(("winit", "femtovg")),
+                    "skia" => Some(("winit", "skia")),
                     _ => None,
                 }) {
                     match event_loop {

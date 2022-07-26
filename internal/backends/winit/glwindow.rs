@@ -162,14 +162,21 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
         window.opengl_context.make_current();
         window.opengl_context.ensure_resized();
 
-        self.renderer.render(&window.canvas, size.width, size.height, || {
-            if self.has_rendering_notifier() {
-                self.invoke_rendering_notifier(
-                    RenderingState::BeforeRendering,
-                    &window.opengl_context,
-                );
-            }
-        });
+        self.renderer.render(
+            &window.canvas,
+            size.width,
+            size.height,
+            #[cfg(not(target_arch = "wasm32"))]
+            &window.opengl_context.glutin_context(),
+            || {
+                if self.has_rendering_notifier() {
+                    self.invoke_rendering_notifier(
+                        RenderingState::BeforeRendering,
+                        &window.opengl_context,
+                    );
+                }
+            },
+        );
 
         self.invoke_rendering_notifier(RenderingState::AfterRendering, &window.opengl_context);
 
