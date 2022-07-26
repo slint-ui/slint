@@ -11,6 +11,7 @@ use std::rc::{Rc, Weak};
 
 use crate::event_loop::WinitWindow;
 use crate::glcontext::OpenGLContext;
+use crate::renderer::WinitCompatibleRenderer;
 use const_field_offset::FieldOffsets;
 use corelib::api::{
     GraphicsAPI, PhysicalPx, RenderingNotifier, RenderingState, SetRenderingNotifierError,
@@ -19,7 +20,6 @@ use corelib::component::ComponentRc;
 use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};
 use corelib::layout::Orientation;
-use corelib::renderer::Renderer;
 use corelib::window::PlatformWindow;
 use corelib::Property;
 use corelib::{graphics::*, Coord};
@@ -28,16 +28,16 @@ use winit::dpi::LogicalSize;
 
 /// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
-pub struct GLWindow {
+pub struct GLWindow<Renderer: WinitCompatibleRenderer> {
     self_weak: Weak<corelib::window::WindowInner>,
-    map_state: RefCell<GraphicsWindowBackendState>,
+    map_state: RefCell<GraphicsWindowBackendState<Renderer>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
     existing_size: Cell<winit::dpi::LogicalSize<f32>>,
 
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
 
-    femtovg_renderer: crate::renderer::femtovg::FemtoVGRenderer,
+    renderer: Renderer,
 
     #[cfg(target_arch = "wasm32")]
     canvas_id: String,
@@ -46,7 +46,7 @@ pub struct GLWindow {
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
 }
 
-impl GLWindow {
+impl<Renderer: WinitCompatibleRenderer> GLWindow<Renderer> {
     /// Creates a new reference-counted instance.
     ///
     /// Arguments:
@@ -67,7 +67,7 @@ impl GLWindow {
             currently_pressed_key_code: Default::default(),
             existing_size: Default::default(),
             rendering_notifier: Default::default(),
-            femtovg_renderer: crate::renderer::femtovg::FemtoVGRenderer::new(&window_weak),
+            renderer: Renderer::new(&window_weak),
             #[cfg(target_arch = "wasm32")]
             canvas_id,
             #[cfg(target_arch = "wasm32")]
@@ -77,7 +77,7 @@ impl GLWindow {
 
     fn with_current_context<T>(
         &self,
-        cb: impl FnOnce(&MappedWindow, &OpenGLContext) -> T,
+        cb: impl FnOnce(&MappedWindow<Renderer>, &OpenGLContext) -> T,
     ) -> Option<T> {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped { .. } => None,
@@ -91,7 +91,7 @@ impl GLWindow {
         matches!(&*self.map_state.borrow(), GraphicsWindowBackendState::Mapped { .. })
     }
 
-    fn borrow_mapped_window(&self) -> Option<std::cell::Ref<MappedWindow>> {
+    fn borrow_mapped_window(&self) -> Option<std::cell::Ref<MappedWindow<Renderer>>> {
         if self.is_mapped() {
             std::cell::Ref::map(self.map_state.borrow(), |state| match state {
                 GraphicsWindowBackendState::Unmapped{..} => {
@@ -107,7 +107,8 @@ impl GLWindow {
     fn release_graphics_resources(&self) {
         // Release GL textures and other GPU bound resources.
         self.with_current_context(|mapped_window, context| {
-            mapped_window.femtovg_canvas.release_graphics_resources();
+            use crate::renderer::WinitCompatibleCanvas;
+            mapped_window.canvas.release_graphics_resources();
 
             self.invoke_rendering_notifier(RenderingState::RenderingTeardown, context);
         });
@@ -136,7 +137,7 @@ impl GLWindow {
     }
 }
 
-impl WinitWindow for GLWindow {
+impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Renderer> {
     fn runtime_window(&self) -> Rc<corelib::window::WindowInner> {
         self.self_weak.upgrade().unwrap()
     }
@@ -161,7 +162,7 @@ impl WinitWindow for GLWindow {
         window.opengl_context.make_current();
         window.opengl_context.ensure_resized();
 
-        self.femtovg_renderer.render(&window.femtovg_canvas, size.width, size.height, || {
+        self.renderer.render(&window.canvas, size.width, size.height, || {
             if self.has_rendering_notifier() {
                 self.invoke_rendering_notifier(
                     RenderingState::BeforeRendering,
@@ -254,7 +255,7 @@ impl WinitWindow for GLWindow {
     }
 }
 
-impl PlatformWindow for GLWindow {
+impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Renderer> {
     fn request_redraw(&self) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped { .. } => {}
@@ -275,7 +276,8 @@ impl PlatformWindow for GLWindow {
             GraphicsWindowBackendState::Unmapped { .. } => {}
             GraphicsWindowBackendState::Mapped(_) => {
                 self.with_current_context(|mapped_window, _| {
-                    mapped_window.femtovg_canvas.component_destroyed(component)
+                    use crate::renderer::WinitCompatibleCanvas;
+                    mapped_window.canvas.component_destroyed(component)
                 });
             }
         }
@@ -417,7 +419,7 @@ impl PlatformWindow for GLWindow {
         let opengl_context = crate::OpenGLContext::new_context(window_builder);
 
         #[cfg(not(target_arch = "wasm32"))]
-        let femtovg_canvas = {
+        let canvas = {
             cfg_if::cfg_if! {
                 if #[cfg(target_arch = "wasm32")] {
                     let winsys = "HTML Canvas";
@@ -449,14 +451,13 @@ impl PlatformWindow for GLWindow {
                 }
             }
 
-            self.femtovg_renderer
+            self.renderer
                 .create_canvas_from_glutin_context(&opengl_context.glutin_context(), Some(winsys))
         };
 
         #[cfg(target_arch = "wasm32")]
-        let femtovg_canvas = self
-            .femtovg_renderer
-            .create_canvas_from_html_canvas(&opengl_context.html_canvas_element());
+        let canvas =
+            self.renderer.create_canvas_from_html_canvas(&opengl_context.html_canvas_element());
 
         self.invoke_rendering_notifier(RenderingState::RenderingSetup, &opengl_context);
 
@@ -472,7 +473,7 @@ impl PlatformWindow for GLWindow {
         drop(platform_window);
 
         self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
-            femtovg_canvas,
+            canvas,
             opengl_context,
             constraints: Default::default(),
         }));
@@ -536,8 +537,8 @@ impl PlatformWindow for GLWindow {
         });
     }
 
-    fn renderer(&self) -> &dyn Renderer {
-        &self.femtovg_renderer
+    fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
+        &self.renderer
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -620,19 +621,19 @@ impl PlatformWindow for GLWindow {
     }
 }
 
-impl Drop for GLWindow {
+impl<Renderer: WinitCompatibleRenderer> Drop for GLWindow<Renderer> {
     fn drop(&mut self) {
         self.release_graphics_resources();
     }
 }
 
-struct MappedWindow {
-    femtovg_canvas: crate::renderer::femtovg::FemtoVGCanvas,
+struct MappedWindow<Renderer: WinitCompatibleRenderer> {
+    canvas: Renderer::Canvas,
     opengl_context: crate::OpenGLContext,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
 }
 
-impl Drop for MappedWindow {
+impl<Renderer: WinitCompatibleRenderer> Drop for MappedWindow<Renderer> {
     fn drop(&mut self) {
         // The GL renderer must be destructed with a GL context current, in order to clean up correctly.
         self.opengl_context.make_current();
@@ -640,12 +641,12 @@ impl Drop for MappedWindow {
     }
 }
 
-enum GraphicsWindowBackendState {
+enum GraphicsWindowBackendState<Renderer: WinitCompatibleRenderer> {
     Unmapped {
         requested_position: Option<euclid::Point2D<i32, PhysicalPx>>,
         requested_size: Option<euclid::Size2D<u32, PhysicalPx>>,
     },
-    Mapped(MappedWindow),
+    Mapped(MappedWindow<Renderer>),
 }
 
 #[derive(FieldOffsets)]

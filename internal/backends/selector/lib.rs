@@ -10,8 +10,15 @@ use core::pin::Pin;
 cfg_if::cfg_if! {
     if #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))] {
         use i_slint_backend_qt as default_backend;
+
+        fn create_default_backend() -> Box<dyn i_slint_core::backend::Backend + 'static> {
+            Box::new(default_backend::Backend)
+        }
     } else if #[cfg(feature = "i-slint-backend-winit")] {
         use i_slint_backend_winit as default_backend;
+        fn create_default_backend() -> Box<dyn i_slint_core::backend::Backend + 'static> {
+            Box::new(i_slint_backend_winit::Backend::new::<i_slint_backend_winit::renderer::femtovg::FemtoVGRenderer>())
+        }
     }
 }
 
@@ -36,7 +43,7 @@ cfg_if::cfg_if! {
                 }
                 #[cfg(feature = "i-slint-backend-winit")]
                 if backend_config == "GL" {
-                    return Box::new(i_slint_backend_winit::Backend);
+                    return Box::new(i_slint_backend_winit::Backend::new::<i_slint_backend_winit::renderer::femtovg::FemtoVGRenderer>());
                 }
 
                 #[cfg(any(
@@ -47,7 +54,7 @@ cfg_if::cfg_if! {
                     eprintln!("Could not load rendering backend {}, fallback to default", backend_config)
                 }
 
-                Box::new(default_backend::Backend)
+                create_default_backend()
             })
         }
         pub use default_backend::{
