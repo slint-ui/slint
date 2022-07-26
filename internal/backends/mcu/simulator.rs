@@ -11,8 +11,6 @@ use embedded_graphics_simulator::SimulatorDisplay;
 use i_slint_core::api::{euclid, PhysicalPx};
 use i_slint_core::component::ComponentRc;
 use i_slint_core::input::KeyboardModifiers;
-use i_slint_core::item_rendering::DirtyRegion;
-use i_slint_core::items::{Item, ItemRef, WindowItem};
 use i_slint_core::layout::Orientation;
 use i_slint_core::window::PlatformWindow;
 use i_slint_core::Coord;
@@ -39,7 +37,6 @@ pub struct SimulatorWindow {
     constraints: Cell<(i_slint_core::layout::LayoutInfo, i_slint_core::layout::LayoutInfo)>,
     visible: Cell<bool>,
     frame_buffer: RefCell<Option<SimulatorDisplay<embedded_graphics::pixelcolor::Rgb888>>>,
-    initial_dirty_region_for_next_frame: Cell<DirtyRegion>,
     renderer: SoftwareRenderer,
 }
 
@@ -68,7 +65,6 @@ impl SimulatorWindow {
             constraints: Default::default(),
             visible: Default::default(),
             frame_buffer: RefCell::default(),
-            initial_dirty_region_for_next_frame: Default::default(),
             renderer: Default::default(),
         });
 
@@ -141,29 +137,6 @@ impl PlatformWindow for SimulatorWindow {
 
     fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
         &self.renderer
-    }
-
-    fn close_popup(&self, popup: &i_slint_core::window::PopupWindow) {
-        match popup.location {
-            i_slint_core::window::PopupWindowLocation::TopLevel(_) => {}
-            i_slint_core::window::PopupWindowLocation::ChildWindow(offset) => {
-                let popup_component = ComponentRc::borrow_pin(&popup.component);
-                let popup_root = popup_component.as_ref().get_item_ref(0);
-                if let Some(window_item) = ItemRef::downcast_pin::<WindowItem>(popup_root) {
-                    let popup_region =
-                        i_slint_core::properties::evaluate_no_tracking(|| window_item.geometry())
-                            .translate(offset.to_vector());
-
-                    if !popup_region.is_empty() {
-                        self.initial_dirty_region_for_next_frame.set(
-                            self.initial_dirty_region_for_next_frame
-                                .get()
-                                .union(&popup_region.to_box2d()),
-                        );
-                    }
-                }
-            }
-        }
     }
 
     fn request_window_properties_update(&self) {
@@ -286,7 +259,6 @@ impl WinitWindow for SimulatorWindow {
             }
             self.renderer.render_by_line(
                 &runtime_window.into(),
-                self.initial_dirty_region_for_next_frame.take(),
                 BufferProvider {
                     devices: display,
                     // We must redraw the whole
