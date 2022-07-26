@@ -16,15 +16,15 @@ path = "lib.rs"
 
 [features]
 backend-gl-all = ["backend-gl-x11", "backend-gl-wayland"]
-backend-gl-wayland = ["i-slint-backend-gl/wayland"]
-backend-gl-x11 = ["i-slint-backend-gl/x11"]
+backend-gl-wayland = ["i-slint-backend-winit/wayland"]
+backend-gl-x11 = ["i-slint-backend-winit/x11"]
 
-rtti-gl = ["i-slint-backend-gl/rtti"]
+rtti-winit = ["i-slint-backend-winit/rtti"]
 rtti-qt = ["i-slint-backend-qt/rtti"]
 
 [dependencies]
 i-slint-core = { version = "=0.2.6", path = "../../../internal/core", default-features = false }
-i-slint-backend-gl = { version = "=0.2.6", path = "../gl", optional = true }
+i-slint-backend-winit = { version = "=0.2.6", path = "../winit", optional = true }
 i-slint-backend-qt = { version = "=0.2.6", path = "../qt", optional = true }
 
 cfg-if = "1"

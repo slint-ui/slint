@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 [package]
-name = "i-slint-backend-gl"
+name = "i-slint-backend-winit"
 version = "0.2.6"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"

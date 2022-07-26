@@ -3,22 +3,22 @@
 
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
-#![cfg_attr(not(any(feature = "i-slint-backend-qt", feature = "i-slint-backend-gl")), no_std)]
+#![cfg_attr(not(any(feature = "i-slint-backend-qt", feature = "i-slint-backend-winit")), no_std)]
 
 use core::pin::Pin;
 
 cfg_if::cfg_if! {
     if #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))] {
         use i_slint_backend_qt as default_backend;
-    } else if #[cfg(feature = "i-slint-backend-gl")] {
-        use i_slint_backend_gl as default_backend;
+    } else if #[cfg(feature = "i-slint-backend-winit")] {
+        use i_slint_backend_winit as default_backend;
     }
 }
 
 cfg_if::cfg_if! {
     if #[cfg(any(
             all(feature = "i-slint-backend-qt", not(no_qt)),
-            feature = "i-slint-backend-gl"
+            feature = "i-slint-backend-winit"
         ))] {
         pub fn backend() -> &'static dyn i_slint_core::backend::Backend {
             i_slint_core::backend::instance_or_init(|| {
@@ -34,14 +34,14 @@ cfg_if::cfg_if! {
                 if backend_config == "Qt" {
                     return Box::new(i_slint_backend_qt::Backend);
                 }
-                #[cfg(feature = "i-slint-backend-gl")]
+                #[cfg(feature = "i-slint-backend-winit")]
                 if backend_config == "GL" {
-                    return Box::new(i_slint_backend_gl::Backend);
+                    return Box::new(i_slint_backend_winit::Backend);
                 }
 
                 #[cfg(any(
                     feature = "i-slint-backend-qt",
-                    feature = "i-slint-backend-gl"
+                    feature = "i-slint-backend-winit"
                 ))]
                 if !backend_config.is_empty() {
                     eprintln!("Could not load rendering backend {}, fallback to default", backend_config)
@@ -74,13 +74,16 @@ pub fn use_modules() {
     i_slint_core::use_modules();
     #[cfg(feature = "i-slint-backend-qt")]
     i_slint_backend_qt::use_modules();
-    #[cfg(feature = "i-slint-backend-gl")]
-    i_slint_backend_gl::use_modules();
+    #[cfg(feature = "i-slint-backend-winit")]
+    i_slint_backend_winit::use_modules();
 }
 
 #[no_mangle]
 pub extern "C" fn slint_native_style_metrics_init(_self: Pin<&native_widgets::NativeStyleMetrics>) {
-    #[cfg(any(all(feature = "i-slint-backend-qt", not(no_qt)), feature = "i-slint-backend-gl"))]
+    #[cfg(any(
+        all(feature = "i-slint-backend-qt", not(no_qt)),
+        feature = "i-slint-backend-winit"
+    ))]
     default_backend::native_style_metrics_init(_self);
 }
 
@@ -88,6 +91,9 @@ pub extern "C" fn slint_native_style_metrics_init(_self: Pin<&native_widgets::Na
 pub extern "C" fn slint_native_style_metrics_deinit(
     _self: Pin<&mut native_widgets::NativeStyleMetrics>,
 ) {
-    #[cfg(any(all(feature = "i-slint-backend-qt", not(no_qt)), feature = "i-slint-backend-gl"))]
+    #[cfg(any(
+        all(feature = "i-slint-backend-qt", not(no_qt)),
+        feature = "i-slint-backend-winit"
+    ))]
     default_backend::native_style_metrics_deinit(_self);
 }

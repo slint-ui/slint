@@ -329,7 +329,7 @@ fn with_dejavu_font<R>(mut callback: impl FnMut(&rustybuzz::Face<'_>) -> R) -> O
         env!("CARGO_MANIFEST_DIR"),
         "..",
         "backends",
-        "gl",
+        "winit",
         "renderer",
         "femtovg",
         "fonts",

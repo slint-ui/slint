@@ -31,7 +31,7 @@ backend-gl-wayland = ["i-slint-backend-selector/backend-gl-wayland"]
 backend-gl-x11 = ["i-slint-backend-selector/backend-gl-x11"]
 
 rtti-qt = ["i-slint-backend-selector/rtti-qt"]
-rtti-gl = ["i-slint-backend-selector/rtti-gl"]
+rtti-winit = ["i-slint-backend-selector/rtti-winit"]
 
 default = ["backend-gl-all", "backend-qt"]
 
