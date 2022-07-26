@@ -15,11 +15,21 @@ keywords = ["viewer", "gui", "ui", "toolkit"]
 
 [features]
 backend-qt = ["slint-interpreter/backend-qt"]
-backend-gl-all = ["slint-interpreter/backend-gl-all"]
-backend-gl-wayland = ["slint-interpreter/backend-gl-wayland"]
-backend-gl-x11 = ["slint-interpreter/backend-gl-x11"]
+eventloop-qt = ["backend-qt"]
+renderer-qt = ["backend-qt"]
 
-default = ["backend-qt", "backend-gl-all"]
+eventloop-winit = ["slint-interpreter/eventloop-winit"]
+eventloop-winit-wayland = ["slint-interpreter/eventloop-winit-wayland"]
+eventloop-winit-x11 = ["slint-interpreter/eventloop-winit-x11"]
+
+renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
+
+# Compat
+backend-gl-all = ["eventloop-winit", "renderer-femtovg"]
+backend-gl-wayland = ["eventloop-winit-wayland", "renderer-femtovg"]
+backend-gl-x11 = ["eventloop-winit-x11", "renderer-femtovg"]
+
+default = ["backend-qt", "eventloop-winit", "renderer-femtovg"]
 
 [dependencies]
 i-slint-core = { version = "=0.2.6", path="../../internal/core" }
