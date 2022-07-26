@@ -30,8 +30,8 @@ assert_eq(begin + 600, instance.get_xx());
 var instance = new slint.TestCase({});
 
 let begin = instance.xx;
-assert_eq!(begin, instance.xx);
+assert.equal(begin, instance.xx);
 slintlib.private_api.mock_elapsed_time(600);
-assert_eq!(begin + 600, instance.xx);
+assert.equal(begin + 600, instance.xx);
 ```
 */
