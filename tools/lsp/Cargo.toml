@@ -33,13 +33,23 @@ name = "slint_lsp_wasm"
 
 [features]
 backend-qt = ["slint-interpreter/backend-qt", "preview"]
-backend-gl-all = ["slint-interpreter/backend-gl-all", "preview"]
-backend-gl-wayland = ["slint-interpreter/backend-gl-wayland", "preview"]
-backend-gl-x11 = ["slint-interpreter/backend-gl-x11", "preview"]
+eventloop-qt = ["backend-qt"]
+renderer-qt = ["backend-qt"]
+
+eventloop-winit = ["slint-interpreter/eventloop-winit", "preview"]
+eventloop-winit-x11 = ["slint-interpreter/eventloop-winit-x11", "preview"]
+eventloop-winit-wayland = ["slint-interpreter/eventloop-winit-wayland", "preview"]
+
+renderer-femtovg = ["slint-interpreter/renderer-femtovg", "preview"]
+
+# Compat
+backend-gl-all = ["eventloop-winit", "renderer-femtovg"]
+backend-gl-wayland = ["eventloop-winit-wayland", "renderer-femtovg"]
+backend-gl-x11 = ["eventloop-winit-x11", "renderer-femtovg"]
 
 preview = ["slint-interpreter", "i-slint-core", "i-slint-backend-selector"]
 
-default = ["backend-qt", "backend-gl-all", "preview"]
+default = ["backend-qt", "eventloop-winit", "renderer-femtovg", "preview"]
 
 [dependencies]
 i-slint-compiler = { version = "=0.2.6", path = "../../internal/compiler"}
