@@ -36,44 +36,16 @@ impl FemtoVGRenderer {
     pub fn create_canvas_from_glutin_context(
         &self,
         gl_context: &glutin::WindowedContext<glutin::PossiblyCurrent>,
+        winsys_name: Option<&str>,
     ) -> FemtoVGCanvas {
         let _platform_window = gl_context.window();
 
-        cfg_if::cfg_if! {
-            if #[cfg(target_arch = "wasm32")] {
-                let winsys = "HTML Canvas";
-            } else if #[cfg(any(
-                target_os = "linux",
-                target_os = "dragonfly",
-                target_os = "freebsd",
-                target_os = "netbsd",
-                target_os = "openbsd"
-            ))] {
-                use winit::platform::unix::WindowExtUnix;
-                let mut winsys = "unknown";
-
-                #[cfg(feature = "x11")]
-                if _platform_window.xlib_window().is_some() {
-                    winsys = "x11";
-                }
-
-                #[cfg(feature = "wayland")]
-                if _platform_window.wayland_surface().is_some() {
-                    winsys = "wayland"
-                }
-            } else if #[cfg(target_os = "windows")] {
-                let winsys = "windows";
-            } else if #[cfg(target_os = "macos")] {
-                let winsys = "macos";
-            } else {
-                let winsys = "unknown";
-            }
-        }
-
-        let rendering_metrics_collector = RenderingMetricsCollector::new(
-            self.window_weak.clone(),
-            &format!("GL backend (windowing system: {})", winsys),
-        );
+        let rendering_metrics_collector = winsys_name.and_then(|winsys_name| {
+            RenderingMetricsCollector::new(
+                self.window_weak.clone(),
+                &format!("FemtoVG renderer (windowing system: {})", winsys_name),
+            )
+        });
 
         let gl_renderer = femtovg::renderer::OpenGl::new_from_glutin_context(gl_context).unwrap();
         self.create_canvas_from_gl_renderer(gl_renderer, rendering_metrics_collector)

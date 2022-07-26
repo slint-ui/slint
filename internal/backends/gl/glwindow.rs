@@ -417,9 +417,41 @@ impl PlatformWindow for GLWindow {
         let opengl_context = crate::OpenGLContext::new_context(window_builder);
 
         #[cfg(not(target_arch = "wasm32"))]
-        let femtovg_canvas = self
-            .femtovg_renderer
-            .create_canvas_from_glutin_context(&opengl_context.glutin_context());
+        let femtovg_canvas = {
+            cfg_if::cfg_if! {
+                if #[cfg(target_arch = "wasm32")] {
+                    let winsys = "HTML Canvas";
+                } else if #[cfg(any(
+                    target_os = "linux",
+                    target_os = "dragonfly",
+                    target_os = "freebsd",
+                    target_os = "netbsd",
+                    target_os = "openbsd"
+                ))] {
+                    use winit::platform::unix::WindowExtUnix;
+                    let mut winsys = "unknown";
+
+                    #[cfg(feature = "x11")]
+                    if _platform_window.xlib_window().is_some() {
+                        winsys = "x11";
+                    }
+
+                    #[cfg(feature = "wayland")]
+                    if _platform_window.wayland_surface().is_some() {
+                        winsys = "wayland"
+                    }
+                } else if #[cfg(target_os = "windows")] {
+                    let winsys = "windows";
+                } else if #[cfg(target_os = "macos")] {
+                    let winsys = "macos";
+                } else {
+                    let winsys = "unknown";
+                }
+            }
+
+            self.femtovg_renderer
+                .create_canvas_from_glutin_context(&opengl_context.glutin_context(), Some(winsys))
+        };
 
         #[cfg(target_arch = "wasm32")]
         let femtovg_canvas = self
