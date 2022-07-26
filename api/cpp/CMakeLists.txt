@@ -89,9 +89,9 @@ define_cargo_feature(renderer-femtovg "Enable support for the OpenGL ES 2.0 base
 define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
 # Compat options
-define_cargo_feature(backend-gl-all "This feature is an alias for SLINT_FEATURE_EVENTLOOP_WINIT_ALL and SLINT_FEATURE_RENDERER_FEMTOVG." OFF)
-define_cargo_feature(backend-gl-x11 "This feature is an alias for SLINT_FEATURE_EVENTLOOP_WINIT_X11 and SLINT_FEATURE_RENDERER_FEMTOVG." OFF)
-define_cargo_feature(backend-gl-wayland "This feature is an alias for SLINT_FEATURE_EVENTLOOP_WINIT_WAYLAND and SLINT_FEATURE_RENDERER_FEMTOVG." OFF)
+option(SLINT_FEATURE_BACKEND_GL_ALL "This feature is an alias for SLINT_FEATURE_EVENTLOOP_WINIT_ALL and SLINT_FEATURE_RENDERER_FEMTOVG." OFF)
+option(SLINT_FEATURE_BACKEND_GL_X11 "This feature is an alias for SLINT_FEATURE_EVENTLOOP_WINIT_X11 and SLINT_FEATURE_RENDERER_FEMTOVG." OFF)
+option(SLINT_FEATURE_BACKEND_GL_WAYLAND "This feature is an alias for SLINT_FEATURE_EVENTLOOP_WINIT_WAYLAND and SLINT_FEATURE_RENDERER_FEMTOVG." OFF)
 
 if(SLINT_FEATURE_BACKEND_GL_ALL)
     set(SLINT_FEATURE_EVENTLOOP_WINIT_ALL ON)
