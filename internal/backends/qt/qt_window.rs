@@ -1780,24 +1780,9 @@ thread_local! {
 
 /// Called by C++'s TimerHandler::timerEvent, or every time a timer might have been started
 pub(crate) fn timer_event() {
-    i_slint_core::animations::update_animations();
-    i_slint_core::timers::TimerList::maybe_activate_timers();
+    i_slint_core::timers::update_timers();
 
-    i_slint_core::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
-        if !driver.has_active_animations() {
-            return;
-        }
-
-        ALL_WINDOWS.with(|windows| {
-            for x in windows.borrow().iter() {
-                if let Some(x) = x.upgrade() {
-                    x.request_redraw();
-                }
-            }
-        });
-    });
-
-    let mut timeout = i_slint_core::timers::TimerList::next_timeout().map(|instant| {
+    let timeout = i_slint_core::timers::TimerList::next_timeout().map(|instant| {
         let now = std::time::Instant::now();
         let instant: std::time::Instant = instant.into();
         if instant > now {
@@ -1806,11 +1791,6 @@ pub(crate) fn timer_event() {
             0
         }
     });
-    if i_slint_core::animations::CURRENT_ANIMATION_DRIVER
-        .with(|driver| driver.has_active_animations())
-    {
-        timeout = timeout.map(|x| x.max(16)).or(Some(16));
-    };
     if let Some(timeout) = timeout {
         cpp! { unsafe [timeout as "int"] {
             ensure_initialized(true);
