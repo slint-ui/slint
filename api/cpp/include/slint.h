@@ -194,6 +194,36 @@ public:
         cbindgen_private::slint_windowrc_set_size(&inner, &size);
     }
 
+    /// Registers a font by the specified path. The path must refer to an existing
+    /// TrueType font.
+    /// \returns an empty optional on success, otherwise an error string
+    inline std::optional<SharedString> register_font_from_path(const SharedString &path)
+    {
+        SharedString maybe_err;
+        cbindgen_private::slint_register_font_from_path(&inner, &path, &maybe_err);
+        if (!maybe_err.empty()) {
+            return maybe_err;
+        } else {
+            return {};
+        }
+    }
+
+    /// Registers a font by the data. The data must be valid TrueType font data.
+    /// \returns an empty optional on success, otherwise an error string
+    inline std::optional<SharedString> register_font_from_data(const uint8_t *data, std::size_t len)
+    {
+        SharedString maybe_err;
+        cbindgen_private::slint_register_font_from_data(&inner, { const_cast<uint8_t *>(data), len },
+                                                        &maybe_err);
+        if (!maybe_err.empty()) {
+            return maybe_err;
+        } else {
+            return {};
+        }
+    }
+
+
+
 private:
     cbindgen_private::WindowRcOpaque inner;
 };
@@ -1104,38 +1134,6 @@ auto blocking_invoke_from_event_loop(Functor f) -> void
     });
     std::unique_lock lock(mtx);
     cv.wait(lock, [&] { return ok; });
-}
-
-namespace private_api {
-
-/// Registers a font by the specified path. The path must refer to an existing
-/// TrueType font.
-/// \returns an empty optional on success, otherwise an error string
-inline std::optional<SharedString> register_font_from_path(const SharedString &path)
-{
-    SharedString maybe_err;
-    cbindgen_private::slint_register_font_from_path(&path, &maybe_err);
-    if (!maybe_err.empty()) {
-        return maybe_err;
-    } else {
-        return {};
-    }
-}
-
-/// Registers a font by the data. The data must be valid TrueType font data.
-/// \returns an empty optional on success, otherwise an error string
-inline std::optional<SharedString> register_font_from_data(const uint8_t *data, std::size_t len)
-{
-    SharedString maybe_err;
-    cbindgen_private::slint_register_font_from_data({ const_cast<uint8_t *>(data), len },
-                                                    &maybe_err);
-    if (!maybe_err.empty()) {
-        return maybe_err;
-    } else {
-        return {};
-    }
-}
-
 }
 
 } // namespace slint

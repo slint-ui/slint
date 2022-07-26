@@ -122,9 +122,9 @@ mod the_backend {
     use i_slint_core::window::WindowInner;
 
     thread_local! { static WINDOWS: RefCell<Option<Rc<McuWindow>>> = RefCell::new(None) }
+    thread_local! { static EVENT_QUEUE: RefCell<VecDeque<McuEvent>> = Default::default() }
 
     pub struct McuWindow {
-        backend: &'static MCUBackend,
         self_weak: Weak<WindowInner>,
         renderer: crate::renderer::SoftwareRenderer,
     }
@@ -142,7 +142,7 @@ mod the_backend {
             WINDOWS.with(|x| *x.borrow_mut() = None)
         }
         fn request_redraw(&self) {
-            self.backend.with_inner(|inner| inner.post_event(McuEvent::Repaint))
+            EVENT_QUEUE.with(|q| q.borrow_mut().push_back(McuEvent::Repaint))
         }
 
         fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
@@ -170,15 +170,7 @@ mod the_backend {
 
     #[derive(Default)]
     struct MCUBackendInner {
-        event_queue: VecDeque<McuEvent>,
         clipboard: String,
-    }
-
-    impl MCUBackendInner {
-        fn post_event(&mut self, event: McuEvent) {
-            self.event_queue.push_back(event);
-            // TODO! wake
-        }
     }
 
     #[derive(Default)]
@@ -297,21 +289,17 @@ mod the_backend {
     }
 
     impl i_slint_core::backend::Backend for MCUBackend {
-        fn create_window(&'static self) -> i_slint_core::api::Window {
+        fn create_window(&self) -> i_slint_core::api::Window {
             i_slint_core::window::WindowInner::new(|window| {
-                Rc::new(McuWindow {
-                    backend: self,
-                    self_weak: window.clone(),
-                    renderer: Default::default(),
-                })
+                Rc::new(McuWindow { self_weak: window.clone(), renderer: Default::default() })
             })
             .into()
         }
 
-        fn run_event_loop(&'static self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {
+        fn run_event_loop(&self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {
             loop {
                 i_slint_core::timers::update_timers();
-                match self.with_inner(|inner| inner.event_queue.pop_front()) {
+                match EVENT_QUEUE.with(|q| q.borrow_mut().pop_front()) {
                     Some(McuEvent::Quit) => break,
                     Some(McuEvent::Custom(e)) => e(),
                     Some(McuEvent::Repaint) => {
@@ -359,22 +347,15 @@ mod the_backend {
             }
         }
 
-        fn quit_event_loop(&'static self) {
-            self.with_inner(|inner| inner.post_event(McuEvent::Quit))
+        fn quit_event_loop(&self) {
+            EVENT_QUEUE.with(|q| q.borrow_mut().push_back(McuEvent::Quit));
         }
 
-        fn register_bitmap_font(
-            &'static self,
-            font_data: &'static i_slint_core::graphics::BitmapFont,
-        ) {
-            crate::renderer::fonts::register_bitmap_font(font_data);
+        fn post_event(&self, event: Box<dyn FnOnce() + Send>) {
+            EVENT_QUEUE.with(|q| q.borrow_mut().push_back(McuEvent::Custom(event)));
         }
 
-        fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
-            self.with_inner(|inner| inner.post_event(McuEvent::Custom(event)));
-        }
-
-        fn duration_since_start(&'static self) -> core::time::Duration {
+        fn duration_since_start(&self) -> core::time::Duration {
             DEVICES.with(|devices| devices.borrow_mut().as_mut().unwrap().time())
         }
 

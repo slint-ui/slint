@@ -312,16 +312,16 @@ impl Renderer for FemtoVGRenderer {
 
         Rect::new(result / scale_factor, Size::new(1.0, font_size))
     }
-}
 
-impl FemtoVGRenderer {
-    pub fn register_font_from_memory(
+    fn register_font_from_memory(
+        &self,
         data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
         fonts::register_font_from_memory(data)
     }
 
-    pub fn register_font_from_path(
+    fn register_font_from_path(
+        &self,
         path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
         fonts::register_font_from_path(path)

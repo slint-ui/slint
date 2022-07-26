@@ -253,26 +253,6 @@ pub use i_slint_core::sharedvector::SharedVector;
 pub use i_slint_core::string::SharedString;
 pub use i_slint_core::timers::{Timer, TimerMode};
 
-/// This function can be used to register a custom TrueType font with Slint,
-/// for use with the `font-family` property. The provided slice must be a valid TrueType
-/// font.
-#[doc(hidden)]
-#[cfg(feature = "std")]
-pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {
-    i_slint_backend_selector::backend().register_font_from_memory(data)
-}
-
-/// This function can be used to register a custom TrueType font with Slint,
-/// for use with the `font-family` property. The provided path must refer to a valid TrueType
-/// font.
-#[doc(hidden)]
-#[cfg(feature = "std")]
-pub fn register_font_from_path<P: AsRef<std::path::Path>>(
-    path: P,
-) -> Result<(), Box<dyn std::error::Error>> {
-    i_slint_backend_selector::backend().register_font_from_path(path.as_ref())
-}
-
 /// internal re_exports used by the macro generated
 #[doc(hidden)]
 pub mod re_exports {
@@ -438,12 +418,6 @@ pub mod internal {
         callback.set_handler(move |arg| {
             handler(<StrongRef as StrongComponentRef>::from_weak(&weak).unwrap(), arg)
         })
-    }
-
-    /// This function can be used to register a pre-rendered, embedded bitmap font with Slint,
-    /// for use with the `font-family` property.
-    pub fn register_bitmap_font(font_data: &'static super::re_exports::BitmapFont) {
-        i_slint_backend_selector::backend().register_bitmap_font(font_data)
     }
 
     pub fn debug(s: SharedString) {

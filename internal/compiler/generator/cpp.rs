@@ -2453,7 +2453,8 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::RegisterCustomFontByPath => {
             if let [llr::Expression::StringLiteral(path)] = arguments {
-                format!("slint::private_api::register_font_from_path(\"{}\");", escape_string(path))
+                let window = access_window_field(ctx);
+                format!("{window}.register_font_from_path(\"{}\");", escape_string(path))
             } else {
                 panic!(
                     "internal error: argument to RegisterCustomFontByPath must be a string literal"
@@ -2462,12 +2463,10 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::RegisterCustomFontByMemory => {
             if let [llr::Expression::NumberLiteral(resource_id)] = &arguments {
+                let window = access_window_field(ctx);
                 let resource_id: usize = *resource_id as _;
                 let symbol = format!("slint_embedded_resource_{}", resource_id);
-                format!(
-                    "slint::private_api::register_font_from_data({}, std::size({}));",
-                    symbol, symbol
-                )
+                format!("{window}.register_font_from_data({symbol}, std::size({symbol}));")
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByMemory {:?}", arguments)
             }

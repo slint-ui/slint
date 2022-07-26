@@ -461,8 +461,12 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                 if arguments.len() != 1 {
                     panic!("internal error: incorrect argument count to RegisterCustomFontByPath")
                 }
+                let component = match  local_context.component_instance  {
+                    ComponentInstance::InstanceRef(c) => c,
+                    ComponentInstance::GlobalComponent(_) => panic!("Cannot access the implicit item size from a global component")
+                };
                 if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                    if let Some(err) = crate::register_font_from_path(&std::path::PathBuf::from(s.as_str())).err() {
+                    if let Some(err) = window_ref(component).unwrap().renderer().register_font_from_path(&std::path::PathBuf::from(s.as_str())).err() {
                         corelib::debug_log!("Error loading custom font {}: {}", s.as_str(), err);
                     }
                     Value::Void

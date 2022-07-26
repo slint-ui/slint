@@ -1709,6 +1709,38 @@ impl Renderer for QtWindow {
 
         Rect::new(Point::new(r.x as _, r.y as _), Size::new(1.0, font_size as f32))
     }
+
+    fn register_font_from_memory(
+        &self,
+        data: &'static [u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let data = qttypes::QByteArray::from(data);
+        cpp! {unsafe [data as "QByteArray"] {
+            ensure_initialized(true);
+            QFontDatabase::addApplicationFontFromData(data);
+        } }
+        Ok(())
+    }
+
+    fn register_font_from_path(
+        &self,
+        path: &std::path::Path,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let encoded_path: qttypes::QByteArray = path.to_string_lossy().as_bytes().into();
+        cpp! {unsafe [encoded_path as "QByteArray"] {
+            ensure_initialized(true);
+
+            QString requested_path = QFileInfo(QFile::decodeName(encoded_path)).canonicalFilePath();
+            static QSet<QString> loaded_app_fonts;
+            // QFontDatabase::addApplicationFont unconditionally reads the provided file from disk,
+            // while we want to do this only once to avoid things like the live-review going crazy.
+            if (!loaded_app_fonts.contains(requested_path)) {
+                loaded_app_fonts.insert(requested_path);
+                QFontDatabase::addApplicationFont(requested_path);
+            }
+        } }
+        Ok(())
+    }
 }
 
 fn accessible_item(item: Option<ItemRc>) -> Option<ItemRc> {

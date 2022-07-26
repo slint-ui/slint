@@ -85,15 +85,6 @@ mod value_model;
 #[doc(inline)]
 pub use api::*;
 
-/// This function can be used to register a custom TrueType font with Slint,
-/// for use with the `font-family` property. The provided path must refer to a valid TrueType
-/// font.
-pub(crate) fn register_font_from_path<P: AsRef<std::path::Path>>(
-    path: P,
-) -> Result<(), Box<dyn std::error::Error>> {
-    i_slint_backend_selector::backend().register_font_from_path(path.as_ref())
-}
-
 /// (Re-export from corelib.)
 #[doc(inline)]
 pub use i_slint_core::{Brush, Color, SharedString, SharedVector};

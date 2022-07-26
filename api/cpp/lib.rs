@@ -6,7 +6,7 @@
 use core::ffi::c_void;
 use i_slint_backend_selector::backend;
 use i_slint_core::api::Window;
-use i_slint_core::window::ffi::WindowRcOpaque;
+use i_slint_core::window::{ffi::WindowRcOpaque, WindowRc};
 
 #[doc(hidden)]
 #[cold]
@@ -63,12 +63,14 @@ pub unsafe extern "C" fn slint_quit_event_loop() {
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_register_font_from_path(
+    win: *const WindowRcOpaque,
     path: &i_slint_core::SharedString,
     error_str: *mut i_slint_core::SharedString,
 ) {
+    let window = &*(win as *const WindowRc);
     core::ptr::write(
         error_str,
-        match crate::backend().register_font_from_path(std::path::Path::new(path.as_str())) {
+        match window.renderer().register_font_from_path(std::path::Path::new(path.as_str())) {
             Ok(()) => Default::default(),
             Err(err) => err.to_string().into(),
         },
@@ -77,12 +79,14 @@ pub unsafe extern "C" fn slint_register_font_from_path(
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_register_font_from_data(
+    win: *const WindowRcOpaque,
     data: i_slint_core::slice::Slice<'static, u8>,
     error_str: *mut i_slint_core::SharedString,
 ) {
+    let window = &*(win as *const WindowRc);
     core::ptr::write(
         error_str,
-        match crate::backend().register_font_from_memory(data.as_slice()) {
+        match window.renderer().register_font_from_memory(data.as_slice()) {
             Ok(()) => Default::default(),
             Err(err) => err.to_string().into(),
         },
