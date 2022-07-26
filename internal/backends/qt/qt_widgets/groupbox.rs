@@ -30,10 +30,8 @@ struct GroupBoxData {
     paddings: Property<qttypes::QMargins>,
 }
 
-fn minimum_group_box_size(title: qttypes::QString) -> qttypes::QSize {
-    return cpp!(unsafe [title as "QString"] -> qttypes::QSize as "QSize" {
-        ensure_initialized();
-
+cpp! {{
+    QStyleOptionGroupBox create_group_box_option(QString title) {
         QStyleOptionGroupBox option;
         option.text = title;
         option.lineWidth = 1;
@@ -42,6 +40,18 @@ fn minimum_group_box_size(title: qttypes::QString) -> qttypes::QSize {
         if (!title.isEmpty()) {
             option.subControls |= QStyle::SC_GroupBoxLabel;
         }
+        option.textColor = QColor(qApp->style()->styleHint(
+            QStyle::SH_GroupBox_TextLabelColor, &option));
+
+        return option;
+    }
+}}
+
+fn minimum_group_box_size(title: qttypes::QString) -> qttypes::QSize {
+    return cpp!(unsafe [title as "QString"] -> qttypes::QSize as "QSize" {
+        ensure_initialized();
+
+        QStyleOptionGroupBox option = create_group_box_option(title);
 
         QFontMetrics metrics = option.fontMetrics;
         int baseWidth = metrics.horizontalAdvance(title) + metrics.horizontalAdvance(QLatin1Char(' '));
@@ -71,18 +81,10 @@ impl Item for NativeGroupBox {
                     text as "QString"
                 ] -> qttypes::QMargins as "QMargins" {
                     ensure_initialized();
-                    QStyleOptionGroupBox option;
-                    option.text = text;
-                    option.lineWidth = 1;
-                    option.midLineWidth = 0;
-                    option.subControls = QStyle::SC_GroupBoxFrame;
-                    if (!text.isEmpty()) {
-                        option.subControls |= QStyle::SC_GroupBoxLabel;
-                    }
+                    QStyleOptionGroupBox option = create_group_box_option(text);
+
                     // Just some size big enough to be sure that the frame fits in it
                     option.rect = QRect(0, 0, 10000, 10000);
-                    option.textColor = QColor(qApp->style()->styleHint(
-                        QStyle::SH_GroupBox_TextLabelColor, &option));
                     QRect contentsRect = qApp->style()->subControlRect(
                         QStyle::CC_GroupBox, &option, QStyle::SC_GroupBoxContents);
                     //QRect elementRect = qApp->style()->subElementRect(
