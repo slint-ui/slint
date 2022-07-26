@@ -85,6 +85,7 @@ define_cargo_feature(eventloop-winit-x11 "Enable support for the winit create to
 define_cargo_feature(eventloop-winit-wayland "Enable support for the winit create to interact only with the wayland windowing system on Unix. Enable this option and turn off SLINT_FEATURE_EVENTLOOP_WINIT_ALL for a smaller build with just wayland support." OFF)
 
 define_cargo_feature(renderer-femtovg "Enable support for the OpenGL ES 2.0 based FemtoVG rendering engine." ON)
+define_cargo_feature(renderer-skia "Enable support for the Skia based rendering engine." ON)
 
 define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 

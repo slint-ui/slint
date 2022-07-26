@@ -23,6 +23,7 @@ eventloop-winit-wayland = ["slint-interpreter/eventloop-winit-wayland"]
 eventloop-winit-x11 = ["slint-interpreter/eventloop-winit-x11"]
 
 renderer-femtovg = ["slint-interpreter/renderer-femtovg"]
+renderer-skia = ["slint-interpreter/renderer-skia"]
 
 # Compat
 backend-gl-all = ["eventloop-winit", "renderer-femtovg"]

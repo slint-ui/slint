@@ -31,6 +31,7 @@ eventloop-winit = ["i-slint-backend-selector/eventloop-winit"]
 eventloop-winit-x11 = ["i-slint-backend-selector/eventloop-winit-x11"]
 eventloop-winit-wayland = ["i-slint-backend-selector/eventloop-winit-wayland"]
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
+renderer-skia = ["i-slint-backend-selector/renderer-skia"]
 
 default = ["eventloop-winit", "renderer-femtovg", "backend-qt"]
 
