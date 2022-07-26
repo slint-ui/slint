@@ -44,7 +44,7 @@ std = ["i-slint-core/std"]
 ## backend will not be operational
 backend-qt = ["i-slint-backend-selector/i-slint-backend-qt", "i-slint-backend-selector/rtti-qt", "std"]
 
-## This feature is an alias for the `eventloop-winit` feature and `renderer-femtovg`
+# The following backend-gl-* are just alias
 backend-gl-all = ["eventloop-winit", "renderer-femtovg"]
 backend-gl-x11 = ["eventloop-winit-x11", "renderer-femtovg"]
 backend-gl-wayland = ["eventloop-winit-wayland", "renderer-femtovg"]
