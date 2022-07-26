@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore combobox groupbox lineedit listviewitem scrollview spinbox stylemetrics
+
 fn main() {
     println!("cargo:rerun-if-env-changed=SLINT_NO_QT");
     if std::env::var("TARGET").map_or(false, |t| t.starts_with("wasm"))
@@ -37,12 +39,13 @@ fn main() {
     config.flag_if_supported("/std:c++17");
     config.include(std::env::var("DEP_QT_INCLUDE_PATH").unwrap()).build("lib.rs");
 
+    println!("cargo:rerun-if-changed=lib.rs");
     println!("cargo:rerun-if-changed=qt_accessible.rs");
-    println!("cargo:rerun-if-changed=qt_window.rs");
     println!("cargo:rerun-if-changed=qt_widgets.rs");
     println!("cargo:rerun-if-changed=qt_widgets/button.rs");
     println!("cargo:rerun-if-changed=qt_widgets/checkbox.rs");
     println!("cargo:rerun-if-changed=qt_widgets/combobox.rs");
+    println!("cargo:rerun-if-changed=qt_widgets/groupbox.rs");
     println!("cargo:rerun-if-changed=qt_widgets/lineedit.rs");
     println!("cargo:rerun-if-changed=qt_widgets/listviewitem.rs");
     println!("cargo:rerun-if-changed=qt_widgets/scrollview.rs");
@@ -50,6 +53,6 @@ fn main() {
     println!("cargo:rerun-if-changed=qt_widgets/spinbox.rs");
     println!("cargo:rerun-if-changed=qt_widgets/stylemetrics.rs");
     println!("cargo:rerun-if-changed=qt_widgets/tabwidget.rs");
-    println!("cargo:rerun-if-changed=lib.rs");
+    println!("cargo:rerun-if-changed=qt_window.rs");
     println!("cargo:SUPPORTS_NATIVE_STYLE=1");
 }
