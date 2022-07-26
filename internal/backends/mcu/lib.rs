@@ -58,8 +58,8 @@ pub trait Devices {
         None
     }
     fn debug(&mut self, _: &str);
-    fn time(&self) -> core::time::Duration {
-        core::time::Duration::ZERO
+    fn time(&self) -> i_slint_core::timers::Instant {
+        i_slint_core::timers::Instant::from_duration_since_start(core::time::Duration::ZERO)
     }
     fn sleep(&self, _duration: Option<core::time::Duration>) {}
 }
@@ -310,7 +310,9 @@ mod the_backend {
 
         fn run_event_loop(&'static self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {
             loop {
-                i_slint_core::timers::update_timers();
+                i_slint_core::timers::update_timers(
+                    DEVICES.with(|devices| devices.borrow_mut().as_mut().unwrap().time()),
+                );
                 match self.with_inner(|inner| inner.event_queue.pop_front()) {
                     Some(McuEvent::Quit) => break,
                     Some(McuEvent::Custom(e)) => e(),
@@ -340,11 +342,8 @@ mod the_backend {
                         let devices = devices.borrow();
                         let devices = devices.as_ref().unwrap();
 
-                        let time_to_sleep =
-                            i_slint_core::timers::TimerList::next_timeout().map(|instant| {
-                                let time_to_sleep = instant - devices.time();
-                                core::time::Duration::from_millis(time_to_sleep.0)
-                            });
+                        let time_to_sleep = i_slint_core::timers::TimerList::next_timeout()
+                            .map(|instant| instant - devices.time());
                         devices.sleep(time_to_sleep);
                     }
                 });
@@ -372,10 +371,6 @@ mod the_backend {
 
         fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
             self.with_inner(|inner| inner.post_event(McuEvent::Custom(event)));
-        }
-
-        fn duration_since_start(&'static self) -> core::time::Duration {
-            DEVICES.with(|devices| devices.borrow_mut().as_mut().unwrap().time())
         }
 
         fn set_clipboard_text(&self, text: &str) {

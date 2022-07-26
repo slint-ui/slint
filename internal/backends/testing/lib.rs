@@ -48,11 +48,6 @@ impl i_slint_core::backend::Backend for TestingBackend {
         // The event will never be invoked
     }
 
-    fn duration_since_start(&'static self) -> core::time::Duration {
-        // The slint::testing::mock_elapsed_time updates the animation tick directly
-        core::time::Duration::from_millis(i_slint_core::animations::current_tick().0)
-    }
-
     fn set_clipboard_text(&'static self, text: &str) {
         *self.clipboard.lock().unwrap() = Some(text.into());
     }

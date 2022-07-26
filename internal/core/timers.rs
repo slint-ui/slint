@@ -12,7 +12,7 @@ use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 
-use crate::animations::Instant;
+pub use crate::animations::Instant;
 
 type TimerCallback = Box<dyn FnMut()>;
 type SingleShotTimerCallback = Box<dyn FnOnce()>;
@@ -215,8 +215,7 @@ impl TimerList {
 
     /// Activates any expired timers by calling their callback function. Returns true if any timers were
     /// activated; false otherwise.
-    pub fn maybe_activate_timers() -> bool {
-        let now = Instant::now();
+    pub fn maybe_activate_timers(now: Instant) -> bool {
         // Shortcut: Is there any timer worth activating?
         if TimerList::next_timeout().map(|timeout| now < timeout).unwrap_or(false) {
             return false;
@@ -339,9 +338,9 @@ fn lower_bound<T>(vec: &[T], mut less_than: impl FnMut(&T) -> bool) -> usize {
 }
 
 /// Fire timer events and update animations
-pub fn update_timers() {
-    TimerList::maybe_activate_timers();
-    crate::animations::update_animations();
+pub fn update_timers(instant: Instant) {
+    crate::animations::update_animations(instant);
+    TimerList::maybe_activate_timers(instant);
 }
 
 #[cfg(feature = "ffi")]

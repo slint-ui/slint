@@ -305,14 +305,16 @@ i_slint_common::for_each_enums!(declare_value_enum_conversion);
 
 impl From<i_slint_core::animations::Instant> for Value {
     fn from(value: i_slint_core::animations::Instant) -> Self {
-        Value::Number(value.0 as _)
+        Value::Number(value.as_duration_since_start().as_secs_f64() as _)
     }
 }
 impl TryFrom<Value> for i_slint_core::animations::Instant {
     type Error = ();
     fn try_from(v: Value) -> Result<i_slint_core::animations::Instant, Self::Error> {
         match v {
-            Value::Number(x) => Ok(i_slint_core::animations::Instant(x as _)),
+            Value::Number(x) => Ok(i_slint_core::animations::Instant::from_duration_since_start(
+                core::time::Duration::from_secs_f64(x),
+            )),
             _ => Err(()),
         }
     }

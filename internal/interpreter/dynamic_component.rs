@@ -1149,7 +1149,7 @@ pub fn animation_for_property(
                             );
                         }
                     }
-                    Default::default()
+                    (Default::default(), state_info.change_time)
                 },
             ))
         }

@@ -1247,7 +1247,7 @@ impl QtWindow {
     fn paint_event(&self, painter: QPainterPtr) {
         let runtime_window = self.self_weak.upgrade().unwrap();
         runtime_window.clone().draw_contents(|components| {
-            i_slint_core::animations::update_animations();
+            i_slint_core::timers::update_timers(i_slint_core::timers::Instant::now());
             let mut renderer = QtItemRenderer {
                 painter,
                 cache: &self.cache,
@@ -1301,12 +1301,12 @@ impl QtWindow {
     }
 
     fn mouse_event(&self, event: MouseEvent) {
+        i_slint_core::timers::update_timers(i_slint_core::timers::Instant::now());
         self.self_weak.upgrade().unwrap().process_mouse_input(event);
-        timer_event();
     }
 
     fn key_event(&self, key: i32, text: qttypes::QString, qt_modifiers: u32, released: bool) {
-        i_slint_core::animations::update_animations();
+        i_slint_core::timers::update_timers(i_slint_core::timers::Instant::now());
         let text: String = text.into();
         let modifiers = i_slint_core::input::KeyboardModifiers {
             control: (qt_modifiers & key_generated::Qt_KeyboardModifier_ControlModifier) != 0,
@@ -1780,7 +1780,7 @@ thread_local! {
 
 /// Called by C++'s TimerHandler::timerEvent, or every time a timer might have been started
 pub(crate) fn timer_event() {
-    i_slint_core::timers::update_timers();
+    i_slint_core::timers::update_timers(i_slint_core::timers::Instant::now());
 
     let timeout = i_slint_core::timers::TimerList::next_timeout().map(|instant| {
         let now = std::time::Instant::now();

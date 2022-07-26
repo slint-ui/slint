@@ -282,8 +282,6 @@ impl WindowInner {
     /// * `what`: The type of mouse event.
     /// * `component`: The Slint compiled component that provides the tree of items.
     pub fn process_mouse_input(self: Rc<Self>, mut event: MouseEvent) {
-        crate::animations::update_animations();
-
         let embedded_popup_component =
             self.active_popup.borrow().as_ref().and_then(|popup| match popup.location {
                 PopupWindowLocation::TopLevel(_) => None,

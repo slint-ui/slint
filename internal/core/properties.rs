@@ -1098,7 +1098,7 @@ pub use properties_animations::*;
 ///
 /// A state is just the current state, but also has information about the previous state and the moment it changed
 #[repr(C)]
-#[derive(Clone, Default, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct StateInfo {
     /// The current state value
     pub current_state: i32,
@@ -1106,6 +1106,16 @@ pub struct StateInfo {
     pub previous_state: i32,
     /// The instant in which the state changed last
     pub change_time: crate::animations::Instant,
+}
+
+impl Default for StateInfo {
+    fn default() -> Self {
+        Self {
+            current_state: 0,
+            previous_state: 0,
+            change_time: crate::animations::Instant::from_duration_since_start(Default::default()),
+        }
+    }
 }
 
 struct StateInfoBinding<F> {

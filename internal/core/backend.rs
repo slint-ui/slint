@@ -70,33 +70,11 @@ pub trait Backend: Send + Sync {
         unimplemented!()
     }
 
-    fn duration_since_start(&'static self) -> core::time::Duration {
-        #[cfg(feature = "std")]
-        {
-            let the_beginning = *INITIAL_INSTANT.get_or_init(instant::Instant::now);
-            instant::Instant::now() - the_beginning
-        }
-        #[cfg(not(feature = "std"))]
-        core::time::Duration::ZERO
-    }
-
     /// Sends the given text into the system clipboard
     fn set_clipboard_text(&'static self, _text: &str) {}
     /// Returns a copy of text stored in the system clipboard, if any.
     fn clipboard_text(&'static self) -> Option<String> {
         None
-    }
-}
-
-#[cfg(feature = "std")]
-static INITIAL_INSTANT: once_cell::sync::OnceCell<instant::Instant> =
-    once_cell::sync::OnceCell::new();
-
-#[cfg(feature = "std")]
-impl std::convert::From<crate::animations::Instant> for instant::Instant {
-    fn from(our_instant: crate::animations::Instant) -> Self {
-        let the_beginning = *INITIAL_INSTANT.get_or_init(instant::Instant::now);
-        the_beginning + core::time::Duration::from_millis(our_instant.0)
     }
 }
 

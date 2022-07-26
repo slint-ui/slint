@@ -6,6 +6,7 @@
 
 use alloc::boxed::Box;
 use core::cell::Cell;
+use core::time::Duration;
 
 mod cubic_bezier {
     //! This is a copy from lyon_algorithms::geom::cubic_bezier implementation
@@ -153,40 +154,46 @@ impl Default for EasingCurve {
     }
 }
 
-/// Represent an instant, in milliseconds since the AnimationDriver's initial_instant
+/// Represent an instant which is used for Slint timers and animations.
+///
+/// Internally, this is represented as the number of milliseconds since the start of the
+/// application.  It is not possible to represent Instant that are from before that. This
+/// is not meant to be a general purpose instant that represent time.
+///
+/// It can be converted from and to [`std::time::Instant`] using the From or Into trait.
 #[repr(transparent)]
-#[derive(Copy, Clone, Debug, Default, PartialEq, Ord, PartialOrd, Eq)]
-pub struct Instant(pub u64);
+#[derive(Copy, Clone, Debug, PartialEq, Ord, PartialOrd, Eq)]
+pub struct Instant(u64);
 
 impl core::ops::Sub<Instant> for Instant {
-    type Output = core::time::Duration;
-    fn sub(self, other: Self) -> core::time::Duration {
-        core::time::Duration::from_millis(self.0 - other.0)
+    type Output = Duration;
+    fn sub(self, other: Self) -> Duration {
+        Duration::from_millis(self.0 - other.0)
     }
 }
 
-impl core::ops::Sub<core::time::Duration> for Instant {
+impl core::ops::Sub<Duration> for Instant {
     type Output = Instant;
-    fn sub(self, other: core::time::Duration) -> Instant {
+    fn sub(self, other: Duration) -> Instant {
         Self(self.0 - other.as_millis() as u64)
     }
 }
 
-impl core::ops::Add<core::time::Duration> for Instant {
+impl core::ops::Add<Duration> for Instant {
     type Output = Instant;
-    fn add(self, other: core::time::Duration) -> Instant {
+    fn add(self, other: Duration) -> Instant {
         Self(self.0 + other.as_millis() as u64)
     }
 }
 
-impl core::ops::AddAssign<core::time::Duration> for Instant {
-    fn add_assign(&mut self, other: core::time::Duration) {
+impl core::ops::AddAssign<Duration> for Instant {
+    fn add_assign(&mut self, other: Duration) {
         self.0 += other.as_millis() as u64;
     }
 }
 
-impl core::ops::SubAssign<core::time::Duration> for Instant {
-    fn sub_assign(&mut self, other: core::time::Duration) {
+impl core::ops::SubAssign<Duration> for Instant {
+    fn sub_assign(&mut self, other: Duration) {
         self.0 -= other.as_millis() as u64;
     }
 }
@@ -195,18 +202,43 @@ impl Instant {
     /// Returns the amount of time elapsed since an other instant.
     ///
     /// Equivalent to `self - earlier`
-    pub fn duration_since(self, earlier: Instant) -> core::time::Duration {
+    pub fn duration_since(self, earlier: Instant) -> Duration {
         self - earlier
     }
 
-    /// Wrapper around [`std::time::Instant::now()`] that delegates to the backend
-    /// and allows working in no_std environments.
+    /// Wrapper around [`std::time::Instant::now()`]
+    #[cfg(feature = "std")]
     pub fn now() -> Self {
-        Self(Self::duration_since_start().as_millis() as u64)
+        instant::Instant::now().into()
     }
 
-    fn duration_since_start() -> core::time::Duration {
-        crate::backend::instance().map(|backend| backend.duration_since_start()).unwrap_or_default()
+    /// Return the duration since startup
+    pub fn as_duration_since_start(self) -> Duration {
+        Duration::from_millis(self.0)
+    }
+
+    /// Construct an Instant from a Duration from startup
+    pub fn from_duration_since_start(duration: Duration) -> Self {
+        Self(duration.as_millis() as u64)
+    }
+}
+
+#[cfg(feature = "std")]
+static INITIAL_INSTANT: once_cell::sync::Lazy<instant::Instant> =
+    once_cell::sync::Lazy::new(|| instant::Instant::now());
+
+#[cfg(feature = "std")]
+impl std::convert::From<Instant> for instant::Instant {
+    fn from(our_instant: Instant) -> Self {
+        *INITIAL_INSTANT + Duration::from_millis(our_instant.0)
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::convert::From<instant::Instant> for Instant {
+    fn from(std_instant: instant::Instant) -> Self {
+        Self(std_instant.checked_duration_since(*INITIAL_INSTANT).unwrap_or_default().as_millis()
+            as u64)
     }
 }
 
@@ -222,7 +254,7 @@ impl Default for AnimationDriver {
         AnimationDriver {
             active_animations: Cell::default(),
             global_instant: Box::pin(crate::Property::new_named(
-                Instant::default(),
+                Instant::from_duration_since_start(Default::default()),
                 "i_slint_core::AnimationDriver::global_instant",
             )),
         }
@@ -331,15 +363,6 @@ fn easing_test() {
 */
 
 /// Update the global animation time to the current time
-pub fn update_animations() {
-    CURRENT_ANIMATION_DRIVER.with(|driver| {
-        #[allow(unused_mut)]
-        let mut duration = Instant::duration_since_start().as_millis() as u64;
-        #[cfg(feature = "std")]
-        if let Ok(val) = std::env::var("SLINT_SLOW_ANIMATIONS") {
-            let factor = val.parse().unwrap_or(2);
-            duration /= factor;
-        };
-        driver.update_animations(Instant(duration))
-    });
+pub fn update_animations(instant: Instant) {
+    CURRENT_ANIMATION_DRIVER.with(|driver| driver.update_animations(instant));
 }

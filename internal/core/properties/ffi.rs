@@ -259,7 +259,12 @@ unsafe fn c_set_animated_binding<T: InterpolatedPropertyValue + Clone>(
             compute_animation_details: move || -> properties_animations::AnimationDetail {
                 let mut start_instant = 0;
                 let anim = transition_data(user_data, &mut start_instant);
-                Some((anim, crate::animations::Instant(start_instant)))
+                Some((
+                    anim,
+                    crate::animations::Instant::from_duration_since_start(
+                        core::time::Duration::from_millis(start_instant),
+                    ),
+                ))
             },
         });
     } else {
