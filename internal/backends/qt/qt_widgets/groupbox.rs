@@ -4,6 +4,7 @@
 use i_slint_core::input::FocusEventResult;
 
 use super::*;
+
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
@@ -27,6 +28,27 @@ pub struct NativeGroupBox {
 struct GroupBoxData {
     title: Property<SharedString>,
     paddings: Property<qttypes::QMargins>,
+}
+
+fn minimum_group_box_size(title: qttypes::QString) -> qttypes::QSize {
+    return cpp!(unsafe [title as "QString"] -> qttypes::QSize as "QSize" {
+        ensure_initialized();
+
+        QStyleOptionGroupBox option;
+        option.text = title;
+        option.lineWidth = 1;
+        option.midLineWidth = 0;
+        option.subControls = QStyle::SC_GroupBoxFrame;
+        if (!title.isEmpty()) {
+            option.subControls |= QStyle::SC_GroupBoxLabel;
+        }
+
+        QFontMetrics metrics = option.fontMetrics;
+        int baseWidth = metrics.horizontalAdvance(title) + metrics.horizontalAdvance(QLatin1Char(' '));
+        int baseHeight = metrics.height();
+
+        return qApp->style()->sizeFromContents(QStyle::CT_GroupBox, &option, QSize(baseWidth, baseHeight), nullptr);
+    });
 }
 
 impl Item for NativeGroupBox {
@@ -120,10 +142,14 @@ impl Item for NativeGroupBox {
     }
 
     fn layout_info(self: Pin<&Self>, orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
+        let text: qttypes::QString = self.title().as_str().into();
+
+        let size = minimum_group_box_size(text);
+
         LayoutInfo {
             min: match orientation {
-                Orientation::Horizontal => self.native_padding_left() + self.native_padding_right(),
-                Orientation::Vertical => self.native_padding_top() + self.native_padding_bottom(),
+                Orientation::Horizontal => size.width as f32,
+                Orientation::Vertical => size.height as f32,
             },
             stretch: 1.,
             ..LayoutInfo::default()
