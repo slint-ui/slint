@@ -23,17 +23,19 @@ crate-type = ["lib", "cdylib"]
 # Note, these features need to be kept in sync (along with their defaults) in
 # the C++ crate's CMakeLists.txt
 [features]
-backend-qt = ["i-slint-backend-selector/i-slint-backend-qt"]
 interpreter = ["slint-interpreter"]
 testing = ["i-slint-backend-testing"] # Enable some function used by the integration tests
-backend-gl-all = ["i-slint-backend-selector/backend-gl-all"]
-backend-gl-wayland = ["i-slint-backend-selector/backend-gl-wayland"]
-backend-gl-x11 = ["i-slint-backend-selector/backend-gl-x11"]
+
+backend-qt = ["i-slint-backend-selector/i-slint-backend-qt"]
+eventloop-winit = ["i-slint-backend-selector/eventloop-winit"]
+eventloop-winit-x11 = ["i-slint-backend-selector/eventloop-winit-x11"]
+eventloop-winit-wayland = ["i-slint-backend-selector/eventloop-winit-wayland"]
+renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
 
 rtti-qt = ["i-slint-backend-selector/rtti-qt"]
 rtti-winit = ["i-slint-backend-selector/rtti-winit"]
 
-default = ["backend-gl-all", "backend-qt"]
+default = ["eventloop-winit", "renderer-femtovg", "backend-qt"]
 
 [dependencies]
 i-slint-backend-selector = { version = "=0.2.6", path="../../internal/backends/selector" }

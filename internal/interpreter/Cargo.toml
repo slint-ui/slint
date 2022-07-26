@@ -44,18 +44,32 @@ std = ["i-slint-core/std"]
 ## backend will not be operational
 backend-qt = ["i-slint-backend-selector/i-slint-backend-qt", "i-slint-backend-selector/rtti-qt", "std"]
 
-## The GL backend uses the `winit` crate for the windowing system integration,
-## and the `femtovg` crate for the rendering. With this feature, all windowing
-## systems are supported. For a smaller build, omit this feature and select
-## one of the other specific `backend-gl-XX` features.
-backend-gl-all = ["i-slint-backend-selector/backend-gl-all", "i-slint-backend-selector/rtti-winit", "std"]
-## Simliar to `backend-gl-all` this enables the GL backend but only with support for the
-## X Window System on Unix.
-backend-gl-x11 = ["i-slint-backend-selector/backend-gl-x11", "i-slint-backend-selector/rtti-winit", "std"]
-## Simliar to `backend-gl-all` this enables the GL backend but only with support for the
-## Wayland window system on Unix.
-backend-gl-wayland = ["i-slint-backend-selector/backend-gl-wayland", "i-slint-backend-selector/rtti-winit", "std"]
+## This feature is an alias for the `eventloop-winit` feature and `renderer-femtovg`
+backend-gl-all = ["eventloop-winit", "renderer-femtovg"]
+backend-gl-x11 = ["eventloop-winit-x11", "renderer-femtovg"]
+backend-gl-wayland = ["eventloop-winit-wayland", "renderer-femtovg"]
 
+## The the `winit` crate is used for the event loop and windowing system integration.
+## With this feature, all windowing systems are supported. For a smaller build, omit
+## this feature and select one of the other specific `eventloop-winit-XX` features.
+eventloop-winit = ["i-slint-backend-selector/eventloop-winit", "i-slint-backend-selector/rtti-winit", "std"]
+
+## Simliar to `eventloop-winit-all` this enables the winit based event loop but only
+## with support for the X Window System on Unix.
+eventloop-winit-x11 = ["i-slint-backend-selector/eventloop-winit-x11", "i-slint-backend-selector/rtti-winit", "std"]
+
+## Simliar to `eventloop-winit-all` this enables the winit based event loop but only
+## with support for the Wayland window system on Unix.
+eventloop-winit-wayland = ["i-slint-backend-selector/eventloop-winit-wayland", "i-slint-backend-selector/rtti-winit", "std"]
+
+## This feature is an alias for `backend-qt`
+eventloop-qt = ["backend-qt"]
+
+## The `femtovg` crate is available for rendering. 
+renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "std"]
+
+## This feature is an alias for `backend-qt`
+renderer-qt = ["backend-qt"]
 
 [dependencies]
 i-slint-compiler = { version = "=0.2.6", path = "../compiler" }
