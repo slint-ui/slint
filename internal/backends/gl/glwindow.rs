@@ -432,12 +432,12 @@ impl PlatformWindow for GLWindow {
                     let mut winsys = "unknown";
 
                     #[cfg(feature = "x11")]
-                    if _platform_window.xlib_window().is_some() {
+                    if opengl_context.window().xlib_window().is_some() {
                         winsys = "x11";
                     }
 
                     #[cfg(feature = "wayland")]
-                    if _platform_window.wayland_surface().is_some() {
+                    if opengl_context.window().wayland_surface().is_some() {
                         winsys = "wayland"
                     }
                 } else if #[cfg(target_os = "windows")] {
