@@ -20,13 +20,12 @@ find_package(Rust 1.60 REQUIRED MODULE)
 
 option(SLINT_FEATURE_COMPILER "Enable support for compiling .slint files to C++ ahead of time" ON)
 
-if (SLINT_FEATURE_COMPILER)
+if(SLINT_FEATURE_COMPILER)
     set(slint_compiler_crate "slint-compiler")
 endif()
 
 corrosion_import_crate(MANIFEST_PATH "${CMAKE_CURRENT_SOURCE_DIR}/../../Cargo.toml"
     CRATES slint-cpp ${slint_compiler_crate})
-
 
 set_property(
     TARGET slint-cpp
@@ -35,7 +34,7 @@ set_property(
     SLINT_GENERATED_INCLUDE_DIR="${CMAKE_CURRENT_BINARY_DIR}/generated_include/"
 )
 
-if (SLINT_FEATURE_COMPILER)
+if(SLINT_FEATURE_COMPILER)
     set_property(
         TARGET slint-compiler
         PROPERTY CORROSION_USE_HOST_BUILD 1
@@ -50,12 +49,14 @@ target_compile_features(Slint INTERFACE cxx_std_20)
 function(define_cargo_feature cargo-feature description default)
     # turn foo-bar into SLINT_FEATURE_FOO_BAR
     string(TOUPPER "${cargo-feature}" cmake_option)
-    string(REPLACE "-"  "_" cmake_option "${cmake_option}")
+    string(REPLACE "-" "_" cmake_option "${cmake_option}")
     set(cmake_option "SLINT_FEATURE_${cmake_option}")
     option("${cmake_option}" "${description}" ${default})
+
     if(${cmake_option})
         list(APPEND features ${cargo-feature})
     endif()
+
     set(features "${features}" PARENT_SCOPE)
     add_feature_info(${cmake_option} ${cmake_option} ${description})
 endfunction()
@@ -63,12 +64,14 @@ endfunction()
 function(define_cargo_dependent_feature cargo-feature description default depends_condition)
     # turn foo-bar into SLINT_FEATURE_FOO_BAR
     string(TOUPPER "${cargo-feature}" cmake_option)
-    string(REPLACE "-"  "_" cmake_option "${cmake_option}")
+    string(REPLACE "-" "_" cmake_option "${cmake_option}")
     set(cmake_option "SLINT_FEATURE_${cmake_option}")
     cmake_dependent_option("${cmake_option}" "${description}" ${default} ${depends_condition} OFF)
+
     if(${cmake_option})
         list(APPEND features ${cargo-feature})
     endif()
+
     set(features "${features}" PARENT_SCOPE)
     add_feature_info(${cmake_option} ${cmake_option} ${description})
 endfunction()
@@ -84,11 +87,12 @@ define_cargo_feature(backend-gl-wayland "Enable the OpenGL ES 2.0 backend with w
 define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
 if(SLINT_FEATURE_INTERPRETER)
-    if (SLINT_FEATURE_BACKEND_QT)
+    if(SLINT_FEATURE_BACKEND_QT)
         list(APPEND features rtti-qt)
     endif()
+
     if(SLINT_FEATURE_BACKEND_GL_ALL OR SLINT_FEATURE_BACKEND_GL_X11 OR SLINT_FEATURE_BACKEND_GL_WAYLAND)
-        list(APPEND features rtti-gl)
+        list(APPEND features rtti-winit)
     endif()
 endif()
 
@@ -103,16 +107,17 @@ set_property(
     ${features}
 )
 
-
-if (SLINT_FEATURE_BACKEND_QT)
+if(SLINT_FEATURE_BACKEND_QT)
     # For the CMake build don't rely on qmake being in PATH but use CMake to locate Qt. This
     # means usually CMAKE_PREFIX_PATH is set.
     find_package(Qt6 6.0 QUIET COMPONENTS Core Widgets)
-    if (NOT TARGET Qt::qmake)
+
+    if(NOT TARGET Qt::qmake)
         find_package(Qt5 5.15 QUIET COMPONENTS Core Widgets)
     endif()
-endif (SLINT_FEATURE_BACKEND_QT)
-if (TARGET Qt::qmake)
+endif(SLINT_FEATURE_BACKEND_QT)
+
+if(TARGET Qt::qmake)
     set_property(
         TARGET slint-cpp
         APPEND
@@ -131,9 +136,10 @@ else()
 endif()
 
 set(SLINT_STYLE "" CACHE STRING "The Slint widget style")
-if (SLINT_STYLE)
+
+if(SLINT_STYLE)
     set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE})
-else (SLINT_STYLE)
+else(SLINT_STYLE)
     set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE_DEFAULT})
 endif(SLINT_STYLE)
 
@@ -172,7 +178,7 @@ target_include_directories(Slint INTERFACE
     $<INSTALL_INTERFACE:include/slint>
 )
 
-if (SLINT_FEATURE_COMPILER)
+if(SLINT_FEATURE_COMPILER)
     add_executable(Slint::slint-compiler ALIAS slint-compiler)
     include(${CMAKE_CURRENT_LIST_DIR}/cmake/SlintMacro.cmake)
 endif()
@@ -181,50 +187,56 @@ export(TARGETS Slint slint-cpp
     NAMESPACE Slint:: FILE "${CMAKE_BINARY_DIR}/lib/cmake/Slint/SlintTargets.cmake")
 install(EXPORT SlintTargets NAMESPACE Slint:: DESTINATION lib/cmake/Slint)
 install(TARGETS Slint slint-cpp
-    EXPORT SlintTargets  LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include/slint)
+    EXPORT SlintTargets LIBRARY DESTINATION lib PUBLIC_HEADER DESTINATION include/slint)
 
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 
 install(FILES $<TARGET_FILE:slint-cpp-shared> TYPE LIB)
+
 if(WIN32)
     install(FILES $<TARGET_LINKER_FILE:slint-cpp-shared> TYPE LIB)
+
     # Copy the dll to the top-level bin directory, where the examples will
     # will also be located, so that they can find the dll.
     get_property(GENERATOR_IS_MULTI_CONFIG GLOBAL PROPERTY GENERATOR_IS_MULTI_CONFIG)
+
     if(GENERATOR_IS_MULTI_CONFIG)
         set(config_subdir_genex "$<CONFIG>/")
     endif()
+
     add_custom_target(Slint_dll_convenience ALL DEPENDS slint-cpp-shared
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
-            $<TARGET_FILE:slint-cpp-shared>
-	    ${CMAKE_BINARY_DIR}/bin/${config_subdir_genex}$<TARGET_FILE_NAME:slint-cpp-shared>)
+        $<TARGET_FILE:slint-cpp-shared>
+        ${CMAKE_BINARY_DIR}/bin/${config_subdir_genex}$<TARGET_FILE_NAME:slint-cpp-shared>)
 endif()
 
-if (SLINT_FEATURE_COMPILER)
+if(SLINT_FEATURE_COMPILER)
     install(PROGRAMS $<TARGET_FILE:slint-compiler> TYPE BIN)
 endif()
 
 set(SLINT_LIB_PROPERTIES "IMPORTED_NO_SONAME;1")
+
 foreach(prop
-        IMPORTED_LOCATION IMPORTED_LOCATION_DEBUG IMPORTED_LOCATION_RELEASE
-        IMPORTED_LOCATION_RELWITHDEBINFO IMPORTED_LOCATION_MINSIZEREL
-        IMPORTED_IMPLIB IMPORTED_IMPLIB_DEBUG IMPORTED_IMPLIB_RELEASE
-        IMPORTED_IMPLIB_RELWITHDEBINFO IMPORTED_IMPLIB_MINSIZEREL)
-  get_target_property(value slint-cpp-shared ${prop})
-  if(value)
-    get_filename_component(value ${value} NAME)
-    list(APPEND SLINT_LIB_PROPERTIES ${prop} "\${_IMPORT_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${value}")
-  endif()
+    IMPORTED_LOCATION IMPORTED_LOCATION_DEBUG IMPORTED_LOCATION_RELEASE
+    IMPORTED_LOCATION_RELWITHDEBINFO IMPORTED_LOCATION_MINSIZEREL
+    IMPORTED_IMPLIB IMPORTED_IMPLIB_DEBUG IMPORTED_IMPLIB_RELEASE
+    IMPORTED_IMPLIB_RELWITHDEBINFO IMPORTED_IMPLIB_MINSIZEREL)
+    get_target_property(value slint-cpp-shared ${prop})
+
+    if(value)
+        get_filename_component(value ${value} NAME)
+        list(APPEND SLINT_LIB_PROPERTIES ${prop} "\${_IMPORT_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${value}")
+    endif()
 endforeach()
 
 get_property(_SLINT_STYLE GLOBAL PROPERTY SLINT_STYLE)
 configure_package_config_file("cmake/SlintConfig.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake" INSTALL_DESTINATION lib/cmake/Slint)
 
 write_basic_package_version_file(
-  ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfigVersion.cmake
-  VERSION 0.2.6
-  COMPATIBILITY SameMinorVersion
+    ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfigVersion.cmake
+    VERSION 0.2.6
+    COMPATIBILITY SameMinorVersion
 )
 
 install(FILES
@@ -233,7 +245,7 @@ install(FILES
     DESTINATION lib/cmake/Slint
 )
 
-if (SLINT_FEATURE_COMPILER)
+if(SLINT_FEATURE_COMPILER)
     install(FILES
         "${CMAKE_CURRENT_LIST_DIR}/cmake/SlintMacro.cmake"
         DESTINATION lib/cmake/Slint
@@ -241,15 +253,16 @@ if (SLINT_FEATURE_COMPILER)
 endif()
 
 option(SLINT_PACKAGE_BUNDLE_QT "Internal setting to install Qt binary in the packages" OFF)
+
 if(SLINT_PACKAGE_BUNDLE_QT)
     if(WIN32)
         find_package(Qt6 6.0 COMPONENTS Core Gui Widgets Svg)
         install(
             FILES
-                $<TARGET_FILE:Qt6::Core>
-                $<TARGET_FILE:Qt6::Gui>
-                $<TARGET_FILE:Qt6::Widgets>
-                $<TARGET_FILE:Qt6::Svg>
+            $<TARGET_FILE:Qt6::Core>
+            $<TARGET_FILE:Qt6::Gui>
+            $<TARGET_FILE:Qt6::Widgets>
+            $<TARGET_FILE:Qt6::Svg>
             TYPE LIB)
 
         install(
@@ -281,17 +294,19 @@ set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_LIST_DIR}/../../LICENSE.md")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_LIST_DIR}/README.md")
 set(CPACK_STRIP_FILES ON)
 set(CPACK_NSIS_DEFINES "ManifestDPIAware true")
+
 if(NOT WIN32)
-   set(CPACK_GENERATOR "TGZ")
-   set(CPACK_SYSTEM_NAME "${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
+    set(CPACK_GENERATOR "TGZ")
+    set(CPACK_SYSTEM_NAME "${CMAKE_SYSTEM_NAME}-${CMAKE_SYSTEM_PROCESSOR}")
 endif(NOT WIN32)
+
 include(CPack)
 
 if(BUILD_TESTING)
     FetchContent_Declare(
         Catch2
         GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-        GIT_TAG        v2.13.8
+        GIT_TAG v2.13.8
     )
 
     FetchContent_MakeAvailable(Catch2)
@@ -305,26 +320,31 @@ if(BUILD_TESTING)
             SOURCE_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/\"
         )
         add_test(test_${NAME} ${CMAKE_CURRENT_BINARY_DIR}/test_${NAME})
+
         # Somehow the wrong relative rpath ends up in the binary, requiring us to change the
         # working directory.
         if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
             set_property(TEST test_${NAME} PROPERTY WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")
         endif()
+
         if(MSVC)
             target_compile_options(test_${NAME} PRIVATE /W3)
         else()
             target_compile_options(test_${NAME} PRIVATE -Wall -Wextra -Werror)
         endif()
-        if (CMAKE_CXX_COMPILER_ID STREQUAL GNU)
+
+        if(CMAKE_CXX_COMPILER_ID STREQUAL GNU)
             # that warning has false positives
             target_compile_options(test_${NAME} PRIVATE -Wno-maybe-uninitialized)
         endif()
-
     endmacro(slint_test)
+
     slint_test(datastructures)
+
     if(SLINT_FEATURE_INTERPRETER)
         slint_test(interpreter)
     endif()
+
     slint_test(properties)
     slint_test(eventloop)
     target_link_libraries(test_eventloop PRIVATE Threads::Threads)

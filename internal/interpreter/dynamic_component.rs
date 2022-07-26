@@ -396,7 +396,7 @@ impl<'id> ComponentDescription<'id> {
         let window = {
             // Ensure that the backend is initialized
             i_slint_backend_selector::backend();
-            i_slint_backend_gl::create_gl_window_with_canvas_id(canvas_id)
+            i_slint_backend_winit::create_gl_window_with_canvas_id(canvas_id)
         };
         self.create_with_existing_window(&window)
     }
