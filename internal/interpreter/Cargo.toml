@@ -42,7 +42,7 @@ std = ["i-slint-core/std"]
 ## This backend is required to use the `native` style.
 ## It requires Qt 5.15 or later to be installed. If Qt is not installed, the
 ## backend will not be operational
-backend-qt = ["i-slint-backend-selector/i-slint-backend-qt", "i-slint-backend-selector/rtti-qt", "std"]
+backend-qt = ["i-slint-backend-selector/i-slint-backend-qt", "std"]
 
 # The following backend-gl-* are just alias
 backend-gl-all = ["eventloop-winit", "renderer-femtovg"]
@@ -52,15 +52,15 @@ backend-gl-wayland = ["eventloop-winit-wayland", "renderer-femtovg"]
 ## The the `winit` crate is used for the event loop and windowing system integration.
 ## With this feature, all windowing systems are supported. For a smaller build, omit
 ## this feature and select one of the other specific `eventloop-winit-XX` features.
-eventloop-winit = ["i-slint-backend-selector/eventloop-winit", "i-slint-backend-selector/rtti-winit", "std"]
+eventloop-winit = ["i-slint-backend-selector/eventloop-winit", "std"]
 
 ## Simliar to `eventloop-winit-all` this enables the winit based event loop but only
 ## with support for the X Window System on Unix.
-eventloop-winit-x11 = ["i-slint-backend-selector/eventloop-winit-x11", "i-slint-backend-selector/rtti-winit", "std"]
+eventloop-winit-x11 = ["i-slint-backend-selector/eventloop-winit-x11", "std"]
 
 ## Simliar to `eventloop-winit-all` this enables the winit based event loop but only
 ## with support for the Wayland window system on Unix.
-eventloop-winit-wayland = ["i-slint-backend-selector/eventloop-winit-wayland", "i-slint-backend-selector/rtti-winit", "std"]
+eventloop-winit-wayland = ["i-slint-backend-selector/eventloop-winit-wayland", "std"]
 
 ## This feature is an alias for `backend-qt`
 eventloop-qt = ["backend-qt"]
@@ -75,7 +75,7 @@ renderer-qt = ["backend-qt"]
 i-slint-compiler = { version = "=0.2.6", path = "../compiler" }
 i-slint-common = { version = "=0.2.6", path = "../common" }
 i-slint-core = { version = "=0.2.6", path = "../core", features = ["rtti"] }
-i-slint-backend-selector = { version = "=0.2.6", path = "../../internal/backends/selector" }
+i-slint-backend-selector = { version = "=0.2.6", path = "../../internal/backends/selector", features = ["rtti"] }
 
 vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
 

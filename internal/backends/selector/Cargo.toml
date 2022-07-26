@@ -21,8 +21,7 @@ eventloop-winit-wayland = ["i-slint-backend-winit/wayland"]
 
 renderer-femtovg = ["i-slint-backend-winit/renderer-femtovg"]
 
-rtti-winit = ["i-slint-backend-winit/rtti"]
-rtti-qt = ["i-slint-backend-qt/rtti"]
+rtti = ["i-slint-backend-winit?/rtti", "i-slint-backend-qt?/rtti"]
 
 [dependencies]
 i-slint-core = { version = "=0.2.6", path = "../../../internal/core", default-features = false }
