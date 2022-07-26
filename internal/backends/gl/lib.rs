@@ -44,7 +44,7 @@ pub use stylemetrics::native_style_metrics_init;
 
 pub struct Backend;
 impl i_slint_core::backend::Backend for Backend {
-    fn create_window(&'static self) -> i_slint_core::api::Window {
+    fn create_window(&self) -> i_slint_core::api::Window {
         i_slint_core::window::WindowInner::new(|window| {
             GLWindow::new(
                 window,
@@ -55,31 +55,17 @@ impl i_slint_core::backend::Backend for Backend {
         .into()
     }
 
-    fn run_event_loop(&'static self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {
+    fn run_event_loop(&self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {
         crate::event_loop::run(behavior);
     }
 
-    fn quit_event_loop(&'static self) {
+    fn quit_event_loop(&self) {
         crate::event_loop::with_window_target(|event_loop| {
             event_loop.event_loop_proxy().send_event(crate::event_loop::CustomEvent::Exit).ok();
         })
     }
 
-    fn register_font_from_memory(
-        &'static self,
-        data: &'static [u8],
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        self::renderer::femtovg::FemtoVGRenderer::register_font_from_memory(data)
-    }
-
-    fn register_font_from_path(
-        &'static self,
-        path: &std::path::Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        self::renderer::femtovg::FemtoVGRenderer::register_font_from_path(path)
-    }
-
-    fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
+    fn post_event(&self, event: Box<dyn FnOnce() + Send>) {
         let e = crate::event_loop::CustomEvent::UserEvent(event);
         #[cfg(not(target_arch = "wasm32"))]
         crate::event_loop::GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap().send_event(e);

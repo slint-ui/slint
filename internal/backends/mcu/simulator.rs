@@ -330,41 +330,22 @@ impl WinitWindow for SimulatorWindow {
 pub struct SimulatorBackend;
 
 impl i_slint_core::backend::Backend for SimulatorBackend {
-    fn create_window(&'static self) -> i_slint_core::api::Window {
+    fn create_window(&self) -> i_slint_core::api::Window {
         i_slint_core::window::WindowInner::new(|window| SimulatorWindow::new(window)).into()
     }
 
-    fn run_event_loop(&'static self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {
+    fn run_event_loop(&self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {
         event_loop::run(behavior);
         std::process::exit(0);
     }
 
-    fn quit_event_loop(&'static self) {
+    fn quit_event_loop(&self) {
         self::event_loop::with_window_target(|event_loop| {
             event_loop.event_loop_proxy().send_event(self::event_loop::CustomEvent::Exit).ok();
         })
     }
 
-    fn register_font_from_memory(
-        &'static self,
-        _data: &'static [u8],
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        //TODO
-        Err("Not implemented".into())
-    }
-
-    fn register_font_from_path(
-        &'static self,
-        _path: &std::path::Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        unimplemented!()
-    }
-
-    fn register_bitmap_font(&'static self, font_data: &'static i_slint_core::graphics::BitmapFont) {
-        crate::renderer::fonts::register_bitmap_font(font_data);
-    }
-
-    fn post_event(&'static self, event: Box<dyn FnOnce() + Send>) {
+    fn post_event(&self, event: Box<dyn FnOnce() + Send>) {
         self::event_loop::GLOBAL_PROXY
             .get_or_init(Default::default)
             .lock()

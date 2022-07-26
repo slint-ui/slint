@@ -135,7 +135,7 @@ pub fn native_style_metrics_deinit(_: core::pin::Pin<&mut native_widgets::Native
 
 pub struct Backend;
 impl i_slint_core::backend::Backend for Backend {
-    fn create_window(&'static self) -> i_slint_core::api::Window {
+    fn create_window(&self) -> i_slint_core::api::Window {
         #[cfg(no_qt)]
         panic!("The Qt backend needs Qt");
         #[cfg(not(no_qt))]
@@ -144,7 +144,7 @@ impl i_slint_core::backend::Backend for Backend {
         }
     }
 
-    fn run_event_loop(&'static self, _behavior: i_slint_core::backend::EventLoopQuitBehavior) {
+    fn run_event_loop(&self, _behavior: i_slint_core::backend::EventLoopQuitBehavior) {
         #[cfg(not(no_qt))]
         {
             let quit_on_last_window_closed = match _behavior {
@@ -162,7 +162,7 @@ impl i_slint_core::backend::Backend for Backend {
         };
     }
 
-    fn quit_event_loop(&'static self) {
+    fn quit_event_loop(&self) {
         #[cfg(not(no_qt))]
         {
             use cpp::cpp;
@@ -176,47 +176,7 @@ impl i_slint_core::backend::Backend for Backend {
         };
     }
 
-    fn register_font_from_memory(
-        &'static self,
-        _data: &'static [u8],
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        #[cfg(not(no_qt))]
-        {
-            use cpp::cpp;
-            let data = qttypes::QByteArray::from(_data);
-            cpp! {unsafe [data as "QByteArray"] {
-                ensure_initialized(true);
-                QFontDatabase::addApplicationFontFromData(data);
-            } }
-        };
-        Ok(())
-    }
-
-    fn register_font_from_path(
-        &'static self,
-        _path: &std::path::Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        #[cfg(not(no_qt))]
-        {
-            use cpp::cpp;
-            let encoded_path: qttypes::QByteArray = _path.to_string_lossy().as_bytes().into();
-            cpp! {unsafe [encoded_path as "QByteArray"] {
-                ensure_initialized(true);
-
-                QString requested_path = QFileInfo(QFile::decodeName(encoded_path)).canonicalFilePath();
-                static QSet<QString> loaded_app_fonts;
-                // QFontDatabase::addApplicationFont unconditionally reads the provided file from disk,
-                // while we want to do this only once to avoid things like the live-review going crazy.
-                if (!loaded_app_fonts.contains(requested_path)) {
-                    loaded_app_fonts.insert(requested_path);
-                    QFontDatabase::addApplicationFont(requested_path);
-                }
-            } }
-        };
-        Ok(())
-    }
-
-    fn post_event(&'static self, _event: Box<dyn FnOnce() + Send>) {
+    fn post_event(&self, _event: Box<dyn FnOnce() + Send>) {
         #[cfg(not(no_qt))]
         {
             use cpp::cpp;
@@ -256,7 +216,7 @@ impl i_slint_core::backend::Backend for Backend {
         };
     }
 
-    fn set_clipboard_text(&'static self, _text: &str) {
+    fn set_clipboard_text(&self, _text: &str) {
         #[cfg(not(no_qt))]
         {
             use cpp::cpp;
@@ -268,7 +228,7 @@ impl i_slint_core::backend::Backend for Backend {
         }
     }
 
-    fn clipboard_text(&'static self) -> Option<String> {
+    fn clipboard_text(&self) -> Option<String> {
         #[cfg(not(no_qt))]
         {
             use cpp::cpp;

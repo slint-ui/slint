@@ -26,42 +26,15 @@ pub enum EventLoopQuitBehavior {
 /// Interface implemented by back-ends
 pub trait Backend: Send + Sync {
     /// Instantiate a window for a component.
-    /// FIXME: should return a Box<dyn PlatformWindow>
-    fn create_window(&'static self) -> crate::api::Window;
+    fn create_window(&self) -> crate::api::Window;
 
     /// Spins an event loop and renders the visible windows.
-    fn run_event_loop(&'static self, _behavior: EventLoopQuitBehavior) {
+    fn run_event_loop(&self, _behavior: EventLoopQuitBehavior) {
         unimplemented!()
     }
 
     /// Exits the event loop.
-    fn quit_event_loop(&'static self) {
-        unimplemented!()
-    }
-
-    #[cfg(feature = "std")] // FIXME: just because of the Error
-    /// This function can be used to register a custom TrueType font with Slint,
-    /// for use with the `font-family` property. The provided slice must be a valid TrueType
-    /// font.
-    fn register_font_from_memory(
-        &'static self,
-        _data: &'static [u8],
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        unimplemented!()
-    }
-
-    #[cfg(feature = "std")]
-    /// This function can be used to register a custom TrueType font with Slint,
-    /// for use with the `font-family` property. The provided path must refer to a valid TrueType
-    /// font.
-    fn register_font_from_path(
-        &'static self,
-        _path: &std::path::Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        unimplemented!()
-    }
-
-    fn register_bitmap_font(&'static self, _font_data: &'static crate::graphics::BitmapFont) {
+    fn quit_event_loop(&self) {
         unimplemented!()
     }
 

@@ -20,44 +20,30 @@ pub struct TestingBackend {
 }
 
 impl i_slint_core::backend::Backend for TestingBackend {
-    fn create_window(&'static self) -> Window {
+    fn create_window(&self) -> Window {
         WindowInner::new(|_| Rc::new(TestingWindow::default())).into()
     }
 
-    fn run_event_loop(&'static self, _behavior: i_slint_core::backend::EventLoopQuitBehavior) {
+    fn run_event_loop(&self, _behavior: i_slint_core::backend::EventLoopQuitBehavior) {
         unimplemented!("running an event loop with the testing backend");
     }
 
-    fn quit_event_loop(&'static self) {}
+    fn quit_event_loop(&self) {}
 
-    fn register_font_from_memory(
-        &'static self,
-        _data: &'static [u8],
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        Ok(())
-    }
-
-    fn register_font_from_path(
-        &'static self,
-        _path: &std::path::Path,
-    ) -> Result<(), Box<dyn std::error::Error>> {
-        Ok(())
-    }
-
-    fn post_event(&'static self, _event: Box<dyn FnOnce() + Send>) {
+    fn post_event(&self, _event: Box<dyn FnOnce() + Send>) {
         // The event will never be invoked
     }
 
-    fn duration_since_start(&'static self) -> core::time::Duration {
+    fn duration_since_start(&self) -> core::time::Duration {
         // The slint::testing::mock_elapsed_time updates the animation tick directly
         core::time::Duration::from_millis(i_slint_core::animations::current_tick().0)
     }
 
-    fn set_clipboard_text(&'static self, text: &str) {
+    fn set_clipboard_text(&self, text: &str) {
         *self.clipboard.lock().unwrap() = Some(text.into());
     }
 
-    fn clipboard_text(&'static self) -> Option<String> {
+    fn clipboard_text(&self) -> Option<String> {
         self.clipboard.lock().unwrap().clone()
     }
 }
@@ -148,6 +134,20 @@ impl Renderer for TestingWindow {
         _byte_offset: usize,
     ) -> Rect {
         Default::default()
+    }
+
+    fn register_font_from_memory(
+        &self,
+        _data: &'static [u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        Ok(())
+    }
+
+    fn register_font_from_path(
+        &self,
+        _path: &std::path::Path,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        Ok(())
     }
 }
 

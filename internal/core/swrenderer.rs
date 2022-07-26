@@ -192,6 +192,10 @@ impl Renderer for SoftwareRenderer {
     fn mark_dirty_region(&self, region: crate::item_rendering::DirtyRegion) {
         self.force_dirty.set(self.force_dirty.get().union(&region))
     }
+
+    fn register_bitmap_font(&self, font_data: &'static crate::graphics::BitmapFont) {
+        fonts::register_bitmap_font(font_data);
+    }
 }
 
 fn render_window_frame_by_line(

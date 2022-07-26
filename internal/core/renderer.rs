@@ -47,4 +47,30 @@ pub trait Renderer {
     ///
     /// Example: when a PopupWindow disapear, the region under the popup needs to be redrawn
     fn mark_dirty_region(&self, _region: crate::item_rendering::DirtyRegion) {}
+
+    #[cfg(feature = "std")] // FIXME: just because of the Error
+    /// This function can be used to register a custom TrueType font with Slint,
+    /// for use with the `font-family` property. The provided slice must be a valid TrueType
+    /// font.
+    fn register_font_from_memory(
+        &self,
+        _data: &'static [u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        unimplemented!()
+    }
+
+    #[cfg(feature = "std")]
+    /// This function can be used to register a custom TrueType font with Slint,
+    /// for use with the `font-family` property. The provided path must refer to a valid TrueType
+    /// font.
+    fn register_font_from_path(
+        &self,
+        _path: &std::path::Path,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        unimplemented!()
+    }
+
+    fn register_bitmap_font(&self, _font_data: &'static crate::graphics::BitmapFont) {
+        unimplemented!()
+    }
 }

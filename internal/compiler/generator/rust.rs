@@ -2039,7 +2039,8 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::RegisterCustomFontByPath => {
             if let [Expression::StringLiteral(path)] = arguments {
-                quote!(slint::register_font_from_path(&std::path::PathBuf::from(#path));)
+                let window_tokens = access_window_field(ctx);
+                quote!(#window_tokens.renderer().register_font_from_path(&std::path::PathBuf::from(#path));)
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByPath {:?}", arguments)
             }
@@ -2048,7 +2049,8 @@ fn compile_builtin_function_call(
             if let [Expression::NumberLiteral(resource_id)] = &arguments {
                 let resource_id: usize = *resource_id as _;
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                quote!(slint::register_font_from_memory(#symbol.into());)
+                let window_tokens = access_window_field(ctx);
+                quote!(#window_tokens.renderer().register_font_from_memory(#symbol.into());)
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByMemory {:?}", arguments)
             }
@@ -2057,7 +2059,8 @@ fn compile_builtin_function_call(
             if let [Expression::NumberLiteral(resource_id)] = &arguments {
                 let resource_id: usize = *resource_id as _;
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                quote!(slint::internal::register_bitmap_font(&#symbol);)
+                let window_tokens = access_window_field(ctx);
+                quote!(#window_tokens.renderer().register_bitmap_font(&#symbol);)
             } else {
                 panic!("internal error: invalid args to RegisterBitmapFont must be a number")
             }
