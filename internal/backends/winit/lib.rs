@@ -7,13 +7,49 @@
 extern crate alloc;
 
 use std::rc::Rc;
+use std::sync::Mutex;
 
 mod glwindow;
 use glwindow::*;
 mod glcontext;
 use glcontext::*;
 pub(crate) mod event_loop;
-mod renderer {
+pub mod renderer {
+    use std::rc::Weak;
+
+    pub trait WinitCompatibleRenderer: i_slint_core::renderer::Renderer {
+        type Canvas: WinitCompatibleCanvas;
+
+        fn new(window_weak: &Weak<i_slint_core::window::WindowInner>) -> Self;
+
+        #[cfg(not(target_arch = "wasm32"))]
+        fn create_canvas_from_glutin_context(
+            &self,
+            gl_context: &glutin::WindowedContext<glutin::PossiblyCurrent>,
+            winsys_name: Option<&str>,
+        ) -> Self::Canvas;
+
+        #[cfg(target_arch = "wasm32")]
+        fn create_canvas_from_html_canvas(
+            &self,
+            canvas_element: &web_sys::HtmlCanvasElement,
+        ) -> Self::Canvas;
+
+        fn render(
+            &self,
+            canvas: &Self::Canvas,
+            width: u32,
+            height: u32,
+            before_rendering_callback: impl FnOnce(),
+        );
+    }
+
+    pub trait WinitCompatibleCanvas {
+        fn release_graphics_resources(&self);
+
+        fn component_destroyed(&self, component: i_slint_core::component::ComponentRef);
+    }
+
     pub mod femtovg;
 }
 
@@ -24,7 +60,10 @@ mod stylemetrics;
 
 #[cfg(target_arch = "wasm32")]
 pub fn create_gl_window_with_canvas_id(canvas_id: String) -> i_slint_core::api::Window {
-    i_slint_core::window::WindowInner::new(|window| GLWindow::new(window, canvas_id)).into()
+    i_slint_core::window::WindowInner::new(|window| {
+        GLWindow::<crate::renderer::femtovg::FemtoVGRenderer>::new(window, canvas_id)
+    })
+    .into()
 }
 
 #[doc(hidden)]
@@ -42,17 +81,32 @@ pub const HAS_NATIVE_STYLE: bool = false;
 pub use stylemetrics::native_style_metrics_deinit;
 pub use stylemetrics::native_style_metrics_init;
 
-pub struct Backend;
+use crate::renderer::WinitCompatibleRenderer;
+
+pub struct Backend {
+    window_factory_fn: Mutex<Box<dyn Fn() -> i_slint_core::api::Window + Send>>,
+}
+
+impl Backend {
+    pub fn new<Renderer: WinitCompatibleRenderer + 'static>() -> Self {
+        Self {
+            window_factory_fn: Mutex::new(Box::new(|| {
+                i_slint_core::window::WindowInner::new(|window| {
+                    GLWindow::<Renderer>::new(
+                        window,
+                        #[cfg(target_arch = "wasm32")]
+                        "canvas".into(),
+                    )
+                })
+                .into()
+            })),
+        }
+    }
+}
+
 impl i_slint_core::backend::Backend for Backend {
     fn create_window(&self) -> i_slint_core::api::Window {
-        i_slint_core::window::WindowInner::new(|window| {
-            GLWindow::new(
-                window,
-                #[cfg(target_arch = "wasm32")]
-                "canvas".into(),
-            )
-        })
-        .into()
+        self.window_factory_fn.lock().unwrap()()
     }
 
     fn run_event_loop(&self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {

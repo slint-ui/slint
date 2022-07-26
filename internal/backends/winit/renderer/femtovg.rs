@@ -27,13 +27,15 @@ pub struct FemtoVGRenderer {
     window_weak: Weak<i_slint_core::window::WindowInner>,
 }
 
-impl FemtoVGRenderer {
-    pub fn new(window_weak: &Weak<i_slint_core::window::WindowInner>) -> Self {
+impl super::WinitCompatibleRenderer for FemtoVGRenderer {
+    type Canvas = FemtoVGCanvas;
+
+    fn new(window_weak: &Weak<i_slint_core::window::WindowInner>) -> Self {
         Self { window_weak: window_weak.clone() }
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn create_canvas_from_glutin_context(
+    fn create_canvas_from_glutin_context(
         &self,
         gl_context: &glutin::WindowedContext<glutin::PossiblyCurrent>,
         winsys_name: Option<&str>,
@@ -52,7 +54,7 @@ impl FemtoVGRenderer {
     }
 
     #[cfg(target_arch = "wasm32")]
-    pub fn create_canvas_from_html_canvas(
+    fn create_canvas_from_html_canvas(
         &self,
         canvas_element: &web_sys::HtmlCanvasElement,
     ) -> FemtoVGCanvas {
@@ -80,26 +82,7 @@ impl FemtoVGRenderer {
         self.create_canvas_from_gl_renderer(gl_renderer, None)
     }
 
-    fn create_canvas_from_gl_renderer(
-        &self,
-        gl_renderer: femtovg::renderer::OpenGl,
-        rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
-    ) -> FemtoVGCanvas {
-        let canvas = femtovg::Canvas::new_with_text_context(
-            gl_renderer,
-            self::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
-        )
-        .unwrap();
-        let canvas = Rc::new(RefCell::new(canvas));
-        FemtoVGCanvas {
-            canvas,
-            graphics_cache: Default::default(),
-            texture_cache: Default::default(),
-            rendering_metrics_collector,
-        }
-    }
-
-    pub fn render(
+    fn render(
         &self,
         canvas: &FemtoVGCanvas,
         width: u32,
@@ -162,6 +145,27 @@ impl FemtoVGRenderer {
             canvas.texture_cache.borrow_mut().drain();
             drop(item_renderer);
         });
+    }
+}
+
+impl FemtoVGRenderer {
+    fn create_canvas_from_gl_renderer(
+        &self,
+        gl_renderer: femtovg::renderer::OpenGl,
+        rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
+    ) -> FemtoVGCanvas {
+        let canvas = femtovg::Canvas::new_with_text_context(
+            gl_renderer,
+            self::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
+        )
+        .unwrap();
+        let canvas = Rc::new(RefCell::new(canvas));
+        FemtoVGCanvas {
+            canvas,
+            graphics_cache: Default::default(),
+            texture_cache: Default::default(),
+            rendering_metrics_collector,
+        }
     }
 }
 
@@ -335,13 +339,13 @@ pub struct FemtoVGCanvas {
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
 }
 
-impl FemtoVGCanvas {
-    pub fn release_graphics_resources(&self) {
+impl super::WinitCompatibleCanvas for FemtoVGCanvas {
+    fn release_graphics_resources(&self) {
         self.graphics_cache.clear_all();
         self.texture_cache.borrow_mut().clear();
     }
 
-    pub fn component_destroyed(&self, component: i_slint_core::component::ComponentRef) {
+    fn component_destroyed(&self, component: i_slint_core::component::ComponentRef) {
         self.graphics_cache.component_destroyed(component)
     }
 }
