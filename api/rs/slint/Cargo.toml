@@ -48,11 +48,11 @@ backend-gl-wayland = ["eventloop-winit-wayland", "renderer-femtovg"]
 ## this feature and select one of the other specific `eventloop-winit-XX` features.
 eventloop-winit = ["i-slint-backend-selector/eventloop-winit", "std"]
 
-## Simliar to `eventloop-winit-all` this enables the winit based event loop but only
+## Simliar to `eventloop-winit` this enables the winit based event loop but only
 ## with support for the X Window System on Unix.
 eventloop-winit-x11 = ["i-slint-backend-selector/eventloop-winit-x11", "std"]
 
-## Simliar to `eventloop-winit-all` this enables the winit based event loop but only
+## Simliar to `eventloop-winit` this enables the winit based event loop but only
 ## with support for the Wayland window system on Unix.
 eventloop-winit-wayland = ["i-slint-backend-selector/eventloop-winit-wayland", "std"]
 
