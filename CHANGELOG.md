@@ -6,6 +6,9 @@ All notable changes to this project are documented in this file.
 ### Changed
  - `mod` now works on any numeric type, not only integers.
  - Minimum rust version is now 1.60
+ - The "backend-gl-*" Rust crate features for configuring the GL renderer have been
+   split up into "eventloop-winit-all/x11/wayland" and "renderer-femtovg". The old
+   names are still available for compatibility.
 
 ### Added
 

@@ -19,6 +19,7 @@ path = "lib.rs"
 [features]
 wayland = ["winit/wayland", "glutin/wayland", "copypasta/wayland"]
 x11 = ["winit/x11", "glutin/x11", "copypasta/x11"]
+renderer-femtovg = []
 rtti = ["i-slint-core/rtti"]
 default = []
 

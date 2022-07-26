@@ -80,18 +80,48 @@ endfunction()
 # defaults need to be kept in sync with the Rust bit.
 define_cargo_feature(interpreter "Enable support for the Slint interpeter to load .slint files at run-time" ON)
 
-define_cargo_feature(backend-gl-all "Enable OpenGL ES 2.0 based rendering backend with support for all windowing systems." ON)
-define_cargo_feature(backend-gl-x11 "Enable the OpenGL ES 2.0 backend with only X11 support on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_GL_ALL for a smaller build with just X11 support on Unix." OFF)
-define_cargo_feature(backend-gl-wayland "Enable the OpenGL ES 2.0 backend with wayland support on Unix. Enable this option and turn off SLINT_FEATURE_BACKEND_GL_ALL for a smaller build with just wayland support." OFF)
+define_cargo_feature(eventloop-winit "Enable support for the winit crate to interaction with all windowing systems." ON)
+define_cargo_feature(eventloop-winit-x11 "Enable support for the winit create to interact only with the X11 windowing system on Unix. Enable this option and turn off SLINT_FEATURE_EVENTLOOP_WINIT_ALL for a smaller build with just X11 support on Unix." OFF)
+define_cargo_feature(eventloop-winit-wayland "Enable support for the winit create to interact only with the wayland windowing system on Unix. Enable this option and turn off SLINT_FEATURE_EVENTLOOP_WINIT_ALL for a smaller build with just wayland support." OFF)
+
+define_cargo_feature(renderer-femtovg "Enable support for the OpenGL ES 2.0 based FemtoVG rendering engine." ON)
 
 define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
+
+# Compat options
+define_cargo_feature(backend-gl-all "This feature is an alias for SLINT_FEATURE_EVENTLOOP_WINIT_ALL and SLINT_FEATURE_RENDERER_FEMTOVG." OFF)
+define_cargo_feature(backend-gl-x11 "This feature is an alias for SLINT_FEATURE_EVENTLOOP_WINIT_X11 and SLINT_FEATURE_RENDERER_FEMTOVG." OFF)
+define_cargo_feature(backend-gl-wayland "This feature is an alias for SLINT_FEATURE_EVENTLOOP_WINIT_WAYLAND and SLINT_FEATURE_RENDERER_FEMTOVG." OFF)
+
+if(SLINT_FEATURE_BACKEND_GL_ALL)
+    set(SLINT_FEATURE_EVENTLOOP_WINIT_ALL ON)
+    set(SLINT_FEATURE_RENDERER_FEMTOVG ON)
+endif()
+
+if(SLINT_FEATURE_BACKEND_GL_X11)
+    set(SLINT_FEATURE_EVENTLOOP_WINIT_X11 ON)
+    set(SLINT_FEATURE_RENDERER_FEMTOVG ON)
+endif()
+
+if(SLINT_FEATURE_BACKEND_GL_WAYLAND)
+    set(SLINT_FEATURE_EVENTLOOP_WINIT_WAYLAND ON)
+    set(SLINT_FEATURE_RENDERER_FEMTOVG ON)
+endif()
+
+# Alias
+define_cargo_feature(renderer-qt "This feature is an alias for SLINT_FEATURE_BACKEND_QT" OFF)
+define_cargo_feature(eventloop-qt "This feature is an alias for SLINT_FEATURE_BACKEND_QT" OFF)
+
+if(SLINT_FEATURE_RENDERER_QT OR SLINT_FEATURE_EVENTLOOP_QT)
+    set(SLINT_FEATURE_BACKEND_QT ON)
+endif()
 
 if(SLINT_FEATURE_INTERPRETER)
     if(SLINT_FEATURE_BACKEND_QT)
         list(APPEND features rtti-qt)
     endif()
 
-    if(SLINT_FEATURE_BACKEND_GL_ALL OR SLINT_FEATURE_BACKEND_GL_X11 OR SLINT_FEATURE_BACKEND_GL_WAYLAND)
+    if(SLINT_FEATURE_EVENTLOOP_WINIT_ALL OR SLINT_FEATURE_EVENTLOOP_WINIT_X11 OR SLINT_FEATURE_EVENTLOOP_WINIT_WAYLAND)
         list(APPEND features rtti-winit)
     endif()
 endif()
