@@ -89,7 +89,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
           command: test
-          args: --verbose
+          args: --verbose --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude i-slint-backend-mcu --exclude printerdemo_mcu   # mcu backend requires nightly
   cpp_test_driver:
     env:
       DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
