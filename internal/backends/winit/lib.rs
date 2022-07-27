@@ -14,10 +14,10 @@ use glwindow::*;
 mod glcontext;
 use glcontext::*;
 pub(crate) mod event_loop;
-pub mod renderer {
+mod renderer {
     use std::rc::Weak;
 
-    pub trait WinitCompatibleRenderer: i_slint_core::renderer::Renderer {
+    pub(crate) trait WinitCompatibleRenderer: i_slint_core::renderer::Renderer {
         type Canvas: WinitCompatibleCanvas;
 
         fn new(window_weak: &Weak<i_slint_core::window::WindowInner>) -> Self;
@@ -44,13 +44,13 @@ pub mod renderer {
         );
     }
 
-    pub trait WinitCompatibleCanvas {
+    pub(crate) trait WinitCompatibleCanvas {
         fn release_graphics_resources(&self);
 
         fn component_destroyed(&self, component: i_slint_core::component::ComponentRef);
     }
 
-    pub mod femtovg;
+    pub(crate) mod femtovg;
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -81,26 +81,34 @@ pub const HAS_NATIVE_STYLE: bool = false;
 pub use stylemetrics::native_style_metrics_deinit;
 pub use stylemetrics::native_style_metrics_init;
 
-use crate::renderer::WinitCompatibleRenderer;
-
 pub struct Backend {
     window_factory_fn: Mutex<Box<dyn Fn() -> i_slint_core::api::Window + Send>>,
 }
 
 impl Backend {
-    pub fn new<Renderer: WinitCompatibleRenderer + 'static>() -> Self {
-        Self {
-            window_factory_fn: Mutex::new(Box::new(|| {
-                i_slint_core::window::WindowInner::new(|window| {
-                    GLWindow::<Renderer>::new(
-                        window,
-                        #[cfg(target_arch = "wasm32")]
-                        "canvas".into(),
-                    )
-                })
-                .into()
-            })),
-        }
+    pub fn new(renderer_name: Option<&str>) -> Self {
+        let femtovg_factory = || {
+            i_slint_core::window::WindowInner::new(|window| {
+                GLWindow::<renderer::femtovg::FemtoVGRenderer>::new(
+                    window,
+                    #[cfg(target_arch = "wasm32")]
+                    "canvas".into(),
+                )
+            })
+            .into()
+        };
+
+        let factory_fn = match renderer_name {
+            Some("gl") | Some("femtovg") | None => femtovg_factory,
+            Some(renderer_name) => {
+                eprintln!(
+                    "slint winit: unrecognized renderer {}, falling back to FemtoVG",
+                    renderer_name
+                );
+                femtovg_factory
+            }
+        };
+        Self { window_factory_fn: Mutex::new(Box::new(factory_fn)) }
     }
 }
 

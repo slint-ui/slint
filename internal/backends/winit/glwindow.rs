@@ -28,7 +28,7 @@ use winit::dpi::LogicalSize;
 
 /// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
-pub struct GLWindow<Renderer: WinitCompatibleRenderer> {
+pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer> {
     self_weak: Weak<corelib::window::WindowInner>,
     map_state: RefCell<GraphicsWindowBackendState<Renderer>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,

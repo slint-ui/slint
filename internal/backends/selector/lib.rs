@@ -17,7 +17,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "i-slint-backend-winit")] {
         use i_slint_backend_winit as default_backend;
         fn create_default_backend() -> Box<dyn i_slint_core::backend::Backend + 'static> {
-            Box::new(i_slint_backend_winit::Backend::new::<i_slint_backend_winit::renderer::femtovg::FemtoVGRenderer>())
+            Box::new(i_slint_backend_winit::Backend::new(None))
         }
     }
 }
@@ -37,14 +37,20 @@ cfg_if::cfg_if! {
                     legacy_fallback
                 }).unwrap_or_default();
 
-                #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))]
-                if backend_config == "Qt" {
-                    return Box::new(i_slint_backend_qt::Backend);
-                }
-                #[cfg(feature = "i-slint-backend-winit")]
-                if backend_config == "GL" {
-                    return Box::new(i_slint_backend_winit::Backend::new::<i_slint_backend_winit::renderer::femtovg::FemtoVGRenderer>());
-                }
+                let backend_config = backend_config.to_lowercase();
+                if let Some((event_loop, _renderer)) = backend_config.split_once('-').or_else(|| match backend_config.as_str() {
+                    "qt" => Some(("qt", "qpainter")),
+                    "gl" => Some(("winit", "femtovg")),
+                    _ => None,
+                }) {
+                    match event_loop {
+                        #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))]
+                        "qt" => return Box::new(i_slint_backend_qt::Backend),
+                        #[cfg(feature = "i-slint-backend-winit")]
+                        "winit" => return Box::new(i_slint_backend_winit::Backend::new(Some(_renderer))),
+                        _ => {},
+                    }
+                };
 
                 #[cfg(any(
                     feature = "i-slint-backend-qt",
