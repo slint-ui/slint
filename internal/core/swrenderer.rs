@@ -5,7 +5,7 @@ mod draw_functions;
 pub mod fonts;
 
 use crate::api::Window;
-use crate::graphics::{IntRect, PixelFormat, Rect as RectF};
+use crate::graphics::{IntRect, PixelFormat, Rect as RectF, SharedImageBuffer};
 use crate::item_rendering::{ItemRenderer, PartialRenderingCache};
 use crate::items::{ImageFit, ItemRc};
 use crate::lengths::{
@@ -235,6 +235,15 @@ fn render_window_frame_by_line(
                             line_buffer,
                         );
                     }
+                    SceneCommand::SharedBuffer { shared_buffer_index } => {
+                        let texture = scene.shared_buffers[shared_buffer_index as usize].as_texture();
+                        draw_functions::draw_texture_line(
+                            &PhysicalRect{ origin: span.pos, size: span.size }  ,
+                            scene.current_line,
+                            &texture,
+                            line_buffer,
+                        );
+                    }
                     SceneCommand::RoundedRectangle { rectangle_index } => {
                         let rr = &scene.rounded_rectangles[rectangle_index as usize];
                         draw_functions::draw_rounded_rectangle_line(
@@ -268,16 +277,18 @@ struct Scene {
     future_items_index: usize,
     current_items_index: usize,
 
-    textures: Vec<SceneTexture>,
+    textures: Vec<SceneTexture<'static>>,
     rounded_rectangles: Vec<RoundedRectangle>,
+    shared_buffers: Vec<SharedBufferCommand>,
     dirty_region: DirtyRegion,
 }
 
 impl Scene {
     pub fn new(
         mut items: Vec<SceneItem>,
-        textures: Vec<SceneTexture>,
+        textures: Vec<SceneTexture<'static>>,
         rounded_rectangles: Vec<RoundedRectangle>,
+        shared_buffers: Vec<SharedBufferCommand>,
         dirty_region: DirtyRegion,
     ) -> Self {
         let current_line = dirty_region.origin.y_length();
@@ -292,6 +303,7 @@ impl Scene {
             future_items_index: current_items_index,
             textures,
             rounded_rectangles,
+            shared_buffers,
             dirty_region,
         }
     }
@@ -438,19 +450,61 @@ enum SceneCommand {
     Texture {
         texture_index: u16,
     },
+    /// shared_buffer_index is an index in Scene::shared_buffers
+    SharedBuffer {
+        shared_buffer_index: u16,
+    },
     /// rectangle_index is an index in the Scene::rounded_rectangle array
     RoundedRectangle {
         rectangle_index: u16,
     },
 }
 
-struct SceneTexture {
-    data: &'static [u8],
+struct SceneTexture<'a> {
+    data: &'a [u8],
     format: PixelFormat,
     /// bytes between two lines in the source
     stride: u16,
     source_size: PhysicalSize,
     color: Color,
+}
+
+struct SharedBufferCommand {
+    buffer: SharedImageBuffer,
+    /// The source rectangle that is mapped into this command span
+    source_rect: PhysicalRect,
+    colorize: Color,
+}
+
+impl SharedBufferCommand {
+    fn as_texture(&self) -> SceneTexture<'_> {
+        let begin = self.buffer.width() as usize * self.source_rect.min_y() as usize
+            + self.source_rect.min_x() as usize;
+
+        match &self.buffer {
+            SharedImageBuffer::RGB8(b) => SceneTexture {
+                data: &b.as_bytes()[begin * 3..],
+                stride: 3 * b.stride() as u16,
+                format: PixelFormat::Rgb,
+                source_size: self.source_rect.size,
+                color: self.colorize,
+            },
+            SharedImageBuffer::RGBA8(b) => SceneTexture {
+                data: &b.as_bytes()[begin * 4..],
+                stride: 4 * b.stride() as u16,
+                format: PixelFormat::Rgba,
+                source_size: self.source_rect.size,
+                color: self.colorize,
+            },
+            SharedImageBuffer::RGBA8Premultiplied(b) => SceneTexture {
+                data: &b.as_bytes()[begin * 4..],
+                stride: 4 * b.stride() as u16,
+                format: PixelFormat::RgbaPremultiplied,
+                source_size: self.source_rect.size,
+                color: self.colorize,
+            },
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -507,14 +561,16 @@ fn prepare_scene(
         prepare_scene.processor.items,
         prepare_scene.processor.textures,
         prepare_scene.processor.rounded_rectangles,
+        prepare_scene.processor.shared_buffers,
         dirty_region,
     )
 }
 
 trait ProcessScene {
-    fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture);
+    fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>);
     fn process_rectangle(&mut self, geometry: PhysicalRect, color: Color);
     fn process_rounded_rectangle(&mut self, geometry: PhysicalRect, data: RoundedRectangle);
+    fn process_shared_image_buffer(&mut self, geometry: PhysicalRect, buffer: SharedBufferCommand);
 }
 
 struct RenderToBuffer<'a, TargetPixel> {
@@ -523,7 +579,19 @@ struct RenderToBuffer<'a, TargetPixel> {
 }
 
 impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
-    fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture) {
+    fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
+        for line in geometry.min_y()..geometry.max_y() {
+            draw_functions::draw_texture_line(
+                &geometry,
+                PhysicalLength::new(line),
+                &texture,
+                &mut self.buffer[line as usize * self.stride.get() as usize..],
+            );
+        }
+    }
+
+    fn process_shared_image_buffer(&mut self, geometry: PhysicalRect, buffer: SharedBufferCommand) {
+        let texture = buffer.as_texture();
         for line in geometry.min_y()..geometry.max_y() {
             draw_functions::draw_texture_line(
                 &geometry,
@@ -559,12 +627,13 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
 #[derive(Default)]
 struct PrepareScene {
     items: Vec<SceneItem>,
-    textures: Vec<SceneTexture>,
+    textures: Vec<SceneTexture<'static>>,
     rounded_rectangles: Vec<RoundedRectangle>,
+    shared_buffers: Vec<SharedBufferCommand>,
 }
 
 impl ProcessScene for PrepareScene {
-    fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture) {
+    fn process_texture(&mut self, geometry: PhysicalRect, texture: SceneTexture<'static>) {
         let size = geometry.size;
         if !size.is_empty() {
             let texture_index = self.textures.len() as u16;
@@ -574,6 +643,20 @@ impl ProcessScene for PrepareScene {
                 size,
                 z: self.items.len() as u16,
                 command: SceneCommand::Texture { texture_index },
+            });
+        }
+    }
+
+    fn process_shared_image_buffer(&mut self, geometry: PhysicalRect, buffer: SharedBufferCommand) {
+        let size = geometry.size;
+        if !size.is_empty() {
+            let shared_buffer_index = self.shared_buffers.len() as u16;
+            self.shared_buffers.push(buffer);
+            self.items.push(SceneItem {
+                pos: geometry.origin,
+                size,
+                z: self.items.len() as u16,
+                command: SceneCommand::SharedBuffer { shared_buffer_index },
             });
         }
     }
@@ -648,53 +731,48 @@ impl<T: ProcessScene> SceneBuilder<T> {
         colorize: Color,
     ) {
         let image_inner: &ImageInner = source.into();
+        let size: euclid::default::Size2D<u32> = source_rect.size.cast();
+        let phys_size = geom.size_length().cast() * self.scale_factor;
+        let source_to_target_x = phys_size.width / (size.width as f32);
+        let source_to_target_y = phys_size.height / (size.height as f32);
+        let mut image_fit_offset = euclid::Vector2D::default();
+        let (source_to_target_x, source_to_target_y) = match image_fit {
+            ImageFit::Fill => (source_to_target_x, source_to_target_y),
+            ImageFit::Cover => {
+                let ratio = f32::max(source_to_target_x, source_to_target_y);
+                if size.width as f32 > phys_size.width / ratio {
+                    let diff = (size.width as f32 - phys_size.width / ratio) as i32;
+                    source_rect.origin.x += diff / 2;
+                    source_rect.size.width -= diff;
+                }
+                if size.height as f32 > phys_size.height / ratio {
+                    let diff = (size.height as f32 - phys_size.height / ratio) as i32;
+                    source_rect.origin.y += diff / 2;
+                    source_rect.size.height -= diff;
+                }
+                (ratio, ratio)
+            }
+            ImageFit::Contain => {
+                let ratio = f32::min(source_to_target_x, source_to_target_y);
+                if (size.width as f32) < phys_size.width / ratio {
+                    image_fit_offset.x = (phys_size.width - size.width as f32 * ratio) / 2.;
+                }
+                if (size.height as f32) < phys_size.height / ratio {
+                    image_fit_offset.y = (phys_size.height - size.height as f32 * ratio) / 2.;
+                }
+                (ratio, ratio)
+            }
+        };
+
+        let offset =
+            self.current_state.offset.to_vector().cast() * self.scale_factor + image_fit_offset;
+
+        let renderer_clip_in_source_rect_space = (self.current_state.clip.cast()
+            * self.scale_factor)
+            .scale(1. / source_to_target_x, 1. / source_to_target_y);
         match image_inner {
             ImageInner::None => (),
-            ImageInner::EmbeddedImage { .. } => todo!(),
-            #[cfg(feature = "svg")]
-            ImageInner::Svg { .. } => todo!(),
             ImageInner::StaticTextures(StaticTextures { data, textures, .. }) => {
-                let size: euclid::default::Size2D<u32> = source_rect.size.cast();
-                let phys_size = geom.size_length().cast() * self.scale_factor;
-                let source_to_target_x = phys_size.width / (size.width as f32);
-                let source_to_target_y = phys_size.height / (size.height as f32);
-                let mut image_fit_offset = euclid::Vector2D::default();
-                let (source_to_target_x, source_to_target_y) = match image_fit {
-                    ImageFit::Fill => (source_to_target_x, source_to_target_y),
-                    ImageFit::Cover => {
-                        let ratio = f32::max(source_to_target_x, source_to_target_y);
-                        if size.width as f32 > phys_size.width / ratio {
-                            let diff = (size.width as f32 - phys_size.width / ratio) as i32;
-                            source_rect.origin.x += diff / 2;
-                            source_rect.size.width -= diff;
-                        }
-                        if size.height as f32 > phys_size.height / ratio {
-                            let diff = (size.height as f32 - phys_size.height / ratio) as i32;
-                            source_rect.origin.y += diff / 2;
-                            source_rect.size.height -= diff;
-                        }
-                        (ratio, ratio)
-                    }
-                    ImageFit::Contain => {
-                        let ratio = f32::min(source_to_target_x, source_to_target_y);
-                        if (size.width as f32) < phys_size.width / ratio {
-                            image_fit_offset.x = (phys_size.width - size.width as f32 * ratio) / 2.;
-                        }
-                        if (size.height as f32) < phys_size.height / ratio {
-                            image_fit_offset.y =
-                                (phys_size.height - size.height as f32 * ratio) / 2.;
-                        }
-                        (ratio, ratio)
-                    }
-                };
-
-                let offset = self.current_state.offset.to_vector().cast() * self.scale_factor
-                    + image_fit_offset;
-
-                let renderer_clip_in_source_rect_space = (self.current_state.clip.cast()
-                    * self.scale_factor)
-                    .scale(1. / source_to_target_x, 1. / source_to_target_y);
-
                 for t in textures.as_slice() {
                     if let Some(clipped_relative_source_rect) =
                         t.rect.intersection(&source_rect).and_then(|clipped_source_rect| {
@@ -732,6 +810,51 @@ impl<T: ProcessScene> SceneBuilder<T> {
                             },
                         );
                     }
+                }
+            }
+            _ => {
+                let img_src_size = source.size().cast::<f32>();
+                if let Some(buffer) = image_inner.render_to_buffer(Some(
+                    euclid::size2(
+                        phys_size.width * img_src_size.width / size.width as f32,
+                        phys_size.height * img_src_size.height / size.height as f32,
+                    )
+                    .cast(),
+                )) {
+                    if let Some(clipped_relative_source_rect) = renderer_clip_in_source_rect_space
+                        .intersection(&euclid::rect(
+                            0.,
+                            0.,
+                            source_rect.width() as f32,
+                            source_rect.height() as f32,
+                        ))
+                    {
+                        let target_rect = clipped_relative_source_rect
+                            .scale(source_to_target_x, source_to_target_y)
+                            .translate(offset)
+                            .round();
+                        let buf_size = buffer.size().cast::<f32>();
+
+                        self.processor.process_shared_image_buffer(
+                            target_rect.cast(),
+                            SharedBufferCommand {
+                                buffer,
+                                source_rect: clipped_relative_source_rect
+                                    .translate(
+                                        euclid::Point2D::from_untyped(source_rect.origin.cast())
+                                            .to_vector(),
+                                    )
+                                    .scale(
+                                        buf_size.width / img_src_size.width,
+                                        buf_size.height / img_src_size.height,
+                                    )
+                                    .cast(),
+                                colorize,
+                            },
+                        );
+                    }
+                } else {
+                    unimplemented!("The image cannot be rendered")
                 }
             }
         };
