@@ -1111,15 +1111,17 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<T> {
         // TODO
     }
 
-    fn combine_clip(&mut self, other: RectF, _radius: Coord, _border_width: Coord) {
+    fn combine_clip(&mut self, other: RectF, _radius: Coord, _border_width: Coord) -> bool {
         match self.current_state.clip.intersection(&LogicalRect::from_untyped(&other)) {
             Some(r) => {
                 self.current_state.clip = r;
+                true
             }
             None => {
                 self.current_state.clip = LogicalRect::default();
+                false
             }
-        };
+        }
         // TODO: handle radius and border
     }
 
