@@ -724,14 +724,16 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         }
     }
 
-    fn combine_clip(&mut self, clip_rect: Rect, radius: f32, border_width: f32) {
+    fn combine_clip(&mut self, clip_rect: Rect, radius: f32, border_width: f32) -> bool {
         let clip = &mut self.state.last_mut().unwrap().scissor;
-        match clip.intersection(&clip_rect) {
+        let clip_region_valid = match clip.intersection(&clip_rect) {
             Some(r) => {
                 *clip = r;
+                true
             }
             None => {
                 *clip = Rect::default();
+                false
             }
         };
 
@@ -750,6 +752,8 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         // femtovg only supports rectangular clipping. Non-rectangular clips must be handled via `apply_clip`,
         // which can render children into a layer.
         debug_assert!(radius == 0.);
+
+        clip_region_valid
     }
 
     fn get_current_clip(&self) -> Rect {

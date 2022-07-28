@@ -102,7 +102,7 @@ impl Item for Path {
         let clip = self.clip();
         if clip {
             (*backend).save_state();
-            (*backend).combine_clip(self.geometry(), 0 as _, 0 as _)
+            (*backend).combine_clip(self.geometry(), 0 as _, 0 as _);
         }
         (*backend).draw_path(self, self_rc);
         if clip {

@@ -853,7 +853,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }
     }
 
-    fn combine_clip(&mut self, rect: Rect, radius: f32, mut border_width: f32) {
+    fn combine_clip(&mut self, rect: Rect, radius: f32, mut border_width: f32) -> bool {
         let mut clip_rect = qttypes::QRectF {
             x: rect.min_x() as _,
             y: rect.min_y() as _,
@@ -862,7 +862,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         };
         adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
         let painter: &mut QPainterPtr = &mut self.painter;
-        cpp! { unsafe [painter as "QPainterPtr*", clip_rect as "QRectF", radius as "float"] {
+        cpp! { unsafe [painter as "QPainterPtr*", clip_rect as "QRectF", radius as "float"] -> bool as "bool" {
             if (radius <= 0) {
                 (*painter)->setClipRect(clip_rect, Qt::IntersectClip);
             } else {
@@ -870,6 +870,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 path.addRoundedRect(clip_rect, radius, radius);
                 (*painter)->setClipPath(path, Qt::IntersectClip);
             }
+            return !(*painter)->clipBoundingRect().isEmpty();
         }}
     }
 

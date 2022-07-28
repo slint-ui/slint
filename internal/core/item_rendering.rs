@@ -286,11 +286,18 @@ pub trait ItemRenderer {
     fn visit_clip(&mut self, clip_item: Pin<&Clip>, _self_rc: &ItemRc) -> RenderingResult {
         if clip_item.clip() {
             let geometry = clip_item.geometry();
-            self.combine_clip(
+
+            let clip_region_valid = self.combine_clip(
                 euclid::rect(0 as Coord, 0 as Coord, geometry.width(), geometry.height()),
                 clip_item.border_radius(),
                 clip_item.border_width(),
-            )
+            );
+
+            // If clipping is enabled but the clip element is outside the visible range, then we don't
+            // need to bother doing anything, not even rendering the children.
+            if !clip_region_valid {
+                return RenderingResult::ContinueRenderingWithoutChildren;
+            }
         }
         RenderingResult::ContinueRenderingChildren
     }
@@ -298,7 +305,9 @@ pub trait ItemRenderer {
     /// Clip the further call until restore_state.
     /// radius/border_width can be used for border rectangle clip.
     /// (FIXME: consider removing radius/border_width and have another  function that take a path instead)
-    fn combine_clip(&mut self, rect: Rect, radius: Coord, border_width: Coord);
+    /// Returns a boolean indicating the state of the new clip region: true if the clip region covers
+    /// an area; false if the clip region is empty.
+    fn combine_clip(&mut self, rect: Rect, radius: Coord, border_width: Coord) -> bool;
     /// Get the current clip bounding box in the current transformed coordinate.
     fn get_current_clip(&self) -> Rect;
 
@@ -494,7 +503,7 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
     forward_rendering_call!(fn draw_path(Path));
     forward_rendering_call!(fn draw_box_shadow(BoxShadow));
 
-    fn combine_clip(&mut self, rect: Rect, radius: Coord, border_width: Coord) {
+    fn combine_clip(&mut self, rect: Rect, radius: Coord, border_width: Coord) -> bool {
         self.actual_renderer.combine_clip(rect, radius, border_width)
     }
 
