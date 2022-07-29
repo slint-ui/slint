@@ -142,6 +142,20 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
     ) -> i_slint_core::graphics::Rect {
         todo!()
     }
+
+    fn register_font_from_memory(
+        &self,
+        data: &'static [u8],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        textlayout::register_font_from_memory(data)
+    }
+
+    fn register_font_from_path(
+        &self,
+        path: &std::path::Path,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        textlayout::register_font_from_path(path)
+    }
 }
 
 pub struct SkiaCanvas {

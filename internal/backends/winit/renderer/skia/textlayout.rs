@@ -1,16 +1,35 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+use std::cell::RefCell;
+use std::collections::HashMap;
+
 use i_slint_core::items;
 use i_slint_core::{graphics::FontRequest, Coord};
 
 pub const DEFAULT_FONT_SIZE: f32 = 12.;
 
+#[derive(PartialEq, Eq)]
+enum CustomFontSource {
+    ByData(&'static [u8]),
+    ByPath(std::path::PathBuf),
+}
+
+struct FontCache {
+    font_collection: skia_safe::textlayout::FontCollection,
+    font_mgr: skia_safe::FontMgr,
+    type_face_font_provider: RefCell<skia_safe::textlayout::TypefaceFontProvider>,
+    custom_fonts: RefCell<HashMap<String, CustomFontSource>>,
+}
+
 thread_local! {
-    pub static FONT_COLLECTION: skia_safe::textlayout::FontCollection = {
+    static FONT_CACHE: FontCache = {
+        let font_mgr = skia_safe::FontMgr::new();
+        let type_face_font_provider = skia_safe::textlayout::TypefaceFontProvider::new();
         let mut font_collection = skia_safe::textlayout::FontCollection::new();
-        font_collection.set_default_font_manager(skia_safe::FontMgr::new(), None);
-        font_collection
+        font_collection.set_asset_font_manager(Some(type_face_font_provider.clone().into()));
+        font_collection.set_default_font_manager(font_mgr.clone(), None);
+        FontCache { font_collection, font_mgr, type_face_font_provider: RefCell::new(type_face_font_provider), custom_fonts: Default::default() }
     }
 }
 
@@ -53,12 +72,55 @@ pub fn create_layout(
         items::TextHorizontalAlignment::Right => skia_safe::textlayout::TextAlign::Right,
     });
 
-    let mut builder = FONT_COLLECTION.with(|font_collection| {
-        skia_safe::textlayout::ParagraphBuilder::new(&style, font_collection)
+    let mut builder = FONT_CACHE.with(|font_cache| {
+        skia_safe::textlayout::ParagraphBuilder::new(&style, font_cache.font_collection.clone())
     });
     builder.push_style(&text_style);
     builder.add_text(text);
     let mut paragraph = builder.build();
     paragraph.layout(max_width.unwrap_or(core::f32::MAX));
     paragraph
+}
+
+fn register_font(source: CustomFontSource) -> Result<(), Box<dyn std::error::Error>> {
+    FONT_CACHE.with(|font_cache| {
+        if font_cache
+            .custom_fonts
+            .borrow()
+            .values()
+            .position(|registered_font| *registered_font == source)
+            .is_some()
+        {
+            return Ok(());
+        }
+
+        let data: std::borrow::Cow<[u8]> = match &source {
+            CustomFontSource::ByData(data) => std::borrow::Cow::Borrowed(data),
+            CustomFontSource::ByPath(path) => std::borrow::Cow::Owned(std::fs::read(path)?),
+        };
+
+        let type_face =
+            font_cache.font_mgr.new_from_data(data.as_ref(), None).ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "error parsing TrueType font".to_string(),
+                )
+            })?;
+
+        drop(data);
+
+        let family_name = type_face.family_name();
+        let no_alias: Option<&str> = None;
+        font_cache.type_face_font_provider.borrow_mut().register_typeface(type_face, no_alias);
+        font_cache.custom_fonts.borrow_mut().insert(family_name, source);
+        Ok(())
+    })
+}
+
+pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std::error::Error>> {
+    register_font(CustomFontSource::ByData(data))
+}
+
+pub fn register_font_from_path(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    register_font(CustomFontSource::ByPath(path.into()))
 }
