@@ -29,10 +29,20 @@ pub type Error = Box<dyn std::error::Error>;
 
 const SHOW_PREVIEW_COMMAND: &str = "showPreview";
 
+fn command_list() -> Vec<String> {
+    let mut result = vec![];
+
+    #[cfg(any(feature = "preview", target_arch = "wasm32"))]
+    result.push(SHOW_PREVIEW_COMMAND.into());
+
+    result
+}
+
 fn create_show_preview_command(pretty: bool, file: &str, component_name: &str) -> Option<Command> {
     if !cfg!(feature = "preview") && !cfg!(target_arch = "wasm32") {
         return None;
     }
+
     let title = format!("{}Show Preview", if pretty { &"▶ " } else { &"" });
     Some(Command::new(
         title,
@@ -111,7 +121,7 @@ pub fn server_capabilities() -> ServerCapabilities {
         code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
         #[cfg(any(feature = "preview", target_arch = "wasm32"))]
         execute_command_provider: Some(lsp_types::ExecuteCommandOptions {
-            commands: vec![SHOW_PREVIEW_COMMAND.into()],
+            commands: command_list(),
             ..Default::default()
         }),
         document_symbol_provider: Some(OneOf::Left(true)),
@@ -189,8 +199,7 @@ pub fn handle_request(
     })? {
     } else if req.handle_request::<ExecuteCommand, _>(|params| {
         if params.command.as_str() == SHOW_PREVIEW_COMMAND {
-            #[cfg(feature = "preview")]
-            show_preview_command(&params.arguments, &req.server_notifier(), document_cache)?
+            show_preview_command(&params.arguments, &req.server_notifier(), document_cache)?;
         }
         Ok(None::<serde_json::Value>)
     })? {
@@ -234,26 +243,28 @@ pub fn handle_request(
     Ok(())
 }
 
-#[cfg(feature = "preview")]
 pub fn show_preview_command(
     params: &[serde_json::Value],
     connection: &crate::ServerNotifier,
     _document_cache: &DocumentCache,
 ) -> Result<(), Error> {
-    use crate::preview;
-    let e = || -> Error { "InvalidParameter".into() };
-    let path = if let serde_json::Value::String(s) = params.get(0).ok_or_else(e)? {
-        std::path::PathBuf::from(s)
-    } else {
-        return Err(e());
-    };
-    let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
-    let component = params.get(1).and_then(|v| v.as_str()).map(|v| v.to_string());
-    preview::load_preview(
-        connection.clone(),
-        preview::PreviewComponent { path: path_canon, component },
-        preview::PostLoadBehavior::ShowAfterLoad,
-    );
+    #[cfg(feature = "preview")]
+    {
+        use crate::preview;
+        let e = || -> Error { "InvalidParameter".into() };
+        let path = if let serde_json::Value::String(s) = params.get(0).ok_or_else(e)? {
+            std::path::PathBuf::from(s)
+        } else {
+            return Err(e());
+        };
+        let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
+        let component = params.get(1).and_then(|v| v.as_str()).map(|v| v.to_string());
+        preview::load_preview(
+            connection.clone(),
+            preview::PreviewComponent { path: path_canon, component },
+            preview::PostLoadBehavior::ShowAfterLoad,
+        );
+    }
     Ok(())
 }
 
