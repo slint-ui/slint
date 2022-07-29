@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore descr rfind
+
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 use crate::{completion, goto, semantic_tokens, util, RequestHolder};
@@ -26,6 +28,18 @@ use std::collections::HashMap;
 pub type Error = Box<dyn std::error::Error>;
 
 const SHOW_PREVIEW_COMMAND: &str = "showPreview";
+
+fn create_show_preview_command(pretty: bool, file: &str, component_name: &str) -> Option<Command> {
+    if !cfg!(feature = "preview") && !cfg!(target_arch = "wasm32") {
+        return None;
+    }
+    let title = format!("{}Show Preview", if pretty { &"▶ " } else { &"" });
+    Some(Command::new(
+        title,
+        SHOW_PREVIEW_COMMAND.into(),
+        Some(vec![file.into(), component_name.into()]),
+    ))
+}
 
 pub struct DocumentCache {
     pub(crate) documents: TypeLoader,
@@ -367,10 +381,6 @@ fn get_code_actions(
     _document_cache: &mut DocumentCache,
     node: SyntaxNode,
 ) -> Option<Vec<CodeActionOrCommand>> {
-    if !cfg!(feature = "preview") && !cfg!(target_arch = "wasm32") {
-        return None;
-    }
-
     let component = syntax_nodes::Component::new(node.clone())
         .or_else(|| {
             syntax_nodes::DeclaredIdentifier::new(node.clone())
@@ -388,11 +398,11 @@ fn get_code_actions(
     let component_name =
         i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())?;
 
-    Some(vec![CodeActionOrCommand::Command(Command::new(
-        "Show preview".into(),
-        SHOW_PREVIEW_COMMAND.into(),
-        Some(vec![component.source_file.path().to_string_lossy().into(), component_name.into()]),
-    ))])
+    Some(vec![CodeActionOrCommand::Command(create_show_preview_command(
+        false,
+        &component.source_file.path().to_string_lossy(),
+        &component_name,
+    )?)])
 }
 
 fn get_document_color(
@@ -489,10 +499,6 @@ fn get_code_lenses(
     document_cache: &mut DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<Vec<CodeLens>> {
-    if !cfg!(feature = "preview") && !cfg!(target_arch = "wasm32") {
-        return None;
-    }
-
     let uri = &text_document.uri;
     let filepath = uri.to_file_path().ok()?;
     let doc = document_cache.documents.get_document(&filepath)?;
@@ -512,11 +518,11 @@ fn get_code_lenses(
         .filter_map(|c| {
             Some(CodeLens {
                 range: make_range(c.root_element.borrow().node.as_ref()?)?,
-                command: Some(Command::new(
-                    "▶ Show preview".into(),
-                    SHOW_PREVIEW_COMMAND.into(),
-                    Some(vec![filepath.to_str()?.into(), c.id.as_str().into()]),
-                )),
+                command: Some(create_show_preview_command(
+                    true,
+                    filepath.to_str()?,
+                    c.id.as_str(),
+                )?),
                 data: None,
             })
         })
