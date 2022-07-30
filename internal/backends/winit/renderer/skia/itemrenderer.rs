@@ -93,7 +93,7 @@ impl<'a> SkiaRenderer<'a> {
         target_width: std::pin::Pin<&Property<f32>>,
         target_height: std::pin::Pin<&Property<f32>>,
         image_fit: ImageFit,
-        rendering: ImageRendering,
+        _rendering: ImageRendering, // TODO
         colorize_property: Option<Pin<&Property<Brush>>>,
     ) {
         // TODO: avoid doing creating an SkImage multiple times when the same source is used in multiple image elements
@@ -434,7 +434,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
 
     fn draw_text_input(
         &mut self,
-        text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
+        _text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) {
         //todo!()
@@ -589,7 +589,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             .translate(skia_safe::Vector::from((x * self.scale_factor, y * self.scale_factor)));
     }
 
-    fn rotate(&mut self, angle_in_degrees: f32) {
+    fn rotate(&mut self, _angle_in_degrees: f32) {
         //todo!()
     }
 
@@ -613,8 +613,8 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
 
     fn draw_cached_pixmap(
         &mut self,
-        item_cache: &i_slint_core::items::ItemRc,
-        update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
+        _item_cache: &i_slint_core::items::ItemRc,
+        _update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
         //todo!()
     }

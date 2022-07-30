@@ -129,16 +129,16 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
 
     fn text_input_byte_offset_for_position(
         &self,
-        text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
-        pos: i_slint_core::graphics::Point,
+        _text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
+        _pos: i_slint_core::graphics::Point,
     ) -> usize {
         todo!()
     }
 
     fn text_input_cursor_rect_for_byte_offset(
         &self,
-        text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
-        byte_offset: usize,
+        _text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
+        _byte_offset: usize,
     ) -> i_slint_core::graphics::Rect {
         todo!()
     }
