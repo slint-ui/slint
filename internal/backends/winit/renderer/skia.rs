@@ -80,7 +80,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
                     .clear(itemrenderer::to_skia_color(&window_item.as_pin_ref().background()));
             }
 
-            skia_canvas.flush();
+            canvas.gr_context.borrow_mut().flush(None);
 
             let mut item_renderer =
                 itemrenderer::SkiaRenderer::new(skia_canvas, &window, &canvas.image_cache);
@@ -100,7 +100,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
             }
 
             drop(item_renderer);
-            skia_canvas.flush();
+            canvas.gr_context.borrow_mut().flush(None);
         });
     }
 }
