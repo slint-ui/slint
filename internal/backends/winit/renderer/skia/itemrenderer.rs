@@ -624,10 +624,31 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
 
     fn draw_cached_pixmap(
         &mut self,
-        _item_cache: &i_slint_core::items::ItemRc,
-        _update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
+        item_rc: &i_slint_core::items::ItemRc,
+        update_fn: &dyn Fn(&mut dyn FnMut(u32, u32, &[u8])),
     ) {
-        //todo!()
+        let skia_image = self.image_cache.get_or_update_cache_entry(item_rc, || {
+            let mut cached_image = None;
+            update_fn(&mut |width: u32, height: u32, data: &[u8]| {
+                let image_info = skia_safe::ImageInfo::new(
+                    skia_safe::ISize::new(width as i32, height as i32),
+                    skia_safe::ColorType::RGBA8888,
+                    skia_safe::AlphaType::Premul,
+                    None,
+                );
+                cached_image = skia_safe::image::Image::from_raster_data(
+                    &image_info,
+                    skia_safe::Data::new_copy(data),
+                    width as usize * 4,
+                );
+            });
+            cached_image
+        });
+        let skia_image = match skia_image {
+            Some(img) => img,
+            None => return,
+        };
+        self.canvas.draw_image(skia_image, skia_safe::Point::default(), None);
     }
 
     fn draw_string(&mut self, string: &str, color: i_slint_core::Color) {
