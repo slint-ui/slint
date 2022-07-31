@@ -93,7 +93,7 @@ impl<'a> SkiaRenderer<'a> {
         target_width: std::pin::Pin<&Property<f32>>,
         target_height: std::pin::Pin<&Property<f32>>,
         image_fit: ImageFit,
-        _rendering: ImageRendering, // TODO
+        rendering: ImageRendering,
         colorize_property: Option<Pin<&Property<Brush>>>,
     ) {
         // TODO: avoid doing creating an SkImage multiple times when the same source is used in multiple image elements
@@ -206,18 +206,29 @@ impl<'a> SkiaRenderer<'a> {
             skia_safe::Matrix::rect_to_rect(source_rect, dest_rect, None).unwrap_or_default();
         self.canvas.concat(&transform);
 
+        let filter_mode: skia_safe::sampling_options::SamplingOptions = match rendering {
+            ImageRendering::Smooth => skia_safe::sampling_options::FilterMode::Linear,
+            ImageRendering::Pixelated => skia_safe::sampling_options::FilterMode::Nearest,
+        }
+        .into();
+
         match colorize_property.and_then(|prop| {
             self.brush_to_paint(prop.get(), source_rect.width(), source_rect.height())
         }) {
             None => {
-                self.canvas.draw_image(skia_image, skia_safe::Point::default(), None);
+                self.canvas.draw_image_with_sampling_options(
+                    skia_image,
+                    skia_safe::Point::default(),
+                    filter_mode,
+                    None,
+                );
             }
 
             Some(brush) => {
                 let mut paint = skia_safe::Paint::default();
                 paint.set_image_filter(skia_safe::image_filters::blend(
                     skia_safe::BlendMode::SrcIn,
-                    skia_safe::image_filters::image(skia_image, None, None, None),
+                    skia_safe::image_filters::image(skia_image, None, None, filter_mode),
                     skia_safe::image_filters::paint(&brush, None),
                     None,
                 ));
