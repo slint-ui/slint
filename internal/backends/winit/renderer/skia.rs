@@ -167,7 +167,7 @@ pub struct SkiaCanvas {
 
 impl super::WinitCompatibleCanvas for SkiaCanvas {
     fn release_graphics_resources(&self) {
-        todo!()
+        self.image_cache.clear_all();
     }
 
     fn component_destroyed(&self, component: i_slint_core::component::ComponentRef) {
