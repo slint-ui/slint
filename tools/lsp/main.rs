@@ -8,6 +8,7 @@ mod goto;
 mod lsp_ext;
 #[cfg(feature = "preview")]
 mod preview;
+mod properties;
 mod semantic_tokens;
 mod server_loop;
 mod util;
@@ -173,8 +174,8 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
                 )?;
             }
             Message::Response(_resp) => {}
-            Message::Notification(notifi) => {
-                handle_notification(connection, notifi, &mut document_cache)?
+            Message::Notification(notify) => {
+                handle_notification(connection, notify, &mut document_cache)?
             }
         }
     }
