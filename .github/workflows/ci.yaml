@@ -20,7 +20,7 @@ jobs:
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        os: [ubuntu-20.04, macOS-11, windows-2019]
+        os: [ubuntu-20.04, macOS-11, windows-2022]
         rust_version: [stable, "1.60"]
 
     runs-on: ${{ matrix.os }}
@@ -31,25 +31,25 @@ jobs:
       if: matrix.os == 'ubuntu-20.04'
       run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
     - name: Cache Qt
-      if: matrix.os != 'windows-2019'
+      if: matrix.os != 'windows-2022'
       id: cache-qt
       uses: actions/cache@v2
       with:
         path: ~/work/slint/Qt
         key: ${{ runner.os }}-${{ github.job }}-qt5.15.2
     - name: Install Qt
-      if: matrix.os != 'windows-2019'
+      if: matrix.os != 'windows-2022'
       uses: jurplel/install-qt-action@v2
       with:
         version: '5.15.2'
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
         setup-python: false
     - name: Set default style
-      if: matrix.os != 'windows-2019'
+      if: matrix.os != 'windows-2022'
       run: |
           echo "SLINT_STYLE=native" >> $GITHUB_ENV
     - name: Set default style
-      if: matrix.os == 'windows-2019'
+      if: matrix.os == 'windows-2022'
       run: |
           echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -62,12 +62,12 @@ jobs:
           echo "::set-output name=node-version::$(node --version)"
     - name: Cache native node libraries
       uses: actions/cache@v2
-      if: matrix.os == 'windows-2019'
+      if: matrix.os == 'windows-2022'
       with:
         path: ~/node-gyp/cache
         key: ${{ runner.os }}-${{ github.job }}-${{ steps.nodeversion.outputs.node-version }}
     - name: Ensure node-gyp cache is populated
-      if: matrix.os == 'windows-2019'
+      if: matrix.os == 'windows-2022'
       run: |
           npm install -g node-gyp
           node-gyp install
@@ -99,7 +99,7 @@ jobs:
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        os: [ubuntu-20.04, macOS-11, windows-2019]
+        os: [ubuntu-20.04, macOS-11, windows-2022]
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -110,25 +110,25 @@ jobs:
           sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev gcc-10 g++-10
           echo "CXX=g++-10" >> $GITHUB_ENV
     - name: Cache Qt
-      if: matrix.os != 'windows-2019'
+      if: matrix.os != 'windows-2022'
       id: cache-qt
       uses: actions/cache@v2
       with:
         path: ~/work/slint/Qt
         key: ${{ runner.os }}-${{ github.job }}-qt5.15.2
     - name: Install Qt
-      if: matrix.os != 'windows-2019'
+      if: matrix.os != 'windows-2022'
       uses: jurplel/install-qt-action@v2
       with:
         version: '5.15.2'
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
         setup-python: false
     - name: Set default style
-      if: matrix.os != 'windows-2019'
+      if: matrix.os != 'windows-2022'
       run: |
           echo "SLINT_STYLE=native" >> $GITHUB_ENV
     - name: Set default style
-      if: matrix.os == 'windows-2019'
+      if: matrix.os == 'windows-2022'
       run: |
           echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -174,7 +174,7 @@ jobs:
           rm -rf target/*/*test*
           du -hs target
     - name: Clean cache # Otherwise the cache is much too big
-      if: matrix.os == 'windows-2019'
+      if: matrix.os == 'windows-2022'
       run: |
           du -hs target
           rm -Recurse -Force target/*/incremental
@@ -191,7 +191,7 @@ jobs:
       CARGO_INCREMENTAL: false
     strategy:
       matrix:
-        os: [ubuntu-20.04, macOS-11, windows-2019]
+        os: [ubuntu-20.04, macOS-11, windows-2022]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
@@ -201,7 +201,7 @@ jobs:
           sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev gcc-10 g++-10
           echo "CXX=g++-10" >> $GITHUB_ENV
     - name: Cache Qt
-      if: matrix.os != 'windows-2019'
+      if: matrix.os != 'windows-2022'
       id: cache-qt
       uses: actions/cache@v2
       with:
@@ -214,12 +214,12 @@ jobs:
         version: 5.15.2
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
     - name: Install Qt (Windows, uncached)
-      if: matrix.os == 'windows-2019'
+      if: matrix.os == 'windows-2022'
       uses: jurplel/install-qt-action@v2
       with:
         version: 6.2.1
     - name: Install Qt (cached)
-      if: matrix.os != 'ubuntu-20.04' && matrix.os != 'windows-2019'
+      if: matrix.os != 'ubuntu-20.04' && matrix.os != 'windows-2022'
       uses: jurplel/install-qt-action@v2
       with:
         version: 6.2.1
@@ -238,7 +238,7 @@ jobs:
       run: |
         echo "CC=cl.exe" >> $GITHUB_ENV
         echo "CXX=cl.exe" >> $GITHUB_ENV
-      if: matrix.os == 'windows-2019'
+      if: matrix.os == 'windows-2022'
     - name: Enable test coverage for resource embedding in C++ when building examples
       if: matrix.os == 'ubuntu-20.04'
       run: |

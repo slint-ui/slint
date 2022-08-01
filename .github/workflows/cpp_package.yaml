@@ -15,7 +15,7 @@ jobs:
       CARGO_INCREMENTAL: false
     strategy:
       matrix:
-        os: [ubuntu-20.04, macOS-11, windows-2019]
+        os: [ubuntu-20.04, macOS-11, windows-2022]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
@@ -23,7 +23,7 @@ jobs:
       if: matrix.os == 'ubuntu-20.04'
       run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
     - name: Cache Qt
-      if: matrix.os != 'windows-2019'
+      if: matrix.os != 'windows-2022'
       id: cache-qt
       uses: actions/cache@v2
       with:
@@ -36,12 +36,12 @@ jobs:
         version: 5.15.2
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
     - name: Install Qt (Windows, uncached)
-      if: matrix.os == 'windows-2019'
+      if: matrix.os == 'windows-2022'
       uses: jurplel/install-qt-action@v2
       with:
         version: 6.2.1
     - name: Install Qt (cached)
-      if: matrix.os != 'ubuntu-20.04' && matrix.os != 'windows-2019'
+      if: matrix.os != 'ubuntu-20.04' && matrix.os != 'windows-2022'
       uses: jurplel/install-qt-action@v2
       with:
         version: 6.2.1
@@ -57,17 +57,17 @@ jobs:
       with:
         crate: cargo-about
     - name: Prepare licenses (with Qt)
-      if: matrix.os == 'windows-2019' || matrix.os == 'macOS-11'
+      if: matrix.os == 'windows-2022' || matrix.os == 'macOS-11'
       run: bash -x ./scripts/prepare_binary_package.sh . --with-qt
     - name: Prepare licenses (without Qt)
-      if: matrix.os != 'windows-2019' && matrix.os != 'macOS-11'
+      if: matrix.os != 'windows-2022' && matrix.os != 'macOS-11'
       run: bash -x ./scripts/prepare_binary_package.sh .
     - uses: ilammy/msvc-dev-cmd@v1
     - name: Select MSVC (windows)
       run: |
         echo "CC=cl.exe" >> $GITHUB_ENV
         echo "CXX=cl.exe" >> $GITHUB_ENV
-      if: matrix.os == 'windows-2019'
+      if: matrix.os == 'windows-2022'
     - name: C++ Build
       uses: lukka/run-cmake@v3.4
       with:
