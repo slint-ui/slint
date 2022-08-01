@@ -22,19 +22,23 @@ use lsp_types::{
     ColorInformation, ColorPresentation, Command, CompletionOptions, DocumentSymbol,
     DocumentSymbolResponse, Hover, InitializeParams, OneOf, Position, PublishDiagnosticsParams,
     Range, SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions,
-    ServerCapabilities, TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
+    ServerCapabilities, TextDocumentIdentifier, TextDocumentSyncCapability, Url,
+    WorkDoneProgressOptions,
 };
 use std::collections::HashMap;
 
 pub type Error = Box<dyn std::error::Error>;
 
 const SHOW_PREVIEW_COMMAND: &str = "showPreview";
+const QUERY_PROPERTIES_COMMAND: &str = "queryProperties";
 
 fn command_list() -> Vec<String> {
     let mut result = vec![];
 
     #[cfg(any(feature = "preview", target_arch = "wasm32"))]
     result.push(SHOW_PREVIEW_COMMAND.into());
+
+    result.push(QUERY_PROPERTIES_COMMAND.into());
 
     result
 }
@@ -202,6 +206,13 @@ pub fn handle_request(
     } else if req.handle_request::<ExecuteCommand, _>(|params| {
         if params.command.as_str() == SHOW_PREVIEW_COMMAND {
             show_preview_command(&params.arguments, &req.server_notifier(), document_cache)?;
+            return Ok(None::<serde_json::Value>);
+        } else if params.command.as_str() == QUERY_PROPERTIES_COMMAND {
+            return Ok(Some(query_properties_command(
+                &params.arguments,
+                &req.server_notifier(),
+                document_cache,
+            )?));
         }
         Ok(None::<serde_json::Value>)
     })? {
@@ -268,6 +279,28 @@ pub fn show_preview_command(
         );
     }
     Ok(())
+}
+
+pub fn query_properties_command(
+    params: &[serde_json::Value],
+    _connection: &crate::ServerNotifier,
+    document_cache: &mut DocumentCache,
+) -> Result<serde_json::Value, Error> {
+    use crate::properties;
+
+    let e = || -> Error { "InvalidParameter".into() };
+
+    let text_document = Url::parse(params.get(0).ok_or_else(e)?.as_str().ok_or_else(e)?)?;
+    let line = u32::try_from(params.get(1).ok_or_else(e)?.as_u64().ok_or_else(e)?)?;
+    let character = u32::try_from(params.get(2).ok_or_else(e)?.as_u64().ok_or_else(e)?)?;
+    let element = element_at_position(
+        document_cache,
+        TextDocumentIdentifier { uri: text_document },
+        Position { line, character },
+    )?;
+
+    properties::query_properties(&element)
+        .map(|r| serde_json::to_value(r).expect("Failed to serialize command execution result!"))
 }
 
 #[cfg(feature = "preview")]
@@ -364,20 +397,56 @@ pub async fn reload_document(
     Ok(())
 }
 
+fn get_document_and_offset(
+    document_cache: &mut DocumentCache,
+    text_document: lsp_types::TextDocumentIdentifier,
+    pos: Position,
+) -> Option<(&i_slint_compiler::object_tree::Document, u32)> {
+    let o = document_cache.newline_offsets.get(&text_document.uri)?.get(pos.line as usize)?
+        + pos.character as u32;
+
+    let doc = document_cache.documents.get_document(&text_document.uri.to_file_path().ok()?)?;
+    doc.node.as_ref()?.text_range().contains(o.into()).then(|| (doc, o))
+}
+
+fn element_contains(element: &i_slint_compiler::object_tree::ElementRc, offset: u32) -> bool {
+    element.borrow().node.as_ref().map(|n| n.text_range().contains(offset.into())).unwrap_or(false)
+}
+
+fn element_at_position(
+    document_cache: &mut DocumentCache,
+    text_document: lsp_types::TextDocumentIdentifier,
+    pos: Position,
+) -> Result<i_slint_compiler::object_tree::ElementRc, String> {
+    let (doc, offset) = get_document_and_offset(document_cache, text_document, pos)
+        .ok_or("Document not found.".to_string())?;
+
+    let root_component = &doc.root_component;
+    let mut element = root_component.root_element.clone();
+    let mut result = None;
+
+    while element_contains(&element, offset) {
+        result = Some(element.clone());
+        if let Some(c) =
+            element.clone().borrow().children.iter().find(|c| element_contains(c, offset))
+        {
+            element = c.clone();
+        } else {
+            return Ok(result.expect("Result was set in this iteration"));
+        }
+    }
+    result.ok_or(format!("No element found at offset {}.", offset))
+}
+
 /// return the token, and the offset within the file
 fn token_descr(
     document_cache: &mut DocumentCache,
     text_document: lsp_types::TextDocumentIdentifier,
     pos: Position,
 ) -> Option<(SyntaxToken, u32)> {
-    let o = document_cache.newline_offsets.get(&text_document.uri)?.get(pos.line as usize)?
-        + pos.character as u32;
-
-    let doc = document_cache.documents.get_document(&text_document.uri.to_file_path().ok()?)?;
+    let (doc, o) = get_document_and_offset(document_cache, text_document, pos)?;
     let node = doc.node.as_ref()?;
-    if !node.text_range().contains(o.into()) {
-        return None;
-    }
+
     let mut taf = node.token_at_offset(o.into());
     let token = match (taf.next(), taf.next()) {
         (None, _) => return None,
