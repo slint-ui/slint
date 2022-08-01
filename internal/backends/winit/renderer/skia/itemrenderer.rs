@@ -338,13 +338,15 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             self.canvas.draw_rrect(rounded_rect, &fill_paint);
         }
 
-        if let Some(mut border_paint) =
-            self.brush_to_paint(rect.border_color(), geometry.width(), geometry.height())
-        {
-            border_paint.set_style(skia_safe::PaintStyle::Stroke);
-            border_paint.set_stroke_width(border_width);
-            self.canvas.draw_rrect(rounded_rect, &border_paint);
-        };
+        if border_width > 0.0 {
+            if let Some(mut border_paint) =
+                self.brush_to_paint(rect.border_color(), geometry.width(), geometry.height())
+            {
+                border_paint.set_style(skia_safe::PaintStyle::Stroke);
+                border_paint.set_stroke_width(border_width);
+                self.canvas.draw_rrect(rounded_rect, &border_paint);
+            }
+        }
     }
 
     fn draw_image(
