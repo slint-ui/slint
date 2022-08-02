@@ -29,8 +29,6 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         gl_context: &glutin::WindowedContext<glutin::PossiblyCurrent>,
         winsys_name: Option<&str>,
     ) -> Self::Canvas {
-        let _platform_window = gl_context.window();
-
         let rendering_metrics_collector = winsys_name.and_then(|winsys_name| {
             RenderingMetricsCollector::new(
                 self.window_weak.clone(),
