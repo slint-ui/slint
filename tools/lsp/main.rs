@@ -72,8 +72,12 @@ impl RequestHolder {
             }
         };
 
-        let result = f(param)?;
-        self.1.send(Message::Response(Response::new_ok(id, result)))?;
+        match f(param) {
+            Ok(r) => self.1.send(Message::Response(Response::new_ok(id, r)))?,
+            Err(e) => {
+                self.1.send(Message::Response(Response::new_err(id, 23, format!("{}", e))))?
+            }
+        };
 
         Ok(true)
     }
