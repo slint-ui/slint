@@ -87,3 +87,4 @@ panic = "abort"
 rp2040-hal = { git="https://github.com/slint-ui/rp-hal/", branch = "dma" }
 # Pull in https://github.com/rust-windowing/winit/pull/2255
 winit = { git = "https://github.com/slint-ui/winit", branch = "simon/v0.26-with-touch-fix" }
+skia-safe = { git = "https://github.com/slint-ui/rust-skia", branch = "simon/yocto-build" }
