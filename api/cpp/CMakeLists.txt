@@ -164,6 +164,36 @@ else(SLINT_STYLE)
     set_property(GLOBAL PROPERTY SLINT_STYLE ${SLINT_STYLE_DEFAULT})
 endif(SLINT_STYLE)
 
+# The Skia cross-build requires a host C compiler (due to some build dependencies of rust-skia),
+# so cc.rs will first look for CC_<triplet> and then HOST_CC.
+# When cross-compiling, CMake doesn't really know what the host compiler is. Corrosion will set
+# HOST_CC to $CC, which is a good bet. Unfortunately in Yocto environments, CC will be set to
+# the cross-compiler.
+# So the hack to solve this is two-fold:
+#  * We look for clang or gcc in PATH - unprefixed those are usually host compilers.
+#  * Through corrosion we know the correct host value of CC_<triplet>.
+# Finally, we set CC_<host triplet> to clang or gcc.
+if(SLINT_FEATURE_RENDERER_SKIA AND CMAKE_CROSSCOMPILING AND Rust_CARGO_HOST_TARGET)
+    find_program(CLANG clang)
+    if(CLANG)
+        set(host_cc "${CLANG}")
+    else()
+        find_program(GCC gcc)
+        if (GCC)
+            set(host_cc "${GCC}")
+        endif()
+    endif()
+    if(host_cc)
+        string(REPLACE "-" "_" cargo_host_target_underscore "${Rust_CARGO_HOST_TARGET}")
+        set_property(
+            TARGET slint-cpp
+            APPEND
+            PROPERTY CORROSION_ENVIRONMENT_VARIABLES
+            CC_${cargo_host_target_underscore}=${host_cc}
+        )
+    endif()
+endif()
+
 file(GLOB api_headers RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}/include/"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/*.h")
 
