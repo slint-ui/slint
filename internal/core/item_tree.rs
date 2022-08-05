@@ -834,8 +834,8 @@ pub fn visit_item_tree<Base>(
             ItemTreeNode::Item { children_index, children_count, .. } => {
                 for c in 0..*children_count {
                     let idx = match order {
-                        TraversalOrder::BackToFront => (*children_index + c),
-                        TraversalOrder::FrontToBack => (*children_index + *children_count - c - 1),
+                        TraversalOrder::BackToFront => *children_index + c,
+                        TraversalOrder::FrontToBack => *children_index + *children_count - c - 1,
                     } as usize;
                     let maybe_abort_index = visit_at_index(idx);
                     if maybe_abort_index.has_aborted() {

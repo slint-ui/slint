@@ -457,7 +457,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         let y = match text.vertical_alignment() {
             items::TextVerticalAlignment::Top => 0.,
             items::TextVerticalAlignment::Center => (max_height - layout.height()) / 2.,
-            items::TextVerticalAlignment::Bottom => (max_height - layout.height()),
+            items::TextVerticalAlignment::Bottom => max_height - layout.height(),
         };
 
         layout.paint(&mut self.canvas, skia_safe::Point::new(0., y));
