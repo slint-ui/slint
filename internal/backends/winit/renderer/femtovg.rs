@@ -63,9 +63,12 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         );
 
         #[cfg(not(target_arch = "wasm32"))]
-        let gl_renderer =
-            femtovg::renderer::OpenGl::new_from_glutin_context(&opengl_context.glutin_context())
-                .unwrap();
+        let gl_renderer = unsafe {
+            femtovg::renderer::OpenGl::new_from_function(|s| {
+                opengl_context.get_proc_address(s) as *const _
+            })
+            .unwrap()
+        };
 
         #[cfg(target_arch = "wasm32")]
         let gl_renderer = match femtovg::renderer::OpenGl::new_from_html_canvas(
