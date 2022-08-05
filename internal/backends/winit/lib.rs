@@ -53,6 +53,7 @@ mod renderer {
         fn component_destroyed(&self, component: i_slint_core::component::ComponentRef);
     }
 
+    #[cfg(feature = "renderer-femtovg")]
     pub(crate) mod femtovg;
     #[cfg(feature = "renderer-skia")]
     pub(crate) mod skia;
@@ -92,7 +93,8 @@ pub struct Backend {
 
 impl Backend {
     pub fn new(renderer_name: Option<&str>) -> Self {
-        let femtovg_factory = || {
+        #[cfg(feature = "renderer-femtovg")]
+        let (default_renderer, default_renderer_factory) = ("FemtoVG", || {
             i_slint_core::window::WindowInner::new(|window| {
                 GLWindow::<renderer::femtovg::FemtoVGRenderer>::new(
                     window,
@@ -101,10 +103,31 @@ impl Backend {
                 )
             })
             .into()
-        };
+        });
+        #[cfg(all(not(feature = "renderer-femtovg"), feature = "renderer-skia"))]
+        let (default_renderer, default_renderer_factory) = ("Skia", || {
+            i_slint_core::window::WindowInner::new(|window| {
+                GLWindow::<renderer::skia::SkiaRenderer>::new(
+                    window,
+                    #[cfg(target_arch = "wasm32")]
+                    "canvas".into(),
+                )
+            })
+            .into()
+        });
 
         let factory_fn = match renderer_name {
-            Some("gl") | Some("femtovg") | None => femtovg_factory,
+            #[cfg(feature = "renderer-femtovg")]
+            Some("gl") | Some("femtovg") => || {
+                i_slint_core::window::WindowInner::new(|window| {
+                    GLWindow::<renderer::femtovg::FemtoVGRenderer>::new(
+                        window,
+                        #[cfg(target_arch = "wasm32")]
+                        "canvas".into(),
+                    )
+                })
+                .into()
+            },
             #[cfg(feature = "renderer-skia")]
             Some("skia") => || {
                 i_slint_core::window::WindowInner::new(|window| {
@@ -116,12 +139,13 @@ impl Backend {
                 })
                 .into()
             },
+            None => default_renderer_factory,
             Some(renderer_name) => {
                 eprintln!(
-                    "slint winit: unrecognized renderer {}, falling back to FemtoVG",
-                    renderer_name
+                    "slint winit: unrecognized renderer {}, falling back to {}",
+                    renderer_name, default_renderer
                 );
-                femtovg_factory
+                default_renderer_factory
             }
         };
         Self { window_factory_fn: Mutex::new(Box::new(factory_fn)) }
