@@ -4,6 +4,9 @@
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 
+#[cfg(all(not(feature = "renderer-femtovg"), not(feature = "renderer-skia")))]
+compile_error!("Please select a feature to build with the winit event loop: `renderer-femtovg`, `renderer-skia`");
+
 extern crate alloc;
 
 use std::rc::Rc;
