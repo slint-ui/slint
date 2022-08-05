@@ -21,9 +21,12 @@ impl super::WinitCompatibleRenderer for SoftwareRenderer {
     fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas {
         let opengl_context = crate::OpenGLContext::new_context(window_builder);
 
-        let gl_renderer =
-            femtovg::renderer::OpenGl::new_from_glutin_context(&opengl_context.glutin_context())
-                .unwrap();
+        let gl_renderer = unsafe {
+            femtovg::renderer::OpenGl::new_from_function(|s| {
+                opengl_context.get_proc_address(s) as *const _
+            })
+            .unwrap()
+        };
         let canvas = femtovg::Canvas::new(gl_renderer).unwrap().into();
         SwCanvas { canvas, opengl_context }
     }

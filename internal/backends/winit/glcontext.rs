@@ -37,7 +37,10 @@ impl OpenGLContext {
         })
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(
+        feature = "renderer-skia",
+        not(any(target_os = "macos", target_family = "windows", target_arch = "wasm32"))
+    ))]
     pub fn glutin_context(
         &self,
     ) -> std::cell::Ref<glutin::WindowedContext<glutin::PossiblyCurrent>> {
