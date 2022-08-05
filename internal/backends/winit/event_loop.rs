@@ -171,7 +171,7 @@ struct NotRunningEventLoop {
 
 impl NotRunningEventLoop {
     fn new() -> Self {
-        let instance = winit::event_loop::EventLoop::with_user_event();
+        let instance = winit::event_loop::EventLoopBuilder::with_user_event().build();
         let event_loop_proxy = instance.create_proxy();
         let clipboard = RefCell::new(create_clipboard(&instance));
         Self { clipboard, instance, event_loop_proxy }
