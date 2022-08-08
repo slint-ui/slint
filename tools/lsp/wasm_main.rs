@@ -6,6 +6,7 @@
 mod completion;
 mod goto;
 mod lsp_ext;
+mod properties;
 mod semantic_tokens;
 mod server_loop;
 mod util;

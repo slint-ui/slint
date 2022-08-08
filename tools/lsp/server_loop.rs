@@ -320,7 +320,7 @@ fn maybe_goto_preview(
     let begin = text[..offset].rfind(|x: char| !x.is_ascii_alphanumeric())? + 1;
     let text = &text.as_bytes()[begin..];
     let rest = text.strip_prefix(b"preview").or_else(|| text.strip_prefix(b"PREVIEW"))?;
-    if rest.get(0).map_or(true, |x| x.is_ascii_alphanumeric()) {
+    if rest.first().map_or(true, |x| x.is_ascii_alphanumeric()) {
         return None;
     }
 

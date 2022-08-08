@@ -52,11 +52,11 @@ fn get_element_properties(element: &Element, result: &mut Vec<PropertyInformatio
 
 fn insert_property_definition_range(
     property: &str,
-    properties: &mut Vec<PropertyInformation>,
+    properties: &mut [PropertyInformation],
     range: (u32, u32),
 ) {
     let index = properties
-        .binary_search_by(|p| (&p.name[..]).cmp(&property))
+        .binary_search_by(|p| (p.name[..]).cmp(property))
         .expect("property must be known");
     properties[index].defined_at = Some(range);
 }
