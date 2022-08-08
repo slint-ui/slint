@@ -410,7 +410,7 @@ fn get_document_and_offset(
 }
 
 fn element_contains(element: &i_slint_compiler::object_tree::ElementRc, offset: u32) -> bool {
-    element.borrow().node.as_ref().map(|n| n.text_range().contains(offset.into())).unwrap_or(false)
+    element.borrow().node.as_ref().map_or(false, |n| n.text_range().contains(offset.into()))
 }
 
 fn element_at_position(
