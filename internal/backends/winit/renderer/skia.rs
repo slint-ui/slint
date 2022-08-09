@@ -17,7 +17,19 @@ use crate::WindowSystemName;
 mod itemrenderer;
 mod textlayout;
 
+#[cfg(any(not(target_os = "macos"), feature = "renderer-skia-opengl"))]
 mod opengl_surface;
+
+#[cfg(target_os = "macos")]
+mod metal_surface;
+
+cfg_if::cfg_if! {
+    if #[cfg(all(target_os = "macos", not(feature = "renderer-skia-opengl")))] {
+        type DefaultSurface = metal_surface::MetalSurface;
+    } else {
+        type DefaultSurface = opengl_surface::OpenGLSurface;
+    }
+}
 
 pub struct SkiaRenderer {
     window_weak: Weak<i_slint_core::window::WindowInner>,
@@ -25,20 +37,21 @@ pub struct SkiaRenderer {
 }
 
 impl super::WinitCompatibleRenderer for SkiaRenderer {
-    type Canvas = SkiaCanvas<opengl_surface::OpenGLSurface>;
+    type Canvas = SkiaCanvas<DefaultSurface>;
 
     fn new(window_weak: &std::rc::Weak<i_slint_core::window::WindowInner>) -> Self {
         Self { window_weak: window_weak.clone(), rendering_notifier: Default::default() }
     }
 
     fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas {
-        let surface = opengl_surface::OpenGLSurface::new(window_builder);
+        let surface = DefaultSurface::new(window_builder);
 
         let rendering_metrics_collector = RenderingMetricsCollector::new(
             self.window_weak.clone(),
             &format!(
-                "Skia renderer (windowing system: {})",
-                surface.with_window_handle(|winit_window| winit_window.winsys_name())
+                "Skia renderer (windowing system: {}; skia backend {})",
+                surface.with_window_handle(|winit_window| winit_window.winsys_name()),
+                surface.name()
             ),
         );
 
@@ -169,7 +182,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         &self,
         callback: Box<dyn RenderingNotifier>,
     ) -> std::result::Result<(), SetRenderingNotifierError> {
-        if !opengl_surface::OpenGLSurface::SUPPORTS_GRAPHICS_API {
+        if !DefaultSurface::SUPPORTS_GRAPHICS_API {
             return Err(SetRenderingNotifierError::Unsupported);
         }
         let mut notifier = self.rendering_notifier.borrow_mut();
@@ -184,6 +197,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
 pub trait Surface {
     const SUPPORTS_GRAPHICS_API: bool;
     fn new(window_builder: winit::window::WindowBuilder) -> Self;
+    fn name(&self) -> &'static str;
     fn with_graphics_api(&self, callback: impl FnOnce(GraphicsAPI<'_>));
     fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T;
     fn with_active_surface<T>(&self, callback: impl FnOnce() -> T) -> T {
