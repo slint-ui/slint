@@ -9,6 +9,7 @@
 */
 use copypasta::ClipboardProvider;
 use corelib::items::PointerEventButton;
+use corelib::lengths::LogicalSize;
 use i_slint_core as corelib;
 
 use corelib::api::euclid;
@@ -34,14 +35,6 @@ pub trait WinitWindow: PlatformWindow {
         &self,
         constraints: (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo),
     );
-    /// Get the size of the window. Unlike [`winit::window::Window::inner_size()`], this property does not
-    /// hold the most recent window size as known by the OS but the latest size that has been processed
-    /// by [`WinitWindow::apply_window_properties()`].
-    fn existing_size(&self) -> winit::dpi::LogicalSize<f32>;
-    /// Set the size of the window. Unlike [`winit::window::Window::set_inner_size()`], this property does not
-    /// hold the most recent window size as known by the OS but the latest size that has been processed
-    /// by [`WinitWindow::apply_window_properties()`].
-    fn set_existing_size(&self, size: winit::dpi::LogicalSize<f32>);
     fn set_icon(&self, icon: corelib::graphics::Image);
 
     fn apply_constraints(
@@ -140,7 +133,8 @@ pub trait WinitWindow: PlatformWindow {
                 }
             }
 
-            let existing_size = self.existing_size();
+            let existing_size: LogicalSize =
+                self.inner_size().cast() / self.runtime_window().scale();
 
             if (existing_size.width as f32 - width).abs() > 1.
                 || (existing_size.height as f32 - height).abs() > 1.
@@ -388,7 +382,6 @@ fn process_window_event(
         WindowEvent::Resized(size) => {
             let size = size.to_logical(runtime_window.scale_factor() as f64);
             runtime_window.set_window_item_geometry(size.width, size.height);
-            window.set_existing_size(size);
         }
         WindowEvent::CloseRequested => {
             if runtime_window.request_close() {

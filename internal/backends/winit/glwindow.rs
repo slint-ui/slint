@@ -33,7 +33,6 @@ pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer> {
     map_state: RefCell<GraphicsWindowBackendState<Renderer>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
-    existing_size: Cell<winit::dpi::LogicalSize<f32>>,
 
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
 
@@ -65,7 +64,6 @@ impl<Renderer: WinitCompatibleRenderer> GLWindow<Renderer> {
             }),
             keyboard_modifiers: Default::default(),
             currently_pressed_key_code: Default::default(),
-            existing_size: Default::default(),
             rendering_notifier: Default::default(),
             renderer: Renderer::new(&window_weak),
             #[cfg(target_arch = "wasm32")]
@@ -201,14 +199,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
         if let Some(window) = self.borrow_mapped_window() {
             window.constraints.set(constraints);
         }
-    }
-
-    fn existing_size(&self) -> winit::dpi::LogicalSize<f32> {
-        self.existing_size.get()
-    }
-
-    fn set_existing_size(&self, size: winit::dpi::LogicalSize<f32>) {
-        self.existing_size.set(size);
     }
 
     fn set_icon(&self, icon: corelib::graphics::Image) {

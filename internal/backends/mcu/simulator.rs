@@ -179,7 +179,9 @@ impl PlatformWindow for SimulatorWindow {
     }
 
     fn inner_size(&self) -> euclid::Size2D<u32, PhysicalPx> {
-        unimplemented!()
+        let winit_window = self.opengl_context.window();
+        let size = winit_window.inner_size();
+        euclid::Size2D::new(size.width, size.height)
     }
 
     fn set_inner_size(&self, _size: euclid::Size2D<u32, PhysicalPx>) {
@@ -315,15 +317,6 @@ impl WinitWindow for SimulatorWindow {
         self.constraints.set(constraints)
     }
 
-    fn existing_size(&self) -> winit::dpi::LogicalSize<f32> {
-        self.frame_buffer.borrow().as_ref().map_or(Default::default(), |display| {
-            let eg_size = display.size();
-            winit::dpi::LogicalSize::new(eg_size.width as f32, eg_size.height as f32)
-        })
-    }
-    fn set_existing_size(&self, _size: winit::dpi::LogicalSize<f32>) {
-        // dummy since it shouldn't be needed
-    }
     fn set_icon(&self, _icon: i_slint_core::graphics::Image) {}
 }
 
