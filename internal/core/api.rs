@@ -163,7 +163,7 @@ impl Window {
     /// This function returns an euclid scale that allows conveniently converting between logical and
     /// physical pixels based on the window's scale factor.
     pub fn scale_factor(&self) -> euclid::Scale<f32, LogicalPx, PhysicalPx> {
-        euclid::Scale::new(self.0.scale_factor())
+        self.0.scale()
     }
 
     /// Returns the position of the window on the screen, in physical screen coordinates and including

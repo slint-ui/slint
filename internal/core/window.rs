@@ -6,7 +6,7 @@
 #![warn(missing_docs)]
 //! Exposed Window API
 
-use crate::api::{CloseRequestResponse, PhysicalPx, Window};
+use crate::api::{CloseRequestResponse, LogicalPx, PhysicalPx, Window};
 use crate::component::{ComponentRc, ComponentRef, ComponentVTable, ComponentWeak};
 use crate::graphics::{Point, Rect, Size};
 use crate::input::{
@@ -659,6 +659,11 @@ impl WindowInner {
     /// Sets the scale factor for the window. This is set by the backend or for testing.
     pub fn set_scale_factor(&self, factor: f32) {
         self.scale_factor.as_ref().set(factor)
+    }
+
+    /// Returns an euclid scale that can be used to convert between logical and physical pixels.
+    pub fn scale(&self) -> euclid::Scale<f32, LogicalPx, PhysicalPx> {
+        euclid::Scale::new(self.scale_factor())
     }
 
     /// Returns the window item that is the first item in the component.
