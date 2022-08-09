@@ -1,6 +1,6 @@
 # Creating The Tiles From Rust
 
-The tiles in the game should have a random placement. We'll need to add the <`rand` dependency to
+The tiles in the game should have a random placement. We'll need to add the `rand` dependency to
 `Cargo.toml` for the randomization.
 
 ```toml
