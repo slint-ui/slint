@@ -11,6 +11,8 @@ use i_slint_core::{
     item_rendering::ItemCache,
 };
 
+use crate::WindowSystemName;
+
 mod itemrenderer;
 mod textlayout;
 
@@ -26,29 +28,17 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
     }
 
     fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas {
-        let opengl_context = crate::OpenGLContext::new_context(window_builder);
+        let surface = OpenGLSurface::new(window_builder);
 
-        use crate::WindowSystemName;
         let rendering_metrics_collector = RenderingMetricsCollector::new(
             self.window_weak.clone(),
-            &format!("Skia renderer (windowing system: {})", opengl_context.window().winsys_name()),
+            &format!(
+                "Skia renderer (windowing system: {})",
+                surface.with_window_handle(|winit_window| winit_window.winsys_name())
+            ),
         );
 
-        let gl_interface = skia_safe::gpu::gl::Interface::new_load_with(|symbol| {
-            opengl_context.get_proc_address(symbol)
-        });
-
-        let mut gr_context = skia_safe::gpu::DirectContext::new_gl(gl_interface, None).unwrap();
-
-        let surface = create_surface(&opengl_context.glutin_context(), &mut gr_context).into();
-
-        SkiaCanvas {
-            image_cache: Default::default(),
-            surface,
-            gr_context: RefCell::new(gr_context),
-            rendering_metrics_collector,
-            opengl_context,
-        }
+        SkiaCanvas { image_cache: Default::default(), surface, rendering_metrics_collector }
     }
 
     fn render(
@@ -62,56 +52,38 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
             None => return,
         };
 
-        let size = canvas.opengl_context.window().inner_size();
-        let width = size.width;
-        let height = size.height;
+        canvas.surface.render(|skia_canvas, gr_context| {
+            window.clone().draw_contents(|components| {
+                if let Some(window_item) = window.window_item() {
+                    skia_canvas
+                        .clear(itemrenderer::to_skia_color(&window_item.as_pin_ref().background()));
+                }
 
-        canvas.opengl_context.make_current();
-        canvas.opengl_context.ensure_resized();
+                gr_context.borrow_mut().flush(None);
 
-        window.clone().draw_contents(|components| {
-            let mut surface = canvas.surface.borrow_mut();
-            if width != surface.width() as u32 || height != surface.height() as u32 {
-                *surface = create_surface(
-                    &canvas.opengl_context.glutin_context(),
-                    &mut canvas.gr_context.borrow_mut(),
-                );
-            }
+                let mut item_renderer =
+                    itemrenderer::SkiaRenderer::new(skia_canvas, &window, &canvas.image_cache);
 
-            let skia_canvas = surface.canvas();
+                before_rendering_callback();
 
-            if let Some(window_item) = window.window_item() {
-                skia_canvas
-                    .clear(itemrenderer::to_skia_color(&window_item.as_pin_ref().background()));
-            }
+                for (component, origin) in components {
+                    i_slint_core::item_rendering::render_component_items(
+                        component,
+                        &mut item_renderer,
+                        *origin,
+                    );
+                }
 
-            canvas.gr_context.borrow_mut().flush(None);
+                if let Some(collector) = &canvas.rendering_metrics_collector {
+                    collector.measure_frame_rendered(&mut item_renderer);
+                }
 
-            let mut item_renderer =
-                itemrenderer::SkiaRenderer::new(skia_canvas, &window, &canvas.image_cache);
+                drop(item_renderer);
+                gr_context.borrow_mut().flush(None);
+            });
 
-            before_rendering_callback();
-
-            for (component, origin) in components {
-                i_slint_core::item_rendering::render_component_items(
-                    component,
-                    &mut item_renderer,
-                    *origin,
-                );
-            }
-
-            if let Some(collector) = &canvas.rendering_metrics_collector {
-                collector.measure_frame_rendered(&mut item_renderer);
-            }
-
-            drop(item_renderer);
-            canvas.gr_context.borrow_mut().flush(None);
+            after_rendering_callback();
         });
-
-        after_rendering_callback();
-
-        canvas.opengl_context.swap_buffers();
-        canvas.opengl_context.make_not_current();
     }
 }
 
@@ -168,21 +140,26 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
     }
 }
 
-pub struct SkiaCanvas {
-    image_cache: ItemCache<Option<skia_safe::Image>>,
+struct OpenGLSurface {
     surface: RefCell<skia_safe::Surface>,
     gr_context: RefCell<skia_safe::gpu::DirectContext>,
-    rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
     opengl_context: crate::OpenGLContext,
 }
 
-impl super::WinitCompatibleCanvas for SkiaCanvas {
-    fn release_graphics_resources(&self) {
-        self.image_cache.clear_all();
-    }
+impl OpenGLSurface {
+    fn new(window_builder: winit::window::WindowBuilder) -> Self {
+        let opengl_context = crate::OpenGLContext::new_context(window_builder);
 
-    fn component_destroyed(&self, component: i_slint_core::component::ComponentRef) {
-        self.image_cache.component_destroyed(component)
+        let gl_interface = skia_safe::gpu::gl::Interface::new_load_with(|symbol| {
+            opengl_context.get_proc_address(symbol)
+        });
+
+        let mut gr_context = skia_safe::gpu::DirectContext::new_gl(gl_interface, None).unwrap();
+
+        let surface =
+            Self::create_internal_surface(&opengl_context.glutin_context(), &mut gr_context).into();
+
+        Self { surface, gr_context: RefCell::new(gr_context), opengl_context }
     }
 
     fn with_graphics_api(&self, callback: impl FnOnce(GraphicsAPI<'_>)) {
@@ -195,42 +172,95 @@ impl super::WinitCompatibleCanvas for SkiaCanvas {
     fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T {
         callback(&*self.opengl_context.window())
     }
+
+    fn create_internal_surface(
+        gl_context: &glutin::WindowedContext<glutin::PossiblyCurrent>,
+        gr_context: &mut skia_safe::gpu::DirectContext,
+    ) -> skia_safe::Surface {
+        use glow::HasContext;
+
+        let fb_info = {
+            let gl = unsafe {
+                glow::Context::from_loader_function(|s| gl_context.get_proc_address(s) as *const _)
+            };
+            let fboid = unsafe { gl.get_parameter_i32(glow::FRAMEBUFFER_BINDING) };
+
+            skia_safe::gpu::gl::FramebufferInfo {
+                fboid: fboid.try_into().unwrap(),
+                format: skia_safe::gpu::gl::Format::RGBA8.into(),
+            }
+        };
+
+        let pixel_format = gl_context.get_pixel_format();
+        let size = gl_context.window().inner_size();
+        let backend_render_target = skia_safe::gpu::BackendRenderTarget::new_gl(
+            (size.width.try_into().unwrap(), size.height.try_into().unwrap()),
+            pixel_format.multisampling.map(|s| s.try_into().unwrap()),
+            pixel_format.stencil_bits.try_into().unwrap(),
+            fb_info,
+        );
+        let surface = skia_safe::Surface::from_backend_render_target(
+            gr_context,
+            &backend_render_target,
+            skia_safe::gpu::SurfaceOrigin::BottomLeft,
+            skia_safe::ColorType::RGBA8888,
+            None,
+            None,
+        )
+        .unwrap();
+        surface
+    }
+
+    fn render<T>(
+        &self,
+        callback: impl FnOnce(&mut skia_safe::Canvas, &RefCell<skia_safe::gpu::DirectContext>) -> T,
+    ) -> T {
+        let size = self.opengl_context.window().inner_size();
+        let width = size.width;
+        let height = size.height;
+
+        self.opengl_context.make_current();
+        self.opengl_context.ensure_resized();
+
+        let mut surface = self.surface.borrow_mut();
+        if width != surface.width() as u32 || height != surface.height() as u32 {
+            *surface = Self::create_internal_surface(
+                &self.opengl_context.glutin_context(),
+                &mut self.gr_context.borrow_mut(),
+            );
+        }
+
+        let skia_canvas = surface.canvas();
+
+        let result = callback(skia_canvas, &self.gr_context);
+
+        self.opengl_context.swap_buffers();
+        self.opengl_context.make_not_current();
+
+        result
+    }
 }
 
-fn create_surface(
-    gl_context: &glutin::WindowedContext<glutin::PossiblyCurrent>,
-    gr_context: &mut skia_safe::gpu::DirectContext,
-) -> skia_safe::Surface {
-    use glow::HasContext;
+pub struct SkiaCanvas {
+    image_cache: ItemCache<Option<skia_safe::Image>>,
+    rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
+    surface: OpenGLSurface,
+}
 
-    let fb_info = {
-        let gl = unsafe {
-            glow::Context::from_loader_function(|s| gl_context.get_proc_address(s) as *const _)
-        };
-        let fboid = unsafe { gl.get_parameter_i32(glow::FRAMEBUFFER_BINDING) };
+impl super::WinitCompatibleCanvas for SkiaCanvas {
+    fn release_graphics_resources(&self) {
+        self.image_cache.clear_all();
+    }
 
-        skia_safe::gpu::gl::FramebufferInfo {
-            fboid: fboid.try_into().unwrap(),
-            format: skia_safe::gpu::gl::Format::RGBA8.into(),
-        }
-    };
+    fn component_destroyed(&self, component: i_slint_core::component::ComponentRef) {
+        self.image_cache.component_destroyed(component)
+    }
 
-    let pixel_format = gl_context.get_pixel_format();
-    let size = gl_context.window().inner_size();
-    let backend_render_target = skia_safe::gpu::BackendRenderTarget::new_gl(
-        (size.width.try_into().unwrap(), size.height.try_into().unwrap()),
-        pixel_format.multisampling.map(|s| s.try_into().unwrap()),
-        pixel_format.stencil_bits.try_into().unwrap(),
-        fb_info,
-    );
-    let surface = skia_safe::Surface::from_backend_render_target(
-        gr_context,
-        &backend_render_target,
-        skia_safe::gpu::SurfaceOrigin::BottomLeft,
-        skia_safe::ColorType::RGBA8888,
-        None,
-        None,
-    )
-    .unwrap();
-    surface
+    fn with_graphics_api(&self, callback: impl FnOnce(GraphicsAPI<'_>)) {
+        self.surface.with_graphics_api(callback)
+    }
+
+    fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T {
+        self.surface.with_window_handle(callback)
+    }
 }
