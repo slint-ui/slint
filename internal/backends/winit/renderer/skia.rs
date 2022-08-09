@@ -7,7 +7,8 @@ use std::{
 };
 
 use i_slint_core::{
-    graphics::rendering_metrics_collector::RenderingMetricsCollector, item_rendering::ItemCache,
+    api::GraphicsAPI, graphics::rendering_metrics_collector::RenderingMetricsCollector,
+    item_rendering::ItemCache,
 };
 
 mod itemrenderer;
@@ -24,51 +25,57 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         Self { window_weak: window_weak.clone() }
     }
 
-    fn create_canvas_from_glutin_context(
-        &self,
-        gl_context: &glutin::WindowedContext<glutin::PossiblyCurrent>,
-        winsys_name: Option<&str>,
-    ) -> Self::Canvas {
-        let rendering_metrics_collector = winsys_name.and_then(|winsys_name| {
-            RenderingMetricsCollector::new(
-                self.window_weak.clone(),
-                &format!("Skia renderer (windowing system: {})", winsys_name),
-            )
-        });
+    fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas {
+        let opengl_context = crate::OpenGLContext::new_context(window_builder);
+
+        use crate::WindowSystemName;
+        let rendering_metrics_collector = RenderingMetricsCollector::new(
+            self.window_weak.clone(),
+            &format!("Skia renderer (windowing system: {})", opengl_context.window().winsys_name()),
+        );
 
         let gl_interface = skia_safe::gpu::gl::Interface::new_load_with(|symbol| {
-            gl_context.get_proc_address(symbol)
+            opengl_context.get_proc_address(symbol)
         });
 
         let mut gr_context = skia_safe::gpu::DirectContext::new_gl(gl_interface, None).unwrap();
 
-        let surface = create_surface(&gl_context, &mut gr_context).into();
+        let surface = create_surface(&opengl_context.glutin_context(), &mut gr_context).into();
 
         SkiaCanvas {
             image_cache: Default::default(),
             surface,
             gr_context: RefCell::new(gr_context),
             rendering_metrics_collector,
+            opengl_context,
         }
     }
 
     fn render(
         &self,
         canvas: &Self::Canvas,
-        width: u32,
-        height: u32,
-        gl_context: &glutin::WindowedContext<glutin::PossiblyCurrent>,
         before_rendering_callback: impl FnOnce(),
+        after_rendering_callback: impl FnOnce(),
     ) {
         let window = match self.window_weak.upgrade() {
             Some(window) => window,
             None => return,
         };
 
+        let size = canvas.opengl_context.window().inner_size();
+        let width = size.width;
+        let height = size.height;
+
+        canvas.opengl_context.make_current();
+        canvas.opengl_context.ensure_resized();
+
         window.clone().draw_contents(|components| {
             let mut surface = canvas.surface.borrow_mut();
             if width != surface.width() as u32 || height != surface.height() as u32 {
-                *surface = create_surface(gl_context, &mut canvas.gr_context.borrow_mut());
+                *surface = create_surface(
+                    &canvas.opengl_context.glutin_context(),
+                    &mut canvas.gr_context.borrow_mut(),
+                );
             }
 
             let skia_canvas = surface.canvas();
@@ -100,6 +107,11 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
             drop(item_renderer);
             canvas.gr_context.borrow_mut().flush(None);
         });
+
+        after_rendering_callback();
+
+        canvas.opengl_context.swap_buffers();
+        canvas.opengl_context.make_not_current();
     }
 }
 
@@ -161,6 +173,7 @@ pub struct SkiaCanvas {
     surface: RefCell<skia_safe::Surface>,
     gr_context: RefCell<skia_safe::gpu::DirectContext>,
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
+    opengl_context: crate::OpenGLContext,
 }
 
 impl super::WinitCompatibleCanvas for SkiaCanvas {
@@ -170,6 +183,17 @@ impl super::WinitCompatibleCanvas for SkiaCanvas {
 
     fn component_destroyed(&self, component: i_slint_core::component::ComponentRef) {
         self.image_cache.component_destroyed(component)
+    }
+
+    fn with_graphics_api(&self, callback: impl FnOnce(GraphicsAPI<'_>)) {
+        let api = GraphicsAPI::NativeOpenGL {
+            get_proc_address: &|name| self.opengl_context.get_proc_address(name),
+        };
+        callback(api)
+    }
+
+    fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T {
+        callback(&*self.opengl_context.window())
     }
 }
 

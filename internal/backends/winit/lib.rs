@@ -20,33 +20,23 @@ pub(crate) mod event_loop;
 mod renderer {
     use std::rc::Weak;
 
+    use i_slint_core::api::GraphicsAPI;
+
     pub(crate) trait WinitCompatibleRenderer: i_slint_core::renderer::Renderer {
         type Canvas: WinitCompatibleCanvas;
 
-        fn new(window_weak: &Weak<i_slint_core::window::WindowInner>) -> Self;
+        fn new(
+            window_weak: &Weak<i_slint_core::window::WindowInner>,
+            #[cfg(target_arch = "wasm32")] canvas_id: String,
+        ) -> Self;
 
-        #[cfg(not(target_arch = "wasm32"))]
-        fn create_canvas_from_glutin_context(
-            &self,
-            gl_context: &glutin::WindowedContext<glutin::PossiblyCurrent>,
-            winsys_name: Option<&str>,
-        ) -> Self::Canvas;
-
-        #[cfg(target_arch = "wasm32")]
-        fn create_canvas_from_html_canvas(
-            &self,
-            canvas_element: &web_sys::HtmlCanvasElement,
-        ) -> Self::Canvas;
+        fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas;
 
         fn render(
             &self,
             canvas: &Self::Canvas,
-            width: u32,
-            height: u32,
-            #[cfg(not(target_arch = "wasm32"))] gl_context: &glutin::WindowedContext<
-                glutin::PossiblyCurrent,
-            >,
             before_rendering_callback: impl FnOnce(),
+            after_rendering_callback: impl FnOnce(),
         );
     }
 
@@ -54,6 +44,13 @@ mod renderer {
         fn release_graphics_resources(&self);
 
         fn component_destroyed(&self, component: i_slint_core::component::ComponentRef);
+
+        fn with_graphics_api(&self, cb: impl FnOnce(GraphicsAPI<'_>));
+
+        fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T;
+
+        #[cfg(target_arch = "wasm32")]
+        fn html_canvas_element(&self) -> std::cell::Ref<web_sys::HtmlCanvasElement>;
     }
 
     #[cfg(feature = "renderer-femtovg")]
@@ -204,5 +201,45 @@ impl i_slint_core::backend::Backend for Backend {
         crate::event_loop::with_window_target(|event_loop_target| {
             event_loop_target.clipboard().get_contents().ok()
         })
+    }
+}
+
+pub(crate) trait WindowSystemName {
+    fn winsys_name(&self) -> &'static str;
+}
+
+impl WindowSystemName for winit::window::Window {
+    fn winsys_name(&self) -> &'static str {
+        cfg_if::cfg_if! {
+            if #[cfg(target_arch = "wasm32")] {
+                let winsys = "HTML Canvas";
+            } else if #[cfg(any(
+                target_os = "linux",
+                target_os = "dragonfly",
+                target_os = "freebsd",
+                target_os = "netbsd",
+                target_os = "openbsd"
+            ))] {
+                use winit::platform::unix::WindowExtUnix;
+                let mut winsys = "unknown";
+
+                #[cfg(feature = "x11")]
+                if self.xlib_window().is_some() {
+                    winsys = "x11";
+                }
+
+                #[cfg(feature = "wayland")]
+                if self.wayland_surface().is_some() {
+                    winsys = "wayland"
+                }
+            } else if #[cfg(target_os = "windows")] {
+                let winsys = "windows";
+            } else if #[cfg(target_os = "macos")] {
+                let winsys = "macos";
+            } else {
+                let winsys = "unknown";
+            }
+        }
+        winsys
     }
 }

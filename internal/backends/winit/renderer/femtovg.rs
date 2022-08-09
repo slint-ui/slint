@@ -8,12 +8,14 @@ use std::{
 };
 
 use i_slint_core::{
-    api::euclid,
+    api::{euclid, GraphicsAPI},
     graphics::rendering_metrics_collector::RenderingMetricsCollector,
     graphics::{Point, Rect, Size},
     renderer::Renderer,
     Coord,
 };
+
+use crate::WindowSystemName;
 
 use self::itemrenderer::CanvasRc;
 
@@ -25,46 +27,55 @@ const PASSWORD_CHARACTER: &str = "●";
 
 pub struct FemtoVGRenderer {
     window_weak: Weak<i_slint_core::window::WindowInner>,
+    #[cfg(target_arch = "wasm32")]
+    canvas_id: String,
 }
 
 impl super::WinitCompatibleRenderer for FemtoVGRenderer {
     type Canvas = FemtoVGCanvas;
 
-    fn new(window_weak: &Weak<i_slint_core::window::WindowInner>) -> Self {
-        Self { window_weak: window_weak.clone() }
+    fn new(
+        window_weak: &Weak<i_slint_core::window::WindowInner>,
+        #[cfg(target_arch = "wasm32")] canvas_id: String,
+    ) -> Self {
+        Self {
+            window_weak: window_weak.clone(),
+            #[cfg(target_arch = "wasm32")]
+            canvas_id,
+        }
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
-    fn create_canvas_from_glutin_context(
-        &self,
-        gl_context: &glutin::WindowedContext<glutin::PossiblyCurrent>,
-        winsys_name: Option<&str>,
-    ) -> FemtoVGCanvas {
-        let _platform_window = gl_context.window();
+    fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> FemtoVGCanvas {
+        let opengl_context = crate::OpenGLContext::new_context(
+            window_builder,
+            #[cfg(target_arch = "wasm32")]
+            &self.canvas_id,
+        );
 
-        let rendering_metrics_collector = winsys_name.and_then(|winsys_name| {
-            RenderingMetricsCollector::new(
-                self.window_weak.clone(),
-                &format!("FemtoVG renderer (windowing system: {})", winsys_name),
-            )
-        });
+        let rendering_metrics_collector = RenderingMetricsCollector::new(
+            self.window_weak.clone(),
+            &format!(
+                "FemtoVG renderer (windowing system: {})",
+                opengl_context.window().winsys_name()
+            ),
+        );
 
-        let gl_renderer = femtovg::renderer::OpenGl::new_from_glutin_context(gl_context).unwrap();
-        self.create_canvas_from_gl_renderer(gl_renderer, rendering_metrics_collector)
-    }
+        #[cfg(not(target_arch = "wasm32"))]
+        let gl_renderer =
+            femtovg::renderer::OpenGl::new_from_glutin_context(&opengl_context.glutin_context())
+                .unwrap();
 
-    #[cfg(target_arch = "wasm32")]
-    fn create_canvas_from_html_canvas(
-        &self,
-        canvas_element: &web_sys::HtmlCanvasElement,
-    ) -> FemtoVGCanvas {
-        let gl_renderer = match femtovg::renderer::OpenGl::new_from_html_canvas(canvas_element) {
+        #[cfg(target_arch = "wasm32")]
+        let gl_renderer = match femtovg::renderer::OpenGl::new_from_html_canvas(
+            &opengl_context.html_canvas_element(),
+        ) {
             Ok(gl_renderer) => gl_renderer,
             Err(_) => {
                 use wasm_bindgen::JsCast;
 
                 // I don't believe that there's a way of disabling the 2D canvas.
-                let context_2d = canvas_element
+                let context_2d = opengl_context
+                    .html_canvas_element()
                     .get_context("2d")
                     .unwrap()
                     .unwrap()
@@ -79,23 +90,39 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
                 panic!("Cannot proceed without WebGL - aborting")
             }
         };
-        self.create_canvas_from_gl_renderer(gl_renderer, None)
+
+        let canvas = femtovg::Canvas::new_with_text_context(
+            gl_renderer,
+            self::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
+        )
+        .unwrap();
+        let canvas = Rc::new(RefCell::new(canvas));
+        FemtoVGCanvas {
+            canvas,
+            graphics_cache: Default::default(),
+            texture_cache: Default::default(),
+            rendering_metrics_collector,
+            opengl_context,
+        }
     }
 
     fn render(
         &self,
         canvas: &FemtoVGCanvas,
-        width: u32,
-        height: u32,
-        #[cfg(not(target_arch = "wasm32"))] _gl_context: &glutin::WindowedContext<
-            glutin::PossiblyCurrent,
-        >,
         before_rendering_callback: impl FnOnce(),
+        after_rendering_callback: impl FnOnce(),
     ) {
         let window = match self.window_weak.upgrade() {
             Some(window) => window,
             None => return,
         };
+
+        let size = canvas.opengl_context.window().inner_size();
+        let width = size.width;
+        let height = size.height;
+
+        canvas.opengl_context.make_current();
+        canvas.opengl_context.ensure_resized();
 
         window.clone().draw_contents(|components| {
             {
@@ -148,27 +175,11 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
             canvas.texture_cache.borrow_mut().drain();
             drop(item_renderer);
         });
-    }
-}
 
-impl FemtoVGRenderer {
-    fn create_canvas_from_gl_renderer(
-        &self,
-        gl_renderer: femtovg::renderer::OpenGl,
-        rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
-    ) -> FemtoVGCanvas {
-        let canvas = femtovg::Canvas::new_with_text_context(
-            gl_renderer,
-            self::fonts::FONT_CACHE.with(|cache| cache.borrow().text_context.clone()),
-        )
-        .unwrap();
-        let canvas = Rc::new(RefCell::new(canvas));
-        FemtoVGCanvas {
-            canvas,
-            graphics_cache: Default::default(),
-            texture_cache: Default::default(),
-            rendering_metrics_collector,
-        }
+        after_rendering_callback();
+
+        canvas.opengl_context.swap_buffers();
+        canvas.opengl_context.make_not_current();
     }
 }
 
@@ -340,6 +351,7 @@ pub struct FemtoVGCanvas {
     graphics_cache: itemrenderer::ItemGraphicsCache,
     texture_cache: RefCell<images::TextureCache>,
     rendering_metrics_collector: Option<Rc<RenderingMetricsCollector>>,
+    opengl_context: crate::OpenGLContext,
 }
 
 impl super::WinitCompatibleCanvas for FemtoVGCanvas {
@@ -349,12 +361,42 @@ impl super::WinitCompatibleCanvas for FemtoVGCanvas {
     }
 
     fn component_destroyed(&self, component: i_slint_core::component::ComponentRef) {
-        self.graphics_cache.component_destroyed(component)
+        self.opengl_context
+            .with_current_context(|_| self.graphics_cache.component_destroyed(component))
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    fn with_graphics_api(&self, callback: impl FnOnce(i_slint_core::api::GraphicsAPI<'_>)) {
+        let api = GraphicsAPI::NativeOpenGL {
+            get_proc_address: &|name| self.opengl_context.get_proc_address(name),
+        };
+        callback(api)
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn with_graphics_api(&self, callback: impl FnOnce(i_slint_core::api::GraphicsAPI<'_>)) {
+        let canvas_element_id = self.opengl_context.html_canvas_element().id();
+        let api = GraphicsAPI::WebGL {
+            canvas_element_id: canvas_element_id.as_str(),
+            context_type: "webgl",
+        };
+        callback(api)
+    }
+
+    fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T {
+        callback(&*self.opengl_context.window())
+    }
+
+    #[cfg(target_arch = "wasm32")]
+    fn html_canvas_element(&self) -> std::cell::Ref<web_sys::HtmlCanvasElement> {
+        self.opengl_context.html_canvas_element()
     }
 }
 
 impl Drop for FemtoVGCanvas {
     fn drop(&mut self) {
+        // The GL renderer must be destructed with a GL context current, in order to clean up correctly.
+        self.opengl_context.make_current();
         if Rc::strong_count(&self.canvas) != 1 {
             i_slint_core::debug_log!("internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked.")
         }
