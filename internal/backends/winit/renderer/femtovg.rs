@@ -114,9 +114,8 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         result
     }
 
-    fn release_canvas_graphics_resources(&self, canvas: &Self::Canvas) {
+    fn release_canvas(&self, canvas: Self::Canvas) {
         canvas.opengl_context.with_current_context(|_| {
-            canvas.release_graphics_resources();
             if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
                 canvas.with_graphics_api(|api| {
                     callback.notify(RenderingState::RenderingTeardown, &api)
@@ -424,17 +423,17 @@ impl FemtoVGCanvas {
         };
         callback(api)
     }
-
-    fn release_graphics_resources(&self) {
-        self.graphics_cache.clear_all();
-        self.texture_cache.borrow_mut().clear();
-    }
 }
 
 impl Drop for FemtoVGCanvas {
     fn drop(&mut self) {
         // The GL renderer must be destructed with a GL context current, in order to clean up correctly.
         self.opengl_context.make_current();
+
+        // Clear these manually to drop any Rc<Canvas>.
+        self.graphics_cache.clear_all();
+        self.texture_cache.borrow_mut().clear();
+
         if Rc::strong_count(&self.canvas) != 1 {
             i_slint_core::debug_log!("internal warning: there are canvas references left when destroying the window. OpenGL resources will be leaked.")
         }

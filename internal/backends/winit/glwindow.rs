@@ -25,7 +25,7 @@ use winit::dpi::LogicalSize;
 
 /// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
-pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer> {
+pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer + 'static> {
     self_weak: Weak<corelib::window::WindowInner>,
     map_state: RefCell<GraphicsWindowBackendState<Renderer>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
@@ -66,13 +66,6 @@ impl<Renderer: WinitCompatibleRenderer> GLWindow<Renderer> {
         })
     }
 
-    fn with_canvas<T>(&self, cb: impl FnOnce(&Renderer::Canvas) -> T) -> Option<T> {
-        match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped { .. } => None,
-            GraphicsWindowBackendState::Mapped(window) => Some(cb(&window.canvas)),
-        }
-    }
-
     fn is_mapped(&self) -> bool {
         matches!(&*self.map_state.borrow(), GraphicsWindowBackendState::Mapped { .. })
     }
@@ -90,11 +83,20 @@ impl<Renderer: WinitCompatibleRenderer> GLWindow<Renderer> {
         }
     }
 
-    fn release_graphics_resources(&self) {
-        // Release GL textures and other GPU bound resources.
-        self.with_canvas(|canvas| {
-            self.renderer.release_canvas_graphics_resources(canvas);
+    fn unmap(&self) {
+        let old_mapped = match self.map_state.replace(GraphicsWindowBackendState::Unmapped {
+            requested_position: None,
+            requested_size: None,
+        }) {
+            GraphicsWindowBackendState::Unmapped { .. } => return,
+            GraphicsWindowBackendState::Mapped(old_mapped) => old_mapped,
+        };
+
+        old_mapped.canvas.with_window_handle(|winit_window| {
+            crate::event_loop::unregister_window(winit_window.id());
         });
+
+        self.renderer.release_canvas(old_mapped.canvas);
     }
 }
 
@@ -346,13 +348,8 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
     }
 
     fn hide(self: Rc<Self>) {
-        // Release GL textures and other GPU bound resources.
-        self.release_graphics_resources();
+        self.unmap();
 
-        self.map_state.replace(GraphicsWindowBackendState::Unmapped {
-            requested_position: None,
-            requested_size: None,
-        });
         /* FIXME:
         if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
             existing_blinker.stop();
@@ -485,23 +482,15 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
     }
 }
 
-impl<Renderer: WinitCompatibleRenderer> Drop for GLWindow<Renderer> {
+impl<Renderer: WinitCompatibleRenderer + 'static> Drop for GLWindow<Renderer> {
     fn drop(&mut self) {
-        self.release_graphics_resources();
+        self.unmap();
     }
 }
 
 struct MappedWindow<Renderer: WinitCompatibleRenderer> {
     canvas: Renderer::Canvas,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
-}
-
-impl<Renderer: WinitCompatibleRenderer> Drop for MappedWindow<Renderer> {
-    fn drop(&mut self) {
-        self.canvas.with_window_handle(|winit_window| {
-            crate::event_loop::unregister_window(winit_window.id());
-        })
-    }
 }
 
 enum GraphicsWindowBackendState<Renderer: WinitCompatibleRenderer> {
