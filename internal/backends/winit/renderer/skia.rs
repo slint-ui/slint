@@ -150,6 +150,7 @@ pub trait Surface {
         &self,
         callback: impl FnOnce(&mut skia_safe::Canvas, &RefCell<skia_safe::gpu::DirectContext>),
     );
+    fn resize_event(&self);
 }
 
 pub struct SkiaCanvas<SurfaceType: Surface> {
@@ -173,5 +174,9 @@ impl<SurfaceType: Surface> super::WinitCompatibleCanvas for SkiaCanvas<SurfaceTy
 
     fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T {
         self.surface.with_window_handle(callback)
+    }
+
+    fn resize_event(&self) {
+        self.surface.resize_event()
     }
 }
