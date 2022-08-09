@@ -52,8 +52,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         canvas
     }
 
-    fn release_canvas_graphics_resources(&self, canvas: &Self::Canvas) {
-        canvas.release_graphics_resources();
+    fn release_canvas(&self, canvas: Self::Canvas) {
         canvas.surface.with_active_surface(|| {
             if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
                 canvas.with_graphics_api(|api| {
@@ -218,10 +217,6 @@ impl<SurfaceType: Surface> super::WinitCompatibleCanvas for SkiaCanvas<SurfaceTy
 }
 
 impl<SurfaceType: Surface> SkiaCanvas<SurfaceType> {
-    fn release_graphics_resources(&self) {
-        self.image_cache.clear_all();
-    }
-
     fn with_graphics_api(&self, callback: impl FnOnce(GraphicsAPI<'_>)) {
         self.surface.with_graphics_api(callback)
     }

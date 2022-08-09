@@ -29,7 +29,7 @@ mod renderer {
         ) -> Self;
 
         fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas;
-        fn release_canvas_graphics_resources(&self, canvas: &Self::Canvas);
+        fn release_canvas(&self, canvas: Self::Canvas);
 
         fn render(&self, canvas: &Self::Canvas);
     }
