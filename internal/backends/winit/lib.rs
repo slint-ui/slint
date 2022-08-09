@@ -49,6 +49,8 @@ mod renderer {
 
         fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T;
 
+        fn resize_event(&self);
+
         #[cfg(target_arch = "wasm32")]
         fn html_canvas_element(&self) -> std::cell::Ref<web_sys::HtmlCanvasElement>;
     }

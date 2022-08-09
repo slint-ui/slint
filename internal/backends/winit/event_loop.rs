@@ -36,6 +36,8 @@ pub trait WinitWindow: PlatformWindow {
         constraints: (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo),
     );
     fn set_icon(&self, icon: corelib::graphics::Image);
+    /// Called by the event loop when a WindowEvent::Resized is received.
+    fn resize_event(&self) {}
 
     fn apply_constraints(
         &self,
@@ -382,6 +384,7 @@ fn process_window_event(
         WindowEvent::Resized(size) => {
             let size = size.to_logical(runtime_window.scale_factor() as f64);
             runtime_window.set_window_item_geometry(size.width, size.height);
+            window.resize_event();
         }
         WindowEvent::CloseRequested => {
             if runtime_window.request_close() {

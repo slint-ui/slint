@@ -215,6 +215,12 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
             Err(_) => true,
         }
     }
+
+    fn resize_event(&self) {
+        if let Some(mapped_window) = self.borrow_mapped_window() {
+            mapped_window.canvas.resize_event()
+        }
+    }
 }
 
 impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Renderer> {

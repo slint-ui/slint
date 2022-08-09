@@ -122,7 +122,6 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         let height = size.height;
 
         canvas.opengl_context.make_current();
-        canvas.opengl_context.ensure_resized();
 
         window.clone().draw_contents(|components| {
             {
@@ -385,6 +384,10 @@ impl super::WinitCompatibleCanvas for FemtoVGCanvas {
 
     fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T {
         callback(&*self.opengl_context.window())
+    }
+
+    fn resize_event(&self) {
+        self.opengl_context.ensure_resized()
     }
 
     #[cfg(target_arch = "wasm32")]

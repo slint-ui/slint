@@ -47,7 +47,6 @@ impl super::Surface for OpenGLSurface {
         let height = size.height;
 
         self.opengl_context.make_current();
-        self.opengl_context.ensure_resized();
 
         let mut surface = self.surface.borrow_mut();
         if width != surface.width() as u32 || height != surface.height() as u32 {
@@ -63,6 +62,10 @@ impl super::Surface for OpenGLSurface {
 
         self.opengl_context.swap_buffers();
         self.opengl_context.make_not_current();
+    }
+
+    fn resize_event(&self) {
+        self.opengl_context.ensure_resized();
     }
 }
 
