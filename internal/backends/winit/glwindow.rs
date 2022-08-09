@@ -10,12 +10,9 @@ use core::pin::Pin;
 use std::rc::{Rc, Weak};
 
 use crate::event_loop::WinitWindow;
-use crate::glcontext::OpenGLContext;
-use crate::renderer::WinitCompatibleRenderer;
+use crate::renderer::{WinitCompatibleCanvas, WinitCompatibleRenderer};
 use const_field_offset::FieldOffsets;
-use corelib::api::{
-    GraphicsAPI, PhysicalPx, RenderingNotifier, RenderingState, SetRenderingNotifierError,
-};
+use corelib::api::{PhysicalPx, RenderingNotifier, RenderingState, SetRenderingNotifierError};
 use corelib::component::ComponentRc;
 use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};
@@ -37,9 +34,6 @@ pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer> {
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
 
     renderer: Renderer,
-
-    #[cfg(target_arch = "wasm32")]
-    canvas_id: String,
 
     #[cfg(target_arch = "wasm32")]
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
@@ -65,23 +59,20 @@ impl<Renderer: WinitCompatibleRenderer> GLWindow<Renderer> {
             keyboard_modifiers: Default::default(),
             currently_pressed_key_code: Default::default(),
             rendering_notifier: Default::default(),
-            renderer: Renderer::new(&window_weak),
-            #[cfg(target_arch = "wasm32")]
-            canvas_id,
+            renderer: Renderer::new(
+                &window_weak,
+                #[cfg(target_arch = "wasm32")]
+                canvas_id,
+            ),
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
         })
     }
 
-    fn with_current_context<T>(
-        &self,
-        cb: impl FnOnce(&MappedWindow<Renderer>, &OpenGLContext) -> T,
-    ) -> Option<T> {
+    fn with_canvas<T>(&self, cb: impl FnOnce(&Renderer::Canvas) -> T) -> Option<T> {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped { .. } => None,
-            GraphicsWindowBackendState::Mapped(window) => Some(
-                window.opengl_context.with_current_context(|gl_context| cb(window, gl_context)),
-            ),
+            GraphicsWindowBackendState::Mapped(window) => Some(cb(&window.canvas)),
         }
     }
 
@@ -104,29 +95,17 @@ impl<Renderer: WinitCompatibleRenderer> GLWindow<Renderer> {
 
     fn release_graphics_resources(&self) {
         // Release GL textures and other GPU bound resources.
-        self.with_current_context(|mapped_window, context| {
-            use crate::renderer::WinitCompatibleCanvas;
-            mapped_window.canvas.release_graphics_resources();
+        self.with_canvas(|canvas| {
+            canvas.release_graphics_resources();
 
-            self.invoke_rendering_notifier(RenderingState::RenderingTeardown, context);
+            self.invoke_rendering_notifier(RenderingState::RenderingTeardown, canvas);
         });
     }
 
     /// Invoke any registered rendering notifiers about the state the backend renderer is currently in.
-    fn invoke_rendering_notifier(&self, state: RenderingState, opengl_context: &OpenGLContext) {
+    fn invoke_rendering_notifier(&self, state: RenderingState, canvas: &Renderer::Canvas) {
         if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-            #[cfg(not(target_arch = "wasm32"))]
-            let api = GraphicsAPI::NativeOpenGL {
-                get_proc_address: &|name| opengl_context.get_proc_address(name),
-            };
-            #[cfg(target_arch = "wasm32")]
-            let canvas_element_id = opengl_context.html_canvas_element().id();
-            #[cfg(target_arch = "wasm32")]
-            let api = GraphicsAPI::WebGL {
-                canvas_element_id: canvas_element_id.as_str(),
-                context_type: "webgl",
-            };
-            callback.notify(state, &api)
+            canvas.with_graphics_api(|api| callback.notify(state, &api))
         }
     }
 
@@ -155,36 +134,22 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
             None => return, // caller bug, doesn't make sense to call draw() when not mapped
         };
 
-        let size = window.opengl_context.window().inner_size();
-
-        window.opengl_context.make_current();
-        window.opengl_context.ensure_resized();
-
         self.renderer.render(
             &window.canvas,
-            size.width,
-            size.height,
-            #[cfg(not(target_arch = "wasm32"))]
-            &window.opengl_context.glutin_context(),
             || {
                 if self.has_rendering_notifier() {
-                    self.invoke_rendering_notifier(
-                        RenderingState::BeforeRendering,
-                        &window.opengl_context,
-                    );
+                    self.invoke_rendering_notifier(RenderingState::BeforeRendering, &window.canvas);
                 }
             },
+            || {
+                self.invoke_rendering_notifier(RenderingState::AfterRendering, &window.canvas);
+            },
         );
-
-        self.invoke_rendering_notifier(RenderingState::AfterRendering, &window.opengl_context);
-
-        window.opengl_context.swap_buffers();
-        window.opengl_context.make_not_current();
     }
 
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window)) {
         if let Some(mapped_window) = self.borrow_mapped_window() {
-            callback(&*mapped_window.opengl_context.window())
+            mapped_window.canvas.with_window_handle(callback);
         }
     }
 
@@ -229,16 +194,16 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
                 .collect(),
         };
 
-        if let Some(window) = self.borrow_mapped_window() {
-            window.opengl_context.window().set_window_icon(
+        self.with_window_handle(&mut |window| {
+            window.set_window_icon(
                 winit::window::Icon::from_rgba(
-                    rgba_pixels,
+                    rgba_pixels.clone(), // FIXME: if the closure were FnOnce we could move rgba_pixels
                     pixel_buffer.width(),
                     pixel_buffer.height(),
                 )
                 .ok(),
             );
-        }
+        })
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -254,12 +219,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
 
 impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Renderer> {
     fn request_redraw(&self) {
-        match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped { .. } => {}
-            GraphicsWindowBackendState::Mapped(window) => {
-                window.opengl_context.window().request_redraw()
-            }
-        }
+        self.with_window_handle(&mut |window| window.request_redraw())
     }
 
     fn register_component(&self) {}
@@ -271,11 +231,8 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
     ) {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped { .. } => {}
-            GraphicsWindowBackendState::Mapped(_) => {
-                self.with_current_context(|mapped_window, _| {
-                    use crate::renderer::WinitCompatibleCanvas;
-                    mapped_window.canvas.component_destroyed(component)
-                });
+            GraphicsWindowBackendState::Mapped(mapped_window) => {
+                mapped_window.canvas.component_destroyed(component)
             }
         }
     }
@@ -295,21 +252,15 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
     }
 
     fn request_window_properties_update(&self) {
-        match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped { .. } => {
-                // Nothing to be done if the window isn't visible. When it becomes visible,
-                // corelib::window::Window::show() calls update_window_properties()
-            }
-            GraphicsWindowBackendState::Mapped(window) => {
-                let window_id = window.opengl_context.window().id();
-                crate::event_loop::with_window_target(|event_loop| {
-                    event_loop.event_loop_proxy().send_event(
-                        crate::event_loop::CustomEvent::UpdateWindowProperties(window_id),
-                    )
-                })
-                .ok();
-            }
-        }
+        self.with_window_handle(&mut |window| {
+            let window_id = window.id();
+            crate::event_loop::with_window_target(|event_loop| {
+                event_loop
+                    .event_loop_proxy()
+                    .send_event(crate::event_loop::CustomEvent::UpdateWindowProperties(window_id))
+            })
+            .ok();
+        })
     }
 
     fn apply_window_properties(&self, window_item: Pin<&i_slint_core::items::WindowItem>) {
@@ -410,68 +361,20 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
             window_builder
         };
 
-        #[cfg(target_arch = "wasm32")]
-        let opengl_context = crate::OpenGLContext::new_context(window_builder, &self.canvas_id);
-        #[cfg(not(target_arch = "wasm32"))]
-        let opengl_context = crate::OpenGLContext::new_context(window_builder);
+        let canvas = self.renderer.create_canvas(window_builder);
 
-        #[cfg(not(target_arch = "wasm32"))]
-        let canvas = {
-            cfg_if::cfg_if! {
-                if #[cfg(target_arch = "wasm32")] {
-                    let winsys = "HTML Canvas";
-                } else if #[cfg(any(
-                    target_os = "linux",
-                    target_os = "dragonfly",
-                    target_os = "freebsd",
-                    target_os = "netbsd",
-                    target_os = "openbsd"
-                ))] {
-                    use winit::platform::unix::WindowExtUnix;
-                    let mut winsys = "unknown";
+        self.invoke_rendering_notifier(RenderingState::RenderingSetup, &canvas);
 
-                    #[cfg(feature = "x11")]
-                    if opengl_context.window().xlib_window().is_some() {
-                        winsys = "x11";
-                    }
-
-                    #[cfg(feature = "wayland")]
-                    if opengl_context.window().wayland_surface().is_some() {
-                        winsys = "wayland"
-                    }
-                } else if #[cfg(target_os = "windows")] {
-                    let winsys = "windows";
-                } else if #[cfg(target_os = "macos")] {
-                    let winsys = "macos";
-                } else {
-                    let winsys = "unknown";
-                }
-            }
-
-            self.renderer
-                .create_canvas_from_glutin_context(&opengl_context.glutin_context(), Some(winsys))
-        };
-
-        #[cfg(target_arch = "wasm32")]
-        let canvas =
-            self.renderer.create_canvas_from_html_canvas(&opengl_context.html_canvas_element());
-
-        self.invoke_rendering_notifier(RenderingState::RenderingSetup, &opengl_context);
-
-        opengl_context.make_not_current();
-
-        let platform_window = opengl_context.window();
-        let runtime_window = self.self_weak.upgrade().unwrap();
-        runtime_window.set_scale_factor(
-            scale_factor_override.unwrap_or_else(|| platform_window.scale_factor()) as _,
-        );
-        let id = platform_window.id();
-
-        drop(platform_window);
+        let id = canvas.with_window_handle(|window| {
+            let runtime_window = self.self_weak.upgrade().unwrap();
+            runtime_window.set_scale_factor(
+                scale_factor_override.unwrap_or_else(|| window.scale_factor()) as _,
+            );
+            window.id()
+        });
 
         self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
             canvas,
-            opengl_context,
             constraints: Default::default(),
         }));
 
@@ -542,8 +445,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
     fn show_virtual_keyboard(&self, _it: corelib::items::InputType) {
         let mut vkh = self.virtual_keyboard_helper.borrow_mut();
         let h = vkh.get_or_insert_with(|| {
-            let canvas =
-                self.borrow_mapped_window().unwrap().opengl_context.html_canvas_element().clone();
+            let canvas = self.borrow_mapped_window().unwrap().canvas.html_canvas_element().clone();
             super::wasm_input_helper::WasmInputHelper::new(self.self_weak.clone(), canvas)
         });
         h.show();
@@ -565,13 +467,12 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
             GraphicsWindowBackendState::Unmapped { requested_position, .. } => {
                 requested_position.unwrap_or_default()
             }
-            GraphicsWindowBackendState::Mapped(mapped_window) => {
-                let winit_window = &*mapped_window.opengl_context.window();
-                match winit_window.outer_position() {
-                    Ok(position) => euclid::Point2D::new(position.x, position.y),
+            GraphicsWindowBackendState::Mapped(mapped_window) => mapped_window
+                .canvas
+                .with_window_handle(|winit_window| match winit_window.outer_position() {
+                    Ok(outer_position) => euclid::Point2D::new(outer_position.x, outer_position.y),
                     Err(_) => Default::default(),
-                }
-            }
+                }),
         }
     }
 
@@ -581,10 +482,11 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
                 *requested_position = Some(position)
             }
             GraphicsWindowBackendState::Mapped(mapped_window) => {
-                let winit_window = &*mapped_window.opengl_context.window();
-                winit_window.set_outer_position(winit::dpi::Position::new(
-                    winit::dpi::PhysicalPosition::new(position.x, position.y),
-                ))
+                mapped_window.canvas.with_window_handle(|winit_window| {
+                    winit_window.set_outer_position(winit::dpi::Position::new(
+                        winit::dpi::PhysicalPosition::new(position.x, position.y),
+                    ))
+                })
             }
         }
     }
@@ -595,9 +497,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
                 requested_size.unwrap_or_default()
             }
             GraphicsWindowBackendState::Mapped(mapped_window) => {
-                let winit_window = &*mapped_window.opengl_context.window();
-                let size = winit_window.inner_size();
-                euclid::Size2D::new(size.width, size.height)
+                mapped_window.canvas.with_window_handle(|winit_window| {
+                    let size = winit_window.inner_size();
+                    euclid::Size2D::new(size.width, size.height)
+                })
             }
         }
     }
@@ -608,11 +511,11 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
                 *requested_size = Some(size)
             }
             GraphicsWindowBackendState::Mapped(mapped_window) => {
-                let winit_window = &*mapped_window.opengl_context.window();
-                winit_window.set_inner_size(winit::dpi::Size::new(winit::dpi::PhysicalSize::new(
-                    size.width,
-                    size.height,
-                )))
+                mapped_window.canvas.with_window_handle(|winit_window| {
+                    winit_window.set_inner_size(winit::dpi::Size::new(
+                        winit::dpi::PhysicalSize::new(size.width, size.height),
+                    ));
+                });
             }
         }
     }
@@ -626,15 +529,14 @@ impl<Renderer: WinitCompatibleRenderer> Drop for GLWindow<Renderer> {
 
 struct MappedWindow<Renderer: WinitCompatibleRenderer> {
     canvas: Renderer::Canvas,
-    opengl_context: crate::OpenGLContext,
     constraints: Cell<(corelib::layout::LayoutInfo, corelib::layout::LayoutInfo)>,
 }
 
 impl<Renderer: WinitCompatibleRenderer> Drop for MappedWindow<Renderer> {
     fn drop(&mut self) {
-        // The GL renderer must be destructed with a GL context current, in order to clean up correctly.
-        self.opengl_context.make_current();
-        crate::event_loop::unregister_window(self.opengl_context.window().id());
+        self.canvas.with_window_handle(|winit_window| {
+            crate::event_loop::unregister_window(winit_window.id());
+        })
     }
 }
 
