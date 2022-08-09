@@ -55,6 +55,10 @@ impl super::Surface for OpenGLSurface {
         Self { fb_info, surface, gr_context: RefCell::new(gr_context), opengl_context }
     }
 
+    fn name(&self) -> &'static str {
+        "opengl"
+    }
+
     fn with_graphics_api(&self, callback: impl FnOnce(GraphicsAPI<'_>)) {
         let api = GraphicsAPI::NativeOpenGL {
             get_proc_address: &|name| self.opengl_context.get_proc_address(name),

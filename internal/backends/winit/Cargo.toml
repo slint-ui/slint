@@ -20,9 +20,11 @@ path = "lib.rs"
 wayland = ["winit/wayland", "glutin/wayland", "copypasta/wayland"]
 x11 = ["winit/x11", "glutin/x11", "copypasta/x11"]
 renderer-femtovg = ["femtovg", "fontdb", "libc", "servo-fontconfig", "winapi", "dwrote", "imgref", "unicode-script", "ttf-parser", "rgb"]
-renderer-skia = ["skia-safe", "glow"]
+renderer-skia = ["skia-safe", "glow", "metal", "objc", "core-graphics-types", "foreign-types"]
 rtti = ["i-slint-core/rtti"]
 default = []
+
+renderer-skia-opengl = ["skia-safe/gl", "renderer-skia"]
 
 [dependencies]
 i-slint-core = { version = "=0.2.6", path = "../../../internal/core" }
@@ -51,7 +53,7 @@ imgref = { version = "1.6.1", optional = true }
 rgb = { version = "0.8.27", optional = true }
 
 # For the Skia renderer
-skia-safe = { version = "0.53.0", optional = true, features = ["gl", "textlayout"] }
+skia-safe = { version = "0.53.0", optional = true, features = ["textlayout"] }
 glow = { version = "0.11", optional = true }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
@@ -73,8 +75,17 @@ libc = { version = "0.2", optional = true }
 # with distros at times.
 servo-fontconfig = { version = "0.5", optional = true, features = [ "force_system_lib" ] }
 
-# For the GL 
 [target.'cfg(target_os = "macos")'.dependencies]
+# For GL rendering
 cocoa = { version = "0.24.0" }
 core-foundation = { version = "0.9.1" }
 core-text = { version = "19.1.0" }
+# For Metal rendering with Skia
+metal = { version = "0.24.0", optional = true }
+objc = { version = "0.2.7", optional = true }
+core-graphics-types = { version = "0.1.1", optional = true }
+skia-safe = { version = "0.53.0", optional = true, features = ["metal"] }
+foreign-types = { version = "0.3.2", optional = true }
+
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+skia-safe = { version = "0.53.0", optional = true, features = ["gl"] }
