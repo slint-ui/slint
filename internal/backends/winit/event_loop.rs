@@ -565,6 +565,12 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
     let mut winit_loop = not_running_loop_instance.instance;
     let clipboard = not_running_loop_instance.clipboard;
 
+    // When we need to apply window properties such as title or the width/height (due to constraints),
+    // we receive a custom event. The application implies querying the current window size, so do all of
+    // this after processing all other events, such as resize events: At MainEventsCleared and before
+    // rendering. This is to avoid the jitter as described in  https://github.com/slint-ui/slint/issues/1269
+    let mut windows_with_pending_property_updates = Vec::new();
+
     // last seen cursor position, (physical coordinate)
     let mut cursor_pos = Point::default();
     let mut pressed = false;
@@ -600,8 +606,10 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
                 }
 
                 winit::event::Event::UserEvent(CustomEvent::UpdateWindowProperties(window_id)) => {
-                    if let Some(window) = window_by_id(window_id) {
-                        window.runtime_window().update_window_properties();
+                    if let Err(insert_pos) =
+                        windows_with_pending_property_updates.binary_search(&window_id)
+                    {
+                        windows_with_pending_property_updates.insert(insert_pos, window_id);
                     }
                 }
                 winit::event::Event::UserEvent(CustomEvent::WindowHidden) => match quit_behavior {
@@ -635,6 +643,17 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
                 winit::event::Event::NewEvents(_) => {
                     corelib::timers::update_timers();
                 }
+
+                winit::event::Event::MainEventsCleared => {
+                    for window in windows_with_pending_property_updates
+                        .drain(..)
+                        .into_iter()
+                        .flat_map(|window_id| window_by_id(window_id))
+                    {
+                        window.runtime_window().update_window_properties();
+                    }
+                }
+
                 _ => (),
             }
 
