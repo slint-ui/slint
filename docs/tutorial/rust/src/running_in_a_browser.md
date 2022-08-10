@@ -6,7 +6,7 @@ for demonstration purposes. So in this section we'll use the standard rust tool 
 `wasm-pack` to run the game in the browser. The [wasm-bindgen](https://rustwasm.github.io/docs/wasm-bindgen/examples/without-a-bundler.html)
 documentation explains all you need to know about using wasm and rust.
 
-Make sure to have wasm-back installed using
+Make sure to have `wasm-pack` installed using
 
 ```sh
 cargo install wasm-pack
