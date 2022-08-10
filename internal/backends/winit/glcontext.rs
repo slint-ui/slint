@@ -99,13 +99,22 @@ impl OpenGLContext {
 
     pub fn ensure_resized(&self) {
         #[cfg(not(target_arch = "wasm32"))]
-        match &self.0.borrow().as_ref().unwrap() {
-            OpenGLContextState::NotCurrent(_) => {
-                i_slint_core::debug_log!("internal error: cannot call OpenGLContext::ensure_resized without context being current!")
-            }
-            OpenGLContextState::Current(_current) => {
-                _current.resize(_current.window().inner_size());
-            }
+        {
+            let mut ctx = self.0.borrow_mut();
+            *ctx = Some(match ctx.take().unwrap() {
+                #[cfg(not(target_arch = "wasm32"))]
+                OpenGLContextState::NotCurrent(not_current_ctx) => {
+                    let current_ctx = unsafe { not_current_ctx.make_current().unwrap() };
+                    current_ctx.resize(current_ctx.window().inner_size());
+                    OpenGLContextState::NotCurrent(unsafe {
+                        current_ctx.make_not_current().unwrap()
+                    })
+                }
+                OpenGLContextState::Current(current) => {
+                    current.resize(current.window().inner_size());
+                    OpenGLContextState::Current(current)
+                }
+            });
         }
     }
 
