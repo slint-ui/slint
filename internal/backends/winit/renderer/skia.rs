@@ -7,7 +7,8 @@ use std::{
 };
 
 use i_slint_core::{
-    api::GraphicsAPI, graphics::rendering_metrics_collector::RenderingMetricsCollector,
+    api::{GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError},
+    graphics::rendering_metrics_collector::RenderingMetricsCollector,
     item_rendering::ItemCache,
 };
 
@@ -20,13 +21,14 @@ mod opengl_surface;
 
 pub struct SkiaRenderer {
     window_weak: Weak<i_slint_core::window::WindowInner>,
+    rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
 }
 
 impl super::WinitCompatibleRenderer for SkiaRenderer {
     type Canvas = SkiaCanvas<opengl_surface::OpenGLSurface>;
 
     fn new(window_weak: &std::rc::Weak<i_slint_core::window::WindowInner>) -> Self {
-        Self { window_weak: window_weak.clone() }
+        Self { window_weak: window_weak.clone(), rendering_notifier: Default::default() }
     }
 
     fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas {
@@ -40,15 +42,43 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
             ),
         );
 
-        SkiaCanvas { image_cache: Default::default(), surface, rendering_metrics_collector }
+        let canvas =
+            SkiaCanvas { image_cache: Default::default(), surface, rendering_metrics_collector };
+
+        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+            canvas.with_graphics_api(|api| callback.notify(RenderingState::RenderingSetup, &api))
+        }
+
+        canvas
     }
 
-    fn render(
+    fn release_canvas_graphics_resources(&self, canvas: &Self::Canvas) {
+        canvas.release_graphics_resources();
+        canvas.surface.with_active_surface(|| {
+            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+                canvas.with_graphics_api(|api| {
+                    callback.notify(RenderingState::RenderingTeardown, &api)
+                })
+            }
+        });
+    }
+
+    fn set_rendering_notifier(
         &self,
-        canvas: &Self::Canvas,
-        before_rendering_callback: impl FnOnce(),
-        after_rendering_callback: impl FnOnce(),
-    ) {
+        callback: Box<dyn RenderingNotifier>,
+    ) -> std::result::Result<(), SetRenderingNotifierError> {
+        if !opengl_surface::OpenGLSurface::SUPPORTS_GRAPHICS_API {
+            return Err(SetRenderingNotifierError::Unsupported);
+        }
+        let mut notifier = self.rendering_notifier.borrow_mut();
+        if notifier.replace(callback).is_some() {
+            Err(SetRenderingNotifierError::AlreadySet)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn render(&self, canvas: &Self::Canvas) {
         let window = match self.window_weak.upgrade() {
             Some(window) => window,
             None => return,
@@ -61,12 +91,19 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
                         .clear(itemrenderer::to_skia_color(&window_item.as_pin_ref().background()));
                 }
 
-                gr_context.borrow_mut().flush(None);
+                if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+                    // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
+                    // the back buffer, in order to allow the callback to provide its own rendering of the background.
+                    // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
+                    gr_context.borrow_mut().flush(None);
+
+                    canvas.with_graphics_api(|api| {
+                        callback.notify(RenderingState::BeforeRendering, &api)
+                    })
+                }
 
                 let mut item_renderer =
                     itemrenderer::SkiaRenderer::new(skia_canvas, &window, &canvas.image_cache);
-
-                before_rendering_callback();
 
                 for (component, origin) in components {
                     i_slint_core::item_rendering::render_component_items(
@@ -84,7 +121,10 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
                 gr_context.borrow_mut().flush(None);
             });
 
-            after_rendering_callback();
+            if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
+                canvas
+                    .with_graphics_api(|api| callback.notify(RenderingState::AfterRendering, &api))
+            }
         });
     }
 }
@@ -143,9 +183,13 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
 }
 
 pub trait Surface {
+    const SUPPORTS_GRAPHICS_API: bool;
     fn new(window_builder: winit::window::WindowBuilder) -> Self;
     fn with_graphics_api(&self, callback: impl FnOnce(GraphicsAPI<'_>));
     fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T;
+    fn with_active_surface<T>(&self, callback: impl FnOnce() -> T) -> T {
+        callback()
+    }
     fn render(
         &self,
         callback: impl FnOnce(&mut skia_safe::Canvas, &RefCell<skia_safe::gpu::DirectContext>),
@@ -160,16 +204,8 @@ pub struct SkiaCanvas<SurfaceType: Surface> {
 }
 
 impl<SurfaceType: Surface> super::WinitCompatibleCanvas for SkiaCanvas<SurfaceType> {
-    fn release_graphics_resources(&self) {
-        self.image_cache.clear_all();
-    }
-
     fn component_destroyed(&self, component: i_slint_core::component::ComponentRef) {
         self.image_cache.component_destroyed(component)
-    }
-
-    fn with_graphics_api(&self, callback: impl FnOnce(GraphicsAPI<'_>)) {
-        self.surface.with_graphics_api(callback)
     }
 
     fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T {
@@ -178,5 +214,15 @@ impl<SurfaceType: Surface> super::WinitCompatibleCanvas for SkiaCanvas<SurfaceTy
 
     fn resize_event(&self) {
         self.surface.resize_event()
+    }
+}
+
+impl<SurfaceType: Surface> SkiaCanvas<SurfaceType> {
+    fn release_graphics_resources(&self) {
+        self.image_cache.clear_all();
+    }
+
+    fn with_graphics_api(&self, callback: impl FnOnce(GraphicsAPI<'_>)) {
+        self.surface.with_graphics_api(callback)
     }
 }

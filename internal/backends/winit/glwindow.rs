@@ -12,7 +12,7 @@ use std::rc::{Rc, Weak};
 use crate::event_loop::WinitWindow;
 use crate::renderer::{WinitCompatibleCanvas, WinitCompatibleRenderer};
 use const_field_offset::FieldOffsets;
-use corelib::api::{PhysicalPx, RenderingNotifier, RenderingState, SetRenderingNotifierError};
+use corelib::api::{PhysicalPx, RenderingNotifier, SetRenderingNotifierError};
 use corelib::component::ComponentRc;
 use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};
@@ -30,8 +30,6 @@ pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer> {
     map_state: RefCell<GraphicsWindowBackendState<Renderer>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
-
-    rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
 
     renderer: Renderer,
 
@@ -58,7 +56,6 @@ impl<Renderer: WinitCompatibleRenderer> GLWindow<Renderer> {
             }),
             keyboard_modifiers: Default::default(),
             currently_pressed_key_code: Default::default(),
-            rendering_notifier: Default::default(),
             renderer: Renderer::new(
                 &window_weak,
                 #[cfg(target_arch = "wasm32")]
@@ -96,21 +93,8 @@ impl<Renderer: WinitCompatibleRenderer> GLWindow<Renderer> {
     fn release_graphics_resources(&self) {
         // Release GL textures and other GPU bound resources.
         self.with_canvas(|canvas| {
-            canvas.release_graphics_resources();
-
-            self.invoke_rendering_notifier(RenderingState::RenderingTeardown, canvas);
+            self.renderer.release_canvas_graphics_resources(canvas);
         });
-    }
-
-    /// Invoke any registered rendering notifiers about the state the backend renderer is currently in.
-    fn invoke_rendering_notifier(&self, state: RenderingState, canvas: &Renderer::Canvas) {
-        if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
-            canvas.with_graphics_api(|api| callback.notify(state, &api))
-        }
-    }
-
-    fn has_rendering_notifier(&self) -> bool {
-        self.rendering_notifier.borrow().is_some()
     }
 }
 
@@ -134,17 +118,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
             None => return, // caller bug, doesn't make sense to call draw() when not mapped
         };
 
-        self.renderer.render(
-            &window.canvas,
-            || {
-                if self.has_rendering_notifier() {
-                    self.invoke_rendering_notifier(RenderingState::BeforeRendering, &window.canvas);
-                }
-            },
-            || {
-                self.invoke_rendering_notifier(RenderingState::AfterRendering, &window.canvas);
-            },
-        );
+        self.renderer.render(&window.canvas);
     }
 
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window)) {
@@ -249,12 +223,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
         &self,
         callback: Box<dyn RenderingNotifier>,
     ) -> std::result::Result<(), SetRenderingNotifierError> {
-        let mut notifier = self.rendering_notifier.borrow_mut();
-        if notifier.replace(callback).is_some() {
-            Err(SetRenderingNotifierError::AlreadySet)
-        } else {
-            Ok(())
-        }
+        self.renderer.set_rendering_notifier(callback)
     }
 
     fn request_window_properties_update(&self) {
@@ -368,8 +337,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
         };
 
         let canvas = self.renderer.create_canvas(window_builder);
-
-        self.invoke_rendering_notifier(RenderingState::RenderingSetup, &canvas);
 
         let id = canvas.with_window_handle(|window| {
             let runtime_window = self.self_weak.upgrade().unwrap();

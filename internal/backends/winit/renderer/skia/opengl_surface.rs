@@ -12,6 +12,8 @@ pub struct OpenGLSurface {
 }
 
 impl super::Surface for OpenGLSurface {
+    const SUPPORTS_GRAPHICS_API: bool = true;
+
     fn new(window_builder: winit::window::WindowBuilder) -> Self {
         let opengl_context = crate::OpenGLContext::new_context(window_builder);
 
@@ -36,6 +38,10 @@ impl super::Surface for OpenGLSurface {
 
     fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T {
         callback(&*self.opengl_context.window())
+    }
+
+    fn with_active_surface<T>(&self, callback: impl FnOnce() -> T) -> T {
+        self.opengl_context.with_current_context(|_| callback())
     }
 
     fn render(
@@ -106,5 +112,12 @@ impl OpenGLSurface {
         )
         .unwrap();
         surface
+    }
+}
+
+impl Drop for OpenGLSurface {
+    fn drop(&mut self) {
+        // Make sure that the context is current before Skia calls glDelete***
+        self.opengl_context.make_current();
     }
 }
