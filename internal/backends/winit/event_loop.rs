@@ -647,7 +647,6 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
                 winit::event::Event::MainEventsCleared => {
                     for window in windows_with_pending_property_updates
                         .drain(..)
-                        .into_iter()
                         .flat_map(|window_id| window_by_id(window_id))
                     {
                         window.runtime_window().update_window_properties();
