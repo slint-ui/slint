@@ -138,7 +138,7 @@ impl Window {
         &self,
         callback: impl FnMut(RenderingState, &GraphicsAPI) + 'static,
     ) -> Result<(), SetRenderingNotifierError> {
-        self.0.set_rendering_notifier(Box::new(callback))
+        self.0.renderer().set_rendering_notifier(Box::new(callback))
     }
 
     /// This function allows registering a callback that's invoked when the user tries to close a window.
