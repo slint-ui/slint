@@ -20,7 +20,7 @@ pub(crate) mod event_loop;
 mod renderer {
     use std::rc::Weak;
 
-    use i_slint_core::api::GraphicsAPI;
+    use i_slint_core::api::{RenderingNotifier, SetRenderingNotifierError};
 
     pub(crate) trait WinitCompatibleRenderer: i_slint_core::renderer::Renderer {
         type Canvas: WinitCompatibleCanvas;
@@ -31,21 +31,20 @@ mod renderer {
         ) -> Self;
 
         fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas;
+        fn release_canvas_graphics_resources(&self, canvas: &Self::Canvas);
 
-        fn render(
+        fn set_rendering_notifier(
             &self,
-            canvas: &Self::Canvas,
-            before_rendering_callback: impl FnOnce(),
-            after_rendering_callback: impl FnOnce(),
-        );
+            _callback: Box<dyn RenderingNotifier>,
+        ) -> std::result::Result<(), SetRenderingNotifierError> {
+            Err(SetRenderingNotifierError::Unsupported)
+        }
+
+        fn render(&self, canvas: &Self::Canvas);
     }
 
     pub(crate) trait WinitCompatibleCanvas {
-        fn release_graphics_resources(&self);
-
         fn component_destroyed(&self, component: i_slint_core::component::ComponentRef);
-
-        fn with_graphics_api(&self, cb: impl FnOnce(GraphicsAPI<'_>));
 
         fn with_window_handle<T>(&self, callback: impl FnOnce(&winit::window::Window) -> T) -> T;
 
