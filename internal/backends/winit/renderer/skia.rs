@@ -17,15 +17,23 @@ use crate::WindowSystemName;
 mod itemrenderer;
 mod textlayout;
 
-#[cfg(any(not(target_os = "macos"), feature = "renderer-skia-opengl"))]
+#[cfg(any(
+    not(any(target_os = "macos", target_family = "windows")),
+    feature = "renderer-skia-opengl"
+))]
 mod opengl_surface;
 
 #[cfg(target_os = "macos")]
 mod metal_surface;
 
+#[cfg(target_family = "windows")]
+mod d3d_surface;
+
 cfg_if::cfg_if! {
     if #[cfg(all(target_os = "macos", not(feature = "renderer-skia-opengl")))] {
         type DefaultSurface = metal_surface::MetalSurface;
+    } else if #[cfg(all(target_family = "windows", not(feature = "renderer-skia-opengl")))] {
+        type DefaultSurface = d3d_surface::D3DSurface;
     } else {
         type DefaultSurface = opengl_surface::OpenGLSurface;
     }
@@ -92,7 +100,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
                     // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                     // the back buffer, in order to allow the callback to provide its own rendering of the background.
                     // Skia's clear() will merely schedule a clear call, so flush right away to make it immediate.
-                    gr_context.borrow_mut().flush(None);
+                    gr_context.flush(None);
 
                     canvas.with_graphics_api(|api| {
                         callback.notify(RenderingState::BeforeRendering, &api)
@@ -115,7 +123,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
                 }
 
                 drop(item_renderer);
-                gr_context.borrow_mut().flush(None);
+                gr_context.flush(None);
             });
 
             if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
@@ -205,7 +213,7 @@ pub trait Surface {
     }
     fn render(
         &self,
-        callback: impl FnOnce(&mut skia_safe::Canvas, &RefCell<skia_safe::gpu::DirectContext>),
+        callback: impl FnOnce(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
     );
     fn resize_event(&self);
 }

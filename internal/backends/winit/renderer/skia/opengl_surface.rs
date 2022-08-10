@@ -76,7 +76,7 @@ impl super::Surface for OpenGLSurface {
 
     fn render(
         &self,
-        callback: impl FnOnce(&mut skia_safe::Canvas, &RefCell<skia_safe::gpu::DirectContext>),
+        callback: impl FnOnce(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
     ) {
         let size = self.opengl_context.window().inner_size();
         let width = size.width;
@@ -84,18 +84,20 @@ impl super::Surface for OpenGLSurface {
 
         self.opengl_context.make_current();
 
+        let gr_context = &mut self.gr_context.borrow_mut();
+
         let mut surface = self.surface.borrow_mut();
         if width != surface.width() as u32 || height != surface.height() as u32 {
             *surface = Self::create_internal_surface(
                 self.fb_info,
                 &self.opengl_context.glutin_context(),
-                &mut self.gr_context.borrow_mut(),
+                gr_context,
             );
         }
 
         let skia_canvas = surface.canvas();
 
-        callback(skia_canvas, &self.gr_context);
+        callback(skia_canvas, gr_context);
 
         self.opengl_context.swap_buffers();
         self.opengl_context.make_not_current();
