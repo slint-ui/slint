@@ -76,13 +76,15 @@ impl super::Surface for MetalSurface {
 
     fn render(
         &self,
-        callback: impl FnOnce(&mut skia_safe::Canvas, &RefCell<skia_safe::gpu::DirectContext>),
+        callback: impl FnOnce(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
     ) {
         autoreleasepool(|| {
             let drawable = match self.layer.next_drawable() {
                 Some(drawable) => drawable,
                 None => return,
             };
+
+            let gr_context = &mut self.gr_context.borrow_mut();
 
             let size = self.layer.drawable_size();
 
@@ -97,7 +99,7 @@ impl super::Surface for MetalSurface {
                 );
 
                 skia_safe::Surface::from_backend_render_target(
-                    &mut self.gr_context.borrow_mut(),
+                    gr_context,
                     &backend_render_target,
                     skia_safe::gpu::SurfaceOrigin::TopLeft,
                     skia_safe::ColorType::BGRA8888,
@@ -107,11 +109,11 @@ impl super::Surface for MetalSurface {
                 .unwrap()
             };
 
-            callback(surface.canvas(), &self.gr_context);
+            callback(surface.canvas(), gr_context);
 
             drop(surface);
 
-            self.gr_context.borrow_mut().submit(None);
+            gr_context.submit(None);
 
             let command_buffer = self.command_queue.new_command_buffer();
             command_buffer.present_drawable(drawable);
