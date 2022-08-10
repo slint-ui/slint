@@ -6,6 +6,7 @@ use std::cell::RefCell;
 use i_slint_core::api::GraphicsAPI;
 
 pub struct OpenGLSurface {
+    fb_info: skia_safe::gpu::gl::FramebufferInfo,
     surface: RefCell<skia_safe::Surface>,
     gr_context: RefCell<skia_safe::gpu::DirectContext>,
     opengl_context: crate::OpenGLContext,
@@ -17,16 +18,41 @@ impl super::Surface for OpenGLSurface {
     fn new(window_builder: winit::window::WindowBuilder) -> Self {
         let opengl_context = crate::OpenGLContext::new_context(window_builder);
 
-        let gl_interface = skia_safe::gpu::gl::Interface::new_load_with(|symbol| {
-            opengl_context.get_proc_address(symbol)
-        });
+        let (fb_info, surface, gr_context) =
+            opengl_context.with_current_context(|opengl_context| {
+                let fb_info = {
+                    use glow::HasContext;
 
-        let mut gr_context = skia_safe::gpu::DirectContext::new_gl(gl_interface, None).unwrap();
+                    let gl = unsafe {
+                        glow::Context::from_loader_function(|s| {
+                            opengl_context.get_proc_address(s) as *const _
+                        })
+                    };
+                    let fboid = unsafe { gl.get_parameter_i32(glow::FRAMEBUFFER_BINDING) };
 
-        let surface =
-            Self::create_internal_surface(&opengl_context.glutin_context(), &mut gr_context).into();
+                    skia_safe::gpu::gl::FramebufferInfo {
+                        fboid: fboid.try_into().unwrap(),
+                        format: skia_safe::gpu::gl::Format::RGBA8.into(),
+                    }
+                };
 
-        Self { surface, gr_context: RefCell::new(gr_context), opengl_context }
+                let gl_interface = skia_safe::gpu::gl::Interface::new_load_with(|symbol| {
+                    opengl_context.get_proc_address(symbol)
+                });
+
+                let mut gr_context =
+                    skia_safe::gpu::DirectContext::new_gl(gl_interface, None).unwrap();
+
+                let surface = Self::create_internal_surface(
+                    fb_info,
+                    &opengl_context.glutin_context(),
+                    &mut gr_context,
+                )
+                .into();
+
+                (fb_info, surface, gr_context)
+            });
+        Self { fb_info, surface, gr_context: RefCell::new(gr_context), opengl_context }
     }
 
     fn with_graphics_api(&self, callback: impl FnOnce(GraphicsAPI<'_>)) {
@@ -57,6 +83,7 @@ impl super::Surface for OpenGLSurface {
         let mut surface = self.surface.borrow_mut();
         if width != surface.width() as u32 || height != surface.height() as u32 {
             *surface = Self::create_internal_surface(
+                self.fb_info,
                 &self.opengl_context.glutin_context(),
                 &mut self.gr_context.borrow_mut(),
             );
@@ -77,23 +104,10 @@ impl super::Surface for OpenGLSurface {
 
 impl OpenGLSurface {
     fn create_internal_surface(
+        fb_info: skia_safe::gpu::gl::FramebufferInfo,
         gl_context: &glutin::WindowedContext<glutin::PossiblyCurrent>,
         gr_context: &mut skia_safe::gpu::DirectContext,
     ) -> skia_safe::Surface {
-        use glow::HasContext;
-
-        let fb_info = {
-            let gl = unsafe {
-                glow::Context::from_loader_function(|s| gl_context.get_proc_address(s) as *const _)
-            };
-            let fboid = unsafe { gl.get_parameter_i32(glow::FRAMEBUFFER_BINDING) };
-
-            skia_safe::gpu::gl::FramebufferInfo {
-                fboid: fboid.try_into().unwrap(),
-                format: skia_safe::gpu::gl::Format::RGBA8.into(),
-            }
-        };
-
         let pixel_format = gl_context.get_pixel_format();
         let size = gl_context.window().inner_size();
         let backend_render_target = skia_safe::gpu::BackendRenderTarget::new_gl(
