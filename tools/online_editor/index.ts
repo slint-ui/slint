@@ -49,7 +49,7 @@ import slint_init, * as slint from "../../../wasm-interpreter/slint_wasm_interpr
     /// Index by url. Inline documents will use the empty string.
     var editor_documents: Map<string, ModelAndViewState> = new Map;
 
-    let hello_world = `import { VerticalBox } from "std-widgets.slint";
+    let hello_world = `import { Button, VerticalBox } from "std-widgets.slint";
 export Demo := Window {
     VerticalBox {
         Text {
