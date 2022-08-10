@@ -565,10 +565,13 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
     let mut winit_loop = not_running_loop_instance.instance;
     let clipboard = not_running_loop_instance.clipboard;
 
-    // When we need to apply window properties such as title or the width/height (due to constraints),
-    // we receive a custom event. The application implies querying the current window size, so do all of
-    // this after processing all other events, such as resize events: At MainEventsCleared and before
-    // rendering. This is to avoid the jitter as described in  https://github.com/slint-ui/slint/issues/1269
+    // Applying the property values of the `Window` item in .slint files to the underlying winit Window
+    // may for example set the width but preserve the height of the window. Winit only knows the entire
+    // size, so we need to query the existing size via `inner_size()`. The timing of when to call `inner_size()`
+    // is important to avoid jitter as described in https://github.com/slint-ui/slint/issues/1269 . We want to
+    // process pending resize events first. That is why this vector collects the window ids of windows that
+    // we have scheduled for a sync between the `Window` item properties the the winit window, so that we
+    // apply them at `MainEventsCleared` time.
     let mut windows_with_pending_property_updates = Vec::new();
 
     // last seen cursor position, (physical coordinate)
