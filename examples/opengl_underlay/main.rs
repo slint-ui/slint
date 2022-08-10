@@ -132,7 +132,24 @@ impl EGLUnderlay {
 
             gl.use_program(Some(self.program));
 
+            // Retrieving the buffer with glow only works with native builds right now. For WASM this requires https://github.com/grovesNL/glow/pull/190
+            // That means we can't properly restore the vao/vbo, but this is okay for now as this only works with femtovg, which doesn't rely on
+            // these bindings to persist across frames.
+            #[cfg(not(target_arch = "wasm32"))]
+            let old_buffer =
+                std::num::NonZeroU32::new(gl.get_parameter_i32(glow::ARRAY_BUFFER_BINDING) as u32)
+                    .map(glow::NativeBuffer);
+            #[cfg(target_arch = "wasm32")]
+            let old_buffer = None;
+
             gl.bind_buffer(glow::ARRAY_BUFFER, Some(self.vbo));
+
+            #[cfg(not(target_arch = "wasm32"))]
+            let old_vao =
+                std::num::NonZeroU32::new(gl.get_parameter_i32(glow::VERTEX_ARRAY_BINDING) as u32)
+                    .map(glow::NativeVertexArray);
+            #[cfg(target_arch = "wasm32")]
+            let old_vao = None;
 
             gl.bind_vertex_array(Some(self.vao));
 
@@ -145,8 +162,8 @@ impl EGLUnderlay {
 
             gl.draw_arrays(glow::TRIANGLE_STRIP, 0, 4);
 
-            gl.bind_buffer(glow::ARRAY_BUFFER, None);
-            gl.bind_vertex_array(None);
+            gl.bind_buffer(glow::ARRAY_BUFFER, old_buffer);
+            gl.bind_vertex_array(old_vao);
             gl.use_program(None);
         }
     }

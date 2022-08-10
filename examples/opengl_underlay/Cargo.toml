@@ -16,7 +16,8 @@ name = "opengl_underlay"
 
 [dependencies]
 slint = { path = "../../api/rs/slint" }
-glow = { version = "0.11" }
+# Use a git version until https://github.com/grovesNL/glow/issues/210 is released to crates.io
+glow = { version = "0.11", git = "https://github.com/grovesNL/glow", rev = "11853d28ae64fbd7db5c856fe8b92a4a20fded94" }
 instant = { version = "0.1", features = [ "now" ] }
 
 [build-dependencies]
