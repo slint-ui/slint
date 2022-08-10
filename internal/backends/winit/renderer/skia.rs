@@ -63,21 +63,6 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         });
     }
 
-    fn set_rendering_notifier(
-        &self,
-        callback: Box<dyn RenderingNotifier>,
-    ) -> std::result::Result<(), SetRenderingNotifierError> {
-        if !opengl_surface::OpenGLSurface::SUPPORTS_GRAPHICS_API {
-            return Err(SetRenderingNotifierError::Unsupported);
-        }
-        let mut notifier = self.rendering_notifier.borrow_mut();
-        if notifier.replace(callback).is_some() {
-            Err(SetRenderingNotifierError::AlreadySet)
-        } else {
-            Ok(())
-        }
-    }
-
     fn render(&self, canvas: &Self::Canvas) {
         let window = match self.window_weak.upgrade() {
             Some(window) => window,
@@ -179,6 +164,21 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
         textlayout::register_font_from_path(path)
+    }
+
+    fn set_rendering_notifier(
+        &self,
+        callback: Box<dyn RenderingNotifier>,
+    ) -> std::result::Result<(), SetRenderingNotifierError> {
+        if !opengl_surface::OpenGLSurface::SUPPORTS_GRAPHICS_API {
+            return Err(SetRenderingNotifierError::Unsupported);
+        }
+        let mut notifier = self.rendering_notifier.borrow_mut();
+        if notifier.replace(callback).is_some() {
+            Err(SetRenderingNotifierError::AlreadySet)
+        } else {
+            Ok(())
+        }
     }
 }
 

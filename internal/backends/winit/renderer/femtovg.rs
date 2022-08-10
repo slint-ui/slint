@@ -125,18 +125,6 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         })
     }
 
-    fn set_rendering_notifier(
-        &self,
-        callback: Box<dyn RenderingNotifier>,
-    ) -> std::result::Result<(), SetRenderingNotifierError> {
-        let mut notifier = self.rendering_notifier.borrow_mut();
-        if notifier.replace(callback).is_some() {
-            Err(SetRenderingNotifierError::AlreadySet)
-        } else {
-            Ok(())
-        }
-    }
-
     fn render(&self, canvas: &FemtoVGCanvas) {
         let window = match self.window_weak.upgrade() {
             Some(window) => window,
@@ -375,6 +363,18 @@ impl Renderer for FemtoVGRenderer {
         path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
         fonts::register_font_from_path(path)
+    }
+
+    fn set_rendering_notifier(
+        &self,
+        callback: Box<dyn RenderingNotifier>,
+    ) -> std::result::Result<(), SetRenderingNotifierError> {
+        let mut notifier = self.rendering_notifier.borrow_mut();
+        if notifier.replace(callback).is_some() {
+            Err(SetRenderingNotifierError::AlreadySet)
+        } else {
+            Ok(())
+        }
     }
 }
 

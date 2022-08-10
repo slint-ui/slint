@@ -73,4 +73,13 @@ pub trait Renderer {
     fn register_bitmap_font(&self, _font_data: &'static crate::graphics::BitmapFont) {
         unimplemented!()
     }
+
+    /// This function is called through the public API to register a callback that the backend needs to invoke during
+    /// different phases of rendering.
+    fn set_rendering_notifier(
+        &self,
+        _callback: Box<dyn crate::api::RenderingNotifier>,
+    ) -> Result<(), crate::api::SetRenderingNotifierError> {
+        Err(crate::api::SetRenderingNotifierError::Unsupported)
+    }
 }

@@ -56,15 +56,6 @@ pub trait PlatformWindow {
         self.renderer().free_graphics_resources(items);
     }
 
-    /// This function is called through the public API to register a callback that the backend needs to invoke during
-    /// different phases of rendering.
-    fn set_rendering_notifier(
-        &self,
-        _callback: Box<dyn crate::api::RenderingNotifier>,
-    ) -> Result<(), crate::api::SetRenderingNotifierError> {
-        Err(crate::api::SetRenderingNotifierError::Unsupported)
-    }
-
     /// Create a window for a popup.
     ///
     /// `geometry` is the location of the popup in the window coordinate
@@ -875,7 +866,7 @@ pub mod ffi {
         }
 
         let window = &*(handle as *const WindowRc);
-        match window.set_rendering_notifier(Box::new(CNotifier {
+        match window.renderer().set_rendering_notifier(Box::new(CNotifier {
             callback,
             drop_user_data,
             user_data,

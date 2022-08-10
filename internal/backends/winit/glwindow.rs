@@ -12,7 +12,7 @@ use std::rc::{Rc, Weak};
 use crate::event_loop::WinitWindow;
 use crate::renderer::{WinitCompatibleCanvas, WinitCompatibleRenderer};
 use const_field_offset::FieldOffsets;
-use corelib::api::{PhysicalPx, RenderingNotifier, SetRenderingNotifierError};
+use corelib::api::PhysicalPx;
 use corelib::component::ComponentRc;
 use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};
@@ -215,15 +215,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
                 mapped_window.canvas.component_destroyed(component)
             }
         }
-    }
-
-    /// This function is called through the public API to register a callback that the backend needs to invoke during
-    /// different phases of rendering.
-    fn set_rendering_notifier(
-        &self,
-        callback: Box<dyn RenderingNotifier>,
-    ) -> std::result::Result<(), SetRenderingNotifierError> {
-        self.renderer.set_rendering_notifier(callback)
     }
 
     fn request_window_properties_update(&self) {
