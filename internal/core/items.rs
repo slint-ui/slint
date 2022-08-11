@@ -832,9 +832,9 @@ declare_item_vtable! {
 #[pin]
 /// The implementation of the `Rotate` element
 pub struct Rotate {
-    pub angle: Property<f32>,
-    pub origin_x: Property<Coord>,
-    pub origin_y: Property<Coord>,
+    pub rotation_angle: Property<f32>,
+    pub rotation_origin_x: Property<Coord>,
+    pub rotation_origin_y: Property<Coord>,
     pub width: Property<Coord>,
     pub height: Property<Coord>,
     pub cached_rendering_data: CachedRenderingData,
@@ -844,7 +844,7 @@ impl Item for Rotate {
     fn init(self: Pin<&Self>, _window: &WindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(0, 0, 0, 0).cast()
+        euclid::rect(0 as _, 0 as _, self.width(), self.height())
     }
 
     fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
@@ -882,9 +882,9 @@ impl Item for Rotate {
         backend: &mut ItemRendererRef,
         _self_rc: &ItemRc,
     ) -> RenderingResult {
-        (*backend).translate(self.origin_x(), self.origin_y());
-        (*backend).rotate(self.angle());
-        (*backend).translate(-self.origin_x(), -self.origin_y());
+        (*backend).translate(self.rotation_origin_x(), self.rotation_origin_y());
+        (*backend).rotate(self.rotation_angle());
+        (*backend).translate(-self.rotation_origin_x(), -self.rotation_origin_y());
         RenderingResult::ContinueRenderingChildren
     }
 }

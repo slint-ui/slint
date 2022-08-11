@@ -139,6 +139,13 @@ pub async fn run_passes(
             diag,
         );
         lower_shadows::lower_shadow_properties(component, &doc.local_registry, diag);
+        lower_property_to_element::lower_property_to_element(
+            component,
+            "rotation-angle",
+            "Rotate",
+            &global_type_registry.borrow(),
+            diag,
+        );
         clip::handle_clip(component, &global_type_registry.borrow(), diag);
         visible::handle_visible(component, &global_type_registry.borrow());
         if compiler_config.accessibility {
