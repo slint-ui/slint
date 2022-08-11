@@ -620,8 +620,8 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             .translate(skia_safe::Vector::from((x * self.scale_factor, y * self.scale_factor)));
     }
 
-    fn rotate(&mut self, _angle_in_degrees: f32) {
-        //todo!()
+    fn rotate(&mut self, angle_in_degrees: f32) {
+        self.canvas.rotate(angle_in_degrees, None);
     }
 
     fn apply_opacity(&mut self, opacity: f32) {
