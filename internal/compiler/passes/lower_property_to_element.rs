@@ -10,7 +10,7 @@ use std::rc::Rc;
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, NamedReference};
 use crate::langtype::Type;
-use crate::object_tree::{self, Component, Element, ElementRc};
+use crate::object_tree::{self, BindingsMap, Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 
 pub(crate) fn lower_property_to_element(
@@ -84,15 +84,30 @@ fn create_property_element(
     element_name: &str,
     type_register: &TypeRegister,
 ) -> ElementRc {
+    let mut bindings: BindingsMap = std::iter::once((
+        property_name.to_owned(),
+        BindingExpression::new_two_way(NamedReference::new(child, property_name)).into(),
+    ))
+    .collect();
+
+    if let Some((prefix, _)) = property_name.split_once("-") {
+        bindings.extend(child.borrow().bindings.keys().flat_map(|prop_name| {
+            if prop_name != property_name && prop_name.starts_with(prefix) {
+                Some((
+                    prop_name.to_owned(),
+                    BindingExpression::new_two_way(NamedReference::new(child, prop_name)).into(),
+                ))
+            } else {
+                None
+            }
+        }));
+    }
+
     let element = Element {
         id: format!("{}-{}", child.borrow().id, property_name),
         base_type: type_register.lookup_element(element_name).unwrap(),
         enclosing_component: child.borrow().enclosing_component.clone(),
-        bindings: std::iter::once((
-            property_name.to_owned(),
-            BindingExpression::new_two_way(NamedReference::new(child, property_name)).into(),
-        ))
-        .collect(),
+        bindings,
         ..Default::default()
     };
     Rc::new(RefCell::new(element))

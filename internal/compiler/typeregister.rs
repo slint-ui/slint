@@ -86,6 +86,12 @@ pub(crate) const RESERVED_DROP_SHADOW_PROPERTIES: &[(&str, Type)] = &[
     ("drop-shadow-color", Type::Color),
 ];
 
+pub(crate) const RESERVED_ROTATION_PROPERTIES: &[(&str, Type)] = &[
+    ("rotation-angle", Type::Angle),
+    ("rotation-origin-x", Type::LogicalLength),
+    ("rotation-origin-y", Type::LogicalLength),
+];
+
 pub(crate) const RESERVED_ACCESSIBILITY_PROPERTIES: &[(&str, Type)] = &[
     //("accessible-role", ...)
     ("accessible-checkable", Type::Bool),
@@ -106,6 +112,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
         .chain(RESERVED_LAYOUT_PROPERTIES.iter())
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
+        .chain(RESERVED_ROTATION_PROPERTIES.iter())
         .chain(RESERVED_ACCESSIBILITY_PROPERTIES.iter())
         .map(|(k, v)| (*k, v.clone()))
         .chain(IntoIterator::into_iter([
