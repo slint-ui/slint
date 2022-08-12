@@ -24,8 +24,6 @@ renderer-skia = ["skia-safe", "glow", "metal", "objc", "core-graphics-types", "f
 rtti = ["i-slint-core/rtti"]
 default = []
 
-renderer-skia-opengl = ["skia-safe/gl", "renderer-skia"]
-
 [dependencies]
 i-slint-core = { version = "=0.2.6", path = "../../../internal/core" }
 i-slint-core-macros = { version = "=0.2.6", path = "../../../internal/core-macros" }
