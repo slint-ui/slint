@@ -17,10 +17,7 @@ use crate::WindowSystemName;
 mod itemrenderer;
 mod textlayout;
 
-#[cfg(any(
-    not(any(target_os = "macos", target_family = "windows")),
-    feature = "renderer-skia-opengl"
-))]
+#[cfg(not(any(target_os = "macos", target_family = "windows")))]
 mod opengl_surface;
 
 #[cfg(target_os = "macos")]
@@ -30,9 +27,9 @@ mod metal_surface;
 mod d3d_surface;
 
 cfg_if::cfg_if! {
-    if #[cfg(all(target_os = "macos", not(feature = "renderer-skia-opengl")))] {
+    if #[cfg(target_os = "macos")] {
         type DefaultSurface = metal_surface::MetalSurface;
-    } else if #[cfg(all(target_family = "windows", not(feature = "renderer-skia-opengl")))] {
+    } else if #[cfg(target_family = "windows")] {
         type DefaultSurface = d3d_surface::D3DSurface;
     } else {
         type DefaultSurface = opengl_surface::OpenGLSurface;
