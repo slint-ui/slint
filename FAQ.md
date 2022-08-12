@@ -5,70 +5,98 @@
   - [Why are you creating a new markup language?](#why-are-you-creating-a-new-markup-language)
   - [Will there be API bindings to integrate with my favorite programming language?](#will-there-be-api-bindings-to-integrate-with-my-favorite-programming-language)
 - [Licensing](#licensing)
-  - [What is the commercial licensing model?](#what-is-the-commercial-licensing-model)
-  - [Can I try Slint using the GPL version and then switch to the commercial license later?](#can-i-try-slint-using-the-gpl-version-and-then-switch-to-the-commercial-license-later)
+  - [What are the commercial licensing options?](#what-are-the-commercial-licensing-options)
+  - [What does perpetual mean?](#what-does-perpetual-mean)
+  - [Are updates included?](#are-updates-included)
+  - [Can I try Slint using the Ambassador option and then switch to the commercial license later?](#can-i-try-slint-using-the-ambassador-option-and-then-switch-to-the-commercial-license-later)
+  - [Can I try Slint using the GPL version and then switch to the commercial license later?](#can-i-try-slint-under-the-gpl-and-then-switch-to-the-commercial-license-later)
   - [Is there a discount or reduction for independent developers or small businesses?](#is-there-a-discount-or-reduction-for-independent-developers-or-small-businesses)
   - [I want to develop a free software product using Slint, but I don't like the GPL and prefer to use a non-copyleft license.](#i-want-to-develop-a-free-software-product-using-slint-but-i-dont-like-the-gpl-and-prefer-to-use-a-non-copyleft-license)
 
-# General
+## General
 
-## Where does the name come from?
+### Where does the name come from?
 
-The name *Slint* is derived from our design goals: **S**traightforward, **Li**ghtweight **N**ative **T**oolkit.
+The name *Slint* is derived from our design goals: **S**calable, **L**ightweight,
+**I**ntuitive, and **N**ative **T**oolkit.
 
-## Why are you creating a new markup language?
+### Why are you creating a new markup language?
 
-We are creating a markup language which is both editable by humans and machines. We hope it is possible
-to pick up and understand, and at the same time strict enough for our tools to analyze and optimize
-to provide a smooth interface on the screen. In our experience, a domain specific, declarative language
-suits this purpose best. Strictly typed binding expressions offer a powerful and robust way for humans
-to declare relationships between properties, even in complex user interfaces.
+We are creating a markup language which is both editable by humans and machines.
+We hope it is possible to pick up and understand, and at the same time strict
+enough for our tools to analyze and optimize to provide a smooth interface on
+the screen. In our experience, a domain specific, declarative language suits
+this purpose best. Strictly typed binding expressions offer a powerful and
+robust way for humans to declare relationships between properties, even in
+complex user interfaces.
 
-## Will there be API bindings to integrate with my favorite programming language?
+### Will there be API bindings to integrate with my favorite programming language?
 
-We want to make it possible to use Slint with any programming language. We do not favor one programming
-language over another. We have chosen to start with three languages:
+We want to make it possible to use Slint with any programming language. We do
+not favor one programming language over another. We have chosen to start with
+three languages:
 
-  * Rust, our implementation language.
-  * C++, another systems programming language we have a lot of experience with.
-  * JavaScript, a popular dynamically typed language.
+- Rust, our implementation language.
+- C++, another systems programming language we have a lot of experience with.
+- JavaScript, a popular dynamically typed language.
 
-This choice builds the foundation that allows us to create bindings for most types of programming
-languages.
+This choice builds the foundation that allows us to create bindings for most
+types of programming languages.
 
-# Licensing
+## Licensing
 
-Slint is available under two licenses:
+You can use Slint under either a [commercial license](./LICENSES/LicenseRef-Slint-commercial.md)
+or [GNU GPLv3](./LICENSES/GPL-3.0-only.txt).
 
- * GPLv3, for the growing ecosystem of Free and Open Source Software.
- * Commercial, for use in closed-source projects. See <https://slint-ui.com/#offering>
+The commercial license can be provided for free if you help us promote Slint: Check out our
+[ambassador program](https://slint-ui.com/ambassador-program.html).
 
-The commercial license is free if you help us promote Slint: Check out our
-[ambassador license](https://slint-ui.com/ambassador-program.html).
+### What are the commercial licensing options?
 
-## What is the commercial licensing model?
+We offer - Ambassador, Flex and Buyout commercial licensing options. All options
+include a non-exclusive, perpetual, irrevocable, non-transferable right to use
+Slint. Updates are included in the Ambassador and Buyout options. With the Flex
+option, updates are included as long as the subscription is active.
 
-The basic principle behind our commercial licensing is that you start for free and pay when you're shipping.
+The Ambassador option is a free license that can be provided in lieu of helping
+us promote Slint.
 
-We offer a perpetual license option and we generally deploy a per-product license, regardless of how many developers, designers, Q&A engineers are using Slint.
+With the Flex option, you can choose the number of User-Seats you would need to
+develop your applications with Slint. Before distribution of such applications
+on embedded devices, you can purchase the required amount of distributions. At
+any point of time, you could also switch to the Buyout option.
 
-If this doesn't fit you, don't hesitate to contact us and we'd be happy to work together to find a solution.
+The Buyout option includes unlimited User-Seats and a prebuy of distribitions of
+your Slint based applications on embedded devices.
 
-You can find a more detailed overview of our commercial licensing and the pricing at <https://slint-ui.com/pricing.html>.
+### What does perpetual mean?
 
-## Can I try Slint using the GPL version and then switch to the commercial license later?
+The perpetual right allows you to use the version(s) of Slint, provided under the
+commercial license, for ever.
 
-Yes. The GPL is a distribution license that applies only when you ship your application. You can
-evaluate Slint and develop your product internally using the GPL license, and only acquire a commercial
-license when you want to ship your product. If you choose a per seat licensing model, the time spent
-developing needs to be accounted for. However, support for bug fixes requires a commercial license.
+### Are updates included?
 
-## Is there a discount or reduction for independent developers or small businesses?
+Yes, updates are included. With the Flex option, updates are included as long as
+the subscription is active.
+
+### Can I try Slint using the Ambassador option and then switch to a paid option later?
+
+Yes. You can start using Slint with the Ambassador option, and switch to a paid
+option later. However we retain the marketing rights obtained under the
+Ambassador Program for existing materials.
+
+### Can I try Slint under the GPL and then switch to the commercial license later?
+
+Yes. You can evaluate Slint using the GPL license, and obtain the commercial
+license after the evaluation, with the option of transferring the code
+developed under the GPL to commercial for free.
+
+### Is there a discount or reduction for independent developers or small businesses?
 
 Yes, check out our [Ambassador program](https://slint-ui.com/ambassador-program.html)
 
-## I want to develop a free software product using Slint, but I don't like the GPL and prefer to use a non-copyleft license.
+### I want to develop a free software product using Slint, but I don't like the GPL and prefer to use a non-copyleft license
 
-You can still publish your own source code under a permissive license compatible with the GPL, such as BSD, MIT, or Apache license.
-The distribution of a binary or a package containing Slint still needs to be licensed under the GPL.
-It is up to those who want to distribute a non-free version of the application to acquire a commercial license.
+You can publish your own source code under a permissive license compatible with
+the GPL, such as BSD, MIT, or Apache license. However, the binary or the package
+containing Slint needs to be licensed under GPL.
