@@ -78,11 +78,13 @@ export Demo := Window {
   function select_combo_changed() {
     if (select.value) {
       let tag = "master";
-      var found;
-      if (
-        (found = window.location.pathname.match(/releases\/([^\/]*)\/editor/))
-      ) {
-        tag = "v" + found[1];
+      {
+        let found;
+        if (
+          (found = window.location.pathname.match(/releases\/([^\/]*)\/editor/))
+        ) {
+          tag = "v" + found[1];
+        }
       }
       load_from_url(
         `https://raw.githubusercontent.com/slint-ui/slint/${tag}/${select.value}`
