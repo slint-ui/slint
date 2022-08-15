@@ -15,8 +15,9 @@ import "monaco-editor/esm/vs/editor/standalone/browser/referenceSearch/standalon
 
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 (self as any).MonacoEnvironment = {
-  getWorker(_: any, _label: any) {
+  getWorker(_: unknown, _label: unknown) {
     return new Worker(new URL("monaco_worker.js", import.meta.url), {
       type: "module",
     });
@@ -51,7 +52,7 @@ import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
   /// Index by url. Inline documents will use the empty string.
   const editor_documents: Map<string, ModelAndViewState> = new Map();
 
-  let hello_world = `import { Button, VerticalBox } from "std-widgets.slint";
+  const hello_world = `import { Button, VerticalBox } from "std-widgets.slint";
 export Demo := Window {
     VerticalBox {
         Text {
@@ -72,20 +73,20 @@ export Demo := Window {
     fetch(url).then((x) =>
       x.text().then((y) => {
         base_url = url;
-        let model = createMainModel(y, url);
+        const model = createMainModel(y, url);
         addTab(model, url);
       })
     );
   }
 
-  let select = <HTMLInputElement>document.getElementById("select_combo");
+  const select = <HTMLInputElement>document.getElementById("select_combo");
   function select_combo_changed() {
     if (select.value) {
       let tag = "master";
       {
         let found;
         if (
-          (found = window.location.pathname.match(/releases\/([^\/]*)\/editor/))
+          (found = window.location.pathname.match(/releases\/([^/]*)\/editor/))
         ) {
           tag = "v" + found[1];
         }
@@ -96,25 +97,27 @@ export Demo := Window {
     } else {
       clearTabs();
       base_url = "";
-      let model = createMainModel(hello_world, "");
+      const model = createMainModel(hello_world, "");
       addTab(model);
     }
   }
   select.onchange = select_combo_changed;
 
-  let style_combo = <HTMLInputElement>document.getElementById("style_combo");
+  const style_combo = <HTMLInputElement>document.getElementById("style_combo");
   if (style_combo) {
     style_combo.onchange = update_preview;
   }
 
-  let compile_button = <HTMLButtonElement>(
+  const compile_button = <HTMLButtonElement>(
     document.getElementById("compile_button")
   );
   compile_button.onclick = function () {
     update_preview();
   };
 
-  let auto_compile = <HTMLInputElement>document.getElementById("auto_compile");
+  const auto_compile = <HTMLInputElement>(
+    document.getElementById("auto_compile")
+  );
   auto_compile.onchange = function () {
     if (auto_compile.checked) {
       update_preview();
@@ -126,8 +129,8 @@ export Demo := Window {
       return "unnamed.slint";
     }
     try {
-      let parsed_url = new URL(url);
-      let path = parsed_url.pathname;
+      const parsed_url = new URL(url);
+      const path = parsed_url.pathname;
       return path.substring(path.lastIndexOf("/") + 1);
     } catch (e) {
       return url;
@@ -147,10 +150,10 @@ export Demo := Window {
     source: string,
     url: string
   ): monaco.editor.ITextModel {
-    let model = monaco.editor.createModel(source, "slint");
+    const model = monaco.editor.createModel(source, "slint");
     model.onDidChangeContent(function () {
-      let permalink = <HTMLAnchorElement>document.getElementById("permalink");
-      let params = new URLSearchParams();
+      const permalink = <HTMLAnchorElement>document.getElementById("permalink");
+      const params = new URLSearchParams();
       params.set("snippet", editor.getModel()?.getValue() || "");
       const this_url = new URL(window.location.toString());
       this_url.search = params.toString();
@@ -163,14 +166,14 @@ export Demo := Window {
   }
 
   function clearTabs() {
-    let tab_bar = document.getElementById("tabs") as HTMLUListElement;
+    const tab_bar = document.getElementById("tabs") as HTMLUListElement;
     tab_bar.innerHTML = "";
     editor_documents.clear();
   }
 
-  function addTab(_model: monaco.editor.ITextModel, url: string = "") {
-    let tab_bar = document.getElementById("tabs") as HTMLUListElement;
-    let tab = document.createElement("li");
+  function addTab(_model: monaco.editor.ITextModel, url = "") {
+    const tab_bar = document.getElementById("tabs") as HTMLUListElement;
+    const tab = document.createElement("li");
     tab.setAttribute("class", "nav-item");
     tab.dataset["url"] = url;
     tab.innerHTML = `<span class="nav-link">${tabTitleFromURL(url)}</span>`;
@@ -185,13 +188,13 @@ export Demo := Window {
   }
 
   function setCurrentTab(url: string) {
-    let current_tab = document.querySelector(
+    const current_tab = document.querySelector(
       `#tabs li[class~="nav-item"] span[class~="nav-link"][class~="active"]`
     );
     if (current_tab != undefined) {
       current_tab.className = "nav-link";
 
-      let url = current_tab.parentElement?.dataset.url;
+      const url = current_tab.parentElement?.dataset.url;
       if (url != undefined) {
         const model_and_state = editor_documents.get(url);
         if (model_and_state !== undefined) {
@@ -200,13 +203,13 @@ export Demo := Window {
         }
       }
     }
-    let new_current = document.querySelector(
+    const new_current = document.querySelector(
       `#tabs li[class~="nav-item"][data-url="${url}"] span[class~="nav-link"]`
     );
     if (new_current != undefined) {
       new_current.className = "nav-link active";
     }
-    let model_and_state = editor_documents.get(url);
+    const model_and_state = editor_documents.get(url);
     if (model_and_state != undefined) {
       editor.setModel(model_and_state.model);
       if (model_and_state.view_state != null) {
@@ -217,12 +220,12 @@ export Demo := Window {
   }
 
   function update_preview() {
-    let main_model_and_state = editor_documents.get(base_url);
+    const main_model_and_state = editor_documents.get(base_url);
     if (main_model_and_state === undefined) {
       return;
     }
-    let source = main_model_and_state.model.getValue();
-    let div = document.getElementById("preview") as HTMLDivElement;
+    const source = main_model_and_state.model.getValue();
+    const div = document.getElementById("preview") as HTMLDivElement;
     setTimeout(function () {
       render_or_error(source, base_url, div);
     }, 1);
@@ -233,29 +236,29 @@ export Demo := Window {
     base_url: string,
     div: HTMLDivElement
   ) {
-    let style =
+    const style =
       (<HTMLInputElement>document.getElementById("style_combo"))?.value ??
       "fluent";
 
-    let canvas_id = "canvas_" + Math.random().toString(36).slice(2, 11);
-    let canvas = document.createElement("canvas");
+    const canvas_id = "canvas_" + Math.random().toString(36).slice(2, 11);
+    const canvas = document.createElement("canvas");
     canvas.width = 800;
     canvas.height = 600;
     canvas.id = canvas_id;
     div.innerHTML = "";
     div.appendChild(canvas);
-    var markers = [];
-    let { component, diagnostics, error_string } =
+    let markers = [];
+    const { component, diagnostics, error_string } =
       await slint.compile_from_string_with_style(
         source,
         base_url,
         style,
         async (url: string): Promise<string> => {
-          let model_and_state = editor_documents.get(url);
+          const model_and_state = editor_documents.get(url);
           if (model_and_state === undefined) {
             const response = await fetch(url);
-            let doc = await response.text();
-            let model = monaco.editor.createModel(doc, "slint");
+            const doc = await response.text();
+            const model = monaco.editor.createModel(doc, "slint");
             model.onDidChangeContent(function () {
               maybe_update_preview_automatically();
             });
@@ -268,8 +271,8 @@ export Demo := Window {
       );
 
     if (error_string != "") {
-      let text = document.createTextNode(error_string);
-      let p = document.createElement("pre");
+      const text = document.createTextNode(error_string);
+      const p = document.createElement("pre");
       p.appendChild(text);
       div.innerHTML =
         "<pre style='color: red; background-color:#fee; margin:0'>" +
@@ -306,14 +309,14 @@ export Demo := Window {
 
   if (code) {
     clearTabs();
-    let model = createMainModel(code, "");
+    const model = createMainModel(code, "");
     addTab(model);
   } else if (load_url) {
     load_from_url(load_url);
   } else {
     clearTabs();
     base_url = "";
-    let model = createMainModel(hello_world, "");
+    const model = createMainModel(hello_world, "");
     addTab(model);
   }
 })();

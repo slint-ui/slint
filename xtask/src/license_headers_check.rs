@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore datetime dotdot
+
 use anyhow::Context;
 use anyhow::Result;
 use lazy_static::lazy_static;
@@ -293,6 +295,7 @@ lazy_static! {
         (".+\\.sublime-commands$", LicenseLocation::NoLicense),
         (".+\\.sublime-syntax$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         (".+\\.tmPreferences$", LicenseLocation::NoLicense),
+        ("\\.eslintrc.yml$", LicenseLocation::NoLicense),
         ("\\.clang-format$", LicenseLocation::NoLicense),
         (".+Dockerfile.*$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("^api/cpp/docs/Pipfile$", LicenseLocation::NoLicense),

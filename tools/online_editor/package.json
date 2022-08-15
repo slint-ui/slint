@@ -6,7 +6,7 @@
   "scripts": {
     "build": "rimraf dist pkg && npx vite build",
     "build:wasm_preview": "wasm-pack build --target web ../../api/wasm-interpreter",
-    "lint": "eslint .",
+    "lint": "eslint *.ts",
     "start": "rimraf dist && npm run build:wasm_preview && npn start:vite",
     "start:vite": "vite --open",
     "syntax_check": "tsc --noemit"
@@ -19,8 +19,9 @@
     "npm": "^8.9.0"
   },
   "devDependencies": {
+    "@typescript-eslint/eslint-plugin": "^5.33.0",
+    "@typescript-eslint/parser": "^5.33.0",
     "eslint": "^8.22.0",
-    "eslint-config-standard-with-typescript": "^22.0.0",
     "rimraf": "^3.0.2",
     "typescript": "^4.7.4",
     "vite": "^2.9.8"

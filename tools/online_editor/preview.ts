@@ -6,10 +6,10 @@ import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
 (async function () {
   await slint_init();
 
-  var base_url = "";
+  let base_url = "";
 
   /// Index by url. Inline documents will use the empty string.
-  var loaded_documents: Map<string, string> = new Map();
+  const loaded_documents: Map<string, string> = new Map();
 
   let main_source = `
 import { SpinBox, Button, CheckBox, Slider, GroupBox } from "std-widgets.slint";
@@ -28,7 +28,7 @@ export Demo := Window {
 `;
 
   function update_preview() {
-    let div = document.getElementById("preview") as HTMLDivElement;
+    const div = document.getElementById("preview") as HTMLDivElement;
     setTimeout(function () {
       render_or_error(main_source, base_url, div);
     }, 1);
@@ -39,24 +39,24 @@ export Demo := Window {
     base_url: string,
     div: HTMLDivElement
   ) {
-    let canvas_id = "canvas_" + Math.random().toString(36).slice(2, 11);
-    let canvas = document.createElement("canvas");
+    const canvas_id = "canvas_" + Math.random().toString(36).slice(2, 11);
+    const canvas = document.createElement("canvas");
     canvas.width = 800;
     canvas.height = 600;
     canvas.id = canvas_id;
     div.innerHTML = "";
     div.appendChild(canvas);
 
-    let { component, error_string } =
+    const { component, error_string } =
       await slint.compile_from_string_with_style(
         source,
         base_url,
         style,
         async (url: string): Promise<string> => {
-          let file_source = loaded_documents.get(url);
+          const file_source = loaded_documents.get(url);
           if (file_source === undefined) {
             const response = await fetch(url);
-            let doc = await response.text();
+            const doc = await response.text();
             loaded_documents.set(url, doc);
             return doc;
           }
@@ -65,8 +65,8 @@ export Demo := Window {
       );
 
     if (error_string != "") {
-      let text = document.createTextNode(error_string);
-      let p = document.createElement("pre");
+      const text = document.createTextNode(error_string);
+      const p = document.createElement("pre");
       p.appendChild(text);
       div.innerHTML =
         "<pre style='color: red; background-color:#fee; margin:0'>" +
