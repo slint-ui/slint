@@ -10,7 +10,6 @@
   "keywords": [],
   "author": "",
   "dependencies": {
-    "@types/jquery": "^3.5.4",
     "install": "^0.13.0",
     "monaco-editor": "^0.33",
     "npm": "^8.9.0"

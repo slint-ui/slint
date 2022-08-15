@@ -6,7 +6,6 @@
     "target": "es2020",
     "outDir": "./dist",
     "lib": ["dom", "es6", "es2015.collection", "es2015.promise"],
-    "types": ["jquery"],
     "baseUrl": "./node_modules",
     "jsx": "preserve",
     "typeRoots": ["node_modules/@types"]
