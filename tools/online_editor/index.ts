@@ -16,9 +16,9 @@ import "monaco-editor/esm/vs/editor/standalone/browser/referenceSearch/standalon
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
 (self as any).MonacoEnvironment = {
-  getWorker(_: any, label: any) {
+  getWorker(_: any, _label: any) {
     return new Worker(
-      new URL("monaco-editor/esm/vs/editor/editor.worker", import.meta.url),
+      new URL("monaco-editor/esm/vs/editor/editor.worker.js", import.meta.url),
       { type: "module" }
     );
   },
@@ -169,7 +169,7 @@ export Demo := Window {
     editor_documents.clear();
   }
 
-  function addTab(model: monaco.editor.ITextModel, url: string = "") {
+  function addTab(_model: monaco.editor.ITextModel, url: string = "") {
     let tab_bar = document.getElementById("tabs") as HTMLUListElement;
     let tab = document.createElement("li");
     tab.setAttribute("class", "nav-item");
@@ -238,7 +238,7 @@ export Demo := Window {
       (<HTMLInputElement>document.getElementById("style_combo"))?.value ??
       "fluent";
 
-    let canvas_id = "canvas_" + Math.random().toString(36).substr(2, 9);
+    let canvas_id = "canvas_" + Math.random().toString(36).slice(2, 11);
     let canvas = document.createElement("canvas");
     canvas.width = 800;
     canvas.height = 600;
