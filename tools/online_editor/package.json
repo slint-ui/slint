@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "syntax_check": "tsc --noemit",
-    "start": "rimraf dist && wasm-pack build --target web ../../api/wasm-interpreter && vite --open",
+    "build:wasm_preview": "wasm-pack build --target web ../../api/wasm-interpreter",
+    "start": "rimraf dist && npm run build:wasm_preview && vite --open",
     "build": "rimraf dist pkg && npx vite build"
   },
   "keywords": [],
