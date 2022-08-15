@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { defineConfig } from "vite";
-export default defineConfig(({ command, mode }) => {
-  let base_config = {
+export default defineConfig(({ command, _mode }) => {
+  const base_config = {
     server: {
       fs: {
         // Allow serving files from the project root
