@@ -39,7 +39,7 @@ export Demo := Window {
     base_url: string,
     div: HTMLDivElement
   ) {
-    let canvas_id = "canvas_" + Math.random().toString(36).substr(2, 9);
+    let canvas_id = "canvas_" + Math.random().toString(36).slice(2, 11);
     let canvas = document.createElement("canvas");
     canvas.width = 800;
     canvas.height = 600;
