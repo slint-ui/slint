@@ -30,7 +30,7 @@ export const slint_language = <monaco.languages.IMonarchLanguage>{
   escapes:
     /\\(?:[abfnrtv\\"']|x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8})/,
 
-  symbols: /[\#\!\%\&\*\+\-\.\/\:\;\<\=\>\@\^\|_\?,()]+/,
+  symbols: /[#!%&*+\-./:;<=>@^|_?,()]+/,
 
   tokenizer: {
     root: [
@@ -50,11 +50,11 @@ export const slint_language = <monaco.languages.IMonarchLanguage>{
       [/@symbols/, ""],
     ],
     inner: [
-      [/[a-zA-Z_][a-zA-Z0-9_\-]*\s*:=/, "variable.parameter"],
-      [/[a-zA-Z_][a-zA-Z0-9_\-]*\s*:\s*\{/, "variable.parameter", "@binding_1"],
-      [/[a-zA-Z_][a-zA-Z0-9_\-]*\s*:/, "variable.parameter", "@binding_0"],
+      [/[a-zA-Z_][a-zA-Z0-9_-]*\s*:=/, "variable.parameter"],
+      [/[a-zA-Z_][a-zA-Z0-9_-]*\s*:\s*\{/, "variable.parameter", "@binding_1"],
+      [/[a-zA-Z_][a-zA-Z0-9_-]*\s*:/, "variable.parameter", "@binding_0"],
       [
-        /[a-zA-Z_][a-zA-Z0-9_\-]*/,
+        /[a-zA-Z_][a-zA-Z0-9_-]*/,
         {
           cases: {
             "@inner_keywords": { token: "keyword" },
@@ -70,7 +70,7 @@ export const slint_language = <monaco.languages.IMonarchLanguage>{
       [/:=/, ""],
       [/<=>/, "", "@binding_0"],
       [/=>\s*{/, "", "@binding_1"],
-      [/\</, "", "@type"],
+      [/</, "", "@type"],
       [/\[/, "", "binding_1"],
       [/@symbols/, ""],
     ],
@@ -88,8 +88,8 @@ export const slint_language = <monaco.languages.IMonarchLanguage>{
       { include: "@whitespace" },
       { include: "@numbers" },
       [/"/, "string", "@string"],
-      [/\</, "", "@push"],
-      [/\>/, "", "@pop"],
+      [/</, "", "@push"],
+      [/>/, "", "@pop"],
       [/@symbols/, ""],
     ],
 
@@ -146,10 +146,10 @@ export const slint_language = <monaco.languages.IMonarchLanguage>{
       [/"/, "string", "@pop"],
     ],
     comment: [
-      [/[^\/*]+/, "comment"],
+      [/[^/*]+/, "comment"],
       [/\/\*/, "comment", "@push"],
       ["\\*/", "comment", "@pop"],
-      [/[\/*]/, "comment"],
+      [/[/*]/, "comment"],
     ],
 
     numbers: [
