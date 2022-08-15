@@ -1,29 +1,16 @@
 {
-    "compilerOptions": {
-        "sourceMap": true,
-        "module": "esnext",
-        "moduleResolution": "node",
-        "target": "es2020",
-        "outDir": "./dist",
-        "lib": [
-            "dom",
-            "es6",
-            "es2015.collection",
-            "es2015.promise"
-        ],
-        "types": [
-            "jquery"
-        ],
-        "baseUrl": "./node_modules",
-        "jsx": "preserve",
-        "typeRoots": [
-            "node_modules/@types"
-        ]
-    },
-    "include": [
-        "./*.ts"
-    ],
-    "exclude": [
-        "node_modules"
-    ]
+  "compilerOptions": {
+    "sourceMap": true,
+    "module": "esnext",
+    "moduleResolution": "node",
+    "target": "es2020",
+    "outDir": "./dist",
+    "lib": ["dom", "es6", "es2015.collection", "es2015.promise"],
+    "types": ["jquery"],
+    "baseUrl": "./node_modules",
+    "jsx": "preserve",
+    "typeRoots": ["node_modules/@types"]
+  },
+  "include": ["./*.ts"],
+  "exclude": ["node_modules"]
 }
