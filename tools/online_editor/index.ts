@@ -169,7 +169,7 @@ export Demo := Window {
     tab.dataset["url"] = url;
     tab.innerHTML = `<span class="nav-link">${tabTitleFromURL(url)}</span>`;
     tab_bar.appendChild(tab);
-    $(tab).on("click", (e) => {
+    tab.addEventListener("click", (e) => {
       e.preventDefault();
       setCurrentTab(url);
     });
