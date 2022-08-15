@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-import slint_init, * as slint from "../../../wasm-interpreter/slint_wasm_interpreter.js";
+import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
 
 (async function () {
   await slint_init();

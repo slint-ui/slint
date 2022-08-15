@@ -17,8 +17,7 @@ export default defineConfig(({ command, mode }) => {
     // For development builds, serve the wasm interpreter straight out of the local file system.
     base_config.resolve = {
       alias: {
-        "../../../wasm-interpreter/slint_wasm_interpreter.js":
-          "../../api/wasm-interpreter/pkg/slint_wasm_interpreter.js",
+        "@preview/": "../../api/wasm-interpreter/pkg/",
       },
     };
   } else {
@@ -29,6 +28,11 @@ export default defineConfig(({ command, mode }) => {
     base_config.build.rollupOptions = {
       external: ["../../../wasm-interpreter/slint_wasm_interpreter.js"],
       input: ["index.html", "preview.html"],
+    };
+    base_config.resolve = {
+      alias: {
+        "@preview/": "../../../wasm-interpreter/pkg/",
+      },
     };
   }
 

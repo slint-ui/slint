@@ -8,6 +8,9 @@
     "lib": ["dom", "es6", "es2015.collection", "es2015.promise"],
     "baseUrl": "./node_modules",
     "jsx": "preserve",
+    "paths": {
+      "@preview/*": ["../../../api/wasm-interpreter/pkg/*"]
+    },
     "typeRoots": ["node_modules/@types"]
   },
   "include": ["./*.ts"],
