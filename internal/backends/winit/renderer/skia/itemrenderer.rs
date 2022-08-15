@@ -216,9 +216,11 @@ impl<'a> SkiaRenderer<'a> {
                 }
                 ImageInner::StaticTextures(_) => todo!(),
             }
-            .and_then(|skia_image| match colorize_property {
-                Some(colorize_property) => self.colorize_image(skia_image, colorize_property.get()),
-                None => Some(skia_image),
+            .and_then(|skia_image| {
+                match colorize_property.map(|p| p.get()).filter(|c| !c.is_transparent()) {
+                    Some(color) => self.colorize_image(skia_image, color),
+                    None => Some(skia_image),
+                }
             })
         });
 
