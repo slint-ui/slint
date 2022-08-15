@@ -3,9 +3,10 @@
     "sourceMap": true,
     "module": "esnext",
     "moduleResolution": "node",
+    "strict": true,
     "target": "es2020",
     "outDir": "./dist",
-    "lib": ["dom", "es6", "es2015.collection", "es2015.promise"],
+    "lib": ["dom", "es6"],
     "baseUrl": "./node_modules",
     "jsx": "preserve",
     "paths": {

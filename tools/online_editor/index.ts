@@ -15,11 +15,12 @@ import "monaco-editor/esm/vs/editor/standalone/browser/referenceSearch/standalon
 
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
-import editorWorker from "monaco-editor/esm/vs/editor/editor.worker?worker";
-
-self.MonacoEnvironment = {
-  getWorker(_, label) {
-    return new editorWorker();
+(self as any).MonacoEnvironment = {
+  getWorker(_: any, label: any) {
+    return new Worker(
+      new URL("monaco-editor/esm/vs/editor/editor.worker", import.meta.url),
+      { type: "module" }
+    );
   },
 };
 
@@ -34,18 +35,22 @@ import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
   monaco.languages.onLanguage("slint", () => {
     monaco.languages.setMonarchTokensProvider("slint", slint_language);
   });
-  var editor = monaco.editor.create(document.getElementById("editor"), {
+  const editor_element = document.getElementById("editor");
+  if (!editor_element) {
+    return;
+  }
+  const editor = monaco.editor.create(editor_element, {
     language: "slint",
   });
-  var base_url = "";
+  let base_url = "";
 
   interface ModelAndViewState {
     model: monaco.editor.ITextModel;
-    view_state: monaco.editor.ICodeEditorViewState;
+    view_state: monaco.editor.ICodeEditorViewState | null;
   }
 
   /// Index by url. Inline documents will use the empty string.
-  var editor_documents: Map<string, ModelAndViewState> = new Map();
+  const editor_documents: Map<string, ModelAndViewState> = new Map();
 
   let hello_world = `import { Button, VerticalBox } from "std-widgets.slint";
 export Demo := Window {
@@ -147,8 +152,8 @@ export Demo := Window {
     model.onDidChangeContent(function () {
       let permalink = <HTMLAnchorElement>document.getElementById("permalink");
       let params = new URLSearchParams();
-      params.set("snippet", editor.getModel().getValue());
-      let this_url = new URL(window.location.toString());
+      params.set("snippet", editor.getModel()?.getValue() || "");
+      const this_url = new URL(window.location.toString());
       this_url.search = params.toString();
       permalink.href = this_url.toString();
       maybe_update_preview_automatically();
@@ -186,11 +191,14 @@ export Demo := Window {
     );
     if (current_tab != undefined) {
       current_tab.className = "nav-link";
-      let url = current_tab.parentElement.dataset.url;
+
+      let url = current_tab.parentElement?.dataset.url;
       if (url != undefined) {
-        let model_and_state = editor_documents.get(url);
-        model_and_state.view_state = editor.saveViewState();
-        editor_documents.set(url, model_and_state);
+        const model_and_state = editor_documents.get(url);
+        if (model_and_state !== undefined) {
+          model_and_state.view_state = editor.saveViewState();
+          editor_documents.set(url, model_and_state);
+        }
       }
     }
     let new_current = document.querySelector(
@@ -281,7 +289,10 @@ export Demo := Window {
         endColumn: -1,
       };
     });
-    monaco.editor.setModelMarkers(editor.getModel(), "slint", markers);
+    const model = editor.getModel();
+    if (model !== null) {
+      monaco.editor.setModelMarkers(model, "slint", markers);
+    }
 
     if (component !== undefined) {
       component.run(canvas_id);

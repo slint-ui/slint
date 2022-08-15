@@ -73,7 +73,10 @@ export Demo := Window {
         p.innerHTML +
         "</pre>";
     } else {
-      document.getElementById("spinner").remove();
+      const spinner = document.getElementById("spinner");
+      if (spinner !== null) {
+        spinner.remove();
+      }
     }
 
     if (component !== undefined) {
