@@ -10,16 +10,23 @@ use std::rc::Rc;
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, NamedReference};
 use crate::langtype::Type;
-use crate::object_tree::{self, BindingsMap, Component, Element, ElementRc};
+use crate::object_tree::{self, Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 
+// If any element in `component` declares a binding to the first property in `properties`, then a new
+// element of type `element_name` is created, injected as a parent to the element and bindings to all
+// remaining properties in `properties` are mapped. This way for example ["rotation-angle", "rotation-origin-x", "rotation-origin-y"]
+// creates a `Rotate` element when `rotation-angle` is used and any optional `rotation-origin-*` bindings are redirected to the
+// `Rotate` element.
 pub(crate) fn lower_property_to_element(
     component: &Rc<Component>,
-    property_name: &str,
+    properties: &[(&str, Type)],
     element_name: &str,
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
+    let property_name = properties[0].0;
+
     if let Some(b) = component.root_element.borrow().bindings.get(property_name) {
         diag.push_warning(
             format!(
@@ -59,7 +66,7 @@ pub(crate) fn lower_property_to_element(
                         &child,
                         create_property_element(
                             &root_elem,
-                            property_name,
+                            properties,
                             element_name,
                             type_register,
                         ),
@@ -67,7 +74,7 @@ pub(crate) fn lower_property_to_element(
                 }
             } else if has_property_binding(&child) {
                 let new_child =
-                    create_property_element(&child, property_name, element_name, type_register);
+                    create_property_element(&child, properties, element_name, type_register);
                 crate::object_tree::adjust_geometry_for_injected_parent(&new_child, &child);
                 new_child.borrow_mut().children.push(child);
                 child = new_child;
@@ -80,31 +87,27 @@ pub(crate) fn lower_property_to_element(
 
 fn create_property_element(
     child: &ElementRc,
-    property_name: &str,
+    properties: &[(&str, Type)],
     element_name: &str,
     type_register: &TypeRegister,
 ) -> ElementRc {
-    let mut bindings: BindingsMap = std::iter::once((
-        property_name.to_owned(),
-        BindingExpression::new_two_way(NamedReference::new(child, property_name)).into(),
-    ))
-    .collect();
-
-    if let Some((prefix, _)) = property_name.split_once("-") {
-        bindings.extend(child.borrow().bindings.keys().flat_map(|prop_name| {
-            if prop_name != property_name && prop_name.starts_with(prefix) {
+    let bindings = properties
+        .iter()
+        .filter_map(|(property_name, _)| {
+            if child.borrow().bindings.contains_key(*property_name) {
                 Some((
-                    prop_name.to_owned(),
-                    BindingExpression::new_two_way(NamedReference::new(child, prop_name)).into(),
+                    property_name.to_string(),
+                    BindingExpression::new_two_way(NamedReference::new(child, property_name))
+                        .into(),
                 ))
             } else {
                 None
             }
-        }));
-    }
+        })
+        .collect();
 
     let element = Element {
-        id: format!("{}-{}", child.borrow().id, property_name),
+        id: format!("{}-{}", child.borrow().id, properties[0].0),
         base_type: type_register.lookup_element(element_name).unwrap(),
         enclosing_component: child.borrow().enclosing_component.clone(),
         bindings,
