@@ -40,6 +40,8 @@ jobs:
     - name: Compile online editor
       run: |
           npm install
+          npm run syntax_check
+          npm run lint
           npm run build
       working-directory: tools/online_editor
     - name: Clean wasm build artefacts from previous editor build
