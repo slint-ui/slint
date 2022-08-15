@@ -27,7 +27,7 @@ export default defineConfig(({ command, _mode }) => {
     base_config.build = {};
     base_config.build.rollupOptions = {
       external: ["../../../wasm-interpreter/slint_wasm_interpreter.js"],
-      input: ["index.html", "preview.html"],
+      input: ["index.html", "preview.html", "monaco_worker.js"],
     };
     base_config.resolve = {
       alias: {
