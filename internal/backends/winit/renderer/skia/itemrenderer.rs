@@ -4,11 +4,10 @@
 use std::pin::Pin;
 use std::rc::Rc;
 
-use i_slint_core::api::euclid::approxeq::ApproxEq;
-use i_slint_core::graphics::{euclid, IntSize, SharedImageBuffer};
+use i_slint_core::graphics::euclid;
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
-use i_slint_core::{items, Brush, Color, ImageInner, Property};
+use i_slint_core::{items, Brush, Color, Property};
 
 #[derive(Clone, Copy)]
 struct RenderState {
@@ -129,99 +128,15 @@ impl<'a> SkiaRenderer<'a> {
         // TODO: avoid doing creating an SkImage multiple times when the same source is used in multiple image elements
         let skia_image = self.image_cache.get_or_update_cache_entry(item_rc, || {
             let image = source_property.get();
-            let image_inner: &ImageInner = (&image).into();
-            match image_inner {
-                ImageInner::None => None,
-                ImageInner::EmbeddedImage { buffer, .. } => {
-                    let (data, bpl, size, color_type, alpha_type) = match buffer {
-                        SharedImageBuffer::RGB8(pixels) => {
-                            // RGB888 with one byte per component is not supported by Skia right now. Convert once to RGBA8 :-(
-                            let rgba = pixels
-                                .as_bytes()
-                                .chunks(3)
-                                .flat_map(|rgb| {
-                                    IntoIterator::into_iter([rgb[0], rgb[1], rgb[2], 255])
-                                })
-                                .collect::<Vec<u8>>();
-                            (
-                                skia_safe::Data::new_copy(&*rgba),
-                                pixels.stride() as usize * 4,
-                                pixels.size(),
-                                skia_safe::ColorType::RGBA8888,
-                                skia_safe::AlphaType::Unpremul,
-                            )
-                        }
-                        SharedImageBuffer::RGBA8(pixels) => (
-                            skia_safe::Data::new_copy(pixels.as_bytes()),
-                            pixels.stride() as usize * 4,
-                            pixels.size(),
-                            skia_safe::ColorType::RGBA8888,
-                            skia_safe::AlphaType::Unpremul,
-                        ),
-                        SharedImageBuffer::RGBA8Premultiplied(pixels) => (
-                            skia_safe::Data::new_copy(pixels.as_bytes()),
-                            pixels.stride() as usize * 4,
-                            pixels.size(),
-                            skia_safe::ColorType::RGBA8888,
-                            skia_safe::AlphaType::Premul,
-                        ),
-                    };
-
-                    let image_info = skia_safe::ImageInfo::new(
-                        skia_safe::ISize::new(size.width as i32, size.height as i32),
-                        color_type,
-                        alpha_type,
-                        None,
-                    );
-
-                    skia_safe::image::Image::from_raster_data(&image_info, data, bpl)
-                }
-                ImageInner::Svg(svg) => {
-                    // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
-                    let target_width = target_width.get();
-                    let target_height = target_height.get();
-
-                    let has_source_clipping = source_rect.map_or(false, |rect| {
-                        !rect.is_empty()
-                            && (rect.left != 0.
-                                || rect.top != 0.
-                                || !rect.width().approx_eq(&target_width)
-                                || !rect.height().approx_eq(&target_height))
-                    });
-                    let source_size = if !has_source_clipping {
-                        Some(IntSize::new(target_width as u32, target_height as u32))
-                    } else {
-                        // Source size & clipping is not implemented yet
-                        None
-                    };
-
-                    let pixels = match svg.render(source_size.unwrap_or_default()).ok()? {
-                        SharedImageBuffer::RGB8(_) => unreachable!(),
-                        SharedImageBuffer::RGBA8(_) => unreachable!(),
-                        SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels,
-                    };
-
-                    let image_info = skia_safe::ImageInfo::new(
-                        skia_safe::ISize::new(pixels.width() as i32, pixels.height() as i32),
-                        skia_safe::ColorType::RGBA8888,
-                        skia_safe::AlphaType::Premul,
-                        None,
-                    );
-
-                    skia_safe::image::Image::from_raster_data(
-                        &image_info,
-                        skia_safe::Data::new_copy(pixels.as_bytes()),
-                        pixels.stride() as usize * 4,
-                    )
-                }
-                ImageInner::StaticTextures(_) => todo!(),
-            }
-            .and_then(|skia_image| {
-                match colorize_property.map(|p| p.get()).filter(|c| !c.is_transparent()) {
+            super::cached_image::as_skia_image(image, target_width, target_height).and_then(
+                |skia_image| match colorize_property
+                    .map(|p| p.get())
+                    .filter(|c| !c.is_transparent())
+                {
                     Some(color) => self.colorize_image(skia_image, color),
                     None => Some(skia_image),
-                }
-            })
+                },
+            )
         });
 
         let skia_image = match skia_image {

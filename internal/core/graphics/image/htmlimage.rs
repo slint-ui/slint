@@ -3,6 +3,7 @@
 
 use alloc::rc::Rc;
 
+use super::ImageCacheKey;
 use crate::graphics::IntSize;
 use crate::Property;
 
@@ -56,4 +57,11 @@ impl HTMLImage {
     }
 }
 
-impl super::OpaqueRc for HTMLImage {}
+impl super::OpaqueImage for HTMLImage {
+    fn size(&self) -> IntSize {
+        self.size().unwrap_or_default()
+    }
+    fn cache_key(&self) -> ImageCacheKey {
+        ImageCacheKey::URL(self.source().into())
+    }
+}

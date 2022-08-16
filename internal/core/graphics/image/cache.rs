@@ -24,11 +24,12 @@ impl clru::WeightScale<ImageCacheKey, ImageInner> for ImageWeightInBytes {
             #[cfg(target_arch = "wasm32")]
             ImageInner::HTMLImage(_) => 512, // Something... the web browser maintainers its own cache. The purpose of this cache is to reduce the amount of DOM elements.
             ImageInner::StaticTextures(_) => 0,
+            ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).size().area() as usize,
         }
     }
 }
 
-// Cache used to avoid repeatedly decoding images from disk.
+/// Cache used to avoid repeatedly decoding images from disk.
 pub(crate) struct ImageCache(
     clru::CLruCache<
         ImageCacheKey,
@@ -167,4 +168,13 @@ fn dynamic_image_to_shared_image_buffer(dynamic_image: image::DynamicImage) -> S
             rgb8image.height(),
         ))
     }
+}
+
+/// Replace the cached image key with the given value
+pub fn replace_cached_image(key: ImageCacheKey, value: ImageInner) {
+    if key == ImageCacheKey::Invalid {
+        return;
+    }
+    let _ =
+        IMAGE_CACHE.with(|global_cache| global_cache.borrow_mut().0.put_with_weight(key, value));
 }

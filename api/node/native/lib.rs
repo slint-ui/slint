@@ -256,7 +256,8 @@ fn to_js_value<'cx>(
             &ImageInner::None => JsUndefined::new().as_value(cx),
             &ImageInner::EmbeddedImage { .. }
             | &ImageInner::StaticTextures { .. }
-            | &ImageInner::Svg(..) => JsNull::new().as_value(cx), // TODO: maybe pass around node buffers?
+            | &ImageInner::Svg(..)
+            | &ImageInner::BackendStorage(..) => JsNull::new().as_value(cx), // TODO: maybe pass around node buffers?
         },
         Value::Model(model) => {
             if let Some(js_model) = model.as_any().downcast_ref::<js_model::JsModel>() {

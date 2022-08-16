@@ -501,6 +501,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 block: parse2(if has_self {
                     quote!({
                         // Safety: this rely on the vtable being valid, and the ptr being a valid instance for this vtable
+                        #[allow(unsafe_code)]
                         unsafe {
                             let vtable = self.vtable.as_ref();
                             if let #some(func) = vtable.#ident {
@@ -536,6 +537,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     block: parse2(quote!({
                         let vtable = self;
                         // Safety: this rely on the vtable being valid, and the ptr being a valid instance for this vtable
+                        #[allow(unsafe_code)]
                         unsafe { (self.#ident)(#call_code) }
                     }))
                     .unwrap(),
@@ -545,6 +547,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                     #sig_extern {
                         // This is safe since the self must be a instance of our type
                         #[allow(unused)]
+                        #[allow(unsafe_code)]
                         let vtable = unsafe { core::ptr::NonNull::from(&*_0) };
                         #wrap_trait_call(T::#ident(#self_call #forward_code))
                     }
@@ -560,6 +563,7 @@ pub fn vtable(_attr: TokenStream, item: TokenStream) -> TokenStream {
                 vtable_ctor.push(quote!(#ident: {
                     #sig_extern {
                         // This is safe since the self must be a instance of our type
+                        #[allow(unsafe_code)]
                         unsafe { #erase_return_type_lifetime(T::#ident(#self_call #forward_code)) }
                     }
                     #ident::<T>
