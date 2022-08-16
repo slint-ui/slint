@@ -1,0 +1,23 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Button, VerticalBox } from "std-widgets.slint";
+ 
+ export AppWindow := Window {
+     property<int> counter: 42;
+     callback request-increase-value();
+     VerticalBox { 
+         Button {
+             text: "Increase value";
+             clicked => { 
+                 request-increase-value();
+             }
+             states [
+                 highlight when counter > 45 : {
+                     background: red;
+//                   ^error{Internal error: The expression for the default state currently cannot be represented: https://github.com/slint-ui/slint/issues/1461}
+                 }
+             ]
+         }
+      }
+ }
