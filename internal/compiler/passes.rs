@@ -127,7 +127,7 @@ pub async fn run_passes(
         lower_property_to_element::lower_property_to_element(
             component,
             "opacity",
-            &[],
+            core::iter::empty(),
             "Opacity",
             &global_type_registry.borrow(),
             diag,
@@ -135,7 +135,7 @@ pub async fn run_passes(
         lower_property_to_element::lower_property_to_element(
             component,
             "cache-rendering-hint",
-            &[],
+            core::iter::empty(),
             "Layer",
             &global_type_registry.borrow(),
             diag,
@@ -146,9 +146,7 @@ pub async fn run_passes(
             crate::typeregister::RESERVED_ROTATION_PROPERTIES[0].0,
             crate::typeregister::RESERVED_ROTATION_PROPERTIES[1..]
                 .iter()
-                .map(|(prop_name, _)| *prop_name)
-                .collect::<Vec<_>>()
-                .as_slice(),
+                .map(|(prop_name, _)| *prop_name),
             "Rotate",
             &global_type_registry.borrow(),
             diag,

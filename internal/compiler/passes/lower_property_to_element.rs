@@ -20,8 +20,8 @@ use crate::typeregister::TypeRegister;
 // `Rotate` element.
 pub(crate) fn lower_property_to_element(
     component: &Rc<Component>,
-    property_name: &str,
-    extra_properties: &[&str],
+    property_name: &'static str,
+    extra_properties: impl Iterator<Item = &'static str> + Clone,
     element_name: &str,
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
@@ -66,7 +66,7 @@ pub(crate) fn lower_property_to_element(
                         create_property_element(
                             &root_elem,
                             property_name,
-                            extra_properties,
+                            extra_properties.clone(),
                             element_name,
                             type_register,
                         ),
@@ -76,7 +76,7 @@ pub(crate) fn lower_property_to_element(
                 let new_child = create_property_element(
                     &child,
                     property_name,
-                    extra_properties,
+                    extra_properties.clone(),
                     element_name,
                     type_register,
                 );
@@ -92,15 +92,15 @@ pub(crate) fn lower_property_to_element(
 
 fn create_property_element(
     child: &ElementRc,
-    property_name: &str,
-    extra_properties: &[&str],
+    property_name: &'static str,
+    extra_properties: impl Iterator<Item = &'static str>,
     element_name: &str,
     type_register: &TypeRegister,
 ) -> ElementRc {
-    let bindings = core::iter::once(&property_name)
-        .chain(extra_properties.iter())
+    let bindings = core::iter::once(property_name)
+        .chain(extra_properties)
         .filter_map(|property_name| {
-            if child.borrow().bindings.contains_key(*property_name) {
+            if child.borrow().bindings.contains_key(property_name) {
                 Some((
                     property_name.to_string(),
                     BindingExpression::new_two_way(NamedReference::new(child, property_name))
