@@ -288,6 +288,8 @@ impl KeyEvent {
             Ok(direction) => return Some(TextShortcut::Move(direction)),
             _ => (),
         };
+
+        None
     }
 }
 
