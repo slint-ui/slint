@@ -98,7 +98,6 @@ private:
     }
 };
 
-
 }
 
 /// Brush is used to declare how to fill or outline shapes, such as rectangles, paths or text. A

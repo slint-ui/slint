@@ -24,14 +24,12 @@ SCENARIO("Basic usage")
         REQUIRE(prop2.get() == 42 + 4);
         prop.set(55);
         REQUIRE(prop2.get() == 55 + 4);
-
     }
 
     REQUIRE(prop.get() == 55);
     prop.set(33);
     REQUIRE(prop.get() == 33);
 }
-
 
 SCENARIO("Set after binding")
 {
