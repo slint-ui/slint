@@ -126,14 +126,16 @@ pub async fn run_passes(
         z_order::reorder_by_z_order(component, diag);
         lower_property_to_element::lower_property_to_element(
             component,
-            &[("opacity", Type::Float32)],
+            "opacity",
+            &[],
             "Opacity",
             &global_type_registry.borrow(),
             diag,
         );
         lower_property_to_element::lower_property_to_element(
             component,
-            &[("cache-rendering-hint", Type::Bool)],
+            "cache-rendering-hint",
+            &[],
             "Layer",
             &global_type_registry.borrow(),
             diag,
@@ -141,7 +143,12 @@ pub async fn run_passes(
         lower_shadows::lower_shadow_properties(component, &doc.local_registry, diag);
         lower_property_to_element::lower_property_to_element(
             component,
-            crate::typeregister::RESERVED_ROTATION_PROPERTIES,
+            crate::typeregister::RESERVED_ROTATION_PROPERTIES[0].0,
+            crate::typeregister::RESERVED_ROTATION_PROPERTIES[1..]
+                .iter()
+                .map(|(prop_name, _)| *prop_name)
+                .collect::<Vec<_>>()
+                .as_slice(),
             "Rotate",
             &global_type_registry.borrow(),
             diag,
