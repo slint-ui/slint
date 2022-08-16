@@ -18,7 +18,8 @@ struct VRefMut
     void *instance;
 };
 
-struct Layout {
+struct Layout
+{
     std::size_t size;
     std::size_t align;
 };
@@ -31,15 +32,17 @@ template<typename T>
 using Pin = T;
 
 template<typename T>
-struct VBox {
+struct VBox
+{
     const T *vtable = nullptr;
     void *instance = nullptr;
-    VBox(const VBox&) = delete;
+    VBox(const VBox &) = delete;
     VBox() = default;
-    VBox&operator=(const VBox&) = delete;
-    ~VBox() {
+    VBox &operator=(const VBox &) = delete;
+    ~VBox()
+    {
         if (vtable && instance) {
-            vtable->drop({vtable, instance});
+            vtable->drop({ vtable, instance });
         }
     }
 };
@@ -54,11 +57,15 @@ struct VOffset
 };
 
 template<typename VTable, typename X>
-struct VRcInner {
-    template<typename VTable_, typename X_> friend class VRc;
-    template<typename VTable_, typename X_> friend class VWeak;
+struct VRcInner
+{
+    template<typename VTable_, typename X_>
+    friend class VRc;
+    template<typename VTable_, typename X_>
+    friend class VWeak;
+
 private:
-    VRcInner() : layout {} {}
+    VRcInner() : layout {} { }
     const VTable *vtable = &X::static_vtable;
     std::atomic<int> strong_ref = 1;
     std::atomic<int> weak_ref = 1;
@@ -72,113 +79,108 @@ private:
     ~VRcInner() = delete;
 };
 
-struct Dyn {};
+struct Dyn
+{
+};
 
 template<typename VTable, typename X = Dyn>
-class VRc {
+class VRc
+{
     VRcInner<VTable, X> *inner;
-    VRc(VRcInner<VTable, X> *inner) : inner(inner) {}
-    template<typename VTable_, typename X_> friend class VWeak;
+    VRc(VRcInner<VTable, X> *inner) : inner(inner) { }
+    template<typename VTable_, typename X_>
+    friend class VWeak;
+
 public:
-    ~VRc() {
+    ~VRc()
+    {
         if (!--inner->strong_ref) {
-            Layout layout = inner->vtable->drop_in_place({inner->vtable, &inner->data});
+            Layout layout = inner->vtable->drop_in_place({ inner->vtable, &inner->data });
             layout.size += inner->data_offset;
             layout.align = std::max<size_t>(layout.align, alignof(VRcInner<VTable, Dyn>));
             inner->layout = layout;
             if (!--inner->weak_ref) {
-                inner->vtable->dealloc(inner->vtable, reinterpret_cast<uint8_t*>(inner),  layout);
+                inner->vtable->dealloc(inner->vtable, reinterpret_cast<uint8_t *>(inner), layout);
             }
         }
     }
-    VRc(const VRc &other): inner(other.inner) {
-        inner->strong_ref++;
-    }
-    VRc &operator=(const VRc &other) {
+    VRc(const VRc &other) : inner(other.inner) { inner->strong_ref++; }
+    VRc &operator=(const VRc &other)
+    {
         if (inner == other.inner)
             return *this;
         this->~VRc();
-        new(this) VRc(other);
+        new (this) VRc(other);
         return *this;
     }
     /// Construct a new VRc holding an X.
     ///
     /// The type X must have a static member `static_vtable` of type VTable
-    template<typename ...Args> static VRc make(Args... args) {
-        auto mem = ::operator new(sizeof(VRcInner<VTable, X>), static_cast<std::align_val_t>(alignof(VRcInner<VTable, X>)));
+    template<typename... Args>
+    static VRc make(Args... args)
+    {
+        auto mem = ::operator new(sizeof(VRcInner<VTable, X>),
+                                  static_cast<std::align_val_t>(alignof(VRcInner<VTable, X>)));
         auto inner = new (mem) VRcInner<VTable, X>;
         new (&inner->data) X(args...);
         return VRc(inner);
     }
 
-    const X* operator->() const {
-        return &inner->data;
-    }
-    const X& operator*() const {
-        return inner->data;
-    }
-    X* operator->() {
-        return &inner->data;
-    }
-    X& operator*() {
-        return inner->data;
-    }
+    const X *operator->() const { return &inner->data; }
+    const X &operator*() const { return inner->data; }
+    X *operator->() { return &inner->data; }
+    X &operator*() { return inner->data; }
 
     VRc<VTable, Dyn> into_dyn() const { return *reinterpret_cast<const VRc<VTable, Dyn> *>(this); }
 
     VRef<VTable> borrow() const { return { inner->vtable, inner->data_ptr() }; }
 
-    friend bool operator==(const VRc &a, const VRc &b) {
-        return a.inner == b.inner;
-    }
-    friend bool operator!=(const VRc &a, const VRc &b) {
-        return a.inner != b.inner;
-    }
+    friend bool operator==(const VRc &a, const VRc &b) { return a.inner == b.inner; }
+    friend bool operator!=(const VRc &a, const VRc &b) { return a.inner != b.inner; }
     const VTable *vtable() const { return inner->vtable; }
 };
 
 template<typename VTable, typename X = Dyn>
-class VWeak {
+class VWeak
+{
     VRcInner<VTable, X> *inner = nullptr;
+
 public:
     VWeak() = default;
-    ~VWeak() {
+    ~VWeak()
+    {
         if (inner && !--inner->weak_ref) {
-            inner->vtable->dealloc(inner->vtable, reinterpret_cast<uint8_t*>(inner), inner->layout);
+            inner->vtable->dealloc(inner->vtable, reinterpret_cast<uint8_t *>(inner),
+                                   inner->layout);
         }
     }
-    VWeak(const VWeak &other): inner(other.inner) {
-        inner && inner->weak_ref++;
-    }
-    VWeak(const VRc<VTable, X> &other): inner(other.inner) {
-        inner && inner->weak_ref++;
-    }
-    VWeak &operator=(const VWeak &other) {
+    VWeak(const VWeak &other) : inner(other.inner) { inner && inner->weak_ref++; }
+    VWeak(const VRc<VTable, X> &other) : inner(other.inner) { inner && inner->weak_ref++; }
+    VWeak &operator=(const VWeak &other)
+    {
         if (inner == other.inner)
             return *this;
         this->~VWeak();
-        new(this) VWeak(other);
+        new (this) VWeak(other);
         return *this;
     }
 
-    std::optional<VRc<VTable, X>> lock() const {
+    std::optional<VRc<VTable, X>> lock() const
+    {
         if (!inner || inner->strong_ref == 0)
             return {};
         inner->strong_ref++;
         return { VRc<VTable, X>(inner) };
     }
 
-    VWeak<VTable, Dyn> into_dyn() const { return *reinterpret_cast<const VWeak<VTable, Dyn> *>(this); }
+    VWeak<VTable, Dyn> into_dyn() const
+    {
+        return *reinterpret_cast<const VWeak<VTable, Dyn> *>(this);
+    }
 
-    friend bool operator==(const VWeak &a, const VWeak &b) {
-        return a.inner == b.inner;
-    }
-    friend bool operator!=(const VWeak &a, const VWeak &b) {
-        return a.inner != b.inner;
-    }
+    friend bool operator==(const VWeak &a, const VWeak &b) { return a.inner == b.inner; }
+    friend bool operator!=(const VWeak &a, const VWeak &b) { return a.inner != b.inner; }
     const VTable *vtable() const { return inner ? inner->vtable : nullptr; }
 };
 
-
-
-} //namespace vtable
+} // namespace vtable

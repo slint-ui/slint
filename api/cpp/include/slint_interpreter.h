@@ -205,7 +205,10 @@ public:
     }
     /// Returns an iterator that when compared with an iterator returned by begin() can be
     /// used to detect when all fields have been visited.
-    iterator end() const { return iterator(); }
+    iterator end() const
+    {
+        return iterator();
+    }
 
     /// Returns the value of the field with the given \a name; Returns an std::optional without
     /// value if the field does not exist.
@@ -454,10 +457,7 @@ inline Value::Value(const std::shared_ptr<slint::Model<Value>> &model)
         {
             cbindgen_private::slint_interpreter_model_notify_row_removed(&notify, index, count);
         }
-        void reset() override
-        {
-            cbindgen_private::slint_interpreter_model_notify_reset(&notify);
-        }
+        void reset() override { cbindgen_private::slint_interpreter_model_notify_reset(&notify); }
     };
 
     auto wrapper = std::make_shared<ModelWrapper>();
@@ -492,7 +492,8 @@ inline Value::Value(const std::shared_ptr<slint::Model<Value>> &model)
     };
 
     static const ModelAdaptorVTable vt { row_count, row_data, set_row_data, get_notify, drop };
-    cbindgen_private::slint_interpreter_value_new_model(reinterpret_cast<uint8_t *>(wrapper.get()), &vt, &inner);
+    cbindgen_private::slint_interpreter_value_new_model(reinterpret_cast<uint8_t *>(wrapper.get()),
+                                                        &vt, &inner);
 }
 
 inline Struct::Struct(std::initializer_list<std::pair<std::string_view, Value>> args)

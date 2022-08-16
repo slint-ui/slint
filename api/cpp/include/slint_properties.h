@@ -75,7 +75,7 @@ struct Property
 
     void set(const T &value) const
     {
-        if ((inner._0 & 0b10) == 0b10 ||  this->value != value) {
+        if ((inner._0 & 0b10) == 0b10 || this->value != value) {
             this->value = value;
             cbindgen_private::slint_property_set_changed(&inner, &this->value);
         }

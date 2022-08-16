@@ -7,6 +7,7 @@
 #include "slint_pathdata_internal.h"
 
 namespace slint::private_api {
+using cbindgen_private::PathEvent;
 using cbindgen_private::types::PathArcTo;
 using cbindgen_private::types::PathCubicTo;
 using cbindgen_private::types::PathElement;
@@ -14,7 +15,6 @@ using cbindgen_private::types::PathLineTo;
 using cbindgen_private::types::PathMoveTo;
 using cbindgen_private::types::PathQuadraticTo;
 using cbindgen_private::types::Point;
-using cbindgen_private::PathEvent;
 
 struct PathData
 {
