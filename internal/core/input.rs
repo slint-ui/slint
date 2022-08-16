@@ -254,6 +254,12 @@ impl KeyEvent {
                 key_codes::DownArrow => {
                     return Some(TextShortcut::Move(TextCursorDirection::EndOfParagraph))
                 }
+                key_codes::Backspace => {
+                    return Some(TextShortcut::DeleteWordBackward);
+                }
+                key_codes::Delete => {
+                    return Some(TextShortcut::DeleteWordForward);
+                }
                 _ => (),
             };
         }
@@ -300,16 +306,8 @@ impl KeyEvent {
         };
 
         match keycode {
-            key_codes::Backspace => Some(if move_mod {
-                TextShortcut::DeleteWordBackward
-            } else {
-                TextShortcut::DeleteBackward
-            }),
-            key_codes::Delete => Some(if move_mod {
-                TextShortcut::DeleteWordForward
-            } else {
-                TextShortcut::DeleteForward
-            }),
+            key_codes::Backspace => Some(TextShortcut::DeleteBackward),
+            key_codes::Delete => Some(TextShortcut::DeleteForward),
             _ => None,
         }
     }
