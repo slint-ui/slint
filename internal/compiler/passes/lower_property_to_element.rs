@@ -20,13 +20,12 @@ use crate::typeregister::TypeRegister;
 // `Rotate` element.
 pub(crate) fn lower_property_to_element(
     component: &Rc<Component>,
-    properties: &[(&str, Type)],
+    property_name: &str,
+    extra_properties: &[&str],
     element_name: &str,
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
-    let property_name = properties[0].0;
-
     if let Some(b) = component.root_element.borrow().bindings.get(property_name) {
         diag.push_warning(
             format!(
@@ -66,15 +65,21 @@ pub(crate) fn lower_property_to_element(
                         &child,
                         create_property_element(
                             &root_elem,
-                            properties,
+                            property_name,
+                            extra_properties,
                             element_name,
                             type_register,
                         ),
                     )
                 }
             } else if has_property_binding(&child) {
-                let new_child =
-                    create_property_element(&child, properties, element_name, type_register);
+                let new_child = create_property_element(
+                    &child,
+                    property_name,
+                    extra_properties,
+                    element_name,
+                    type_register,
+                );
                 crate::object_tree::adjust_geometry_for_injected_parent(&new_child, &child);
                 new_child.borrow_mut().children.push(child);
                 child = new_child;
@@ -87,13 +92,14 @@ pub(crate) fn lower_property_to_element(
 
 fn create_property_element(
     child: &ElementRc,
-    properties: &[(&str, Type)],
+    property_name: &str,
+    extra_properties: &[&str],
     element_name: &str,
     type_register: &TypeRegister,
 ) -> ElementRc {
-    let bindings = properties
-        .iter()
-        .filter_map(|(property_name, _)| {
+    let bindings = core::iter::once(&property_name)
+        .chain(extra_properties.iter())
+        .filter_map(|property_name| {
             if child.borrow().bindings.contains_key(*property_name) {
                 Some((
                     property_name.to_string(),
@@ -107,7 +113,7 @@ fn create_property_element(
         .collect();
 
     let element = Element {
-        id: format!("{}-{}", child.borrow().id, properties[0].0),
+        id: format!("{}-{}", child.borrow().id, property_name),
         base_type: type_register.lookup_element(element_name).unwrap(),
         enclosing_component: child.borrow().enclosing_component.clone(),
         bindings,
