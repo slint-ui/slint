@@ -13,7 +13,14 @@ pub struct ParsedSVG {
     cache_key: ImageCacheKey,
 }
 
-impl super::OpaqueRc for ParsedSVG {}
+impl super::OpaqueImage for ParsedSVG {
+    fn size(&self) -> crate::graphics::IntSize {
+        self.size()
+    }
+    fn cache_key(&self) -> ImageCacheKey {
+        self.cache_key.clone()
+    }
+}
 
 impl core::fmt::Debug for ParsedSVG {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {

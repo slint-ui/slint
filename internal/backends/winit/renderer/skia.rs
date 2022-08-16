@@ -14,6 +14,7 @@ use i_slint_core::{
 
 use crate::WindowSystemName;
 
+mod cached_image;
 mod itemrenderer;
 mod textlayout;
 

@@ -20,19 +20,23 @@ mod svg;
 #[allow(missing_docs)]
 #[vtable::vtable]
 #[repr(C)]
-pub struct OpaqueRcVTable {
-    drop_in_place: fn(VRefMut<OpaqueRcVTable>) -> Layout,
-    dealloc: fn(&OpaqueRcVTable, ptr: *mut u8, layout: Layout),
+pub struct OpaqueImageVTable {
+    drop_in_place: fn(VRefMut<OpaqueImageVTable>) -> Layout,
+    dealloc: fn(&OpaqueImageVTable, ptr: *mut u8, layout: Layout),
+    /// Returns the image size
+    size: fn(VRef<OpaqueImageVTable>) -> IntSize,
+    /// Returns a cache key
+    cache_key: fn(VRef<OpaqueImageVTable>) -> ImageCacheKey,
 }
 
 #[cfg(feature = "svg")]
-OpaqueRcVTable_static! {
+OpaqueImageVTable_static! {
     /// VTable for RC wrapped SVG helper struct.
     pub static PARSED_SVG_VT for svg::ParsedSVG
 }
 
 #[cfg(target_arch = "wasm32")]
-OpaqueRcVTable_static! {
+OpaqueImageVTable_static! {
     /// VTable for RC wrapped HtmlImage helper struct.
     pub static HTML_IMAGE_VT for htmlimage::HTMLImage
 }
@@ -297,6 +301,7 @@ impl ImageCacheKey {
             ImageInner::Svg(parsed_svg) => parsed_svg.cache_key(),
             #[cfg(target_arch = "wasm32")]
             ImageInner::HTMLImage(htmlimage) => Self::URL(htmlimage.source().into()),
+            ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).cache_key(),
         };
         if matches!(key, ImageCacheKey::Invalid) {
             None
@@ -326,10 +331,11 @@ pub enum ImageInner {
         buffer: SharedImageBuffer,
     },
     #[cfg(feature = "svg")]
-    Svg(vtable::VRc<OpaqueRcVTable, svg::ParsedSVG>),
+    Svg(vtable::VRc<OpaqueImageVTable, svg::ParsedSVG>),
     StaticTextures(&'static StaticTextures),
     #[cfg(target_arch = "wasm32")]
-    HTMLImage(vtable::VRc<OpaqueRcVTable, htmlimage::HTMLImage>),
+    HTMLImage(vtable::VRc<OpaqueImageVTable, htmlimage::HTMLImage>),
+    BackendStorage(vtable::VRc<OpaqueImageVTable>),
 }
 
 impl ImageInner {
@@ -522,6 +528,7 @@ impl Image {
             ImageInner::Svg(svg) => svg.size(),
             #[cfg(target_arch = "wasm32")]
             ImageInner::HTMLImage(htmlimage) => htmlimage.size().unwrap_or_default(),
+            ImageInner::BackendStorage(x) => vtable::VRc::borrow(x).size(),
         }
     }
 
