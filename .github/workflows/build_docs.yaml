@@ -47,8 +47,8 @@ jobs:
       run: cargo install mdbook --version ${{ env.MDBOOK_VERSION }} || true
     - name: Install mdbook-linkcheck
       run: cargo install mdbook-linkcheck --version ${{ env.MDBOOK_LINKCHECK_VERSION }} || true
-    - name: Install doxygen
-      run: sudo apt-get install doxygen
+    - name: Install apt dependencies
+      run: sudo apt-get install doxygen clang-format
     - name: Upgrade pip and install pipenv
       run: |
         python -m pip install --upgrade pip
@@ -64,11 +64,15 @@ jobs:
     - name: Remove docs from cache # Avoid stale docs
       run: |
           rm -rf target/doc target/cppdocs api/node/docs
-    - name: Check formatting
+    - name: Check Rust formatting
       uses: actions-rs/cargo@v1
       with:
           command: fmt
           args: -- --check
+    - name: Check C++ formatting
+      run: |
+        find  -iname \*.h -o -iname \*.cpp | xargs clang-format -i
+        git diff --exit-code
     - name: Check license headers
       run: cargo xtask check_license_headers --show-all
     - name: Check Enum docs
