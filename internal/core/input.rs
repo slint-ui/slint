@@ -276,8 +276,16 @@ impl KeyEvent {
         };
 
         match keycode {
-            key_codes::Backspace => Some(TextShortcut::DeleteBackward),
-            key_codes::Delete => Some(TextShortcut::DeleteForward),
+            key_codes::Backspace => Some(if move_mod {
+                TextShortcut::DeleteWordBackward
+            } else {
+                TextShortcut::DeleteBackward
+            }),
+            key_codes::Delete => Some(if move_mod {
+                TextShortcut::DeleteWordForward
+            } else {
+                TextShortcut::DeleteForward
+            }),
             _ => None,
         }
     }
@@ -315,6 +323,10 @@ pub enum TextShortcut {
     DeleteForward,
     /// Delete the Character to the left of the cursor (aka Backspace).
     DeleteBackward,
+    /// Delete the word to the right of the cursor
+    DeleteWordForward,
+    /// Delete the word to the left of the cursor (aka Ctrl + Backspace).
+    DeleteWordBackward,
 }
 
 /// Represents how an item's key_event handler dealt with a key event.

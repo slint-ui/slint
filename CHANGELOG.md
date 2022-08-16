@@ -3,6 +3,9 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Fixed
+ - Fixed Ctrl+Backspace/Ctrl+Del not deleting words in text input elements.
+
 ### Changed
  - `mod` now works on any numeric type, not only integers.
  - Minimum rust version is now 1.60

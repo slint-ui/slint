@@ -329,11 +329,36 @@ impl Item for TextInput {
                             return KeyEventResult::EventAccepted;
                         }
                         TextShortcut::DeleteForward => {
-                            TextInput::delete_char(self, window);
+                            TextInput::select_and_delete(
+                                self,
+                                TextCursorDirection::Forward,
+                                window,
+                            );
                             return KeyEventResult::EventAccepted;
                         }
                         TextShortcut::DeleteBackward => {
-                            TextInput::delete_previous(self, window);
+                            // Special case: backspace breaks the grapheme and selects the previous character
+                            TextInput::select_and_delete(
+                                self,
+                                TextCursorDirection::PreviousCharacter,
+                                window,
+                            );
+                            return KeyEventResult::EventAccepted;
+                        }
+                        TextShortcut::DeleteWordForward => {
+                            TextInput::select_and_delete(
+                                self,
+                                TextCursorDirection::ForwardByWord,
+                                window,
+                            );
+                            return KeyEventResult::EventAccepted;
+                        }
+                        TextShortcut::DeleteWordBackward => {
+                            TextInput::select_and_delete(
+                                self,
+                                TextCursorDirection::BackwardByWord,
+                                window,
+                            );
                             return KeyEventResult::EventAccepted;
                         }
                     },
@@ -505,6 +530,7 @@ impl TextInput {
         self.cursor_visible.set(false);
     }
 
+    /// Moves the cursor (and/or anchor) and returns true if the cursor position changed; false otherwise.
     fn move_cursor(
         self: Pin<&Self>,
         direction: TextCursorDirection,
@@ -656,22 +682,11 @@ impl TextInput {
         }
     }
 
-    fn delete_char(self: Pin<&Self>, window: &WindowRc) {
+    fn select_and_delete(self: Pin<&Self>, step: TextCursorDirection, window: &WindowRc) {
         if !self.has_selection() {
-            self.move_cursor(TextCursorDirection::Forward, AnchorMode::KeepAnchor, window);
+            self.move_cursor(step, AnchorMode::KeepAnchor, window);
         }
         self.delete_selection(window);
-    }
-
-    fn delete_previous(self: Pin<&Self>, window: &WindowRc) {
-        if self.has_selection() {
-            self.delete_selection(window);
-            return;
-        }
-        if self.move_cursor(TextCursorDirection::PreviousCharacter, AnchorMode::MoveAnchor, window)
-        {
-            self.delete_char(window);
-        }
     }
 
     fn delete_selection(self: Pin<&Self>, window: &WindowRc) {
