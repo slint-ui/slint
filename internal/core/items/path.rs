@@ -64,7 +64,7 @@ impl Item for Path {
         _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
-        if let Some(pos) = event.pos() {
+        if let Some(pos) = event.position() {
             if self.clip()
                 && (pos.x < 0 as _
                     || pos.y < 0 as _

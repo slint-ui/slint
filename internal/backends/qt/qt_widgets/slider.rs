@@ -122,8 +122,10 @@ impl Item for NativeSlider {
         let mut data = self.data();
         let active_controls = data.active_controls;
         let pressed: bool = data.pressed != 0;
-        let pos =
-            event.pos().map(|p| qttypes::QPoint { x: p.x as _, y: p.y as _ }).unwrap_or_default();
+        let pos = event
+            .position()
+            .map(|p| qttypes::QPoint { x: p.x as _, y: p.y as _ })
+            .unwrap_or_default();
 
         let new_control = cpp!(unsafe [
             pos as "QPoint",
@@ -147,7 +149,7 @@ impl Item for NativeSlider {
                 data.pressed = 0;
                 InputEventResult::EventIgnored
             }
-            MouseEvent::Pressed { pos, button: PointerEventButton::Left } => {
+            MouseEvent::Pressed { position: pos, button: PointerEventButton::Left } => {
                 data.pressed_x = pos.x as f32;
                 data.pressed = 1;
                 data.pressed_val = value;
@@ -157,7 +159,7 @@ impl Item for NativeSlider {
                 data.pressed = 0;
                 InputEventResult::EventAccepted
             }
-            MouseEvent::Moved { pos } => {
+            MouseEvent::Moved { position: pos } => {
                 if data.pressed != 0 {
                     // FIXME: use QStyle::subControlRect to find out the actual size of the groove
                     let new_val = data.pressed_val

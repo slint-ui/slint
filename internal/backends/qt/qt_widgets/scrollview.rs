@@ -215,7 +215,7 @@ impl Item for NativeScrollView {
             result
         };
 
-        let pos = event.pos().unwrap_or_default();
+        let pos = event.position().unwrap_or_default();
 
         if pressed == 2 || (pressed == 0 && pos.x > (size.width as f32 - right)) {
             handle_scrollbar(

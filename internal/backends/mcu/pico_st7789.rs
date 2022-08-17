@@ -221,22 +221,22 @@ fn run_event_loop() -> ! {
             .unwrap()
             .map(|point| {
                 let size = DISPLAY_SIZE.to_f32();
-                let pos = euclid::point2(point.x * size.width, point.y * size.height).cast();
-                match last_touch.replace(pos) {
-                    Some(_) => i_slint_core::input::MouseEvent::Moved { pos },
-                    None => i_slint_core::input::MouseEvent::Pressed { pos, button },
+                let position = euclid::point2(point.x * size.width, point.y * size.height).cast();
+                match last_touch.replace(position) {
+                    Some(_) => i_slint_core::input::MouseEvent::Moved { position },
+                    None => i_slint_core::input::MouseEvent::Pressed { position, button },
                 }
             })
             .or_else(|| {
                 last_touch
                     .take()
-                    .map(|pos| i_slint_core::input::MouseEvent::Released { pos, button })
+                    .map(|position| i_slint_core::input::MouseEvent::Released { position, button })
             })
         {
             if let Some(window) = WINDOW.with(|x| x.borrow().clone()) {
                 let w = window.self_weak.upgrade().unwrap();
                 // scale the event by the scale factor:
-                if let Some(p) = event.pos() {
+                if let Some(p) = event.position() {
                     event.translate((p.cast() / w.scale_factor()).cast() - p);
                 }
                 w.process_mouse_input(event);

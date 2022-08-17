@@ -108,9 +108,9 @@ cpp! {{
             QPoint pos = event->pos();
             int button = event->button();
             rust!(Slint_mousePressEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
-                let pos = Point::new(pos.x as _, pos.y as _);
+                let position = Point::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
-                rust_window.mouse_event(MouseEvent::Pressed{ pos, button })
+                rust_window.mouse_event(MouseEvent::Pressed{ position, button })
             });
         }
         void mouseReleaseEvent(QMouseEvent *event) override {
@@ -132,9 +132,9 @@ cpp! {{
             QPoint pos = event->pos();
             int button = event->button();
             rust!(Slint_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
-                let pos = Point::new(pos.x as _, pos.y as _);
+                let position = Point::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
-                rust_window.mouse_event(MouseEvent::Released{ pos, button })
+                rust_window.mouse_event(MouseEvent::Released{ position, button })
             });
             if (auto p = dynamic_cast<const SlintWidget*>(parent())) {
                 // FIXME: better way to close the popup
@@ -147,8 +147,8 @@ cpp! {{
         void mouseMoveEvent(QMouseEvent *event) override {
             QPoint pos = event->pos();
             rust!(Slint_mouseMoveEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
-                let pos = Point::new(pos.x as _, pos.y as _);
-                rust_window.mouse_event(MouseEvent::Moved{pos})
+                let position = Point::new(pos.x as _, pos.y as _);
+                rust_window.mouse_event(MouseEvent::Moved{position})
             });
         }
         void wheelEvent(QWheelEvent *event) override {
@@ -158,9 +158,9 @@ cpp! {{
                 delta = event->angleDelta();
             }
             rust!(Slint_mouseWheelEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPointF as "QPointF", delta: qttypes::QPoint as "QPoint"] {
-                let pos = Point::new(pos.x as _, pos.y as _);
+                let position = Point::new(pos.x as _, pos.y as _);
                 let delta = Point::new(delta.x as _, delta.y as _);
-                rust_window.mouse_event(MouseEvent::Wheel{pos, delta})
+                rust_window.mouse_event(MouseEvent::Wheel{position, delta})
             });
         }
         void leaveEvent(QEvent *) override {

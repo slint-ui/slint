@@ -288,14 +288,14 @@ impl WindowInner {
             .and_then(|(popup_component, coordinates)| {
                 event.translate(-coordinates.to_vector());
 
-                if let MouseEvent::Pressed { pos, .. } = &event {
+                if let MouseEvent::Pressed { position, .. } = &event {
                     // close the popup if one press outside the popup
                     let geom = ComponentRc::borrow_pin(popup_component)
                         .as_ref()
                         .get_item_ref(0)
                         .as_ref()
                         .geometry();
-                    if !geom.contains(*pos) {
+                    if !geom.contains(*position) {
                         self.close_popup();
                         return None;
                     }

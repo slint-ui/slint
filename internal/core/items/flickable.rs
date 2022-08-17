@@ -70,7 +70,7 @@ impl Item for Flickable {
         _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
-        if let Some(pos) = event.pos() {
+        if let Some(pos) = event.position() {
             if pos.x < 0 as _ || pos.y < 0 as _ || pos.x > self.width() || pos.y > self.height() {
                 return InputEventFilterResult::Intercept;
             }
@@ -90,7 +90,7 @@ impl Item for Flickable {
         if !self.interactive() && !matches!(event, MouseEvent::Wheel { .. }) {
             return InputEventResult::EventIgnored;
         }
-        if let Some(pos) = event.pos() {
+        if let Some(pos) = event.position() {
             if matches!(event, MouseEvent::Wheel { .. } | MouseEvent::Pressed { .. })
                 && (pos.x < 0 as _
                     || pos.y < 0 as _
@@ -184,8 +184,8 @@ impl FlickableData {
     ) -> InputEventFilterResult {
         let mut inner = self.inner.borrow_mut();
         match event {
-            MouseEvent::Pressed { pos, button: PointerEventButton::Left } => {
-                inner.pressed_pos = pos;
+            MouseEvent::Pressed { position, button: PointerEventButton::Left } => {
+                inner.pressed_pos = position;
                 inner.pressed_time = Some(crate::animations::current_tick());
                 inner.pressed_viewport_pos = Point::new(
                     (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
@@ -210,7 +210,7 @@ impl FlickableData {
                     InputEventFilterResult::ForwardEvent
                 }
             }
-            MouseEvent::Moved { pos } => {
+            MouseEvent::Moved { position } => {
                 let do_intercept = inner.capture_events
                     || inner.pressed_time.map_or(false, |pressed_time| {
                         if crate::animations::current_tick() - pressed_time > DURATION_THRESHOLD {
@@ -226,7 +226,7 @@ impl FlickableData {
                             .apply_pin(flick)
                             .get()
                             > flick.height();
-                        let diff = pos - inner.pressed_pos;
+                        let diff = position - inner.pressed_pos;
                         (can_move_horiz && diff.x.abs() > DISTANCE_THRESHOLD)
                             || (can_move_vert && diff.y.abs() > DISTANCE_THRESHOLD)
                     });
@@ -238,8 +238,8 @@ impl FlickableData {
                     InputEventFilterResult::ForwardEvent
                 }
             }
-            MouseEvent::Wheel { pos, .. } => {
-                InputEventFilterResult::InterceptAndDispatch(MouseEvent::Moved { pos })
+            MouseEvent::Wheel { position, .. } => {
+                InputEventFilterResult::InterceptAndDispatch(MouseEvent::Moved { position })
             }
             // Not the left button
             MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
@@ -259,12 +259,12 @@ impl FlickableData {
                 Self::mouse_released(&mut inner, flick, event);
                 InputEventResult::EventAccepted
             }
-            MouseEvent::Moved { pos } => {
+            MouseEvent::Moved { position } => {
                 if inner.pressed_time.is_some() {
                     inner.capture_events = true;
                     let new_pos = ensure_in_bound(
                         flick,
-                        inner.pressed_viewport_pos + (pos - inner.pressed_pos),
+                        inner.pressed_viewport_pos + (position - inner.pressed_pos),
                     );
                     (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
                         .apply_pin(flick)
@@ -300,7 +300,7 @@ impl FlickableData {
     }
 
     fn mouse_released(inner: &mut FlickableDataInner, flick: Pin<&Flickable>, event: MouseEvent) {
-        if let (Some(pressed_time), Some(pos)) = (inner.pressed_time, event.pos()) {
+        if let (Some(pressed_time), Some(pos)) = (inner.pressed_time, event.position()) {
             let dist = (pos - inner.pressed_pos).cast::<f32>();
             let speed =
                 dist / ((crate::animations::current_tick() - pressed_time).as_millis() as f32);
