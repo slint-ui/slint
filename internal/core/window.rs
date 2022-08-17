@@ -116,6 +116,10 @@ pub trait PlatformWindow {
 
     /// Return the renderer
     fn renderer(&self) -> &dyn Renderer;
+
+    /// Temporary function to provide access to the WindowInner. This should, in the future, return
+    /// a &Window
+    fn window(&self) -> WindowRc;
 }
 
 struct WindowPropertiesTracker {
@@ -165,8 +169,6 @@ pub struct PopupWindow {
 
 /// Inner datastructure for the [`crate::api::Window`]
 pub struct WindowInner {
-    /// Temporary field to allow converting &self to Rc<Self>, for use with the item vtable.
-    self_weak: Weak<WindowInner>,
     /// FIXME! use Box instead;
     platform_window: once_cell::unsync::OnceCell<Rc<dyn PlatformWindow>>,
     component: RefCell<ComponentWeak>,
@@ -203,8 +205,7 @@ impl WindowInner {
         platform_window_fn: impl FnOnce(&Weak<WindowInner>) -> Rc<dyn PlatformWindow>,
     ) -> Rc<Self> {
         #![allow(unused_mut)]
-        let window = Rc::new_cyclic(|self_weak| Self {
-            self_weak: self_weak.clone(),
+        let window = Rc::new(Self {
             platform_window: Default::default(),
             component: Default::default(),
             mouse_input_state: Default::default(),
@@ -700,7 +701,7 @@ impl WindowInner {
 
     /// Temporary function to turn an `&WindowInner` into an `Rc<WindowInner>` for use with the item vtable functions.
     pub fn window_rc(&self) -> WindowRc {
-        self.self_weak.upgrade().unwrap()
+        self.platform_window.get().unwrap().as_ref().window()
     }
 }
 

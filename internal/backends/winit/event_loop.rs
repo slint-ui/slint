@@ -25,7 +25,6 @@ use winit::event::WindowEvent;
 use winit::platform::run_return::EventLoopExtRunReturn;
 
 pub trait WinitWindow: PlatformWindow {
-    fn runtime_window(&self) -> Rc<corelib::window::WindowInner>;
     fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>>;
     fn current_keyboard_modifiers(&self) -> &Cell<KeyboardModifiers>;
     fn draw(self: Rc<Self>);
@@ -58,7 +57,7 @@ pub trait WinitWindow: PlatformWindow {
                 let max_width = constraints_horizontal.max.max(constraints_horizontal.min) as f32;
                 let max_height = constraints_vertical.max.max(constraints_vertical.min) as f32;
 
-                let sf = self.runtime_window().scale_factor();
+                let sf = self.window().scale_factor();
 
                 winit_window.set_resizable(true);
                 winit_window.set_min_inner_size(if min_width > 0. || min_height > 0. {
@@ -123,9 +122,8 @@ pub trait WinitWindow: PlatformWindow {
             if width <= 0. || height <= 0. {
                 must_resize = true;
 
-                let winit_size = winit_window
-                    .inner_size()
-                    .to_logical(self.runtime_window().scale_factor() as f64);
+                let winit_size =
+                    winit_window.inner_size().to_logical(self.window().scale_factor() as f64);
 
                 if width <= 0. {
                     width = winit_size.width;
@@ -135,8 +133,7 @@ pub trait WinitWindow: PlatformWindow {
                 }
             }
 
-            let existing_size: LogicalSize =
-                self.inner_size().cast() / self.runtime_window().scale();
+            let existing_size: LogicalSize = self.inner_size().cast() / self.window().scale();
 
             if (existing_size.width as f32 - width).abs() > 1.
                 || (existing_size.height as f32 - height).abs() > 1.
@@ -151,7 +148,7 @@ pub trait WinitWindow: PlatformWindow {
         });
 
         if must_resize {
-            let win = i_slint_core::api::Window::from(self.runtime_window());
+            let win = i_slint_core::api::Window::from(self.window());
             let f = win.scale_factor().0;
             win.set_size(euclid::size2((width as f32 * f) as _, (height as f32 * f) as _));
         }
@@ -383,7 +380,7 @@ fn process_window_event(
         event
     }
 
-    let runtime_window = window.runtime_window();
+    let runtime_window = window.window();
     match event {
         WindowEvent::Resized(size) => {
             window.resize_event(size);
@@ -654,7 +651,7 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
                         .drain(..)
                         .flat_map(|window_id| window_by_id(window_id))
                     {
-                        window.runtime_window().update_window_properties();
+                        window.window().update_window_properties();
                     }
                 }
 

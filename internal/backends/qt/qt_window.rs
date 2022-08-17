@@ -1582,6 +1582,10 @@ impl PlatformWindow for QtWindow {
             widget_ptr->resize(sz);
         }};
     }
+
+    fn window(&self) -> WindowRc {
+        self.self_weak.upgrade().unwrap()
+    }
 }
 
 impl Renderer for QtWindow {
