@@ -153,7 +153,7 @@ pub fn generate(doc: &Document) -> TokenStream {
             match &er.kind {
                 crate::embedded_resources::EmbeddedResourcesKind::RawData => {
                     let data = embedded_file_tokens(path);
-                    quote!(const #symbol: &'static [u8] = #data;)
+                    quote!(static #symbol: &'static [u8] = #data;)
                 }
                 crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture {
                     data, format, rect,
