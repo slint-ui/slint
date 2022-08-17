@@ -10,7 +10,7 @@ on:
 
 jobs:
   docs:
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       # Allow deprecated warning because we are using nightly and some things might be deprecated in nightly
       # for which the stable alternative is not yet available.
@@ -58,9 +58,9 @@ jobs:
       id: pipenv-cache
       with:
         path: ~/.local/share/virtualenvs
-        key: ${{ runner.os }}-pipenv-${{ hashFiles('**/Pipfile') }}
+        key: ${{ runner.os }}-pipenv-v1-${{ hashFiles('**/Pipfile') }}
         restore-keys: |
-          ${{ runner.os }}-pipenv-
+          ${{ runner.os }}-pipenv-v1
     - name: Remove docs from cache # Avoid stale docs
       run: |
           rm -rf target/doc target/cppdocs api/node/docs
