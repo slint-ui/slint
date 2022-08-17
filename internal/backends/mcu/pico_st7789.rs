@@ -6,9 +6,8 @@ extern crate alloc;
 use alloc::rc::{Rc, Weak};
 use alloc::vec;
 use alloc_cortex_m::CortexMHeap;
-use core::cell::RefCell;
+use core::cell::{Cell, RefCell};
 use core::convert::Infallible;
-use core::sync::atomic::{AtomicBool, Ordering};
 use cortex_m::interrupt::Mutex;
 use cortex_m::singleton;
 pub use cortex_m_rt::entry;
@@ -63,13 +62,16 @@ pub fn init() {
 }
 
 thread_local! { static WINDOW: RefCell<Option<Rc<PicoWindow>>> = RefCell::new(None) }
-static NEEDS_REDRAW: AtomicBool = AtomicBool::new(false);
 
 struct PicoBackend;
 impl i_slint_core::backend::Backend for PicoBackend {
     fn create_window(&self) -> i_slint_core::api::Window {
         i_slint_core::window::WindowInner::new(|window| {
-            Rc::new(PicoWindow { self_weak: window.clone(), renderer: Default::default() })
+            Rc::new(PicoWindow {
+                self_weak: window.clone(),
+                renderer: Default::default(),
+                needs_redraw: Default::default(),
+            })
         })
         .into()
     }
@@ -196,9 +198,9 @@ fn run_event_loop() -> ! {
     let mut last_touch = None;
     loop {
         i_slint_core::timers::update_timers();
-        if NEEDS_REDRAW.load(Ordering::Relaxed) {
-            NEEDS_REDRAW.store(false, Ordering::Relaxed);
-            if let Some(window) = WINDOW.with(|x| x.borrow().clone()) {
+
+        if let Some(window) = WINDOW.with(|x| x.borrow().clone()) {
+            if window.needs_redraw.replace(false) {
                 let runtime_window = window.self_weak.upgrade().unwrap();
                 runtime_window.update_window_properties();
 
@@ -295,6 +297,7 @@ impl<TO: WriteTarget<TransmittedWord = u8> + FullDuplex<u8>, CH: SingleChannel>
 struct PicoWindow {
     self_weak: Weak<i_slint_core::window::WindowInner>,
     renderer: crate::renderer::SoftwareRenderer,
+    needs_redraw: Cell<bool>,
 }
 
 impl i_slint_core::window::PlatformWindow for PicoWindow {
@@ -310,7 +313,7 @@ impl i_slint_core::window::PlatformWindow for PicoWindow {
         WINDOW.with(|x| *x.borrow_mut() = None)
     }
     fn request_redraw(&self) {
-        NEEDS_REDRAW.store(true, Ordering::Relaxed);
+        self.needs_redraw.set(true);
     }
 
     fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
