@@ -13,7 +13,7 @@ use i_slint_core::items::DialogButtonRole;
 use i_slint_core::layout::{self as core_layout};
 use i_slint_core::model::RepeatedComponent;
 use i_slint_core::slice::Slice;
-use i_slint_core::window::WindowRc;
+use i_slint_core::window::WindowInner;
 use std::convert::TryInto;
 use std::str::FromStr;
 
@@ -360,7 +360,7 @@ pub(crate) fn fill_layout_info_constraints(
 pub(crate) fn get_layout_info(
     elem: &ElementRc,
     component: InstanceRef,
-    window: &WindowRc,
+    window: &WindowInner,
     orientation: Orientation,
 ) -> core_layout::LayoutInfo {
     let elem = elem.borrow();

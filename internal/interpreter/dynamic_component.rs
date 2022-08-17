@@ -29,7 +29,7 @@ use i_slint_core::model::Repeater;
 use i_slint_core::properties::InterpolatedPropertyValue;
 use i_slint_core::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use i_slint_core::slice::Slice;
-use i_slint_core::window::{WindowHandleAccess, WindowRc};
+use i_slint_core::window::{WindowHandleAccess, WindowInner};
 use i_slint_core::{Brush, Color, Property, SharedString, SharedVector};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -1193,7 +1193,7 @@ fn make_binding_eval_closure(
 pub fn instantiate(
     component_type: Rc<ComponentDescription>,
     parent_ctx: Option<ComponentRefPin>,
-    window: Option<&i_slint_core::window::WindowRc>,
+    window: Option<&i_slint_core::window::WindowInner>,
     mut globals: crate::global_component::GlobalStorage,
 ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
     let mut instance = component_type.dynamic_type.clone().create_instance();
@@ -1217,7 +1217,7 @@ pub fn instantiate(
             .collect();
     }
     *component_type.window_offset.apply_mut(instance.as_mut()) =
-        window.map(|window| window.clone().into());
+        window.map(|window| window.window_rc().into());
 
     let component_box = ComponentBox { instance, component_type: component_type.clone() };
     let instance_ref = component_box.borrow_instance();
@@ -1730,7 +1730,7 @@ pub fn show_popup(
     popup: &object_tree::PopupWindow,
     pos: i_slint_core::graphics::Point,
     parent_comp: ComponentRefPin,
-    parent_window: &WindowRc,
+    parent_window: &WindowInner,
     parent_item: &ItemRc,
 ) {
     generativity::make_guard!(guard);

@@ -9,7 +9,7 @@ use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement, RadialGr
 use corelib::items::{ItemRef, PropertyAnimation};
 use corelib::model::{Model, ModelRc};
 use corelib::rtti::AnimatedBindingKind;
-use corelib::window::{WindowHandleAccess, WindowRc};
+use corelib::window::{WindowHandleAccess, WindowInner};
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use i_slint_compiler::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, Path as ExprPath, PathElement as ExprPathElement,
@@ -993,13 +993,13 @@ fn root_component_instance<'a, 'old_id, 'new_id>(
     }
 }
 
-pub fn window_ref<'a>(component: InstanceRef<'a, '_>) -> Option<&'a WindowRc> {
+pub fn window_ref<'a>(component: InstanceRef<'a, '_>) -> Option<&'a WindowInner> {
     component
         .component_type
         .window_offset
         .apply(component.instance.get_ref())
         .as_ref()
-        .map(|window| window.window_handle())
+        .map(|window| window.window_handle().as_ref())
 }
 
 /// Return the component instance which hold the given element.
