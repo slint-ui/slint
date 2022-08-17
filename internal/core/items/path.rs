@@ -19,7 +19,7 @@ use crate::item_rendering::CachedRenderingData;
 use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::window::WindowRc;
+use crate::window::WindowInner;
 use crate::{Coord, Property};
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
@@ -48,20 +48,24 @@ pub struct Path {
 }
 
 impl Item for Path {
-    fn init(self: Pin<&Self>, _window: &WindowRc) {}
+    fn init(self: Pin<&Self>, _window: &WindowInner) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
+    fn layout_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window: &WindowInner,
+    ) -> LayoutInfo {
         LayoutInfo::default()
     }
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &WindowRc,
+        _window: &WindowInner,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         if let Some(pos) = event.position() {
@@ -80,17 +84,17 @@ impl Item for Path {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &WindowRc,
+        _window: &WindowInner,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowInner) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowInner) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
 

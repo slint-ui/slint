@@ -35,7 +35,7 @@ pub struct NativeTabWidget {
 }
 
 impl Item for NativeTabWidget {
-    fn init(self: Pin<&Self>, _window: &WindowRc) {
+    fn init(self: Pin<&Self>, _window: &WindowInner) {
         #[derive(Default, Clone)]
         #[repr(C)]
         struct TabWidgetMetrics {
@@ -168,7 +168,11 @@ impl Item for NativeTabWidget {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layout_info(self: Pin<&Self>, orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
+    fn layout_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        _window: &WindowInner,
+    ) -> LayoutInfo {
         let (content_size, tabbar_size) = match orientation {
             Orientation::Horizontal => (
                 qttypes::QSizeF {
@@ -223,7 +227,7 @@ impl Item for NativeTabWidget {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &WindowRc,
+        _window: &WindowInner,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -232,17 +236,17 @@ impl Item for NativeTabWidget {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &WindowRc,
+        _window: &WindowInner,
         _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowInner) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowInner) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
 
@@ -324,13 +328,17 @@ pub struct NativeTab {
 }
 
 impl Item for NativeTab {
-    fn init(self: Pin<&Self>, _window: &WindowRc) {}
+    fn init(self: Pin<&Self>, _window: &WindowInner) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layout_info(self: Pin<&Self>, orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
+    fn layout_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        _window: &WindowInner,
+    ) -> LayoutInfo {
         let text: qttypes::QString = self.title().as_str().into();
         let icon: qttypes::QPixmap =
             crate::qt_window::image_to_pixmap((&self.icon()).into(), None).unwrap_or_default();
@@ -378,7 +386,7 @@ impl Item for NativeTab {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &WindowRc,
+        _window: &WindowInner,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -387,7 +395,7 @@ impl Item for NativeTab {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        window: &WindowRc,
+        window: &WindowInner,
         self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let enabled = self.enabled();
@@ -421,11 +429,11 @@ impl Item for NativeTab {
         }
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowInner) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowInner) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
 

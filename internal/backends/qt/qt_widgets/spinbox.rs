@@ -54,13 +54,17 @@ option.frame = true;
 }}
 
 impl Item for NativeSpinBox {
-    fn init(self: Pin<&Self>, _window: &WindowRc) {}
+    fn init(self: Pin<&Self>, _window: &WindowInner) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layout_info(self: Pin<&Self>, orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
+    fn layout_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        _window: &WindowInner,
+    ) -> LayoutInfo {
         //let value: i32 = self.value();
         let data = self.data();
         let active_controls = data.active_controls;
@@ -104,7 +108,7 @@ impl Item for NativeSpinBox {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &WindowRc,
+        _window: &WindowInner,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -113,7 +117,7 @@ impl Item for NativeSpinBox {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        window: &WindowRc,
+        window: &WindowInner,
         self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
@@ -190,7 +194,7 @@ impl Item for NativeSpinBox {
         InputEventResult::EventAccepted
     }
 
-    fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &WindowInner) -> KeyEventResult {
         if !self.enabled() || event.event_type != KeyEventType::KeyPressed {
             return KeyEventResult::EventIgnored;
         }
@@ -209,7 +213,11 @@ impl Item for NativeSpinBox {
         }
     }
 
-    fn focus_event(self: Pin<&Self>, event: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+    fn focus_event(
+        self: Pin<&Self>,
+        event: &FocusEvent,
+        _window: &WindowInner,
+    ) -> FocusEventResult {
         match event {
             FocusEvent::FocusIn => {
                 if self.enabled() {

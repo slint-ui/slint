@@ -21,7 +21,7 @@ use crate::items::{PropertyAnimation, Rectangle};
 use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::window::WindowRc;
+use crate::window::WindowInner;
 use crate::Coord;
 use crate::Property;
 use alloc::boxed::Box;
@@ -54,20 +54,24 @@ pub struct Flickable {
 }
 
 impl Item for Flickable {
-    fn init(self: Pin<&Self>, _window: &WindowRc) {}
+    fn init(self: Pin<&Self>, _window: &WindowInner) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layout_info(self: Pin<&Self>, _orientation: Orientation, _window: &WindowRc) -> LayoutInfo {
+    fn layout_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window: &WindowInner,
+    ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
 
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &WindowRc,
+        _window: &WindowInner,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         if let Some(pos) = event.position() {
@@ -84,7 +88,7 @@ impl Item for Flickable {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &WindowRc,
+        _window: &WindowInner,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         if !self.interactive() && !matches!(event, MouseEvent::Wheel { .. }) {
@@ -104,11 +108,11 @@ impl Item for Flickable {
         self.data.handle_mouse(self, event)
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowRc) -> KeyEventResult {
+    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowInner) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowRc) -> FocusEventResult {
+    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowInner) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
 

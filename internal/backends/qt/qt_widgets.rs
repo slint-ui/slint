@@ -31,7 +31,7 @@ use i_slint_core::items::{Item, ItemConsts, ItemRc, ItemVTable, RenderingResult,
 use i_slint_core::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use i_slint_core::rtti::*;
-use i_slint_core::window::WindowRc;
+use i_slint_core::window::WindowInner;
 use i_slint_core::{
     declare_item_vtable, Callback, ItemVTable_static, Property, SharedString, SharedVector,
 };
