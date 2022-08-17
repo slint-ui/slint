@@ -3,37 +3,40 @@
 
 extern crate alloc;
 
+use alloc::rc::{Rc, Weak};
 use alloc::vec;
+use alloc_cortex_m::CortexMHeap;
 use core::cell::RefCell;
 use core::convert::Infallible;
+use core::sync::atomic::{AtomicBool, Ordering};
 use cortex_m::interrupt::Mutex;
 use cortex_m::singleton;
 pub use cortex_m_rt::entry;
+use defmt_rtt as _;
 use embedded_graphics::pixelcolor::Rgb565;
 use embedded_graphics::prelude::*;
-use embedded_hal::blocking::spi::Transfer;
-use embedded_hal::digital::v2::{InputPin, OutputPin};
+use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::spi::FullDuplex;
 use embedded_time::rate::*;
 use hal::dma::{DMAExt, SingleChannel, WriteTarget};
 use i_slint_core::api::euclid;
+use i_slint_core::lengths::{PhysicalLength, PhysicalRect, PhysicalSize};
+use i_slint_core::swrenderer as renderer;
 use rp_pico::hal::gpio::{self, Interrupt as GpioInterrupt};
 use rp_pico::hal::pac::interrupt;
 use rp_pico::hal::timer::{Alarm, Alarm0};
 use rp_pico::hal::{self, pac, prelude::*, Timer};
 
-use defmt_rtt as _; // global logger
-
 #[cfg(feature = "panic-probe")]
 use panic_probe as _;
+
+#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+use i_slint_core::thread_local_ as thread_local;
 
 #[alloc_error_handler]
 fn oom(layout: core::alloc::Layout) -> ! {
     panic!("Out of memory {:?}", layout);
 }
-use alloc_cortex_m::CortexMHeap;
-
-use crate::{Devices, PhysicalLength, PhysicalSize};
 
 mod display_interface_spi;
 
@@ -47,11 +50,43 @@ type IrqPin = gpio::Pin<gpio::bank0::Gpio17, gpio::PullUpInput>;
 static IRQ_PIN: Mutex<RefCell<Option<IrqPin>>> = Mutex::new(RefCell::new(None));
 
 static ALARM0: Mutex<RefCell<Option<Alarm0>>> = Mutex::new(RefCell::new(None));
+static TIMER: Mutex<RefCell<Option<Timer>>> = Mutex::new(RefCell::new(None));
 
 // 16ns for serial clock cycle (write), page 43 of https://www.waveshare.com/w/upload/a/ae/ST7789_Datasheet.pdf
 const SPI_ST7789VW_MAX_FREQ: embedded_time::rate::Hertz = embedded_time::rate::Hertz(62_500_000u32);
 
+const DISPLAY_SIZE: PhysicalSize = PhysicalSize::new(320, 240);
+
 pub fn init() {
+    unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
+    i_slint_core::backend::instance_or_init(|| alloc::boxed::Box::new(PicoBackend));
+}
+
+thread_local! { static WINDOW: RefCell<Option<Rc<PicoWindow>>> = RefCell::new(None) }
+static NEEDS_REDRAW: AtomicBool = AtomicBool::new(false);
+
+struct PicoBackend;
+impl i_slint_core::backend::Backend for PicoBackend {
+    fn create_window(&self) -> i_slint_core::api::Window {
+        i_slint_core::window::WindowInner::new(|window| {
+            Rc::new(PicoWindow { self_weak: window.clone(), renderer: Default::default() })
+        })
+        .into()
+    }
+
+    fn run_event_loop(&self, _behavior: i_slint_core::backend::EventLoopQuitBehavior) {
+        run_event_loop()
+    }
+
+    fn duration_since_start(&self) -> core::time::Duration {
+        let counter = cortex_m::interrupt::free(|cs| {
+            TIMER.borrow(cs).borrow().as_ref().map(|t| t.get_counter()).unwrap_or_default()
+        });
+        core::time::Duration::from_micros(counter)
+    }
+}
+
+fn run_event_loop() -> ! {
     let mut pac = pac::Peripherals::take().unwrap();
     let core = pac::CorePeripherals::take().unwrap();
 
@@ -70,8 +105,6 @@ pub fn init() {
     .unwrap();
 
     let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().integer());
-
-    unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
 
     let sio = hal::sio::Sio::new(pac.SIO);
     let pins = rp_pico::Pins::new(pac.IO_BANK0, pac.PADS_BANK0, sio.gpio_bank0, &mut pac.RESETS);
@@ -99,7 +132,6 @@ pub fn init() {
 
     let di = display_interface_spi::SPIInterface::new(spi.acquire_spi(), dc, cs);
 
-    const DISPLAY_SIZE: PhysicalSize = PhysicalSize::new(320, 240);
     let mut display =
         st7789::ST7789::new(di, rst, DISPLAY_SIZE.width as _, DISPLAY_SIZE.height as _);
 
@@ -120,8 +152,7 @@ pub fn init() {
     cortex_m::interrupt::free(|cs| {
         IRQ_PIN.borrow(cs).replace(Some(touch_irq));
     });
-
-    let touch =
+    let mut touch =
         xpt2046::XPT2046::new(&IRQ_PIN, pins.gpio16.into_push_pull_output(), spi.acquire_spi())
             .unwrap();
 
@@ -131,6 +162,7 @@ pub fn init() {
 
     cortex_m::interrupt::free(|cs| {
         ALARM0.borrow(cs).replace(Some(alarm0));
+        TIMER.borrow(cs).replace(Some(timer));
     });
 
     unsafe {
@@ -153,16 +185,89 @@ pub fn init() {
         vec![Rgb565::default(); DISPLAY_SIZE.width as _].leak(),
         stolen_spi,
     );
-
-    crate::init_with_display(PicoDevices {
+    let mut buffer_provider = DrawBuffer {
         display,
-        touch,
-        last_touch: Default::default(),
-        timer,
         buffer: vec![Rgb565::default(); DISPLAY_SIZE.width as _].leak(),
         pio: Some(pio),
         stolen_pin: (dc_copy, cs_copy),
-    });
+        dirty_region: Default::default(),
+    };
+
+    let mut last_touch = None;
+    loop {
+        i_slint_core::timers::update_timers();
+        if NEEDS_REDRAW.load(Ordering::Relaxed) {
+            NEEDS_REDRAW.store(false, Ordering::Relaxed);
+            if let Some(window) = WINDOW.with(|x| x.borrow().clone()) {
+                let runtime_window = window.self_weak.upgrade().unwrap();
+                runtime_window.update_window_properties();
+
+                let scale_factor = runtime_window.scale_factor();
+                let size = DISPLAY_SIZE.to_f32() / scale_factor;
+                runtime_window.set_window_item_geometry(size.width as _, size.height as _);
+
+                window.renderer.render_by_line(&runtime_window.into(), &mut buffer_provider);
+                buffer_provider.flush_frame();
+            }
+        }
+
+        // handle touch event
+        let button = i_slint_core::items::PointerEventButton::Left;
+        if let Some(mut event) = touch
+            .read()
+            .map_err(|_| ())
+            .unwrap()
+            .map(|point| {
+                let size = DISPLAY_SIZE.to_f32();
+                let pos = euclid::point2(point.x * size.width, point.y * size.height).cast();
+                match last_touch.replace(pos) {
+                    Some(_) => i_slint_core::input::MouseEvent::MouseMoved { pos },
+                    None => i_slint_core::input::MouseEvent::MousePressed { pos, button },
+                }
+            })
+            .or_else(|| {
+                last_touch
+                    .take()
+                    .map(|pos| i_slint_core::input::MouseEvent::MouseReleased { pos, button })
+            })
+        {
+            if let Some(window) = WINDOW.with(|x| x.borrow().clone()) {
+                let w = window.self_weak.upgrade().unwrap();
+                // scale the event by the scale factor:
+                if let Some(p) = event.pos() {
+                    event.translate((p.cast() / w.scale_factor()).cast() - p);
+                }
+                w.process_mouse_input(event);
+            }
+        } else if i_slint_core::animations::CURRENT_ANIMATION_DRIVER
+            .with(|driver| !driver.has_active_animations())
+        {
+            let time_to_sleep = i_slint_core::timers::TimerList::next_timeout().map(|instant| {
+                let time_to_sleep =
+                    instant - i_slint_core::backend::instance().unwrap().duration_since_start();
+                core::time::Duration::from_millis(time_to_sleep.0)
+            });
+
+            let duration = time_to_sleep.map(|d| {
+                let d = core::cmp::max(d, core::time::Duration::from_micros(10));
+                embedded_time::duration::Microseconds::new(d.as_micros() as u32)
+            });
+
+            cortex_m::interrupt::free(|cs| {
+                if let Some(duration) = duration {
+                    ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().schedule(duration).unwrap();
+                }
+
+                IRQ_PIN
+                    .borrow(cs)
+                    .borrow()
+                    .as_ref()
+                    .unwrap()
+                    .set_interrupt_enabled(GpioInterrupt::LevelLow, true);
+            });
+            cortex_m::asm::wfe();
+        }
+    }
 }
 
 enum PioTransfer<TO: WriteTarget, CH: SingleChannel> {
@@ -187,47 +292,74 @@ impl<TO: WriteTarget<TransmittedWord = u8> + FullDuplex<u8>, CH: SingleChannel>
     }
 }
 
-struct PicoDevices<Display, Touch, PioTransfer, Stolen> {
+struct PicoWindow {
+    self_weak: Weak<i_slint_core::window::WindowInner>,
+    renderer: crate::renderer::SoftwareRenderer,
+}
+
+impl i_slint_core::window::PlatformWindow for PicoWindow {
+    fn show(self: Rc<Self>) {
+        let w = self.self_weak.upgrade().unwrap();
+        w.set_scale_factor(
+            option_env!("SLINT_SCALE_FACTOR").and_then(|x| x.parse().ok()).unwrap_or(1.),
+        );
+        w.scale_factor_property().set_constant();
+        WINDOW.with(|x| *x.borrow_mut() = Some(self))
+    }
+    fn hide(self: Rc<Self>) {
+        WINDOW.with(|x| *x.borrow_mut() = None)
+    }
+    fn request_redraw(&self) {
+        NEEDS_REDRAW.store(true, Ordering::Relaxed);
+    }
+
+    fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer {
+        &self.renderer
+    }
+
+    fn as_any(&self) -> &dyn core::any::Any {
+        self
+    }
+
+    fn inner_size(&self) -> euclid::Size2D<u32, i_slint_core::lengths::PhysicalPx> {
+        DISPLAY_SIZE.cast()
+    }
+}
+
+struct DrawBuffer<Display, PioTransfer, Stolen> {
     display: Display,
-    touch: Touch,
-    last_touch: Option<i_slint_core::graphics::Point>,
-    timer: Timer,
     buffer: &'static mut [super::TargetPixel],
     pio: Option<PioTransfer>,
     stolen_pin: Stolen,
+    dirty_region: PhysicalRect,
 }
 
 impl<
         DI: display_interface::WriteOnlyDataCommand,
         RST: OutputPin<Error = Infallible>,
-        IRQ: InputPin<Error = Infallible>,
-        CS: OutputPin<Error = Infallible>,
-        SPI: Transfer<u8>,
         TO: WriteTarget<TransmittedWord = u8> + FullDuplex<u8>,
         CH: SingleChannel,
         DC_: OutputPin<Error = Infallible>,
         CS_: OutputPin<Error = Infallible>,
-    > Devices
-    for PicoDevices<
-        st7789::ST7789<DI, RST>,
-        xpt2046::XPT2046<IRQ, CS, SPI>,
-        PioTransfer<TO, CH>,
-        (DC_, CS_),
-    >
+    > renderer::LineBufferProvider
+    for &mut DrawBuffer<st7789::ST7789<DI, RST>, PioTransfer<TO, CH>, (DC_, CS_)>
 {
-    fn screen_size(&self) -> PhysicalSize {
-        let s = self.display.size();
-        euclid::size2(s.width as _, s.height as _)
+    type TargetPixel = super::TargetPixel;
+
+    fn set_dirty_region(&mut self, dirty_region: PhysicalRect) -> PhysicalRect {
+        self.dirty_region = dirty_region;
+        dirty_region
     }
 
-    fn render_line(
+    fn process_line(
         &mut self,
         line: PhysicalLength,
-        dirty_region: crate::renderer::DirtyRegion,
-        fill_buffer: &mut dyn FnMut(&mut [Rgb565]),
+        render_fn: impl FnOnce(&mut [super::TargetPixel]),
     ) {
-        fill_buffer(self.buffer);
+        render_fn(self.buffer);
+        let dirty_region = self.dirty_region;
 
+        // convert from little to big indian before sending to the DMA channel
         for x in &mut self.buffer[dirty_region.min_x() as _..dirty_region.max_x() as _] {
             *x = embedded_graphics::pixelcolor::raw::RawU16::from(x.into_storage().to_be()).into()
         }
@@ -270,61 +402,21 @@ impl<
         /*let (a, b, c) = dma.start().wait();
         self.pio = Some(PioTransfer::Idle(a, b.0, c));*/
     }
+}
 
+impl<
+        DI: display_interface::WriteOnlyDataCommand,
+        RST: OutputPin<Error = Infallible>,
+        TO: WriteTarget<TransmittedWord = u8> + FullDuplex<u8>,
+        CH: SingleChannel,
+        DC_: OutputPin<Error = Infallible>,
+        CS_: OutputPin<Error = Infallible>,
+    > DrawBuffer<st7789::ST7789<DI, RST>, PioTransfer<TO, CH>, (DC_, CS_)>
+{
     fn flush_frame(&mut self) {
         let (ch, b, spi) = self.pio.take().unwrap().wait();
         self.pio = Some(PioTransfer::Idle(ch, b, spi));
         self.stolen_pin.1.set_high().unwrap();
-    }
-
-    fn debug(&mut self, text: &str) {
-        self.display.debug(text)
-    }
-
-    fn read_touch_event(&mut self) -> Option<i_slint_core::input::MouseEvent> {
-        let button = i_slint_core::items::PointerEventButton::Left;
-        self.touch
-            .read()
-            .map_err(|_| ())
-            .unwrap()
-            .map(|point| {
-                let size = self.screen_size().to_f32();
-                let pos = euclid::point2(point.x * size.width, point.y * size.height).cast();
-                match self.last_touch.replace(pos) {
-                    Some(_) => i_slint_core::input::MouseEvent::MouseMoved { pos },
-                    None => i_slint_core::input::MouseEvent::MousePressed { pos, button },
-                }
-            })
-            .or_else(|| {
-                self.last_touch
-                    .take()
-                    .map(|pos| i_slint_core::input::MouseEvent::MouseReleased { pos, button })
-            })
-    }
-
-    fn time(&self) -> core::time::Duration {
-        core::time::Duration::from_micros(self.timer.get_counter())
-    }
-
-    fn sleep(&self, duration: Option<core::time::Duration>) {
-        let duration = duration.map(|d| {
-            let d = core::cmp::max(d, core::time::Duration::from_micros(10));
-            embedded_time::duration::Microseconds::new(d.as_micros() as u32)
-        });
-
-        cortex_m::interrupt::free(|cs| {
-            if let Some(duration) = duration {
-                ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().schedule(duration).unwrap();
-            }
-
-            IRQ_PIN
-                .borrow(cs)
-                .borrow()
-                .as_ref()
-                .unwrap()
-                .set_interrupt_enabled(GpioInterrupt::LevelLow, true);
-        });
-        cortex_m::asm::wfe();
     }
 }
 
