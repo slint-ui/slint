@@ -23,6 +23,8 @@ All notable changes to this project are documented in this file.
  - Added `slint::Window::scale_factor()` as getter to read the system device pixel ratio.
  - Added support for `slint::Window::set_size` and `slint::Window::size` to set and get the
    size of the window on the screen.
+ - Added `slint::Window::dispatch_pointer_event` and `slint::PointerEvent` to be able to manually
+   send a mouse or touch event to a window.
  - Added `animation-tick()`
 
 ## [0.2.5] - 2022-07-06

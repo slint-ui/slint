@@ -18,7 +18,10 @@ use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use euclid::default::Vector2D;
 
-/// A mouse or touch event event
+/// A mouse or touch event
+///
+/// The only difference with [`crate::api::PointerEvent`] us that it uses untyped `Point`
+/// TODO: merge with api::PointerEvent
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[allow(missing_docs)]
@@ -60,6 +63,27 @@ impl MouseEvent {
         };
         if let Some(pos) = pos {
             *pos += vec;
+        }
+    }
+}
+
+impl From<crate::api::PointerEvent> for MouseEvent {
+    fn from(event: crate::api::PointerEvent) -> Self {
+        match event {
+            crate::api::PointerEvent::Pressed { position, button } => {
+                MouseEvent::Pressed { position: position.to_untyped().cast(), button }
+            }
+            crate::api::PointerEvent::Released { position, button } => {
+                MouseEvent::Released { position: position.to_untyped().cast(), button }
+            }
+            crate::api::PointerEvent::Moved { position } => {
+                MouseEvent::Moved { position: position.to_untyped().cast() }
+            }
+            crate::api::PointerEvent::Wheel { position, delta } => MouseEvent::Wheel {
+                position: position.to_untyped().cast(),
+                delta: delta.to_untyped().cast().to_point(),
+            },
+            crate::api::PointerEvent::Exit => MouseEvent::Exit,
         }
     }
 }
