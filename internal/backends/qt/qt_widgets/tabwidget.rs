@@ -396,22 +396,22 @@ impl Item for NativeTab {
         }
 
         Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event {
-            MouseEvent::MousePressed { .. } => true,
-            MouseEvent::MouseExit | MouseEvent::MouseReleased { .. } => false,
-            MouseEvent::MouseMoved { .. } => {
+            MouseEvent::Pressed { .. } => true,
+            MouseEvent::Exit | MouseEvent::Released { .. } => false,
+            MouseEvent::Moved { .. } => {
                 return if self.pressed() {
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::MouseWheel { .. } => return InputEventResult::EventIgnored,
+            MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
         });
         let click_on_press = cpp!(unsafe [] -> bool as "bool" {
             return qApp->style()->styleHint(QStyle::SH_TabBar_SelectMouseType, nullptr, nullptr) == QEvent::MouseButtonPress;
         });
-        if matches!(event, MouseEvent::MouseReleased { .. } if !click_on_press)
-            || matches!(event, MouseEvent::MousePressed { .. } if click_on_press)
+        if matches!(event, MouseEvent::Released { .. } if !click_on_press)
+            || matches!(event, MouseEvent::Pressed { .. } if click_on_press)
         {
             window.clone().set_focus_item(self_rc);
             self.current.set(self.tab_index());

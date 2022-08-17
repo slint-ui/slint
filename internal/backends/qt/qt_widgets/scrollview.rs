@@ -158,7 +158,7 @@ impl Item for NativeScrollView {
             let (pos, size) = if horizontal { (pos.x, size.width) } else { (pos.y, size.height) };
 
             let result = match event {
-                MouseEvent::MousePressed { .. } => {
+                MouseEvent::Pressed { .. } => {
                     data.pressed = if horizontal { 1 } else { 2 };
                     if new_control == SC_ScrollBarSlider {
                         data.pressed_x = pos as f32;
@@ -167,11 +167,11 @@ impl Item for NativeScrollView {
                     data.active_controls = new_control;
                     InputEventResult::GrabMouse
                 }
-                MouseEvent::MouseExit => {
+                MouseEvent::Exit => {
                     data.pressed = 0;
                     InputEventResult::EventIgnored
                 }
-                MouseEvent::MouseReleased { .. } => {
+                MouseEvent::Released { .. } => {
                     data.pressed = 0;
                     let new_val = cpp!(unsafe [active_controls as "int", value as "int", max as "int", page_size as "int"] -> i32 as "int" {
                         switch (active_controls) {
@@ -194,7 +194,7 @@ impl Item for NativeScrollView {
                     value_prop.set(-(new_val.min(max).max(0) as f32));
                     InputEventResult::EventIgnored
                 }
-                MouseEvent::MouseMoved { .. } => {
+                MouseEvent::Moved { .. } => {
                     if data.pressed != 0 && data.active_controls == SC_ScrollBarSlider {
                         let max = max as f32;
                         let new_val = data.pressed_val
@@ -206,7 +206,7 @@ impl Item for NativeScrollView {
                         InputEventResult::EventAccepted
                     }
                 }
-                MouseEvent::MouseWheel { .. } => {
+                MouseEvent::Wheel { .. } => {
                     // TODO
                     InputEventResult::EventAccepted
                 }

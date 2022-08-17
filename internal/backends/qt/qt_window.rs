@@ -110,7 +110,7 @@ cpp! {{
             rust!(Slint_mousePressEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let pos = Point::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
-                rust_window.mouse_event(MouseEvent::MousePressed{ pos, button })
+                rust_window.mouse_event(MouseEvent::Pressed{ pos, button })
             });
         }
         void mouseReleaseEvent(QMouseEvent *event) override {
@@ -134,7 +134,7 @@ cpp! {{
             rust!(Slint_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
                 let pos = Point::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
-                rust_window.mouse_event(MouseEvent::MouseReleased{ pos, button })
+                rust_window.mouse_event(MouseEvent::Released{ pos, button })
             });
             if (auto p = dynamic_cast<const SlintWidget*>(parent())) {
                 // FIXME: better way to close the popup
@@ -148,7 +148,7 @@ cpp! {{
             QPoint pos = event->pos();
             rust!(Slint_mouseMoveEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
                 let pos = Point::new(pos.x as _, pos.y as _);
-                rust_window.mouse_event(MouseEvent::MouseMoved{pos})
+                rust_window.mouse_event(MouseEvent::Moved{pos})
             });
         }
         void wheelEvent(QWheelEvent *event) override {
@@ -160,12 +160,12 @@ cpp! {{
             rust!(Slint_mouseWheelEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPointF as "QPointF", delta: qttypes::QPoint as "QPoint"] {
                 let pos = Point::new(pos.x as _, pos.y as _);
                 let delta = Point::new(delta.x as _, delta.y as _);
-                rust_window.mouse_event(MouseEvent::MouseWheel{pos, delta})
+                rust_window.mouse_event(MouseEvent::Wheel{pos, delta})
             });
         }
         void leaveEvent(QEvent *) override {
             rust!(Slint_mouseLeaveEvent [rust_window: &QtWindow as "void*"] {
-                rust_window.mouse_event(MouseEvent::MouseExit)
+                rust_window.mouse_event(MouseEvent::Exit)
             });
         }
 

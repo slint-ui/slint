@@ -68,18 +68,18 @@ impl Item for NativeComboBox {
         // FIXME: this is the input event of a button, but we need to do the proper hit test
 
         Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event {
-            MouseEvent::MousePressed { .. } => true,
-            MouseEvent::MouseExit | MouseEvent::MouseReleased { .. } => false,
-            MouseEvent::MouseMoved { .. } => {
+            MouseEvent::Pressed { .. } => true,
+            MouseEvent::Exit | MouseEvent::Released { .. } => false,
+            MouseEvent::Moved { .. } => {
                 return if self.pressed() {
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::MouseWheel { .. } => return InputEventResult::EventIgnored,
+            MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
         });
-        if matches!(event, MouseEvent::MouseReleased { .. }) {
+        if matches!(event, MouseEvent::Released { .. }) {
             Self::FIELD_OFFSETS.is_open.apply_pin(self).set(true);
             Self::FIELD_OFFSETS.open_popup.apply_pin(self).call(&());
             InputEventResult::EventAccepted

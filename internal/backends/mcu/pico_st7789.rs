@@ -223,14 +223,14 @@ fn run_event_loop() -> ! {
                 let size = DISPLAY_SIZE.to_f32();
                 let pos = euclid::point2(point.x * size.width, point.y * size.height).cast();
                 match last_touch.replace(pos) {
-                    Some(_) => i_slint_core::input::MouseEvent::MouseMoved { pos },
-                    None => i_slint_core::input::MouseEvent::MousePressed { pos, button },
+                    Some(_) => i_slint_core::input::MouseEvent::Moved { pos },
+                    None => i_slint_core::input::MouseEvent::Pressed { pos, button },
                 }
             })
             .or_else(|| {
                 last_touch
                     .take()
-                    .map(|pos| i_slint_core::input::MouseEvent::MouseReleased { pos, button })
+                    .map(|pos| i_slint_core::input::MouseEvent::Released { pos, button })
             })
         {
             if let Some(window) = WINDOW.with(|x| x.borrow().clone()) {

@@ -143,15 +143,15 @@ impl Item for NativeSpinBox {
         });
         let changed = new_control != active_controls
             || match event {
-                MouseEvent::MousePressed { .. } => {
+                MouseEvent::Pressed { .. } => {
                     data.pressed = true;
                     true
                 }
-                MouseEvent::MouseExit => {
+                MouseEvent::Exit => {
                     data.pressed = false;
                     true
                 }
-                MouseEvent::MouseReleased { .. } => {
+                MouseEvent::Released { .. } => {
                     data.pressed = false;
                     if new_control == cpp!(unsafe []->u32 as "int" { return QStyle::SC_SpinBoxUp;})
                         && enabled
@@ -172,15 +172,15 @@ impl Item for NativeSpinBox {
                     }
                     true
                 }
-                MouseEvent::MouseMoved { .. } => false,
-                MouseEvent::MouseWheel { .. } => false, // TODO
+                MouseEvent::Moved { .. } => false,
+                MouseEvent::Wheel { .. } => false, // TODO
             };
         data.active_controls = new_control;
         if changed {
             self.data.set(data);
         }
 
-        if let MouseEvent::MousePressed { .. } = event {
+        if let MouseEvent::Pressed { .. } = event {
             if !self.has_focus() {
                 window.clone().set_focus_item(self_rc);
             }

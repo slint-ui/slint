@@ -288,7 +288,7 @@ impl WindowInner {
             .and_then(|(popup_component, coordinates)| {
                 event.translate(-coordinates.to_vector());
 
-                if let MouseEvent::MousePressed { pos, .. } = &event {
+                if let MouseEvent::Pressed { pos, .. } = &event {
                     // close the popup if one press outside the popup
                     let geom = ComponentRc::borrow_pin(popup_component)
                         .as_ref()
@@ -320,7 +320,7 @@ impl WindowInner {
         if embedded_popup_component.is_some() {
             //FIXME: currently the ComboBox is the only thing that uses the popup, and it should close automatically
             // on release.  But ideally, there would be API to close the popup rather than always closing it on release
-            if matches!(event, MouseEvent::MouseReleased { .. }) {
+            if matches!(event, MouseEvent::Released { .. }) {
                 self.close_popup();
             }
         }
