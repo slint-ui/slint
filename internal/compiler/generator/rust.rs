@@ -1988,7 +1988,7 @@ fn compile_builtin_function_call(
                 let window_tokens = access_window_field(ctx);
                 let focus_item = access_item_rc(pr, ctx);
                 quote!(
-                    #window_tokens.clone().set_focus_item(#focus_item);
+                    #window_tokens.set_focus_item(#focus_item);
                 )
             } else {
                 panic!("internal error: invalid args to SetFocusItem {:?}", arguments)

@@ -136,7 +136,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
 
         canvas.opengl_context.make_current();
 
-        window.clone().draw_contents(|components| {
+        window.draw_contents(|components| {
             {
                 let mut femtovg_canvas = canvas.canvas.as_ref().borrow_mut();
                 // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
