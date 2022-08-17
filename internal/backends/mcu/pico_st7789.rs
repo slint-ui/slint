@@ -18,7 +18,7 @@ use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::spi::FullDuplex;
 use embedded_time::rate::*;
 use hal::dma::{DMAExt, SingleChannel, WriteTarget};
-use i_slint_core::api::euclid;
+use i_slint_core::api::{euclid, PointerEvent, PointerEventButton};
 use i_slint_core::lengths::{PhysicalLength, PhysicalRect, PhysicalSize};
 use i_slint_core::swrenderer as renderer;
 use rp_pico::hal::gpio::{self, Interrupt as GpioInterrupt};
@@ -211,37 +211,32 @@ fn run_event_loop() -> ! {
                 window.renderer.render_by_line(&runtime_window.into(), &mut buffer_provider);
                 buffer_provider.flush_frame();
             }
+
+            // handle touch event
+            let w = i_slint_core::api::Window::from(window.self_weak.upgrade().unwrap());
+            let button = PointerEventButton::Left;
+            if let Some(event) = touch
+                .read()
+                .map_err(|_| ())
+                .unwrap()
+                .map(|point| {
+                    let size = DISPLAY_SIZE.to_f32();
+                    let position = euclid::point2(point.x * size.width, point.y * size.height)
+                        / w.scale_factor();
+                    match last_touch.replace(position) {
+                        Some(_) => PointerEvent::Moved { position },
+                        None => PointerEvent::Pressed { position, button },
+                    }
+                })
+                .or_else(|| {
+                    last_touch.take().map(|position| PointerEvent::Released { position, button })
+                })
+            {
+                w.dispatch_pointer_event(event);
+            }
         }
 
-        // handle touch event
-        let button = i_slint_core::items::PointerEventButton::Left;
-        if let Some(mut event) = touch
-            .read()
-            .map_err(|_| ())
-            .unwrap()
-            .map(|point| {
-                let size = DISPLAY_SIZE.to_f32();
-                let position = euclid::point2(point.x * size.width, point.y * size.height).cast();
-                match last_touch.replace(position) {
-                    Some(_) => i_slint_core::input::MouseEvent::Moved { position },
-                    None => i_slint_core::input::MouseEvent::Pressed { position, button },
-                }
-            })
-            .or_else(|| {
-                last_touch
-                    .take()
-                    .map(|position| i_slint_core::input::MouseEvent::Released { position, button })
-            })
-        {
-            if let Some(window) = WINDOW.with(|x| x.borrow().clone()) {
-                let w = window.self_weak.upgrade().unwrap();
-                // scale the event by the scale factor:
-                if let Some(p) = event.position() {
-                    event.translate((p.cast() / w.scale_factor()).cast() - p);
-                }
-                w.process_mouse_input(event);
-            }
-        } else if i_slint_core::animations::CURRENT_ANIMATION_DRIVER
+        if i_slint_core::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| !driver.has_active_animations())
         {
             let time_to_sleep = i_slint_core::timers::TimerList::next_timeout().map(|instant| {
