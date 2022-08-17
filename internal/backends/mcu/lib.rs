@@ -317,7 +317,7 @@ mod the_backend {
                         if let Some(window) = WINDOWS.with(|x| x.borrow().clone()) {
                             let w = window.self_weak.upgrade().unwrap();
                             // scale the event by the scale factor:
-                            if let Some(p) = event.pos() {
+                            if let Some(p) = event.position() {
                                 event.translate((p.cast() / w.scale_factor()).cast() - p);
                             }
                             w.process_mouse_input(event);

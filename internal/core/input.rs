@@ -24,27 +24,27 @@ use euclid::default::Vector2D;
 #[allow(missing_docs)]
 pub enum MouseEvent {
     /// The mouse or finger was pressed
-    Pressed { pos: Point, button: PointerEventButton },
+    Pressed { position: Point, button: PointerEventButton },
     /// The mouse or finger was released
-    Released { pos: Point, button: PointerEventButton },
+    Released { position: Point, button: PointerEventButton },
     /// The position of the pointer has changed
-    Moved { pos: Point },
+    Moved { position: Point },
     /// Wheel was operated.
     /// `pos` is the position of the mouse when the event happens.
     /// `delta` is the amount of pixel to scroll.
-    Wheel { pos: Point, delta: Point },
+    Wheel { position: Point, delta: Point },
     /// The mouse exited the item or component
     Exit,
 }
 
 impl MouseEvent {
     /// The position of the cursor for this event, if any
-    pub fn pos(&self) -> Option<Point> {
+    pub fn position(&self) -> Option<Point> {
         match self {
-            MouseEvent::Pressed { pos, .. } => Some(*pos),
-            MouseEvent::Released { pos, .. } => Some(*pos),
-            MouseEvent::Moved { pos } => Some(*pos),
-            MouseEvent::Wheel { pos, .. } => Some(*pos),
+            MouseEvent::Pressed { position, .. } => Some(*position),
+            MouseEvent::Released { position, .. } => Some(*position),
+            MouseEvent::Moved { position } => Some(*position),
+            MouseEvent::Wheel { position, .. } => Some(*position),
             MouseEvent::Exit => None,
         }
     }
@@ -52,10 +52,10 @@ impl MouseEvent {
     /// Translate the position by the given value
     pub fn translate(&mut self, vec: Vector2D<Coord>) {
         let pos = match self {
-            MouseEvent::Pressed { pos, .. } => Some(pos),
-            MouseEvent::Released { pos, .. } => Some(pos),
-            MouseEvent::Moved { pos } => Some(pos),
-            MouseEvent::Wheel { pos, .. } => Some(pos),
+            MouseEvent::Pressed { position, .. } => Some(position),
+            MouseEvent::Released { position, .. } => Some(position),
+            MouseEvent::Moved { position } => Some(position),
+            MouseEvent::Wheel { position, .. } => Some(position),
             MouseEvent::Exit => None,
         };
         if let Some(pos) = pos {
@@ -423,7 +423,7 @@ fn handle_mouse_grab(
     let input_result = grabber.borrow().as_ref().input_event(event, window, &grabber);
     if input_result != InputEventResult::GrabMouse {
         mouse_input_state.grabbed = false;
-        send_exit_events(mouse_input_state, mouse_event.pos(), window);
+        send_exit_events(mouse_input_state, mouse_event.position(), window);
     }
 
     true
@@ -478,7 +478,7 @@ pub fn process_mouse_input(
 
             let mut mouse_grabber_stack = mouse_grabber_stack.clone();
 
-            let post_visit_state = if mouse_event.pos().map_or(false, |p| geom.contains(p))
+            let post_visit_state = if mouse_event.position().map_or(false, |p| geom.contains(p))
                 || crate::item_rendering::is_clipping_item(item)
             {
                 let mut event2 = mouse_event;
@@ -554,7 +554,7 @@ pub fn process_mouse_input(
         (Vector2D::new(0 as Coord, 0 as Coord), Vec::new(), mouse_event),
     );
 
-    send_exit_events(&mouse_input_state, mouse_event.pos(), window);
+    send_exit_events(&mouse_input_state, mouse_event.position(), window);
 
     result
 }

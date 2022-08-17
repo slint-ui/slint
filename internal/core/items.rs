@@ -363,7 +363,7 @@ impl Item for TouchArea {
         if !self.enabled() {
             return InputEventFilterResult::ForwardAndIgnore;
         }
-        if let Some(pos) = event.pos() {
+        if let Some(pos) = event.position() {
             Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(pos.x);
             Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(pos.y);
         }
@@ -388,9 +388,10 @@ impl Item for TouchArea {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
-        let result = if let MouseEvent::Released { pos, button } = event {
+        let result = if let MouseEvent::Released { position, button } = event {
             if button == PointerEventButton::Left
-                && euclid::rect(0 as Coord, 0 as Coord, self.width(), self.height()).contains(pos)
+                && euclid::rect(0 as Coord, 0 as Coord, self.width(), self.height())
+                    .contains(position)
             {
                 Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
             }
@@ -400,11 +401,11 @@ impl Item for TouchArea {
         };
 
         match event {
-            MouseEvent::Pressed { pos, button } => {
+            MouseEvent::Pressed { position, button } => {
                 self.grabbed.set(true);
                 if button == PointerEventButton::Left {
-                    Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(pos.x);
-                    Self::FIELD_OFFSETS.pressed_y.apply_pin(self).set(pos.y);
+                    Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(position.x);
+                    Self::FIELD_OFFSETS.pressed_y.apply_pin(self).set(position.y);
                     Self::FIELD_OFFSETS.pressed.apply_pin(self).set(true);
                 }
                 Self::FIELD_OFFSETS
@@ -610,7 +611,7 @@ impl Item for Clip {
         _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
-        if let Some(pos) = event.pos() {
+        if let Some(pos) = event.position() {
             if self.clip()
                 && (pos.x < 0 as Coord
                     || pos.y < 0 as Coord

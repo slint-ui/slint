@@ -38,15 +38,15 @@ let instance = TestCase::new();
 let window = vtable::VRc::from(instance.clone_strong()).window_handle().clone();
 // Vertical
 assert_eq!(instance.get_t1_has_hover(), false);
-window.clone().process_mouse_input(MouseEvent::Moved { pos: point2(25.0, 25.0) });
+window.clone().process_mouse_input(MouseEvent::Moved { position: point2(25.0, 25.0) });
 assert_eq!(instance.get_t1_has_hover(), true);
-window.clone().process_mouse_input(MouseEvent::Wheel { pos: point2(25.0, 25.0), delta: point2(0.0, -30.0) });
+window.clone().process_mouse_input(MouseEvent::Wheel { position: point2(25.0, 25.0), delta: point2(0.0, -30.0) });
 assert_eq!(instance.get_t1_has_hover(), false);
 // Horizontal
 assert_eq!(instance.get_t2_has_hover(), false);
-window.clone().process_mouse_input(MouseEvent::Moved { pos: point2(275.0, 25.0) });
+window.clone().process_mouse_input(MouseEvent::Moved { position: point2(275.0, 25.0) });
 assert_eq!(instance.get_t2_has_hover(), true);
-window.clone().process_mouse_input(MouseEvent::Wheel { pos: point2(275.0, 25.0), delta: point2(-30.0, 0.0) });
+window.clone().process_mouse_input(MouseEvent::Wheel { position: point2(275.0, 25.0), delta: point2(-30.0, 0.0) });
 assert_eq!(instance.get_t2_has_hover(), false);
 ```
 */

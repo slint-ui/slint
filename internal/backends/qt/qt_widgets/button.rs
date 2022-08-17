@@ -258,8 +258,8 @@ impl Item for NativeButton {
             }
             MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
         });
-        if let MouseEvent::Released { pos, .. } = event {
-            if euclid::rect(0., 0., self.width(), self.height()).contains(pos) {
+        if let MouseEvent::Released { position, .. } = event {
+            if euclid::rect(0., 0., self.width(), self.height()).contains(position) {
                 self.activate();
             }
             InputEventResult::EventAccepted

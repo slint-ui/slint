@@ -122,8 +122,10 @@ impl Item for NativeSpinBox {
         let active_controls = data.active_controls;
         let pressed = data.pressed;
 
-        let pos =
-            event.pos().map(|p| qttypes::QPoint { x: p.x as _, y: p.y as _ }).unwrap_or_default();
+        let pos = event
+            .position()
+            .map(|p| qttypes::QPoint { x: p.x as _, y: p.y as _ })
+            .unwrap_or_default();
 
         let new_control = cpp!(unsafe [
             pos as "QPoint",
