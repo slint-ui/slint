@@ -23,21 +23,21 @@ on:
 
 jobs:
   slint-viewer-binary:
-    uses: slint-ui/slint/.github/workflows/slint_tool_binary.yaml@master
+    uses: slint-ui/slint/.github/workflows/slint_tool_binary.yaml@simon/ubuntu-ci-upgrade
     with:
       program: "slint-viewer"
   slint-lsp-binary:
-    uses: slint-ui/slint/.github/workflows/slint_tool_binary.yaml@master
+    uses: slint-ui/slint/.github/workflows/slint_tool_binary.yaml@simon/ubuntu-ci-upgrade
     with:
       program: "slint-lsp"
   docs:
-    uses: slint-ui/slint/.github/workflows/build_docs.yaml@master
+    uses: slint-ui/slint/.github/workflows/build_docs.yaml@simon/ubuntu-ci-upgrade
   wasm_demo:
-    uses: slint-ui/slint/.github/workflows/wasm_demos.yaml@master
+    uses: slint-ui/slint/.github/workflows/wasm_demos.yaml@simon/ubuntu-ci-upgrade
   wasm:
-    uses: slint-ui/slint/.github/workflows/wasm_editor_and_interpreter.yaml@master
+    uses: slint-ui/slint/.github/workflows/wasm_editor_and_interpreter.yaml@simon/ubuntu-ci-upgrade
   cpp_package:
-    uses: slint-ui/slint/.github/workflows/cpp_package.yaml@master
+    uses: slint-ui/slint/.github/workflows/cpp_package.yaml@simon/ubuntu-ci-upgrade
 
   build_vscode_lsp_linux_windows:
     env:
