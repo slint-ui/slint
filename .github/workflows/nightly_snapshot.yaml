@@ -168,7 +168,7 @@ jobs:
         target:
           - armv7-unknown-linux-gnueabihf
           - aarch64-unknown-linux-gnu
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v2
     - name: Install latest stable
@@ -264,7 +264,7 @@ jobs:
   publish_artifacts:
     if: github.event.inputs.private != 'true'
     needs: [docs, wasm_demo, wasm]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/download-artifact@v2
         with:

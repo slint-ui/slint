@@ -38,7 +38,7 @@ jobs:
           - "https://github.com/LuXts/toy-parse"
           - "https://codeberg.org/flovan/phoenix-wing-rust"
           - "https://github.com/Sekky61/raycaster_lib"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v2
     - name: Install Linux Dependencies

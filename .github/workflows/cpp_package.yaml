@@ -15,12 +15,12 @@ jobs:
       CARGO_INCREMENTAL: false
     strategy:
       matrix:
-        os: [ubuntu-20.04, macOS-11, windows-2022]
+        os: [ubuntu-22.04, macOS-11, windows-2022]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
     - name: Install Linux Dependencies
-      if: matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'ubuntu-22.04'
       run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
     - name: Cache Qt
       if: matrix.os != 'windows-2022'
@@ -31,7 +31,7 @@ jobs:
         key: ${{ runner.os }}-${{ github.job }}-cpp-Qt
     - name: Install Qt (Ubuntu)
       uses: jurplel/install-qt-action@v2
-      if: matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'ubuntu-22.04'
       with:
         version: 5.15.2
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
@@ -41,7 +41,7 @@ jobs:
       with:
         version: 6.2.1
     - name: Install Qt (cached)
-      if: matrix.os != 'ubuntu-20.04' && matrix.os != 'windows-2022'
+      if: matrix.os != 'ubuntu-22.04' && matrix.os != 'windows-2022'
       uses: jurplel/install-qt-action@v2
       with:
         version: 6.2.1

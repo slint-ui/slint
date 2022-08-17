@@ -20,7 +20,7 @@ jobs:
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        os: [ubuntu-20.04, macOS-11, windows-2022]
+        os: [ubuntu-22.04, macOS-11, windows-2022]
         rust_version: [stable, "1.60"]
         include:
           - os: windows-2022
@@ -31,7 +31,7 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - name: Install Linux Dependencies
-      if: matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'ubuntu-22.04'
       run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
     - name: Cache Qt
       if: matrix.os != 'windows-2022'
@@ -106,13 +106,13 @@ jobs:
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        os: [ubuntu-20.04, macOS-11, windows-2022]
+        os: [ubuntu-22.04, macOS-11, windows-2022]
     runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v2
     - name: Install Linux Dependencies
-      if: matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'ubuntu-22.04'
       run: |
           sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev gcc-10 g++-10
           echo "CXX=g++-10" >> $GITHUB_ENV
@@ -172,7 +172,7 @@ jobs:
           command: test
           args: --verbose -p  test-driver-cpp --features slint-cpp/backend-qt
     - name: Clean cache # Otherwise the cache is much too big
-      if: matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'ubuntu-22.04'
       run: |
           du -hs target
           rm -rf target/*/*/*slint*
@@ -198,12 +198,12 @@ jobs:
       CARGO_INCREMENTAL: false
     strategy:
       matrix:
-        os: [ubuntu-20.04, macOS-11, windows-2022]
+        os: [ubuntu-22.04, macOS-11, windows-2022]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
     - name: Install Linux Dependencies
-      if: matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'ubuntu-22.04'
       run: |
           sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev gcc-10 g++-10
           echo "CXX=g++-10" >> $GITHUB_ENV
@@ -216,7 +216,7 @@ jobs:
         key: ${{ runner.os }}-${{ github.job }}-cpp-Qt
     - name: Install Qt (Ubuntu)
       uses: jurplel/install-qt-action@v2
-      if: matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'ubuntu-22.04'
       with:
         version: 5.15.2
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
@@ -226,7 +226,7 @@ jobs:
       with:
         version: 6.2.1
     - name: Install Qt (cached)
-      if: matrix.os != 'ubuntu-20.04' && matrix.os != 'windows-2022'
+      if: matrix.os != 'ubuntu-22.04' && matrix.os != 'windows-2022'
       uses: jurplel/install-qt-action@v2
       with:
         version: 6.2.1
@@ -247,7 +247,7 @@ jobs:
         echo "CXX=cl.exe" >> $GITHUB_ENV
       if: matrix.os == 'windows-2022'
     - name: Enable test coverage for resource embedding in C++ when building examples
-      if: matrix.os == 'ubuntu-20.04'
+      if: matrix.os == 'ubuntu-22.04'
       run: |
           echo "SLINT_EMBED_RESOURCES=true" >> $GITHUB_ENV
     - name: C++ Build
@@ -272,7 +272,7 @@ jobs:
 
   cpp_package_test:
     needs: [cpp_cmake]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     env:
       DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.1/clang_64/lib
       QT_QPA_PLATFORM: offscreen
@@ -296,7 +296,7 @@ jobs:
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
     - uses: actions/download-artifact@v2
       with:
-        name: cpp_bin-ubuntu-20.04
+        name: cpp_bin-ubuntu-22.04
         path: cpp-package
     - name: unpack package
       run: |
@@ -320,7 +320,7 @@ jobs:
       SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
       SLINT_PROCESS_IMAGES: 1
       RUSTFLAGS: --cfg slint_int_coord
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v2
     - name: Install nightly rust
@@ -358,7 +358,7 @@ jobs:
     strategy:
       matrix:
         from_version: ['0.1.0', '0.1.6']
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-22.04
     steps:
     - uses: actions/checkout@v2
       with:
