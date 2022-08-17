@@ -182,12 +182,18 @@ impl Window {
     /// Returns the size of the window on the screen, in physical screen coordinates and excluding
     /// a window frame (if present).
     pub fn size(&self) -> euclid::Size2D<u32, PhysicalPx> {
-        self.0.inner_size()
+        self.0.inner_size.get()
     }
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
     pub fn set_size(&self, size: euclid::Size2D<u32, PhysicalPx>) {
+        if self.0.inner_size.replace(size) == size {
+            return;
+        }
+
+        let l = size.cast() / self.scale_factor();
+        self.0.set_window_item_geometry(l.width as _, l.height as _);
         self.0.set_inner_size(size)
     }
 

@@ -1295,10 +1295,8 @@ impl QtWindow {
     }
 
     fn resize_event(&self, size: qttypes::QSize) {
-        self.self_weak
-            .upgrade()
-            .unwrap()
-            .set_window_item_geometry(size.width as _, size.height as _);
+        i_slint_core::api::Window::from(self.self_weak.upgrade().unwrap())
+            .set_size(euclid::size2(size.width, size.height));
     }
 
     fn mouse_event(&self, event: MouseEvent) {
@@ -1564,7 +1562,7 @@ impl PlatformWindow for QtWindow {
     fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
         let widget_ptr = self.widget_ptr();
         let qp = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QPoint as "QPoint" {
-            return widget_ptr->pos()  * widget_ptr->devicePixelRatio();
+            return widget_ptr->pos();
         }};
         euclid::Point2D::new(qp.x as _, qp.y as _)
     }
@@ -1573,23 +1571,15 @@ impl PlatformWindow for QtWindow {
         let widget_ptr = self.widget_ptr();
         let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
         cpp! {unsafe [widget_ptr as "QWidget*", pos as "QPoint"] {
-            widget_ptr->move(pos / widget_ptr->devicePixelRatio());
+            widget_ptr->move(pos);
         }};
-    }
-
-    fn inner_size(&self) -> euclid::Size2D<u32, PhysicalPx> {
-        let widget_ptr = self.widget_ptr();
-        let sz = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QSize as "QSize" {
-            return widget_ptr->size() * widget_ptr->devicePixelRatio();
-        }};
-        euclid::Size2D::new(sz.width as _, sz.height as _)
     }
 
     fn set_inner_size(&self, size: euclid::Size2D<u32, PhysicalPx>) {
         let widget_ptr = self.widget_ptr();
         let sz = qttypes::QSize { width: size.width as _, height: size.height as _ };
         cpp! {unsafe [widget_ptr as "QWidget*", sz as "QSize"] {
-            widget_ptr->resize(sz  / widget_ptr->devicePixelRatio());
+            widget_ptr->resize(sz);
         }};
     }
 }

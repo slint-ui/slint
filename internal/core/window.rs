@@ -108,10 +108,6 @@ pub trait PlatformWindow {
     /// The default implementation does nothing
     fn set_position(&self, _position: euclid::Point2D<i32, PhysicalPx>) {}
 
-    /// Returns the size of the window on the screen, in physical screen coordinates and excluding
-    /// a window frame (if present).
-    fn inner_size(&self) -> euclid::Size2D<u32, PhysicalPx>;
-
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
     ///
@@ -186,6 +182,9 @@ pub struct WindowInner {
     active: Pin<Box<Property<bool>>>,
     active_popup: RefCell<Option<PopupWindow>>,
     close_requested: Callback<(), CloseRequestResponse>,
+    /// This is a cache of the size set by the set_inner_size setter.
+    /// It should be mapping with the WindowItem::width and height (only in physical)
+    pub(crate) inner_size: Cell<euclid::Size2D<u32, PhysicalPx>>,
 }
 
 impl Drop for WindowInner {
@@ -215,6 +214,7 @@ impl WindowInner {
             active: Box::pin(Property::new_named(false, "i_slint_core::Window::active")),
             active_popup: Default::default(),
             close_requested: Default::default(),
+            inner_size: Default::default(),
         });
         let window_weak = Rc::downgrade(&window);
         window.platform_window.set(platform_window_fn(&window_weak)).ok().unwrap();
@@ -946,7 +946,7 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_size(handle: *const WindowRcOpaque) -> IntSize {
         let window = &*(handle as *const WindowRc);
-        window.inner_size().to_untyped().cast()
+        window.inner_size.get().to_untyped()
     }
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding

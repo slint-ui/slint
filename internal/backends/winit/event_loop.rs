@@ -151,7 +151,9 @@ pub trait WinitWindow: PlatformWindow {
         });
 
         if must_resize {
-            self.runtime_window().set_window_item_geometry(width as _, height as _)
+            let win = i_slint_core::api::Window::from(self.runtime_window());
+            let f = win.scale_factor().0;
+            win.set_size(euclid::size2((width as f32 * f) as _, (height as f32 * f) as _));
         }
     }
 
@@ -159,6 +161,8 @@ pub trait WinitWindow: PlatformWindow {
     fn input_method_focused(&self) -> bool {
         false
     }
+
+    fn inner_size(&self) -> euclid::Size2D<u32, corelib::lengths::PhysicalPx>;
 }
 
 struct NotRunningEventLoop {
