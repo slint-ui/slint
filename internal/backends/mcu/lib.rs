@@ -113,8 +113,8 @@ mod the_backend {
     use alloc::rc::{Rc, Weak};
     use alloc::string::String;
     use core::cell::RefCell;
-    use i_slint_core::window::PlatformWindow;
     use i_slint_core::window::WindowInner;
+    use i_slint_core::window::{PlatformWindow, WindowRc};
 
     thread_local! { static WINDOWS: RefCell<Option<Rc<McuWindow>>> = RefCell::new(None) }
     thread_local! { static EVENT_QUEUE: RefCell<VecDeque<McuEvent>> = Default::default() }
@@ -146,6 +146,10 @@ mod the_backend {
 
         fn as_any(&self) -> &dyn core::any::Any {
             self
+        }
+
+        fn window(&self) -> WindowRc {
+            self.self_weak.upgrade().unwrap()
         }
     }
 

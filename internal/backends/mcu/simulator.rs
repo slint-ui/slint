@@ -12,7 +12,7 @@ use i_slint_core::api::{euclid, PhysicalPx};
 use i_slint_core::component::ComponentRc;
 use i_slint_core::input::KeyboardModifiers;
 use i_slint_core::layout::Orientation;
-use i_slint_core::window::PlatformWindow;
+use i_slint_core::window::{PlatformWindow, WindowRc};
 use i_slint_core::Coord;
 use rgb::FromSlice;
 
@@ -87,7 +87,7 @@ impl PlatformWindow for SimulatorWindow {
 
         self.visible.set(true);
 
-        let runtime_window = self.runtime_window();
+        let runtime_window = self.window();
         let component_rc = runtime_window.component();
         let component = ComponentRc::borrow_pin(&component_rc);
 
@@ -175,13 +175,13 @@ impl PlatformWindow for SimulatorWindow {
     fn set_position(&self, _position: euclid::Point2D<i32, PhysicalPx>) {
         unimplemented!()
     }
+
+    fn window(&self) -> WindowRc {
+        self.self_weak.upgrade().unwrap()
+    }
 }
 
 impl WinitWindow for SimulatorWindow {
-    fn runtime_window(&self) -> Rc<i_slint_core::window::WindowInner> {
-        self.self_weak.upgrade().unwrap()
-    }
-
     fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>> {
         &self.currently_pressed_key_code
     }

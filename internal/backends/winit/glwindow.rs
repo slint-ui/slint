@@ -17,7 +17,7 @@ use corelib::component::ComponentRc;
 use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};
 use corelib::layout::Orientation;
-use corelib::window::PlatformWindow;
+use corelib::window::{PlatformWindow, WindowRc};
 use corelib::Property;
 use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
@@ -101,10 +101,6 @@ impl<Renderer: WinitCompatibleRenderer> GLWindow<Renderer> {
 }
 
 impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Renderer> {
-    fn runtime_window(&self) -> Rc<corelib::window::WindowInner> {
-        self.self_weak.upgrade().unwrap()
-    }
-
     fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>> {
         &self.currently_pressed_key_code
     }
@@ -194,7 +190,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
 
     fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) {
         if let Some(mapped_window) = self.borrow_mapped_window() {
-            i_slint_core::api::Window::from(self.runtime_window())
+            i_slint_core::api::Window::from(self.window())
                 .set_size(euclid::size2(size.width, size.height));
             mapped_window.canvas.resize_event()
         }
@@ -272,7 +268,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
             GraphicsWindowBackendState::Mapped(_) => return,
         };
 
-        let runtime_window = self.runtime_window();
+        let runtime_window = self.window();
         let component_rc = runtime_window.component();
         let component = ComponentRc::borrow_pin(&component_rc);
 
@@ -483,6 +479,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
                 }
             }
         }
+    }
+
+    fn window(&self) -> WindowRc {
+        self.self_weak.upgrade().unwrap()
     }
 }
 

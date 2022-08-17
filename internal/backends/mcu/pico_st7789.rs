@@ -311,6 +311,10 @@ impl i_slint_core::window::PlatformWindow for PicoWindow {
     fn as_any(&self) -> &dyn core::any::Any {
         self
     }
+
+    fn window(&self) -> i_slint_core::window::WindowRc {
+        self.self_weak.upgrade().unwrap()
+    }
 }
 
 struct DrawBuffer<Display, PioTransfer, Stolen> {

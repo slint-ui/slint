@@ -9,9 +9,11 @@ use i_slint_core::api::PhysicalPx;
 use i_slint_core::api::Window;
 use i_slint_core::graphics::{Point, Rect, Size};
 use i_slint_core::renderer::Renderer;
+use i_slint_core::window::WindowRc;
 use i_slint_core::window::{PlatformWindow, WindowInner};
 use std::pin::Pin;
 use std::rc::Rc;
+use std::rc::Weak;
 use std::sync::Mutex;
 
 #[derive(Default)]
@@ -21,7 +23,8 @@ pub struct TestingBackend {
 
 impl i_slint_core::backend::Backend for TestingBackend {
     fn create_window(&self) -> Window {
-        WindowInner::new(|_| Rc::new(TestingWindow::default())).into()
+        WindowInner::new(|window_weak| Rc::new(TestingWindow { self_weak: window_weak.clone() }))
+            .into()
     }
 
     fn run_event_loop(&self, _behavior: i_slint_core::backend::EventLoopQuitBehavior) {
@@ -48,8 +51,9 @@ impl i_slint_core::backend::Backend for TestingBackend {
     }
 }
 
-#[derive(Default)]
-pub struct TestingWindow {}
+pub struct TestingWindow {
+    self_weak: Weak<i_slint_core::window::WindowInner>,
+}
 
 impl PlatformWindow for TestingWindow {
     fn show(self: Rc<Self>) {
@@ -98,6 +102,10 @@ impl PlatformWindow for TestingWindow {
 
     fn set_position(&self, _position: euclid::Point2D<i32, PhysicalPx>) {
         unimplemented!()
+    }
+
+    fn window(&self) -> WindowRc {
+        self.self_weak.upgrade().unwrap()
     }
 }
 
