@@ -31,24 +31,23 @@ TestCase := Window {
 
 ```rust
 // Test that basic scrolling works, and that releasing the mouse animates
-use slint::re_exports::{MouseEvent, PointerEventButton, euclid::point2, vtable, WindowHandleAccess};
+use slint::{PointerEvent, PointerEventButton, euclid::point2};
 let instance = TestCase::new();
-let window = vtable::VRc::from(instance.clone_strong()).window_handle().clone();
-window.clone().process_mouse_input(MouseEvent::Moved { position: point2(300.0, 100.0) });
+instance.window().dispatch_pointer_event(PointerEvent::Moved { position: point2(300.0, 100.0) });
 slint::testing::mock_elapsed_time(5000);
-window.clone().process_mouse_input(MouseEvent::Pressed { position: point2(300.0, 100.0), button: PointerEventButton::Left });
+instance.window().dispatch_pointer_event(PointerEvent::Pressed { position: point2(300.0, 100.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_offset_x(), 0.);
 assert_eq!(instance.get_offset_y(), 0.);
-window.clone().process_mouse_input(MouseEvent::Moved { position: point2(200.0, 50.0) });
+instance.window().dispatch_pointer_event(PointerEvent::Moved { position: point2(200.0, 50.0) });
 assert_eq!(instance.get_offset_x(), 100.);
 assert_eq!(instance.get_offset_y(), 50.);
 slint::testing::mock_elapsed_time(200);
 assert_eq!(instance.get_offset_x(), 100.);
 assert_eq!(instance.get_offset_y(), 50.);
-window.clone().process_mouse_input(MouseEvent::Moved { position: point2(100.0, 50.0) });
+instance.window().dispatch_pointer_event(PointerEvent::Moved { position: point2(100.0, 50.0) });
 assert_eq!(instance.get_offset_x(), 200.);
 assert_eq!(instance.get_offset_y(), 50.);
-window.clone().process_mouse_input(MouseEvent::Released { position: point2(100.0, 50.0), button: PointerEventButton::Left });
+instance.window().dispatch_pointer_event(PointerEvent::Released { position: point2(100.0, 50.0), button: PointerEventButton::Left });
 // Start of the animation, the position is still unchanged
 assert_eq!(instance.get_offset_x(), 200.);
 assert_eq!(instance.get_offset_y(), 50.);
