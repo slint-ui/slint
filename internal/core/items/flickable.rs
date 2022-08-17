@@ -75,7 +75,7 @@ impl Item for Flickable {
                 return InputEventFilterResult::Intercept;
             }
         }
-        if !self.interactive() && !matches!(event, MouseEvent::MouseWheel { .. }) {
+        if !self.interactive() && !matches!(event, MouseEvent::Wheel { .. }) {
             return InputEventFilterResult::ForwardAndIgnore;
         }
         self.data.handle_mouse_filter(self, event)
@@ -87,11 +87,11 @@ impl Item for Flickable {
         _window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
-        if !self.interactive() && !matches!(event, MouseEvent::MouseWheel { .. }) {
+        if !self.interactive() && !matches!(event, MouseEvent::Wheel { .. }) {
             return InputEventResult::EventIgnored;
         }
         if let Some(pos) = event.pos() {
-            if matches!(event, MouseEvent::MouseWheel { .. } | MouseEvent::MousePressed { .. })
+            if matches!(event, MouseEvent::Wheel { .. } | MouseEvent::Pressed { .. })
                 && (pos.x < 0 as _
                     || pos.y < 0 as _
                     || pos.x > self.width()
@@ -184,7 +184,7 @@ impl FlickableData {
     ) -> InputEventFilterResult {
         let mut inner = self.inner.borrow_mut();
         match event {
-            MouseEvent::MousePressed { pos, button: PointerEventButton::Left } => {
+            MouseEvent::Pressed { pos, button: PointerEventButton::Left } => {
                 inner.pressed_pos = pos;
                 inner.pressed_time = Some(crate::animations::current_tick());
                 inner.pressed_viewport_pos = Point::new(
@@ -201,8 +201,7 @@ impl FlickableData {
                     InputEventFilterResult::ForwardAndInterceptGrab
                 }
             }
-            MouseEvent::MouseExit
-            | MouseEvent::MouseReleased { button: PointerEventButton::Left, .. } => {
+            MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
                 let was_capturing = inner.capture_events;
                 Self::mouse_released(&mut inner, flick, event);
                 if was_capturing {
@@ -211,7 +210,7 @@ impl FlickableData {
                     InputEventFilterResult::ForwardEvent
                 }
             }
-            MouseEvent::MouseMoved { pos } => {
+            MouseEvent::Moved { pos } => {
                 let do_intercept = inner.capture_events
                     || inner.pressed_time.map_or(false, |pressed_time| {
                         if crate::animations::current_tick() - pressed_time > DURATION_THRESHOLD {
@@ -239,11 +238,11 @@ impl FlickableData {
                     InputEventFilterResult::ForwardEvent
                 }
             }
-            MouseEvent::MouseWheel { pos, .. } => {
-                InputEventFilterResult::InterceptAndDispatch(MouseEvent::MouseMoved { pos })
+            MouseEvent::Wheel { pos, .. } => {
+                InputEventFilterResult::InterceptAndDispatch(MouseEvent::Moved { pos })
             }
             // Not the left button
-            MouseEvent::MousePressed { .. } | MouseEvent::MouseReleased { .. } => {
+            MouseEvent::Pressed { .. } | MouseEvent::Released { .. } => {
                 InputEventFilterResult::ForwardAndIgnore
             }
         }
@@ -252,15 +251,15 @@ impl FlickableData {
     pub fn handle_mouse(&self, flick: Pin<&Flickable>, event: MouseEvent) -> InputEventResult {
         let mut inner = self.inner.borrow_mut();
         match event {
-            MouseEvent::MousePressed { .. } => {
+            MouseEvent::Pressed { .. } => {
                 inner.capture_events = true;
                 InputEventResult::GrabMouse
             }
-            MouseEvent::MouseExit | MouseEvent::MouseReleased { .. } => {
+            MouseEvent::Exit | MouseEvent::Released { .. } => {
                 Self::mouse_released(&mut inner, flick, event);
                 InputEventResult::EventAccepted
             }
-            MouseEvent::MouseMoved { pos } => {
+            MouseEvent::Moved { pos } => {
                 if inner.pressed_time.is_some() {
                     inner.capture_events = true;
                     let new_pos = ensure_in_bound(
@@ -279,7 +278,7 @@ impl FlickableData {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::MouseWheel { delta, .. } => {
+            MouseEvent::Wheel { delta, .. } => {
                 let old_pos = Point::new(
                     (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
                         .apply_pin(flick)

@@ -18,45 +18,45 @@ use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use euclid::default::Vector2D;
 
-/// A Mouse event
+/// A mouse or touch event event
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[allow(missing_docs)]
 pub enum MouseEvent {
-    /// The mouse was pressed
-    MousePressed { pos: Point, button: PointerEventButton },
-    /// The mouse was released
-    MouseReleased { pos: Point, button: PointerEventButton },
-    /// The mouse position has changed
-    MouseMoved { pos: Point },
+    /// The mouse or finger was pressed
+    Pressed { pos: Point, button: PointerEventButton },
+    /// The mouse or finger was released
+    Released { pos: Point, button: PointerEventButton },
+    /// The position of the pointer has changed
+    Moved { pos: Point },
     /// Wheel was operated.
     /// `pos` is the position of the mouse when the event happens.
     /// `delta` is the amount of pixel to scroll.
-    MouseWheel { pos: Point, delta: Point },
+    Wheel { pos: Point, delta: Point },
     /// The mouse exited the item or component
-    MouseExit,
+    Exit,
 }
 
 impl MouseEvent {
-    /// The position of the cursor
+    /// The position of the cursor for this event, if any
     pub fn pos(&self) -> Option<Point> {
         match self {
-            MouseEvent::MousePressed { pos, .. } => Some(*pos),
-            MouseEvent::MouseReleased { pos, .. } => Some(*pos),
-            MouseEvent::MouseMoved { pos } => Some(*pos),
-            MouseEvent::MouseWheel { pos, .. } => Some(*pos),
-            MouseEvent::MouseExit => None,
+            MouseEvent::Pressed { pos, .. } => Some(*pos),
+            MouseEvent::Released { pos, .. } => Some(*pos),
+            MouseEvent::Moved { pos } => Some(*pos),
+            MouseEvent::Wheel { pos, .. } => Some(*pos),
+            MouseEvent::Exit => None,
         }
     }
 
     /// Translate the position by the given value
     pub fn translate(&mut self, vec: Vector2D<Coord>) {
         let pos = match self {
-            MouseEvent::MousePressed { pos, .. } => Some(pos),
-            MouseEvent::MouseReleased { pos, .. } => Some(pos),
-            MouseEvent::MouseMoved { pos } => Some(pos),
-            MouseEvent::MouseWheel { pos, .. } => Some(pos),
-            MouseEvent::MouseExit => None,
+            MouseEvent::Pressed { pos, .. } => Some(pos),
+            MouseEvent::Released { pos, .. } => Some(pos),
+            MouseEvent::Moved { pos } => Some(pos),
+            MouseEvent::Wheel { pos, .. } => Some(pos),
+            MouseEvent::Exit => None,
         };
         if let Some(pos) = pos {
             *pos += vec;
@@ -102,7 +102,7 @@ pub enum InputEventFilterResult {
     /// will still be called for further event
     ForwardAndInterceptGrab,
     /// The event will not be forwarded to children, if a children already had the grab, the
-    /// grab will be cancelled with a [`MouseEvent::MouseExit`] event
+    /// grab will be cancelled with a [`MouseEvent::Exit`] event
     Intercept,
     /// Similar to `Intercept` but the contained [`MouseEvent`] will be forwarded to children
     InterceptAndDispatch(MouseEvent),
@@ -401,7 +401,7 @@ fn handle_mouse_grab(
             return false;
         };
         if intercept {
-            item.borrow().as_ref().input_event(MouseEvent::MouseExit, window, &item);
+            item.borrow().as_ref().input_event(MouseEvent::Exit, window, &item);
             return false;
         }
         let g = item.borrow().as_ref().geometry();
@@ -442,7 +442,7 @@ fn send_exit_events(
             *p -= g.origin.to_vector();
         }
         if !contains {
-            item.borrow().as_ref().input_event(MouseEvent::MouseExit, window, &item);
+            item.borrow().as_ref().input_event(MouseEvent::Exit, window, &item);
         }
     }
 }

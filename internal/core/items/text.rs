@@ -291,7 +291,7 @@ impl Item for TextInput {
             return InputEventResult::EventIgnored;
         }
         match event {
-            MouseEvent::MousePressed { pos, button: PointerEventButton::Left } => {
+            MouseEvent::Pressed { pos, button: PointerEventButton::Left } => {
                 let clicked_offset =
                     window.renderer().text_input_byte_offset_for_position(self, pos) as i32;
                 self.as_ref().pressed.set(true);
@@ -301,9 +301,10 @@ impl Item for TextInput {
                     window.clone().set_focus_item(self_rc);
                 }
             }
-            MouseEvent::MouseReleased { button: PointerEventButton::Left, .. }
-            | MouseEvent::MouseExit => self.as_ref().pressed.set(false),
-            MouseEvent::MouseMoved { pos } => {
+            MouseEvent::Released { button: PointerEventButton::Left, .. } | MouseEvent::Exit => {
+                self.as_ref().pressed.set(false)
+            }
+            MouseEvent::Moved { pos } => {
                 if self.as_ref().pressed.get() {
                     let clicked_offset =
                         window.renderer().text_input_byte_offset_for_position(self, pos) as i32;

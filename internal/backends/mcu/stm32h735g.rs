@@ -370,13 +370,13 @@ impl Devices for StmDevices {
             let state = ft5336.get_touch(&mut self.touch_i2c, 1).unwrap();
             let pos = i_slint_core::graphics::Point::new(state.y as _, state.x as _);
             Some(match self.last_touch.replace(pos) {
-                Some(_) => i_slint_core::input::MouseEvent::MouseMoved { pos },
-                None => i_slint_core::input::MouseEvent::MousePressed { pos, button },
+                Some(_) => i_slint_core::input::MouseEvent::Moved { pos },
+                None => i_slint_core::input::MouseEvent::Pressed { pos, button },
             })
         } else {
             self.last_touch
                 .take()
-                .map(|pos| i_slint_core::input::MouseEvent::MouseReleased { pos, button })
+                .map(|pos| i_slint_core::input::MouseEvent::Released { pos, button })
         }
     }
 

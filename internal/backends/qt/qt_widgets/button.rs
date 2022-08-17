@@ -247,18 +247,18 @@ impl Item for NativeButton {
         }
 
         Self::FIELD_OFFSETS.pressed.apply_pin(self).set(match event {
-            MouseEvent::MousePressed { .. } => true,
-            MouseEvent::MouseExit | MouseEvent::MouseReleased { .. } => false,
-            MouseEvent::MouseMoved { .. } => {
+            MouseEvent::Pressed { .. } => true,
+            MouseEvent::Exit | MouseEvent::Released { .. } => false,
+            MouseEvent::Moved { .. } => {
                 return if self.pressed() {
                     InputEventResult::GrabMouse
                 } else {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::MouseWheel { .. } => return InputEventResult::EventIgnored,
+            MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
         });
-        if let MouseEvent::MouseReleased { pos, .. } = event {
+        if let MouseEvent::Released { pos, .. } = event {
             if euclid::rect(0., 0., self.width(), self.height()).contains(pos) {
                 self.activate();
             }

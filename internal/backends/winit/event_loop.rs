@@ -472,13 +472,13 @@ fn process_window_event(
         WindowEvent::CursorMoved { position, .. } => {
             let position = position.to_logical(runtime_window.scale_factor() as f64);
             *cursor_pos = euclid::point2(position.x, position.y);
-            runtime_window.process_mouse_input(MouseEvent::MouseMoved { pos: *cursor_pos });
+            runtime_window.process_mouse_input(MouseEvent::Moved { pos: *cursor_pos });
         }
         WindowEvent::CursorLeft { .. } => {
             // On the html canvas, we don't get the mouse move or release event when outside the canvas. So we have no choice but canceling the event
             if cfg!(target_arch = "wasm32") || !*pressed {
                 *pressed = false;
-                runtime_window.process_mouse_input(MouseEvent::MouseExit);
+                runtime_window.process_mouse_input(MouseEvent::Exit);
             }
         }
         WindowEvent::MouseWheel { delta, .. } => {
@@ -492,7 +492,7 @@ fn process_window_event(
                 }
             }
             .cast::<Coord>();
-            runtime_window.process_mouse_input(MouseEvent::MouseWheel { pos: *cursor_pos, delta });
+            runtime_window.process_mouse_input(MouseEvent::Wheel { pos: *cursor_pos, delta });
         }
         WindowEvent::MouseInput { state, button, .. } => {
             let button = match button {
@@ -504,11 +504,11 @@ fn process_window_event(
             let ev = match state {
                 winit::event::ElementState::Pressed => {
                     *pressed = true;
-                    MouseEvent::MousePressed { pos: *cursor_pos, button }
+                    MouseEvent::Pressed { pos: *cursor_pos, button }
                 }
                 winit::event::ElementState::Released => {
                     *pressed = false;
-                    MouseEvent::MouseReleased { pos: *cursor_pos, button }
+                    MouseEvent::Released { pos: *cursor_pos, button }
                 }
             };
             runtime_window.process_mouse_input(ev);
@@ -519,13 +519,13 @@ fn process_window_event(
             let ev = match touch.phase {
                 winit::event::TouchPhase::Started => {
                     *pressed = true;
-                    MouseEvent::MousePressed { pos, button: PointerEventButton::Left }
+                    MouseEvent::Pressed { pos, button: PointerEventButton::Left }
                 }
                 winit::event::TouchPhase::Ended | winit::event::TouchPhase::Cancelled => {
                     *pressed = false;
-                    MouseEvent::MouseReleased { pos, button: PointerEventButton::Left }
+                    MouseEvent::Released { pos, button: PointerEventButton::Left }
                 }
-                winit::event::TouchPhase::Moved => MouseEvent::MouseMoved { pos },
+                winit::event::TouchPhase::Moved => MouseEvent::Moved { pos },
             };
             runtime_window.process_mouse_input(ev);
         }

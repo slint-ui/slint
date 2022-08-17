@@ -367,7 +367,7 @@ impl Item for TouchArea {
             Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(pos.x);
             Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(pos.y);
         }
-        let hovering = !matches!(event, MouseEvent::MouseExit);
+        let hovering = !matches!(event, MouseEvent::Exit);
         Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(hovering);
         if hovering {
             window.set_mouse_cursor(self.mouse_cursor());
@@ -381,14 +381,14 @@ impl Item for TouchArea {
         window: &WindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
-        if matches!(event, MouseEvent::MouseExit) {
+        if matches!(event, MouseEvent::Exit) {
             Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false);
             window.set_mouse_cursor(MouseCursor::Default);
         }
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
-        let result = if let MouseEvent::MouseReleased { pos, button } = event {
+        let result = if let MouseEvent::Released { pos, button } = event {
             if button == PointerEventButton::Left
                 && euclid::rect(0 as Coord, 0 as Coord, self.width(), self.height()).contains(pos)
             {
@@ -400,7 +400,7 @@ impl Item for TouchArea {
         };
 
         match event {
-            MouseEvent::MousePressed { pos, button } => {
+            MouseEvent::Pressed { pos, button } => {
                 self.grabbed.set(true);
                 if button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(pos.x);
@@ -412,7 +412,7 @@ impl Item for TouchArea {
                     .apply_pin(self)
                     .call(&(PointerEvent { button, kind: PointerEventKind::Down },));
             }
-            MouseEvent::MouseExit => {
+            MouseEvent::Exit => {
                 Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
                 if self.grabbed.replace(false) {
                     Self::FIELD_OFFSETS.pointer_event.apply_pin(self).call(&(PointerEvent {
@@ -421,7 +421,7 @@ impl Item for TouchArea {
                     },));
                 }
             }
-            MouseEvent::MouseReleased { button, .. } => {
+            MouseEvent::Released { button, .. } => {
                 self.grabbed.set(false);
                 if button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed.apply_pin(self).set(false);
@@ -431,7 +431,7 @@ impl Item for TouchArea {
                     .apply_pin(self)
                     .call(&(PointerEvent { button, kind: PointerEventKind::Up },));
             }
-            MouseEvent::MouseMoved { .. } => {
+            MouseEvent::Moved { .. } => {
                 return if self.grabbed.get() {
                     Self::FIELD_OFFSETS.moved.apply_pin(self).call(&());
                     InputEventResult::GrabMouse
@@ -439,7 +439,7 @@ impl Item for TouchArea {
                     InputEventResult::EventAccepted
                 }
             }
-            MouseEvent::MouseWheel { .. } => {
+            MouseEvent::Wheel { .. } => {
                 return if self.grabbed.get() {
                     InputEventResult::GrabMouse
                 } else {
@@ -521,7 +521,7 @@ impl Item for FocusScope {
         window: &WindowRc,
         self_rc: &ItemRc,
     ) -> InputEventResult {
-        if self.enabled() && matches!(event, MouseEvent::MousePressed { .. }) && !self.has_focus() {
+        if self.enabled() && matches!(event, MouseEvent::Pressed { .. }) && !self.has_focus() {
             window.clone().set_focus_item(self_rc);
         }
         InputEventResult::EventIgnored
