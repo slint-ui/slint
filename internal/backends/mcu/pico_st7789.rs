@@ -233,6 +233,8 @@ fn run_event_loop() -> ! {
                 })
             {
                 w.dispatch_pointer_event(event);
+                // Don't go to sleep after a touch event that forces a redraw
+                continue;
             }
         }
 
