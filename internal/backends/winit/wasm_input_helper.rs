@@ -137,7 +137,7 @@ impl WasmInputHelper {
                 if !e.is_composing() && e.input_type() != "insertCompositionText" {
                     if !shared_state2.borrow_mut().has_key_down {
                         let text = SharedString::from(data.as_str());
-                        window.clone().process_key_input(&KeyEvent {
+                        window.process_key_input(&KeyEvent {
                             modifiers: Default::default(),
                             text: text.clone(),
                             event_type: KeyEventType::KeyPressed,
@@ -170,14 +170,14 @@ impl WasmInputHelper {
                                 as &str,
                         );
                         for _ in 0..to_delete {
-                            window.clone().process_key_input(&KeyEvent {
+                            window.process_key_input(&KeyEvent {
                                 modifiers: Default::default(),
                                 text: backspace.clone(),
                                 event_type: KeyEventType::KeyPressed,
                             });
                         }
                     }
-                    window.clone().process_key_input(&KeyEvent {
+                    window.process_key_input(&KeyEvent {
                         modifiers: Default::default(),
                         text: text.clone(),
                         event_type: KeyEventType::KeyPressed,

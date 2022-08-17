@@ -88,7 +88,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         };
 
         canvas.surface.render(|skia_canvas, gr_context| {
-            window.clone().draw_contents(|components| {
+            window.draw_contents(|components| {
                 if let Some(window_item) = window.window_item() {
                     skia_canvas
                         .clear(itemrenderer::to_skia_color(&window_item.as_pin_ref().background()));

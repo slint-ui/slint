@@ -165,6 +165,8 @@ pub struct PopupWindow {
 
 /// Inner datastructure for the [`crate::api::Window`]
 pub struct WindowInner {
+    /// Temporary field to allow converting &self to Rc<Self>, for use with the item vtable.
+    self_weak: Weak<WindowInner>,
     /// FIXME! use Box instead;
     platform_window: once_cell::unsync::OnceCell<Rc<dyn PlatformWindow>>,
     component: RefCell<ComponentWeak>,
@@ -201,7 +203,8 @@ impl WindowInner {
         platform_window_fn: impl FnOnce(&Weak<WindowInner>) -> Rc<dyn PlatformWindow>,
     ) -> Rc<Self> {
         #![allow(unused_mut)]
-        let window = Rc::new(Self {
+        let window = Rc::new_cyclic(|self_weak| Self {
+            self_weak: self_weak.clone(),
             platform_window: Default::default(),
             component: Default::default(),
             mouse_input_state: Default::default(),
@@ -272,7 +275,7 @@ impl WindowInner {
     /// * `pos`: The position of the mouse event in window physical coordinates.
     /// * `what`: The type of mouse event.
     /// * `component`: The Slint compiled component that provides the tree of items.
-    pub fn process_mouse_input(self: Rc<Self>, mut event: MouseEvent) {
+    pub fn process_mouse_input(&self, mut event: MouseEvent) {
         crate::animations::update_animations();
 
         let embedded_popup_component =
@@ -313,7 +316,7 @@ impl WindowInner {
         self.mouse_input_state.set(crate::input::process_mouse_input(
             component,
             event,
-            &self.clone(),
+            &self.window_rc(),
             self.mouse_input_state.take(),
         ));
 
@@ -331,14 +334,14 @@ impl WindowInner {
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
     /// * `component`: The Slint compiled component that provides the tree of items.
-    pub fn process_key_input(self: Rc<Self>, event: &KeyEvent) {
+    pub fn process_key_input(&self, event: &KeyEvent) {
         let mut item = self.focus_item.borrow().clone().upgrade();
         while let Some(focus_item) = item {
             if !focus_item.is_visible() {
                 // Reset the focus... not great, but better than keeping it.
                 self.take_focus_item();
             } else {
-                if focus_item.borrow().as_ref().key_event(event, &self.clone())
+                if focus_item.borrow().as_ref().key_event(event, &self.window_rc())
                     == crate::input::KeyEventResult::EventAccepted
                 {
                     return;
@@ -373,7 +376,7 @@ impl WindowInner {
 
     /// Sets the focus to the item pointed to by item_ptr. This will remove the focus from any
     /// currently focused item.
-    pub fn set_focus_item(self: Rc<Self>, focus_item: &ItemRc) {
+    pub fn set_focus_item(&self, focus_item: &ItemRc) {
         let old = self.take_focus_item();
         let new = self.clone().move_focus(focus_item.clone(), next_focus_item);
         self.platform_window.get().unwrap().handle_focus_change(old, new);
@@ -381,26 +384,29 @@ impl WindowInner {
 
     /// Sets the focus on the window to true or false, depending on the have_focus argument.
     /// This results in WindowFocusReceived and WindowFocusLost events.
-    pub fn set_focus(self: Rc<Self>, have_focus: bool) {
+    pub fn set_focus(&self, have_focus: bool) {
         let event = if have_focus {
             crate::input::FocusEvent::WindowReceivedFocus
         } else {
             crate::input::FocusEvent::WindowLostFocus
         };
 
-        if let Some(focus_item) = self.as_ref().focus_item.borrow().upgrade() {
-            focus_item.borrow().as_ref().focus_event(&event, &self);
+        if let Some(focus_item) = self.focus_item.borrow().upgrade() {
+            focus_item.borrow().as_ref().focus_event(&event, &self.window_rc());
         }
     }
 
     /// Take the focus_item out of this Window
     ///
     /// This sends the FocusOut event!
-    fn take_focus_item(self: &Rc<Self>) -> Option<ItemRc> {
-        let focus_item = self.as_ref().focus_item.take();
+    fn take_focus_item(&self) -> Option<ItemRc> {
+        let focus_item = self.focus_item.take();
 
         if let Some(focus_item_rc) = focus_item.upgrade() {
-            focus_item_rc.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusOut, self);
+            focus_item_rc
+                .borrow()
+                .as_ref()
+                .focus_event(&crate::input::FocusEvent::FocusOut, &self.window_rc());
             Some(focus_item_rc)
         } else {
             None
@@ -410,30 +416,28 @@ impl WindowInner {
     /// Publish the new focus_item to this Window and return the FocusEventResult
     ///
     /// This sends a FocusIn event!
-    fn publish_focus_item(self: Rc<Self>, item: &Option<ItemRc>) -> crate::input::FocusEventResult {
+    fn publish_focus_item(&self, item: &Option<ItemRc>) -> crate::input::FocusEventResult {
         match item {
             Some(item) => {
-                *self.as_ref().focus_item.borrow_mut() = item.downgrade();
-                item.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusIn, &self)
+                *self.focus_item.borrow_mut() = item.downgrade();
+                item.borrow()
+                    .as_ref()
+                    .focus_event(&crate::input::FocusEvent::FocusIn, &self.window_rc())
             }
             None => {
-                *self.as_ref().focus_item.borrow_mut() = Default::default();
+                *self.focus_item.borrow_mut() = Default::default();
                 crate::input::FocusEventResult::FocusAccepted // We were removing the focus, treat that as OK
             }
         }
     }
 
-    fn move_focus(
-        self: Rc<Self>,
-        start_item: ItemRc,
-        forward: impl Fn(ItemRc) -> ItemRc,
-    ) -> Option<ItemRc> {
+    fn move_focus(&self, start_item: ItemRc, forward: impl Fn(ItemRc) -> ItemRc) -> Option<ItemRc> {
         let mut current_item = start_item;
         let mut visited = alloc::vec::Vec::new();
 
         loop {
             if current_item.is_visible()
-                && self.clone().publish_focus_item(&Some(current_item.clone()))
+                && self.publish_focus_item(&Some(current_item.clone()))
                     == crate::input::FocusEventResult::FocusAccepted
             {
                 return Some(current_item); // Item was just published.
@@ -448,23 +452,23 @@ impl WindowInner {
     }
 
     /// Move keyboard focus to the next item
-    pub fn focus_next_item(self: Rc<Self>) {
+    pub fn focus_next_item(&self) {
         let component = self.component();
         let start_item = self
             .take_focus_item()
             .map(next_focus_item)
             .unwrap_or_else(|| ItemRc::new(component, 0));
-        let end_item = self.clone().move_focus(start_item.clone(), next_focus_item);
+        let end_item = self.move_focus(start_item.clone(), next_focus_item);
         self.platform_window.get().unwrap().handle_focus_change(Some(start_item), end_item);
     }
 
     /// Move keyboard focus to the previous item.
-    pub fn focus_previous_item(self: Rc<Self>) {
+    pub fn focus_previous_item(&self) {
         let component = self.component();
         let start_item = previous_focus_item(
             self.take_focus_item().unwrap_or_else(|| ItemRc::new(component, 0)),
         );
-        let end_item = self.clone().move_focus(start_item.clone(), previous_focus_item);
+        let end_item = self.move_focus(start_item.clone(), previous_focus_item);
         self.platform_window.get().unwrap().handle_focus_change(Some(start_item), end_item);
     }
 
@@ -500,7 +504,7 @@ impl WindowInner {
 
     /// Calls the render_components to render the main component and any sub-window components, tracked by a
     /// property dependency tracker.
-    pub fn draw_contents(self: Rc<Self>, render_components: impl FnOnce(&[(&ComponentRc, Point)])) {
+    pub fn draw_contents(&self, render_components: impl FnOnce(&[(&ComponentRc, Point)])) {
         let draw_fn = || {
             let component_rc = self.component();
             let component = ComponentRc::borrow_pin(&component_rc);
@@ -693,6 +697,11 @@ impl WindowInner {
             CloseRequestResponse::KeepWindowShown => false,
         }
     }
+
+    /// Temporary function to turn an `&WindowInner` into an `Rc<WindowInner>` for use with the item vtable functions.
+    pub fn window_rc(&self) -> WindowRc {
+        self.self_weak.upgrade().unwrap()
+    }
 }
 
 impl core::ops::Deref for WindowInner {
@@ -796,7 +805,7 @@ pub mod ffi {
         focus_item: &ItemRc,
     ) {
         let window = &*(handle as *const WindowRc);
-        window.clone().set_focus_item(focus_item)
+        window.set_focus_item(focus_item)
     }
 
     /// Associates the window with the given component.

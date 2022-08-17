@@ -184,7 +184,7 @@ impl Item for NativeSpinBox {
 
         if let MouseEvent::Pressed { .. } = event {
             if !self.has_focus() {
-                window.clone().set_focus_item(self_rc);
+                window.set_focus_item(self_rc);
             }
         }
         InputEventResult::EventAccepted

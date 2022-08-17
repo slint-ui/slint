@@ -418,7 +418,7 @@ fn process_window_event(
 
             let mut event = key_event(KeyEventType::KeyPressed, text, modifiers);
 
-            runtime_window.clone().process_key_input(&event);
+            runtime_window.process_key_input(&event);
             event.event_type = KeyEventType::KeyReleased;
             runtime_window.process_key_input(&event);
         }
