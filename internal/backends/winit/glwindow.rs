@@ -197,6 +197,20 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
             mapped_window.canvas.resize_event()
         }
     }
+
+    fn inner_size(&self) -> euclid::Size2D<u32, PhysicalPx> {
+        match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped { requested_size, .. } => {
+                requested_size.unwrap_or_default()
+            }
+            GraphicsWindowBackendState::Mapped(mapped_window) => {
+                mapped_window.canvas.with_window_handle(|winit_window| {
+                    let size = winit_window.inner_size();
+                    euclid::Size2D::new(size.width, size.height)
+                })
+            }
+        }
+    }
 }
 
 impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Renderer> {
@@ -447,20 +461,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
                     winit_window.set_outer_position(winit::dpi::Position::new(
                         winit::dpi::PhysicalPosition::new(position.x, position.y),
                     ))
-                })
-            }
-        }
-    }
-
-    fn inner_size(&self) -> euclid::Size2D<u32, PhysicalPx> {
-        match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped { requested_size, .. } => {
-                requested_size.unwrap_or_default()
-            }
-            GraphicsWindowBackendState::Mapped(mapped_window) => {
-                mapped_window.canvas.with_window_handle(|winit_window| {
-                    let size = winit_window.inner_size();
-                    euclid::Size2D::new(size.width, size.height)
                 })
             }
         }

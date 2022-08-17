@@ -177,16 +177,6 @@ impl PlatformWindow for SimulatorWindow {
     fn set_position(&self, _position: euclid::Point2D<i32, PhysicalPx>) {
         unimplemented!()
     }
-
-    fn inner_size(&self) -> euclid::Size2D<u32, PhysicalPx> {
-        let winit_window = self.opengl_context.window();
-        let size = winit_window.inner_size();
-        euclid::Size2D::new(size.width, size.height)
-    }
-
-    fn set_inner_size(&self, _size: euclid::Size2D<u32, PhysicalPx>) {
-        unimplemented!()
-    }
 }
 
 impl WinitWindow for SimulatorWindow {
@@ -318,6 +308,12 @@ impl WinitWindow for SimulatorWindow {
     }
 
     fn set_icon(&self, _icon: i_slint_core::graphics::Image) {}
+
+    fn inner_size(&self) -> euclid::Size2D<u32, PhysicalPx> {
+        let winit_window = self.opengl_context.window();
+        let size = winit_window.inner_size();
+        euclid::Size2D::new(size.width, size.height)
+    }
 }
 
 pub struct SimulatorBackend;

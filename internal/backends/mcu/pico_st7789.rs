@@ -200,20 +200,15 @@ fn run_event_loop() -> ! {
         i_slint_core::timers::update_timers();
 
         if let Some(window) = WINDOW.with(|x| x.borrow().clone()) {
+            let runtime_window =
+                i_slint_core::api::Window::from(window.self_weak.upgrade().unwrap());
+
             if window.needs_redraw.replace(false) {
-                let runtime_window = window.self_weak.upgrade().unwrap();
-                runtime_window.update_window_properties();
-
-                let scale_factor = runtime_window.scale_factor();
-                let size = DISPLAY_SIZE.to_f32() / scale_factor;
-                runtime_window.set_window_item_geometry(size.width as _, size.height as _);
-
-                window.renderer.render_by_line(&runtime_window.into(), &mut buffer_provider);
+                window.renderer.render_by_line(&runtime_window, &mut buffer_provider);
                 buffer_provider.flush_frame();
             }
 
             // handle touch event
-            let w = i_slint_core::api::Window::from(window.self_weak.upgrade().unwrap());
             let button = PointerEventButton::Left;
             if let Some(event) = touch
                 .read()
@@ -222,7 +217,7 @@ fn run_event_loop() -> ! {
                 .map(|point| {
                     let size = DISPLAY_SIZE.to_f32();
                     let position = euclid::point2(point.x * size.width, point.y * size.height)
-                        / w.scale_factor();
+                        / runtime_window.scale_factor();
                     match last_touch.replace(position) {
                         Some(_) => PointerEvent::Moved { position },
                         None => PointerEvent::Pressed { position, button },
@@ -232,7 +227,7 @@ fn run_event_loop() -> ! {
                     last_touch.take().map(|position| PointerEvent::Released { position, button })
                 })
             {
-                w.dispatch_pointer_event(event);
+                runtime_window.dispatch_pointer_event(event);
                 // Don't go to sleep after a touch event that forces a redraw
                 continue;
             }
@@ -299,6 +294,8 @@ struct PicoWindow {
 
 impl i_slint_core::window::PlatformWindow for PicoWindow {
     fn show(self: Rc<Self>) {
+        let runtime_window = i_slint_core::api::Window::from(self.self_weak.upgrade().unwrap());
+        runtime_window.set_size(DISPLAY_SIZE.cast());
         WINDOW.with(|x| *x.borrow_mut() = Some(self))
     }
     fn hide(self: Rc<Self>) {
@@ -314,10 +311,6 @@ impl i_slint_core::window::PlatformWindow for PicoWindow {
 
     fn as_any(&self) -> &dyn core::any::Any {
         self
-    }
-
-    fn inner_size(&self) -> euclid::Size2D<u32, i_slint_core::lengths::PhysicalPx> {
-        DISPLAY_SIZE.cast()
     }
 }
 

@@ -14,7 +14,6 @@ use alloc::boxed::Box;
 use alloc::vec;
 use core::cell::RefCell;
 use embedded_graphics::prelude::*;
-use i_slint_core::api::euclid;
 use i_slint_core::lengths::*;
 use i_slint_core::swrenderer as renderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
@@ -117,7 +116,6 @@ mod the_backend {
     use alloc::rc::{Rc, Weak};
     use alloc::string::String;
     use core::cell::RefCell;
-    use i_slint_core::api::PhysicalPx;
     use i_slint_core::window::PlatformWindow;
     use i_slint_core::window::WindowInner;
 
@@ -151,14 +149,6 @@ mod the_backend {
 
         fn as_any(&self) -> &dyn core::any::Any {
             self
-        }
-
-        fn inner_size(&self) -> euclid::Size2D<u32, PhysicalPx> {
-            unimplemented!()
-        }
-
-        fn set_inner_size(&self, _size: euclid::Size2D<u32, PhysicalPx>) {
-            unimplemented!()
         }
     }
 

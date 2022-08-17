@@ -536,7 +536,7 @@ declare_types! {
             let this = cx.this();
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
             let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            let size = window.inner_size();
+            let size = i_slint_core::api::Window::from(window).size();
 
             let size_object = JsObject::new(&mut cx);
             let width_value = JsNumber::new(&mut cx, size.width).as_value(&mut cx);
