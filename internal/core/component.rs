@@ -12,7 +12,7 @@ use crate::item_tree::{
 use crate::items::{AccessibleRole, ItemVTable};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::slice::Slice;
-use crate::window::WindowRc;
+use crate::window::WindowInner;
 use crate::SharedString;
 use vtable::*;
 
@@ -114,7 +114,7 @@ pub type ComponentWeak = vtable::VWeak<ComponentVTable, Dyn>;
 pub fn register_component<Base>(
     base: core::pin::Pin<&Base>,
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
-    window: &WindowRc,
+    window: &WindowInner,
 ) {
     item_array.iter().for_each(|item| item.apply_pin(base).as_ref().init(window));
     window.register_component();
@@ -125,7 +125,7 @@ pub fn unregister_component<Base>(
     base: core::pin::Pin<&Base>,
     component: ComponentRef,
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
-    window: &WindowRc,
+    window: &WindowInner,
 ) {
     window.unregister_component(component, &mut item_array.iter().map(|item| item.apply_pin(base)));
 }
@@ -135,6 +135,7 @@ pub(crate) mod ffi {
     #![allow(unsafe_code)]
 
     use super::*;
+    use crate::window::WindowRc;
 
     /// Call init() on the ItemVTable of each item in the item array.
     #[no_mangle]
