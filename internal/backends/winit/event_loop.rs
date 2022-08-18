@@ -37,7 +37,7 @@ pub trait WinitWindow: PlatformWindow {
     );
     fn set_icon(&self, icon: corelib::graphics::Image);
     /// Called by the event loop when a WindowEvent::Resized is received.
-    fn resize_event(&self) {}
+    fn resize_event(&self, _size: winit::dpi::PhysicalSize<u32>) {}
 
     fn apply_constraints(
         &self,
@@ -60,6 +60,7 @@ pub trait WinitWindow: PlatformWindow {
 
                 let sf = self.runtime_window().scale_factor();
 
+                winit_window.set_resizable(true);
                 winit_window.set_min_inner_size(if min_width > 0. || min_height > 0. {
                     Some(winit::dpi::PhysicalSize::new(min_width * sf, min_height * sf))
                 } else {
@@ -75,7 +76,6 @@ pub trait WinitWindow: PlatformWindow {
                         None
                     },
                 );
-                winit_window.set_resizable(true);
                 self.set_constraints((constraints_horizontal, constraints_vertical));
                 winit_window.set_resizable(min_width < max_width || min_height < max_height);
 
@@ -386,9 +386,7 @@ fn process_window_event(
     let runtime_window = window.runtime_window();
     match event {
         WindowEvent::Resized(size) => {
-            let size = size.to_logical(runtime_window.scale_factor() as f64);
-            runtime_window.set_window_item_geometry(size.width, size.height);
-            window.resize_event();
+            window.resize_event(size);
         }
         WindowEvent::CloseRequested => {
             if runtime_window.request_close() {
