@@ -123,28 +123,24 @@ pub trait PlatformWindow {
 }
 
 struct WindowPropertiesTracker {
-    window_weak: Weak<WindowInner>,
+    platform_window_weak: Weak<dyn PlatformWindow>,
 }
 
 impl crate::properties::PropertyDirtyHandler for WindowPropertiesTracker {
     fn notify(&self) {
-        if let Some(platform_window) =
-            self.window_weak.upgrade().and_then(|window| window.platform_window.get().cloned())
-        {
+        if let Some(platform_window) = self.platform_window_weak.upgrade() {
             platform_window.request_window_properties_update();
         };
     }
 }
 
 struct WindowRedrawTracker {
-    window_weak: Weak<WindowInner>,
+    platform_window_weak: Weak<dyn PlatformWindow>,
 }
 
 impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
     fn notify(&self) {
-        if let Some(platform_window) =
-            self.window_weak.upgrade().and_then(|window| window.platform_window.get().cloned())
-        {
+        if let Some(platform_window) = self.platform_window_weak.upgrade() {
             platform_window.request_redraw();
         };
     }
@@ -225,11 +221,12 @@ impl WindowInner {
 
         let mut window_properties_tracker =
             PropertyTracker::new_with_dirty_handler(WindowPropertiesTracker {
-                window_weak: window_weak.clone(),
+                platform_window_weak: Rc::downgrade(&window.platform_window.get().unwrap()),
             });
 
-        let mut redraw_tracker =
-            PropertyTracker::new_with_dirty_handler(WindowRedrawTracker { window_weak });
+        let mut redraw_tracker = PropertyTracker::new_with_dirty_handler(WindowRedrawTracker {
+            platform_window_weak: Rc::downgrade(&window.platform_window.get().unwrap()),
+        });
 
         #[cfg(slint_debug_property)]
         {
