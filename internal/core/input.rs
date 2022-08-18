@@ -9,7 +9,7 @@ use crate::graphics::Point;
 use crate::item_tree::{ItemRc, ItemVisitorResult, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
 use crate::items::{ItemRef, TextCursorDirection};
-use crate::window::WindowRc;
+use crate::window::WindowInner;
 use crate::{component::ComponentRc, SharedString};
 use crate::{Coord, Property};
 use alloc::rc::Rc;
@@ -403,7 +403,7 @@ pub struct MouseInputState {
 /// Try to handle the mouse grabber. Return true if the event has handled, or false otherwise
 fn handle_mouse_grab(
     mouse_event: &MouseEvent,
-    window: &WindowRc,
+    window: &WindowInner,
     mouse_input_state: &mut MouseInputState,
 ) -> bool {
     if !mouse_input_state.grabbed || mouse_input_state.item_stack.is_empty() {
@@ -456,7 +456,7 @@ fn handle_mouse_grab(
 fn send_exit_events(
     mouse_input_state: &MouseInputState,
     mut pos: Option<Point>,
-    window: &WindowRc,
+    window: &WindowInner,
 ) {
     for it in mouse_input_state.item_stack.iter() {
         let item = if let Some(item) = it.0.upgrade() { item } else { break };
@@ -477,7 +477,7 @@ fn send_exit_events(
 pub fn process_mouse_input(
     component: ComponentRc,
     mouse_event: MouseEvent,
-    window: &WindowRc,
+    window: &WindowInner,
     mut mouse_input_state: MouseInputState,
 ) -> MouseInputState {
     if handle_mouse_grab(&mouse_event, window, &mut mouse_input_state) {
