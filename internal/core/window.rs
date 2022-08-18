@@ -691,8 +691,6 @@ pub trait WindowHandleAccess {
 
 /// Internal alias for Rc<dyn PlatformWindow>.
 pub type PlatformWindowRc = Rc<dyn PlatformWindow>;
-/// Internal convenience alias for Weak<dyn PlatformWindow>.
-pub type PlatformWindowWeak = Weak<dyn PlatformWindow>;
 
 /// This module contains the functions needed to interface with the event loop and window traits
 /// from outside the Rust language.

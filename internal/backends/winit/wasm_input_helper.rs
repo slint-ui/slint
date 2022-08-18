@@ -18,10 +18,10 @@
 //! we just simulate a few backspaces.
 
 use std::cell::RefCell;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 use i_slint_core::input::{KeyEvent, KeyEventType, KeyboardModifiers};
-use i_slint_core::window::{PlatformWindowWeak, WindowHandleAccess};
+use i_slint_core::window::{PlatformWindow, WindowHandleAccess};
 use i_slint_core::SharedString;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::convert::FromWasmAbi;
@@ -66,7 +66,10 @@ impl WasmInputState {
 
 impl WasmInputHelper {
     #[allow(unused)]
-    pub fn new(platform_window: PlatformWindowWeak, canvas: web_sys::HtmlCanvasElement) -> Self {
+    pub fn new(
+        platform_window: Weak<dyn PlatformWindow>,
+        canvas: web_sys::HtmlCanvasElement,
+    ) -> Self {
         let input = web_sys::window()
             .unwrap()
             .document()

@@ -1,14 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use std::{cell::RefCell, rc::Rc};
+use std::cell::RefCell;
+use std::rc::{Rc, Weak};
 
 use i_slint_core::api::{
     GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError,
 };
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use i_slint_core::item_rendering::ItemCache;
-use i_slint_core::window::{PlatformWindowWeak, WindowHandleAccess};
+use i_slint_core::window::{PlatformWindow, WindowHandleAccess};
 
 use crate::WindowSystemName;
 
@@ -36,14 +37,14 @@ cfg_if::cfg_if! {
 }
 
 pub struct SkiaRenderer {
-    platform_window_weak: PlatformWindowWeak,
+    platform_window_weak: Weak<dyn PlatformWindow>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
 }
 
 impl super::WinitCompatibleRenderer for SkiaRenderer {
     type Canvas = SkiaCanvas<DefaultSurface>;
 
-    fn new(platform_window_weak: &PlatformWindowWeak) -> Self {
+    fn new(platform_window_weak: &Weak<dyn PlatformWindow>) -> Self {
         Self {
             platform_window_weak: platform_window_weak.clone(),
             rendering_notifier: Default::default(),
