@@ -13,7 +13,7 @@ use i_slint_core::items::DialogButtonRole;
 use i_slint_core::layout::{self as core_layout};
 use i_slint_core::model::RepeatedComponent;
 use i_slint_core::slice::Slice;
-use i_slint_core::window::WindowInner;
+use i_slint_core::window::{WindowHandleAccess, WindowInner};
 use std::convert::TryInto;
 use std::str::FromStr;
 
@@ -209,7 +209,7 @@ fn box_layout_data(
     expr_eval: &impl Fn(&NamedReference) -> f32,
     mut repeater_indices: Option<&mut Vec<u32>>,
 ) -> (Vec<core_layout::BoxLayoutCellData>, i_slint_core::items::LayoutAlignment) {
-    let window = eval::window_ref(component).unwrap();
+    let platform_window = eval::platform_window_ref(component).unwrap();
     let mut cells = Vec::with_capacity(box_layout.elems.len());
     for cell in &box_layout.elems {
         if cell.element.borrow().repeated.is_some() {
@@ -223,7 +223,7 @@ fn box_layout_data(
                 let instance = crate::dynamic_component::instantiate(
                     rep.1.clone(),
                     Some(component.borrow()),
-                    Some(window),
+                    Some(platform_window),
                     Default::default(),
                 );
                 instance.run_setup_code();
@@ -240,8 +240,12 @@ fn box_layout_data(
                     .map(|x| x.as_pin_ref().box_layout_data(to_runtime(orientation))),
             );
         } else {
-            let mut layout_info =
-                get_layout_info(&cell.element, component, &window.clone(), orientation);
+            let mut layout_info = get_layout_info(
+                &cell.element,
+                component,
+                platform_window.window().window_handle(),
+                orientation,
+            );
             fill_layout_info_constraints(
                 &mut layout_info,
                 &cell.constraints,
@@ -266,7 +270,7 @@ fn box_layout_data(
 }
 
 fn repeater_indices(children: &[ElementRc], component: InstanceRef) -> Vec<u32> {
-    let window = eval::window_ref(component).unwrap();
+    let platform_window = eval::platform_window_ref(component).unwrap();
 
     let mut idx = 0;
     let mut ri = Vec::new();
@@ -282,7 +286,7 @@ fn repeater_indices(children: &[ElementRc], component: InstanceRef) -> Vec<u32> 
                 let instance = crate::dynamic_component::instantiate(
                     rep.1.clone(),
                     Some(component.borrow()),
-                    Some(window),
+                    Some(platform_window),
                     Default::default(),
                 );
                 instance.run_setup_code();

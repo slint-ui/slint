@@ -5,6 +5,7 @@ use core::convert::TryFrom;
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::graphics::Image;
 use i_slint_core::model::{Model, ModelRc};
+use i_slint_core::window::WindowHandleAccess;
 use i_slint_core::{Brush, PathData, SharedString, SharedVector};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -581,7 +582,11 @@ impl ComponentDefinition {
     pub fn create_with_existing_window(&self, window: &Window) -> ComponentInstance {
         generativity::make_guard!(guard);
         ComponentInstance {
-            inner: self.inner.unerase(guard).clone().create_with_existing_window(window),
+            inner: self
+                .inner
+                .unerase(guard)
+                .clone()
+                .create_with_existing_window(&window.window_handle().platform_window()),
         }
     }
 
@@ -959,13 +964,13 @@ impl ComponentHandle for ComponentInstance {
     fn show(&self) {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.borrow_instance().window().show();
+        comp.borrow_instance().platform_window().show();
     }
 
     fn hide(&self) {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.borrow_instance().window().hide();
+        comp.borrow_instance().platform_window().hide();
     }
 
     fn run(&self) {
@@ -976,7 +981,7 @@ impl ComponentHandle for ComponentInstance {
     }
 
     fn window(&self) -> &Window {
-        self.inner.window()
+        self.inner.platform_window().window()
     }
 
     fn global<'a, T: Global<'a, Self>>(&'a self) -> T
