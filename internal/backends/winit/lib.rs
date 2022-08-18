@@ -12,6 +12,8 @@ extern crate alloc;
 use std::rc::Rc;
 use std::sync::Mutex;
 
+use i_slint_core::window::PlatformWindow;
+
 mod glwindow;
 use glwindow::*;
 mod glcontext;
@@ -59,7 +61,7 @@ pub(crate) mod wasm_input_helper;
 mod stylemetrics;
 
 #[cfg(target_arch = "wasm32")]
-pub fn create_gl_window_with_canvas_id(canvas_id: String) -> PlatformWindowRc {
+pub fn create_gl_window_with_canvas_id(canvas_id: String) -> Rc<dyn PlatformWindow> {
     GLWindow::<crate::renderer::femtovg::FemtoVGRenderer>::new(canvas_id)
 }
 
@@ -75,12 +77,11 @@ pub mod native_widgets {
 }
 pub const HAS_NATIVE_STYLE: bool = false;
 
-use i_slint_core::window::PlatformWindowRc;
 pub use stylemetrics::native_style_metrics_deinit;
 pub use stylemetrics::native_style_metrics_init;
 
 pub struct Backend {
-    window_factory_fn: Mutex<Box<dyn Fn() -> PlatformWindowRc + Send>>,
+    window_factory_fn: Mutex<Box<dyn Fn() -> Rc<dyn PlatformWindow> + Send>>,
 }
 
 impl Backend {
@@ -129,7 +130,7 @@ impl Backend {
 }
 
 impl i_slint_core::backend::Backend for Backend {
-    fn create_window(&self) -> PlatformWindowRc {
+    fn create_window(&self) -> Rc<dyn PlatformWindow> {
         self.window_factory_fn.lock().unwrap()()
     }
 

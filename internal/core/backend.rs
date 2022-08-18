@@ -6,6 +6,7 @@ The backend is the abstraction for crates that need to do the actual drawing and
 */
 
 use alloc::boxed::Box;
+use alloc::rc::Rc;
 use alloc::string::String;
 
 #[cfg(feature = "std")]
@@ -13,7 +14,7 @@ use once_cell::sync::OnceCell;
 
 #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
 use crate::unsafe_single_core::OnceCell;
-use crate::window::PlatformWindowRc;
+use crate::window::PlatformWindow;
 
 #[derive(Copy, Clone)]
 /// Behavior describing how the event loop should terminate.
@@ -27,7 +28,7 @@ pub enum EventLoopQuitBehavior {
 /// Interface implemented by back-ends
 pub trait Backend: Send + Sync {
     /// Instantiate a window for a component.
-    fn create_window(&self) -> PlatformWindowRc;
+    fn create_window(&self) -> Rc<dyn PlatformWindow>;
 
     /// Spins an event loop and renders the visible windows.
     fn run_event_loop(&self, _behavior: EventLoopQuitBehavior) {

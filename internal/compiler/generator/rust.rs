@@ -859,7 +859,7 @@ fn generate_sub_component(
             self_weak : slint::re_exports::OnceCell<slint::re_exports::VWeakMapped<slint::re_exports::ComponentVTable, #inner_component_id>>,
             #(parent : #parent_component_type,)*
             // FIXME: Do we really need a window all the time?
-            platform_window: slint::re_exports::OnceCell<slint::re_exports::PlatformWindowRc>,
+            platform_window: slint::re_exports::OnceCell<slint::re_exports::Rc<dyn slint::re_exports::PlatformWindow>>,
             root : slint::re_exports::OnceCell<slint::re_exports::VWeak<slint::re_exports::ComponentVTable, #root_component_id>>,
             tree_index: ::core::cell::Cell<u32>,
             tree_index_of_first_child: ::core::cell::Cell<u32>,

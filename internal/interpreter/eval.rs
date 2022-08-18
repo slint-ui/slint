@@ -9,7 +9,7 @@ use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement, RadialGr
 use corelib::items::{ItemRef, PropertyAnimation};
 use corelib::model::{Model, ModelRc};
 use corelib::rtti::AnimatedBindingKind;
-use corelib::window::{PlatformWindowRc, WindowHandleAccess};
+use corelib::window::WindowHandleAccess;
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use i_slint_compiler::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, Path as ExprPath, PathElement as ExprPathElement,
@@ -993,7 +993,9 @@ fn root_component_instance<'a, 'old_id, 'new_id>(
     }
 }
 
-pub fn platform_window_ref<'a>(component: InstanceRef<'a, '_>) -> Option<&'a PlatformWindowRc> {
+pub fn platform_window_ref<'a>(
+    component: InstanceRef<'a, '_>,
+) -> Option<&'a Rc<dyn i_slint_core::window::PlatformWindow>> {
     component.component_type.platform_window_offset.apply(component.instance.get_ref()).as_ref()
 }
 

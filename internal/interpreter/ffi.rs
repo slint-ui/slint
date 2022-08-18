@@ -7,7 +7,7 @@ use super::*;
 use core::ptr::NonNull;
 use i_slint_core::model::{Model, ModelNotify, SharedVectorModel};
 use i_slint_core::slice::Slice;
-use i_slint_core::window::PlatformWindowRc;
+use i_slint_core::window::PlatformWindow;
 use std::ffi::c_void;
 use vtable::VRef;
 
@@ -563,10 +563,10 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_window(
     out: *mut *const i_slint_core::window::ffi::PlatformWindowRcOpaque,
 ) {
     assert_eq!(
-        core::mem::size_of::<PlatformWindowRc>(),
+        core::mem::size_of::<Rc<dyn PlatformWindow>>(),
         core::mem::size_of::<i_slint_core::window::ffi::PlatformWindowRcOpaque>()
     );
-    core::ptr::write(out as *mut *const PlatformWindowRc, inst.platform_window() as *const _)
+    core::ptr::write(out as *mut *const Rc<dyn PlatformWindow>, inst.platform_window() as *const _)
 }
 
 /// Instantiate an instance from a definition.

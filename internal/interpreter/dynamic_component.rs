@@ -28,7 +28,7 @@ use i_slint_core::model::Repeater;
 use i_slint_core::properties::InterpolatedPropertyValue;
 use i_slint_core::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use i_slint_core::slice::Slice;
-use i_slint_core::window::{PlatformWindowRc, WindowHandleAccess};
+use i_slint_core::window::{PlatformWindow, WindowHandleAccess};
 use i_slint_core::{Brush, Color, Property, SharedString, SharedVector};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -54,7 +54,7 @@ impl<'id> ComponentBox<'id> {
         InstanceRef { instance: self.instance.as_pin_ref(), component_type: &self.component_type }
     }
 
-    pub fn platform_window(&self) -> &PlatformWindowRc {
+    pub fn platform_window(&self) -> &Rc<dyn PlatformWindow> {
         self.component_type
             .platform_window_offset
             .apply(self.instance.as_pin_ref().get_ref())
@@ -316,7 +316,7 @@ pub struct ComponentDescription<'id> {
     pub(crate) parent_component_offset:
         Option<FieldOffset<Instance<'id>, Option<ComponentRefPin<'id>>>>,
     /// Offset to the window reference
-    pub(crate) platform_window_offset: FieldOffset<Instance<'id>, Option<PlatformWindowRc>>,
+    pub(crate) platform_window_offset: FieldOffset<Instance<'id>, Option<Rc<dyn PlatformWindow>>>,
     /// Offset of a ComponentExtraData
     pub(crate) extra_data_offset: FieldOffset<Instance<'id>, ComponentExtraData>,
     /// Keep the Rc alive
@@ -403,7 +403,7 @@ impl<'id> ComponentDescription<'id> {
     #[doc(hidden)]
     pub fn create_with_existing_window(
         self: Rc<Self>,
-        platform_window: &PlatformWindowRc,
+        platform_window: &Rc<dyn PlatformWindow>,
     ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
         let component_ref = instantiate(self, None, Some(platform_window), Default::default());
         component_ref
@@ -1028,7 +1028,8 @@ pub(crate) fn generate_component<'id>(
         None
     };
 
-    let platform_window_offset = builder.type_builder.add_field_type::<Option<PlatformWindowRc>>();
+    let platform_window_offset =
+        builder.type_builder.add_field_type::<Option<Rc<dyn PlatformWindow>>>();
 
     let extra_data_offset = builder.type_builder.add_field_type::<ComponentExtraData>();
 
@@ -1192,7 +1193,7 @@ fn make_binding_eval_closure(
 pub fn instantiate(
     component_type: Rc<ComponentDescription>,
     parent_ctx: Option<ComponentRefPin>,
-    platform_window: Option<&PlatformWindowRc>,
+    platform_window: Option<&Rc<dyn PlatformWindow>>,
     mut globals: crate::global_component::GlobalStorage,
 ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
     let mut instance = component_type.dynamic_type.clone().create_instance();
@@ -1437,7 +1438,7 @@ impl ErasedComponentBox {
         self.0.borrow()
     }
 
-    pub fn platform_window(&self) -> &PlatformWindowRc {
+    pub fn platform_window(&self) -> &Rc<dyn PlatformWindow> {
         self.0.platform_window()
     }
 
@@ -1691,7 +1692,7 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         &extra_data.self_weak
     }
 
-    pub fn platform_window(&self) -> &PlatformWindowRc {
+    pub fn platform_window(&self) -> &Rc<dyn PlatformWindow> {
         self.component_type.platform_window_offset.apply(self.as_ref()).as_ref().as_ref().unwrap()
     }
 
@@ -1728,7 +1729,7 @@ pub fn show_popup(
     popup: &object_tree::PopupWindow,
     pos: i_slint_core::graphics::Point,
     parent_comp: ComponentRefPin,
-    parent_platform_window: &PlatformWindowRc,
+    parent_platform_window: &Rc<dyn PlatformWindow>,
     parent_item: &ItemRc,
 ) {
     generativity::make_guard!(guard);

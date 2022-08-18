@@ -20,7 +20,7 @@ use i_slint_core::items::{
     PointerEventButton, RenderingResult, TextOverflow, TextWrap,
 };
 use i_slint_core::layout::Orientation;
-use i_slint_core::window::{PlatformWindow, PlatformWindowRc, WindowHandleAccess};
+use i_slint_core::window::{PlatformWindow, WindowHandleAccess};
 use i_slint_core::{ImageInner, PathData, Property, SharedString};
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 
@@ -1479,7 +1479,7 @@ impl PlatformWindow for QtWindow {
         self.tree_structure_changed.replace(true);
     }
 
-    fn create_popup(&self, geometry: Rect) -> Option<PlatformWindowRc> {
+    fn create_popup(&self, geometry: Rect) -> Option<Rc<dyn PlatformWindow>> {
         let popup_window = QtWindow::new();
 
         let size = qttypes::QSize { width: geometry.width() as _, height: geometry.height() as _ };

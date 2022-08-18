@@ -122,7 +122,8 @@ pub type NativeGlobals = ();
 
 pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
 
-use i_slint_core::window::PlatformWindowRc;
+use std::rc::Rc;
+
 #[cfg(not(no_qt))]
 pub use qt_widgets::{native_style_metrics_deinit, native_style_metrics_init};
 #[cfg(no_qt)]
@@ -136,7 +137,7 @@ pub fn native_style_metrics_deinit(_: core::pin::Pin<&mut native_widgets::Native
 
 pub struct Backend;
 impl i_slint_core::backend::Backend for Backend {
-    fn create_window(&self) -> PlatformWindowRc {
+    fn create_window(&self) -> Rc<dyn i_slint_core::window::PlatformWindow> {
         #[cfg(no_qt)]
         panic!("The Qt backend needs Qt");
         #[cfg(not(no_qt))]

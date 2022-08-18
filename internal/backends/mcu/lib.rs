@@ -114,7 +114,7 @@ mod the_backend {
     use alloc::string::String;
     use core::cell::RefCell;
     use i_slint_core::api::Window;
-    use i_slint_core::window::{PlatformWindow, PlatformWindowRc, WindowHandleAccess};
+    use i_slint_core::window::{PlatformWindow, WindowHandleAccess};
 
     thread_local! { static WINDOWS: RefCell<Option<Rc<McuWindow>>> = RefCell::new(None) }
     thread_local! { static EVENT_QUEUE: RefCell<VecDeque<McuEvent>> = Default::default() }
@@ -266,7 +266,7 @@ mod the_backend {
     }
 
     impl i_slint_core::backend::Backend for MCUBackend {
-        fn create_window(&self) -> PlatformWindowRc {
+        fn create_window(&self) -> Rc<dyn i_slint_core::window::PlatformWindow> {
             Rc::new_cyclic(|self_weak| McuWindow {
                 window: Window::new(self_weak.clone() as _),
                 self_weak: self_weak.clone(),

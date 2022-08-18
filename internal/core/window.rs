@@ -62,7 +62,7 @@ pub trait PlatformWindow {
     ///
     /// If this function return None (the default implementation), then the
     /// popup will be rendered within the window itself.
-    fn create_popup(&self, _geometry: Rect) -> Option<PlatformWindowRc> {
+    fn create_popup(&self, _geometry: Rect) -> Option<Rc<dyn PlatformWindow>> {
         None
     }
 
@@ -148,7 +148,7 @@ impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
 /// This enum describes the different ways a popup can be rendered by the back-end.
 pub enum PopupWindowLocation {
     /// The popup is rendered in its own top-level window that is know to the windowing system.
-    TopLevel(PlatformWindowRc),
+    TopLevel(Rc<dyn PlatformWindow>),
     /// The popup is rendered as an embedded child window at the given position.
     ChildWindow(Point),
 }
@@ -678,7 +678,7 @@ impl WindowInner {
     }
 
     /// Returns the upgraded rlatform window.
-    pub fn platform_window(&self) -> PlatformWindowRc {
+    pub fn platform_window(&self) -> Rc<dyn PlatformWindow> {
         self.platform_window_weak.upgrade().unwrap()
     }
 }
@@ -722,10 +722,10 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_drop(handle: *mut PlatformWindowRcOpaque) {
         assert_eq!(
-            core::mem::size_of::<PlatformWindowRc>(),
+            core::mem::size_of::<Rc<dyn PlatformWindow>>(),
             core::mem::size_of::<PlatformWindowRcOpaque>()
         );
-        core::ptr::read(handle as *mut PlatformWindowRc);
+        core::ptr::read(handle as *mut Rc<dyn PlatformWindow>);
     }
 
     /// Releases the reference to the component window held by handle.
@@ -735,24 +735,24 @@ pub mod ffi {
         target: *mut PlatformWindowRcOpaque,
     ) {
         assert_eq!(
-            core::mem::size_of::<PlatformWindowRc>(),
+            core::mem::size_of::<Rc<dyn PlatformWindow>>(),
             core::mem::size_of::<PlatformWindowRcOpaque>()
         );
-        let window = &*(source as *const PlatformWindowRc);
-        core::ptr::write(target as *mut PlatformWindowRc, window.clone());
+        let window = &*(source as *const Rc<dyn PlatformWindow>);
+        core::ptr::write(target as *mut Rc<dyn PlatformWindow>, window.clone());
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_show(handle: *const PlatformWindowRcOpaque) {
-        let platform_window = &*(handle as *const PlatformWindowRc);
+        let platform_window = &*(handle as *const Rc<dyn PlatformWindow>);
         platform_window.show();
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_hide(handle: *const PlatformWindowRcOpaque) {
-        let window = &*(handle as *const PlatformWindowRc);
+        let window = &*(handle as *const Rc<dyn PlatformWindow>);
         window.hide();
     }
 
@@ -762,10 +762,10 @@ pub mod ffi {
         handle: *const PlatformWindowRcOpaque,
     ) -> f32 {
         assert_eq!(
-            core::mem::size_of::<PlatformWindowRc>(),
+            core::mem::size_of::<Rc<dyn PlatformWindow>>(),
             core::mem::size_of::<PlatformWindowRcOpaque>()
         );
-        let platform_window = &*(handle as *const PlatformWindowRc);
+        let platform_window = &*(handle as *const Rc<dyn PlatformWindow>);
         platform_window.window().window_handle().scale_factor()
     }
 
@@ -775,7 +775,7 @@ pub mod ffi {
         handle: *const PlatformWindowRcOpaque,
         value: f32,
     ) {
-        let platform_window = &*(handle as *const PlatformWindowRc);
+        let platform_window = &*(handle as *const Rc<dyn PlatformWindow>);
         platform_window.window().window_handle().set_scale_factor(value)
     }
 
@@ -785,7 +785,7 @@ pub mod ffi {
         handle: *const PlatformWindowRcOpaque,
         focus_item: &ItemRc,
     ) {
-        let platform_window = &*(handle as *const PlatformWindowRc);
+        let platform_window = &*(handle as *const Rc<dyn PlatformWindow>);
         platform_window.window().window_handle().set_focus_item(focus_item)
     }
 
@@ -795,7 +795,7 @@ pub mod ffi {
         handle: *const PlatformWindowRcOpaque,
         component: &ComponentRc,
     ) {
-        let platform_window = &*(handle as *const PlatformWindowRc);
+        let platform_window = &*(handle as *const Rc<dyn PlatformWindow>);
         platform_window.window().window_handle().set_component(component)
     }
 
@@ -807,12 +807,12 @@ pub mod ffi {
         position: crate::graphics::Point,
         parent_item: &ItemRc,
     ) {
-        let platform_window = &*(handle as *const PlatformWindowRc);
+        let platform_window = &*(handle as *const Rc<dyn PlatformWindow>);
         platform_window.window().window_handle().show_popup(popup, position, parent_item);
     }
     /// Close the current popup
     pub unsafe extern "C" fn slint_windowrc_close_popup(handle: *const PlatformWindowRcOpaque) {
-        let platform_window = &*(handle as *const PlatformWindowRc);
+        let platform_window = &*(handle as *const Rc<dyn PlatformWindow>);
         platform_window.window().window_handle().close_popup();
     }
 
@@ -855,7 +855,7 @@ pub mod ffi {
             }
         }
 
-        let window = &*(handle as *const PlatformWindowRc);
+        let window = &*(handle as *const Rc<dyn PlatformWindow>);
         match window.renderer().set_rendering_notifier(Box::new(CNotifier {
             callback,
             drop_user_data,
@@ -897,14 +897,14 @@ pub mod ffi {
 
         let with_user_data = WithUserData { callback, drop_user_data, user_data };
 
-        let platform_window = &*(handle as *const PlatformWindowRc);
+        let platform_window = &*(handle as *const Rc<dyn PlatformWindow>);
         platform_window.window().on_close_requested(move || with_user_data.call());
     }
 
     /// This function issues a request to the windowing system to redraw the contents of the window.
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_request_redraw(handle: *const PlatformWindowRcOpaque) {
-        let platform_window = &*(handle as *const PlatformWindowRc);
+        let platform_window = &*(handle as *const Rc<dyn PlatformWindow>);
         platform_window.request_redraw();
     }
 
@@ -915,7 +915,7 @@ pub mod ffi {
         handle: *const PlatformWindowRcOpaque,
         pos: &mut euclid::default::Point2D<i32>,
     ) {
-        let platform_window = &*(handle as *const PlatformWindowRc);
+        let platform_window = &*(handle as *const Rc<dyn PlatformWindow>);
         *pos = platform_window.position().to_untyped()
     }
 
@@ -927,7 +927,7 @@ pub mod ffi {
         handle: *const PlatformWindowRcOpaque,
         pos: &euclid::default::Point2D<i32>,
     ) {
-        let platform_window = &*(handle as *const PlatformWindowRc);
+        let platform_window = &*(handle as *const Rc<dyn PlatformWindow>);
         platform_window.set_position(euclid::Point2D::from_untyped(*pos));
     }
 
@@ -935,7 +935,7 @@ pub mod ffi {
     /// a window frame (if present).
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_size(handle: *const PlatformWindowRcOpaque) -> IntSize {
-        let platform_window = &*(handle as *const PlatformWindowRc);
+        let platform_window = &*(handle as *const Rc<dyn PlatformWindow>);
         platform_window.window().window_handle().inner_size.get().to_untyped().cast()
     }
 
@@ -946,7 +946,7 @@ pub mod ffi {
         handle: *const PlatformWindowRcOpaque,
         size: &IntSize,
     ) {
-        let platform_window = &*(handle as *const PlatformWindowRc);
+        let platform_window = &*(handle as *const Rc<dyn PlatformWindow>);
         platform_window.set_inner_size([size.width, size.height].into());
     }
 }

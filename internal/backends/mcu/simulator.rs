@@ -12,7 +12,7 @@ use i_slint_core::api::{euclid, PhysicalPx};
 use i_slint_core::component::ComponentRc;
 use i_slint_core::input::KeyboardModifiers;
 use i_slint_core::layout::Orientation;
-use i_slint_core::window::{PlatformWindow, PlatformWindowRc, WindowHandleAccess};
+use i_slint_core::window::{PlatformWindow, WindowHandleAccess};
 use i_slint_core::Coord;
 use rgb::FromSlice;
 
@@ -298,7 +298,7 @@ impl WinitWindow for SimulatorWindow {
 pub struct SimulatorBackend;
 
 impl i_slint_core::backend::Backend for SimulatorBackend {
-    fn create_window(&self) -> PlatformWindowRc {
+    fn create_window(&self) -> Rc<dyn PlatformWindow> {
         SimulatorWindow::new()
     }
 

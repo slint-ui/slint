@@ -188,7 +188,7 @@ impl NativeButton {
 }
 
 impl Item for NativeButton {
-    fn init(self: Pin<&Self>, _platform_window: &PlatformWindowRc) {}
+    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -197,7 +197,7 @@ impl Item for NativeButton {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> LayoutInfo {
         let standard_button_kind = self.actual_standard_button_kind();
         let mut text: qttypes::QString = self.actual_text(standard_button_kind);
@@ -233,7 +233,7 @@ impl Item for NativeButton {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -242,7 +242,7 @@ impl Item for NativeButton {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let enabled = self.enabled();
@@ -275,7 +275,7 @@ impl Item for NativeButton {
     fn key_event(
         self: Pin<&Self>,
         event: &KeyEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> KeyEventResult {
         match event.event_type {
             KeyEventType::KeyPressed if event.text == " " || event.text == "\n" => {
@@ -294,7 +294,7 @@ impl Item for NativeButton {
     fn focus_event(
         self: Pin<&Self>,
         event: &FocusEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> FocusEventResult {
         if self.enabled() {
             Self::FIELD_OFFSETS
