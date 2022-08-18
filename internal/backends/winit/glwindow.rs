@@ -17,7 +17,7 @@ use corelib::component::ComponentRc;
 use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};
 use corelib::layout::Orientation;
-use corelib::window::{PlatformWindow, WindowRc};
+use corelib::window::{PlatformWindow, PlatformWindowRc, WindowHandleAccess};
 use corelib::Property;
 use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
@@ -26,7 +26,7 @@ use winit::dpi::LogicalSize;
 /// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
 pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer + 'static> {
-    window_inner_weak: Weak<corelib::window::WindowInner>,
+    window: corelib::api::Window,
     self_weak: Weak<Self>,
     map_state: RefCell<GraphicsWindowBackendState<Renderer>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
@@ -38,19 +38,16 @@ pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer + 'static> {
     virtual_keyboard_helper: RefCell<Option<super::wasm_input_helper::WasmInputHelper>>,
 }
 
-impl<Renderer: WinitCompatibleRenderer> GLWindow<Renderer> {
+impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
     /// Creates a new reference-counted instance.
     ///
     /// Arguments:
     /// * `graphics_backend_factory`: The factor function stored in the GraphicsWindow that's called when the state
     ///   of the window changes to mapped. The event loop and window builder parameters can be used to create a
     ///   backing window.
-    pub(crate) fn new(
-        window_weak: &Weak<corelib::window::WindowInner>,
-        #[cfg(target_arch = "wasm32")] canvas_id: String,
-    ) -> Rc<Self> {
-        Rc::new_cyclic(|self_weak| Self {
-            window_inner_weak: window_weak.clone(),
+    pub(crate) fn new(#[cfg(target_arch = "wasm32")] canvas_id: String) -> PlatformWindowRc {
+        let self_rc = Rc::new_cyclic(|self_weak| Self {
+            window: corelib::api::Window::new(self_weak.clone() as _),
             self_weak: self_weak.clone(),
             map_state: RefCell::new(GraphicsWindowBackendState::Unmapped {
                 requested_position: None,
@@ -59,13 +56,14 @@ impl<Renderer: WinitCompatibleRenderer> GLWindow<Renderer> {
             keyboard_modifiers: Default::default(),
             currently_pressed_key_code: Default::default(),
             renderer: Renderer::new(
-                &window_weak,
+                &(self_weak.clone() as _),
                 #[cfg(target_arch = "wasm32")]
                 canvas_id,
             ),
             #[cfg(target_arch = "wasm32")]
             virtual_keyboard_helper: Default::default(),
-        })
+        });
+        self_rc as _
     }
 
     fn is_mapped(&self) -> bool {
@@ -192,8 +190,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
 
     fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) {
         if let Some(mapped_window) = self.borrow_mapped_window() {
-            i_slint_core::api::Window::from(self.window())
-                .set_size(euclid::size2(size.width, size.height));
+            self.window().set_size(euclid::size2(size.width, size.height));
             mapped_window.canvas.resize_event()
         }
     }
@@ -270,7 +267,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
             GraphicsWindowBackendState::Mapped(_) => return,
         };
 
-        let runtime_window = self.window();
+        let runtime_window = self.window().window_handle();
         let component_rc = runtime_window.component();
         let component = ComponentRc::borrow_pin(&component_rc);
 
@@ -345,12 +342,11 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
 
         let canvas = self.renderer.create_canvas(window_builder);
 
-        let id = canvas.with_window_handle(|window| {
-            let runtime_window = self.window_inner_weak.upgrade().unwrap();
-            runtime_window.set_scale_factor(
-                scale_factor_override.unwrap_or_else(|| window.scale_factor()) as _,
+        let id = canvas.with_window_handle(|winit_window| {
+            self.window.window_handle().set_scale_factor(
+                scale_factor_override.unwrap_or_else(|| winit_window.scale_factor()) as _,
             );
-            window.id()
+            winit_window.id()
         });
 
         self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
@@ -483,8 +479,8 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
         }
     }
 
-    fn window(&self) -> WindowRc {
-        self.window_inner_weak.upgrade().unwrap()
+    fn window(&self) -> &corelib::api::Window {
+        &self.window
     }
 }
 

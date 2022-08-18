@@ -1,19 +1,17 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use std::{
-    cell::RefCell,
-    pin::Pin,
-    rc::{Rc, Weak},
-};
+use std::{cell::RefCell, pin::Pin, rc::Rc};
 
-use i_slint_core::{
-    api::{euclid, GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError},
-    graphics::rendering_metrics_collector::RenderingMetricsCollector,
-    graphics::{Point, Rect, Size},
-    renderer::Renderer,
-    Coord,
+use i_slint_core::api::{
+    euclid, GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError,
 };
+use i_slint_core::graphics::{
+    rendering_metrics_collector::RenderingMetricsCollector, Point, Rect, Size,
+};
+use i_slint_core::renderer::Renderer;
+use i_slint_core::window::{PlatformWindowWeak, WindowHandleAccess};
+use i_slint_core::Coord;
 
 use crate::WindowSystemName;
 
@@ -26,7 +24,7 @@ mod itemrenderer;
 const PASSWORD_CHARACTER: &str = "●";
 
 pub struct FemtoVGRenderer {
-    window_weak: Weak<i_slint_core::window::WindowInner>,
+    platform_window_weak: PlatformWindowWeak,
     #[cfg(target_arch = "wasm32")]
     canvas_id: String,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
@@ -36,11 +34,11 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
     type Canvas = FemtoVGCanvas;
 
     fn new(
-        window_weak: &Weak<i_slint_core::window::WindowInner>,
+        platform_window_weak: &PlatformWindowWeak,
         #[cfg(target_arch = "wasm32")] canvas_id: String,
     ) -> Self {
         Self {
-            window_weak: window_weak.clone(),
+            platform_window_weak: platform_window_weak.clone(),
             #[cfg(target_arch = "wasm32")]
             canvas_id,
             rendering_notifier: Default::default(),
@@ -55,7 +53,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         );
 
         let rendering_metrics_collector = RenderingMetricsCollector::new(
-            self.window_weak.clone(),
+            self.platform_window_weak.clone(),
             &format!(
                 "FemtoVG renderer (windowing system: {})",
                 opengl_context.window().winsys_name()
@@ -125,7 +123,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
     }
 
     fn render(&self, canvas: &FemtoVGCanvas) {
-        let window = match self.window_weak.upgrade() {
+        let platform_window = match self.platform_window_weak.upgrade() {
             Some(window) => window,
             None => return,
         };
@@ -135,6 +133,8 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         let height = size.height;
 
         canvas.opengl_context.make_current();
+
+        let window = platform_window.window().window_handle();
 
         window.draw_contents(|components| {
             {
@@ -170,8 +170,12 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
                     .with_graphics_api(|api| callback.notify(RenderingState::BeforeRendering, &api))
             }
 
-            let mut item_renderer =
-                self::itemrenderer::GLItemRenderer::new(canvas, &window, width, height);
+            let mut item_renderer = self::itemrenderer::GLItemRenderer::new(
+                canvas,
+                platform_window.window(),
+                width,
+                height,
+            );
 
             for (component, origin) in components {
                 i_slint_core::item_rendering::render_component_items(
@@ -218,10 +222,12 @@ impl Renderer for FemtoVGRenderer {
         text_input: Pin<&i_slint_core::items::TextInput>,
         pos: Point,
     ) -> usize {
-        let window = match self.window_weak.upgrade() {
+        let platform_window = match self.platform_window_weak.upgrade() {
             Some(window) => window,
             None => return 0,
         };
+
+        let window = platform_window.window().window_handle();
 
         let scale_factor = window.scale_factor();
         let pos = pos * scale_factor;
@@ -295,10 +301,12 @@ impl Renderer for FemtoVGRenderer {
         text_input: Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
     ) -> Rect {
-        let window = match self.window_weak.upgrade() {
+        let platform_window = match self.platform_window_weak.upgrade() {
             Some(window) => window,
             None => return Default::default(),
         };
+
+        let window = platform_window.window().window_handle();
 
         let text = text_input.text();
         let scale_factor = window.scale_factor();

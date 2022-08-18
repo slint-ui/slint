@@ -65,16 +65,13 @@ thread_local! { static WINDOW: RefCell<Option<Rc<PicoWindow>>> = RefCell::new(No
 
 struct PicoBackend;
 impl i_slint_core::backend::Backend for PicoBackend {
-    fn create_window(&self) -> i_slint_core::api::Window {
-        i_slint_core::window::WindowInner::new(|window| {
-            Rc::new_cyclic(|self_weak| PicoWindow {
-                window_inner_weak: window.clone(),
-                self_weak: self_weak.clone(),
-                renderer: renderer::SoftwareRenderer::new(renderer::DirtyTracking::SingleBuffer),
-                needs_redraw: Default::default(),
-            })
+    fn create_window(&self) -> i_slint_core::window::PlatformWindowRc {
+        Rc::new_cyclic(|self_weak| PicoWindow {
+            window: i_slint_core::api::Window::new(self_weak.clone() as _),
+            self_weak: self_weak.clone(),
+            renderer: renderer::SoftwareRenderer::new(renderer::DirtyTracking::SingleBuffer),
+            needs_redraw: Default::default(),
         })
-        .into()
     }
 
     fn run_event_loop(&self, _behavior: i_slint_core::backend::EventLoopQuitBehavior) {
@@ -200,11 +197,8 @@ fn run_event_loop() -> ! {
         i_slint_core::timers::update_timers();
 
         if let Some(window) = WINDOW.with(|x| x.borrow().clone()) {
-            let runtime_window =
-                i_slint_core::api::Window::from(window.window_inner_weak.upgrade().unwrap());
-
             if window.needs_redraw.replace(false) {
-                window.renderer.render_by_line(&runtime_window, &mut buffer_provider);
+                window.renderer.render_by_line(&window.window, &mut buffer_provider);
                 buffer_provider.flush_frame();
             }
 
@@ -217,7 +211,7 @@ fn run_event_loop() -> ! {
                 .map(|point| {
                     let size = DISPLAY_SIZE.to_f32();
                     let position = euclid::point2(point.x * size.width, point.y * size.height)
-                        / runtime_window.scale_factor();
+                        / window.window.scale_factor().get();
                     match last_touch.replace(position) {
                         Some(_) => PointerEvent::Moved { position },
                         None => PointerEvent::Pressed { position, button },
@@ -227,7 +221,7 @@ fn run_event_loop() -> ! {
                     last_touch.take().map(|position| PointerEvent::Released { position, button })
                 })
             {
-                runtime_window.dispatch_pointer_event(event);
+                window.window.dispatch_pointer_event(event);
                 // Don't go to sleep after a touch event that forces a redraw
                 continue;
             }
@@ -287,7 +281,7 @@ impl<TO: WriteTarget<TransmittedWord = u8> + FullDuplex<u8>, CH: SingleChannel>
 }
 
 struct PicoWindow {
-    window_inner_weak: Weak<i_slint_core::window::WindowInner>,
+    window: i_slint_core::api::Window,
     self_weak: Weak<Self>,
     renderer: crate::renderer::SoftwareRenderer,
     needs_redraw: Cell<bool>,
@@ -295,9 +289,7 @@ struct PicoWindow {
 
 impl i_slint_core::window::PlatformWindow for PicoWindow {
     fn show(&self) {
-        let runtime_window =
-            i_slint_core::api::Window::from(self.window_inner_weak.upgrade().unwrap());
-        runtime_window.set_size(DISPLAY_SIZE.cast());
+        self.window.set_size(DISPLAY_SIZE.cast());
         WINDOW.with(|x| *x.borrow_mut() = Some(self.self_weak.upgrade().unwrap()))
     }
     fn hide(&self) {
@@ -315,8 +307,8 @@ impl i_slint_core::window::PlatformWindow for PicoWindow {
         self
     }
 
-    fn window(&self) -> i_slint_core::window::WindowRc {
-        self.window_inner_weak.upgrade().unwrap()
+    fn window(&self) -> &i_slint_core::api::Window {
+        &self.window
     }
 }
 

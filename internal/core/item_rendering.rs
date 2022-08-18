@@ -345,7 +345,7 @@ pub trait ItemRenderer {
         (self.get_current_clip().intersects(&item_geometry), item_geometry)
     }
 
-    fn window(&self) -> crate::window::WindowRc;
+    fn window(&self) -> &crate::api::Window;
 
     /// Return the internal renderer
     fn as_any(&mut self) -> Option<&mut dyn core::any::Any>;
@@ -547,7 +547,7 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
         self.actual_renderer.draw_string(string, color)
     }
 
-    fn window(&self) -> crate::window::WindowRc {
+    fn window(&self) -> &crate::api::Window {
         self.actual_renderer.window()
     }
 

@@ -18,13 +18,14 @@ mod glcontext;
 use glcontext::*;
 pub(crate) mod event_loop;
 mod renderer {
-    use std::rc::Weak;
+
+    use i_slint_core::window::PlatformWindowWeak;
 
     pub(crate) trait WinitCompatibleRenderer: i_slint_core::renderer::Renderer {
         type Canvas: WinitCompatibleCanvas;
 
         fn new(
-            window_weak: &Weak<i_slint_core::window::WindowInner>,
+            platform_window_weak: &PlatformWindowWeak,
             #[cfg(target_arch = "wasm32")] canvas_id: String,
         ) -> Self;
 
@@ -57,11 +58,8 @@ pub(crate) mod wasm_input_helper;
 mod stylemetrics;
 
 #[cfg(target_arch = "wasm32")]
-pub fn create_gl_window_with_canvas_id(canvas_id: String) -> i_slint_core::api::Window {
-    i_slint_core::window::WindowInner::new(|window| {
-        GLWindow::<crate::renderer::femtovg::FemtoVGRenderer>::new(window, canvas_id)
-    })
-    .into()
+pub fn create_gl_window_with_canvas_id(canvas_id: String) -> PlatformWindowRc {
+    GLWindow::<crate::renderer::femtovg::FemtoVGRenderer>::new(canvas_id)
 }
 
 #[doc(hidden)]
@@ -76,60 +74,45 @@ pub mod native_widgets {
 }
 pub const HAS_NATIVE_STYLE: bool = false;
 
+use i_slint_core::window::PlatformWindowRc;
 pub use stylemetrics::native_style_metrics_deinit;
 pub use stylemetrics::native_style_metrics_init;
 
 pub struct Backend {
-    window_factory_fn: Mutex<Box<dyn Fn() -> i_slint_core::api::Window + Send>>,
+    window_factory_fn: Mutex<Box<dyn Fn() -> PlatformWindowRc + Send>>,
 }
 
 impl Backend {
     pub fn new(renderer_name: Option<&str>) -> Self {
         #[cfg(feature = "renderer-femtovg")]
         let (default_renderer, default_renderer_factory) = ("FemtoVG", || {
-            i_slint_core::window::WindowInner::new(|window| {
-                GLWindow::<renderer::femtovg::FemtoVGRenderer>::new(
-                    window,
-                    #[cfg(target_arch = "wasm32")]
-                    "canvas".into(),
-                )
-            })
-            .into()
+            GLWindow::<renderer::femtovg::FemtoVGRenderer>::new(
+                #[cfg(target_arch = "wasm32")]
+                "canvas".into(),
+            )
         });
         #[cfg(all(not(feature = "renderer-femtovg"), feature = "renderer-skia"))]
         let (default_renderer, default_renderer_factory) = ("Skia", || {
-            i_slint_core::window::WindowInner::new(|window| {
-                GLWindow::<renderer::skia::SkiaRenderer>::new(
-                    window,
-                    #[cfg(target_arch = "wasm32")]
-                    "canvas".into(),
-                )
-            })
-            .into()
+            GLWindow::<renderer::skia::SkiaRenderer>::new(
+                #[cfg(target_arch = "wasm32")]
+                "canvas".into(),
+            )
         });
 
         let factory_fn = match renderer_name {
             #[cfg(feature = "renderer-femtovg")]
             Some("gl") | Some("femtovg") => || {
-                i_slint_core::window::WindowInner::new(|window| {
-                    GLWindow::<renderer::femtovg::FemtoVGRenderer>::new(
-                        window,
-                        #[cfg(target_arch = "wasm32")]
-                        "canvas".into(),
-                    )
-                })
-                .into()
+                GLWindow::<renderer::femtovg::FemtoVGRenderer>::new(
+                    #[cfg(target_arch = "wasm32")]
+                    "canvas".into(),
+                )
             },
             #[cfg(feature = "renderer-skia")]
             Some("skia") => || {
-                i_slint_core::window::WindowInner::new(|window| {
-                    GLWindow::<renderer::skia::SkiaRenderer>::new(
-                        window,
-                        #[cfg(target_arch = "wasm32")]
-                        "canvas".into(),
-                    )
-                })
-                .into()
+                GLWindow::<renderer::skia::SkiaRenderer>::new(
+                    #[cfg(target_arch = "wasm32")]
+                    "canvas".into(),
+                )
             },
             None => default_renderer_factory,
             Some(renderer_name) => {
@@ -145,7 +128,7 @@ impl Backend {
 }
 
 impl i_slint_core::backend::Backend for Backend {
-    fn create_window(&self) -> i_slint_core::api::Window {
+    fn create_window(&self) -> PlatformWindowRc {
         self.window_factory_fn.lock().unwrap()()
     }
 

@@ -18,9 +18,10 @@
 //! we just simulate a few backspaces.
 
 use std::cell::RefCell;
-use std::rc::{Rc, Weak};
+use std::rc::Rc;
 
 use i_slint_core::input::{KeyEvent, KeyEventType, KeyboardModifiers};
+use i_slint_core::window::{PlatformWindowWeak, WindowHandleAccess};
 use i_slint_core::SharedString;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::convert::FromWasmAbi;
@@ -65,10 +66,7 @@ impl WasmInputState {
 
 impl WasmInputHelper {
     #[allow(unused)]
-    pub fn new(
-        window: Weak<i_slint_core::window::WindowInner>,
-        canvas: web_sys::HtmlCanvasElement,
-    ) -> Self {
+    pub fn new(platform_window: PlatformWindowWeak, canvas: web_sys::HtmlCanvasElement) -> Self {
         let input = web_sys::window()
             .unwrap()
             .document()
@@ -91,23 +89,24 @@ impl WasmInputHelper {
 
         let shared_state = Rc::new(RefCell::new(WasmInputState::default()));
 
-        let win = window.clone();
+        let win = platform_window.clone();
         h.add_event_listener("blur", move |_: web_sys::Event| {
             // Make sure that the window gets marked as unfocused when the focus leaves the input
-            if let Some(window) = win.upgrade() {
+            if let Some(platform_window) = win.upgrade() {
+                let window = platform_window.window().window_handle();
                 if !canvas.matches(":focus").unwrap_or(false) {
                     window.set_active(false);
                     window.set_focus(false);
                 }
             }
         });
-        let win = window.clone();
+        let win = platform_window.clone();
         let shared_state2 = shared_state.clone();
         h.add_event_listener("keydown", move |e: web_sys::KeyboardEvent| {
-            if let (Some(window), Some(text)) = (win.upgrade(), event_text(&e)) {
+            if let (Some(platform_window), Some(text)) = (win.upgrade(), event_text(&e)) {
                 e.prevent_default();
                 shared_state2.borrow_mut().has_key_down = true;
-                window.process_key_input(&KeyEvent {
+                platform_window.window().window_handle().process_key_input(&KeyEvent {
                     modifiers: modifiers(&e),
                     text,
                     event_type: KeyEventType::KeyPressed,
@@ -115,13 +114,13 @@ impl WasmInputHelper {
             }
         });
 
-        let win = window.clone();
+        let win = platform_window.clone();
         let shared_state2 = shared_state.clone();
         h.add_event_listener("keyup", move |e: web_sys::KeyboardEvent| {
-            if let (Some(window), Some(text)) = (win.upgrade(), event_text(&e)) {
+            if let (Some(platform_window), Some(text)) = (win.upgrade(), event_text(&e)) {
                 e.prevent_default();
                 shared_state2.borrow_mut().has_key_down = false;
-                window.process_key_input(&KeyEvent {
+                platform_window.window().window_handle().process_key_input(&KeyEvent {
                     modifiers: modifiers(&e),
                     text,
                     event_type: KeyEventType::KeyReleased,
@@ -129,13 +128,14 @@ impl WasmInputHelper {
             }
         });
 
-        let win = window.clone();
+        let win = platform_window.clone();
         let shared_state2 = shared_state.clone();
         let input = h.input.clone();
         h.add_event_listener("input", move |e: web_sys::InputEvent| {
-            if let (Some(window), Some(data)) = (win.upgrade(), e.data()) {
+            if let (Some(platform_window), Some(data)) = (win.upgrade(), e.data()) {
                 if !e.is_composing() && e.input_type() != "insertCompositionText" {
                     if !shared_state2.borrow_mut().has_key_down {
+                        let window = platform_window.window().window_handle();
                         let text = SharedString::from(data.as_str());
                         window.process_key_input(&KeyEvent {
                             modifiers: Default::default(),
@@ -155,11 +155,12 @@ impl WasmInputHelper {
         });
 
         for event in ["compositionend", "compositionupdate"] {
-            let win = window.clone();
+            let win = platform_window.clone();
             let shared_state2 = shared_state.clone();
             let input = h.input.clone();
             h.add_event_listener(event, move |e: web_sys::CompositionEvent| {
-                if let (Some(window), Some(data)) = (win.upgrade(), e.data()) {
+                if let (Some(platform_window), Some(data)) = (win.upgrade(), e.data()) {
+                    let window = platform_window.window().window_handle();
                     let is_end = event == "compositionend";
                     let (text, to_delete) =
                         shared_state2.borrow_mut().text_from_compose(data, is_end);

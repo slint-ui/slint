@@ -6,7 +6,6 @@
 #![allow(unsafe_code)]
 
 use crate::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
-use crate::window::WindowRc;
 use crate::Coord;
 use crate::SharedString;
 
@@ -29,7 +28,7 @@ pub extern "C" fn slint_send_mouse_click(
     component: &crate::component::ComponentRc,
     x: Coord,
     y: Coord,
-    window: &WindowRc,
+    window: &crate::window::WindowInner,
 ) {
     let mut state = crate::input::MouseInputState::default();
     let position = euclid::point2(x, y);
@@ -60,7 +59,7 @@ pub extern "C" fn slint_send_mouse_click(
 pub extern "C" fn send_keyboard_string_sequence(
     sequence: &crate::SharedString,
     modifiers: KeyboardModifiers,
-    window: &WindowRc,
+    window: &crate::window::WindowInner,
 ) {
     for ch in sequence.chars() {
         let mut modifiers = modifiers;

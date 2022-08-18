@@ -86,7 +86,9 @@ inline void assert_main_thread()
 class WindowRc
 {
 public:
-    explicit WindowRc(cbindgen_private::WindowRcOpaque adopted_inner) : inner(adopted_inner) { }
+    explicit WindowRc(cbindgen_private::PlatformWindowRcOpaque adopted_inner) : inner(adopted_inner)
+    {
+    }
     WindowRc() { cbindgen_private::slint_windowrc_init(&inner); }
     ~WindowRc() { cbindgen_private::slint_windowrc_drop(&inner); }
     WindowRc(const WindowRc &other)
@@ -223,7 +225,7 @@ public:
     }
 
 private:
-    cbindgen_private::WindowRcOpaque inner;
+    cbindgen_private::PlatformWindowRcOpaque inner;
 };
 
 constexpr inline ItemTreeNode make_item_node(uint32_t child_count, uint32_t child_index,

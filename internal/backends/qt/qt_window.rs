@@ -20,7 +20,7 @@ use i_slint_core::items::{
     PointerEventButton, RenderingResult, TextOverflow, TextWrap,
 };
 use i_slint_core::layout::Orientation;
-use i_slint_core::window::{PlatformWindow, WindowRc};
+use i_slint_core::window::{PlatformWindow, PlatformWindowRc, WindowHandleAccess};
 use i_slint_core::{ImageInner, PathData, Property, SharedString};
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 
@@ -189,7 +189,7 @@ cpp! {{
         void customEvent(QEvent *event) override {
             if (event->type() == QEvent::User) {
                 rust!(Slint_updateWindowProps [rust_window: &QtWindow as "void*"] {
-                   if let Some(window) = rust_window.self_weak.upgrade() { window.update_window_properties() }
+                    rust_window.window.window_handle().update_window_properties()
                 });
             } else {
                 QWidget::customEvent(event);
@@ -200,7 +200,7 @@ cpp! {{
             if (event->type() == QEvent::ActivationChange) {
                 bool active = isActiveWindow();
                 rust!(Slint_updateWindowActivation [rust_window: &QtWindow as "void*", active: bool as "bool"] {
-                    if let Some(window) = rust_window.self_weak.upgrade() { window.set_active(active) }
+                    rust_window.window.window_handle().set_active(active)
                  });
             }
             QWidget::changeEvent(event);
@@ -208,10 +208,7 @@ cpp! {{
 
         void closeEvent(QCloseEvent *event) override {
             bool accepted = rust!(Slint_requestClose [rust_window: &QtWindow as "void*"] -> bool as "bool" {
-                if let Some(window) = rust_window.self_weak.upgrade() {
-                    return window.request_close();
-                }
-                true
+                return rust_window.window.window_handle().request_close();
             });
             if (accepted) {
                 event->accept();
@@ -222,7 +219,7 @@ cpp! {{
 
         QSize sizeHint() const override {
             auto preferred_size = rust!(Slint_sizeHint [rust_window: &QtWindow as "void*"] -> qttypes::QSize as "QSize" {
-                let component_rc = rust_window.self_weak.upgrade().unwrap().component();
+                let component_rc = rust_window.window.window_handle().component();
                 let component = ComponentRc::borrow_pin(&component_rc);
                 let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
                 let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
@@ -451,7 +448,7 @@ fn adjust_rect_and_border_for_inner_drawing(rect: &mut qttypes::QRectF, border_w
 struct QtItemRenderer<'a> {
     painter: QPainterPtr,
     cache: &'a ItemCache<qttypes::QPixmap>,
-    window: WindowRc,
+    window: &'a i_slint_core::api::Window,
     metrics: RenderingMetrics,
 }
 
@@ -516,7 +513,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let rect: qttypes::QRectF = get_geometry!(items::Text, text);
         let fill_brush: qttypes::QBrush = into_qbrush(text.color(), rect.width, rect.height);
         let mut string: qttypes::QString = text.text().as_str().into();
-        let font: QFont = get_font(text.font_request(&self.window));
+        let font: QFont = get_font(text.font_request(self.window.window_handle()));
         let flags = match text.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
@@ -607,7 +604,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
             }}
         }
 
-        let font: QFont = get_font(text_input.font_request(&self.window));
+        let font: QFont = get_font(text_input.font_request(self.window.window_handle()));
         let flags = match text_input.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
@@ -925,8 +922,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn window(&self) -> WindowRc {
-        self.window.clone()
+    fn window(&self) -> &i_slint_core::api::Window {
+        &self.window
     }
 
     fn as_any(&mut self) -> Option<&mut dyn std::any::Any> {
@@ -1202,7 +1199,8 @@ cpp_class!(unsafe struct QWidgetPtr as "std::unique_ptr<QWidget>");
 
 pub struct QtWindow {
     widget_ptr: QWidgetPtr,
-    pub(crate) self_weak: Weak<i_slint_core::window::WindowInner>,
+    pub(crate) window: i_slint_core::api::Window,
+    self_weak: Weak<Self>,
 
     rendering_metrics_collector: RefCell<Option<Rc<RenderingMetricsCollector>>>,
 
@@ -1212,31 +1210,34 @@ pub struct QtWindow {
 }
 
 impl QtWindow {
-    pub fn new(window_weak: &Weak<i_slint_core::window::WindowInner>) -> Rc<Self> {
-        let window_ptr = window_weak.clone().into_raw();
-        let widget_ptr = cpp! {unsafe [window_ptr as "void*"] -> QWidgetPtr as "std::unique_ptr<QWidget>" {
-            ensure_initialized(true);
-            auto widget = std::make_unique<SlintWidget>();
+    pub fn new() -> Rc<Self> {
+        let rc = Rc::new_cyclic(|self_weak| {
+            let window_ptr = self_weak.clone().into_raw();
+            let widget_ptr = cpp! {unsafe [window_ptr as "void*"] -> QWidgetPtr as "std::unique_ptr<QWidget>" {
+                ensure_initialized(true);
+                auto widget = std::make_unique<SlintWidget>();
 
-            auto accessibility = new Slint_accessible_window(widget.get(), window_ptr);
-            QAccessible::registerAccessibleInterface(accessibility);
+                auto accessibility = new Slint_accessible_window(widget.get(), window_ptr);
+                QAccessible::registerAccessibleInterface(accessibility);
 
-            return widget;
-        }};
-        let rc = Rc::new(QtWindow {
-            widget_ptr,
-            self_weak: window_weak.clone(),
-            rendering_metrics_collector: Default::default(),
-            cache: Default::default(),
-            tree_structure_changed: RefCell::new(false),
+                return widget;
+            }};
+
+            QtWindow {
+                widget_ptr,
+                window: i_slint_core::api::Window::new(self_weak.clone() as _),
+                self_weak: self_weak.clone(),
+                rendering_metrics_collector: Default::default(),
+                cache: Default::default(),
+                tree_structure_changed: RefCell::new(false),
+            }
         });
-        let self_weak = Rc::downgrade(&rc);
         let widget_ptr = rc.widget_ptr();
         let rust_window = Rc::as_ptr(&rc);
         cpp! {unsafe [widget_ptr as "SlintWidget*", rust_window as "void*"]  {
             widget_ptr->rust_window = rust_window;
         }};
-        ALL_WINDOWS.with(|aw| aw.borrow_mut().push(self_weak));
+        ALL_WINDOWS.with(|aw| aw.borrow_mut().push(rc.self_weak.clone()));
         rc
     }
 
@@ -1246,13 +1247,13 @@ impl QtWindow {
     }
 
     fn paint_event(&self, painter: QPainterPtr) {
-        let runtime_window = self.self_weak.upgrade().unwrap();
-        runtime_window.clone().draw_contents(|components| {
+        let runtime_window = self.window.window_handle();
+        runtime_window.draw_contents(|components| {
             i_slint_core::animations::update_animations();
             let mut renderer = QtItemRenderer {
                 painter,
                 cache: &self.cache,
-                window: runtime_window,
+                window: &self.window,
                 metrics: RenderingMetrics { layers_created: Some(0) },
             };
 
@@ -1295,12 +1296,11 @@ impl QtWindow {
     }
 
     fn resize_event(&self, size: qttypes::QSize) {
-        i_slint_core::api::Window::from(self.self_weak.upgrade().unwrap())
-            .set_size(euclid::size2(size.width, size.height));
+        self.window.set_size(euclid::size2(size.width, size.height));
     }
 
     fn mouse_event(&self, event: MouseEvent) {
-        self.self_weak.upgrade().unwrap().process_mouse_input(event);
+        self.window.window_handle().process_mouse_input(event);
         timer_event();
     }
 
@@ -1321,13 +1321,13 @@ impl QtWindow {
             text,
             modifiers,
         };
-        self.self_weak.upgrade().unwrap().process_key_input(&event);
+        self.window.window_handle().process_key_input(&event);
 
         timer_event();
     }
 
     fn close_popup(&self) {
-        self.self_weak.upgrade().unwrap().close_popup();
+        self.window.window_handle().close_popup();
     }
 
     fn free_graphics_resources(&self, component: ComponentRef) {
@@ -1339,7 +1339,7 @@ impl QtWindow {
 #[allow(unused)]
 impl PlatformWindow for QtWindow {
     fn show(&self) {
-        let component_rc = self.self_weak.upgrade().unwrap().component();
+        let component_rc = self.window.window_handle().component();
         let component = ComponentRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
         if let Some(window_item) = ItemRef::downcast_pin(root_item) {
@@ -1478,12 +1478,8 @@ impl PlatformWindow for QtWindow {
         self.tree_structure_changed.replace(true);
     }
 
-    fn create_popup(&self, geometry: Rect) -> Option<i_slint_core::api::Window> {
-        let window = i_slint_core::window::WindowInner::new(|window| QtWindow::new(window));
-        let popup_window: &QtWindow =
-            <dyn std::any::Any>::downcast_ref(window.as_ref().as_any()).unwrap();
-
-        let runtime_window = self.self_weak.upgrade().unwrap();
+    fn create_popup(&self, geometry: Rect) -> Option<PlatformWindowRc> {
+        let popup_window = QtWindow::new();
 
         let size = qttypes::QSize { width: geometry.width() as _, height: geometry.height() as _ };
 
@@ -1495,7 +1491,7 @@ impl PlatformWindow for QtWindow {
             popup_ptr->setGeometry(QRect(pos + widget_ptr->mapToGlobal(QPoint(0,0)), size));
             popup_ptr->show();
         }};
-        Some(window.into())
+        Some(popup_window as _)
     }
 
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
@@ -1583,8 +1579,8 @@ impl PlatformWindow for QtWindow {
         }};
     }
 
-    fn window(&self) -> WindowRc {
-        self.self_weak.upgrade().unwrap()
+    fn window(&self) -> &i_slint_core::api::Window {
+        &self.window
     }
 }
 
@@ -1609,8 +1605,7 @@ impl Renderer for QtWindow {
         }
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
         let pos = qttypes::QPointF { x: pos.x as _, y: pos.y as _ };
-        let runtime_window = self.self_weak.upgrade().unwrap();
-        let font: QFont = get_font(text_input.font_request(&runtime_window));
+        let font: QFont = get_font(text_input.font_request(self.window.window_handle()));
         let string = qttypes::QString::from(text_input.text().as_str());
         let flags = match text_input.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
@@ -1665,8 +1660,7 @@ impl Renderer for QtWindow {
         byte_offset: usize,
     ) -> Rect {
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
-        let runtime_window = self.self_weak.upgrade().unwrap();
-        let font: QFont = get_font(text_input.font_request(&runtime_window));
+        let font: QFont = get_font(text_input.font_request(self.window.window_handle()));
         let text = text_input.text();
         let mut string = qttypes::QString::from(text.as_str());
         let offset: u32 = utf8_byte_offset_to_utf16_units(text.as_str(), byte_offset) as _;
@@ -1943,8 +1937,10 @@ pub(crate) mod ffi {
     use super::QtWindow;
 
     #[no_mangle]
-    pub extern "C" fn slint_qt_get_widget(window: &i_slint_core::window::WindowRc) -> *mut c_void {
-        <dyn std::any::Any>::downcast_ref(window.as_any())
+    pub extern "C" fn slint_qt_get_widget(
+        platform_window: &i_slint_core::window::PlatformWindowRc,
+    ) -> *mut c_void {
+        <dyn std::any::Any>::downcast_ref(platform_window.as_any())
             .map_or(std::ptr::null_mut(), |win: &QtWindow| {
                 win.widget_ptr().cast::<c_void>().as_ptr()
             })

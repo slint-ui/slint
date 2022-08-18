@@ -1,16 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use std::{
-    cell::RefCell,
-    rc::{Rc, Weak},
-};
+use std::{cell::RefCell, rc::Rc};
 
-use i_slint_core::{
-    api::{GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError},
-    graphics::rendering_metrics_collector::RenderingMetricsCollector,
-    item_rendering::ItemCache,
+use i_slint_core::api::{
+    GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError,
 };
+use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
+use i_slint_core::item_rendering::ItemCache;
+use i_slint_core::window::{PlatformWindowWeak, WindowHandleAccess};
 
 use crate::WindowSystemName;
 
@@ -38,22 +36,25 @@ cfg_if::cfg_if! {
 }
 
 pub struct SkiaRenderer {
-    window_weak: Weak<i_slint_core::window::WindowInner>,
+    platform_window_weak: PlatformWindowWeak,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
 }
 
 impl super::WinitCompatibleRenderer for SkiaRenderer {
     type Canvas = SkiaCanvas<DefaultSurface>;
 
-    fn new(window_weak: &std::rc::Weak<i_slint_core::window::WindowInner>) -> Self {
-        Self { window_weak: window_weak.clone(), rendering_notifier: Default::default() }
+    fn new(platform_window_weak: &PlatformWindowWeak) -> Self {
+        Self {
+            platform_window_weak: platform_window_weak.clone(),
+            rendering_notifier: Default::default(),
+        }
     }
 
     fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas {
         let surface = DefaultSurface::new(window_builder);
 
         let rendering_metrics_collector = RenderingMetricsCollector::new(
-            self.window_weak.clone(),
+            self.platform_window_weak.clone(),
             &format!(
                 "Skia renderer (windowing system: {}; skia backend {})",
                 surface.with_window_handle(|winit_window| winit_window.winsys_name()),
@@ -82,10 +83,12 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
     }
 
     fn render(&self, canvas: &Self::Canvas) {
-        let window = match self.window_weak.upgrade() {
+        let platform_window = match self.platform_window_weak.upgrade() {
             Some(window) => window,
             None => return,
         };
+
+        let window = platform_window.window().window_handle();
 
         canvas.surface.render(|skia_canvas, gr_context| {
             window.draw_contents(|components| {
@@ -105,8 +108,11 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
                     })
                 }
 
-                let mut item_renderer =
-                    itemrenderer::SkiaRenderer::new(skia_canvas, &window, &canvas.image_cache);
+                let mut item_renderer = itemrenderer::SkiaRenderer::new(
+                    skia_canvas,
+                    platform_window.window(),
+                    &canvas.image_cache,
+                );
 
                 for (component, origin) in components {
                     i_slint_core::item_rendering::render_component_items(
