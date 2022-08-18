@@ -6,14 +6,12 @@
 
 use i_slint_core::api::euclid;
 use i_slint_core::api::PhysicalPx;
-use i_slint_core::api::Window;
 use i_slint_core::graphics::{Point, Rect, Size};
 use i_slint_core::renderer::Renderer;
-use i_slint_core::window::WindowRc;
-use i_slint_core::window::{PlatformWindow, WindowInner};
+use i_slint_core::window::PlatformWindow;
+use i_slint_core::window::PlatformWindowRc;
 use std::pin::Pin;
 use std::rc::Rc;
-use std::rc::Weak;
 use std::sync::Mutex;
 
 #[derive(Default)]
@@ -22,9 +20,10 @@ pub struct TestingBackend {
 }
 
 impl i_slint_core::backend::Backend for TestingBackend {
-    fn create_window(&self) -> Window {
-        WindowInner::new(|window_weak| Rc::new(TestingWindow { self_weak: window_weak.clone() }))
-            .into()
+    fn create_window(&self) -> PlatformWindowRc {
+        Rc::new_cyclic(|self_weak| TestingWindow {
+            window: i_slint_core::api::Window::new(self_weak.clone() as _),
+        })
     }
 
     fn run_event_loop(&self, _behavior: i_slint_core::backend::EventLoopQuitBehavior) {
@@ -52,7 +51,7 @@ impl i_slint_core::backend::Backend for TestingBackend {
 }
 
 pub struct TestingWindow {
-    self_weak: Weak<i_slint_core::window::WindowInner>,
+    window: i_slint_core::api::Window,
 }
 
 impl PlatformWindow for TestingWindow {
@@ -104,8 +103,8 @@ impl PlatformWindow for TestingWindow {
         unimplemented!()
     }
 
-    fn window(&self) -> WindowRc {
-        self.self_weak.upgrade().unwrap()
+    fn window(&self) -> &i_slint_core::api::Window {
+        &self.window
     }
 }
 

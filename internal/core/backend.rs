@@ -13,6 +13,7 @@ use once_cell::sync::OnceCell;
 
 #[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
 use crate::unsafe_single_core::OnceCell;
+use crate::window::PlatformWindowRc;
 
 #[derive(Copy, Clone)]
 /// Behavior describing how the event loop should terminate.
@@ -26,7 +27,7 @@ pub enum EventLoopQuitBehavior {
 /// Interface implemented by back-ends
 pub trait Backend: Send + Sync {
     /// Instantiate a window for a component.
-    fn create_window(&self) -> crate::api::Window;
+    fn create_window(&self) -> PlatformWindowRc;
 
     /// Spins an event loop and renders the visible windows.
     fn run_event_loop(&self, _behavior: EventLoopQuitBehavior) {

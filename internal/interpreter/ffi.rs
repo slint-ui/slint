@@ -560,11 +560,11 @@ pub extern "C" fn slint_interpreter_component_instance_show(
 #[no_mangle]
 pub unsafe extern "C" fn slint_interpreter_component_instance_window(
     inst: &ErasedComponentBox,
-    out: *mut *const i_slint_core::window::ffi::WindowRcOpaque,
+    out: *mut *const i_slint_core::window::ffi::PlatformWindowRcOpaque,
 ) {
     assert_eq!(
         core::mem::size_of::<WindowRc>(),
-        core::mem::size_of::<i_slint_core::window::ffi::WindowRcOpaque>()
+        core::mem::size_of::<i_slint_core::window::ffi::PlatformWindowRcOpaque>()
     );
     core::ptr::write(out as *mut *const WindowRc, inst.window().window_handle() as *const _)
 }

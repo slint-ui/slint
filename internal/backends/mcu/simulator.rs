@@ -12,7 +12,7 @@ use i_slint_core::api::{euclid, PhysicalPx};
 use i_slint_core::component::ComponentRc;
 use i_slint_core::input::KeyboardModifiers;
 use i_slint_core::layout::Orientation;
-use i_slint_core::window::{PlatformWindow, WindowRc};
+use i_slint_core::window::{PlatformWindow, PlatformWindowRc, WindowHandleAccess};
 use i_slint_core::Coord;
 use rgb::FromSlice;
 
@@ -27,7 +27,7 @@ use glcontext::*;
 use i_slint_core::swrenderer::SoftwareRenderer;
 
 pub struct SimulatorWindow {
-    window_inner_weak: Weak<i_slint_core::window::WindowInner>,
+    window: i_slint_core::api::Window,
     self_weak: Weak<Self>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
@@ -40,7 +40,7 @@ pub struct SimulatorWindow {
 }
 
 impl SimulatorWindow {
-    pub(crate) fn new(window_weak: &Weak<i_slint_core::window::WindowInner>) -> Rc<Self> {
+    pub(crate) fn new() -> Rc<Self> {
         let window_builder = winit::window::WindowBuilder::new().with_visible(false);
 
         let opengl_context = OpenGLContext::new_context(window_builder);
@@ -56,7 +56,7 @@ impl SimulatorWindow {
         let canvas = Rc::new(RefCell::new(canvas));
 
         let window_rc = Rc::new_cyclic(|self_weak| Self {
-            window_inner_weak: window_weak.clone(),
+            window: i_slint_core::api::Window::new(self_weak.clone() as _),
             self_weak: self_weak.clone(),
             keyboard_modifiers: Default::default(),
             currently_pressed_key_code: Default::default(),
@@ -68,7 +68,7 @@ impl SimulatorWindow {
             renderer: Default::default(),
         });
 
-        let runtime_window = window_weak.upgrade().unwrap();
+        let runtime_window = window_rc.window.window_handle();
         runtime_window.set_scale_factor(window_rc.opengl_context.window().scale_factor() as _);
 
         window_rc
@@ -89,7 +89,7 @@ impl PlatformWindow for SimulatorWindow {
 
         self.visible.set(true);
 
-        let runtime_window = self.window();
+        let runtime_window = self.window.window_handle();
         let component_rc = runtime_window.component();
         let component = ComponentRc::borrow_pin(&component_rc);
 
@@ -178,8 +178,8 @@ impl PlatformWindow for SimulatorWindow {
         unimplemented!()
     }
 
-    fn window(&self) -> WindowRc {
-        self.window_inner_weak.upgrade().unwrap()
+    fn window(&self) -> &i_slint_core::api::Window {
+        &self.window
     }
 }
 
@@ -193,8 +193,6 @@ impl WinitWindow for SimulatorWindow {
     }
 
     fn draw(&self) {
-        let runtime_window = self.window_inner_weak.upgrade().unwrap();
-
         let size = self.opengl_context.window().inner_size();
 
         self.opengl_context.with_current_context(|opengl_context| {
@@ -237,8 +235,7 @@ impl WinitWindow for SimulatorWindow {
                     });
                 }
             }
-            self.renderer
-                .render_by_line(&runtime_window.into(), BufferProvider { devices: display });
+            self.renderer.render_by_line(&self.window, BufferProvider { devices: display });
 
             let output_image = display
                 .to_rgb_output_image(&embedded_graphics_simulator::OutputSettings::default());
@@ -301,8 +298,8 @@ impl WinitWindow for SimulatorWindow {
 pub struct SimulatorBackend;
 
 impl i_slint_core::backend::Backend for SimulatorBackend {
-    fn create_window(&self) -> i_slint_core::api::Window {
-        i_slint_core::window::WindowInner::new(|window| SimulatorWindow::new(window)).into()
+    fn create_window(&self) -> PlatformWindowRc {
+        SimulatorWindow::new()
     }
 
     fn run_event_loop(&self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {

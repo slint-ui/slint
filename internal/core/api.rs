@@ -6,10 +6,9 @@ This module contains types that are public and re-exported in the slint-rs as we
 */
 
 use alloc::boxed::Box;
-use alloc::rc::Rc;
 
 use crate::component::ComponentVTable;
-use crate::window::WindowRc;
+use crate::window::WindowInner;
 
 pub use crate::lengths::LogicalPx;
 pub use crate::lengths::PhysicalPx;
@@ -97,14 +96,7 @@ pub enum SetRenderingNotifierError {
 /// scene of a component. It provides API to control windowing system specific aspects such
 /// as the position on the screen.
 #[repr(transparent)]
-pub struct Window(WindowRc);
-
-#[doc(hidden)]
-impl From<WindowRc> for Window {
-    fn from(window: WindowRc) -> Self {
-        Self(window)
-    }
-}
+pub struct Window(WindowInner);
 
 /// This enum describes whether a Window is allowed to be hidden when the user tries to close the window.
 /// It is the return type of the callback provided to [Window::on_close_requested].
@@ -122,6 +114,10 @@ impl Default for CloseRequestResponse {
 }
 
 impl Window {
+    pub fn new(platform_window_weak: alloc::rc::Weak<dyn crate::window::PlatformWindow>) -> Self {
+        Self(WindowInner::new(platform_window_weak))
+    }
+
     /// Registers the window with the windowing system in order to make it visible on the screen.
     pub fn show(&self) {
         self.0.show();
@@ -138,7 +134,7 @@ impl Window {
         &self,
         callback: impl FnMut(RenderingState, &GraphicsAPI) + 'static,
     ) -> Result<(), SetRenderingNotifierError> {
-        self.0.renderer().set_rendering_notifier(Box::new(callback))
+        self.0.platform_window().renderer().set_rendering_notifier(Box::new(callback))
     }
 
     /// This function allows registering a callback that's invoked when the user tries to close a window.
@@ -149,7 +145,7 @@ impl Window {
 
     /// This function issues a request to the windowing system to redraw the contents of the window.
     pub fn request_redraw(&self) {
-        self.0.request_redraw();
+        self.0.platform_window().request_redraw();
 
         // When this function is called by the user, we want it to translate to a requestAnimationFrame()
         // on the web. If called through the rendering notifier (so from within the event loop processing),
@@ -169,14 +165,14 @@ impl Window {
     /// Returns the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     pub fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
-        self.0.position()
+        self.0.platform_window().position()
     }
 
     /// Sets the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     /// Note that on some windowing systems, such as Wayland, this functionality is not available.
     pub fn set_position(&self, position: euclid::Point2D<i32, PhysicalPx>) {
-        self.0.set_position(position)
+        self.0.platform_window().set_position(position)
     }
 
     /// Returns the size of the window on the screen, in physical screen coordinates and excluding
@@ -194,7 +190,7 @@ impl Window {
 
         let l = size.cast() / self.scale_factor();
         self.0.set_window_item_geometry(l.width as _, l.height as _);
-        self.0.set_inner_size(size)
+        self.0.platform_window().set_inner_size(size)
     }
 
     /// Dispatch a pointer event (touch or mouse) to the window
@@ -204,12 +200,12 @@ impl Window {
     /// Note: This function is usually called by the Slint backend. You should only call this function
     /// if implementing your own backend or for testing purposes.
     pub fn dispatch_pointer_event(&self, event: PointerEvent) {
-        self.0.clone().process_mouse_input(event.into())
+        self.0.process_mouse_input(event.into())
     }
 }
 
 impl crate::window::WindowHandleAccess for Window {
-    fn window_handle(&self) -> &Rc<crate::window::WindowInner> {
+    fn window_handle(&self) -> &crate::window::WindowInner {
         &self.0
     }
 }

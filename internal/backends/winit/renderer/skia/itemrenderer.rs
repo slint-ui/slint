@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use std::pin::Pin;
-use std::rc::Rc;
 
 use i_slint_core::graphics::euclid;
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
+use i_slint_core::window::WindowHandleAccess;
 use i_slint_core::{items, Brush, Color, Property};
 
 #[derive(Clone, Copy)]
@@ -16,8 +16,8 @@ struct RenderState {
 
 pub struct SkiaRenderer<'a> {
     pub canvas: &'a mut skia_safe::Canvas,
-    pub window: Rc<i_slint_core::window::WindowInner>,
     pub scale_factor: f32,
+    pub window: &'a i_slint_core::api::Window,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     image_cache: &'a ItemCache<Option<skia_safe::Image>>,
@@ -26,13 +26,13 @@ pub struct SkiaRenderer<'a> {
 impl<'a> SkiaRenderer<'a> {
     pub fn new(
         canvas: &'a mut skia_safe::Canvas,
-        window: &Rc<i_slint_core::window::WindowInner>,
+        window: &'a i_slint_core::api::Window,
         image_cache: &'a ItemCache<Option<skia_safe::Image>>,
     ) -> Self {
         Self {
             canvas,
-            window: window.clone(),
-            scale_factor: window.scale_factor(),
+            scale_factor: window.scale_factor().get(),
+            window,
             state_stack: vec![],
             current_state: RenderState { alpha: 1.0 },
             image_cache,
@@ -351,7 +351,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
 
         let string = text.text();
         let string = string.as_str();
-        let font_request = text.font_request(&self.window);
+        let font_request = text.font_request(self.window.window_handle());
 
         let paint = match self.brush_to_paint(text.color(), max_width, max_height) {
             Some(paint) => paint,
@@ -599,8 +599,8 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         );
     }
 
-    fn window(&self) -> i_slint_core::window::WindowRc {
-        self.window.clone()
+    fn window(&self) -> &i_slint_core::api::Window {
+        self.window
     }
 
     fn as_any(&mut self) -> Option<&mut dyn core::any::Any> {

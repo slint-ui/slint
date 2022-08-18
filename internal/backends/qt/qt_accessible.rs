@@ -8,6 +8,7 @@ use crate::accessible_generated::*;
 use i_slint_core::accessibility::AccessibleStringProperty;
 use i_slint_core::item_tree::{ItemRc, ItemWeak};
 use i_slint_core::properties::{PropertyDirtyHandler, PropertyTracker};
+use i_slint_core::window::WindowHandleAccess;
 use i_slint_core::SharedVector;
 
 use cpp::*;
@@ -327,9 +328,9 @@ cpp! {{
     };
 
     void *root_item_for_window(void *rustWindow) {
-        return rust!(root_item_for_window_ [rustWindow: &i_slint_core::window::WindowInner as "void*"]
+        return rust!(root_item_for_window_ [rustWindow: &std::rc::Weak<crate::qt_window::QtWindow> as "void*"]
                 -> *mut c_void as "void*" {
-            let root_item = Box::new(ItemRc::new(rustWindow.component(), 0).downgrade());
+            let root_item = Box::new(ItemRc::new(rustWindow.upgrade().unwrap().window.window_handle().component(), 0).downgrade());
             Box::into_raw(root_item) as _
         });
     }

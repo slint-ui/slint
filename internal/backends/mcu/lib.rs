@@ -113,21 +113,21 @@ mod the_backend {
     use alloc::rc::{Rc, Weak};
     use alloc::string::String;
     use core::cell::RefCell;
-    use i_slint_core::window::WindowInner;
-    use i_slint_core::window::{PlatformWindow, WindowRc};
+    use i_slint_core::api::Window;
+    use i_slint_core::window::{PlatformWindow, PlatformWindowRc, WindowHandleAccess};
 
     thread_local! { static WINDOWS: RefCell<Option<Rc<McuWindow>>> = RefCell::new(None) }
     thread_local! { static EVENT_QUEUE: RefCell<VecDeque<McuEvent>> = Default::default() }
 
     pub struct McuWindow {
-        window_inner_weak: Weak<WindowInner>,
+        window: Window,
         self_weak: Weak<Self>,
         renderer: crate::renderer::SoftwareRenderer,
     }
 
     impl PlatformWindow for McuWindow {
         fn show(&self) {
-            let w = self.window_inner_weak.upgrade().unwrap();
+            let w = self.window.window_handle();
             w.set_scale_factor(
                 option_env!("SLINT_SCALE_FACTOR").and_then(|x| x.parse().ok()).unwrap_or(1.),
             );
@@ -149,8 +149,8 @@ mod the_backend {
             self
         }
 
-        fn window(&self) -> WindowRc {
-            self.window_inner_weak.upgrade().unwrap()
+        fn window(&self) -> &Window {
+            &self.window
         }
     }
 
@@ -189,7 +189,7 @@ mod the_backend {
         }
 
         fn draw(&self, window: Rc<McuWindow>) {
-            let runtime_window = window.window_inner_weak.upgrade().unwrap();
+            let runtime_window = window.window.window_handle();
             runtime_window.update_window_properties();
 
             DEVICES.with(|devices| {
@@ -202,11 +202,7 @@ mod the_backend {
                 runtime_window.set_window_item_geometry(size.width as _, size.height as _);
 
                 if let Some(buffer) = devices.get_buffer() {
-                    window.renderer.render(
-                        &runtime_window.into(),
-                        buffer,
-                        screen_size.width_length(),
-                    );
+                    window.renderer.render(&window.window, buffer, screen_size.width_length());
 
                     devices.flush_frame();
                     frame_profiler.stop_profiling(&mut **devices, "=> frame total");
@@ -263,24 +259,21 @@ mod the_backend {
                     devices: &mut **devices,
                 };
 
-                window.renderer.render_by_line(&runtime_window.into(), buffer_provider);
+                window.renderer.render_by_line(&window.window, buffer_provider);
                 frame_profiler.stop_profiling(&mut **devices, "=> frame total");
             });
         }
     }
 
     impl i_slint_core::backend::Backend for MCUBackend {
-        fn create_window(&self) -> i_slint_core::api::Window {
-            i_slint_core::window::WindowInner::new(|window| {
-                Rc::new_cyclic(|self_weak| McuWindow {
-                    window_inner_weak: window.clone(),
-                    self_weak: self_weak.clone(),
-                    renderer: crate::renderer::SoftwareRenderer::new(
-                        crate::renderer::DirtyTracking::DoubleBuffer,
-                    ),
-                })
+        fn create_window(&self) -> PlatformWindowRc {
+            Rc::new_cyclic(|self_weak| McuWindow {
+                window: Window::new(self_weak.clone() as _),
+                self_weak: self_weak.clone(),
+                renderer: crate::renderer::SoftwareRenderer::new(
+                    crate::renderer::DirtyTracking::DoubleBuffer,
+                ),
             })
-            .into()
         }
 
         fn run_event_loop(&self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {
@@ -302,7 +295,7 @@ mod the_backend {
                     let e = devices.borrow_mut().as_mut().unwrap().read_touch_event();
                     if let Some(mut event) = e {
                         if let Some(window) = WINDOWS.with(|x| x.borrow().clone()) {
-                            let w = window.window_inner_weak.upgrade().unwrap();
+                            let w = window.window.window_handle();
                             // scale the event by the scale factor:
                             if let Some(p) = event.position() {
                                 event.translate((p.cast() / w.scale_factor()).cast() - p);

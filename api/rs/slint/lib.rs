@@ -284,7 +284,7 @@ pub mod re_exports {
     pub use i_slint_core::model::*;
     pub use i_slint_core::properties::{set_state_binding, Property, PropertyTracker, StateInfo};
     pub use i_slint_core::slice::Slice;
-    pub use i_slint_core::window::{WindowHandleAccess, WindowInner, WindowRc};
+    pub use i_slint_core::window::{PlatformWindowRc, WindowHandleAccess, WindowInner};
     pub use i_slint_core::Color;
     pub use i_slint_core::ComponentVTable_static;
     pub use i_slint_core::Coord;
@@ -435,9 +435,8 @@ pub mod internal {
 
 /// Creates a new window to render components in.
 #[doc(hidden)]
-pub fn create_window() -> re_exports::WindowRc {
-    use i_slint_core::window::WindowHandleAccess;
-    i_slint_backend_selector::backend().create_window().window_handle().clone()
+pub fn create_window() -> re_exports::PlatformWindowRc {
+    i_slint_backend_selector::backend().create_window()
 }
 
 /// Enters the main event loop. This is necessary in order to receive
@@ -478,7 +477,7 @@ pub mod testing {
     ) {
         let rc = component.clone_strong().into();
         let dyn_rc = vtable::VRc::into_dyn(rc.clone());
-        i_slint_core::tests::slint_send_mouse_click(&dyn_rc, x, y, &rc.window_handle().clone());
+        i_slint_core::tests::slint_send_mouse_click(&dyn_rc, x, y, rc.window_handle());
     }
 
     /// Simulate a change in keyboard modifiers being pressed
@@ -506,7 +505,7 @@ pub mod testing {
         i_slint_core::tests::send_keyboard_string_sequence(
             &super::SharedString::from(sequence),
             KEYBOARD_MODIFIERS.with(|x| x.get()),
-            &component.window_handle().clone(),
+            component.window_handle(),
         )
     }
 

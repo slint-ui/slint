@@ -38,7 +38,7 @@ pub fn use_modules() -> usize {
 mod ffi {
     #[no_mangle]
     pub extern "C" fn slint_qt_get_widget(
-        _: &i_slint_core::window::WindowRc,
+        _: &i_slint_core::window::PlatformWindowRc,
     ) -> *mut std::ffi::c_void {
         std::ptr::null_mut()
     }
@@ -122,6 +122,7 @@ pub type NativeGlobals = ();
 
 pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
 
+use i_slint_core::window::PlatformWindowRc;
 #[cfg(not(no_qt))]
 pub use qt_widgets::{native_style_metrics_deinit, native_style_metrics_init};
 #[cfg(no_qt)]
@@ -135,12 +136,12 @@ pub fn native_style_metrics_deinit(_: core::pin::Pin<&mut native_widgets::Native
 
 pub struct Backend;
 impl i_slint_core::backend::Backend for Backend {
-    fn create_window(&self) -> i_slint_core::api::Window {
+    fn create_window(&self) -> PlatformWindowRc {
         #[cfg(no_qt)]
         panic!("The Qt backend needs Qt");
         #[cfg(not(no_qt))]
         {
-            i_slint_core::window::WindowInner::new(|window| qt_window::QtWindow::new(window)).into()
+            qt_window::QtWindow::new()
         }
     }
 

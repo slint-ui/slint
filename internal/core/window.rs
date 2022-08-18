@@ -62,7 +62,7 @@ pub trait PlatformWindow {
     ///
     /// If this function return None (the default implementation), then the
     /// popup will be rendered within the window itself.
-    fn create_popup(&self, _geometry: Rect) -> Option<Window> {
+    fn create_popup(&self, _geometry: Rect) -> Option<PlatformWindowRc> {
         None
     }
 
@@ -117,9 +117,8 @@ pub trait PlatformWindow {
     /// Return the renderer
     fn renderer(&self) -> &dyn Renderer;
 
-    /// Temporary function to provide access to the WindowInner. This should, in the future, return
-    /// a &Window
-    fn window(&self) -> WindowRc;
+    /// Returns the window API.
+    fn window(&self) -> &Window;
 }
 
 struct WindowPropertiesTracker {
@@ -149,7 +148,7 @@ impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
 /// This enum describes the different ways a popup can be rendered by the back-end.
 pub enum PopupWindowLocation {
     /// The popup is rendered in its own top-level window that is know to the windowing system.
-    TopLevel(Window),
+    TopLevel(PlatformWindowRc),
     /// The popup is rendered as an embedded child window at the given position.
     ChildWindow(Point),
 }
@@ -165,13 +164,11 @@ pub struct PopupWindow {
 
 /// Inner datastructure for the [`crate::api::Window`]
 pub struct WindowInner {
-    /// FIXME! use Box instead;
-    platform_window: once_cell::unsync::OnceCell<Rc<dyn PlatformWindow>>,
+    platform_window_weak: Weak<dyn PlatformWindow>,
     component: RefCell<ComponentWeak>,
     mouse_input_state: Cell<MouseInputState>,
-    redraw_tracker: once_cell::unsync::OnceCell<Pin<Box<PropertyTracker<WindowRedrawTracker>>>>,
-    window_properties_tracker:
-        once_cell::unsync::OnceCell<Pin<Box<PropertyTracker<WindowPropertiesTracker>>>>,
+    redraw_tracker: Pin<Box<PropertyTracker<WindowRedrawTracker>>>,
+    window_properties_tracker: Pin<Box<PropertyTracker<WindowPropertiesTracker>>>,
     /// Gets dirty when the layout restrictions, or some other property of the windows change
     meta_properties_tracker: Pin<Rc<PropertyTracker>>,
 
@@ -197,35 +194,16 @@ impl Drop for WindowInner {
 
 impl WindowInner {
     /// Create a new instance of the window, given the platform_window factory fn
-    pub fn new(
-        platform_window_fn: impl FnOnce(&Weak<WindowInner>) -> Rc<dyn PlatformWindow>,
-    ) -> Rc<Self> {
+    pub fn new(platform_window_weak: Weak<dyn PlatformWindow>) -> Self {
         #![allow(unused_mut)]
-        let window = Rc::new(Self {
-            platform_window: Default::default(),
-            component: Default::default(),
-            mouse_input_state: Default::default(),
-            redraw_tracker: Default::default(),
-            window_properties_tracker: Default::default(),
-            meta_properties_tracker: Rc::pin(Default::default()),
-            focus_item: Default::default(),
-            cursor_blinker: Default::default(),
-            scale_factor: Box::pin(Property::new_named(1., "i_slint_core::Window::scale_factor")),
-            active: Box::pin(Property::new_named(false, "i_slint_core::Window::active")),
-            active_popup: Default::default(),
-            close_requested: Default::default(),
-            inner_size: Default::default(),
-        });
-        let window_weak = Rc::downgrade(&window);
-        window.platform_window.set(platform_window_fn(&window_weak)).ok().unwrap();
 
         let mut window_properties_tracker =
             PropertyTracker::new_with_dirty_handler(WindowPropertiesTracker {
-                platform_window_weak: Rc::downgrade(&window.platform_window.get().unwrap()),
+                platform_window_weak: platform_window_weak.clone(),
             });
 
         let mut redraw_tracker = PropertyTracker::new_with_dirty_handler(WindowRedrawTracker {
-            platform_window_weak: Rc::downgrade(&window.platform_window.get().unwrap()),
+            platform_window_weak: platform_window_weak.clone(),
         });
 
         #[cfg(slint_debug_property)]
@@ -235,10 +213,21 @@ impl WindowInner {
             redraw_tracker.set_debug_name("i_slint_core::Window::redraw_tracker".into());
         }
 
-        // We need to use a OnceCell only so we can have a cycle with the Weak.
-        // Rust 1.60's Rc::new_cyclic would allow to avoid that.
-        window.window_properties_tracker.set(Box::pin(window_properties_tracker)).ok().unwrap();
-        window.redraw_tracker.set(Box::pin(redraw_tracker)).ok().unwrap();
+        let window = Self {
+            platform_window_weak,
+            component: Default::default(),
+            mouse_input_state: Default::default(),
+            redraw_tracker: Box::pin(redraw_tracker),
+            window_properties_tracker: Box::pin(window_properties_tracker),
+            meta_properties_tracker: Rc::pin(Default::default()),
+            focus_item: Default::default(),
+            cursor_blinker: Default::default(),
+            scale_factor: Box::pin(Property::new_named(1., "i_slint_core::Window::scale_factor")),
+            active: Box::pin(Property::new_named(false, "i_slint_core::Window::active")),
+            active_popup: Default::default(),
+            close_requested: Default::default(),
+            inner_size: Default::default(),
+        };
 
         window
     }
@@ -251,8 +240,9 @@ impl WindowInner {
         self.mouse_input_state.replace(Default::default());
         self.component.replace(ComponentRc::downgrade(component));
         self.meta_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
-        self.request_window_properties_update();
-        self.request_redraw();
+        let platform_window = self.platform_window();
+        platform_window.request_window_properties_update();
+        platform_window.request_redraw();
     }
 
     /// return the component.
@@ -314,7 +304,7 @@ impl WindowInner {
         self.mouse_input_state.set(crate::input::process_mouse_input(
             component,
             event,
-            &self.window_rc(),
+            self,
             self.mouse_input_state.take(),
         ));
 
@@ -339,7 +329,7 @@ impl WindowInner {
                 // Reset the focus... not great, but better than keeping it.
                 self.take_focus_item();
             } else {
-                if focus_item.borrow().as_ref().key_event(event, &self.window_rc())
+                if focus_item.borrow().as_ref().key_event(event, self)
                     == crate::input::KeyEventResult::EventAccepted
                 {
                     return;
@@ -377,7 +367,7 @@ impl WindowInner {
     pub fn set_focus_item(&self, focus_item: &ItemRc) {
         let old = self.take_focus_item();
         let new = self.clone().move_focus(focus_item.clone(), next_focus_item);
-        self.platform_window.get().unwrap().handle_focus_change(old, new);
+        self.platform_window().handle_focus_change(old, new);
     }
 
     /// Sets the focus on the window to true or false, depending on the have_focus argument.
@@ -390,7 +380,7 @@ impl WindowInner {
         };
 
         if let Some(focus_item) = self.focus_item.borrow().upgrade() {
-            focus_item.borrow().as_ref().focus_event(&event, &self.window_rc());
+            focus_item.borrow().as_ref().focus_event(&event, self);
         }
     }
 
@@ -401,10 +391,7 @@ impl WindowInner {
         let focus_item = self.focus_item.take();
 
         if let Some(focus_item_rc) = focus_item.upgrade() {
-            focus_item_rc
-                .borrow()
-                .as_ref()
-                .focus_event(&crate::input::FocusEvent::FocusOut, &self.window_rc());
+            focus_item_rc.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusOut, self);
             Some(focus_item_rc)
         } else {
             None
@@ -418,9 +405,7 @@ impl WindowInner {
         match item {
             Some(item) => {
                 *self.focus_item.borrow_mut() = item.downgrade();
-                item.borrow()
-                    .as_ref()
-                    .focus_event(&crate::input::FocusEvent::FocusIn, &self.window_rc())
+                item.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusIn, self)
             }
             None => {
                 *self.focus_item.borrow_mut() = Default::default();
@@ -457,7 +442,7 @@ impl WindowInner {
             .map(next_focus_item)
             .unwrap_or_else(|| ItemRc::new(component, 0));
         let end_item = self.move_focus(start_item.clone(), next_focus_item);
-        self.platform_window.get().unwrap().handle_focus_change(Some(start_item), end_item);
+        self.platform_window().handle_focus_change(Some(start_item), end_item);
     }
 
     /// Move keyboard focus to the previous item.
@@ -467,7 +452,7 @@ impl WindowInner {
             self.take_focus_item().unwrap_or_else(|| ItemRc::new(component, 0)),
         );
         let end_item = self.move_focus(start_item.clone(), previous_focus_item);
-        self.platform_window.get().unwrap().handle_focus_change(Some(start_item), end_item);
+        self.platform_window().handle_focus_change(Some(start_item), end_item);
     }
 
     /// Marks the window to be the active window. This typically coincides with the keyboard
@@ -486,18 +471,13 @@ impl WindowInner {
     /// If the component's root item is a Window element, then this function synchronizes its properties, such as the title
     /// for example, with the properties known to the windowing system.
     pub fn update_window_properties(&self) {
-        if let Some(window_properties_tracker) = self.window_properties_tracker.get() {
-            // No `if !dirty { return; }` check here because the backend window may be newly mapped and not up-to-date, so force
-            // an evaluation.
-            window_properties_tracker.as_ref().evaluate_as_dependency_root(|| {
-                if let Some(window_item) = self.window_item() {
-                    self.platform_window
-                        .get()
-                        .unwrap()
-                        .apply_window_properties(window_item.as_pin_ref());
-                }
-            });
-        }
+        // No `if !dirty { return; }` check here because the backend window may be newly mapped and not up-to-date, so force
+        // an evaluation.
+        self.window_properties_tracker.as_ref().evaluate_as_dependency_root(|| {
+            if let Some(window_item) = self.window_item() {
+                self.platform_window().apply_window_properties(window_item.as_pin_ref());
+            }
+        });
     }
 
     /// Calls the render_components to render the main component and any sub-window components, tracked by a
@@ -508,7 +488,7 @@ impl WindowInner {
             let component = ComponentRc::borrow_pin(&component_rc);
 
             self.meta_properties_tracker.as_ref().evaluate_if_dirty(|| {
-                self.apply_geometry_constraint(
+                self.platform_window().apply_geometry_constraint(
                     component.as_ref().layout_info(crate::layout::Orientation::Horizontal),
                     component.as_ref().layout_info(crate::layout::Orientation::Vertical),
                 );
@@ -532,23 +512,19 @@ impl WindowInner {
             }
         };
 
-        if let Some(redraw_tracker) = self.redraw_tracker.get() {
-            redraw_tracker.as_ref().evaluate_as_dependency_root(draw_fn)
-        } else {
-            draw_fn()
-        }
+        self.redraw_tracker.as_ref().evaluate_as_dependency_root(draw_fn)
     }
 
     /// Registers the window with the windowing system, in order to render the component's items and react
     /// to input events once the event loop spins.
     pub fn show(&self) {
-        self.platform_window.get().unwrap().clone().show();
+        self.platform_window().show();
         self.update_window_properties();
     }
 
     /// De-registers the window with the windowing system.
     pub fn hide(&self) {
-        self.platform_window.get().unwrap().clone().hide();
+        self.platform_window().hide();
     }
 
     /// Show a popup at the given position relative to the item
@@ -603,18 +579,17 @@ impl WindowInner {
             height_property.set(size.height);
         };
 
-        let location =
-            match self.platform_window.get().unwrap().create_popup(Rect::new(position, size)) {
-                None => {
-                    self.meta_properties_tracker.set_dirty();
-                    PopupWindowLocation::ChildWindow(position)
-                }
+        let location = match self.platform_window().create_popup(Rect::new(position, size)) {
+            None => {
+                self.meta_properties_tracker.set_dirty();
+                PopupWindowLocation::ChildWindow(position)
+            }
 
-                Some(window) => {
-                    window.window_handle().set_component(popup_componentrc);
-                    PopupWindowLocation::TopLevel(window)
-                }
-            };
+            Some(platform_window) => {
+                platform_window.window().window_handle().set_component(popup_componentrc);
+                PopupWindowLocation::TopLevel(platform_window)
+            }
+        };
 
         self.active_popup
             .replace(Some(PopupWindow { location, component: popup_componentrc.clone() }));
@@ -632,8 +607,9 @@ impl WindowInner {
                 .translate(offset.to_vector());
 
                 if !popup_region.is_empty() {
-                    self.renderer().mark_dirty_region(popup_region.to_box2d());
-                    self.request_redraw();
+                    let platform_window = self.platform_window();
+                    platform_window.renderer().mark_dirty_region(popup_region.to_box2d());
+                    platform_window.request_redraw();
                 }
             }
         }
@@ -696,29 +672,22 @@ impl WindowInner {
         }
     }
 
-    /// Temporary function to turn an `&WindowInner` into an `Rc<WindowInner>` for use with the item vtable functions.
-    pub fn window_rc(&self) -> WindowRc {
-        self.platform_window.get().unwrap().as_ref().window()
-    }
-}
-
-impl core::ops::Deref for WindowInner {
-    type Target = dyn PlatformWindow;
-
-    fn deref(&self) -> &Self::Target {
-        self.platform_window.get().unwrap().as_ref()
+    /// Returns the upgraded rlatform window.
+    pub fn platform_window(&self) -> PlatformWindowRc {
+        self.platform_window_weak.upgrade().unwrap()
     }
 }
 
 /// Internal trait used by generated code to access window internals.
 pub trait WindowHandleAccess {
     /// Returns a reference to the window implementation.
-    fn window_handle(&self) -> &Rc<WindowInner>;
+    fn window_handle(&self) -> &WindowInner;
 }
 
-/// Internal alias for Rc<Window> so that it can be used in the vtable
-/// functions and generate a good signature.
-pub type WindowRc = Rc<WindowInner>;
+/// Internal alias for Rc<dyn PlatformWindow>.
+pub type PlatformWindowRc = Rc<dyn PlatformWindow>;
+/// Internal convenience alias for Weak<dyn PlatformWindow>.
+pub type PlatformWindowWeak = Weak<dyn PlatformWindow>;
 
 /// This module contains the functions needed to interface with the event loop and window traits
 /// from outside the Rust language.
@@ -742,101 +711,112 @@ pub mod ffi {
     #[allow(non_camel_case_types)]
     type c_void = ();
 
-    /// Same layout as WindowRc
+    /// Same layout as PlatformWindowRc
     #[repr(C)]
-    pub struct WindowRcOpaque(*const c_void);
+    pub struct PlatformWindowRcOpaque(*const c_void, *const c_void);
 
     /// Releases the reference to the windowrc held by handle.
     #[no_mangle]
-    pub unsafe extern "C" fn slint_windowrc_drop(handle: *mut WindowRcOpaque) {
-        assert_eq!(core::mem::size_of::<WindowRc>(), core::mem::size_of::<WindowRcOpaque>());
-        core::ptr::read(handle as *mut WindowRc);
+    pub unsafe extern "C" fn slint_windowrc_drop(handle: *mut PlatformWindowRcOpaque) {
+        assert_eq!(
+            core::mem::size_of::<PlatformWindowRc>(),
+            core::mem::size_of::<PlatformWindowRcOpaque>()
+        );
+        core::ptr::read(handle as *mut PlatformWindowRc);
     }
 
     /// Releases the reference to the component window held by handle.
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_clone(
-        source: *const WindowRcOpaque,
-        target: *mut WindowRcOpaque,
+        source: *const PlatformWindowRcOpaque,
+        target: *mut PlatformWindowRcOpaque,
     ) {
-        assert_eq!(core::mem::size_of::<WindowRc>(), core::mem::size_of::<WindowRcOpaque>());
-        let window = &*(source as *const WindowRc);
-        core::ptr::write(target as *mut WindowRc, window.clone());
+        assert_eq!(
+            core::mem::size_of::<PlatformWindowRc>(),
+            core::mem::size_of::<PlatformWindowRcOpaque>()
+        );
+        let window = &*(source as *const PlatformWindowRc);
+        core::ptr::write(target as *mut PlatformWindowRc, window.clone());
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
-    pub unsafe extern "C" fn slint_windowrc_show(handle: *const WindowRcOpaque) {
-        let window = &*(handle as *const WindowRc);
-        window.show();
+    pub unsafe extern "C" fn slint_windowrc_show(handle: *const PlatformWindowRcOpaque) {
+        let platform_window = &*(handle as *const PlatformWindowRc);
+        platform_window.show();
     }
 
     /// Spins an event loop and renders the items of the provided component in this window.
     #[no_mangle]
-    pub unsafe extern "C" fn slint_windowrc_hide(handle: *const WindowRcOpaque) {
-        let window = &*(handle as *const WindowRc);
+    pub unsafe extern "C" fn slint_windowrc_hide(handle: *const PlatformWindowRcOpaque) {
+        let window = &*(handle as *const PlatformWindowRc);
         window.hide();
     }
 
     /// Returns the window scale factor.
     #[no_mangle]
-    pub unsafe extern "C" fn slint_windowrc_get_scale_factor(handle: *const WindowRcOpaque) -> f32 {
-        assert_eq!(core::mem::size_of::<WindowRc>(), core::mem::size_of::<WindowRcOpaque>());
-        let window = &*(handle as *const WindowRc);
-        window.scale_factor()
+    pub unsafe extern "C" fn slint_windowrc_get_scale_factor(
+        handle: *const PlatformWindowRcOpaque,
+    ) -> f32 {
+        assert_eq!(
+            core::mem::size_of::<PlatformWindowRc>(),
+            core::mem::size_of::<PlatformWindowRcOpaque>()
+        );
+        let platform_window = &*(handle as *const PlatformWindowRc);
+        platform_window.window().window_handle().scale_factor()
     }
 
     /// Sets the window scale factor, merely for testing purposes.
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_set_scale_factor(
-        handle: *const WindowRcOpaque,
+        handle: *const PlatformWindowRcOpaque,
         value: f32,
     ) {
-        let window = &*(handle as *const WindowRc);
-        window.set_scale_factor(value)
+        let platform_window = &*(handle as *const PlatformWindowRc);
+        platform_window.window().window_handle().set_scale_factor(value)
     }
 
     /// Sets the focus item.
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_set_focus_item(
-        handle: *const WindowRcOpaque,
+        handle: *const PlatformWindowRcOpaque,
         focus_item: &ItemRc,
     ) {
-        let window = &*(handle as *const WindowRc);
-        window.set_focus_item(focus_item)
+        let platform_window = &*(handle as *const PlatformWindowRc);
+        platform_window.window().window_handle().set_focus_item(focus_item)
     }
 
     /// Associates the window with the given component.
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_set_component(
-        handle: *const WindowRcOpaque,
+        handle: *const PlatformWindowRcOpaque,
         component: &ComponentRc,
     ) {
-        let window = &*(handle as *const WindowRc);
-        window.set_component(component)
+        let platform_window = &*(handle as *const PlatformWindowRc);
+        platform_window.window().window_handle().set_component(component)
     }
 
     /// Show a popup.
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_show_popup(
-        handle: *const WindowRcOpaque,
+        handle: *const PlatformWindowRcOpaque,
         popup: &ComponentRc,
         position: crate::graphics::Point,
         parent_item: &ItemRc,
     ) {
-        let window = &*(handle as *const WindowRc);
-        window.show_popup(popup, position, parent_item);
+        let platform_window = &*(handle as *const PlatformWindowRc);
+        platform_window.window().window_handle().show_popup(popup, position, parent_item);
     }
     /// Close the current popup
-    pub unsafe extern "C" fn slint_windowrc_close_popup(handle: *const WindowRcOpaque) {
-        let window = &*(handle as *const WindowRc);
-        window.close_popup();
+    pub unsafe extern "C" fn slint_windowrc_close_popup(handle: *const PlatformWindowRcOpaque) {
+        let platform_window = &*(handle as *const PlatformWindowRc);
+        platform_window.window().window_handle().close_popup();
     }
 
     /// C binding to the set_rendering_notifier() API of Window
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_set_rendering_notifier(
-        handle: *const WindowRcOpaque,
+        handle: *const PlatformWindowRcOpaque,
         callback: extern "C" fn(
             rendering_state: RenderingState,
             graphics_api: GraphicsAPI,
@@ -872,7 +852,7 @@ pub mod ffi {
             }
         }
 
-        let window = &*(handle as *const WindowRc);
+        let window = &*(handle as *const PlatformWindowRc);
         match window.renderer().set_rendering_notifier(Box::new(CNotifier {
             callback,
             drop_user_data,
@@ -889,7 +869,7 @@ pub mod ffi {
     /// C binding to the on_close_requested() API of Window
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_on_close_requested(
-        handle: *const WindowRcOpaque,
+        handle: *const PlatformWindowRcOpaque,
         callback: extern "C" fn(user_data: *mut c_void) -> CloseRequestResponse,
         drop_user_data: extern "C" fn(user_data: *mut c_void),
         user_data: *mut c_void,
@@ -914,26 +894,26 @@ pub mod ffi {
 
         let with_user_data = WithUserData { callback, drop_user_data, user_data };
 
-        let window = &*(handle as *const WindowRc);
-        window.on_close_requested(move || with_user_data.call());
+        let platform_window = &*(handle as *const PlatformWindowRc);
+        platform_window.window().on_close_requested(move || with_user_data.call());
     }
 
     /// This function issues a request to the windowing system to redraw the contents of the window.
     #[no_mangle]
-    pub unsafe extern "C" fn slint_windowrc_request_redraw(handle: *const WindowRcOpaque) {
-        let window = &*(handle as *const WindowRc);
-        window.request_redraw();
+    pub unsafe extern "C" fn slint_windowrc_request_redraw(handle: *const PlatformWindowRcOpaque) {
+        let platform_window = &*(handle as *const PlatformWindowRc);
+        platform_window.request_redraw();
     }
 
     /// Returns the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_position(
-        handle: *const WindowRcOpaque,
+        handle: *const PlatformWindowRcOpaque,
         pos: &mut euclid::default::Point2D<i32>,
     ) {
-        let window = &*(handle as *const WindowRc);
-        *pos = window.position().to_untyped()
+        let platform_window = &*(handle as *const PlatformWindowRc);
+        *pos = platform_window.position().to_untyped()
     }
 
     /// Sets the position of the window on the screen, in physical screen coordinates and including
@@ -941,29 +921,29 @@ pub mod ffi {
     /// Note that on some windowing systems, such as Wayland, this functionality is not available.
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_set_position(
-        handle: *const WindowRcOpaque,
+        handle: *const PlatformWindowRcOpaque,
         pos: &euclid::default::Point2D<i32>,
     ) {
-        let window = &*(handle as *const WindowRc);
-        window.set_position(euclid::Point2D::from_untyped(*pos));
+        let platform_window = &*(handle as *const PlatformWindowRc);
+        platform_window.set_position(euclid::Point2D::from_untyped(*pos));
     }
 
     /// Returns the size of the window on the screen, in physical screen coordinates and excluding
     /// a window frame (if present).
     #[no_mangle]
-    pub unsafe extern "C" fn slint_windowrc_size(handle: *const WindowRcOpaque) -> IntSize {
-        let window = &*(handle as *const WindowRc);
-        window.inner_size.get().to_untyped()
+    pub unsafe extern "C" fn slint_windowrc_size(handle: *const PlatformWindowRcOpaque) -> IntSize {
+        let platform_window = &*(handle as *const PlatformWindowRc);
+        platform_window.window().window_handle().inner_size.get().to_untyped().cast()
     }
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_set_size(
-        handle: *const WindowRcOpaque,
+        handle: *const PlatformWindowRcOpaque,
         size: &IntSize,
     ) {
-        let window = &*(handle as *const WindowRc);
-        window.set_inner_size([size.width, size.height].into());
+        let platform_window = &*(handle as *const PlatformWindowRc);
+        platform_window.set_inner_size([size.width, size.height].into());
     }
 }

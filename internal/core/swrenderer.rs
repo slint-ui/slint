@@ -14,9 +14,8 @@ use crate::lengths::{
 };
 use crate::renderer::Renderer;
 use crate::textlayout::{FontMetrics as _, TextParagraphLayout};
-use crate::window::WindowHandleAccess;
+use crate::window::{WindowHandleAccess, WindowInner};
 use crate::{Color, Coord, ImageInner, StaticTextures};
-use alloc::rc::Rc;
 use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
@@ -105,7 +104,7 @@ impl SoftwareRenderer {
         buffer: &mut [impl TargetPixel],
         buffer_stride: PhysicalLength,
     ) {
-        let window = window.window_handle().clone();
+        let window = window.window_handle();
         let factor = ScaleFactor::new(window.scale_factor());
         let (size, background) = if let Some(window_item) =
             window.window_item().as_ref().map(|item| item.as_pin_ref())
@@ -127,7 +126,7 @@ impl SoftwareRenderer {
         let buffer_renderer = SceneBuilder::new(
             size,
             factor,
-            window.clone(),
+            window,
             RenderToBuffer { buffer, stride: buffer_stride },
         );
         let mut renderer = crate::item_rendering::PartialRenderer::new(
@@ -234,13 +233,13 @@ impl Renderer for SoftwareRenderer {
 }
 
 fn render_window_frame_by_line(
-    runtime_window: Rc<crate::window::WindowInner>,
+    window: &WindowInner,
     background: Color,
     size: PhysicalSize,
     renderer: &SoftwareRenderer,
     mut line_buffer: impl LineBufferProvider,
 ) {
-    let mut scene = prepare_scene(runtime_window, size, renderer);
+    let mut scene = prepare_scene(window, size, renderer);
 
     let dirty_region = scene.dirty_region;
 
@@ -556,14 +555,9 @@ struct RoundedRectangle {
     bottom_clip: PhysicalLength,
 }
 
-fn prepare_scene(
-    runtime_window: Rc<crate::window::WindowInner>,
-    size: PhysicalSize,
-    swrenderer: &SoftwareRenderer,
-) -> Scene {
-    let factor = ScaleFactor::new(runtime_window.scale_factor());
-    let prepare_scene =
-        SceneBuilder::new(size, factor, runtime_window.clone(), PrepareScene::default());
+fn prepare_scene(window: &WindowInner, size: PhysicalSize, swrenderer: &SoftwareRenderer) -> Scene {
+    let factor = ScaleFactor::new(window.scale_factor());
+    let prepare_scene = SceneBuilder::new(size, factor, window, PrepareScene::default());
     let mut renderer = crate::item_rendering::PartialRenderer::new(
         &swrenderer.partial_cache,
         swrenderer.force_dirty.take(),
@@ -571,7 +565,7 @@ fn prepare_scene(
     );
 
     let mut dirty_region = PhysicalRect::default();
-    runtime_window.draw_contents(|components| {
+    window.draw_contents(|components| {
         for (component, origin) in components {
             renderer.compute_dirty_regions(component, *origin);
         }
@@ -717,19 +711,19 @@ impl ProcessScene for PrepareScene {
     }
 }
 
-struct SceneBuilder<T> {
+struct SceneBuilder<'a, T> {
     processor: T,
     state_stack: Vec<RenderState>,
     current_state: RenderState,
     scale_factor: ScaleFactor,
-    window: Rc<crate::window::WindowInner>,
+    window: &'a WindowInner,
 }
 
-impl<T: ProcessScene> SceneBuilder<T> {
+impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
     fn new(
         size: PhysicalSize,
         scale_factor: ScaleFactor,
-        window: Rc<crate::window::WindowInner>,
+        window: &'a WindowInner,
         processor: T,
     ) -> Self {
         Self {
@@ -900,7 +894,7 @@ struct RenderState {
     clip: LogicalRect,
 }
 
-impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<T> {
+impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'a, T> {
     fn draw_rectangle(&mut self, rect: Pin<&crate::items::Rectangle>, _: &ItemRc) {
         let geom = LogicalRect::new(LogicalPoint::default(), rect.logical_geometry().size_length());
         if self.should_draw(&geom) {
@@ -1060,7 +1054,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<T> {
             return;
         }
 
-        let font_request = text.font_request(&self.window);
+        let font_request = text.font_request(self.window);
         let font = fonts::match_font(&font_request, self.scale_factor);
         let layout = fonts::text_layout_for_font(&font, &font_request, self.scale_factor);
 
@@ -1199,7 +1193,7 @@ impl<T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<T> {
         todo!()
     }
 
-    fn window(&self) -> crate::window::WindowRc {
+    fn window(&self) -> &crate::api::Window {
         unreachable!("this backend don't query the window")
     }
 

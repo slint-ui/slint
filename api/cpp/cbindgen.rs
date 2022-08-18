@@ -135,7 +135,7 @@ fn gen_corelib(
     config.export.include = [
         "ComponentVTable",
         "Slice",
-        "WindowRcOpaque",
+        "PlatformWindowRcOpaque",
         "PropertyAnimation",
         "EasingCurve",
         "TextHorizontalAlignment",
