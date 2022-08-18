@@ -1069,7 +1069,7 @@ pub mod testing {
         i_slint_core::tests::send_keyboard_string_sequence(
             &string,
             Default::default(),
-            comp.window().window_handle(),
+            &comp.window().window_handle().platform_window(),
         );
     }
 }

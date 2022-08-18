@@ -585,7 +585,7 @@ public:
         const cbindgen_private::PlatformWindowRcOpaque *win_ptr = nullptr;
         cbindgen_private::slint_interpreter_component_instance_window(inner(), &win_ptr);
         auto wid = reinterpret_cast<QWidget *>(cbindgen_private::slint_qt_get_widget(
-                reinterpret_cast<const cbindgen_private::WindowRc *>(win_ptr)));
+                reinterpret_cast<const cbindgen_private::PlatformWindowRc *>(win_ptr)));
         return wid;
     }
 #endif
@@ -1014,6 +1014,6 @@ inline void send_keyboard_string_sequence(const slint::interpreter::ComponentIns
     cbindgen_private::slint_interpreter_component_instance_window(
             reinterpret_cast<const cbindgen_private::ErasedComponentBox *>(component), &win_ptr);
     cbindgen_private::send_keyboard_string_sequence(
-            &str, modifiers, reinterpret_cast<const cbindgen_private::WindowRc *>(win_ptr));
+            &str, modifiers, reinterpret_cast<const cbindgen_private::PlatformWindowRc *>(win_ptr));
 }
 }

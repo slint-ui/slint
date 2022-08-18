@@ -95,9 +95,6 @@ SCENARIO("Value API")
 
     SECTION("Construct an image")
     {
-        // ensure a backend exists, using private api
-        slint::private_api::WindowRc wnd;
-
         REQUIRE(!value.to_image().has_value());
         slint::Image image = slint::Image::load_from_path(
                 SOURCE_DIR "/../../logo/slint-logo-square-light-128x128.png");

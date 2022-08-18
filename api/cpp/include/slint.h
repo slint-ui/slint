@@ -83,22 +83,23 @@ inline void assert_main_thread()
 #endif
 }
 
-class WindowRc
+class PlatformWindowRc
 {
 public:
-    explicit WindowRc(cbindgen_private::PlatformWindowRcOpaque adopted_inner) : inner(adopted_inner)
+    explicit PlatformWindowRc(cbindgen_private::PlatformWindowRcOpaque adopted_inner)
+        : inner(adopted_inner)
     {
     }
-    WindowRc() { cbindgen_private::slint_windowrc_init(&inner); }
-    ~WindowRc() { cbindgen_private::slint_windowrc_drop(&inner); }
-    WindowRc(const WindowRc &other)
+    PlatformWindowRc() { cbindgen_private::slint_windowrc_init(&inner); }
+    ~PlatformWindowRc() { cbindgen_private::slint_windowrc_drop(&inner); }
+    PlatformWindowRc(const PlatformWindowRc &other)
     {
         assert_main_thread();
         cbindgen_private::slint_windowrc_clone(&other.inner, &inner);
     }
-    WindowRc(WindowRc &&) = delete;
-    WindowRc &operator=(WindowRc &&) = delete;
-    WindowRc &operator=(const WindowRc &other)
+    PlatformWindowRc(PlatformWindowRc &&) = delete;
+    PlatformWindowRc &operator=(PlatformWindowRc &&) = delete;
+    PlatformWindowRc &operator=(const PlatformWindowRc &other)
     {
         assert_main_thread();
         if (this != &other) {
@@ -373,7 +374,7 @@ public:
     /// \private
     /// Internal function used by the generated code to construct a new instance of this
     /// public API wrapper.
-    explicit Window(const private_api::WindowRc &windowrc) : inner(windowrc) { }
+    explicit Window(const private_api::PlatformWindowRc &windowrc) : inner(windowrc) { }
     Window(const Window &other) = delete;
     Window &operator=(const Window &other) = delete;
     Window(Window &&other) = delete;
@@ -431,12 +432,12 @@ public:
     void set_size(const slint::Size<unsigned int> &size) { inner.set_size(size); }
 
     /// \private
-    private_api::WindowRc &window_handle() { return inner; }
+    private_api::PlatformWindowRc &window_handle() { return inner; }
     /// \private
-    const private_api::WindowRc &window_handle() const { return inner; }
+    const private_api::PlatformWindowRc &window_handle() const { return inner; }
 
 private:
-    private_api::WindowRc inner;
+    private_api::PlatformWindowRc inner;
 };
 
 /// A Timer that can call a callback at repeated interval

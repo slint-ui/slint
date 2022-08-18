@@ -616,7 +616,7 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
         Declaration::Var(Var {
             ty: "slint::Window".into(),
             name: "m_window".into(),
-            init: Some("slint::Window{slint::private_api::WindowRc()}".into()),
+            init: Some("slint::Window{slint::private_api::PlatformWindowRc()}".into()),
             ..Default::default()
         }),
     ));
@@ -700,7 +700,7 @@ fn generate_public_component(file: &mut File, component: &llr::PublicComponent) 
         }),
     ));
 
-    component_struct.friends.push("slint::private_api::WindowRc".into());
+    component_struct.friends.push("slint::private_api::PlatformWindowRc".into());
 
     component_struct
         .friends
