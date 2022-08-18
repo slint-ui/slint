@@ -17,7 +17,7 @@ use corelib::component::ComponentRc;
 use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};
 use corelib::layout::Orientation;
-use corelib::window::{PlatformWindow, PlatformWindowRc, WindowHandleAccess};
+use corelib::window::{PlatformWindow, WindowHandleAccess};
 use corelib::Property;
 use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
@@ -45,7 +45,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
     /// * `graphics_backend_factory`: The factor function stored in the GraphicsWindow that's called when the state
     ///   of the window changes to mapped. The event loop and window builder parameters can be used to create a
     ///   backing window.
-    pub(crate) fn new(#[cfg(target_arch = "wasm32")] canvas_id: String) -> PlatformWindowRc {
+    pub(crate) fn new(#[cfg(target_arch = "wasm32")] canvas_id: String) -> Rc<dyn PlatformWindow> {
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             window: corelib::api::Window::new(self_weak.clone() as _),
             self_weak: self_weak.clone(),

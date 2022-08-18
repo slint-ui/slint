@@ -22,7 +22,7 @@ pub struct NativeComboBox {
 }
 
 impl Item for NativeComboBox {
-    fn init(self: Pin<&Self>, _platform_window: &PlatformWindowRc) {}
+    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -31,7 +31,7 @@ impl Item for NativeComboBox {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> LayoutInfo {
         let size = cpp!(unsafe [] -> qttypes::QSize as "QSize" {
             ensure_initialized();
@@ -53,7 +53,7 @@ impl Item for NativeComboBox {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -62,7 +62,7 @@ impl Item for NativeComboBox {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let enabled = self.enabled();
@@ -95,7 +95,7 @@ impl Item for NativeComboBox {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -103,7 +103,7 @@ impl Item for NativeComboBox {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -171,7 +171,7 @@ pub struct NativeComboBoxPopup {
 }
 
 impl Item for NativeComboBoxPopup {
-    fn init(self: Pin<&Self>, _platform_window: &PlatformWindowRc) {}
+    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -180,7 +180,7 @@ impl Item for NativeComboBoxPopup {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> LayoutInfo {
         Default::default()
     }
@@ -188,7 +188,7 @@ impl Item for NativeComboBoxPopup {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -197,7 +197,7 @@ impl Item for NativeComboBoxPopup {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
@@ -206,7 +206,7 @@ impl Item for NativeComboBoxPopup {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -214,7 +214,7 @@ impl Item for NativeComboBoxPopup {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }

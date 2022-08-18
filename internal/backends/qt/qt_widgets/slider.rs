@@ -57,7 +57,7 @@ void initQSliderOptions(QStyleOptionSlider &option, bool pressed, bool enabled, 
 }}
 
 impl Item for NativeSlider {
-    fn init(self: Pin<&Self>, _platform_window: &PlatformWindowRc) {}
+    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -66,7 +66,7 @@ impl Item for NativeSlider {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> LayoutInfo {
         let enabled = self.enabled();
         let value = self.value() as i32;
@@ -106,7 +106,7 @@ impl Item for NativeSlider {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -115,7 +115,7 @@ impl Item for NativeSlider {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
@@ -197,7 +197,7 @@ impl Item for NativeSlider {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -205,7 +205,7 @@ impl Item for NativeSlider {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }

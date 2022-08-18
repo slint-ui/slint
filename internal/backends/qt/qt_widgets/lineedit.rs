@@ -25,7 +25,7 @@ pub struct NativeLineEdit {
 }
 
 impl Item for NativeLineEdit {
-    fn init(self: Pin<&Self>, _platform_window: &PlatformWindowRc) {
+    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {
         let paddings = Rc::pin(Property::default());
 
         paddings.as_ref().set_binding(move || {
@@ -76,7 +76,7 @@ impl Item for NativeLineEdit {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> LayoutInfo {
         LayoutInfo {
             min: match orientation {
@@ -91,7 +91,7 @@ impl Item for NativeLineEdit {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -100,7 +100,7 @@ impl Item for NativeLineEdit {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
@@ -109,7 +109,7 @@ impl Item for NativeLineEdit {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -117,7 +117,7 @@ impl Item for NativeLineEdit {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }

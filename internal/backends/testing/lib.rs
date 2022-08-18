@@ -9,7 +9,6 @@ use i_slint_core::api::PhysicalPx;
 use i_slint_core::graphics::{Point, Rect, Size};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::PlatformWindow;
-use i_slint_core::window::PlatformWindowRc;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Mutex;
@@ -20,7 +19,7 @@ pub struct TestingBackend {
 }
 
 impl i_slint_core::backend::Backend for TestingBackend {
-    fn create_window(&self) -> PlatformWindowRc {
+    fn create_window(&self) -> Rc<dyn PlatformWindow> {
         Rc::new_cyclic(|self_weak| TestingWindow {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
         })

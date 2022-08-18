@@ -15,7 +15,7 @@ mod persistent_context;
 
 struct WrappedComponentType(Option<slint_interpreter::ComponentDefinition>);
 struct WrappedComponentRc(Option<slint_interpreter::ComponentInstance>);
-struct WrappedWindow(Option<i_slint_core::window::PlatformWindowRc>);
+struct WrappedWindow(Option<std::rc::Rc<dyn i_slint_core::window::PlatformWindow>>);
 
 /// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
 type GlobalContextCallback<'c> =

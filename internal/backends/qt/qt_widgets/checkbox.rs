@@ -22,7 +22,7 @@ pub struct NativeCheckBox {
 }
 
 impl Item for NativeCheckBox {
-    fn init(self: Pin<&Self>, _platform_window: &PlatformWindowRc) {}
+    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -31,7 +31,7 @@ impl Item for NativeCheckBox {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> LayoutInfo {
         let text: qttypes::QString = self.text().as_str().into();
         let size = cpp!(unsafe [
@@ -58,7 +58,7 @@ impl Item for NativeCheckBox {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -67,7 +67,7 @@ impl Item for NativeCheckBox {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         if !self.enabled() {
@@ -85,7 +85,7 @@ impl Item for NativeCheckBox {
     fn key_event(
         self: Pin<&Self>,
         event: &KeyEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> KeyEventResult {
         match event.event_type {
             KeyEventType::KeyPressed if event.text == " " || event.text == "\n" => {
@@ -101,7 +101,7 @@ impl Item for NativeCheckBox {
     fn focus_event(
         self: Pin<&Self>,
         event: &FocusEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> FocusEventResult {
         if self.enabled() {
             Self::FIELD_OFFSETS

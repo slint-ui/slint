@@ -65,7 +65,7 @@ thread_local! { static WINDOW: RefCell<Option<Rc<PicoWindow>>> = RefCell::new(No
 
 struct PicoBackend;
 impl i_slint_core::backend::Backend for PicoBackend {
-    fn create_window(&self) -> i_slint_core::window::PlatformWindowRc {
+    fn create_window(&self) -> Rc<dyn i_slint_core::window::PlatformWindow> {
         Rc::new_cyclic(|self_weak| PicoWindow {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
             self_weak: self_weak.clone(),

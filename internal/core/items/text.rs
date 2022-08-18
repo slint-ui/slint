@@ -22,8 +22,9 @@ use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::window::{PlatformWindowRc, WindowHandleAccess, WindowInner};
+use crate::window::{PlatformWindow, WindowHandleAccess, WindowInner};
 use crate::{Callback, Coord, Property, SharedString};
+use alloc::rc::Rc;
 use alloc::string::String;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
@@ -55,7 +56,7 @@ pub struct Text {
 }
 
 impl Item for Text {
-    fn init(self: Pin<&Self>, _platform_window: &PlatformWindowRc) {}
+    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -64,7 +65,7 @@ impl Item for Text {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        platform_window: &PlatformWindowRc,
+        platform_window: &Rc<dyn PlatformWindow>,
     ) -> LayoutInfo {
         let window = platform_window.window().window_handle();
         let implicit_size = |max_width| {
@@ -114,7 +115,7 @@ impl Item for Text {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -123,7 +124,7 @@ impl Item for Text {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
@@ -132,7 +133,7 @@ impl Item for Text {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -140,7 +141,7 @@ impl Item for Text {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -234,7 +235,7 @@ pub struct TextInput {
 }
 
 impl Item for TextInput {
-    fn init(self: Pin<&Self>, _platform_window: &PlatformWindowRc) {}
+    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
 
     // FIXME: width / height.  or maybe it doesn't matter?  (
     fn geometry(self: Pin<&Self>) -> Rect {
@@ -244,7 +245,7 @@ impl Item for TextInput {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        platform_window: &PlatformWindowRc,
+        platform_window: &Rc<dyn PlatformWindow>,
     ) -> LayoutInfo {
         let text = self.text();
         let implicit_size = |max_width| {
@@ -292,7 +293,7 @@ impl Item for TextInput {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -301,7 +302,7 @@ impl Item for TextInput {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        platform_window: &PlatformWindowRc,
+        platform_window: &Rc<dyn PlatformWindow>,
         self_rc: &ItemRc,
     ) -> InputEventResult {
         if !self.enabled() {
@@ -339,7 +340,7 @@ impl Item for TextInput {
     fn key_event(
         self: Pin<&Self>,
         event: &KeyEvent,
-        platform_window: &PlatformWindowRc,
+        platform_window: &Rc<dyn PlatformWindow>,
     ) -> KeyEventResult {
         if !self.enabled() {
             return KeyEventResult::EventIgnored;
@@ -471,7 +472,7 @@ impl Item for TextInput {
     fn focus_event(
         self: Pin<&Self>,
         event: &FocusEvent,
-        platform_window: &PlatformWindowRc,
+        platform_window: &Rc<dyn PlatformWindow>,
     ) -> FocusEventResult {
         match event {
             FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {
@@ -556,7 +557,7 @@ impl From<KeyboardModifiers> for AnchorMode {
 }
 
 impl TextInput {
-    fn show_cursor(&self, platform_window: &PlatformWindowRc) {
+    fn show_cursor(&self, platform_window: &Rc<dyn PlatformWindow>) {
         platform_window.window().window_handle().set_cursor_blink_binding(&self.cursor_visible);
     }
 
@@ -569,7 +570,7 @@ impl TextInput {
         self: Pin<&Self>,
         direction: TextCursorDirection,
         anchor_mode: AnchorMode,
-        platform_window: &PlatformWindowRc,
+        platform_window: &Rc<dyn PlatformWindow>,
     ) -> bool {
         let text = self.text();
         if text.is_empty() {
@@ -707,7 +708,7 @@ impl TextInput {
         self: Pin<&Self>,
         new_position: i32,
         reset_preferred_x_pos: bool,
-        platform_window: &PlatformWindowRc,
+        platform_window: &Rc<dyn PlatformWindow>,
     ) {
         self.cursor_position.set(new_position);
         if new_position >= 0 {
@@ -725,7 +726,7 @@ impl TextInput {
     fn select_and_delete(
         self: Pin<&Self>,
         step: TextCursorDirection,
-        platform_window: &PlatformWindowRc,
+        platform_window: &Rc<dyn PlatformWindow>,
     ) {
         if !self.has_selection() {
             self.move_cursor(step, AnchorMode::KeepAnchor, platform_window);
@@ -733,7 +734,7 @@ impl TextInput {
         self.delete_selection(platform_window);
     }
 
-    fn delete_selection(self: Pin<&Self>, platform_window: &PlatformWindowRc) {
+    fn delete_selection(self: Pin<&Self>, platform_window: &Rc<dyn PlatformWindow>) {
         let text: String = self.text().into();
         if text.is_empty() {
             return;
@@ -770,7 +771,7 @@ impl TextInput {
         anchor_pos != cursor_pos
     }
 
-    fn insert(self: Pin<&Self>, text_to_insert: &str, platform_window: &PlatformWindowRc) {
+    fn insert(self: Pin<&Self>, text_to_insert: &str, platform_window: &Rc<dyn PlatformWindow>) {
         self.delete_selection(platform_window);
         let mut text: String = self.text().into();
         let cursor_pos = self.selection_anchor_and_cursor().1;
@@ -786,7 +787,7 @@ impl TextInput {
         Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
 
-    fn select_all(self: Pin<&Self>, platform_window: &PlatformWindowRc) {
+    fn select_all(self: Pin<&Self>, platform_window: &Rc<dyn PlatformWindow>) {
         self.move_cursor(TextCursorDirection::StartOfText, AnchorMode::MoveAnchor, platform_window);
         self.move_cursor(TextCursorDirection::EndOfText, AnchorMode::KeepAnchor, platform_window);
     }
@@ -802,14 +803,14 @@ impl TextInput {
         }
     }
 
-    fn paste(self: Pin<&Self>, platform_window: &PlatformWindowRc) {
+    fn paste(self: Pin<&Self>, platform_window: &Rc<dyn PlatformWindow>) {
         if let Some(text) = crate::backend::instance().and_then(|backend| backend.clipboard_text())
         {
             self.insert(&text, platform_window);
         }
     }
 
-    pub fn font_request(self: Pin<&Self>, platform_window: &PlatformWindowRc) -> FontRequest {
+    pub fn font_request(self: Pin<&Self>, platform_window: &Rc<dyn PlatformWindow>) -> FontRequest {
         let window_item = platform_window.window().window_handle().window_item();
 
         FontRequest {

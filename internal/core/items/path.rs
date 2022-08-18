@@ -19,8 +19,9 @@ use crate::item_rendering::CachedRenderingData;
 use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::window::PlatformWindowRc;
+use crate::window::PlatformWindow;
 use crate::{Coord, Property};
+use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use i_slint_core_macros::*;
@@ -48,7 +49,7 @@ pub struct Path {
 }
 
 impl Item for Path {
-    fn init(self: Pin<&Self>, _platform_window: &PlatformWindowRc) {}
+    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -57,7 +58,7 @@ impl Item for Path {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> LayoutInfo {
         LayoutInfo::default()
     }
@@ -65,7 +66,7 @@ impl Item for Path {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         event: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         if let Some(pos) = event.position() {
@@ -84,7 +85,7 @@ impl Item for Path {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
@@ -93,7 +94,7 @@ impl Item for Path {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -101,7 +102,7 @@ impl Item for Path {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }

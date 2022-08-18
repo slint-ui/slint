@@ -5,7 +5,8 @@
 
 use core::ffi::c_void;
 use i_slint_backend_selector::backend;
-use i_slint_core::window::{ffi::PlatformWindowRcOpaque, PlatformWindowRc};
+use i_slint_core::window::{ffi::PlatformWindowRcOpaque, PlatformWindow};
+use std::rc::Rc;
 
 #[doc(hidden)]
 #[cold]
@@ -19,10 +20,10 @@ pub fn use_modules() -> usize {
 #[no_mangle]
 pub unsafe extern "C" fn slint_windowrc_init(out: *mut PlatformWindowRcOpaque) {
     assert_eq!(
-        core::mem::size_of::<PlatformWindowRc>(),
+        core::mem::size_of::<Rc<dyn PlatformWindow>>(),
         core::mem::size_of::<PlatformWindowRcOpaque>()
     );
-    core::ptr::write(out as *mut PlatformWindowRc, crate::backend().create_window());
+    core::ptr::write(out as *mut Rc<dyn PlatformWindow>, crate::backend().create_window());
 }
 
 #[no_mangle]
@@ -69,7 +70,7 @@ pub unsafe extern "C" fn slint_register_font_from_path(
     path: &i_slint_core::SharedString,
     error_str: *mut i_slint_core::SharedString,
 ) {
-    let platform_window = &*(win as *const PlatformWindowRc);
+    let platform_window = &*(win as *const Rc<dyn PlatformWindow>);
     core::ptr::write(
         error_str,
         match platform_window
@@ -88,7 +89,7 @@ pub unsafe extern "C" fn slint_register_font_from_data(
     data: i_slint_core::slice::Slice<'static, u8>,
     error_str: *mut i_slint_core::SharedString,
 ) {
-    let platform_window = &*(win as *const PlatformWindowRc);
+    let platform_window = &*(win as *const Rc<dyn PlatformWindow>);
     core::ptr::write(
         error_str,
         match platform_window.renderer().register_font_from_memory(data.as_slice()) {

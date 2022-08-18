@@ -284,7 +284,7 @@ pub mod re_exports {
     pub use i_slint_core::model::*;
     pub use i_slint_core::properties::{set_state_binding, Property, PropertyTracker, StateInfo};
     pub use i_slint_core::slice::Slice;
-    pub use i_slint_core::window::{PlatformWindowRc, WindowHandleAccess, WindowInner};
+    pub use i_slint_core::window::{PlatformWindow, WindowHandleAccess, WindowInner};
     pub use i_slint_core::Color;
     pub use i_slint_core::ComponentVTable_static;
     pub use i_slint_core::Coord;
@@ -435,7 +435,7 @@ pub mod internal {
 
 /// Creates a new window to render components in.
 #[doc(hidden)]
-pub fn create_window() -> re_exports::PlatformWindowRc {
+pub fn create_window() -> alloc::rc::Rc<dyn re_exports::PlatformWindow> {
     i_slint_backend_selector::backend().create_window()
 }
 

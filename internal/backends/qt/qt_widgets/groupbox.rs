@@ -62,7 +62,7 @@ fn minimum_group_box_size(title: qttypes::QString) -> qttypes::QSize {
 }
 
 impl Item for NativeGroupBox {
-    fn init(self: Pin<&Self>, _platform_window: &PlatformWindowRc) {
+    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {
         let shared_data = Rc::pin(GroupBoxData::default());
 
         Property::link_two_way(
@@ -146,7 +146,7 @@ impl Item for NativeGroupBox {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> LayoutInfo {
         let text: qttypes::QString = self.title().as_str().into();
 
@@ -165,7 +165,7 @@ impl Item for NativeGroupBox {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -174,7 +174,7 @@ impl Item for NativeGroupBox {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
@@ -183,7 +183,7 @@ impl Item for NativeGroupBox {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -191,7 +191,7 @@ impl Item for NativeGroupBox {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &PlatformWindowRc,
+        _platform_window: &Rc<dyn PlatformWindow>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
