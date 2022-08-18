@@ -510,7 +510,7 @@ pub mod testing {
         i_slint_core::tests::send_keyboard_string_sequence(
             &super::SharedString::from(sequence),
             KEYBOARD_MODIFIERS.with(|x| x.get()),
-            component.window_handle(),
+            &component.window_handle().platform_window(),
         )
     }
 

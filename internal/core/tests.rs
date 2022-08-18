@@ -6,6 +6,7 @@
 #![allow(unsafe_code)]
 
 use crate::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
+use crate::window::WindowHandleAccess;
 use crate::Coord;
 use crate::SharedString;
 
@@ -59,7 +60,7 @@ pub extern "C" fn slint_send_mouse_click(
 pub extern "C" fn send_keyboard_string_sequence(
     sequence: &crate::SharedString,
     modifiers: KeyboardModifiers,
-    window: &crate::window::WindowInner,
+    platform_window: &crate::window::PlatformWindowRc,
 ) {
     for ch in sequence.chars() {
         let mut modifiers = modifiers;
@@ -69,12 +70,12 @@ pub extern "C" fn send_keyboard_string_sequence(
         let mut buffer = [0; 6];
         let text = SharedString::from(ch.encode_utf8(&mut buffer) as &str);
 
-        window.process_key_input(&KeyEvent {
+        platform_window.window().window_handle().process_key_input(&KeyEvent {
             event_type: KeyEventType::KeyPressed,
             text: text.clone(),
             modifiers,
         });
-        window.process_key_input(&KeyEvent {
+        platform_window.window().window_handle().process_key_input(&KeyEvent {
             event_type: KeyEventType::KeyReleased,
             text,
             modifiers,

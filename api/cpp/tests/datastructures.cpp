@@ -151,9 +151,6 @@ TEST_CASE("Image")
 {
     using namespace slint;
 
-    // ensure a backend exists, using private api
-    private_api::WindowRc wnd;
-
     Image img;
     {
         auto size = img.size();

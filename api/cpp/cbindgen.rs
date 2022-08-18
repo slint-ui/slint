@@ -189,7 +189,7 @@ fn gen_corelib(
         "slint_property_listener_scope_is_dirty",
         "PropertyTrackerOpaque",
         "CallbackOpaque",
-        "WindowRc",
+        "PlatformWindowRc",
         "VoidArg",
         "KeyEventArg",
         "PointerEventArg",
@@ -453,9 +453,9 @@ fn gen_corelib(
         .with_after_include(
             r"
 namespace slint {
-    namespace private_api { class WindowRc; }
+    namespace private_api { class PlatformWindowRc; }
     namespace cbindgen_private {
-        using slint::private_api::WindowRc;
+        using slint::private_api::PlatformWindowRc;
         using namespace vtable;
         struct KeyEvent; struct PointerEvent;
         using private_api::Property;
