@@ -243,7 +243,7 @@ impl Renderer for FemtoVGRenderer {
 
         let font = crate::renderer::femtovg::fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text_input.font_request(&window),
+                text_input.font_request(&platform_window),
                 scale_factor,
                 &text_input.text(),
             )
@@ -311,8 +311,10 @@ impl Renderer for FemtoVGRenderer {
         let text = text_input.text();
         let scale_factor = window.scale_factor();
 
-        let font_size =
-            text_input.font_request(&window).pixel_size.unwrap_or(fonts::DEFAULT_FONT_SIZE);
+        let font_size = text_input
+            .font_request(&platform_window)
+            .pixel_size
+            .unwrap_or(fonts::DEFAULT_FONT_SIZE);
 
         let mut result = Point::default();
 
@@ -324,7 +326,7 @@ impl Renderer for FemtoVGRenderer {
 
         let font = crate::renderer::femtovg::fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text_input.font_request(&window),
+                text_input.font_request(&platform_window),
                 scale_factor,
                 &text_input.text(),
             )

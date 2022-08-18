@@ -12,7 +12,7 @@ use crate::item_tree::{
 use crate::items::{AccessibleRole, ItemVTable};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::slice::Slice;
-use crate::window::{PlatformWindowRc, WindowHandleAccess};
+use crate::window::PlatformWindowRc;
 use crate::SharedString;
 use vtable::*;
 
@@ -116,9 +116,7 @@ pub fn register_component<Base>(
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
     platform_window: &PlatformWindowRc,
 ) {
-    item_array.iter().for_each(|item| {
-        item.apply_pin(base).as_ref().init(platform_window.window().window_handle())
-    });
+    item_array.iter().for_each(|item| item.apply_pin(base).as_ref().init(platform_window));
     platform_window.register_component();
 }
 

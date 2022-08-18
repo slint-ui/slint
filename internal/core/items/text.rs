@@ -22,7 +22,7 @@ use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::window::WindowInner;
+use crate::window::{PlatformWindowRc, WindowHandleAccess, WindowInner};
 use crate::{Callback, Coord, Property, SharedString};
 use alloc::string::String;
 use const_field_offset::FieldOffsets;
@@ -55,20 +55,24 @@ pub struct Text {
 }
 
 impl Item for Text {
-    fn init(self: Pin<&Self>, _window: &WindowInner) {}
+    fn init(self: Pin<&Self>, _platform_window: &PlatformWindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layout_info(self: Pin<&Self>, orientation: Orientation, window: &WindowInner) -> LayoutInfo {
-        let platform_window = window.platform_window();
+    fn layout_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        platform_window: &PlatformWindowRc,
+    ) -> LayoutInfo {
+        let window = platform_window.window().window_handle();
         let implicit_size = |max_width| {
             platform_window.renderer().text_size(
                 self.font_request(window),
                 self.text().as_str(),
                 max_width,
-                window.scale_factor(),
+                platform_window.window().scale_factor().get(),
             )
         };
 
@@ -110,7 +114,7 @@ impl Item for Text {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &WindowInner,
+        _platform_window: &PlatformWindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -119,17 +123,25 @@ impl Item for Text {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &WindowInner,
+        _platform_window: &PlatformWindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowInner) -> KeyEventResult {
+    fn key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _platform_window: &PlatformWindowRc,
+    ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowInner) -> FocusEventResult {
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &FocusEvent,
+        _platform_window: &PlatformWindowRc,
+    ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
 
@@ -222,18 +234,22 @@ pub struct TextInput {
 }
 
 impl Item for TextInput {
-    fn init(self: Pin<&Self>, _window: &WindowInner) {}
+    fn init(self: Pin<&Self>, _platform_window: &PlatformWindowRc) {}
 
     // FIXME: width / height.  or maybe it doesn't matter?  (
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
-    fn layout_info(self: Pin<&Self>, orientation: Orientation, window: &WindowInner) -> LayoutInfo {
+    fn layout_info(
+        self: Pin<&Self>,
+        orientation: Orientation,
+        platform_window: &PlatformWindowRc,
+    ) -> LayoutInfo {
         let text = self.text();
         let implicit_size = |max_width| {
-            window.platform_window().renderer().text_size(
-                self.font_request(window),
+            platform_window.renderer().text_size(
+                self.font_request(platform_window),
                 {
                     if text.is_empty() {
                         "*"
@@ -242,7 +258,7 @@ impl Item for TextInput {
                     }
                 },
                 max_width,
-                window.scale_factor(),
+                platform_window.window().scale_factor().get(),
             )
         };
 
@@ -276,7 +292,7 @@ impl Item for TextInput {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &WindowInner,
+        _platform_window: &PlatformWindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -285,13 +301,12 @@ impl Item for TextInput {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        window: &WindowInner,
+        platform_window: &PlatformWindowRc,
         self_rc: &ItemRc,
     ) -> InputEventResult {
         if !self.enabled() {
             return InputEventResult::EventIgnored;
         }
-        let platform_window = window.platform_window();
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left } => {
                 let clicked_offset =
@@ -299,9 +314,9 @@ impl Item for TextInput {
                         as i32;
                 self.as_ref().pressed.set(true);
                 self.as_ref().anchor_position.set(clicked_offset);
-                self.set_cursor_position(clicked_offset, true, window);
+                self.set_cursor_position(clicked_offset, true, platform_window);
                 if !self.has_focus() {
-                    window.set_focus_item(self_rc);
+                    platform_window.window().window_handle().set_focus_item(self_rc);
                 }
             }
             MouseEvent::Released { button: PointerEventButton::Left, .. } | MouseEvent::Exit => {
@@ -313,7 +328,7 @@ impl Item for TextInput {
                         .renderer()
                         .text_input_byte_offset_for_position(self, position)
                         as i32;
-                    self.set_cursor_position(clicked_offset, true, window);
+                    self.set_cursor_position(clicked_offset, true, platform_window);
                 }
             }
             _ => return InputEventResult::EventIgnored,
@@ -321,7 +336,11 @@ impl Item for TextInput {
         InputEventResult::EventAccepted
     }
 
-    fn key_event(self: Pin<&Self>, event: &KeyEvent, window: &WindowInner) -> KeyEventResult {
+    fn key_event(
+        self: Pin<&Self>,
+        event: &KeyEvent,
+        platform_window: &PlatformWindowRc,
+    ) -> KeyEventResult {
         if !self.enabled() {
             return KeyEventResult::EventIgnored;
         }
@@ -331,14 +350,19 @@ impl Item for TextInput {
                 match event.text_shortcut() {
                     Some(text_shortcut) if !self.read_only() => match text_shortcut {
                         TextShortcut::Move(direction) => {
-                            TextInput::move_cursor(self, direction, event.modifiers.into(), window);
+                            TextInput::move_cursor(
+                                self,
+                                direction,
+                                event.modifiers.into(),
+                                platform_window,
+                            );
                             return KeyEventResult::EventAccepted;
                         }
                         TextShortcut::DeleteForward => {
                             TextInput::select_and_delete(
                                 self,
                                 TextCursorDirection::Forward,
-                                window,
+                                platform_window,
                             );
                             return KeyEventResult::EventAccepted;
                         }
@@ -347,7 +371,7 @@ impl Item for TextInput {
                             TextInput::select_and_delete(
                                 self,
                                 TextCursorDirection::PreviousCharacter,
-                                window,
+                                platform_window,
                             );
                             return KeyEventResult::EventAccepted;
                         }
@@ -355,7 +379,7 @@ impl Item for TextInput {
                             TextInput::select_and_delete(
                                 self,
                                 TextCursorDirection::ForwardByWord,
-                                window,
+                                platform_window,
                             );
                             return KeyEventResult::EventAccepted;
                         }
@@ -363,7 +387,7 @@ impl Item for TextInput {
                             TextInput::select_and_delete(
                                 self,
                                 TextCursorDirection::BackwardByWord,
-                                window,
+                                platform_window,
                             );
                             return KeyEventResult::EventAccepted;
                         }
@@ -393,7 +417,7 @@ impl Item for TextInput {
                 match event.shortcut() {
                     Some(shortcut) => match shortcut {
                         StandardShortcut::SelectAll => {
-                            self.select_all(window);
+                            self.select_all(platform_window);
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Copy => {
@@ -401,12 +425,12 @@ impl Item for TextInput {
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Paste if !self.read_only() => {
-                            self.paste(window);
+                            self.paste(platform_window);
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Cut if !self.read_only() => {
                             self.copy();
-                            self.delete_selection(window);
+                            self.delete_selection(platform_window);
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Paste | StandardShortcut::Cut => {
@@ -419,7 +443,7 @@ impl Item for TextInput {
                 if self.read_only() || event.modifiers.control {
                     return KeyEventResult::EventIgnored;
                 }
-                self.delete_selection(window);
+                self.delete_selection(platform_window);
 
                 let mut text: String = self.text().into();
 
@@ -430,11 +454,11 @@ impl Item for TextInput {
                 self.as_ref().text.set(text.into());
                 let new_cursor_pos = (insert_pos + event.text.len()) as i32;
                 self.as_ref().anchor_position.set(new_cursor_pos);
-                self.set_cursor_position(new_cursor_pos, true, window);
+                self.set_cursor_position(new_cursor_pos, true, platform_window);
 
                 // Keep the cursor visible when inserting text. Blinking should only occur when
                 // nothing is entered or the cursor isn't moved.
-                self.as_ref().show_cursor(window);
+                self.as_ref().show_cursor(platform_window);
 
                 Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
 
@@ -444,17 +468,21 @@ impl Item for TextInput {
         }
     }
 
-    fn focus_event(self: Pin<&Self>, event: &FocusEvent, window: &WindowInner) -> FocusEventResult {
+    fn focus_event(
+        self: Pin<&Self>,
+        event: &FocusEvent,
+        platform_window: &PlatformWindowRc,
+    ) -> FocusEventResult {
         match event {
             FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {
                 self.has_focus.set(true);
-                self.show_cursor(window);
-                window.platform_window().show_virtual_keyboard(self.input_type());
+                self.show_cursor(platform_window);
+                platform_window.show_virtual_keyboard(self.input_type());
             }
             FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
                 self.has_focus.set(false);
                 self.hide_cursor();
-                window.platform_window().hide_virtual_keyboard();
+                platform_window.hide_virtual_keyboard();
             }
         }
         FocusEventResult::FocusAccepted
@@ -528,8 +556,8 @@ impl From<KeyboardModifiers> for AnchorMode {
 }
 
 impl TextInput {
-    fn show_cursor(&self, window: &WindowInner) {
-        window.set_cursor_blink_binding(&self.cursor_visible);
+    fn show_cursor(&self, platform_window: &PlatformWindowRc) {
+        platform_window.window().window_handle().set_cursor_blink_binding(&self.cursor_visible);
     }
 
     fn hide_cursor(&self) {
@@ -541,14 +569,13 @@ impl TextInput {
         self: Pin<&Self>,
         direction: TextCursorDirection,
         anchor_mode: AnchorMode,
-        window: &WindowInner,
+        platform_window: &PlatformWindowRc,
     ) -> bool {
         let text = self.text();
         if text.is_empty() {
             return false;
         }
 
-        let platform_window = window.platform_window();
         let renderer = platform_window.renderer();
 
         let last_cursor_pos = (self.cursor_position() as usize).max(0).min(text.len());
@@ -556,8 +583,14 @@ impl TextInput {
         let mut grapheme_cursor =
             unicode_segmentation::GraphemeCursor::new(last_cursor_pos, text.len(), true);
 
-        let font_height =
-            renderer.text_size(self.font_request(window), " ", None, window.scale_factor()).height;
+        let font_height = renderer
+            .text_size(
+                self.font_request(platform_window),
+                " ",
+                None,
+                platform_window.window().scale_factor().get(),
+            )
+            .height;
 
         let mut reset_preferred_x_pos = true;
 
@@ -661,11 +694,11 @@ impl TextInput {
                 self.as_ref().anchor_position.set(new_cursor_pos as i32);
             }
         }
-        self.set_cursor_position(new_cursor_pos as i32, reset_preferred_x_pos, window);
+        self.set_cursor_position(new_cursor_pos as i32, reset_preferred_x_pos, platform_window);
 
         // Keep the cursor visible when moving. Blinking should only occur when
         // nothing is entered or the cursor isn't moved.
-        self.as_ref().show_cursor(window);
+        self.as_ref().show_cursor(platform_window);
 
         new_cursor_pos != last_cursor_pos
     }
@@ -674,12 +707,11 @@ impl TextInput {
         self: Pin<&Self>,
         new_position: i32,
         reset_preferred_x_pos: bool,
-        window: &WindowInner,
+        platform_window: &PlatformWindowRc,
     ) {
         self.cursor_position.set(new_position);
         if new_position >= 0 {
-            let pos = window
-                .platform_window()
+            let pos = platform_window
                 .renderer()
                 .text_input_cursor_rect_for_byte_offset(self, new_position as usize)
                 .origin;
@@ -690,14 +722,18 @@ impl TextInput {
         }
     }
 
-    fn select_and_delete(self: Pin<&Self>, step: TextCursorDirection, window: &WindowInner) {
+    fn select_and_delete(
+        self: Pin<&Self>,
+        step: TextCursorDirection,
+        platform_window: &PlatformWindowRc,
+    ) {
         if !self.has_selection() {
-            self.move_cursor(step, AnchorMode::KeepAnchor, window);
+            self.move_cursor(step, AnchorMode::KeepAnchor, platform_window);
         }
-        self.delete_selection(window);
+        self.delete_selection(platform_window);
     }
 
-    fn delete_selection(self: Pin<&Self>, window: &WindowInner) {
+    fn delete_selection(self: Pin<&Self>, platform_window: &PlatformWindowRc) {
         let text: String = self.text().into();
         if text.is_empty() {
             return;
@@ -711,7 +747,7 @@ impl TextInput {
         let text = [text.split_at(anchor).0, text.split_at(cursor).1].concat();
         self.text.set(text.into());
         self.anchor_position.set(anchor as i32);
-        self.set_cursor_position(anchor as i32, true, window);
+        self.set_cursor_position(anchor as i32, true, platform_window);
         Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
 
@@ -734,8 +770,8 @@ impl TextInput {
         anchor_pos != cursor_pos
     }
 
-    fn insert(self: Pin<&Self>, text_to_insert: &str, window: &WindowInner) {
-        self.delete_selection(window);
+    fn insert(self: Pin<&Self>, text_to_insert: &str, platform_window: &PlatformWindowRc) {
+        self.delete_selection(platform_window);
         let mut text: String = self.text().into();
         let cursor_pos = self.selection_anchor_and_cursor().1;
         if text_to_insert.contains('\n') && self.single_line() {
@@ -746,13 +782,13 @@ impl TextInput {
         let cursor_pos = cursor_pos + text_to_insert.len();
         self.text.set(text.into());
         self.anchor_position.set(cursor_pos as i32);
-        self.set_cursor_position(cursor_pos as i32, true, window);
+        self.set_cursor_position(cursor_pos as i32, true, platform_window);
         Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
 
-    fn select_all(self: Pin<&Self>, window: &WindowInner) {
-        self.move_cursor(TextCursorDirection::StartOfText, AnchorMode::MoveAnchor, window);
-        self.move_cursor(TextCursorDirection::EndOfText, AnchorMode::KeepAnchor, window);
+    fn select_all(self: Pin<&Self>, platform_window: &PlatformWindowRc) {
+        self.move_cursor(TextCursorDirection::StartOfText, AnchorMode::MoveAnchor, platform_window);
+        self.move_cursor(TextCursorDirection::EndOfText, AnchorMode::KeepAnchor, platform_window);
     }
 
     fn copy(self: Pin<&Self>) {
@@ -766,15 +802,15 @@ impl TextInput {
         }
     }
 
-    fn paste(self: Pin<&Self>, window: &WindowInner) {
+    fn paste(self: Pin<&Self>, platform_window: &PlatformWindowRc) {
         if let Some(text) = crate::backend::instance().and_then(|backend| backend.clipboard_text())
         {
-            self.insert(&text, window);
+            self.insert(&text, platform_window);
         }
     }
 
-    pub fn font_request(self: Pin<&Self>, window: &WindowInner) -> FontRequest {
-        let window_item = window.window_item();
+    pub fn font_request(self: Pin<&Self>, platform_window: &PlatformWindowRc) -> FontRequest {
+        let window_item = platform_window.window().window_handle().window_item();
 
         FontRequest {
             family: {

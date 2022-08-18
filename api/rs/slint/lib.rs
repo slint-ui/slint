@@ -477,7 +477,12 @@ pub mod testing {
     ) {
         let rc = component.clone_strong().into();
         let dyn_rc = vtable::VRc::into_dyn(rc.clone());
-        i_slint_core::tests::slint_send_mouse_click(&dyn_rc, x, y, rc.window_handle());
+        i_slint_core::tests::slint_send_mouse_click(
+            &dyn_rc,
+            x,
+            y,
+            &rc.window_handle().platform_window(),
+        );
     }
 
     /// Simulate a change in keyboard modifiers being pressed

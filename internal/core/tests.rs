@@ -28,7 +28,7 @@ pub extern "C" fn slint_send_mouse_click(
     component: &crate::component::ComponentRc,
     x: Coord,
     y: Coord,
-    window: &crate::window::WindowInner,
+    platform_window: &crate::window::PlatformWindowRc,
 ) {
     let mut state = crate::input::MouseInputState::default();
     let position = euclid::point2(x, y);
@@ -36,20 +36,20 @@ pub extern "C" fn slint_send_mouse_click(
     state = crate::input::process_mouse_input(
         component.clone(),
         MouseEvent::Moved { position },
-        window,
+        platform_window,
         state,
     );
     state = crate::input::process_mouse_input(
         component.clone(),
         MouseEvent::Pressed { position, button: crate::items::PointerEventButton::Left },
-        window,
+        platform_window,
         state,
     );
     slint_mock_elapsed_time(50);
     crate::input::process_mouse_input(
         component.clone(),
         MouseEvent::Released { position, button: crate::items::PointerEventButton::Left },
-        window,
+        platform_window,
         state,
     );
 }

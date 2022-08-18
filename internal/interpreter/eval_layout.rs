@@ -13,7 +13,7 @@ use i_slint_core::items::DialogButtonRole;
 use i_slint_core::layout::{self as core_layout};
 use i_slint_core::model::RepeatedComponent;
 use i_slint_core::slice::Slice;
-use i_slint_core::window::{WindowHandleAccess, WindowInner};
+use i_slint_core::window::PlatformWindowRc;
 use std::convert::TryInto;
 use std::str::FromStr;
 
@@ -186,7 +186,7 @@ fn grid_layout_data(
             let mut layout_info = get_layout_info(
                 &cell.item.element,
                 component,
-                eval::window_ref(component).unwrap(),
+                eval::platform_window_ref(component).unwrap(),
                 orientation,
             );
             fill_layout_info_constraints(
@@ -240,12 +240,8 @@ fn box_layout_data(
                     .map(|x| x.as_pin_ref().box_layout_data(to_runtime(orientation))),
             );
         } else {
-            let mut layout_info = get_layout_info(
-                &cell.element,
-                component,
-                platform_window.window().window_handle(),
-                orientation,
-            );
+            let mut layout_info =
+                get_layout_info(&cell.element, component, platform_window, orientation);
             fill_layout_info_constraints(
                 &mut layout_info,
                 &cell.constraints,
@@ -364,7 +360,7 @@ pub(crate) fn fill_layout_info_constraints(
 pub(crate) fn get_layout_info(
     elem: &ElementRc,
     component: InstanceRef,
-    window: &WindowInner,
+    platform_window: &PlatformWindowRc,
     orientation: Orientation,
 ) -> core_layout::LayoutInfo {
     let elem = elem.borrow();
@@ -379,7 +375,7 @@ pub(crate) fn get_layout_info(
         unsafe {
             item.item_from_component(component.as_ptr())
                 .as_ref()
-                .layout_info(to_runtime(orientation), window)
+                .layout_info(to_runtime(orientation), platform_window)
         }
     }
 }

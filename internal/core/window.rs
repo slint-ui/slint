@@ -304,7 +304,7 @@ impl WindowInner {
         self.mouse_input_state.set(crate::input::process_mouse_input(
             component,
             event,
-            self,
+            &self.platform_window(),
             self.mouse_input_state.take(),
         ));
 
@@ -329,7 +329,7 @@ impl WindowInner {
                 // Reset the focus... not great, but better than keeping it.
                 self.take_focus_item();
             } else {
-                if focus_item.borrow().as_ref().key_event(event, self)
+                if focus_item.borrow().as_ref().key_event(event, &self.platform_window())
                     == crate::input::KeyEventResult::EventAccepted
                 {
                     return;
@@ -380,7 +380,7 @@ impl WindowInner {
         };
 
         if let Some(focus_item) = self.focus_item.borrow().upgrade() {
-            focus_item.borrow().as_ref().focus_event(&event, self);
+            focus_item.borrow().as_ref().focus_event(&event, &self.platform_window());
         }
     }
 
@@ -391,7 +391,10 @@ impl WindowInner {
         let focus_item = self.focus_item.take();
 
         if let Some(focus_item_rc) = focus_item.upgrade() {
-            focus_item_rc.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusOut, self);
+            focus_item_rc
+                .borrow()
+                .as_ref()
+                .focus_event(&crate::input::FocusEvent::FocusOut, &self.platform_window());
             Some(focus_item_rc)
         } else {
             None
@@ -405,7 +408,9 @@ impl WindowInner {
         match item {
             Some(item) => {
                 *self.focus_item.borrow_mut() = item.downgrade();
-                item.borrow().as_ref().focus_event(&crate::input::FocusEvent::FocusIn, self)
+                item.borrow()
+                    .as_ref()
+                    .focus_event(&crate::input::FocusEvent::FocusIn, &self.platform_window())
             }
             None => {
                 *self.focus_item.borrow_mut() = Default::default();

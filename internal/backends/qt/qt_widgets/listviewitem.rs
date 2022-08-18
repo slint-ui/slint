@@ -21,7 +21,7 @@ pub struct NativeStandardListViewItem {
 }
 
 impl Item for NativeStandardListViewItem {
-    fn init(self: Pin<&Self>, _window: &WindowInner) {}
+    fn init(self: Pin<&Self>, _platform_window: &PlatformWindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -30,7 +30,7 @@ impl Item for NativeStandardListViewItem {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _window: &WindowInner,
+        _platform_window: &PlatformWindowRc,
     ) -> LayoutInfo {
         let index: i32 = self.index();
         let item = self.item();
@@ -64,7 +64,7 @@ impl Item for NativeStandardListViewItem {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &WindowInner,
+        _platform_window: &PlatformWindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -73,17 +73,25 @@ impl Item for NativeStandardListViewItem {
     fn input_event(
         self: Pin<&Self>,
         _event: MouseEvent,
-        _window: &WindowInner,
+        _platform_window: &PlatformWindowRc,
         _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowInner) -> KeyEventResult {
+    fn key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _platform_window: &PlatformWindowRc,
+    ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowInner) -> FocusEventResult {
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &FocusEvent,
+        _platform_window: &PlatformWindowRc,
+    ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
 

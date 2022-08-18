@@ -9,7 +9,7 @@ use crate::graphics::Point;
 use crate::item_tree::{ItemRc, ItemVisitorResult, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
 use crate::items::{ItemRef, TextCursorDirection};
-use crate::window::WindowInner;
+use crate::window::PlatformWindowRc;
 use crate::{component::ComponentRc, SharedString};
 use crate::{Coord, Property};
 use alloc::rc::Rc;
@@ -403,7 +403,7 @@ pub struct MouseInputState {
 /// Try to handle the mouse grabber. Return true if the event has handled, or false otherwise
 fn handle_mouse_grab(
     mouse_event: &MouseEvent,
-    window: &WindowInner,
+    platform_window: &PlatformWindowRc,
     mouse_input_state: &mut MouseInputState,
 ) -> bool {
     if !mouse_input_state.grabbed || mouse_input_state.item_stack.is_empty() {
@@ -425,15 +425,18 @@ fn handle_mouse_grab(
             return false;
         };
         if intercept {
-            item.borrow().as_ref().input_event(MouseEvent::Exit, window, &item);
+            item.borrow().as_ref().input_event(MouseEvent::Exit, platform_window, &item);
             return false;
         }
         let g = item.borrow().as_ref().geometry();
         event.translate(-g.origin.to_vector());
 
         if it.1 == InputEventFilterResult::ForwardAndInterceptGrab
-            && item.borrow().as_ref().input_event_filter_before_children(event, window, &item)
-                == InputEventFilterResult::Intercept
+            && item.borrow().as_ref().input_event_filter_before_children(
+                event,
+                platform_window,
+                &item,
+            ) == InputEventFilterResult::Intercept
         {
             intercept = true;
         }
@@ -444,10 +447,10 @@ fn handle_mouse_grab(
     }
 
     let grabber = mouse_input_state.item_stack.last().unwrap().0.upgrade().unwrap();
-    let input_result = grabber.borrow().as_ref().input_event(event, window, &grabber);
+    let input_result = grabber.borrow().as_ref().input_event(event, platform_window, &grabber);
     if input_result != InputEventResult::GrabMouse {
         mouse_input_state.grabbed = false;
-        send_exit_events(mouse_input_state, mouse_event.position(), window);
+        send_exit_events(mouse_input_state, mouse_event.position(), platform_window);
     }
 
     true
@@ -456,7 +459,7 @@ fn handle_mouse_grab(
 fn send_exit_events(
     mouse_input_state: &MouseInputState,
     mut pos: Option<Point>,
-    window: &WindowInner,
+    platform_window: &PlatformWindowRc,
 ) {
     for it in mouse_input_state.item_stack.iter() {
         let item = if let Some(item) = it.0.upgrade() { item } else { break };
@@ -466,7 +469,7 @@ fn send_exit_events(
             *p -= g.origin.to_vector();
         }
         if !contains {
-            item.borrow().as_ref().input_event(MouseEvent::Exit, window, &item);
+            item.borrow().as_ref().input_event(MouseEvent::Exit, platform_window, &item);
         }
     }
 }
@@ -477,10 +480,10 @@ fn send_exit_events(
 pub fn process_mouse_input(
     component: ComponentRc,
     mouse_event: MouseEvent,
-    window: &WindowInner,
+    platform_window: &PlatformWindowRc,
     mut mouse_input_state: MouseInputState,
 ) -> MouseInputState {
-    if handle_mouse_grab(&mouse_event, window, &mut mouse_input_state) {
+    if handle_mouse_grab(&mouse_event, platform_window, &mut mouse_input_state) {
         return mouse_input_state;
     }
 
@@ -507,8 +510,11 @@ pub fn process_mouse_input(
             {
                 let mut event2 = mouse_event;
                 event2.translate(-geom.origin.to_vector());
-                let filter_result =
-                    item.as_ref().input_event_filter_before_children(event2, window, &item_rc);
+                let filter_result = item.as_ref().input_event_filter_before_children(
+                    event2,
+                    platform_window,
+                    &item_rc,
+                );
                 mouse_grabber_stack.push((item_rc.downgrade(), filter_result));
                 match filter_result {
                     InputEventFilterResult::ForwardAndIgnore => None,
@@ -550,7 +556,7 @@ pub fn process_mouse_input(
                 if r.has_aborted() && !intercept {
                     return r;
                 }
-                match item.as_ref().input_event(event2, window, &item_rc) {
+                match item.as_ref().input_event(event2, platform_window, &item_rc) {
                     InputEventResult::EventAccepted => {
                         if result.item_stack.is_empty() {
                             // In case the item stack is set already, it shouldn't
@@ -578,7 +584,7 @@ pub fn process_mouse_input(
         (Vector2D::new(0 as Coord, 0 as Coord), Vec::new(), mouse_event),
     );
 
-    send_exit_events(&mouse_input_state, mouse_event.position(), window);
+    send_exit_events(&mouse_input_state, mouse_event.position(), platform_window);
 
     result
 }
