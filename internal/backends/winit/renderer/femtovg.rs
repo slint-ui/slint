@@ -1,7 +1,9 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use std::{cell::RefCell, pin::Pin, rc::Rc};
+use std::cell::RefCell;
+use std::pin::Pin;
+use std::rc::{Rc, Weak};
 
 use i_slint_core::api::{
     euclid, GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError,
@@ -10,7 +12,7 @@ use i_slint_core::graphics::{
     rendering_metrics_collector::RenderingMetricsCollector, Point, Rect, Size,
 };
 use i_slint_core::renderer::Renderer;
-use i_slint_core::window::{PlatformWindowWeak, WindowHandleAccess};
+use i_slint_core::window::{PlatformWindow, WindowHandleAccess};
 use i_slint_core::Coord;
 
 use crate::WindowSystemName;
@@ -24,7 +26,7 @@ mod itemrenderer;
 const PASSWORD_CHARACTER: &str = "●";
 
 pub struct FemtoVGRenderer {
-    platform_window_weak: PlatformWindowWeak,
+    platform_window_weak: Weak<dyn PlatformWindow>,
     #[cfg(target_arch = "wasm32")]
     canvas_id: String,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
@@ -34,7 +36,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
     type Canvas = FemtoVGCanvas;
 
     fn new(
-        platform_window_weak: &PlatformWindowWeak,
+        platform_window_weak: &Weak<dyn PlatformWindow>,
         #[cfg(target_arch = "wasm32")] canvas_id: String,
     ) -> Self {
         Self {

@@ -18,14 +18,15 @@ mod glcontext;
 use glcontext::*;
 pub(crate) mod event_loop;
 mod renderer {
+    use std::rc::Weak;
 
-    use i_slint_core::window::PlatformWindowWeak;
+    use i_slint_core::window::PlatformWindow;
 
     pub(crate) trait WinitCompatibleRenderer: i_slint_core::renderer::Renderer {
         type Canvas: WinitCompatibleCanvas;
 
         fn new(
-            platform_window_weak: &PlatformWindowWeak,
+            platform_window_weak: &Weak<dyn PlatformWindow>,
             #[cfg(target_arch = "wasm32")] canvas_id: String,
         ) -> Self;
 

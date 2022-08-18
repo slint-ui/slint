@@ -6,10 +6,10 @@ This module contains a simple helper type to measure the average number of frame
 */
 
 use crate::timers::*;
-use crate::window::PlatformWindowWeak;
+use crate::window::PlatformWindow;
 use std::cell::RefCell;
 use std::convert::TryFrom;
-use std::rc::Rc;
+use std::rc::{Rc, Weak};
 
 enum RefreshMode {
     Lazy,      // render only when necessary (default)
@@ -60,7 +60,7 @@ pub struct RenderingMetricsCollector {
     refresh_mode: RefreshMode,
     output_console: bool,
     output_overlay: bool,
-    platform_window: PlatformWindowWeak,
+    platform_window: Weak<dyn PlatformWindow>,
 }
 
 impl RenderingMetricsCollector {
@@ -73,7 +73,7 @@ impl RenderingMetricsCollector {
     ///
     /// If enabled, this will also print out some system information such as whether
     /// this is a debug or release build, as well as the provided winsys_info string.
-    pub fn new(platform_window: PlatformWindowWeak, winsys_info: &str) -> Option<Rc<Self>> {
+    pub fn new(platform_window: Weak<dyn PlatformWindow>, winsys_info: &str) -> Option<Rc<Self>> {
         let options = match std::env::var("SLINT_DEBUG_PERFORMANCE") {
             Ok(var) => var,
             _ => return None,
