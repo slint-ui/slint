@@ -15,7 +15,7 @@ mod persistent_context;
 
 struct WrappedComponentType(Option<slint_interpreter::ComponentDefinition>);
 struct WrappedComponentRc(Option<slint_interpreter::ComponentInstance>);
-struct WrappedWindow(Option<i_slint_core::window::WindowRc>);
+struct WrappedWindow(Option<i_slint_core::window::PlatformWindowRc>);
 
 /// We need to do some gymnastic with closures to pass the ExecuteContext with the right lifetime
 type GlobalContextCallback<'c> =
@@ -352,9 +352,9 @@ declare_types! {
             let this = cx.this();
             let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            let window = component.window().window_handle().clone();
+            let platform_window = component.window().window_handle().platform_window();
             let mut obj = SlintWindow::new::<_, JsValue, _>(&mut cx, std::iter::empty())?;
-            cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(window));
+            cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(platform_window));
             Ok(obj.as_value(&mut cx))
         }
         method get_property(mut cx) {
@@ -534,9 +534,9 @@ declare_types! {
 
         method get_size(mut cx) {
             let this = cx.this();
-            let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
-            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            let size = i_slint_core::api::Window::from(window).size();
+            let platform_window = cx.borrow(&this, |x| x.0.as_ref().cloned());
+            let platform_window = platform_window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let size = platform_window.window().size();
 
             let size_object = JsObject::new(&mut cx);
             let width_value = JsNumber::new(&mut cx, size.width).as_value(&mut cx);
@@ -548,14 +548,15 @@ declare_types! {
 
         method set_size(mut cx) {
             let this = cx.this();
-            let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
-            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let platform_window = cx.borrow(&this, |x| x.0.as_ref().cloned());
+            let platform_window = platform_window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let window = platform_window.window();
 
             let size_object = cx.argument::<JsObject>(0)?;
             let width = size_object.get(&mut cx, "width")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
             let height = size_object.get(&mut cx, "height")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
 
-            window.set_inner_size([width as u32, height as u32].into());
+            window.set_size([width as u32, height as u32].into());
 
             Ok(JsUndefined::new().as_value(&mut cx))
         }
