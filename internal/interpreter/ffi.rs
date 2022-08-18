@@ -7,7 +7,7 @@ use super::*;
 use core::ptr::NonNull;
 use i_slint_core::model::{Model, ModelNotify, SharedVectorModel};
 use i_slint_core::slice::Slice;
-use i_slint_core::window::{WindowHandleAccess, WindowRc};
+use i_slint_core::window::PlatformWindowRc;
 use std::ffi::c_void;
 use vtable::VRef;
 
@@ -547,9 +547,9 @@ pub extern "C" fn slint_interpreter_component_instance_show(
     generativity::make_guard!(guard);
     let comp = inst.unerase(guard);
     if is_visible {
-        comp.borrow_instance().window().show();
+        comp.borrow_instance().platform_window().show();
     } else {
-        comp.borrow_instance().window().hide();
+        comp.borrow_instance().platform_window().hide();
     }
 }
 
@@ -563,10 +563,10 @@ pub unsafe extern "C" fn slint_interpreter_component_instance_window(
     out: *mut *const i_slint_core::window::ffi::PlatformWindowRcOpaque,
 ) {
     assert_eq!(
-        core::mem::size_of::<WindowRc>(),
+        core::mem::size_of::<PlatformWindowRc>(),
         core::mem::size_of::<i_slint_core::window::ffi::PlatformWindowRcOpaque>()
     );
-    core::ptr::write(out as *mut *const WindowRc, inst.window().window_handle() as *const _)
+    core::ptr::write(out as *mut *const PlatformWindowRc, inst.platform_window() as *const _)
 }
 
 /// Instantiate an instance from a definition.

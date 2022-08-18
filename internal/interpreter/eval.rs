@@ -9,7 +9,7 @@ use corelib::graphics::{GradientStop, LinearGradientBrush, PathElement, RadialGr
 use corelib::items::{ItemRef, PropertyAnimation};
 use corelib::model::{Model, ModelRc};
 use corelib::rtti::AnimatedBindingKind;
-use corelib::window::{WindowHandleAccess, WindowInner};
+use corelib::window::{PlatformWindowRc, WindowHandleAccess};
 use corelib::{Brush, Color, PathData, SharedString, SharedVector};
 use i_slint_compiler::expression_tree::{
     BuiltinFunction, EasingCurve, Expression, Path as ExprPath, PathElement as ExprPathElement,
@@ -341,7 +341,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                         popup,
                         i_slint_core::graphics::Point::new(x.try_into().unwrap(), y.try_into().unwrap()),
                         component.borrow(),
-                        window_ref(component).unwrap(),
+                        platform_window_ref(component).unwrap(),
                         &parent_item);
                     Value::Void
                 } else {
@@ -466,7 +466,7 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     ComponentInstance::GlobalComponent(_) => panic!("Cannot access the implicit item size from a global component")
                 };
                 if let Value::String(s) = eval_expression(&arguments[0], local_context) {
-                    if let Some(err) = window_ref(component).unwrap().renderer().register_font_from_path(&std::path::PathBuf::from(s.as_str())).err() {
+                    if let Some(err) = platform_window_ref(component).unwrap().renderer().register_font_from_path(&std::path::PathBuf::from(s.as_str())).err() {
                         corelib::debug_log!("Error loading custom font {}: {}", s.as_str(), err);
                     }
                     Value::Void
@@ -993,13 +993,14 @@ fn root_component_instance<'a, 'old_id, 'new_id>(
     }
 }
 
-pub fn window_ref<'a>(component: InstanceRef<'a, '_>) -> Option<&'a WindowInner> {
-    component
-        .component_type
-        .window_offset
-        .apply(component.instance.get_ref())
-        .as_ref()
-        .map(|window| window.window_handle().as_ref())
+pub fn platform_window_ref<'a>(component: InstanceRef<'a, '_>) -> Option<&'a PlatformWindowRc> {
+    component.component_type.platform_window_offset.apply(component.instance.get_ref()).as_ref()
+}
+
+pub fn window_ref<'a>(
+    component: InstanceRef<'a, '_>,
+) -> Option<&'a i_slint_core::window::WindowInner> {
+    platform_window_ref(component).map(|platform_window| platform_window.window().window_handle())
 }
 
 /// Return the component instance which hold the given element.
