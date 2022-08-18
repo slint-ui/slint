@@ -36,9 +36,9 @@ fn previous_focus_item(item: ItemRc) -> ItemRc {
 /// window resizing and other typically windowing system related tasks.
 pub trait PlatformWindow {
     /// Registers the window with the windowing system.
-    fn show(self: Rc<Self>) {}
+    fn show(&self) {}
     /// De-registers the window from the windowing system.
-    fn hide(self: Rc<Self>) {}
+    fn hide(&self) {}
     /// Issue a request to the windowing system to re-render the contents of the window. This is typically an asynchronous
     /// request.
     fn request_redraw(&self) {}

@@ -1338,7 +1338,7 @@ impl QtWindow {
 
 #[allow(unused)]
 impl PlatformWindow for QtWindow {
-    fn show(self: Rc<Self>) {
+    fn show(&self) {
         let component_rc = self.self_weak.upgrade().unwrap().component();
         let component = ComponentRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
@@ -1359,7 +1359,7 @@ impl PlatformWindow for QtWindow {
         );
     }
 
-    fn hide(self: Rc<Self>) {
+    fn hide(&self) {
         self.rendering_metrics_collector.take();
         let widget_ptr = self.widget_ptr();
         cpp! {unsafe [widget_ptr as "QWidget*"] {

@@ -120,20 +120,21 @@ mod the_backend {
     thread_local! { static EVENT_QUEUE: RefCell<VecDeque<McuEvent>> = Default::default() }
 
     pub struct McuWindow {
-        self_weak: Weak<WindowInner>,
+        window_inner_weak: Weak<WindowInner>,
+        self_weak: Weak<Self>,
         renderer: crate::renderer::SoftwareRenderer,
     }
 
     impl PlatformWindow for McuWindow {
-        fn show(self: Rc<Self>) {
-            let w = self.self_weak.upgrade().unwrap();
+        fn show(&self) {
+            let w = self.window_inner_weak.upgrade().unwrap();
             w.set_scale_factor(
                 option_env!("SLINT_SCALE_FACTOR").and_then(|x| x.parse().ok()).unwrap_or(1.),
             );
             w.scale_factor_property().set_constant();
-            WINDOWS.with(|x| *x.borrow_mut() = Some(self))
+            WINDOWS.with(|x| *x.borrow_mut() = Some(self.self_weak.upgrade().unwrap()))
         }
-        fn hide(self: Rc<Self>) {
+        fn hide(&self) {
             WINDOWS.with(|x| *x.borrow_mut() = None)
         }
         fn request_redraw(&self) {
@@ -149,7 +150,7 @@ mod the_backend {
         }
 
         fn window(&self) -> WindowRc {
-            self.self_weak.upgrade().unwrap()
+            self.window_inner_weak.upgrade().unwrap()
         }
     }
 
@@ -188,7 +189,7 @@ mod the_backend {
         }
 
         fn draw(&self, window: Rc<McuWindow>) {
-            let runtime_window = window.self_weak.upgrade().unwrap();
+            let runtime_window = window.window_inner_weak.upgrade().unwrap();
             runtime_window.update_window_properties();
 
             DEVICES.with(|devices| {
@@ -271,8 +272,9 @@ mod the_backend {
     impl i_slint_core::backend::Backend for MCUBackend {
         fn create_window(&self) -> i_slint_core::api::Window {
             i_slint_core::window::WindowInner::new(|window| {
-                Rc::new(McuWindow {
-                    self_weak: window.clone(),
+                Rc::new_cyclic(|self_weak| McuWindow {
+                    window_inner_weak: window.clone(),
+                    self_weak: self_weak.clone(),
                     renderer: crate::renderer::SoftwareRenderer::new(
                         crate::renderer::DirtyTracking::DoubleBuffer,
                     ),
@@ -300,7 +302,7 @@ mod the_backend {
                     let e = devices.borrow_mut().as_mut().unwrap().read_touch_event();
                     if let Some(mut event) = e {
                         if let Some(window) = WINDOWS.with(|x| x.borrow().clone()) {
-                            let w = window.self_weak.upgrade().unwrap();
+                            let w = window.window_inner_weak.upgrade().unwrap();
                             // scale the event by the scale factor:
                             if let Some(p) = event.position() {
                                 event.translate((p.cast() / w.scale_factor()).cast() - p);

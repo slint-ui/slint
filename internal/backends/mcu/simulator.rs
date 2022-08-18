@@ -27,7 +27,8 @@ use glcontext::*;
 use i_slint_core::swrenderer::SoftwareRenderer;
 
 pub struct SimulatorWindow {
-    self_weak: Weak<i_slint_core::window::WindowInner>,
+    window_inner_weak: Weak<i_slint_core::window::WindowInner>,
+    self_weak: Weak<Self>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
     canvas: CanvasRc,
@@ -54,8 +55,9 @@ impl SimulatorWindow {
 
         let canvas = Rc::new(RefCell::new(canvas));
 
-        let window_rc = Rc::new(Self {
-            self_weak: window_weak.clone(),
+        let window_rc = Rc::new_cyclic(|self_weak| Self {
+            window_inner_weak: window_weak.clone(),
+            self_weak: self_weak.clone(),
             keyboard_modifiers: Default::default(),
             currently_pressed_key_code: Default::default(),
             canvas,
@@ -80,7 +82,7 @@ impl Drop for SimulatorWindow {
 }
 
 impl PlatformWindow for SimulatorWindow {
-    fn show(self: Rc<Self>) {
+    fn show(&self) {
         if self.visible.get() {
             return;
         }
@@ -118,10 +120,10 @@ impl PlatformWindow for SimulatorWindow {
         platform_window.set_visible(true);
         let id = platform_window.id();
         drop(platform_window);
-        crate::event_loop::register_window(id, self);
+        crate::event_loop::register_window(id, self.self_weak.upgrade().unwrap());
     }
 
-    fn hide(self: Rc<Self>) {
+    fn hide(&self) {
         self.opengl_context.window().set_visible(false);
         self.visible.set(false);
         crate::event_loop::unregister_window(self.opengl_context.window().id());
@@ -177,7 +179,7 @@ impl PlatformWindow for SimulatorWindow {
     }
 
     fn window(&self) -> WindowRc {
-        self.self_weak.upgrade().unwrap()
+        self.window_inner_weak.upgrade().unwrap()
     }
 }
 
@@ -190,8 +192,8 @@ impl WinitWindow for SimulatorWindow {
         &self.keyboard_modifiers
     }
 
-    fn draw(self: Rc<Self>) {
-        let runtime_window = self.self_weak.upgrade().unwrap();
+    fn draw(&self) {
+        let runtime_window = self.window_inner_weak.upgrade().unwrap();
 
         let size = self.opengl_context.window().inner_size();
 
