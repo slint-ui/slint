@@ -67,7 +67,7 @@ The C++ crate are not included in the workspace's default members, so it need to
 
 ```sh
 cargo build --lib -p slint-cpp
-cargo test --bin test-driver-cpp
+cargo test -p test-driver-cpp
 ```
 
 ### More info about tests
