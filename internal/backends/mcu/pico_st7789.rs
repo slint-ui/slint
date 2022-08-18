@@ -19,7 +19,7 @@ use embedded_hal::spi::FullDuplex;
 use embedded_time::rate::*;
 use hal::dma::{DMAExt, SingleChannel, WriteTarget};
 use i_slint_core::api::{euclid, PointerEvent, PointerEventButton};
-use i_slint_core::lengths::{PhysicalLength, PhysicalRect, PhysicalSize};
+use i_slint_core::lengths::{PhysicalLength, PhysicalSize};
 use i_slint_core::swrenderer as renderer;
 use rp_pico::hal::gpio::{self, Interrupt as GpioInterrupt};
 use rp_pico::hal::pac::interrupt;
@@ -69,7 +69,7 @@ impl i_slint_core::backend::Backend for PicoBackend {
         i_slint_core::window::WindowInner::new(|window| {
             Rc::new(PicoWindow {
                 self_weak: window.clone(),
-                renderer: Default::default(),
+                renderer: renderer::SoftwareRenderer::new(renderer::DirtyTracking::SingleBuffer),
                 needs_redraw: Default::default(),
             })
         })
@@ -192,7 +192,6 @@ fn run_event_loop() -> ! {
         buffer: vec![Rgb565::default(); DISPLAY_SIZE.width as _].leak(),
         pio: Some(pio),
         stolen_pin: (dc_copy, cs_copy),
-        dirty_region: Default::default(),
     };
 
     let mut last_touch = None;
@@ -319,7 +318,6 @@ struct DrawBuffer<Display, PioTransfer, Stolen> {
     buffer: &'static mut [super::TargetPixel],
     pio: Option<PioTransfer>,
     stolen_pin: Stolen,
-    dirty_region: PhysicalRect,
 }
 
 impl<
@@ -334,21 +332,18 @@ impl<
 {
     type TargetPixel = super::TargetPixel;
 
-    fn set_dirty_region(&mut self, dirty_region: PhysicalRect) -> PhysicalRect {
-        self.dirty_region = dirty_region;
-        dirty_region
-    }
-
     fn process_line(
         &mut self,
         line: PhysicalLength,
+        range: core::ops::Range<i16>,
         render_fn: impl FnOnce(&mut [super::TargetPixel]),
     ) {
         render_fn(self.buffer);
-        let dirty_region = self.dirty_region;
+
+        let range = range.start as usize..range.end as usize;
 
         // convert from little to big indian before sending to the DMA channel
-        for x in &mut self.buffer[dirty_region.min_x() as _..dirty_region.max_x() as _] {
+        for x in &mut self.buffer[range.clone()] {
             *x = embedded_graphics::pixelcolor::raw::RawU16::from(x.into_storage().to_be()).into()
         }
         let (ch, mut b, spi) = self.pio.take().unwrap().wait();
@@ -370,9 +365,9 @@ impl<
         // We send empty data just to get the device in the right window
         self.display
             .set_pixels(
-                dirty_region.min_x() as _,
+                range.start as u16,
                 line.get() as _,
-                dirty_region.max_x() as u16,
+                range.end as u16,
                 line.get() as u16,
                 core::iter::empty(),
             )
@@ -380,11 +375,7 @@ impl<
 
         self.stolen_pin.1.set_low().unwrap();
         self.stolen_pin.0.set_high().unwrap();
-        let mut dma = hal::dma::SingleBufferingConfig::new(
-            ch,
-            PartialReadBuffer(b, dirty_region.min_x() as _..dirty_region.max_x() as _),
-            spi,
-        );
+        let mut dma = hal::dma::SingleBufferingConfig::new(ch, PartialReadBuffer(b, range), spi);
         dma.pace(hal::dma::Pace::PreferSink);
         self.pio = Some(PioTransfer::Running(dma.start()));
         /*let (a, b, c) = dma.start().wait();

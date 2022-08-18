@@ -16,8 +16,6 @@ use i_slint_core::window::PlatformWindow;
 use i_slint_core::Coord;
 use rgb::FromSlice;
 
-use crate::PhysicalRect;
-
 use self::event_loop::WinitWindow;
 
 type Canvas = femtovg::Canvas<femtovg::renderer::OpenGl>;
@@ -209,26 +207,18 @@ impl WinitWindow for SimulatorWindow {
             }
 
             let mut frame_buffer = self.frame_buffer.borrow_mut();
-            let mut dirty_region = Default::default();
             let display = match frame_buffer.as_mut() {
                 Some(buffer)
                     if buffer.size().width == size.width && buffer.size().height == size.height =>
                 {
                     buffer
                 }
-                _ => {
-                    let buffer = frame_buffer.insert(SimulatorDisplay::new(Size {
-                        width: size.width,
-                        height: size.height,
-                    }));
-                    dirty_region = euclid::rect(0, 0, size.width as _, size.height as _);
-                    buffer
-                }
+                _ => frame_buffer
+                    .insert(SimulatorDisplay::new(Size { width: size.width, height: size.height })),
             };
 
             struct BufferProvider<'a> {
                 devices: &'a mut dyn crate::Devices,
-                dirty_region: PhysicalRect,
             }
             impl crate::renderer::LineBufferProvider for BufferProvider<'_> {
                 type TargetPixel = crate::TargetPixel;
@@ -236,27 +226,17 @@ impl WinitWindow for SimulatorWindow {
                 fn process_line(
                     &mut self,
                     line: crate::PhysicalLength,
+                    range: core::ops::Range<i16>,
                     render_fn: impl FnOnce(&mut [super::TargetPixel]),
                 ) {
                     let mut render_fn = Some(render_fn);
-                    self.devices.render_line(line, self.dirty_region, &mut |buffer| {
+                    self.devices.render_line(line, range, &mut |buffer| {
                         (render_fn.take().unwrap())(buffer)
                     });
                 }
-
-                fn set_dirty_region(&mut self, dirty_region: PhysicalRect) -> PhysicalRect {
-                    self.dirty_region = dirty_region;
-                    dirty_region
-                }
             }
-            self.renderer.render_by_line(
-                &runtime_window.into(),
-                BufferProvider {
-                    devices: display,
-                    // We must redraw the whole
-                    dirty_region,
-                },
-            );
+            self.renderer
+                .render_by_line(&runtime_window.into(), BufferProvider { devices: display });
 
             let output_image = display
                 .to_rgb_output_image(&embedded_graphics_simulator::OutputSettings::default());
