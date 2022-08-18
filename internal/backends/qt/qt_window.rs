@@ -604,7 +604,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
             }}
         }
 
-        let font: QFont = get_font(text_input.font_request(self.window.window_handle()));
+        let font: QFont =
+            get_font(text_input.font_request(&self.window.window_handle().platform_window()));
         let flags = match text_input.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
@@ -1605,7 +1606,8 @@ impl Renderer for QtWindow {
         }
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
         let pos = qttypes::QPointF { x: pos.x as _, y: pos.y as _ };
-        let font: QFont = get_font(text_input.font_request(self.window.window_handle()));
+        let font: QFont =
+            get_font(text_input.font_request(&self.window.window_handle().platform_window()));
         let string = qttypes::QString::from(text_input.text().as_str());
         let flags = match text_input.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
@@ -1660,7 +1662,8 @@ impl Renderer for QtWindow {
         byte_offset: usize,
     ) -> Rect {
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
-        let font: QFont = get_font(text_input.font_request(self.window.window_handle()));
+        let font: QFont =
+            get_font(text_input.font_request(&self.window.window_handle().platform_window()));
         let text = text_input.text();
         let mut string = qttypes::QString::from(text.as_str());
         let offset: u32 = utf8_byte_offset_to_utf16_units(text.as_str(), byte_offset) as _;

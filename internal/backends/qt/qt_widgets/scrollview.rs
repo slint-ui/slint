@@ -30,7 +30,7 @@ pub struct NativeScrollView {
 }
 
 impl Item for NativeScrollView {
-    fn init(self: Pin<&Self>, _window: &WindowInner) {
+    fn init(self: Pin<&Self>, _platform_window: &PlatformWindowRc) {
         let paddings = Rc::pin(Property::default());
 
         paddings.as_ref().set_binding(move || {
@@ -88,7 +88,7 @@ impl Item for NativeScrollView {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _window: &WindowInner,
+        _platform_window: &PlatformWindowRc,
     ) -> LayoutInfo {
         LayoutInfo {
             min: match orientation {
@@ -103,7 +103,7 @@ impl Item for NativeScrollView {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &WindowInner,
+        _platform_window: &PlatformWindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -112,7 +112,7 @@ impl Item for NativeScrollView {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _window: &WindowInner,
+        _platform_window: &PlatformWindowRc,
         _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
@@ -256,11 +256,19 @@ impl Item for NativeScrollView {
         }
     }
 
-    fn key_event(self: Pin<&Self>, _: &KeyEvent, _window: &WindowInner) -> KeyEventResult {
+    fn key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _platform_window: &PlatformWindowRc,
+    ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
 
-    fn focus_event(self: Pin<&Self>, _: &FocusEvent, _window: &WindowInner) -> FocusEventResult {
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &FocusEvent,
+        _platform_window: &PlatformWindowRc,
+    ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
 

@@ -1490,7 +1490,7 @@ extern "C" fn layout_info(component: ComponentRefPin, orientation: Orientation) 
     let mut result = crate::eval_layout::get_layout_info(
         &instance_ref.component_type.original.root_element,
         instance_ref,
-        eval::window_ref(instance_ref).unwrap(),
+        eval::platform_window_ref(instance_ref).unwrap(),
         orientation,
     );
 

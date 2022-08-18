@@ -54,7 +54,7 @@ option.frame = true;
 }}
 
 impl Item for NativeSpinBox {
-    fn init(self: Pin<&Self>, _window: &WindowInner) {}
+    fn init(self: Pin<&Self>, _platform_window: &PlatformWindowRc) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -63,7 +63,7 @@ impl Item for NativeSpinBox {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _window: &WindowInner,
+        _platform_window: &PlatformWindowRc,
     ) -> LayoutInfo {
         //let value: i32 = self.value();
         let data = self.data();
@@ -108,7 +108,7 @@ impl Item for NativeSpinBox {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _window: &WindowInner,
+        _platform_window: &PlatformWindowRc,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -117,7 +117,7 @@ impl Item for NativeSpinBox {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        window: &WindowInner,
+        platform_window: &PlatformWindowRc,
         self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
@@ -188,13 +188,17 @@ impl Item for NativeSpinBox {
 
         if let MouseEvent::Pressed { .. } = event {
             if !self.has_focus() {
-                window.set_focus_item(self_rc);
+                platform_window.window().window_handle().set_focus_item(self_rc);
             }
         }
         InputEventResult::EventAccepted
     }
 
-    fn key_event(self: Pin<&Self>, event: &KeyEvent, _window: &WindowInner) -> KeyEventResult {
+    fn key_event(
+        self: Pin<&Self>,
+        event: &KeyEvent,
+        _platform_window: &PlatformWindowRc,
+    ) -> KeyEventResult {
         if !self.enabled() || event.event_type != KeyEventType::KeyPressed {
             return KeyEventResult::EventIgnored;
         }
@@ -216,7 +220,7 @@ impl Item for NativeSpinBox {
     fn focus_event(
         self: Pin<&Self>,
         event: &FocusEvent,
-        _window: &WindowInner,
+        _platform_window: &PlatformWindowRc,
     ) -> FocusEventResult {
         match event {
             FocusEvent::FocusIn => {

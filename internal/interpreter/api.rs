@@ -1058,7 +1058,7 @@ pub mod testing {
             &vtable::VRc::into_dyn(comp.inner.clone()),
             x,
             y,
-            comp.window().window_handle(),
+            &comp.window().window_handle().platform_window(),
         );
     }
     /// Wrapper around [`i_slint_core::tests::send_keyboard_string_sequence`]

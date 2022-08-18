@@ -451,8 +451,8 @@ pub fn eval_expression(expression: &Expression, local_context: &mut EvalLocalCon
                     let item_info = &component_type.items[item.borrow().id.as_str()];
                     let item_ref = unsafe { item_info.item_from_component(enclosing_component.as_ptr()) };
 
-                    let window = window_ref(component).unwrap();
-                    item_ref.as_ref().layout_info(crate::eval_layout::to_runtime(*orient), window).into()
+                    let platform_window = platform_window_ref(component).unwrap();
+                    item_ref.as_ref().layout_info(crate::eval_layout::to_runtime(*orient), platform_window).into()
                 } else {
                     panic!("internal error: incorrect arguments to ImplicitLayoutInfo {:?}", arguments);
                 }

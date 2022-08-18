@@ -2031,7 +2031,7 @@ fn compile_builtin_function_call(
                 let item = access_member(pr, ctx);
                 let platform_window_tokens = access_platform_window_field(ctx);
                 quote!(
-                    #item.layout_info(#orient, #platform_window_tokens.window().window_handle())
+                    #item.layout_info(#orient, #platform_window_tokens)
                 )
             } else {
                 panic!("internal error: invalid args to ImplicitLayoutInfo {:?}", arguments)
