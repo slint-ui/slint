@@ -56,11 +56,11 @@ pub struct TestingWindow {
 }
 
 impl PlatformWindow for TestingWindow {
-    fn show(self: Rc<Self>) {
+    fn show(&self) {
         unimplemented!("showing a testing window")
     }
 
-    fn hide(self: Rc<Self>) {}
+    fn hide(&self) {}
 
     fn request_redraw(&self) {}
 

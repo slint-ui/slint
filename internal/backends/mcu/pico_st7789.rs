@@ -67,8 +67,9 @@ struct PicoBackend;
 impl i_slint_core::backend::Backend for PicoBackend {
     fn create_window(&self) -> i_slint_core::api::Window {
         i_slint_core::window::WindowInner::new(|window| {
-            Rc::new(PicoWindow {
-                self_weak: window.clone(),
+            Rc::new_cyclic(|self_weak| PicoWindow {
+                window_inner_weak: window.clone(),
+                self_weak: self_weak.clone(),
                 renderer: renderer::SoftwareRenderer::new(renderer::DirtyTracking::SingleBuffer),
                 needs_redraw: Default::default(),
             })
@@ -200,7 +201,7 @@ fn run_event_loop() -> ! {
 
         if let Some(window) = WINDOW.with(|x| x.borrow().clone()) {
             let runtime_window =
-                i_slint_core::api::Window::from(window.self_weak.upgrade().unwrap());
+                i_slint_core::api::Window::from(window.window_inner_weak.upgrade().unwrap());
 
             if window.needs_redraw.replace(false) {
                 window.renderer.render_by_line(&runtime_window, &mut buffer_provider);
@@ -286,18 +287,20 @@ impl<TO: WriteTarget<TransmittedWord = u8> + FullDuplex<u8>, CH: SingleChannel>
 }
 
 struct PicoWindow {
-    self_weak: Weak<i_slint_core::window::WindowInner>,
+    window_inner_weak: Weak<i_slint_core::window::WindowInner>,
+    self_weak: Weak<Self>,
     renderer: crate::renderer::SoftwareRenderer,
     needs_redraw: Cell<bool>,
 }
 
 impl i_slint_core::window::PlatformWindow for PicoWindow {
-    fn show(self: Rc<Self>) {
-        let runtime_window = i_slint_core::api::Window::from(self.self_weak.upgrade().unwrap());
+    fn show(&self) {
+        let runtime_window =
+            i_slint_core::api::Window::from(self.window_inner_weak.upgrade().unwrap());
         runtime_window.set_size(DISPLAY_SIZE.cast());
-        WINDOW.with(|x| *x.borrow_mut() = Some(self))
+        WINDOW.with(|x| *x.borrow_mut() = Some(self.self_weak.upgrade().unwrap()))
     }
-    fn hide(self: Rc<Self>) {
+    fn hide(&self) {
         WINDOW.with(|x| *x.borrow_mut() = None)
     }
     fn request_redraw(&self) {
@@ -313,7 +316,7 @@ impl i_slint_core::window::PlatformWindow for PicoWindow {
     }
 
     fn window(&self) -> i_slint_core::window::WindowRc {
-        self.self_weak.upgrade().unwrap()
+        self.window_inner_weak.upgrade().unwrap()
     }
 }
 

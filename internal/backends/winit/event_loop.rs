@@ -27,7 +27,7 @@ use winit::platform::run_return::EventLoopExtRunReturn;
 pub trait WinitWindow: PlatformWindow {
     fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>>;
     fn current_keyboard_modifiers(&self) -> &Cell<KeyboardModifiers>;
-    fn draw(self: Rc<Self>);
+    fn draw(&self);
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window));
     fn constraints(&self) -> (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo);
     fn set_constraints(

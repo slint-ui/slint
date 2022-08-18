@@ -26,7 +26,8 @@ use winit::dpi::LogicalSize;
 /// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
 pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer + 'static> {
-    self_weak: Weak<corelib::window::WindowInner>,
+    window_inner_weak: Weak<corelib::window::WindowInner>,
+    self_weak: Weak<Self>,
     map_state: RefCell<GraphicsWindowBackendState<Renderer>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
@@ -48,8 +49,9 @@ impl<Renderer: WinitCompatibleRenderer> GLWindow<Renderer> {
         window_weak: &Weak<corelib::window::WindowInner>,
         #[cfg(target_arch = "wasm32")] canvas_id: String,
     ) -> Rc<Self> {
-        Rc::new(Self {
-            self_weak: window_weak.clone(),
+        Rc::new_cyclic(|self_weak| Self {
+            window_inner_weak: window_weak.clone(),
+            self_weak: self_weak.clone(),
             map_state: RefCell::new(GraphicsWindowBackendState::Unmapped {
                 requested_position: None,
                 requested_size: None,
@@ -110,7 +112,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
     }
 
     /// Draw the items of the specified `component` in the given window.
-    fn draw(self: Rc<Self>) {
+    fn draw(&self) {
         let window = match self.borrow_mapped_window() {
             Some(window) => window,
             None => return, // caller bug, doesn't make sense to call draw() when not mapped
@@ -260,7 +262,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
         self.apply_constraints(constraints_horizontal, constraints_vertical)
     }
 
-    fn show(self: Rc<Self>) {
+    fn show(&self) {
         let (requested_position, requested_size) = match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped { requested_position, requested_size } => {
                 (requested_position.clone(), requested_size.clone())
@@ -344,7 +346,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
         let canvas = self.renderer.create_canvas(window_builder);
 
         let id = canvas.with_window_handle(|window| {
-            let runtime_window = self.self_weak.upgrade().unwrap();
+            let runtime_window = self.window_inner_weak.upgrade().unwrap();
             runtime_window.set_scale_factor(
                 scale_factor_override.unwrap_or_else(|| window.scale_factor()) as _,
             );
@@ -356,10 +358,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
             constraints: Default::default(),
         }));
 
-        crate::event_loop::register_window(id, self);
+        crate::event_loop::register_window(id, self.self_weak.upgrade().unwrap());
     }
 
-    fn hide(self: Rc<Self>) {
+    fn hide(&self) {
         self.unmap();
 
         /* FIXME:
@@ -482,7 +484,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
     }
 
     fn window(&self) -> WindowRc {
-        self.self_weak.upgrade().unwrap()
+        self.window_inner_weak.upgrade().unwrap()
     }
 }
 
