@@ -17,6 +17,22 @@ import "monaco-editor/esm/vs/editor/standalone/browser/referenceSearch/standalon
 
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
+import {
+  MonacoLanguageClient,
+  CloseAction,
+  ErrorAction,
+  MonacoServices,
+  MessageTransports,
+} from "monaco-languageclient";
+import {
+  BrowserMessageReader,
+  BrowserMessageWriter,
+} from "vscode-languageserver-protocol/browser";
+
+import { RevealOutputChannelOn } from "vscode-languageclient";
+
+import { OutputChannel } from "vscode";
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (self as any).MonacoEnvironment = {
   getWorker(_: unknown, _label: unknown) {
@@ -27,6 +43,29 @@ import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 };
 
 import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
+
+class LogOutputChannel implements OutputChannel {
+  constructor(
+    private readonly logger: (value: string) => void,
+    readonly name: string
+  ) {}
+
+  append(value: string) {
+    this.logger(this.name + "(append):" + value);
+  }
+  appendLine(value: string) {
+    this.logger(this.name + ":" + value);
+  }
+  replace(value: string) {
+    this.logger(this.name + ":" + value);
+  }
+  clear() {
+    this.logger(this.name + ": *** CLEARED ***");
+  }
+  show(column?: unknown, preserveFocus?: boolean) {}
+  hide() {}
+  dispose() {}
+}
 
 (async function () {
   await slint_init();
@@ -48,6 +87,7 @@ import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
       enabled: true,
     },
   });
+  MonacoServices.install();
 
   let base_url = "";
 
@@ -321,4 +361,53 @@ export Demo := Window {
     const model = createMainModel(hello_world, "");
     addTab(model);
   }
+
+  function createLanguageClient(
+    transports: MessageTransports
+  ): MonacoLanguageClient {
+    return new MonacoLanguageClient({
+      name: "Slint Language Client",
+      clientOptions: {
+        traceOutputChannel: new LogOutputChannel(console.trace, "TRACE"),
+        outputChannel: new LogOutputChannel(console.log, "LOG"),
+        revealOutputChannelOn: RevealOutputChannelOn.Never,
+
+        // use a language id as a document selector
+        documentSelector: [{ language: "slint" }],
+        // disable the default error handler
+        errorHandler: {
+          error: () => ({ action: ErrorAction.Continue }),
+          closed: () => ({ action: CloseAction.DoNotRestart }),
+        },
+      },
+      // create a language client connection to the server running in the web worker
+      connectionProvider: {
+        get: (_encoding: string) => {
+          return Promise.resolve(transports);
+        },
+      },
+    });
+  }
+
+  console.log("  * Creating webworker!");
+  const lsp_worker = new Worker(
+    new URL("worker/lsp_worker.ts", import.meta.url),
+    {
+      type: "module",
+    }
+  );
+  // lsp_worker.onmessage
+  const reader = new BrowserMessageReader(lsp_worker);
+  const writer = new BrowserMessageWriter(lsp_worker);
+
+  const languageClient = createLanguageClient({ reader, writer });
+  languageClient.start();
+
+  reader.onClose(() => languageClient.stop());
+  console.log(
+    "  * LSP WebWorker ",
+    lsp_worker,
+    " set up using ",
+    languageClient
+  );
 })();

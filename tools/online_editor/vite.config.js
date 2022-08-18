@@ -19,6 +19,7 @@ export default defineConfig(({ command, _mode }) => {
     base_config.resolve = {
       alias: {
         "@preview/": "../../../api/wasm-interpreter/pkg/",
+        "@lsp/": "../../../lsp/pkg/",
       },
     };
   } else {
@@ -33,6 +34,7 @@ export default defineConfig(({ command, _mode }) => {
     base_config.resolve = {
       alias: {
         "@preview/": "../../../../wasm-interpreter/",
+        "@lsp/": "../../../../wasm-lsp/",
       },
     };
   }
