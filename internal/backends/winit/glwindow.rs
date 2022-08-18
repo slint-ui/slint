@@ -192,8 +192,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
         }
     }
 
-    fn resize_event(&self) {
+    fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) {
         if let Some(mapped_window) = self.borrow_mapped_window() {
+            i_slint_core::api::Window::from(self.runtime_window())
+                .set_size(euclid::size2(size.width, size.height));
             mapped_window.canvas.resize_event()
         }
     }
@@ -467,16 +469,18 @@ impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Re
     }
 
     fn set_inner_size(&self, size: euclid::Size2D<u32, PhysicalPx>) {
-        match &mut *self.map_state.borrow_mut() {
-            GraphicsWindowBackendState::Unmapped { requested_size, .. } => {
-                *requested_size = Some(size)
-            }
-            GraphicsWindowBackendState::Mapped(mapped_window) => {
-                mapped_window.canvas.with_window_handle(|winit_window| {
-                    winit_window.set_inner_size(winit::dpi::Size::new(
-                        winit::dpi::PhysicalSize::new(size.width, size.height),
-                    ));
-                });
+        if let Ok(mut map_state) = self.map_state.try_borrow_mut() {
+            // otherwise we are called from the resize event
+            match &mut *map_state {
+                GraphicsWindowBackendState::Unmapped { requested_size, .. } => {
+                    *requested_size = Some(size)
+                }
+                GraphicsWindowBackendState::Mapped(mapped_window) => {
+                    mapped_window.canvas.with_window_handle(|winit_window| {
+                        winit_window
+                            .set_inner_size(winit::dpi::PhysicalSize::new(size.width, size.height));
+                    });
+                }
             }
         }
     }
