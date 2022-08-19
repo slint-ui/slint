@@ -328,9 +328,9 @@ cpp! {{
     };
 
     void *root_item_for_window(void *rustWindow) {
-        return rust!(root_item_for_window_ [rustWindow: &std::rc::Weak<crate::qt_window::QtWindow> as "void*"]
+        return rust!(root_item_for_window_ [rustWindow: &crate::qt_window::QtWindow as "void*"]
                 -> *mut c_void as "void*" {
-            let root_item = Box::new(ItemRc::new(rustWindow.upgrade().unwrap().window.window_handle().component(), 0).downgrade());
+            let root_item = Box::new(ItemRc::new(rustWindow.window.window_handle().component(), 0).downgrade());
             Box::into_raw(root_item) as _
         });
     }
@@ -708,7 +708,7 @@ cpp! {{
 
     private:
         QWidget *m_widget;
-        void *m_rustWindow;
+        void *m_rustWindow; // *const QtWindow
         mutable bool is_used = false;
     };
 
