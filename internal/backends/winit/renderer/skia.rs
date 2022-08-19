@@ -109,10 +109,13 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
                     })
                 }
 
+                let mut box_shadow_cache = Default::default();
+
                 let mut item_renderer = itemrenderer::SkiaRenderer::new(
                     skia_canvas,
                     platform_window.window(),
                     &canvas.image_cache,
+                    &mut box_shadow_cache,
                 );
 
                 for (component, origin) in components {

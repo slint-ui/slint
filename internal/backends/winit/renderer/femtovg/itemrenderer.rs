@@ -21,11 +21,15 @@ use super::fonts;
 use super::images::{Texture, TextureCacheKey};
 use super::PASSWORD_CHARACTER;
 
+use super::super::boxshadowcache::BoxShadowCache;
+
+type FemtovgBoxShadowCache = BoxShadowCache<ItemGraphicsCacheEntry>;
+
 pub type Canvas = femtovg::Canvas<femtovg::renderer::OpenGl>;
 pub type CanvasRc = Rc<RefCell<Canvas>>;
 
 #[derive(Clone)]
-pub(super) enum ItemGraphicsCacheEntry {
+pub enum ItemGraphicsCacheEntry {
     Texture(Rc<Texture>),
     ColorizedImage {
         // This original image Rc is kept here to keep the image in the shared image cache, so that
@@ -61,11 +65,12 @@ struct State {
 pub struct GLItemRenderer<'a> {
     graphics_cache: &'a ItemGraphicsCache,
     texture_cache: &'a RefCell<super::images::TextureCache>,
+    box_shadow_cache: FemtovgBoxShadowCache,
     canvas: CanvasRc,
     // Layers that were scheduled for rendering where we can't delete the femtovg::ImageId yet
     // because that can only happen after calling `flush`. Otherwise femtovg ends up processing
     // `set_render_target` commands with image ids that have been deleted.
-    layer_images_to_delete_after_flush: Vec<Rc<super::images::Texture>>,
+    layer_images_to_delete_after_flush: RefCell<Vec<Rc<super::images::Texture>>>,
     window: &'a i_slint_core::api::Window,
     scale_factor: f32,
     /// track the state manually since femtovg don't have accessor for its state
@@ -552,12 +557,16 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             return;
         }
 
-        let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
-            ItemGraphicsCacheEntry::Texture({
-                let blur = box_shadow.blur() * self.scale_factor;
-                let width = box_shadow.width() * self.scale_factor;
-                let height = box_shadow.height() * self.scale_factor;
-                let radius = box_shadow.border_radius() * self.scale_factor;
+        let cache_entry = self.box_shadow_cache.get_box_shadow(
+            item_rc,
+            self.graphics_cache,
+            box_shadow,
+            self.scale_factor,
+            |shadow_options| {
+                let blur = shadow_options.blur;
+                let width = shadow_options.width;
+                let height = shadow_options.height;
+                let radius = shadow_options.radius;
 
                 let shadow_rect: euclid::Rect<f32, euclid::UnknownUnit> =
                     euclid::rect(0., 0., width + 2. * blur, height + 2. * blur);
@@ -569,7 +578,8 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                     &self.canvas,
                     shadow_image_width,
                     shadow_image_height,
-                )?;
+                )
+                .expect("unable to create box shadow texture");
 
                 {
                     let mut canvas = self.canvas.borrow_mut();
@@ -601,7 +611,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
                     self.canvas.borrow_mut().set_render_target(blurred_image.as_render_target());
 
-                    self.layer_images_to_delete_after_flush.push(shadow_image);
+                    self.layer_images_to_delete_after_flush.borrow_mut().push(shadow_image);
 
                     blurred_image
                 } else {
@@ -625,10 +635,9 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                     canvas.set_render_target(self.current_render_target());
                 }
 
-                shadow_image
-            })
-            .into()
-        });
+                ItemGraphicsCacheEntry::Texture(shadow_image).into()
+            },
+        );
 
         let shadow_image = match &cache_entry {
             Some(cached_shadow_image) => cached_shadow_image.as_texture(),
@@ -881,6 +890,7 @@ impl<'a> GLItemRenderer<'a> {
         Self {
             graphics_cache: &canvas.graphics_cache,
             texture_cache: &canvas.texture_cache,
+            box_shadow_cache: Default::default(),
             canvas: canvas.canvas.clone(),
             layer_images_to_delete_after_flush: Default::default(),
             window,
