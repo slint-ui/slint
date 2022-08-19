@@ -24,6 +24,8 @@ mod renderer {
 
     use i_slint_core::window::PlatformWindow;
 
+    mod boxshadowcache;
+
     pub(crate) trait WinitCompatibleRenderer: i_slint_core::renderer::Renderer {
         type Canvas: WinitCompatibleCanvas;
 
