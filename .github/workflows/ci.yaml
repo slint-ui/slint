@@ -47,6 +47,7 @@ jobs:
         version: '5.15.2'
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
         setup-python: false
+        py7zrversion: ==0.19.*
     - name: Set default style
       if: matrix.os != 'windows-2022'
       run: |
@@ -130,6 +131,7 @@ jobs:
         version: '5.15.2'
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
         setup-python: false
+        py7zrversion: ==0.19.*
     - name: Set default style
       if: matrix.os != 'windows-2022'
       run: |
@@ -220,11 +222,13 @@ jobs:
       with:
         version: 5.15.2
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
+        py7zrversion: ==0.19.*
     - name: Install Qt (Windows, uncached)
       if: matrix.os == 'windows-2022'
       uses: jurplel/install-qt-action@v2
       with:
         version: 6.2.1
+        py7zrversion: ==0.19.*
     - name: Install Qt (cached)
       if: matrix.os != 'ubuntu-20.04' && matrix.os != 'windows-2022'
       uses: jurplel/install-qt-action@v2
@@ -232,6 +236,7 @@ jobs:
         version: 6.2.1
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
         setup-python: false
+        py7zrversion: ==0.19.*
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:
@@ -294,6 +299,7 @@ jobs:
       with:
         version: 5.15.2
         cached: ${{ steps.cache-qt.outputs.cache-hit }}
+        py7zrversion: ==0.19.*
     - uses: actions/download-artifact@v2
       with:
         name: cpp_bin-ubuntu-20.04
