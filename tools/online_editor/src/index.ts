@@ -1,16 +1,18 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore mimetypes
+
 import { slint_language } from "./highlighting";
 
 import "monaco-editor/esm/vs/editor/editor.all.js";
 import "monaco-editor/esm/vs/editor/standalone/browser/accessibilityHelp/accessibilityHelp.js";
 import "monaco-editor/esm/vs/editor/standalone/browser/iPadShowKeyboard/iPadShowKeyboard.js";
 import "monaco-editor/esm/vs/editor/standalone/browser/inspectTokens/inspectTokens.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneHelpQuickAccess.js";
+import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneCommandsQuickAccess.js";
 import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneGotoLineQuickAccess.js";
 import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneGotoSymbolQuickAccess.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneCommandsQuickAccess.js";
+import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneHelpQuickAccess.js";
 import "monaco-editor/esm/vs/editor/standalone/browser/referenceSearch/standaloneReferenceSearch.js";
 
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
@@ -18,7 +20,7 @@ import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (self as any).MonacoEnvironment = {
   getWorker(_: unknown, _label: unknown) {
-    return new Worker(new URL("monaco_worker.js", import.meta.url), {
+    return new Worker(new URL("worker/monaco_worker.mjs", import.meta.url), {
       type: "module",
     });
   },
@@ -31,17 +33,22 @@ import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
 
   monaco.languages.register({
     id: "slint",
+    extensions: [".slint"],
+    aliases: ["Slint", "slint"],
+    mimetypes: ["application/slint"],
   });
   monaco.languages.onLanguage("slint", () => {
     monaco.languages.setMonarchTokensProvider("slint", slint_language);
   });
-  const editor_element = document.getElementById("editor");
-  if (!editor_element) {
-    return;
-  }
+  const editor_element = document.getElementById("editor")!;
   const editor = monaco.editor.create(editor_element, {
     language: "slint",
+    glyphMargin: true,
+    lightbulb: {
+      enabled: true,
+    },
   });
+
   let base_url = "";
 
   interface ModelAndViewState {
@@ -79,7 +86,7 @@ export Demo := Window {
     );
   }
 
-  const select = <HTMLInputElement>document.getElementById("select_combo");
+  const select = document.getElementById("select_combo")! as HTMLInputElement;
   function select_combo_changed() {
     if (select.value) {
       let tag = "master";
@@ -103,21 +110,23 @@ export Demo := Window {
   }
   select.onchange = select_combo_changed;
 
-  const style_combo = <HTMLInputElement>document.getElementById("style_combo");
+  const style_combo = document.getElementById(
+    "style_combo"
+  ) as HTMLInputElement;
   if (style_combo) {
     style_combo.onchange = update_preview;
   }
 
-  const compile_button = <HTMLButtonElement>(
-    document.getElementById("compile_button")
-  );
+  const compile_button = document.getElementById(
+    "compile_button"
+  ) as HTMLButtonElement;
   compile_button.onclick = function () {
     update_preview();
   };
 
-  const auto_compile = <HTMLInputElement>(
-    document.getElementById("auto_compile")
-  );
+  const auto_compile = document.getElementById(
+    "auto_compile"
+  ) as HTMLInputElement;
   auto_compile.onchange = function () {
     if (auto_compile.checked) {
       update_preview();
@@ -152,7 +161,9 @@ export Demo := Window {
   ): monaco.editor.ITextModel {
     const model = monaco.editor.createModel(source, "slint");
     model.onDidChangeContent(function () {
-      const permalink = <HTMLAnchorElement>document.getElementById("permalink");
+      const permalink = document.getElementById(
+        "permalink"
+      ) as HTMLAnchorElement;
       const params = new URLSearchParams();
       params.set("snippet", editor.getModel()?.getValue() || "");
       const this_url = new URL(window.location.toString());
@@ -194,13 +205,11 @@ export Demo := Window {
     if (current_tab != undefined) {
       current_tab.className = "nav-link";
 
-      const url = current_tab.parentElement?.dataset.url;
-      if (url != undefined) {
-        const model_and_state = editor_documents.get(url);
-        if (model_and_state !== undefined) {
-          model_and_state.view_state = editor.saveViewState();
-          editor_documents.set(url, model_and_state);
-        }
+      const url = current_tab.parentElement!.dataset.url!;
+      const model_and_state = editor_documents.get(url);
+      if (model_and_state !== undefined) {
+        model_and_state.view_state = editor.saveViewState();
+        editor_documents.set(url, model_and_state);
       }
     }
     const new_current = document.querySelector(
@@ -209,21 +218,16 @@ export Demo := Window {
     if (new_current != undefined) {
       new_current.className = "nav-link active";
     }
-    const model_and_state = editor_documents.get(url);
-    if (model_and_state != undefined) {
-      editor.setModel(model_and_state.model);
-      if (model_and_state.view_state != null) {
-        editor.restoreViewState(model_and_state.view_state);
-      }
-      editor.focus();
+    const model_and_state = editor_documents.get(url)!;
+    editor.setModel(model_and_state.model);
+    if (model_and_state.view_state != null) {
+      editor.restoreViewState(model_and_state.view_state);
     }
+    editor.focus();
   }
 
   function update_preview() {
-    const main_model_and_state = editor_documents.get(base_url);
-    if (main_model_and_state === undefined) {
-      return;
-    }
+    const main_model_and_state = editor_documents.get(base_url)!;
     const source = main_model_and_state.model.getValue();
     const div = document.getElementById("preview") as HTMLDivElement;
     setTimeout(function () {
@@ -237,7 +241,7 @@ export Demo := Window {
     div: HTMLDivElement
   ) {
     const style =
-      (<HTMLInputElement>document.getElementById("style_combo"))?.value ??
+      (document.getElementById("style_combo") as HTMLInputElement)?.value ??
       "fluent";
 
     const canvas_id = "canvas_" + Math.random().toString(36).slice(2, 11);
@@ -291,10 +295,8 @@ export Demo := Window {
         endColumn: -1,
       };
     });
-    const model = editor.getModel();
-    if (model !== null) {
-      monaco.editor.setModelMarkers(model, "slint", markers);
-    }
+    const model = editor.getModel()!;
+    monaco.editor.setModelMarkers(model, "slint", markers);
 
     if (component !== undefined) {
       component.run(canvas_id);

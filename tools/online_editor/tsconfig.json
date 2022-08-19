@@ -1,19 +1,4 @@
 {
-  "compilerOptions": {
-    "sourceMap": true,
-    "module": "esnext",
-    "moduleResolution": "node",
-    "strict": true,
-    "target": "es2020",
-    "outDir": "./dist",
-    "lib": ["dom", "es6"],
-    "baseUrl": "./node_modules",
-    "jsx": "preserve",
-    "paths": {
-      "@preview/*": ["../../../api/wasm-interpreter/pkg/*"]
-    },
-    "typeRoots": ["node_modules/@types"]
-  },
-  "include": ["./*.ts"],
-  "exclude": ["node_modules"]
+  "files": [],
+  "references": [{ "path": "src" }]
 }
