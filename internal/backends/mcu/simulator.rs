@@ -24,6 +24,7 @@ type CanvasRc = Rc<RefCell<Canvas>>;
 pub mod event_loop;
 mod glcontext;
 use glcontext::*;
+use i_slint_core::lengths::PhysicalLength;
 use i_slint_core::swrenderer::SoftwareRenderer;
 
 pub struct SimulatorWindow {
@@ -226,7 +227,7 @@ impl WinitWindow for SimulatorWindow {
                 fn process_line(
                     &mut self,
                     line: crate::PhysicalLength,
-                    range: core::ops::Range<i16>,
+                    range: core::ops::Range<PhysicalLength>,
                     render_fn: impl FnOnce(&mut [super::TargetPixel]),
                 ) {
                     let mut render_fn = Some(render_fn);

@@ -327,13 +327,13 @@ impl Devices for StmDevices {
     fn render_line(
         &mut self,
         line: PhysicalLength,
-        range: core::ops::Range<i16>,
+        range: core::ops::Range<PhysicalLength>,
         fill_buffer: &mut dyn FnMut(&mut [TargetPixel]),
     ) {
         let line = line.get() as usize;
         fill_buffer(&mut self.line_buffer);
         while self.layer.is_swap_pending() {}
-        let (begin, end) = (range.start as usize, range.end as usize);
+        let (begin, end) = (range.start.get() as usize, range.end.get() as usize);
         self.work_fb[line * DISPLAY_WIDTH + begin..line * DISPLAY_WIDTH + end]
             .copy_from_slice(&self.line_buffer[begin..end]);
 

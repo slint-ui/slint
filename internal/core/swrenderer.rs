@@ -53,7 +53,7 @@ pub trait LineBufferProvider {
     fn process_line(
         &mut self,
         line: PhysicalLength,
-        range: core::ops::Range<i16>,
+        range: core::ops::Range<PhysicalLength>,
         render_fn: impl FnOnce(&mut [Self::TargetPixel]),
     );
 }
@@ -245,50 +245,68 @@ fn render_window_frame_by_line(
 
     debug_assert!(scene.current_line >= dirty_region.origin.y_length());
     while scene.current_line < dirty_region.origin.y_length() + dirty_region.size.height_length() {
-        line_buffer.process_line(scene.current_line, dirty_region.x_range(), |line_buffer| {
-            let offset = dirty_region.min_x() as usize;
-            TargetPixel::blend_buffer( line_buffer, background);
-            for span in scene.items[0..scene.current_items_index].iter().rev() {
-                debug_assert!(scene.current_line >= span.pos.y_length());
-                debug_assert!(scene.current_line < span.pos.y_length() + span.size.height_length(),);
-                match span.command {
-                    SceneCommand::Rectangle { color } => {
-                        TargetPixel::blend_buffer(
-                            &mut line_buffer[span.pos.x as usize - offset
-                                ..(span.pos.x_length() + span.size.width_length()).get() as usize - offset],
-                            color,
-                        );
-                    }
-                    SceneCommand::Texture { texture_index } => {
-                        let texture = &scene.textures[texture_index as usize];
-                        draw_functions::draw_texture_line(
-                            &PhysicalRect{ origin: span.pos - euclid::vec2(offset as i16, 0), size: span.size },
-                            scene.current_line,
-                            texture,
-                            line_buffer,
-                        );
-                    }
-                    SceneCommand::SharedBuffer { shared_buffer_index } => {
-                        let texture = scene.shared_buffers[shared_buffer_index as usize].as_texture();
-                        draw_functions::draw_texture_line(
-                            &PhysicalRect{ origin: span.pos - euclid::vec2(offset as i16, 0), size: span.size },
-                            scene.current_line,
-                            &texture,
-                            line_buffer,
-                        );
-                    }
-                    SceneCommand::RoundedRectangle { rectangle_index } => {
-                        let rr = &scene.rounded_rectangles[rectangle_index as usize];
-                        draw_functions::draw_rounded_rectangle_line(
-                            &PhysicalRect{ origin: span.pos - euclid::vec2(offset as i16, 0), size: span.size },
-                            scene.current_line,
-                            rr,
-                            line_buffer,
-                        );
+        line_buffer.process_line(
+            scene.current_line,
+            PhysicalLength::new(dirty_region.min_x())..PhysicalLength::new(dirty_region.max_x()),
+            |line_buffer| {
+                let offset = dirty_region.min_x() as usize;
+                TargetPixel::blend_buffer(line_buffer, background);
+                for span in scene.items[0..scene.current_items_index].iter().rev() {
+                    debug_assert!(scene.current_line >= span.pos.y_length());
+                    debug_assert!(
+                        scene.current_line < span.pos.y_length() + span.size.height_length(),
+                    );
+                    match span.command {
+                        SceneCommand::Rectangle { color } => {
+                            TargetPixel::blend_buffer(
+                                &mut line_buffer[span.pos.x as usize - offset
+                                    ..(span.pos.x_length() + span.size.width_length()).get()
+                                        as usize
+                                        - offset],
+                                color,
+                            );
+                        }
+                        SceneCommand::Texture { texture_index } => {
+                            let texture = &scene.textures[texture_index as usize];
+                            draw_functions::draw_texture_line(
+                                &PhysicalRect {
+                                    origin: span.pos - euclid::vec2(offset as i16, 0),
+                                    size: span.size,
+                                },
+                                scene.current_line,
+                                texture,
+                                line_buffer,
+                            );
+                        }
+                        SceneCommand::SharedBuffer { shared_buffer_index } => {
+                            let texture =
+                                scene.shared_buffers[shared_buffer_index as usize].as_texture();
+                            draw_functions::draw_texture_line(
+                                &PhysicalRect {
+                                    origin: span.pos - euclid::vec2(offset as i16, 0),
+                                    size: span.size,
+                                },
+                                scene.current_line,
+                                &texture,
+                                line_buffer,
+                            );
+                        }
+                        SceneCommand::RoundedRectangle { rectangle_index } => {
+                            let rr = &scene.rounded_rectangles[rectangle_index as usize];
+                            draw_functions::draw_rounded_rectangle_line(
+                                &PhysicalRect {
+                                    origin: span.pos - euclid::vec2(offset as i16, 0),
+                                    size: span.size,
+                                },
+                                scene.current_line,
+                                rr,
+                                line_buffer,
+                            );
+                        }
                     }
                 }
-            }
-        });
+            },
+        );
 
         if scene.current_line < dirty_region.origin.y_length() + dirty_region.size.height_length() {
             scene.next_line();

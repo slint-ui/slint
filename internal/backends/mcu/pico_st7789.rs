@@ -334,10 +334,10 @@ impl<
     fn process_line(
         &mut self,
         line: PhysicalLength,
-        range: core::ops::Range<i16>,
+        range: core::ops::Range<PhysicalLength>,
         render_fn: impl FnOnce(&mut [super::TargetPixel]),
     ) {
-        let range = range.start as usize..range.end as usize;
+        let range = range.start.get() as usize..range.end.get() as usize;
 
         render_fn(&mut self.buffer[range.clone()]);
 
