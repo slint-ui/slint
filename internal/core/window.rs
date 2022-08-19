@@ -66,7 +66,7 @@ pub trait PlatformWindow {
         None
     }
 
-    /// Request for the event loop to wake up and call [`Window::update_window_properties()`].
+    /// Request for the event loop to wake up and call [`WindowInner::update_window_properties()`].
     fn request_window_properties_update(&self) {}
     /// Request for the given title string to be set to the windowing system for use as window title.
     fn apply_window_properties(&self, _window_item: Pin<&crate::items::WindowItem>) {}

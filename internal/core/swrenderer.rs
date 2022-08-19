@@ -45,11 +45,20 @@ impl Default for DirtyTracking {
     }
 }
 
+/// Provide a buffer for the [`SoftwareRenderer::render_by_line`] function.
+///
+/// See the [`render_by_line`](SoftwareRenderer::render_by_line) documentation
+/// for an example
 pub trait LineBufferProvider {
     /// The pixel type of the buffer
     type TargetPixel: TargetPixel;
 
     /// Called once per line, you will have to call the render_fn back with the buffer.
+    ///
+    /// The `line` is the y position of the line to be drawn.
+    /// The `range` is the range within the line that is going to be rendered (eg, within the dirty region)
+    /// The `render_fn` function should be called to render the line, passing the buffer
+    /// corresponding to the specified line and range.
     fn process_line(
         &mut self,
         line: PhysicalLength,
@@ -158,13 +167,36 @@ impl SoftwareRenderer {
         });
     }
 
-    /// Render the window, line by line, into the buffer provided by the `line_buffer` function.
+    /// Render the window, line by line, into the line buffer provided by the `line_callback` function.
     ///
     /// The renderer uses a cache internally and will only render the part of the window
-    /// which are dirty.
+    /// which are dirty, depending on the dirty tracking policy set in [`SoftwareRenderer::new`]
     ///
-    /// TODO: what about async and threading.
-    ///       (can we call the line_buffer function from different thread?)
+    /// The line callback will be called for each line and should provide a buffer to draw into.
+    ///
+    /// As an example, let's imagine we want to render into a plain buffer.
+    /// (You wouldn't normaly use `render_by_line` for that because the [`Self::render`] would
+    /// then be more efficient)
+    ///
+    /// ```rust, ignore
+    /// struct FrameBuffer<'a>_{ frame_buffer: &mut [Rgb888], stride: usize }
+    /// impl<'a> LineBufferProvider for FrameBuffer<'a> {
+    ///     type TargetPixel = Rgb888;
+    ///     fn process_line(
+    ///         &mut self,
+    ///         line: PhysicalLength,
+    ///         range: core::ops::Range<PhysicalLength>,
+    ///         render_fn: impl FnOnce(&mut [Self::TargetPixel]),
+    ///     ) {
+    ///         let line_begin = line.get() as usize * self.frame_width;
+    ///         render_fn(&self.frame_buffer[line_begin + (range.start.get() as usize)
+    ///              .. line_begin + (range.end.get() as usize)]);
+    ///         // The line has been rendered and there could be code here to
+    ///         // send the pixel to the display
+    ///     }
+    /// }
+    /// renderer.render_by_line(window, FrameBuffer(&the_frame_buffer));
+    /// ```
     pub fn render_by_line(&self, window: &Window, line_buffer: impl LineBufferProvider) {
         let window = window.window_handle().clone();
         let component_rc = window.component();
