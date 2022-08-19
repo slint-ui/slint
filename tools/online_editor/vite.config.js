@@ -28,7 +28,7 @@ export default defineConfig(({ command, _mode }) => {
     // relative path to the interpreter is as below.
     base_config.build = {};
     base_config.build.rollupOptions = {
-      external: ["../../../../wasm-interpreter/slint_wasm_interpreter.js"],
+      external: [new RegExp("/wasm-[a-z]+/slint")],
       input: ["index.html", "preview.html"],
     };
     base_config.resolve = {
