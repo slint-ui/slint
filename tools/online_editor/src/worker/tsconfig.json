@@ -1,0 +1,7 @@
+{
+  "extends": "../../tsconfig.default.json",
+  "compilerOptions": {
+    "lib": ["webworker", "es6"]
+  },
+  "include": ["./*.mjs", "./*.ts"]
+}

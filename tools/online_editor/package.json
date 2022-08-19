@@ -6,10 +6,10 @@
   "scripts": {
     "build": "rimraf dist pkg && npx vite build",
     "build:wasm_preview": "wasm-pack build --target web ../../api/wasm-interpreter",
-    "lint": "eslint *.ts",
-    "start": "rimraf dist && npm run build:wasm_preview && npn start:vite",
+    "lint": "eslint src",
+    "start": "rimraf dist && npm run build:wasm_preview && npm run start:vite",
     "start:vite": "vite --open",
-    "syntax_check": "tsc --noemit"
+    "syntax_check": "tsc --build"
   },
   "keywords": [],
   "author": "",

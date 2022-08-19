@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import { defineConfig } from "vite";
+
 export default defineConfig(({ command, _mode }) => {
   const base_config = {
     server: {
@@ -10,14 +11,14 @@ export default defineConfig(({ command, _mode }) => {
         allow: ["../../"],
       },
     },
-    base: "",
+    base: "./",
   };
 
   if (command === "serve") {
     // For development builds, serve the wasm interpreter straight out of the local file system.
     base_config.resolve = {
       alias: {
-        "@preview/": "../../api/wasm-interpreter/pkg/",
+        "@preview/": "../../../api/wasm-interpreter/pkg/",
       },
     };
   } else {
@@ -26,12 +27,12 @@ export default defineConfig(({ command, _mode }) => {
     // relative path to the interpreter is as below.
     base_config.build = {};
     base_config.build.rollupOptions = {
-      external: ["../../../wasm-interpreter/slint_wasm_interpreter.js"],
+      external: ["../../../../wasm-interpreter/slint_wasm_interpreter.js"],
       input: ["index.html", "preview.html"],
     };
     base_config.resolve = {
       alias: {
-        "@preview/": "../../../wasm-interpreter/",
+        "@preview/": "../../../../wasm-interpreter/",
       },
     };
   }
