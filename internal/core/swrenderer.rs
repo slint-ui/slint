@@ -24,19 +24,19 @@ pub use draw_functions::TargetPixel;
 
 type DirtyRegion = PhysicalRect;
 
-/// The argument to pass in the [`SoftwareRenderer::new()`] to specify how the renderer
-/// should keep track of what region of the buffer changes between calls to render
+/// The argument to pass in the [`SoftwareRenderer::new()`] function to specify how the renderer
+/// should keep track of what region of the buffer changes between calls to render.
 #[derive(PartialEq, Eq, Debug)]
 pub enum DirtyTracking {
-    /// No attempt at tracking dirty items will be made. The full screen is always redrawn
+    /// No attempt at tracking dirty items will be made. The full screen is always redrawn.
     None,
     /// Only redraw the parts that have changed since the previous call to render.
     ///
     /// This is assuming that the same buffer is passed on every call to render.
     SingleBuffer,
-    /// Redraw the part that have changed during the two last frames
+    /// Redraw the part that have changed during the two last frames.
     ///
-    /// This is assuming double buffering and swap buffer
+    /// This is assuming double buffering and swapping of the buffers.
     DoubleBuffer,
 }
 
