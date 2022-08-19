@@ -6,6 +6,7 @@
   "scripts": {
     "build": "rimraf dist pkg && npx vite build",
     "build:wasm_preview": "wasm-pack build --target web ../../api/wasm-interpreter",
+    "build:wasm_lsp": "wasm-pack build --target web ../lsp --no-default-features",
     "lint": "eslint src",
     "start": "rimraf dist && npm run build:wasm_preview && npm run start:vite",
     "start:vite": "vite --open",
