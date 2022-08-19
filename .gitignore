@@ -1,4 +1,5 @@
 Cargo.lock
+tsconfig.tsbuildinfo
 /target
 node_modules
 tools/figma_import/target
