@@ -29,10 +29,6 @@ import {
   BrowserMessageWriter,
 } from "vscode-languageserver-protocol/browser";
 
-import { RevealOutputChannelOn } from "vscode-languageclient";
-
-import { OutputChannel } from "vscode";
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (self as any).MonacoEnvironment = {
   getWorker(_: unknown, _label: unknown) {
@@ -43,29 +39,6 @@ import { OutputChannel } from "vscode";
 };
 
 import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
-
-class LogOutputChannel implements OutputChannel {
-  constructor(
-    private readonly logger: (value: string) => void,
-    readonly name: string
-  ) {}
-
-  append(value: string) {
-    this.logger(this.name + "(append):" + value);
-  }
-  appendLine(value: string) {
-    this.logger(this.name + ":" + value);
-  }
-  replace(value: string) {
-    this.logger(this.name + ":" + value);
-  }
-  clear() {
-    this.logger(this.name + ": *** CLEARED ***");
-  }
-  show(column?: unknown, preserveFocus?: boolean) {}
-  hide() {}
-  dispose() {}
-}
 
 (async function () {
   await slint_init();
@@ -368,10 +341,6 @@ export Demo := Window {
     return new MonacoLanguageClient({
       name: "Slint Language Client",
       clientOptions: {
-        traceOutputChannel: new LogOutputChannel(console.trace, "TRACE"),
-        outputChannel: new LogOutputChannel(console.log, "LOG"),
-        revealOutputChannelOn: RevealOutputChannelOn.Never,
-
         // use a language id as a document selector
         documentSelector: [{ language: "slint" }],
         // disable the default error handler
@@ -389,7 +358,6 @@ export Demo := Window {
     });
   }
 
-  console.log("  * Creating webworker!");
   const lsp_worker = new Worker(
     new URL("worker/lsp_worker.ts", import.meta.url),
     {
@@ -404,10 +372,4 @@ export Demo := Window {
   languageClient.start();
 
   reader.onClose(() => languageClient.stop());
-  console.log(
-    "  * LSP WebWorker ",
-    lsp_worker,
-    " set up using ",
-    languageClient
-  );
 })();
