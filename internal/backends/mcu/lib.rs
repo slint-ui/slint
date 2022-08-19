@@ -35,13 +35,10 @@ pub trait Devices {
     fn screen_size(&self) -> PhysicalSize;
     /// If the device supports it, return the target buffer where to draw the frame. Must be width * height large.
     /// Also return the dirty area.
-    fn get_buffer(&mut self) -> Option<(&mut [TargetPixel], PhysicalRect)> {
+    fn get_buffer(&mut self) -> Option<&mut [TargetPixel]> {
         None
     }
-    /// Called before the frame is being drawn, with the dirty region. Return the actual dirty region
-    fn prepare_frame(&mut self, dirty_region: PhysicalRect) -> PhysicalRect {
-        dirty_region
-    }
+
     fn flush_frame(&mut self) {}
 
     /// Call the fill_line function with a buffer of `self.screen_size().width`.
@@ -50,7 +47,7 @@ pub trait Devices {
     fn render_line(
         &mut self,
         line: PhysicalLength,
-        dirty_region: renderer::DirtyRegion,
+        range: core::ops::Range<i16>,
         fill_buffer: &mut dyn FnMut(&mut [TargetPixel]),
     );
     fn read_touch_event(&mut self) -> Option<i_slint_core::input::MouseEvent> {
@@ -76,7 +73,7 @@ where
     fn render_line(
         &mut self,
         line: PhysicalLength,
-        dirty_region: renderer::DirtyRegion,
+        range: core::ops::Range<i16>,
         fill_buffer: &mut dyn FnMut(&mut [TargetPixel]),
     ) {
         let mut buffer = vec![TargetPixel::default(); self.screen_size().width as usize];
@@ -84,10 +81,10 @@ where
         self.color_converted()
             .fill_contiguous(
                 &embedded_graphics::primitives::Rectangle::new(
-                    Point::new(dirty_region.origin.x as i32, line.get() as i32),
-                    Size::new(dirty_region.size.width as u32, 1),
+                    Point::new(range.start as i32, line.get() as i32),
+                    Size::new(range.len() as u32, 1),
                 ),
-                buffer.into_iter().skip(dirty_region.origin.x as usize),
+                buffer.into_iter().skip(range.start as usize),
             )
             .unwrap()
     }
@@ -199,15 +196,13 @@ mod the_backend {
                 let size = screen_size.to_f32() / scale_factor;
                 runtime_window.set_window_item_geometry(size.width as _, size.height as _);
 
-                if let Some((buffer, prev_dirty)) = devices.get_buffer() {
-                    let new_dirty_region = window.renderer.render(
+                if let Some(buffer) = devices.get_buffer() {
+                    window.renderer.render(
                         &runtime_window.into(),
-                        prev_dirty,
                         buffer,
                         screen_size.width_length(),
                     );
 
-                    devices.prepare_frame(new_dirty_region);
                     devices.flush_frame();
                     frame_profiler.stop_profiling(&mut **devices, "=> frame total");
                     return;
@@ -220,29 +215,21 @@ mod the_backend {
                     compute_dirty_regions_profiler: profiler::Timer,
                     line_processing_profiler: profiler::Timer,
                     devices: &'a mut dyn Devices,
-                    dirty_region: PhysicalRect,
                 }
                 impl renderer::LineBufferProvider for BufferProvider<'_> {
                     type TargetPixel = super::TargetPixel;
 
-                    fn set_dirty_region(&mut self, mut dirty_region: PhysicalRect) -> PhysicalRect {
-                        self.compute_dirty_regions_profiler.stop(self.devices);
-                        dirty_region = self.devices.prepare_frame(dirty_region);
-                        self.dirty_region = dirty_region;
-                        self.prepare_scene_profiler.start(self.devices);
-                        dirty_region
-                    }
-
                     fn process_line(
                         &mut self,
                         line: PhysicalLength,
+                        range: core::ops::Range<i16>,
                         render_fn: impl FnOnce(&mut [super::TargetPixel]),
                     ) {
                         let mut render_fn = Some(render_fn);
                         self.prepare_scene_profiler.stop(self.devices);
                         self.screen_fill_profiler.stop(self.devices);
                         self.span_drawing_profiler.start(self.devices);
-                        self.devices.render_line(line, self.dirty_region, &mut |buffer| {
+                        self.devices.render_line(line, range, &mut |buffer| {
                             (render_fn.take().unwrap())(buffer);
                         });
                         self.span_drawing_profiler.stop(self.devices);
@@ -269,7 +256,6 @@ mod the_backend {
                     prepare_scene_profiler: profiler::Timer::new_stopped(),
                     line_processing_profiler: profiler::Timer::new_stopped(),
                     devices: &mut **devices,
-                    dirty_region: PhysicalRect::default(),
                 };
 
                 window.renderer.render_by_line(&runtime_window.into(), buffer_provider);
@@ -281,7 +267,12 @@ mod the_backend {
     impl i_slint_core::backend::Backend for MCUBackend {
         fn create_window(&self) -> i_slint_core::api::Window {
             i_slint_core::window::WindowInner::new(|window| {
-                Rc::new(McuWindow { self_weak: window.clone(), renderer: Default::default() })
+                Rc::new(McuWindow {
+                    self_weak: window.clone(),
+                    renderer: crate::renderer::SoftwareRenderer::new(
+                        crate::renderer::DirtyTracking::DoubleBuffer,
+                    ),
+                })
             })
             .into()
         }

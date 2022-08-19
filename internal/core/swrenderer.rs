@@ -6,7 +6,7 @@ pub mod fonts;
 
 use crate::api::Window;
 use crate::graphics::{IntRect, PixelFormat, Rect as RectF, SharedImageBuffer};
-use crate::item_rendering::{ItemRenderer, PartialRenderingCache};
+use crate::item_rendering::ItemRenderer;
 use crate::items::{ImageFit, ItemRc};
 use crate::lengths::{
     LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, PhysicalLength, PhysicalPoint,
@@ -22,23 +22,39 @@ use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 pub use draw_functions::TargetPixel;
 
-pub type DirtyRegion = PhysicalRect;
+type DirtyRegion = PhysicalRect;
+
+/// The argument to pass in the [`SoftwareRenderer::new()`] function to specify how the renderer
+/// should keep track of what region of the buffer changes between calls to render.
+#[derive(PartialEq, Eq, Debug)]
+pub enum DirtyTracking {
+    /// No attempt at tracking dirty items will be made. The full screen is always redrawn.
+    None,
+    /// Only redraw the parts that have changed since the previous call to render.
+    ///
+    /// This is assuming that the same buffer is passed on every call to render.
+    SingleBuffer,
+    /// Redraw the part that have changed during the two last frames.
+    ///
+    /// This is assuming double buffering and swapping of the buffers.
+    DoubleBuffer,
+}
+
+impl Default for DirtyTracking {
+    fn default() -> Self {
+        Self::None
+    }
+}
 
 pub trait LineBufferProvider {
     /// The pixel type of the buffer
     type TargetPixel: TargetPixel;
 
-    /// Called before the frame is being drawn, with the dirty region. Return the actual dirty region
-    ///
-    /// The default implementation simply returns the dirty_region
-    fn set_dirty_region(&mut self, dirty_region: PhysicalRect) -> PhysicalRect {
-        dirty_region
-    }
-
     /// Called once per line, you will have to call the render_fn back with the buffer.
     fn process_line(
         &mut self,
         line: PhysicalLength,
+        range: core::ops::Range<i16>,
         render_fn: impl FnOnce(&mut [Self::TargetPixel]),
     );
 }
@@ -48,9 +64,34 @@ pub struct SoftwareRenderer {
     partial_cache: RefCell<crate::item_rendering::PartialRenderingCache>,
     /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not
     force_dirty: Cell<crate::item_rendering::DirtyRegion>,
+    dirty_tracking_policy: DirtyTracking,
+    /// This is the area which was dirty on the next frame, in case we do double buffering
+    prev_frame_dirty: Cell<DirtyRegion>,
 }
 
 impl SoftwareRenderer {
+    pub fn new(dirty_tracking_policy: DirtyTracking) -> Self {
+        Self { dirty_tracking_policy, ..Default::default() }
+    }
+
+    /// Internal function to apply a dirty region depending on the dirty_tracking_policy.
+    /// Returns the region to actually draw.
+    fn apply_dirty_region(
+        &self,
+        dirty_region: DirtyRegion,
+        screen_size: PhysicalSize,
+    ) -> DirtyRegion {
+        match self.dirty_tracking_policy {
+            DirtyTracking::None => PhysicalRect { origin: euclid::point2(0, 0), size: screen_size },
+            DirtyTracking::SingleBuffer => dirty_region,
+            DirtyTracking::DoubleBuffer => {
+                dirty_region.union(&self.prev_frame_dirty.replace(dirty_region))
+            }
+        }
+        .intersection(&PhysicalRect { origin: euclid::point2(0, 0), size: screen_size })
+        .unwrap_or_default()
+    }
+
     /// Render the window to the given frame buffer.
     ///
     /// The renderer uses a cache internally and will only render the part of the window
@@ -61,10 +102,9 @@ impl SoftwareRenderer {
     pub fn render(
         &self,
         window: &Window,
-        extra_draw_region: DirtyRegion,
         buffer: &mut [impl TargetPixel],
         buffer_stride: PhysicalLength,
-    ) -> DirtyRegion {
+    ) {
         let window = window.window_handle().clone();
         let factor = ScaleFactor::new(window.scale_factor());
         let (size, background) = if let Some(window_item) =
@@ -96,21 +136,18 @@ impl SoftwareRenderer {
             buffer_renderer,
         );
 
-        let mut dirty_region = PhysicalRect::default();
         window.draw_contents(|components| {
             for (component, origin) in components {
                 renderer.compute_dirty_regions(component, *origin);
             }
 
-            dirty_region = (LogicalRect::from_untyped(&renderer.dirty_region.to_rect()).cast()
+            let dirty_region = (LogicalRect::from_untyped(&renderer.dirty_region.to_rect()).cast()
                 * factor)
                 .round_out()
                 .cast();
 
-            let to_draw = dirty_region
-                .union(&extra_draw_region)
-                .intersection(&PhysicalRect { origin: euclid::point2(0, 0), size })
-                .unwrap_or_default();
+            let to_draw = self.apply_dirty_region(dirty_region, size);
+
             renderer.combine_clip((to_draw.cast() / factor).to_untyped().cast(), 0 as _, 0 as _);
 
             if background.alpha() != 0 {
@@ -120,7 +157,6 @@ impl SoftwareRenderer {
                 crate::item_rendering::render_component_items(component, &mut renderer, *origin);
             }
         });
-        dirty_region
     }
 
     /// Render the window, line by line, into the buffer provided by the `line_buffer` function.
@@ -144,8 +180,7 @@ impl SoftwareRenderer {
                 window,
                 window_item.background(),
                 size.cast(),
-                self.force_dirty.take(),
-                &self.partial_cache,
+                &self,
                 line_buffer,
             );
         }
@@ -202,18 +237,16 @@ fn render_window_frame_by_line(
     runtime_window: Rc<crate::window::WindowInner>,
     background: Color,
     size: PhysicalSize,
-    initial_dirty_region: crate::item_rendering::DirtyRegion,
-    cache: &RefCell<PartialRenderingCache>,
+    renderer: &SoftwareRenderer,
     mut line_buffer: impl LineBufferProvider,
 ) {
-    let mut scene =
-        prepare_scene(runtime_window, size, initial_dirty_region, &mut line_buffer, cache);
+    let mut scene = prepare_scene(runtime_window, size, renderer);
 
     let dirty_region = scene.dirty_region;
 
     debug_assert!(scene.current_line >= dirty_region.origin.y_length());
     while scene.current_line < dirty_region.origin.y_length() + dirty_region.size.height_length() {
-        line_buffer.process_line(scene.current_line, |line_buffer| {
+        line_buffer.process_line(scene.current_line, dirty_region.x_range(), |line_buffer| {
             TargetPixel::blend_buffer(&mut line_buffer[dirty_region.min_x() as usize..dirty_region.max_x() as usize] , background);
             for span in scene.items[0..scene.current_items_index].iter().rev() {
                 debug_assert!(scene.current_line >= span.pos.y_length());
@@ -526,15 +559,16 @@ struct RoundedRectangle {
 fn prepare_scene(
     runtime_window: Rc<crate::window::WindowInner>,
     size: PhysicalSize,
-    initial_dirty_region: crate::item_rendering::DirtyRegion,
-    line_buffer: &mut impl LineBufferProvider,
-    cache: &RefCell<PartialRenderingCache>,
+    swrenderer: &SoftwareRenderer,
 ) -> Scene {
     let factor = ScaleFactor::new(runtime_window.scale_factor());
     let prepare_scene =
         SceneBuilder::new(size, factor, runtime_window.clone(), PrepareScene::default());
-    let mut renderer =
-        crate::item_rendering::PartialRenderer::new(cache, initial_dirty_region, prepare_scene);
+    let mut renderer = crate::item_rendering::PartialRenderer::new(
+        &swrenderer.partial_cache,
+        swrenderer.force_dirty.take(),
+        prepare_scene,
+    );
 
     let mut dirty_region = PhysicalRect::default();
     runtime_window.draw_contents(|components| {
@@ -545,10 +579,8 @@ fn prepare_scene(
         dirty_region = (LogicalRect::from_untyped(&renderer.dirty_region.to_rect()).cast()
             * factor)
             .round_out()
-            .cast()
-            .intersection(&PhysicalRect { origin: euclid::point2(0, 0), size })
-            .unwrap_or_default();
-        dirty_region = line_buffer.set_dirty_region(dirty_region);
+            .cast();
+        dirty_region = swrenderer.apply_dirty_region(dirty_region, size);
 
         renderer.combine_clip((dirty_region.cast() / factor).to_untyped().cast(), 0 as _, 0 as _);
         for (component, origin) in components {

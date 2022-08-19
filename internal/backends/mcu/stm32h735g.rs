@@ -26,7 +26,7 @@ fn oom(layout: core::alloc::Layout) -> ! {
 }
 use alloc_cortex_m::CortexMHeap;
 
-use crate::{Devices, PhysicalLength, PhysicalRect, PhysicalSize};
+use crate::{Devices, PhysicalLength, PhysicalSize};
 
 const HEAP_SIZE: usize = 200 * 1024;
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
@@ -296,7 +296,6 @@ pub fn init() {
         touch_i2c,
         system_control_block: cp.SCB,
         last_touch: Default::default(),
-        prev_dirty: Default::default(),
     });
 }
 
@@ -313,9 +312,6 @@ struct StmDevices {
     touch_i2c: TouchI2C,
     last_touch: Option<i_slint_core::graphics::Point>,
     system_control_block: hal::device::SCB,
-
-    /// When using double frame buffer, this is the part still dirty in the other buffer
-    prev_dirty: PhysicalRect,
 }
 
 impl Devices for StmDevices {
@@ -323,27 +319,23 @@ impl Devices for StmDevices {
         PhysicalSize::new(DISPLAY_WIDTH as _, DISPLAY_HEIGHT as _)
     }
 
-    fn get_buffer(&mut self) -> Option<(&mut [TargetPixel], PhysicalRect)> {
+    fn get_buffer(&mut self) -> Option<&mut [TargetPixel]> {
         while self.layer.is_swap_pending() {}
-        Some((self.work_fb, self.prev_dirty))
-    }
-
-    fn prepare_frame(&mut self, dirty_region: PhysicalRect) -> PhysicalRect {
-        dirty_region.union(&core::mem::replace(&mut self.prev_dirty, dirty_region))
+        Some(self.work_fb)
     }
 
     fn render_line(
         &mut self,
         line: PhysicalLength,
-        dirty_region: crate::renderer::DirtyRegion,
+        range: core::ops::Range<i16>,
         fill_buffer: &mut dyn FnMut(&mut [TargetPixel]),
     ) {
         let line = line.get() as usize;
         fill_buffer(&mut self.line_buffer);
         while self.layer.is_swap_pending() {}
-        let region = dirty_region.cast::<usize>();
-        self.work_fb[line * DISPLAY_WIDTH + region.min_x()..line * DISPLAY_WIDTH + region.max_x()]
-            .copy_from_slice(&self.line_buffer[region.min_x()..region.max_x()]);
+        let (begin, end) = (range.start as usize, range.end as usize);
+        self.work_fb[line * DISPLAY_WIDTH + begin..line * DISPLAY_WIDTH + end]
+            .copy_from_slice(&self.line_buffer[begin..end]);
 
         // We don't render directly to the frame buffer because the frame buffer is in a slower RAM
         //fill_buffer(&mut self.work_fb[line * DISPLAY_WIDTH..(line + 1) * DISPLAY_WIDTH])
