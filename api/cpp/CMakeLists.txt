@@ -168,11 +168,11 @@ endif(SLINT_STYLE)
 # so cc.rs will first look for CC_<triplet> and then HOST_CC.
 # When cross-compiling, CMake doesn't really know what the host compiler is. Corrosion will set
 # HOST_CC to $CC, which is a good bet. Unfortunately in Yocto environments, CC will be set to
-# the cross-compiler.
+# the cross-compiler. The same applies to CFLAGS, which may contain target specific options.
 # So the hack to solve this is two-fold:
 #  * We look for clang or gcc in PATH - unprefixed those are usually host compilers.
 #  * Through corrosion we know the correct host value of CC_<triplet>.
-# Finally, we set CC_<host triplet> to clang or gcc.
+# Finally, we set CC_<host triplet> to clang or gcc and empty CFLAGS_<host triplet>
 if(SLINT_FEATURE_RENDERER_SKIA AND CMAKE_CROSSCOMPILING AND Rust_CARGO_HOST_TARGET)
     find_program(CLANG clang)
     if(CLANG)
@@ -190,6 +190,12 @@ if(SLINT_FEATURE_RENDERER_SKIA AND CMAKE_CROSSCOMPILING AND Rust_CARGO_HOST_TARG
             APPEND
             PROPERTY CORROSION_ENVIRONMENT_VARIABLES
             CC_${cargo_host_target_underscore}=${host_cc}
+        )
+        set_property(
+            TARGET slint-cpp
+            APPEND
+            PROPERTY CORROSION_ENVIRONMENT_VARIABLES
+            CFLAGS_${cargo_host_target_underscore}=""
         )
     endif()
 endif()
