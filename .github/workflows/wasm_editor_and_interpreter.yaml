@@ -1,7 +1,7 @@
 # Copyright © SixtyFPS GmbH <info@slint-ui.com>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-name: Build the web editor and the interpreter wasm module
+name: Build the web editor, the interpreter wasm module and the wasm LSP
 
 on:
   workflow_dispatch:
@@ -43,18 +43,25 @@ jobs:
     - name: Compile online editor
       run: npm run build
       working-directory: tools/online_editor
-    - name: Clean wasm build artefacts from previous editor build
+    - name: Clean wasm build artefacts from previous preview build
       run: rm -rf pkg
       working-directory: api/wasm-interpreter
     - name: Compile slint-wasm-interpreter
-      run: wasm-pack build --release --target web -- --features console_error_panic_hook
-      working-directory: api/wasm-interpreter
+      run: npm run build:wasm_preview
+      working-directory: tools/online_editor
+    - name: Clean wasm build artefacts from previous lsp build
+      run: rm -rf pkg
+      working-directory: tools/lsp
+    - name: Compile slint-wasm-lsp
+      run: npm run build:wasm_lsp
+      working-directory: tools/online_editor
     - name: "Upload wasm Artifacts"
       uses: actions/upload-artifact@v2
       with:
           name: wasm
           path: |
               api/wasm-interpreter/pkg/
+              tools/lsp/pkg/
               tools/online_editor/dist/
     - name: Lint online editor # This needs the slint-wasm-interpreter!
       run: |
