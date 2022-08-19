@@ -337,9 +337,9 @@ impl<
         range: core::ops::Range<i16>,
         render_fn: impl FnOnce(&mut [super::TargetPixel]),
     ) {
-        render_fn(self.buffer);
-
         let range = range.start as usize..range.end as usize;
+
+        render_fn(&mut self.buffer[range.clone()]);
 
         // convert from little to big indian before sending to the DMA channel
         for x in &mut self.buffer[range.clone()] {

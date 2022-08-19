@@ -230,8 +230,10 @@ mod the_backend {
                         self.prepare_scene_profiler.stop(self.devices);
                         self.screen_fill_profiler.stop(self.devices);
                         self.span_drawing_profiler.start(self.devices);
-                        self.devices.render_line(line, range, &mut |buffer| {
-                            (render_fn.take().unwrap())(buffer);
+                        self.devices.render_line(line, range.clone(), &mut |buffer| {
+                            (render_fn.take().unwrap())(
+                                &mut buffer[range.start as usize..range.end as usize],
+                            );
                         });
                         self.span_drawing_profiler.stop(self.devices);
                         self.screen_fill_profiler.start(self.devices);
