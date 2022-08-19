@@ -32,6 +32,7 @@ jobs:
         uses: jurplel/install-qt-action@v2
         with:
           version: 6.2.1
+          py7zrversion: ==0.19.*          
       - uses: Swatinem/rust-cache@v1
         with:
           key: x
@@ -91,6 +92,7 @@ jobs:
         with:
           version: 5.15.2
           cached: ${{ steps.cache-qt.outputs.cache-hit }}
+          py7zrversion: ==0.19.*
       - uses: Swatinem/rust-cache@v1
         with:
           key: x
@@ -141,6 +143,7 @@ jobs:
           version: 6.2.1 # for Apple Silicon support
           cached: ${{ steps.cache-qt.outputs.cache-hit }}
           setup-python: false
+          py7zrversion: ==0.19.*
       - uses: Swatinem/rust-cache@v1
         with:
           key: x
