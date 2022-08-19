@@ -47,7 +47,7 @@ pub trait Devices {
     fn render_line(
         &mut self,
         line: PhysicalLength,
-        range: core::ops::Range<i16>,
+        range: core::ops::Range<PhysicalLength>,
         fill_buffer: &mut dyn FnMut(&mut [TargetPixel]),
     );
     fn read_touch_event(&mut self) -> Option<i_slint_core::input::MouseEvent> {
@@ -73,7 +73,7 @@ where
     fn render_line(
         &mut self,
         line: PhysicalLength,
-        range: core::ops::Range<i16>,
+        range: core::ops::Range<PhysicalLength>,
         fill_buffer: &mut dyn FnMut(&mut [TargetPixel]),
     ) {
         let mut buffer = vec![TargetPixel::default(); self.screen_size().width as usize];
@@ -81,10 +81,10 @@ where
         self.color_converted()
             .fill_contiguous(
                 &embedded_graphics::primitives::Rectangle::new(
-                    Point::new(range.start as i32, line.get() as i32),
-                    Size::new(range.len() as u32, 1),
+                    Point::new(range.start.get() as i32, line.get() as i32),
+                    Size::new((range.end - range.start).get() as u32, 1),
                 ),
-                buffer.into_iter().skip(range.start as usize),
+                buffer.into_iter().skip(range.start.get() as usize),
             )
             .unwrap()
     }
@@ -223,7 +223,7 @@ mod the_backend {
                     fn process_line(
                         &mut self,
                         line: PhysicalLength,
-                        range: core::ops::Range<i16>,
+                        range: core::ops::Range<PhysicalLength>,
                         render_fn: impl FnOnce(&mut [super::TargetPixel]),
                     ) {
                         let mut render_fn = Some(render_fn);
@@ -232,7 +232,7 @@ mod the_backend {
                         self.span_drawing_profiler.start(self.devices);
                         self.devices.render_line(line, range.clone(), &mut |buffer| {
                             (render_fn.take().unwrap())(
-                                &mut buffer[range.start as usize..range.end as usize],
+                                &mut buffer[range.start.get() as usize..range.end.get() as usize],
                             );
                         });
                         self.span_drawing_profiler.stop(self.devices);
