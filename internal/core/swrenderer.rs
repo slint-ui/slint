@@ -19,6 +19,7 @@ use crate::{Color, Coord, ImageInner, StaticTextures};
 use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
+use draw_functions::PremultipliedRgbaColor;
 pub use draw_functions::TargetPixel;
 
 type DirtyRegion = PhysicalRect;
@@ -282,7 +283,7 @@ fn render_window_frame_by_line(
             PhysicalLength::new(dirty_region.min_x())..PhysicalLength::new(dirty_region.max_x()),
             |line_buffer| {
                 let offset = dirty_region.min_x() as usize;
-                TargetPixel::blend_buffer(line_buffer, background);
+                TargetPixel::blend_buffer(line_buffer, background.into());
                 for span in scene.items[0..scene.current_items_index].iter().rev() {
                     debug_assert!(scene.current_line >= span.pos.y_length());
                     debug_assert!(
@@ -527,7 +528,7 @@ fn compare_scene_item(a: &SceneItem, b: &SceneItem) -> core::cmp::Ordering {
 #[repr(u8)]
 enum SceneCommand {
     Rectangle {
-        color: Color,
+        color: PremultipliedRgbaColor,
     },
     /// texture_index is an index in the Scene::textures array
     Texture {
@@ -595,8 +596,8 @@ struct RoundedRectangle {
     radius: PhysicalLength,
     /// the border's width
     width: PhysicalLength,
-    border_color: Color,
-    inner_color: Color,
+    border_color: PremultipliedRgbaColor,
+    inner_color: PremultipliedRgbaColor,
     /// The clips is the amount of pixels of the rounded rectangle that is clipped away.
     /// For example, if left_clip > width, then the left border will not be visible, and
     /// if left_clip > radius, then no radius will be seen in the left side
@@ -680,6 +681,7 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
     }
 
     fn process_rectangle(&mut self, geometry: PhysicalRect, color: Color) {
+        let color = PremultipliedRgbaColor::from(color);
         for line in geometry.min_y()..geometry.max_y() {
             let begin = line as usize * self.stride.get() as usize + geometry.origin.x as usize;
             TargetPixel::blend_buffer(
@@ -743,6 +745,7 @@ impl ProcessScene for PrepareScene {
         if !size.is_empty() {
             let z = self.items.len() as u16;
             let pos = geometry.origin;
+            let color = PremultipliedRgbaColor::from(color);
             self.items.push(SceneItem { pos, size, z, command: SceneCommand::Rectangle { color } });
         }
     }
@@ -992,8 +995,8 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                         RoundedRectangle {
                             radius: (radius.cast() * self.scale_factor).cast(),
                             width: (LogicalLength::new(border).cast() * self.scale_factor).cast(),
-                            border_color: rect.border_color().color(),
-                            inner_color: color,
+                            border_color: rect.border_color().color().into(),
+                            inner_color: color.into(),
                             top_clip: PhysicalLength::new(
                                 (clipped2.min_y() - geom2.min_y() + E) as _,
                             ),
