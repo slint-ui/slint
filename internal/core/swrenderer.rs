@@ -283,7 +283,7 @@ fn render_window_frame_by_line(
             PhysicalLength::new(dirty_region.min_x())..PhysicalLength::new(dirty_region.max_x()),
             |line_buffer| {
                 let offset = dirty_region.min_x() as usize;
-                TargetPixel::blend_buffer(line_buffer, background.into());
+                TargetPixel::blend_slice(line_buffer, background.into());
                 for span in scene.items[0..scene.current_items_index].iter().rev() {
                     debug_assert!(scene.current_line >= span.pos.y_length());
                     debug_assert!(
@@ -291,7 +291,7 @@ fn render_window_frame_by_line(
                     );
                     match span.command {
                         SceneCommand::Rectangle { color } => {
-                            TargetPixel::blend_buffer(
+                            TargetPixel::blend_slice(
                                 &mut line_buffer[span.pos.x as usize - offset
                                     ..(span.pos.x_length() + span.size.width_length()).get()
                                         as usize
@@ -684,7 +684,7 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
         let color = PremultipliedRgbaColor::from(color);
         for line in geometry.min_y()..geometry.max_y() {
             let begin = line as usize * self.stride.get() as usize + geometry.origin.x as usize;
-            TargetPixel::blend_buffer(
+            TargetPixel::blend_slice(
                 &mut self.buffer[begin..begin + geometry.width() as usize],
                 color,
             );

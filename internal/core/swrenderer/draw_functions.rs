@@ -170,13 +170,13 @@ pub(super) fn draw_rounded_rectangle_line(
             as usize;
         let r = rev(x2).floor().min(span.size.width as u32) as usize;
         if l < r {
-            TargetPixel::blend_buffer(&mut line_buffer[pos_x + l..pos_x + r], rr.border_color)
+            TargetPixel::blend_slice(&mut line_buffer[pos_x + l..pos_x + r], rr.border_color)
         }
     } else {
         if border > Shifted(0) {
             // 3. draw the border (between x2 and x3)
             if ONE + x2 <= x3 {
-                TargetPixel::blend_buffer(
+                TargetPixel::blend_slice(
                     &mut line_buffer[pos_x
                         + x2.ceil()
                             .saturating_sub(rr.left_clip.get() as u32)
@@ -206,7 +206,7 @@ pub(super) fn draw_rounded_rectangle_line(
         let begin = x4.ceil().saturating_sub(rr.left_clip.get() as u32).min(span.size.width as u32);
         let end = rev(x4).floor().min(span.size.width as u32);
         if begin < end {
-            TargetPixel::blend_buffer(
+            TargetPixel::blend_slice(
                 &mut line_buffer[pos_x + begin as usize..pos_x + end as usize],
                 rr.inner_color,
             )
@@ -222,7 +222,7 @@ pub(super) fn draw_rounded_rectangle_line(
             });
             // 7. border x3 .. x2
             if ONE + x2 <= x3 {
-                TargetPixel::blend_buffer(
+                TargetPixel::blend_slice(
                     &mut line_buffer[pos_x + rev(x3).ceil().min(span.size.width as u32) as usize
                         ..pos_x + rev(x2).floor().min(span.size.width as u32) as usize as usize],
                     rr.border_color,
@@ -282,10 +282,10 @@ fn interpolate_color(
 /// components
 #[derive(Clone, Copy, Debug, Default)]
 pub struct PremultipliedRgbaColor {
-    pub alpha: u8,
     pub red: u8,
     pub green: u8,
     pub blue: u8,
+    pub alpha: u8,
 }
 
 /// Convert a non-premultiplied color to a premultiplied one
@@ -312,8 +312,8 @@ impl PremultipliedRgbaColor {
 pub trait TargetPixel: Sized + Copy {
     /// Blend a single pixel with a color
     fn blend(&mut self, color: PremultipliedRgbaColor);
-    /// Fill (or blend) a color in the buffer.
-    fn blend_buffer(to_fill: &mut [Self], color: PremultipliedRgbaColor) {
+    /// Fill (or blend) a color for all the pixel in the span.
+    fn blend_slice(to_fill: &mut [Self], color: PremultipliedRgbaColor) {
         if color.alpha == u8::MAX {
             to_fill.fill(Self::from_rgb(color.red, color.green, color.blue))
         } else {
