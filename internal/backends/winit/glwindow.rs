@@ -116,7 +116,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
             None => return, // caller bug, doesn't make sense to call draw() when not mapped
         };
 
-        self.renderer.render(&window.canvas);
+        self.renderer.render(&window.canvas, self);
     }
 
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window)) {

@@ -124,12 +124,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         })
     }
 
-    fn render(&self, canvas: &FemtoVGCanvas) {
-        let platform_window = match self.platform_window_weak.upgrade() {
-            Some(window) => window,
-            None => return,
-        };
-
+    fn render(&self, canvas: &FemtoVGCanvas, platform_window: &dyn PlatformWindow) {
         let size = canvas.opengl_context.window().inner_size();
         let width = size.width;
         let height = size.height;

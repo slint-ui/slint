@@ -42,6 +42,7 @@ cfg_if::cfg_if! {
                     "qt" => Some(("qt", "qpainter")),
                     "gl" => Some(("winit", "femtovg")),
                     "skia" => Some(("winit", "skia")),
+                    "sw" | "software" => Some(("winit", "software")),
                     _ => None,
                 }) {
                     match event_loop {

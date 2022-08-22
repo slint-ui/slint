@@ -35,7 +35,7 @@ mod renderer {
         fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas;
         fn release_canvas(&self, canvas: Self::Canvas);
 
-        fn render(&self, canvas: &Self::Canvas);
+        fn render(&self, canvas: &Self::Canvas, window: &dyn PlatformWindow);
     }
 
     pub(crate) trait WinitCompatibleCanvas {
@@ -53,6 +53,9 @@ mod renderer {
     pub(crate) mod femtovg;
     #[cfg(feature = "renderer-skia")]
     pub(crate) mod skia;
+
+    #[cfg(feature = "renderer-software")]
+    pub(crate) mod sw;
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -112,6 +115,13 @@ impl Backend {
             #[cfg(feature = "renderer-skia")]
             Some("skia") => || {
                 GLWindow::<renderer::skia::SkiaRenderer>::new(
+                    #[cfg(target_arch = "wasm32")]
+                    "canvas".into(),
+                )
+            },
+            #[cfg(feature = "renderer-software")]
+            Some("sw") | Some("software") => || {
+                GLWindow::<renderer::sw::SoftwareRenderer>::new(
                     #[cfg(target_arch = "wasm32")]
                     "canvas".into(),
                 )
