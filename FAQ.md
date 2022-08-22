@@ -1,20 +1,20 @@
-# Frequently Asked Questions:  <!-- omit in toc -->
+# Frequently Asked Questions: <!-- omit in toc -->
 
-- [General](#general)
-  - [Where does the name come from?](#where-does-the-name-come-from)
-  - [Why are you creating a new markup language?](#why-are-you-creating-a-new-markup-language)
-  - [Will there be API bindings to integrate with my favorite programming language?](#will-there-be-api-bindings-to-integrate-with-my-favorite-programming-language)
-- [Licensing](#licensing)
-  - [What is the commercial licensing model?](#what-is-the-commercial-licensing-model)
-  - [Can I try Slint using the GPL version and then switch to the commercial license later?](#can-i-try-slint-using-the-gpl-version-and-then-switch-to-the-commercial-license-later)
-  - [Is there a discount or reduction for independent developers or small businesses?](#is-there-a-discount-or-reduction-for-independent-developers-or-small-businesses)
-  - [I want to develop a free software product using Slint, but I don't like the GPL and prefer to use a non-copyleft license.](#i-want-to-develop-a-free-software-product-using-slint-but-i-dont-like-the-gpl-and-prefer-to-use-a-non-copyleft-license)
+-   [General](#general)
+    -   [Where does the name come from?](#where-does-the-name-come-from)
+    -   [Why are you creating a new markup language?](#why-are-you-creating-a-new-markup-language)
+    -   [Will there be API bindings to integrate with my favorite programming language?](#will-there-be-api-bindings-to-integrate-with-my-favorite-programming-language)
+-   [Licensing](#licensing)
+    -   [What is the commercial licensing model?](#what-is-the-commercial-licensing-model)
+    -   [Can I try Slint using the GPL version and then switch to the commercial license later?](#can-i-try-slint-using-the-gpl-version-and-then-switch-to-the-commercial-license-later)
+    -   [Is there a discount or reduction for independent developers or small businesses?](#is-there-a-discount-or-reduction-for-independent-developers-or-small-businesses)
+    -   [I want to develop a free software product using Slint, but I don't like the GPL and prefer to use a non-copyleft license.](#i-want-to-develop-a-free-software-product-using-slint-but-i-dont-like-the-gpl-and-prefer-to-use-a-non-copyleft-license)
 
 # General
 
 ## Where does the name come from?
 
-The name *Slint* is derived from our design goals: **S**traightforward, **Li**ghtweight **N**ative **T**oolkit.
+The name _Slint_ is derived from our design goals: **S**traightforward, **Li**ghtweight **N**ative **T**oolkit.
 
 ## Why are you creating a new markup language?
 
@@ -29,9 +29,9 @@ to declare relationships between properties, even in complex user interfaces.
 We want to make it possible to use Slint with any programming language. We do not favor one programming
 language over another. We have chosen to start with three languages:
 
-  * Rust, our implementation language.
-  * C++, another systems programming language we have a lot of experience with.
-  * JavaScript, a popular dynamically typed language.
+-   Rust, our implementation language.
+-   C++, another systems programming language we have a lot of experience with.
+-   JavaScript, a popular dynamically typed language.
 
 This choice builds the foundation that allows us to create bindings for most types of programming
 languages.
@@ -40,8 +40,8 @@ languages.
 
 Slint is available under two licenses:
 
- * GPLv3, for the growing ecosystem of Free and Open Source Software.
- * Commercial, for use in closed-source projects. See <https://slint-ui.com/#offering>
+-   GPLv3, for the growing ecosystem of Free and Open Source Software.
+-   Commercial, for use in closed-source projects. See <https://slint-ui.com/#offering>
 
 The commercial license is free if you help us promote Slint: Check out our
 [ambassador license](https://slint-ui.com/ambassador-program.html).

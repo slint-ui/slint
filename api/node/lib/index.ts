@@ -8,16 +8,21 @@
  * @hidden
  */
 function load_native_lib() {
-    const os = require('os');
-    (process as any).dlopen(module, process.env.SLINT_NODE_NATIVE_LIB,
-        os.constants.dlopen.RTLD_NOW);
+    const os = require("os");
+    (process as any).dlopen(
+        module,
+        process.env.SLINT_NODE_NATIVE_LIB,
+        os.constants.dlopen.RTLD_NOW
+    );
     return module.exports;
 }
 
 /**
  * @hidden
  */
-let native = !process.env.SLINT_NODE_NATIVE_LIB ? require('../native/index.node') : load_native_lib();
+let native = !process.env.SLINT_NODE_NATIVE_LIB
+    ? require("../native/index.node")
+    : load_native_lib();
 
 /**
  * @hidden
@@ -38,7 +43,7 @@ class Component {
     }
 
     hide() {
-        this.window.hide()
+        this.window.hide();
     }
 
     get window(): SlintWindow {
@@ -46,11 +51,11 @@ class Component {
     }
 
     send_mouse_click(x: number, y: number) {
-        this.comp.send_mouse_click(x, y)
+        this.comp.send_mouse_click(x, y);
     }
 
     send_keyboard_string_sequence(s: String) {
-        this.comp.send_keyboard_string_sequence(s)
+        this.comp.send_keyboard_string_sequence(s);
     }
 }
 
@@ -109,32 +114,44 @@ interface Callback {
     setHandler(cb: any): void;
 }
 
-require.extensions['.60'] = require.extensions['.slint'] =
-    function (module, filename) {
-        var c = native.load(filename);
-        module.exports[c.name().replace(/-/g, '_')] = function (init_properties: any) {
-            let comp = c.create(init_properties);
-            let ret = new Component(comp);
-            c.properties().forEach((x: string) => {
-                Object.defineProperty(ret, x.replace(/-/g, '_'), {
-                    get() { return comp.get_property(x); },
-                    set(newValue) { comp.set_property(x, newValue); },
-                    enumerable: true,
-                })
+require.extensions[".60"] = require.extensions[".slint"] = function (
+    module,
+    filename
+) {
+    var c = native.load(filename);
+    module.exports[c.name().replace(/-/g, "_")] = function (
+        init_properties: any
+    ) {
+        let comp = c.create(init_properties);
+        let ret = new Component(comp);
+        c.properties().forEach((x: string) => {
+            Object.defineProperty(ret, x.replace(/-/g, "_"), {
+                get() {
+                    return comp.get_property(x);
+                },
+                set(newValue) {
+                    comp.set_property(x, newValue);
+                },
+                enumerable: true,
             });
-            c.callbacks().forEach((x: string) => {
-                Object.defineProperty(ret, x.replace(/-/g, '_'), {
-                    get() {
-                        let callback = function () { return comp.invoke_callback(x, [...arguments]); } as Callback;
-                        callback.setHandler = function (callback) { comp.connect_callback(x, callback) };
-                        return callback;
-                    },
-                    enumerable: true,
-                })
+        });
+        c.callbacks().forEach((x: string) => {
+            Object.defineProperty(ret, x.replace(/-/g, "_"), {
+                get() {
+                    let callback = function () {
+                        return comp.invoke_callback(x, [...arguments]);
+                    } as Callback;
+                    callback.setHandler = function (callback) {
+                        comp.connect_callback(x, callback);
+                    };
+                    return callback;
+                },
+                enumerable: true,
             });
-            return ret;
-        }
-    }
+        });
+        return ret;
+    };
+};
 
 /**
  * ModelPeer is the interface that the run-time implements. An instance is
@@ -205,10 +222,10 @@ interface Model<T> {
  * @hidden
  */
 class NullPeer implements ModelPeer {
-    rowDataChanged(row: number): void { }
-    rowAdded(row: number, count: number): void { }
-    rowRemoved(row: number, count: number): void { }
-    reset(): void { }
+    rowDataChanged(row: number): void {}
+    rowAdded(row: number, count: number): void {}
+    rowRemoved(row: number, count: number): void {}
+    reset(): void {}
 }
 
 /**
@@ -219,7 +236,7 @@ class ArrayModel<T> implements Model<T> {
     /**
      * @hidden
      */
-    private a: Array<T>
+    private a: Array<T>;
     notify: ModelPeer;
 
     /**
@@ -275,7 +292,7 @@ class ArrayModel<T> implements Model<T> {
     }
 
     entries(): IterableIterator<[number, T]> {
-        return this.a.entries()
+        return this.a.entries();
     }
 }
 

@@ -28,5 +28,6 @@ With the right token and file id.
 This will create a `figma_output` directory with a `main.slint` file and some images.
 
 Other options:
-* `--node <id>` to generate a specific node (eg: "123:12")
-* `--child <index>` to generate from one of the direct children of the canvas.
+
+-   `--node <id>` to generate a specific node (eg: "123:12")
+-   `--child <index>` to generate from one of the direct children of the canvas.

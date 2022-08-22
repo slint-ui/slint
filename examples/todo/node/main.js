@@ -11,42 +11,42 @@ let app = new demo.MainWindow();
 let model = new slint.ArrayModel([
     {
         title: "Implement the .slint file",
-        checked: true
+        checked: true,
     },
     {
         title: "Do the Rust part",
-        checked: false
+        checked: false,
     },
     {
         title: "Make the C++ code",
-        checked: false
+        checked: false,
     },
     {
         title: "Write some JavaScript code",
-        checked: true
+        checked: true,
     },
     {
         title: "Test the application",
-        checked: false
+        checked: false,
     },
     {
         title: "Ship to customer",
-        checked: false
+        checked: false,
     },
     {
         title: "???",
-        checked: false
+        checked: false,
     },
     {
         title: "Profit",
-        checked: false
+        checked: false,
     },
 ]);
 app.todo_model = model;
 
 app.todo_added.setHandler(function (text) {
-    model.push({ title: text, checked: false })
-})
+    model.push({ title: text, checked: false });
+});
 
 app.remove_done.setHandler(function () {
     let offset = 0;
@@ -57,6 +57,6 @@ app.remove_done.setHandler(function () {
             offset++;
         }
     }
-})
+});
 
 app.run();

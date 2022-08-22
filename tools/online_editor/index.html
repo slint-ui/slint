@@ -1,58 +1,83 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
+    <head>
+        <meta charset="utf-8" />
+        <link
+            rel="stylesheet"
+            href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css"
+            integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2"
+            crossorigin="anonymous"
+        />
+        <title>Slint Online Editor</title>
+        <style>
+            canvas {
+                touch-action: none;
+            }
+        </style>
+        <script type="module" src="./index.ts"></script>
+    </head>
 
-<head>
-    <meta charset="utf-8">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css"
-        integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
-    <title>Slint Online Editor</title>
-    <style>
-        canvas {
-            touch-action: none;
-        }
-    </style>
-    <script type="module" src="./index.ts"></script>
-</head>
-
-<body>
-    <p>This is a prototype for an online editor for the Slint language. More info <a
-            href="https://github.com/slint-ui/slint">github.com/slint-ui/slint</a> </p>
-    <p>Select a demo to load: <select id="select_combo">
-            <option value="">-- Select a demo --</option>
-            <option value="examples/gallery/gallery.slint">Gallery</option>
-            <option value="examples/printerdemo/ui/printerdemo.slint">Printer demo</option>
-            <option value="examples/todo/ui/todo.slint">Todo demo</option>
-            <option value="examples/iot-dashboard/main.slint">IOT Dashboard</option>
-        </select></p>
-    <p><button type="button" id="compile_button">Compile!</button>
-        &nbsp; &nbsp;
-        <input type="checkbox" id="auto_compile" name="auto_compile" checked>
-        <label for="auto_compile">Automatically compile on change</label>
-        <!--
+    <body>
+        <p>
+            This is a prototype for an online editor for the Slint language.
+            More info
+            <a href="https://github.com/slint-ui/slint"
+                >github.com/slint-ui/slint</a
+            >
+        </p>
+        <p>
+            Select a demo to load:
+            <select id="select_combo">
+                <option value="">-- Select a demo --</option>
+                <option value="examples/gallery/gallery.slint">Gallery</option>
+                <option value="examples/printerdemo/ui/printerdemo.slint">
+                    Printer demo
+                </option>
+                <option value="examples/todo/ui/todo.slint">Todo demo</option>
+                <option value="examples/iot-dashboard/main.slint">
+                    IOT Dashboard
+                </option>
+            </select>
+        </p>
+        <p>
+            <button type="button" id="compile_button">Compile!</button>
+            &nbsp; &nbsp;
+            <input
+                type="checkbox"
+                id="auto_compile"
+                name="auto_compile"
+                checked
+            />
+            <label for="auto_compile">Automatically compile on change</label>
+            <!--
         &nbsp; &nbsp; &nbsp; &nbsp;
         <label for="style_combo">Style:</label>
         <select id="style_combo">
             <option value="fluent">fluent</option>
         </select>
         -->
-        &nbsp; &nbsp; &nbsp; &nbsp;
-        <a href="../docs/rust/slint/docs/langref/index.html">Slint Language Reference</a>
-    </p>
+            &nbsp; &nbsp; &nbsp; &nbsp;
+            <a href="../docs/rust/slint/docs/langref/index.html"
+                >Slint Language Reference</a
+            >
+        </p>
 
-    <div id="preview" style="max-width: 48%; float: right"></div>
-    <div id="editor_area" class="d-block" style="height:600px; width: 48%">
-        <ul id="tabs" class="nav nav-tabs">
-        </ul>
-        <div id="editor" class="h-100 border"></div>
-        <p><a id="permalink" href="#">permalink</a></p>
-    </div>
+        <div id="preview" style="max-width: 48%; float: right"></div>
+        <div id="editor_area" class="d-block" style="height: 600px; width: 48%">
+            <ul id="tabs" class="nav nav-tabs"></ul>
+            <div id="editor" class="h-100 border"></div>
+            <p><a id="permalink" href="#">permalink</a></p>
+        </div>
 
-    <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
-        integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
-        crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js"
-        integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx"
-        crossorigin="anonymous"></script>
-</body>
-
+        <script
+            src="https://code.jquery.com/jquery-3.5.1.slim.min.js"
+            integrity="sha384-DfXdz2htPH0lsSSs5nCTpuj/zy4C+OGpamoFVy38MVBnE+IbbVYUew+OrCXaRkfj"
+            crossorigin="anonymous"
+        ></script>
+        <script
+            src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js"
+            integrity="sha384-ho+j7jyWK8fNQe+A12Hb8AhRq26LrZ/JpcUGGOn+Y7RsweNrtN/tE3MoK7ZeZDyx"
+            crossorigin="anonymous"
+        ></script>
+    </body>
 </html>

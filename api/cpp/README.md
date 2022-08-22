@@ -14,7 +14,7 @@ If you are new to Slint, you might also consider going through our [Walk-through
 Slint comes with a CMake integration that automates the compilation step of the `.slint` markup language files and
 offers a CMake target for convenient linkage.
 
-*Note*: We recommend using the Ninja generator of CMake for the most efficient build and `.slint` dependency tracking.
+_Note_: We recommend using the Ninja generator of CMake for the most efficient build and `.slint` dependency tracking.
 You can select the CMake Ninja backend by passing `-GNinja` or setting the `CMAKE_GENERATOR` environment variable to `Ninja`.
 
 ### Building from Sources
@@ -23,10 +23,10 @@ The recommended and most flexible way to use the C++ API is to build Slint from 
 
 First you need to install the prerequisites:
 
-* Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). Once this is done,
-  you should have the ```rustc``` compiler and the ```cargo``` build system installed in your path.
-* **[cmake](https://cmake.org/download/)** (3.19 or newer)
-* A C++ compiler that supports C++20 (e.g., **MSVC 2019 16.6** on Windows)
+-   Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). Once this is done,
+    you should have the `rustc` compiler and the `cargo` build system installed in your path.
+-   **[cmake](https://cmake.org/download/)** (3.19 or newer)
+-   A C++ compiler that supports C++20 (e.g., **MSVC 2019 16.6** on Windows)
 
 You can include Slint in your CMake project using CMake's `FetchContent` feature. Insert the following snippet into your
 `CMakeLists.txt` to make CMake download the latest release, compile it and make the CMake integration available:
@@ -94,7 +94,6 @@ You can download one of our pre-built binaries for Linux or Windows on x86-64 ar
 3. From "Assets" download either `slint-cpp-XXX-Linux-x86_64.tar.gz` for a Linux x86-64 archive
    or `slint-cpp-XXX-win64.exe` for a Windows x86-64 installer. ("XXX" refers to the version of the latest release)
 4. Uncompress the downloaded archive or run the installer.
-
 
 After extracting the artifact or running the installer, you can place the `lib` sub-directory into your `CMAKE_PREFIX_PATH` and `find_package(Slint)` should succeed in locating the package.
 
@@ -239,6 +238,6 @@ int main() {
 That's it.
 
 For more details, check the [Online documentation](https://slint-ui.com/docs/cpp) and the full
-  [Walk-through tutorial](https://slint-ui.com/docs/tutorial/cpp).
+[Walk-through tutorial](https://slint-ui.com/docs/tutorial/cpp).
 We also have a [Getting Started Template](https://github.com/slint-ui/slint-cpp-template) repository with
 the code of a minimal C++ application using Slint that can be used as a starting point to your program.

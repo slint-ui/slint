@@ -57,7 +57,9 @@ require("slint-ui");
 let ui = require("ui/main.slint");
 let component = new ui.MainWindow({
     counter: 42,
-    clicked: function() { console.log("hello"); }
+    clicked: function () {
+        console.log("hello");
+    },
 });
 ```
 
@@ -76,25 +78,27 @@ The callbacks are also exposed as property that have a setHandler function, and 
 
 ```js
 // connect to a callback
-component.clicked.setHandler(function() { console.log("hello"); })
+component.clicked.setHandler(function () {
+    console.log("hello");
+});
 // emit a callback
 component.clicked();
 ```
 
 ### Type Mappings
 
-| `.slint` Type | JavaScript Type | Notes |
-| --- | --- | --- |
-| `int` | `Number` | |
-| `float` | `Number` | |
-| `string` | `String` | |
-| `color` | `String` | Colors are represented as strings in the form `"#rrggbbaa"`. When setting a color property, any CSS compliant color is accepted as a string. |
-| `length` | `Number` | |
-| `physical_length` | `Number` | |
-| `duration` | `Number` | The number of milliseconds |
-| `angle` | `Number` | The value in degrees |
-| structure | `Object` | Structures are mapped to JavaScrip objects with structure fields mapped to properties. |
-| array | `Array` or Model Object | |
+| `.slint` Type     | JavaScript Type         | Notes                                                                                                                                        |
+| ----------------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| `int`             | `Number`                |                                                                                                                                              |
+| `float`           | `Number`                |                                                                                                                                              |
+| `string`          | `String`                |                                                                                                                                              |
+| `color`           | `String`                | Colors are represented as strings in the form `"#rrggbbaa"`. When setting a color property, any CSS compliant color is accepted as a string. |
+| `length`          | `Number`                |                                                                                                                                              |
+| `physical_length` | `Number`                |                                                                                                                                              |
+| `duration`        | `Number`                | The number of milliseconds                                                                                                                   |
+| `angle`           | `Number`                | The value in degrees                                                                                                                         |
+| structure         | `Object`                | Structures are mapped to JavaScrip objects with structure fields mapped to properties.                                                       |
+| array             | `Array` or Model Object |                                                                                                                                              |
 
 ### Models
 
@@ -109,27 +113,34 @@ component.model = [1, 2, 3];
 component.model = component.model.concat(4);
 ```
 
-Another option is to set a model object.  A model object has the following function:
+Another option is to set a model object. A model object has the following function:
 
-* `rowCount()`: returns the number of element in the model.
-* `rowData(index)`: return the row at the given index
-* `setRowData(index, data)`: called when the model need to be changed. `this.notify.rowDataChanged` must be called if successful.
+-   `rowCount()`: returns the number of element in the model.
+-   `rowData(index)`: return the row at the given index
+-   `setRowData(index, data)`: called when the model need to be changed. `this.notify.rowDataChanged` must be called if successful.
 
 When such an object is set to a model property, it gets a new `notify` object with the following function
 
-* `rowDataChanged(index)`: notify the view that the row was changed.
-* `rowAdded(index, count)`: notify the view that rows were added.
-* `rowRemoved(index, count)`: notify the view that a row were removed.
-* `reset()`: notify the view that everything may have changed.
+-   `rowDataChanged(index)`: notify the view that the row was changed.
+-   `rowAdded(index, count)`: notify the view that rows were added.
+-   `rowRemoved(index, count)`: notify the view that a row were removed.
+-   `reset()`: notify the view that everything may have changed.
 
 As an example, here is the implementation of the `ArrayModel` (which is available as `slint.ArrayModel`)
 
 ```js
 let array = [1, 2, 3];
 let model = {
-    rowCount() { return a.length; },
-    rowData(row) { return a[row]; },
-    setRowData(row, data) { a[row] = data; this.notify.rowDataChanged(row); },
+    rowCount() {
+        return a.length;
+    },
+    rowData(row) {
+        return a[row];
+    },
+    setRowData(row, data) {
+        a[row] = data;
+        this.notify.rowDataChanged(row);
+    },
     push() {
         let size = a.length;
         Array.prototype.push.apply(a, arguments);
@@ -144,4 +155,4 @@ component.model = model;
 model.push(4); // this works
 // does NOT work, getting the model does not return the right object
 // component.model.push(5);
- ```
+```

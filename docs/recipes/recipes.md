@@ -23,24 +23,23 @@ export Recipe := Window {
 
 In this first example, you see the basics of the Slint language:
 
- - The `VerticalBox` layout and the `Button` widget is imported from the standard library
-   using the `import` statement. That statement can import widgets or your own components
-   declared in different files. Built-in element such as `Window` or `Rectangle` do not
-   need to be imported.
- - The `Recipe` component is declared using `:=`. It is a `Window` and it contains
-   a layout (`VerticalBox`) with one button.
- - The elements are just instantiated with their name and braces; they form a tree.
-   They can optionally be named using `:=`
- - Elements can have properties and can be set with `:`. In this case the `Button` has a `text`
-   property and it is assigned a binding that computes a string by concatenating some string
-   literals, and the `counter` property.
- - You can declare custom properties with `property <...>`. A property needs to have a type and can have
-   a default value. This is how the `counter` property is declared in this example.
- - In addition to properties, elements can also have callback. In this case we assign a callback
-   handler to the `clicked` callback of the button with `=> { ... }`
- - Property bindings are automatically re-evaluated if any of the properties the binding depends on changes. The `text` binding of
-   the button is going to be automatically re-computed when the `counter` is changed.
-
+-   The `VerticalBox` layout and the `Button` widget is imported from the standard library
+    using the `import` statement. That statement can import widgets or your own components
+    declared in different files. Built-in element such as `Window` or `Rectangle` do not
+    need to be imported.
+-   The `Recipe` component is declared using `:=`. It is a `Window` and it contains
+    a layout (`VerticalBox`) with one button.
+-   The elements are just instantiated with their name and braces; they form a tree.
+    They can optionally be named using `:=`
+-   Elements can have properties and can be set with `:`. In this case the `Button` has a `text`
+    property and it is assigned a binding that computes a string by concatenating some string
+    literals, and the `counter` property.
+-   You can declare custom properties with `property <...>`. A property needs to have a type and can have
+    a default value. This is how the `counter` property is declared in this example.
+-   In addition to properties, elements can also have callback. In this case we assign a callback
+    handler to the `clicked` callback of the button with `=> { ... }`
+-   Property bindings are automatically re-evaluated if any of the properties the binding depends on changes. The `text` binding of
+    the button is going to be automatically re-computed when the `counter` is changed.
 
 ### React to a Button in native code
 
@@ -72,7 +71,6 @@ Note that `-` is replaced by `_`. In slint, `-` and `_` are equivalent and inter
 For technical reasons, this example uses `import {Recipe}` in the `slint!` macro, but
 in real code, you can put the whole slint code in the `slint!` macro, or use a build script.
 
-
 ```rust,no_run
 slint::slint!(import { Recipe } from "docs/recipes/button_native.slint";);
 
@@ -96,6 +94,7 @@ The `Recipe` struct implements the [`slint::ComponentHandle`] trait. A component
 It is a handle to a component with a strong and a weak reference count. We call the `as_weak` function to
 get a weak handle to the component, which we can move into the callback.
 We can't move a strong handle because that would form a cycle: The component handle has ownership of the callback, which itself has ownership of the closure's captured variables.
+
 </details>
 
 <details data-snippet-language="cpp">
@@ -148,7 +147,6 @@ code between the curly braces to a string.
 ## Animations
 
 ### Animate the position of an element
-
 
 ```slint
 import { CheckBox } from "std-widgets.slint";
@@ -457,6 +455,7 @@ fn main() {
     // ...
 }
 ```
+
 </details>
 
 <details  data-snippet-language="cpp">
@@ -475,6 +474,7 @@ int main(int argc, char **argv)
     // ...
 }
 ```
+
 </details>
 
 ## Custom widgets
@@ -691,6 +691,7 @@ export Recipe := Window {
 ### Custom Tabs
 
 Use this recipe as a basis to when you want to create your own custom tab widget.
+
 ```slint
 import { Button } from "std-widgets.slint";
 

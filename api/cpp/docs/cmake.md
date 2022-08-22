@@ -3,7 +3,7 @@
 Slint comes with a CMake integration that automates the compilation step of the `.slint` markup language files and
 offers a CMake target for convenient linkage.
 
-*Note*: We recommend using the Ninja generator of CMake for the most efficient build and `.slint` dependency tracking.
+_Note_: We recommend using the Ninja generator of CMake for the most efficient build and `.slint` dependency tracking.
 You can select the CMake Ninja backend by passing `-GNinja` or setting the `CMAKE_GENERATOR` environment variable to `Ninja`.
 
 ## Binary Packages
@@ -29,11 +29,11 @@ The recommended and most flexible way to use the C++ API is to build Slint from 
 
 First you need to install the prerequisites:
 
-* Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). If you already
-  have Rust installed, make sure that it's at least version 1.60 or newer. You can check which version you have installed
-  by running `rustc --version`. Once this is done, you should have the ```rustc``` compiler and the ```cargo``` build system installed in your path.
-* **[cmake](https://cmake.org/download/)** (3.19 or newer)
-* A C++ compiler that supports C++20 (e.g., **MSVC 2019 16.6** on Windows)
+-   Install Rust by following the [Rust Getting Started Guide](https://www.rust-lang.org/learn/get-started). If you already
+    have Rust installed, make sure that it's at least version 1.60 or newer. You can check which version you have installed
+    by running `rustc --version`. Once this is done, you should have the `rustc` compiler and the `cargo` build system installed in your path.
+-   **[cmake](https://cmake.org/download/)** (3.19 or newer)
+-   A C++ compiler that supports C++20 (e.g., **MSVC 2019 16.6** on Windows)
 
 You can include Slint in your CMake project using CMake's [`FetchContent`](https://cmake.org/cmake/help/latest/module/FetchContent.html) feature.
 Insert the following snippet into your `CMakeLists.txt` to make CMake download the latest release, compile it and make the CMake integration available:
@@ -62,7 +62,7 @@ The CMake configure step offers CMake options for various feature that are all p
 you can make a build that exclusively supports Wayland on Linux by enabling the `SLINT_FEATURE_EVENTLOOP_WINIT_WAYLAND` feature and turning
 off `SLINT_FEATURE_EVENTLOOP_WINIT_ALL`. There are different ways of toggling CMake options. For example on the command line using the `-D` parameter:
 
-   `cmake -DSLINT_FEATURE_EVENTLOOP_WINIT_ALL=OFF -DSLINT_FEATURE_EVENTLOOP_WINIT_WAYLAND=ON ...`
+`cmake -DSLINT_FEATURE_EVENTLOOP_WINIT_ALL=OFF -DSLINT_FEATURE_EVENTLOOP_WINIT_WAYLAND=ON ...`
 
 Alternatively, after the configure step you can use `cmake-gui` or `ccmake` on the build directory for a list of all features
 and their description.
@@ -93,14 +93,17 @@ show how to compile:
 Install the Rust targe toolchain once:
 
 <!-- cSpell:disable -->
+
 ```sh
 rustup target add aarch64-unknown-linux-gnu
 ```
+
 <!-- cSpell:enable -->
 
 Set up the environment and build:
 
 <!-- cSpell:disable -->
+
 ```sh
 . /path/to/yocto/sdk/environment-setup-cortexa53-crypto-poky-linux
 cd slint

@@ -1,4 +1,3 @@
-
 # `vtable` crate
 
 [![Crates.io](https://img.shields.io/crates/v/vtable)](https://crates.io/crates/vtable)

@@ -16,27 +16,27 @@ Once this is done, you should have the `rustc` compiler and the `cargo` build sy
 
 For Linux a few additional packages beyond the usual build essentials are needed for development and running apps:
 
-- xcb (`libxcb-shape0-dev` `libxcb-xfixes0-dev` on debian based distributions)
-- xkbcommon (`libxkbcommon-dev` on debian based distributions)
-- fontconfig library (`libfontconfig-dev` on debian based distributions)
-- (optional) Qt will be used when `qmake` is found in `PATH`
+-   xcb (`libxcb-shape0-dev` `libxcb-xfixes0-dev` on debian based distributions)
+-   xkbcommon (`libxkbcommon-dev` on debian based distributions)
+-   fontconfig library (`libfontconfig-dev` on debian based distributions)
+-   (optional) Qt will be used when `qmake` is found in `PATH`
 
 ### macOS
 
-- Make sure the "Xcode Command Line Tools" are installed: `xcode-select --install`
-- (optional) Qt will be used when `qmake` is found in `PATH`
+-   Make sure the "Xcode Command Line Tools" are installed: `xcode-select --install`
+-   (optional) Qt will be used when `qmake` is found in `PATH`
 
 ### Windows
 
-- Make sure the MSVC Build Tools are installed: `winget install Microsoft.VisualStudio.2019.BuildTools`
-- (optional) make sure Qt is installed and `qmake` is in the `Path`
+-   Make sure the MSVC Build Tools are installed: `winget install Microsoft.VisualStudio.2019.BuildTools`
+-   (optional) make sure Qt is installed and `qmake` is in the `Path`
 
 ### NodeJS API (optional)
 
 To use Slint from Node.JS, the following extra dependencies are needed.
 
-- **node** (including npm) At this time you will need to use the LTS version.
-- **python**
+-   **node** (including npm) At this time you will need to use the LTS version.
+-   **python**
 
 Node.JS support is not built by default! Check below for the extra commands
 to run.
@@ -45,8 +45,8 @@ to run.
 
 To use Slint from C++, the following extra dependencies are needed:
 
-- **[cmake](https://cmake.org/download/)** (3.19 or newer)
-- A C++ compiler that can do C++20 (e.g., **MSVC 2019 16.6** on Windows)
+-   **[cmake](https://cmake.org/download/)** (3.19 or newer)
+-   A C++ compiler that can do C++20 (e.g., **MSVC 2019 16.6** on Windows)
 
 ## Building and Testing
 

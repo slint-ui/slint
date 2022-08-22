@@ -22,54 +22,54 @@ This should be used carefully though because this command will make even failing
 While there are failing tests this list should be kept up to date to ensure there aren't any new regressions
 Once all tests are passing this list can be removed.
 
-- [ ] comments:
-  - [x] A single line comment
-  - [x] A multi-line comment
-  - [ ] A nested comment
-- [ ] callbacks:
-  - [x] Setting a callback
-  - [x] Declare a callback
-  - [x] Declare callback with parameters
-  - [ ] Set a callback with parameters
-- [ ] structs:
-  - [ ] Anonymous struct
-  - [x] Named struct
-  - [ ] List of structs
-- [ ] statements:
-  - [x] Import statement
-  - [x] Global Singleton
-  - [x] Export statement
-  - [x] More complicated conditional statement
-  - [ ] For-in statement
-  - [ ] For-in statement with anonymous struct as property
-  - [x] Animation statement
-  - [ ] Animate two variables together statement
-  - [x] State statement
-  - [x] Transition statement
-- [ ] components:
-  - [x] A basic window
-  - [x] Visibility modifier
-  - [x] A window with a sub component
-  - [x] Setting a property
-  - [x] Property declaration
-  - [ ] Two way binding
-  - [x] Relative values
-  - [x] Define and set a property
-  - [x] Named sub component
-  - [x] Conditional named component
-  - [x] Conditional unnamed component
-- [ ] expressions:
-  - [x] Relative properties
-  - [x] Ternary Expression
-  - [x] Chained ternary Expression
-  - [ ] Arrays as expressions
-  - [x] String expression
-  - [ ] Color expression
-  - [ ] Brush expression
-  - [ ] Function expression
-  - [x] Image expression
-  - [x] Empty expression
-  - [ ] Empty expression with semi-colon
+-   [ ] comments:
+    -   [x] A single line comment
+    -   [x] A multi-line comment
+    -   [ ] A nested comment
+-   [ ] callbacks:
+    -   [x] Setting a callback
+    -   [x] Declare a callback
+    -   [x] Declare callback with parameters
+    -   [ ] Set a callback with parameters
+-   [ ] structs:
+    -   [ ] Anonymous struct
+    -   [x] Named struct
+    -   [ ] List of structs
+-   [ ] statements:
+    -   [x] Import statement
+    -   [x] Global Singleton
+    -   [x] Export statement
+    -   [x] More complicated conditional statement
+    -   [ ] For-in statement
+    -   [ ] For-in statement with anonymous struct as property
+    -   [x] Animation statement
+    -   [ ] Animate two variables together statement
+    -   [x] State statement
+    -   [x] Transition statement
+-   [ ] components:
+    -   [x] A basic window
+    -   [x] Visibility modifier
+    -   [x] A window with a sub component
+    -   [x] Setting a property
+    -   [x] Property declaration
+    -   [ ] Two way binding
+    -   [x] Relative values
+    -   [x] Define and set a property
+    -   [x] Named sub component
+    -   [x] Conditional named component
+    -   [x] Conditional unnamed component
+-   [ ] expressions:
+    -   [x] Relative properties
+    -   [x] Ternary Expression
+    -   [x] Chained ternary Expression
+    -   [ ] Arrays as expressions
+    -   [x] String expression
+    -   [ ] Color expression
+    -   [ ] Brush expression
+    -   [ ] Function expression
+    -   [x] Image expression
+    -   [x] Empty expression
+    -   [ ] Empty expression with semi-colon
 
 ## Contributor License Agreement
 

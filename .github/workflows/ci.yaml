@@ -4,403 +4,403 @@
 name: CI
 
 on:
-  push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
-  workflow_dispatch:
+    push:
+        branches: [master]
+    pull_request:
+        branches: [master]
+    workflow_dispatch:
 
 jobs:
-  build_and_test:
-    env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
-      QT_QPA_PLATFORM: offscreen
-      RUSTFLAGS: -D warnings
-      CARGO_INCREMENTAL: false
-      RUST_BACKTRACE: 1
-    strategy:
-      matrix:
-        os: [ubuntu-20.04, macOS-11, windows-2022]
-        rust_version: [stable, "1.60"]
-        include:
-          - os: windows-2022
-            extra_args: "--exclude slint-node --exclude test-driver-nodejs"
+    build_and_test:
+        env:
+            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
+            QT_QPA_PLATFORM: offscreen
+            RUSTFLAGS: -D warnings
+            CARGO_INCREMENTAL: false
+            RUST_BACKTRACE: 1
+        strategy:
+            matrix:
+                os: [ubuntu-20.04, macOS-11, windows-2022]
+                rust_version: [stable, "1.60"]
+                include:
+                    - os: windows-2022
+                      extra_args: "--exclude slint-node --exclude test-driver-nodejs"
 
-    runs-on: ${{ matrix.os }}
+        runs-on: ${{ matrix.os }}
 
-    steps:
-    - uses: actions/checkout@v2
-    - name: Install Linux Dependencies
-      if: matrix.os == 'ubuntu-20.04'
-      run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
-    - name: Cache Qt
-      if: matrix.os != 'windows-2022'
-      id: cache-qt
-      uses: actions/cache@v2
-      with:
-        path: ~/work/slint/Qt
-        key: ${{ runner.os }}-${{ github.job }}-qt5.15.2
-    - name: Install Qt
-      if: matrix.os != 'windows-2022'
-      uses: jurplel/install-qt-action@v2
-      with:
-        version: '5.15.2'
-        cached: ${{ steps.cache-qt.outputs.cache-hit }}
-        setup-python: false
-        py7zrversion: ==0.19.*
-    - name: Set default style
-      if: matrix.os != 'windows-2022'
-      run: |
-          echo "SLINT_STYLE=native" >> $GITHUB_ENV
-    - name: Set default style
-      if: matrix.os == 'windows-2022'
-      run: |
-          echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-    - name: Disable debug info to avoid running out of disk space on Windows
-      if: matrix.os == 'windows-2022'
-      run: |
-          echo "RUSTFLAGS=-C debuginfo=0" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-    - name: Setup Node.js
-      uses: actions/setup-node@v1
-      with:
-        node-version: '12'
-    - id: nodeversion
-      run: |
-          echo "::set-output name=node-version::$(node --version)"
-    - name: Cache native node libraries
-      uses: actions/cache@v2
-      if: matrix.os == 'windows-2022'
-      with:
-        path: ~/node-gyp/cache
-        key: ${{ runner.os }}-${{ github.job }}-${{ steps.nodeversion.outputs.node-version }}
-    - name: Ensure node-gyp cache is populated
-      if: matrix.os == 'windows-2022'
-      run: |
-          npm install -g node-gyp
-          node-gyp install
-    - name: Install latest stable
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: ${{ matrix.rust_version }}
-          profile: minimal
-          override: true
-    - uses: Swatinem/rust-cache@v1
-      with:
-          key: x-v1-${{ steps.nodeversion.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
-    - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-          command: build
-          args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude i-slint-backend-mcu --exclude printerdemo_mcu  # mcu backend requires nightly
-    - name: Run tests
-      uses: actions-rs/cargo@v1
-      with:
-          command: test
-          args: --verbose --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude i-slint-backend-mcu --exclude printerdemo_mcu   # mcu backend requires nightly
-  cpp_test_driver:
-    env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
-      QT_QPA_PLATFORM: offscreen
-      RUSTFLAGS: -D warnings
-      CARGO_INCREMENTAL: false
-      RUST_BACKTRACE: 1
-    strategy:
-      matrix:
-        os: [ubuntu-20.04, macOS-11, windows-2022]
-    runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v2
+            - name: Install Linux Dependencies
+              if: matrix.os == 'ubuntu-20.04'
+              run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
+            - name: Cache Qt
+              if: matrix.os != 'windows-2022'
+              id: cache-qt
+              uses: actions/cache@v2
+              with:
+                  path: ~/work/slint/Qt
+                  key: ${{ runner.os }}-${{ github.job }}-qt5.15.2
+            - name: Install Qt
+              if: matrix.os != 'windows-2022'
+              uses: jurplel/install-qt-action@v2
+              with:
+                  version: "5.15.2"
+                  cached: ${{ steps.cache-qt.outputs.cache-hit }}
+                  setup-python: false
+                  py7zrversion: ==0.19.*
+            - name: Set default style
+              if: matrix.os != 'windows-2022'
+              run: |
+                  echo "SLINT_STYLE=native" >> $GITHUB_ENV
+            - name: Set default style
+              if: matrix.os == 'windows-2022'
+              run: |
+                  echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+                  echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            - name: Disable debug info to avoid running out of disk space on Windows
+              if: matrix.os == 'windows-2022'
+              run: |
+                  echo "RUSTFLAGS=-C debuginfo=0" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            - name: Setup Node.js
+              uses: actions/setup-node@v1
+              with:
+                  node-version: "12"
+            - id: nodeversion
+              run: |
+                  echo "::set-output name=node-version::$(node --version)"
+            - name: Cache native node libraries
+              uses: actions/cache@v2
+              if: matrix.os == 'windows-2022'
+              with:
+                  path: ~/node-gyp/cache
+                  key: ${{ runner.os }}-${{ github.job }}-${{ steps.nodeversion.outputs.node-version }}
+            - name: Ensure node-gyp cache is populated
+              if: matrix.os == 'windows-2022'
+              run: |
+                  npm install -g node-gyp
+                  node-gyp install
+            - name: Install latest stable
+              uses: actions-rs/toolchain@v1
+              with:
+                  toolchain: ${{ matrix.rust_version }}
+                  profile: minimal
+                  override: true
+            - uses: Swatinem/rust-cache@v1
+              with:
+                  key: x-v1-${{ steps.nodeversion.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
+            - name: Build
+              uses: actions-rs/cargo@v1
+              with:
+                  command: build
+                  args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude i-slint-backend-mcu --exclude printerdemo_mcu # mcu backend requires nightly
+            - name: Run tests
+              uses: actions-rs/cargo@v1
+              with:
+                  command: test
+                  args: --verbose --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude i-slint-backend-mcu --exclude printerdemo_mcu # mcu backend requires nightly
+    cpp_test_driver:
+        env:
+            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/5.15.2/clang_64/lib
+            QT_QPA_PLATFORM: offscreen
+            RUSTFLAGS: -D warnings
+            CARGO_INCREMENTAL: false
+            RUST_BACKTRACE: 1
+        strategy:
+            matrix:
+                os: [ubuntu-20.04, macOS-11, windows-2022]
+        runs-on: ${{ matrix.os }}
 
-    steps:
-    - uses: actions/checkout@v2
-    - name: Install Linux Dependencies
-      if: matrix.os == 'ubuntu-20.04'
-      run: |
-          sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev gcc-10 g++-10
-          echo "CXX=g++-10" >> $GITHUB_ENV
-    - name: Cache Qt
-      if: matrix.os != 'windows-2022'
-      id: cache-qt
-      uses: actions/cache@v2
-      with:
-        path: ~/work/slint/Qt
-        key: ${{ runner.os }}-${{ github.job }}-qt5.15.2
-    - name: Install Qt
-      if: matrix.os != 'windows-2022'
-      uses: jurplel/install-qt-action@v2
-      with:
-        version: '5.15.2'
-        cached: ${{ steps.cache-qt.outputs.cache-hit }}
-        setup-python: false
-        py7zrversion: ==0.19.*
-    - name: Set default style
-      if: matrix.os != 'windows-2022'
-      run: |
-          echo "SLINT_STYLE=native" >> $GITHUB_ENV
-    - name: Set default style
-      if: matrix.os == 'windows-2022'
-      run: |
-          echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-          echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-    - name: Cache cargo registry
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/registry
-        key: ${{ runner.os }}-${{ github.job }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
-    - name: Cache cargo index
-      uses: actions/cache@v2
-      with:
-        path: ~/.cargo/git
-        key: ${{ runner.os }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
-    - name: Cache cargo build
-      if: matrix.os != 'macOS-11'
-      uses: actions/cache@v2
-      with:
-        path: target
-        key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}-${{ steps.nodeversion.outputs.node-version }}
-    - name: Install latest stable
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: stable
-          override: true
-          components: rustfmt, clippy
-    - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-          command: build
-          args: --lib -p slint-cpp --features testing,backend-qt
-    - name: Run tests
-      uses: actions-rs/cargo@v1
-      with:
-          command: test
-          args: --verbose -p  test-driver-cpp --features slint-cpp/backend-qt
-    - name: Clean cache # Otherwise the cache is much too big
-      if: matrix.os == 'ubuntu-20.04'
-      run: |
-          du -hs target
-          rm -rf target/*/*/*slint*
-          rm -rf target/*/*slint*
-          rm -rf target/*/*/test*
-          rm -rf target/*/*test*
-          du -hs target
-    - name: Clean cache # Otherwise the cache is much too big
-      if: matrix.os == 'windows-2022'
-      run: |
-          du -hs target
-          rm -Recurse -Force target/*/incremental
-          rm -Recurse -Force target/*/*/*slint*
-          rm -Recurse -Force target/*/*slint*
-          rm -Recurse -Force target/*/*/test*
-          rm -Recurse -Force target/*/*test*
-          du -hs target
+        steps:
+            - uses: actions/checkout@v2
+            - name: Install Linux Dependencies
+              if: matrix.os == 'ubuntu-20.04'
+              run: |
+                  sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev gcc-10 g++-10
+                  echo "CXX=g++-10" >> $GITHUB_ENV
+            - name: Cache Qt
+              if: matrix.os != 'windows-2022'
+              id: cache-qt
+              uses: actions/cache@v2
+              with:
+                  path: ~/work/slint/Qt
+                  key: ${{ runner.os }}-${{ github.job }}-qt5.15.2
+            - name: Install Qt
+              if: matrix.os != 'windows-2022'
+              uses: jurplel/install-qt-action@v2
+              with:
+                  version: "5.15.2"
+                  cached: ${{ steps.cache-qt.outputs.cache-hit }}
+                  setup-python: false
+                  py7zrversion: ==0.19.*
+            - name: Set default style
+              if: matrix.os != 'windows-2022'
+              run: |
+                  echo "SLINT_STYLE=native" >> $GITHUB_ENV
+            - name: Set default style
+              if: matrix.os == 'windows-2022'
+              run: |
+                  echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+                  echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+            - name: Cache cargo registry
+              uses: actions/cache@v2
+              with:
+                  path: ~/.cargo/registry
+                  key: ${{ runner.os }}-${{ github.job }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+            - name: Cache cargo index
+              uses: actions/cache@v2
+              with:
+                  path: ~/.cargo/git
+                  key: ${{ runner.os }}-${{ github.job }}-cargo-index-${{ hashFiles('**/Cargo.toml') }}
+            - name: Cache cargo build
+              if: matrix.os != 'macOS-11'
+              uses: actions/cache@v2
+              with:
+                  path: target
+                  key: ${{ runner.os }}-${{ github.job }}-cargo-build-target-${{ hashFiles('**/Cargo.toml') }}-${{ steps.nodeversion.outputs.node-version }}
+            - name: Install latest stable
+              uses: actions-rs/toolchain@v1
+              with:
+                  toolchain: stable
+                  override: true
+                  components: rustfmt, clippy
+            - name: Build
+              uses: actions-rs/cargo@v1
+              with:
+                  command: build
+                  args: --lib -p slint-cpp --features testing,backend-qt
+            - name: Run tests
+              uses: actions-rs/cargo@v1
+              with:
+                  command: test
+                  args: --verbose -p  test-driver-cpp --features slint-cpp/backend-qt
+            - name: Clean cache # Otherwise the cache is much too big
+              if: matrix.os == 'ubuntu-20.04'
+              run: |
+                  du -hs target
+                  rm -rf target/*/*/*slint*
+                  rm -rf target/*/*slint*
+                  rm -rf target/*/*/test*
+                  rm -rf target/*/*test*
+                  du -hs target
+            - name: Clean cache # Otherwise the cache is much too big
+              if: matrix.os == 'windows-2022'
+              run: |
+                  du -hs target
+                  rm -Recurse -Force target/*/incremental
+                  rm -Recurse -Force target/*/*/*slint*
+                  rm -Recurse -Force target/*/*slint*
+                  rm -Recurse -Force target/*/*/test*
+                  rm -Recurse -Force target/*/*test*
+                  du -hs target
 
-  cpp_cmake:
-    env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.1/clang_64/lib
-      QT_QPA_PLATFORM: offscreen
-      CARGO_INCREMENTAL: false
-    strategy:
-      matrix:
-        os: [ubuntu-20.04, macOS-11, windows-2022]
-    runs-on: ${{ matrix.os }}
-    steps:
-    - uses: actions/checkout@v2
-    - name: Install Linux Dependencies
-      if: matrix.os == 'ubuntu-20.04'
-      run: |
-          sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev gcc-10 g++-10
-          echo "CXX=g++-10" >> $GITHUB_ENV
-    - name: Cache Qt
-      if: matrix.os != 'windows-2022'
-      id: cache-qt
-      uses: actions/cache@v2
-      with:
-        path: ~/work/slint/Qt
-        key: ${{ runner.os }}-${{ github.job }}-cpp-Qt
-    - name: Install Qt (Ubuntu)
-      uses: jurplel/install-qt-action@v2
-      if: matrix.os == 'ubuntu-20.04'
-      with:
-        version: 5.15.2
-        cached: ${{ steps.cache-qt.outputs.cache-hit }}
-        py7zrversion: ==0.19.*
-    - name: Install Qt (Windows, uncached)
-      if: matrix.os == 'windows-2022'
-      uses: jurplel/install-qt-action@v2
-      with:
-        version: 6.2.1
-        py7zrversion: ==0.19.*
-    - name: Install Qt (cached)
-      if: matrix.os != 'ubuntu-20.04' && matrix.os != 'windows-2022'
-      uses: jurplel/install-qt-action@v2
-      with:
-        version: 6.2.1
-        cached: ${{ steps.cache-qt.outputs.cache-hit }}
-        setup-python: false
-        py7zrversion: ==0.19.*
-    - name: Install latest stable
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: stable
-          override: true
-    - uses: Swatinem/rust-cache@v1
-      with:
-          key: x
-    - uses: ilammy/msvc-dev-cmd@v1
-    - name: Select MSVC (windows)
-      run: |
-        echo "CC=cl.exe" >> $GITHUB_ENV
-        echo "CXX=cl.exe" >> $GITHUB_ENV
-      if: matrix.os == 'windows-2022'
-    - name: Enable test coverage for resource embedding in C++ when building examples
-      if: matrix.os == 'ubuntu-20.04'
-      run: |
-          echo "SLINT_EMBED_RESOURCES=true" >> $GITHUB_ENV
-    - name: C++ Build
-      uses: lukka/run-cmake@v3.4
-      with:
-        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
-        cmakeListsTxtPath: CMakeLists.txt
-        cmakeAppendedArgs: '-DBUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug'
-        buildDirectory: ${{ runner.workspace }}/cppbuild
-        buildWithCMakeArgs: '--config Debug'
-    - name: ctest
-      working-directory: ${{ runner.workspace }}/cppbuild
-      run: ctest --verbose
-    - name: cpack
-      working-directory: ${{ runner.workspace }}/cppbuild
-      run: cmake --build . --config Debug --target package
-    - name: "Create C++ packages artefact"
-      uses: actions/upload-artifact@v2
-      with:
-          name: cpp_bin-${{ matrix.os }}
-          path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
+    cpp_cmake:
+        env:
+            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.1/clang_64/lib
+            QT_QPA_PLATFORM: offscreen
+            CARGO_INCREMENTAL: false
+        strategy:
+            matrix:
+                os: [ubuntu-20.04, macOS-11, windows-2022]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - uses: actions/checkout@v2
+            - name: Install Linux Dependencies
+              if: matrix.os == 'ubuntu-20.04'
+              run: |
+                  sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev gcc-10 g++-10
+                  echo "CXX=g++-10" >> $GITHUB_ENV
+            - name: Cache Qt
+              if: matrix.os != 'windows-2022'
+              id: cache-qt
+              uses: actions/cache@v2
+              with:
+                  path: ~/work/slint/Qt
+                  key: ${{ runner.os }}-${{ github.job }}-cpp-Qt
+            - name: Install Qt (Ubuntu)
+              uses: jurplel/install-qt-action@v2
+              if: matrix.os == 'ubuntu-20.04'
+              with:
+                  version: 5.15.2
+                  cached: ${{ steps.cache-qt.outputs.cache-hit }}
+                  py7zrversion: ==0.19.*
+            - name: Install Qt (Windows, uncached)
+              if: matrix.os == 'windows-2022'
+              uses: jurplel/install-qt-action@v2
+              with:
+                  version: 6.2.1
+                  py7zrversion: ==0.19.*
+            - name: Install Qt (cached)
+              if: matrix.os != 'ubuntu-20.04' && matrix.os != 'windows-2022'
+              uses: jurplel/install-qt-action@v2
+              with:
+                  version: 6.2.1
+                  cached: ${{ steps.cache-qt.outputs.cache-hit }}
+                  setup-python: false
+                  py7zrversion: ==0.19.*
+            - name: Install latest stable
+              uses: actions-rs/toolchain@v1
+              with:
+                  toolchain: stable
+                  override: true
+            - uses: Swatinem/rust-cache@v1
+              with:
+                  key: x
+            - uses: ilammy/msvc-dev-cmd@v1
+            - name: Select MSVC (windows)
+              run: |
+                  echo "CC=cl.exe" >> $GITHUB_ENV
+                  echo "CXX=cl.exe" >> $GITHUB_ENV
+              if: matrix.os == 'windows-2022'
+            - name: Enable test coverage for resource embedding in C++ when building examples
+              if: matrix.os == 'ubuntu-20.04'
+              run: |
+                  echo "SLINT_EMBED_RESOURCES=true" >> $GITHUB_ENV
+            - name: C++ Build
+              uses: lukka/run-cmake@v3.4
+              with:
+                  cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+                  cmakeListsTxtPath: CMakeLists.txt
+                  cmakeAppendedArgs: "-DBUILD_TESTING=ON -DSLINT_BUILD_EXAMPLES=ON -DCMAKE_BUILD_TYPE=Debug"
+                  buildDirectory: ${{ runner.workspace }}/cppbuild
+                  buildWithCMakeArgs: "--config Debug"
+            - name: ctest
+              working-directory: ${{ runner.workspace }}/cppbuild
+              run: ctest --verbose
+            - name: cpack
+              working-directory: ${{ runner.workspace }}/cppbuild
+              run: cmake --build . --config Debug --target package
+            - name: "Create C++ packages artefact"
+              uses: actions/upload-artifact@v2
+              with:
+                  name: cpp_bin-${{ matrix.os }}
+                  path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
 
-  cpp_package_test:
-    needs: [cpp_cmake]
-    runs-on: ubuntu-20.04
-    env:
-      DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.1/clang_64/lib
-      QT_QPA_PLATFORM: offscreen
-      CARGO_INCREMENTAL: false
-    steps:
-    - uses: actions/checkout@v2
-    - name: Install Linux Dependencies
-      run: |
-          sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev gcc-10 g++-10
-          echo "CXX=g++-10" >> $GITHUB_ENV
-    - name: Cache Qt
-      id: cache-qt
-      uses: actions/cache@v2
-      with:
-        path: ~/work/slint/Qt
-        key: ${{ runner.os }}-${{ github.job }}-cpp-Qt
-    - name: Install Qt (Ubuntu)
-      uses: jurplel/install-qt-action@v2
-      with:
-        version: 5.15.2
-        cached: ${{ steps.cache-qt.outputs.cache-hit }}
-        py7zrversion: ==0.19.*
-    - uses: actions/download-artifact@v2
-      with:
-        name: cpp_bin-ubuntu-20.04
-        path: cpp-package
-    - name: unpack package
-      run: |
-          mkdir package
-          tar xvf cpp-package/Slint-cpp-*.tar.gz -C package --strip-components=1
-          echo "CMAKE_PREFIX_PATH=`pwd`/package" >> $GITHUB_ENV
-    # Build the examples with a config different than the package (which is debug)
-    - name: Build examples
-      uses: lukka/run-cmake@v3.4
-      with:
-        cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
-        cmakeListsTxtPath: examples/CMakeLists.txt
-        cmakeAppendedArgs: '-DCMAKE_BUILD_TYPE=Release -DSLINT_FEATURE_INTERPRETER=1 -DSLINT_FEATURE_BACKEND_QT=1'
-        buildDirectory: ${{ runner.workspace }}/examples/build
-        buildWithCMakeArgs: '--config Release'
+    cpp_package_test:
+        needs: [cpp_cmake]
+        runs-on: ubuntu-20.04
+        env:
+            DYLD_FRAMEWORK_PATH: /Users/runner/work/slint/Qt/6.2.1/clang_64/lib
+            QT_QPA_PLATFORM: offscreen
+            CARGO_INCREMENTAL: false
+        steps:
+            - uses: actions/checkout@v2
+            - name: Install Linux Dependencies
+              run: |
+                  sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev gcc-10 g++-10
+                  echo "CXX=g++-10" >> $GITHUB_ENV
+            - name: Cache Qt
+              id: cache-qt
+              uses: actions/cache@v2
+              with:
+                  path: ~/work/slint/Qt
+                  key: ${{ runner.os }}-${{ github.job }}-cpp-Qt
+            - name: Install Qt (Ubuntu)
+              uses: jurplel/install-qt-action@v2
+              with:
+                  version: 5.15.2
+                  cached: ${{ steps.cache-qt.outputs.cache-hit }}
+                  py7zrversion: ==0.19.*
+            - uses: actions/download-artifact@v2
+              with:
+                  name: cpp_bin-ubuntu-20.04
+                  path: cpp-package
+            - name: unpack package
+              run: |
+                  mkdir package
+                  tar xvf cpp-package/Slint-cpp-*.tar.gz -C package --strip-components=1
+                  echo "CMAKE_PREFIX_PATH=`pwd`/package" >> $GITHUB_ENV
+            # Build the examples with a config different than the package (which is debug)
+            - name: Build examples
+              uses: lukka/run-cmake@v3.4
+              with:
+                  cmakeListsOrSettingsJson: CMakeListsTxtAdvanced
+                  cmakeListsTxtPath: examples/CMakeLists.txt
+                  cmakeAppendedArgs: "-DCMAKE_BUILD_TYPE=Release -DSLINT_FEATURE_INTERPRETER=1 -DSLINT_FEATURE_BACKEND_QT=1"
+                  buildDirectory: ${{ runner.workspace }}/examples/build
+                  buildWithCMakeArgs: "--config Release"
 
-  # test to compile the mcu backend with nightly and for the armv6 target (no_std)
-  mcu:
-    env:
-      SLINT_EMBED_GLYPHS: 1
-      SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
-      SLINT_PROCESS_IMAGES: 1
-      RUSTFLAGS: --cfg slint_int_coord
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v2
-    - name: Install nightly rust
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: nightly
-          override: true
-          target: thumbv6m-none-eabi
-    - uses: Swatinem/rust-cache@v1
-    - name: Check
-      uses: actions-rs/cargo@v1
-      with:
-          command: check
-          args: --target=thumbv6m-none-eabi -p printerdemo_mcu --features mcu-pico-st7789
+    # test to compile the mcu backend with nightly and for the armv6 target (no_std)
+    mcu:
+        env:
+            SLINT_EMBED_GLYPHS: 1
+            SLINT_FONT_SIZES: 8,11,10,12,13,14,15,16,18,20,22,24,32
+            SLINT_PROCESS_IMAGES: 1
+            RUSTFLAGS: --cfg slint_int_coord
+        runs-on: ubuntu-20.04
+        steps:
+            - uses: actions/checkout@v2
+            - name: Install nightly rust
+              uses: actions-rs/toolchain@v1
+              with:
+                  toolchain: nightly
+                  override: true
+                  target: thumbv6m-none-eabi
+            - uses: Swatinem/rust-cache@v1
+            - name: Check
+              uses: actions-rs/cargo@v1
+              with:
+                  command: check
+                  args: --target=thumbv6m-none-eabi -p printerdemo_mcu --features mcu-pico-st7789
 
-  docs:
-    uses: slint-ui/slint/.github/workflows/build_docs.yaml@master
+    docs:
+        uses: slint-ui/slint/.github/workflows/build_docs.yaml@master
 
-  wasm:
-    uses: slint-ui/slint/.github/workflows/wasm_editor_and_interpreter.yaml@master
+    wasm:
+        uses: slint-ui/slint/.github/workflows/wasm_editor_and_interpreter.yaml@master
 
-  wasm_demo:
-    uses: slint-ui/slint/.github/workflows/wasm_demos.yaml@master
+    wasm_demo:
+        uses: slint-ui/slint/.github/workflows/wasm_demos.yaml@master
 
-  # Checkout a old version of the tests and example, then run the syntax_updater on them
-  # and check that it worked with the interpreter test.
-  updater_test:
-    env:
-      SLINT_NO_QT: 1
-      CARGO_INCREMENTAL: false
-      # There were binding loops with layout in our demo, so ignore theses errors
-      # Also ignore errors that were warnings before
-      SLINT_INTERPRETER_ERROR_WHITELIST: "is part of a binding loop;must be called;duplicated element id;Unknown type Clip;in Path"
-      RUST_BACKTRACE: 1
-    strategy:
-      matrix:
-        from_version: ['0.1.0', '0.1.6']
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v2
-      with:
-        fetch-depth: 0
-    - name: Install Linux Dependencies
-      run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
-    - name: Install latest stable
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: stable
-          profile: minimal
-    - uses: Swatinem/rust-cache@v1
-    - name: Checkout old version
-      run: |
-          git checkout v${{ matrix.from_version }} --no-overlay -- examples
-          git checkout v${{ matrix.from_version }} --no-overlay -- tests/cases
-          git checkout v${{ matrix.from_version }} --no-overlay -- tests/helper_components
-          # Remove examples from the workspace because they may no longer exist or their Cargo.toml might prevent the build of the updater
-          sed -i "/examples/d" Cargo.toml
-    - name: "Commit old checkout"
-      run: |
-          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-          git config --global user.name "${GITHUB_ACTOR}"
-          git commit -a -m "REVERT TESTS TO v${{ matrix.from_version }}"
-    - name: run the updater
-      run: |
-        cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i examples/*/*.60
-        cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i examples/*/*/*.60
-        cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i tests/cases/*.60
-        cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i tests/cases/*/*.60
-    - name: Show the diff
-      run: git diff
-    - name: test
-      uses: actions-rs/cargo@v1
-      with:
-          command: test
-          # skip example_printerdemo_old because that was not in 0.0.5
-          # skip test_interpreter_examples_rotate because the internal rotate element was removed
-          args: --bin test-driver-interpreter -- --skip example_printerdemo_old --skip test_interpreter_examples_rotate
+    # Checkout a old version of the tests and example, then run the syntax_updater on them
+    # and check that it worked with the interpreter test.
+    updater_test:
+        env:
+            SLINT_NO_QT: 1
+            CARGO_INCREMENTAL: false
+            # There were binding loops with layout in our demo, so ignore theses errors
+            # Also ignore errors that were warnings before
+            SLINT_INTERPRETER_ERROR_WHITELIST: "is part of a binding loop;must be called;duplicated element id;Unknown type Clip;in Path"
+            RUST_BACKTRACE: 1
+        strategy:
+            matrix:
+                from_version: ["0.1.0", "0.1.6"]
+        runs-on: ubuntu-20.04
+        steps:
+            - uses: actions/checkout@v2
+              with:
+                  fetch-depth: 0
+            - name: Install Linux Dependencies
+              run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
+            - name: Install latest stable
+              uses: actions-rs/toolchain@v1
+              with:
+                  toolchain: stable
+                  profile: minimal
+            - uses: Swatinem/rust-cache@v1
+            - name: Checkout old version
+              run: |
+                  git checkout v${{ matrix.from_version }} --no-overlay -- examples
+                  git checkout v${{ matrix.from_version }} --no-overlay -- tests/cases
+                  git checkout v${{ matrix.from_version }} --no-overlay -- tests/helper_components
+                  # Remove examples from the workspace because they may no longer exist or their Cargo.toml might prevent the build of the updater
+                  sed -i "/examples/d" Cargo.toml
+            - name: "Commit old checkout"
+              run: |
+                  git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+                  git config --global user.name "${GITHUB_ACTOR}"
+                  git commit -a -m "REVERT TESTS TO v${{ matrix.from_version }}"
+            - name: run the updater
+              run: |
+                  cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i examples/*/*.60
+                  cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i examples/*/*/*.60
+                  cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i tests/cases/*.60
+                  cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i tests/cases/*/*.60
+            - name: Show the diff
+              run: git diff
+            - name: test
+              uses: actions-rs/cargo@v1
+              with:
+                  command: test
+                  # skip example_printerdemo_old because that was not in 0.0.5
+                  # skip test_interpreter_examples_rotate because the internal rotate element was removed
+                  args: --bin test-driver-interpreter -- --skip example_printerdemo_old --skip test_interpreter_examples_rotate

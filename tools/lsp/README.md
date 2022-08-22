@@ -7,8 +7,6 @@ featuring diagnostics, code completion, goto definition, and more importantly, l
 
 The LSP server consists of a binary, `slint-lsp` (or `slint-lsp.exe` on Windows). It provides all the functionality and allows any programming editor that also implements the standardized LSP protocol to communicate with it.
 
-
-
 If you have Rust installed, you can install the binary by running the following command:
 
 ```sh
@@ -22,7 +20,6 @@ for the released version. Or, to install the develoment version:
 cargo install slint-lsp --git https://github.com/slint-ui/slint --force
 ```
 
-
 Alternatively, you can download one of our pre-built binaries for Linux or Windows:
 
 1. Open <https://github.com/slint-ui/slint/releases>
@@ -32,7 +29,6 @@ Alternatively, you can download one of our pre-built binaries for Linux or Windo
 4. Uncompress the downloaded archive into a location of your choice.
 
 As the next step, configure your editor to use the binary, no arguments are required
-
 
 # Editor configuration
 

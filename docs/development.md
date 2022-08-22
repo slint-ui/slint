@@ -27,18 +27,18 @@ These tests allow to test the proper error conditions.
 
 The library crates that are used at runtime.
 
-* **`core`** is the main library. It is meant to be used for all front-ends. Ideally it should
-  be kept as small as possible. **`corelib-macros`** contains some procedural macro used by core library.
-* **`backends`** contains the different backend for the different platform, separated from
-  core library.  Currently there is just the gl backend
-* **`interpreter`** is the library used by the more dynamic languages backend to compile and
-  interpret .slint files. It links both against core library and the compiler lib
+-   **`core`** is the main library. It is meant to be used for all front-ends. Ideally it should
+    be kept as small as possible. **`corelib-macros`** contains some procedural macro used by core library.
+-   **`backends`** contains the different backend for the different platform, separated from
+    core library. Currently there is just the gl backend
+-   **`interpreter`** is the library used by the more dynamic languages backend to compile and
+    interpret .slint files. It links both against core library and the compiler lib
 
 ### `tools`
 
-* **`compiler`** is the tool to generate the target language (e.g. c++) from the .slint files for
-  frontend that have a compilation step and generated code.
-* **`viewer`** is a tool that allow to open and view a .slint file.
+-   **`compiler`** is the tool to generate the target language (e.g. c++) from the .slint files for
+    frontend that have a compilation step and generated code.
+-   **`viewer`** is a tool that allow to open and view a .slint file.
 
 ### `api`
 

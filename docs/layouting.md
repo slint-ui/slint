@@ -11,8 +11,8 @@ The size of visual elements is stored in the `width` and `height` properties.
 You can create an entire graphical user interface by placing the elements in two different
 ways:
 
-* Explicitly - by setting the `x`, `y`, `width`, and `height` properties.
-* Automatically - by using layout elements.
+-   Explicitly - by setting the `x`, `y`, `width`, and `height` properties.
+-   Automatically - by using layout elements.
 
 Explicit placement is great for static scenes with few elements. Layouts are suitable for
 complex user interfaces, because the geometric relationship between the elements is
@@ -55,8 +55,8 @@ the `width` and `height` of the window changes.
 When specifying explicit values for any of the geometric properties, Slint requires
 you to attach a unit to the number. You can choose between two different units:
 
-* Logical pixels, using the `px` unit suffix. This is the recommended unit.
-* Physical pixels, using the `phx` unit suffix
+-   Logical pixels, using the `px` unit suffix. This is the recommended unit.
+-   Physical pixels, using the `phx` unit suffix
 
 Logical pixels scale automatically with the device pixel ratio that your system is
 configured with. For example, on a modern High-DPI display the device pixel ratio can be 2,
@@ -74,19 +74,19 @@ The default values for `width` and `height` depend on the type of element. Some 
 automatically based on their content, such as `Image`, `Text`, and most widgets. The following elements
 do not have content and therefore default to fill their parent element:
 
-* `Rectangle`
-* `TouchArea`
-* `FocusScope`
-* `Flickable`
-* `Clip`
+-   `Rectangle`
+-   `TouchArea`
+-   `FocusScope`
+-   `Flickable`
+-   `Clip`
 
 ## Automatic Placement using Layouts
 
 Slint comes with different layout elements that automatically calculate the position and size of their children:
 
-* `VerticalLayout` / `HorizontalLayout`: The children are placed along the vertical or horizontal axis.
-* `GridLayout`: The children are placed in a grid of columns and rows.
-* `PathLayout`: The children are placed along a path.
+-   `VerticalLayout` / `HorizontalLayout`: The children are placed along the vertical or horizontal axis.
+-   `GridLayout`: The children are placed in a grid of columns and rows.
+-   `PathLayout`: The children are placed along a path.
 
 Layouts can also be nested, making it possible to create complex user interfaces.
 
@@ -94,10 +94,10 @@ You can tune the automatic placement using different constraints, to accommodate
 interface. For example each element has a minimum and a maximum size. Set these explicitly using the
 following properties:
 
-* `min-width`
-* `min-height`
-* `max-width`
-* `max-height`
+-   `min-width`
+-   `min-height`
+-   `max-width`
+-   `max-height`
 
 A layout element also affects the minimum and maximum size of its parent.
 
@@ -106,8 +106,8 @@ An element is considered to have a fixed size in a layout when the `width` and `
 When there is extra space in a layout, elements can stretch along the layout axis. You can control this stretch
 factor between the element and its siblings with these properties:
 
-* `horizontal-stretch`
-* `vertical-stretch`
+-   `horizontal-stretch`
+-   `vertical-stretch`
 
 A value of `0` means that the element will not be stretched at all; unless all siblings also have a stretch
 factor of `0`. Then all the elements will be equally stretched.
@@ -116,16 +116,16 @@ factor of `0`. Then all the elements will be equally stretched.
 
 All layout elements have the following properties in common:
 
-* `spacing`: This controls the spacing between the children.
-* `padding`: This specifies the padding within the layout, the space between the elements and the border of the
+-   `spacing`: This controls the spacing between the children.
+-   `padding`: This specifies the padding within the layout, the space between the elements and the border of the
     layout.
 
 For more fine grained control, the `padding` property can be split into properties for each side of the layout:
 
-* `padding-left`
-* `padding-right`
-* `padding-top`
-* `padding-bottom`
+-   `padding-left`
+-   `padding-right`
+-   `padding-top`
+-   `padding-bottom`
 
 ## `VerticalLayout` and `HorizontalLayout`
 

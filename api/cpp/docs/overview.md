@@ -1,4 +1,3 @@
-
 # Overview
 
 The following two sections explain how you can integrate your `.slint` designs into your
@@ -10,7 +9,6 @@ either by compiling them ahead of time or by dynamically loading them at run-tim
 
 Once instantiated you feed data into it, for example by setting properties, populating
 data models or setting up callbacks that are invoked when the user activates certain elements.
-
 
 ## Compiled `.slint` designs
 

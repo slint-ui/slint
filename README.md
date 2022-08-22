@@ -13,13 +13,13 @@ Rust, C++, and JavaScript.
 
 Our design goals are:
 
- - **Lightweight**: Fit into a few hundred kilobytes of RAM and require little processing power.
- - **Straightforward**: Programmers and designers should feel productive and be able to enjoy the design and development process.
-   The APIs should be consistent, easy to use, and intuitive, no matter the target language. High-quality documentation
-   should describe the APIs, teach concepts and how to use them.
- - **Native**: We support many different target platforms, from embedded devices to desktops including mobile and web. Both the user and the developer should feel at
-   home on each platform. The look and feel and experience should match the users' expectations of a
-   native application.
+-   **Lightweight**: Fit into a few hundred kilobytes of RAM and require little processing power.
+-   **Straightforward**: Programmers and designers should feel productive and be able to enjoy the design and development process.
+    The APIs should be consistent, easy to use, and intuitive, no matter the target language. High-quality documentation
+    should describe the APIs, teach concepts and how to use them.
+-   **Native**: We support many different target platforms, from embedded devices to desktops including mobile and web. Both the user and the developer should feel at
+    home on each platform. The look and feel and experience should match the users' expectations of a
+    native application.
 
 ## Quick Start
 
@@ -30,23 +30,23 @@ Check the [online demos](#demos-running-in-webassembly-simulation) or
 
 Slint is in active development. Its state of development depends on the kind of application.
 
- - **Embedded**: *Ready!* Slint is already happily used by customers on embedded devices
-   (running on an Arm processor with Linux).
- - **Microcontrollers**: *Partial*. [We have ported Slint](https://slint-ui.com/blog/porting-slint-to-microcontrollers.html)
-   to a couple of MCUs. We are still working on a public API for the platform adaptation layer.
-   Contact us to get your board supported.
- - **Desktop**: *In Progress*. Slint is usable on Windows, Linux and Mac. We plan on building
-   up the desktop support in subsequent releases to reach the level of integration we're aiming for.
- - **Mobile** (Android/iOS): *Todo*. We haven't started supporting mobile platforms yet, but it
-   is our intention to do so in the future.
- - **Web**: Our focus is on Embedded and Desktop applications. We do not intend to compete in
-   the web space as a primary platform. That said, Slint can compile to WebAssembly and the
-   demos are running in a web browser. But the web support is currently limited to demo purposes.
- - **Accessibility**: Slint supports keyboard based navigation of many widgets, and user interfaces
-   are scalable. The basic infrastructure for assistive technology like screen readers is in place,
-   but requires the Qt backend at this time.
+-   **Embedded**: _Ready!_ Slint is already happily used by customers on embedded devices
+    (running on an Arm processor with Linux).
+-   **Microcontrollers**: _Partial_. [We have ported Slint](https://slint-ui.com/blog/porting-slint-to-microcontrollers.html)
+    to a couple of MCUs. We are still working on a public API for the platform adaptation layer.
+    Contact us to get your board supported.
+-   **Desktop**: _In Progress_. Slint is usable on Windows, Linux and Mac. We plan on building
+    up the desktop support in subsequent releases to reach the level of integration we're aiming for.
+-   **Mobile** (Android/iOS): _Todo_. We haven't started supporting mobile platforms yet, but it
+    is our intention to do so in the future.
+-   **Web**: Our focus is on Embedded and Desktop applications. We do not intend to compete in
+    the web space as a primary platform. That said, Slint can compile to WebAssembly and the
+    demos are running in a web browser. But the web support is currently limited to demo purposes.
+-   **Accessibility**: Slint supports keyboard based navigation of many widgets, and user interfaces
+    are scalable. The basic infrastructure for assistive technology like screen readers is in place,
+    but requires the Qt backend at this time.
 
-   We are aware that more work is needed to get best-of-class support for users with special needs.
+    We are aware that more work is needed to get best-of-class support for users with special needs.
 
 ### Stay up to date
 
@@ -63,22 +63,22 @@ The `docs` folder contains a lot more information, including
 
 Refer to the README of each language directory in the `api` folder:
 
- * [C++](api/cpp) ([Documentation](https://slint-ui.com/docs/cpp) | [Tutorial](https://slint-ui.com/docs/tutorial/cpp) | [Tutorial Video](https://youtu.be/_-Hxr6ZrHyo) | [Getting Started Template](https://github.com/slint-ui/slint-cpp-template))
- * [Rust](api/rs/slint) [![Crates.io](https://img.shields.io/crates/v/slint)](https://crates.io/crates/slint) ([Documentation](https://slint-ui.com/docs/rust/slint/) | [Tutorial](https://slint-ui.com/docs/tutorial/rust) | [Tutorial Video](https://youtu.be/_-Hxr6ZrHyo) | [Getting Started Template](https://github.com/slint-ui/slint-rust-template))
- * [JavaScript/NodeJS](api/node) [![npm](https://img.shields.io/npm/v/slint-ui)](https://www.npmjs.com/package/sixtyfps) ([Documentation](https://slint-ui.com/docs/node))
+-   [C++](api/cpp) ([Documentation](https://slint-ui.com/docs/cpp) | [Tutorial](https://slint-ui.com/docs/tutorial/cpp) | [Tutorial Video](https://youtu.be/_-Hxr6ZrHyo) | [Getting Started Template](https://github.com/slint-ui/slint-cpp-template))
+-   [Rust](api/rs/slint) [![Crates.io](https://img.shields.io/crates/v/slint)](https://crates.io/crates/slint) ([Documentation](https://slint-ui.com/docs/rust/slint/) | [Tutorial](https://slint-ui.com/docs/tutorial/rust) | [Tutorial Video](https://youtu.be/_-Hxr6ZrHyo) | [Getting Started Template](https://github.com/slint-ui/slint-rust-template))
+-   [JavaScript/NodeJS](api/node) [![npm](https://img.shields.io/npm/v/slint-ui)](https://www.npmjs.com/package/sixtyfps) ([Documentation](https://slint-ui.com/docs/node))
 
 ## Demos running in WebAssembly Simulation
 
 Click on the screenshots to run the WebAssembly simulation
 
-| Printer Demo | Slide Puzzle | Todo | Widget Gallery |
-|--------------|----------------|----------------|----------------|
+| Printer Demo                                                                                                                                           | Slide Puzzle                                                                                                                                       | Todo                                                                                                                               | Widget Gallery                                                                                                                                 |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | [![Screenshot of the Printer Demo](https://slint-ui.com/resources/printerdemo_screenshot.png "Printer Demo")](https://slint-ui.com/demos/printerdemo/) | [![Screenshot of the Slide Puzzle](https://slint-ui.com/resources/puzzle_screenshot.png "Slide Puzzle")](https://slint-ui.com/demos/slide_puzzle/) | [![Screenshot of the Todo Demo](https://slint-ui.com/resources/todo_screenshot.png "Todo Demo")](https://slint-ui.com/demos/todo/) | [![Screenshot of the Gallery Demo](https://slint-ui.com/resources/gallery_screenshot.png "Gallery Demo")](https://slint-ui.com/demos/gallery/) |
 
 ## Desktop Native Widgets
 
-| Windows | macOS | Linux |
-|---------|-------|-------|
+| Windows                                                                                                      | macOS                                                                                                      | Linux                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | ![Screenshot of the Gallery on Windows](https://slint-ui.com/resources/gallery_win_screenshot.png "Gallery") | ![Screenshot of the Gallery on macOS](https://slint-ui.com/resources/gallery_mac_screenshot.png "Gallery") | ![Screenshot of the Gallery on Linux](https://slint-ui.com/resources/gallery_linux_screenshot.png "Gallery") |
 
 ## The .slint Markup Language
@@ -131,20 +131,21 @@ memory allocations.
 
 Rendering backends and styles are configurable at compile time. Current there are two back-ends:
 
- * The `gl` backend uses OpenGL ES 2.0 for rendering.
- * The `qt` backend uses Qt's QStyle to achieve native looking widgets. In the future it could also use
-   QPainter.
+-   The `gl` backend uses OpenGL ES 2.0 for rendering.
+-   The `qt` backend uses Qt's QStyle to achieve native looking widgets. In the future it could also use
+    QPainter.
 
 ### Tooling
 
 We have a few tools to help with the development of .slint files:
- - A [**LSP Server**](./tools/lsp) that adds features like auto-complete and live preview of the .slint files to many editors.
- - It is bundled in a [**Visual Studio Code Extension**](./editors/vscode) available from the market place.
- - A [**slint-viewer**](./tools/viewer) tool which displays the .slint files. The `--auto-reload` argument makes it easy to preview
-   your UI while you are working on it (when using the LSP preview is not possible).
- - An [**online editor**](https://slint-ui.com/editor) to try out .slint syntax without installing anything ([sources](./tools/online_editor)).
- - An [**updater**](./tools/syntax_updater) to convert the .slint files from previous versions to newer versions.
- - An experimental [**Figma importer**](./tools/figma_import).
+
+-   A [**LSP Server**](./tools/lsp) that adds features like auto-complete and live preview of the .slint files to many editors.
+-   It is bundled in a [**Visual Studio Code Extension**](./editors/vscode) available from the market place.
+-   A [**slint-viewer**](./tools/viewer) tool which displays the .slint files. The `--auto-reload` argument makes it easy to preview
+    your UI while you are working on it (when using the LSP preview is not possible).
+-   An [**online editor**](https://slint-ui.com/editor) to try out .slint syntax without installing anything ([sources](./tools/online_editor)).
+-   An [**updater**](./tools/syntax_updater) to convert the .slint files from previous versions to newer versions.
+-   An experimental [**Figma importer**](./tools/figma_import).
 
 Please check our [Editors README](./editors/README.md) for tips on how to configure your favorite editor to work well with Slint.
 
@@ -152,28 +153,28 @@ Please check our [Editors README](./editors/README.md) for tips on how to config
 
 List of some open source projects using Slint: (Contact us or open a pull request to add yours)
 
- - **[Cargo UI](https://github.com/slint-ui/cargo-ui)**: A graphical frontend for Cargo.
- - **[ImageSieve](https://github.com/Futsch1/image-sieve)** : GUI based tool to sort and categorize images.
- - **[Moiré](https://codeberg.org/Be.ing/moire)** : Musical live performance application with a DAW-like timeline interface.
- - **[Chiptrack](https://github.com/jturcotte/chiptrack)**: A cross-platform sequencer that internally uses a Game Boy emulator to synthesize the sound.
- - **[Project Trains Launcher](https://github.com/Project-Trains/launcher)**: Cross-platform game launcher made for Project Trains simulator.
- - **[Mastermind](https://github.com/ElevenJune/mastermind_Rust)**: Mastermind game coded in Rust.
+-   **[Cargo UI](https://github.com/slint-ui/cargo-ui)**: A graphical frontend for Cargo.
+-   **[ImageSieve](https://github.com/Futsch1/image-sieve)** : GUI based tool to sort and categorize images.
+-   **[Moiré](https://codeberg.org/Be.ing/moire)** : Musical live performance application with a DAW-like timeline interface.
+-   **[Chiptrack](https://github.com/jturcotte/chiptrack)**: A cross-platform sequencer that internally uses a Game Boy emulator to synthesize the sound.
+-   **[Project Trains Launcher](https://github.com/Project-Trains/launcher)**: Cross-platform game launcher made for Project Trains simulator.
+-   **[Mastermind](https://github.com/ElevenJune/mastermind_Rust)**: Mastermind game coded in Rust.
 
 ## Contributions
 
 We welcome your contributions: in the form of code, bug reports or feedback.
 
- * If you see an [RFC tag](https://github.com/slint-ui/slint/labels/rfc) on an issue, feel free to
-   chime in.
- * For contribution guidelines see [CONTRIBUTING.md](CONTRIBUTING.md). The dual-licensing requires the
-   contributor to accept a CLA.
+-   If you see an [RFC tag](https://github.com/slint-ui/slint/labels/rfc) on an issue, feel free to
+    chime in.
+-   For contribution guidelines see [CONTRIBUTING.md](CONTRIBUTING.md). The dual-licensing requires the
+    contributor to accept a CLA.
 
 ## License
 
 This software is provided under a dual licensing scheme:
 
- - **GNU GPLv3**: Open source license ideal for free software.
- - **Commercial Slint license**: <https://slint-ui.com/#offering>
+-   **GNU GPLv3**: Open source license ideal for free software.
+-   **Commercial Slint license**: <https://slint-ui.com/#offering>
 
 The commercial license is free if you help us promote Slint: Check out our
 [ambassador license](https://slint-ui.com/ambassador-program.html).

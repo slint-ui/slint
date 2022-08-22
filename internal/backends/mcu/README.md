@@ -10,14 +10,15 @@ only be used with `version = "=x.y.z"` in Cargo.toml.
 The MCU backend is still a work in progress.
 
 We currently have in-tree backend for
- * the [Raspberry Pi Pico](https://www.raspberrypi.com/products/raspberry-pi-pico/)
-   and [ST7789 based screen](https://www.waveshare.com/pico-restouch-lcd-2.8.htm):
 
-   The Raspberry Pi Pico uses a RP2040 micro-controller which has 264KB of RAM and 2MB of flash memory.
+-   the [Raspberry Pi Pico](https://www.raspberrypi.com/products/raspberry-pi-pico/)
+    and [ST7789 based screen](https://www.waveshare.com/pico-restouch-lcd-2.8.htm):
 
- * STM32H735G-DK
+    The Raspberry Pi Pico uses a RP2040 micro-controller which has 264KB of RAM and 2MB of flash memory.
 
- * Simulator, which is a way to test the software rendering backend on desktop.
+-   STM32H735G-DK
+
+-   Simulator, which is a way to test the software rendering backend on desktop.
 
 We will make some backend API public so any board supported by rust can easily be supported
 
@@ -55,7 +56,6 @@ slint-build = { git = "https://github.com/slint-ui/slint" }
 
 ### The simulator
 
-
 ```sh
 cargo run -p printerdemo_mcu --features=mcu-simulator --release
 ```
@@ -70,7 +70,7 @@ Build the demo with:
 cargo +nightly build -p printerdemo_mcu --features=mcu-pico-st7789 --target=thumbv6m-none-eabi --release
 ```
 
-You should process the file with  [elf2uf2-rs](https://github.com/jonil/elf2uf2-rs)
+You should process the file with [elf2uf2-rs](https://github.com/jonil/elf2uf2-rs)
 
 ```sh
 cargo install elf2uf2-rs
@@ -113,29 +113,28 @@ CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-run --chip STM32H735IGKx" cargo
 Install `probe-rs-debugger` and the VSCode plugin as described [here](https://probe.rs/docs/tools/vscode/).
 
 Add this build task to your `.vscode/tasks.json`:
+
 ```json
 {
-	"version": "2.0.0",
-	"tasks": [
-		{
-			"type": "cargo",
-			"command": "build",
-			"env": {
-				"RUSTUP_TOOLCHAIN": "nightly"
-			},
-			"args": [
-				"--package=printerdemo_mcu",
-				"--features=mcu-pico-st7789",
-				"--target=thumbv6m-none-eabi",
-				"--profile=release-with-debug"
-			],
-			"problemMatcher": [
-				"$rustc"
-			],
-			"group": "build",
-			"label": "build mcu demo for pico"
-		},
-	]
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "cargo",
+            "command": "build",
+            "env": {
+                "RUSTUP_TOOLCHAIN": "nightly"
+            },
+            "args": [
+                "--package=printerdemo_mcu",
+                "--features=mcu-pico-st7789",
+                "--target=thumbv6m-none-eabi",
+                "--profile=release-with-debug"
+            ],
+            "problemMatcher": ["$rustc"],
+            "group": "build",
+            "label": "build mcu demo for pico"
+        }
+    ]
 }
 ```
 
@@ -175,7 +174,7 @@ Now you can add the launch configuration to `.vscode/launch.json`:
                     "programBinary": "./target/thumbv6m-none-eabi/release-with-debug/printerdemo_mcu"
                 }
             ]
-        },
+        }
     ]
 }
 ```

@@ -28,15 +28,15 @@ slint-viewer path/to/myfile.slint
 
 ## Command line arguments
 
- - `--auto-reload`: Automatically watch the file system, and reload when it changes
- - `--save-data <file>`: When exiting, write the value of public properties to a json file.
-   Only property whose types can be serialized to json will be written.
-   This option is incompatible with `--auto-reload`
- - `--load-data <file>`: Load the values of public properties from a json file.
- - `-I <path>`: Add an include path to look for imported .slint files or images.
- - `--style <style>`: Set the style. Defaults to `native` if the Qt backend is compiled, otherwise `fluent`
- - `--backend <backend>`: Override the Slint rendering backend
- - `--on <callback> <handler>`: Set a callback handler, see [callback handler](#callback-handlers)
+-   `--auto-reload`: Automatically watch the file system, and reload when it changes
+-   `--save-data <file>`: When exiting, write the value of public properties to a json file.
+    Only property whose types can be serialized to json will be written.
+    This option is incompatible with `--auto-reload`
+-   `--load-data <file>`: Load the values of public properties from a json file.
+-   `-I <path>`: Add an include path to look for imported .slint files or images.
+-   `--style <style>`: Set the style. Defaults to `native` if the Qt backend is compiled, otherwise `fluent`
+-   `--backend <backend>`: Override the Slint rendering backend
+-   `--on <callback> <handler>`: Set a callback handler, see [callback handler](#callback-handlers)
 
 Instead of a path to a file, one can use `-` for the standard input or the standard output.
 
@@ -64,25 +64,25 @@ slint-viewer --on open-url 'xdg-open $1' myfile.slint
 
 Be carefull to use single quote or to escape the `$` so that the shell don't expand the `$1`
 
-
 ## Dialogs
 
 If the root element of the .slint file is a `Dialog`, the different StandardButton might close
 the dialog if no callback was set on the button.
 
- - `ok`, `yes`, or `close` buttons accepts the dialog
- - `cancel`, `no` buttons reject the dialog
+-   `ok`, `yes`, or `close` buttons accepts the dialog
+-   `cancel`, `no` buttons reject the dialog
 
 ## Result code
 
 The program returns with the following error code:
- - If the command line argument parsing fails, the exit code will be *1*
- - If the .slint compilation fails, the compilation error will be printed to stderr and the exit code
-   will be *-1*
- - If a Window is closed, the exit code will be *0*
- - If a Dialog is closed with the "Ok" or "Closed" or "Yes" button, the exit code will be *0*
- - If a Dialog is closed with the "Cancel" or "No" button, or using the close button in the window
-   title bar, the exit code will be *1*
+
+-   If the command line argument parsing fails, the exit code will be _1_
+-   If the .slint compilation fails, the compilation error will be printed to stderr and the exit code
+    will be _-1_
+-   If a Window is closed, the exit code will be _0_
+-   If a Dialog is closed with the "Ok" or "Closed" or "Yes" button, the exit code will be _0_
+-   If a Dialog is closed with the "Cancel" or "No" button, or using the close button in the window
+    title bar, the exit code will be _1_
 
 ## Examples
 

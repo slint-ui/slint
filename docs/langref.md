@@ -2,15 +2,15 @@
 
 The Slint design markup language is used to describe graphical user interfaces:
 
- * Place and compose a tree of visual elements in a window using a textual representation.
- * Configure the appearance of elements via properties. For example a `Text` element has font and text
-   properties, while a `Rectangle` element offers a background color.
- * Assign binding expressions to properties to automatically compute values that depend on other properties.
- * Group binding expressions together with named states and conditions.
- * Declare animations on properties and states to make the user interface feel alive.
- * Build your own re-usable components and share them in `.slint` module files.
- * Define data structures and models and access them from programming languages.
- * Build highly customized user interfaces with the [builtin elements](builtin_elements.md) provided.
+-   Place and compose a tree of visual elements in a window using a textual representation.
+-   Configure the appearance of elements via properties. For example a `Text` element has font and text
+    properties, while a `Rectangle` element offers a background color.
+-   Assign binding expressions to properties to automatically compute values that depend on other properties.
+-   Group binding expressions together with named states and conditions.
+-   Declare animations on properties and states to make the user interface feel alive.
+-   Build your own re-usable components and share them in `.slint` module files.
+-   Define data structures and models and access them from programming languages.
+-   Build highly customized user interfaces with the [builtin elements](builtin_elements.md) provided.
 
 Slint also comes with a catalog of high-level [widgets](widgets.md), that are written in the `.slint`
 language.
@@ -52,7 +52,7 @@ export MyApp := Window {
 Here, both `MyButton` and `MyApp` are components. `Window` and `Rectangle` are built-in elements
 used by `MyApp`. `MyApp` also re-uses the `MyButton` component.
 
-You can assign a name to the elements using the `:=`  syntax in front an element:
+You can assign a name to the elements using the `:=` syntax in front an element:
 
 ```slint
 MyButton := Text {
@@ -125,8 +125,8 @@ MyApp := Window {
 
 C-style comments are supported:
 
-* line comments: `//` means everything to the end of the line is commented.
-* block comments: `/* .. */`.  Note that the blocks comments can be nested, so `/* this is a /* single */ comment */`
+-   line comments: `//` means everything to the end of the line is commented.
+-   block comments: `/* .. */`. Note that the blocks comments can be nested, so `/* this is a /* single */ comment */`
 
 ## Identifiers
 
@@ -167,7 +167,7 @@ Example := Rectangle {
 The expression on the right of a binding is automatically re-evaluated when the expression changes.
 
 In the following example, the text of the button is automatically changed when the button is pressed, because
-changing the `counter`  property automatically changes the text.
+changing the `counter` property automatically changes the text.
 
 ```slint
 import { Button } from "std-widgets.slint";
@@ -211,21 +211,21 @@ Example := Window {
 
 All properties in elements have a type. The following types are supported:
 
-| Type | Description |
-| --- | --- |
-| `int` | Signed integral number. |
-| `float` | Signed, 32-bit floating point number. Numbers with a `%` suffix are automatically divided by 100, so for example `30%` is the same as `0.30`. |
-| `bool` | boolean whose value can be either `true` or `false`. |
-| `string` | UTF-8 encoded, reference counted string. |
-| `color` | RGB color with an alpha channel, with 8 bit precision for each channel. CSS color names as well as the hexadecimal color encodings are supported, such as `#RRGGBBAA` or `#RGB`. |
-| `brush` | A brush is a special type that can be either initialized from a color or a gradient specification. See the [Colors Section](#colors) for more information. |
-| `physical-length` | This is an amount of physical pixels. To convert from an integer to a length unit, one can simply multiply by `1px`.  Or to convert from a length to a float, one can divide by `1phx`. |
-| `length` | The type used for `x`, `y`, `width` and `height` coordinates. Corresponds to a literal like `1px`, `1pt`, `1in`, `1mm`, or `1cm`. It can be converted to and from length provided the binding is run in a context where there is an access to the device pixel ratio. |
-| `duration` | Type for the duration of animations. A suffix like `ms` (millisecond) or `s` (second) is used to indicate the precision. |
-| `angle` | Angle measurement, corresponds to a literal like `90deg`, `1.2rad`, `0.25turn` |
-| `easing` | Property animation allow specifying an easing curve. Valid values are `linear` (values are interpolated linearly) and the [four common cubiz-bezier functions known from CSS](https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function#Keywords_for_common_cubic-bezier_easing_functions):  `ease`, `ease_in`, `ease_in_out`, `ease_out`. |
-| `percent` | Signed, 32-bit floating point number that is interpreted as percentage. Literal number assigned to properties of this type must have a `%` suffix. |
-| `image` | A reference to an image, can be initialized with the `@image-url("...")` construct |
+| Type              | Description                                                                                                                                                                                                                                                                                                                                      |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `int`             | Signed integral number.                                                                                                                                                                                                                                                                                                                          |
+| `float`           | Signed, 32-bit floating point number. Numbers with a `%` suffix are automatically divided by 100, so for example `30%` is the same as `0.30`.                                                                                                                                                                                                    |
+| `bool`            | boolean whose value can be either `true` or `false`.                                                                                                                                                                                                                                                                                             |
+| `string`          | UTF-8 encoded, reference counted string.                                                                                                                                                                                                                                                                                                         |
+| `color`           | RGB color with an alpha channel, with 8 bit precision for each channel. CSS color names as well as the hexadecimal color encodings are supported, such as `#RRGGBBAA` or `#RGB`.                                                                                                                                                                 |
+| `brush`           | A brush is a special type that can be either initialized from a color or a gradient specification. See the [Colors Section](#colors) for more information.                                                                                                                                                                                       |
+| `physical-length` | This is an amount of physical pixels. To convert from an integer to a length unit, one can simply multiply by `1px`. Or to convert from a length to a float, one can divide by `1phx`.                                                                                                                                                           |
+| `length`          | The type used for `x`, `y`, `width` and `height` coordinates. Corresponds to a literal like `1px`, `1pt`, `1in`, `1mm`, or `1cm`. It can be converted to and from length provided the binding is run in a context where there is an access to the device pixel ratio.                                                                            |
+| `duration`        | Type for the duration of animations. A suffix like `ms` (millisecond) or `s` (second) is used to indicate the precision.                                                                                                                                                                                                                         |
+| `angle`           | Angle measurement, corresponds to a literal like `90deg`, `1.2rad`, `0.25turn`                                                                                                                                                                                                                                                                   |
+| `easing`          | Property animation allow specifying an easing curve. Valid values are `linear` (values are interpolated linearly) and the [four common cubiz-bezier functions known from CSS](https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function#Keywords_for_common_cubic-bezier_easing_functions): `ease`, `ease_in`, `ease_in_out`, `ease_out`. |
+| `percent`         | Signed, 32-bit floating point number that is interpreted as percentage. Literal number assigned to properties of this type must have a `%` suffix.                                                                                                                                                                                               |
+| `image`           | A reference to an image, can be initialized with the `@image-url("...")` construct                                                                                                                                                                                                                                                               |
 
 Please see the language specific API references how these types are mapped to the APIs of the different programming languages.
 
@@ -233,7 +233,7 @@ Please see the language specific API references how these types are mapped to th
 
 Anonymous structs type can be declared with curly braces: `{ identifier1: type2, identifier1: type2, }`
 The trailing semicolon is optional.
-They can be initialized with a struct literal: `{ identifier1: expression1, identifier2: expression2  }`
+They can be initialized with a struct literal: `{ identifier1: expression1, identifier2: expression2 }`
 
 ```slint,no-preview
 Example := Window {
@@ -259,7 +259,7 @@ Example := Window {
 
 ### Arrays / Model
 
-The type array is using square brackets for example  `[int]` is an array of `int`. In the runtime, they are
+The type array is using square brackets for example `[int]` is an array of `int`. In the runtime, they are
 basically used as models for the `for` expression.
 
 ```slint,no-preview
@@ -269,24 +269,24 @@ Example := Window {
 }
 ```
 
-* **`length`**: One can query the length of an array and model using the builtin `.length` property.
-* **`array[index]`**: Individual elements of an array can be retrieved using the `array[index]` syntax.
+-   **`length`**: One can query the length of an array and model using the builtin `.length` property.
+-   **`array[index]`**: Individual elements of an array can be retrieved using the `array[index]` syntax.
 
 ### Conversions
 
-* `int` can be converted implicitly to `float` and vice-versa
-* `int` and `float` can be converted implicitly to `string`
-* `physical-length` and `length` can be converted implicitly to each other only in
-   context where the pixel ratio is known.
-* the units type (`length`, `physical-length`, `duration`, ...) cannot be converted to numbers (`float` or `int`)
-  but they can be divided by themselves to result in a number. Similarly, a number can be multiplied by one of
-  these unit. The idea is that one would multiply by `1px` or divide by `1px` to do such conversions
-* The literal `0` can be converted to any of these types that have associated unit.
-* Struct types convert with another struct type if they have the same property names and their types can be converted.
+-   `int` can be converted implicitly to `float` and vice-versa
+-   `int` and `float` can be converted implicitly to `string`
+-   `physical-length` and `length` can be converted implicitly to each other only in
+    context where the pixel ratio is known.
+-   the units type (`length`, `physical-length`, `duration`, ...) cannot be converted to numbers (`float` or `int`)
+    but they can be divided by themselves to result in a number. Similarly, a number can be multiplied by one of
+    these unit. The idea is that one would multiply by `1px` or divide by `1px` to do such conversions
+-   The literal `0` can be converted to any of these types that have associated unit.
+-   Struct types convert with another struct type if they have the same property names and their types can be converted.
     The source struct can have either missing properties, or extra properties. But not both.
-* Array generally do not convert between each other. But array literal can be converted if the type does convert.
-* String can be converted to float by using the `to-float` function. That function returns 0 if the string is not
-   a valid number. you can check with `is-float` if the string contains a valid number
+-   Array generally do not convert between each other. But array literal can be converted if the type does convert.
+-   String can be converted to float by using the `to-float` function. That function returns 0 if the string is not
+    a valid number. you can check with `is-float` if the string contains a valid number
 
 ```slint,no-preview
 Example := Window {
@@ -327,8 +327,8 @@ Example := Window {
 This pattern of expressing the `width` or `height` in percent of the parent's property with the same name is
 common. For convenience, a short-hand syntax exists for this scenario:
 
-* The property is `width` or `height`
-* A binding expression evaluates to a percentage.
+-   The property is `width` or `height`
+-   A binding expression evaluates to a percentage.
 
 If these conditions are met, then it is not necessary to specify the parent property, instead you can simply
 use the percentage. The earlier example then looks like this:
@@ -431,7 +431,7 @@ Example := Rectangle {
 
 `+` can also be applied with strings to mean concatenation.
 
-There are also the operators `&&` and `||` for logical *and* and *or* between booleans. Comparisons of values of the same types can be done with
+There are also the operators `&&` and `||` for logical _and_ and _or_ between booleans. Comparisons of values of the same types can be done with
 `==`, `!=`, `>`, `<`, `=>` and `<=`.
 
 You can access properties by addressing the associated element, followed by a `.` and the property name:
@@ -445,7 +445,7 @@ Example := Rectangle {
 }
 ```
 
-The ternary operator `... ? ... : ...`  is also supported, like in C or JavaScript:
+The ternary operator `... ? ... : ...` is also supported, like in C or JavaScript:
 
 ```slint
 Example := Window {
@@ -463,20 +463,19 @@ Example := Window {
 }
 ```
 
-
 ### Strings
 
 Strings can be used with surrounding quotes: `"foo"`.
 
 Some character can be escaped with slashes (`\`)
 
-| Escape | Result |
-| --- | --- |
-| `\"` | `"` |
-| `\\` |`\` |
-| `\n` | new line |
-| `\u{xxx}` | where `xxx` is an hexadecimal number, this expand to the unicode character represented by this number |
-| `\{expression}` | the expression is evaluated and inserted here |
+| Escape          | Result                                                                                                |
+| --------------- | ----------------------------------------------------------------------------------------------------- |
+| `\"`            | `"`                                                                                                   |
+| `\\`            | `\`                                                                                                   |
+| `\n`            | new line                                                                                              |
+| `\u{xxx}`       | where `xxx` is an hexadecimal number, this expand to the unicode character represented by this number |
+| `\{expression}` | the expression is evaluated and inserted here                                                         |
 
 Anything else after a `\` is an error.
 
@@ -511,13 +510,13 @@ colors from the `Colors` namespace.
 
 All colors and brushes have methods that can be called on them:
 
-* **`brighter(factor: float) -> Brush`**
+-   **`brighter(factor: float) -> Brush`**
 
     Returns a new color that is derived from this color but has its brightness increased by the specified factor.
     For example if the factor is 0.5 (or for example 50%) the returned color is 50% brighter. Negative factors
     decrease the brightness.
 
-* **`darker(factor: float) -> Brush`**
+-   **`darker(factor: float) -> Brush`**
 
     Returns a new color that is derived from this color but has its brightness decreased by the specified factor.
     For example if the factor is .5 (or for example 50%) the returned color is 50% darker. Negative factors
@@ -653,14 +652,14 @@ The `for`-`in` syntax can be used to repeat an element.
 
 The syntax look like this: `for name[index] in model : id := Element { ... }`
 
-The *model* can be of the following type:
+The _model_ can be of the following type:
 
-* an integer, in which case the element will be repeated that amount of time
-* an array type or a model declared natively, in which case the element will be instantiated for each element in the array or model.
+-   an integer, in which case the element will be repeated that amount of time
+-   an array type or a model declared natively, in which case the element will be instantiated for each element in the array or model.
 
-The *name* will be available for lookup within the element and is going to be like a pseudo-property set to the
-value of the model. The *index* is optional and will be set to the index of this element in the model.
-The *id* is also optional.
+The _name_ will be available for lookup within the element and is going to be like a pseudo-property set to the
+value of the model. The _index_ is optional and will be set to the index of this element in the model.
+The _id_ is also optional.
 
 ### Examples
 
@@ -731,11 +730,11 @@ This will animate the color property for 100ms when it changes.
 
 Animation can be configured with the following parameter:
 
-* `delay`: the amount of time to wait before starting the animation
-* `duration`: the amount of time it takes for the animation to complete
-* `iteration-count`: The number of times a animation should run. A negative value specifies
+-   `delay`: the amount of time to wait before starting the animation
+-   `duration`: the amount of time it takes for the animation to complete
+-   `iteration-count`: The number of times a animation should run. A negative value specifies
     infinite reruns. Fractual values are possible.
-* `easing`: can be `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`, `cubic-bezier(a, b, c, d)` as in CSS
+-   `easing`: can be `linear`, `ease`, `ease-in`, `ease-out`, `ease-in-out`, `cubic-bezier(a, b, c, d)` as in CSS
 
 It is also possible to animate several properties with the same animation:
 
@@ -878,6 +877,7 @@ fn main() {
     // ...
 }
 ```
+
 </details>
 
 <details data-snippet-language="cpp">
@@ -895,6 +895,7 @@ fn main() {
     // ...
 }
 ```
+
 </details>
 
 It is possible to re-expose a callback or properties from a global using the two way binding syntax.
@@ -919,7 +920,6 @@ export MainWindow := Window {
     SomeComponent {}
 }
 ```
-
 
 ## Modules
 
@@ -954,7 +954,7 @@ Button := Rectangle {
 export { Button as ColorButton }
 ```
 
-In the above example, ```Button``` is not accessible from the outside, but instead it is available under the name ```ColorButton```.
+In the above example, `Button` is not accessible from the outside, but instead it is available under the name `ColorButton`.
 
 For convenience, a third way of exporting a component is to declare it exported right away:
 
@@ -995,7 +995,7 @@ Elements, globals and structs can be exported and imported.
 
 ## Focus Handling
 
-Certain elements such as ```TextInput``` accept not only input from the mouse/finger but
+Certain elements such as `TextInput` accept not only input from the mouse/finger but
 also key events originating from (virtual) keyboards. In order for an item to receive
 these events, it must have the focus. This is visible through the `has-focus` property.
 
@@ -1051,11 +1051,11 @@ the focus the very first time the window receives the focus - it becomes the ini
 
 ## Builtin functions
 
-* **`debug(string) -> string`**
+-   **`debug(string) -> string`**
 
 The debug function take a string as an argument and prints it
 
-* **`animation-tick() -> duration`**:  This function returns a monotonically increasing time, which can be used for animations.
+-   **`animation-tick() -> duration`**: This function returns a monotonically increasing time, which can be used for animations.
     Calling this function from a binding will constantly re-evaluate the binding.
     It can be used like so: `x: 1000px + sin(animation-tick() / 1s * 360deg) * 100px;` or `y: 20px * mod(animation-tick(), 2s) / 2s `
 
@@ -1083,40 +1083,40 @@ Example := Window {
 
 These functions are available both in the global scope and in the `Math` namespace.
 
-* **`min`**, **`max`**
+-   **`min`**, **`max`**
 
 Return the arguments with the minimum (or maximum) value. All arguments must be of the same numeric type
 
-* **`mod(T, T) -> T`**
+-   **`mod(T, T) -> T`**
 
 Perform a modulo operation, where T is some numeric type.
 
-* **`abs(float) -> float`**
+-   **`abs(float) -> float`**
 
 Return the absolute value.
 
-* **`round(float) -> int`**
+-   **`round(float) -> int`**
 
 Return the value rounded to the nearest integer
 
-* **`ceil(float) -> int`**, **`floor(float) -> int`**
+-   **`ceil(float) -> int`**, **`floor(float) -> int`**
 
 Return the ceiling or floor
 
-* **`sin(angle) -> float`**, **`cos(angle) -> float`**, **`tan(angle) -> float`**, **`asin(float) -> angle`**, **`acos(float) -> angle`**, **`atan(float) -> angle`**
+-   **`sin(angle) -> float`**, **`cos(angle) -> float`**, **`tan(angle) -> float`**, **`asin(float) -> angle`**, **`acos(float) -> angle`**, **`atan(float) -> angle`**
 
 The trigonometry function. Note that the should be typed with `deg` or `rad` unit
 (for example `cos(90deg)` or `sin(slider.value * 1deg)`).
 
-* **`sqrt(float) -> float`**
+-   **`sqrt(float) -> float`**
 
 Square root
 
-* **`pow(float, float) -> float`**
+-   **`pow(float, float) -> float`**
 
 Return the value of the first value raised to the second
 
-* **`log(float, float) -> float`**
+-   **`log(float, float) -> float`**
 
 Return the log of the first value with a base of the second value
 
@@ -1124,7 +1124,7 @@ Return the log of the first value with a base of the second value
 
 These functions are available both in the global scope, and in the `Colors` namespace.
 
-* **`rgb(int, int, int) -> color`**,  **`rgba(int, int, int, float) -> color`**
+-   **`rgb(int, int, int) -> color`**, **`rgba(int, int, int, float) -> color`**
 
 Return the color as in CSS. Like in CSS, these two functions are actually aliases that can take
 three or four parameters.

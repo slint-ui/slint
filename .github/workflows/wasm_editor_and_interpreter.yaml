@@ -4,60 +4,60 @@
 name: Build the web editor and the interpreter wasm module
 
 on:
-  workflow_dispatch:
-  workflow_call:
+    workflow_dispatch:
+    workflow_call:
 
 jobs:
-  wasm:
-    env:
-      CARGO_PROFILE_RELEASE_OPT_LEVEL: s
-      CARGO_INCREMENTAL: false
-    runs-on: ubuntu-20.04
-    steps:
-    - uses: actions/checkout@v2
-    - name: Setup Node.js
-      uses: actions/setup-node@v1
-      with:
-        node-version: '12'
-    - id: nodeversion
-      run: |
-          echo "::set-output name=node-version::$(node --version)"
-    - uses: actions/cache@v2
-      with:
-        path: ~/.npm
-        key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('examples/**/package.json', 'api/**/package.json') }}
-        restore-keys: |
-          ${{ runner.os }}-${{ github.job }}-node-
-    - name: Install latest stable
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: stable
-          profile: minimal
-          target: wasm32-unknown-unknown
-    - uses: Swatinem/rust-cache@v1
-    - name: Install wasm-pack
-      run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-    - name: Install NPM dependencies
-      run: npm install
-      working-directory: tools/online_editor
-    - name: Compile online editor
-      run: npm run build
-      working-directory: tools/online_editor
-    - name: Clean wasm build artefacts from previous editor build
-      run: rm -rf pkg
-      working-directory: api/wasm-interpreter
-    - name: Compile slint-wasm-interpreter
-      run: wasm-pack build --release --target web -- --features console_error_panic_hook
-      working-directory: api/wasm-interpreter
-    - name: "Upload wasm Artifacts"
-      uses: actions/upload-artifact@v2
-      with:
-          name: wasm
-          path: |
-              api/wasm-interpreter/pkg/
-              tools/online_editor/dist/
-    - name: Lint online editor # This needs the slint-wasm-interpreter!
-      run: |
-          npm run syntax_check
-          npm run lint
-      working-directory: tools/online_editor
+    wasm:
+        env:
+            CARGO_PROFILE_RELEASE_OPT_LEVEL: s
+            CARGO_INCREMENTAL: false
+        runs-on: ubuntu-20.04
+        steps:
+            - uses: actions/checkout@v2
+            - name: Setup Node.js
+              uses: actions/setup-node@v1
+              with:
+                  node-version: "12"
+            - id: nodeversion
+              run: |
+                  echo "::set-output name=node-version::$(node --version)"
+            - uses: actions/cache@v2
+              with:
+                  path: ~/.npm
+                  key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('examples/**/package.json', 'api/**/package.json') }}
+                  restore-keys: |
+                      ${{ runner.os }}-${{ github.job }}-node-
+            - name: Install latest stable
+              uses: actions-rs/toolchain@v1
+              with:
+                  toolchain: stable
+                  profile: minimal
+                  target: wasm32-unknown-unknown
+            - uses: Swatinem/rust-cache@v1
+            - name: Install wasm-pack
+              run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
+            - name: Install NPM dependencies
+              run: npm install
+              working-directory: tools/online_editor
+            - name: Compile online editor
+              run: npm run build
+              working-directory: tools/online_editor
+            - name: Clean wasm build artefacts from previous editor build
+              run: rm -rf pkg
+              working-directory: api/wasm-interpreter
+            - name: Compile slint-wasm-interpreter
+              run: wasm-pack build --release --target web -- --features console_error_panic_hook
+              working-directory: api/wasm-interpreter
+            - name: "Upload wasm Artifacts"
+              uses: actions/upload-artifact@v2
+              with:
+                  name: wasm
+                  path: |
+                      api/wasm-interpreter/pkg/
+                      tools/online_editor/dist/
+            - name: Lint online editor # This needs the slint-wasm-interpreter!
+              run: |
+                  npm run syntax_check
+                  npm run lint
+              working-directory: tools/online_editor

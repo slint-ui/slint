@@ -32,30 +32,28 @@ wget https://raw.githubusercontent.com/slint-ui/slint/master/editors/kate/slint.
 
 On Windows, download [slint.ksyntaxhighlighter.xml](./slint.ksyntaxhighlighter.xml) into `%USERPROFILE%\AppData\Local\org.kde.syntax-highlighting\syntax`
 
-
 ### LSP
 
 To install the Slint Language server, check the [LSP README.md](../tools/lsp/README.md).
 
-Then go to *Settings > Configure Kate*. In the *Plugins* section, enable the *LSP-Client* plugin.
-This will add a *LSP Client* section in the settings dialog. In that *LSP Client* section,
-go to the *User Server Settings*, and  enter the following in the text area:
+Then go to _Settings > Configure Kate_. In the _Plugins_ section, enable the _LSP-Client_ plugin.
+This will add a _LSP Client_ section in the settings dialog. In that _LSP Client_ section,
+go to the _User Server Settings_, and enter the following in the text area:
 
 ```json
 {
-  "servers": {
-    "Slint": {
-      "path": ["%{ENV:HOME}/.cargo/bin", "%{ENV:USERPROFILE}/.cargo/bin"],
-      "command": ["slint-lsp"],
-      "highlightingModeRegex": "Slint"
+    "servers": {
+        "Slint": {
+            "path": ["%{ENV:HOME}/.cargo/bin", "%{ENV:USERPROFILE}/.cargo/bin"],
+            "command": ["slint-lsp"],
+            "highlightingModeRegex": "Slint"
+        }
     }
-  }
 }
 ```
 
 To show the preview, right click on the name definition of the component you want to preview
-(eg. `MainWindow` in `MainWindow := Window {`). Then in the menu, select *LSP Client > Code Action > Show Preview*.
-
+(eg. `MainWindow` in `MainWindow := Window {`). Then in the menu, select _LSP Client > Code Action > Show Preview_.
 
 ## QtCreator
 
@@ -71,19 +69,19 @@ To install the Slint Language server, check the [LSP README.md](../tools/lsp/REA
 
 To setup the lsp:
 
- 1. Install the `slint-lsp` binary
- 2. Then in Qt creator, go to *Tools > Option* and select the *Language Client* section.
- 3. Click *Add*
- 4. As a name, use "Slint"
- 5. use `*.slint` as a file pattern. (don't use MIME types)
- 6. As executable, select the `slint-lsp` binary (no arguments required)
- 7. Click *Apply* or *Ok*
+1.  Install the `slint-lsp` binary
+2.  Then in Qt creator, go to _Tools > Option_ and select the _Language Client_ section.
+3.  Click _Add_
+4.  As a name, use "Slint"
+5.  use `*.slint` as a file pattern. (don't use MIME types)
+6.  As executable, select the `slint-lsp` binary (no arguments required)
+7.  Click _Apply_ or _Ok_
 
 <img src="https://user-images.githubusercontent.com/959326/157453134-c1ff17ed-6c44-4a48-802f-9a9b2a57e6ab.png" width="50%" height="50%">
 
 In order to **preview a component**, when you have a .slint file open, place your cursor to
-the name of the component you would like to preview and press *Alt + Enter* to open
-the code action menu. Select *Show Preview* from that menu.
+the name of the component you would like to preview and press _Alt + Enter_ to open
+the code action menu. Select _Show Preview_ from that menu.
 
 ## Vim
 
@@ -117,12 +115,12 @@ exists under the `language` server section:
 
 ```json
 {
-  "languageserver": {
-    "slint": {
-      "command": "slint-lsp",
-      "filetypes": ["slint"]
+    "languageserver": {
+        "slint": {
+            "command": "slint-lsp",
+            "filetypes": ["slint"]
+        }
     }
-  }
 }
 ```
 
@@ -146,6 +144,7 @@ for syntax highlighting and indentation support.
 To install the Slint Language server, check the [LSP README.md](../tools/lsp/README.md).
 
 To setup the LSP:
+
 1. Make sure the slint language server is installed
 2. Using Package Control in Sublime Text, install the LSP package (sublimelsp/LSP)
 3. Download the Slint syntax highlighting files into your User Package folder,
@@ -164,14 +163,16 @@ the name of the component you would like to preview and select the "Show preview
 will appear on the right of the editor pane.
 
 ## JetBrains IDE
+
 Tested with: CLion 2022.1 (on linux)
 
-*Note: This may/should work for other JetBrains-products also. If you test it please add your results to the above list.*
+_Note: This may/should work for other JetBrains-products also. If you test it please add your results to the above list._
 
 ### LSP Support
+
 1. Install the "LSP Support"-plugin (https://plugins.jetbrains.com/plugin/10209-lsp-support). The docs can be found at https://github.com/gtache/intellij-lsp
 2. Install slint-lsp `cargo install slint-lsp`
-4. Go to File -> Settings -> Languages & Frameworks -> Language Server Protocol -> Server Definitions
-5. Choose "Executable". In "Extension" put "slint" and set "Path" to "/home/\<username\>/.cargo/bin/slint-lsp"
-6. Press the "+"-button
-7. Restart IDE
+3. Go to File -> Settings -> Languages & Frameworks -> Language Server Protocol -> Server Definitions
+4. Choose "Executable". In "Extension" put "slint" and set "Path" to "/home/\<username\>/.cargo/bin/slint-lsp"
+5. Press the "+"-button
+6. Restart IDE

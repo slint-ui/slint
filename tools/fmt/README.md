@@ -12,10 +12,10 @@ Use `cargo build --release` or similar to build this crate.
 
 The built binary can be used in following ways:
 
-- `slint-fmt <path>` - reads the file and outputs the formatted version to stdout
-- `slint-fmt -i <path>` - reads the file and saves the output to the same file
-- `slint-fmt /dev/stdin` - using /dev/stdin you can achieve the special behavior
-  of reading from stdin and writing to stdout
+-   `slint-fmt <path>` - reads the file and outputs the formatted version to stdout
+-   `slint-fmt -i <path>` - reads the file and saves the output to the same file
+-   `slint-fmt /dev/stdin` - using /dev/stdin you can achieve the special behavior
+    of reading from stdin and writing to stdout
 
 Note that `.slint` files are formatted, while `.md` and `.rs` files are searched for `.slint` blocks.
 All other files are left untouched.
@@ -28,6 +28,7 @@ here is a simple way how you can get around it.
 1. Install the extension Custom Format by Vehmloewff. [Marketplace link](https://marketplace.visualstudio.com/items?itemName=Vehmloewff.custom-format)
 2. Build slint-fmt locally.
 3. Add a section like this to your vscode `settings.json`:
+
 ```
 {
   "custom-format.formatters": [
@@ -38,5 +39,6 @@ here is a simple way how you can get around it.
   ]
 }
 ```
+
 4. (Optional) Allow formatting or save, or set this formatter as default for .slint files.
 5. Enjoy! Your .slint files are now formatted.

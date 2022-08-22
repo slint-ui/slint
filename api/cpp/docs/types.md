@@ -21,6 +21,7 @@ The follow table summarizes the entire mapping:
  structure                   A :code:`class` of the same name    The order of the data member are in the lexicographic order of their name
 ==========================  ==================================  =======================================================================================================================================
 ```
+
 ## Structures
 
 For user-defined structures in the .slint code, a `class` of the same name is generated with data member

@@ -81,6 +81,6 @@ memory_game
 Feel free to use your favorite IDE for this purpose, or use out-of-tree build, or Ninja, ...
 We just keep it simple here for the purpose of this blog.
 
-*Note*: When configuring with CMake, the FetchContent module will fetch the source code of Slint via git.
+_Note_: When configuring with CMake, the FetchContent module will fetch the source code of Slint via git.
 this may take some time. When building for the first time, the first thing that need to be build
 is the Slint runtime and compiler, this can take a few minutes.

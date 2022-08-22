@@ -26,7 +26,6 @@ The syntax test can be run alone with
 cargo test --test syntax_tests
 ```
 
-
 ## Driver tests
 
 These tests make sure that feature in .slint behave as expected.
@@ -61,7 +60,7 @@ Foo := Rectangle {
 ### Rust driver
 
 The rust driver will compile each snippet of code and put it in a `slint!` macro in its own module
-In addition, if there are ```` ```rust ```` blocks in a comment, they are extracted into a `#[test]`
+In addition, if there are ` ```rust ` blocks in a comment, they are extracted into a `#[test]`
 function in the same module. This is usefull to test the rust api.
 This is all compiled in a while program, so the `SLINT_TEST_FILTER` environment variable can be
 set while building to only build the test that matches the filter.
@@ -81,7 +80,7 @@ SLINT_TEST_FILTER=layout cargo test -p test-driver-rust --features build-time
 ### C++ driver
 
 The C++ test driver will take each .slint and generate a .h for it. It will also generate a .cpp that
-includes it, and add the ```` ```cpp ```` block in the main function.
+includes it, and add the ` ```cpp ` block in the main function.
 Each program is compiled separately. And then run.
 
 Some macro like `assert_eq` are defined to look similar to the rust equivalent.
@@ -94,7 +93,7 @@ Note that there are also C++ unit tests that can be run by CMake
 
 ### Node driver
 
-This is used to test the NodeJS API. It takes the ```` ```js ```` blocks in comment and make .js file
+This is used to test the NodeJS API. It takes the ` ```js ` blocks in comment and make .js file
 with it that loads the .slint and runs node with it.
 Each test is run in a different node process.
 You need to build the node integration before running the tests, even if the change was on the compiler
@@ -103,12 +102,11 @@ You need to build the node integration before running the tests, even if the cha
 cargo  build -p slint-node  && cargo  test -p test-driver-nodejs
 ```
 
-
 ## Doctests
 
 ```
 cargo test -p doctests
 ```
 
-The doctests extracts the ```` ```slint ````  from the files in the docs folder and make  sure that
+The doctests extracts the ` ```slint ` from the files in the docs folder and make sure that
 the snippets can be build without errors

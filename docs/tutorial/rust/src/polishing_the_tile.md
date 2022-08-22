@@ -8,14 +8,14 @@ that the tile was clicked on. In the <em>MainWindow</em> we react by flipping a 
 That in turn is used in property bindings for the animated width and x properties. Let's look at the two states a bit
 more in detail:
 
-| *open_curtain* value: | false | true |
-| --- | --- | --- |
-| Left curtain rectangle | Fill the left half by setting the width *width* to half the parent's width   | Width of zero makes the rectangle invisible                                                                       |
-| Right curtain rectangle | Fill the right half by setting *x* and *width* to half of the parent's width | *width* of zero makes the rectangle invisible. *x* is moved to the right, to slide the curtain open when animated |
+| _open_curtain_ value:   | false                                                                        | true                                                                                                              |
+| ----------------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Left curtain rectangle  | Fill the left half by setting the width _width_ to half the parent's width   | Width of zero makes the rectangle invisible                                                                       |
+| Right curtain rectangle | Fill the right half by setting _x_ and _width_ to half of the parent's width | _width_ of zero makes the rectangle invisible. _x_ is moved to the right, to slide the curtain open when animated |
 
-In order to make our tile extensible, the hard-coded icon name is replaced with an *icon*
+In order to make our tile extensible, the hard-coded icon name is replaced with an _icon_
 property that can be set from the outside when instantiating the element. For the final polish, we add a
-*solved* property that we use to animate the color to a shade of green when we've found a pair, later. We
+_solved_ property that we use to animate the color to a shade of green when we've found a pair, later. We
 replace the code inside the `slint!` macro with the following:
 
 ```slint
