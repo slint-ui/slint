@@ -338,12 +338,6 @@ fn lower_bound<T>(vec: &[T], mut less_than: impl FnMut(&T) -> bool) -> usize {
     left
 }
 
-/// Fire timer events and update animations
-pub fn update_timers() {
-    TimerList::maybe_activate_timers();
-    crate::animations::update_animations();
-}
-
 #[cfg(feature = "ffi")]
 pub(crate) mod ffi {
     #![allow(unsafe_code)]

@@ -88,3 +88,28 @@ pub fn instance_or_init(
     use core::ops::Deref;
     PRIVATE_BACKEND_INSTANCE.get_or_init(factory_fn).deref()
 }
+
+/// Fire timer events and update animations
+///
+/// This function should be called before rendering or processing input event.
+/// It should basically be called on every iteration of the event loop.
+pub fn update_timers_and_animations() {
+    crate::timers::TimerList::maybe_activate_timers();
+    crate::animations::update_animations();
+}
+
+/// Return the duration before the next timer should be activated. This is basically the
+/// maximum time before calling [`upate_timers_and_animation()`].
+///
+/// That is typically called by the implementation of the event loop to know how long the
+/// thread can go to sleep before the next event.
+///
+/// Note: this does not include animations. [`Window::has_active_animation()`](crate::api::Window::has_active_animation())
+/// can be called to know if a window has running animation
+pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
+    crate::timers::TimerList::next_timeout().map(|timeout| {
+        core::time::Duration::from_millis(
+            timeout.0.saturating_sub(instance().unwrap().duration_since_start().as_millis() as u64),
+        )
+    })
+}
