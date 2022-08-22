@@ -41,6 +41,7 @@ pin-weak = "1"
 scoped-tls-hkt = "0.1"
 winit = { version = "0.26", default-features = false }
 dark-light = "0.2.2"
+instant = "0.1"
 
 # For the FemtoVG renderer
 femtovg = { version = "0.3.5", optional = true }

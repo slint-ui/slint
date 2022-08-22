@@ -586,14 +586,7 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
             clipboard: &clipboard,
         };
         CURRENT_WINDOW_TARGET.set(&running_instance, || {
-            // MainEventsCleared and RedrawEventsCleared are passed after flush of the event loop
-            // by winit. Make sure not to overwrite a previously set ControlFlow::Poll in that process.
-            if !matches!(
-                event,
-                winit::event::Event::MainEventsCleared | winit::event::Event::RedrawEventsCleared
-            ) {
-                *control_flow = ControlFlow::Wait;
-            }
+            //
 
             match event {
                 winit::event::Event::WindowEvent { event, window_id } => {
@@ -644,6 +637,7 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
                 }
 
                 winit::event::Event::NewEvents(_) => {
+                    *control_flow = ControlFlow::Wait;
                     corelib::backend::update_timers_and_animations();
                 }
 
@@ -656,20 +650,29 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
                     }
                 }
 
-                _ => (),
-            }
+                winit::event::Event::RedrawEventsCleared => {
+                    if *control_flow != winit::event_loop::ControlFlow::Exit
+                        && ALL_WINDOWS.with(|windows| {
+                            windows.borrow().iter().any(|(_, w)| {
+                                w.upgrade().map_or(false, |w| w.window().has_active_animations())
+                            })
+                        })
+                    {
+                        *control_flow = ControlFlow::Poll;
+                    }
 
-            if *control_flow != winit::event_loop::ControlFlow::Exit
-                && corelib::animations::CURRENT_ANIMATION_DRIVER
-                    .with(|driver| driver.has_active_animations())
-            {
-                *control_flow = ControlFlow::Poll;
-            }
-
-            if *control_flow == winit::event_loop::ControlFlow::Wait {
-                if let Some(next_timer) = corelib::timers::TimerList::next_timeout() {
-                    *control_flow = winit::event_loop::ControlFlow::WaitUntil(next_timer.into());
+                    if *control_flow == winit::event_loop::ControlFlow::Wait {
+                        if let Some(next_timer) =
+                            corelib::backend::duration_until_next_timer_update()
+                        {
+                            *control_flow = winit::event_loop::ControlFlow::WaitUntil(
+                                instant::Instant::now() + next_timer,
+                            );
+                        }
+                    }
                 }
+
+                _ => (),
             }
         })
     };
