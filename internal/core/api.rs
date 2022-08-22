@@ -202,6 +202,12 @@ impl Window {
     pub fn dispatch_pointer_event(&self, event: PointerEvent) {
         self.0.process_mouse_input(event.into())
     }
+
+    /// Returns true if there is an animation currently running
+    pub fn has_active_animations(&self) -> bool {
+        // TODO make it really per window.
+        crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.has_active_animations())
+    }
 }
 
 impl crate::window::WindowHandleAccess for Window {

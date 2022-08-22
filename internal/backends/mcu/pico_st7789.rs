@@ -225,32 +225,32 @@ fn run_event_loop() -> ! {
                 // Don't go to sleep after a touch event that forces a redraw
                 continue;
             }
+
+            if window.window.has_active_animations() {
+                continue;
+            }
         }
 
-        if i_slint_core::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| !driver.has_active_animations())
-        {
-            let time_to_sleep = i_slint_core::backend::duration_until_next_timer_update();
+        let time_to_sleep = i_slint_core::backend::duration_until_next_timer_update();
 
-            let duration = time_to_sleep.map(|d| {
-                let d = core::cmp::max(d, core::time::Duration::from_micros(10));
-                embedded_time::duration::Microseconds::new(d.as_micros() as u32)
-            });
+        let duration = time_to_sleep.map(|d| {
+            let d = core::cmp::max(d, core::time::Duration::from_micros(10));
+            embedded_time::duration::Microseconds::new(d.as_micros() as u32)
+        });
 
-            cortex_m::interrupt::free(|cs| {
-                if let Some(duration) = duration {
-                    ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().schedule(duration).unwrap();
-                }
+        cortex_m::interrupt::free(|cs| {
+            if let Some(duration) = duration {
+                ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().schedule(duration).unwrap();
+            }
 
-                IRQ_PIN
-                    .borrow(cs)
-                    .borrow()
-                    .as_ref()
-                    .unwrap()
-                    .set_interrupt_enabled(GpioInterrupt::LevelLow, true);
-            });
-            cortex_m::asm::wfe();
-        }
+            IRQ_PIN
+                .borrow(cs)
+                .borrow()
+                .as_ref()
+                .unwrap()
+                .set_interrupt_enabled(GpioInterrupt::LevelLow, true);
+        });
+        cortex_m::asm::wfe();
     }
 }
 
