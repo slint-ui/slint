@@ -585,95 +585,86 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
             event_loop_proxy: &event_loop_proxy,
             clipboard: &clipboard,
         };
-        CURRENT_WINDOW_TARGET.set(&running_instance, || {
-            //
-
-            match event {
-                winit::event::Event::WindowEvent { event, window_id } => {
-                    if let Some(window) = window_by_id(window_id) {
-                        process_window_event(window, event, &mut cursor_pos, &mut pressed);
-                    };
-                }
-
-                winit::event::Event::RedrawRequested(id) => {
-                    if let Some(window) = window_by_id(id) {
-                        window.draw();
-                    }
-                }
-
-                winit::event::Event::UserEvent(CustomEvent::UpdateWindowProperties(window_id)) => {
-                    if let Err(insert_pos) =
-                        windows_with_pending_property_updates.binary_search(&window_id)
-                    {
-                        windows_with_pending_property_updates.insert(insert_pos, window_id);
-                    }
-                }
-                winit::event::Event::UserEvent(CustomEvent::WindowHidden) => match quit_behavior {
-                    corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
-                        let window_count = ALL_WINDOWS.with(|windows| windows.borrow().len());
-                        if window_count == 0 {
-                            *control_flow = winit::event_loop::ControlFlow::Exit;
-                        }
-                    }
-                    corelib::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => {}
-                },
-
-                winit::event::Event::UserEvent(CustomEvent::Exit) => {
-                    *control_flow = winit::event_loop::ControlFlow::Exit;
-                }
-
-                winit::event::Event::UserEvent(CustomEvent::UserEvent(user)) => {
-                    user();
-                }
-
-                #[cfg(target_arch = "wasm32")]
-                winit::event::Event::UserEvent(CustomEvent::RedrawAllWindows) => {
-                    redraw_all_windows()
-                }
-
-                #[cfg(target_arch = "wasm32")]
-                winit::event::Event::UserEvent(CustomEvent::WakeEventLoopWorkaround) => {
-                    *control_flow = winit::event_loop::ControlFlow::Poll;
-                }
-
-                winit::event::Event::NewEvents(_) => {
-                    *control_flow = ControlFlow::Wait;
-                    corelib::backend::update_timers_and_animations();
-                }
-
-                winit::event::Event::MainEventsCleared => {
-                    for window in windows_with_pending_property_updates
-                        .drain(..)
-                        .flat_map(|window_id| window_by_id(window_id))
-                    {
-                        window.window().window_handle().update_window_properties();
-                    }
-                }
-
-                winit::event::Event::RedrawEventsCleared => {
-                    if *control_flow != winit::event_loop::ControlFlow::Exit
-                        && ALL_WINDOWS.with(|windows| {
-                            windows.borrow().iter().any(|(_, w)| {
-                                w.upgrade().map_or(false, |w| w.window().has_active_animations())
-                            })
-                        })
-                    {
-                        *control_flow = ControlFlow::Poll;
-                    }
-
-                    if *control_flow == winit::event_loop::ControlFlow::Wait {
-                        if let Some(next_timer) =
-                            corelib::backend::duration_until_next_timer_update()
-                        {
-                            *control_flow = winit::event_loop::ControlFlow::WaitUntil(
-                                instant::Instant::now() + next_timer,
-                            );
-                        }
-                    }
-                }
-
-                _ => (),
+        CURRENT_WINDOW_TARGET.set(&running_instance, || match event {
+            Event::WindowEvent { event, window_id } => {
+                if let Some(window) = window_by_id(window_id) {
+                    process_window_event(window, event, &mut cursor_pos, &mut pressed);
+                };
             }
+
+            Event::RedrawRequested(id) => {
+                if let Some(window) = window_by_id(id) {
+                    window.draw();
+                }
+            }
+
+            Event::UserEvent(CustomEvent::UpdateWindowProperties(window_id)) => {
+                if let Err(insert_pos) =
+                    windows_with_pending_property_updates.binary_search(&window_id)
+                {
+                    windows_with_pending_property_updates.insert(insert_pos, window_id);
+                }
+            }
+            Event::UserEvent(CustomEvent::WindowHidden) => match quit_behavior {
+                corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
+                    let window_count = ALL_WINDOWS.with(|windows| windows.borrow().len());
+                    if window_count == 0 {
+                        *control_flow = ControlFlow::Exit;
+                    }
+                }
+                corelib::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => {}
+            },
+
+            Event::UserEvent(CustomEvent::Exit) => {
+                *control_flow = ControlFlow::Exit;
+            }
+
+            Event::UserEvent(CustomEvent::UserEvent(user)) => {
+                user();
+            }
+
+            #[cfg(target_arch = "wasm32")]
+            Event::UserEvent(CustomEvent::RedrawAllWindows) => redraw_all_windows(),
+
+            #[cfg(target_arch = "wasm32")]
+            Event::UserEvent(CustomEvent::WakeEventLoopWorkaround) => {
+                *control_flow = ControlFlow::Poll;
+            }
+
+            Event::NewEvents(_) => {
+                *control_flow = ControlFlow::Wait;
+                corelib::backend::update_timers_and_animations();
+            }
+
+            Event::MainEventsCleared => {
+                for window in windows_with_pending_property_updates
+                    .drain(..)
+                    .flat_map(|window_id| window_by_id(window_id))
+                {
+                    window.window().window_handle().update_window_properties();
+                }
+            }
+
+            Event::RedrawEventsCleared => {
+                if *control_flow != ControlFlow::Exit
+                    && ALL_WINDOWS.with(|windows| {
+                        windows.borrow().iter().any(|(_, w)| {
+                            w.upgrade().map_or(false, |w| w.window().has_active_animations())
+                        })
+                    })
+                {
+                    *control_flow = ControlFlow::Poll;
+                }
+
+                if *control_flow == ControlFlow::Wait {
+                    if let Some(next_timer) = corelib::backend::duration_until_next_timer_update() {
+                        *control_flow =
+                            ControlFlow::WaitUntil(instant::Instant::now() + next_timer);
+                    }
+                }
+            }
+
+            _ => (),
         })
     };
 
