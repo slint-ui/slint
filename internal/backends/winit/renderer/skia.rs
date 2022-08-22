@@ -83,12 +83,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         });
     }
 
-    fn render(&self, canvas: &Self::Canvas) {
-        let platform_window = match self.platform_window_weak.upgrade() {
-            Some(window) => window,
-            None => return,
-        };
-
+    fn render(&self, canvas: &Self::Canvas, platform_window: &dyn PlatformWindow) {
         let window = platform_window.window().window_handle();
 
         canvas.surface.render(|skia_canvas, gr_context| {
