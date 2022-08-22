@@ -287,6 +287,7 @@ lazy_static! {
         (".+\\.ttf$", LicenseLocation::NoLicense),
         (".+\\.ui$", LicenseLocation::NoLicense),
         (".+\\.rst$", LicenseLocation::Tag(LicenseTagStyle::rst_comment_style())),
+        ("^.prettierignore$", LicenseLocation::NoLicense),
         ("^.prettierrc$", LicenseLocation::NoLicense),
         ("^.pre-commit-config.yaml$", LicenseLocation::NoLicense),
         (".+\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
