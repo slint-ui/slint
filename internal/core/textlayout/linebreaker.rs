@@ -110,11 +110,19 @@ impl<'a, Font: TextShaper> Iterator for TextLineBreaker<'a, Font> {
                 if self.current_line.width_including_trailing_whitespace() + fragment.width
                     > available_width
                 {
-                    if self.current_line.is_empty() && !self.fragments.break_anywhere {
-                        // Try again but break anywhere this time. self.fragments is cloned at the beginning
-                        // of the loop.
-                        self.fragments.break_anywhere = true;
-                        continue;
+                    if self.current_line.is_empty() {
+                        if !self.fragments.break_anywhere {
+                            // Try again but break anywhere this time. self.fragments is cloned at the beginning
+                            // of the loop.
+                            self.fragments.break_anywhere = true;
+                            continue;
+                        } else {
+                            // Even if we allow to break anywhere, there is still no room for the next fragment.
+                            // Just use it anywhere otherwise we would return many empty lines
+                            self.fragments = fragments;
+                            self.current_line.add_fragment(&fragment);
+                            break Some(core::mem::take(&mut self.current_line));
+                        }
                     }
 
                     let next_line = core::mem::take(&mut self.current_line);
@@ -338,4 +346,15 @@ fn test_line_width_with_whitespace() {
         TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(200.)).collect::<Vec<_>>();
     assert_eq!(lines.len(), 1);
     assert_eq!(lines[0].text_width, text.len() as f32 * 10.);
+}
+
+#[test]
+fn zero_width() {
+    let font = FixedTestFont;
+    let text = "He\nHe o";
+    let shape_buffer = ShapeBuffer::new(&TextLayout { font: &font, letter_spacing: None }, text);
+    let lines = TextLineBreaker::<FixedTestFont>::new(text, &shape_buffer, Some(0.0001))
+        .map(|t| t.line_text(&text))
+        .collect::<Vec<_>>();
+    assert_eq!(lines, ["H", "e", "", "H", "e", "o"]);
 }
