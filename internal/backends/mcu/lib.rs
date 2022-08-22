@@ -280,7 +280,7 @@ mod the_backend {
 
         fn run_event_loop(&self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {
             loop {
-                i_slint_core::timers::update_timers();
+                i_slint_core::backend::update_timers_and_animations();
                 match EVENT_QUEUE.with(|q| q.borrow_mut().pop_front()) {
                     Some(McuEvent::Quit) => break,
                     Some(McuEvent::Custom(e)) => e(),

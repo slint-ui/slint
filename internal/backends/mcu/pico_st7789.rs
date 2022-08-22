@@ -194,7 +194,7 @@ fn run_event_loop() -> ! {
 
     let mut last_touch = None;
     loop {
-        i_slint_core::timers::update_timers();
+        i_slint_core::backend::update_timers_and_animations();
 
         if let Some(window) = WINDOW.with(|x| x.borrow().clone()) {
             if window.needs_redraw.replace(false) {
@@ -230,11 +230,7 @@ fn run_event_loop() -> ! {
         if i_slint_core::animations::CURRENT_ANIMATION_DRIVER
             .with(|driver| !driver.has_active_animations())
         {
-            let time_to_sleep = i_slint_core::timers::TimerList::next_timeout().map(|instant| {
-                let time_to_sleep =
-                    instant - i_slint_core::backend::instance().unwrap().duration_since_start();
-                core::time::Duration::from_millis(time_to_sleep.0)
-            });
+            let time_to_sleep = i_slint_core::backend::duration_until_next_timer_update();
 
             let duration = time_to_sleep.map(|d| {
                 let d = core::cmp::max(d, core::time::Duration::from_micros(10));

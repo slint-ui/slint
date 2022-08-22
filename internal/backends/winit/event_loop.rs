@@ -644,7 +644,7 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
                 }
 
                 winit::event::Event::NewEvents(_) => {
-                    corelib::timers::update_timers();
+                    corelib::backend::update_timers_and_animations();
                 }
 
                 winit::event::Event::MainEventsCleared => {
