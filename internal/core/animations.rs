@@ -206,7 +206,9 @@ impl Instant {
     }
 
     fn duration_since_start() -> core::time::Duration {
-        crate::backend::instance().map(|backend| backend.duration_since_start()).unwrap_or_default()
+        crate::platform::instance()
+            .map(|backend| backend.duration_since_start())
+            .unwrap_or_default()
     }
 }
 

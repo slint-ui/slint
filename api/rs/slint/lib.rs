@@ -444,7 +444,7 @@ pub fn create_window() -> alloc::rc::Rc<dyn re_exports::PlatformWindow> {
 /// and react to user input.
 pub fn run_event_loop() {
     i_slint_backend_selector::backend()
-        .run_event_loop(i_slint_core::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
+        .run_event_loop(i_slint_core::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed);
 }
 /// Schedules the main event loop for termination. This function is meant
 /// to be called from callbacks triggered by the UI. After calling the function,

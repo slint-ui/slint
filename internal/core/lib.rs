@@ -65,7 +65,6 @@ pub mod unsafe_single_core {
 pub mod accessibility;
 pub mod animations;
 pub mod api;
-pub mod backend;
 pub mod callbacks;
 pub mod component;
 pub mod graphics;
@@ -77,6 +76,7 @@ pub mod items;
 pub mod layout;
 pub mod lengths;
 pub mod model;
+pub mod platform;
 pub mod properties;
 pub mod renderer;
 pub mod sharedvector;

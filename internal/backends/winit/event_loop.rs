@@ -543,7 +543,7 @@ fn process_window_event(
 /// Runs the event loop and renders the items in the provided `component` in its
 /// own window.
 #[allow(unused_mut)] // mut need changes for wasm
-pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
+pub fn run(quit_behavior: i_slint_core::platform::EventLoopQuitBehavior) {
     use winit::event::Event;
     use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
 
@@ -606,13 +606,13 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
                 }
             }
             Event::UserEvent(CustomEvent::WindowHidden) => match quit_behavior {
-                corelib::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
+                corelib::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
                     let window_count = ALL_WINDOWS.with(|windows| windows.borrow().len());
                     if window_count == 0 {
                         *control_flow = ControlFlow::Exit;
                     }
                 }
-                corelib::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => {}
+                corelib::platform::EventLoopQuitBehavior::QuitOnlyExplicitly => {}
             },
 
             Event::UserEvent(CustomEvent::Exit) => {
@@ -633,7 +633,7 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
 
             Event::NewEvents(_) => {
                 *control_flow = ControlFlow::Wait;
-                corelib::backend::update_timers_and_animations();
+                corelib::platform::update_timers_and_animations();
             }
 
             Event::MainEventsCleared => {
@@ -657,7 +657,8 @@ pub fn run(quit_behavior: i_slint_core::backend::EventLoopQuitBehavior) {
                 }
 
                 if *control_flow == ControlFlow::Wait {
-                    if let Some(next_timer) = corelib::backend::duration_until_next_timer_update() {
+                    if let Some(next_timer) = corelib::platform::duration_until_next_timer_update()
+                    {
                         *control_flow =
                             ControlFlow::WaitUntil(instant::Instant::now() + next_timer);
                     }

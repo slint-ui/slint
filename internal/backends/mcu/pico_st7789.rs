@@ -58,13 +58,13 @@ const DISPLAY_SIZE: PhysicalSize = PhysicalSize::new(320, 240);
 
 pub fn init() {
     unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
-    i_slint_core::backend::instance_or_init(|| alloc::boxed::Box::new(PicoBackend));
+    i_slint_core::platform::instance_or_init(|| alloc::boxed::Box::new(PicoBackend));
 }
 
 thread_local! { static WINDOW: RefCell<Option<Rc<PicoWindow>>> = RefCell::new(None) }
 
 struct PicoBackend;
-impl i_slint_core::backend::Backend for PicoBackend {
+impl i_slint_core::platform::PlatformAbstraction for PicoBackend {
     fn create_window(&self) -> Rc<dyn i_slint_core::window::PlatformWindow> {
         Rc::new_cyclic(|self_weak| PicoWindow {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
@@ -74,7 +74,7 @@ impl i_slint_core::backend::Backend for PicoBackend {
         })
     }
 
-    fn run_event_loop(&self, _behavior: i_slint_core::backend::EventLoopQuitBehavior) {
+    fn run_event_loop(&self, _behavior: i_slint_core::platform::EventLoopQuitBehavior) {
         run_event_loop()
     }
 
@@ -194,7 +194,7 @@ fn run_event_loop() -> ! {
 
     let mut last_touch = None;
     loop {
-        i_slint_core::backend::update_timers_and_animations();
+        i_slint_core::platform::update_timers_and_animations();
 
         if let Some(window) = WINDOW.with(|x| x.borrow().clone()) {
             if window.needs_redraw.replace(false) {
@@ -231,7 +231,7 @@ fn run_event_loop() -> ! {
             }
         }
 
-        let time_to_sleep = i_slint_core::backend::duration_until_next_timer_update();
+        let time_to_sleep = i_slint_core::platform::duration_until_next_timer_update();
 
         let duration = time_to_sleep.map(|d| {
             let d = core::cmp::max(d, core::time::Duration::from_micros(10));

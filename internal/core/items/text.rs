@@ -797,14 +797,14 @@ impl TextInput {
         if anchor == cursor {
             return;
         }
-        if let Some(backend) = crate::backend::instance() {
+        if let Some(backend) = crate::platform::instance() {
             let text = self.text();
             backend.set_clipboard_text(&text[anchor..cursor]);
         }
     }
 
     fn paste(self: Pin<&Self>, platform_window: &Rc<dyn PlatformWindow>) {
-        if let Some(text) = crate::backend::instance().and_then(|backend| backend.clipboard_text())
+        if let Some(text) = crate::platform::instance().and_then(|backend| backend.clipboard_text())
         {
             self.insert(&text, platform_window);
         }

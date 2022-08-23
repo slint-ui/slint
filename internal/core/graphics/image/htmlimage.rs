@@ -33,7 +33,7 @@ impl HTMLImage {
                     // on a winit window only queues an additional internal event, that'll be
                     // be dispatched as the next event. We are however not in an event loop
                     // call, so we also need to wake up the event loop and redraw then.
-                    if let Some(backend) = crate::backend::instance() {
+                    if let Some(backend) = crate::platform::instance() {
                         backend.post_event(Box::new(|| {}))
                     }
                 }

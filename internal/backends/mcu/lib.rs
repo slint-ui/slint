@@ -262,7 +262,7 @@ mod the_backend {
         }
     }
 
-    impl i_slint_core::backend::Backend for MCUBackend {
+    impl i_slint_core::platform::PlatformAbstraction for MCUBackend {
         fn create_window(&self) -> Rc<dyn i_slint_core::window::PlatformWindow> {
             Rc::new_cyclic(|self_weak| McuWindow {
                 window: Window::new(self_weak.clone() as _),
@@ -273,9 +273,9 @@ mod the_backend {
             })
         }
 
-        fn run_event_loop(&self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {
+        fn run_event_loop(&self, behavior: i_slint_core::platform::EventLoopQuitBehavior) {
             loop {
-                i_slint_core::backend::update_timers_and_animations();
+                i_slint_core::platform::update_timers_and_animations();
                 match EVENT_QUEUE.with(|q| q.borrow_mut().pop_front()) {
                     Some(McuEvent::Quit) => break,
                     Some(McuEvent::Custom(e)) => e(),
@@ -314,12 +314,12 @@ mod the_backend {
                     }
                 });
                 match behavior {
-                    i_slint_core::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
+                    i_slint_core::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
                         if WINDOWS.with(|x| x.borrow().is_none()) {
                             break;
                         }
                     }
-                    i_slint_core::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => (),
+                    i_slint_core::platform::EventLoopQuitBehavior::QuitOnlyExplicitly => (),
                 }
             }
         }
@@ -354,7 +354,7 @@ pub const HAS_NATIVE_STYLE: bool = false;
 
 pub fn init_with_display<Display: Devices + 'static>(display: Display) {
     DEVICES.with(|d| *d.borrow_mut() = Some(Box::new(display)));
-    i_slint_core::backend::instance_or_init(|| {
+    i_slint_core::platform::instance_or_init(|| {
         alloc::boxed::Box::new(the_backend::MCUBackend::default())
     });
 }

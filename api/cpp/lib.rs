@@ -29,7 +29,7 @@ pub unsafe extern "C" fn slint_windowrc_init(out: *mut PlatformWindowRcOpaque) {
 #[no_mangle]
 pub unsafe extern "C" fn slint_run_event_loop() {
     crate::backend()
-        .run_event_loop(i_slint_core::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
+        .run_event_loop(i_slint_core::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed);
 }
 
 /// Will execute the given functor in the main thread

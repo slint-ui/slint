@@ -141,12 +141,12 @@ impl Backend {
     }
 }
 
-impl i_slint_core::backend::Backend for Backend {
+impl i_slint_core::platform::PlatformAbstraction for Backend {
     fn create_window(&self) -> Rc<dyn PlatformWindow> {
         self.window_factory_fn.lock().unwrap()()
     }
 
-    fn run_event_loop(&self, behavior: i_slint_core::backend::EventLoopQuitBehavior) {
+    fn run_event_loop(&self, behavior: i_slint_core::platform::EventLoopQuitBehavior) {
         crate::event_loop::run(behavior);
     }
 

@@ -136,7 +136,7 @@ pub fn native_style_metrics_deinit(_: core::pin::Pin<&mut native_widgets::Native
 }
 
 pub struct Backend;
-impl i_slint_core::backend::Backend for Backend {
+impl i_slint_core::platform::PlatformAbstraction for Backend {
     fn create_window(&self) -> Rc<dyn i_slint_core::window::PlatformWindow> {
         #[cfg(no_qt)]
         panic!("The Qt backend needs Qt");
@@ -146,12 +146,12 @@ impl i_slint_core::backend::Backend for Backend {
         }
     }
 
-    fn run_event_loop(&self, _behavior: i_slint_core::backend::EventLoopQuitBehavior) {
+    fn run_event_loop(&self, _behavior: i_slint_core::platform::EventLoopQuitBehavior) {
         #[cfg(not(no_qt))]
         {
             let quit_on_last_window_closed = match _behavior {
-                i_slint_core::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed => true,
-                i_slint_core::backend::EventLoopQuitBehavior::QuitOnlyExplicitly => false,
+                i_slint_core::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed => true,
+                i_slint_core::platform::EventLoopQuitBehavior::QuitOnlyExplicitly => false,
             };
             // Schedule any timers with Qt that were set up before this event loop start.
             crate::qt_window::timer_event();
