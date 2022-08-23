@@ -96,7 +96,7 @@ pub fn start_ui_event_loop() {
     }
 
     i_slint_backend_selector::backend()
-        .run_event_loop(i_slint_core::backend::EventLoopQuitBehavior::QuitOnlyExplicitly);
+        .run_event_loop(i_slint_core::platform::EventLoopQuitBehavior::QuitOnlyExplicitly);
 }
 
 pub fn quit_ui_event_loop() {

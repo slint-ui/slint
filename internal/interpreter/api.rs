@@ -976,7 +976,7 @@ impl ComponentHandle for ComponentInstance {
     fn run(&self) {
         self.show();
         i_slint_backend_selector::backend()
-            .run_event_loop(i_slint_core::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
+            .run_event_loop(i_slint_core::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed);
         self.hide();
     }
 
@@ -1044,7 +1044,7 @@ pub enum InvokeCallbackError {
 /// and react to user input.
 pub fn run_event_loop() {
     i_slint_backend_selector::backend()
-        .run_event_loop(i_slint_core::backend::EventLoopQuitBehavior::QuitOnLastWindowClosed);
+        .run_event_loop(i_slint_core::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed);
 }
 
 /// This module contains a few function use by tests

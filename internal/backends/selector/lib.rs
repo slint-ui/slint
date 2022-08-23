@@ -11,12 +11,12 @@ cfg_if::cfg_if! {
     if #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))] {
         use i_slint_backend_qt as default_backend;
 
-        fn create_default_backend() -> Box<dyn i_slint_core::backend::Backend + 'static> {
+        fn create_default_backend() -> Box<dyn i_slint_core::platform::PlatformAbstraction + 'static> {
             Box::new(default_backend::Backend)
         }
     } else if #[cfg(feature = "i-slint-backend-winit")] {
         use i_slint_backend_winit as default_backend;
-        fn create_default_backend() -> Box<dyn i_slint_core::backend::Backend + 'static> {
+        fn create_default_backend() -> Box<dyn i_slint_core::platform::PlatformAbstraction + 'static> {
             Box::new(i_slint_backend_winit::Backend::new(None))
         }
     }
@@ -27,8 +27,8 @@ cfg_if::cfg_if! {
             all(feature = "i-slint-backend-qt", not(no_qt)),
             feature = "i-slint-backend-winit"
         ))] {
-        pub fn backend() -> &'static dyn i_slint_core::backend::Backend {
-            i_slint_core::backend::instance_or_init(|| {
+        pub fn backend() -> &'static dyn i_slint_core::platform::PlatformAbstraction {
+            i_slint_core::platform::instance_or_init(|| {
                 let backend_config = std::env::var("SLINT_BACKEND").or_else(|_| {
                     let legacy_fallback = std::env::var("SIXTYFPS_BACKEND");
                     if legacy_fallback.is_ok() {
@@ -69,8 +69,8 @@ cfg_if::cfg_if! {
             native_widgets, Backend, NativeGlobals, NativeWidgets, HAS_NATIVE_STYLE,
         };
     } else {
-        pub fn backend() -> &'static dyn i_slint_core::backend::Backend {
-            i_slint_core::backend::instance().expect("no default backend configured, the backend must be initialized manually")
+        pub fn backend() -> &'static dyn i_slint_core::platform::PlatformAbstraction {
+            i_slint_core::platform::instance().expect("no default backend configured, the backend must be initialized manually")
         }
 
         pub type NativeWidgets = ();

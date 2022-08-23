@@ -26,7 +26,7 @@ pub enum EventLoopQuitBehavior {
 }
 
 /// Interface implemented by back-ends
-pub trait Backend: Send + Sync {
+pub trait PlatformAbstraction: Send + Sync {
     /// Instantiate a window for a component.
     fn create_window(&self) -> Rc<dyn PlatformWindow>;
 
@@ -75,16 +75,16 @@ impl std::convert::From<crate::animations::Instant> for instant::Instant {
     }
 }
 
-static PRIVATE_BACKEND_INSTANCE: OnceCell<Box<dyn Backend + 'static>> = OnceCell::new();
+static PRIVATE_BACKEND_INSTANCE: OnceCell<Box<dyn PlatformAbstraction + 'static>> = OnceCell::new();
 
-pub fn instance() -> Option<&'static dyn Backend> {
+pub fn instance() -> Option<&'static dyn PlatformAbstraction> {
     use core::ops::Deref;
     PRIVATE_BACKEND_INSTANCE.get().map(|backend_box| backend_box.deref())
 }
 
 pub fn instance_or_init(
-    factory_fn: impl FnOnce() -> Box<dyn Backend + 'static>,
-) -> &'static dyn Backend {
+    factory_fn: impl FnOnce() -> Box<dyn PlatformAbstraction + 'static>,
+) -> &'static dyn PlatformAbstraction {
     use core::ops::Deref;
     PRIVATE_BACKEND_INSTANCE.get_or_init(factory_fn).deref()
 }

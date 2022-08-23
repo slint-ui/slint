@@ -18,14 +18,14 @@ pub struct TestingBackend {
     clipboard: Mutex<Option<String>>,
 }
 
-impl i_slint_core::backend::Backend for TestingBackend {
+impl i_slint_core::platform::PlatformAbstraction for TestingBackend {
     fn create_window(&self) -> Rc<dyn PlatformWindow> {
         Rc::new_cyclic(|self_weak| TestingWindow {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
         })
     }
 
-    fn run_event_loop(&self, _behavior: i_slint_core::backend::EventLoopQuitBehavior) {
+    fn run_event_loop(&self, _behavior: i_slint_core::platform::EventLoopQuitBehavior) {
         unimplemented!("running an event loop with the testing backend");
     }
 
@@ -153,5 +153,5 @@ impl Renderer for TestingWindow {
 /// Must be called before any call that would otherwise initialize the rendering backend.
 /// Calling it when the rendering backend is already initialized will have no effects
 pub fn init() {
-    i_slint_core::backend::instance_or_init(|| Box::new(TestingBackend::default()));
+    i_slint_core::platform::instance_or_init(|| Box::new(TestingBackend::default()));
 }

@@ -480,7 +480,7 @@ pub use weak_handle::*;
 /// handle.run();
 /// ```
 pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) {
-    if let Some(backend) = crate::backend::instance() {
+    if let Some(backend) = crate::platform::instance() {
         backend.post_event(alloc::boxed::Box::new(func))
     } else {
         panic!("slint::invoke_from_event_loop() must be called after the Slint backend is initialized.")
