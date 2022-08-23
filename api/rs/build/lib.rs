@@ -120,6 +120,12 @@ struct CodeFormatter<Sink> {
     sink: Sink,
 }
 
+impl<Sink> CodeFormatter<Sink> {
+    pub fn new(sink: Sink) -> Self {
+        Self { indentation: 0, in_string: false, in_char: 0, sink }
+    }
+}
+
 impl<Sink: Write> Write for CodeFormatter<Sink> {
     fn write(&mut self, mut s: &[u8]) -> std::io::Result<usize> {
         let len = s.len();
@@ -150,7 +156,7 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
                 self.in_char = 0;
                 false
             }
-            _ if self.in_char > 2 => {
+            b' ' | b'>' if self.in_char > 2 => {
                 // probably a lifetime
                 self.in_char = 0;
                 false
@@ -175,6 +181,37 @@ impl<Sink: Write> Write for CodeFormatter<Sink> {
     fn flush(&mut self) -> std::io::Result<()> {
         self.sink.flush()
     }
+}
+
+#[test]
+fn formatter_test() {
+    fn format_code(code: &str) -> String {
+        let mut res = Vec::new();
+        let mut formater = CodeFormatter::new(&mut res);
+        formater.write_all(code.as_bytes()).unwrap();
+        String::from_utf8(res).unwrap()
+    }
+
+    assert_eq!(
+        format_code("fn main() { if ';' == '}' { return \";\"; } else { panic!() } }"),
+        r#"fn main() {
+     if ';' == '}' {
+         return ";";
+         }
+     else {
+         panic!() }
+     }
+"#
+    );
+
+    assert_eq!(
+        format_code(r#"fn xx<'lt>(foo: &'lt str) { println!("{}", '\u{f700}'); return Ok(()); }"#),
+        r#"fn xx<'lt>(foo: &'lt str) {
+     println!("{}", '\u{f700}');
+     return Ok(());
+     }
+"#
+    );
 }
 
 /// Compile the `.slint` file and generate rust code for it.
@@ -269,8 +306,7 @@ pub fn compile_with_config(
         );
 
     let file = std::fs::File::create(&output_file_path).map_err(CompileError::SaveError)?;
-    let mut code_formatter =
-        CodeFormatter { indentation: 0, in_string: false, in_char: 0, sink: file };
+    let mut code_formatter = CodeFormatter::new(file);
     let generated = i_slint_compiler::generator::rust::generate(&doc);
 
     for x in &diag.all_loaded_files {
