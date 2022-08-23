@@ -40,20 +40,19 @@ jobs:
     - name: Install NPM dependencies
       run: npm install
       working-directory: tools/online_editor
+    - name: Build slint-wasm-interpreter
+      run: npm run build:wasm_preview-release
+      working-directory: tools/online_editor
+    - name: Build slint-wasm-lsp
+      run: npm run build:wasm_lsp-release
+      working-directory: tools/online_editor
+    - name: Lint online editor # This needs the slint-wasm-interpreter!
+      run: |
+          npm run syntax_check
+          npm run lint
+      working-directory: tools/online_editor
     - name: Compile online editor
       run: npm run build
-      working-directory: tools/online_editor
-    - name: Clean wasm build artefacts from previous preview build
-      run: rm -rf pkg
-      working-directory: api/wasm-interpreter
-    - name: Compile slint-wasm-interpreter
-      run: npm run build:wasm_preview
-      working-directory: tools/online_editor
-    - name: Clean wasm build artefacts from previous lsp build
-      run: rm -rf pkg
-      working-directory: tools/lsp
-    - name: Compile slint-wasm-lsp
-      run: npm run build:wasm_lsp
       working-directory: tools/online_editor
     - name: "Upload wasm Artifacts"
       uses: actions/upload-artifact@v2
@@ -63,8 +62,3 @@ jobs:
               api/wasm-interpreter/pkg/
               tools/lsp/pkg/
               tools/online_editor/dist/
-    - name: Lint online editor # This needs the slint-wasm-interpreter!
-      run: |
-          npm run syntax_check
-          npm run lint
-      working-directory: tools/online_editor
