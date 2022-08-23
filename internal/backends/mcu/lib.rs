@@ -22,11 +22,6 @@ use i_slint_core::thread_local_ as thread_local;
 use i_slint_core::unsafe_single_core;
 
 mod profiler;
-#[cfg(feature = "simulator")]
-mod simulator;
-
-#[cfg(feature = "simulator")]
-use simulator::event_loop;
 
 /// The Pixel type of the backing store
 pub type TargetPixel = embedded_graphics::pixelcolor::Rgb565;
@@ -357,38 +352,11 @@ pub type NativeGlobals = ();
 pub mod native_widgets {}
 pub const HAS_NATIVE_STYLE: bool = false;
 
-#[cfg(feature = "simulator")]
-pub fn init() {
-    i_slint_core::backend::instance_or_init(|| alloc::boxed::Box::new(simulator::SimulatorBackend));
-}
-
 pub fn init_with_display<Display: Devices + 'static>(display: Display) {
     DEVICES.with(|d| *d.borrow_mut() = Some(Box::new(display)));
     i_slint_core::backend::instance_or_init(|| {
         alloc::boxed::Box::new(the_backend::MCUBackend::default())
     });
-}
-
-#[cfg(not(any(feature = "pico-st7789", feature = "stm32h735g", feature = "simulator")))]
-pub fn init() {
-    struct EmptyDisplay;
-    impl embedded_graphics::draw_target::DrawTarget for EmptyDisplay {
-        type Color = embedded_graphics::pixelcolor::Rgb888;
-        type Error = ();
-        fn draw_iter<I>(&mut self, pixels: I) -> Result<(), Self::Error>
-        where
-            I: IntoIterator<Item = embedded_graphics::Pixel<Self::Color>>,
-        {
-            let _ = pixels.into_iter().count();
-            Ok(())
-        }
-    }
-    impl embedded_graphics::geometry::OriginDimensions for EmptyDisplay {
-        fn size(&self) -> embedded_graphics::geometry::Size {
-            embedded_graphics::geometry::Size::new(320, 240)
-        }
-    }
-    init_with_display(EmptyDisplay);
 }
 
 #[cfg(feature = "pico-st7789")]
@@ -405,3 +373,6 @@ pub use stm32h735g::*;
 
 #[cfg(not(any(feature = "pico-st7789", feature = "stm32h735g")))]
 pub use i_slint_core_macros::identity as entry;
+
+#[cfg(not(any(feature = "pico-st7789", feature = "stm32h735g")))]
+pub fn init() {}

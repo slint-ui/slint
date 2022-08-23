@@ -15,12 +15,12 @@ path = "main.rs"
 name = "printerdemo_mcu"
 
 [features]
-mcu-simulator = ["i-slint-backend-mcu/simulator"]
+mcu-simulator = ["slint/renderer-software", "slint/eventloop-winit", "i-slint-backend-mcu/std"]
 mcu-pico-st7789 = ["i-slint-backend-mcu/pico-st7789"]
 
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-0-2-0"] }
-i-slint-backend-mcu = { path = "../../internal/backends/mcu", default-features = false }
+i-slint-backend-mcu = { path = "../../internal/backends/mcu" }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"], optional = true }
 
 [build-dependencies]
