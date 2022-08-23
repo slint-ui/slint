@@ -52,7 +52,11 @@ import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
   monaco.languages.onLanguage("slint", () => {
     monaco.languages.setMonarchTokensProvider("slint", slint_language);
   });
-  const editor_element = document.getElementById("editor")!;
+  const editor_element = document.getElementById("editor");
+  if (editor_element == null) {
+    console.error("No editor id found!");
+    return;
+  }
   const editor = monaco.editor.create(editor_element, {
     language: "slint",
     glyphMargin: true,
@@ -99,7 +103,11 @@ export Demo := Window {
     );
   }
 
-  const select = document.getElementById("select_combo")! as HTMLInputElement;
+  const select = document.getElementById("select_combo") as HTMLInputElement;
+  if (select == null) {
+    console.error("No select_combo id found!");
+    return;
+  }
   function select_combo_changed() {
     if (select.value) {
       let tag = "master";
@@ -215,14 +223,16 @@ export Demo := Window {
     const current_tab = document.querySelector(
       `#tabs li[class~="nav-item"] span[class~="nav-link"][class~="active"]`
     );
-    if (current_tab != undefined) {
+    if (current_tab != null) {
       current_tab.className = "nav-link";
 
-      const url = current_tab.parentElement!.dataset.url!;
-      const model_and_state = editor_documents.get(url);
-      if (model_and_state !== undefined) {
-        model_and_state.view_state = editor.saveViewState();
-        editor_documents.set(url, model_and_state);
+      const url = current_tab.parentElement?.dataset.url;
+      if (url != null) {
+        const model_and_state = editor_documents.get(url);
+        if (model_and_state !== undefined) {
+          model_and_state.view_state = editor.saveViewState();
+          editor_documents.set(url, model_and_state);
+        }
       }
     }
     const new_current = document.querySelector(
@@ -231,21 +241,25 @@ export Demo := Window {
     if (new_current != undefined) {
       new_current.className = "nav-link active";
     }
-    const model_and_state = editor_documents.get(url)!;
-    editor.setModel(model_and_state.model);
-    if (model_and_state.view_state != null) {
-      editor.restoreViewState(model_and_state.view_state);
+    const model_and_state = editor_documents.get(url);
+    if (model_and_state != null) {
+      editor.setModel(model_and_state.model);
+      if (model_and_state.view_state != null) {
+        editor.restoreViewState(model_and_state.view_state);
+      }
     }
     editor.focus();
   }
 
   function update_preview() {
-    const main_model_and_state = editor_documents.get(base_url)!;
-    const source = main_model_and_state.model.getValue();
-    const div = document.getElementById("preview") as HTMLDivElement;
-    setTimeout(function () {
-      render_or_error(source, base_url, div);
-    }, 1);
+    const main_model_and_state = editor_documents.get(base_url);
+    if (main_model_and_state != null) {
+      const source = main_model_and_state.model.getValue();
+      const div = document.getElementById("preview") as HTMLDivElement;
+      setTimeout(function () {
+        render_or_error(source, base_url, div);
+      }, 1);
+    }
   }
 
   async function render_or_error(
@@ -308,10 +322,12 @@ export Demo := Window {
         endColumn: -1,
       };
     });
-    const model = editor.getModel()!;
-    monaco.editor.setModelMarkers(model, "slint", markers);
+    const model = editor.getModel();
+    if (model != null) {
+      monaco.editor.setModelMarkers(model, "slint", markers);
+    }
 
-    if (component !== undefined) {
+    if (component != null) {
       component.run(canvas_id);
     }
   }
