@@ -206,8 +206,8 @@ impl Instant {
     }
 
     fn duration_since_start() -> core::time::Duration {
-        crate::platform::instance()
-            .map(|backend| backend.duration_since_start())
+        crate::platform::PLAFTORM_ABSTRACTION_INSTANCE
+            .with(|p| p.get().map(|p| p.duration_since_start()))
             .unwrap_or_default()
     }
 }

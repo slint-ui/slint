@@ -5,15 +5,17 @@
 The backend is the abstraction for crates that need to do the actual drawing and event loop
 */
 
+#![warn(missing_docs)]
+
 use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::string::String;
 
+#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+use crate::unsafe_single_core::{thread_local, OnceCell};
 #[cfg(feature = "std")]
 use once_cell::sync::OnceCell;
 
-#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
-use crate::unsafe_single_core::OnceCell;
 use crate::window::PlatformWindow;
 
 #[derive(Copy, Clone)]
@@ -26,41 +28,64 @@ pub enum EventLoopQuitBehavior {
 }
 
 /// Interface implemented by back-ends
-pub trait PlatformAbstraction: Send + Sync {
+pub trait PlatformAbstraction {
     /// Instantiate a window for a component.
     fn create_window(&self) -> Rc<dyn PlatformWindow>;
 
     /// Spins an event loop and renders the visible windows.
     fn run_event_loop(&self, _behavior: EventLoopQuitBehavior) {
-        unimplemented!()
+        unimplemented!("The backend does not implement running an eventloop")
     }
 
-    /// Exits the event loop.
-    fn quit_event_loop(&self) {
-        unimplemented!()
+    /// Return an [`EventLoopProxy`] that can be used to send event to the event loop
+    ///
+    /// If this function returns `None` (the default implementation), then it will
+    /// not be possible to send event to the event loop and the function
+    /// [`slint::invoke_from_event_loop()`](crate::api::invoke_from_event_loop) and
+    /// [`slint::quit_event_loop()`](crate::api::quit_event_loop) will panic
+    fn event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
+        None
     }
 
-    /// Send an user event to from another thread that should be run in the GUI event loop
-    fn post_event(&'static self, _event: Box<dyn FnOnce() + Send>) {
-        unimplemented!()
-    }
-
-    fn duration_since_start(&'static self) -> core::time::Duration {
+    /// Returns the current time as a monotonic duration since the start of the program
+    ///
+    /// This is used by the animations and timer to compute the elapsed time.
+    ///
+    /// When the `std` feature is enabled, this function is implemented in terms of
+    /// [`std::time::Instant::now()`], but on `#![no_std]` platform, this funciton must
+    /// be implemented.
+    fn duration_since_start(&self) -> core::time::Duration {
         #[cfg(feature = "std")]
         {
             let the_beginning = *INITIAL_INSTANT.get_or_init(instant::Instant::now);
             instant::Instant::now() - the_beginning
         }
         #[cfg(not(feature = "std"))]
-        core::time::Duration::ZERO
+        unimplemented!("The platform abstraction must implement `duration_since_start`")
     }
 
     /// Sends the given text into the system clipboard
-    fn set_clipboard_text(&'static self, _text: &str) {}
+    fn set_clipboard_text(&self, _text: &str) {}
     /// Returns a copy of text stored in the system clipboard, if any.
-    fn clipboard_text(&'static self) -> Option<String> {
+    fn clipboard_text(&self) -> Option<String> {
         None
     }
+}
+
+/// Trait that is returned by the [`PlatformAbstraction::event_loop_proxy`]
+///
+/// This are the implementation details for the function that may need to
+/// communicate with the eventloop from different thread
+pub trait EventLoopProxy: Send + Sync {
+    /// Exits the event loop.
+    ///
+    /// This is what is called by [`slint::quit_event_loop()`](crate::api::quit_event_loop)
+    fn quit_event_loop(&self);
+
+    /// Invoke the function from the event loop.
+    ///
+    /// This is what is called by [`slint::invoke_from_event_loop()`](crate::api::invoke_from_event_loop)
+    fn invoke_from_event_loop(&self, _event: Box<dyn FnOnce() + Send>);
 }
 
 #[cfg(feature = "std")]
@@ -75,18 +100,32 @@ impl std::convert::From<crate::animations::Instant> for instant::Instant {
     }
 }
 
-static PRIVATE_BACKEND_INSTANCE: OnceCell<Box<dyn PlatformAbstraction + 'static>> = OnceCell::new();
+thread_local! {
+    pub(crate) static PLAFTORM_ABSTRACTION_INSTANCE : once_cell::unsync::OnceCell<Box<dyn PlatformAbstraction>>
+        = once_cell::unsync::OnceCell::new()
+}
+static EVENTLOOP_PROXY: OnceCell<Box<dyn EventLoopProxy + 'static>> = OnceCell::new();
 
-pub fn instance() -> Option<&'static dyn PlatformAbstraction> {
-    use core::ops::Deref;
-    PRIVATE_BACKEND_INSTANCE.get().map(|backend_box| backend_box.deref())
+pub(crate) fn event_loop_proxy() -> Option<&'static dyn EventLoopProxy> {
+    EVENTLOOP_PROXY.get().map(core::ops::Deref::deref)
 }
 
-pub fn instance_or_init(
-    factory_fn: impl FnOnce() -> Box<dyn PlatformAbstraction + 'static>,
-) -> &'static dyn PlatformAbstraction {
-    use core::ops::Deref;
-    PRIVATE_BACKEND_INSTANCE.get_or_init(factory_fn).deref()
+/// Set the slint platform abstraction.
+///
+/// If the platform abastraction was already set this will return `Err`
+pub fn set_platform_abstraction(
+    platform: Box<dyn PlatformAbstraction + 'static>,
+) -> Result<(), ()> {
+    PLAFTORM_ABSTRACTION_INSTANCE.with(|instance| {
+        if instance.get().is_some() {
+            return Err(());
+        }
+        if let Some(proxy) = platform.event_loop_proxy() {
+            EVENTLOOP_PROXY.set(proxy).map_err(drop)?
+        }
+        instance.set(platform.into()).map_err(drop).unwrap();
+        Ok(())
+    })
 }
 
 /// Fire timer events and update animations
@@ -108,8 +147,11 @@ pub fn update_timers_and_animations() {
 /// can be called to know if a window has running animation
 pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
     crate::timers::TimerList::next_timeout().map(|timeout| {
+        let duration_since_start = crate::platform::PLAFTORM_ABSTRACTION_INSTANCE
+            .with(|p| p.get().map(|p| p.duration_since_start()))
+            .unwrap_or_default();
         core::time::Duration::from_millis(
-            timeout.0.saturating_sub(instance().unwrap().duration_since_start().as_millis() as u64),
+            timeout.0.saturating_sub(duration_since_start.as_millis() as u64),
         )
     })
 }

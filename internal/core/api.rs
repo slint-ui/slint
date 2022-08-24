@@ -480,9 +480,17 @@ pub use weak_handle::*;
 /// handle.run();
 /// ```
 pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) {
-    if let Some(backend) = crate::platform::instance() {
-        backend.post_event(alloc::boxed::Box::new(func))
-    } else {
-        panic!("slint::invoke_from_event_loop() must be called after the Slint backend is initialized.")
-    }
+    crate::platform::event_loop_proxy()
+        .expect("quit_event_loop() called before the slint platform abstraction was initialized, or the platform does not support event loop")
+        .invoke_from_event_loop(alloc::boxed::Box::new(func))
+}
+
+/// Schedules the main event loop for termination. This function is meant
+/// to be called from callbacks triggered by the UI. After calling the function,
+/// it will return immediately and once control is passed back to the event loop,
+/// the initial call to `slint::run_event_loop()` will return.
+pub fn quit_event_loop() {
+    crate::platform::event_loop_proxy()
+        .expect("quit_event_loop() called before the slint platform abstraction was initialized, or the platform does not support event loop")
+        .quit_event_loop()
 }

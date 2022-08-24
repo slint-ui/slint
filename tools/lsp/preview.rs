@@ -40,7 +40,7 @@ unsafe impl Sync for FutureRunner {}
 
 impl Wake for FutureRunner {
     fn wake(self: Arc<Self>) {
-        i_slint_backend_selector::backend().post_event(Box::new(move || {
+        i_slint_core::api::invoke_from_event_loop(move || {
             let waker = self.clone().into();
             let mut cx = std::task::Context::from_waker(&waker);
             let mut fut_opt = self.fut.lock().unwrap();
@@ -50,7 +50,7 @@ impl Wake for FutureRunner {
                     std::task::Poll::Pending => {}
                 }
             }
-        }));
+        });
     }
 }
 
@@ -84,19 +84,22 @@ pub fn start_ui_event_loop() {
         }
 
         if *state_requested == RequestedGuiEventLoopState::StartLoop {
+            // make sure the backend is initialized
+            i_slint_backend_selector::with_platform_abstraction(|_| {});
             // Send an event so that once the loop is started, we notify the LSP thread that it can send more events
-            i_slint_backend_selector::backend().post_event(Box::new(|| {
+            i_slint_core::api::invoke_from_event_loop(|| {
                 let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
                 if *state_request == RequestedGuiEventLoopState::StartLoop {
                     *state_request = RequestedGuiEventLoopState::LoopStated;
                     GUI_EVENT_LOOP_NOTIFIER.notify_one();
                 }
-            }))
+            });
         }
     }
 
-    i_slint_backend_selector::backend()
-        .run_event_loop(i_slint_core::platform::EventLoopQuitBehavior::QuitOnlyExplicitly);
+    i_slint_backend_selector::with_platform_abstraction(|b| {
+        b.run_event_loop(i_slint_core::platform::EventLoopQuitBehavior::QuitOnlyExplicitly)
+    });
 }
 
 pub fn quit_ui_event_loop() {
@@ -108,9 +111,7 @@ pub fn quit_ui_event_loop() {
         GUI_EVENT_LOOP_NOTIFIER.notify_one();
     }
 
-    i_slint_backend_selector::backend().post_event(Box::new(|| {
-        i_slint_backend_selector::backend().quit_event_loop();
-    }));
+    i_slint_core::api::quit_event_loop();
 
     // Make sure then sender channel gets dropped
     if let Some(cache) = CONTENT_CACHE.get() {

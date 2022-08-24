@@ -4,7 +4,6 @@
 /*! This crate just expose the function used by the C++ integration */
 
 use core::ffi::c_void;
-use i_slint_backend_selector::backend;
 use i_slint_core::window::{ffi::PlatformWindowRcOpaque, PlatformWindow};
 use std::rc::Rc;
 
@@ -23,13 +22,15 @@ pub unsafe extern "C" fn slint_windowrc_init(out: *mut PlatformWindowRcOpaque) {
         core::mem::size_of::<Rc<dyn PlatformWindow>>(),
         core::mem::size_of::<PlatformWindowRcOpaque>()
     );
-    core::ptr::write(out as *mut Rc<dyn PlatformWindow>, crate::backend().create_window());
+    let win = i_slint_backend_selector::with_platform_abstraction(|b| b.create_window());
+    core::ptr::write(out as *mut Rc<dyn PlatformWindow>, win);
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_run_event_loop() {
-    crate::backend()
-        .run_event_loop(i_slint_core::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed);
+    i_slint_backend_selector::with_platform_abstraction(|b| {
+        b.run_event_loop(i_slint_core::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed)
+    });
 }
 
 /// Will execute the given functor in the main thread
@@ -53,15 +54,15 @@ pub unsafe extern "C" fn slint_post_event(
     unsafe impl Send for UserData {}
     let ud = UserData { user_data, drop_user_data };
 
-    crate::backend().post_event(Box::new(move || {
+    i_slint_core::api::invoke_from_event_loop(move || {
         let ud = &ud;
         event(ud.user_data);
-    }));
+    });
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_quit_event_loop() {
-    crate::backend().quit_event_loop();
+    i_slint_core::api::quit_event_loop()
 }
 
 #[no_mangle]
