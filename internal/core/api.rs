@@ -422,6 +422,7 @@ mod weak_handle {
         ///     // ... Do some computation in the thread
         ///     let foo = 42;
         ///     # assert!(handle_weak.upgrade().is_none()); // note that upgrade fails in a thread
+        ///     # return; // don't upgrade_in_event_loop in our examples
         ///     // now forward the data to the main thread using upgrade_in_event_loop
         ///     handle_weak.upgrade_in_event_loop(move |handle| handle.set_foo(foo));
         /// });
@@ -469,6 +470,7 @@ pub use weak_handle::*;
 /// # i_slint_backend_testing::init();
 /// let handle = MyApp::new();
 /// let handle_weak = handle.as_weak();
+/// # return; // don't run the event loop in examples
 /// let thread = std::thread::spawn(move || {
 ///     // ... Do some computation in the thread
 ///     let foo = 42;
@@ -476,7 +478,6 @@ pub use weak_handle::*;
 ///     let handle_copy = handle_weak.clone();
 ///     slint::invoke_from_event_loop(move || handle_copy.unwrap().set_foo(foo));
 /// });
-/// # thread.join().unwrap(); return; // don't run the event loop in examples
 /// handle.run();
 /// ```
 pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) {
