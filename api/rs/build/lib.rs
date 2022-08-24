@@ -55,11 +55,25 @@ use std::io::Write;
 use std::path::Path;
 
 use i_slint_compiler::diagnostics::BuildDiagnostics;
-use i_slint_compiler::EmbedResourcesKind;
 
 /// The structure for configuring aspects of the compilation of `.slint` markup files to Rust.
 pub struct CompilerConfiguration {
     config: i_slint_compiler::CompilerConfiguration,
+}
+
+/// How should the slint compiler embed images and fonts
+///
+/// Parameter of [`CompilerConfiguration::embed_resources()`]
+#[derive(Clone, PartialEq)]
+pub enum EmbedResourcesKind {
+    /// Paths specified in .slint files are made absolute and the absolute
+    /// paths will be used at run-time to load the resources from the file system.
+    AsAbsolutePath,
+    /// The raw files in .slint files are embedded in the application binary.
+    EmbedFiles,
+    /// File names specified in .slint files will be loaded by the Slint compiler,
+    /// optimized for use with the software renderer and embedded in the application binary.
+    EmbedForSoftwareRenderer,
 }
 
 impl Default for CompilerConfiguration {
@@ -92,6 +106,24 @@ impl CompilerConfiguration {
     pub fn with_style(self, style: String) -> Self {
         let mut config = self.config;
         config.style = Some(style);
+        Self { config }
+    }
+
+    /// Create a new configuration that selects the style to be used for widgets.
+    #[must_use]
+    pub fn embed_resources(self, kind: EmbedResourcesKind) -> Self {
+        let mut config = self.config;
+        config.embed_resources = match kind {
+            EmbedResourcesKind::AsAbsolutePath => {
+                i_slint_compiler::EmbedResourcesKind::OnlyBuiltinResources
+            }
+            EmbedResourcesKind::EmbedFiles => {
+                i_slint_compiler::EmbedResourcesKind::EmbedAllResources
+            }
+            EmbedResourcesKind::EmbedForSoftwareRenderer => {
+                i_slint_compiler::EmbedResourcesKind::EmbedTextures
+            }
+        };
         Self { config }
     }
 }
@@ -256,17 +288,6 @@ pub fn compile_with_config(
     }
 
     let mut compiler_config = config.config;
-
-    if env::var_os("DEP_I_SLINT_BACKEND_MCU_EMBED_TEXTURES").is_some() {
-        compiler_config.embed_resources = EmbedResourcesKind::EmbedTextures;
-        // TODO: generalize by either having dedicated variable in mcu backend to disable a11y or
-        // use separate if block to disable features like this when any DEP_I_SLINT_BACKEND_MCU is set
-        compiler_config.accessibility = false;
-    } else if let (Ok(target), Ok(host)) = (env::var("TARGET"), env::var("HOST")) {
-        if target != host {
-            compiler_config.embed_resources = EmbedResourcesKind::EmbedAllResources;
-        }
-    };
     let mut rerun_if_changed = String::new();
 
     if std::env::var_os("SLINT_STYLE").is_none()
