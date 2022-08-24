@@ -54,4 +54,7 @@ slint_init().then((_) => {
 
   // Listen on the connection
   connection.listen();
+
+  // Now that we listen, the client is ready to send the init message
+  self.postMessage("OK");
 });

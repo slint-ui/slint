@@ -380,12 +380,19 @@ export Demo := Window {
       type: "module",
     }
   );
-  // lsp_worker.onmessage
-  const reader = new BrowserMessageReader(lsp_worker);
-  const writer = new BrowserMessageWriter(lsp_worker);
+  lsp_worker.onmessage = m => {
+    // We cannot start sending messages to the client before we start listening which
+    // the server only does in a future after the wasm is loaded.
+    if (m.data === "OK") {
 
-  const languageClient = createLanguageClient({ reader, writer });
-  languageClient.start();
+      const reader = new BrowserMessageReader(lsp_worker);
+      const writer = new BrowserMessageWriter(lsp_worker);
 
-  reader.onClose(() => languageClient.stop());
+      const languageClient = createLanguageClient({ reader, writer });
+
+      languageClient.start();
+
+      reader.onClose(() => languageClient.stop());
+    }
+  }
 })();
