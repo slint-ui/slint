@@ -80,26 +80,24 @@ pub struct CompilerConfiguration {
 
 impl CompilerConfiguration {
     pub fn new(output_format: crate::generator::OutputFormat) -> Self {
-        let embed_resources = match std::env::var("SLINT_EMBED_RESOURCES") {
-            Ok(var) => {
-                let var = var.parse::<bool>().unwrap_or_else(|_|{
-                    panic!("SLINT_EMBED_RESOURCES has incorrect value. Must be either unset, 'true' or 'false'")
-                });
-                match var {
-                    true => EmbedResourcesKind::OnlyBuiltinResources,
-                    false => EmbedResourcesKind::EmbedAllResources,
-                }
+        let embed_resources = if std::env::var_os("SLINT_EMBED_TEXTURES").is_some()
+            || std::env::var_os("DEP_I_SLINT_BACKEND_MCU_EMBED_TEXTURES").is_some()
+        {
+            EmbedResourcesKind::EmbedTextures
+        } else if let Ok(var) = std::env::var("SLINT_EMBED_RESOURCES") {
+            let var = var.parse::<bool>().unwrap_or_else(|_|{
+                panic!("SLINT_EMBED_RESOURCES has incorrect value. Must be either unset, 'true' or 'false'")
+            });
+            match var {
+                true => EmbedResourcesKind::OnlyBuiltinResources,
+                false => EmbedResourcesKind::EmbedAllResources,
             }
-            Err(_) => match output_format {
+        } else {
+            match output_format {
                 #[cfg(feature = "rust")]
-                crate::generator::OutputFormat::Rust => {
-                    match std::env::var_os("SLINT_EMBED_TEXTURES") {
-                        Some(_) => EmbedResourcesKind::EmbedTextures,
-                        None => EmbedResourcesKind::EmbedAllResources,
-                    }
-                }
+                crate::generator::OutputFormat::Rust => EmbedResourcesKind::EmbedAllResources,
                 _ => EmbedResourcesKind::OnlyBuiltinResources,
-            },
+            }
         };
 
         let inline_all_elements = match std::env::var("SLINT_INLINING") {
@@ -133,8 +131,14 @@ impl CompilerConfiguration {
 pub async fn compile_syntax_node(
     doc_node: parser::SyntaxNode,
     mut diagnostics: diagnostics::BuildDiagnostics,
-    compiler_config: CompilerConfiguration,
+    mut compiler_config: CompilerConfiguration,
 ) -> (object_tree::Document, diagnostics::BuildDiagnostics) {
+    if compiler_config.embed_resources == EmbedResourcesKind::EmbedTextures {
+        // HACK: disable accessibility when compiling for the software renderer
+        // accessibility is not supported with backend that support sofware renderer anyway
+        compiler_config.accessibility = false;
+    }
+
     let global_type_registry = typeregister::TypeRegister::builtin();
     let type_registry =
         Rc::new(RefCell::new(typeregister::TypeRegister::new(&global_type_registry)));
