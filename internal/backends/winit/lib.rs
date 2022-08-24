@@ -151,7 +151,7 @@ impl i_slint_core::platform::PlatformAbstraction for Backend {
         crate::event_loop::run(behavior);
     }
 
-    fn event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
+    fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
         struct Proxy;
         impl EventLoopProxy for Proxy {
             fn quit_event_loop(&self) {

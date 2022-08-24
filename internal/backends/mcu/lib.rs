@@ -324,7 +324,7 @@ mod the_backend {
             }
         }
 
-        fn event_loop_proxy(&self) -> Option<Box<dyn i_slint_core::platform::EventLoopProxy>> {
+        fn new_event_loop_proxy(&self) -> Option<Box<dyn i_slint_core::platform::EventLoopProxy>> {
             struct Proxy;
             impl i_slint_core::platform::EventLoopProxy for Proxy {
                 fn quit_event_loop(&self) {
