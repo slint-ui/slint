@@ -43,7 +43,7 @@ pub trait PlatformAbstraction {
     /// not be possible to send event to the event loop and the function
     /// [`slint::invoke_from_event_loop()`](crate::api::invoke_from_event_loop) and
     /// [`slint::quit_event_loop()`](crate::api::quit_event_loop) will panic
-    fn event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
+    fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
         None
     }
 
@@ -72,7 +72,7 @@ pub trait PlatformAbstraction {
     }
 }
 
-/// Trait that is returned by the [`PlatformAbstraction::event_loop_proxy`]
+/// Trait that is returned by the [`PlatformAbstraction::new_event_loop_proxy`]
 ///
 /// This are the implementation details for the function that may need to
 /// communicate with the eventloop from different thread
@@ -120,7 +120,7 @@ pub fn set_platform_abstraction(
         if instance.get().is_some() {
             return Err(());
         }
-        if let Some(proxy) = platform.event_loop_proxy() {
+        if let Some(proxy) = platform.new_event_loop_proxy() {
             EVENTLOOP_PROXY.set(proxy).map_err(drop)?
         }
         instance.set(platform.into()).map_err(drop).unwrap();
