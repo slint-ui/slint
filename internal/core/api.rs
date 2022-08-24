@@ -5,10 +5,12 @@
 This module contains types that are public and re-exported in the slint-rs as well as the slint-interpreter crate as public API.
 */
 
+#![warn(missing_docs)]
+
 use alloc::boxed::Box;
 
 use crate::component::ComponentVTable;
-use crate::window::WindowInner;
+use crate::window::{PlatformWindow, WindowInner};
 
 pub use crate::lengths::LogicalPx;
 pub use crate::lengths::PhysicalPx;
@@ -103,7 +105,9 @@ pub struct Window(WindowInner);
 #[derive(Copy, Clone, Debug, PartialEq)]
 #[repr(C)]
 pub enum CloseRequestResponse {
+    /// The Window will be hidden (default action)
     HideWindow,
+    /// The close request is rejected and the window will be kept shown.
     KeepWindowShown,
 }
 
@@ -114,7 +118,40 @@ impl Default for CloseRequestResponse {
 }
 
 impl Window {
-    pub fn new(platform_window_weak: alloc::rc::Weak<dyn crate::window::PlatformWindow>) -> Self {
+    /// Create a new window from a platform window.
+    ///
+    /// You only need to create the window yourself when you create a
+    /// [`PlatformWindow`](crate::platform::PlatformWindow) from
+    /// [`PlatformAbstraction::create_window`](crate::platform::PlatformAbstraction::create_window)
+    ///
+    /// Since the platform window must own the Window, this function is meant to be used with
+    /// [`Rc::new_cyclic`](alloc::rc::Rc::new_cyclic)
+    ///
+    /// # Example
+    /// ```rust
+    /// use std::rc::Rc;
+    /// use slint::platform::PlatformWindow;
+    /// use slint::Window;
+    /// struct MyPlatformWindow {
+    ///     window: Window,  
+    ///     //...
+    /// }
+    /// impl PlatformWindow for MyPlatformWindow {
+    ///    fn window(&self) -> &Window { &self.window }
+    /// # fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer { unimplemented!() }
+    /// # fn as_any(&self) -> &(dyn core::any::Any + 'static) { self }
+    ///    //...
+    /// }
+    /// fn create_window() -> Rc<dyn PlatformWindow> {
+    ///    Rc::<MyPlatformWindow>::new_cyclic(|weak| {
+    ///        MyPlatformWindow {
+    ///           window: Window::new(weak.clone()),
+    ///           //...
+    ///        }
+    ///    })
+    /// }
+    /// ```
+    pub fn new(platform_window_weak: alloc::rc::Weak<dyn PlatformWindow>) -> Self {
         Self(WindowInner::new(platform_window_weak))
     }
 
