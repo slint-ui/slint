@@ -16,7 +16,12 @@ use crate::unsafe_single_core::{thread_local, OnceCell};
 #[cfg(feature = "std")]
 use once_cell::sync::OnceCell;
 
-use crate::window::PlatformWindow;
+pub use crate::items::{InputType, MouseCursor};
+pub use crate::lengths::{PhysicalLength, PhysicalPoint};
+pub use crate::renderer::Renderer;
+#[cfg(feature = "swrenderer")]
+pub use crate::swrenderer;
+pub use crate::window::PlatformWindow;
 
 #[derive(Copy, Clone)]
 /// Behavior describing how the event loop should terminate.
@@ -85,7 +90,7 @@ pub trait EventLoopProxy: Send + Sync {
     /// Invoke the function from the event loop.
     ///
     /// This is what is called by [`slint::invoke_from_event_loop()`](crate::api::invoke_from_event_loop)
-    fn invoke_from_event_loop(&self, _event: Box<dyn FnOnce() + Send>);
+    fn invoke_from_event_loop(&self, event: Box<dyn FnOnce() + Send>);
 }
 
 #[cfg(feature = "std")]

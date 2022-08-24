@@ -1,8 +1,12 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+//! This module contains the [`SoftwareRenderer`] and related types.
+//!
+//! It is only available with the `renderer-software` feature.
+
 mod draw_functions;
-pub mod fonts;
+mod fonts;
 
 use crate::api::Window;
 use crate::graphics::{IntRect, PixelFormat, Rect as RectF, SharedImageBuffer};
@@ -19,8 +23,7 @@ use crate::{Color, Coord, ImageInner, StaticTextures};
 use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
-use draw_functions::PremultipliedRgbaColor;
-pub use draw_functions::TargetPixel;
+pub use draw_functions::{PremultipliedRgbaColor, TargetPixel};
 
 type DirtyRegion = PhysicalRect;
 
@@ -69,6 +72,15 @@ pub trait LineBufferProvider {
 }
 
 #[derive(Default)]
+/// A Renderer that do the rendering in software
+///
+/// The renderer can remember what items needs to be redrawn from the previous iteration.
+///
+/// There are two kind of possible rendering
+///  1. Using [`render()`](Self::render()) to render the window in a buffer
+///  2. Using [`render_by_line()`](Self::render()) to render the window line by line. This
+///     is only usefull if the device does not have enough memory to render the whole window
+///     in one single buffer
 pub struct SoftwareRenderer {
     partial_cache: RefCell<crate::item_rendering::PartialRenderingCache>,
     /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not

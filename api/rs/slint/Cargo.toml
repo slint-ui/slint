@@ -94,4 +94,4 @@ slint-build = { path = "../build" }
 
 [package.metadata.docs.rs]
 rustdoc-args = [ "--html-in-header", "docs/resources/slint-docs-preview.html", "--html-in-header", "docs/resources/slint-docs-highlight.html" ]
-features = ["document-features"]
+features = ["document-features", "renderer-software"]
