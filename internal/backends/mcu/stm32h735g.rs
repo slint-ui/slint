@@ -3,8 +3,6 @@
 
 extern crate alloc;
 
-use super::TargetPixel;
-use crate::{PhysicalLength, PhysicalPoint};
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 pub use cortex_m_rt::entry;
@@ -16,6 +14,7 @@ use hal::gpio::Speed::High;
 use hal::pac;
 use hal::prelude::*;
 use hal::rcc::rec::OctospiClkSelGetter;
+use i_slint_core::lengths::{PhysicalLength, PhysicalPoint};
 use i_slint_core::swrenderer;
 use stm32h7xx_hal as hal; // global logger
 
@@ -33,6 +32,9 @@ static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 
 const DISPLAY_WIDTH: usize = 480;
 const DISPLAY_HEIGHT: usize = 272;
+
+/// The Pixel type of the backing store
+pub type TargetPixel = embedded_graphics::pixelcolor::Rgb565;
 
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
@@ -369,7 +371,7 @@ impl i_slint_core::platform::PlatformAbstraction for StmBackend {
 
 struct StmWindow {
     window: i_slint_core::api::Window,
-    renderer: crate::renderer::SoftwareRenderer,
+    renderer: swrenderer::SoftwareRenderer,
     needs_redraw: core::cell::Cell<bool>,
 }
 

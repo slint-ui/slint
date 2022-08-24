@@ -54,6 +54,9 @@ const SPI_ST7789VW_MAX_FREQ: embedded_time::rate::Hertz = embedded_time::rate::H
 
 const DISPLAY_SIZE: PhysicalSize = PhysicalSize::new(320, 240);
 
+/// The Pixel type of the backing store
+pub type TargetPixel = embedded_graphics::pixelcolor::Rgb565;
+
 pub fn init() {
     unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
     i_slint_core::platform::set_platform_abstraction(Box::new(PicoBackend::default()))
@@ -256,14 +259,14 @@ impl i_slint_core::platform::PlatformAbstraction for PicoBackend {
 }
 
 enum PioTransfer<TO: WriteTarget, CH: SingleChannel> {
-    Idle(CH, &'static mut [super::TargetPixel], TO),
+    Idle(CH, &'static mut [TargetPixel], TO),
     Running(hal::dma::SingleBuffering<CH, PartialReadBuffer, TO>),
 }
 
 impl<TO: WriteTarget<TransmittedWord = u8> + FullDuplex<u8>, CH: SingleChannel>
     PioTransfer<TO, CH>
 {
-    fn wait(self) -> (CH, &'static mut [super::TargetPixel], TO) {
+    fn wait(self) -> (CH, &'static mut [TargetPixel], TO) {
         match self {
             PioTransfer::Idle(a, b, c) => (a, b, c),
             PioTransfer::Running(dma) => {
@@ -279,7 +282,7 @@ impl<TO: WriteTarget<TransmittedWord = u8> + FullDuplex<u8>, CH: SingleChannel>
 
 struct PicoWindow {
     window: i_slint_core::api::Window,
-    renderer: crate::renderer::SoftwareRenderer,
+    renderer: i_slint_core::swrenderer::SoftwareRenderer,
     needs_redraw: Cell<bool>,
 }
 
@@ -307,7 +310,7 @@ impl i_slint_core::platform::PlatformWindow for PicoWindow {
 
 struct DrawBuffer<Display, PioTransfer, Stolen> {
     display: Display,
-    buffer: &'static mut [super::TargetPixel],
+    buffer: &'static mut [TargetPixel],
     pio: Option<PioTransfer>,
     stolen_pin: Stolen,
 }
@@ -322,13 +325,13 @@ impl<
     > renderer::LineBufferProvider
     for &mut DrawBuffer<st7789::ST7789<DI, RST>, PioTransfer<TO, CH>, (DC_, CS_)>
 {
-    type TargetPixel = super::TargetPixel;
+    type TargetPixel = TargetPixel;
 
     fn process_line(
         &mut self,
         line: PhysicalLength,
         range: core::ops::Range<PhysicalLength>,
-        render_fn: impl FnOnce(&mut [super::TargetPixel]),
+        render_fn: impl FnOnce(&mut [TargetPixel]),
     ) {
         let range = range.start.get() as usize..range.end.get() as usize;
 
