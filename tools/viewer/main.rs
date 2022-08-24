@@ -195,7 +195,7 @@ fn init_dialog(instance: &ComponentInstance) {
         instance
             .set_callback(&cb, move |_| {
                 EXIT_CODE.store(exit_code, std::sync::atomic::Ordering::Relaxed);
-                i_slint_backend_selector::backend().quit_event_loop();
+                i_slint_core::api::quit_event_loop();
                 Default::default()
             })
             .unwrap();
@@ -350,7 +350,7 @@ unsafe impl Sync for FutureRunner {}
 
 impl Wake for FutureRunner {
     fn wake(self: Arc<Self>) {
-        i_slint_backend_selector::backend().post_event(Box::new(move || {
+        i_slint_core::api::invoke_from_event_loop(move || {
             let waker = self.clone().into();
             let mut cx = std::task::Context::from_waker(&waker);
             let mut fut_opt = self.fut.lock().unwrap();
@@ -360,7 +360,7 @@ impl Wake for FutureRunner {
                     std::task::Poll::Pending => {}
                 }
             }
-        }));
+        });
     }
 }
 

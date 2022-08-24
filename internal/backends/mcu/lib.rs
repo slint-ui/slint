@@ -324,12 +324,18 @@ mod the_backend {
             }
         }
 
-        fn quit_event_loop(&self) {
-            EVENT_QUEUE.with(|q| q.borrow_mut().push_back(McuEvent::Quit));
-        }
+        fn event_loop_proxy(&self) -> Option<Box<dyn i_slint_core::platform::EventLoopProxy>> {
+            struct Proxy;
+            impl i_slint_core::platform::EventLoopProxy for Proxy {
+                fn quit_event_loop(&self) {
+                    EVENT_QUEUE.with(|q| q.borrow_mut().push_back(McuEvent::Quit));
+                }
 
-        fn post_event(&self, event: Box<dyn FnOnce() + Send>) {
-            EVENT_QUEUE.with(|q| q.borrow_mut().push_back(McuEvent::Custom(event)));
+                fn invoke_from_event_loop(&self, event: Box<dyn FnOnce() + Send>) {
+                    EVENT_QUEUE.with(|q| q.borrow_mut().push_back(McuEvent::Custom(event)));
+                }
+            }
+            Some(Box::new(Proxy))
         }
 
         fn duration_since_start(&self) -> core::time::Duration {
@@ -354,9 +360,8 @@ pub const HAS_NATIVE_STYLE: bool = false;
 
 pub fn init_with_display<Display: Devices + 'static>(display: Display) {
     DEVICES.with(|d| *d.borrow_mut() = Some(Box::new(display)));
-    i_slint_core::platform::instance_or_init(|| {
-        alloc::boxed::Box::new(the_backend::MCUBackend::default())
-    });
+    i_slint_core::platform::set_platform_abstraction(Box::new(the_backend::MCUBackend::default()))
+        .unwrap();
 }
 
 #[cfg(feature = "pico-st7789")]

@@ -55,6 +55,9 @@ pub mod unsafe_single_core {
         pub fn get_or_init(&self, f: impl FnOnce() -> T) -> &T {
             self.0.get_or_init(f)
         }
+        pub fn set(&self, value: T) -> Result<(), T> {
+            self.0.set(value)
+        }
     }
 
     // Safety: the unsafe_single_core feature means we will only be called from a single thread
@@ -121,11 +124,29 @@ pub use graphics::RgbaColor;
 #[cfg(feature = "std")]
 #[doc(inline)]
 pub use graphics::PathData;
+use platform::PlatformAbstraction;
 
 #[cfg(not(slint_int_coord))]
 pub type Coord = f32;
 #[cfg(slint_int_coord)]
 pub type Coord = i32;
+
+/// Internal function to access the platform abstraction.
+/// The factory function is called if the platform abstraction is not yet
+/// initialized, and should be given by the platform_selector
+pub fn with_platform_abstraction<R>(
+    factory: impl FnOnce() -> alloc::boxed::Box<dyn PlatformAbstraction + 'static>,
+    f: impl FnOnce(&dyn PlatformAbstraction) -> R,
+) -> R {
+    platform::PLAFTORM_ABSTRACTION_INSTANCE.with(|p| match p.get() {
+        Some(p) => f(&**p),
+        None => {
+            platform::set_platform_abstraction(factory())
+                .expect("platform already initialized in another thread");
+            f(&**p.get().unwrap())
+        }
+    })
+}
 
 /// One need to use at least one function in each module in order to get them
 /// exported in the final binary.

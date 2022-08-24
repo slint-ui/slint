@@ -25,16 +25,6 @@ impl i_slint_core::platform::PlatformAbstraction for TestingBackend {
         })
     }
 
-    fn run_event_loop(&self, _behavior: i_slint_core::platform::EventLoopQuitBehavior) {
-        unimplemented!("running an event loop with the testing backend");
-    }
-
-    fn quit_event_loop(&self) {}
-
-    fn post_event(&self, _event: Box<dyn FnOnce() + Send>) {
-        // The event will never be invoked
-    }
-
     fn duration_since_start(&self) -> core::time::Duration {
         // The slint::testing::mock_elapsed_time updates the animation tick directly
         core::time::Duration::from_millis(i_slint_core::animations::current_tick().0)
@@ -153,5 +143,6 @@ impl Renderer for TestingWindow {
 /// Must be called before any call that would otherwise initialize the rendering backend.
 /// Calling it when the rendering backend is already initialized will have no effects
 pub fn init() {
-    i_slint_core::platform::instance_or_init(|| Box::new(TestingBackend::default()));
+    i_slint_core::platform::set_platform_abstraction(Box::new(TestingBackend::default()))
+        .expect("platform already initialized");
 }

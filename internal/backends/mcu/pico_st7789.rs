@@ -58,7 +58,8 @@ const DISPLAY_SIZE: PhysicalSize = PhysicalSize::new(320, 240);
 
 pub fn init() {
     unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
-    i_slint_core::platform::instance_or_init(|| alloc::boxed::Box::new(PicoBackend));
+    i_slint_core::platform::set_platform_abstraction(alloc::boxed::Box::new(PicoBackend))
+        .expect("backend already initialized");
 }
 
 thread_local! { static WINDOW: RefCell<Option<Rc<PicoWindow>>> = RefCell::new(None) }

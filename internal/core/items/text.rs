@@ -797,14 +797,17 @@ impl TextInput {
         if anchor == cursor {
             return;
         }
-        if let Some(backend) = crate::platform::instance() {
-            let text = self.text();
-            backend.set_clipboard_text(&text[anchor..cursor]);
-        }
+        let text = self.text();
+        crate::platform::PLAFTORM_ABSTRACTION_INSTANCE.with(|p| {
+            if let Some(backend) = p.get() {
+                backend.set_clipboard_text(&text[anchor..cursor]);
+            }
+        });
     }
 
     fn paste(self: Pin<&Self>, platform_window: &Rc<dyn PlatformWindow>) {
-        if let Some(text) = crate::platform::instance().and_then(|backend| backend.clipboard_text())
+        if let Some(text) = crate::platform::PLAFTORM_ABSTRACTION_INSTANCE
+            .with(|p| p.get().and_then(|p| p.clipboard_text()))
         {
             self.insert(&text, platform_window);
         }

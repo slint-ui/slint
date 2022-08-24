@@ -389,14 +389,13 @@ impl<'id> ComponentDescription<'id> {
         self: Rc<Self>,
         #[cfg(target_arch = "wasm32")] canvas_id: String,
     ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
-        #[cfg(not(target_arch = "wasm32"))]
-        let platform_window = i_slint_backend_selector::backend().create_window();
-        #[cfg(target_arch = "wasm32")]
-        let platform_window = {
-            // Ensure that the backend is initialized
-            i_slint_backend_selector::backend();
+        let platform_window = i_slint_backend_selector::with_platform_abstraction(|_b| {
+            #[cfg(not(target_arch = "wasm32"))]
+            return _b.create_window();
+            #[cfg(target_arch = "wasm32")]
             i_slint_backend_winit::create_gl_window_with_canvas_id(canvas_id)
-        };
+        });
+
         self.create_with_existing_window(&platform_window)
     }
 

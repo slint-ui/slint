@@ -82,6 +82,7 @@ pub mod native_widgets {
 }
 pub const HAS_NATIVE_STYLE: bool = false;
 
+use i_slint_core::platform::EventLoopProxy;
 pub use stylemetrics::native_style_metrics_deinit;
 pub use stylemetrics::native_style_metrics_init;
 
@@ -150,34 +151,47 @@ impl i_slint_core::platform::PlatformAbstraction for Backend {
         crate::event_loop::run(behavior);
     }
 
-    fn quit_event_loop(&self) {
-        crate::event_loop::with_window_target(|event_loop| {
-            event_loop.event_loop_proxy().send_event(crate::event_loop::CustomEvent::Exit).ok();
-        })
-    }
+    fn event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
+        struct Proxy;
+        impl EventLoopProxy for Proxy {
+            fn quit_event_loop(&self) {
+                crate::event_loop::with_window_target(|event_loop| {
+                    event_loop
+                        .event_loop_proxy()
+                        .send_event(crate::event_loop::CustomEvent::Exit)
+                        .ok();
+                })
+            }
 
-    fn post_event(&self, event: Box<dyn FnOnce() + Send>) {
-        let e = crate::event_loop::CustomEvent::UserEvent(event);
-        #[cfg(not(target_arch = "wasm32"))]
-        crate::event_loop::GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap().send_event(e);
-        #[cfg(target_arch = "wasm32")]
-        {
-            crate::event_loop::GLOBAL_PROXY.with(|global_proxy| {
-                let mut maybe_proxy = global_proxy.borrow_mut();
-                let proxy = maybe_proxy.get_or_insert_with(Default::default);
-                // Calling send_event is usually done by winit at the bottom of the stack,
-                // in event handlers, and thus winit might decide to process the event
-                // immediately within that stack.
-                // To prevent re-entrancy issues that might happen by getting the application
-                // event processed on top of the current stack, set winit in Poll mode so that
-                // events are queued and process on top of a clean stack during a requested animation
-                // frame a few moments later.
-                // This also allows batching multiple post_event calls and redraw their state changes
-                // all at once.
-                proxy.send_event(crate::event_loop::CustomEvent::WakeEventLoopWorkaround);
-                proxy.send_event(e);
-            });
+            fn invoke_from_event_loop(&self, event: Box<dyn FnOnce() + Send>) {
+                let e = crate::event_loop::CustomEvent::UserEvent(event);
+                #[cfg(not(target_arch = "wasm32"))]
+                crate::event_loop::GLOBAL_PROXY
+                    .get_or_init(Default::default)
+                    .lock()
+                    .unwrap()
+                    .send_event(e);
+                #[cfg(target_arch = "wasm32")]
+                {
+                    crate::event_loop::GLOBAL_PROXY.with(|global_proxy| {
+                        let mut maybe_proxy = global_proxy.borrow_mut();
+                        let proxy = maybe_proxy.get_or_insert_with(Default::default);
+                        // Calling send_event is usually done by winit at the bottom of the stack,
+                        // in event handlers, and thus winit might decide to process the event
+                        // immediately within that stack.
+                        // To prevent re-entrancy issues that might happen by getting the application
+                        // event processed on top of the current stack, set winit in Poll mode so that
+                        // events are queued and process on top of a clean stack during a requested animation
+                        // frame a few moments later.
+                        // This also allows batching multiple post_event calls and redraw their state changes
+                        // all at once.
+                        proxy.send_event(crate::event_loop::CustomEvent::WakeEventLoopWorkaround);
+                        proxy.send_event(e);
+                    });
+                }
+            }
         }
+        Some(Box::new(Proxy))
     }
 
     fn set_clipboard_text(&self, text: &str) {

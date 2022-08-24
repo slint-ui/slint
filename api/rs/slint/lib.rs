@@ -436,24 +436,17 @@ pub mod internal {
 /// Creates a new window to render components in.
 #[doc(hidden)]
 pub fn create_window() -> alloc::rc::Rc<dyn re_exports::PlatformWindow> {
-    i_slint_backend_selector::backend().create_window()
+    i_slint_backend_selector::with_platform_abstraction(|b| b.create_window())
 }
 
 /// Enters the main event loop. This is necessary in order to receive
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
 pub fn run_event_loop() {
-    i_slint_backend_selector::backend()
-        .run_event_loop(i_slint_core::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed);
+    i_slint_backend_selector::with_platform_abstraction(|b| {
+        b.run_event_loop(i_slint_core::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed)
+    })
 }
-/// Schedules the main event loop for termination. This function is meant
-/// to be called from callbacks triggered by the UI. After calling the function,
-/// it will return immediately and once control is passed back to the event loop,
-/// the initial call to [`run_event_loop()`] will return.
-pub fn quit_event_loop() {
-    i_slint_backend_selector::backend().quit_event_loop();
-}
-
 /// This module contains functions useful for unit tests
 #[cfg(feature = "std")]
 pub mod testing {

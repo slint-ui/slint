@@ -9,6 +9,8 @@
 
 extern crate alloc;
 
+use std::rc::Rc;
+
 #[cfg(not(no_qt))]
 mod qt_accessible;
 #[cfg(not(no_qt))]
@@ -122,8 +124,6 @@ pub type NativeGlobals = ();
 
 pub const HAS_NATIVE_STYLE: bool = cfg!(not(no_qt));
 
-use std::rc::Rc;
-
 #[cfg(not(no_qt))]
 pub use qt_widgets::{native_style_metrics_deinit, native_style_metrics_init};
 #[cfg(no_qt)]
@@ -164,88 +164,85 @@ impl i_slint_core::platform::PlatformAbstraction for Backend {
         };
     }
 
-    fn quit_event_loop(&self) {
-        #[cfg(not(no_qt))]
-        {
-            use cpp::cpp;
-            cpp! {unsafe [] {
-                // Use a quit event to avoid qApp->quit() calling
-                // [NSApp terminate:nil] and us never returning from the
-                // event loop - slint-viewer relies on the ability to
-                // return from run().
-                QCoreApplication::postEvent(qApp, new QEvent(QEvent::Quit));
-            } }
-        };
-    }
-
-    fn post_event(&self, _event: Box<dyn FnOnce() + Send>) {
-        #[cfg(not(no_qt))]
-        {
-            use cpp::cpp;
-            cpp! {{
-               struct TraitObject { void *a, *b; };
-               struct EventHolder {
-                   TraitObject fnbox = {nullptr, nullptr};
-                   ~EventHolder() {
-                       if (fnbox.a != nullptr || fnbox.b != nullptr) {
-                           rust!(Slint_delete_event_holder [fnbox: *mut dyn FnOnce() as "TraitObject"] {
-                               drop(Box::from_raw(fnbox))
-                           });
-                       }
-                   }
-                   EventHolder(TraitObject f) : fnbox(f)  {}
-                   EventHolder(const EventHolder&) = delete;
-                   EventHolder& operator=(const EventHolder&) = delete;
-                   EventHolder(EventHolder&& other) : fnbox(other.fnbox) {
-                        other.fnbox = {nullptr, nullptr};
-                   }
-                   void operator()() {
-                        if (fnbox.a != nullptr || fnbox.b != nullptr) {
-                            TraitObject fnbox = std::move(this->fnbox);
-                            this->fnbox = {nullptr, nullptr};
-                            rust!(Slint_call_event_holder [fnbox: *mut dyn FnOnce() as "TraitObject"] {
-                               let b = Box::from_raw(fnbox);
-                               b();
-                            });
-                        }
-                   }
-               };
-            }};
-            let fnbox = Box::into_raw(_event);
-            cpp! {unsafe [fnbox as "TraitObject"] {
-                QTimer::singleShot(0, qApp, EventHolder{fnbox});
-            }}
-        };
-    }
-
-    fn set_clipboard_text(&self, _text: &str) {
-        #[cfg(not(no_qt))]
-        {
-            use cpp::cpp;
-            let text: qttypes::QString = _text.into();
-            cpp! {unsafe [text as "QString"] {
-                ensure_initialized();
-                QGuiApplication::clipboard()->setText(text);
-            } }
-        }
-    }
-
-    fn clipboard_text(&self) -> Option<String> {
-        #[cfg(not(no_qt))]
-        {
-            use cpp::cpp;
-            let has_text = cpp! {unsafe [] -> bool as "bool" {
-                ensure_initialized();
-                return QGuiApplication::clipboard()->mimeData()->hasText();
-            } };
-            if has_text {
-                return Some(
-                    cpp! { unsafe [] -> qttypes::QString as "QString" {
-                        return QGuiApplication::clipboard()->text();
-                    }}
-                    .into(),
-                );
+    #[cfg(not(no_qt))]
+    fn event_loop_proxy(&self) -> Option<Box<dyn i_slint_core::platform::EventLoopProxy>> {
+        struct Proxy;
+        impl i_slint_core::platform::EventLoopProxy for Proxy {
+            fn quit_event_loop(&self) {
+                use cpp::cpp;
+                cpp! {unsafe [] {
+                    // Use a quit event to avoid qApp->quit() calling
+                    // [NSApp terminate:nil] and us never returning from the
+                    // event loop - slint-viewer relies on the ability to
+                    // return from run().
+                    QCoreApplication::postEvent(qApp, new QEvent(QEvent::Quit));
+                } }
             }
+
+            fn invoke_from_event_loop(&self, _event: Box<dyn FnOnce() + Send>) {
+                use cpp::cpp;
+                cpp! {{
+                   struct TraitObject { void *a, *b; };
+                   struct EventHolder {
+                       TraitObject fnbox = {nullptr, nullptr};
+                       ~EventHolder() {
+                           if (fnbox.a != nullptr || fnbox.b != nullptr) {
+                               rust!(Slint_delete_event_holder [fnbox: *mut dyn FnOnce() as "TraitObject"] {
+                                   drop(Box::from_raw(fnbox))
+                               });
+                           }
+                       }
+                       EventHolder(TraitObject f) : fnbox(f)  {}
+                       EventHolder(const EventHolder&) = delete;
+                       EventHolder& operator=(const EventHolder&) = delete;
+                       EventHolder(EventHolder&& other) : fnbox(other.fnbox) {
+                            other.fnbox = {nullptr, nullptr};
+                       }
+                       void operator()() {
+                            if (fnbox.a != nullptr || fnbox.b != nullptr) {
+                                TraitObject fnbox = std::move(this->fnbox);
+                                this->fnbox = {nullptr, nullptr};
+                                rust!(Slint_call_event_holder [fnbox: *mut dyn FnOnce() as "TraitObject"] {
+                                   let b = Box::from_raw(fnbox);
+                                   b();
+                                });
+                            }
+                       }
+                   };
+                }};
+                let fnbox = Box::into_raw(_event);
+                cpp! {unsafe [fnbox as "TraitObject"] {
+                    QTimer::singleShot(0, qApp, EventHolder{fnbox});
+                }}
+            }
+        }
+        Some(Box::new(Proxy))
+    }
+
+    #[cfg(not(no_qt))]
+    fn set_clipboard_text(&self, _text: &str) {
+        use cpp::cpp;
+        let text: qttypes::QString = _text.into();
+        cpp! {unsafe [text as "QString"] {
+            ensure_initialized();
+            QGuiApplication::clipboard()->setText(text);
+        } }
+    }
+
+    #[cfg(not(no_qt))]
+    fn clipboard_text(&self) -> Option<String> {
+        use cpp::cpp;
+        let has_text = cpp! {unsafe [] -> bool as "bool" {
+            ensure_initialized();
+            return QGuiApplication::clipboard()->mimeData()->hasText();
+        } };
+        if has_text {
+            return Some(
+                cpp! { unsafe [] -> qttypes::QString as "QString" {
+                    return QGuiApplication::clipboard()->text();
+                }}
+                .into(),
+            );
         }
         None
     }
