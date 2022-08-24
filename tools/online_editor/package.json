@@ -10,7 +10,7 @@
     "build:wasm_preview": "wasm-pack build --target web ../../api/wasm-interpreter -- --features console_error_panic_hook",
     "build:wasm_preview-release": "wasm-pack build --release --target web ../../api/wasm-interpreter -- --features console_error_panic_hook",
     "lint": "eslint src",
-    "start": "rimraf dist && npm run build:wasm-lsp && npm run build:wasm_preview && npm run start:vite",
+    "start": "rimraf dist && npm run build:wasm_lsp && npm run build:wasm_preview && npm run start:vite",
     "start:vite": "vite --open",
     "syntax_check": "tsc --build"
   },
