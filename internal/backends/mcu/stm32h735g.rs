@@ -8,7 +8,6 @@ use alloc::rc::{Rc, Weak};
 pub use cortex_m_rt::entry;
 use defmt_rtt as _;
 use embedded_display_controller::{DisplayController, DisplayControllerLayer};
-use embedded_graphics::prelude::RgbColor;
 use hal::delay::Delay;
 use hal::gpio::Speed::High;
 use hal::pac;
@@ -34,7 +33,7 @@ const DISPLAY_WIDTH: usize = 480;
 const DISPLAY_HEIGHT: usize = 272;
 
 /// The Pixel type of the backing store
-pub type TargetPixel = embedded_graphics::pixelcolor::Rgb565;
+pub type TargetPixel = swrenderer::Rgb565Pixel;
 
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
@@ -212,10 +211,10 @@ impl i_slint_core::platform::PlatformAbstraction for StmBackend {
 
         #[link_section = ".frame_buffer"]
         static mut FB1: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
-            [TargetPixel::BLACK; DISPLAY_WIDTH * DISPLAY_HEIGHT];
+            [swrenderer::Rgb565Pixel(0); DISPLAY_WIDTH * DISPLAY_HEIGHT];
         #[link_section = ".frame_buffer"]
         static mut FB2: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
-            [TargetPixel::BLACK; DISPLAY_WIDTH * DISPLAY_HEIGHT];
+            [swrenderer::Rgb565Pixel(0); DISPLAY_WIDTH * DISPLAY_HEIGHT];
         // SAFETY the init function is only called once (as enforced by Peripherals::take)
         let (fb1, fb2) = unsafe { (&mut FB1, &mut FB2) };
 

@@ -13,8 +13,6 @@ use cortex_m::interrupt::Mutex;
 use cortex_m::singleton;
 pub use cortex_m_rt::entry;
 use defmt_rtt as _;
-use embedded_graphics::pixelcolor::Rgb565;
-use embedded_graphics::prelude::*;
 use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::spi::FullDuplex;
 use embedded_time::rate::*;
@@ -22,6 +20,7 @@ use hal::dma::{DMAExt, SingleChannel, WriteTarget};
 use i_slint_core::api::{euclid, PointerEvent, PointerEventButton};
 use i_slint_core::lengths::{PhysicalLength, PhysicalSize};
 use i_slint_core::swrenderer as renderer;
+use renderer::Rgb565Pixel;
 use rp_pico::hal::gpio::{self, Interrupt as GpioInterrupt};
 use rp_pico::hal::pac::interrupt;
 use rp_pico::hal::timer::{Alarm, Alarm0};
@@ -55,7 +54,7 @@ const SPI_ST7789VW_MAX_FREQ: embedded_time::rate::Hertz = embedded_time::rate::H
 const DISPLAY_SIZE: PhysicalSize = PhysicalSize::new(320, 240);
 
 /// The Pixel type of the backing store
-pub type TargetPixel = embedded_graphics::pixelcolor::Rgb565;
+pub type TargetPixel = Rgb565Pixel;
 
 pub fn init() {
     unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
@@ -183,12 +182,12 @@ impl i_slint_core::platform::PlatformAbstraction for PicoBackend {
         };
         let pio = PioTransfer::Idle(
             dma.ch0,
-            vec![Rgb565::default(); DISPLAY_SIZE.width as _].leak(),
+            vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as _].leak(),
             stolen_spi,
         );
         let mut buffer_provider = DrawBuffer {
             display,
-            buffer: vec![Rgb565::default(); DISPLAY_SIZE.width as _].leak(),
+            buffer: vec![Rgb565Pixel::default(); DISPLAY_SIZE.width as _].leak(),
             pio: Some(pio),
             stolen_pin: (dc_copy, cs_copy),
         };
@@ -339,7 +338,7 @@ impl<
 
         // convert from little to big indian before sending to the DMA channel
         for x in &mut self.buffer[range.clone()] {
-            *x = embedded_graphics::pixelcolor::raw::RawU16::from(x.into_storage().to_be()).into()
+            *x = Rgb565Pixel(x.0.to_be())
         }
         let (ch, mut b, spi) = self.pio.take().unwrap().wait();
         self.stolen_pin.1.set_high().unwrap();
@@ -394,13 +393,13 @@ impl<
     }
 }
 
-struct PartialReadBuffer(&'static mut [Rgb565], core::ops::Range<usize>);
+struct PartialReadBuffer(&'static mut [Rgb565Pixel], core::ops::Range<usize>);
 unsafe impl embedded_dma::ReadBuffer for PartialReadBuffer {
     type Word = u8;
 
     unsafe fn read_buffer(&self) -> (*const <Self as embedded_dma::ReadBuffer>::Word, usize) {
         let act_slice = &self.0[self.1.clone()];
-        (act_slice.as_ptr() as *const u8, act_slice.len() * core::mem::size_of::<Rgb565>())
+        (act_slice.as_ptr() as *const u8, act_slice.len() * core::mem::size_of::<Rgb565Pixel>())
     }
 }
 
@@ -604,6 +603,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     use core::fmt::Write;
     use embedded_graphics::{
         mono_font::{ascii::FONT_6X10, MonoTextStyle},
+        pixelcolor::Rgb565,
         prelude::*,
         text::Text,
     };
