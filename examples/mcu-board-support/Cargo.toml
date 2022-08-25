@@ -25,6 +25,7 @@ unsafe_single_core = ["i-slint-core/unsafe_single_core"]
 [dependencies]
 i-slint-core = { version = "=0.2.6", path = "../../internal/core", default-features = false, features = [] }
 slint = { version = "=0.2.6", path = "../../api/rs/slint", default-features = false, features = ["compat-0-2-0", "renderer-software"] }
+i-slint-core-macros = { version = "=0.2.6", path = "../../internal/core-macros" }
 
 derive_more = "0.99.5"
 embedded-graphics = { version = "0.7.1", optional = true }
