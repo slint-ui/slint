@@ -8,6 +8,7 @@ use crate::wasm_prelude::*;
 use crate::{completion, goto, semantic_tokens, util, RequestHolder};
 use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
 use i_slint_compiler::langtype::Type;
+use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 use i_slint_compiler::typeloader::TypeLoader;
 use i_slint_compiler::typeregister::TypeRegister;
@@ -18,10 +19,10 @@ use lsp_types::request::{
 };
 use lsp_types::{
     CodeActionOrCommand, CodeActionProviderCapability, CodeLens, CodeLensOptions, Color,
-    ColorInformation, ColorPresentation, Command, CompletionOptions, DocumentSymbolResponse, Hover,
-    InitializeParams, Location, OneOf, Position, PublishDiagnosticsParams, Range,
-    SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions, ServerCapabilities,
-    SymbolInformation, TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
+    ColorInformation, ColorPresentation, Command, CompletionOptions, DocumentSymbol,
+    DocumentSymbolResponse, Hover, InitializeParams, OneOf, Position, PublishDiagnosticsParams,
+    Range, SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions,
+    ServerCapabilities, TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
 };
 use std::collections::HashMap;
 
@@ -460,9 +461,9 @@ fn get_document_symbols(
     let uri = &text_document.uri;
     let doc = document_cache.documents.get_document(&uri.to_file_path().ok()?)?;
 
-    // SymbolInformation doesn't implement default and some field depends on features or are deprecated
-    let si: SymbolInformation = serde_json::from_value(
-        serde_json::json!({ "name" : "", "kind": 255, "location" : Location::new(uri.clone(), Range::default()) })
+    // DocumentSymbol doesn't implement default and some field depends on features or are deprecated
+    let ds: DocumentSymbol = serde_json::from_value(
+        serde_json::json!({ "name" : "", "kind": 255, "range" : Range::default(), "selectionRange": Range::default() })
     )
     .unwrap();
 
@@ -479,31 +480,60 @@ fn get_document_symbols(
     let mut r = inner_components
         .iter()
         .filter_map(|c| {
-            Some(SymbolInformation {
-                location: Location::new(
-                    uri.clone(),
-                    make_range(c.root_element.borrow().node.as_ref()?)?,
-                ),
+            Some(DocumentSymbol {
+                range: make_range(c.root_element.borrow().node.as_ref()?)?,
+                selection_range: make_range(
+                    c.root_element.borrow().node.as_ref()?.QualifiedName().as_ref()?,
+                )?,
                 name: c.id.clone(),
-                kind: lsp_types::SymbolKind::OBJECT,
-                ..si.clone()
+                kind: if c.is_global() {
+                    lsp_types::SymbolKind::OBJECT
+                } else {
+                    lsp_types::SymbolKind::CLASS
+                },
+                children: gen_children(&c.root_element, &ds, &mut make_range),
+                ..ds.clone()
             })
         })
         .collect::<Vec<_>>();
 
     r.extend(inner_structs.iter().filter_map(|c| match c {
-        Type::Struct { name: Some(name), node: Some(node), .. } => Some(SymbolInformation {
-            location: Location::new(uri.clone(), make_range(node.parent().as_ref()?)?),
+        Type::Struct { name: Some(name), node: Some(node), .. } => Some(DocumentSymbol {
+            range: make_range(node.parent().as_ref()?)?,
+            selection_range: make_range(node)?,
             name: name.clone(),
             kind: lsp_types::SymbolKind::STRUCT,
-            ..si.clone()
+            ..ds.clone()
         }),
         _ => None,
     }));
 
-    Some(r.into())
+    fn gen_children(
+        elem: &ElementRc,
+        ds: &DocumentSymbol,
+        make_range: &mut dyn FnMut(&SyntaxNode) -> Option<Range>,
+    ) -> Option<Vec<DocumentSymbol>> {
+        let r = elem
+            .borrow()
+            .children
+            .iter()
+            .filter_map(|child| {
+                let e = child.borrow();
+                Some(DocumentSymbol {
+                    range: make_range(e.node.as_ref()?)?,
+                    selection_range: make_range(e.node.as_ref()?.QualifiedName().as_ref()?)?,
+                    name: e.base_type.to_string(),
+                    detail: (!e.id.is_empty()).then(|| e.id.clone()),
+                    kind: lsp_types::SymbolKind::VARIABLE,
+                    children: gen_children(child, ds, make_range),
+                    ..ds.clone()
+                })
+            })
+            .collect::<Vec<_>>();
+        (!r.is_empty()).then(|| r)
+    }
 
-    // TODO: add the structs
+    Some(r.into())
 }
 
 fn get_code_lenses(
