@@ -9,8 +9,12 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 extern crate alloc;
 
-#[cfg(feature = "unsafe_single_core")]
-pub mod unsafe_single_core;
+#[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
+pub(crate) mod unsafe_single_threaded;
+#[cfg(all(not(feature = "std"), not(feature = "unsafe-single-threaded")))]
+compile_error!(
+    "At least one of the following feature need to be enabled: `std` or `unsafe-single-threaded`"
+);
 
 pub mod accessibility;
 pub mod animations;

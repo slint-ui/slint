@@ -9,9 +9,9 @@
 macro_rules! thread_local_ {
     ($(#[$($meta:tt)*])* $vis:vis static $ident:ident : $ty:ty = $expr:expr) => {
         $(#[$($meta)*])*
-        $vis static $ident: crate::unsafe_single_core::FakeThreadStorage<$ty> = {
+        $vis static $ident: crate::unsafe_single_threaded::FakeThreadStorage<$ty> = {
             fn init() -> $ty { $expr }
-            crate::unsafe_single_core::FakeThreadStorage::new(init)
+            crate::unsafe_single_threaded::FakeThreadStorage::new(init)
         };
     };
 }
@@ -29,7 +29,7 @@ impl<T> FakeThreadStorage<T> {
         Ok(f(self.0.get().ok_or(())?))
     }
 }
-// Safety: the unsafe_single_core feature means we will only be called from a single thread
+// Safety: the unsafe_single_threaded feature means we will only be called from a single thread
 unsafe impl<T, F> Send for FakeThreadStorage<T, F> {}
 unsafe impl<T, F> Sync for FakeThreadStorage<T, F> {}
 
@@ -43,14 +43,11 @@ impl<T> OnceCell<T> {
     pub fn get(&self) -> Option<&T> {
         self.0.get()
     }
-    pub fn get_or_init(&self, f: impl FnOnce() -> T) -> &T {
-        self.0.get_or_init(f)
-    }
     pub fn set(&self, value: T) -> Result<(), T> {
         self.0.set(value)
     }
 }
 
-// Safety: the unsafe_single_core feature means we will only be called from a single thread
+// Safety: the unsafe_single_threaded feature means we will only be called from a single thread
 unsafe impl<T> Send for OnceCell<T> {}
 unsafe impl<T> Sync for OnceCell<T> {}

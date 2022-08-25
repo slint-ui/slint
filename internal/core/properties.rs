@@ -292,8 +292,8 @@ unsafe impl<F: Fn(*mut ()) -> BindingResult> BindingCallable for F {
 #[cfg(feature = "std")]
 scoped_tls_hkt::scoped_thread_local!(static CURRENT_BINDING : for<'a> Option<Pin<&'a BindingHolder>>);
 
-#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
-mod unsafe_single_core {
+#[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
+mod unsafe_single_threaded {
     use super::BindingHolder;
     use core::cell::Cell;
     use core::pin::Pin;
@@ -320,13 +320,13 @@ mod unsafe_single_core {
             res
         }
     }
-    // Safety: the unsafe_single_core feature means we will only be called from a single thread
+    // Safety: the unsafe_single_threaded feature means we will only be called from a single thread
     unsafe impl Send for FakeThreadStorage {}
     unsafe impl Sync for FakeThreadStorage {}
 }
-#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
-static CURRENT_BINDING: unsafe_single_core::FakeThreadStorage =
-    unsafe_single_core::FakeThreadStorage::new();
+#[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
+static CURRENT_BINDING: unsafe_single_threaded::FakeThreadStorage =
+    unsafe_single_threaded::FakeThreadStorage::new();
 
 /// Evaluate a function, but do not register any property dependencies if that function
 /// get the value of properties

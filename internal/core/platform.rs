@@ -11,8 +11,8 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::string::String;
 
-#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
-use crate::unsafe_single_core::{thread_local, OnceCell};
+#[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
+use crate::unsafe_single_threaded::{thread_local, OnceCell};
 #[cfg(feature = "std")]
 use once_cell::sync::OnceCell;
 
