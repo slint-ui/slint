@@ -19,6 +19,7 @@ export default defineConfig(({ command, _mode }) => {
 
   let global_aliases = {
     "@lsp/": "../../../lsp/pkg/",
+    "~@lumino": "node_modules/@lumino/", // work around strange defaults in @lumino
   };
 
   if (command === "serve") {

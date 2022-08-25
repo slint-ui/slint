@@ -4,5 +4,9 @@
     "lib": ["dom", "es2020"]
   },
   "include": ["./*.ts"],
-  "references": [{ "path": "worker" }]
+  "references": [
+    {
+      "path": "worker"
+    }
+  ]
 }

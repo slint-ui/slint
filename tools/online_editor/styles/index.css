@@ -1,0 +1,65 @@
+/*-----------------------------------------------------------------------------
+| Copyright (c) 2014-2018, PhosphorJS Contributors
+|
+| Distributed under the terms of the BSD 3-Clause License.
+|
+| The full license is in the file LICENSE, distributed with this software.
+|----------------------------------------------------------------------------*/
+@import "@lumino/default-theme/style/index.css";
+@import "./content.css";
+
+body {
+  display: flex;
+  flex-direction: column;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+}
+
+#menuBar {
+  flex: 0 0 auto;
+}
+
+#main {
+  flex: 1 1 auto;
+}
+
+#palette {
+  min-width: 300px;
+  border-right: 1px solid #dddddd;
+}
+
+#dock {
+  padding: 4px;
+}
+
+.loader {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  justify-content: center;
+  align-items: center;
+  background: #3333ff;
+}
+
+.loader-image {
+  width: 100px;
+  animation: pulse 1s linear infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(0.8);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

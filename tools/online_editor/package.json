@@ -17,6 +17,9 @@
   "keywords": [],
   "author": "",
   "dependencies": {
+    "@lumino/default-theme": "^1.0.0-alpha.0",
+    "@lumino/dragdrop": "^2.0.0-alpha.0",
+    "@lumino/widgets": "^2.0.0-alpha.0",
     "monaco-editor": "^0.34.0",
     "monaco-languageclient": "^3.0.0",
     "vscode-languageserver": "^8.0.2",
