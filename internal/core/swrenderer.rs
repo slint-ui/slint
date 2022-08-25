@@ -23,7 +23,7 @@ use crate::{Color, Coord, ImageInner, StaticTextures};
 use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
-pub use draw_functions::{PremultipliedRgbaColor, TargetPixel};
+pub use draw_functions::{PremultipliedRgbaColor, Rgb565Pixel, TargetPixel};
 
 type DirtyRegion = PhysicalRect;
 
