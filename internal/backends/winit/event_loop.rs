@@ -577,108 +577,124 @@ pub fn run(quit_behavior: i_slint_core::platform::EventLoopQuitBehavior) {
     // last seen cursor position, (physical coordinate)
     let mut cursor_pos = Point::default();
     let mut pressed = false;
-    let mut run_fn = move |event: Event<CustomEvent>,
-                           event_loop_target: &EventLoopWindowTarget<CustomEvent>,
-                           control_flow: &mut ControlFlow| {
-        let running_instance = RunningEventLoop {
-            event_loop_target,
-            event_loop_proxy: &event_loop_proxy,
-            clipboard: &clipboard,
-        };
-        CURRENT_WINDOW_TARGET.set(&running_instance, || match event {
-            Event::WindowEvent { event, window_id } => {
-                if let Some(window) = window_by_id(window_id) {
-                    process_window_event(window, event, &mut cursor_pos, &mut pressed);
-                };
-            }
 
-            Event::RedrawRequested(id) => {
-                if let Some(window) = window_by_id(id) {
-                    window.draw();
+    let mut run_fn = move |event: Event<CustomEvent>, control_flow: &mut ControlFlow| match event {
+        Event::WindowEvent { event, window_id } => {
+            if let Some(window) = window_by_id(window_id) {
+                process_window_event(window, event, &mut cursor_pos, &mut pressed);
+            };
+        }
+
+        Event::RedrawRequested(id) => {
+            if let Some(window) = window_by_id(id) {
+                window.draw();
+            }
+        }
+
+        Event::UserEvent(CustomEvent::UpdateWindowProperties(window_id)) => {
+            if let Err(insert_pos) = windows_with_pending_property_updates.binary_search(&window_id)
+            {
+                windows_with_pending_property_updates.insert(insert_pos, window_id);
+            }
+        }
+        Event::UserEvent(CustomEvent::WindowHidden) => match quit_behavior {
+            corelib::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
+                let window_count = ALL_WINDOWS.with(|windows| windows.borrow().len());
+                if window_count == 0 {
+                    *control_flow = ControlFlow::Exit;
                 }
             }
+            corelib::platform::EventLoopQuitBehavior::QuitOnlyExplicitly => {}
+        },
 
-            Event::UserEvent(CustomEvent::UpdateWindowProperties(window_id)) => {
-                if let Err(insert_pos) =
-                    windows_with_pending_property_updates.binary_search(&window_id)
-                {
-                    windows_with_pending_property_updates.insert(insert_pos, window_id);
-                }
+        Event::UserEvent(CustomEvent::Exit) => {
+            *control_flow = ControlFlow::Exit;
+        }
+
+        Event::UserEvent(CustomEvent::UserEvent(user)) => {
+            user();
+        }
+
+        #[cfg(target_arch = "wasm32")]
+        Event::UserEvent(CustomEvent::RedrawAllWindows) => redraw_all_windows(),
+
+        #[cfg(target_arch = "wasm32")]
+        Event::UserEvent(CustomEvent::WakeEventLoopWorkaround) => {
+            *control_flow = ControlFlow::Poll;
+        }
+
+        Event::NewEvents(_) => {
+            *control_flow = ControlFlow::Wait;
+            corelib::platform::update_timers_and_animations();
+        }
+
+        Event::MainEventsCleared => {
+            for window in windows_with_pending_property_updates
+                .drain(..)
+                .flat_map(|window_id| window_by_id(window_id))
+            {
+                window.window().window_handle().update_window_properties();
             }
-            Event::UserEvent(CustomEvent::WindowHidden) => match quit_behavior {
-                corelib::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
-                    let window_count = ALL_WINDOWS.with(|windows| windows.borrow().len());
-                    if window_count == 0 {
-                        *control_flow = ControlFlow::Exit;
-                    }
-                }
-                corelib::platform::EventLoopQuitBehavior::QuitOnlyExplicitly => {}
-            },
+        }
 
-            Event::UserEvent(CustomEvent::Exit) => {
-                *control_flow = ControlFlow::Exit;
-            }
-
-            Event::UserEvent(CustomEvent::UserEvent(user)) => {
-                user();
-            }
-
-            #[cfg(target_arch = "wasm32")]
-            Event::UserEvent(CustomEvent::RedrawAllWindows) => redraw_all_windows(),
-
-            #[cfg(target_arch = "wasm32")]
-            Event::UserEvent(CustomEvent::WakeEventLoopWorkaround) => {
+        Event::RedrawEventsCleared => {
+            if *control_flow != ControlFlow::Exit
+                && ALL_WINDOWS.with(|windows| {
+                    windows.borrow().iter().any(|(_, w)| {
+                        w.upgrade().map_or(false, |w| w.window().has_active_animations())
+                    })
+                })
+            {
                 *control_flow = ControlFlow::Poll;
             }
 
-            Event::NewEvents(_) => {
-                *control_flow = ControlFlow::Wait;
-                corelib::platform::update_timers_and_animations();
-            }
-
-            Event::MainEventsCleared => {
-                for window in windows_with_pending_property_updates
-                    .drain(..)
-                    .flat_map(|window_id| window_by_id(window_id))
-                {
-                    window.window().window_handle().update_window_properties();
+            if *control_flow == ControlFlow::Wait {
+                if let Some(next_timer) = corelib::platform::duration_until_next_timer_update() {
+                    *control_flow = ControlFlow::WaitUntil(instant::Instant::now() + next_timer);
                 }
             }
+        }
 
-            Event::RedrawEventsCleared => {
-                if *control_flow != ControlFlow::Exit
-                    && ALL_WINDOWS.with(|windows| {
-                        windows.borrow().iter().any(|(_, w)| {
-                            w.upgrade().map_or(false, |w| w.window().has_active_animations())
-                        })
-                    })
-                {
-                    *control_flow = ControlFlow::Poll;
-                }
-
-                if *control_flow == ControlFlow::Wait {
-                    if let Some(next_timer) = corelib::platform::duration_until_next_timer_update()
-                    {
-                        *control_flow =
-                            ControlFlow::WaitUntil(instant::Instant::now() + next_timer);
-                    }
-                }
-            }
-
-            _ => (),
-        })
+        _ => (),
     };
 
     #[cfg(not(target_arch = "wasm32"))]
     {
-        winit_loop.run_return(run_fn);
+        winit_loop.run_return(
+            |event: Event<CustomEvent>,
+             event_loop_target: &EventLoopWindowTarget<CustomEvent>,
+             control_flow: &mut ControlFlow| {
+                let running_instance = RunningEventLoop {
+                    event_loop_target,
+                    event_loop_proxy: &event_loop_proxy,
+                    clipboard: &clipboard,
+                };
+                CURRENT_WINDOW_TARGET.set(&running_instance, || run_fn(event, control_flow))
+            },
+        );
 
         *GLOBAL_PROXY.get_or_init(Default::default).lock().unwrap() = Default::default();
+
+        // Keep the EventLoop instance alive and re-use it in future invocations of run_event_loop().
+        // Winit does not support creating multiple instances of the event loop.
+        let nre = NotRunningEventLoop { clipboard, instance: winit_loop, event_loop_proxy };
+        MAYBE_LOOP_INSTANCE.with(|loop_instance| *loop_instance.borrow_mut() = Some(nre))
     }
 
     #[cfg(target_arch = "wasm32")]
     {
-        winit_loop.run(run_fn)
+        winit_loop.run(
+            move |event: Event<CustomEvent>,
+                  event_loop_target: &EventLoopWindowTarget<CustomEvent>,
+                  control_flow: &mut ControlFlow| {
+                let running_instance = RunningEventLoop {
+                    event_loop_target,
+                    event_loop_proxy: &event_loop_proxy,
+                    clipboard: &clipboard,
+                };
+                CURRENT_WINDOW_TARGET.set(&running_instance, || run_fn(event, control_flow))
+            },
+        )
     }
 }
 
