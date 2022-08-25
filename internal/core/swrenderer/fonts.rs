@@ -4,7 +4,7 @@
 use alloc::vec::Vec;
 use core::cell::RefCell;
 
-#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
+#[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::thread_local_ as thread_local;
 
 use crate::graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, FontRequest};

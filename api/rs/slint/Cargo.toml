@@ -82,6 +82,15 @@ defmt = ["i-slint-core/defmt"]
 ## in MCU environments where the processor does not support floating point arithmetic.
 libm = ["i-slint-core/libm"]
 
+## Slint uses internally some `thread_local` state.
+##
+## When the `std` feature is enabled, Slint can use [`std::thread_local!`], but when in a `#![no_std]`
+## environment, we need a replacement. Using this feature, Slint will just use static variable 
+## disregarding Rust's Send and Sync safety
+##
+## **Safety** : You must ensure that there is only one single thread that call into the Slint API
+unsafe-single-threaded = ["i-slint-core/unsafe-single-threaded"]
+
 [dependencies]
 i-slint-core = { version = "=0.2.6", path="../../../internal/core", default-features = false }
 slint-macros = { version = "=0.2.6", path = "../macros" }

@@ -258,8 +258,8 @@ impl AnimationDriver {
     }
 }
 
-#[cfg(all(not(feature = "std"), feature = "unsafe_single_core"))]
-use crate::unsafe_single_core::thread_local;
+#[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
+use crate::unsafe_single_threaded::thread_local;
 
 thread_local!(
 /// This is the default instance of the animation driver that's used to advance all property animations
