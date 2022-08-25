@@ -160,16 +160,15 @@ enum CallbackVariant {
 }
 
 impl CallbackVariant {
-    fn invoke(self) -> Self {
+    fn invoke(&mut self) {
+        use CallbackVariant::*;
         match self {
-            CallbackVariant::Empty => CallbackVariant::Empty,
-            CallbackVariant::MultiFire(mut cb) => {
-                cb();
-                CallbackVariant::MultiFire(cb)
-            }
-            CallbackVariant::SingleShot(cb) => {
-                cb();
-                CallbackVariant::Empty
+            Empty => (),
+            MultiFire(cb) => cb(),
+            SingleShot(_) => {
+                if let SingleShot(cb) = core::mem::replace(self, Empty) {
+                    cb();
+                }
             }
         }
     }
@@ -234,20 +233,40 @@ impl TimerList {
                 if active_timer.timeout <= now {
                     any_activated = true;
 
-                    timers.borrow_mut().callback_active = Some(active_timer.id);
-                    let callback = core::mem::replace(
-                        &mut timers.borrow_mut().timers[active_timer.id].callback,
-                        CallbackVariant::Empty,
-                    );
-                    let callback = callback.invoke();
+                    let mut callback = {
+                        let mut timers = timers.borrow_mut();
+
+                        timers.callback_active = Some(active_timer.id);
+
+                        // do it before invoking the callback, in case the callback wants to stop or adjust its own timer
+                        if matches!(timers.timers[active_timer.id].mode, TimerMode::Repeated) {
+                            timers.activate_timer(active_timer.id);
+                        }
+
+                        // have to release the borrow on `timers` before invoking the callback,
+                        // so here we temporarily move the callback out of its permanent place
+                        core::mem::replace(
+                            &mut timers.timers[active_timer.id].callback,
+                            CallbackVariant::Empty,
+                        )
+                    };
+
+                    callback.invoke();
+
                     let mut timers = timers.borrow_mut();
-                    timers.timers[active_timer.id].callback = callback;
+
+                    let callback_register = &mut timers.timers[active_timer.id].callback;
+
+                    // only emplace back the callback if its permanent store is still Empty:
+                    // if not, it means the invoked callback has restarted its own timer with a new callback
+                    if matches!(callback_register, CallbackVariant::Empty) {
+                        *callback_register = callback;
+                    }
+
                     timers.callback_active = None;
 
                     if timers.timers[active_timer.id].removed {
                         timers.timers.remove(active_timer.id);
-                    } else if matches!(timers.timers[active_timer.id].mode, TimerMode::Repeated) {
-                        timers.activate_timer(active_timer.id);
                     }
                 } else {
                     timers.borrow_mut().register_active_timer(active_timer);
