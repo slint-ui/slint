@@ -81,7 +81,7 @@ pub struct CompilerConfiguration {
 impl CompilerConfiguration {
     pub fn new(output_format: crate::generator::OutputFormat) -> Self {
         let embed_resources = if std::env::var_os("SLINT_EMBED_TEXTURES").is_some()
-            || std::env::var_os("DEP_I_SLINT_BACKEND_MCU_EMBED_TEXTURES").is_some()
+            || std::env::var_os("DEP_MCU_BOARD_SUPPORT_MCU_EMBED_TEXTURES").is_some()
         {
             EmbedResourcesKind::EmbedTextures
         } else if let Ok(var) = std::env::var("SLINT_EMBED_RESOURCES") {

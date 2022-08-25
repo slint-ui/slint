@@ -40,9 +40,9 @@ impl PrinterQueueData {
     }
 }
 
-#[i_slint_backend_mcu::entry]
+#[mcu_board_support::entry]
 fn main() -> ! {
-    i_slint_backend_mcu::init();
+    mcu_board_support::init();
     let main_window = MainWindow::new();
     main_window.set_ink_levels(slint::VecModel::from_slice(&[
         InkLevel { color: slint::Color::from_rgb_u8(0, 255, 255), level: 0.40 },
