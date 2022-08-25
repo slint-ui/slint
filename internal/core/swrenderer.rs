@@ -23,11 +23,11 @@ use crate::{Color, Coord, ImageInner, StaticTextures};
 use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
+
+pub use crate::lengths::{PhysicalLength, PhysicalSize};
 pub use draw_functions::{PremultipliedRgbaColor, Rgb565Pixel, TargetPixel};
 
 type DirtyRegion = PhysicalRect;
-
-pub use crate::lengths::{PhysicalLength, PhysicalSize};
 
 /// The argument to pass in the [`SoftwareRenderer::new()`] function to specify how the renderer
 /// should keep track of what region of the buffer changes between calls to render.
