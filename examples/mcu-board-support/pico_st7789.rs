@@ -17,13 +17,13 @@ use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::spi::FullDuplex;
 use embedded_time::rate::*;
 use hal::dma::{DMAExt, SingleChannel, WriteTarget};
-use i_slint_core::lengths::{PhysicalLength, PhysicalSize};
 use renderer::Rgb565Pixel;
 use rp_pico::hal::gpio::{self, Interrupt as GpioInterrupt};
 use rp_pico::hal::pac::interrupt;
 use rp_pico::hal::timer::{Alarm, Alarm0};
 use rp_pico::hal::{self, pac, prelude::*, Timer};
 use slint::platform::swrenderer as renderer;
+use slint::platform::swrenderer::{PhysicalLength, PhysicalSize};
 use slint::{euclid, PointerEvent, PointerEventButton};
 
 #[cfg(feature = "panic-probe")]
