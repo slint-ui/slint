@@ -2,16 +2,16 @@
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 [package]
-name = "i-slint-backend-mcu"
+name = "mcu-board-support"
 version = "0.2.6"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
 publish = false
-description = "Rendering backend for Slint for use on Microcontrollers"
+description = "Internal helper that includes support for different MCUs, for use in Slint examples"
 repository = "https://github.com/slint-ui/slint"
 homepage = "https://slint-ui.com"
-links = "i_slint_backend_mcu" # just so we can pass metadata to the slint build crate
+links = "mcu_board_support" # just so we can pass metadata to the slint build crate
 
 [lib]
 path = "lib.rs"
@@ -24,12 +24,7 @@ unsafe_single_core = ["i-slint-core/unsafe_single_core"]
 std = ["i-slint-core/std"]
 
 [dependencies]
-i-slint-common = { version = "=0.2.6", path = "../../../internal/common", default-features = false }
-i-slint-core = { version = "=0.2.6", path = "../../../internal/core", default-features = false, features = ["libm", "swrenderer", "embedded-graphics"] }
-i-slint-core-macros = { version = "=0.2.6", path = "../../../internal/core-macros" }
-
-const-field-offset = { version = "0.1", path = "../../../helper_crates/const-field-offset" }
-vtable = { version = "0.1.6", path = "../../../helper_crates/vtable" }
+i-slint-core = { version = "=0.2.6", path = "../../internal/core", default-features = false, features = ["libm", "swrenderer", "embedded-graphics"] }
 
 derive_more = "0.99.5"
 embedded-graphics = "0.7.1"

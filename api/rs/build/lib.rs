@@ -366,7 +366,7 @@ pub fn compile_with_config(
 /// build flags reported by the backend
 pub fn print_rustc_flags() -> std::io::Result<()> {
     if let Some(board_config_path) =
-        std::env::var_os("DEP_I_SLINT_BACKEND_MCU_BOARD_CONFIG_PATH").map(std::path::PathBuf::from)
+        std::env::var_os("DEP_MCU_BOARD_SUPPORT_BOARD_CONFIG_PATH").map(std::path::PathBuf::from)
     {
         let config = std::fs::read_to_string(board_config_path.as_path())?;
         let toml = config.parse::<toml_edit::Document>().expect("invalid board config toml");
@@ -389,7 +389,7 @@ pub fn print_rustc_flags() -> std::io::Result<()> {
                 println!("cargo:rustc-link-search={}", path.to_string_lossy());
             }
         }
-        println!("cargo:rerun-if-env-changed=DEP_I_SLINT_BACKEND_MCU_BOARD_CONFIG_PATH");
+        println!("cargo:rerun-if-env-changed=DEP_MCU_BOARD_SUPPORT_MCU_BOARD_CONFIG_PATH");
         println!("cargo:rerun-if-changed={}", board_config_path.display());
     }
 
