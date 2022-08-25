@@ -63,11 +63,11 @@ import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
     return;
   }
   const editor = monaco.editor.create(editor_element, {
-    language: "slint",
+    cursorBlinking: "smooth",
+    cursorSurroundingLines: 2,
     glyphMargin: true,
-    lightbulb: {
-      enabled: true,
-    },
+    language: "slint",
+    lightbulb: { enabled: true },
   });
   MonacoServices.install();
 
