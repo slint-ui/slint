@@ -74,6 +74,13 @@ renderer-software = ["i-slint-core/swrenderer", "i-slint-backend-selector/render
 ## This feature is an alias for `backend-qt`
 renderer-qt = ["backend-qt"]
 
+## This feature enables debug output to be sent via the [deferred formatting framework](https://defmt.ferrous-systems.com).
+## Use this in MCU environments where defmt is supported.
+defmt = ["i-slint-core/defmt"]
+
+## This feature enables floating point arithmetic emulation using the [libm](https://crates.io/crates/libm) crate. Use this
+## in MCU environments where the processor does not support floating point arithmetic.
+libm = ["i-slint-core/libm"]
 
 [dependencies]
 i-slint-core = { version = "=0.2.6", path="../../../internal/core", default-features = false }
