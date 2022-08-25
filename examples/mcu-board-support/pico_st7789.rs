@@ -17,14 +17,14 @@ use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::spi::FullDuplex;
 use embedded_time::rate::*;
 use hal::dma::{DMAExt, SingleChannel, WriteTarget};
-use i_slint_core::api::{euclid, PointerEvent, PointerEventButton};
 use i_slint_core::lengths::{PhysicalLength, PhysicalSize};
-use i_slint_core::swrenderer as renderer;
 use renderer::Rgb565Pixel;
 use rp_pico::hal::gpio::{self, Interrupt as GpioInterrupt};
 use rp_pico::hal::pac::interrupt;
 use rp_pico::hal::timer::{Alarm, Alarm0};
 use rp_pico::hal::{self, pac, prelude::*, Timer};
+use slint::platform::swrenderer as renderer;
+use slint::{euclid, PointerEvent, PointerEventButton};
 
 #[cfg(feature = "panic-probe")]
 use panic_probe as _;
@@ -58,7 +58,7 @@ pub type TargetPixel = Rgb565Pixel;
 
 pub fn init() {
     unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
-    i_slint_core::platform::set_platform_abstraction(Box::new(PicoBackend::default()))
+    slint::platform::set_platform_abstraction(Box::new(PicoBackend::default()))
         .expect("backend already initialized");
 }
 
@@ -66,10 +66,10 @@ pub fn init() {
 struct PicoBackend {
     window: RefCell<Option<Rc<PicoWindow>>>,
 }
-impl i_slint_core::platform::PlatformAbstraction for PicoBackend {
-    fn create_window(&self) -> Rc<dyn i_slint_core::platform::PlatformWindow> {
+impl slint::platform::PlatformAbstraction for PicoBackend {
+    fn create_window(&self) -> Rc<dyn slint::platform::PlatformWindow> {
         let window = Rc::new_cyclic(|self_weak: &Weak<PicoWindow>| PicoWindow {
-            window: i_slint_core::api::Window::new(self_weak.clone()),
+            window: slint::Window::new(self_weak.clone()),
             renderer: renderer::SoftwareRenderer::new(renderer::DirtyTracking::SingleBuffer),
             needs_redraw: Default::default(),
         });
@@ -84,7 +84,7 @@ impl i_slint_core::platform::PlatformAbstraction for PicoBackend {
         core::time::Duration::from_micros(counter)
     }
 
-    fn run_event_loop(&self, _behavior: i_slint_core::platform::EventLoopQuitBehavior) {
+    fn run_event_loop(&self, _behavior: slint::platform::EventLoopQuitBehavior) {
         let mut pac = pac::Peripherals::take().unwrap();
         let core = pac::CorePeripherals::take().unwrap();
 
@@ -194,7 +194,7 @@ impl i_slint_core::platform::PlatformAbstraction for PicoBackend {
 
         let mut last_touch = None;
         loop {
-            i_slint_core::platform::update_timers_and_animations();
+            slint::platform::update_timers_and_animations();
 
             if let Some(window) = self.window.borrow().clone() {
                 if window.needs_redraw.replace(false) {
@@ -233,7 +233,7 @@ impl i_slint_core::platform::PlatformAbstraction for PicoBackend {
                 }
             }
 
-            let time_to_sleep = i_slint_core::platform::duration_until_next_timer_update();
+            let time_to_sleep = slint::platform::duration_until_next_timer_update();
 
             let duration = time_to_sleep.map(|d| {
                 let d = core::cmp::max(d, core::time::Duration::from_micros(10));
@@ -280,12 +280,12 @@ impl<TO: WriteTarget<TransmittedWord = u8> + FullDuplex<u8>, CH: SingleChannel>
 }
 
 struct PicoWindow {
-    window: i_slint_core::api::Window,
-    renderer: i_slint_core::swrenderer::SoftwareRenderer,
+    window: slint::Window,
+    renderer: renderer::SoftwareRenderer,
     needs_redraw: Cell<bool>,
 }
 
-impl i_slint_core::platform::PlatformWindow for PicoWindow {
+impl slint::platform::PlatformWindow for PicoWindow {
     fn show(&self) {
         self.window.set_size(DISPLAY_SIZE.cast());
     }
@@ -294,7 +294,7 @@ impl i_slint_core::platform::PlatformWindow for PicoWindow {
         self.needs_redraw.set(true);
     }
 
-    fn renderer(&self) -> &dyn i_slint_core::platform::Renderer {
+    fn renderer(&self) -> &dyn slint::platform::Renderer {
         &self.renderer
     }
 
@@ -302,7 +302,7 @@ impl i_slint_core::platform::PlatformWindow for PicoWindow {
         self
     }
 
-    fn window(&self) -> &i_slint_core::api::Window {
+    fn window(&self) -> &slint::Window {
         &self.window
     }
 }
@@ -409,8 +409,8 @@ mod xpt2046 {
     use embedded_hal::blocking::spi::Transfer;
     use embedded_hal::digital::v2::{InputPin, OutputPin};
     use embedded_time::rate::Extensions;
-    use i_slint_core::api::euclid;
-    use i_slint_core::api::euclid::default::Point2D;
+    use slint::euclid;
+    use slint::euclid::default::Point2D;
 
     pub struct XPT2046<IRQ: InputPin + 'static, CS: OutputPin, SPI: Transfer<u8>> {
         irq: &'static Mutex<RefCell<Option<IRQ>>>,
