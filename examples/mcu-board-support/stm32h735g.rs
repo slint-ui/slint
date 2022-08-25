@@ -14,7 +14,7 @@ use hal::pac;
 use hal::prelude::*;
 use hal::rcc::rec::OctospiClkSelGetter;
 use i_slint_core::lengths::{PhysicalLength, PhysicalPoint};
-use i_slint_core::swrenderer;
+use slint::platform::swrenderer;
 use stm32h7xx_hal as hal; // global logger
 
 #[cfg(feature = "panic-probe")]
@@ -40,7 +40,7 @@ static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
 pub fn init() {
     unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
-    i_slint_core::platform::set_platform_abstraction(Box::new(StmBackend::default()))
+    slint::platform::set_platform_abstraction(Box::new(StmBackend::default()))
         .expect("backend already initialized");
 }
 
@@ -49,10 +49,10 @@ struct StmBackend {
     window: core::cell::RefCell<Option<Rc<StmWindow>>>,
     timer: once_cell::unsync::OnceCell<hal::timer::Timer<pac::TIM2>>,
 }
-impl i_slint_core::platform::PlatformAbstraction for StmBackend {
-    fn create_window(&self) -> Rc<dyn i_slint_core::platform::PlatformWindow> {
+impl slint::platform::PlatformAbstraction for StmBackend {
+    fn create_window(&self) -> Rc<dyn slint::platform::PlatformWindow> {
         let window = Rc::new_cyclic(|self_weak: &Weak<StmWindow>| StmWindow {
-            window: i_slint_core::api::Window::new(self_weak.clone()),
+            window: slint::Window::new(self_weak.clone()),
             renderer: swrenderer::SoftwareRenderer::new(swrenderer::DirtyTracking::DoubleBuffer),
             needs_redraw: true.into(),
         });
@@ -60,7 +60,7 @@ impl i_slint_core::platform::PlatformAbstraction for StmBackend {
         window
     }
 
-    fn run_event_loop(&self, _behavior: i_slint_core::platform::EventLoopQuitBehavior) {
+    fn run_event_loop(&self, _behavior: slint::platform::EventLoopQuitBehavior) {
         let mut cp = cortex_m::Peripherals::take().unwrap();
         let dp = pac::Peripherals::take().unwrap();
 
@@ -317,7 +317,7 @@ impl i_slint_core::platform::PlatformAbstraction for StmBackend {
 
         let mut last_touch = None;
         loop {
-            i_slint_core::platform::update_timers_and_animations();
+            slint::platform::update_timers_and_animations();
 
             if let Some(window) = self.window.borrow().clone() {
                 if window.needs_redraw.replace(false) {
@@ -336,20 +336,19 @@ impl i_slint_core::platform::PlatformAbstraction for StmBackend {
 
                 // handle touch event
                 let touch = ft5336.detect_touch(&mut touch_i2c).unwrap();
-                let button = i_slint_core::items::PointerEventButton::Left;
+                let button = slint::PointerEventButton::Left;
                 let event = if touch > 0 {
                     let state = ft5336.get_touch(&mut touch_i2c, 1).unwrap();
                     let position = PhysicalPoint::new(state.y as _, state.x as _).cast()
                         / window.window.scale_factor();
                     Some(match last_touch.replace(position) {
-                        Some(_) => i_slint_core::api::PointerEvent::Moved { position },
-                        None => i_slint_core::api::PointerEvent::Pressed { position, button },
+                        Some(_) => slint::PointerEvent::Moved { position },
+                        None => slint::PointerEvent::Pressed { position, button },
                     })
                 } else {
-                    last_touch.take().map(|position| i_slint_core::api::PointerEvent::Released {
-                        position,
-                        button,
-                    })
+                    last_touch
+                        .take()
+                        .map(|position| slint::PointerEvent::Released { position, button })
                 };
 
                 if let Some(event) = event {
@@ -369,12 +368,12 @@ impl i_slint_core::platform::PlatformAbstraction for StmBackend {
 }
 
 struct StmWindow {
-    window: i_slint_core::api::Window,
+    window: slint::Window,
     renderer: swrenderer::SoftwareRenderer,
     needs_redraw: core::cell::Cell<bool>,
 }
 
-impl i_slint_core::platform::PlatformWindow for StmWindow {
+impl slint::platform::PlatformWindow for StmWindow {
     fn show(&self) {
         self.window.set_size((DISPLAY_WIDTH as u32, DISPLAY_HEIGHT as u32).into());
     }
@@ -383,7 +382,7 @@ impl i_slint_core::platform::PlatformWindow for StmWindow {
         self.needs_redraw.set(true);
     }
 
-    fn renderer(&self) -> &dyn i_slint_core::platform::Renderer {
+    fn renderer(&self) -> &dyn slint::platform::Renderer {
         &self.renderer
     }
 
@@ -391,7 +390,7 @@ impl i_slint_core::platform::PlatformWindow for StmWindow {
         self
     }
 
-    fn window(&self) -> &i_slint_core::api::Window {
+    fn window(&self) -> &slint::Window {
         &self.window
     }
 }
