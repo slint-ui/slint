@@ -13,8 +13,9 @@ use hal::gpio::Speed::High;
 use hal::pac;
 use hal::prelude::*;
 use hal::rcc::rec::OctospiClkSelGetter;
-use i_slint_core::lengths::{PhysicalLength, PhysicalPoint};
+use slint::euclid;
 use slint::platform::swrenderer;
+use slint::platform::swrenderer::PhysicalLength;
 use stm32h7xx_hal as hal; // global logger
 
 #[cfg(feature = "panic-probe")]
@@ -339,8 +340,10 @@ impl slint::platform::PlatformAbstraction for StmBackend {
                 let button = slint::PointerEventButton::Left;
                 let event = if touch > 0 {
                     let state = ft5336.get_touch(&mut touch_i2c, 1).unwrap();
-                    let position = PhysicalPoint::new(state.y as _, state.x as _).cast()
-                        / window.window.scale_factor();
+                    let position =
+                        euclid::Point2D::<i16, slint::PhysicalPx>::new(state.y as _, state.x as _)
+                            .cast()
+                            / window.window.scale_factor();
                     Some(match last_touch.replace(position) {
                         Some(_) => slint::PointerEvent::Moved { position },
                         None => slint::PointerEvent::Pressed { position, button },

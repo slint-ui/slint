@@ -13,8 +13,8 @@ use crate::graphics::{IntRect, PixelFormat, Rect as RectF, SharedImageBuffer};
 use crate::item_rendering::ItemRenderer;
 use crate::items::{ImageFit, ItemRc};
 use crate::lengths::{
-    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, PhysicalLength, PhysicalPoint,
-    PhysicalPx, PhysicalRect, PhysicalSize, PointLengths, RectLengths, ScaleFactor, SizeLengths,
+    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, PhysicalPoint, PhysicalPx,
+    PhysicalRect, PointLengths, RectLengths, ScaleFactor, SizeLengths,
 };
 use crate::renderer::Renderer;
 use crate::textlayout::{FontMetrics as _, TextParagraphLayout};
@@ -26,6 +26,8 @@ use core::pin::Pin;
 pub use draw_functions::{PremultipliedRgbaColor, Rgb565Pixel, TargetPixel};
 
 type DirtyRegion = PhysicalRect;
+
+pub use crate::lengths::{PhysicalLength, PhysicalSize};
 
 /// The argument to pass in the [`SoftwareRenderer::new()`] function to specify how the renderer
 /// should keep track of what region of the buffer changes between calls to render.
