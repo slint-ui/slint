@@ -23,11 +23,16 @@ import {
   ErrorAction,
   MonacoServices,
   MessageTransports,
+  Message,
+  RequestMessage,
+  ResponseMessage,
 } from "monaco-languageclient";
 import {
   BrowserMessageReader,
   BrowserMessageWriter,
 } from "vscode-languageserver-protocol/browser";
+
+import { FilterProxyReader } from "./proxy";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 (self as any).MonacoEnvironment = {
@@ -180,7 +185,11 @@ export Demo := Window {
     source: string,
     url: string
   ): monaco.editor.ITextModel {
-    const model = monaco.editor.createModel(source, "slint");
+    const model = monaco.editor.createModel(
+      source,
+      "slint",
+      monaco.Uri.parse(url)
+    );
     model.onDidChangeContent(function () {
       const permalink = document.getElementById(
         "permalink"
@@ -262,6 +271,31 @@ export Demo := Window {
     }
   }
 
+  async function read_from_url(url: string): Promise<string> {
+    let model_and_state = editor_documents.get(url);
+    if (model_and_state === undefined) {
+      const response = await fetch(url);
+      const doc = await response.text();
+
+      // Did this get added in the meantime?
+      model_and_state = editor_documents.get(url);
+      if (model_and_state === undefined) {
+        const model = monaco.editor.createModel(
+          doc,
+          "slint",
+          monaco.Uri.parse(url)
+        );
+        model.onDidChangeContent(function () {
+          maybe_update_preview_automatically();
+        });
+        editor_documents.set(url, { model, view_state: null });
+        addTab(model, url);
+        return doc;
+      }
+    }
+    return model_and_state.model.getValue();
+  }
+
   async function render_or_error(
     source: string,
     base_url: string,
@@ -284,21 +318,7 @@ export Demo := Window {
         source,
         base_url,
         style,
-        async (url: string): Promise<string> => {
-          const model_and_state = editor_documents.get(url);
-          if (model_and_state === undefined) {
-            const response = await fetch(url);
-            const doc = await response.text();
-            const model = monaco.editor.createModel(doc, "slint");
-            model.onDidChangeContent(function () {
-              maybe_update_preview_automatically();
-            });
-            editor_documents.set(url, { model, view_state: null });
-            addTab(model, url);
-            return doc;
-          }
-          return model_and_state.model.getValue();
-        }
+        read_from_url
       );
 
     if (error_string != "") {
@@ -380,13 +400,34 @@ export Demo := Window {
       type: "module",
     }
   );
-  lsp_worker.onmessage = m => {
+
+  lsp_worker.onmessage = (m) => {
     // We cannot start sending messages to the client before we start listening which
     // the server only does in a future after the wasm is loaded.
     if (m.data === "OK") {
-
-      const reader = new BrowserMessageReader(lsp_worker);
       const writer = new BrowserMessageWriter(lsp_worker);
+
+      const reader = new FilterProxyReader(
+        new BrowserMessageReader(lsp_worker),
+        (data: Message) => {
+          if ((data as RequestMessage).method == "slint/load_file") {
+            const request = data as RequestMessage;
+            const url = (request.params as string[])[0];
+
+            read_from_url(url).then((contents) => {
+              writer.write({
+                jsonrpc: request.jsonrpc,
+                id: request.id,
+                result: contents,
+                error: undefined,
+              } as ResponseMessage);
+            });
+
+            return true;
+          }
+          return false;
+        }
+      );
 
       const languageClient = createLanguageClient({ reader, writer });
 
@@ -394,5 +435,5 @@ export Demo := Window {
 
       reader.onClose(() => languageClient.stop());
     }
-  }
+  };
 })();
