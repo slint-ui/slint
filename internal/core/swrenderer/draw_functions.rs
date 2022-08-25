@@ -202,14 +202,17 @@ pub(super) fn draw_rounded_rectangle_line(
                 },
             );
         }
-        // 5. inside (x4 .. x4)
-        let begin = x4.ceil().saturating_sub(rr.left_clip.get() as u32).min(span.size.width as u32);
-        let end = rev(x4).floor().min(span.size.width as u32);
-        if begin < end {
-            TargetPixel::blend_slice(
-                &mut line_buffer[pos_x + begin as usize..pos_x + end as usize],
-                rr.inner_color,
-            )
+        if rr.inner_color.alpha > 0 {
+            // 5. inside (x4 .. x4)
+            let begin =
+                x4.ceil().saturating_sub(rr.left_clip.get() as u32).min(span.size.width as u32);
+            let end = rev(x4).floor().min(span.size.width as u32);
+            if begin < end {
+                TargetPixel::blend_slice(
+                    &mut line_buffer[pos_x + begin as usize..pos_x + end as usize],
+                    rr.inner_color,
+                )
+            }
         }
         if border > Shifted(0) {
             // 6. border anti-aliasing: x4..x3
