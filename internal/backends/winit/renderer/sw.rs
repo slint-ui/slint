@@ -43,12 +43,46 @@ impl super::WinitCompatibleRenderer for SoftwareRenderer {
         let mut buffer = vec![Rgb8Pixel::default(); width * height];
 
         window.draw_contents(|_component| {
-            Self::render(
-                &self,
-                platform_window.window(),
-                buffer.as_mut_slice(),
-                PhysicalLength::new(width as _),
-            );
+            if std::env::var_os("SLINT_LINE_BY_LINE").is_none() {
+                Self::render(
+                    &self,
+                    platform_window.window(),
+                    buffer.as_mut_slice(),
+                    PhysicalLength::new(width as _),
+                );
+            } else {
+                struct FrameBuffer<'a> {
+                    buffer: &'a mut [Rgb8Pixel],
+                    line: Vec<i_slint_core::swrenderer::Rgb565Pixel>,
+                }
+                impl<'a> i_slint_core::swrenderer::LineBufferProvider for FrameBuffer<'a> {
+                    type TargetPixel = i_slint_core::swrenderer::Rgb565Pixel;
+                    fn process_line(
+                        &mut self,
+                        line: PhysicalLength,
+                        range: core::ops::Range<PhysicalLength>,
+                        render_fn: impl FnOnce(&mut [Self::TargetPixel]),
+                    ) {
+                        let len = (range.end.get() - range.start.get()) as usize;
+                        let line_begin = line.get() as usize * self.line.len();
+                        let sub = &mut self.line[..len];
+                        render_fn(sub);
+                        for (dst, src) in self.buffer[line_begin + (range.start.get() as usize)
+                            ..line_begin + (range.end.get() as usize)]
+                            .iter_mut()
+                            .zip(sub)
+                        {
+                            dst.r = src.red();
+                            dst.g = src.green();
+                            dst.b = src.blue();
+                        }
+                    }
+                }
+                self.render_by_line(
+                    platform_window.window(),
+                    FrameBuffer { buffer: &mut buffer, line: vec![Default::default(); width] },
+                );
+            }
         });
 
         let image_ref: imgref::ImgRef<rgb::RGB8> =
