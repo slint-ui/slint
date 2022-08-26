@@ -315,7 +315,7 @@ impl PremultipliedRgbaColor {
 pub trait TargetPixel: Sized + Copy {
     /// Blend a single pixel with a color
     fn blend(&mut self, color: PremultipliedRgbaColor);
-    /// Fill (or blend) a color for all the pixel in the span.
+    /// Blend a color to all the pixel in the slice.
     fn blend_slice(to_fill: &mut [Self], color: PremultipliedRgbaColor) {
         if color.alpha == u8::MAX {
             to_fill.fill(Self::from_rgb(color.red, color.green, color.blue))
