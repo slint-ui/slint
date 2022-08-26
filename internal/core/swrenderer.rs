@@ -193,24 +193,28 @@ impl SoftwareRenderer {
     /// (You wouldn't normaly use `render_by_line` for that because the [`Self::render`] would
     /// then be more efficient)
     ///
-    /// ```rust, ignore
-    /// struct FrameBuffer<'a>_{ frame_buffer: &mut [Rgb888], stride: usize }
+    /// ```rust
+    /// # use i_slint_core::swrenderer::{LineBufferProvider, SoftwareRenderer, PhysicalLength, Rgb565Pixel};
+    /// # fn xxx<'a>(the_frame_buffer: &'a mut [Rgb565Pixel], display_width: usize,
+    /// #            renderer: &SoftwareRenderer, window: &i_slint_core::api::Window) {
+    /// struct FrameBuffer<'a>{ frame_buffer: &'a mut [Rgb565Pixel], stride: usize }
     /// impl<'a> LineBufferProvider for FrameBuffer<'a> {
-    ///     type TargetPixel = Rgb888;
+    ///     type TargetPixel = Rgb565Pixel;
     ///     fn process_line(
     ///         &mut self,
     ///         line: PhysicalLength,
     ///         range: core::ops::Range<PhysicalLength>,
     ///         render_fn: impl FnOnce(&mut [Self::TargetPixel]),
     ///     ) {
-    ///         let line_begin = line.get() as usize * self.frame_width;
-    ///         render_fn(&self.frame_buffer[line_begin + (range.start.get() as usize)
+    ///         let line_begin = line.get() as usize * self.stride;
+    ///         render_fn(&mut self.frame_buffer[line_begin + (range.start.get() as usize)
     ///              .. line_begin + (range.end.get() as usize)]);
     ///         // The line has been rendered and there could be code here to
     ///         // send the pixel to the display
     ///     }
     /// }
-    /// renderer.render_by_line(window, FrameBuffer(&the_frame_buffer));
+    /// renderer.render_by_line(window, FrameBuffer{ frame_buffer: the_frame_buffer, stride: display_width });
+    /// # }
     /// ```
     pub fn render_by_line(&self, window: &Window, line_buffer: impl LineBufferProvider) {
         let window = window.window_handle().clone();
