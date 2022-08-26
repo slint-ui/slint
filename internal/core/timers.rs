@@ -463,3 +463,135 @@ pub(crate) mod ffi {
         running
     }
 }
+
+/**
+```rust
+i_slint_backend_testing::init();
+use slint::{Timer, TimerMode};
+use std::{rc::Rc, cell::RefCell, time::Duration};
+#[derive(Default)]
+struct SharedState {
+    timer_200: Timer,
+    timer_200_called: usize,
+    timer_500: Timer,
+    timer_500_called: usize,
+    timer_once: Timer,
+    timer_once_called: usize,
+}
+let state = Rc::new(RefCell::new(SharedState::default()));
+// Note: state will be leaked because of circular dependencies: don't do that in production
+let state_ = state.clone();
+state.borrow_mut().timer_200.start(TimerMode::Repeated, Duration::from_millis(200), move || {
+    state_.borrow_mut().timer_200_called += 1;
+});
+let state_ = state.clone();
+state.borrow_mut().timer_once.start(TimerMode::Repeated, Duration::from_millis(300), move || {
+    state_.borrow_mut().timer_once_called += 1;
+    state_.borrow().timer_once.stop();
+});
+let state_ = state.clone();
+state.borrow_mut().timer_500.start(TimerMode::Repeated, Duration::from_millis(500), move || {
+    state_.borrow_mut().timer_500_called += 1;
+});
+slint::platform::update_timers_and_animations();
+i_slint_core::tests::slint_mock_elapsed_time(100);
+slint::platform::update_timers_and_animations();
+i_slint_core::tests::slint_mock_elapsed_time(100);
+assert_eq!(state.borrow().timer_200_called, 0);
+assert_eq!(state.borrow().timer_once_called, 0);
+assert_eq!(state.borrow().timer_500_called, 0);
+slint::platform::update_timers_and_animations();
+assert_eq!(state.borrow().timer_200_called, 1);
+assert_eq!(state.borrow().timer_once_called, 0);
+assert_eq!(state.borrow().timer_500_called, 0);
+i_slint_core::tests::slint_mock_elapsed_time(100);
+slint::platform::update_timers_and_animations();
+assert_eq!(state.borrow().timer_200_called, 1);
+assert_eq!(state.borrow().timer_once_called, 1);
+assert_eq!(state.borrow().timer_500_called, 0);
+i_slint_core::tests::slint_mock_elapsed_time(200); // total: 500
+slint::platform::update_timers_and_animations();
+assert_eq!(state.borrow().timer_200_called, 2);
+assert_eq!(state.borrow().timer_once_called, 1);
+assert_eq!(state.borrow().timer_500_called, 1);
+for _ in 0..10 {
+    i_slint_core::tests::slint_mock_elapsed_time(100);
+    slint::platform::update_timers_and_animations();
+}
+// total: 1500
+assert_eq!(state.borrow().timer_200_called, 7);
+assert_eq!(state.borrow().timer_once_called, 1);
+assert_eq!(state.borrow().timer_500_called, 3);
+state.borrow().timer_once.restart();
+state.borrow().timer_200.restart();
+state.borrow().timer_500.stop();
+slint::platform::update_timers_and_animations();
+i_slint_core::tests::slint_mock_elapsed_time(100);
+slint::platform::update_timers_and_animations();
+assert_eq!(state.borrow().timer_200_called, 7);
+assert_eq!(state.borrow().timer_once_called, 1);
+assert_eq!(state.borrow().timer_500_called, 3);
+slint::platform::update_timers_and_animations();
+i_slint_core::tests::slint_mock_elapsed_time(100);
+slint::platform::update_timers_and_animations();
+assert_eq!(state.borrow().timer_200_called, 8);
+assert_eq!(state.borrow().timer_once_called, 1);
+assert_eq!(state.borrow().timer_500_called, 3);
+slint::platform::update_timers_and_animations();
+i_slint_core::tests::slint_mock_elapsed_time(100);
+slint::platform::update_timers_and_animations();
+assert_eq!(state.borrow().timer_200_called, 8);
+assert_eq!(state.borrow().timer_once_called, 2);
+assert_eq!(state.borrow().timer_500_called, 3);
+slint::platform::update_timers_and_animations();
+i_slint_core::tests::slint_mock_elapsed_time(1000);
+slint::platform::update_timers_and_animations();
+slint::platform::update_timers_and_animations();
+// Despite 1000ms have passed, the 200 timer is only called once because we didn't call update_timers_and_animations in between
+assert_eq!(state.borrow().timer_200_called, 9);
+assert_eq!(state.borrow().timer_once_called, 2);
+assert_eq!(state.borrow().timer_500_called, 3);
+let state_ = state.clone();
+state.borrow().timer_200.start(TimerMode::SingleShot, Duration::from_millis(200), move || {
+    state_.borrow_mut().timer_200_called += 1;
+});
+for _ in 0..5 {
+    i_slint_core::tests::slint_mock_elapsed_time(75);
+    slint::platform::update_timers_and_animations();
+}
+assert_eq!(state.borrow().timer_200_called, 10);
+assert_eq!(state.borrow().timer_once_called, 2);
+assert_eq!(state.borrow().timer_500_called, 3);
+state.borrow().timer_200.restart();
+for _ in 0..5 {
+    i_slint_core::tests::slint_mock_elapsed_time(75);
+    slint::platform::update_timers_and_animations();
+}
+assert_eq!(state.borrow().timer_200_called, 11);
+assert_eq!(state.borrow().timer_once_called, 2);
+assert_eq!(state.borrow().timer_500_called, 3);
+
+// Test re-starting from a callback
+let state_ = state.clone();
+state.borrow_mut().timer_500.start(TimerMode::Repeated, Duration::from_millis(500), move || {
+    state_.borrow_mut().timer_500_called += 1;
+    let state__ = state_.clone();
+    state_.borrow_mut().timer_500.start(TimerMode::Repeated, Duration::from_millis(500), move || {
+        state__.borrow_mut().timer_500_called += 1000;
+    });
+    let state__ = state_.clone();
+    state_.borrow_mut().timer_200.start(TimerMode::Repeated, Duration::from_millis(200), move || {
+        state__.borrow_mut().timer_200_called += 1000;
+    });
+});
+for _ in 0..20 {
+    i_slint_core::tests::slint_mock_elapsed_time(100);
+    slint::platform::update_timers_and_animations();
+}
+assert_eq!(state.borrow().timer_200_called, 7011);
+assert_eq!(state.borrow().timer_once_called, 2);
+assert_eq!(state.borrow().timer_500_called, 3004);
+```
+ */
+#[cfg(doctest)]
+const _TIMER_TESTS: () = ();
