@@ -677,7 +677,7 @@ impl WindowInner {
         }
     }
 
-    /// Returns the upgraded rlatform window.
+    /// Returns the upgraded platform window.
     pub fn platform_window(&self) -> Rc<dyn PlatformWindow> {
         self.platform_window_weak.upgrade().unwrap()
     }

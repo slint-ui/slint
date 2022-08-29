@@ -57,7 +57,7 @@ pub trait PlatformAbstraction {
     /// This is used by the animations and timer to compute the elapsed time.
     ///
     /// When the `std` feature is enabled, this function is implemented in terms of
-    /// [`std::time::Instant::now()`], but on `#![no_std]` platform, this funciton must
+    /// [`std::time::Instant::now()`], but on `#![no_std]` platform, this function must
     /// be implemented.
     fn duration_since_start(&self) -> core::time::Duration {
         #[cfg(feature = "std")]
@@ -117,7 +117,7 @@ pub(crate) fn event_loop_proxy() -> Option<&'static dyn EventLoopProxy> {
 
 /// Set the slint platform abstraction.
 ///
-/// If the platform abastraction was already set this will return `Err`
+/// If the platform abstraction was already set this will return `Err`
 pub fn set_platform(platform: Box<dyn PlatformAbstraction + 'static>) -> Result<(), ()> {
     PLATFORM_ABSTRACTION_INSTANCE.with(|instance| {
         if instance.get().is_some() {
@@ -141,7 +141,7 @@ pub fn update_timers_and_animations() {
 }
 
 /// Return the duration before the next timer should be activated. This is basically the
-/// maximum time before calling [`upate_timers_and_animation()`].
+/// maximum time before calling [`update_timers_and_animation()`].
 ///
 /// That is typically called by the implementation of the event loop to know how long the
 /// thread can go to sleep before the next event.

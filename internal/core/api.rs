@@ -82,7 +82,7 @@ impl<F: FnMut(RenderingState, &GraphicsAPI)> RenderingNotifier for F {
     }
 }
 
-/// This enum describes the different error scenarios that may occur when the applicaton
+/// This enum describes the different error scenarios that may occur when the application
 /// registers a rendering notifier on a [`crate::Window`](struct.Window.html).
 #[derive(Debug, Clone)]
 #[repr(C)]
@@ -133,7 +133,7 @@ impl Window {
     /// use slint::platform::PlatformWindow;
     /// use slint::Window;
     /// struct MyPlatformWindow {
-    ///     window: Window,  
+    ///     window: Window,
     ///     //...
     /// }
     /// impl PlatformWindow for MyPlatformWindow {
