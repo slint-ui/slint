@@ -6,10 +6,10 @@ use std::pin::Pin;
 use std::rc::{Rc, Weak};
 
 use i_slint_core::api::{
-    euclid, GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError,
+    GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError,
 };
 use i_slint_core::graphics::{
-    rendering_metrics_collector::RenderingMetricsCollector, Point, Rect, Size,
+    euclid, rendering_metrics_collector::RenderingMetricsCollector, Point, Rect, Size,
 };
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::{WindowAdapter, WindowHandleAccess};

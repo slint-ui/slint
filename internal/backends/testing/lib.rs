@@ -4,8 +4,8 @@
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 
-use i_slint_core::api::euclid;
 use i_slint_core::api::PhysicalPx;
+use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::{Point, Rect, Size};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::WindowAdapter;

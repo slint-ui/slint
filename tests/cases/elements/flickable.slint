@@ -31,7 +31,7 @@ TestCase := Window {
 
 ```rust
 // Test that basic scrolling works, and that releasing the mouse animates
-use slint::{WindowEvent, PointerEventButton, euclid::point2};
+use slint::{WindowEvent, PointerEventButton, re_exports::euclid::point2};
 let instance = TestCase::new();
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: point2(300.0, 100.0) });
 slint::testing::mock_elapsed_time(5000);
