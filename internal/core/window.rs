@@ -90,7 +90,9 @@ pub trait WindowAdapter {
     fn hide_virtual_keyboard(&self) {}
 
     /// Return self as any so the backend can upcast
-    fn as_any(&self) -> &dyn core::any::Any;
+    fn as_any(&self) -> &dyn core::any::Any {
+        &()
+    }
 
     /// Handle focus change
     fn handle_focus_change(&self, _old: Option<ItemRc>, _new: Option<ItemRc>) {}

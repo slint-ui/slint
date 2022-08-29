@@ -4,10 +4,10 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use alloc::rc::{Rc, Weak};
+use alloc::rc::Rc;
 use alloc::vec;
 use alloc_cortex_m::CortexMHeap;
-use core::cell::{Cell, RefCell};
+use core::cell::RefCell;
 use core::convert::Infallible;
 use cortex_m::interrupt::Mutex;
 use cortex_m::singleton;
@@ -24,6 +24,7 @@ use rp_pico::hal::timer::{Alarm, Alarm0};
 use rp_pico::hal::{self, pac, prelude::*, Timer};
 use slint::platform::swrenderer as renderer;
 use slint::platform::swrenderer::{PhysicalLength, PhysicalSize};
+use slint::platform::WindowAdapter;
 use slint::{euclid, PointerEvent, PointerEventButton};
 
 #[cfg(feature = "panic-probe")]
@@ -64,15 +65,11 @@ pub fn init() {
 
 #[derive(Default)]
 struct PicoBackend {
-    window: RefCell<Option<Rc<PicoWindow>>>,
+    window: RefCell<Option<Rc<slint::platform::swrenderer::MinimalSoftwareWindow<1>>>>,
 }
 impl slint::platform::Platform for PicoBackend {
     fn create_window_adapter(&self) -> Rc<dyn slint::platform::WindowAdapter> {
-        let window = Rc::new_cyclic(|self_weak: &Weak<PicoWindow>| PicoWindow {
-            window: slint::Window::new(self_weak.clone()),
-            renderer: renderer::SoftwareRenderer::new(self_weak.clone()),
-            needs_redraw: Default::default(),
-        });
+        let window = slint::platform::swrenderer::MinimalSoftwareWindow::new();
         self.window.replace(Some(window.clone()));
         window
     }
@@ -193,14 +190,17 @@ impl slint::platform::Platform for PicoBackend {
         };
 
         let mut last_touch = None;
+
+        self.window.borrow().as_ref().unwrap().window().set_size(DISPLAY_SIZE.cast());
+
         loop {
             slint::platform::update_timers_and_animations();
 
             if let Some(window) = self.window.borrow().clone() {
-                if window.needs_redraw.replace(false) {
-                    window.renderer.render_by_line(&mut buffer_provider);
+                window.draw_if_needed(|renderer| {
+                    renderer.render_by_line(&mut buffer_provider);
                     buffer_provider.flush_frame();
-                }
+                });
 
                 // handle touch event
                 let button = PointerEventButton::Left;
@@ -211,7 +211,7 @@ impl slint::platform::Platform for PicoBackend {
                     .map(|point| {
                         let size = DISPLAY_SIZE.to_f32();
                         let position = euclid::point2(point.x * size.width, point.y * size.height)
-                            / window.window.scale_factor().get();
+                            / window.window().scale_factor().get();
                         match last_touch.replace(position) {
                             Some(_) => PointerEvent::Moved { position },
                             None => PointerEvent::Pressed { position, button },
@@ -223,12 +223,12 @@ impl slint::platform::Platform for PicoBackend {
                             .map(|position| PointerEvent::Released { position, button })
                     })
                 {
-                    window.window.dispatch_pointer_event(event);
+                    window.window().dispatch_pointer_event(event);
                     // Don't go to sleep after a touch event that forces a redraw
                     continue;
                 }
 
-                if window.window.has_active_animations() {
+                if window.window().has_active_animations() {
                     continue;
                 }
             }
@@ -276,34 +276,6 @@ impl<TO: WriteTarget<TransmittedWord = u8> + FullDuplex<u8>, CH: SingleChannel>
                 (a, b.0, to)
             }
         }
-    }
-}
-
-struct PicoWindow {
-    window: slint::Window,
-    renderer: renderer::SoftwareRenderer<1>,
-    needs_redraw: Cell<bool>,
-}
-
-impl slint::platform::WindowAdapter for PicoWindow {
-    fn show(&self) {
-        self.window.set_size(DISPLAY_SIZE.cast());
-    }
-    fn hide(&self) {}
-    fn request_redraw(&self) {
-        self.needs_redraw.set(true);
-    }
-
-    fn renderer(&self) -> &dyn slint::platform::Renderer {
-        &self.renderer
-    }
-
-    fn as_any(&self) -> &dyn core::any::Any {
-        self
-    }
-
-    fn window(&self) -> &slint::Window {
-        &self.window
     }
 }
 
