@@ -143,7 +143,7 @@ impl Backend {
 }
 
 impl i_slint_core::platform::Platform for Backend {
-    fn create_window(&self) -> Rc<dyn WindowAdapter> {
+    fn create_window_adapter(&self) -> Rc<dyn WindowAdapter> {
         self.window_factory_fn.lock().unwrap()()
     }
 

@@ -35,7 +35,7 @@ pub enum EventLoopQuitBehavior {
 /// Interface implemented by back-ends
 pub trait Platform {
     /// Instantiate a window for a component.
-    fn create_window(&self) -> Rc<dyn WindowAdapter>;
+    fn create_window_adapter(&self) -> Rc<dyn WindowAdapter>;
 
     /// Spins an event loop and renders the visible windows.
     fn run_event_loop(&self, _behavior: EventLoopQuitBehavior) {

@@ -51,7 +51,7 @@ struct StmBackend {
     timer: once_cell::unsync::OnceCell<hal::timer::Timer<pac::TIM2>>,
 }
 impl slint::platform::Platform for StmBackend {
-    fn create_window(&self) -> Rc<dyn slint::platform::WindowAdapter> {
+    fn create_window_adapter(&self) -> Rc<dyn slint::platform::WindowAdapter> {
         let window = Rc::new_cyclic(|self_weak: &Weak<StmWindow>| StmWindow {
             window: slint::Window::new(self_weak.clone()),
             renderer: swrenderer::SoftwareRenderer::new(self_weak.clone()),

@@ -1103,9 +1103,9 @@ fn generate_item_tree(
     } else {
         quote!(&self_rc)
     };
-    let (create_window, init_window) = if parent_ctx.is_none() {
+    let (create_window_adapter, init_window) = if parent_ctx.is_none() {
         (
-            Some(quote!(let window_adapter = slint::create_window();)),
+            Some(quote!(let window_adapter = slint::create_window_adapter();)),
             Some(quote! {
                 _self.window_adapter.set(window_adapter);
                 _self.window_adapter.get().unwrap().window().window_handle().set_component(&VRc::into_dyn(self_rc.clone()));
@@ -1189,7 +1189,7 @@ fn generate_item_tree(
             {
                 #![allow(unused)]
                 use slint::re_exports::*;
-                #create_window // We must create the window first to initialize the backend before using the style
+                #create_window_adapter // We must create the window first to initialize the backend before using the style
                 let mut _self = Self::default();
                 #(_self.parent = parent.clone() as #parent_component_type;)*
                 let self_rc = VRc::new(_self);

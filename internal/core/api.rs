@@ -122,7 +122,7 @@ impl Window {
     ///
     /// You only need to create the window yourself when you create a
     /// [`WindowAdapter`](crate::platform::WindowAdapter) from
-    /// [`Platform::create_window`](crate::platform::Platform::create_window)
+    /// [`Platform::create_window_adapter`](crate::platform::Platform::create_window_adapter)
     ///
     /// Since the window adapter must own the Window, this function is meant to be used with
     /// [`Rc::new_cyclic`](alloc::rc::Rc::new_cyclic)
@@ -142,7 +142,7 @@ impl Window {
     /// # fn as_any(&self) -> &(dyn core::any::Any + 'static) { self }
     ///    //...
     /// }
-    /// fn create_window() -> Rc<dyn WindowAdapter> {
+    /// fn create_window_adapter() -> Rc<dyn WindowAdapter> {
     ///    Rc::<MyWindowAdapter>::new_cyclic(|weak| {
     ///        MyWindowAdapter {
     ///           window: Window::new(weak.clone()),
