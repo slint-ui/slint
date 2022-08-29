@@ -70,7 +70,10 @@ impl slint::platform::PlatformAbstraction for PicoBackend {
     fn create_window(&self) -> Rc<dyn slint::platform::PlatformWindow> {
         let window = Rc::new_cyclic(|self_weak: &Weak<PicoWindow>| PicoWindow {
             window: slint::Window::new(self_weak.clone()),
-            renderer: renderer::SoftwareRenderer::new(renderer::DirtyTracking::SingleBuffer),
+            renderer: renderer::SoftwareRenderer::new(
+                renderer::DirtyTracking::SingleBuffer,
+                self_weak.clone(),
+            ),
             needs_redraw: Default::default(),
         });
         self.window.replace(Some(window.clone()));
@@ -198,7 +201,7 @@ impl slint::platform::PlatformAbstraction for PicoBackend {
 
             if let Some(window) = self.window.borrow().clone() {
                 if window.needs_redraw.replace(false) {
-                    window.renderer.render_by_line(&window.window, &mut buffer_provider);
+                    window.renderer.render_by_line(&mut buffer_provider);
                     buffer_provider.flush_frame();
                 }
 
