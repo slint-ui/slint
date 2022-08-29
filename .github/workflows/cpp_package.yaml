@@ -22,34 +22,16 @@ jobs:
     - name: Install Linux Dependencies
       if: matrix.os == 'ubuntu-20.04'
       run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
-    - name: Cache Qt
-      if: matrix.os != 'windows-2022'
-      id: cache-qt
-      uses: actions/cache@v2
-      with:
-        path: ~/work/slint/Qt
-        key: ${{ runner.os }}-${{ github.job }}-cpp-Qt
     - name: Install Qt (Ubuntu)
-      uses: jurplel/install-qt-action@v2
+      uses: jurplel/install-qt-action@v3
       if: matrix.os == 'ubuntu-20.04'
       with:
         version: 5.15.2
-        cached: ${{ steps.cache-qt.outputs.cache-hit }}
-        py7zrversion: ==0.19.*
-    - name: Install Qt (Windows, uncached)
-      if: matrix.os == 'windows-2022'
-      uses: jurplel/install-qt-action@v2
-      with:
-        version: 6.2.1
-        py7zrversion: ==0.19.*
     - name: Install Qt (cached)
-      if: matrix.os != 'ubuntu-20.04' && matrix.os != 'windows-2022'
-      uses: jurplel/install-qt-action@v2
+      if: matrix.os != 'ubuntu-20.04'
+      uses: jurplel/install-qt-action@v3
       with:
         version: 6.2.1
-        cached: ${{ steps.cache-qt.outputs.cache-hit }}
-        setup-python: false
-        py7zrversion: ==0.19.*
     - name: Install latest stable
       uses: actions-rs/toolchain@v1
       with:

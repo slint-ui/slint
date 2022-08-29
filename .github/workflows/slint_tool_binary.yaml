@@ -29,10 +29,9 @@ jobs:
           toolchain: stable
           target: x86_64-pc-windows-msvc
       - name: Install Qt
-        uses: jurplel/install-qt-action@v2
+        uses: jurplel/install-qt-action@v3
         with:
           version: 6.2.1
-          py7zrversion: ==0.19.*          
       - uses: Swatinem/rust-cache@v1
         with:
           key: x
@@ -81,18 +80,10 @@ jobs:
         with:
           toolchain: stable
           target: x86_64-unknown-linux-gnu
-      - name: Cache Qt
-        id: cache-qt
-        uses: actions/cache@v2
-        with:
-          path: ~/work/slint/Qt
-          key: ${{ runner.os }}-${{ github.job }}-qt
       - name: Install Qt
-        uses: jurplel/install-qt-action@v2
+        uses: jurplel/install-qt-action@v3
         with:
           version: 5.15.2
-          cached: ${{ steps.cache-qt.outputs.cache-hit }}
-          py7zrversion: ==0.19.*
       - uses: Swatinem/rust-cache@v1
         with:
           key: x
@@ -131,19 +122,10 @@ jobs:
         with:
           toolchain: stable
           target: aarch64-apple-darwin
-      - name: Cache Qt
-        id: cache-qt
-        uses: actions/cache@v2
-        with:
-          path: ~/work/slint/Qt
-          key: ${{ runner.os }}-${{ github.job }}-Qt
       - name: Install Qt
-        uses: jurplel/install-qt-action@v2
+        uses: jurplel/install-qt-action@v3
         with:
-          version: 6.2.1 # for Apple Silicon support
-          cached: ${{ steps.cache-qt.outputs.cache-hit }}
-          setup-python: false
-          py7zrversion: ==0.19.*
+          version: 6.2.1
       - uses: Swatinem/rust-cache@v1
         with:
           key: x
