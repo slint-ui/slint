@@ -42,7 +42,7 @@ Instead of a path to a file, one can use `-` for the standard input or the stand
 
 ## Callback handler
 
-It is possible to tell the viewer to execute some shell commands when a callback is recieved.
+It is possible to tell the viewer to execute some shell commands when a callback is received.
 You can use the `--on` command line argument, followed by the callback name, followed by the command.
 Within the command arguments, `$1`, `$2`, ... will be replaced by the first, second, ... argument of the
 callback. These will be shell escaped.
