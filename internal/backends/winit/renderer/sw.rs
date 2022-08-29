@@ -11,14 +11,11 @@ use i_slint_core::window::PlatformWindow;
 use std::cell::RefCell;
 use std::rc::Weak;
 
-impl super::WinitCompatibleRenderer for SoftwareRenderer {
+impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRenderer<BUFFER_COUNT> {
     type Canvas = SwCanvas;
 
     fn new(platform_window_weak: &Weak<dyn PlatformWindow>) -> Self {
-        SoftwareRenderer::new(
-            i_slint_core::swrenderer::DirtyTracking::None,
-            platform_window_weak.clone(),
-        )
+        SoftwareRenderer::new(platform_window_weak.clone())
     }
 
     fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas {

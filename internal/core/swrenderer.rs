@@ -30,28 +30,6 @@ pub use draw_functions::{PremultipliedRgbaColor, Rgb565Pixel, TargetPixel};
 
 type DirtyRegion = PhysicalRect;
 
-/// The argument to pass in the [`SoftwareRenderer::new()`] function to specify how the renderer
-/// should keep track of what region of the buffer changes between calls to render.
-#[derive(PartialEq, Eq, Debug)]
-pub enum DirtyTracking {
-    /// No attempt at tracking dirty items will be made. The full screen is always redrawn.
-    None,
-    /// Only redraw the parts that have changed since the previous call to render.
-    ///
-    /// This is assuming that the same buffer is passed on every call to render.
-    SingleBuffer,
-    /// Redraw the part that have changed during the two last frames.
-    ///
-    /// This is assuming double buffering and swapping of the buffers.
-    DoubleBuffer,
-}
-
-impl Default for DirtyTracking {
-    fn default() -> Self {
-        Self::None
-    }
-}
-
 /// Provide a buffer for the [`SoftwareRenderer::render_by_line`] function.
 ///
 /// See the [`render_by_line`](SoftwareRenderer::render_by_line) documentation
@@ -83,31 +61,38 @@ pub trait LineBufferProvider {
 ///  2. Using [`render_by_line()`](Self::render()) to render the window line by line. This
 ///     is only usefull if the device does not have enough memory to render the whole window
 ///     in one single buffer
-pub struct SoftwareRenderer {
+///
+/// The `BUFFER_COUNT` parameter specifies how many buffers are being re-used.
+/// It will impact how much of the screen needs to be redrawn.
+/// Typical value can be:
+///  - **0:**: No attempt at tracking dirty items will be made. The full screen is always redrawn.
+///  - **1:**: Only redraw the parts that have changed since the previous call to render.
+///            This is assuming that the same buffer is passed on every call to render.
+///  - **2:**: Redraw the part that have changed during the two last frames.
+///            This is assuming double buffering and swapping of the buffers.
+pub struct SoftwareRenderer<const BUFFER_COUNT: usize = 0> {
     partial_cache: RefCell<crate::item_rendering::PartialRenderingCache>,
     /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not
     force_dirty: Cell<crate::item_rendering::DirtyRegion>,
-    dirty_tracking_policy: DirtyTracking,
-    /// This is the area which was dirty on the next frame, in case we do double buffering
-    prev_frame_dirty: Cell<DirtyRegion>,
+    /// This is the area which was dirty on the previous frames, in case we do double buffering
+    ///
+    /// We really only need BUFFER_COUNT - 1 but that's not allowed because we cannot do operations with
+    /// generic parameters
+    prev_frame_dirty: [Cell<DirtyRegion>; BUFFER_COUNT],
     window: Weak<dyn crate::window::PlatformWindow>,
 }
 
-impl SoftwareRenderer {
+impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
     /// Create a new Renderer for a given window.
     ///
     /// The `window` parametter can be comming from [`Rc::new_cyclic()`](alloc::rc::Rc::new_cyclic())
     /// since the `PlatformWindow` most likely owd the Renderer
-    pub fn new(
-        dirty_tracking_policy: DirtyTracking,
-        window: Weak<dyn crate::window::PlatformWindow>,
-    ) -> Self {
+    pub fn new(window: Weak<dyn crate::window::PlatformWindow>) -> Self {
         Self {
-            dirty_tracking_policy,
             window: window.clone(),
             partial_cache: Default::default(),
             force_dirty: Default::default(),
-            prev_frame_dirty: Default::default(),
+            prev_frame_dirty: [DirtyRegion::default(); BUFFER_COUNT].map(|x| x.into()),
         }
     }
 
@@ -118,12 +103,20 @@ impl SoftwareRenderer {
         dirty_region: DirtyRegion,
         screen_size: PhysicalSize,
     ) -> DirtyRegion {
-        match self.dirty_tracking_policy {
-            DirtyTracking::None => PhysicalRect { origin: euclid::point2(0, 0), size: screen_size },
-            DirtyTracking::SingleBuffer => dirty_region,
-            DirtyTracking::DoubleBuffer => {
-                dirty_region.union(&self.prev_frame_dirty.replace(dirty_region))
+        if BUFFER_COUNT == 0 {
+            PhysicalRect { origin: euclid::point2(0, 0), size: screen_size }
+        } else if BUFFER_COUNT == 1 {
+            dirty_region
+        } else if BUFFER_COUNT == 2 {
+            dirty_region.union(&self.prev_frame_dirty[0].replace(dirty_region))
+        } else {
+            let mut prev = dirty_region;
+            let mut union = dirty_region;
+            for x in self.prev_frame_dirty.iter().skip(1) {
+                prev = x.replace(prev);
+                union = union.union(&prev);
             }
+            union
         }
         .intersection(&PhysicalRect { origin: euclid::point2(0, 0), size: screen_size })
         .unwrap_or_default()
@@ -248,7 +241,7 @@ impl SoftwareRenderer {
     }
 }
 
-impl Renderer for SoftwareRenderer {
+impl<const BUFFER_COUNT: usize> Renderer for SoftwareRenderer<BUFFER_COUNT> {
     fn text_size(
         &self,
         font_request: crate::graphics::FontRequest,
@@ -294,11 +287,11 @@ impl Renderer for SoftwareRenderer {
     }
 }
 
-fn render_window_frame_by_line(
+fn render_window_frame_by_line<const BUFFER_COUNT: usize>(
     window: &WindowInner,
     background: Color,
     size: PhysicalSize,
-    renderer: &SoftwareRenderer,
+    renderer: &SoftwareRenderer<BUFFER_COUNT>,
     mut line_buffer: impl LineBufferProvider,
 ) {
     let mut scene = prepare_scene(window, size, renderer);
@@ -636,7 +629,11 @@ struct RoundedRectangle {
     bottom_clip: PhysicalLength,
 }
 
-fn prepare_scene(window: &WindowInner, size: PhysicalSize, swrenderer: &SoftwareRenderer) -> Scene {
+fn prepare_scene<const BUFFER_COUNT: usize>(
+    window: &WindowInner,
+    size: PhysicalSize,
+    swrenderer: &SoftwareRenderer<BUFFER_COUNT>,
+) -> Scene {
     let factor = ScaleFactor::new(window.scale_factor());
     let prepare_scene = SceneBuilder::new(size, factor, window, PrepareScene::default());
     let mut renderer = crate::item_rendering::PartialRenderer::new(
