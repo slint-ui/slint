@@ -72,6 +72,7 @@ import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
   MonacoServices.install();
 
   let base_url = "";
+  let event_loop_started = false;
 
   interface ModelAndViewState {
     model: monaco.editor.ITextModel;
@@ -347,8 +348,13 @@ export Demo := Window {
       monaco.editor.setModelMarkers(model, "slint", markers);
     }
 
-    if (component != null) {
-      component.run(canvas_id);
+    if (component !== undefined) {
+      const instance = component.create(canvas_id);
+      instance.show();
+      if (!event_loop_started) {
+        event_loop_started = true;
+        slint.run_event_loop();
+      }
     }
   }
 
