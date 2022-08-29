@@ -1345,3 +1345,10 @@ impl<const BUFFER_COUNT: usize> WindowAdapter for MinimalSoftwareWindow<BUFFER_C
         &self.window
     }
 }
+
+impl<const BUFFER_COUNT: usize> core::ops::Deref for MinimalSoftwareWindow<BUFFER_COUNT> {
+    type Target = Window;
+    fn deref(&self) -> &Self::Target {
+        &self.window
+    }
+}

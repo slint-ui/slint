@@ -16,7 +16,6 @@ use hal::rcc::rec::OctospiClkSelGetter;
 use slint::euclid;
 use slint::platform::swrenderer;
 use slint::platform::swrenderer::PhysicalLength;
-use slint::platform::WindowAdapter;
 use stm32h7xx_hal as hal; // global logger
 
 #[cfg(feature = "panic-probe")]
@@ -318,7 +317,6 @@ impl slint::platform::Platform for StmBackend {
             .borrow()
             .as_ref()
             .unwrap()
-            .window()
             .set_size((DISPLAY_WIDTH as u32, DISPLAY_HEIGHT as u32).into());
         loop {
             slint::platform::update_timers_and_animations();
@@ -342,7 +340,7 @@ impl slint::platform::Platform for StmBackend {
                     let position =
                         euclid::Point2D::<i16, slint::PhysicalPx>::new(state.y as _, state.x as _)
                             .cast()
-                            / window.window().scale_factor();
+                            / window.scale_factor();
                     Some(match last_touch.replace(position) {
                         Some(_) => slint::PointerEvent::Moved { position },
                         None => slint::PointerEvent::Pressed { position, button },
@@ -354,7 +352,7 @@ impl slint::platform::Platform for StmBackend {
                 };
 
                 if let Some(event) = event {
-                    window.window().dispatch_pointer_event(event);
+                    window.dispatch_pointer_event(event);
                 }
             }
 

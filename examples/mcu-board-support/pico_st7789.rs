@@ -24,7 +24,6 @@ use rp_pico::hal::timer::{Alarm, Alarm0};
 use rp_pico::hal::{self, pac, prelude::*, Timer};
 use slint::platform::swrenderer as renderer;
 use slint::platform::swrenderer::{PhysicalLength, PhysicalSize};
-use slint::platform::WindowAdapter;
 use slint::{euclid, PointerEvent, PointerEventButton};
 
 #[cfg(feature = "panic-probe")]
@@ -191,7 +190,7 @@ impl slint::platform::Platform for PicoBackend {
 
         let mut last_touch = None;
 
-        self.window.borrow().as_ref().unwrap().window().set_size(DISPLAY_SIZE.cast());
+        self.window.borrow().as_ref().unwrap().set_size(DISPLAY_SIZE.cast());
 
         loop {
             slint::platform::update_timers_and_animations();
@@ -211,7 +210,7 @@ impl slint::platform::Platform for PicoBackend {
                     .map(|point| {
                         let size = DISPLAY_SIZE.to_f32();
                         let position = euclid::point2(point.x * size.width, point.y * size.height)
-                            / window.window().scale_factor().get();
+                            / window.scale_factor().get();
                         match last_touch.replace(position) {
                             Some(_) => PointerEvent::Moved { position },
                             None => PointerEvent::Pressed { position, button },
@@ -223,12 +222,12 @@ impl slint::platform::Platform for PicoBackend {
                             .map(|position| PointerEvent::Released { position, button })
                     })
                 {
-                    window.window().dispatch_pointer_event(event);
+                    window.dispatch_pointer_event(event);
                     // Don't go to sleep after a touch event that forces a redraw
                     continue;
                 }
 
-                if window.window().has_active_animations() {
+                if window.has_active_animations() {
                     continue;
                 }
             }
