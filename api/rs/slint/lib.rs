@@ -250,8 +250,8 @@ pub use i_slint_core::model::{
     StandardListViewItem, VecModel,
 };
 pub use i_slint_core::sharedvector::SharedVector;
-pub use i_slint_core::string::SharedString;
 pub use i_slint_core::timers::{Timer, TimerMode};
+pub use i_slint_core::{format, string::SharedString};
 
 /// internal re_exports used by the macro generated
 #[doc(hidden)]

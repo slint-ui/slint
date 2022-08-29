@@ -29,7 +29,7 @@ use super::*;
 /// ]);
 ///
 /// let mapped_model = MapModel::new(model, |n|
-///     SharedString::from(format!("{}, {}", n.last, n.first).as_str())
+///     slint::format!("{}, {}", n.last, n.first)
 /// );
 ///
 /// assert_eq!(mapped_model.row_data(0).unwrap(), SharedString::from("Emil, Hans"));
@@ -51,7 +51,7 @@ use super::*;
 ///     Name { first: "Max".to_string(), last: "Mustermann".to_string() },
 ///     Name { first: "Roman".to_string(), last: "Tisch".to_string() },
 /// ])
-/// .map(|n| SharedString::from(format!("{}, {}", n.last, n.first).as_str()));
+/// .map(|n| slint::format!("{}, {}", n.last, n.first));
 /// # assert_eq!(mapped_model.row_data(0).unwrap(), SharedString::from("Emil, Hans"));
 /// # assert_eq!(mapped_model.row_data(1).unwrap(), SharedString::from("Mustermann, Max"));
 /// # assert_eq!(mapped_model.row_data(2).unwrap(), SharedString::from("Tisch, Roman"));
@@ -73,7 +73,7 @@ use super::*;
 /// ]));
 ///
 /// let mapped_model = MapModel::new(model.clone(), |n|
-///     SharedString::from(format!("{}, {}", n.last, n.first).as_str())
+///     slint::format!("{}, {}", n.last, n.first)
 /// );
 ///
 /// model.set_row_data(1, Name { first: "Minnie".to_string(), last: "Musterfrau".to_string() });
