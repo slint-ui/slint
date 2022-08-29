@@ -118,9 +118,7 @@ pub(crate) fn event_loop_proxy() -> Option<&'static dyn EventLoopProxy> {
 /// Set the slint platform abstraction.
 ///
 /// If the platform abastraction was already set this will return `Err`
-pub fn set_platform_abstraction(
-    platform: Box<dyn PlatformAbstraction + 'static>,
-) -> Result<(), ()> {
+pub fn set_platform(platform: Box<dyn PlatformAbstraction + 'static>) -> Result<(), ()> {
     PLAFTORM_ABSTRACTION_INSTANCE.with(|instance| {
         if instance.get().is_some() {
             return Err(());

@@ -143,6 +143,6 @@ impl Renderer for TestingWindow {
 /// Must be called before any call that would otherwise initialize the rendering backend.
 /// Calling it when the rendering backend is already initialized will have no effects
 pub fn init() {
-    i_slint_core::platform::set_platform_abstraction(Box::new(TestingBackend::default()))
+    i_slint_core::platform::set_platform(Box::new(TestingBackend::default()))
         .expect("platform already initialized");
 }

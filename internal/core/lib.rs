@@ -92,7 +92,7 @@ pub fn with_platform_abstraction<R>(
     platform::PLAFTORM_ABSTRACTION_INSTANCE.with(|p| match p.get() {
         Some(p) => f(&**p),
         None => {
-            platform::set_platform_abstraction(factory())
+            platform::set_platform(factory())
                 .expect("platform already initialized in another thread");
             f(&**p.get().unwrap())
         }
