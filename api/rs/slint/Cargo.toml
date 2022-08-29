@@ -19,7 +19,13 @@ path = "lib.rs"
 
 [features]
 
-default = ["std", "eventloop-winit", "renderer-femtovg", "backend-qt", "compat-0-2-0"]
+default = [
+  "std",
+  "eventloop-winit",
+  "renderer-femtovg",
+  "backend-qt",
+  "compat-0-2-0",
+]
 
 ## Mandatory feature:
 ## This feature is required to keep the compatibility with Slint 0.2.0
@@ -54,22 +60,28 @@ eventloop-winit-x11 = ["i-slint-backend-selector/eventloop-winit-x11", "std"]
 
 ## Simliar to `eventloop-winit` this enables the winit based event loop but only
 ## with support for the Wayland window system on Unix.
-eventloop-winit-wayland = ["i-slint-backend-selector/eventloop-winit-wayland", "std"]
+eventloop-winit-wayland = [
+  "i-slint-backend-selector/eventloop-winit-wayland",
+  "std",
+]
 
 ## This feature is an alias for `backend-qt`
 eventloop-qt = ["backend-qt"]
 
-## The `femtovg` crate is available for rendering. 
+## The `femtovg` crate is available for rendering.
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "std"]
 
 ## The Skia based rendering engine.
 renderer-skia = ["i-slint-backend-selector/renderer-skia", "std"]
 
 ## This feature makes the `slint::platform::swrenderer` module available in the public API.
-## Use this to render with Slint for example on MCUs, when you provide you own `slint::platform::PlatformAbstraction`.
+## Use this to render with Slint for example on MCUs, when you provide you own `slint::platform::Platform`.
 ## Alternatively, enabling this feature alongside `eventloop-winit` enables selecting the software
 ## renderer at run-time when using winit, via the `SLINT_BACKEND=software` environment variable.
-renderer-software = ["i-slint-core/swrenderer", "i-slint-backend-selector/renderer-software"]
+renderer-software = [
+  "i-slint-core/swrenderer",
+  "i-slint-backend-selector/renderer-software",
+]
 
 ## This feature is an alias for `backend-qt`
 renderer-qt = ["backend-qt"]
@@ -85,16 +97,16 @@ libm = ["i-slint-core/libm"]
 ## Slint uses internally some `thread_local` state.
 ##
 ## When the `std` feature is enabled, Slint can use [`std::thread_local!`], but when in a `#![no_std]`
-## environment, we need a replacement. Using this feature, Slint will just use static variable 
+## environment, we need a replacement. Using this feature, Slint will just use static variable
 ## disregarding Rust's Send and Sync safety
 ##
 ## **Safety** : You must ensure that there is only one single thread that call into the Slint API
 unsafe-single-threaded = ["i-slint-core/unsafe-single-threaded"]
 
 [dependencies]
-i-slint-core = { version = "=0.2.6", path="../../../internal/core", default-features = false }
+i-slint-core = { version = "=0.2.6", path = "../../../internal/core", default-features = false }
 slint-macros = { version = "=0.2.6", path = "../macros" }
-i-slint-backend-selector = { version = "=0.2.6", path="../../../internal/backends/selector" }
+i-slint-backend-selector = { version = "=0.2.6", path = "../../../internal/backends/selector" }
 
 const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }
@@ -112,5 +124,10 @@ log = { version = "0.4.17", optional = true }
 slint-build = { path = "../build" }
 
 [package.metadata.docs.rs]
-rustdoc-args = [ "--html-in-header", "docs/resources/slint-docs-preview.html", "--html-in-header", "docs/resources/slint-docs-highlight.html" ]
+rustdoc-args = [
+  "--html-in-header",
+  "docs/resources/slint-docs-preview.html",
+  "--html-in-header",
+  "docs/resources/slint-docs-highlight.html",
+]
 features = ["document-features", "renderer-software"]

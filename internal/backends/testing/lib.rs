@@ -18,7 +18,7 @@ pub struct TestingBackend {
     clipboard: Mutex<Option<String>>,
 }
 
-impl i_slint_core::platform::PlatformAbstraction for TestingBackend {
+impl i_slint_core::platform::Platform for TestingBackend {
     fn create_window(&self) -> Rc<dyn PlatformWindow> {
         Rc::new_cyclic(|self_weak| TestingWindow {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
