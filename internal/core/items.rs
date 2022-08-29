@@ -918,6 +918,8 @@ declare_item_vtable! {
 #[pin]
 /// The implementation of the `Rotate` element
 pub struct Rotate {
+    pub x: Property<Coord>,
+    pub y: Property<Coord>,
     pub rotation_angle: Property<f32>,
     pub rotation_origin_x: Property<Coord>,
     pub rotation_origin_y: Property<Coord>,
@@ -930,7 +932,7 @@ impl Item for Rotate {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(0 as _, 0 as _, self.width(), self.height())
+        euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
     fn layout_info(
