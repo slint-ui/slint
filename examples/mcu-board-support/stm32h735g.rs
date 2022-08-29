@@ -54,10 +54,7 @@ impl slint::platform::Platform for StmBackend {
     fn create_window(&self) -> Rc<dyn slint::platform::PlatformWindow> {
         let window = Rc::new_cyclic(|self_weak: &Weak<StmWindow>| StmWindow {
             window: slint::Window::new(self_weak.clone()),
-            renderer: swrenderer::SoftwareRenderer::new(
-                swrenderer::DirtyTracking::DoubleBuffer,
-                self_weak.clone(),
-            ),
+            renderer: swrenderer::SoftwareRenderer::new(self_weak.clone()),
             needs_redraw: true.into(),
         });
         self.window.replace(Some(window.clone()));
@@ -371,7 +368,7 @@ impl slint::platform::Platform for StmBackend {
 
 struct StmWindow {
     window: slint::Window,
-    renderer: swrenderer::SoftwareRenderer,
+    renderer: swrenderer::SoftwareRenderer<2>,
     needs_redraw: core::cell::Cell<bool>,
 }
 

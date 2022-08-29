@@ -70,10 +70,7 @@ impl slint::platform::Platform for PicoBackend {
     fn create_window(&self) -> Rc<dyn slint::platform::PlatformWindow> {
         let window = Rc::new_cyclic(|self_weak: &Weak<PicoWindow>| PicoWindow {
             window: slint::Window::new(self_weak.clone()),
-            renderer: renderer::SoftwareRenderer::new(
-                renderer::DirtyTracking::SingleBuffer,
-                self_weak.clone(),
-            ),
+            renderer: renderer::SoftwareRenderer::new(self_weak.clone()),
             needs_redraw: Default::default(),
         });
         self.window.replace(Some(window.clone()));
@@ -284,7 +281,7 @@ impl<TO: WriteTarget<TransmittedWord = u8> + FullDuplex<u8>, CH: SingleChannel>
 
 struct PicoWindow {
     window: slint::Window,
-    renderer: renderer::SoftwareRenderer,
+    renderer: renderer::SoftwareRenderer<1>,
     needs_redraw: Cell<bool>,
 }
 
