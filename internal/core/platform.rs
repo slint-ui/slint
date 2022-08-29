@@ -7,18 +7,17 @@ The backend is the abstraction for crates that need to do the actual drawing and
 
 #![warn(missing_docs)]
 
-use alloc::boxed::Box;
-use alloc::rc::Rc;
-use alloc::string::String;
-
 pub use crate::items::{InputType, MouseCursor};
 pub use crate::lengths::{PhysicalLength, PhysicalPoint};
 pub use crate::renderer::Renderer;
 #[cfg(feature = "swrenderer")]
 pub use crate::swrenderer;
-pub use crate::window::WindowAdapter;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::unsafe_single_threaded::{thread_local, OnceCell};
+pub use crate::window::WindowAdapter;
+use alloc::boxed::Box;
+use alloc::rc::Rc;
+use alloc::string::String;
 #[cfg(feature = "std")]
 use once_cell::sync::OnceCell;
 
