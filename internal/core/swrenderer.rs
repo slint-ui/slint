@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore swrenderer
+
 //! This module contains the [`SoftwareRenderer`] and related types.
 //!
 //! It is only available with the `renderer-software` feature.
@@ -59,7 +61,7 @@ pub trait LineBufferProvider {
 /// There are two kind of possible rendering
 ///  1. Using [`render()`](Self::render()) to render the window in a buffer
 ///  2. Using [`render_by_line()`](Self::render()) to render the window line by line. This
-///     is only usefull if the device does not have enough memory to render the whole window
+///     is only useful if the device does not have enough memory to render the whole window
 ///     in one single buffer
 ///
 /// The `BUFFER_COUNT` parameter specifies how many buffers are being re-used.
@@ -79,15 +81,15 @@ pub struct SoftwareRenderer<const BUFFER_COUNT: usize = 0> {
     /// We really only need BUFFER_COUNT - 1 but that's not allowed because we cannot do operations with
     /// generic parameters
     prev_frame_dirty: [Cell<DirtyRegion>; BUFFER_COUNT],
-    window: Weak<dyn crate::window::PlatformWindow>,
+    window: Weak<dyn crate::window::WindowAdapter>,
 }
 
 impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
     /// Create a new Renderer for a given window.
     ///
-    /// The `window` parametter can be comming from [`Rc::new_cyclic()`](alloc::rc::Rc::new_cyclic())
-    /// since the `PlatformWindow` most likely owd the Renderer
-    pub fn new(window: Weak<dyn crate::window::PlatformWindow>) -> Self {
+    /// The `window` parameter can be coming from [`Rc::new_cyclic()`](alloc::rc::Rc::new_cyclic())
+    /// since the `WindowAdapter` most likely owd the Renderer
+    pub fn new(window: Weak<dyn crate::window::WindowAdapter>) -> Self {
         Self {
             window: window.clone(),
             partial_cache: Default::default(),
@@ -193,7 +195,7 @@ impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
     /// The line callback will be called for each line and should provide a buffer to draw into.
     ///
     /// As an example, let's imagine we want to render into a plain buffer.
-    /// (You wouldn't normaly use `render_by_line` for that because the [`Self::render`] would
+    /// (You wouldn't normally use `render_by_line` for that because the [`Self::render`] would
     /// then be more efficient)
     ///
     /// ```rust
