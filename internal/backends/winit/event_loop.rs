@@ -4,7 +4,7 @@
 #![warn(missing_docs)]
 /*!
     This module contains the event loop implementation using winit, as well as the
-    [PlatformWindow] trait used by the generated code and the run-time to change
+    [WindowAdapter] trait used by the generated code and the run-time to change
     aspects of windows on the screen.
 */
 use copypasta::ClipboardProvider;
@@ -24,7 +24,7 @@ use winit::event::WindowEvent;
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::run_return::EventLoopExtRunReturn;
 
-pub trait WinitWindow: PlatformWindow {
+pub trait WinitWindow: WindowAdapter {
     fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>>;
     fn current_keyboard_modifiers(&self) -> &Cell<KeyboardModifiers>;
     fn draw(&self);

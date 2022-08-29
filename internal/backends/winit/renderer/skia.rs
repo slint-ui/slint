@@ -9,7 +9,7 @@ use i_slint_core::api::{
 };
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use i_slint_core::item_rendering::ItemCache;
-use i_slint_core::window::{PlatformWindow, WindowHandleAccess};
+use i_slint_core::window::{WindowAdapter, WindowHandleAccess};
 
 use crate::WindowSystemName;
 
@@ -37,16 +37,16 @@ cfg_if::cfg_if! {
 }
 
 pub struct SkiaRenderer {
-    platform_window_weak: Weak<dyn PlatformWindow>,
+    window_adapter_weak: Weak<dyn WindowAdapter>,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
 }
 
 impl super::WinitCompatibleRenderer for SkiaRenderer {
     type Canvas = SkiaCanvas<DefaultSurface>;
 
-    fn new(platform_window_weak: &Weak<dyn PlatformWindow>) -> Self {
+    fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
         Self {
-            platform_window_weak: platform_window_weak.clone(),
+            window_adapter_weak: window_adapter_weak.clone(),
             rendering_notifier: Default::default(),
         }
     }
@@ -55,7 +55,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         let surface = DefaultSurface::new(window_builder);
 
         let rendering_metrics_collector = RenderingMetricsCollector::new(
-            self.platform_window_weak.clone(),
+            self.window_adapter_weak.clone(),
             &format!(
                 "Skia renderer (windowing system: {}; skia backend {})",
                 surface.with_window_handle(|winit_window| winit_window.winsys_name()),
@@ -83,8 +83,8 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         });
     }
 
-    fn render(&self, canvas: &Self::Canvas, platform_window: &dyn PlatformWindow) {
-        let window = platform_window.window().window_handle();
+    fn render(&self, canvas: &Self::Canvas, window_adapter: &dyn WindowAdapter) {
+        let window = window_adapter.window().window_handle();
 
         canvas.surface.render(|skia_canvas, gr_context| {
             window.draw_contents(|components| {
@@ -108,7 +108,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
 
                 let mut item_renderer = itemrenderer::SkiaRenderer::new(
                     skia_canvas,
-                    platform_window.window(),
+                    window_adapter.window(),
                     &canvas.image_cache,
                     &mut box_shadow_cache,
                 );

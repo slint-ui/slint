@@ -35,7 +35,7 @@ pub struct NativeTabWidget {
 }
 
 impl Item for NativeTabWidget {
-    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {
+    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {
         #[derive(Default, Clone)]
         #[repr(C)]
         struct TabWidgetMetrics {
@@ -171,7 +171,7 @@ impl Item for NativeTabWidget {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         let (content_size, tabbar_size) = match orientation {
             Orientation::Horizontal => (
@@ -227,7 +227,7 @@ impl Item for NativeTabWidget {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -236,7 +236,7 @@ impl Item for NativeTabWidget {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
@@ -245,7 +245,7 @@ impl Item for NativeTabWidget {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -253,7 +253,7 @@ impl Item for NativeTabWidget {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -336,7 +336,7 @@ pub struct NativeTab {
 }
 
 impl Item for NativeTab {
-    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
+    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -345,7 +345,7 @@ impl Item for NativeTab {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         let text: qttypes::QString = self.title().as_str().into();
         let icon: qttypes::QPixmap =
@@ -394,7 +394,7 @@ impl Item for NativeTab {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -403,7 +403,7 @@ impl Item for NativeTab {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        platform_window: &Rc<dyn PlatformWindow>,
+        window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let enabled = self.enabled();
@@ -429,7 +429,7 @@ impl Item for NativeTab {
         if matches!(event, MouseEvent::Released { .. } if !click_on_press)
             || matches!(event, MouseEvent::Pressed { .. } if click_on_press)
         {
-            platform_window.window().window_handle().set_focus_item(self_rc);
+            window_adapter.window().window_handle().set_focus_item(self_rc);
             self.current.set(self.tab_index());
             InputEventResult::EventAccepted
         } else {
@@ -440,7 +440,7 @@ impl Item for NativeTab {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -448,7 +448,7 @@ impl Item for NativeTab {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }

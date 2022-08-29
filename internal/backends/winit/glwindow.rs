@@ -17,13 +17,13 @@ use corelib::component::ComponentRc;
 use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};
 use corelib::layout::Orientation;
-use corelib::window::{PlatformWindow, WindowHandleAccess};
+use corelib::window::{WindowAdapter, WindowHandleAccess};
 use corelib::Property;
 use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
 use winit::dpi::LogicalSize;
 
-/// GraphicsWindow is an implementation of the [PlatformWindow][`crate::eventloop::PlatformWindow`] trait. This is
+/// GraphicsWindow is an implementation of the [WindowAdapter][`crate::eventloopMyWindowAdapter`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
 pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer + 'static> {
     window: corelib::api::Window,
@@ -45,7 +45,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
     /// * `graphics_backend_factory`: The factor function stored in the GraphicsWindow that's called when the state
     ///   of the window changes to mapped. The event loop and window builder parameters can be used to create a
     ///   backing window.
-    pub(crate) fn new(#[cfg(target_arch = "wasm32")] canvas_id: String) -> Rc<dyn PlatformWindow> {
+    pub(crate) fn new(#[cfg(target_arch = "wasm32")] canvas_id: String) -> Rc<dyn WindowAdapter> {
         let self_rc = Rc::new_cyclic(|self_weak| Self {
             window: corelib::api::Window::new(self_weak.clone() as _),
             self_weak: self_weak.clone(),
@@ -210,7 +210,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
     }
 }
 
-impl<Renderer: WinitCompatibleRenderer + 'static> PlatformWindow for GLWindow<Renderer> {
+impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapter for GLWindow<Renderer> {
     fn request_redraw(&self) {
         self.with_window_handle(&mut |window| window.request_redraw())
     }

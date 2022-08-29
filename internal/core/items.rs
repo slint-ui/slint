@@ -30,7 +30,7 @@ pub use crate::item_tree::ItemRc;
 use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::window::{PlatformWindow, PlatformWindowRc, WindowHandleAccess};
+use crate::window::{WindowAdapter, WindowAdapterRc, WindowHandleAccess};
 use crate::{Callback, Coord, Property, SharedString};
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
@@ -108,7 +108,7 @@ pub struct ItemVTable {
     /// This function is called by the run-time after the memory for the item
     /// has been allocated and initialized. It will be called before any user specified
     /// bindings are set.
-    pub init: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, platform_window: &PlatformWindowRc),
+    pub init: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window_adapter: &WindowAdapterRc),
 
     /// Returns the geometry of this item (relative to its parent item)
     pub geometry: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> Rect,
@@ -123,7 +123,7 @@ pub struct ItemVTable {
     pub layout_info: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         orientation: Orientation,
-        platform_window: &PlatformWindowRc,
+        window_adapter: &WindowAdapterRc,
     ) -> LayoutInfo,
 
     /// Event handler for mouse and touch event. This function is called before being called on children.
@@ -133,7 +133,7 @@ pub struct ItemVTable {
     pub input_event_filter_before_children: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         MouseEvent,
-        platform_window: &PlatformWindowRc,
+        window_adapter: &WindowAdapterRc,
         self_rc: &ItemRc,
     ) -> InputEventFilterResult,
 
@@ -141,20 +141,20 @@ pub struct ItemVTable {
     pub input_event: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         MouseEvent,
-        platform_window: &PlatformWindowRc,
+        window_adapter: &WindowAdapterRc,
         self_rc: &ItemRc,
     ) -> InputEventResult,
 
     pub focus_event: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         &FocusEvent,
-        platform_window: &PlatformWindowRc,
+        window_adapter: &WindowAdapterRc,
     ) -> FocusEventResult,
 
     pub key_event: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         &KeyEvent,
-        platform_window: &PlatformWindowRc,
+        window_adapter: &WindowAdapterRc,
     ) -> KeyEventResult,
 
     pub render: extern "C" fn(
@@ -182,7 +182,7 @@ pub struct Rectangle {
 }
 
 impl Item for Rectangle {
-    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
+    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -191,7 +191,7 @@ impl Item for Rectangle {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -199,7 +199,7 @@ impl Item for Rectangle {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -208,7 +208,7 @@ impl Item for Rectangle {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
@@ -217,7 +217,7 @@ impl Item for Rectangle {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -225,7 +225,7 @@ impl Item for Rectangle {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -268,7 +268,7 @@ pub struct BorderRectangle {
 }
 
 impl Item for BorderRectangle {
-    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
+    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -277,7 +277,7 @@ impl Item for BorderRectangle {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -285,7 +285,7 @@ impl Item for BorderRectangle {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -294,7 +294,7 @@ impl Item for BorderRectangle {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
@@ -303,7 +303,7 @@ impl Item for BorderRectangle {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -311,7 +311,7 @@ impl Item for BorderRectangle {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -369,7 +369,7 @@ pub struct TouchArea {
 }
 
 impl Item for TouchArea {
-    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
+    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -378,7 +378,7 @@ impl Item for TouchArea {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         LayoutInfo::default()
     }
@@ -386,7 +386,7 @@ impl Item for TouchArea {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         event: MouseEvent,
-        platform_window: &Rc<dyn PlatformWindow>,
+        window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         if !self.enabled() {
@@ -399,7 +399,7 @@ impl Item for TouchArea {
         let hovering = !matches!(event, MouseEvent::Exit);
         Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(hovering);
         if hovering {
-            platform_window.set_mouse_cursor(self.mouse_cursor());
+            window_adapter.set_mouse_cursor(self.mouse_cursor());
         }
         InputEventFilterResult::ForwardAndInterceptGrab
     }
@@ -407,12 +407,12 @@ impl Item for TouchArea {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        platform_window: &Rc<dyn PlatformWindow>,
+        window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         if matches!(event, MouseEvent::Exit) {
             Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(false);
-            platform_window.set_mouse_cursor(MouseCursor::Default);
+            window_adapter.set_mouse_cursor(MouseCursor::Default);
         }
         if !self.enabled() {
             return InputEventResult::EventIgnored;
@@ -483,7 +483,7 @@ impl Item for TouchArea {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -491,7 +491,7 @@ impl Item for TouchArea {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -534,7 +534,7 @@ pub struct FocusScope {
 }
 
 impl Item for FocusScope {
-    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
+    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -543,7 +543,7 @@ impl Item for FocusScope {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         LayoutInfo::default()
     }
@@ -551,7 +551,7 @@ impl Item for FocusScope {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -560,11 +560,11 @@ impl Item for FocusScope {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        platform_window: &Rc<dyn PlatformWindow>,
+        window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) -> InputEventResult {
         if self.enabled() && matches!(event, MouseEvent::Pressed { .. }) && !self.has_focus() {
-            platform_window.window().window_handle().set_focus_item(self_rc);
+            window_adapter.window().window_handle().set_focus_item(self_rc);
         }
         InputEventResult::EventIgnored
     }
@@ -572,7 +572,7 @@ impl Item for FocusScope {
     fn key_event(
         self: Pin<&Self>,
         event: &KeyEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> KeyEventResult {
         let r = match event.event_type {
             KeyEventType::KeyPressed => {
@@ -591,7 +591,7 @@ impl Item for FocusScope {
     fn focus_event(
         self: Pin<&Self>,
         event: &FocusEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> FocusEventResult {
         if !self.enabled() {
             return FocusEventResult::FocusIgnored;
@@ -644,7 +644,7 @@ pub struct Clip {
 }
 
 impl Item for Clip {
-    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
+    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -653,7 +653,7 @@ impl Item for Clip {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -661,7 +661,7 @@ impl Item for Clip {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         event: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         if let Some(pos) = event.position() {
@@ -680,7 +680,7 @@ impl Item for Clip {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
@@ -689,7 +689,7 @@ impl Item for Clip {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -697,7 +697,7 @@ impl Item for Clip {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -735,7 +735,7 @@ pub struct Opacity {
 }
 
 impl Item for Opacity {
-    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
+    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -744,7 +744,7 @@ impl Item for Opacity {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -752,7 +752,7 @@ impl Item for Opacity {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -761,7 +761,7 @@ impl Item for Opacity {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
@@ -770,7 +770,7 @@ impl Item for Opacity {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -778,7 +778,7 @@ impl Item for Opacity {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -845,7 +845,7 @@ pub struct Layer {
 }
 
 impl Item for Layer {
-    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
+    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -854,7 +854,7 @@ impl Item for Layer {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -862,7 +862,7 @@ impl Item for Layer {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -871,7 +871,7 @@ impl Item for Layer {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
@@ -880,7 +880,7 @@ impl Item for Layer {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -888,7 +888,7 @@ impl Item for Layer {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -927,7 +927,7 @@ pub struct Rotate {
 }
 
 impl Item for Rotate {
-    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
+    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(0 as _, 0 as _, self.width(), self.height())
@@ -936,7 +936,7 @@ impl Item for Rotate {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -944,7 +944,7 @@ impl Item for Rotate {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -953,7 +953,7 @@ impl Item for Rotate {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
@@ -962,7 +962,7 @@ impl Item for Rotate {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -970,7 +970,7 @@ impl Item for Rotate {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -1043,7 +1043,7 @@ pub struct WindowItem {
 }
 
 impl Item for WindowItem {
-    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
+    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(0 as _, 0 as _, self.width(), self.height())
@@ -1052,7 +1052,7 @@ impl Item for WindowItem {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         LayoutInfo::default()
     }
@@ -1060,7 +1060,7 @@ impl Item for WindowItem {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -1069,7 +1069,7 @@ impl Item for WindowItem {
     fn input_event(
         self: Pin<&Self>,
         _event: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
@@ -1078,7 +1078,7 @@ impl Item for WindowItem {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -1086,7 +1086,7 @@ impl Item for WindowItem {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -1158,7 +1158,7 @@ pub struct BoxShadow {
 }
 
 impl Item for BoxShadow {
-    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
+    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -1167,7 +1167,7 @@ impl Item for BoxShadow {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -1175,7 +1175,7 @@ impl Item for BoxShadow {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -1184,7 +1184,7 @@ impl Item for BoxShadow {
     fn input_event(
         self: Pin<&Self>,
         _event: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
@@ -1193,7 +1193,7 @@ impl Item for BoxShadow {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -1201,7 +1201,7 @@ impl Item for BoxShadow {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }

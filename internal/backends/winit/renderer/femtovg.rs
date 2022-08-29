@@ -12,7 +12,7 @@ use i_slint_core::graphics::{
     rendering_metrics_collector::RenderingMetricsCollector, Point, Rect, Size,
 };
 use i_slint_core::renderer::Renderer;
-use i_slint_core::window::{PlatformWindow, WindowHandleAccess};
+use i_slint_core::window::{WindowAdapter, WindowHandleAccess};
 use i_slint_core::Coord;
 
 use crate::WindowSystemName;
@@ -26,7 +26,7 @@ mod itemrenderer;
 const PASSWORD_CHARACTER: &str = "●";
 
 pub struct FemtoVGRenderer {
-    platform_window_weak: Weak<dyn PlatformWindow>,
+    window_adapter_weak: Weak<dyn WindowAdapter>,
     #[cfg(target_arch = "wasm32")]
     canvas_id: String,
     rendering_notifier: RefCell<Option<Box<dyn RenderingNotifier>>>,
@@ -36,11 +36,11 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
     type Canvas = FemtoVGCanvas;
 
     fn new(
-        platform_window_weak: &Weak<dyn PlatformWindow>,
+        window_adapter_weak: &Weak<dyn WindowAdapter>,
         #[cfg(target_arch = "wasm32")] canvas_id: String,
     ) -> Self {
         Self {
-            platform_window_weak: platform_window_weak.clone(),
+            window_adapter_weak: window_adapter_weak.clone(),
             #[cfg(target_arch = "wasm32")]
             canvas_id,
             rendering_notifier: Default::default(),
@@ -55,7 +55,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         );
 
         let rendering_metrics_collector = RenderingMetricsCollector::new(
-            self.platform_window_weak.clone(),
+            self.window_adapter_weak.clone(),
             &format!(
                 "FemtoVG renderer (windowing system: {})",
                 opengl_context.window().winsys_name()
@@ -127,14 +127,14 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         })
     }
 
-    fn render(&self, canvas: &FemtoVGCanvas, platform_window: &dyn PlatformWindow) {
+    fn render(&self, canvas: &FemtoVGCanvas, window_adapter: &dyn WindowAdapter) {
         let size = canvas.opengl_context.window().inner_size();
         let width = size.width;
         let height = size.height;
 
         canvas.opengl_context.make_current();
 
-        let window = platform_window.window().window_handle();
+        let window = window_adapter.window().window_handle();
 
         window.draw_contents(|components| {
             {
@@ -172,7 +172,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
 
             let mut item_renderer = self::itemrenderer::GLItemRenderer::new(
                 canvas,
-                platform_window.window(),
+                window_adapter.window(),
                 width,
                 height,
             );
@@ -222,12 +222,12 @@ impl Renderer for FemtoVGRenderer {
         text_input: Pin<&i_slint_core::items::TextInput>,
         pos: Point,
     ) -> usize {
-        let platform_window = match self.platform_window_weak.upgrade() {
+        let window_adapter = match self.window_adapter_weak.upgrade() {
             Some(window) => window,
             None => return 0,
         };
 
-        let window = platform_window.window().window_handle();
+        let window = window_adapter.window().window_handle();
 
         let scale_factor = window.scale_factor();
         let pos = pos * scale_factor;
@@ -243,7 +243,7 @@ impl Renderer for FemtoVGRenderer {
 
         let font = crate::renderer::femtovg::fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text_input.font_request(&platform_window),
+                text_input.font_request(&window_adapter),
                 scale_factor,
                 &text_input.text(),
             )
@@ -301,20 +301,18 @@ impl Renderer for FemtoVGRenderer {
         text_input: Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
     ) -> Rect {
-        let platform_window = match self.platform_window_weak.upgrade() {
+        let window_adapter = match self.window_adapter_weak.upgrade() {
             Some(window) => window,
             None => return Default::default(),
         };
 
-        let window = platform_window.window().window_handle();
+        let window = window_adapter.window().window_handle();
 
         let text = text_input.text();
         let scale_factor = window.scale_factor();
 
-        let font_size = text_input
-            .font_request(&platform_window)
-            .pixel_size
-            .unwrap_or(fonts::DEFAULT_FONT_SIZE);
+        let font_size =
+            text_input.font_request(&window_adapter).pixel_size.unwrap_or(fonts::DEFAULT_FONT_SIZE);
 
         let mut result = Point::default();
 
@@ -326,7 +324,7 @@ impl Renderer for FemtoVGRenderer {
 
         let font = crate::renderer::femtovg::fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text_input.font_request(&platform_window),
+                text_input.font_request(&window_adapter),
                 scale_factor,
                 &text_input.text(),
             )

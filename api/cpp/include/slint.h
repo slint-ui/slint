@@ -83,23 +83,23 @@ inline void assert_main_thread()
 #endif
 }
 
-class PlatformWindowRc
+class WindowAdapterRc
 {
 public:
-    explicit PlatformWindowRc(cbindgen_private::PlatformWindowRcOpaque adopted_inner)
+    explicit WindowAdapterRc(cbindgen_private::WindowAdapterRcOpaque adopted_inner)
         : inner(adopted_inner)
     {
     }
-    PlatformWindowRc() { cbindgen_private::slint_windowrc_init(&inner); }
-    ~PlatformWindowRc() { cbindgen_private::slint_windowrc_drop(&inner); }
-    PlatformWindowRc(const PlatformWindowRc &other)
+    WindowAdapterRc() { cbindgen_private::slint_windowrc_init(&inner); }
+    ~WindowAdapterRc() { cbindgen_private::slint_windowrc_drop(&inner); }
+    WindowAdapterRc(const WindowAdapterRc &other)
     {
         assert_main_thread();
         cbindgen_private::slint_windowrc_clone(&other.inner, &inner);
     }
-    PlatformWindowRc(PlatformWindowRc &&) = delete;
-    PlatformWindowRc &operator=(PlatformWindowRc &&) = delete;
-    PlatformWindowRc &operator=(const PlatformWindowRc &other)
+    WindowAdapterRc(WindowAdapterRc &&) = delete;
+    WindowAdapterRc &operator=(WindowAdapterRc &&) = delete;
+    WindowAdapterRc &operator=(const WindowAdapterRc &other)
     {
         assert_main_thread();
         if (this != &other) {
@@ -226,7 +226,7 @@ public:
     }
 
 private:
-    cbindgen_private::PlatformWindowRcOpaque inner;
+    cbindgen_private::WindowAdapterRcOpaque inner;
 };
 
 constexpr inline ItemTreeNode make_item_node(uint32_t child_count, uint32_t child_index,
@@ -374,7 +374,7 @@ public:
     /// \private
     /// Internal function used by the generated code to construct a new instance of this
     /// public API wrapper.
-    explicit Window(const private_api::PlatformWindowRc &windowrc) : inner(windowrc) { }
+    explicit Window(const private_api::WindowAdapterRc &windowrc) : inner(windowrc) { }
     Window(const Window &other) = delete;
     Window &operator=(const Window &other) = delete;
     Window(Window &&other) = delete;
@@ -432,12 +432,12 @@ public:
     void set_size(const slint::Size<unsigned int> &size) { inner.set_size(size); }
 
     /// \private
-    private_api::PlatformWindowRc &window_handle() { return inner; }
+    private_api::WindowAdapterRc &window_handle() { return inner; }
     /// \private
-    const private_api::PlatformWindowRc &window_handle() const { return inner; }
+    const private_api::WindowAdapterRc &window_handle() const { return inner; }
 
 private:
-    private_api::PlatformWindowRc inner;
+    private_api::WindowAdapterRc inner;
 };
 
 /// A Timer that can call a callback at repeated interval

@@ -54,7 +54,7 @@ option.frame = true;
 }}
 
 impl Item for NativeSpinBox {
-    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
+    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -63,7 +63,7 @@ impl Item for NativeSpinBox {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         //let value: i32 = self.value();
         let data = self.data();
@@ -108,7 +108,7 @@ impl Item for NativeSpinBox {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardEvent
@@ -117,7 +117,7 @@ impl Item for NativeSpinBox {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        platform_window: &Rc<dyn PlatformWindow>,
+        window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &i_slint_core::items::ItemRc,
     ) -> InputEventResult {
         let size: qttypes::QSize = get_size!(self);
@@ -188,7 +188,7 @@ impl Item for NativeSpinBox {
 
         if let MouseEvent::Pressed { .. } = event {
             if !self.has_focus() {
-                platform_window.window().window_handle().set_focus_item(self_rc);
+                window_adapter.window().window_handle().set_focus_item(self_rc);
             }
         }
         InputEventResult::EventAccepted
@@ -197,7 +197,7 @@ impl Item for NativeSpinBox {
     fn key_event(
         self: Pin<&Self>,
         event: &KeyEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> KeyEventResult {
         if !self.enabled() || event.event_type != KeyEventType::KeyPressed {
             return KeyEventResult::EventIgnored;
@@ -220,7 +220,7 @@ impl Item for NativeSpinBox {
     fn focus_event(
         self: Pin<&Self>,
         event: &FocusEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> FocusEventResult {
         match event {
             FocusEvent::FocusIn => {

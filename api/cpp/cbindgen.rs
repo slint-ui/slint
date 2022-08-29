@@ -135,7 +135,7 @@ fn gen_corelib(
     config.export.include = [
         "ComponentVTable",
         "Slice",
-        "PlatformWindowRcOpaque",
+        "WindowAdapterRcOpaque",
         "PropertyAnimation",
         "EasingCurve",
         "TextHorizontalAlignment",
@@ -189,7 +189,7 @@ fn gen_corelib(
         "slint_property_listener_scope_is_dirty",
         "PropertyTrackerOpaque",
         "CallbackOpaque",
-        "PlatformWindowRc",
+        "WindowAdapterRc",
         "VoidArg",
         "KeyEventArg",
         "PointerEventArg",
@@ -453,9 +453,9 @@ fn gen_corelib(
         .with_after_include(
             r"
 namespace slint {
-    namespace private_api { class PlatformWindowRc; }
+    namespace private_api { class WindowAdapterRc; }
     namespace cbindgen_private {
-        using slint::private_api::PlatformWindowRc;
+        using slint::private_api::WindowAdapterRc;
         using namespace vtable;
         struct KeyEvent; struct PointerEvent;
         using private_api::Property;

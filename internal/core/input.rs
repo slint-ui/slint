@@ -9,7 +9,7 @@ use crate::graphics::Point;
 use crate::item_tree::{ItemRc, ItemVisitorResult, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
 use crate::items::{ItemRef, TextCursorDirection};
-use crate::window::PlatformWindow;
+use crate::window::WindowAdapter;
 use crate::{component::ComponentRc, SharedString};
 use crate::{Coord, Property};
 use alloc::rc::Rc;
@@ -401,7 +401,7 @@ pub struct MouseInputState {
 /// Try to handle the mouse grabber. Return true if the event has handled, or false otherwise
 fn handle_mouse_grab(
     mouse_event: &MouseEvent,
-    platform_window: &Rc<dyn PlatformWindow>,
+    window_adapter: &Rc<dyn WindowAdapter>,
     mouse_input_state: &mut MouseInputState,
 ) -> bool {
     if !mouse_input_state.grabbed || mouse_input_state.item_stack.is_empty() {
@@ -423,7 +423,7 @@ fn handle_mouse_grab(
             return false;
         };
         if intercept {
-            item.borrow().as_ref().input_event(MouseEvent::Exit, platform_window, &item);
+            item.borrow().as_ref().input_event(MouseEvent::Exit, window_adapter, &item);
             return false;
         }
         let g = item.borrow().as_ref().geometry();
@@ -432,7 +432,7 @@ fn handle_mouse_grab(
         if it.1 == InputEventFilterResult::ForwardAndInterceptGrab
             && item.borrow().as_ref().input_event_filter_before_children(
                 event,
-                platform_window,
+                window_adapter,
                 &item,
             ) == InputEventFilterResult::Intercept
         {
@@ -445,10 +445,10 @@ fn handle_mouse_grab(
     }
 
     let grabber = mouse_input_state.item_stack.last().unwrap().0.upgrade().unwrap();
-    let input_result = grabber.borrow().as_ref().input_event(event, platform_window, &grabber);
+    let input_result = grabber.borrow().as_ref().input_event(event, window_adapter, &grabber);
     if input_result != InputEventResult::GrabMouse {
         mouse_input_state.grabbed = false;
-        send_exit_events(mouse_input_state, mouse_event.position(), platform_window);
+        send_exit_events(mouse_input_state, mouse_event.position(), window_adapter);
     }
 
     true
@@ -457,7 +457,7 @@ fn handle_mouse_grab(
 fn send_exit_events(
     mouse_input_state: &MouseInputState,
     mut pos: Option<Point>,
-    platform_window: &Rc<dyn PlatformWindow>,
+    window_adapter: &Rc<dyn WindowAdapter>,
 ) {
     for it in mouse_input_state.item_stack.iter() {
         let item = if let Some(item) = it.0.upgrade() { item } else { break };
@@ -467,7 +467,7 @@ fn send_exit_events(
             *p -= g.origin.to_vector();
         }
         if !contains {
-            item.borrow().as_ref().input_event(MouseEvent::Exit, platform_window, &item);
+            item.borrow().as_ref().input_event(MouseEvent::Exit, window_adapter, &item);
         }
     }
 }
@@ -478,10 +478,10 @@ fn send_exit_events(
 pub fn process_mouse_input(
     component: ComponentRc,
     mouse_event: MouseEvent,
-    platform_window: &Rc<dyn PlatformWindow>,
+    window_adapter: &Rc<dyn WindowAdapter>,
     mut mouse_input_state: MouseInputState,
 ) -> MouseInputState {
-    if handle_mouse_grab(&mouse_event, platform_window, &mut mouse_input_state) {
+    if handle_mouse_grab(&mouse_event, window_adapter, &mut mouse_input_state) {
         return mouse_input_state;
     }
 
@@ -510,7 +510,7 @@ pub fn process_mouse_input(
                 event2.translate(-geom.origin.to_vector());
                 let filter_result = item.as_ref().input_event_filter_before_children(
                     event2,
-                    platform_window,
+                    window_adapter,
                     &item_rc,
                 );
                 mouse_grabber_stack.push((item_rc.downgrade(), filter_result));
@@ -554,7 +554,7 @@ pub fn process_mouse_input(
                 if r.has_aborted() && !intercept {
                     return r;
                 }
-                match item.as_ref().input_event(event2, platform_window, &item_rc) {
+                match item.as_ref().input_event(event2, window_adapter, &item_rc) {
                     InputEventResult::EventAccepted => {
                         if result.item_stack.is_empty() {
                             // In case the item stack is set already, it shouldn't
@@ -582,7 +582,7 @@ pub fn process_mouse_input(
         (Vector2D::new(0 as Coord, 0 as Coord), Vec::new(), mouse_event),
     );
 
-    send_exit_events(&mouse_input_state, mouse_event.position(), platform_window);
+    send_exit_events(&mouse_input_state, mouse_event.position(), window_adapter);
 
     result
 }

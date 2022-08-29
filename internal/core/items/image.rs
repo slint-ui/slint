@@ -18,7 +18,7 @@ use crate::item_rendering::ItemRenderer;
 use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::window::PlatformWindow;
+use crate::window::WindowAdapter;
 use crate::{Brush, Coord, Property};
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
@@ -41,7 +41,7 @@ pub struct ImageItem {
 }
 
 impl Item for ImageItem {
-    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
+    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -50,7 +50,7 @@ impl Item for ImageItem {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         let natural_size = self.source().size();
         LayoutInfo {
@@ -68,7 +68,7 @@ impl Item for ImageItem {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -77,7 +77,7 @@ impl Item for ImageItem {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
@@ -86,7 +86,7 @@ impl Item for ImageItem {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -94,7 +94,7 @@ impl Item for ImageItem {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -137,7 +137,7 @@ pub struct ClippedImage {
 }
 
 impl Item for ClippedImage {
-    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
+    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -146,7 +146,7 @@ impl Item for ClippedImage {
     fn layout_info(
         self: Pin<&Self>,
         orientation: Orientation,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         let natural_size = self.source().size();
         LayoutInfo {
@@ -164,7 +164,7 @@ impl Item for ClippedImage {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         InputEventFilterResult::ForwardAndIgnore
@@ -173,7 +173,7 @@ impl Item for ClippedImage {
     fn input_event(
         self: Pin<&Self>,
         _: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         InputEventResult::EventIgnored
@@ -182,7 +182,7 @@ impl Item for ClippedImage {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -190,7 +190,7 @@ impl Item for ClippedImage {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }

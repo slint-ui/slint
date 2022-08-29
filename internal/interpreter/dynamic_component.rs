@@ -28,7 +28,7 @@ use i_slint_core::model::Repeater;
 use i_slint_core::properties::InterpolatedPropertyValue;
 use i_slint_core::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use i_slint_core::slice::Slice;
-use i_slint_core::window::{PlatformWindow, WindowHandleAccess};
+use i_slint_core::window::{WindowAdapter, WindowHandleAccess};
 use i_slint_core::{Brush, Color, Property, SharedString, SharedVector};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -54,9 +54,9 @@ impl<'id> ComponentBox<'id> {
         InstanceRef { instance: self.instance.as_pin_ref(), component_type: &self.component_type }
     }
 
-    pub fn platform_window(&self) -> &Rc<dyn PlatformWindow> {
+    pub fn window_adapter(&self) -> &Rc<dyn WindowAdapter> {
         self.component_type
-            .platform_window_offset
+            .window_adapter_offset
             .apply(self.instance.as_pin_ref().get_ref())
             .as_ref()
             .as_ref()
@@ -67,12 +67,12 @@ impl<'id> ComponentBox<'id> {
 impl<'id> Drop for ComponentBox<'id> {
     fn drop(&mut self) {
         let instance_ref = self.borrow_instance();
-        if let Some(platform_window) = eval::platform_window_ref(instance_ref) {
+        if let Some(window_adapter) = eval::window_adapter_ref(instance_ref) {
             i_slint_core::component::unregister_component(
                 instance_ref.instance,
                 Pin::into_inner(instance_ref.borrow()),
                 instance_ref.component_type.item_array.as_slice(),
-                platform_window,
+                window_adapter,
             );
         }
     }
@@ -316,7 +316,7 @@ pub struct ComponentDescription<'id> {
     pub(crate) parent_component_offset:
         Option<FieldOffset<Instance<'id>, Option<ComponentRefPin<'id>>>>,
     /// Offset to the window reference
-    pub(crate) platform_window_offset: FieldOffset<Instance<'id>, Option<Rc<dyn PlatformWindow>>>,
+    pub(crate) window_adapter_offset: FieldOffset<Instance<'id>, Option<Rc<dyn WindowAdapter>>>,
     /// Offset of a ComponentExtraData
     pub(crate) extra_data_offset: FieldOffset<Instance<'id>, ComponentExtraData>,
     /// Keep the Rc alive
@@ -389,25 +389,25 @@ impl<'id> ComponentDescription<'id> {
         self: Rc<Self>,
         #[cfg(target_arch = "wasm32")] canvas_id: String,
     ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
-        let platform_window = i_slint_backend_selector::with_platform_abstraction(|_b| {
+        let window_adapter = i_slint_backend_selector::with_platform_abstraction(|_b| {
             #[cfg(not(target_arch = "wasm32"))]
             return _b.create_window();
             #[cfg(target_arch = "wasm32")]
             i_slint_backend_winit::create_gl_window_with_canvas_id(canvas_id)
         });
 
-        self.create_with_existing_window(&platform_window)
+        self.create_with_existing_window(&window_adapter)
     }
 
     #[doc(hidden)]
     pub fn create_with_existing_window(
         self: Rc<Self>,
-        platform_window: &Rc<dyn PlatformWindow>,
+        window_adapter: &Rc<dyn WindowAdapter>,
     ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
-        let component_ref = instantiate(self, None, Some(platform_window), Default::default());
+        let component_ref = instantiate(self, None, Some(window_adapter), Default::default());
         component_ref
             .as_pin_ref()
-            .platform_window()
+            .window_adapter()
             .window()
             .window_handle()
             .set_component(&vtable::VRc::into_dyn(component_ref.clone()));
@@ -649,16 +649,16 @@ fn ensure_repeater_updated<'id>(
 ) {
     let repeater = rep_in_comp.offset.apply_pin(instance_ref.instance);
     let init = || {
-        let platform_window = instance_ref
+        let window_adapter = instance_ref
             .component_type
-            .platform_window_offset
+            .window_adapter_offset
             .apply(instance_ref.as_ref())
             .as_ref()
             .unwrap();
         let instance = instantiate(
             rep_in_comp.component_to_repeat.clone(),
             Some(instance_ref.borrow()),
-            Some(platform_window),
+            Some(window_adapter),
             Default::default(),
         );
         instance.run_setup_code();
@@ -1027,8 +1027,8 @@ pub(crate) fn generate_component<'id>(
         None
     };
 
-    let platform_window_offset =
-        builder.type_builder.add_field_type::<Option<Rc<dyn PlatformWindow>>>();
+    let window_adapter_offset =
+        builder.type_builder.add_field_type::<Option<Rc<dyn WindowAdapter>>>();
 
     let extra_data_offset = builder.type_builder.add_field_type::<ComponentExtraData>();
 
@@ -1090,7 +1090,7 @@ pub(crate) fn generate_component<'id>(
         repeater: builder.repeater,
         repeater_names: builder.repeater_names,
         parent_component_offset,
-        platform_window_offset,
+        window_adapter_offset,
         extra_data_offset,
         public_properties,
         compiled_globals,
@@ -1192,7 +1192,7 @@ fn make_binding_eval_closure(
 pub fn instantiate(
     component_type: Rc<ComponentDescription>,
     parent_ctx: Option<ComponentRefPin>,
-    platform_window: Option<&Rc<dyn PlatformWindow>>,
+    window_adapter: Option<&Rc<dyn WindowAdapter>>,
     mut globals: crate::global_component::GlobalStorage,
 ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
     let mut instance = component_type.dynamic_type.clone().create_instance();
@@ -1215,7 +1215,7 @@ pub fn instantiate(
             .map(|(path, er)| (er.id, path.clone()))
             .collect();
     }
-    *component_type.platform_window_offset.apply_mut(instance.as_mut()) = platform_window.cloned();
+    *component_type.window_adapter_offset.apply_mut(instance.as_mut()) = window_adapter.cloned();
 
     let component_box = ComponentBox { instance, component_type: component_type.clone() };
     let instance_ref = component_box.borrow_instance();
@@ -1224,7 +1224,7 @@ pub fn instantiate(
         i_slint_core::component::register_component(
             instance_ref.instance,
             instance_ref.component_type.item_array.as_slice(),
-            eval::platform_window_ref(instance_ref).unwrap(),
+            eval::window_adapter_ref(instance_ref).unwrap(),
         );
     }
 
@@ -1437,8 +1437,8 @@ impl ErasedComponentBox {
         self.0.borrow()
     }
 
-    pub fn platform_window(&self) -> &Rc<dyn PlatformWindow> {
-        self.0.platform_window()
+    pub fn window_adapter(&self) -> &Rc<dyn WindowAdapter> {
+        self.0.window_adapter()
     }
 
     pub fn run_setup_code(&self) {
@@ -1467,7 +1467,7 @@ impl<'id> From<ComponentBox<'id>> for ErasedComponentBox {
 
 impl i_slint_core::window::WindowHandleAccess for ErasedComponentBox {
     fn window_handle(&self) -> &i_slint_core::window::WindowInner {
-        self.platform_window().window().window_handle()
+        self.window_adapter().window().window_handle()
     }
 }
 
@@ -1490,7 +1490,7 @@ extern "C" fn layout_info(component: ComponentRefPin, orientation: Orientation) 
     let mut result = crate::eval_layout::get_layout_info(
         &instance_ref.component_type.original.root_element,
         instance_ref,
-        eval::platform_window_ref(instance_ref).unwrap(),
+        eval::window_adapter_ref(instance_ref).unwrap(),
         orientation,
     );
 
@@ -1691,8 +1691,8 @@ impl<'a, 'id> InstanceRef<'a, 'id> {
         &extra_data.self_weak
     }
 
-    pub fn platform_window(&self) -> &Rc<dyn PlatformWindow> {
-        self.component_type.platform_window_offset.apply(self.as_ref()).as_ref().as_ref().unwrap()
+    pub fn window_adapter(&self) -> &Rc<dyn WindowAdapter> {
+        self.component_type.window_adapter_offset.apply(self.as_ref()).as_ref().as_ref().unwrap()
     }
 
     pub fn parent_instance(&self) -> Option<InstanceRef<'a, 'id>> {
@@ -1728,16 +1728,16 @@ pub fn show_popup(
     popup: &object_tree::PopupWindow,
     pos: i_slint_core::graphics::Point,
     parent_comp: ComponentRefPin,
-    parent_platform_window: &Rc<dyn PlatformWindow>,
+    parent_window_adapter: &Rc<dyn WindowAdapter>,
     parent_item: &ItemRc,
 ) {
     generativity::make_guard!(guard);
     // FIXME: we should compile once and keep the cached compiled component
     let compiled = generate_component(&popup.component, guard);
     let inst =
-        instantiate(compiled, Some(parent_comp), Some(parent_platform_window), Default::default());
+        instantiate(compiled, Some(parent_comp), Some(parent_window_adapter), Default::default());
     inst.run_setup_code();
-    parent_platform_window.window().window_handle().show_popup(
+    parent_window_adapter.window().window_handle().show_popup(
         &vtable::VRc::into_dyn(inst),
         pos,
         parent_item,

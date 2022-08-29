@@ -347,7 +347,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
             }
 
             fn window(&self) -> &slint::Window {
-                vtable::VRc::as_pin_ref(&self.0).get_ref().platform_window.get().unwrap().window()
+                vtable::VRc::as_pin_ref(&self.0).get_ref().window_adapter.get().unwrap().window()
             }
 
             fn global<'a, T: slint::Global<'a, Self>>(&'a self) -> T {
@@ -859,7 +859,7 @@ fn generate_sub_component(
             self_weak : slint::re_exports::OnceCell<slint::re_exports::VWeakMapped<slint::re_exports::ComponentVTable, #inner_component_id>>,
             #(parent : #parent_component_type,)*
             // FIXME: Do we really need a window all the time?
-            platform_window: slint::re_exports::OnceCell<slint::re_exports::Rc<dyn slint::re_exports::PlatformWindow>>,
+            window_adapter: slint::re_exports::OnceCell<slint::re_exports::Rc<dyn slint::re_exports::WindowAdapter>>,
             root : slint::re_exports::OnceCell<slint::re_exports::VWeak<slint::re_exports::ComponentVTable, #root_component_id>>,
             tree_index: ::core::cell::Cell<u32>,
             tree_index_of_first_child: ::core::cell::Cell<u32>,
@@ -874,7 +874,7 @@ fn generate_sub_component(
                 let _self = self_rc.as_pin_ref();
                 _self.self_weak.set(VRcMapped::downgrade(&self_rc));
                 _self.root.set(VRc::downgrade(root));
-                _self.platform_window.set(root.platform_window.get().unwrap().clone());
+                _self.window_adapter.set(root.window_adapter.get().unwrap().clone());
                 _self.tree_index.set(tree_index);
                 _self.tree_index_of_first_child.set(tree_index_of_first_child);
                 #(#init)*
@@ -1105,10 +1105,10 @@ fn generate_item_tree(
     };
     let (create_window, init_window) = if parent_ctx.is_none() {
         (
-            Some(quote!(let platform_window = slint::create_window();)),
+            Some(quote!(let window_adapter = slint::create_window();)),
             Some(quote! {
-                _self.platform_window.set(platform_window);
-                _self.platform_window.get().unwrap().window().window_handle().set_component(&VRc::into_dyn(self_rc.clone()));
+                _self.window_adapter.set(window_adapter);
+                _self.window_adapter.get().unwrap().window().window_handle().set_component(&VRc::into_dyn(self_rc.clone()));
             }),
         )
     } else {
@@ -1195,7 +1195,7 @@ fn generate_item_tree(
                 let self_rc = VRc::new(_self);
                 let _self = self_rc.as_pin_ref();
                 #init_window
-                slint::re_exports::register_component(_self, Self::item_array(), #root_token.platform_window.get().unwrap());
+                slint::re_exports::register_component(_self, Self::item_array(), #root_token.window_adapter.get().unwrap());
                 Self::init(slint::re_exports::VRc::map(self_rc.clone(), |x| x), #root_token, 0, 1);
                 self_rc
             }
@@ -1220,13 +1220,13 @@ fn generate_item_tree(
             fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
                 use slint::re_exports::*;
                 new_vref!(let vref : VRef<ComponentVTable> for Component = self.as_ref().get_ref());
-                slint::re_exports::unregister_component(self.as_ref(), vref, Self::item_array(), self.platform_window.get().unwrap());
+                slint::re_exports::unregister_component(self.as_ref(), vref, Self::item_array(), self.window_adapter.get().unwrap());
             }
         }
 
         impl slint::re_exports::WindowHandleAccess for #inner_component_id {
             fn window_handle(&self) -> &slint::re_exports::WindowInner {
-                self.platform_window.get().unwrap().window().window_handle()
+                self.window_adapter.get().unwrap().window().window_handle()
             }
         }
 
@@ -1533,9 +1533,9 @@ fn follow_sub_component_path<'a>(
     (compo_path, sub_component)
 }
 
-fn access_platform_window_field(ctx: &EvaluationContext) -> TokenStream {
+fn access_window_adapter_field(ctx: &EvaluationContext) -> TokenStream {
     let root = &ctx.generator_state;
-    quote!(#root.platform_window.get().unwrap())
+    quote!(#root.window_adapter.get().unwrap())
 }
 
 /// Given a property reference to a native item (eg, the property name is empty)
@@ -1985,7 +1985,7 @@ fn compile_builtin_function_call(
     match function {
         BuiltinFunction::SetFocusItem => {
             if let [Expression::PropertyReference(pr)] = arguments {
-                let window_tokens = access_platform_window_field(ctx);
+                let window_tokens = access_window_adapter_field(ctx);
                 let focus_item = access_item_rc(pr, ctx);
                 quote!(
                     #window_tokens.window().window_handle().set_focus_item(#focus_item);
@@ -2014,9 +2014,9 @@ fn compile_builtin_function_call(
                 let parent_component = access_item_rc(parent_ref, ctx);
                 let x = compile_expression(x, ctx);
                 let y = compile_expression(y, ctx);
-                let platform_window_tokens = access_platform_window_field(ctx);
+                let window_adapter_tokens = access_window_adapter_field(ctx);
                 quote!(
-                    #platform_window_tokens.window().window_handle().show_popup(
+                    #window_adapter_tokens.window().window_handle().show_popup(
                         &VRc::into_dyn(#popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).into()),
                         Point::new(#x as slint::re_exports::Coord, #y as slint::re_exports::Coord),
                         #parent_component
@@ -2029,9 +2029,9 @@ fn compile_builtin_function_call(
         BuiltinFunction::ImplicitLayoutInfo(orient) => {
             if let [Expression::PropertyReference(pr)] = arguments {
                 let item = access_member(pr, ctx);
-                let platform_window_tokens = access_platform_window_field(ctx);
+                let window_adapter_tokens = access_window_adapter_field(ctx);
                 quote!(
-                    #item.layout_info(#orient, #platform_window_tokens)
+                    #item.layout_info(#orient, #window_adapter_tokens)
                 )
             } else {
                 panic!("internal error: invalid args to ImplicitLayoutInfo {:?}", arguments)
@@ -2039,8 +2039,8 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::RegisterCustomFontByPath => {
             if let [Expression::StringLiteral(path)] = arguments {
-                let platform_window_tokens = access_platform_window_field(ctx);
-                quote!(#platform_window_tokens.renderer().register_font_from_path(&std::path::PathBuf::from(#path));)
+                let window_adapter_tokens = access_window_adapter_field(ctx);
+                quote!(#window_adapter_tokens.renderer().register_font_from_path(&std::path::PathBuf::from(#path));)
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByPath {:?}", arguments)
             }
@@ -2049,8 +2049,8 @@ fn compile_builtin_function_call(
             if let [Expression::NumberLiteral(resource_id)] = &arguments {
                 let resource_id: usize = *resource_id as _;
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                let platform_window_tokens = access_platform_window_field(ctx);
-                quote!(#platform_window_tokens.renderer().register_font_from_memory(#symbol.into());)
+                let window_adapter_tokens = access_window_adapter_field(ctx);
+                quote!(#window_adapter_tokens.renderer().register_font_from_memory(#symbol.into());)
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByMemory {:?}", arguments)
             }
@@ -2059,15 +2059,15 @@ fn compile_builtin_function_call(
             if let [Expression::NumberLiteral(resource_id)] = &arguments {
                 let resource_id: usize = *resource_id as _;
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
-                let platform_window_tokens = access_platform_window_field(ctx);
-                quote!(#platform_window_tokens.renderer().register_bitmap_font(&#symbol);)
+                let window_adapter_tokens = access_window_adapter_field(ctx);
+                quote!(#window_adapter_tokens.renderer().register_bitmap_font(&#symbol);)
             } else {
                 panic!("internal error: invalid args to RegisterBitmapFont must be a number")
             }
         }
         BuiltinFunction::GetWindowScaleFactor => {
-            let platform_window_tokens = access_platform_window_field(ctx);
-            quote!(#platform_window_tokens.window().window_handle().scale_factor())
+            let window_adapter_tokens = access_window_adapter_field(ctx);
+            quote!(#window_adapter_tokens.window().window_handle().scale_factor())
         }
         BuiltinFunction::AnimationTick => quote!(slint::re_exports::animation_tick()),
         BuiltinFunction::Debug => quote!(slint::internal::debug(#(#a)*)),

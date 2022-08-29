@@ -21,7 +21,7 @@ use crate::items::{PropertyAnimation, Rectangle};
 use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::window::PlatformWindow;
+use crate::window::WindowAdapter;
 use crate::Coord;
 use crate::Property;
 use alloc::boxed::Box;
@@ -55,7 +55,7 @@ pub struct Flickable {
 }
 
 impl Item for Flickable {
-    fn init(self: Pin<&Self>, _platform_window: &Rc<dyn PlatformWindow>) {}
+    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
@@ -64,7 +64,7 @@ impl Item for Flickable {
     fn layout_info(
         self: Pin<&Self>,
         _orientation: Orientation,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
         LayoutInfo { stretch: 1., ..LayoutInfo::default() }
     }
@@ -72,7 +72,7 @@ impl Item for Flickable {
     fn input_event_filter_before_children(
         self: Pin<&Self>,
         event: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventFilterResult {
         if let Some(pos) = event.position() {
@@ -89,7 +89,7 @@ impl Item for Flickable {
     fn input_event(
         self: Pin<&Self>,
         event: MouseEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
         _self_rc: &ItemRc,
     ) -> InputEventResult {
         if !self.interactive() && !matches!(event, MouseEvent::Wheel { .. }) {
@@ -112,7 +112,7 @@ impl Item for Flickable {
     fn key_event(
         self: Pin<&Self>,
         _: &KeyEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -120,7 +120,7 @@ impl Item for Flickable {
     fn focus_event(
         self: Pin<&Self>,
         _: &FocusEvent,
-        _platform_window: &Rc<dyn PlatformWindow>,
+        _window_adapter: &Rc<dyn WindowAdapter>,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }

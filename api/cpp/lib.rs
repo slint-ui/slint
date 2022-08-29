@@ -4,7 +4,7 @@
 /*! This crate just expose the function used by the C++ integration */
 
 use core::ffi::c_void;
-use i_slint_core::window::{ffi::PlatformWindowRcOpaque, PlatformWindow};
+use i_slint_core::window::{ffi::WindowAdapterRcOpaque, WindowAdapter};
 use std::rc::Rc;
 
 #[doc(hidden)]
@@ -17,13 +17,13 @@ pub fn use_modules() -> usize {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn slint_windowrc_init(out: *mut PlatformWindowRcOpaque) {
+pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) {
     assert_eq!(
-        core::mem::size_of::<Rc<dyn PlatformWindow>>(),
-        core::mem::size_of::<PlatformWindowRcOpaque>()
+        core::mem::size_of::<Rc<dyn WindowAdapter>>(),
+        core::mem::size_of::<WindowAdapterRcOpaque>()
     );
     let win = i_slint_backend_selector::with_platform_abstraction(|b| b.create_window());
-    core::ptr::write(out as *mut Rc<dyn PlatformWindow>, win);
+    core::ptr::write(out as *mut Rc<dyn WindowAdapter>, win);
 }
 
 #[no_mangle]
@@ -67,16 +67,14 @@ pub unsafe extern "C" fn slint_quit_event_loop() {
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_register_font_from_path(
-    win: *const PlatformWindowRcOpaque,
+    win: *const WindowAdapterRcOpaque,
     path: &i_slint_core::SharedString,
     error_str: *mut i_slint_core::SharedString,
 ) {
-    let platform_window = &*(win as *const Rc<dyn PlatformWindow>);
+    let window_adapter = &*(win as *const Rc<dyn WindowAdapter>);
     core::ptr::write(
         error_str,
-        match platform_window
-            .renderer()
-            .register_font_from_path(std::path::Path::new(path.as_str()))
+        match window_adapter.renderer().register_font_from_path(std::path::Path::new(path.as_str()))
         {
             Ok(()) => Default::default(),
             Err(err) => err.to_string().into(),
@@ -86,14 +84,14 @@ pub unsafe extern "C" fn slint_register_font_from_path(
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_register_font_from_data(
-    win: *const PlatformWindowRcOpaque,
+    win: *const WindowAdapterRcOpaque,
     data: i_slint_core::slice::Slice<'static, u8>,
     error_str: *mut i_slint_core::SharedString,
 ) {
-    let platform_window = &*(win as *const Rc<dyn PlatformWindow>);
+    let window_adapter = &*(win as *const Rc<dyn WindowAdapter>);
     core::ptr::write(
         error_str,
-        match platform_window.renderer().register_font_from_memory(data.as_slice()) {
+        match window_adapter.renderer().register_font_from_memory(data.as_slice()) {
             Ok(()) => Default::default(),
             Err(err) => err.to_string().into(),
         },
