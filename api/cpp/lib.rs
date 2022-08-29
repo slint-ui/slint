@@ -22,13 +22,13 @@ pub unsafe extern "C" fn slint_windowrc_init(out: *mut WindowAdapterRcOpaque) {
         core::mem::size_of::<Rc<dyn WindowAdapter>>(),
         core::mem::size_of::<WindowAdapterRcOpaque>()
     );
-    let win = i_slint_backend_selector::with_platform_abstraction(|b| b.create_window_adapter());
+    let win = i_slint_backend_selector::with_platform(|b| b.create_window_adapter());
     core::ptr::write(out as *mut Rc<dyn WindowAdapter>, win);
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_run_event_loop() {
-    i_slint_backend_selector::with_platform_abstraction(|b| {
+    i_slint_backend_selector::with_platform(|b| {
         b.run_event_loop(i_slint_core::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed)
     });
 }

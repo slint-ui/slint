@@ -436,14 +436,14 @@ pub mod internal {
 /// Creates a new window to render components in.
 #[doc(hidden)]
 pub fn create_window_adapter() -> alloc::rc::Rc<dyn re_exports::WindowAdapter> {
-    i_slint_backend_selector::with_platform_abstraction(|b| b.create_window_adapter())
+    i_slint_backend_selector::with_platform(|b| b.create_window_adapter())
 }
 
 /// Enters the main event loop. This is necessary in order to receive
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
 pub fn run_event_loop() {
-    i_slint_backend_selector::with_platform_abstraction(|b| {
+    i_slint_backend_selector::with_platform(|b| {
         b.run_event_loop(i_slint_core::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed)
     })
 }

@@ -83,8 +83,8 @@ cfg_if::cfg_if! {
 
 /// Run the callback with the platform abstraction.
 /// Create the backend if it does not exist yet
-pub fn with_platform_abstraction<R>(f: impl FnOnce(&dyn Platform) -> R) -> R {
-    i_slint_core::with_platform_abstraction(create_backend, f)
+pub fn with_platform(f: impl FnOnce(&dyn Platform) -> R) -> R {
+    i_slint_core::with_platform(create_backend, f)
 }
 
 #[doc(hidden)]

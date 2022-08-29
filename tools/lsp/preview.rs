@@ -85,7 +85,7 @@ pub fn start_ui_event_loop() {
 
         if *state_requested == RequestedGuiEventLoopState::StartLoop {
             // make sure the backend is initialized
-            i_slint_backend_selector::with_platform_abstraction(|_| {});
+            i_slint_backend_selector::with_platform(|_| {});
             // Send an event so that once the loop is started, we notify the LSP thread that it can send more events
             i_slint_core::api::invoke_from_event_loop(|| {
                 let mut state_request = GUI_EVENT_LOOP_STATE_REQUEST.lock().unwrap();
@@ -97,7 +97,7 @@ pub fn start_ui_event_loop() {
         }
     }
 
-    i_slint_backend_selector::with_platform_abstraction(|b| {
+    i_slint_backend_selector::with_platform(|b| {
         b.run_event_loop(i_slint_core::platform::EventLoopQuitBehavior::QuitOnlyExplicitly)
     });
 }

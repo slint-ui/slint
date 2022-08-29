@@ -106,7 +106,7 @@ impl std::convert::From<crate::animations::Instant> for instant::Instant {
 }
 
 thread_local! {
-    pub(crate) static PLATFORM_ABSTRACTION_INSTANCE : once_cell::unsync::OnceCell<Box<dyn Platform>>
+    pub(crate) static PLATFORM_INSTANCE : once_cell::unsync::OnceCell<Box<dyn Platform>>
         = once_cell::unsync::OnceCell::new()
 }
 static EVENTLOOP_PROXY: OnceCell<Box<dyn EventLoopProxy + 'static>> = OnceCell::new();
@@ -119,7 +119,7 @@ pub(crate) fn event_loop_proxy() -> Option<&'static dyn EventLoopProxy> {
 ///
 /// If the platform abstraction was already set this will return `Err`
 pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), ()> {
-    PLATFORM_ABSTRACTION_INSTANCE.with(|instance| {
+    PLATFORM_INSTANCE.with(|instance| {
         if instance.get().is_some() {
             return Err(());
         }
@@ -150,7 +150,7 @@ pub fn update_timers_and_animations() {
 /// can be called to know if a window has running animation
 pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
     crate::timers::TimerList::next_timeout().map(|timeout| {
-        let duration_since_start = crate::platform::PLATFORM_ABSTRACTION_INSTANCE
+        let duration_since_start = crate::platform::PLATFORM_INSTANCE
             .with(|p| p.get().map(|p| p.duration_since_start()))
             .unwrap_or_default();
         core::time::Duration::from_millis(
