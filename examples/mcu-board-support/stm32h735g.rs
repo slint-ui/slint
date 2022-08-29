@@ -54,7 +54,10 @@ impl slint::platform::PlatformAbstraction for StmBackend {
     fn create_window(&self) -> Rc<dyn slint::platform::PlatformWindow> {
         let window = Rc::new_cyclic(|self_weak: &Weak<StmWindow>| StmWindow {
             window: slint::Window::new(self_weak.clone()),
-            renderer: swrenderer::SoftwareRenderer::new(swrenderer::DirtyTracking::DoubleBuffer),
+            renderer: swrenderer::SoftwareRenderer::new(
+                swrenderer::DirtyTracking::DoubleBuffer,
+                self_weak.clone(),
+            ),
             needs_redraw: true.into(),
         });
         self.window.replace(Some(window.clone()));
@@ -323,11 +326,7 @@ impl slint::platform::PlatformAbstraction for StmBackend {
             if let Some(window) = self.window.borrow().clone() {
                 if window.needs_redraw.replace(false) {
                     while layer.is_swap_pending() {}
-                    window.renderer.render(
-                        &window.window,
-                        work_fb,
-                        PhysicalLength::new(DISPLAY_WIDTH as i16),
-                    );
+                    window.renderer.render(work_fb, PhysicalLength::new(DISPLAY_WIDTH as i16));
                     cp.SCB.clean_dcache_by_slice(work_fb);
                     // Safety: the frame buffer has the right size
                     unsafe { layer.swap_framebuffer(work_fb.as_ptr() as *const u8) };

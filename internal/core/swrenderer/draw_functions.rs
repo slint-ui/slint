@@ -283,6 +283,7 @@ fn interpolate_color(
 /// PremultipliedRgbaColor can be constructed from a [`Color`] with
 /// the [`From`] trait. This conversion will pre-multiply the color
 /// components
+#[allow(missing_docs)]
 #[derive(Clone, Copy, Debug, Default)]
 pub struct PremultipliedRgbaColor {
     pub red: u8,

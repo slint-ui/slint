@@ -4,11 +4,11 @@
 //! This module contains the [`SoftwareRenderer`] and related types.
 //!
 //! It is only available with the `renderer-software` feature.
+#![warn(missing_docs)]
 
 mod draw_functions;
 mod fonts;
 
-use crate::api::Window;
 use crate::graphics::{IntRect, PixelFormat, Rect as RectF, SharedImageBuffer};
 use crate::item_rendering::ItemRenderer;
 use crate::items::{ImageFit, ItemRc};
@@ -20,6 +20,7 @@ use crate::renderer::Renderer;
 use crate::textlayout::{FontMetrics as _, TextParagraphLayout};
 use crate::window::{WindowHandleAccess, WindowInner};
 use crate::{Color, Coord, ImageInner, StaticTextures};
+use alloc::rc::Weak;
 use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
@@ -73,7 +74,6 @@ pub trait LineBufferProvider {
     );
 }
 
-#[derive(Default)]
 /// A Renderer that do the rendering in software
 ///
 /// The renderer can remember what items needs to be redrawn from the previous iteration.
@@ -90,11 +90,25 @@ pub struct SoftwareRenderer {
     dirty_tracking_policy: DirtyTracking,
     /// This is the area which was dirty on the next frame, in case we do double buffering
     prev_frame_dirty: Cell<DirtyRegion>,
+    window: Weak<dyn crate::window::PlatformWindow>,
 }
 
 impl SoftwareRenderer {
-    pub fn new(dirty_tracking_policy: DirtyTracking) -> Self {
-        Self { dirty_tracking_policy, ..Default::default() }
+    /// Create a new Renderer for a given window.
+    ///
+    /// The `window` parametter can be comming from [`Rc::new_cyclic()`](alloc::rc::Rc::new_cyclic())
+    /// since the `PlatformWindow` most likely owd the Renderer
+    pub fn new(
+        dirty_tracking_policy: DirtyTracking,
+        window: Weak<dyn crate::window::PlatformWindow>,
+    ) -> Self {
+        Self {
+            dirty_tracking_policy,
+            window: window.clone(),
+            partial_cache: Default::default(),
+            force_dirty: Default::default(),
+            prev_frame_dirty: Default::default(),
+        }
     }
 
     /// Internal function to apply a dirty region depending on the dirty_tracking_policy.
@@ -122,13 +136,9 @@ impl SoftwareRenderer {
     /// be rendered. (eg: the previous dirty region in case of double buffering)
     ///
     /// returns the dirty region for this frame (not including the extra_draw_region)
-    pub fn render(
-        &self,
-        window: &Window,
-        buffer: &mut [impl TargetPixel],
-        buffer_stride: PhysicalLength,
-    ) {
-        let window = window.window_handle();
+    pub fn render(&self, buffer: &mut [impl TargetPixel], buffer_stride: PhysicalLength) {
+        let window = self.window.upgrade().expect("render() called on a destroyed Window");
+        let window = window.window().window_handle();
         let factor = ScaleFactor::new(window.scale_factor());
         let (size, background) = if let Some(window_item) =
             window.window_item().as_ref().map(|item| item.as_pin_ref())
@@ -216,8 +226,9 @@ impl SoftwareRenderer {
     /// renderer.render_by_line(window, FrameBuffer{ frame_buffer: the_frame_buffer, stride: display_width });
     /// # }
     /// ```
-    pub fn render_by_line(&self, window: &Window, line_buffer: impl LineBufferProvider) {
-        let window = window.window_handle().clone();
+    pub fn render_by_line(&self, line_buffer: impl LineBufferProvider) {
+        let window = self.window.upgrade().expect("render() called on a destroyed Window");
+        let window = window.window().window_handle();
         let component_rc = window.component();
         let component = crate::component::ComponentRc::borrow_pin(&component_rc);
         if let Some(window_item) = crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(

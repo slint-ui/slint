@@ -14,8 +14,11 @@ use std::rc::Weak;
 impl super::WinitCompatibleRenderer for SoftwareRenderer {
     type Canvas = SwCanvas;
 
-    fn new(_platform_window_weak: &Weak<dyn PlatformWindow>) -> Self {
-        SoftwareRenderer::new(i_slint_core::swrenderer::DirtyTracking::None)
+    fn new(platform_window_weak: &Weak<dyn PlatformWindow>) -> Self {
+        SoftwareRenderer::new(
+            i_slint_core::swrenderer::DirtyTracking::None,
+            platform_window_weak.clone(),
+        )
     }
 
     fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas {
@@ -44,12 +47,7 @@ impl super::WinitCompatibleRenderer for SoftwareRenderer {
 
         window.draw_contents(|_component| {
             if std::env::var_os("SLINT_LINE_BY_LINE").is_none() {
-                Self::render(
-                    &self,
-                    platform_window.window(),
-                    buffer.as_mut_slice(),
-                    PhysicalLength::new(width as _),
-                );
+                Self::render(&self, buffer.as_mut_slice(), PhysicalLength::new(width as _));
             } else {
                 struct FrameBuffer<'a> {
                     buffer: &'a mut [Rgb8Pixel],
@@ -78,10 +76,10 @@ impl super::WinitCompatibleRenderer for SoftwareRenderer {
                         }
                     }
                 }
-                self.render_by_line(
-                    platform_window.window(),
-                    FrameBuffer { buffer: &mut buffer, line: vec![Default::default(); width] },
-                );
+                self.render_by_line(FrameBuffer {
+                    buffer: &mut buffer,
+                    line: vec![Default::default(); width],
+                });
             }
         });
 
