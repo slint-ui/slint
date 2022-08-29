@@ -1042,7 +1042,7 @@ pub enum InvokeCallbackError {
 /// events from the windowing system in order to render to the screen
 /// and react to user input.
 pub fn run_event_loop() {
-    i_slint_backend_selector::with_platform_abstraction(|b| {
+    i_slint_backend_selector::with_platform(|b| {
         b.run_event_loop(i_slint_core::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed)
     });
 }

@@ -206,7 +206,7 @@ impl Instant {
     }
 
     fn duration_since_start() -> core::time::Duration {
-        crate::platform::PLATFORM_ABSTRACTION_INSTANCE
+        crate::platform::PLATFORM_INSTANCE
             .with(|p| p.get().map(|p| p.duration_since_start()))
             .unwrap_or_default()
     }
