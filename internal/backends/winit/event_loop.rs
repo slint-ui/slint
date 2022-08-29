@@ -9,7 +9,6 @@
 */
 use copypasta::ClipboardProvider;
 use corelib::items::PointerEventButton;
-use corelib::lengths::LogicalSize;
 use i_slint_core as corelib;
 
 use corelib::graphics::euclid;
@@ -60,7 +59,7 @@ pub trait WinitWindow: WindowAdapter {
                 let max_width = constraints_horizontal.max.max(constraints_horizontal.min) as f32;
                 let max_height = constraints_vertical.max.max(constraints_vertical.min) as f32;
 
-                let sf = self.window().scale_factor().get();
+                let sf = self.window().scale_factor();
 
                 winit_window.set_resizable(true);
                 winit_window.set_min_inner_size(if min_width > 0. || min_height > 0. {
@@ -126,7 +125,7 @@ pub trait WinitWindow: WindowAdapter {
                 must_resize = true;
 
                 let winit_size =
-                    winit_window.inner_size().to_logical(self.window().scale_factor().get() as f64);
+                    winit_window.inner_size().to_logical(self.window().scale_factor() as f64);
 
                 if width <= 0. {
                     width = winit_size.width;
@@ -136,8 +135,8 @@ pub trait WinitWindow: WindowAdapter {
                 }
             }
 
-            let existing_size: LogicalSize =
-                self.inner_size().cast() / self.window().scale_factor();
+            let existing_size: i_slint_core::api::LogicalSize =
+                self.inner_size().to_logical(self.window().scale_factor());
 
             if (existing_size.width as f32 - width).abs() > 1.
                 || (existing_size.height as f32 - height).abs() > 1.
@@ -153,8 +152,10 @@ pub trait WinitWindow: WindowAdapter {
 
         if must_resize {
             let win = self.window();
-            let f = win.scale_factor().0;
-            win.set_size(euclid::size2((width as f32 * f) as _, (height as f32 * f) as _));
+
+            win.set_size(
+                i_slint_core::api::LogicalSize::new(width, height).to_physical(win.scale_factor()),
+            );
         }
     }
 
@@ -163,7 +164,7 @@ pub trait WinitWindow: WindowAdapter {
         false
     }
 
-    fn inner_size(&self) -> euclid::Size2D<u32, corelib::lengths::PhysicalPx>;
+    fn inner_size(&self) -> i_slint_core::api::PhysicalSize;
 }
 
 struct NotRunningEventLoop {
@@ -485,17 +486,18 @@ fn process_window_event(
             }
         }
         WindowEvent::MouseWheel { delta, .. } => {
-            let delta = match delta {
-                winit::event::MouseScrollDelta::LineDelta(lx, ly) => {
-                    euclid::point2(lx * 60., ly * 60.)
-                }
+            let (delta_x, delta_y) = match delta {
+                winit::event::MouseScrollDelta::LineDelta(lx, ly) => (lx * 60., ly * 60.),
                 winit::event::MouseScrollDelta::PixelDelta(d) => {
                     let d = d.to_logical(runtime_window.scale_factor() as f64);
-                    euclid::point2(d.x, d.y)
+                    (d.x, d.y)
                 }
-            }
-            .cast::<Coord>();
-            runtime_window.process_mouse_input(MouseEvent::Wheel { position: *cursor_pos, delta });
+            };
+            runtime_window.process_mouse_input(MouseEvent::Wheel {
+                position: *cursor_pos,
+                delta_x: delta_x as Coord,
+                delta_y: delta_y as Coord,
+            });
         }
         WindowEvent::MouseInput { state, button, .. } => {
             let button = match button {

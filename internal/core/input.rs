@@ -34,8 +34,9 @@ pub enum MouseEvent {
     Moved { position: Point },
     /// Wheel was operated.
     /// `pos` is the position of the mouse when the event happens.
-    /// `delta` is the amount of pixel to scroll.
-    Wheel { position: Point, delta: Point },
+    /// `delta_x` is the amount of pixels to scroll in horizontal direction,
+    /// `delta_y` is the amount of pixels to scroll in vertical direction.
+    Wheel { position: Point, delta_x: f32, delta_y: f32 },
     /// The mouse exited the item or component
     Exit,
 }
@@ -71,18 +72,17 @@ impl From<crate::api::WindowEvent> for MouseEvent {
     fn from(event: crate::api::WindowEvent) -> Self {
         match event {
             crate::api::WindowEvent::PointerPressed { position, button } => {
-                MouseEvent::Pressed { position: position.to_untyped().cast(), button }
+                MouseEvent::Pressed { position: position.to_euclid().cast(), button }
             }
             crate::api::WindowEvent::PointerReleased { position, button } => {
-                MouseEvent::Released { position: position.to_untyped().cast(), button }
+                MouseEvent::Released { position: position.to_euclid().cast(), button }
             }
             crate::api::WindowEvent::PointerMoved { position } => {
-                MouseEvent::Moved { position: position.to_untyped().cast() }
+                MouseEvent::Moved { position: position.to_euclid().cast() }
             }
-            crate::api::WindowEvent::PointerScrolled { position, delta } => MouseEvent::Wheel {
-                position: position.to_untyped().cast(),
-                delta: delta.to_untyped().cast().to_point(),
-            },
+            crate::api::WindowEvent::PointerScrolled { position, delta_x, delta_y } => {
+                MouseEvent::Wheel { position: position.to_euclid().cast(), delta_x, delta_y }
+            }
             crate::api::WindowEvent::PointerExited => MouseEvent::Exit,
         }
     }

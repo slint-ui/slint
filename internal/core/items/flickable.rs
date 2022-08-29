@@ -291,7 +291,7 @@ impl FlickableData {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::Wheel { delta, .. } => {
+            MouseEvent::Wheel { delta_x, delta_y, .. } => {
                 let old_pos = Point::new(
                     (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
                         .apply_pin(flick)
@@ -300,7 +300,10 @@ impl FlickableData {
                         .apply_pin(flick)
                         .get(),
                 );
-                let new_pos = ensure_in_bound(flick, old_pos + delta.to_vector());
+                let new_pos = ensure_in_bound(
+                    flick,
+                    old_pos + euclid::default::Vector2D::new(delta_x as _, delta_y as _),
+                );
                 (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
                     .apply_pin(flick)
                     .set(new_pos.x);

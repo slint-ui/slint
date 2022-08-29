@@ -23,8 +23,7 @@ use rp_pico::hal::pac::interrupt;
 use rp_pico::hal::timer::{Alarm, Alarm0};
 use rp_pico::hal::{self, pac, prelude::*, Timer};
 use slint::platform::swrenderer as renderer;
-use slint::PhysicalPx;
-use slint::{euclid, PointerEventButton, WindowEvent};
+use slint::{PointerEventButton, WindowEvent};
 
 #[cfg(feature = "panic-probe")]
 use panic_probe as _;
@@ -51,7 +50,7 @@ static TIMER: Mutex<RefCell<Option<Timer>>> = Mutex::new(RefCell::new(None));
 // 16ns for serial clock cycle (write), page 43 of https://www.waveshare.com/w/upload/a/ae/ST7789_Datasheet.pdf
 const SPI_ST7789VW_MAX_FREQ: Hertz<u32> = Hertz::<u32>::Hz(62_500_000);
 
-const DISPLAY_SIZE: euclid::Size2D<u32, PhysicalPx> = euclid::Size2D::new(320, 240);
+const DISPLAY_SIZE: slint::PhysicalSize = slint::PhysicalSize::new(320, 240);
 
 /// The Pixel type of the backing store
 pub type TargetPixel = Rgb565Pixel;
@@ -190,7 +189,7 @@ impl slint::platform::Platform for PicoBackend {
 
         let mut last_touch = None;
 
-        self.window.borrow().as_ref().unwrap().set_size(DISPLAY_SIZE.cast());
+        self.window.borrow().as_ref().unwrap().set_size(DISPLAY_SIZE);
 
         loop {
             slint::platform::update_timers_and_animations();
@@ -208,9 +207,11 @@ impl slint::platform::Platform for PicoBackend {
                     .map_err(|_| ())
                     .unwrap()
                     .map(|point| {
-                        let size = DISPLAY_SIZE.to_f32();
-                        let position = euclid::point2(point.x * size.width, point.y * size.height)
-                            / window.scale_factor().get();
+                        let position = slint::PhysicalPosition::new(
+                            (point.x * DISPLAY_SIZE.width as f32) as _,
+                            (point.y * DISPLAY_SIZE.height as f32) as _,
+                        )
+                        .to_logical(window.scale_factor());
                         match last_touch.replace(position) {
                             Some(_) => WindowEvent::PointerMoved { position },
                             None => WindowEvent::PointerPressed { position, button },
@@ -383,9 +384,8 @@ mod xpt2046 {
     use cortex_m::interrupt::Mutex;
     use embedded_hal::blocking::spi::Transfer;
     use embedded_hal::digital::v2::{InputPin, OutputPin};
+    use euclid::default::Point2D;
     use fugit::RateExtU32;
-    use slint::euclid;
-    use slint::euclid::default::Point2D;
 
     pub struct XPT2046<IRQ: InputPin + 'static, CS: OutputPin, SPI: Transfer<u8>> {
         irq: &'static Mutex<RefCell<Option<IRQ>>>,

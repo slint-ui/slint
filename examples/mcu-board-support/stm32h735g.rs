@@ -13,7 +13,6 @@ use hal::gpio::Speed::High;
 use hal::pac;
 use hal::prelude::*;
 use hal::rcc::rec::OctospiClkSelGetter;
-use slint::euclid;
 use slint::platform::swrenderer;
 use stm32h7xx_hal as hal; // global logger
 
@@ -316,7 +315,7 @@ impl slint::platform::Platform for StmBackend {
             .borrow()
             .as_ref()
             .unwrap()
-            .set_size((DISPLAY_WIDTH as u32, DISPLAY_HEIGHT as u32).into());
+            .set_size(slint::PhysicalSize::new(DISPLAY_WIDTH as u32, DISPLAY_HEIGHT as u32));
         loop {
             slint::platform::update_timers_and_animations();
 
@@ -336,10 +335,8 @@ impl slint::platform::Platform for StmBackend {
                 let button = slint::PointerEventButton::Left;
                 let event = if touch > 0 {
                     let state = ft5336.get_touch(&mut touch_i2c, 1).unwrap();
-                    let position =
-                        euclid::Point2D::<i16, slint::PhysicalPx>::new(state.y as _, state.x as _)
-                            .cast()
-                            / window.scale_factor();
+                    let position = slint::PhysicalPosition::new(state.y as i32, state.x as i32)
+                        .to_logical(window.scale_factor());
                     Some(match last_touch.replace(position) {
                         Some(_) => slint::WindowEvent::PointerMoved { position },
                         None => slint::WindowEvent::PointerPressed { position, button },

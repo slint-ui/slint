@@ -73,7 +73,7 @@ impl Item for Text {
                 self.font_request(window),
                 self.text().as_str(),
                 max_width,
-                window_adapter.window().scale_factor().get(),
+                window_adapter.window().scale_factor(),
             )
         };
 
@@ -259,7 +259,7 @@ impl Item for TextInput {
                     }
                 },
                 max_width,
-                window_adapter.window().scale_factor().get(),
+                window_adapter.window().scale_factor(),
             )
         };
 
@@ -589,7 +589,7 @@ impl TextInput {
                 self.font_request(window_adapter),
                 " ",
                 None,
-                window_adapter.window().scale_factor().get(),
+                window_adapter.window().scale_factor(),
             )
             .height;
 

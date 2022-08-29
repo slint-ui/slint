@@ -12,8 +12,151 @@ use alloc::boxed::Box;
 use crate::component::ComponentVTable;
 use crate::window::{WindowAdapter, WindowInner};
 
-pub use crate::lengths::LogicalPx;
-pub use crate::lengths::PhysicalPx;
+/// A position represented in the coordinate space of logical pixels. That is the space before applying
+/// a display device specific scale factor.
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
+pub struct LogicalPosition {
+    /// The x coordinate.
+    pub x: f32,
+    /// The y coordinate.
+    pub y: f32,
+}
+
+impl LogicalPosition {
+    /// Construct a new logical position from the given x and y coordinates, that are assumed to be
+    /// in the logical coordinate space.
+    pub const fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
+
+    /// Convert a given physical position to a logical position by dividing the coordinates with the
+    /// specified scale factor.
+    pub fn from_physical(physical_pos: PhysicalPosition, scale_factor: f32) -> Self {
+        Self::new(physical_pos.x as f32 / scale_factor, physical_pos.y as f32 / scale_factor)
+    }
+
+    /// Convert this logical position to a physical position by multiplying the coordinates with the
+    /// specified scale factor.
+    pub fn to_physical(&self, scale_factor: f32) -> PhysicalPosition {
+        PhysicalPosition::from_logical(*self, scale_factor)
+    }
+
+    pub(crate) fn to_euclid(&self) -> crate::graphics::Point {
+        [self.x as _, self.y as _].into()
+    }
+}
+
+/// A position represented in the coordinate space of physical device pixels. That is the space after applying
+/// a display device specific scale factor to pixels from the logical coordinate space.
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
+pub struct PhysicalPosition {
+    /// The x coordinate.
+    pub x: i32,
+    /// The y coordinate.
+    pub y: i32,
+}
+
+impl PhysicalPosition {
+    /// Construct a new physical position from the given x and y coordinates, that are assumed to be
+    /// in the physical coordinate space.
+    pub const fn new(x: i32, y: i32) -> Self {
+        Self { x, y }
+    }
+
+    /// Convert a given logical position to a physical position by multiplying the coordinates with the
+    /// specified scale factor.
+    pub fn from_logical(logical_pos: LogicalPosition, scale_factor: f32) -> Self {
+        Self::new((logical_pos.x * scale_factor) as i32, (logical_pos.y * scale_factor) as i32)
+    }
+
+    /// Convert this physical position to a logical position by dividing the coordinates with the
+    /// specified scale factor.
+    pub fn to_logical(&self, scale_factor: f32) -> LogicalPosition {
+        LogicalPosition::from_physical(*self, scale_factor)
+    }
+
+    #[cfg(feature = "ffi")]
+    pub(crate) fn to_euclid(&self) -> crate::graphics::euclid::default::Point2D<i32> {
+        [self.x, self.y].into()
+    }
+}
+
+/// A size represented in the coordinate space of logical pixels. That is the space before applying
+/// a display device specific scale factor.
+#[derive(Debug, Default, Copy, Clone)]
+pub struct LogicalSize {
+    /// The width in logical pixels.
+    pub width: f32,
+    /// The height in logical.
+    pub height: f32,
+}
+
+impl LogicalSize {
+    /// Construct a new logical size from the given width and height values, that are assumed to be
+    /// in the logical coordinate space.
+    pub const fn new(width: f32, height: f32) -> Self {
+        Self { width, height }
+    }
+
+    /// Convert a given physical size to a logical size by dividing width and height by the
+    /// specified scale factor.
+    pub fn from_physical(physical_size: PhysicalSize, scale_factor: f32) -> Self {
+        Self::new(
+            physical_size.width as f32 / scale_factor,
+            physical_size.height as f32 / scale_factor,
+        )
+    }
+
+    /// Convert this logical size to a physical size by multiplying width and height with the
+    /// specified scale factor.
+    pub fn to_physical(&self, scale_factor: f32) -> PhysicalSize {
+        PhysicalSize::from_logical(*self, scale_factor)
+    }
+
+    /*
+    pub(crate) fn to_euclid(&self) -> crate::graphics::Size {
+        [self.width as _, self.height as _].into()
+    }
+    */
+}
+
+/// A size represented in the coordinate space of physical device pixels. That is the space after applying
+/// a display device specific scale factor to pixels from the logical coordinate space.
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
+pub struct PhysicalSize {
+    /// The width in physical pixels.
+    pub width: u32,
+    /// The height in physical pixels;
+    pub height: u32,
+}
+
+impl PhysicalSize {
+    /// Construct a new physical size from the width and height values, that are assumed to be
+    /// in the physical coordinate space.
+    pub const fn new(width: u32, height: u32) -> Self {
+        Self { width, height }
+    }
+
+    /// Convert a given logical size to a physical size by multiplying width and height with the
+    /// specified scale factor.
+    pub fn from_logical(logical_size: LogicalSize, scale_factor: f32) -> Self {
+        Self::new(
+            (logical_size.width * scale_factor) as u32,
+            (logical_size.height * scale_factor) as u32,
+        )
+    }
+
+    /// Convert this physical size to a logical size by dividing width and height by the
+    /// specified scale factor.
+    pub fn to_logical(&self, scale_factor: f32) -> LogicalSize {
+        LogicalSize::from_physical(*self, scale_factor)
+    }
+
+    #[cfg(feature = "ffi")]
+    pub(crate) fn to_euclid(&self) -> crate::graphics::euclid::default::Size2D<u32> {
+        [self.width, self.height].into()
+    }
+}
 
 /// This enum describes a low-level access to specific graphics APIs used
 /// by the renderer.
@@ -196,37 +339,37 @@ impl Window {
 
     /// This function returns an euclid scale that allows conveniently converting between logical and
     /// physical pixels based on the window's scale factor.
-    pub fn scale_factor(&self) -> euclid::Scale<f32, LogicalPx, PhysicalPx> {
-        self.0.scale()
+    pub fn scale_factor(&self) -> f32 {
+        self.0.scale_factor()
     }
 
     /// Returns the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
-    pub fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
+    pub fn position(&self) -> PhysicalPosition {
         self.0.window_adapter().position()
     }
 
     /// Sets the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     /// Note that on some windowing systems, such as Wayland, this functionality is not available.
-    pub fn set_position(&self, position: euclid::Point2D<i32, PhysicalPx>) {
+    pub fn set_position(&self, position: PhysicalPosition) {
         self.0.window_adapter().set_position(position)
     }
 
     /// Returns the size of the window on the screen, in physical screen coordinates and excluding
     /// a window frame (if present).
-    pub fn size(&self) -> euclid::Size2D<u32, PhysicalPx> {
+    pub fn size(&self) -> PhysicalSize {
         self.0.inner_size.get()
     }
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
-    pub fn set_size(&self, size: euclid::Size2D<u32, PhysicalPx>) {
+    pub fn set_size(&self, size: PhysicalSize) {
         if self.0.inner_size.replace(size) == size {
             return;
         }
 
-        let l = size.cast() / self.scale_factor();
+        let l = size.to_logical(self.scale_factor());
         self.0.set_window_item_geometry(l.width as _, l.height as _);
         self.0.window_adapter().set_inner_size(size)
     }
@@ -262,25 +405,23 @@ pub use crate::input::PointerEventButton;
 #[non_exhaustive]
 pub enum WindowEvent {
     /// The mouse or finger was pressed
-    PointerPressed { position: euclid::Point2D<f32, LogicalPx>, button: PointerEventButton },
+    PointerPressed { position: LogicalPosition, button: PointerEventButton },
     /// The mouse or finger was released
-    PointerReleased { position: euclid::Point2D<f32, LogicalPx>, button: PointerEventButton },
+    PointerReleased { position: LogicalPosition, button: PointerEventButton },
     /// The position of the pointer has changed
-    PointerMoved { position: euclid::Point2D<f32, LogicalPx> },
+    PointerMoved { position: LogicalPosition },
     /// Wheel was rotated.
     /// `pos` is the position of the mouse when the event happens.
-    /// `delta` is the amount of pixel to scroll.
-    PointerScrolled {
-        position: euclid::Point2D<f32, LogicalPx>,
-        delta: euclid::Vector2D<f32, LogicalPx>,
-    },
+    /// `delta_x` is the amount of pixels to scroll in horizontal direction,
+    /// `delta_y` is the amount of pixels to scroll in vertical direction.
+    PointerScrolled { position: LogicalPosition, delta_x: f32, delta_y: f32 },
     /// The mouse exited the item or component
     PointerExited,
 }
 
 impl WindowEvent {
     /// The position of the cursor for this event, if any
-    pub fn position(&self) -> Option<euclid::Point2D<f32, LogicalPx>> {
+    pub fn position(&self) -> Option<LogicalPosition> {
         match self {
             WindowEvent::PointerPressed { position, .. } => Some(*position),
             WindowEvent::PointerReleased { position, .. } => Some(*position),
@@ -536,4 +677,28 @@ pub fn quit_event_loop() {
     crate::platform::event_loop_proxy()
         .expect("quit_event_loop() called before the slint platform abstraction was initialized, or the platform does not support event loop")
         .quit_event_loop()
+}
+
+#[test]
+fn logical_physical_pos() {
+    use crate::graphics::euclid::approxeq::ApproxEq;
+
+    let phys = PhysicalPosition::new(100, 50);
+    let logical = phys.to_logical(2.);
+    assert!(logical.x.approx_eq(&50.));
+    assert!(logical.y.approx_eq(&25.));
+
+    assert_eq!(logical.to_physical(2.), phys);
+}
+
+#[test]
+fn logical_physical_size() {
+    use crate::graphics::euclid::approxeq::ApproxEq;
+
+    let phys = PhysicalSize::new(100, 50);
+    let logical = phys.to_logical(2.);
+    assert!(logical.width.approx_eq(&50.));
+    assert!(logical.height.approx_eq(&25.));
+
+    assert_eq!(logical.to_physical(2.), phys);
 }

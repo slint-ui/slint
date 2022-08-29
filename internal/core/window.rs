@@ -6,7 +6,7 @@
 #![warn(missing_docs)]
 //! Exposed Window API
 
-use crate::api::{CloseRequestResponse, LogicalPx, PhysicalPx, Window};
+use crate::api::{CloseRequestResponse, PhysicalPosition, PhysicalSize, Window};
 use crate::component::{ComponentRc, ComponentRef, ComponentVTable, ComponentWeak};
 use crate::graphics::{Point, Rect, Size};
 use crate::input::{
@@ -115,20 +115,20 @@ pub trait WindowAdapterSealed {
     /// a window frame (if present).
     ///
     /// The default implementation returns `(0,0)`
-    fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
+    fn position(&self) -> PhysicalPosition {
         Default::default()
     }
     /// Sets the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     ///
     /// The default implementation does nothing
-    fn set_position(&self, _position: euclid::Point2D<i32, PhysicalPx>) {}
+    fn set_position(&self, _position: PhysicalPosition) {}
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
     ///
     /// The default implementation does nothing
-    fn set_inner_size(&self, _size: euclid::Size2D<u32, PhysicalPx>) {}
+    fn set_inner_size(&self, _size: PhysicalSize) {}
 
     /// Return the renderer
     fn renderer(&self) -> &dyn Renderer;
@@ -194,7 +194,7 @@ pub struct WindowInner {
     close_requested: Callback<(), CloseRequestResponse>,
     /// This is a cache of the size set by the set_inner_size setter.
     /// It should be mapping with the WindowItem::width and height (only in physical)
-    pub(crate) inner_size: Cell<euclid::Size2D<u32, PhysicalPx>>,
+    pub(crate) inner_size: Cell<PhysicalSize>,
 }
 
 impl Drop for WindowInner {
@@ -648,11 +648,6 @@ impl WindowInner {
         self.scale_factor.as_ref().set(factor)
     }
 
-    /// Returns an euclid scale that can be used to convert between logical and physical pixels.
-    pub fn scale(&self) -> euclid::Scale<f32, LogicalPx, PhysicalPx> {
-        euclid::Scale::new(self.scale_factor())
-    }
-
     /// Returns the window item that is the first item in the component.
     pub fn window_item(&self) -> Option<VRcMapped<ComponentVTable, crate::items::WindowItem>> {
         self.try_component().and_then(|component_rc| {
@@ -929,7 +924,7 @@ pub mod ffi {
         pos: &mut euclid::default::Point2D<i32>,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        *pos = window_adapter.position().to_untyped()
+        *pos = window_adapter.position().to_euclid()
     }
 
     /// Sets the position of the window on the screen, in physical screen coordinates and including
@@ -941,7 +936,7 @@ pub mod ffi {
         pos: &euclid::default::Point2D<i32>,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.set_position(euclid::Point2D::from_untyped(*pos));
+        window_adapter.set_position(crate::api::PhysicalPosition::new(pos.x, pos.y));
     }
 
     /// Returns the size of the window on the screen, in physical screen coordinates and excluding
@@ -949,7 +944,7 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_size(handle: *const WindowAdapterRcOpaque) -> IntSize {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().window_handle().inner_size.get().to_untyped().cast()
+        window_adapter.window().window_handle().inner_size.get().to_euclid().cast()
     }
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
@@ -960,6 +955,6 @@ pub mod ffi {
         size: &IntSize,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.set_inner_size([size.width, size.height].into());
+        window_adapter.set_inner_size(crate::api::PhysicalSize::new(size.width, size.height));
     }
 }

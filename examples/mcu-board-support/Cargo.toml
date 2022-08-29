@@ -17,7 +17,7 @@ links = "mcu_board_support" # just so we can pass metadata to the slint build cr
 path = "lib.rs"
 
 [features]
-pico-st7789 = ["slint/unsafe-single-threaded", "rp-pico", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "fugit", "cortex-m", "cortex-m", "display-interface", "st7789", "defmt", "defmt-rtt",  "slint/defmt", "shared-bus", "slint/libm", "embedded-dma", "embedded-graphics"]
+pico-st7789 = ["slint/unsafe-single-threaded", "rp-pico", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "fugit", "cortex-m", "cortex-m", "display-interface", "st7789", "defmt", "defmt-rtt",  "slint/defmt", "shared-bus", "slint/libm", "embedded-dma", "embedded-graphics", "euclid/libm"]
 stm32h735g = ["slint/unsafe-single-threaded", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "embedded-time", "cortex-m", "slint/defmt", "stm32h7xx-hal/stm32h735", "defmt", "defmt-rtt", "embedded-display-controller", "ft5336", "panic-probe", "slint/libm"]
 
 [dependencies]
@@ -51,6 +51,8 @@ ft5336 = { version = "0.1", git = "https://github.com/bobgates/ft5336", rev = "2
 defmt-rtt = { version = "0.3.0", optional = true }
 defmt = { version = "0.3.0", optional = true }
 panic-probe = { version = "0.3.0", optional = true, features = ["print-defmt"] }
+
+euclid = { version = "0.22", default-features = false, optional = true }
 
 [build-dependencies]
 cfg-if = "1.0.0"
