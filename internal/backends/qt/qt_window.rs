@@ -20,7 +20,7 @@ use i_slint_core::items::{
     PointerEventButton, RenderingResult, TextOverflow, TextWrap,
 };
 use i_slint_core::layout::Orientation;
-use i_slint_core::window::{PlatformWindow, WindowHandleAccess};
+use i_slint_core::window::{WindowAdapter, WindowHandleAccess};
 use i_slint_core::{ImageInner, PathData, Property, SharedString};
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 
@@ -605,7 +605,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }
 
         let font: QFont =
-            get_font(text_input.font_request(&self.window.window_handle().platform_window()));
+            get_font(text_input.font_request(&self.window.window_handle().window_adapter()));
         let flags = match text_input.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
@@ -1338,7 +1338,7 @@ impl QtWindow {
 }
 
 #[allow(unused)]
-impl PlatformWindow for QtWindow {
+impl WindowAdapter for QtWindow {
     fn show(&self) {
         let component_rc = self.window.window_handle().component();
         let component = ComponentRc::borrow_pin(&component_rc);
@@ -1479,7 +1479,7 @@ impl PlatformWindow for QtWindow {
         self.tree_structure_changed.replace(true);
     }
 
-    fn create_popup(&self, geometry: Rect) -> Option<Rc<dyn PlatformWindow>> {
+    fn create_popup(&self, geometry: Rect) -> Option<Rc<dyn WindowAdapter>> {
         let popup_window = QtWindow::new();
 
         let size = qttypes::QSize { width: geometry.width() as _, height: geometry.height() as _ };
@@ -1607,7 +1607,7 @@ impl Renderer for QtWindow {
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
         let pos = qttypes::QPointF { x: pos.x as _, y: pos.y as _ };
         let font: QFont =
-            get_font(text_input.font_request(&self.window.window_handle().platform_window()));
+            get_font(text_input.font_request(&self.window.window_handle().window_adapter()));
         let string = qttypes::QString::from(text_input.text().as_str());
         let flags = match text_input.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
@@ -1663,7 +1663,7 @@ impl Renderer for QtWindow {
     ) -> Rect {
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
         let font: QFont =
-            get_font(text_input.font_request(&self.window.window_handle().platform_window()));
+            get_font(text_input.font_request(&self.window.window_handle().window_adapter()));
         let text = text_input.text();
         let mut string = qttypes::QString::from(text.as_str());
         let offset: u32 = utf8_byte_offset_to_utf16_units(text.as_str(), byte_offset) as _;
@@ -1941,9 +1941,9 @@ pub(crate) mod ffi {
 
     #[no_mangle]
     pub extern "C" fn slint_qt_get_widget(
-        platform_window: &i_slint_core::window::PlatformWindowRc,
+        window_adapter: &i_slint_core::window::WindowAdapterRc,
     ) -> *mut c_void {
-        <dyn std::any::Any>::downcast_ref(platform_window.as_any())
+        <dyn std::any::Any>::downcast_ref(window_adapter.as_any())
             .map_or(std::ptr::null_mut(), |win: &QtWindow| {
                 win.widget_ptr().cast::<c_void>().as_ptr()
             })

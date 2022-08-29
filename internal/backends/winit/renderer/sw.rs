@@ -7,15 +7,15 @@ use super::WinitCompatibleCanvas;
 use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::lengths::PhysicalLength;
 pub use i_slint_core::swrenderer::SoftwareRenderer;
-use i_slint_core::window::PlatformWindow;
+use i_slint_core::window::{WindowAdapter, WindowHandleAccess};
 use std::cell::RefCell;
 use std::rc::Weak;
 
 impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRenderer<BUFFER_COUNT> {
     type Canvas = SwCanvas;
 
-    fn new(platform_window_weak: &Weak<dyn PlatformWindow>) -> Self {
-        SoftwareRenderer::new(platform_window_weak.clone())
+    fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
+        SoftwareRenderer::new(window_adapter_weak.clone())
     }
 
     fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas {
@@ -33,7 +33,7 @@ impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRende
 
     fn release_canvas(&self, _canvas: Self::Canvas) {}
 
-    fn render(&self, canvas: &SwCanvas, _: &dyn PlatformWindow) {
+    fn render(&self, canvas: &SwCanvas, _: &dyn WindowAdapter) {
         let size = canvas.opengl_context.window().inner_size();
         let width = size.width as usize;
         let height = size.height as usize;

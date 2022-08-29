@@ -67,7 +67,7 @@ struct PicoBackend {
     window: RefCell<Option<Rc<PicoWindow>>>,
 }
 impl slint::platform::Platform for PicoBackend {
-    fn create_window(&self) -> Rc<dyn slint::platform::PlatformWindow> {
+    fn create_window(&self) -> Rc<dyn slint::platform::WindowAdapter> {
         let window = Rc::new_cyclic(|self_weak: &Weak<PicoWindow>| PicoWindow {
             window: slint::Window::new(self_weak.clone()),
             renderer: renderer::SoftwareRenderer::new(self_weak.clone()),
@@ -285,7 +285,7 @@ struct PicoWindow {
     needs_redraw: Cell<bool>,
 }
 
-impl slint::platform::PlatformWindow for PicoWindow {
+impl slint::platform::WindowAdapter for PicoWindow {
     fn show(&self) {
         self.window.set_size(DISPLAY_SIZE.cast());
     }

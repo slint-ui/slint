@@ -13,7 +13,7 @@ use i_slint_core::items::DialogButtonRole;
 use i_slint_core::layout::{self as core_layout};
 use i_slint_core::model::RepeatedComponent;
 use i_slint_core::slice::Slice;
-use i_slint_core::window::PlatformWindow;
+use i_slint_core::window::WindowAdapter;
 use std::convert::TryInto;
 use std::rc::Rc;
 use std::str::FromStr;
@@ -187,7 +187,7 @@ fn grid_layout_data(
             let mut layout_info = get_layout_info(
                 &cell.item.element,
                 component,
-                eval::platform_window_ref(component).unwrap(),
+                eval::window_adapter_ref(component).unwrap(),
                 orientation,
             );
             fill_layout_info_constraints(
@@ -210,7 +210,7 @@ fn box_layout_data(
     expr_eval: &impl Fn(&NamedReference) -> f32,
     mut repeater_indices: Option<&mut Vec<u32>>,
 ) -> (Vec<core_layout::BoxLayoutCellData>, i_slint_core::items::LayoutAlignment) {
-    let platform_window = eval::platform_window_ref(component).unwrap();
+    let window_adapter = eval::window_adapter_ref(component).unwrap();
     let mut cells = Vec::with_capacity(box_layout.elems.len());
     for cell in &box_layout.elems {
         if cell.element.borrow().repeated.is_some() {
@@ -224,7 +224,7 @@ fn box_layout_data(
                 let instance = crate::dynamic_component::instantiate(
                     rep.1.clone(),
                     Some(component.borrow()),
-                    Some(platform_window),
+                    Some(window_adapter),
                     Default::default(),
                 );
                 instance.run_setup_code();
@@ -242,7 +242,7 @@ fn box_layout_data(
             );
         } else {
             let mut layout_info =
-                get_layout_info(&cell.element, component, platform_window, orientation);
+                get_layout_info(&cell.element, component, window_adapter, orientation);
             fill_layout_info_constraints(
                 &mut layout_info,
                 &cell.constraints,
@@ -267,7 +267,7 @@ fn box_layout_data(
 }
 
 fn repeater_indices(children: &[ElementRc], component: InstanceRef) -> Vec<u32> {
-    let platform_window = eval::platform_window_ref(component).unwrap();
+    let window_adapter = eval::window_adapter_ref(component).unwrap();
 
     let mut idx = 0;
     let mut ri = Vec::new();
@@ -283,7 +283,7 @@ fn repeater_indices(children: &[ElementRc], component: InstanceRef) -> Vec<u32> 
                 let instance = crate::dynamic_component::instantiate(
                     rep.1.clone(),
                     Some(component.borrow()),
-                    Some(platform_window),
+                    Some(window_adapter),
                     Default::default(),
                 );
                 instance.run_setup_code();
@@ -361,7 +361,7 @@ pub(crate) fn fill_layout_info_constraints(
 pub(crate) fn get_layout_info(
     elem: &ElementRc,
     component: InstanceRef,
-    platform_window: &Rc<dyn PlatformWindow>,
+    window_adapter: &Rc<dyn WindowAdapter>,
     orientation: Orientation,
 ) -> core_layout::LayoutInfo {
     let elem = elem.borrow();
@@ -376,7 +376,7 @@ pub(crate) fn get_layout_info(
         unsafe {
             item.item_from_component(component.as_ptr())
                 .as_ref()
-                .layout_info(to_runtime(orientation), platform_window)
+                .layout_info(to_runtime(orientation), window_adapter)
         }
     }
 }

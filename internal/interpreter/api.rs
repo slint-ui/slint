@@ -586,7 +586,7 @@ impl ComponentDefinition {
                 .inner
                 .unerase(guard)
                 .clone()
-                .create_with_existing_window(&window.window_handle().platform_window()),
+                .create_with_existing_window(&window.window_handle().window_adapter()),
         }
     }
 
@@ -964,13 +964,13 @@ impl ComponentHandle for ComponentInstance {
     fn show(&self) {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.borrow_instance().platform_window().show();
+        comp.borrow_instance().window_adapter().show();
     }
 
     fn hide(&self) {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.borrow_instance().platform_window().hide();
+        comp.borrow_instance().window_adapter().hide();
     }
 
     fn run(&self) {
@@ -980,7 +980,7 @@ impl ComponentHandle for ComponentInstance {
     }
 
     fn window(&self) -> &Window {
-        self.inner.platform_window().window()
+        self.inner.window_adapter().window()
     }
 
     fn global<'a, T: Global<'a, Self>>(&'a self) -> T
@@ -1058,7 +1058,7 @@ pub mod testing {
             &vtable::VRc::into_dyn(comp.inner.clone()),
             x,
             y,
-            &comp.window().window_handle().platform_window(),
+            &comp.window().window_handle().window_adapter(),
         );
     }
     /// Wrapper around [`i_slint_core::tests::send_keyboard_string_sequence`]
@@ -1069,7 +1069,7 @@ pub mod testing {
         i_slint_core::tests::send_keyboard_string_sequence(
             &string,
             Default::default(),
-            &comp.window().window_handle().platform_window(),
+            &comp.window().window_handle().window_adapter(),
         );
     }
 }

@@ -284,7 +284,7 @@ pub mod re_exports {
     pub use i_slint_core::model::*;
     pub use i_slint_core::properties::{set_state_binding, Property, PropertyTracker, StateInfo};
     pub use i_slint_core::slice::Slice;
-    pub use i_slint_core::window::{PlatformWindow, WindowHandleAccess, WindowInner};
+    pub use i_slint_core::window::{WindowAdapter, WindowHandleAccess, WindowInner};
     pub use i_slint_core::Color;
     pub use i_slint_core::ComponentVTable_static;
     pub use i_slint_core::Coord;
@@ -435,7 +435,7 @@ pub mod internal {
 
 /// Creates a new window to render components in.
 #[doc(hidden)]
-pub fn create_window() -> alloc::rc::Rc<dyn re_exports::PlatformWindow> {
+pub fn create_window() -> alloc::rc::Rc<dyn re_exports::WindowAdapter> {
     i_slint_backend_selector::with_platform_abstraction(|b| b.create_window())
 }
 
@@ -474,7 +474,7 @@ pub mod testing {
             &dyn_rc,
             x,
             y,
-            &rc.window_handle().platform_window(),
+            &rc.window_handle().window_adapter(),
         );
     }
 
@@ -503,7 +503,7 @@ pub mod testing {
         i_slint_core::tests::send_keyboard_string_sequence(
             &super::SharedString::from(sequence),
             KEYBOARD_MODIFIERS.with(|x| x.get()),
-            &component.window_handle().platform_window(),
+            &component.window_handle().window_adapter(),
         )
     }
 

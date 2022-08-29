@@ -12,7 +12,7 @@ use crate::item_tree::{
 use crate::items::{AccessibleRole, ItemVTable};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::slice::Slice;
-use crate::window::PlatformWindow;
+use crate::window::WindowAdapter;
 use crate::SharedString;
 use alloc::rc::Rc;
 use vtable::*;
@@ -115,10 +115,10 @@ pub type ComponentWeak = vtable::VWeak<ComponentVTable, Dyn>;
 pub fn register_component<Base>(
     base: core::pin::Pin<&Base>,
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
-    platform_window: &Rc<dyn PlatformWindow>,
+    window_adapter: &Rc<dyn WindowAdapter>,
 ) {
-    item_array.iter().for_each(|item| item.apply_pin(base).as_ref().init(platform_window));
-    platform_window.register_component();
+    item_array.iter().for_each(|item| item.apply_pin(base).as_ref().init(window_adapter));
+    window_adapter.register_component();
 }
 
 /// Free the backend graphics resources allocated by the component's items.
@@ -126,9 +126,9 @@ pub fn unregister_component<Base>(
     base: core::pin::Pin<&Base>,
     component: ComponentRef,
     item_array: &[vtable::VOffset<Base, ItemVTable, vtable::AllowPin>],
-    platform_window: &Rc<dyn PlatformWindow>,
+    window_adapter: &Rc<dyn WindowAdapter>,
 ) {
-    platform_window
+    window_adapter
         .unregister_component(component, &mut item_array.iter().map(|item| item.apply_pin(base)));
 }
 
@@ -136,7 +136,7 @@ pub fn unregister_component<Base>(
 pub(crate) mod ffi {
     #![allow(unsafe_code)]
 
-    use crate::window::PlatformWindow;
+    use crate::window::WindowAdapter;
 
     use super::*;
 
@@ -145,13 +145,13 @@ pub(crate) mod ffi {
     pub unsafe extern "C" fn slint_register_component(
         component: ComponentRefPin,
         item_array: Slice<vtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
-        window_handle: *const crate::window::ffi::PlatformWindowRcOpaque,
+        window_handle: *const crate::window::ffi::WindowAdapterRcOpaque,
     ) {
-        let platform_window = &*(window_handle as *const Rc<dyn PlatformWindow>);
+        let window_adapter = &*(window_handle as *const Rc<dyn WindowAdapter>);
         super::register_component(
             core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
             item_array.as_slice(),
-            platform_window,
+            window_adapter,
         )
     }
 
@@ -160,14 +160,14 @@ pub(crate) mod ffi {
     pub unsafe extern "C" fn slint_unregister_component(
         component: ComponentRefPin,
         item_array: Slice<vtable::VOffset<u8, ItemVTable, vtable::AllowPin>>,
-        window_handle: *const crate::window::ffi::PlatformWindowRcOpaque,
+        window_handle: *const crate::window::ffi::WindowAdapterRcOpaque,
     ) {
-        let platform_window = &*(window_handle as *const Rc<dyn PlatformWindow>);
+        let window_adapter = &*(window_handle as *const Rc<dyn WindowAdapter>);
         super::unregister_component(
             core::pin::Pin::new_unchecked(&*(component.as_ptr() as *const u8)),
             core::pin::Pin::into_inner(component),
             item_array.as_slice(),
-            platform_window,
+            window_adapter,
         )
     }
 }

@@ -12,7 +12,7 @@ extern crate alloc;
 use std::rc::Rc;
 use std::sync::Mutex;
 
-use i_slint_core::window::PlatformWindow;
+use i_slint_core::window::WindowAdapter;
 
 mod glwindow;
 use glwindow::*;
@@ -22,7 +22,7 @@ pub(crate) mod event_loop;
 mod renderer {
     use std::rc::Weak;
 
-    use i_slint_core::window::PlatformWindow;
+    use i_slint_core::window::WindowAdapter;
 
     mod boxshadowcache;
 
@@ -30,14 +30,14 @@ mod renderer {
         type Canvas: WinitCompatibleCanvas;
 
         fn new(
-            platform_window_weak: &Weak<dyn PlatformWindow>,
+            window_adapter_weak: &Weak<dyn WindowAdapter>,
             #[cfg(target_arch = "wasm32")] canvas_id: String,
         ) -> Self;
 
         fn create_canvas(&self, window_builder: winit::window::WindowBuilder) -> Self::Canvas;
         fn release_canvas(&self, canvas: Self::Canvas);
 
-        fn render(&self, canvas: &Self::Canvas, window: &dyn PlatformWindow);
+        fn render(&self, canvas: &Self::Canvas, window: &dyn WindowAdapter);
     }
 
     pub(crate) trait WinitCompatibleCanvas {
@@ -66,7 +66,7 @@ pub(crate) mod wasm_input_helper;
 mod stylemetrics;
 
 #[cfg(target_arch = "wasm32")]
-pub fn create_gl_window_with_canvas_id(canvas_id: String) -> Rc<dyn PlatformWindow> {
+pub fn create_gl_window_with_canvas_id(canvas_id: String) -> Rc<dyn WindowAdapter> {
     GLWindow::<crate::renderer::femtovg::FemtoVGRenderer>::new(canvas_id)
 }
 
@@ -87,7 +87,7 @@ pub use stylemetrics::native_style_metrics_deinit;
 pub use stylemetrics::native_style_metrics_init;
 
 pub struct Backend {
-    window_factory_fn: Mutex<Box<dyn Fn() -> Rc<dyn PlatformWindow> + Send>>,
+    window_factory_fn: Mutex<Box<dyn Fn() -> Rc<dyn WindowAdapter> + Send>>,
 }
 
 impl Backend {
@@ -143,7 +143,7 @@ impl Backend {
 }
 
 impl i_slint_core::platform::Platform for Backend {
-    fn create_window(&self) -> Rc<dyn PlatformWindow> {
+    fn create_window(&self) -> Rc<dyn WindowAdapter> {
         self.window_factory_fn.lock().unwrap()()
     }
 

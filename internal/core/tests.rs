@@ -29,7 +29,7 @@ pub extern "C" fn slint_send_mouse_click(
     component: &crate::component::ComponentRc,
     x: Coord,
     y: Coord,
-    platform_window: &crate::window::PlatformWindowRc,
+    window_adapter: &crate::window::WindowAdapterRc,
 ) {
     let mut state = crate::input::MouseInputState::default();
     let position = euclid::point2(x, y);
@@ -37,20 +37,20 @@ pub extern "C" fn slint_send_mouse_click(
     state = crate::input::process_mouse_input(
         component.clone(),
         MouseEvent::Moved { position },
-        platform_window,
+        window_adapter,
         state,
     );
     state = crate::input::process_mouse_input(
         component.clone(),
         MouseEvent::Pressed { position, button: crate::items::PointerEventButton::Left },
-        platform_window,
+        window_adapter,
         state,
     );
     slint_mock_elapsed_time(50);
     crate::input::process_mouse_input(
         component.clone(),
         MouseEvent::Released { position, button: crate::items::PointerEventButton::Left },
-        platform_window,
+        window_adapter,
         state,
     );
 }
@@ -60,7 +60,7 @@ pub extern "C" fn slint_send_mouse_click(
 pub extern "C" fn send_keyboard_string_sequence(
     sequence: &crate::SharedString,
     modifiers: KeyboardModifiers,
-    platform_window: &crate::window::PlatformWindowRc,
+    window_adapter: &crate::window::WindowAdapterRc,
 ) {
     for ch in sequence.chars() {
         let mut modifiers = modifiers;
@@ -70,12 +70,12 @@ pub extern "C" fn send_keyboard_string_sequence(
         let mut buffer = [0; 6];
         let text = SharedString::from(ch.encode_utf8(&mut buffer) as &str);
 
-        platform_window.window().window_handle().process_key_input(&KeyEvent {
+        window_adapter.window().window_handle().process_key_input(&KeyEvent {
             event_type: KeyEventType::KeyPressed,
             text: text.clone(),
             modifiers,
         });
-        platform_window.window().window_handle().process_key_input(&KeyEvent {
+        window_adapter.window().window_handle().process_key_input(&KeyEvent {
             event_type: KeyEventType::KeyReleased,
             text,
             modifiers,

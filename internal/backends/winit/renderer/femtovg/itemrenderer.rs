@@ -283,7 +283,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         let font = fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text_input.font_request(&self.window.window_handle().platform_window()),
+                text_input.font_request(&self.window.window_handle().window_adapter()),
                 self.scale_factor,
                 &text_input.text(),
             )

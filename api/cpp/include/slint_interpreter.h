@@ -564,7 +564,7 @@ public:
     /// such as the position on the screen.
     const slint::Window &window()
     {
-        const cbindgen_private::PlatformWindowRcOpaque *win_ptr = nullptr;
+        const cbindgen_private::WindowAdapterRcOpaque *win_ptr = nullptr;
         cbindgen_private::slint_interpreter_component_instance_window(inner(), &win_ptr);
         return *reinterpret_cast<const slint::Window *>(win_ptr);
     }
@@ -582,10 +582,10 @@ public:
     /// it may return nullptr if the Qt backend is not used at runtime.
     QWidget *qwidget() const
     {
-        const cbindgen_private::PlatformWindowRcOpaque *win_ptr = nullptr;
+        const cbindgen_private::WindowAdapterRcOpaque *win_ptr = nullptr;
         cbindgen_private::slint_interpreter_component_instance_window(inner(), &win_ptr);
         auto wid = reinterpret_cast<QWidget *>(cbindgen_private::slint_qt_get_widget(
-                reinterpret_cast<const cbindgen_private::PlatformWindowRc *>(win_ptr)));
+                reinterpret_cast<const cbindgen_private::WindowAdapterRc *>(win_ptr)));
         return wid;
     }
 #endif
@@ -1010,10 +1010,10 @@ inline void send_keyboard_string_sequence(const slint::interpreter::ComponentIns
                                           const slint::SharedString &str,
                                           KeyboardModifiers modifiers = {})
 {
-    const cbindgen_private::PlatformWindowRcOpaque *win_ptr = nullptr;
+    const cbindgen_private::WindowAdapterRcOpaque *win_ptr = nullptr;
     cbindgen_private::slint_interpreter_component_instance_window(
             reinterpret_cast<const cbindgen_private::ErasedComponentBox *>(component), &win_ptr);
     cbindgen_private::send_keyboard_string_sequence(
-            &str, modifiers, reinterpret_cast<const cbindgen_private::PlatformWindowRc *>(win_ptr));
+            &str, modifiers, reinterpret_cast<const cbindgen_private::WindowAdapterRc *>(win_ptr));
 }
 }

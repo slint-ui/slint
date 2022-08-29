@@ -21,7 +21,7 @@ pub use crate::lengths::{PhysicalLength, PhysicalPoint};
 pub use crate::renderer::Renderer;
 #[cfg(feature = "swrenderer")]
 pub use crate::swrenderer;
-pub use crate::window::PlatformWindow;
+pub use crate::window::WindowAdapter;
 
 #[derive(Copy, Clone)]
 /// Behavior describing how the event loop should terminate.
@@ -35,7 +35,7 @@ pub enum EventLoopQuitBehavior {
 /// Interface implemented by back-ends
 pub trait Platform {
     /// Instantiate a window for a component.
-    fn create_window(&self) -> Rc<dyn PlatformWindow>;
+    fn create_window(&self) -> Rc<dyn WindowAdapter>;
 
     /// Spins an event loop and renders the visible windows.
     fn run_event_loop(&self, _behavior: EventLoopQuitBehavior) {

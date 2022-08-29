@@ -10,7 +10,7 @@ This module contains types that are public and re-exported in the slint-rs as we
 use alloc::boxed::Box;
 
 use crate::component::ComponentVTable;
-use crate::window::{PlatformWindow, WindowInner};
+use crate::window::{WindowAdapter, WindowInner};
 
 pub use crate::lengths::LogicalPx;
 pub use crate::lengths::PhysicalPx;
@@ -118,41 +118,41 @@ impl Default for CloseRequestResponse {
 }
 
 impl Window {
-    /// Create a new window from a platform window.
+    /// Create a new window from a window adapter
     ///
     /// You only need to create the window yourself when you create a
-    /// [`PlatformWindow`](crate::platform::PlatformWindow) from
+    /// [`WindowAdapter`](crate::platform::WindowAdapter) from
     /// [`Platform::create_window`](crate::platform::Platform::create_window)
     ///
-    /// Since the platform window must own the Window, this function is meant to be used with
+    /// Since the window adapter must own the Window, this function is meant to be used with
     /// [`Rc::new_cyclic`](alloc::rc::Rc::new_cyclic)
     ///
     /// # Example
     /// ```rust
     /// use std::rc::Rc;
-    /// use slint::platform::PlatformWindow;
+    /// use slint::platform::WindowAdapter;
     /// use slint::Window;
-    /// struct MyPlatformWindow {
+    /// struct MyWindowAdapter {
     ///     window: Window,
     ///     //...
     /// }
-    /// impl PlatformWindow for MyPlatformWindow {
+    /// impl WindowAdapter for MyWindowAdapter {
     ///    fn window(&self) -> &Window { &self.window }
     /// # fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer { unimplemented!() }
     /// # fn as_any(&self) -> &(dyn core::any::Any + 'static) { self }
     ///    //...
     /// }
-    /// fn create_window() -> Rc<dyn PlatformWindow> {
-    ///    Rc::<MyPlatformWindow>::new_cyclic(|weak| {
-    ///        MyPlatformWindow {
+    /// fn create_window() -> Rc<dyn WindowAdapter> {
+    ///    Rc::<MyWindowAdapter>::new_cyclic(|weak| {
+    ///        MyWindowAdapter {
     ///           window: Window::new(weak.clone()),
     ///           //...
     ///        }
     ///    })
     /// }
     /// ```
-    pub fn new(platform_window_weak: alloc::rc::Weak<dyn PlatformWindow>) -> Self {
-        Self(WindowInner::new(platform_window_weak))
+    pub fn new(window_adapter_weak: alloc::rc::Weak<dyn WindowAdapter>) -> Self {
+        Self(WindowInner::new(window_adapter_weak))
     }
 
     /// Registers the window with the windowing system in order to make it visible on the screen.
@@ -171,7 +171,7 @@ impl Window {
         &self,
         callback: impl FnMut(RenderingState, &GraphicsAPI) + 'static,
     ) -> Result<(), SetRenderingNotifierError> {
-        self.0.platform_window().renderer().set_rendering_notifier(Box::new(callback))
+        self.0.window_adapter().renderer().set_rendering_notifier(Box::new(callback))
     }
 
     /// This function allows registering a callback that's invoked when the user tries to close a window.
@@ -182,7 +182,7 @@ impl Window {
 
     /// This function issues a request to the windowing system to redraw the contents of the window.
     pub fn request_redraw(&self) {
-        self.0.platform_window().request_redraw();
+        self.0.window_adapter().request_redraw();
 
         // When this function is called by the user, we want it to translate to a requestAnimationFrame()
         // on the web. If called through the rendering notifier (so from within the event loop processing),
@@ -202,14 +202,14 @@ impl Window {
     /// Returns the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     pub fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
-        self.0.platform_window().position()
+        self.0.window_adapter().position()
     }
 
     /// Sets the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     /// Note that on some windowing systems, such as Wayland, this functionality is not available.
     pub fn set_position(&self, position: euclid::Point2D<i32, PhysicalPx>) {
-        self.0.platform_window().set_position(position)
+        self.0.window_adapter().set_position(position)
     }
 
     /// Returns the size of the window on the screen, in physical screen coordinates and excluding
@@ -227,7 +227,7 @@ impl Window {
 
         let l = size.cast() / self.scale_factor();
         self.0.set_window_item_geometry(l.width as _, l.height as _);
-        self.0.platform_window().set_inner_size(size)
+        self.0.window_adapter().set_inner_size(size)
     }
 
     /// Dispatch a pointer event (touch or mouse) to the window
