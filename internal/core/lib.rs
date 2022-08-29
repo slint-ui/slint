@@ -85,7 +85,7 @@ pub type Coord = i32;
 /// Internal function to access the platform abstraction.
 /// The factory function is called if the platform abstraction is not yet
 /// initialized, and should be given by the platform_selector
-pub fn with_platform(
+pub fn with_platform<R>(
     factory: impl FnOnce() -> alloc::boxed::Box<dyn Platform + 'static>,
     f: impl FnOnce(&dyn Platform) -> R,
 ) -> R {

@@ -7,7 +7,7 @@ use super::WinitCompatibleCanvas;
 use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::lengths::PhysicalLength;
 pub use i_slint_core::swrenderer::SoftwareRenderer;
-use i_slint_core::window::{WindowAdapter, WindowHandleAccess};
+use i_slint_core::window::WindowAdapter;
 use std::cell::RefCell;
 use std::rc::Weak;
 

@@ -23,7 +23,7 @@ use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
 use winit::dpi::LogicalSize;
 
-/// GraphicsWindow is an implementation of the [WindowAdapter][`crate::eventloopMyWindowAdapter`] trait. This is
+/// GraphicsWindow is an implementation of the [WindowAdapter][`crate::eventloop::WindowAdapter`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
 pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer + 'static> {
     window: corelib::api::Window,
