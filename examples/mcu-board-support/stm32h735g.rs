@@ -4,7 +4,7 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use alloc::rc::{Rc, Weak};
+use alloc::rc::Rc;
 pub use cortex_m_rt::entry;
 use defmt_rtt as _;
 use embedded_display_controller::{DisplayController, DisplayControllerLayer};
@@ -16,6 +16,7 @@ use hal::rcc::rec::OctospiClkSelGetter;
 use slint::euclid;
 use slint::platform::swrenderer;
 use slint::platform::swrenderer::PhysicalLength;
+use slint::platform::WindowAdapter;
 use stm32h7xx_hal as hal; // global logger
 
 #[cfg(feature = "panic-probe")]
@@ -47,16 +48,12 @@ pub fn init() {
 
 #[derive(Default)]
 struct StmBackend {
-    window: core::cell::RefCell<Option<Rc<StmWindow>>>,
+    window: core::cell::RefCell<Option<Rc<slint::platform::swrenderer::MinimalSoftwareWindow<2>>>>,
     timer: once_cell::unsync::OnceCell<hal::timer::Timer<pac::TIM2>>,
 }
 impl slint::platform::Platform for StmBackend {
     fn create_window_adapter(&self) -> Rc<dyn slint::platform::WindowAdapter> {
-        let window = Rc::new_cyclic(|self_weak: &Weak<StmWindow>| StmWindow {
-            window: slint::Window::new(self_weak.clone()),
-            renderer: swrenderer::SoftwareRenderer::new(self_weak.clone()),
-            needs_redraw: true.into(),
-        });
+        let window = slint::platform::swrenderer::MinimalSoftwareWindow::new();
         self.window.replace(Some(window.clone()));
         window
     }
@@ -317,19 +314,25 @@ impl slint::platform::Platform for StmBackend {
         let mut work_fb: &mut [TargetPixel] = fb2;
 
         let mut last_touch = None;
+        self.window
+            .borrow()
+            .as_ref()
+            .unwrap()
+            .window()
+            .set_size((DISPLAY_WIDTH as u32, DISPLAY_HEIGHT as u32).into());
         loop {
             slint::platform::update_timers_and_animations();
 
             if let Some(window) = self.window.borrow().clone() {
-                if window.needs_redraw.replace(false) {
+                window.draw_if_needed(|renderer| {
                     while layer.is_swap_pending() {}
-                    window.renderer.render(work_fb, PhysicalLength::new(DISPLAY_WIDTH as i16));
+                    renderer.render(work_fb, PhysicalLength::new(DISPLAY_WIDTH as i16));
                     cp.SCB.clean_dcache_by_slice(work_fb);
                     // Safety: the frame buffer has the right size
                     unsafe { layer.swap_framebuffer(work_fb.as_ptr() as *const u8) };
                     // Swap the buffer pointer so we will work now on the second buffer
                     core::mem::swap::<&mut [_]>(&mut work_fb, &mut displayed_fb);
-                }
+                });
 
                 // handle touch event
                 let touch = ft5336.detect_touch(&mut touch_i2c).unwrap();
@@ -339,7 +342,7 @@ impl slint::platform::Platform for StmBackend {
                     let position =
                         euclid::Point2D::<i16, slint::PhysicalPx>::new(state.y as _, state.x as _)
                             .cast()
-                            / window.window.scale_factor();
+                            / window.window().scale_factor();
                     Some(match last_touch.replace(position) {
                         Some(_) => slint::PointerEvent::Moved { position },
                         None => slint::PointerEvent::Pressed { position, button },
@@ -351,7 +354,7 @@ impl slint::platform::Platform for StmBackend {
                 };
 
                 if let Some(event) = event {
-                    window.window.dispatch_pointer_event(event);
+                    window.window().dispatch_pointer_event(event);
                 }
             }
 
@@ -363,33 +366,5 @@ impl slint::platform::Platform for StmBackend {
         // FIXME! the timer can overflow
         let val = self.timer.get().map_or(0, |t| t.counter() / 10);
         core::time::Duration::from_millis(val.into())
-    }
-}
-
-struct StmWindow {
-    window: slint::Window,
-    renderer: swrenderer::SoftwareRenderer<2>,
-    needs_redraw: core::cell::Cell<bool>,
-}
-
-impl slint::platform::WindowAdapter for StmWindow {
-    fn show(&self) {
-        self.window.set_size((DISPLAY_WIDTH as u32, DISPLAY_HEIGHT as u32).into());
-    }
-    fn hide(&self) {}
-    fn request_redraw(&self) {
-        self.needs_redraw.set(true);
-    }
-
-    fn renderer(&self) -> &dyn slint::platform::Renderer {
-        &self.renderer
-    }
-
-    fn as_any(&self) -> &dyn core::any::Any {
-        self
-    }
-
-    fn window(&self) -> &slint::Window {
-        &self.window
     }
 }

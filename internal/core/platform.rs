@@ -11,17 +11,16 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use alloc::string::String;
 
-#[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
-use crate::unsafe_single_threaded::{thread_local, OnceCell};
-#[cfg(feature = "std")]
-use once_cell::sync::OnceCell;
-
 pub use crate::items::{InputType, MouseCursor};
 pub use crate::lengths::{PhysicalLength, PhysicalPoint};
 pub use crate::renderer::Renderer;
 #[cfg(feature = "swrenderer")]
 pub use crate::swrenderer;
 pub use crate::window::WindowAdapter;
+#[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
+use crate::unsafe_single_threaded::{thread_local, OnceCell};
+#[cfg(feature = "std")]
+use once_cell::sync::OnceCell;
 
 #[derive(Copy, Clone)]
 /// Behavior describing how the event loop should terminate.

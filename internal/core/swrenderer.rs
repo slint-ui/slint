@@ -11,6 +11,7 @@
 mod draw_functions;
 mod fonts;
 
+use crate::api::Window;
 use crate::graphics::{IntRect, PixelFormat, Rect as RectF, SharedImageBuffer};
 use crate::item_rendering::ItemRenderer;
 use crate::items::{ImageFit, ItemRc};
@@ -20,9 +21,9 @@ use crate::lengths::{
 };
 use crate::renderer::Renderer;
 use crate::textlayout::{FontMetrics as _, TextParagraphLayout};
-use crate::window::{WindowHandleAccess, WindowInner};
+use crate::window::{WindowAdapter, WindowHandleAccess, WindowInner};
 use crate::{Color, Coord, ImageInner, StaticTextures};
-use alloc::rc::Weak;
+use alloc::rc::{Rc, Weak};
 use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
@@ -1291,5 +1292,56 @@ fn bpp(format: PixelFormat) -> u16 {
         PixelFormat::Rgba => 4,
         PixelFormat::RgbaPremultiplied => 4,
         PixelFormat::AlphaMap => 1,
+    }
+}
+
+/// This is a minimal adaptor for a Window that doesn't have any other feature than rendering
+/// using the software renderer.
+///
+/// The `BUFFER_COUNT` generic parameter is forwared to the [`SoftwareRenderer`]
+pub struct MinimalSoftwareWindow<const BUFFER_COUNT: usize> {
+    window: Window,
+    renderer: SoftwareRenderer<BUFFER_COUNT>,
+    needs_redraw: Cell<bool>,
+}
+
+impl<const BUFFER_COUNT: usize> MinimalSoftwareWindow<BUFFER_COUNT> {
+    /// Instentiate a new MinimalWindowAdaptor
+    pub fn new() -> Rc<Self> {
+        Rc::new_cyclic(|w: &Weak<Self>| Self {
+            window: Window::new(w.clone()),
+            renderer: SoftwareRenderer::new(w.clone()),
+            needs_redraw: Default::default(),
+        })
+    }
+    /// If the window needs to be redrawn, the callback will be called with the
+    /// [renderer](SoftwareRenderer) that shopuld be used to do the drawning.
+    ///
+    /// [`SoftwareRenderer::render()`] or [`SoftwareRenderer::render_by_line()`] should be called
+    /// in that callback.
+    ///
+    /// Return true if something was redrawn.
+    pub fn draw_if_needed(
+        &self,
+        render_callback: impl FnOnce(&SoftwareRenderer<BUFFER_COUNT>),
+    ) -> bool {
+        if self.needs_redraw.replace(false) {
+            render_callback(&self.renderer);
+            true
+        } else {
+            false
+        }
+    }
+}
+
+impl<const BUFFER_COUNT: usize> WindowAdapter for MinimalSoftwareWindow<BUFFER_COUNT> {
+    fn request_redraw(&self) {
+        self.needs_redraw.set(true);
+    }
+    fn renderer(&self) -> &dyn Renderer {
+        &self.renderer
+    }
+    fn window(&self) -> &Window {
+        &self.window
     }
 }
