@@ -12,7 +12,6 @@ use std::rc::{Rc, Weak};
 use crate::event_loop::WinitWindow;
 use crate::renderer::{WinitCompatibleCanvas, WinitCompatibleRenderer};
 use const_field_offset::FieldOffsets;
-use corelib::api::PhysicalPx;
 use corelib::component::ComponentRc;
 use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};
@@ -288,12 +287,12 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
 
     fn resize_event(&self, size: winit::dpi::PhysicalSize<u32>) {
         if let Some(mapped_window) = self.borrow_mapped_window() {
-            self.window().set_size(euclid::size2(size.width, size.height));
+            self.window().set_size(corelib::api::PhysicalSize::new(size.width, size.height));
             mapped_window.canvas.resize_event()
         }
     }
 
-    fn inner_size(&self) -> euclid::Size2D<u32, PhysicalPx> {
+    fn inner_size(&self) -> corelib::api::PhysicalSize {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped { requested_size, .. } => {
                 requested_size.unwrap_or_default()
@@ -301,7 +300,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
             GraphicsWindowBackendState::Mapped(mapped_window) => {
                 mapped_window.canvas.with_window_handle(|winit_window| {
                     let size = winit_window.inner_size();
-                    euclid::Size2D::new(size.width, size.height)
+                    corelib::api::PhysicalSize::new(size.width, size.height)
                 })
             }
         }
@@ -455,7 +454,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         self
     }
 
-    fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
+    fn position(&self) -> corelib::api::PhysicalPosition {
         match &*self.map_state.borrow() {
             GraphicsWindowBackendState::Unmapped { requested_position, .. } => {
                 requested_position.unwrap_or_default()
@@ -463,13 +462,15 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
             GraphicsWindowBackendState::Mapped(mapped_window) => mapped_window
                 .canvas
                 .with_window_handle(|winit_window| match winit_window.outer_position() {
-                    Ok(outer_position) => euclid::Point2D::new(outer_position.x, outer_position.y),
+                    Ok(outer_position) => {
+                        corelib::api::PhysicalPosition::new(outer_position.x, outer_position.y)
+                    }
                     Err(_) => Default::default(),
                 }),
         }
     }
 
-    fn set_position(&self, position: euclid::Point2D<i32, PhysicalPx>) {
+    fn set_position(&self, position: corelib::api::PhysicalPosition) {
         match &mut *self.map_state.borrow_mut() {
             GraphicsWindowBackendState::Unmapped { requested_position, .. } => {
                 *requested_position = Some(position)
@@ -484,7 +485,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         }
     }
 
-    fn set_inner_size(&self, size: euclid::Size2D<u32, PhysicalPx>) {
+    fn set_inner_size(&self, size: corelib::api::PhysicalSize) {
         if let Ok(mut map_state) = self.map_state.try_borrow_mut() {
             // otherwise we are called from the resize event
             match &mut *map_state {
@@ -515,8 +516,8 @@ struct MappedWindow<Renderer: WinitCompatibleRenderer> {
 
 enum GraphicsWindowBackendState<Renderer: WinitCompatibleRenderer> {
     Unmapped {
-        requested_position: Option<euclid::Point2D<i32, PhysicalPx>>,
-        requested_size: Option<euclid::Size2D<u32, PhysicalPx>>,
+        requested_position: Option<corelib::api::PhysicalPosition>,
+        requested_size: Option<corelib::api::PhysicalSize>,
     },
     Mapped(MappedWindow<Renderer>),
 }

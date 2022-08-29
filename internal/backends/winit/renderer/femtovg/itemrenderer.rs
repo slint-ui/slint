@@ -886,7 +886,7 @@ impl<'a> GLItemRenderer<'a> {
         width: u32,
         height: u32,
     ) -> Self {
-        let scale_factor = window.scale_factor().get();
+        let scale_factor = window.scale_factor();
         Self {
             graphics_cache: &canvas.graphics_cache,
             texture_cache: &canvas.texture_cache,
@@ -1122,7 +1122,7 @@ impl<'a> GLItemRenderer<'a> {
                 let target_size_for_scalable_source = matches!(image_inner, ImageInner::Svg(..))
                     .then(|| {
                         // get the scale factor as a property again, to ensure the cache is invalidated when the scale factor changes
-                        let scale_factor = self.window.scale_factor().get();
+                        let scale_factor = self.window.scale_factor();
                         [
                             (target_width.get() * scale_factor) as u32,
                             (target_height.get() * scale_factor) as u32,

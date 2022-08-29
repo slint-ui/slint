@@ -31,23 +31,23 @@ TestCase := Window {
 
 ```rust
 // Test that basic scrolling works, and that releasing the mouse animates
-use slint::{WindowEvent, PointerEventButton, re_exports::euclid::point2};
+use slint::{WindowEvent, PointerEventButton, LogicalPosition};
 let instance = TestCase::new();
-instance.window().dispatch_event(WindowEvent::PointerMoved { position: point2(300.0, 100.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 100.0) });
 slint::testing::mock_elapsed_time(5000);
-instance.window().dispatch_event(WindowEvent::PointerPressed { position: point2(300.0, 100.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_offset_x(), 0.);
 assert_eq!(instance.get_offset_y(), 0.);
-instance.window().dispatch_event(WindowEvent::PointerMoved { position: point2(200.0, 50.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(200.0, 50.0) });
 assert_eq!(instance.get_offset_x(), 100.);
 assert_eq!(instance.get_offset_y(), 50.);
 slint::testing::mock_elapsed_time(200);
 assert_eq!(instance.get_offset_x(), 100.);
 assert_eq!(instance.get_offset_y(), 50.);
-instance.window().dispatch_event(WindowEvent::PointerMoved { position: point2(100.0, 50.0) });
+instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 50.0) });
 assert_eq!(instance.get_offset_x(), 200.);
 assert_eq!(instance.get_offset_y(), 50.);
-instance.window().dispatch_event(WindowEvent::PointerReleased { position: point2(100.0, 50.0), button: PointerEventButton::Left });
+instance.window().dispatch_event(WindowEvent::PointerReleased { position: LogicalPosition::new(100.0, 50.0), button: PointerEventButton::Left });
 // Start of the animation, the position is still unchanged
 assert_eq!(instance.get_offset_x(), 200.);
 assert_eq!(instance.get_offset_y(), 50.);

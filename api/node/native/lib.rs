@@ -527,7 +527,7 @@ declare_types! {
             let x = point_object.get(&mut cx, "x")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
             let y = point_object.get(&mut cx, "y")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
 
-            window.set_position([x as i32, y as i32].into());
+            window.set_position(i_slint_core::api::PhysicalPosition::new(x as i32, y as i32));
 
             Ok(JsUndefined::new().as_value(&mut cx))
         }
@@ -556,7 +556,7 @@ declare_types! {
             let width = size_object.get(&mut cx, "width")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
             let height = size_object.get(&mut cx, "height")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
 
-            window.set_size([width as u32, height as u32].into());
+            window.set_size(i_slint_core::api::PhysicalSize::new(width as u32, height as u32));
 
             Ok(JsUndefined::new().as_value(&mut cx))
         }

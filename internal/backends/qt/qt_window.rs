@@ -5,7 +5,6 @@
 
 use cpp::*;
 use euclid::approxeq::ApproxEq;
-use i_slint_core::api::PhysicalPx;
 use i_slint_core::component::{ComponentRc, ComponentRef};
 use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
@@ -159,8 +158,7 @@ cpp! {{
             }
             rust!(Slint_mouseWheelEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPointF as "QPointF", delta: qttypes::QPoint as "QPoint"] {
                 let position = Point::new(pos.x as _, pos.y as _);
-                let delta = Point::new(delta.x as _, delta.y as _);
-                rust_window.mouse_event(MouseEvent::Wheel{position, delta})
+                rust_window.mouse_event(MouseEvent::Wheel{position, delta_x: delta.x as _, delta_y: delta.y as _})
             });
         }
         void leaveEvent(QEvent *) override {
@@ -1297,7 +1295,7 @@ impl QtWindow {
     }
 
     fn resize_event(&self, size: qttypes::QSize) {
-        self.window.set_size(euclid::size2(size.width, size.height));
+        self.window.set_size(i_slint_core::api::PhysicalSize::new(size.width, size.height));
     }
 
     fn mouse_event(&self, event: MouseEvent) {
@@ -1561,15 +1559,15 @@ impl WindowAdapterSealed for QtWindow {
         }
     }
 
-    fn position(&self) -> euclid::Point2D<i32, PhysicalPx> {
+    fn position(&self) -> i_slint_core::api::PhysicalPosition {
         let widget_ptr = self.widget_ptr();
         let qp = cpp! {unsafe [widget_ptr as "QWidget*"] -> qttypes::QPoint as "QPoint" {
             return widget_ptr->pos();
         }};
-        euclid::Point2D::new(qp.x as _, qp.y as _)
+        i_slint_core::api::PhysicalPosition::new(qp.x as _, qp.y as _)
     }
 
-    fn set_position(&self, position: euclid::Point2D<i32, PhysicalPx>) {
+    fn set_position(&self, position: i_slint_core::api::PhysicalPosition) {
         let widget_ptr = self.widget_ptr();
         let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
         cpp! {unsafe [widget_ptr as "QWidget*", pos as "QPoint"] {
@@ -1577,7 +1575,7 @@ impl WindowAdapterSealed for QtWindow {
         }};
     }
 
-    fn set_inner_size(&self, size: euclid::Size2D<u32, PhysicalPx>) {
+    fn set_inner_size(&self, size: i_slint_core::api::PhysicalSize) {
         let widget_ptr = self.widget_ptr();
         let sz = qttypes::QSize { width: size.width as _, height: size.height as _ };
         cpp! {unsafe [widget_ptr as "QWidget*", sz as "QSize"] {

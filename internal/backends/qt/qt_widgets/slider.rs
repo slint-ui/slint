@@ -176,8 +176,8 @@ impl Item for NativeSlider {
                     InputEventResult::EventIgnored
                 }
             }
-            MouseEvent::Wheel { delta, .. } => {
-                let new_val = value + delta.x + delta.y;
+            MouseEvent::Wheel { delta_x, delta_y, .. } => {
+                let new_val = value + delta_x + delta_y;
                 let new_val = new_val.max(min).min(max);
                 self.value.set(new_val);
                 Self::FIELD_OFFSETS.changed.apply_pin(self).call(&(new_val,));

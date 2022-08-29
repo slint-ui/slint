@@ -37,7 +37,7 @@ impl<'a> SkiaRenderer<'a> {
     ) -> Self {
         Self {
             canvas,
-            scale_factor: window.scale_factor().get(),
+            scale_factor: window.scale_factor(),
             window,
             state_stack: vec![],
             current_state: RenderState { alpha: 1.0 },
