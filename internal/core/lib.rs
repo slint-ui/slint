@@ -89,7 +89,7 @@ pub fn with_platform_abstraction<R>(
     factory: impl FnOnce() -> alloc::boxed::Box<dyn PlatformAbstraction + 'static>,
     f: impl FnOnce(&dyn PlatformAbstraction) -> R,
 ) -> R {
-    platform::PLAFTORM_ABSTRACTION_INSTANCE.with(|p| match p.get() {
+    platform::PLATFORM_ABSTRACTION_INSTANCE.with(|p| match p.get() {
         Some(p) => f(&**p),
         None => {
             platform::set_platform(factory())
