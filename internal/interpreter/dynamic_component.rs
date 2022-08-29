@@ -391,7 +391,7 @@ impl<'id> ComponentDescription<'id> {
     ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
         let window_adapter = i_slint_backend_selector::with_platform_abstraction(|_b| {
             #[cfg(not(target_arch = "wasm32"))]
-            return _b.create_window();
+            return _b.create_window_adapter();
             #[cfg(target_arch = "wasm32")]
             i_slint_backend_winit::create_gl_window_with_canvas_id(canvas_id)
         });

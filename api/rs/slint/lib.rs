@@ -435,8 +435,8 @@ pub mod internal {
 
 /// Creates a new window to render components in.
 #[doc(hidden)]
-pub fn create_window() -> alloc::rc::Rc<dyn re_exports::WindowAdapter> {
-    i_slint_backend_selector::with_platform_abstraction(|b| b.create_window())
+pub fn create_window_adapter() -> alloc::rc::Rc<dyn re_exports::WindowAdapter> {
+    i_slint_backend_selector::with_platform_abstraction(|b| b.create_window_adapter())
 }
 
 /// Enters the main event loop. This is necessary in order to receive
