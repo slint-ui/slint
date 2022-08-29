@@ -142,7 +142,7 @@ impl Backend {
     }
 }
 
-impl i_slint_core::platform::PlatformAbstraction for Backend {
+impl i_slint_core::platform::Platform for Backend {
     fn create_window(&self) -> Rc<dyn PlatformWindow> {
         self.window_factory_fn.lock().unwrap()()
     }

@@ -538,8 +538,8 @@ macro_rules! include_modules {
 ///
 /// By default, slint comes with a platform abstraction as part of the backend (winit or qt).
 /// You may want to write your own backend.
-/// To do so, you need to call [`platform::set_platform_abstraction()`] with your own
-/// implementation of the [`platform::PlatformAbstraction`] trait.
+/// To do so, you need to call [`platform::set_platform()`] with your own
+/// implementation of the [`platform::Platform`] trait.
 pub mod platform {
     pub use i_slint_core::platform::*;
 }

@@ -136,7 +136,7 @@ pub fn native_style_metrics_deinit(_: core::pin::Pin<&mut native_widgets::Native
 }
 
 pub struct Backend;
-impl i_slint_core::platform::PlatformAbstraction for Backend {
+impl i_slint_core::platform::Platform for Backend {
     fn create_window(&self) -> Rc<dyn i_slint_core::window::PlatformWindow> {
         #[cfg(no_qt)]
         panic!("The Qt backend needs Qt");

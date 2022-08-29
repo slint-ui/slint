@@ -58,7 +58,7 @@ pub type TargetPixel = Rgb565Pixel;
 
 pub fn init() {
     unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
-    slint::platform::set_platform_abstraction(Box::new(PicoBackend::default()))
+    slint::platform::set_platform(Box::new(PicoBackend::default()))
         .expect("backend already initialized");
 }
 
@@ -66,7 +66,7 @@ pub fn init() {
 struct PicoBackend {
     window: RefCell<Option<Rc<PicoWindow>>>,
 }
-impl slint::platform::PlatformAbstraction for PicoBackend {
+impl slint::platform::Platform for PicoBackend {
     fn create_window(&self) -> Rc<dyn slint::platform::PlatformWindow> {
         let window = Rc::new_cyclic(|self_weak: &Weak<PicoWindow>| PicoWindow {
             window: slint::Window::new(self_weak.clone()),

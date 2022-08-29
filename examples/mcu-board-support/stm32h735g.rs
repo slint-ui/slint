@@ -41,7 +41,7 @@ static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
 
 pub fn init() {
     unsafe { ALLOCATOR.init(&mut HEAP as *const u8 as usize, core::mem::size_of_val(&HEAP)) }
-    slint::platform::set_platform_abstraction(Box::new(StmBackend::default()))
+    slint::platform::set_platform(Box::new(StmBackend::default()))
         .expect("backend already initialized");
 }
 
@@ -50,7 +50,7 @@ struct StmBackend {
     window: core::cell::RefCell<Option<Rc<StmWindow>>>,
     timer: once_cell::unsync::OnceCell<hal::timer::Timer<pac::TIM2>>,
 }
-impl slint::platform::PlatformAbstraction for StmBackend {
+impl slint::platform::Platform for StmBackend {
     fn create_window(&self) -> Rc<dyn slint::platform::PlatformWindow> {
         let window = Rc::new_cyclic(|self_weak: &Weak<StmWindow>| StmWindow {
             window: slint::Window::new(self_weak.clone()),

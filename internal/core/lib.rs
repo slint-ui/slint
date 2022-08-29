@@ -75,7 +75,7 @@ pub use graphics::RgbaColor;
 #[cfg(feature = "std")]
 #[doc(inline)]
 pub use graphics::PathData;
-use platform::PlatformAbstraction;
+use platform::Platform;
 
 #[cfg(not(slint_int_coord))]
 pub type Coord = f32;
@@ -86,8 +86,8 @@ pub type Coord = i32;
 /// The factory function is called if the platform abstraction is not yet
 /// initialized, and should be given by the platform_selector
 pub fn with_platform_abstraction<R>(
-    factory: impl FnOnce() -> alloc::boxed::Box<dyn PlatformAbstraction + 'static>,
-    f: impl FnOnce(&dyn PlatformAbstraction) -> R,
+    factory: impl FnOnce() -> alloc::boxed::Box<dyn Platform + 'static>,
+    f: impl FnOnce(&dyn Platform) -> R,
 ) -> R {
     platform::PLATFORM_ABSTRACTION_INSTANCE.with(|p| match p.get() {
         Some(p) => f(&**p),

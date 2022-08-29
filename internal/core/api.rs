@@ -122,7 +122,7 @@ impl Window {
     ///
     /// You only need to create the window yourself when you create a
     /// [`PlatformWindow`](crate::platform::PlatformWindow) from
-    /// [`PlatformAbstraction::create_window`](crate::platform::PlatformAbstraction::create_window)
+    /// [`Platform::create_window`](crate::platform::Platform::create_window)
     ///
     /// Since the platform window must own the Window, this function is meant to be used with
     /// [`Rc::new_cyclic`](alloc::rc::Rc::new_cyclic)

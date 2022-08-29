@@ -9,18 +9,18 @@ extern crate alloc;
 
 use alloc::boxed::Box;
 use core::pin::Pin;
-use i_slint_core::platform::PlatformAbstraction;
+use i_slint_core::platform::Platform;
 
 cfg_if::cfg_if! {
     if #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))] {
         use i_slint_backend_qt as default_backend;
 
-        fn create_default_backend() -> Box<dyn PlatformAbstraction + 'static> {
+        fn create_default_backend() -> Box<dyn Platform + 'static> {
             Box::new(default_backend::Backend)
         }
     } else if #[cfg(feature = "i-slint-backend-winit")] {
         use i_slint_backend_winit as default_backend;
-        fn create_default_backend() -> Box<dyn PlatformAbstraction + 'static> {
+        fn create_default_backend() -> Box<dyn Platform + 'static> {
             Box::new(i_slint_backend_winit::Backend::new(None))
         }
     } else {
@@ -33,7 +33,7 @@ cfg_if::cfg_if! {
             all(feature = "i-slint-backend-qt", not(no_qt)),
             feature = "i-slint-backend-winit"
         ))] {
-        pub fn create_backend() -> Box<dyn PlatformAbstraction + 'static>  {
+        pub fn create_backend() -> Box<dyn Platform + 'static>  {
 
             let backend_config = std::env::var("SLINT_BACKEND").or_else(|_| {
                 let legacy_fallback = std::env::var("SIXTYFPS_BACKEND");
@@ -69,7 +69,7 @@ cfg_if::cfg_if! {
             native_widgets, Backend, NativeGlobals, NativeWidgets, HAS_NATIVE_STYLE,
         };
     } else {
-        pub fn create_backend() -> Box<dyn PlatformAbstraction + 'static> {
+        pub fn create_backend() -> Box<dyn Platform + 'static> {
             panic!("no default backend configured, the backend must be initialized manually")
         }
         pub type NativeWidgets = ();
@@ -83,7 +83,7 @@ cfg_if::cfg_if! {
 
 /// Run the callback with the platform abstraction.
 /// Create the backend if it does not exist yet
-pub fn with_platform_abstraction<R>(f: impl FnOnce(&dyn PlatformAbstraction) -> R) -> R {
+pub fn with_platform_abstraction<R>(f: impl FnOnce(&dyn Platform) -> R) -> R {
     i_slint_core::with_platform_abstraction(create_backend, f)
 }
 

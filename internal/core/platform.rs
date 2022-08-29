@@ -33,7 +33,7 @@ pub enum EventLoopQuitBehavior {
 }
 
 /// Interface implemented by back-ends
-pub trait PlatformAbstraction {
+pub trait Platform {
     /// Instantiate a window for a component.
     fn create_window(&self) -> Rc<dyn PlatformWindow>;
 
@@ -77,7 +77,7 @@ pub trait PlatformAbstraction {
     }
 }
 
-/// Trait that is returned by the [`PlatformAbstraction::new_event_loop_proxy`]
+/// Trait that is returned by the [`Platform::new_event_loop_proxy`]
 ///
 /// This are the implementation details for the function that may need to
 /// communicate with the eventloop from different thread
@@ -106,7 +106,7 @@ impl std::convert::From<crate::animations::Instant> for instant::Instant {
 }
 
 thread_local! {
-    pub(crate) static PLATFORM_ABSTRACTION_INSTANCE : once_cell::unsync::OnceCell<Box<dyn PlatformAbstraction>>
+    pub(crate) static PLATFORM_ABSTRACTION_INSTANCE : once_cell::unsync::OnceCell<Box<dyn Platform>>
         = once_cell::unsync::OnceCell::new()
 }
 static EVENTLOOP_PROXY: OnceCell<Box<dyn EventLoopProxy + 'static>> = OnceCell::new();
@@ -118,7 +118,7 @@ pub(crate) fn event_loop_proxy() -> Option<&'static dyn EventLoopProxy> {
 /// Set the slint platform abstraction.
 ///
 /// If the platform abstraction was already set this will return `Err`
-pub fn set_platform(platform: Box<dyn PlatformAbstraction + 'static>) -> Result<(), ()> {
+pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), ()> {
     PLATFORM_ABSTRACTION_INSTANCE.with(|instance| {
         if instance.get().is_some() {
             return Err(());
