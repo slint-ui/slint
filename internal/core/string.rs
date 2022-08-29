@@ -8,9 +8,23 @@
 
 use crate::SharedVector;
 use alloc::string::String;
-use core::fmt::{Debug, Display};
+use core::fmt::{Debug, Display, Write};
 use core::iter::FromIterator;
 use core::ops::Deref;
+
+/// Same as [`std::format!`], but returns a SharedString instread
+///
+/// ### Example
+/// ```rust
+/// let s : slint::SharedString = slint::format!("Hello {}", "world");
+/// assert_eq!(s, slint::SharedString::from("Hello world"));
+/// ```
+#[macro_export]
+macro_rules! format {
+    ($($arg:tt)*) => {{
+        $crate::string::format(core::format_args!($($arg)*))
+    }}
+}
 
 /// A string type used by the Slint run-time.
 ///
@@ -30,6 +44,13 @@ pub struct SharedString {
 }
 
 impl SharedString {
+    /// Creates a new empty string
+    ///
+    /// Same as `SharedString::default()`
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     fn as_ptr(&self) -> *const u8 {
         self.inner.as_ptr()
     }
@@ -201,6 +222,22 @@ impl core::hash::Hash for SharedString {
     }
 }
 
+impl Write for SharedString {
+    fn write_str(&mut self, s: &str) -> core::fmt::Result {
+        self.push_str(s);
+        Ok(())
+    }
+}
+
+/// Same as [`std::fmt::format()`], but return a [`SharedString`] instead
+pub fn format(args: core::fmt::Arguments<'_>) -> SharedString {
+    // unfortunately, the estimated_capacity is unstable
+    //let capacity = args.estimated_capacity();
+    let mut output = SharedString::default();
+    output.write_fmt(args).unwrap();
+    output
+}
+
 #[test]
 fn simple_test() {
     let x = SharedString::from("hello world!");
@@ -213,6 +250,7 @@ fn simple_test() {
     assert_eq!(x.to_string(), string);
     let def = SharedString::default();
     assert_eq!(def, SharedString::default());
+    assert_eq!(def, SharedString::new());
     assert_ne!(def, x);
     assert_eq!(
         (&x as &dyn AsRef<std::ffi::CStr>).as_ref(),
@@ -301,9 +339,8 @@ pub(crate) mod ffi {
     /// The resulting structure must be passed to slint_shared_string_drop
     #[no_mangle]
     pub unsafe extern "C" fn slint_shared_string_from_number(out: *mut SharedString, n: f64) {
-        // TODO: implement Write for SharedString so this can be done without allocation
-        let str = format!("{}", n);
-        core::ptr::write(out, SharedString::from(str.as_str()));
+        let str = crate::format!("{}", n);
+        core::ptr::write(out, str);
     }
 
     #[test]

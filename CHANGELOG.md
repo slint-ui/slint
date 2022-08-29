@@ -26,6 +26,7 @@ All notable changes to this project are documented in this file.
  - Added `slint::Window::dispatch_pointer_event` and `slint::PointerEvent` to be able to manually
    send a mouse or touch event to a window.
  - Added `animation-tick()`
+ - `SharedString` implements `std::fmt::Write` and added `slint::format!`
 
 ## [0.2.5] - 2022-07-06
 

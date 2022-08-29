@@ -26,7 +26,7 @@ pub fn main() {
     let filtered_model = Rc::new(
         model
             .clone()
-            .map(|n| StandardListViewItem::from(format!("{}, {}", n.last, n.first).as_str()))
+            .map(|n| StandardListViewItem::from(slint::format!("{}, {}", n.last, n.first)))
             .filter(move |e| e.text.starts_with(prefix_for_wrapper.borrow().as_str())),
     );
 
