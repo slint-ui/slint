@@ -1298,7 +1298,7 @@ fn bpp(format: PixelFormat) -> u16 {
 /// This is a minimal adaptor for a Window that doesn't have any other feature than rendering
 /// using the software renderer.
 ///
-/// The `BUFFER_COUNT` generic parameter is forwared to the [`SoftwareRenderer`]
+/// The `BUFFER_COUNT` generic parameter is forward to the [`SoftwareRenderer`]
 pub struct MinimalSoftwareWindow<const BUFFER_COUNT: usize> {
     window: Window,
     renderer: SoftwareRenderer<BUFFER_COUNT>,
@@ -1306,7 +1306,7 @@ pub struct MinimalSoftwareWindow<const BUFFER_COUNT: usize> {
 }
 
 impl<const BUFFER_COUNT: usize> MinimalSoftwareWindow<BUFFER_COUNT> {
-    /// Instentiate a new MinimalWindowAdaptor
+    /// Instantiate a new MinimalWindowAdaptor
     pub fn new() -> Rc<Self> {
         Rc::new_cyclic(|w: &Weak<Self>| Self {
             window: Window::new(w.clone()),
@@ -1315,7 +1315,7 @@ impl<const BUFFER_COUNT: usize> MinimalSoftwareWindow<BUFFER_COUNT> {
         })
     }
     /// If the window needs to be redrawn, the callback will be called with the
-    /// [renderer](SoftwareRenderer) that shopuld be used to do the drawning.
+    /// [renderer](SoftwareRenderer) that should be used to do the drawing.
     ///
     /// [`SoftwareRenderer::render()`] or [`SoftwareRenderer::render_by_line()`] should be called
     /// in that callback.
