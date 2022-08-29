@@ -36,8 +36,13 @@ pub trait Platform {
     fn create_window_adapter(&self) -> Rc<dyn WindowAdapter>;
 
     /// Spins an event loop and renders the visible windows.
-    fn run_event_loop(&self, _behavior: EventLoopQuitBehavior) {
+    fn run_event_loop(&self) {
         unimplemented!("The backend does not implement running an eventloop")
+    }
+
+    #[doc(hidden)]
+    fn set_event_loop_quit_behavior(&self, _behavior: EventLoopQuitBehavior) {
+        unimplemented!("The backend does not implement event loop quit behaviors")
     }
 
     /// Return an [`EventLoopProxy`] that can be used to send event to the event loop

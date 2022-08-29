@@ -146,7 +146,10 @@ impl i_slint_core::platform::Platform for Backend {
         }
     }
 
-    fn run_event_loop(&self, _behavior: i_slint_core::platform::EventLoopQuitBehavior) {
+    fn set_event_loop_quit_behavior(
+        &self,
+        _behavior: i_slint_core::platform::EventLoopQuitBehavior,
+    ) {
         #[cfg(not(no_qt))]
         {
             let quit_on_last_window_closed = match _behavior {
@@ -154,11 +157,22 @@ impl i_slint_core::platform::Platform for Backend {
                 i_slint_core::platform::EventLoopQuitBehavior::QuitOnlyExplicitly => false,
             };
             // Schedule any timers with Qt that were set up before this event loop start.
-            crate::qt_window::timer_event();
             use cpp::cpp;
             cpp! {unsafe [quit_on_last_window_closed as "bool"] {
                 ensure_initialized(true);
                 qApp->setQuitOnLastWindowClosed(quit_on_last_window_closed);
+            } }
+        };
+    }
+
+    fn run_event_loop(&self) {
+        #[cfg(not(no_qt))]
+        {
+            // Schedule any timers with Qt that were set up before this event loop start.
+            crate::qt_window::timer_event();
+            use cpp::cpp;
+            cpp! {unsafe [] {
+                ensure_initialized(true);
                 qApp->exec();
             } }
         };

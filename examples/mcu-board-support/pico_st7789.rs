@@ -66,6 +66,7 @@ pub fn init() {
 struct PicoBackend {
     window: RefCell<Option<Rc<slint::platform::swrenderer::MinimalSoftwareWindow<1>>>>,
 }
+
 impl slint::platform::Platform for PicoBackend {
     fn create_window_adapter(&self) -> Rc<dyn slint::platform::WindowAdapter> {
         let window = slint::platform::swrenderer::MinimalSoftwareWindow::new();
@@ -80,7 +81,7 @@ impl slint::platform::Platform for PicoBackend {
         core::time::Duration::from_micros(counter)
     }
 
-    fn run_event_loop(&self, _behavior: slint::platform::EventLoopQuitBehavior) {
+    fn run_event_loop(&self) {
         let mut pac = pac::Peripherals::take().unwrap();
         let core = pac::CorePeripherals::take().unwrap();
 

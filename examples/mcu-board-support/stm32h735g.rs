@@ -57,7 +57,7 @@ impl slint::platform::Platform for StmBackend {
         window
     }
 
-    fn run_event_loop(&self, _behavior: slint::platform::EventLoopQuitBehavior) {
+    fn run_event_loop(&self) {
         let mut cp = cortex_m::Peripherals::take().unwrap();
         let dp = pac::Peripherals::take().unwrap();
 
