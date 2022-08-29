@@ -7,7 +7,7 @@ use super::WinitCompatibleCanvas;
 use i_slint_core::graphics::Rgb8Pixel;
 use i_slint_core::lengths::PhysicalLength;
 pub use i_slint_core::swrenderer::SoftwareRenderer;
-use i_slint_core::window::{PlatformWindow, WindowHandleAccess};
+use i_slint_core::window::PlatformWindow;
 use std::cell::RefCell;
 use std::rc::Weak;
 
@@ -36,52 +36,48 @@ impl super::WinitCompatibleRenderer for SoftwareRenderer {
 
     fn release_canvas(&self, _canvas: Self::Canvas) {}
 
-    fn render(&self, canvas: &SwCanvas, platform_window: &dyn PlatformWindow) {
+    fn render(&self, canvas: &SwCanvas, _: &dyn PlatformWindow) {
         let size = canvas.opengl_context.window().inner_size();
         let width = size.width as usize;
         let height = size.height as usize;
 
-        let window = platform_window.window().window_handle();
-
         let mut buffer = vec![Rgb8Pixel::default(); width * height];
 
-        window.draw_contents(|_component| {
-            if std::env::var_os("SLINT_LINE_BY_LINE").is_none() {
-                Self::render(&self, buffer.as_mut_slice(), PhysicalLength::new(width as _));
-            } else {
-                struct FrameBuffer<'a> {
-                    buffer: &'a mut [Rgb8Pixel],
-                    line: Vec<i_slint_core::swrenderer::Rgb565Pixel>,
-                }
-                impl<'a> i_slint_core::swrenderer::LineBufferProvider for FrameBuffer<'a> {
-                    type TargetPixel = i_slint_core::swrenderer::Rgb565Pixel;
-                    fn process_line(
-                        &mut self,
-                        line: PhysicalLength,
-                        range: core::ops::Range<PhysicalLength>,
-                        render_fn: impl FnOnce(&mut [Self::TargetPixel]),
-                    ) {
-                        let len = (range.end.get() - range.start.get()) as usize;
-                        let line_begin = line.get() as usize * self.line.len();
-                        let sub = &mut self.line[..len];
-                        render_fn(sub);
-                        for (dst, src) in self.buffer[line_begin + (range.start.get() as usize)
-                            ..line_begin + (range.end.get() as usize)]
-                            .iter_mut()
-                            .zip(sub)
-                        {
-                            dst.r = src.red();
-                            dst.g = src.green();
-                            dst.b = src.blue();
-                        }
+        if std::env::var_os("SLINT_LINE_BY_LINE").is_none() {
+            Self::render(&self, buffer.as_mut_slice(), PhysicalLength::new(width as _));
+        } else {
+            struct FrameBuffer<'a> {
+                buffer: &'a mut [Rgb8Pixel],
+                line: Vec<i_slint_core::swrenderer::Rgb565Pixel>,
+            }
+            impl<'a> i_slint_core::swrenderer::LineBufferProvider for FrameBuffer<'a> {
+                type TargetPixel = i_slint_core::swrenderer::Rgb565Pixel;
+                fn process_line(
+                    &mut self,
+                    line: PhysicalLength,
+                    range: core::ops::Range<PhysicalLength>,
+                    render_fn: impl FnOnce(&mut [Self::TargetPixel]),
+                ) {
+                    let len = (range.end.get() - range.start.get()) as usize;
+                    let line_begin = line.get() as usize * self.line.len();
+                    let sub = &mut self.line[..len];
+                    render_fn(sub);
+                    for (dst, src) in self.buffer[line_begin + (range.start.get() as usize)
+                        ..line_begin + (range.end.get() as usize)]
+                        .iter_mut()
+                        .zip(sub)
+                    {
+                        dst.r = src.red();
+                        dst.g = src.green();
+                        dst.b = src.blue();
                     }
                 }
-                self.render_by_line(FrameBuffer {
-                    buffer: &mut buffer,
-                    line: vec![Default::default(); width],
-                });
             }
-        });
+            self.render_by_line(FrameBuffer {
+                buffer: &mut buffer,
+                line: vec![Default::default(); width],
+            });
+        }
 
         let image_ref: imgref::ImgRef<rgb::RGB8> =
             imgref::ImgRef::new(&buffer, width, height).into();
