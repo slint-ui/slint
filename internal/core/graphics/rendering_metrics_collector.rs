@@ -161,7 +161,7 @@ impl RenderingMetricsCollector {
         }
     }
 
-    /// Call this function every time you've completed the rendering of a frame. The rendere parameter
+    /// Call this function every time you've completed the rendering of a frame. The `renderer` parameter
     /// is used to collect additional data and is used to render an overlay if enabled.
     pub fn measure_frame_rendered(
         self: &Rc<Self>,

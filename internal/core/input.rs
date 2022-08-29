@@ -558,7 +558,7 @@ pub fn process_mouse_input(
                     InputEventResult::EventAccepted => {
                         if result.item_stack.is_empty() {
                             // In case the item stack is set already, it shouldn't
-                            // be overriden as we have to keep the deepest stack
+                            // be overridden as we have to keep the deepest stack
                             // for `send_exit_events` to work properly.
                             result.item_stack = mouse_grabber_stack;
                             result.grabbed = false;

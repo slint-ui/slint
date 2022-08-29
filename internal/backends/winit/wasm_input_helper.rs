@@ -34,7 +34,7 @@ pub struct WasmInputHelper {
 
 #[derive(Default)]
 struct WasmInputState {
-    /// If there was a "keydown" event recieved not part of a composition
+    /// If there was a "keydown" event received that is not part of a composition
     has_key_down: bool,
     /// The current composing text
     composition: String,
