@@ -4,7 +4,7 @@
 // cspell:ignore Noto fontconfig
 
 use femtovg::TextContext;
-use i_slint_core::api::euclid;
+use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::{FontRequest, Point, Size};
 use i_slint_core::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
 use i_slint_core::{SharedString, SharedVector};

@@ -12,7 +12,7 @@ use corelib::items::PointerEventButton;
 use corelib::lengths::LogicalSize;
 use i_slint_core as corelib;
 
-use corelib::api::euclid;
+use corelib::graphics::euclid;
 use corelib::graphics::Point;
 use corelib::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
 use corelib::window::*;

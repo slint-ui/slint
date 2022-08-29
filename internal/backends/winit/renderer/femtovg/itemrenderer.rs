@@ -6,7 +6,7 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use euclid::approxeq::ApproxEq;
-use i_slint_core::api::euclid;
+use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{Image, IntRect, IntSize, Point, Rect, Size};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};

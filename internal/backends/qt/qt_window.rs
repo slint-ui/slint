@@ -5,13 +5,13 @@
 
 use cpp::*;
 use euclid::approxeq::ApproxEq;
-use i_slint_core::api::{euclid, PhysicalPx};
+use i_slint_core::api::PhysicalPx;
 use i_slint_core::component::{ComponentRc, ComponentRef};
 use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
 use i_slint_core::graphics::{
-    Brush, Color, FontRequest, Image, IntSize, Point, Rect, SharedImageBuffer, Size,
+    euclid, Brush, Color, FontRequest, Image, IntSize, Point, Rect, SharedImageBuffer, Size,
 };
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};

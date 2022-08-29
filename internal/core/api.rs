@@ -15,8 +15,6 @@ use crate::window::{WindowAdapter, WindowInner};
 pub use crate::lengths::LogicalPx;
 pub use crate::lengths::PhysicalPx;
 
-pub use euclid;
-
 /// This enum describes a low-level access to specific graphics APIs used
 /// by the renderer.
 #[derive(Clone)]
