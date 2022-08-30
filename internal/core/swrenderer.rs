@@ -89,7 +89,7 @@ impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
     /// Create a new Renderer for a given window.
     ///
     /// The `window` parameter can be coming from [`Rc::new_cyclic()`](alloc::rc::Rc::new_cyclic())
-    /// since the `WindowAdapter` most likely owd the Renderer
+    /// since the `WindowAdapter` most likely own the Renderer
     pub fn new(window: Weak<dyn crate::window::WindowAdapter>) -> Self {
         Self {
             window: window.clone(),
@@ -1334,13 +1334,18 @@ impl<const BUFFER_COUNT: usize> MinimalSoftwareWindow<BUFFER_COUNT> {
     }
 }
 
-impl<const BUFFER_COUNT: usize> WindowAdapter for MinimalSoftwareWindow<BUFFER_COUNT> {
+impl<const BUFFER_COUNT: usize> crate::window::WindowAdapterSealed
+    for MinimalSoftwareWindow<BUFFER_COUNT>
+{
     fn request_redraw(&self) {
         self.needs_redraw.set(true);
     }
     fn renderer(&self) -> &dyn Renderer {
         &self.renderer
     }
+}
+
+impl<const BUFFER_COUNT: usize> WindowAdapter for MinimalSoftwareWindow<BUFFER_COUNT> {
     fn window(&self) -> &Window {
         &self.window
     }

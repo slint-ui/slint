@@ -9,6 +9,7 @@ use i_slint_core::api::PhysicalPx;
 use i_slint_core::graphics::{Point, Rect, Size};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::WindowAdapter;
+use i_slint_core::window::WindowAdapterSealed;
 use std::pin::Pin;
 use std::rc::Rc;
 use std::sync::Mutex;
@@ -43,38 +44,10 @@ pub struct TestingWindow {
     window: i_slint_core::api::Window,
 }
 
-impl WindowAdapter for TestingWindow {
+impl WindowAdapterSealed for TestingWindow {
     fn show(&self) {
         unimplemented!("showing a testing window")
     }
-
-    fn hide(&self) {}
-
-    fn request_redraw(&self) {}
-
-    fn register_component(&self) {}
-
-    fn unregister_component<'a>(
-        &self,
-        _: i_slint_core::component::ComponentRef,
-        _items: &mut dyn Iterator<Item = Pin<i_slint_core::items::ItemRef<'a>>>,
-    ) {
-    }
-
-    fn request_window_properties_update(&self) {}
-
-    fn apply_window_properties(&self, _window_item: Pin<&i_slint_core::items::WindowItem>) {
-        todo!()
-    }
-
-    fn apply_geometry_constraint(
-        &self,
-        _constraints_horizontal: i_slint_core::layout::LayoutInfo,
-        _constraints_vertical: i_slint_core::layout::LayoutInfo,
-    ) {
-    }
-
-    fn set_mouse_cursor(&self, _cursor: i_slint_core::items::MouseCursor) {}
 
     fn renderer(&self) -> &dyn Renderer {
         self
@@ -91,7 +64,9 @@ impl WindowAdapter for TestingWindow {
     fn set_position(&self, _position: euclid::Point2D<i32, PhysicalPx>) {
         unimplemented!()
     }
+}
 
+impl WindowAdapter for TestingWindow {
     fn window(&self) -> &i_slint_core::api::Window {
         &self.window
     }

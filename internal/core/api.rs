@@ -138,10 +138,12 @@ impl Window {
     /// }
     /// impl WindowAdapter for MyWindowAdapter {
     ///    fn window(&self) -> &Window { &self.window }
-    /// # fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer { unimplemented!() }
-    /// # fn as_any(&self) -> &(dyn core::any::Any + 'static) { self }
     ///    //...
     /// }
+    /// # impl i_slint_core::window::WindowAdapterSealed for MyWindowAdapter {
+    /// #   fn renderer(&self) -> &dyn i_slint_core::renderer::Renderer { unimplemented!() }
+    /// # }
+    ///
     /// fn create_window_adapter() -> Rc<dyn WindowAdapter> {
     ///    Rc::<MyWindowAdapter>::new_cyclic(|weak| {
     ///        MyWindowAdapter {
@@ -151,6 +153,7 @@ impl Window {
     ///    })
     /// }
     /// ```
+    #[doc(hidden)]
     pub fn new(window_adapter_weak: alloc::rc::Weak<dyn WindowAdapter>) -> Self {
         Self(WindowInner::new(window_adapter_weak))
     }
