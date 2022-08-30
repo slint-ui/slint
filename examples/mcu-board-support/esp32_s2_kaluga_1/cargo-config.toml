@@ -1,0 +1,29 @@
+[target.xtensa-esp32s2-none-elf]
+runner = "espflash --monitor"
+
+[build]
+rustflags = [
+    # Enable the atomic codegen option for Xtensa
+    "-C",
+    "target-feature=+s32c1i",
+
+    # Tell the `core` library that we have atomics, even though it's not
+    # specified in the target definition
+    "--cfg",
+    'target_has_atomic="8"',
+    "--cfg",
+    'target_has_atomic="16"',
+    "--cfg",
+    'target_has_atomic="32"',
+    "--cfg",
+    'target_has_atomic="ptr"',
+
+    "-C",
+    "link-arg=-nostartfiles",
+    "-C",
+    "link-arg=-Wl,-Tlinkall.x",
+]
+target = "xtensa-esp32s2-none-elf"
+
+[unstable]
+build-std = ["core", "alloc"]
