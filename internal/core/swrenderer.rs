@@ -201,8 +201,7 @@ impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
     ///
     /// ```rust
     /// # use i_slint_core::swrenderer::{LineBufferProvider, SoftwareRenderer, PhysicalLength, Rgb565Pixel};
-    /// # fn xxx<'a>(the_frame_buffer: &'a mut [Rgb565Pixel], display_width: usize,
-    /// #            renderer: &SoftwareRenderer, window: &i_slint_core::api::Window) {
+    /// # fn xxx<'a>(the_frame_buffer: &'a mut [Rgb565Pixel], display_width: usize, renderer: &SoftwareRenderer) {
     /// struct FrameBuffer<'a>{ frame_buffer: &'a mut [Rgb565Pixel], stride: usize }
     /// impl<'a> LineBufferProvider for FrameBuffer<'a> {
     ///     type TargetPixel = Rgb565Pixel;
@@ -219,7 +218,7 @@ impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
     ///         // send the pixel to the display
     ///     }
     /// }
-    /// renderer.render_by_line(window, FrameBuffer{ frame_buffer: the_frame_buffer, stride: display_width });
+    /// renderer.render_by_line(FrameBuffer{ frame_buffer: the_frame_buffer, stride: display_width });
     /// # }
     /// ```
     pub fn render_by_line(&self, line_buffer: impl LineBufferProvider) {
