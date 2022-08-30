@@ -5,7 +5,6 @@
 
 use super::WinitCompatibleCanvas;
 use i_slint_core::graphics::Rgb8Pixel;
-use i_slint_core::lengths::PhysicalLength;
 pub use i_slint_core::swrenderer::SoftwareRenderer;
 use i_slint_core::window::WindowAdapter;
 use std::cell::RefCell;
@@ -41,7 +40,7 @@ impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRende
         let mut buffer = vec![Rgb8Pixel::default(); width * height];
 
         if std::env::var_os("SLINT_LINE_BY_LINE").is_none() {
-            Self::render(&self, buffer.as_mut_slice(), PhysicalLength::new(width as _));
+            Self::render(&self, buffer.as_mut_slice(), width);
         } else {
             struct FrameBuffer<'a> {
                 buffer: &'a mut [Rgb8Pixel],
@@ -51,19 +50,14 @@ impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRende
                 type TargetPixel = i_slint_core::swrenderer::Rgb565Pixel;
                 fn process_line(
                     &mut self,
-                    line: PhysicalLength,
-                    range: core::ops::Range<PhysicalLength>,
+                    line: usize,
+                    range: core::ops::Range<usize>,
                     render_fn: impl FnOnce(&mut [Self::TargetPixel]),
                 ) {
-                    let len = (range.end.get() - range.start.get()) as usize;
-                    let line_begin = line.get() as usize * self.line.len();
-                    let sub = &mut self.line[..len];
+                    let line_begin = line * self.line.len();
+                    let sub = &mut self.line[..range.len()];
                     render_fn(sub);
-                    for (dst, src) in self.buffer[line_begin + (range.start.get() as usize)
-                        ..line_begin + (range.end.get() as usize)]
-                        .iter_mut()
-                        .zip(sub)
-                    {
+                    for (dst, src) in self.buffer[line_begin..][range].iter_mut().zip(sub) {
                         dst.r = src.red();
                         dst.g = src.green();
                         dst.b = src.blue();

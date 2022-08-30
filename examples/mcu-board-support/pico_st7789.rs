@@ -23,7 +23,7 @@ use rp_pico::hal::pac::interrupt;
 use rp_pico::hal::timer::{Alarm, Alarm0};
 use rp_pico::hal::{self, pac, prelude::*, Timer};
 use slint::platform::swrenderer as renderer;
-use slint::platform::swrenderer::{PhysicalLength, PhysicalSize};
+use slint::PhysicalPx;
 use slint::{euclid, PointerEventButton, WindowEvent};
 
 #[cfg(feature = "panic-probe")]
@@ -51,7 +51,7 @@ static TIMER: Mutex<RefCell<Option<Timer>>> = Mutex::new(RefCell::new(None));
 // 16ns for serial clock cycle (write), page 43 of https://www.waveshare.com/w/upload/a/ae/ST7789_Datasheet.pdf
 const SPI_ST7789VW_MAX_FREQ: embedded_time::rate::Hertz = embedded_time::rate::Hertz(62_500_000u32);
 
-const DISPLAY_SIZE: PhysicalSize = PhysicalSize::new(320, 240);
+const DISPLAY_SIZE: euclid::Size2D<u32, PhysicalPx> = euclid::Size2D::new(320, 240);
 
 /// The Pixel type of the backing store
 pub type TargetPixel = Rgb565Pixel;
@@ -300,12 +300,10 @@ impl<
 
     fn process_line(
         &mut self,
-        line: PhysicalLength,
-        range: core::ops::Range<PhysicalLength>,
+        line: usize,
+        range: core::ops::Range<usize>,
         render_fn: impl FnOnce(&mut [TargetPixel]),
     ) {
-        let range = range.start.get() as usize..range.end.get() as usize;
-
         render_fn(&mut self.buffer[range.clone()]);
 
         // convert from little to big indian before sending to the DMA channel
@@ -332,9 +330,9 @@ impl<
         self.display
             .set_pixels(
                 range.start as u16,
-                line.get() as _,
+                line as _,
                 range.end as u16,
-                line.get() as u16,
+                line as u16,
                 core::iter::empty(),
             )
             .unwrap();

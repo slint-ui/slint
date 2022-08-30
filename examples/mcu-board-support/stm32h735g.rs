@@ -15,7 +15,6 @@ use hal::prelude::*;
 use hal::rcc::rec::OctospiClkSelGetter;
 use slint::euclid;
 use slint::platform::swrenderer;
-use slint::platform::swrenderer::PhysicalLength;
 use stm32h7xx_hal as hal; // global logger
 
 #[cfg(feature = "panic-probe")]
@@ -324,7 +323,7 @@ impl slint::platform::Platform for StmBackend {
             if let Some(window) = self.window.borrow().clone() {
                 window.draw_if_needed(|renderer| {
                     while layer.is_swap_pending() {}
-                    renderer.render(work_fb, PhysicalLength::new(DISPLAY_WIDTH as i16));
+                    renderer.render(work_fb, DISPLAY_WIDTH);
                     cp.SCB.clean_dcache_by_slice(work_fb);
                     // Safety: the frame buffer has the right size
                     unsafe { layer.swap_framebuffer(work_fb.as_ptr() as *const u8) };

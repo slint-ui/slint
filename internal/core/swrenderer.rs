@@ -16,8 +16,8 @@ use crate::graphics::{IntRect, PixelFormat, Rect as RectF, SharedImageBuffer};
 use crate::item_rendering::ItemRenderer;
 use crate::items::{ImageFit, ItemRc};
 use crate::lengths::{
-    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, PhysicalPoint, PhysicalPx,
-    PhysicalRect, PointLengths, RectLengths, ScaleFactor, SizeLengths,
+    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, PhysicalLength, PhysicalPoint,
+    PhysicalPx, PhysicalRect, PhysicalSize, PointLengths, RectLengths, ScaleFactor, SizeLengths,
 };
 use crate::renderer::Renderer;
 use crate::textlayout::{FontMetrics as _, TextParagraphLayout};
@@ -28,7 +28,6 @@ use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 
-pub use crate::lengths::{PhysicalLength, PhysicalSize};
 pub use draw_functions::{PremultipliedRgbaColor, Rgb565Pixel, TargetPixel};
 
 type DirtyRegion = PhysicalRect;
@@ -49,8 +48,8 @@ pub trait LineBufferProvider {
     /// corresponding to the specified line and range.
     fn process_line(
         &mut self,
-        line: PhysicalLength,
-        range: core::ops::Range<PhysicalLength>,
+        line: usize,
+        range: core::ops::Range<usize>,
         render_fn: impl FnOnce(&mut [Self::TargetPixel]),
     );
 }
@@ -132,7 +131,7 @@ impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
     /// be rendered. (eg: the previous dirty region in case of double buffering)
     ///
     /// returns the dirty region for this frame (not including the extra_draw_region)
-    pub fn render(&self, buffer: &mut [impl TargetPixel], buffer_stride: PhysicalLength) {
+    pub fn render(&self, buffer: &mut [impl TargetPixel], buffer_stride: usize) {
         let window = self.window.upgrade().expect("render() called on a destroyed Window");
         let window = window.window().window_handle();
         let factor = ScaleFactor::new(window.scale_factor());
@@ -146,10 +145,7 @@ impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
             )
         } else {
             (
-                euclid::size2(
-                    buffer_stride.get(),
-                    (buffer.len() / (buffer_stride.get() as usize)) as _,
-                ),
+                euclid::size2(buffer_stride as _, (buffer.len() / buffer_stride) as _),
                 Color::default(),
             )
         };
@@ -200,20 +196,19 @@ impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
     /// then be more efficient)
     ///
     /// ```rust
-    /// # use i_slint_core::swrenderer::{LineBufferProvider, SoftwareRenderer, PhysicalLength, Rgb565Pixel};
+    /// # use i_slint_core::swrenderer::{LineBufferProvider, SoftwareRenderer, Rgb565Pixel};
     /// # fn xxx<'a>(the_frame_buffer: &'a mut [Rgb565Pixel], display_width: usize, renderer: &SoftwareRenderer) {
     /// struct FrameBuffer<'a>{ frame_buffer: &'a mut [Rgb565Pixel], stride: usize }
     /// impl<'a> LineBufferProvider for FrameBuffer<'a> {
     ///     type TargetPixel = Rgb565Pixel;
     ///     fn process_line(
     ///         &mut self,
-    ///         line: PhysicalLength,
-    ///         range: core::ops::Range<PhysicalLength>,
+    ///         line: usize,
+    ///         range: core::ops::Range<usize>,
     ///         render_fn: impl FnOnce(&mut [Self::TargetPixel]),
     ///     ) {
-    ///         let line_begin = line.get() as usize * self.stride;
-    ///         render_fn(&mut self.frame_buffer[line_begin + (range.start.get() as usize)
-    ///              .. line_begin + (range.end.get() as usize)]);
+    ///         let line_begin = line * self.stride;
+    ///         render_fn(&mut self.frame_buffer[line_begin..][range]);
     ///         // The line has been rendered and there could be code here to
     ///         // send the pixel to the display
     ///     }
@@ -303,8 +298,8 @@ fn render_window_frame_by_line<const BUFFER_COUNT: usize>(
     debug_assert!(scene.current_line >= dirty_region.origin.y_length());
     while scene.current_line < dirty_region.origin.y_length() + dirty_region.size.height_length() {
         line_buffer.process_line(
-            scene.current_line,
-            PhysicalLength::new(dirty_region.min_x())..PhysicalLength::new(dirty_region.max_x()),
+            scene.current_line.get() as usize,
+            dirty_region.min_x() as usize..dirty_region.max_x() as usize,
             |line_buffer| {
                 let offset = dirty_region.min_x() as usize;
                 TargetPixel::blend_slice(line_buffer, background.into());
@@ -681,7 +676,7 @@ trait ProcessScene {
 
 struct RenderToBuffer<'a, TargetPixel> {
     buffer: &'a mut [TargetPixel],
-    stride: PhysicalLength,
+    stride: usize,
 }
 
 impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
@@ -691,7 +686,7 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
                 &geometry,
                 PhysicalLength::new(line),
                 &texture,
-                &mut self.buffer[line as usize * self.stride.get() as usize..],
+                &mut self.buffer[line as usize * self.stride..],
             );
         }
     }
@@ -703,7 +698,7 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
                 &geometry,
                 PhysicalLength::new(line),
                 &texture,
-                &mut self.buffer[line as usize * self.stride.get() as usize..],
+                &mut self.buffer[line as usize * self.stride..],
             );
         }
     }
@@ -711,7 +706,7 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
     fn process_rectangle(&mut self, geometry: PhysicalRect, color: Color) {
         let color = PremultipliedRgbaColor::from(color);
         for line in geometry.min_y()..geometry.max_y() {
-            let begin = line as usize * self.stride.get() as usize + geometry.origin.x as usize;
+            let begin = line as usize * self.stride + geometry.origin.x as usize;
             TargetPixel::blend_slice(
                 &mut self.buffer[begin..begin + geometry.width() as usize],
                 color,
@@ -725,7 +720,7 @@ impl<'a, T: TargetPixel> ProcessScene for RenderToBuffer<'a, T> {
                 &geometry,
                 PhysicalLength::new(line),
                 &rr,
-                &mut self.buffer[line as usize * self.stride.get() as usize..],
+                &mut self.buffer[line as usize * self.stride..],
             );
         }
     }
