@@ -20,7 +20,7 @@ use i_slint_core::items::{
     PointerEventButton, RenderingResult, TextOverflow, TextWrap,
 };
 use i_slint_core::layout::Orientation;
-use i_slint_core::window::{WindowAdapter, WindowHandleAccess};
+use i_slint_core::window::{WindowAdapter, WindowAdapterSealed, WindowHandleAccess};
 use i_slint_core::{ImageInner, PathData, Property, SharedString};
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 
@@ -1337,8 +1337,13 @@ impl QtWindow {
     }
 }
 
-#[allow(unused)]
 impl WindowAdapter for QtWindow {
+    fn window(&self) -> &i_slint_core::api::Window {
+        &self.window
+    }
+}
+
+impl WindowAdapterSealed for QtWindow {
     fn show(&self) {
         let component_rc = self.window.window_handle().component();
         let component = ComponentRc::borrow_pin(&component_rc);
@@ -1542,7 +1547,7 @@ impl WindowAdapter for QtWindow {
         self
     }
 
-    fn handle_focus_change(&self, old: Option<ItemRc>, new: Option<ItemRc>) {
+    fn handle_focus_change(&self, _old: Option<ItemRc>, new: Option<ItemRc>) {
         let widget_ptr = self.widget_ptr();
         if let Some(ai) = accessible_item(new) {
             let item = &ai;
@@ -1578,10 +1583,6 @@ impl WindowAdapter for QtWindow {
         cpp! {unsafe [widget_ptr as "QWidget*", sz as "QSize"] {
             widget_ptr->resize(sz);
         }};
-    }
-
-    fn window(&self) -> &i_slint_core::api::Window {
-        &self.window
     }
 }
 

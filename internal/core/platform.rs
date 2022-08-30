@@ -7,7 +7,6 @@ The backend is the abstraction for crates that need to do the actual drawing and
 
 #![warn(missing_docs)]
 
-pub use crate::items::{InputType, MouseCursor};
 pub use crate::lengths::{PhysicalLength, PhysicalPoint};
 pub use crate::renderer::Renderer;
 #[cfg(feature = "swrenderer")]

@@ -31,10 +31,24 @@ fn previous_focus_item(item: ItemRc) -> ItemRc {
     item.previous_focus_item()
 }
 
-/// This trait represents the interface that the generated code and the run-time
-/// require in order to implement functionality such as device-independent pixels,
+/// This trait represents the adapter layer between the [`Window`] API, and the
+/// internal type from the backend that provides functionality such as device-independent pixels,
 /// window resizing and other typically windowing system related tasks.
-pub trait WindowAdapter {
+///
+/// This trait is Sealed, meaning that you are not expected to implement this trait
+/// yourself, but you should use the provided window adapter. Currently only
+/// [`MinimalSoftwareWindow`](crate::swrenderer::MinimalSoftwareWindow) is available
+///  for [`platform`](crate::platform) implementer
+pub trait WindowAdapter: WindowAdapterSealed {
+    /// Returns the window API.
+    fn window(&self) -> &Window;
+}
+
+/// Implementation details behind [`WindowAdapter`],  but since this
+/// trait is not exported in the public API, it is not possible for the
+/// users to call or re-implement these function
+#[doc(hidden)]
+pub trait WindowAdapterSealed {
     /// Registers the window with the windowing system.
     fn show(&self) {}
     /// De-registers the window from the windowing system.
@@ -118,9 +132,6 @@ pub trait WindowAdapter {
 
     /// Return the renderer
     fn renderer(&self) -> &dyn Renderer;
-
-    /// Returns the window API.
-    fn window(&self) -> &Window;
 }
 
 struct WindowPropertiesTracker {
