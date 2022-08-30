@@ -25,4 +25,4 @@ proc-macro2 = "1.0"
 
 [dev-dependencies]
 memoffset = "0.6"
-const-field-offset = { path="../" }
+const-field-offset = { path = "..", features = ["field-offset-trait"] }
