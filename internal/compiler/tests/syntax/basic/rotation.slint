@@ -1,0 +1,64 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+Ex1 := Rectangle {
+    Rectangle {
+        rotation-origin-x: width / 2;
+        rotation-angle: 45deg;
+//                     ^error{rotation properties can only be applied to the Image element}
+        rotation-origin-y: width / 2;
+    }
+    Rectangle {
+//  ^error{rotation properties can only be applied to the Image element}
+        rotation-origin-x: width / 2;
+        rotation-origin-y: width / 2;
+    }
+}
+
+RotImg := Image {
+    rotation-angle: 45deg;
+}
+
+JustAnImage := Image {}
+
+ImageWithChild := Image {
+    Rectangle {}
+}
+
+Ex2 := Rectangle {
+    Image {
+//  ^error{Elements with rotation properties cannot have children elements}
+        rotation-angle: 45deg;
+        Rectangle {}
+    }
+    RotImg { 
+//  ^error{Elements with rotation properties cannot have children elements}
+        Rectangle {}
+    }
+    ImageWithChild {
+//  ^error{Elements with rotation properties cannot have children elements}
+        rotation-origin-x: 45px;
+    }
+    JustAnImage {
+//  ^error{Elements with rotation properties cannot have children elements}
+        rotation-angle: 45deg;
+        Rectangle {}
+    }
+}
+
+
+Ex3 := Rectangle {
+    i1 := Image {
+//       ^error{Elements with rotation properties cannot have children elements}
+        Rectangle {}
+    }
+    i2 := Rectangle {}
+//       ^error{rotation properties can only be applied to the Image element}
+
+    TouchArea {
+        clicked => {
+            i1.rotation-angle = 60deg;
+            i2.rotation-origin-x = 10px;
+        }
+    }
+}

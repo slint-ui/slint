@@ -6,6 +6,7 @@ mod binding_analysis;
 mod check_aliases;
 mod check_expressions;
 mod check_public_api;
+mod check_rotation;
 mod clip;
 mod collect_custom_fonts;
 mod collect_globals;
@@ -42,9 +43,11 @@ mod unique_id;
 mod visible;
 mod z_order;
 
-use std::{collections::HashSet, rc::Rc};
-
+use crate::expression_tree::Expression;
 use crate::langtype::Type;
+use crate::namedreference::NamedReference;
+use std::collections::HashSet;
+use std::rc::Rc;
 
 pub async fn run_passes(
     doc: &crate::object_tree::Document,
@@ -75,6 +78,7 @@ pub async fn run_passes(
     infer_aliases_types::resolve_aliases(doc, diag);
     resolving::resolve_expressions(doc, type_loader, diag);
     check_expressions::check_expressions(doc, diag);
+    check_rotation::check_rotation(doc, diag);
     unique_id::check_unique_id(doc, diag);
     check_public_api::check_public_api(doc, diag);
 
@@ -128,6 +132,7 @@ pub async fn run_passes(
             component,
             "opacity",
             core::iter::empty(),
+            None,
             "Opacity",
             &global_type_registry.borrow(),
             diag,
@@ -136,6 +141,7 @@ pub async fn run_passes(
             component,
             "cache-rendering-hint",
             core::iter::empty(),
+            None,
             "Layer",
             &global_type_registry.borrow(),
             diag,
@@ -147,6 +153,20 @@ pub async fn run_passes(
             crate::typeregister::RESERVED_ROTATION_PROPERTIES[1..]
                 .iter()
                 .map(|(prop_name, _)| *prop_name),
+            Some(&|e, prop| Expression::BinaryExpression {
+                lhs: Expression::PropertyReference(NamedReference::new(
+                    e,
+                    match prop {
+                        "rotation-origin-x" => "width",
+                        "rotation-origin-y" => "height",
+                        "rotation-angle" => return Expression::Invalid,
+                        _ => unreachable!(),
+                    },
+                ))
+                .into(),
+                op: '/',
+                rhs: Expression::NumberLiteral(2., Default::default()).into(),
+            }),
             "Rotate",
             &global_type_registry.borrow(),
             diag,
@@ -244,5 +264,6 @@ pub fn run_import_passes(
     infer_aliases_types::resolve_aliases(doc, diag);
     resolving::resolve_expressions(doc, type_loader, diag);
     check_expressions::check_expressions(doc, diag);
+    check_rotation::check_rotation(doc, diag);
     unique_id::check_unique_id(doc, diag);
 }

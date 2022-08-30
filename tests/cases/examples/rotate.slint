@@ -17,18 +17,15 @@ TestCase := Window {
         x: 50px;
         y: 50px;
 
-        Rotate {
-            angle: 45deg;
-            origin-x: r.x;
-            origin-y: r.y;
-
-            r := Rectangle {
-                x: 50px;
-                y: 50px;
-                width: 50px;
-                height: 50px;
-                background: green;
-            }
+        Image {
+            rotation-angle: 45deg;
+            x: 50px;
+            y: 50px;
+            rotation-origin-x: 0;
+            rotation-origin-y: 0;
+            width: 50px;
+            height: 50px;
+            source: @image-url("../../../logo/slint-logo-square-light-128x128.png");
         }
 
         Rectangle {
@@ -48,29 +45,14 @@ TestCase := Window {
     Rectangle {
         x: 200px;
         y: 50px;
+        border-width: 1px;
+        border-color: black;
+        width: i2.width;
+        height: i2.height;
 
-        Rotate {
-            angle: 315deg;
-            origin-x: r2.x;
-            origin-y: r2.y;
-
-            r2 := Rectangle {
-                x: 50px;
-                y: 50px;
-                width: 50px;
-                height: 50px;
-                background: @linear-gradient(90deg, red, blue);
-            }
+        i2 := Image {
+            rotation-angle: 315deg;
+            source: @image-url("../../../logo/slint-logo-square-light-128x128.png");
         }
-
-        Rectangle {
-            x: 50px;
-            y: 50px;
-            width: 50px;
-            height: 50px;
-            border-width: 1px;
-            border-color: black;
-        }
-
     }
 }
