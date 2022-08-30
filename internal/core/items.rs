@@ -1271,7 +1271,7 @@ macro_rules! declare_enums {
 
 i_slint_common::for_each_enums!(declare_enums);
 
-/// Represents a key event sent by the windowing system.
+/// Represents a Pointer event sent by the windowing system.
 #[derive(Debug, Clone, PartialEq, Default)]
 #[repr(C)]
 pub struct PointerEvent {

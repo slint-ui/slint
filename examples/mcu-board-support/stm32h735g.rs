@@ -342,17 +342,17 @@ impl slint::platform::Platform for StmBackend {
                             .cast()
                             / window.scale_factor();
                     Some(match last_touch.replace(position) {
-                        Some(_) => slint::PointerEvent::Moved { position },
-                        None => slint::PointerEvent::Pressed { position, button },
+                        Some(_) => slint::WindowEvent::PointerMoved { position },
+                        None => slint::WindowEvent::PointerPressed { position, button },
                     })
                 } else {
                     last_touch
                         .take()
-                        .map(|position| slint::PointerEvent::Released { position, button })
+                        .map(|position| slint::WindowEvent::PointerReleased { position, button })
                 };
 
                 if let Some(event) = event {
-                    window.dispatch_pointer_event(event);
+                    window.dispatch_event(event);
                 }
             }
 

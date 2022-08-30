@@ -67,23 +67,23 @@ impl MouseEvent {
     }
 }
 
-impl From<crate::api::PointerEvent> for MouseEvent {
-    fn from(event: crate::api::PointerEvent) -> Self {
+impl From<crate::api::WindowEvent> for MouseEvent {
+    fn from(event: crate::api::WindowEvent) -> Self {
         match event {
-            crate::api::PointerEvent::Pressed { position, button } => {
+            crate::api::WindowEvent::PointerPressed { position, button } => {
                 MouseEvent::Pressed { position: position.to_untyped().cast(), button }
             }
-            crate::api::PointerEvent::Released { position, button } => {
+            crate::api::WindowEvent::PointerReleased { position, button } => {
                 MouseEvent::Released { position: position.to_untyped().cast(), button }
             }
-            crate::api::PointerEvent::Moved { position } => {
+            crate::api::WindowEvent::PointerMoved { position } => {
                 MouseEvent::Moved { position: position.to_untyped().cast() }
             }
-            crate::api::PointerEvent::Wheel { position, delta } => MouseEvent::Wheel {
+            crate::api::WindowEvent::PointerScrolled { position, delta } => MouseEvent::Wheel {
                 position: position.to_untyped().cast(),
                 delta: delta.to_untyped().cast().to_point(),
             },
-            crate::api::PointerEvent::Exit => MouseEvent::Exit,
+            crate::api::WindowEvent::PointerExited => MouseEvent::Exit,
         }
     }
 }
