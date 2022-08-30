@@ -24,7 +24,7 @@ use rp_pico::hal::timer::{Alarm, Alarm0};
 use rp_pico::hal::{self, pac, prelude::*, Timer};
 use slint::platform::swrenderer as renderer;
 use slint::platform::swrenderer::{PhysicalLength, PhysicalSize};
-use slint::{euclid, PointerEvent, PointerEventButton};
+use slint::{euclid, PointerEventButton, WindowEvent};
 
 #[cfg(feature = "panic-probe")]
 use panic_probe as _;
@@ -213,17 +213,17 @@ impl slint::platform::Platform for PicoBackend {
                         let position = euclid::point2(point.x * size.width, point.y * size.height)
                             / window.scale_factor().get();
                         match last_touch.replace(position) {
-                            Some(_) => PointerEvent::Moved { position },
-                            None => PointerEvent::Pressed { position, button },
+                            Some(_) => WindowEvent::PointerMoved { position },
+                            None => WindowEvent::PointerPressed { position, button },
                         }
                     })
                     .or_else(|| {
                         last_touch
                             .take()
-                            .map(|position| PointerEvent::Released { position, button })
+                            .map(|position| WindowEvent::PointerReleased { position, button })
                     })
                 {
-                    window.dispatch_pointer_event(event);
+                    window.dispatch_event(event);
                     // Don't go to sleep after a touch event that forces a redraw
                     continue;
                 }
