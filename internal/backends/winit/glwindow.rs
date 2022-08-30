@@ -98,6 +98,104 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
 
         self.renderer.release_canvas(old_mapped.canvas);
     }
+
+    fn show_impl(&self) {
+        let (requested_position, requested_size) = match &*self.map_state.borrow() {
+            GraphicsWindowBackendState::Unmapped { requested_position, requested_size } => {
+                (requested_position.clone(), requested_size.clone())
+            }
+            GraphicsWindowBackendState::Mapped(_) => return,
+        };
+
+        let runtime_window = self.window().window_handle();
+        let component_rc = runtime_window.component();
+        let component = ComponentRc::borrow_pin(&component_rc);
+
+        let (window_title, no_frame, is_resizable) = if let Some(window_item) =
+            runtime_window.window_item().as_ref().map(|i| i.as_pin_ref())
+        {
+            (
+                window_item.title().to_string(),
+                window_item.no_frame(),
+                window_item.height() <= 0 as _ && window_item.width() <= 0 as _,
+            )
+        } else {
+            ("Slint Window".to_string(), false, true)
+        };
+
+        let window_builder = winit::window::WindowBuilder::new()
+            .with_title(window_title)
+            .with_resizable(is_resizable);
+
+        let scale_factor_override = runtime_window.scale_factor();
+        // If the scale factor was already set programmatically, use that
+        // else, use the SLINT_SCALE_FACTOR if set, otherwise use the one from winit
+        let scale_factor_override = if scale_factor_override > 1. {
+            Some(scale_factor_override as f64)
+        } else {
+            std::env::var("SLINT_SCALE_FACTOR")
+                .ok()
+                .and_then(|x| x.parse::<f64>().ok())
+                .filter(|f| *f > 0.)
+        };
+
+        let window_builder = if std::env::var("SLINT_FULLSCREEN").is_ok() {
+            window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
+        } else {
+            let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
+            let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
+            let s = LogicalSize::new(
+                layout_info_h.preferred_bounded(),
+                layout_info_v.preferred_bounded(),
+            );
+
+            if let Some(requested_size) = requested_size {
+                // It would be nice to bound this with our constraints, but those are in logical coordinates
+                // and we don't know the scale factor yet...
+                window_builder.with_inner_size(winit::dpi::Size::new(
+                    winit::dpi::PhysicalSize::new(requested_size.width, requested_size.height),
+                ))
+            } else if s.width > 0 as Coord && s.height > 0 as Coord {
+                // Make sure that the window's inner size is in sync with the root window item's
+                // width/height.
+                runtime_window.set_window_item_geometry(s.width, s.height);
+                if let Some(f) = scale_factor_override {
+                    window_builder.with_inner_size(s.to_physical::<f32>(f))
+                } else {
+                    window_builder.with_inner_size(s)
+                }
+            } else {
+                window_builder
+            }
+        };
+
+        let window_builder =
+            if no_frame { window_builder.with_decorations(false) } else { window_builder };
+
+        let window_builder = if let Some(requested_position) = requested_position {
+            window_builder.with_position(winit::dpi::Position::new(
+                winit::dpi::PhysicalPosition::new(requested_position.x, requested_position.y),
+            ))
+        } else {
+            window_builder
+        };
+
+        let canvas = self.renderer.create_canvas(window_builder);
+
+        let id = canvas.with_window_handle(|winit_window| {
+            self.window.window_handle().set_scale_factor(
+                scale_factor_override.unwrap_or_else(|| winit_window.scale_factor()) as _,
+            );
+            winit_window.id()
+        });
+
+        self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
+            canvas,
+            constraints: Default::default(),
+        }));
+
+        crate::event_loop::register_window(id, self.self_weak.upgrade().unwrap());
+    }
 }
 
 impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Renderer> {
@@ -260,101 +358,21 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapter for GLWindow<Ren
     }
 
     fn show(&self) {
-        let (requested_position, requested_size) = match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped { requested_position, requested_size } => {
-                (requested_position.clone(), requested_size.clone())
-            }
-            GraphicsWindowBackendState::Mapped(_) => return,
-        };
+        // Creating a new winit::Window requires access to the running event loop (`&EventLoopWindowTarget`), which
+        // is only possible from within the event loop handler with wasm, as `run()` consumes the event loop. Work
+        // around by invoking `show()` from within the event loop handler.
+        #[cfg(target_arch = "wasm32")]
+        corelib::api::invoke_from_event_loop({
+            let self_weak = send_wrapper::SendWrapper::new(self.self_weak.clone());
 
-        let runtime_window = self.window().window_handle();
-        let component_rc = runtime_window.component();
-        let component = ComponentRc::borrow_pin(&component_rc);
-
-        let (window_title, no_frame, is_resizable) = if let Some(window_item) =
-            runtime_window.window_item().as_ref().map(|i| i.as_pin_ref())
-        {
-            (
-                window_item.title().to_string(),
-                window_item.no_frame(),
-                window_item.height() <= 0 as _ && window_item.width() <= 0 as _,
-            )
-        } else {
-            ("Slint Window".to_string(), false, true)
-        };
-
-        let window_builder = winit::window::WindowBuilder::new()
-            .with_title(window_title)
-            .with_resizable(is_resizable);
-
-        let scale_factor_override = runtime_window.scale_factor();
-        // If the scale factor was already set programmatically, use that
-        // else, use the SLINT_SCALE_FACTOR if set, otherwise use the one from winit
-        let scale_factor_override = if scale_factor_override > 1. {
-            Some(scale_factor_override as f64)
-        } else {
-            std::env::var("SLINT_SCALE_FACTOR")
-                .ok()
-                .and_then(|x| x.parse::<f64>().ok())
-                .filter(|f| *f > 0.)
-        };
-
-        let window_builder = if std::env::var("SLINT_FULLSCREEN").is_ok() {
-            window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
-        } else {
-            let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
-            let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
-            let s = LogicalSize::new(
-                layout_info_h.preferred_bounded(),
-                layout_info_v.preferred_bounded(),
-            );
-
-            if let Some(requested_size) = requested_size {
-                // It would be nice to bound this with our constraints, but those are in logical coordinates
-                // and we don't know the scale factor yet...
-                window_builder.with_inner_size(winit::dpi::Size::new(
-                    winit::dpi::PhysicalSize::new(requested_size.width, requested_size.height),
-                ))
-            } else if s.width > 0 as Coord && s.height > 0 as Coord {
-                // Make sure that the window's inner size is in sync with the root window item's
-                // width/height.
-                runtime_window.set_window_item_geometry(s.width, s.height);
-                if let Some(f) = scale_factor_override {
-                    window_builder.with_inner_size(s.to_physical::<f32>(f))
-                } else {
-                    window_builder.with_inner_size(s)
+            move || {
+                if let Some(this) = self_weak.take().upgrade() {
+                    this.show_impl();
                 }
-            } else {
-                window_builder
             }
-        };
-
-        let window_builder =
-            if no_frame { window_builder.with_decorations(false) } else { window_builder };
-
-        let window_builder = if let Some(requested_position) = requested_position {
-            window_builder.with_position(winit::dpi::Position::new(
-                winit::dpi::PhysicalPosition::new(requested_position.x, requested_position.y),
-            ))
-        } else {
-            window_builder
-        };
-
-        let canvas = self.renderer.create_canvas(window_builder);
-
-        let id = canvas.with_window_handle(|winit_window| {
-            self.window.window_handle().set_scale_factor(
-                scale_factor_override.unwrap_or_else(|| winit_window.scale_factor()) as _,
-            );
-            winit_window.id()
         });
-
-        self.map_state.replace(GraphicsWindowBackendState::Mapped(MappedWindow {
-            canvas,
-            constraints: Default::default(),
-        }));
-
-        crate::event_loop::register_window(id, self.self_weak.upgrade().unwrap());
+        #[cfg(not(target_arch = "wasm32"))]
+        self.show_impl();
     }
 
     fn hide(&self) {
