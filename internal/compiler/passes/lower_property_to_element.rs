@@ -8,20 +8,20 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{BindingExpression, NamedReference};
+use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::langtype::Type;
 use crate::object_tree::{self, Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 
-// If any element in `component` declares a binding to the first property in `properties`, then a new
-// element of type `element_name` is created, injected as a parent to the element and bindings to all
-// remaining properties in `properties` are mapped. This way for example ["rotation-angle", "rotation-origin-x", "rotation-origin-y"]
-// creates a `Rotate` element when `rotation-angle` is used and any optional `rotation-origin-*` bindings are redirected to the
-// `Rotate` element.
+/// If any element in `component` declares a binding to `property_name`, then a new
+/// element of type `element_name` is created, injected as a parent to the element and bindings
+/// to property_name and all properties in  extra_properties are mapped.
+/// Default balue for the property extra_properties is queried witht the `default_value_for_extra_properties`
 pub(crate) fn lower_property_to_element(
     component: &Rc<Component>,
     property_name: &'static str,
     extra_properties: impl Iterator<Item = &'static str> + Clone,
+    default_value_for_extra_properties: Option<&dyn Fn(&ElementRc, &str) -> Expression>,
     element_name: &str,
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
@@ -67,6 +67,7 @@ pub(crate) fn lower_property_to_element(
                             &root_elem,
                             property_name,
                             extra_properties.clone(),
+                            default_value_for_extra_properties,
                             element_name,
                             type_register,
                         ),
@@ -77,6 +78,7 @@ pub(crate) fn lower_property_to_element(
                     &child,
                     property_name,
                     extra_properties.clone(),
+                    default_value_for_extra_properties,
                     element_name,
                     type_register,
                 );
@@ -94,6 +96,7 @@ fn create_property_element(
     child: &ElementRc,
     property_name: &'static str,
     extra_properties: impl Iterator<Item = &'static str>,
+    default_value_for_extra_properties: Option<&dyn Fn(&ElementRc, &str) -> Expression>,
     element_name: &str,
     type_register: &TypeRegister,
 ) -> ElementRc {
@@ -107,7 +110,12 @@ fn create_property_element(
                         .into(),
                 ))
             } else {
-                None
+                default_value_for_extra_properties.map(|f| {
+                    (
+                        property_name.to_string(),
+                        BindingExpression::from(f(child, property_name)).into(),
+                    )
+                })
             }
         })
         .collect();

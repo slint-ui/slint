@@ -27,6 +27,7 @@ All notable changes to this project are documented in this file.
    send a mouse or touch event to a window.
  - Added `animation-tick()`
  - `SharedString` implements `std::fmt::Write` and added `slint::format!`
+ - `Image` can now be rotated with the `rotation-*` properties
 
 ## [0.2.5] - 2022-07-06
 

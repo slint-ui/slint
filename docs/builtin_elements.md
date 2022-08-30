@@ -174,6 +174,10 @@ An Image can be used to represent an image loaded from an image file.
   the sizes provided by the **`source`** image. If the `Image` is **not** in a layout and only **one** of the two sizes are
   specified, then the other defaults to the specified value scaled according to the aspect ratio of the **`source`** image.
 
+* **`rotation-angle`** (*angle*), **`rotation-origin-x`** (*length*), **`rotation-origin-y`** (*length*):
+  Rotate the image by the given angle around the specified origin point. The default origin point is the center of the element.
+  When these properties are present, the Image cannot have any children elements.
+
 ### Example
 
 ```slint
