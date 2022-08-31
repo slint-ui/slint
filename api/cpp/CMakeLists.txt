@@ -86,6 +86,7 @@ define_cargo_feature(eventloop-winit-wayland "Enable support for the winit creat
 
 define_cargo_feature(renderer-femtovg "Enable support for the OpenGL ES 2.0 based FemtoVG rendering engine." ON)
 define_cargo_feature(renderer-skia "Enable support for the Skia based rendering engine." ON)
+define_cargo_feature(renderer-skia-opengl "Enable support for the Skia based rendering engine with its OpenGL backend." ON)
 
 define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
@@ -173,7 +174,7 @@ endif(SLINT_STYLE)
 #  * We look for clang or gcc in PATH - unprefixed those are usually host compilers.
 #  * Through corrosion we know the correct host value of CC_<triplet>.
 # Finally, we set CC_<host triplet> to clang or gcc and empty CFLAGS_<host triplet>
-if(SLINT_FEATURE_RENDERER_SKIA AND CMAKE_CROSSCOMPILING AND Rust_CARGO_HOST_TARGET)
+if((SLINT_FEATURE_RENDERER_SKIA OR SLINT_FEATURE_RENDERER_SKIA_OPENGL) AND CMAKE_CROSSCOMPILING AND Rust_CARGO_HOST_TARGET)
     find_program(CLANG clang)
     if(CLANG)
         set(host_cc "${CLANG}")

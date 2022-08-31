@@ -37,10 +37,7 @@ impl OpenGLContext {
         })
     }
 
-    #[cfg(all(
-        feature = "renderer-skia",
-        not(any(target_os = "macos", target_family = "windows", target_arch = "wasm32"))
-    ))]
+    #[cfg(skia_backend_opengl)]
     pub fn glutin_context(
         &self,
     ) -> std::cell::Ref<glutin::WindowedContext<glutin::PossiblyCurrent>> {
@@ -79,7 +76,7 @@ impl OpenGLContext {
         }
     }
 
-    #[cfg(any(feature = "renderer-femtovg", feature = "renderer-skia"))]
+    #[cfg(any(feature = "renderer-femtovg", enable_skia_renderer))]
     pub fn with_current_context<T>(&self, cb: impl FnOnce(&Self) -> T) -> T {
         if matches!(self.0.borrow().as_ref().unwrap(), OpenGLContextState::Current { .. }) {
             cb(self)

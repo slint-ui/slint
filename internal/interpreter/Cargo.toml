@@ -71,6 +71,9 @@ renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "std"]
 ## The Skia based rendering engine.
 renderer-skia = ["i-slint-backend-selector/renderer-skia", "std"]
 
+## The Skia based rendering engine that will always use OpenGL.
+renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "std"]
+
 ## This feature is an alias for `backend-qt`
 renderer-qt = ["backend-qt"]
 

@@ -21,7 +21,7 @@ mod renderer {
 
     use i_slint_core::window::WindowAdapter;
 
-    #[cfg(any(feature = "renderer-femtovg", feature = "renderer-skia"))]
+    #[cfg(any(feature = "renderer-femtovg", enable_skia_renderer))]
     mod boxshadowcache;
 
     pub(crate) trait WinitCompatibleRenderer: i_slint_core::renderer::Renderer {
@@ -52,7 +52,7 @@ mod renderer {
 
     #[cfg(feature = "renderer-femtovg")]
     pub(crate) mod femtovg;
-    #[cfg(feature = "renderer-skia")]
+    #[cfg(enable_skia_renderer)]
     pub(crate) mod skia;
 
     #[cfg(feature = "renderer-software")]
@@ -79,12 +79,12 @@ fn window_factory_fn<R: WinitCompatibleRenderer + 'static>() -> Rc<dyn WindowAda
 cfg_if::cfg_if! {
     if #[cfg(feature = "renderer-femtovg")] {
         type DefaultRenderer = renderer::femtovg::FemtoVGRenderer;
-    } else if #[cfg(feature = "renderer-skia")] {
+    } else if #[cfg(enable_skia_renderer)] {
         type DefaultRenderer = renderer::skia::SkiaRenderer;
     } else if #[cfg(feature = "renderer-software")] {
         type DefaultRenderer = renderer::sw::SoftwareRenderer;
     } else {
-        compile_error!("Please select a feature to build with the winit event loop: `renderer-femtovg`, `renderer-skia`, `renderer-software`");
+        compile_error!("Please select a feature to build with the winit event loop: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl` or `renderer-software`");
     }
 }
 
@@ -112,7 +112,7 @@ impl Backend {
         let window_factory_fn = match renderer_name {
             #[cfg(feature = "renderer-femtovg")]
             Some("gl") | Some("femtovg") => window_factory_fn::<renderer::femtovg::FemtoVGRenderer>,
-            #[cfg(feature = "renderer-skia")]
+            #[cfg(enable_skia_renderer)]
             Some("skia") => window_factory_fn::<renderer::skia::SkiaRenderer>,
             #[cfg(feature = "renderer-software")]
             Some("sw") | Some("software") => window_factory_fn::<renderer::sw::SoftwareRenderer>,
