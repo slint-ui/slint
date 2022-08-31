@@ -127,10 +127,21 @@ fn main() {
 
 pub fn run_lsp_server() -> Result<(), Error> {
     let (connection, io_threads) = Connection::stdio();
-    let capabilities = server_loop::server_capabilities();
-    let server_capabilities = serde_json::to_value(&capabilities).unwrap();
-    let initialization_params = connection.initialize(server_capabilities)?;
-    main_loop(&connection, initialization_params)?;
+    let (id, params) = connection.initialize_start()?;
+    let server_capabilities = server_loop::server_capabilities();
+
+    let initialize_data = serde_json::json!({
+        "capabilities": server_capabilities,
+        "offsetEncoding": "utf-8", // We support utf-8 *only*
+        "serverInfo": {
+            "name": "slint-ls",
+            "version": String::from(env!("CARGO_PKG_VERSION")),
+        }
+    });
+
+    connection.initialize_finish(id, initialize_data)?;
+
+    main_loop(&connection, params)?;
     io_threads.join()?;
     Ok(())
 }
