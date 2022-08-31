@@ -254,7 +254,6 @@ jobs:
       uses: jurplel/install-qt-action@v3
       with:
         version: 5.15.2
-        cached: ${{ steps.cache-qt.outputs.cache-hit }}
         py7zrversion: ==0.19.*
     - uses: actions/download-artifact@v2
       with:
