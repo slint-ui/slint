@@ -487,7 +487,12 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
                 );
 
                 let rounded_rect = skia_safe::RRect::new_rect_xy(
-                    skia_safe::Rect::from_xywh(0., 0., shadow_options.width, shadow_options.height),
+                    skia_safe::Rect::from_xywh(
+                        shadow_options.blur,
+                        shadow_options.blur,
+                        shadow_options.width,
+                        shadow_options.height,
+                    ),
                     shadow_options.radius,
                     shadow_options.radius,
                 );
@@ -514,7 +519,12 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             None => return,
         };
 
-        self.canvas.draw_image(cached_shadow_image, skia_safe::Point::from((ox, oy)), None);
+        let blur = box_shadow.blur() * self.scale_factor;
+        self.canvas.draw_image(
+            cached_shadow_image,
+            skia_safe::Point::from((ox - blur, oy - blur)),
+            None,
+        );
     }
 
     fn combine_clip(
