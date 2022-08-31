@@ -1292,7 +1292,7 @@ fn bpp(format: PixelFormat) -> u16 {
 /// This is a minimal adaptor for a Window that doesn't have any other feature than rendering
 /// using the software renderer.
 ///
-/// The `BUFFER_COUNT` generic parameter is forward to the [`SoftwareRenderer`]
+/// The `BUFFER_COUNT` generic parameter is forwarded to the [`SoftwareRenderer`]
 pub struct MinimalSoftwareWindow<const BUFFER_COUNT: usize> {
     window: Window,
     renderer: SoftwareRenderer<BUFFER_COUNT>,
