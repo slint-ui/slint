@@ -310,12 +310,11 @@ fn maybe_goto_preview(
     }
 }
 
-pub async fn reload_document(
-    connection: &crate::ServerNotifier,
+pub async fn reload_document_impl(
     content: String,
     uri: lsp_types::Url,
     document_cache: &mut DocumentCache,
-) -> Result<(), Error> {
+) -> Result<HashMap<Url, Vec<lsp_types::Diagnostic>>, Error> {
     let newline_offsets = DocumentCache::newline_offsets_from_content(&content);
     document_cache.newline_offsets.insert(uri.clone(), newline_offsets);
 
@@ -343,6 +342,17 @@ pub async fn reload_document(
         let uri = Url::from_file_path(d.source_file().unwrap()).unwrap();
         lsp_diags.entry(uri).or_default().push(util::to_lsp_diag(&d));
     }
+
+    Ok(lsp_diags)
+}
+
+pub async fn reload_document(
+    connection: &crate::ServerNotifier,
+    content: String,
+    uri: lsp_types::Url,
+    document_cache: &mut DocumentCache,
+) -> Result<(), Error> {
+    let lsp_diags = reload_document_impl(content, uri, document_cache).await?;
 
     for (uri, diagnostics) in lsp_diags {
         connection.send_notification(
@@ -569,4 +579,127 @@ fn get_code_lenses(
         })
         .collect::<Vec<_>>();
     Some(r)
+}
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    pub fn empty_document_cache(style: &str) -> DocumentCache {
+        let mut config =
+            CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
+        config.style = Some(style.to_string());
+        DocumentCache::new(config)
+    }
+
+    pub fn loaded_document_cache(
+        style: &str,
+        content: String,
+    ) -> (DocumentCache, lsp_types::Url, HashMap<Url, Vec<lsp_types::Diagnostic>>) {
+        let mut dc = empty_document_cache(style);
+        let dummy_absolute_path =
+            if cfg!(target_family = "windows") { "c://foo/bar.slint" } else { "/foo/bar.slint" };
+        let url = lsp_types::Url::from_file_path(dummy_absolute_path).unwrap();
+        let diag = spin_on::spin_on(async {
+            reload_document_impl(content, url.clone(), &mut dc)
+                .await
+                .expect("reload_document_impl failed.")
+        });
+        (dc, url, diag)
+    }
+
+    #[test]
+    fn test_reload_document_invalid_contents() {
+        let (_, url, diag) = loaded_document_cache("fluent", "This is not valid!".into());
+
+        assert!(diag.len() == 1); // Only one URL is known
+
+        let diagnostics = diag.get(&url).expect("URL not found in result");
+        assert_eq!(diagnostics.len(), 1);
+        assert_eq!(diagnostics[0].severity, Some(lsp_types::DiagnosticSeverity::ERROR));
+    }
+
+    #[test]
+    fn test_reload_document_text_positions() {
+        let (mut dc, url, _) = loaded_document_cache(
+            "fluent",
+            // cspell:disable-next-line
+            "Thiß is not valid!\n and more...".into(),
+        );
+
+        assert_eq!(
+            dc.byte_offset_to_position(0, &url),
+            Some(lsp_types::Position { line: 0, character: 0 })
+        );
+        assert_eq!(
+            dc.byte_offset_to_position(4, &url),
+            Some(lsp_types::Position { line: 0, character: 4 })
+        );
+        assert_eq!(
+            dc.byte_offset_to_position(5, &url),
+            Some(lsp_types::Position { line: 0, character: 5 })
+        ); // TODO: Figure out whether this is actually correct...
+        assert_eq!(
+            dc.byte_offset_to_position(1024, &url),
+            Some(lsp_types::Position { line: 1, character: 1004 })
+        ); // TODO: This is nonsense!
+    }
+
+    #[test]
+    fn test_reload_document_valid_contents() {
+        let (_, url, diag) = loaded_document_cache("fluent", r#"Main := Rectangle { }"#.into());
+
+        assert!(diag.len() == 1); // Only one URL is known
+        let diagnostics = diag.get(&url).expect("URL not found in result");
+        assert!(diagnostics.is_empty());
+    }
+
+    #[test]
+    fn test_text_document_color_no_color_set() {
+        let (mut dc, url, _) = loaded_document_cache(
+            "fluent",
+            r#"
+            Main := Rectangle { }
+            "#
+            .into(),
+        );
+
+        let result =
+            get_document_color(&mut dc, &lsp_types::TextDocumentIdentifier { uri: url.clone() })
+                .expect("Color Vec was returned");
+        assert!(result.is_empty());
+    }
+
+    #[test]
+    fn test_text_document_color_rgba_color() {
+        let (mut dc, url, _) = loaded_document_cache(
+            "fluent",
+            r#"
+            Main := Rectangle {
+                background: #1200FF80;
+            }
+            "#
+            .into(),
+        );
+
+        let result =
+            get_document_color(&mut dc, &lsp_types::TextDocumentIdentifier { uri: url.clone() })
+                .expect("Color Vec was returned");
+
+        assert_eq!(result.len(), 1);
+
+        let start = &result[0].range.start;
+        assert_eq!(start.line, 2);
+        assert_eq!(start.character, 28); // TODO: Why is this not 30?
+
+        let end = &result[0].range.end;
+        assert_eq!(end.line, 2);
+        assert_eq!(end.character, 37); // TODO: Why is this not 39?
+
+        let color = &result[0].color;
+        assert_eq!(f64::trunc(color.red as f64 * 255.0), 18.0);
+        assert_eq!(f64::trunc(color.green as f64 * 255.0), 0.0);
+        assert_eq!(f64::trunc(color.blue as f64 * 255.0), 255.0);
+        assert_eq!(f64::trunc(color.alpha as f64 * 255.0), 128.0);
+    }
 }
