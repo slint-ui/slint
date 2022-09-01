@@ -120,5 +120,11 @@ cfg_if::cfg_if! {
         macro_rules! debug_log {
             ($($t:tt)*) => ($crate::tests::log({ use alloc::string::ToString; &format_args!($($t)*).to_string() }))
         }
+    } else {
+        #[macro_export]
+        /// Do nothing
+        macro_rules! debug_log {
+            ($($t:tt)*) => (let _ = &format_args!($($t)*);)
+        }
     }
 }
