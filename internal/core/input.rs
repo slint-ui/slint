@@ -20,8 +20,8 @@ use euclid::default::Vector2D;
 
 /// A mouse or touch event
 ///
-/// The only difference with [`crate::api::PointerEvent`] us that it uses untyped `Point`
-/// TODO: merge with api::PointerEvent
+/// The only difference with [`crate::api::WindowEvent`] us that it uses untyped `Point`
+/// TODO: merge with api::WindowEvent
 #[repr(C)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[allow(missing_docs)]

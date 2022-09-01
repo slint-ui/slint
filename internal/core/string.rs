@@ -12,7 +12,7 @@ use core::fmt::{Debug, Display, Write};
 use core::iter::FromIterator;
 use core::ops::Deref;
 
-/// Same as [`std::format!`], but returns a SharedString instread
+/// Same as [`std::format!`], but returns a [`SharedString`] instread
 ///
 /// ### Example
 /// ```rust
