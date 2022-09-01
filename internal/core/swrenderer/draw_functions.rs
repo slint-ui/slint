@@ -4,7 +4,7 @@
 //! This is the module for the functions that are drawing the pixels
 //! on the line buffer
 
-use crate::graphics::PixelFormat;
+use crate::graphics::{PixelFormat, Rgb8Pixel};
 use crate::lengths::{PhysicalLength, PhysicalRect, PointLengths, SizeLengths};
 use crate::Color;
 use derive_more::{Add, Mul, Sub};
@@ -388,19 +388,19 @@ impl Rgb565Pixel {
     /// Return the red component as a u8.
     ///
     /// The bits are shifted so that the result is between 0 and 255
-    pub fn red(self) -> u8 {
+    fn red(self) -> u8 {
         ((self.0 & Self::R_MASK) >> 8) as u8
     }
     /// Return the green component as a u8.
     ///
     /// The bits are shifted so that the result is between 0 and 255
-    pub fn green(self) -> u8 {
+    fn green(self) -> u8 {
         ((self.0 & Self::G_MASK) >> 3) as u8
     }
     /// Return the blue component as a u8.
     ///
     /// The bits are shifted so that the result is between 0 and 255
-    pub fn blue(self) -> u8 {
+    fn blue(self) -> u8 {
         ((self.0 & Self::B_MASK) << 3) as u8
     }
 }
@@ -430,4 +430,27 @@ impl TargetPixel for Rgb565Pixel {
     fn from_rgb(r: u8, g: u8, b: u8) -> Self {
         Self(((r as u16 & 0b11111000) << 8) | ((g as u16 & 0b11111100) << 3) | (b as u16 >> 3))
     }
+}
+
+impl From<Rgb8Pixel> for Rgb565Pixel {
+    fn from(p: Rgb8Pixel) -> Self {
+        Self::from_rgb(p.r, p.g, p.b)
+    }
+}
+
+impl From<Rgb565Pixel> for Rgb8Pixel {
+    fn from(p: Rgb565Pixel) -> Self {
+        Rgb8Pixel { r: p.red(), g: p.green(), b: p.blue() }
+    }
+}
+
+#[test]
+fn rgb565() {
+    let pix565 = Rgb565Pixel::from_rgb(0xff, 0x25, 0);
+    let pix888: Rgb8Pixel = pix565.into();
+    assert_eq!(pix565, pix888.into());
+
+    let pix565 = Rgb565Pixel::from_rgb(0x56, 0x42, 0xe3);
+    let pix888: Rgb8Pixel = pix565.into();
+    assert_eq!(pix565, pix888.into());
 }

@@ -58,9 +58,7 @@ impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRende
                     let sub = &mut self.line[..range.len()];
                     render_fn(sub);
                     for (dst, src) in self.buffer[line_begin..][range].iter_mut().zip(sub) {
-                        dst.r = src.red();
-                        dst.g = src.green();
-                        dst.b = src.blue();
+                        *dst = (*src).into();
                     }
                 }
             }
