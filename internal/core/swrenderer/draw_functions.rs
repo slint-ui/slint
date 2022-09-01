@@ -418,6 +418,8 @@ impl TargetPixel for Rgb565Pixel {
         // gggggggg_000rrrrr_rrr000bbb_bbbbb00
         let c =
             ((color.red as u32) << 13) | ((color.green as u32) << 24) | ((color.blue as u32) << 2);
+        // gggggg00_000rrrrr_00000bbb_bb00000
+        let c = c & 0b11111100_00011111_00000111_11000000;
 
         let res = expanded * a + c;
 
