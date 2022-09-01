@@ -146,21 +146,14 @@ impl i_slint_core::platform::Platform for Backend {
         }
     }
 
-    fn set_event_loop_quit_behavior(
-        &self,
-        _behavior: i_slint_core::platform::EventLoopQuitBehavior,
-    ) {
+    fn set_event_loop_quit_on_last_window_closed(&self, _quit_on_last_window_closed: bool) {
         #[cfg(not(no_qt))]
         {
-            let quit_on_last_window_closed = match _behavior {
-                i_slint_core::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed => true,
-                i_slint_core::platform::EventLoopQuitBehavior::QuitOnlyExplicitly => false,
-            };
             // Schedule any timers with Qt that were set up before this event loop start.
             use cpp::cpp;
-            cpp! {unsafe [quit_on_last_window_closed as "bool"] {
+            cpp! {unsafe [_quit_on_last_window_closed as "bool"] {
                 ensure_initialized(true);
-                qApp->setQuitOnLastWindowClosed(quit_on_last_window_closed);
+                qApp->setQuitOnLastWindowClosed(_quit_on_last_window_closed);
             } }
         };
     }

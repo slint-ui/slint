@@ -24,6 +24,9 @@ use winit::event::WindowEvent;
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::run_return::EventLoopExtRunReturn;
 
+pub(crate) static QUIT_ON_LAST_WINDOW_CLOSED: std::sync::atomic::AtomicBool =
+    std::sync::atomic::AtomicBool::new(true);
+
 pub trait WinitWindow: WindowAdapter {
     fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>>;
     fn current_keyboard_modifiers(&self) -> &Cell<KeyboardModifiers>;
@@ -543,7 +546,7 @@ fn process_window_event(
 /// Runs the event loop and renders the items in the provided `component` in its
 /// own window.
 #[allow(unused_mut)] // mut need changes for wasm
-pub fn run(quit_behavior: i_slint_core::platform::EventLoopQuitBehavior) {
+pub fn run() {
     use winit::event::Event;
     use winit::event_loop::{ControlFlow, EventLoopWindowTarget};
 
@@ -597,15 +600,14 @@ pub fn run(quit_behavior: i_slint_core::platform::EventLoopQuitBehavior) {
                 windows_with_pending_property_updates.insert(insert_pos, window_id);
             }
         }
-        Event::UserEvent(CustomEvent::WindowHidden) => match quit_behavior {
-            corelib::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed => {
+        Event::UserEvent(CustomEvent::WindowHidden) => {
+            if QUIT_ON_LAST_WINDOW_CLOSED.load(std::sync::atomic::Ordering::Relaxed) {
                 let window_count = ALL_WINDOWS.with(|windows| windows.borrow().len());
                 if window_count == 0 {
                     *control_flow = ControlFlow::Exit;
                 }
             }
-            corelib::platform::EventLoopQuitBehavior::QuitOnlyExplicitly => {}
-        },
+        }
 
         Event::UserEvent(CustomEvent::Exit) => {
             *control_flow = ControlFlow::Exit;

@@ -20,15 +20,6 @@ use alloc::string::String;
 #[cfg(feature = "std")]
 use once_cell::sync::OnceCell;
 
-#[derive(Copy, Clone)]
-/// Behavior describing how the event loop should terminate.
-pub enum EventLoopQuitBehavior {
-    /// Terminate the event loop when the last window was closed.
-    QuitOnLastWindowClosed,
-    /// Keep the event loop running until [`Backend::quit_event_loop()`] is called.
-    QuitOnlyExplicitly,
-}
-
 /// Interface implemented by back-ends
 pub trait Platform {
     /// Instantiate a window for a component.
@@ -39,8 +30,12 @@ pub trait Platform {
         unimplemented!("The backend does not implement running an eventloop")
     }
 
+    /// Specify if the event loop should quit quen the last window is closed.
+    /// The default behavior is `true`.
+    /// When this is set to `false`, the event loop must keep running until
+    /// [`slint::quit_event_loop()`](crate::api::quit_event_loop()) is called
     #[doc(hidden)]
-    fn set_event_loop_quit_behavior(&self, _behavior: EventLoopQuitBehavior) {
+    fn set_event_loop_quit_on_last_window_closed(&self, _quit_on_last_window_closed: bool) {
         unimplemented!("The backend does not implement event loop quit behaviors")
     }
 

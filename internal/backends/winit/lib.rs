@@ -87,7 +87,6 @@ pub use stylemetrics::native_style_metrics_deinit;
 pub use stylemetrics::native_style_metrics_init;
 
 pub struct Backend {
-    event_loop_quit_behavior: std::cell::Cell<i_slint_core::platform::EventLoopQuitBehavior>,
     window_factory_fn: Mutex<Box<dyn Fn() -> Rc<dyn WindowAdapter> + Send>>,
 }
 
@@ -139,12 +138,7 @@ impl Backend {
                 default_renderer_factory
             }
         };
-        Self {
-            window_factory_fn: Mutex::new(Box::new(factory_fn)),
-            event_loop_quit_behavior: std::cell::Cell::new(
-                i_slint_core::platform::EventLoopQuitBehavior::QuitOnLastWindowClosed,
-            ),
-        }
+        Self { window_factory_fn: Mutex::new(Box::new(factory_fn)) }
     }
 }
 
@@ -153,15 +147,14 @@ impl i_slint_core::platform::Platform for Backend {
         self.window_factory_fn.lock().unwrap()()
     }
 
-    fn set_event_loop_quit_behavior(
-        &self,
-        behavior: i_slint_core::platform::EventLoopQuitBehavior,
-    ) {
-        self.event_loop_quit_behavior.set(behavior);
+    #[doc(hidden)]
+    fn set_event_loop_quit_on_last_window_closed(&self, quit_on_last_window_closed: bool) {
+        event_loop::QUIT_ON_LAST_WINDOW_CLOSED
+            .store(quit_on_last_window_closed, std::sync::atomic::Ordering::Relaxed);
     }
 
     fn run_event_loop(&self) {
-        crate::event_loop::run(self.event_loop_quit_behavior.get());
+        crate::event_loop::run();
     }
 
     fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
