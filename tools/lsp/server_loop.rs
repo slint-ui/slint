@@ -114,6 +114,7 @@ pub fn server_capabilities() -> ServerCapabilities {
             trigger_characters: Some(vec![".".to_owned()]),
             work_done_progress_options: WorkDoneProgressOptions::default(),
             all_commit_characters: None,
+            completion_item: None,
         }),
         definition_provider: Some(OneOf::Left(true)),
         text_document_sync: Some(TextDocumentSyncCapability::Kind(
