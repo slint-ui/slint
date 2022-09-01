@@ -57,7 +57,7 @@ i-slint-compiler = { version = "=0.2.6", path = "../../internal/compiler"}
 clap = { version = "3.2", features = ["derive", "wrap_help"] }
 dunce = "1.0.1"
 euclid = "0.22"
-lsp-types = "0.93.0"
+lsp-types = { version = "0.93.0", features = ["proposed"] }
 serde = "1.0.118"
 serde_json = "1.0.60"
 
