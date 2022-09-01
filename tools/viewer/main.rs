@@ -11,7 +11,6 @@ use std::pin::Pin;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::Wake;
-use std::time::Duration;
 
 use clap::Parser;
 
@@ -206,16 +205,18 @@ static PENDING_EVENTS: AtomicU32 = AtomicU32::new(0);
 
 fn start_fswatch_thread(args: Cli) -> Result<Arc<Mutex<notify::RecommendedWatcher>>> {
     let (tx, rx) = std::sync::mpsc::channel();
-    let w = Arc::new(Mutex::new(notify::watcher(tx, Duration::from_millis(400))?));
+    let w = Arc::new(Mutex::new(notify::recommended_watcher(tx)?));
     let w2 = w.clone();
     std::thread::spawn(move || {
         while let Ok(event) = rx.recv() {
-            use notify::DebouncedEvent::*;
-            if (matches!(event, Write(_) | Remove(_) | Create(_)))
-                && PENDING_EVENTS.load(Ordering::SeqCst) == 0
-            {
-                PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
-                run_in_ui_thread(Box::pin(reload(args.clone(), w2.clone())));
+            use notify::EventKind::*;
+            if let Ok(event) = event {
+                if (matches!(event.kind, Modify(_) | Remove(_) | Create(_)))
+                    && PENDING_EVENTS.load(Ordering::SeqCst) == 0
+                {
+                    PENDING_EVENTS.fetch_add(1, Ordering::SeqCst);
+                    run_in_ui_thread(Box::pin(reload(args.clone(), w2.clone())));
+                }
             }
         }
     });
