@@ -15,7 +15,7 @@ pub use cortex_m_rt::entry;
 use defmt_rtt as _;
 use embedded_hal::digital::v2::OutputPin;
 use embedded_hal::spi::FullDuplex;
-use embedded_time::rate::*;
+use fugit::{Hertz, RateExtU32};
 use hal::dma::{DMAExt, SingleChannel, WriteTarget};
 use renderer::Rgb565Pixel;
 use rp_pico::hal::gpio::{self, Interrupt as GpioInterrupt};
@@ -49,7 +49,7 @@ static ALARM0: Mutex<RefCell<Option<Alarm0>>> = Mutex::new(RefCell::new(None));
 static TIMER: Mutex<RefCell<Option<Timer>>> = Mutex::new(RefCell::new(None));
 
 // 16ns for serial clock cycle (write), page 43 of https://www.waveshare.com/w/upload/a/ae/ST7789_Datasheet.pdf
-const SPI_ST7789VW_MAX_FREQ: embedded_time::rate::Hertz = embedded_time::rate::Hertz(62_500_000u32);
+const SPI_ST7789VW_MAX_FREQ: Hertz<u32> = Hertz::<u32>::Hz(62_500_000);
 
 const DISPLAY_SIZE: euclid::Size2D<u32, PhysicalPx> = euclid::Size2D::new(320, 240);
 
@@ -99,8 +99,7 @@ impl slint::platform::Platform for PicoBackend {
         .ok()
         .unwrap();
 
-        let mut delay =
-            cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().integer());
+        let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().raw());
 
         let sio = hal::sio::Sio::new(pac.SIO);
         let pins =
@@ -233,15 +232,21 @@ impl slint::platform::Platform for PicoBackend {
                 }
             }
 
-            let time_to_sleep = slint::platform::duration_until_next_timer_update();
-
-            let duration = time_to_sleep.map(|d| {
-                let d = core::cmp::max(d, core::time::Duration::from_micros(10));
-                embedded_time::duration::Microseconds::new(d.as_micros() as u32)
-            });
+            let sleep_duration = match slint::platform::duration_until_next_timer_update() {
+                None => None,
+                Some(d) => {
+                    let micros = d.as_micros() as u32;
+                    if micros < 10 {
+                        // Cannot wait for less than 10µs, or `schedule()` panics
+                        continue;
+                    } else {
+                        Some(fugit::MicrosDurationU32::micros(micros))
+                    }
+                }
+            };
 
             cortex_m::interrupt::free(|cs| {
-                if let Some(duration) = duration {
+                if let Some(duration) = sleep_duration {
                     ALARM0.borrow(cs).borrow_mut().as_mut().unwrap().schedule(duration).unwrap();
                 }
 
@@ -378,7 +383,7 @@ mod xpt2046 {
     use cortex_m::interrupt::Mutex;
     use embedded_hal::blocking::spi::Transfer;
     use embedded_hal::digital::v2::{InputPin, OutputPin};
-    use embedded_time::rate::Extensions;
+    use fugit::RateExtU32;
     use slint::euclid;
     use slint::euclid::default::Point2D;
 
@@ -554,7 +559,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
         &embedded_hal::spi::MODE_3,
     );
 
-    let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().integer());
+    let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().raw());
 
     let rst = pins.gpio15.into_push_pull_output();
     let dc = pins.gpio8.into_push_pull_output();
