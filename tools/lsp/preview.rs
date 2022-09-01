@@ -98,9 +98,7 @@ pub fn start_ui_event_loop() {
     }
 
     i_slint_backend_selector::with_platform(|b| {
-        b.set_event_loop_quit_behavior(
-            i_slint_core::platform::EventLoopQuitBehavior::QuitOnlyExplicitly,
-        );
+        b.set_event_loop_quit_on_last_window_closed(false);
         b.run_event_loop()
     });
 }
