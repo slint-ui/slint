@@ -136,7 +136,7 @@ pub fn run_lsp_server() -> Result<(), Error> {
         capabilities: server_loop::server_capabilities(),
 
         server_info: Some(ServerInfo {
-            name: "slint-ls".into(),
+            name: env!("CARGO_PKG_NAME").to_string(),
             version: Some(env!("CARGO_PKG_VERSION").to_string()),
         }),
         offset_encoding: Some("utf-8".to_string()),
