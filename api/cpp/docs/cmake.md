@@ -60,9 +60,9 @@ therefore reduce the size of the resulting library.
 
 The CMake configure step offers CMake options for various feature that are all prefixed with `SLINT_FEATURE_`. For example
 you can make a build that exclusively supports Wayland on Linux by enabling the `SLINT_FEATURE_EVENTLOOP_WINIT_WAYLAND` feature and turning
-off `SLINT_FEATURE_EVENTLOOP_WINIT_ALL`. There are different ways of toggling CMake options. For example on the command line using the `-D` parameter:
+off `SLINT_FEATURE_EVENTLOOP_WINIT`. There are different ways of toggling CMake options. For example on the command line using the `-D` parameter:
 
-   `cmake -DSLINT_FEATURE_EVENTLOOP_WINIT_ALL=OFF -DSLINT_FEATURE_EVENTLOOP_WINIT_WAYLAND=ON ...`
+   `cmake -DSLINT_FEATURE_EVENTLOOP_WINIT=OFF -DSLINT_FEATURE_EVENTLOOP_WINIT_WAYLAND=ON ...`
 
 Alternatively, after the configure step you can use `cmake-gui` or `ccmake` on the build directory for a list of all features
 and their description.

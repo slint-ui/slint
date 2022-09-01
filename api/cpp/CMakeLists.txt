@@ -81,8 +81,8 @@ endfunction()
 define_cargo_feature(interpreter "Enable support for the Slint interpeter to load .slint files at run-time" ON)
 
 define_cargo_feature(eventloop-winit "Enable support for the winit crate to interaction with all windowing systems." ON)
-define_cargo_feature(eventloop-winit-x11 "Enable support for the winit create to interact only with the X11 windowing system on Unix. Enable this option and turn off SLINT_FEATURE_EVENTLOOP_WINIT_ALL for a smaller build with just X11 support on Unix." OFF)
-define_cargo_feature(eventloop-winit-wayland "Enable support for the winit create to interact only with the wayland windowing system on Unix. Enable this option and turn off SLINT_FEATURE_EVENTLOOP_WINIT_ALL for a smaller build with just wayland support." OFF)
+define_cargo_feature(eventloop-winit-x11 "Enable support for the winit create to interact only with the X11 windowing system on Unix. Enable this option and turn off SLINT_FEATURE_EVENTLOOP_WINIT for a smaller build with just X11 support on Unix." OFF)
+define_cargo_feature(eventloop-winit-wayland "Enable support for the winit create to interact only with the wayland windowing system on Unix. Enable this option and turn off SLINT_FEATURE_EVENTLOOP_WINIT for a smaller build with just wayland support." OFF)
 
 define_cargo_feature(renderer-femtovg "Enable support for the OpenGL ES 2.0 based FemtoVG rendering engine." ON)
 define_cargo_feature(renderer-skia "Enable support for the Skia based rendering engine." ON)
@@ -90,12 +90,12 @@ define_cargo_feature(renderer-skia "Enable support for the Skia based rendering 
 define_cargo_feature(backend-qt "Enable Qt based rendering backend" ON)
 
 # Compat options
-option(SLINT_FEATURE_BACKEND_GL_ALL "This feature is an alias for SLINT_FEATURE_EVENTLOOP_WINIT_ALL and SLINT_FEATURE_RENDERER_FEMTOVG." OFF)
+option(SLINT_FEATURE_BACKEND_GL_ALL "This feature is an alias for SLINT_FEATURE_EVENTLOOP_WINIT and SLINT_FEATURE_RENDERER_FEMTOVG." OFF)
 option(SLINT_FEATURE_BACKEND_GL_X11 "This feature is an alias for SLINT_FEATURE_EVENTLOOP_WINIT_X11 and SLINT_FEATURE_RENDERER_FEMTOVG." OFF)
 option(SLINT_FEATURE_BACKEND_GL_WAYLAND "This feature is an alias for SLINT_FEATURE_EVENTLOOP_WINIT_WAYLAND and SLINT_FEATURE_RENDERER_FEMTOVG." OFF)
 
 if(SLINT_FEATURE_BACKEND_GL_ALL)
-    set(SLINT_FEATURE_EVENTLOOP_WINIT_ALL ON)
+    set(SLINT_FEATURE_EVENTLOOP_WINIT ON)
     set(SLINT_FEATURE_RENDERER_FEMTOVG ON)
 endif()
 
