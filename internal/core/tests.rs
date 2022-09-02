@@ -89,5 +89,5 @@ pub use alloc::string::ToString;
 /// This macro allows producing debug output that will appear on stderr in regular builds
 /// and in the console log for wasm builds.
 macro_rules! debug_log {
-    ($($t:tt)*) => ($crate::platform::PLATFORM_INSTANCE.with(|p| { use $crate::tests::ToString; p.get().map(|p| p.debug_log(&format_args!($($t)*).to_string()));}))
+    ($($t:tt)*) => ($crate::platform::PLATFORM_INSTANCE.with(|p| { use $crate::tests::ToString; p.get().map(|p| p.debug_log(format_args!($($t)*)));}))
 }

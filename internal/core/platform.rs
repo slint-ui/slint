@@ -76,7 +76,7 @@ pub trait Platform {
     /// This function is called when debug() is used in .slint files. The implementation
     /// should direct the output to some developer visible terminal. The default implementation
     /// uses stderr if available, or `console.log` when targeting wasm.
-    fn debug_log(&self, _text: &str) {
+    fn debug_log(&self, _arguments: core::fmt::Arguments) {
         cfg_if::cfg_if! {
             if #[cfg(target_arch = "wasm32")] {
                 use wasm_bindgen::prelude::*;
@@ -87,9 +87,9 @@ pub trait Platform {
                     pub fn log(s: &str);
                 }
 
-                log(_text);
+                log(&_arguments.to_string());
             } else if #[cfg(feature = "std")] {
-                eprintln!("{}", _text);
+                eprintln!("{}", _arguments);
             }
         }
     }

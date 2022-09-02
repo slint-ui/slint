@@ -262,8 +262,9 @@ impl slint::platform::Platform for PicoBackend {
         }
     }
 
-    fn debug_log(&self, text: &str) {
-        defmt::println!("{=str}", text);
+    fn debug_log(&self, arguments: core::fmt::Arguments) {
+        use alloc::string::ToString;
+        defmt::println!("{=str}", arguments.to_string());
     }
 }
 
