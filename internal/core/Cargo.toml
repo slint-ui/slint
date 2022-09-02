@@ -51,7 +51,6 @@ vtable = { version="0.1.9", path = "../../helper_crates/vtable" }
 atomic-polyfill = "1.0.1"
 auto_enums = "0.7"
 cfg-if = "1"
-defmt = { version = "0.3.0", optional = true }
 derive_more = "0.99.5"
 euclid = { version = "0.22.1", default-features = false }
 instant = { version = "0.1", features = [ "now" ], optional = true }

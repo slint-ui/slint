@@ -361,4 +361,8 @@ impl slint::platform::Platform for StmBackend {
         let val = self.timer.get().map_or(0, |t| t.counter() / 10);
         core::time::Duration::from_millis(val.into())
     }
+
+    fn debug_log(&self, text: &str) {
+        defmt::println!("{=str}", text);
+    }
 }

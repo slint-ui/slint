@@ -72,6 +72,27 @@ pub trait Platform {
     fn clipboard_text(&self) -> Option<String> {
         None
     }
+
+    /// This function is called when debug() is used in .slint files. The implementation
+    /// should direct the output to some developer visible terminal. The default implementation
+    /// uses stderr if available, or `console.log` when targeting wasm.
+    fn debug_log(&self, _text: &str) {
+        cfg_if::cfg_if! {
+            if #[cfg(target_arch = "wasm32")] {
+                use wasm_bindgen::prelude::*;
+
+                #[wasm_bindgen]
+                extern "C" {
+                    #[wasm_bindgen(js_namespace = console)]
+                    pub fn log(s: &str);
+                }
+
+                log(_text);
+            } else if #[cfg(feature = "std")] {
+                eprintln!("{}", _text);
+            }
+        }
+    }
 }
 
 /// Trait that is returned by the [`Platform::new_event_loop_proxy`]
@@ -103,7 +124,8 @@ impl std::convert::From<crate::animations::Instant> for instant::Instant {
 }
 
 thread_local! {
-    pub(crate) static PLATFORM_INSTANCE : once_cell::unsync::OnceCell<Box<dyn Platform>>
+    /// Internal: Singleton of the platform abstraction.
+    pub static PLATFORM_INSTANCE : once_cell::unsync::OnceCell<Box<dyn Platform>>
         = once_cell::unsync::OnceCell::new()
 }
 static EVENTLOOP_PROXY: OnceCell<Box<dyn EventLoopProxy + 'static>> = OnceCell::new();
