@@ -19,7 +19,8 @@ path = "lib.rs"
 [features]
 pico-st7789 = ["slint/unsafe-single-threaded", "rp-pico", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "fugit", "cortex-m", "display-interface", "st7789", "defmt", "defmt-rtt", "shared-bus", "slint/libm", "embedded-dma", "embedded-graphics", "euclid/libm"]
 stm32h735g = ["slint/unsafe-single-threaded", "embedded-hal", "cortex-m/critical-section-single-core", "cortex-m-rt","alloc-cortex-m", "embedded-time", "cortex-m", "stm32h7xx-hal/stm32h735", "defmt", "defmt-rtt", "embedded-display-controller", "ft5336", "panic-probe", "slint/libm"]
-esp32-s2-kaluga-1 = ["slint/unsafe-single-threaded", "esp32s2-hal", "embedded-hal", "xtensa-lx-rt", "esp-alloc", "esp-println", "display-interface", "display-interface-spi", "st7789", "slint/libm"]
+esp32-s2-kaluga-1 = ["slint/unsafe-single-threaded", "esp32s2-hal", "embedded-hal", "xtensa-lx-rt/esp32s2", "esp-alloc", "esp-println/esp32s2", "display-interface", "display-interface-spi", "st7789", "slint/libm"]
+esp32-s3-box = ["slint/unsafe-single-threaded", "esp32s3-hal", "embedded-hal", "xtensa-lx-rt/esp32s3", "esp-alloc", "esp-println/esp32s3", "esp-backtrace/esp32s3", "display-interface", "display-interface-spi", "mipidsi", "embedded-graphics", "slint/libm"]
 
 [dependencies]
 slint = { version = "=0.3.2", path = "../../api/rs/slint", default-features = false, features = ["compat-0-3-0"] }
@@ -52,10 +53,14 @@ embedded-display-controller = { version = "0.1.0", optional = true }
 ft5336 = { version = "0.1", git = "https://github.com/bobgates/ft5336", rev = "293730a225a68b6364857602f8fb62fd0beb8a26", optional = true }
 
 esp32s2-hal = { version = "0.2", optional = true }
-xtensa-lx-rt = { version = "0.13", features = ["esp32s2"], optional = true }
+esp32s3-hal = { version = "0.1", optional = true }
+xtensa-lx-rt = { version = "0.13", optional = true }
 display-interface-spi = { version = "0.4", optional = true }
 esp-alloc = { version = "0.1", optional = true }
-esp-println = { version = "0.3.0", features = ["esp32s2"], optional = true }
+esp-println = { version = "0.3.0", optional = true }
+esp-backtrace = { version = "0.2.0", optional = true, features = ["panic-handler", "print-uart"] }
+
+mipidsi = { version = "0.3.0", optional = true }
 
 defmt-rtt = { version = "0.4.0", optional = true }
 defmt = { version = "0.3.0", optional = true }
