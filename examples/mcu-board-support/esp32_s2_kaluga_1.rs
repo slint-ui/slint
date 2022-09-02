@@ -7,7 +7,8 @@ use core::{cell::RefCell, convert::Infallible};
 use display_interface_spi::SPIInterfaceNoCS;
 use embedded_hal::digital::v2::OutputPin;
 use esp32s2_hal::{
-    clock::ClockControl, pac::Peripherals, prelude::*, spi, timer::TimerGroup, Delay, Rtc, IO,
+    clock::ClockControl, pac::Peripherals, prelude::*, spi, systimer::SystemTimer,
+    timer::TimerGroup, Delay, Rtc, IO,
 };
 use esp_alloc::EspHeap;
 use esp_println::println;
@@ -31,7 +32,7 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
 static ALLOCATOR: EspHeap = EspHeap::empty();
 
 pub fn init() {
-    const HEAP_SIZE: usize = 100 * 1024;
+    const HEAP_SIZE: usize = 160 * 1024;
     static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
     unsafe { ALLOCATOR.init(&mut HEAP as *mut u8, core::mem::size_of_val(&HEAP)) }
     slint::platform::set_platform(Box::new(EspBackend::default()))
@@ -51,7 +52,9 @@ impl slint::platform::Platform for EspBackend {
     }
 
     fn duration_since_start(&self) -> core::time::Duration {
-        Default::default()
+        core::time::Duration::from_millis(
+            SystemTimer::now() / (SystemTimer::TICKS_PER_SECOND / 1000),
+        )
     }
 
     fn run_event_loop(&self) {
@@ -70,7 +73,6 @@ impl slint::platform::Platform for EspBackend {
         wdt0.disable();
         wdt1.disable();
 
-        println!("About to initialize the SPI LED driver ST7789VW");
         let io = IO::new(peripherals.GPIO, peripherals.IO_MUX);
         let backlight = io.pins.gpio6;
         let mut backlight = backlight.into_push_pull_output();
