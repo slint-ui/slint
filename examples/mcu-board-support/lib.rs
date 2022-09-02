@@ -7,7 +7,12 @@
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(
-    any(feature = "pico-st7789", feature = "stm32h735g", feature = "esp32-s2-kaluga-1"),
+    any(
+        feature = "pico-st7789",
+        feature = "stm32h735g",
+        feature = "esp32-s2-kaluga-1",
+        feature = "esp32-s3-box"
+    ),
     feature(alloc_error_handler)
 )]
 
@@ -28,12 +33,23 @@ mod esp32_s2_kaluga_1;
 #[cfg(feature = "esp32-s2-kaluga-1")]
 pub use esp32_s2_kaluga_1::*;
 
+#[cfg(feature = "esp32-s3-box")]
+mod esp32_s3_box;
+#[cfg(feature = "esp32-s3-box")]
+pub use esp32_s3_box::*;
+
 #[cfg(not(any(
     feature = "pico-st7789",
     feature = "stm32h735g",
-    feature = "esp32-s2-kaluga-1"
+    feature = "esp32-s2-kaluga-1",
+    feature = "esp32-s3-box"
 )))]
 pub use i_slint_core_macros::identity as entry;
 
-#[cfg(not(any(feature = "pico-st7789", feature = "stm32h735g", feature = "esp32-s2-kaluga-1")))]
+#[cfg(not(any(
+    feature = "pico-st7789",
+    feature = "stm32h735g",
+    feature = "esp32-s2-kaluga-1",
+    feature = "esp32-s3-box"
+)))]
 pub fn init() {}

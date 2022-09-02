@@ -167,10 +167,15 @@ Using [probe-run](https://github.com/knurling-rs/probe-run) (`cargo install prob
 CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-run --chip STM32H735IGKx" cargo +nightly run -p printerdemo_mcu --no-default-features  --features=mcu-board-support/stm32h735g --target=thumbv7em-none-eabihf --release
 ```
 
-### ESP32-S2-Kaluga-1
+### ESP32
 
-A esp toolchain is required: https://esp-rs.github.io/book/dependencies/installing-rust.html#xtensa-esp32-esp32-s2-esp32-s3
-Also `cargo install espflash`
+#### Prerequisites
+
+ * ESP Rust Toolchain: https://esp-rs.github.io/book/dependencies/installing-rust.html#xtensa-esp32-esp32-s2-esp32-s3
+ * `espflash`: Install via `cargo install espflash`.
+
+#### ESP32-S2-Kaluga-1
+
 
 To compile and run the demo:
 
@@ -181,3 +186,11 @@ espflash --monitor /dev/ttyUSB1 target/xtensa-esp32s2-none-elf/release/printerde
 
 The device needs to be connected with the two USB cables (one for power, one for data)
 
+#### ESP32-S3-Box (Experimental)
+
+To compile and run the demo:
+
+```sh
+cargo +esp build -p printerdemo_mcu --target xtensa-esp32s3-none-elf --no-default-features --features=mcu-board-support/esp32-s3-box --release --config examples/mcu-board-support/esp32_s3_box/cargo-config.toml
+espflash --monitor target/xtensa-esp32s3-none-elf/release/printerdemo_mcu
+```
