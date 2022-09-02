@@ -4,15 +4,12 @@
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 
-#[cfg(all(not(feature = "renderer-femtovg"), not(feature = "renderer-skia")))]
-compile_error!("Please select a feature to build with the winit event loop: `renderer-femtovg`, `renderer-skia`");
-
 extern crate alloc;
 
-use std::rc::Rc;
-use std::sync::Mutex;
-
+use i_slint_core::platform::EventLoopProxy;
 use i_slint_core::window::WindowAdapter;
+use renderer::WinitCompatibleRenderer;
+use std::rc::Rc;
 
 mod glwindow;
 use glwindow::*;
@@ -24,10 +21,12 @@ mod renderer {
 
     use i_slint_core::window::WindowAdapter;
 
+    #[cfg(any(feature = "renderer-femtovg", feature = "renderer-skia"))]
     mod boxshadowcache;
 
     pub(crate) trait WinitCompatibleRenderer: i_slint_core::renderer::Renderer {
         type Canvas: WinitCompatibleCanvas;
+        const NAME: &'static str;
 
         fn new(
             window_adapter_weak: &Weak<dyn WindowAdapter>,
@@ -70,6 +69,25 @@ pub fn create_gl_window_with_canvas_id(canvas_id: String) -> Rc<dyn WindowAdapte
     GLWindow::<crate::renderer::femtovg::FemtoVGRenderer>::new(canvas_id)
 }
 
+fn window_factory_fn<R: WinitCompatibleRenderer + 'static>() -> Rc<dyn WindowAdapter> {
+    GLWindow::<R>::new(
+        #[cfg(target_arch = "wasm32")]
+        "canvas".into(),
+    )
+}
+
+cfg_if::cfg_if! {
+    if #[cfg(feature = "renderer-femtovg")] {
+        type DefaultRenderer = renderer::femtovg::FemtoVGRenderer;
+    } else if #[cfg(feature = "renderer-skia")] {
+        type DefaultRenderer = renderer::skia::SkiaRenderer;
+    } else if #[cfg(feature = "renderer-software")] {
+        type DefaultRenderer = renderer::sw::SoftwareRenderer;
+    } else {
+        compile_error!("Please select a feature to build with the winit event loop: `renderer-femtovg`, `renderer-skia`, `renderer-software`");
+    }
+}
+
 #[doc(hidden)]
 #[cold]
 #[cfg(not(target_arch = "wasm32"))]
@@ -82,69 +100,39 @@ pub mod native_widgets {
 }
 pub const HAS_NATIVE_STYLE: bool = false;
 
-use i_slint_core::platform::EventLoopProxy;
 pub use stylemetrics::native_style_metrics_deinit;
 pub use stylemetrics::native_style_metrics_init;
 
 pub struct Backend {
-    window_factory_fn: Mutex<Box<dyn Fn() -> Rc<dyn WindowAdapter> + Send>>,
+    window_factory_fn: fn() -> Rc<dyn WindowAdapter>,
 }
 
 impl Backend {
     pub fn new(renderer_name: Option<&str>) -> Self {
-        #[cfg(feature = "renderer-femtovg")]
-        let (default_renderer, default_renderer_factory) = ("FemtoVG", || {
-            GLWindow::<renderer::femtovg::FemtoVGRenderer>::new(
-                #[cfg(target_arch = "wasm32")]
-                "canvas".into(),
-            )
-        });
-        #[cfg(all(not(feature = "renderer-femtovg"), feature = "renderer-skia"))]
-        let (default_renderer, default_renderer_factory) = ("Skia", || {
-            GLWindow::<renderer::skia::SkiaRenderer>::new(
-                #[cfg(target_arch = "wasm32")]
-                "canvas".into(),
-            )
-        });
-
-        let factory_fn = match renderer_name {
+        let window_factory_fn = match renderer_name {
             #[cfg(feature = "renderer-femtovg")]
-            Some("gl") | Some("femtovg") => || {
-                GLWindow::<renderer::femtovg::FemtoVGRenderer>::new(
-                    #[cfg(target_arch = "wasm32")]
-                    "canvas".into(),
-                )
-            },
+            Some("gl") | Some("femtovg") => window_factory_fn::<renderer::femtovg::FemtoVGRenderer>,
             #[cfg(feature = "renderer-skia")]
-            Some("skia") => || {
-                GLWindow::<renderer::skia::SkiaRenderer>::new(
-                    #[cfg(target_arch = "wasm32")]
-                    "canvas".into(),
-                )
-            },
+            Some("skia") => window_factory_fn::<renderer::skia::SkiaRenderer>,
             #[cfg(feature = "renderer-software")]
-            Some("sw") | Some("software") => || {
-                GLWindow::<renderer::sw::SoftwareRenderer>::new(
-                    #[cfg(target_arch = "wasm32")]
-                    "canvas".into(),
-                )
-            },
-            None => default_renderer_factory,
+            Some("sw") | Some("software") => window_factory_fn::<renderer::sw::SoftwareRenderer>,
+            None => window_factory_fn::<DefaultRenderer>,
             Some(renderer_name) => {
                 eprintln!(
                     "slint winit: unrecognized renderer {}, falling back to {}",
-                    renderer_name, default_renderer
+                    renderer_name,
+                    DefaultRenderer::NAME
                 );
-                default_renderer_factory
+                window_factory_fn::<DefaultRenderer>
             }
         };
-        Self { window_factory_fn: Mutex::new(Box::new(factory_fn)) }
+        Self { window_factory_fn }
     }
 }
 
 impl i_slint_core::platform::Platform for Backend {
     fn create_window_adapter(&self) -> Rc<dyn WindowAdapter> {
-        self.window_factory_fn.lock().unwrap()()
+        (self.window_factory_fn)()
     }
 
     #[doc(hidden)]

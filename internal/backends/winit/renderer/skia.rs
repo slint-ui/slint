@@ -43,6 +43,7 @@ pub struct SkiaRenderer {
 
 impl super::WinitCompatibleRenderer for SkiaRenderer {
     type Canvas = SkiaCanvas<DefaultSurface>;
+    const NAME: &'static str = "Skia";
 
     fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
         Self {

@@ -79,6 +79,7 @@ impl OpenGLContext {
         }
     }
 
+    #[cfg(any(feature = "renderer-femtovg", feature = "renderer-skia"))]
     pub fn with_current_context<T>(&self, cb: impl FnOnce(&Self) -> T) -> T {
         if matches!(self.0.borrow().as_ref().unwrap(), OpenGLContextState::Current { .. }) {
             cb(self)
