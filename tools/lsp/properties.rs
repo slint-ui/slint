@@ -5,10 +5,16 @@ use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::object_tree::{Element, ElementRc};
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub(crate) struct DeclarationInformation {
+    uri: String,
+    character_offset: u32,
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub(crate) struct PropertyInformation {
     name: String,
     type_name: String,
-    declared_at: Option<(String, u32)>,
+    declared_at: Option<DeclarationInformation>,
     defined_at: Option<(u32, u32)>, // Range in the elements source file!
 }
 
@@ -37,7 +43,10 @@ fn get_element_properties(element: &Element) -> impl Iterator<Item = PropertyInf
 
     element.property_declarations.iter().map(move |(name, value)| {
         let declared_at = file.as_ref().and_then(|file| {
-            value.type_node().map(|n| n.text_range().start().into()).map(|p| (file.clone(), p))
+            value
+                .type_node()
+                .map(|n| n.text_range().start().into())
+                .map(|p| DeclarationInformation { uri: file.clone(), character_offset: p })
         });
         PropertyInformation {
             name: name.clone(),
@@ -140,7 +149,7 @@ pub(crate) fn query_properties(element: &ElementRc) -> Result<QueryPropertyRespo
 mod tests {
     use super::*;
 
-    use crate::server_loop::tests::complex_document_cache;
+    use crate::test::complex_document_cache;
 
     fn find_property<'a>(
         properties: &'a [PropertyInformation],
