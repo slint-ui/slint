@@ -413,7 +413,7 @@ fn element_contains(element: &i_slint_compiler::object_tree::ElementRc, offset: 
     element.borrow().node.as_ref().map_or(false, |n| n.text_range().contains(offset.into()))
 }
 
-fn element_at_position(
+pub fn element_at_position(
     document_cache: &mut DocumentCache,
     text_document: lsp_types::TextDocumentIdentifier,
     pos: Position,
@@ -678,6 +678,66 @@ pub mod tests {
         (dc, url, diag)
     }
 
+    pub fn complex_document_cache(
+        style: &str,
+    ) -> (DocumentCache, lsp_types::Url, HashMap<Url, Vec<lsp_types::Diagnostic>>) {
+        loaded_document_cache(style,
+            r#"import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
+
+MainWindow := Window {
+    property <duration> total-time: slider.value * 1s;
+    property <duration> elapsed-time;
+
+    callback tick(duration);
+    tick(passed-time) => {
+        elapsed-time += passed-time;
+        elapsed-time = min(elapsed-time, total-time);
+    }
+
+    VerticalBox {
+        HorizontalBox {
+            padding-left: 0;
+            Text { text: "Elapsed Time:"; }
+            Rectangle {
+                min-width: 200px;
+                max-height: 30px;
+                background: gray;
+                Rectangle {
+                    height: 100%;
+                    width: parent.width * (elapsed-time/total-time);
+                    background: lightblue;
+                }
+            }
+        }
+        Text{
+            text: (total-time / 1s) + "s";
+        }
+        HorizontalBox {
+            padding-left: 0;
+            Text {
+                text: "Duration:";
+                vertical-alignment: center;
+            }
+            slider := Slider {
+                maximum: 30s / 1s;
+                value: 10s / 1s;
+                changed(new-duration) => {
+                    root.total-time = new-duration * 1s;
+                    root.elapsed-time = min(root.elapsed-time, root.total-time);
+                }
+            }
+        }
+        Button {
+            text: "Reset";
+            clicked => {
+                elapsed-time = 0
+            }
+        }
+    }
+}
+            "#.to_string())
+    }
+
     #[test]
     fn test_reload_document_invalid_contents() {
         let (_, url, diag) = loaded_document_cache("fluent", "This is not valid!".into());
@@ -771,5 +831,89 @@ pub mod tests {
         assert_eq!(f64::trunc(color.green as f64 * 255.0), 0.0);
         assert_eq!(f64::trunc(color.blue as f64 * 255.0), 255.0);
         assert_eq!(f64::trunc(color.alpha as f64 * 255.0), 128.0);
+    }
+
+    fn id_at_position(
+        dc: &mut DocumentCache,
+        url: &Url,
+        line: u32,
+        character: u32,
+    ) -> Option<String> {
+        let result = element_at_position(
+            dc,
+            TextDocumentIdentifier { uri: url.clone() },
+            Position { line, character },
+        )
+        .ok()?;
+        let element = result.borrow();
+        Some(element.id.clone())
+    }
+
+    fn base_type_at_position(
+        dc: &mut DocumentCache,
+        url: &Url,
+        line: u32,
+        character: u32,
+    ) -> Option<String> {
+        let result = element_at_position(
+            dc,
+            TextDocumentIdentifier { uri: url.clone() },
+            Position { line, character },
+        )
+        .ok()?;
+        let element = result.borrow();
+        Some(format!("{}", &element.base_type))
+    }
+
+    #[test]
+    fn test_element_at_position_no_element() {
+        let (mut dc, url, _) = complex_document_cache("fluent");
+        assert_eq!(id_at_position(&mut dc, &url, 0, 10), None);
+        // TODO: This is past the end of the line and should thus return None
+        assert_eq!(id_at_position(&mut dc, &url, 42, 90), Some(String::new()));
+        assert_eq!(id_at_position(&mut dc, &url, 1, 0), None);
+        assert_eq!(id_at_position(&mut dc, &url, 55, 1), None);
+        assert_eq!(id_at_position(&mut dc, &url, 56, 5), None);
+    }
+
+    #[test]
+    fn test_element_at_position_no_such_document() {
+        let (mut dc, _, _) = complex_document_cache("fluent");
+        assert_eq!(
+            id_at_position(&mut dc, &Url::parse("https://foo.bar/baz").unwrap(), 5, 0),
+            None
+        );
+    }
+
+    #[test]
+    fn test_element_at_position_root() {
+        let (mut dc, url, _) = complex_document_cache("fluent");
+
+        assert_eq!(id_at_position(&mut dc, &url, 2, 13), Some("root".to_string()));
+        assert_eq!(id_at_position(&mut dc, &url, 2, 14), Some("root".to_string()));
+        assert_eq!(id_at_position(&mut dc, &url, 2, 22), Some("root".to_string()));
+        assert_eq!(id_at_position(&mut dc, &url, 3, 0), Some("root".to_string()));
+        assert_eq!(id_at_position(&mut dc, &url, 3, 53), Some("root".to_string()));
+        assert_eq!(id_at_position(&mut dc, &url, 4, 19), Some("root".to_string()));
+        assert_eq!(id_at_position(&mut dc, &url, 5, 0), Some("root".to_string()));
+        assert_eq!(id_at_position(&mut dc, &url, 6, 8), Some("root".to_string()));
+        assert_eq!(id_at_position(&mut dc, &url, 6, 15), Some("root".to_string()));
+        assert_eq!(id_at_position(&mut dc, &url, 6, 23), Some("root".to_string()));
+        assert_eq!(id_at_position(&mut dc, &url, 8, 15), Some("root".to_string()));
+        assert_eq!(id_at_position(&mut dc, &url, 12, 3), Some("root".to_string())); // right before child // TODO: Seems wrong!
+        assert_eq!(id_at_position(&mut dc, &url, 51, 5), Some("root".to_string())); // right after child // TODO: Why does this not work?
+        assert_eq!(id_at_position(&mut dc, &url, 52, 0), Some("root".to_string()));
+    }
+
+    #[test]
+    fn test_element_at_position_child() {
+        let (mut dc, url, _) = complex_document_cache("fluent");
+
+        assert_eq!(base_type_at_position(&mut dc, &url, 12, 4), Some("VerticalBox".to_string()));
+        assert_eq!(base_type_at_position(&mut dc, &url, 14, 22), Some("HorizontalBox".to_string()));
+        assert_eq!(base_type_at_position(&mut dc, &url, 15, 33), Some("Text".to_string()));
+        assert_eq!(base_type_at_position(&mut dc, &url, 27, 4), Some("VerticalBox".to_string()));
+        assert_eq!(base_type_at_position(&mut dc, &url, 28, 8), Some("Text".to_string()));
+        assert_eq!(base_type_at_position(&mut dc, &url, 51, 4), Some("VerticalBox".to_string()));
     }
 }

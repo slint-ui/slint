@@ -4,7 +4,7 @@
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::object_tree::{Element, ElementRc};
 
-#[derive(serde::Deserialize, serde::Serialize)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub(crate) struct PropertyInformation {
     name: String,
     type_name: String,
@@ -138,4 +138,44 @@ pub(crate) fn query_properties(element: &ElementRc) -> Result<QueryPropertyRespo
         properties: get_properties(&element),
         source_file: source_file(&element.borrow()),
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use crate::server_loop::tests::complex_document_cache;
+
+    fn find_property<'a>(
+        properties: &'a [PropertyInformation],
+        name: &'a str,
+    ) -> Option<&'a PropertyInformation> {
+        properties.iter().find(|p| p.name == name)
+    }
+
+    fn properties_at_position(line: u32, character: u32) -> Option<Vec<PropertyInformation>> {
+        let (mut dc, url, _) = complex_document_cache("fluent");
+        let element = crate::server_loop::element_at_position(
+            &mut dc,
+            lsp_types::TextDocumentIdentifier { uri: url },
+            lsp_types::Position { line, character },
+        )
+        .ok()?;
+        Some(get_properties(&element))
+    }
+
+    #[test]
+    fn test_get_properties() {
+        let result = properties_at_position(6, 4).unwrap();
+
+        // Property of element:
+        assert_eq!(&find_property(&result, "elapsed-time").unwrap().type_name, "duration");
+        // Property of base type:
+        assert_eq!(&find_property(&result, "no-frame").unwrap().type_name, "bool");
+        // reserved properties:
+        assert_eq!(
+            &find_property(&result, "accessible-role").unwrap().type_name,
+            "enum AccessibleRole"
+        );
+    }
 }
