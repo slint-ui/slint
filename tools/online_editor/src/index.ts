@@ -83,19 +83,21 @@ import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
   const editor_documents: Map<string, ModelAndViewState> = new Map();
 
   const hello_world = `import { Button, VerticalBox } from "std-widgets.slint";
-export Demo := Window {
-    VerticalBox {
-        Text {
-            text: "Hello World!";
-            font-size: 24px;
-        }
-        Image {
-            source: @image-url("https://slint-ui.com/logo/slint-logo-full-light.svg");
-            height: 100px;
-        }
-        Button { text: "OK!"; }
-    }
-}
+  export Demo := Window {
+      VerticalBox {
+          alignment: start;
+          Text {
+              text: "Hello World!";
+              font-size: 24px;
+              horizontal-alignment: center;
+          }
+          Image {
+              source: @image-url("https://slint-ui.com/logo/slint-logo-full-light.svg");
+              height: 100px;
+          }
+          HorizontalLayout { alignment: center; Button { text: "OK!"; } }    
+      }
+  }  
 `;
 
   function load_from_url(url: string) {
