@@ -90,6 +90,12 @@ renderer-qt = ["backend-qt"]
 ## Use this in MCU environments where defmt is supported.
 defmt = ["i-slint-core/defmt"]
 
+## This feature enables debug output to be sent via the [ESP println crate](https://github.com/esp-rs/esp-println).
+## Use this in ESP32 based MCU environments.
+## Note that in your application it is also necessary to depend esp-println crate and select the specific device
+## family (esp32s2, esp32s3, etc.).
+esp-println = ["i-slint-core/esp-println"]
+
 ## This feature enables floating point arithmetic emulation using the [libm](https://crates.io/crates/libm) crate. Use this
 ## in MCU environments where the processor does not support floating point arithmetic.
 libm = ["i-slint-core/libm"]

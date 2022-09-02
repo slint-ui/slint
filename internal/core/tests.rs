@@ -120,6 +120,16 @@ cfg_if::cfg_if! {
         macro_rules! debug_log {
             ($($t:tt)*) => ($crate::tests::log({ use alloc::string::ToString; &format_args!($($t)*).to_string() }))
         }
+    } else if #[cfg(feature = "esp-println")] {
+        #[doc(hidden)]
+        pub use esp_println;
+
+        /// This macro allows producing debug output that will appear on stderr in regular builds
+        /// and in the console log for wasm builds.
+        #[macro_export]
+        macro_rules! debug_log {
+            ($($t:tt)*) => ($crate::tests::esp_println::println!($($t)*))
+        }
     } else {
         #[macro_export]
         /// Do nothing
