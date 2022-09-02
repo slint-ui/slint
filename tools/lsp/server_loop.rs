@@ -419,7 +419,7 @@ pub fn element_at_position(
     pos: Position,
 ) -> Result<i_slint_compiler::object_tree::ElementRc, String> {
     let (doc, offset) = get_document_and_offset(document_cache, text_document, pos)
-        .ok_or("Document not found.".to_string())?;
+        .ok_or_else(|| "Document not found.".to_string())?;
 
     let root_component = &doc.root_component;
     let mut element = root_component.root_element.clone();
@@ -435,7 +435,7 @@ pub fn element_at_position(
             return Ok(result.expect("Result was set in this iteration"));
         }
     }
-    result.ok_or(format!("No element found at offset {}.", offset))
+    result.ok_or_else(|| format!("No element found at offset {}.", offset))
 }
 
 /// return the token, and the offset within the file
@@ -652,91 +652,10 @@ fn get_code_lenses(
 }
 
 #[cfg(test)]
-pub mod tests {
+mod tests {
     use super::*;
 
-    pub fn empty_document_cache(style: &str) -> DocumentCache {
-        let mut config =
-            CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
-        config.style = Some(style.to_string());
-        DocumentCache::new(config)
-    }
-
-    pub fn loaded_document_cache(
-        style: &str,
-        content: String,
-    ) -> (DocumentCache, lsp_types::Url, HashMap<Url, Vec<lsp_types::Diagnostic>>) {
-        let mut dc = empty_document_cache(style);
-        let dummy_absolute_path =
-            if cfg!(target_family = "windows") { "c://foo/bar.slint" } else { "/foo/bar.slint" };
-        let url = lsp_types::Url::from_file_path(dummy_absolute_path).unwrap();
-        let diag = spin_on::spin_on(async {
-            reload_document_impl(content, url.clone(), &mut dc)
-                .await
-                .expect("reload_document_impl failed.")
-        });
-        (dc, url, diag)
-    }
-
-    pub fn complex_document_cache(
-        style: &str,
-    ) -> (DocumentCache, lsp_types::Url, HashMap<Url, Vec<lsp_types::Diagnostic>>) {
-        loaded_document_cache(style,
-            r#"import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
-
-MainWindow := Window {
-    property <duration> total-time: slider.value * 1s;
-    property <duration> elapsed-time;
-
-    callback tick(duration);
-    tick(passed-time) => {
-        elapsed-time += passed-time;
-        elapsed-time = min(elapsed-time, total-time);
-    }
-
-    VerticalBox {
-        HorizontalBox {
-            padding-left: 0;
-            Text { text: "Elapsed Time:"; }
-            Rectangle {
-                min-width: 200px;
-                max-height: 30px;
-                background: gray;
-                Rectangle {
-                    height: 100%;
-                    width: parent.width * (elapsed-time/total-time);
-                    background: lightblue;
-                }
-            }
-        }
-        Text{
-            text: (total-time / 1s) + "s";
-        }
-        HorizontalBox {
-            padding-left: 0;
-            Text {
-                text: "Duration:";
-                vertical-alignment: center;
-            }
-            slider := Slider {
-                maximum: 30s / 1s;
-                value: 10s / 1s;
-                changed(new-duration) => {
-                    root.total-time = new-duration * 1s;
-                    root.elapsed-time = min(root.elapsed-time, root.total-time);
-                }
-            }
-        }
-        Button {
-            text: "Reset";
-            clicked => {
-                elapsed-time = 0
-            }
-        }
-    }
-}
-            "#.to_string())
-    }
+    use crate::test::{complex_document_cache, loaded_document_cache};
 
     #[test]
     fn test_reload_document_invalid_contents() {

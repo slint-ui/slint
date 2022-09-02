@@ -11,6 +11,8 @@ mod preview;
 mod properties;
 mod semantic_tokens;
 mod server_loop;
+#[cfg(test)]
+mod test;
 mod util;
 
 use i_slint_compiler::CompilerConfiguration;
@@ -174,8 +176,8 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
                 )?;
             }
             Message::Response(_resp) => {}
-            Message::Notification(notify) => {
-                handle_notification(connection, notify, &mut document_cache)?
+            Message::Notification(notification) => {
+                handle_notification(connection, notification, &mut document_cache)?
             }
         }
     }
