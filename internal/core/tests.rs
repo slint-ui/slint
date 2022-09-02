@@ -83,22 +83,11 @@ pub extern "C" fn send_keyboard_string_sequence(
     }
 }
 
-cfg_if::cfg_if! {
+pub use alloc::string::ToString;
 
-    if #[cfg(feature = "std")] {
-        #[macro_export]
-        /// This macro allows producing debug output that will appear on stderr in regular builds
-        /// and in the console log for wasm builds.
-        macro_rules! debug_log {
-            ($($t:tt)*) => ($crate::platform::PLATFORM_INSTANCE.with(|p| {p.get().map(|p| p.debug_log(&format_args!($($t)*).to_string()));}))
-        }
-    } else {
-        #[macro_export]
-        /// This macro allows producing debug output that will appear on stderr in regular builds
-        /// and in the console log for wasm builds.
-        macro_rules! debug_log {
-            ($($t:tt)*) => ($crate::platform::PLATFORM_INSTANCE.with(|p| { use alloc::string::ToString; p.get().map(|p| p.debug_log(&format_args!($($t)*).to_string()));}))
-        }
-    }
-
+#[macro_export]
+/// This macro allows producing debug output that will appear on stderr in regular builds
+/// and in the console log for wasm builds.
+macro_rules! debug_log {
+    ($($t:tt)*) => ($crate::platform::PLATFORM_INSTANCE.with(|p| { use $crate::tests::ToString; p.get().map(|p| p.debug_log(&format_args!($($t)*).to_string()));}))
 }
