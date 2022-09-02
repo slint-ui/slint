@@ -19,35 +19,33 @@ pub(crate) struct QueryPropertyResponse {
 }
 
 // This gets defined accessibility properties...
-fn get_reserved_properties(result: &mut Vec<PropertyInformation>) {
-    result.extend(i_slint_compiler::typeregister::reserved_properties().map(|p| {
-        PropertyInformation {
-            name: p.0.to_string(),
-            type_name: format!("{}", p.1),
-            declared_at: None,
-            defined_at: None,
-        }
-    }))
+fn get_reserved_properties() -> impl Iterator<Item = PropertyInformation> {
+    i_slint_compiler::typeregister::reserved_properties().map(|p| PropertyInformation {
+        name: p.0.to_string(),
+        type_name: format!("{}", p.1),
+        declared_at: None,
+        defined_at: None,
+    })
 }
 
 fn source_file(element: &Element) -> Option<String> {
     element.source_file().map(|sf| sf.path().to_string_lossy().to_string())
 }
 
-fn get_element_properties(element: &Element, result: &mut Vec<PropertyInformation>) {
+fn get_element_properties(element: &Element) -> impl Iterator<Item = PropertyInformation> + '_ {
     let file = source_file(element);
 
-    for (name, value) in &element.property_declarations {
+    element.property_declarations.iter().map(move |(name, value)| {
         let declared_at = file.as_ref().and_then(|file| {
             value.type_node().map(|n| n.text_range().start().into()).map(|p| (file.clone(), p))
         });
-        result.push(PropertyInformation {
+        PropertyInformation {
             name: name.clone(),
             type_name: format!("{}", value.property_type),
             declared_at,
             defined_at: None,
-        });
-    }
+        }
+    })
 }
 
 fn insert_property_definition_range(
@@ -91,15 +89,13 @@ fn insert_property_definitions(element: &Element, properties: &mut Vec<PropertyI
 }
 
 fn get_properties(element: &ElementRc) -> Vec<PropertyInformation> {
-    let mut result = vec![];
-
-    get_reserved_properties(&mut result);
+    let mut result: Vec<_> = get_reserved_properties().collect();
 
     let mut current_element = Some(element.clone());
     while let Some(e) = current_element {
         use i_slint_compiler::langtype::Type;
 
-        get_element_properties(&e.borrow(), &mut result);
+        result.extend(get_element_properties(&e.borrow()));
 
         // Go into base_type!
         match &e.borrow().base_type {
