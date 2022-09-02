@@ -84,47 +84,21 @@ pub extern "C" fn send_keyboard_string_sequence(
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(target_arch = "wasm32")] {
-        use wasm_bindgen::prelude::*;
 
-        #[wasm_bindgen]
-        extern "C" {
-            #[wasm_bindgen(js_namespace = console)]
-            pub fn log(s: &str);
-        }
-
+    if #[cfg(feature = "std")] {
         #[macro_export]
         /// This macro allows producing debug output that will appear on stderr in regular builds
         /// and in the console log for wasm builds.
         macro_rules! debug_log {
-            ($($t:tt)*) => ($crate::tests::log(&format_args!($($t)*).to_string()))
-        }
-    } else if #[cfg(feature = "std")] {
-        #[doc(hidden)]
-        pub use std::eprintln;
-
-        /// This macro allows producing debug output that will appear on stderr in regular builds
-        /// and in the console log for wasm builds.
-        #[macro_export]
-        macro_rules! debug_log {
-            ($($t:tt)*) => ($crate::tests::eprintln!($($t)*))
-        }
-    } else if #[cfg(feature = "defmt")] {
-        #[doc(hidden)]
-        pub fn log(s: &str) {
-            defmt::println!("{=str}", s);
-        }
-
-        #[macro_export]
-        /// This macro allows producing debug output that will appear on the output of the debug probe
-        macro_rules! debug_log {
-            ($($t:tt)*) => ($crate::tests::log({ use alloc::string::ToString; &format_args!($($t)*).to_string() }))
+            ($($t:tt)*) => ($crate::platform::PLATFORM_INSTANCE.with(|p| {p.get().map(|p| p.debug_log(&format_args!($($t)*).to_string()));}))
         }
     } else {
         #[macro_export]
-        /// Do nothing
+        /// This macro allows producing debug output that will appear on stderr in regular builds
+        /// and in the console log for wasm builds.
         macro_rules! debug_log {
-            ($($t:tt)*) => (let _ = &format_args!($($t)*);)
+            ($($t:tt)*) => ($crate::platform::PLATFORM_INSTANCE.with(|p| { use alloc::string::ToString; p.get().map(|p| p.debug_log(&format_args!($($t)*).to_string()));}))
         }
     }
+
 }

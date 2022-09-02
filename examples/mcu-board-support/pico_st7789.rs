@@ -261,6 +261,10 @@ impl slint::platform::Platform for PicoBackend {
             cortex_m::asm::wfe();
         }
     }
+
+    fn debug_log(&self, text: &str) {
+        defmt::println!("{=str}", text);
+    }
 }
 
 enum PioTransfer<TO: WriteTarget, CH: SingleChannel> {
