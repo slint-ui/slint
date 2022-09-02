@@ -12,6 +12,7 @@ use std::rc::Weak;
 
 impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRenderer<BUFFER_COUNT> {
     type Canvas = SwCanvas;
+    const NAME: &'static str = "Software";
 
     fn new(window_adapter_weak: &Weak<dyn WindowAdapter>) -> Self {
         SoftwareRenderer::new(window_adapter_weak.clone())

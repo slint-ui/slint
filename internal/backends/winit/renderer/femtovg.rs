@@ -34,6 +34,7 @@ pub struct FemtoVGRenderer {
 
 impl super::WinitCompatibleRenderer for FemtoVGRenderer {
     type Canvas = FemtoVGCanvas;
+    const NAME: &'static str = "FemtoVG";
 
     fn new(
         window_adapter_weak: &Weak<dyn WindowAdapter>,
