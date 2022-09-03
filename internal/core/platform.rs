@@ -7,8 +7,6 @@ The backend is the abstraction for crates that need to do the actual drawing and
 
 #![warn(missing_docs)]
 
-pub use crate::lengths::{PhysicalLength, PhysicalPoint};
-pub use crate::renderer::Renderer;
 #[cfg(feature = "swrenderer")]
 pub use crate::swrenderer;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
