@@ -83,11 +83,15 @@ pub extern "C" fn send_keyboard_string_sequence(
     }
 }
 
-pub use alloc::string::ToString;
+/// implementation details for debug_log()
+#[doc(hidden)]
+pub fn debug_log_impl(args: core::fmt::Arguments) {
+    crate::platform::PLATFORM_INSTANCE.with(|p| p.get().map(|p| p.debug_log(args)));
+}
 
 #[macro_export]
 /// This macro allows producing debug output that will appear on stderr in regular builds
 /// and in the console log for wasm builds.
 macro_rules! debug_log {
-    ($($t:tt)*) => ($crate::platform::PLATFORM_INSTANCE.with(|p| { use $crate::tests::ToString; p.get().map(|p| p.debug_log(format_args!($($t)*)));}))
+    ($($t:tt)*) => ($crate::tests::debug_log_impl(format_args!($($t)*)))
 }

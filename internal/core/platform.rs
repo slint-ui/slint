@@ -123,7 +123,7 @@ impl std::convert::From<crate::animations::Instant> for instant::Instant {
 
 thread_local! {
     /// Internal: Singleton of the platform abstraction.
-    pub static PLATFORM_INSTANCE : once_cell::unsync::OnceCell<Box<dyn Platform>>
+    pub(crate) static PLATFORM_INSTANCE : once_cell::unsync::OnceCell<Box<dyn Platform>>
         = once_cell::unsync::OnceCell::new()
 }
 static EVENTLOOP_PROXY: OnceCell<Box<dyn EventLoopProxy + 'static>> = OnceCell::new();
