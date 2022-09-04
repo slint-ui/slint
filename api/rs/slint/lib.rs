@@ -21,6 +21,7 @@ If you are already familiar with Slint, the following topics provide related inf
  * [Widgets](docs::widgets)
  * [Positioning and Layout of Elements](docs::layouting)
  * [Debugging Techniques](docs::debugging_techniques)
+ * [Slint on microcontrolers (MCU)](docs::mcu)
  * [Migration from older version](docs::migration)
 
 ## How to use this crate:
@@ -538,6 +539,8 @@ macro_rules! include_modules {
 /// You may want to write your own backend.
 /// To do so, you need to call [`platform::set_platform()`] with your own
 /// implementation of the [`platform::Platform`] trait.
+///
+/// Follow the documentation and examples from the [MCU page](crate::docs::mcu).
 pub mod platform {
     pub use i_slint_core::platform::*;
 }

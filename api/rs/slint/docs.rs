@@ -182,6 +182,15 @@ pub mod debugging_techniques {
     #![doc = ""]
 }
 
+pub mod mcu {
+    #![doc = include_str!("docs/mcu.md")]
+    use crate::platform::swrenderer::*;
+    use crate::platform::*;
+    mod slint {
+        pub use crate::*;
+    }
+}
+
 pub mod migration {
     #![doc = include_str!("migration.md")]
     use crate::*;

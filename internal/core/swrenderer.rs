@@ -67,11 +67,11 @@ pub trait LineBufferProvider {
 /// The `BUFFER_COUNT` parameter specifies how many buffers are being re-used.
 /// It will impact how much of the screen needs to be redrawn.
 /// Typical value can be:
-///  - **0:**: No attempt at tracking dirty items will be made. The full screen is always redrawn.
-///  - **1:**: Only redraw the parts that have changed since the previous call to render.
-///            This is assuming that the same buffer is passed on every call to render.
-///  - **2:**: Redraw the part that have changed during the two last frames.
-///            This is assuming double buffering and swapping of the buffers.
+///  - **0:** No attempt at tracking dirty items will be made. The full screen is always redrawn.
+///  - **1:** Only redraw the parts that have changed since the previous call to render.
+///           This is assuming that the same buffer is passed on every call to render.
+///  - **2:** Redraw the part that have changed during the two last frames.
+///           This is assuming double buffering and swapping of the buffers.
 pub struct SoftwareRenderer<const BUFFER_COUNT: usize = 0> {
     partial_cache: RefCell<crate::item_rendering::PartialRenderingCache>,
     /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not
