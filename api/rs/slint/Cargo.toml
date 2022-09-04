@@ -30,7 +30,8 @@ default = [
 ## Mandatory feature:
 ## This feature is required to keep the compatibility with Slint 0.2.0
 ## Newer patch version may put current functionality behind a new feature
-## that would be enabled by default only if this feature was added
+## that would be enabled by default only if this feature was added.
+## [More info in this blog post](https://slint-ui.com/blog/rust-adding-default-cargo-feature.html)
 compat-0-2-0 = []
 
 ## Enable use of the Rust standard library.
