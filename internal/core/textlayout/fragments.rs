@@ -72,6 +72,10 @@ impl<'a, Length: Clone + Default + core::ops::AddAssign + Zero + Copy, PlatformG
                 None => break,
             };
 
+            if next_glyph_cluster.is_line_or_paragraph_separator {
+                break;
+            }
+
             if next_glyph_cluster.is_whitespace {
                 fragment.trailing_whitespace_width += next_glyph_cluster.width;
             } else {
@@ -163,9 +167,9 @@ fn fragment_iterator_forced_break() {
         vec![
             TextFragment {
                 byte_range: Range { start: 0, end: 1 },
-                glyph_range: Range { start: 0, end: 2 },
+                glyph_range: Range { start: 0, end: 1 },
                 width: 10.,
-                trailing_whitespace_width: 10.,
+                trailing_whitespace_width: 0.,
                 trailing_mandatory_break: true,
             },
             TextFragment {
@@ -190,9 +194,9 @@ fn fragment_iterator_forced_break_multi() {
         vec![
             TextFragment {
                 byte_range: Range { start: 0, end: 1 },
-                glyph_range: Range { start: 0, end: 2 },
+                glyph_range: Range { start: 0, end: 1 },
                 width: 10.,
-                trailing_whitespace_width: 10.,
+                trailing_whitespace_width: 0.,
                 trailing_mandatory_break: true,
             },
             TextFragment {
@@ -257,9 +261,9 @@ fn fragment_iterator_break_anywhere() {
         fragments.next(),
         Some(TextFragment {
             byte_range: Range { start: 0, end: 2 },
-            glyph_range: Range { start: 0, end: 3 },
+            glyph_range: Range { start: 0, end: 2 },
             width: 20.,
-            trailing_whitespace_width: 10.,
+            trailing_whitespace_width: 0.,
             trailing_mandatory_break: true,
         })
     );
@@ -267,9 +271,9 @@ fn fragment_iterator_break_anywhere() {
         fragments.next(),
         Some(TextFragment {
             byte_range: Range { start: 3, end: 5 },
-            glyph_range: Range { start: 3, end: 6 },
+            glyph_range: Range { start: 3, end: 5 },
             width: 20.,
-            trailing_whitespace_width: 10.,
+            trailing_whitespace_width: 0.,
             trailing_mandatory_break: true,
         },)
     );
