@@ -58,9 +58,10 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
         let rendering_metrics_collector = RenderingMetricsCollector::new(
             self.window_adapter_weak.clone(),
             &format!(
-                "Skia renderer (windowing system: {}; skia backend {})",
+                "Skia renderer (windowing system: {}; skia backend {}; surface: {} bpp)",
                 surface.with_window_handle(|winit_window| winit_window.winsys_name()),
-                surface.name()
+                surface.name(),
+                surface.bits_per_pixel()
             ),
         );
 
@@ -220,6 +221,7 @@ pub trait Surface {
         callback: impl FnOnce(&mut skia_safe::Canvas, &mut skia_safe::gpu::DirectContext),
     );
     fn resize_event(&self);
+    fn bits_per_pixel(&self) -> u8;
 }
 
 pub struct SkiaCanvas<SurfaceType: Surface> {

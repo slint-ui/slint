@@ -52,6 +52,8 @@ impl<T> ExpectOk<T> for Result<T, HRESULT> {
     }
 }
 
+const DEFAULT_SURFACE_FORMAT: dxgiformat::DXGI_FORMAT = dxgiformat::DXGI_FORMAT_R8G8B8A8_UNORM;
+
 struct SwapChain {
     command_queue: ComPtr<d3d12::ID3D12CommandQueue>,
     swap_chain: ComPtr<dxgi1_4::IDXGISwapChain3>,
@@ -76,7 +78,7 @@ impl SwapChain {
         let swap_chain_desc = dxgi1_2::DXGI_SWAP_CHAIN_DESC1 {
             Width: size.width,
             Height: size.height,
-            Format: dxgiformat::DXGI_FORMAT_R8G8B8A8_UNORM,
+            Format: DEFAULT_SURFACE_FORMAT,
             BufferCount: 2,
             BufferUsage: dxgitype::DXGI_USAGE_RENDER_TARGET_OUTPUT,
             SwapEffect: dxgi::DXGI_SWAP_EFFECT_FLIP_DISCARD,
@@ -193,7 +195,7 @@ impl SwapChain {
                 resource: buffer,
                 alloc: None,
                 resource_state: d3d12::D3D12_RESOURCE_STATE_PRESENT,
-                format: dxgiformat::DXGI_FORMAT_R8G8B8A8_UNORM,
+                format: DEFAULT_SURFACE_FORMAT,
                 sample_count: 1,
                 level_count: 1,
                 sample_quality_pattern: dxgitype::DXGI_STANDARD_MULTISAMPLE_QUALITY_PATTERN,
@@ -225,13 +227,8 @@ impl SwapChain {
         drop(self.surfaces.take());
 
         unsafe {
-            let resize_result = self.swap_chain.ResizeBuffers(
-                0,
-                width,
-                height,
-                dxgiformat::DXGI_FORMAT_R8G8B8A8_UNORM,
-                0,
-            );
+            let resize_result =
+                self.swap_chain.ResizeBuffers(0, width, height, DEFAULT_SURFACE_FORMAT, 0);
             if resize_result != S_OK {
                 panic!("Error resizing swap chain buffers: {:x}", resize_result);
             }
@@ -426,5 +423,14 @@ impl super::Surface for D3DSurface {
         self.swap_chain
             .borrow_mut()
             .render_and_present(|surface, gr_context| callback(surface.canvas(), gr_context))
+    }
+
+    fn bits_per_pixel(&self) -> u8 {
+        let mut desc = dxgi::DXGI_SWAP_CHAIN_DESC::default();
+        unsafe { self.swap_chain.borrow().swap_chain.GetDesc(&mut desc) };
+        match desc.BufferDesc.Format {
+            DEFAULT_SURFACE_FORMAT => 32,
+            _ => 0, // Not mapped yet
+        }
     }
 }
