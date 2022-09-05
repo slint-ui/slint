@@ -4,6 +4,7 @@
 use cocoa::{appkit::NSView, base::id as cocoa_id};
 use core_graphics_types::geometry::CGSize;
 use foreign_types::ForeignTypeRef;
+use metal::MTLPixelFormat;
 use objc::{rc::autoreleasepool, runtime::YES};
 
 use skia_safe::gpu::mtl;
@@ -30,7 +31,7 @@ impl super::Surface for MetalSurface {
 
         let layer = metal::MetalLayer::new();
         layer.set_device(&device);
-        layer.set_pixel_format(metal::MTLPixelFormat::BGRA8Unorm);
+        layer.set_pixel_format(MTLPixelFormat::BGRA8Unorm);
         layer.set_presents_with_transaction(false);
 
         let size = window.inner_size();
@@ -119,5 +120,34 @@ impl super::Surface for MetalSurface {
             command_buffer.present_drawable(drawable);
             command_buffer.commit();
         })
+    }
+
+    fn bits_per_pixel(&self) -> u8 {
+        // From https://developer.apple.com/documentation/metal/mtlpixelformat:
+        // The storage size of each pixel format is determined by the sum of its components.
+        // For example, the storage size of BGRA8Unorm is 32 bits (four 8-bit components) and
+        // the storage size of BGR5A1Unorm is 16 bits (three 5-bit components and one 1-bit component).
+        match self.layer.pixel_format() {
+            MTLPixelFormat::B5G6R5Unorm
+            | MTLPixelFormat::A1BGR5Unorm
+            | MTLPixelFormat::ABGR4Unorm
+            | MTLPixelFormat::BGR5A1Unorm => 16,
+            MTLPixelFormat::RGBA8Unorm
+            | MTLPixelFormat::RGBA8Unorm_sRGB
+            | MTLPixelFormat::RGBA8Snorm
+            | MTLPixelFormat::RGBA8Uint
+            | MTLPixelFormat::RGBA8Sint
+            | MTLPixelFormat::BGRA8Unorm
+            | MTLPixelFormat::BGRA8Unorm_sRGB => 32,
+            MTLPixelFormat::RGB10A2Unorm
+            | MTLPixelFormat::RGB10A2Uint
+            | MTLPixelFormat::BGR10A2Unorm => 32,
+            MTLPixelFormat::RGBA16Unorm
+            | MTLPixelFormat::RGBA16Snorm
+            | MTLPixelFormat::RGBA16Uint
+            | MTLPixelFormat::RGBA16Sint => 64,
+            MTLPixelFormat::RGBA32Uint | MTLPixelFormat::RGBA32Sint => 128,
+            _ => 0, // Not mapped yet
+        }
     }
 }

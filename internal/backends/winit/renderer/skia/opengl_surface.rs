@@ -106,6 +106,11 @@ impl super::Surface for OpenGLSurface {
     fn resize_event(&self) {
         self.opengl_context.ensure_resized();
     }
+
+    fn bits_per_pixel(&self) -> u8 {
+        let pixel_format = self.opengl_context.glutin_context().get_pixel_format();
+        pixel_format.color_bits + pixel_format.alpha_bits
+    }
 }
 
 impl OpenGLSurface {
