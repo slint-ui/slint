@@ -303,9 +303,12 @@ impl<T: 'static> VecModel<T> {
     }
 
     /// Remove the row at the given index from the model
-    pub fn remove(&self, index: usize) {
-        self.array.borrow_mut().remove(index);
-        self.notify.row_removed(index, 1)
+    ///
+    /// Returns the removed row
+    pub fn remove(&self, index: usize) -> T {
+        let r = self.array.borrow_mut().remove(index);
+        self.notify.row_removed(index, 1);
+        r
     }
 
     /// Replace inner Vec with new data
