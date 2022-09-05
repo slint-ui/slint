@@ -254,191 +254,7 @@ pub use i_slint_core::sharedvector::SharedVector;
 pub use i_slint_core::timers::{Timer, TimerMode};
 pub use i_slint_core::{format, string::SharedString};
 
-/// internal re_exports used by the macro generated
-#[doc(hidden)]
-pub mod re_exports {
-    pub use alloc::boxed::Box;
-    pub use alloc::format;
-    pub use alloc::rc::{Rc, Weak};
-    pub use alloc::string::String;
-    pub use alloc::{vec, vec::Vec};
-    pub use const_field_offset::{self, FieldOffsets, PinnedDrop};
-    pub use core::iter::FromIterator;
-    pub use i_slint_backend_selector::native_widgets::*;
-    pub use i_slint_core::accessibility::AccessibleStringProperty;
-    pub use i_slint_core::animations::{animation_tick, EasingCurve};
-    pub use i_slint_core::callbacks::Callback;
-    pub use i_slint_core::component::{
-        register_component, unregister_component, Component, ComponentRefPin, ComponentVTable,
-        ComponentWeak, IndexRange,
-    };
-    pub use i_slint_core::graphics::*;
-    pub use i_slint_core::input::{
-        FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
-    };
-    pub use i_slint_core::item_tree::{
-        visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak,
-        TraversalOrder, VisitChildrenResult,
-    };
-    pub use i_slint_core::items::*;
-    pub use i_slint_core::layout::*;
-    pub use i_slint_core::model::*;
-    pub use i_slint_core::properties::{set_state_binding, Property, PropertyTracker, StateInfo};
-    pub use i_slint_core::slice::Slice;
-    pub use i_slint_core::window::{WindowAdapter, WindowHandleAccess, WindowInner};
-    pub use i_slint_core::Color;
-    pub use i_slint_core::ComponentVTable_static;
-    pub use i_slint_core::Coord;
-    pub use i_slint_core::SharedString;
-    pub use i_slint_core::SharedVector;
-    pub use num_traits::float::Float;
-    pub use once_cell::race::OnceBox;
-    pub use once_cell::unsync::OnceCell;
-    pub use pin_weak::rc::PinWeak;
-    pub use vtable::{self, *};
-}
-
-#[doc(hidden)]
-pub mod internal {
-    use crate::re_exports::*;
-    use alloc::rc::Rc;
-    use core::pin::Pin;
-
-    // Helper functions called from generated code to reduce code bloat from
-    // extra copies of the original functions for each call site due to
-    // the impl Fn() they are taking.
-
-    pub trait StrongComponentRef: Sized {
-        type Weak: Clone + 'static;
-        fn to_weak(&self) -> Self::Weak;
-        fn from_weak(weak: &Self::Weak) -> Option<Self>;
-    }
-
-    impl<C: 'static> StrongComponentRef for VRc<ComponentVTable, C> {
-        type Weak = VWeak<ComponentVTable, C>;
-        fn to_weak(&self) -> Self::Weak {
-            VRc::downgrade(self)
-        }
-        fn from_weak(weak: &Self::Weak) -> Option<Self> {
-            weak.upgrade()
-        }
-    }
-
-    impl<C: 'static> StrongComponentRef for VRcMapped<ComponentVTable, C> {
-        type Weak = VWeakMapped<ComponentVTable, C>;
-        fn to_weak(&self) -> Self::Weak {
-            VRcMapped::downgrade(self)
-        }
-        fn from_weak(weak: &Self::Weak) -> Option<Self> {
-            weak.upgrade()
-        }
-    }
-
-    impl<C: 'static> StrongComponentRef for Pin<Rc<C>> {
-        type Weak = PinWeak<C>;
-        fn to_weak(&self) -> Self::Weak {
-            PinWeak::downgrade(self.clone())
-        }
-        fn from_weak(weak: &Self::Weak) -> Option<Self> {
-            weak.upgrade()
-        }
-    }
-
-    pub fn set_property_binding<T: Clone + 'static, StrongRef: StrongComponentRef + 'static>(
-        property: Pin<&Property<T>>,
-        component_strong: &StrongRef,
-        binding: fn(StrongRef) -> T,
-    ) {
-        let weak = component_strong.to_weak();
-        property.set_binding(move || {
-            binding(<StrongRef as StrongComponentRef>::from_weak(&weak).unwrap())
-        })
-    }
-
-    pub fn set_animated_property_binding<
-        T: Clone + i_slint_core::properties::InterpolatedPropertyValue + 'static,
-        StrongRef: StrongComponentRef + 'static,
-    >(
-        property: Pin<&Property<T>>,
-        component_strong: &StrongRef,
-        binding: fn(StrongRef) -> T,
-        animation_data: PropertyAnimation,
-    ) {
-        let weak = component_strong.to_weak();
-        property.set_animated_binding(
-            move || binding(<StrongRef as StrongComponentRef>::from_weak(&weak).unwrap()),
-            animation_data,
-        )
-    }
-
-    pub fn set_animated_property_binding_for_transition<
-        T: Clone + i_slint_core::properties::InterpolatedPropertyValue + 'static,
-        StrongRef: StrongComponentRef + 'static,
-    >(
-        property: Pin<&Property<T>>,
-        component_strong: &StrongRef,
-        binding: fn(StrongRef) -> T,
-        compute_animation_details: fn(
-            StrongRef,
-        )
-            -> (PropertyAnimation, i_slint_core::animations::Instant),
-    ) {
-        let weak_1 = component_strong.to_weak();
-        let weak_2 = weak_1.clone();
-        property.set_animated_binding_for_transition(
-            move || binding(<StrongRef as StrongComponentRef>::from_weak(&weak_1).unwrap()),
-            move || {
-                compute_animation_details(
-                    <StrongRef as StrongComponentRef>::from_weak(&weak_2).unwrap(),
-                )
-            },
-        )
-    }
-
-    pub fn set_property_state_binding<StrongRef: StrongComponentRef + 'static>(
-        property: Pin<&Property<StateInfo>>,
-        component_strong: &StrongRef,
-        binding: fn(StrongRef) -> i32,
-    ) {
-        let weak = component_strong.to_weak();
-        crate::re_exports::set_state_binding(property, move || {
-            binding(<StrongRef as StrongComponentRef>::from_weak(&weak).unwrap())
-        })
-    }
-
-    pub fn set_callback_handler<
-        Arg: ?Sized + 'static,
-        Ret: Default + 'static,
-        StrongRef: StrongComponentRef + 'static,
-    >(
-        callback: Pin<&Callback<Arg, Ret>>,
-        component_strong: &StrongRef,
-        handler: fn(StrongRef, &Arg) -> Ret,
-    ) {
-        let weak = component_strong.to_weak();
-        callback.set_handler(move |arg| {
-            handler(<StrongRef as StrongComponentRef>::from_weak(&weak).unwrap(), arg)
-        })
-    }
-
-    pub fn debug(s: SharedString) {
-        #[cfg(feature = "log")]
-        log::debug!("{s}");
-        #[cfg(not(feature = "log"))]
-        {
-            #[cfg(all(feature = "std", not(target_arch = "wasm32")))]
-            println!("{s}");
-            #[cfg(any(not(feature = "std"), target_arch = "wasm32"))]
-            i_slint_core::debug_log!("{s}");
-        }
-    }
-}
-
-/// Creates a new window to render components in.
-#[doc(hidden)]
-pub fn create_window_adapter() -> alloc::rc::Rc<dyn re_exports::WindowAdapter> {
-    i_slint_backend_selector::with_platform(|b| b.create_window_adapter())
-}
+pub mod private_unstable_api;
 
 /// Enters the main event loop. This is necessary in order to receive
 /// events from the windowing system in order to render to the screen
@@ -450,7 +266,7 @@ pub fn run_event_loop() {
 #[cfg(feature = "std")]
 pub mod testing {
     use core::cell::Cell;
-    thread_local!(static KEYBOARD_MODIFIERS : Cell<crate::re_exports::KeyboardModifiers> = Default::default());
+    thread_local!(static KEYBOARD_MODIFIERS : Cell<i_slint_core::input::KeyboardModifiers> = Default::default());
 
     use super::ComponentHandle;
 
@@ -459,7 +275,7 @@ pub mod testing {
     /// Simulate a mouse click
     pub fn send_mouse_click<
         X: vtable::HasStaticVTable<i_slint_core::component::ComponentVTable>
-            + crate::re_exports::WindowHandleAccess
+            + i_slint_core::window::WindowHandleAccess
             + 'static,
         Component: Into<vtable::VRc<i_slint_core::component::ComponentVTable, X>> + ComponentHandle,
     >(
@@ -480,11 +296,11 @@ pub mod testing {
     /// Simulate a change in keyboard modifiers being pressed
     pub fn set_current_keyboard_modifiers<
         X: vtable::HasStaticVTable<i_slint_core::component::ComponentVTable>
-            + crate::re_exports::WindowHandleAccess,
+            + i_slint_core::window::WindowHandleAccess,
         Component: Into<vtable::VRc<i_slint_core::component::ComponentVTable, X>> + ComponentHandle,
     >(
         _component: &Component,
-        modifiers: crate::re_exports::KeyboardModifiers,
+        modifiers: i_slint_core::input::KeyboardModifiers,
     ) {
         KEYBOARD_MODIFIERS.with(|x| x.set(modifiers))
     }
@@ -492,7 +308,7 @@ pub mod testing {
     /// Simulate entering a sequence of ascii characters key by key.
     pub fn send_keyboard_string_sequence<
         X: vtable::HasStaticVTable<i_slint_core::component::ComponentVTable>
-            + crate::re_exports::WindowHandleAccess,
+            + i_slint_core::window::WindowHandleAccess,
         Component: Into<vtable::VRc<i_slint_core::component::ComponentVTable, X>> + ComponentHandle,
     >(
         component: &Component,
@@ -510,7 +326,7 @@ pub mod testing {
     /// This overrides the value provided by the windowing system.
     pub fn set_window_scale_factor<
         X: vtable::HasStaticVTable<i_slint_core::component::ComponentVTable>
-            + crate::re_exports::WindowHandleAccess,
+            + i_slint_core::window::WindowHandleAccess,
         Component: Into<vtable::VRc<i_slint_core::component::ComponentVTable, X>> + ComponentHandle,
     >(
         component: &Component,

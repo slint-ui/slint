@@ -17,7 +17,7 @@ TestCase := TextInput {
 const LEFT_CODE: char = '\u{F702}';
 const BACK_CODE: char = '\u{0008}'; // backspace \b
 
-let shift_modifier = slint::re_exports::KeyboardModifiers {
+let shift_modifier = slint::private_unstable_api::re_exports::KeyboardModifiers {
     shift: true,
     ..Default::default()
 };
