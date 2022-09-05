@@ -64,16 +64,6 @@ App := Window {
                                 enabled: !disable-toggle.checked;
                             }
                         }
-
-                        GroupBox {
-                            title: "CheckBox";
-                            enabled: !disable-toggle.checked;
-                            checkbox := CheckBox {
-                                text: checkbox.checked ? "(checked)" : "(unchecked)";
-                                checked: true;
-                                enabled: !disable-toggle.checked;
-                            }
-                        }
                     }
 
                     HorizontalBox {
@@ -92,6 +82,16 @@ App := Window {
                             enabled: !disable-toggle.checked;
                             ComboBox {
                                 model: ["Select Something", "From this", "Combobox"];
+                                enabled: !disable-toggle.checked;
+                            }
+                        }
+
+                        GroupBox {
+                            title: "CheckBox";
+                            enabled: !disable-toggle.checked;
+                            checkbox := CheckBox {
+                                text: checkbox.checked ? "(checked)" : "(unchecked)";
+                                checked: true;
                                 enabled: !disable-toggle.checked;
                             }
                         }
