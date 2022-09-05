@@ -13,6 +13,7 @@ pub struct GlyphCluster<Length: Clone> {
     pub glyph_range: Range<usize>,
     pub width: Length,
     pub is_whitespace: bool,
+    pub is_line_or_paragraph_separator: bool,
 }
 
 #[derive(Clone)]
@@ -79,10 +80,14 @@ impl<'a, Length: Copy + Clone + Zero + core::ops::AddAssign, PlatformGlyph> Iter
             }
         }
         let byte_range = self.byte_offset..cluster_byte_offset;
-        let is_whitespace = self.text[self.byte_offset..]
+        let (is_whitespace, is_line_or_paragraph_separator) = self.text[self.byte_offset..]
             .chars()
             .next()
-            .map(|ch| ch.is_whitespace())
+            .map(|ch| {
+                let is_line_or_paragraph_separator =
+                    ch == '\n' || ch == '\u{2028}' || ch == '\u{2029}';
+                (ch.is_whitespace(), is_line_or_paragraph_separator)
+            })
             .unwrap_or_default();
         self.byte_offset = cluster_byte_offset;
 
@@ -91,6 +96,7 @@ impl<'a, Length: Copy + Clone + Zero + core::ops::AddAssign, PlatformGlyph> Iter
             glyph_range: Range { start: cluster_start, end: self.glyph_index },
             width: cluster_width,
             is_whitespace,
+            is_line_or_paragraph_separator,
         })
     }
 }

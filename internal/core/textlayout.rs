@@ -336,3 +336,42 @@ fn test_exact_fit() {
         lines[0].iter().map(|platform_glyph| platform_glyph.char.unwrap()).collect::<String>();
     debug_assert_eq!(rendered_text, "Fits")
 }
+
+#[test]
+fn test_no_line_separators_characters_rendered() {
+    let font = FixedTestFont;
+    let text = "Hello\nWorld";
+
+    let mut lines = Vec::new();
+
+    let paragraph = TextParagraphLayout {
+        string: text,
+        layout: TextLayout { font: &font, letter_spacing: None },
+        max_width: 13. * 10.,
+        max_height: 10.,
+        horizontal_alignment: TextHorizontalAlignment::Left,
+        vertical_alignment: TextVerticalAlignment::Top,
+        wrap: TextWrap::NoWrap,
+        overflow: TextOverflow::Clip,
+        single_line: true,
+    };
+    paragraph.layout_lines(|glyphs, _, _| {
+        lines.push(
+            glyphs
+                .map(|positioned_glyph| positioned_glyph.platform_glyph.clone())
+                .collect::<Vec<_>>(),
+        );
+    });
+
+    assert_eq!(lines.len(), 2);
+    let rendered_text = lines
+        .iter()
+        .map(|glyphs_per_line| {
+            glyphs_per_line
+                .iter()
+                .map(|platform_glyph| platform_glyph.char.unwrap())
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>();
+    debug_assert_eq!(rendered_text, vec!["Hello", "World"]);
+}
