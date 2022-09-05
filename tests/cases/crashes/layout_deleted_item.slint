@@ -53,7 +53,7 @@ use slint::Model;
 let instance = TestCase::new();
 let vec_model = std::rc::Rc::new(slint::VecModel::from(vec![1i32, 2i32]));
 instance.set_model(vec_model.clone().into());
-instance.on_clicked(move || dbg!(vec_model.remove(vec_model.row_count() - 1)));
+instance.on_clicked(move || { vec_model.remove(vec_model.row_count() - 1); });
 slint::testing::send_mouse_click(&instance, 95., 5.);
 assert_eq!(instance.get_model().row_count(), 1);
 assert!(instance.get_hover());

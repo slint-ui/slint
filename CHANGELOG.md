@@ -12,6 +12,7 @@ All notable changes to this project are documented in this file.
  - The "backend-gl-*" Rust crate features for configuring the GL renderer have been
    split up into "eventloop-winit/x11/wayland" and "renderer-femtovg". The old
    names are still available for compatibility.
+ - `VecModel::remove` now return the removed element
 
 ### Added
 
