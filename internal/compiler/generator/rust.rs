@@ -40,8 +40,12 @@ fn ident(ident: &str) -> proc_macro2::Ident {
 impl quote::ToTokens for Orientation {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let tks = match self {
-            Orientation::Horizontal => quote!(slint::re_exports::Orientation::Horizontal),
-            Orientation::Vertical => quote!(slint::re_exports::Orientation::Vertical),
+            Orientation::Horizontal => {
+                quote!(slint::private_unstable_api::re_exports::Orientation::Horizontal)
+            }
+            Orientation::Vertical => {
+                quote!(slint::private_unstable_api::re_exports::Orientation::Vertical)
+            }
         };
         tokens.extend(tks);
     }
@@ -51,10 +55,12 @@ impl quote::ToTokens for crate::embedded_resources::PixelFormat {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         use crate::embedded_resources::PixelFormat::*;
         let tks = match self {
-            Rgb => quote!(slint::re_exports::PixelFormat::Rgb),
-            Rgba => quote!(slint::re_exports::PixelFormat::Rgba),
-            RgbaPremultiplied => quote!(slint::re_exports::PixelFormat::RgbaPremultiplied),
-            AlphaMap(_) => quote!(slint::re_exports::PixelFormat::AlphaMap),
+            Rgb => quote!(slint::private_unstable_api::re_exports::PixelFormat::Rgb),
+            Rgba => quote!(slint::private_unstable_api::re_exports::PixelFormat::Rgba),
+            RgbaPremultiplied => {
+                quote!(slint::private_unstable_api::re_exports::PixelFormat::RgbaPremultiplied)
+            }
+            AlphaMap(_) => quote!(slint::private_unstable_api::re_exports::PixelFormat::AlphaMap),
         };
         tokens.extend(tks);
     }
@@ -64,15 +70,15 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
     match ty {
         Type::Int32 => Some(quote!(i32)),
         Type::Float32 => Some(quote!(f32)),
-        Type::String => Some(quote!(slint::re_exports::SharedString)),
-        Type::Color => Some(quote!(slint::re_exports::Color)),
+        Type::String => Some(quote!(slint::private_unstable_api::re_exports::SharedString)),
+        Type::Color => Some(quote!(slint::private_unstable_api::re_exports::Color)),
         Type::Duration => Some(quote!(i64)),
         Type::Angle => Some(quote!(f32)),
-        Type::PhysicalLength => Some(quote!(slint::re_exports::Coord)),
-        Type::LogicalLength => Some(quote!(slint::re_exports::Coord)),
+        Type::PhysicalLength => Some(quote!(slint::private_unstable_api::re_exports::Coord)),
+        Type::LogicalLength => Some(quote!(slint::private_unstable_api::re_exports::Coord)),
         Type::Percent => Some(quote!(f32)),
         Type::Bool => Some(quote!(bool)),
-        Type::Image => Some(quote!(slint::re_exports::Image)),
+        Type::Image => Some(quote!(slint::private_unstable_api::re_exports::Image)),
         Type::Struct { fields, name: None, .. } => {
             let elem = fields.values().map(rust_type).collect::<Option<Vec<_>>>()?;
             // This will produce a tuple
@@ -81,16 +87,18 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Struct { name: Some(name), .. } => Some(struct_name_to_tokens(name)),
         Type::Array(o) => {
             let inner = rust_type(o)?;
-            Some(quote!(slint::re_exports::ModelRc<#inner>))
+            Some(quote!(slint::private_unstable_api::re_exports::ModelRc<#inner>))
         }
         Type::Enumeration(e) => {
             let e = ident(&e.name);
-            Some(quote!(slint::re_exports::#e))
+            Some(quote!(slint::private_unstable_api::re_exports::#e))
         }
         Type::Brush => Some(quote!(slint::Brush)),
-        Type::LayoutCache => {
-            Some(quote!(slint::re_exports::SharedVector<slint::re_exports::Coord>))
-        }
+        Type::LayoutCache => Some(quote!(
+            slint::private_unstable_api::re_exports::SharedVector<
+                slint::private_unstable_api::re_exports::Coord,
+            >
+        )),
         _ => None,
     }
 }
@@ -162,9 +170,9 @@ pub fn generate(doc: &Document) -> TokenStream {
                 }) => {
                     let (r_x, r_y, r_w, r_h) = (rect.x(), rect.y(), rect.width(), rect.height());
                     let color = if let crate::embedded_resources::PixelFormat::AlphaMap([r, g, b]) = format {
-                        quote!(slint::re_exports::Color::from_rgb_u8(#r, #g, #b))
+                        quote!(slint::private_unstable_api::re_exports::Color::from_rgb_u8(#r, #g, #b))
                     } else {
-                        quote!(slint::re_exports::Color::from_argb_encoded(0))
+                        quote!(slint::private_unstable_api::re_exports::Color::from_argb_encoded(0))
                     };
                     let symbol_data = format_ident!("SLINT_EMBEDDED_RESOURCE_{}_DATA", er.id);
                     let data_size = data.len();
@@ -172,13 +180,13 @@ pub fn generate(doc: &Document) -> TokenStream {
                         #link_section
                         static #symbol_data : [u8; #data_size]= [#(#data),*];
                         #link_section
-                        static #symbol: slint::re_exports::StaticTextures = slint::re_exports::StaticTextures{
-                            size: slint::re_exports::IntSize::new(#width as _, #height as _),
-                            original_size: slint::re_exports::IntSize::new(#unscaled_width as _, #unscaled_height as _),
+                        static #symbol: slint::private_unstable_api::re_exports::StaticTextures = slint::private_unstable_api::re_exports::StaticTextures{
+                            size: slint::private_unstable_api::re_exports::IntSize::new(#width as _, #height as _),
+                            original_size: slint::private_unstable_api::re_exports::IntSize::new(#unscaled_width as _, #unscaled_height as _),
                             data: Slice::from_slice(&#symbol_data),
                             textures: Slice::from_slice(&[
-                                slint::re_exports::StaticTexture {
-                                    rect: slint::re_exports::euclid::rect(#r_x as _, #r_y as _, #r_w as _, #r_h as _),
+                                slint::private_unstable_api::re_exports::StaticTexture {
+                                    rect: slint::private_unstable_api::re_exports::euclid::rect(#r_x as _, #r_y as _, #r_w as _, #r_h as _),
                                     format: #format,
                                     color: #color,
                                     index: 0,
@@ -191,7 +199,7 @@ pub fn generate(doc: &Document) -> TokenStream {
 
                     let character_map_size = character_map.len();
 
-                     let character_map = character_map.iter().map(|crate::embedded_resources::CharacterMapEntry{code_point, glyph_index}| quote!(slint::re_exports::CharacterMapEntry { code_point: #code_point, glyph_index: #glyph_index }));
+                     let character_map = character_map.iter().map(|crate::embedded_resources::CharacterMapEntry{code_point, glyph_index}| quote!(slint::private_unstable_api::re_exports::CharacterMapEntry { code_point: #code_point, glyph_index: #glyph_index }));
 
                     let glyphs_size = glyphs.len();
 
@@ -200,7 +208,7 @@ pub fn generate(doc: &Document) -> TokenStream {
                         let glyph_data = glyph_data.iter().map(|crate::embedded_resources::BitmapGlyph{x, y, width, height, x_advance, data}|{
                             let data_size = data.len();
                             quote!(
-                                slint::re_exports::BitmapGlyph {
+                                slint::private_unstable_api::re_exports::BitmapGlyph {
                                     x: #x,
                                     y: #y,
                                     width: #width,
@@ -216,11 +224,11 @@ pub fn generate(doc: &Document) -> TokenStream {
                         });
 
                         quote!(
-                            slint::re_exports::BitmapGlyphs {
+                            slint::private_unstable_api::re_exports::BitmapGlyphs {
                                 pixel_size: #pixel_size,
                                 glyph_data: Slice::from_slice({
                                     #link_section
-                                    static GDATA : [slint::re_exports::BitmapGlyph; #glyph_data_size] = [#(#glyph_data),*];
+                                    static GDATA : [slint::private_unstable_api::re_exports::BitmapGlyph; #glyph_data_size] = [#(#glyph_data),*];
                                     &GDATA
                                 }),
                             }
@@ -230,11 +238,11 @@ pub fn generate(doc: &Document) -> TokenStream {
 
                     quote!(
                         #link_section
-                        static #symbol: slint::re_exports::BitmapFont = slint::re_exports::BitmapFont {
+                        static #symbol: slint::private_unstable_api::re_exports::BitmapFont = slint::private_unstable_api::re_exports::BitmapFont {
                             family_name: Slice::from_slice(#family_name.as_bytes()),
                             character_map: Slice::from_slice({
                                 #link_section
-                                static CM : [slint::re_exports::CharacterMapEntry; #character_map_size] = [#(#character_map),*];
+                                static CM : [slint::private_unstable_api::re_exports::CharacterMapEntry; #character_map_size] = [#(#character_map),*];
                                 &CM
                             }),
                             units_per_em: #units_per_em,
@@ -242,7 +250,7 @@ pub fn generate(doc: &Document) -> TokenStream {
                             descent: #descent,
                             glyphs: Slice::from_slice({
                                 #link_section
-                                static GLYPHS : [slint::re_exports::BitmapGlyphs; #glyphs_size] = [#(#glyphs),*];
+                                static GLYPHS : [slint::private_unstable_api::re_exports::BitmapGlyphs; #glyphs_size] = [#(#glyphs),*];
                                 &GLYPHS
                             })
                         };
@@ -261,7 +269,7 @@ pub fn generate(doc: &Document) -> TokenStream {
         #[allow(clippy::erasing_op)]
         #[allow(clippy::approx_constant)] // We may get those from .slint inputs!
         mod #compo_module {
-            use slint::re_exports::*;
+            use slint::private_unstable_api::re_exports::*;
             #(#structs)*
             #(#globals)*
             #(#sub_compos)*
@@ -300,7 +308,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
 
     quote!(
         #component
-        pub struct #public_component_id(vtable::VRc<slint::re_exports::ComponentVTable, #inner_component_id>);
+        pub struct #public_component_id(vtable::VRc<slint::private_unstable_api::re_exports::ComponentVTable, #inner_component_id>);
 
         impl #public_component_id {
             pub fn new() -> Self {
@@ -312,7 +320,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
             #property_and_callback_accessors
         }
 
-        impl From<#public_component_id> for vtable::VRc<slint::re_exports::ComponentVTable, #inner_component_id> {
+        impl From<#public_component_id> for vtable::VRc<slint::private_unstable_api::re_exports::ComponentVTable, #inner_component_id> {
             fn from(value: #public_component_id) -> Self {
                 value.0
             }
@@ -328,7 +336,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
                 Self(self.0.clone())
             }
 
-            fn from_inner(inner: vtable::VRc<slint::re_exports::ComponentVTable, #inner_component_id>) -> Self {
+            fn from_inner(inner: vtable::VRc<slint::private_unstable_api::re_exports::ComponentVTable, #inner_component_id>) -> Self {
                 Self(inner)
             }
 
@@ -357,7 +365,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
 
         #[allow(dead_code)] // FIXME: some global are unused because of optimization, we should then remove them completely
         struct #global_container_id {
-            #(#global_names : ::core::pin::Pin<slint::re_exports::Rc<#global_types>>,)*
+            #(#global_names : ::core::pin::Pin<slint::private_unstable_api::re_exports::Rc<#global_types>>,)*
         }
         impl Default for #global_container_id {
             fn default() -> Self {
@@ -409,7 +417,7 @@ fn handle_property_init(
         };
         init.push(quote!({
             #[allow(unreachable_code, unused)]
-            slint::internal::set_callback_handler(#rust_property, &self_rc, {
+            slint::private_unstable_api::set_callback_handler(#rust_property, &self_rc, {
                 move |self_rc, args| {
                     #init_self_pin_ref
                     (#tokens_for_expression) #as_
@@ -445,7 +453,7 @@ fn handle_property_init(
 
             if binding_expression.is_state_info {
                 quote! { {
-                    slint::internal::set_property_state_binding(#rust_property, &self_rc, #binding_tokens);
+                    slint::private_unstable_api::set_property_state_binding(#rust_property, &self_rc, #binding_tokens);
                 } }
             } else {
                 match &binding_expression.animation {
@@ -453,13 +461,13 @@ fn handle_property_init(
                         let anim = compile_expression(anim, ctx);
                         quote! { {
                             #init_self_pin_ref
-                            slint::internal::set_animated_property_binding(#rust_property, &self_rc, #binding_tokens, #anim);
+                            slint::private_unstable_api::set_animated_property_binding(#rust_property, &self_rc, #binding_tokens, #anim);
                         } }
                     }
                     Some(llr::Animation::Transition(anim)) => {
                         let anim = compile_expression(anim, ctx);
                         quote! {
-                            slint::internal::set_animated_property_binding_for_transition(
+                            slint::private_unstable_api::set_animated_property_binding_for_transition(
                                 #rust_property, &self_rc, #binding_tokens, move |self_rc| {
                                     #init_self_pin_ref
                                     #anim
@@ -469,7 +477,7 @@ fn handle_property_init(
                     }
                     None => {
                         quote! { {
-                            slint::internal::set_property_binding(#rust_property, &self_rc, #binding_tokens);
+                            slint::private_unstable_api::set_property_binding(#rust_property, &self_rc, #binding_tokens);
                         } }
                     }
                 }
@@ -524,7 +532,7 @@ fn public_api(
                 #[allow(dead_code)]
                 pub fn #getter_ident(&self) -> #rust_property_type {
                     #[allow(unused_imports)]
-                    use slint::re_exports::*;
+                    use slint::private_unstable_api::re_exports::*;
                     let _self = #self_init;
                     #prop.get()
                 }
@@ -535,7 +543,7 @@ fn public_api(
                 #[allow(dead_code)]
                 pub fn #setter_ident(&self, value: #rust_property_type) {
                     #[allow(unused_imports)]
-                    use slint::re_exports::*;
+                    use slint::private_unstable_api::re_exports::*;
                     let _self = #self_init;
                     #set_value
                 }
@@ -645,12 +653,12 @@ fn generate_sub_component(
 
         let mut model = compile_expression(&repeated.model.borrow(), &ctx);
         if repeated.model.ty(&ctx) == Type::Bool {
-            model = quote!(slint::re_exports::ModelRc::new(#model as bool))
+            model = quote!(slint::private_unstable_api::re_exports::ModelRc::new(#model as bool))
         }
 
         init.push(quote! {
             _self.#repeater_id.set_model_binding({
-                let self_weak = slint::re_exports::VRcMapped::downgrade(&self_rc);
+                let self_weak = slint::private_unstable_api::re_exports::VRcMapped::downgrade(&self_rc);
                 move || {
                     let self_rc = self_weak.upgrade().unwrap();
                     let _self = self_rc.as_pin_ref();
@@ -688,7 +696,7 @@ fn generate_sub_component(
             #idx => {
                 #ensure_updated
                 let (start, end) = _self.#repeater_id.range();
-                slint::re_exports::IndexRange { start, end }
+                slint::private_unstable_api::re_exports::IndexRange { start, end }
             }
         ));
         repeated_subtree_components.push(quote!(
@@ -820,7 +828,7 @@ fn generate_sub_component(
 
     let parent_component_type = parent_ctx.iter().map(|parent| {
         let parent_component_id = self::inner_component_id(parent.ctx.current_sub_component.unwrap());
-        quote!(slint::re_exports::VWeakMapped::<slint::re_exports::ComponentVTable, #parent_component_id>)
+        quote!(slint::private_unstable_api::re_exports::VWeakMapped::<slint::private_unstable_api::re_exports::ComponentVTable, #parent_component_id>)
     });
 
     init.extend(component.init_code.iter().map(|e| compile_expression(&e.borrow(), &ctx)));
@@ -845,30 +853,30 @@ fn generate_sub_component(
     let pin_macro = if pinned_drop { quote!(#[pin_drop]) } else { quote!(#[pin]) };
 
     quote!(
-        #[derive(slint::re_exports::FieldOffsets, Default)]
-        #[const_field_offset(slint::re_exports::const_field_offset)]
+        #[derive(slint::private_unstable_api::re_exports::FieldOffsets, Default)]
+        #[const_field_offset(slint::private_unstable_api::re_exports::const_field_offset)]
         #[repr(C)]
         #pin_macro
         #visibility
         struct #inner_component_id {
-            #(#item_names : slint::re_exports::#item_types,)*
+            #(#item_names : slint::private_unstable_api::re_exports::#item_types,)*
             #(#sub_component_names : #sub_component_types,)*
-            #(#declared_property_vars : slint::re_exports::Property<#declared_property_types>,)*
-            #(#declared_callbacks : slint::re_exports::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
-            #(#repeated_element_names : slint::re_exports::Repeater<#repeated_element_components>,)*
-            self_weak : slint::re_exports::OnceCell<slint::re_exports::VWeakMapped<slint::re_exports::ComponentVTable, #inner_component_id>>,
+            #(#declared_property_vars : slint::private_unstable_api::re_exports::Property<#declared_property_types>,)*
+            #(#declared_callbacks : slint::private_unstable_api::re_exports::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
+            #(#repeated_element_names : slint::private_unstable_api::re_exports::Repeater<#repeated_element_components>,)*
+            self_weak : slint::private_unstable_api::re_exports::OnceCell<slint::private_unstable_api::re_exports::VWeakMapped<slint::private_unstable_api::re_exports::ComponentVTable, #inner_component_id>>,
             #(parent : #parent_component_type,)*
             // FIXME: Do we really need a window all the time?
-            window_adapter: slint::re_exports::OnceCell<slint::re_exports::Rc<dyn slint::re_exports::WindowAdapter>>,
-            root : slint::re_exports::OnceCell<slint::re_exports::VWeak<slint::re_exports::ComponentVTable, #root_component_id>>,
+            window_adapter: slint::private_unstable_api::re_exports::OnceCell<slint::private_unstable_api::re_exports::Rc<dyn slint::private_unstable_api::re_exports::WindowAdapter>>,
+            root : slint::private_unstable_api::re_exports::OnceCell<slint::private_unstable_api::re_exports::VWeak<slint::private_unstable_api::re_exports::ComponentVTable, #root_component_id>>,
             tree_index: ::core::cell::Cell<u32>,
             tree_index_of_first_child: ::core::cell::Cell<u32>,
             #extra_fields
         }
 
         impl #inner_component_id {
-            pub fn init(self_rc: slint::re_exports::VRcMapped<slint::re_exports::ComponentVTable, Self>,
-                    root : &slint::re_exports::VRc<slint::re_exports::ComponentVTable, #root_component_id>,
+            pub fn init(self_rc: slint::private_unstable_api::re_exports::VRcMapped<slint::private_unstable_api::re_exports::ComponentVTable, Self>,
+                    root : &slint::private_unstable_api::re_exports::VRc<slint::private_unstable_api::re_exports::ComponentVTable, #root_component_id>,
                     tree_index: u32, tree_index_of_first_child: u32) {
                 #![allow(unused)]
                 let _self = self_rc.as_pin_ref();
@@ -883,11 +891,11 @@ fn generate_sub_component(
             fn visit_dynamic_children(
                 self: ::core::pin::Pin<&Self>,
                 dyn_index: usize,
-                order: slint::re_exports::TraversalOrder,
-                visitor: slint::re_exports::ItemVisitorRefMut
-            ) -> slint::re_exports::VisitChildrenResult {
+                order: slint::private_unstable_api::re_exports::TraversalOrder,
+                visitor: slint::private_unstable_api::re_exports::ItemVisitorRefMut
+            ) -> slint::private_unstable_api::re_exports::VisitChildrenResult {
                 #![allow(unused)]
-                use slint::re_exports::*;
+                use slint::private_unstable_api::re_exports::*;
                 let _self = self;
                 match dyn_index {
                     #(#repeated_visit_branch)*
@@ -895,19 +903,19 @@ fn generate_sub_component(
                 }
             }
 
-            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: slint::re_exports::Orientation) -> slint::re_exports::LayoutInfo {
+            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: slint::private_unstable_api::re_exports::Orientation) -> slint::private_unstable_api::re_exports::LayoutInfo {
                 #![allow(unused)]
-                use slint::re_exports::*;
+                use slint::private_unstable_api::re_exports::*;
                 let _self = self;
                 match orientation {
-                    slint::re_exports::Orientation::Horizontal => #layout_info_h,
-                    slint::re_exports::Orientation::Vertical => #layout_info_v,
+                    slint::private_unstable_api::re_exports::Orientation::Horizontal => #layout_info_h,
+                    slint::private_unstable_api::re_exports::Orientation::Vertical => #layout_info_v,
                 }
             }
 
-            fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: usize) -> slint::re_exports::IndexRange {
+            fn subtree_range(self: ::core::pin::Pin<&Self>, dyn_index: usize) -> slint::private_unstable_api::re_exports::IndexRange {
                 #![allow(unused)]
-                use slint::re_exports::*;
+                use slint::private_unstable_api::re_exports::*;
                 let _self = self;
                 match dyn_index {
                     #(#repeated_subtree_ranges)*
@@ -915,9 +923,9 @@ fn generate_sub_component(
                 }
             }
 
-            fn subtree_component(self: ::core::pin::Pin<&Self>, dyn_index: usize, subtree_index: usize, result: &mut slint::re_exports::ComponentWeak) {
+            fn subtree_component(self: ::core::pin::Pin<&Self>, dyn_index: usize, subtree_index: usize, result: &mut slint::private_unstable_api::re_exports::ComponentWeak) {
                 #![allow(unused)]
-                use slint::re_exports::*;
+                use slint::private_unstable_api::re_exports::*;
                 let _self = self;
                 match dyn_index {
                     #(#repeated_subtree_components)*
@@ -927,14 +935,14 @@ fn generate_sub_component(
 
             fn index_property(self: ::core::pin::Pin<&Self>) -> usize {
                 #![allow(unused)]
-                use slint::re_exports::*;
+                use slint::private_unstable_api::re_exports::*;
                 let _self = self;
                 #subtree_index_function
             }
 
-            fn accessible_role(self: ::core::pin::Pin<&Self>, index: usize) -> slint::re_exports::AccessibleRole {
+            fn accessible_role(self: ::core::pin::Pin<&Self>, index: usize) -> slint::private_unstable_api::re_exports::AccessibleRole {
                 #![allow(unused)]
-                use slint::re_exports::*;
+                use slint::private_unstable_api::re_exports::*;
                 let _self = self;
                 match index {
                     #(#accessible_role_branch)*
@@ -946,10 +954,10 @@ fn generate_sub_component(
             fn accessible_string_property(
                 self: ::core::pin::Pin<&Self>,
                 index: usize,
-                what: slint::re_exports::AccessibleStringProperty,
-            ) -> slint::re_exports::SharedString {
+                what: slint::private_unstable_api::re_exports::AccessibleStringProperty,
+            ) -> slint::private_unstable_api::re_exports::SharedString {
                 #![allow(unused)]
-                use slint::re_exports::*;
+                use slint::private_unstable_api::re_exports::*;
                 let _self = self;
                 match (index, what) {
                     #(#accessible_string_property_branch)*
@@ -1033,7 +1041,7 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
 
         let aliases = global.aliases.iter().map(|name| ident(name));
         quote!(
-            pub struct #public_component_id<'a>(&'a ::core::pin::Pin<slint::re_exports::Rc<#inner_component_id>>);
+            pub struct #public_component_id<'a>(&'a ::core::pin::Pin<slint::private_unstable_api::re_exports::Rc<#inner_component_id>>);
 
             impl<'a> #public_component_id<'a> {
                 #property_and_callback_accessors
@@ -1051,21 +1059,21 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
 
     let root_component_id = self::inner_component_id(&root.item_tree.root);
     quote!(
-        #[derive(slint::re_exports::FieldOffsets, Default)]
-        #[const_field_offset(slint::re_exports::const_field_offset)]
+        #[derive(slint::private_unstable_api::re_exports::FieldOffsets, Default)]
+        #[const_field_offset(slint::private_unstable_api::re_exports::const_field_offset)]
         #[repr(C)]
         #[pin]
         struct #inner_component_id {
-            #(#declared_property_vars: slint::re_exports::Property<#declared_property_types>,)*
-            #(#declared_callbacks: slint::re_exports::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
-            root : slint::re_exports::OnceCell<slint::re_exports::VWeak<slint::re_exports::ComponentVTable, #root_component_id>>,
+            #(#declared_property_vars: slint::private_unstable_api::re_exports::Property<#declared_property_types>,)*
+            #(#declared_callbacks: slint::private_unstable_api::re_exports::Callback<(#(#declared_callbacks_types,)*), #declared_callbacks_ret>,)*
+            root : slint::private_unstable_api::re_exports::OnceCell<slint::private_unstable_api::re_exports::VWeak<slint::private_unstable_api::re_exports::ComponentVTable, #root_component_id>>,
         }
 
         impl #inner_component_id {
-            fn new() -> ::core::pin::Pin<slint::re_exports::Rc<Self>> {
-                slint::re_exports::Rc::pin(Self::default())
+            fn new() -> ::core::pin::Pin<slint::private_unstable_api::re_exports::Rc<Self>> {
+                slint::private_unstable_api::re_exports::Rc::pin(Self::default())
             }
-            fn init(self: ::core::pin::Pin<slint::re_exports::Rc<Self>>, root: &slint::re_exports::VRc<slint::re_exports::ComponentVTable, #root_component_id>) {
+            fn init(self: ::core::pin::Pin<slint::private_unstable_api::re_exports::Rc<Self>>, root: &slint::private_unstable_api::re_exports::VRc<slint::private_unstable_api::re_exports::ComponentVTable, #root_component_id>) {
                 #![allow(unused)]
                 self.root.set(VRc::downgrade(root));
                 let self_rc = self;
@@ -1096,7 +1104,7 @@ fn generate_item_tree(
     let inner_component_id = self::inner_component_id(&sub_tree.root);
     let parent_component_type = parent_ctx.iter().map(|parent| {
         let parent_component_id = self::inner_component_id(parent.ctx.current_sub_component.unwrap());
-        quote!(slint::re_exports::VWeakMapped::<slint::re_exports::ComponentVTable, #parent_component_id>)
+        quote!(slint::private_unstable_api::re_exports::VWeakMapped::<slint::private_unstable_api::re_exports::ComponentVTable, #parent_component_id>)
     }).collect::<Vec<_>>();
     let root_token = if parent_ctx.is_some() {
         quote!(&parent.upgrade().unwrap().root.get().unwrap().upgrade().unwrap())
@@ -1105,7 +1113,9 @@ fn generate_item_tree(
     };
     let (create_window_adapter, init_window) = if parent_ctx.is_none() {
         (
-            Some(quote!(let window_adapter = slint::create_window_adapter();)),
+            Some(
+                quote!(let window_adapter = slint::private_unstable_api::create_window_adapter();),
+            ),
             Some(quote! {
                 _self.window_adapter.set(window_adapter);
                 _self.window_adapter.get().unwrap().window().window_handle().set_component(&VRc::into_dyn(self_rc.clone()));
@@ -1125,7 +1135,7 @@ fn generate_item_tree(
                 .upgrade()
                 .map(|sc| (VRcMapped::origin(&sc), sc.tree_index_of_first_child.get()))
             {
-                *_result = slint::re_exports::ItemRc::new(parent_component, parent_index as usize + #sub_component_offset - 1)
+                *_result = slint::private_unstable_api::re_exports::ItemRc::new(parent_component, parent_index as usize + #sub_component_offset - 1)
                     .downgrade();
             })
         })
@@ -1144,7 +1154,7 @@ fn generate_item_tree(
                 sub_component = &sub_component.sub_components[*i].ty;
             }
             item_tree_array.push(quote!(
-                slint::re_exports::ItemTreeNode::DynamicTree {
+                slint::private_unstable_api::re_exports::ItemTreeNode::DynamicTree {
                     index: #repeater_index,
                     parent_index: #parent_index,
                 }
@@ -1153,7 +1163,7 @@ fn generate_item_tree(
             let item = &component.items[node.item_index];
             let flick = item
                 .is_flickable_viewport
-                .then(|| quote!(+ slint::re_exports::Flickable::FIELD_OFFSETS.viewport));
+                .then(|| quote!(+ slint::private_unstable_api::re_exports::Flickable::FIELD_OFFSETS.viewport));
 
             let field = access_component_field_offset(
                 &self::inner_component_id(component),
@@ -1165,7 +1175,7 @@ fn generate_item_tree(
             let item_array_len = item_array.len() as u32;
             let is_accessible = node.is_accessible;
             item_tree_array.push(quote!(
-                slint::re_exports::ItemTreeNode::Item {
+                slint::private_unstable_api::re_exports::ItemTreeNode::Item {
                     is_accessible: #is_accessible,
                     children_count: #children_count,
                     children_index: #children_index,
@@ -1185,59 +1195,59 @@ fn generate_item_tree(
 
         impl #inner_component_id {
             pub fn new(#(parent: #parent_component_type)*)
-                -> vtable::VRc<slint::re_exports::ComponentVTable, Self>
+                -> vtable::VRc<slint::private_unstable_api::re_exports::ComponentVTable, Self>
             {
                 #![allow(unused)]
-                use slint::re_exports::*;
+                use slint::private_unstable_api::re_exports::*;
                 #create_window_adapter // We must create the window first to initialize the backend before using the style
                 let mut _self = Self::default();
                 #(_self.parent = parent.clone() as #parent_component_type;)*
                 let self_rc = VRc::new(_self);
                 let _self = self_rc.as_pin_ref();
                 #init_window
-                slint::re_exports::register_component(_self, Self::item_array(), #root_token.window_adapter.get().unwrap());
-                Self::init(slint::re_exports::VRc::map(self_rc.clone(), |x| x), #root_token, 0, 1);
+                slint::private_unstable_api::re_exports::register_component(_self, Self::item_array(), #root_token.window_adapter.get().unwrap());
+                Self::init(slint::private_unstable_api::re_exports::VRc::map(self_rc.clone(), |x| x), #root_token, 0, 1);
                 self_rc
             }
 
-            fn item_tree() -> &'static [slint::re_exports::ItemTreeNode] {
-                const ITEM_TREE : [slint::re_exports::ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
+            fn item_tree() -> &'static [slint::private_unstable_api::re_exports::ItemTreeNode] {
+                const ITEM_TREE : [slint::private_unstable_api::re_exports::ItemTreeNode; #item_tree_array_len] = [#(#item_tree_array),*];
                 &ITEM_TREE
             }
 
             fn item_array() -> &'static [vtable::VOffset<Self, ItemVTable, vtable::AllowPin>] {
-                use slint::re_exports::*;
+                use slint::private_unstable_api::re_exports::*;
                 ComponentVTable_static!(static VT for #inner_component_id);
                 // FIXME: ideally this should be a const, but we can't because of the pointer to the vtable
-                static ITEM_ARRAY : slint::re_exports::OnceBox<
+                static ITEM_ARRAY : slint::private_unstable_api::re_exports::OnceBox<
                     [vtable::VOffset<#inner_component_id, ItemVTable, vtable::AllowPin>; #item_array_len]
-                > = slint::re_exports::OnceBox::new();
+                > = slint::private_unstable_api::re_exports::OnceBox::new();
                 &*ITEM_ARRAY.get_or_init(|| Box::new([#(#item_array),*]))
             }
         }
 
-        impl slint::re_exports::PinnedDrop for #inner_component_id {
+        impl slint::private_unstable_api::re_exports::PinnedDrop for #inner_component_id {
             fn drop(self: core::pin::Pin<&mut #inner_component_id>) {
-                use slint::re_exports::*;
+                use slint::private_unstable_api::re_exports::*;
                 new_vref!(let vref : VRef<ComponentVTable> for Component = self.as_ref().get_ref());
-                slint::re_exports::unregister_component(self.as_ref(), vref, Self::item_array(), self.window_adapter.get().unwrap());
+                slint::private_unstable_api::re_exports::unregister_component(self.as_ref(), vref, Self::item_array(), self.window_adapter.get().unwrap());
             }
         }
 
-        impl slint::re_exports::WindowHandleAccess for #inner_component_id {
-            fn window_handle(&self) -> &slint::re_exports::WindowInner {
+        impl slint::private_unstable_api::re_exports::WindowHandleAccess for #inner_component_id {
+            fn window_handle(&self) -> &slint::private_unstable_api::re_exports::WindowInner {
                 self.window_adapter.get().unwrap().window().window_handle()
             }
         }
 
-        impl slint::re_exports::Component for #inner_component_id {
-            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: slint::re_exports::TraversalOrder, visitor: slint::re_exports::ItemVisitorRefMut)
-                -> slint::re_exports::VisitChildrenResult
+        impl slint::private_unstable_api::re_exports::Component for #inner_component_id {
+            fn visit_children_item(self: ::core::pin::Pin<&Self>, index: isize, order: slint::private_unstable_api::re_exports::TraversalOrder, visitor: slint::private_unstable_api::re_exports::ItemVisitorRefMut)
+                -> slint::private_unstable_api::re_exports::VisitChildrenResult
             {
-                use slint::re_exports::*;
-                return slint::re_exports::visit_item_tree(self, &VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), self.get_item_tree().as_slice(), index, order, visitor, visit_dynamic);
+                use slint::private_unstable_api::re_exports::*;
+                return slint::private_unstable_api::re_exports::visit_item_tree(self, &VRcMapped::origin(&self.as_ref().self_weak.get().unwrap().upgrade().unwrap()), self.get_item_tree().as_slice(), index, order, visitor, visit_dynamic);
                 #[allow(unused)]
-                fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: slint::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
+                fn visit_dynamic(_self: ::core::pin::Pin<&#inner_component_id>, order: slint::private_unstable_api::re_exports::TraversalOrder, visitor: ItemVisitorRefMut, dyn_index: usize) -> VisitChildrenResult  {
                     _self.visit_dynamic_children(dyn_index, order, visitor)
                 }
             }
@@ -1253,19 +1263,19 @@ fn generate_item_tree(
             }
 
             fn get_item_tree(
-                self: ::core::pin::Pin<&Self>) -> slint::re_exports::Slice<slint::re_exports::ItemTreeNode>
+                self: ::core::pin::Pin<&Self>) -> slint::private_unstable_api::re_exports::Slice<slint::private_unstable_api::re_exports::ItemTreeNode>
             {
                 Self::item_tree().into()
             }
 
             fn get_subtree_range(
-                self: ::core::pin::Pin<&Self>, index: usize) -> slint::re_exports::IndexRange
+                self: ::core::pin::Pin<&Self>, index: usize) -> slint::private_unstable_api::re_exports::IndexRange
             {
                 self.subtree_range(index)
             }
 
             fn get_subtree_component(
-                self: ::core::pin::Pin<&Self>, index: usize, subtree_index: usize, result: &mut slint::re_exports::ComponentWeak)
+                self: ::core::pin::Pin<&Self>, index: usize, subtree_index: usize, result: &mut slint::private_unstable_api::re_exports::ComponentWeak)
             {
                 self.subtree_component(index, subtree_index, result);
             }
@@ -1276,23 +1286,23 @@ fn generate_item_tree(
                 self.index_property()
             }
 
-            fn parent_node(self: ::core::pin::Pin<&Self>, _result: &mut slint::re_exports::ItemWeak) {
+            fn parent_node(self: ::core::pin::Pin<&Self>, _result: &mut slint::private_unstable_api::re_exports::ItemWeak) {
                 #parent_item_expression
             }
 
-            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: slint::re_exports::Orientation) -> slint::re_exports::LayoutInfo {
+            fn layout_info(self: ::core::pin::Pin<&Self>, orientation: slint::private_unstable_api::re_exports::Orientation) -> slint::private_unstable_api::re_exports::LayoutInfo {
                 self.layout_info(orientation)
             }
 
-            fn accessible_role(self: ::core::pin::Pin<&Self>, index: usize) -> slint::re_exports::AccessibleRole {
+            fn accessible_role(self: ::core::pin::Pin<&Self>, index: usize) -> slint::private_unstable_api::re_exports::AccessibleRole {
                 self.accessible_role(index)
             }
 
             fn accessible_string_property(
                 self: ::core::pin::Pin<&Self>,
                 index: usize,
-                what: slint::re_exports::AccessibleStringProperty,
-                result: &mut slint::re_exports::SharedString,
+                what: slint::private_unstable_api::re_exports::AccessibleStringProperty,
+                result: &mut slint::private_unstable_api::re_exports::SharedString,
             ) {
                 *result = self.accessible_string_property(index, what);
             }
@@ -1336,10 +1346,10 @@ fn generate_repeated_component(
         quote! {
             fn listview_layout(
                 self: core::pin::Pin<&Self>,
-                offset_y: &mut slint::re_exports::Coord,
-                viewport_width: core::pin::Pin<&slint::re_exports::Property<slint::re_exports::Coord>>,
+                offset_y: &mut slint::private_unstable_api::re_exports::Coord,
+                viewport_width: core::pin::Pin<&slint::private_unstable_api::re_exports::Property<slint::private_unstable_api::re_exports::Coord>>,
             ) {
-                use slint::re_exports::*;
+                use slint::private_unstable_api::re_exports::*;
                 let _self = self;
                 let vp_w = viewport_width.get();
                 #p_y.set(*offset_y);
@@ -1353,10 +1363,10 @@ fn generate_repeated_component(
     } else {
         // TODO: we could generate this code only if we know that this component is in a box layout
         quote! {
-            fn box_layout_data(self: ::core::pin::Pin<&Self>, o: slint::re_exports::Orientation)
-                -> slint::re_exports::BoxLayoutCellData
+            fn box_layout_data(self: ::core::pin::Pin<&Self>, o: slint::private_unstable_api::re_exports::Orientation)
+                -> slint::private_unstable_api::re_exports::BoxLayoutCellData
             {
-                use slint::re_exports::*;
+                use slint::private_unstable_api::re_exports::*;
                 BoxLayoutCellData { constraint: self.as_ref().layout_info(o) }
             }
         }
@@ -1380,7 +1390,7 @@ fn generate_repeated_component(
     quote!(
         #component
 
-        impl slint::re_exports::RepeatedComponent for #inner_component_id {
+        impl slint::private_unstable_api::re_exports::RepeatedComponent for #inner_component_id {
             type Data = #data_type;
             fn update(&self, _index: usize, _data: Self::Data) {
                 let self_rc = self.self_weak.get().unwrap().upgrade().unwrap();
@@ -1452,7 +1462,7 @@ fn access_member(reference: &llr::PropertyReference, ctx: &EvaluationContext) ->
             let item_ty = ident(&sub_component.items[item_index].ty.class_name);
             let flick = sub_component.items[item_index]
                 .is_flickable_viewport
-                .then(|| quote!(+ slint::re_exports::Flickable::FIELD_OFFSETS.viewport));
+                .then(|| quote!(+ slint::private_unstable_api::re_exports::Flickable::FIELD_OFFSETS.viewport));
             quote!((#compo_path #item_field #flick + #item_ty::FIELD_OFFSETS.#property_name).apply_pin(#path))
         }
     }
@@ -1578,22 +1588,24 @@ fn access_item_rc(pr: &llr::PropertyReference, ctx: &EvaluationContext) -> Token
 
 fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream {
     match expr {
-        Expression::StringLiteral(s) => quote!(slint::re_exports::SharedString::from(#s)),
+        Expression::StringLiteral(s) => {
+            quote!(slint::private_unstable_api::re_exports::SharedString::from(#s))
+        }
         Expression::NumberLiteral(n) => quote!(#n),
         Expression::BoolLiteral(b) => quote!(#b),
         Expression::Cast { from, to } => {
             let f = compile_expression(&*from, ctx);
             match (from.ty(ctx), to) {
                 (from, Type::String) if from.as_unit_product().is_some() => {
-                    quote!(slint::re_exports::SharedString::from(
-                        slint::re_exports::format!("{}", #f).as_str()
+                    quote!(slint::private_unstable_api::re_exports::SharedString::from(
+                        slint::private_unstable_api::re_exports::format!("{}", #f).as_str()
                     ))
                 }
                 (Type::Float32, Type::Model) | (Type::Int32, Type::Model) => {
-                    quote!(slint::re_exports::ModelRc::new(#f as usize))
+                    quote!(slint::private_unstable_api::re_exports::ModelRc::new(#f as usize))
                 }
                 (Type::Float32, Type::Color) => {
-                    quote!(slint::re_exports::Color::from_argb_encoded(#f as u32))
+                    quote!(slint::private_unstable_api::re_exports::Color::from_argb_encoded(#f as u32))
                 }
                 (Type::Color, Type::Brush) => {
                     quote!(slint::Brush::SolidColor(#f))
@@ -1641,7 +1653,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                             unreachable!()
                         }
                     };
-                    quote!(slint::re_exports::PathData::Elements(slint::re_exports::SharedVector::<_>::from_slice(&[#((#path_elements).into()),*])))
+                    quote!(slint::private_unstable_api::re_exports::PathData::Elements(slint::private_unstable_api::re_exports::SharedVector::<_>::from_slice(&[#((#path_elements).into()),*])))
                 }
                 (Type::Struct { .. }, Type::PathData)
                     if matches!(
@@ -1658,10 +1670,10 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                             unreachable!()
                         }
                     };
-                    quote!(slint::re_exports::PathData::Events(slint::re_exports::SharedVector::<_>::from_slice(&#events), slint::re_exports::SharedVector::<_>::from_slice(&#points)))
+                    quote!(slint::private_unstable_api::re_exports::PathData::Events(slint::private_unstable_api::re_exports::SharedVector::<_>::from_slice(&#events), slint::private_unstable_api::re_exports::SharedVector::<_>::from_slice(&#points)))
                 }
                 (Type::String, Type::PathData) => {
-                    quote!(slint::re_exports::PathData::Commands(#f))
+                    quote!(slint::private_unstable_api::re_exports::PathData::Commands(#f))
                 }
                 _ => f,
             }
@@ -1815,20 +1827,20 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         Expression::ImageReference { resource_ref, .. } => match resource_ref {
             crate::expression_tree::ImageReference::None => {
-                quote!(slint::re_exports::Image::default())
+                quote!(slint::private_unstable_api::re_exports::Image::default())
             }
             crate::expression_tree::ImageReference::AbsolutePath(path) => {
-                quote!(slint::re_exports::Image::load_from_path(::std::path::Path::new(#path)).unwrap())
+                quote!(slint::private_unstable_api::re_exports::Image::load_from_path(::std::path::Path::new(#path)).unwrap())
             }
             crate::expression_tree::ImageReference::EmbeddedData { resource_id, extension } => {
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
                 let format = proc_macro2::Literal::byte_string(extension.as_bytes());
-                quote!(slint::re_exports::load_image_from_embedded_data(#symbol.into(), Slice::from_slice(#format)))
+                quote!(slint::private_unstable_api::re_exports::load_image_from_embedded_data(#symbol.into(), Slice::from_slice(#format)))
             }
             crate::expression_tree::ImageReference::EmbeddedTexture { resource_id } => {
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
                 quote!(
-                    slint::re_exports::Image::from(slint::re_exports::ImageInner::StaticTextures(&#symbol))
+                    slint::private_unstable_api::re_exports::Image::from(slint::private_unstable_api::re_exports::ImageInner::StaticTextures(&#symbol))
                 )
             }
         },
@@ -1848,9 +1860,9 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             let val = values.iter().map(|e| compile_expression(e, ctx));
             if *as_model {
                 let rust_element_ty = rust_type(element_ty).unwrap();
-                quote!(slint::re_exports::ModelRc::new(
-                    slint::re_exports::VecModel::<#rust_element_ty>::from(
-                        slint::re_exports::vec![#(#val as _),*]
+                quote!(slint::private_unstable_api::re_exports::ModelRc::new(
+                    slint::private_unstable_api::re_exports::VecModel::<#rust_element_ty>::from(
+                        slint::private_unstable_api::re_exports::vec![#(#val as _),*]
                     )
                 ))
             } else {
@@ -1897,36 +1909,36 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             quote!(#name.clone())
         }
         Expression::EasingCurve(EasingCurve::Linear) => {
-            quote!(slint::re_exports::EasingCurve::Linear)
+            quote!(slint::private_unstable_api::re_exports::EasingCurve::Linear)
         }
         Expression::EasingCurve(EasingCurve::CubicBezier(a, b, c, d)) => {
-            quote!(slint::re_exports::EasingCurve::CubicBezier([#a, #b, #c, #d]))
+            quote!(slint::private_unstable_api::re_exports::EasingCurve::CubicBezier([#a, #b, #c, #d]))
         }
         Expression::LinearGradient { angle, stops } => {
             let angle = compile_expression(angle, ctx);
             let stops = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
-                quote!(slint::re_exports::GradientStop{ color: #color, position: #position as _ })
+                quote!(slint::private_unstable_api::re_exports::GradientStop{ color: #color, position: #position as _ })
             });
             quote!(slint::Brush::LinearGradient(
-                slint::re_exports::LinearGradientBrush::new(#angle as _, [#(#stops),*])
+                slint::private_unstable_api::re_exports::LinearGradientBrush::new(#angle as _, [#(#stops),*])
             ))
         }
         Expression::RadialGradient { stops } => {
             let stops = stops.iter().map(|(color, stop)| {
                 let color = compile_expression(color, ctx);
                 let position = compile_expression(stop, ctx);
-                quote!(slint::re_exports::GradientStop{ color: #color, position: #position as _ })
+                quote!(slint::private_unstable_api::re_exports::GradientStop{ color: #color, position: #position as _ })
             });
             quote!(slint::Brush::RadialGradient(
-                slint::re_exports::RadialGradientBrush::new_circle([#(#stops),*])
+                slint::private_unstable_api::re_exports::RadialGradientBrush::new_circle([#(#stops),*])
             ))
         }
         Expression::EnumerationValue(value) => {
             let base_ident = ident(&value.enumeration.name);
             let value_ident = ident(&value.to_pascal_case());
-            quote!(slint::re_exports::#base_ident::#value_ident)
+            quote!(slint::private_unstable_api::re_exports::#base_ident::#value_ident)
         }
         Expression::ReturnStatement(expr) => {
             let return_expr = expr.as_ref().map(|expr| compile_expression(expr, ctx));
@@ -1938,7 +1950,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 let offset = compile_expression(ri, ctx);
                 quote!({
                     let cache = #cache.get();
-                    *cache.get((cache[#index] as usize) + #offset as usize * 2).unwrap_or(&(0 as slint::re_exports::Coord))
+                    *cache.get((cache[#index] as usize) + #offset as usize * 2).unwrap_or(&(0 as slint::private_unstable_api::re_exports::Coord))
                 })
             } else {
                 quote!(#cache.get()[#index])
@@ -1969,8 +1981,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
             };
             quote! {
                 let mut #cells_variable = [#(#cells),*];
-                slint::re_exports::reorder_dialog_button_layout(&mut #cells_variable, &#roles);
-                let #cells_variable = slint::re_exports::Slice::from_slice(&#cells_variable);
+                slint::private_unstable_api::re_exports::reorder_dialog_button_layout(&mut #cells_variable, &#roles);
+                let #cells_variable = slint::private_unstable_api::re_exports::Slice::from_slice(&#cells_variable);
             }
         }
     }
@@ -2018,7 +2030,7 @@ fn compile_builtin_function_call(
                 quote!(
                     #window_adapter_tokens.window().window_handle().show_popup(
                         &VRc::into_dyn(#popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).into()),
-                        Point::new(#x as slint::re_exports::Coord, #y as slint::re_exports::Coord),
+                        Point::new(#x as slint::private_unstable_api::re_exports::Coord, #y as slint::private_unstable_api::re_exports::Coord),
                         #parent_component
                     );
                 )
@@ -2069,8 +2081,10 @@ fn compile_builtin_function_call(
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(#window_adapter_tokens.window().window_handle().scale_factor())
         }
-        BuiltinFunction::AnimationTick => quote!(slint::re_exports::animation_tick()),
-        BuiltinFunction::Debug => quote!(slint::internal::debug(#(#a)*)),
+        BuiltinFunction::AnimationTick => {
+            quote!(slint::private_unstable_api::re_exports::animation_tick())
+        }
+        BuiltinFunction::Debug => quote!(slint::private_unstable_api::debug(#(#a)*)),
         BuiltinFunction::Mod => quote!((#(#a as f64)%*)),
         BuiltinFunction::Round => quote!((#(#a)* as f64).round()),
         BuiltinFunction::Ceil => quote!((#(#a)* as f64).ceil()),
@@ -2121,7 +2135,7 @@ fn compile_builtin_function_call(
                 let g: u8 = (#g as u32).max(0).min(255) as u8;
                 let b: u8 = (#b as u32).max(0).min(255) as u8;
                 let a: u8 = (255. * (#a as f32)).max(0.).min(255.) as u8;
-                slint::re_exports::Color::from_argb_u8(a, r, g, b)
+                slint::private_unstable_api::re_exports::Color::from_argb_u8(a, r, g, b)
             })
         }
     }
@@ -2130,7 +2144,9 @@ fn compile_builtin_function_call(
 /// Return a TokenStream for a name (as in [`Type::Struct::name`])
 fn struct_name_to_tokens(name: &str) -> TokenStream {
     // the name match the C++ signature so we need to change that to the rust namespace
-    let mut name = name.replace("slint::private_api::", "slint::re_exports::").replace('-', "_");
+    let mut name = name
+        .replace("slint::private_api::", "slint::private_unstable_api::re_exports::")
+        .replace('-', "_");
     if !name.contains("::") {
         name.insert_str(0, "r#")
     }
@@ -2186,16 +2202,17 @@ fn box_layout_function(
     }
 
     let ri = repeated_indices.as_ref().map(|ri| quote!(let mut #ri = [0u32; 2 * #repeater_idx];));
-    let ri2 =
-        repeated_indices.map(|ri| quote!(let #ri = slint::re_exports::Slice::from_slice(&#ri);));
+    let ri2 = repeated_indices.map(
+        |ri| quote!(let #ri = slint::private_unstable_api::re_exports::Slice::from_slice(&#ri);),
+    );
     let cells_variable = ident(cells_variable);
     let sub_expression = compile_expression(sub_expression, ctx);
 
     quote! { {
         #ri
-        let mut items_vec = slint::re_exports::Vec::with_capacity(#fixed_count #repeated_count);
+        let mut items_vec = slint::private_unstable_api::re_exports::Vec::with_capacity(#fixed_count #repeated_count);
         #(#push_code)*
-        let #cells_variable = slint::re_exports::Slice::from_slice(&items_vec);
+        let #cells_variable = slint::private_unstable_api::re_exports::Slice::from_slice(&items_vec);
         #ri2
         #sub_expression
     } }

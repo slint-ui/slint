@@ -61,7 +61,6 @@ pub mod layouting {
 /// is not really contained in the compiled crate.
 pub mod generated_code {
 
-    use crate::re_exports;
     use crate::ComponentHandle;
     use crate::Global;
     use crate::Weak;
@@ -98,11 +97,11 @@ pub mod generated_code {
         /// declared in the `.slint` design markup.
         pub fn set_counter(&self, value: i32) {}
         /// Returns the value of the `user_name` property declared in the `.slint` design markup.
-        pub fn get_user_name(&self) -> re_exports::SharedString {
+        pub fn get_user_name(&self) -> crate::SharedString {
             unimplemented!()
         }
         /// Assigns a new value to the `user_name` property.
-        pub fn set_user_name(&self, value: re_exports::SharedString) {}
+        pub fn set_user_name(&self, value: crate::SharedString) {}
         /// For each callback declared at the root of the component, a function to call that
         /// callback is generated. This is the function that calls the `hello` callback declared
         /// in the `.slint` design markup.
@@ -139,7 +138,9 @@ pub mod generated_code {
         }
 
         #[doc(hidden)]
-        fn from_inner(_: vtable::VRc<re_exports::ComponentVTable, Self::Inner>) -> Self {
+        fn from_inner(
+            _: vtable::VRc<crate::private_unstable_api::re_exports::ComponentVTable, Self::Inner>,
+        ) -> Self {
             unimplemented!();
         }
 
