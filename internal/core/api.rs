@@ -365,13 +365,11 @@ impl Window {
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
     pub fn set_size(&self, size: PhysicalSize) {
-        if self.0.inner_size.replace(size) == size {
-            return;
-        }
-
         let l = size.to_logical(self.scale_factor());
         self.0.set_window_item_geometry(l.width as _, l.height as _);
-        self.0.window_adapter().set_inner_size(size)
+        if self.0.inner_size.replace(size) != size {
+            self.0.window_adapter().set_inner_size(size);
+        }
     }
 
     /// Dispatch a window event to the window

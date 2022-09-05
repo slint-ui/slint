@@ -181,9 +181,8 @@ pub struct WindowInner {
     component: RefCell<ComponentWeak>,
     mouse_input_state: Cell<MouseInputState>,
     redraw_tracker: Pin<Box<PropertyTracker<WindowRedrawTracker>>>,
-    window_properties_tracker: Pin<Box<PropertyTracker<WindowPropertiesTracker>>>,
     /// Gets dirty when the layout restrictions, or some other property of the windows change
-    meta_properties_tracker: Pin<Rc<PropertyTracker>>,
+    window_properties_tracker: Pin<Box<PropertyTracker<WindowPropertiesTracker>>>,
 
     focus_item: RefCell<crate::item_tree::ItemWeak>,
     cursor_blinker: RefCell<pin_weak::rc::PinWeak<crate::input::TextCursorBlinker>>,
@@ -232,7 +231,6 @@ impl WindowInner {
             mouse_input_state: Default::default(),
             redraw_tracker: Box::pin(redraw_tracker),
             window_properties_tracker: Box::pin(window_properties_tracker),
-            meta_properties_tracker: Rc::pin(Default::default()),
             focus_item: Default::default(),
             cursor_blinker: Default::default(),
             scale_factor: Box::pin(Property::new_named(1., "i_slint_core::Window::scale_factor")),
@@ -252,7 +250,8 @@ impl WindowInner {
         self.focus_item.replace(Default::default());
         self.mouse_input_state.replace(Default::default());
         self.component.replace(ComponentRc::downgrade(component));
-        self.meta_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
+        self.window_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
+        self.window_adapter().request_window_properties_update();
         let window_adapter = self.window_adapter();
         window_adapter.request_window_properties_update();
         window_adapter.request_redraw();
@@ -492,6 +491,12 @@ impl WindowInner {
         // No `if !dirty { return; }` check here because the backend window may be newly mapped and not up-to-date, so force
         // an evaluation.
         self.window_properties_tracker.as_ref().evaluate_as_dependency_root(|| {
+            let component = self.component();
+            let component = ComponentRc::borrow_pin(&component);
+            self.window_adapter().apply_geometry_constraint(
+                component.as_ref().layout_info(crate::layout::Orientation::Horizontal),
+                component.as_ref().layout_info(crate::layout::Orientation::Vertical),
+            );
             if let Some(window_item) = self.window_item() {
                 self.window_adapter().apply_window_properties(window_item.as_pin_ref());
             }
@@ -503,14 +508,6 @@ impl WindowInner {
     pub fn draw_contents(&self, render_components: impl FnOnce(&[(&ComponentRc, Point)])) {
         let draw_fn = || {
             let component_rc = self.component();
-            let component = ComponentRc::borrow_pin(&component_rc);
-
-            self.meta_properties_tracker.as_ref().evaluate_if_dirty(|| {
-                self.window_adapter().apply_geometry_constraint(
-                    component.as_ref().layout_info(crate::layout::Orientation::Horizontal),
-                    component.as_ref().layout_info(crate::layout::Orientation::Vertical),
-                );
-            });
 
             let popup_component =
                 self.active_popup.borrow().as_ref().and_then(|popup| match popup.location {
@@ -598,10 +595,7 @@ impl WindowInner {
         };
 
         let location = match self.window_adapter().create_popup(Rect::new(position, size)) {
-            None => {
-                self.meta_properties_tracker.set_dirty();
-                PopupWindowLocation::ChildWindow(position)
-            }
+            None => PopupWindowLocation::ChildWindow(position),
 
             Some(window_adapter) => {
                 window_adapter.window().window_handle().set_component(popup_componentrc);
