@@ -132,18 +132,28 @@ pub(crate) fn event_loop_proxy() -> Option<&'static dyn EventLoopProxy> {
     EVENTLOOP_PROXY.get().map(core::ops::Deref::deref)
 }
 
+/// This enum describes the different error scenarios that may occur when [`set_platform`]
+/// fails.
+#[derive(Debug, Clone)]
+#[repr(C)]
+#[non_exhaustive]
+pub enum SetPlatformError {
+    /// The platform has been initialized in an earlier call to [`set_platform`].
+    AlreadySet,
+}
+
 /// Set the slint platform abstraction.
 ///
 /// If the platform abstraction was already set this will return `Err`
-pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), ()> {
+pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlatformError> {
     PLATFORM_INSTANCE.with(|instance| {
         if instance.get().is_some() {
-            return Err(());
+            return Err(SetPlatformError::AlreadySet);
         }
         if let Some(proxy) = platform.new_event_loop_proxy() {
-            EVENTLOOP_PROXY.set(proxy).map_err(drop)?
+            EVENTLOOP_PROXY.set(proxy).map_err(|_| SetPlatformError::AlreadySet)?
         }
-        instance.set(platform.into()).map_err(drop).unwrap();
+        instance.set(platform.into()).map_err(|_| SetPlatformError::AlreadySet).unwrap();
         Ok(())
     })
 }
