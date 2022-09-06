@@ -29,14 +29,12 @@ std = ["euclid/std", "once_cell/std", "scoped-tls-hkt", "lyon_path", "lyon_algor
 # from a single core, and not in a interrupt or signal handler.
 unsafe-single-threaded = []
 
-text_layout = []
-
 unicode = ["unicode-script", "unicode-linebreak"]
 
 image-decoders = ["image", "clru"]
 svg = ["resvg", "usvg", "tiny-skia"]
 
-default = ["std", "integer-sqrt", "text_layout", "unicode"]
+default = ["std", "unicode"]
 
 [dependencies]
 i-slint-common = { version = "=0.3.0", path = "../common" }
@@ -70,7 +68,7 @@ unicode-segmentation = "1.8.0"
 unicode-linebreak = { version = "0.1.2", optional = true }
 unicode-script = { version = "0.5.3", optional = true }
 embedded-graphics = { version = "0.7.1", optional = true }
-integer-sqrt = { version = "0.1.5", optional = true }
+integer-sqrt = { version = "0.1.5" }
 
 image = { version = "0.24.0", optional = true, default-features = false, features = [ "png", "jpeg" ] }
 clru = { version = "0.5.0", optional = true }
