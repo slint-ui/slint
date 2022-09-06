@@ -115,7 +115,7 @@ impl Backend {
             #[cfg(enable_skia_renderer)]
             Some("skia") => window_factory_fn::<renderer::skia::SkiaRenderer>,
             #[cfg(feature = "renderer-software")]
-            Some("sw") | Some("software") => window_factory_fn::<renderer::sw::SoftwareRenderer>,
+            Some("sw") | Some("software") => window_factory_fn::<renderer::sw::SoftwareRenderer<0>>,
             None => window_factory_fn::<DefaultRenderer>,
             Some(renderer_name) => {
                 eprintln!(
