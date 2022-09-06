@@ -243,6 +243,7 @@ impl<const MAX_BUFFER_AGE: usize> SoftwareRenderer<MAX_BUFFER_AGE> {
     }
 }
 
+#[doc(hidden)]
 impl<const MAX_BUFFER_AGE: usize> Renderer for SoftwareRenderer<MAX_BUFFER_AGE> {
     fn text_size(
         &self,
