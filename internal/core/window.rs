@@ -598,7 +598,7 @@ impl WindowInner {
             None => PopupWindowLocation::ChildWindow(position),
 
             Some(window_adapter) => {
-                window_adapter.window().window_handle().set_component(popup_componentrc);
+                WindowInner::from_pub(window_adapter.window()).set_component(popup_componentrc);
                 PopupWindowLocation::TopLevel(window_adapter)
             }
         };
@@ -683,12 +683,11 @@ impl WindowInner {
     pub fn window_adapter(&self) -> Rc<dyn WindowAdapter> {
         self.window_adapter_weak.upgrade().unwrap()
     }
-}
 
-/// Internal trait used by generated code to access window internals.
-pub trait WindowHandleAccess {
-    /// Returns a reference to the window implementation.
-    fn window_handle(&self) -> &WindowInner;
+    /// Private access to the WindowInner for a given window.
+    pub fn from_pub(window: &crate::api::Window) -> &Self {
+        &window.0
+    }
 }
 
 /// Internal alias for Rc<dyn WindowAdapter>.
@@ -768,7 +767,7 @@ pub mod ffi {
             core::mem::size_of::<WindowAdapterRcOpaque>()
         );
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().window_handle().scale_factor()
+        WindowInner::from_pub(window_adapter.window()).scale_factor()
     }
 
     /// Sets the window scale factor, merely for testing purposes.
@@ -778,7 +777,7 @@ pub mod ffi {
         value: f32,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().window_handle().set_scale_factor(value)
+        WindowInner::from_pub(window_adapter.window()).set_scale_factor(value)
     }
 
     /// Sets the focus item.
@@ -788,7 +787,7 @@ pub mod ffi {
         focus_item: &ItemRc,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().window_handle().set_focus_item(focus_item)
+        WindowInner::from_pub(window_adapter.window()).set_focus_item(focus_item)
     }
 
     /// Associates the window with the given component.
@@ -798,7 +797,7 @@ pub mod ffi {
         component: &ComponentRc,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().window_handle().set_component(component)
+        WindowInner::from_pub(window_adapter.window()).set_component(component)
     }
 
     /// Show a popup.
@@ -810,12 +809,12 @@ pub mod ffi {
         parent_item: &ItemRc,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().window_handle().show_popup(popup, position, parent_item);
+        WindowInner::from_pub(window_adapter.window()).show_popup(popup, position, parent_item);
     }
     /// Close the current popup
     pub unsafe extern "C" fn slint_windowrc_close_popup(handle: *const WindowAdapterRcOpaque) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().window_handle().close_popup();
+        WindowInner::from_pub(window_adapter.window()).close_popup();
     }
 
     /// C binding to the set_rendering_notifier() API of Window
@@ -938,7 +937,7 @@ pub mod ffi {
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_size(handle: *const WindowAdapterRcOpaque) -> IntSize {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.window().window_handle().inner_size.get().to_euclid().cast()
+        WindowInner::from_pub(window_adapter.window()).inner_size.get().to_euclid().cast()
     }
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding

@@ -429,7 +429,7 @@ impl Item for NativeTab {
         if matches!(event, MouseEvent::Released { .. } if !click_on_press)
             || matches!(event, MouseEvent::Pressed { .. } if click_on_press)
         {
-            window_adapter.window().window_handle().set_focus_item(self_rc);
+            WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
             self.current.set(self.tab_index());
             InputEventResult::EventAccepted
         } else {

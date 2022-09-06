@@ -5,7 +5,7 @@ use core::convert::TryFrom;
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::graphics::Image;
 use i_slint_core::model::{Model, ModelRc};
-use i_slint_core::window::WindowHandleAccess;
+use i_slint_core::window::WindowInner;
 use i_slint_core::{Brush, PathData, SharedString, SharedVector};
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -586,7 +586,7 @@ impl ComponentDefinition {
                 .inner
                 .unerase(guard)
                 .clone()
-                .create_with_existing_window(&window.window_handle().window_adapter()),
+                .create_with_existing_window(&WindowInner::from_pub(window).window_adapter()),
         }
     }
 
@@ -1048,7 +1048,7 @@ pub fn run_event_loop() {
 /// This module contains a few function use by tests
 pub mod testing {
     use super::ComponentHandle;
-    use i_slint_core::window::WindowHandleAccess;
+    use i_slint_core::window::WindowInner;
 
     /// Wrapper around [`i_slint_core::tests::slint_send_mouse_click`]
     pub fn send_mouse_click(comp: &super::ComponentInstance, x: f32, y: f32) {
@@ -1056,7 +1056,7 @@ pub mod testing {
             &vtable::VRc::into_dyn(comp.inner.clone()),
             x,
             y,
-            &comp.window().window_handle().window_adapter(),
+            &WindowInner::from_pub(comp.window()).window_adapter(),
         );
     }
     /// Wrapper around [`i_slint_core::tests::send_keyboard_string_sequence`]
@@ -1067,7 +1067,7 @@ pub mod testing {
         i_slint_core::tests::send_keyboard_string_sequence(
             &string,
             Default::default(),
-            &comp.window().window_handle().window_adapter(),
+            &WindowInner::from_pub(comp.window()).window_adapter(),
         );
     }
 }

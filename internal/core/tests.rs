@@ -6,7 +6,7 @@
 #![allow(unsafe_code)]
 
 use crate::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
-use crate::window::WindowHandleAccess;
+use crate::window::WindowInner;
 use crate::Coord;
 use crate::SharedString;
 
@@ -70,12 +70,12 @@ pub extern "C" fn send_keyboard_string_sequence(
         let mut buffer = [0; 6];
         let text = SharedString::from(ch.encode_utf8(&mut buffer) as &str);
 
-        window_adapter.window().window_handle().process_key_input(&KeyEvent {
+        WindowInner::from_pub(window_adapter.window()).process_key_input(&KeyEvent {
             event_type: KeyEventType::KeyPressed,
             text: text.clone(),
             modifiers,
         });
-        window_adapter.window().window_handle().process_key_input(&KeyEvent {
+        WindowInner::from_pub(window_adapter.window()).process_key_input(&KeyEvent {
             event_type: KeyEventType::KeyReleased,
             text,
             modifiers,

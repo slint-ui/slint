@@ -6,7 +6,7 @@ use std::pin::Pin;
 use i_slint_core::graphics::euclid;
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
-use i_slint_core::window::WindowHandleAccess;
+use i_slint_core::window::WindowInner;
 use i_slint_core::{items, Brush, Color, Property};
 
 use super::super::boxshadowcache::BoxShadowCache;
@@ -359,7 +359,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
 
         let string = text.text();
         let string = string.as_str();
-        let font_request = text.font_request(self.window.window_handle());
+        let font_request = text.font_request(WindowInner::from_pub(&self.window));
 
         let paint = match self.brush_to_paint(text.color(), max_width, max_height) {
             Some(paint) => paint,

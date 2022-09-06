@@ -19,7 +19,7 @@ use i_slint_core::items::{
     PointerEventButton, RenderingResult, TextOverflow, TextWrap,
 };
 use i_slint_core::layout::Orientation;
-use i_slint_core::window::{WindowAdapter, WindowAdapterSealed, WindowHandleAccess};
+use i_slint_core::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
 use i_slint_core::{ImageInner, PathData, Property, SharedString};
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 
@@ -187,7 +187,7 @@ cpp! {{
         void customEvent(QEvent *event) override {
             if (event->type() == QEvent::User) {
                 rust!(Slint_updateWindowProps [rust_window: &QtWindow as "void*"] {
-                    rust_window.window.window_handle().update_window_properties()
+                    WindowInner::from_pub(&rust_window.window).update_window_properties()
                 });
             } else {
                 QWidget::customEvent(event);
@@ -198,7 +198,7 @@ cpp! {{
             if (event->type() == QEvent::ActivationChange) {
                 bool active = isActiveWindow();
                 rust!(Slint_updateWindowActivation [rust_window: &QtWindow as "void*", active: bool as "bool"] {
-                    rust_window.window.window_handle().set_active(active)
+                    WindowInner::from_pub(&rust_window.window).set_active(active)
                  });
             }
             QWidget::changeEvent(event);
@@ -206,7 +206,7 @@ cpp! {{
 
         void closeEvent(QCloseEvent *event) override {
             bool accepted = rust!(Slint_requestClose [rust_window: &QtWindow as "void*"] -> bool as "bool" {
-                return rust_window.window.window_handle().request_close();
+                return WindowInner::from_pub(&rust_window.window).request_close();
             });
             if (accepted) {
                 event->accept();
@@ -217,7 +217,7 @@ cpp! {{
 
         QSize sizeHint() const override {
             auto preferred_size = rust!(Slint_sizeHint [rust_window: &QtWindow as "void*"] -> qttypes::QSize as "QSize" {
-                let component_rc = rust_window.window.window_handle().component();
+                let component_rc = WindowInner::from_pub(&rust_window.window).component();
                 let component = ComponentRc::borrow_pin(&component_rc);
                 let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
                 let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
@@ -511,7 +511,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let rect: qttypes::QRectF = get_geometry!(items::Text, text);
         let fill_brush: qttypes::QBrush = into_qbrush(text.color(), rect.width, rect.height);
         let mut string: qttypes::QString = text.text().as_str().into();
-        let font: QFont = get_font(text.font_request(self.window.window_handle()));
+        let font: QFont = get_font(text.font_request(WindowInner::from_pub(&self.window)));
         let flags = match text.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
@@ -602,8 +602,9 @@ impl ItemRenderer for QtItemRenderer<'_> {
             }}
         }
 
-        let font: QFont =
-            get_font(text_input.font_request(&self.window.window_handle().window_adapter()));
+        let font: QFont = get_font(
+            text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter()),
+        );
         let flags = match text_input.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
             TextHorizontalAlignment::Center => key_generated::Qt_AlignmentFlag_AlignHCenter,
@@ -1246,7 +1247,7 @@ impl QtWindow {
     }
 
     fn paint_event(&self, painter: QPainterPtr) {
-        let runtime_window = self.window.window_handle();
+        let runtime_window = WindowInner::from_pub(&self.window);
         runtime_window.draw_contents(|components| {
             i_slint_core::animations::update_animations();
             let mut renderer = QtItemRenderer {
@@ -1299,7 +1300,7 @@ impl QtWindow {
     }
 
     fn mouse_event(&self, event: MouseEvent) {
-        self.window.window_handle().process_mouse_input(event);
+        WindowInner::from_pub(&self.window).process_mouse_input(event);
         timer_event();
     }
 
@@ -1320,13 +1321,13 @@ impl QtWindow {
             text,
             modifiers,
         };
-        self.window.window_handle().process_key_input(&event);
+        WindowInner::from_pub(&self.window).process_key_input(&event);
 
         timer_event();
     }
 
     fn close_popup(&self) {
-        self.window.window_handle().close_popup();
+        WindowInner::from_pub(&self.window).close_popup();
     }
 
     fn free_graphics_resources(&self, component: ComponentRef) {
@@ -1343,7 +1344,7 @@ impl WindowAdapter for QtWindow {
 
 impl WindowAdapterSealed for QtWindow {
     fn show(&self) {
-        let component_rc = self.window.window_handle().component();
+        let component_rc = WindowInner::from_pub(&self.window).component();
         let component = ComponentRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
         if let Some(window_item) = ItemRef::downcast_pin(root_item) {
@@ -1605,8 +1606,9 @@ impl Renderer for QtWindow {
         }
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
         let pos = qttypes::QPointF { x: pos.x as _, y: pos.y as _ };
-        let font: QFont =
-            get_font(text_input.font_request(&self.window.window_handle().window_adapter()));
+        let font: QFont = get_font(
+            text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter()),
+        );
         let string = qttypes::QString::from(text_input.text().as_str());
         let flags = match text_input.horizontal_alignment() {
             TextHorizontalAlignment::Left => key_generated::Qt_AlignmentFlag_AlignLeft,
@@ -1661,8 +1663,9 @@ impl Renderer for QtWindow {
         byte_offset: usize,
     ) -> Rect {
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
-        let font: QFont =
-            get_font(text_input.font_request(&self.window.window_handle().window_adapter()));
+        let font: QFont = get_font(
+            text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter()),
+        );
         let text = text_input.text();
         let mut string = qttypes::QString::from(text.as_str());
         let offset: u32 = utf8_byte_offset_to_utf16_units(text.as_str(), byte_offset) as _;

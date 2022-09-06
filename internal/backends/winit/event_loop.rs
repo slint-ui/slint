@@ -385,7 +385,7 @@ fn process_window_event(
         event
     }
 
-    let runtime_window = window.window().window_handle();
+    let runtime_window = WindowInner::from_pub(window.window());
     match event {
         WindowEvent::Resized(size) => {
             window.resize_event(size);
@@ -637,7 +637,7 @@ pub fn run() {
                 .drain(..)
                 .flat_map(|window_id| window_by_id(window_id))
             {
-                window.window().window_handle().update_window_properties();
+                WindowInner::from_pub(window.window()).update_window_properties();
             }
         }
 

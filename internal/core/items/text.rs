@@ -22,7 +22,7 @@ use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
-use crate::window::{WindowAdapter, WindowHandleAccess, WindowInner};
+use crate::window::{WindowAdapter, WindowInner};
 use crate::{Callback, Coord, Property, SharedString};
 use alloc::rc::Rc;
 use alloc::string::String;
@@ -67,10 +67,10 @@ impl Item for Text {
         orientation: Orientation,
         window_adapter: &Rc<dyn WindowAdapter>,
     ) -> LayoutInfo {
-        let window = window_adapter.window().window_handle();
+        let window_inner = WindowInner::from_pub(window_adapter.window());
         let implicit_size = |max_width| {
             window_adapter.renderer().text_size(
-                self.font_request(window),
+                self.font_request(window_inner),
                 self.text().as_str(),
                 max_width,
                 window_adapter.window().scale_factor(),
@@ -87,7 +87,12 @@ impl Item for Text {
                     TextOverflow::Elide => implicit_size.width.min(
                         window_adapter
                             .renderer()
-                            .text_size(self.font_request(window), "…", None, window.scale_factor())
+                            .text_size(
+                                self.font_request(window_inner),
+                                "…",
+                                None,
+                                window_inner.scale_factor(),
+                            )
                             .width,
                     ),
                     TextOverflow::Clip => match self.wrap() {
@@ -317,7 +322,7 @@ impl Item for TextInput {
                 self.as_ref().anchor_position.set(clicked_offset);
                 self.set_cursor_position(clicked_offset, true, window_adapter);
                 if !self.has_focus() {
-                    window_adapter.window().window_handle().set_focus_item(self_rc);
+                    WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
                 }
             }
             MouseEvent::Released { button: PointerEventButton::Left, .. } | MouseEvent::Exit => {
@@ -558,7 +563,8 @@ impl From<KeyboardModifiers> for AnchorMode {
 
 impl TextInput {
     fn show_cursor(&self, window_adapter: &Rc<dyn WindowAdapter>) {
-        window_adapter.window().window_handle().set_cursor_blink_binding(&self.cursor_visible);
+        WindowInner::from_pub(window_adapter.window())
+            .set_cursor_blink_binding(&self.cursor_visible);
     }
 
     fn hide_cursor(&self) {
@@ -814,7 +820,7 @@ impl TextInput {
     }
 
     pub fn font_request(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) -> FontRequest {
-        let window_item = window_adapter.window().window_handle().window_item();
+        let window_item = WindowInner::from_pub(window_adapter.window()).window_item();
 
         FontRequest {
             family: {
