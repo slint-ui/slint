@@ -148,23 +148,26 @@ impl i_slint_core::platform::Platform for Backend {
     fn new_event_loop_proxy(&self) -> Option<Box<dyn EventLoopProxy>> {
         struct Proxy;
         impl EventLoopProxy for Proxy {
-            fn quit_event_loop(&self) {
+            fn quit_event_loop(&self) -> Result<(), i_slint_core::api::EventLoopError> {
                 crate::event_loop::with_window_target(|event_loop| {
                     event_loop
                         .event_loop_proxy()
                         .send_event(crate::event_loop::CustomEvent::Exit)
-                        .ok();
+                        .map_err(|_| i_slint_core::api::EventLoopError::EventLoopTerminated)
                 })
             }
 
-            fn invoke_from_event_loop(&self, event: Box<dyn FnOnce() + Send>) {
+            fn invoke_from_event_loop(
+                &self,
+                event: Box<dyn FnOnce() + Send>,
+            ) -> Result<(), i_slint_core::api::EventLoopError> {
                 let e = crate::event_loop::CustomEvent::UserEvent(event);
                 #[cfg(not(target_arch = "wasm32"))]
                 crate::event_loop::GLOBAL_PROXY
                     .get_or_init(Default::default)
                     .lock()
                     .unwrap()
-                    .send_event(e);
+                    .send_event(e)?;
                 #[cfg(target_arch = "wasm32")]
                 {
                     crate::event_loop::GLOBAL_PROXY.with(|global_proxy| {
@@ -179,10 +182,12 @@ impl i_slint_core::platform::Platform for Backend {
                         // frame a few moments later.
                         // This also allows batching multiple post_event calls and redraw their state changes
                         // all at once.
-                        proxy.send_event(crate::event_loop::CustomEvent::WakeEventLoopWorkaround);
-                        proxy.send_event(e);
+                        proxy
+                            .send_event(crate::event_loop::CustomEvent::WakeEventLoopWorkaround)?;
+                        proxy.send_event(e)?;
                     });
                 }
+                Ok(())
             }
         }
         Some(Box::new(Proxy))

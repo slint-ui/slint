@@ -50,7 +50,8 @@ impl Wake for FutureRunner {
                     std::task::Poll::Pending => {}
                 }
             }
-        });
+        })
+        .unwrap();
     }
 }
 
@@ -93,7 +94,8 @@ pub fn start_ui_event_loop() {
                     *state_request = RequestedGuiEventLoopState::LoopStated;
                     GUI_EVENT_LOOP_NOTIFIER.notify_one();
                 }
-            });
+            })
+            .unwrap();
         }
     }
 
@@ -112,7 +114,7 @@ pub fn quit_ui_event_loop() {
         GUI_EVENT_LOOP_NOTIFIER.notify_one();
     }
 
-    i_slint_core::api::quit_event_loop();
+    i_slint_core::api::quit_event_loop().unwrap();
 
     // Make sure then sender channel gets dropped
     if let Some(cache) = CONTENT_CACHE.get() {

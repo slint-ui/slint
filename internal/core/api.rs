@@ -605,7 +605,10 @@ mod weak_handle {
         /// handle.run();
         /// ```
         #[cfg(feature = "std")]
-        pub fn upgrade_in_event_loop(&self, func: impl FnOnce(T) + Send + 'static)
+        pub fn upgrade_in_event_loop(
+            &self,
+            func: impl FnOnce(T) + Send + 'static,
+        ) -> Result<(), EventLoopError>
         where
             T: 'static,
         {
@@ -655,9 +658,9 @@ pub use weak_handle::*;
 /// });
 /// handle.run();
 /// ```
-pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) {
+pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) -> Result<(), EventLoopError> {
     crate::platform::event_loop_proxy()
-        .expect("quit_event_loop() called before the slint platform abstraction was initialized, or the platform does not support event loop")
+        .ok_or(EventLoopError::Uninitialized)?
         .invoke_from_event_loop(alloc::boxed::Box::new(func))
 }
 
@@ -665,10 +668,19 @@ pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) {
 /// to be called from callbacks triggered by the UI. After calling the function,
 /// it will return immediately and once control is passed back to the event loop,
 /// the initial call to `slint::run_event_loop()` will return.
-pub fn quit_event_loop() {
-    crate::platform::event_loop_proxy()
-        .expect("quit_event_loop() called before the slint platform abstraction was initialized, or the platform does not support event loop")
-        .quit_event_loop()
+pub fn quit_event_loop() -> Result<(), EventLoopError> {
+    crate::platform::event_loop_proxy().ok_or(EventLoopError::Uninitialized)?.quit_event_loop()
+}
+
+#[derive(Debug, Clone)]
+#[non_exhaustive]
+/// Error returned from the [`invoke_from_event_loop()`] and [`quit_event_loop()`] function
+pub enum EventLoopError {
+    /// The event could not be sent because the event loop was terminated already
+    EventLoopTerminated,
+    /// The event could not be sent because the Slint platform abstraction was not yet initialized,
+    /// or the platform does not support event loop.
+    Uninitialized,
 }
 
 #[test]
