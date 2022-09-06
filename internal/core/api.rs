@@ -337,8 +337,8 @@ impl Window {
             .with(|driver| driver.set_has_active_animations());
     }
 
-    /// This function returns an euclid scale that allows conveniently converting between logical and
-    /// physical pixels based on the window's scale factor.
+    /// This function returns the scale factor that allows converting between logical and
+    /// physical pixels.
     pub fn scale_factor(&self) -> f32 {
         self.0.scale_factor()
     }
