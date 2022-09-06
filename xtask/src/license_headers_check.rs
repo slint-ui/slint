@@ -265,64 +265,70 @@ enum LicenseLocation {
 lazy_static! {
     // cspell:disable
     static ref LICENSE_LOCATION_FOR_FILE: Vec<(regex::Regex, LicenseLocation)> = [
-        ("^editors/tree-sitter-slint/binding.gyp$", LicenseLocation::NoLicense), // liberal license
-        ("^editors/tree-sitter-slint/queries/.*", LicenseLocation::NoLicense), // liberal license
-        ("^helper_crates/const-field-offset/.*", LicenseLocation::NoLicense), // liberal license
-        ("^helper_crates/document-features/.*", LicenseLocation::NoLicense), // liberal license
-        (".+webpack\\..+\\.js$", LicenseLocation::NoLicense),
-        (".+\\.license$", LicenseLocation::NoLicense),
-        (".+\\.rs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        (".+\\.js$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        (".+\\.ts$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        (".+\\.mjs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        (".+\\.h$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        (".+\\.cpp$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        (".+\\.css$", LicenseLocation::NoLicense),
-        (".+\\.md$", LicenseLocation::NoLicense),
-        (".+\\.png$", LicenseLocation::NoLicense),
-        (".+\\.jpg$", LicenseLocation::NoLicense),
-        (".+\\.svg$", LicenseLocation::NoLicense),
-        (".+\\.json$", LicenseLocation::NoLicense),
-        (".+\\.html$", LicenseLocation::NoLicense),
-        (".+\\.xml$", LicenseLocation::NoLicense),
-        (".+\\.ttf$", LicenseLocation::NoLicense),
-        (".+\\.ui$", LicenseLocation::NoLicense),
-        (".+\\.rst$", LicenseLocation::Tag(LicenseTagStyle::rst_comment_style())),
-        ("^.pre-commit-config.yaml$", LicenseLocation::NoLicense),
-        (".+\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        (".*\\.gitignore$", LicenseLocation::NoLicense),
-        (".*\\.gitattributes$", LicenseLocation::NoLicense),
-        (".+\\.sublime-settings$", LicenseLocation::NoLicense),
-        (".+\\.sublime-commands$", LicenseLocation::NoLicense),
-        (".+\\.sublime-syntax$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        (".+\\.tmPreferences$", LicenseLocation::NoLicense),
-        ("\\.eslintrc.yml$", LicenseLocation::NoLicense),
-        ("\\.clang-format$", LicenseLocation::NoLicense),
-        (".+Dockerfile.*$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        // full matches
+        ("^\\.cargo/config$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("^\\.clang-format$", LicenseLocation::NoLicense),
+        ("^\\.mailmap$", LicenseLocation::NoLicense),
+        ("^\\.pre-commit-config\\.yaml$", LicenseLocation::NoLicense),
+        ("^\\.reuse/dep5$", LicenseLocation::NoLicense), // .reuse files have no license headers
         ("^api/cpp/docs/Pipfile$", LicenseLocation::NoLicense),
         ("^api/cpp/docs/conf.py$", LicenseLocation::NoLicense),
-        ("^api/cpp/docs/_static/.+$", LicenseLocation::NoLicense),
-        ("^api/cpp/docs/_templates/.+$", LicenseLocation::NoLicense),
-        ("^docs/tutorial/theme/.+$", LicenseLocation::NoLicense),
-        ("\\.cargo/config$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        ("^Cargo.toml$", LicenseLocation::NoLicense),
-        (".+Cargo.toml$", LicenseLocation::Crate),
-        (".+\\.toml$", LicenseLocation::NoLicense),
-        (".*CMakeLists.txt$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        (".*\\.cmake$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        (".+\\.cmake.in$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        (".+\\.sh$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
-        (".+\\.60$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        (".+\\.60\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        (".+\\.slint$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        (".+\\.slint\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
-        (".*README$", LicenseLocation::NoLicense),
-        ("LICENSE\\..*", LicenseLocation::NoLicense),
-        (".+\\.txt$", LicenseLocation::NoLicense),
-        ("(^|.+)\\.reuse/dep5$", LicenseLocation::NoLicense), // .reuse files have no license headers
-        ("memory.x$", LicenseLocation::NoLicense), // third-party file
-        ("LICENSES/.+", LicenseLocation::NoLicense),
-        ("^.mailmap$", LicenseLocation::NoLicense),
+        ("^editors/tree-sitter-slint/binding.gyp$", LicenseLocation::NoLicense), // liberal license
+
+        // Path prefix matches:
+        ("^api/cpp/docs/_static/", LicenseLocation::NoLicense),
+        ("^api/cpp/docs/_templates/", LicenseLocation::NoLicense),
+        ("^docs/tutorial/theme/", LicenseLocation::NoLicense),
+        ("^editors/tree-sitter-slint/queries/", LicenseLocation::NoLicense), // liberal license
+        ("^helper_crates/const-field-offset/", LicenseLocation::NoLicense), // liberal license
+        ("^helper_crates/document-features/", LicenseLocation::NoLicense), // liberal license
+
+        // Filename/directory based matches
+        ("[/^]CMakeLists.txt$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("[/^]Cargo.toml$", LicenseLocation::Crate),
+        ("[/^]Dockerfile", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("[/^]LICENSES/", LicenseLocation::NoLicense),
+        ("[/^]LICENSE", LicenseLocation::NoLicense),
+        ("[/^]README$", LicenseLocation::NoLicense),
+        ("[/^]\\.eslintrc.yml$", LicenseLocation::NoLicense),
+        ("[/^]memory.x$", LicenseLocation::NoLicense), // third-party file
+        ("[/^]webpack\\..+\\.js$", LicenseLocation::NoLicense),
+
+        // Extension matches:
+        ("\\.60$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        ("\\.60\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        ("\\.cmake$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("\\.cmake.in$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("\\.cpp$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        ("\\.css$", LicenseLocation::NoLicense),
+        ("\\.gitattributes$", LicenseLocation::NoLicense),
+        ("\\.gitignore$", LicenseLocation::NoLicense),
+        ("\\.h$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        ("\\.html$", LicenseLocation::NoLicense),
+        ("\\.jpg$", LicenseLocation::NoLicense),
+        ("\\.js$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        ("\\.json$", LicenseLocation::NoLicense),
+        ("\\.license$", LicenseLocation::NoLicense),
+        ("\\.md$", LicenseLocation::NoLicense),
+        ("\\.mjs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        ("\\.png$", LicenseLocation::NoLicense),
+        ("\\.rs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        ("\\.rst$", LicenseLocation::Tag(LicenseTagStyle::rst_comment_style())),
+        ("\\.sh$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("\\.slint$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        ("\\.slint\\.disabled$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        ("\\.sublime-commands$", LicenseLocation::NoLicense),
+        ("\\.sublime-settings$", LicenseLocation::NoLicense),
+        ("\\.sublime-syntax$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
+        ("\\.svg$", LicenseLocation::NoLicense),
+        ("\\.tmPreferences$", LicenseLocation::NoLicense),
+        ("\\.toml$", LicenseLocation::NoLicense),
+        ("\\.ts$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        ("\\.ttf$", LicenseLocation::NoLicense),
+        ("\\.txt$", LicenseLocation::NoLicense),
+        ("\\.ui$", LicenseLocation::NoLicense),
+        ("\\.xml$", LicenseLocation::NoLicense),
+        ("\\.yaml$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
     ]
     .iter()
     .map(|(re, ty)| (regex::Regex::new(re).unwrap(), *ty))
