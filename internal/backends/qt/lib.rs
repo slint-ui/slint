@@ -175,7 +175,7 @@ impl i_slint_core::platform::Platform for Backend {
     fn new_event_loop_proxy(&self) -> Option<Box<dyn i_slint_core::platform::EventLoopProxy>> {
         struct Proxy;
         impl i_slint_core::platform::EventLoopProxy for Proxy {
-            fn quit_event_loop(&self) {
+            fn quit_event_loop(&self) -> Result<(), i_slint_core::api::EventLoopError> {
                 use cpp::cpp;
                 cpp! {unsafe [] {
                     // Use a quit event to avoid qApp->quit() calling
@@ -184,9 +184,13 @@ impl i_slint_core::platform::Platform for Backend {
                     // return from run().
                     QCoreApplication::postEvent(qApp, new QEvent(QEvent::Quit));
                 } }
+                Ok(())
             }
 
-            fn invoke_from_event_loop(&self, _event: Box<dyn FnOnce() + Send>) {
+            fn invoke_from_event_loop(
+                &self,
+                _event: Box<dyn FnOnce() + Send>,
+            ) -> Result<(), i_slint_core::api::EventLoopError> {
                 use cpp::cpp;
                 cpp! {{
                    struct TraitObject { void *a, *b; };
@@ -221,6 +225,7 @@ impl i_slint_core::platform::Platform for Backend {
                 cpp! {unsafe [fnbox as "TraitObject"] {
                     QTimer::singleShot(0, qApp, EventHolder{fnbox});
                 }}
+                Ok(())
             }
         }
         Some(Box::new(Proxy))

@@ -55,12 +55,13 @@ pub unsafe extern "C" fn slint_post_event(
     i_slint_core::api::invoke_from_event_loop(move || {
         let ud = &ud;
         event(ud.user_data);
-    });
+    })
+    .unwrap();
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn slint_quit_event_loop() {
-    i_slint_core::api::quit_event_loop()
+    i_slint_core::api::quit_event_loop().unwrap();
 }
 
 #[no_mangle]

@@ -11,6 +11,7 @@ use copypasta::ClipboardProvider;
 use corelib::items::PointerEventButton;
 use i_slint_core as corelib;
 
+use corelib::api::EventLoopError;
 use corelib::graphics::euclid;
 use corelib::graphics::Point;
 use corelib::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
@@ -18,8 +19,8 @@ use corelib::window::*;
 use corelib::{Coord, SharedString};
 use std::cell::{Cell, RefCell, RefMut};
 use std::rc::{Rc, Weak};
-use winit::event::WindowEvent;
 
+use winit::event::WindowEvent;
 #[cfg(not(target_arch = "wasm32"))]
 use winit::platform::run_return::EventLoopExtRunReturn;
 
@@ -235,13 +236,16 @@ pub(crate) enum GlobalEventLoopProxyOrEventQueue {
 }
 
 impl GlobalEventLoopProxyOrEventQueue {
-    pub(crate) fn send_event(&mut self, event: CustomEvent) {
+    pub(crate) fn send_event(&mut self, event: CustomEvent) -> Result<(), EventLoopError> {
         match self {
-            GlobalEventLoopProxyOrEventQueue::Proxy(proxy) => proxy.send_event(event).ok().unwrap(),
+            GlobalEventLoopProxyOrEventQueue::Proxy(proxy) => {
+                proxy.send_event(event).map_err(|_| EventLoopError::EventLoopTerminated)
+            }
             GlobalEventLoopProxyOrEventQueue::Queue(queue) => {
                 queue.push(event);
+                Ok(())
             }
-        };
+        }
     }
 
     fn set_proxy(&mut self, proxy: winit::event_loop::EventLoopProxy<CustomEvent>) {

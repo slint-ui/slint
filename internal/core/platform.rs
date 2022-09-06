@@ -100,12 +100,15 @@ pub trait EventLoopProxy: Send + Sync {
     /// Exits the event loop.
     ///
     /// This is what is called by [`slint::quit_event_loop()`](crate::api::quit_event_loop)
-    fn quit_event_loop(&self);
+    fn quit_event_loop(&self) -> Result<(), crate::api::EventLoopError>;
 
     /// Invoke the function from the event loop.
     ///
     /// This is what is called by [`slint::invoke_from_event_loop()`](crate::api::invoke_from_event_loop)
-    fn invoke_from_event_loop(&self, event: Box<dyn FnOnce() + Send>);
+    fn invoke_from_event_loop(
+        &self,
+        event: Box<dyn FnOnce() + Send>,
+    ) -> Result<(), crate::api::EventLoopError>;
 }
 
 #[cfg(feature = "std")]

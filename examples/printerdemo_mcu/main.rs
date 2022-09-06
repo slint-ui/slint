@@ -61,7 +61,7 @@ fn main() -> ! {
 
     main_window.on_quit(move || {
         #[cfg(not(target_arch = "wasm32"))]
-        slint::quit_event_loop();
+        slint::quit_event_loop().unwrap();
     });
 
     let printer_queue_copy = printer_queue.clone();

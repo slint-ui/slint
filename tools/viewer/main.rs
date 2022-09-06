@@ -194,7 +194,7 @@ fn init_dialog(instance: &ComponentInstance) {
         instance
             .set_callback(&cb, move |_| {
                 EXIT_CODE.store(exit_code, std::sync::atomic::Ordering::Relaxed);
-                i_slint_core::api::quit_event_loop();
+                i_slint_core::api::quit_event_loop().unwrap();
                 Default::default()
             })
             .unwrap();
@@ -361,7 +361,8 @@ impl Wake for FutureRunner {
                     std::task::Poll::Pending => {}
                 }
             }
-        });
+        })
+        .unwrap();
     }
 }
 
