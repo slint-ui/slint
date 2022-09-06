@@ -26,12 +26,12 @@ TestCase := Window {
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert(instance.get_test());
-slint::testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 50., 50.);
 assert_eq(instance.get_niceness(), 34);
 
 instance.set_niceness(-1);
 assert(!instance.get_test());
-slint::testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 50., 50.);
 assert_eq(instance.get_niceness(), -1);
 
 ```
@@ -40,12 +40,12 @@ assert_eq(instance.get_niceness(), -1);
 ```rust
 let instance = TestCase::new();
 assert!(instance.get_test());
-slint::testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 50., 50.);
 assert_eq!(instance.get_niceness(), 34);
 
 instance.set_niceness(-1);
 assert!(!instance.get_test());
-slint::testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 50., 50.);
 assert_eq!(instance.get_niceness(), -1);
 ```
 

@@ -24,9 +24,9 @@ let instance = TestCase::new();
 assert_eq!(instance.get_val(), 1.);
 instance.set_cond(true);
 assert_eq!(instance.get_val(), 1.);
-slint::testing::mock_elapsed_time(500);
+slint_testing::mock_elapsed_time(500);
 assert_eq!(instance.get_val(), 0.5);
-slint::testing::mock_elapsed_time(500);
+slint_testing::mock_elapsed_time(500);
 assert_eq!(instance.get_val(), 0.);
 
 ```

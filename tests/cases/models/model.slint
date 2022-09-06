@@ -46,11 +46,11 @@ TestCase := Rectangle {
 let instance = TestCase::new();
 
 // there should be nothing there
-slint::testing::send_mouse_click(&instance, 25., 5.);
+slint_testing::send_mouse_click(&instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 0);
 assert_eq!(instance.get_clicked_internal_state(), 0);
 
-slint::testing::send_mouse_click(&instance, 15., 5.);
+slint_testing::send_mouse_click(&instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 789000);
 assert_eq!(instance.get_clicked_internal_state(), 1);
 
@@ -64,32 +64,32 @@ let another_model = std::rc::Rc::new(slint::VecModel::<ModelData>::from(
 
 instance.set_model(slint::ModelRc::from(another_model.clone()));
 
-slint::testing::send_mouse_click(&instance, 25., 5.);
+slint_testing::send_mouse_click(&instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 333000);
 assert_eq!(instance.get_clicked_internal_state(), 1);
 assert_eq!(instance.get_clicked_index(), 2);
 
-slint::testing::send_mouse_click(&instance, 15., 5.);
+slint_testing::send_mouse_click(&instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 222000);
 assert_eq!(instance.get_clicked_name(), slint::SharedString::from("cruel"));
 assert_eq!(instance.get_clicked_internal_state(), 1);
 
 another_model.push(("a4".into(), "!".into(), 444.));
-slint::testing::send_mouse_click(&instance, 35., 5.);
+slint_testing::send_mouse_click(&instance, 35., 5.);
 assert_eq!(instance.get_clicked_score(), 444000);
 assert_eq!(instance.get_clicked_name(), slint::SharedString::from("!"));
 assert_eq!(instance.get_clicked_internal_state(), 1);
 
 use slint::Model;
 another_model.set_row_data(1, ("a2".into(), "idyllic".into(), 555.));
-slint::testing::send_mouse_click(&instance, 15., 5.);
+slint_testing::send_mouse_click(&instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 555000);
 assert_eq!(instance.get_clicked_name(), slint::SharedString::from("idyllic"));
 assert_eq!(instance.get_clicked_internal_state(), 2);
 assert_eq!(instance.get_clicked_index(), 1);
 
 another_model.remove(1);
-slint::testing::send_mouse_click(&instance, 15., 5.);
+slint_testing::send_mouse_click(&instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 333000);
 assert_eq!(instance.get_clicked_name(), slint::SharedString::from("world"));
 assert_eq!(instance.get_clicked_internal_state(), 2);
@@ -102,11 +102,11 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
 // there should be nothing there
-slint::testing::send_mouse_click(&instance, 25., 5.);
+slint_testing::send_mouse_click(&instance, 25., 5.);
 assert_eq(instance.get_clicked_score(), 0);
 assert_eq(instance.get_clicked_internal_state(), 0);
 
-slint::testing::send_mouse_click(&instance, 15., 5.);
+slint_testing::send_mouse_click(&instance, 15., 5.);
 assert_eq(instance.get_clicked_score(), 789000);
 assert_eq(instance.get_clicked_internal_state(), 1);
 
@@ -118,31 +118,31 @@ array.push_back(ModelData{"a3", "world", 333.});
 auto another_model = std::make_shared<slint::VectorModel<ModelData>>(std::move(array));
 instance.set_model(another_model);
 
-slint::testing::send_mouse_click(&instance, 25., 5.);
+slint_testing::send_mouse_click(&instance, 25., 5.);
 assert_eq(instance.get_clicked_score(), 333000);
 assert_eq(instance.get_clicked_internal_state(), 1);
 assert_eq(instance.get_clicked_index(), 2);
 
-slint::testing::send_mouse_click(&instance, 15., 5.);
+slint_testing::send_mouse_click(&instance, 15., 5.);
 assert_eq(instance.get_clicked_score(), 222000);
 assert_eq(instance.get_clicked_name(), "cruel");
 assert_eq(instance.get_clicked_internal_state(), 1);
 
 another_model->push_back({"a4", "!", 444.});
-slint::testing::send_mouse_click(&instance, 35., 5.);
+slint_testing::send_mouse_click(&instance, 35., 5.);
 assert_eq(instance.get_clicked_score(), 444000);
 assert_eq(instance.get_clicked_name(), "!");
 assert_eq(instance.get_clicked_internal_state(), 1);
 
 another_model->set_row_data(1, {"a2", "idyllic", 555.});
-slint::testing::send_mouse_click(&instance, 15., 5.);
+slint_testing::send_mouse_click(&instance, 15., 5.);
 assert_eq(instance.get_clicked_score(), 555000);
 assert_eq(instance.get_clicked_name(), "idyllic");
 assert_eq(instance.get_clicked_internal_state(), 2);
 assert_eq(instance.get_clicked_index(), 1);
 
 another_model->erase(1);
-slint::testing::send_mouse_click(&instance, 15., 5.);
+slint_testing::send_mouse_click(&instance, 15., 5.);
 assert_eq(instance.get_clicked_score(), 333000);
 assert_eq(instance.get_clicked_name(), "world");
 assert_eq(instance.get_clicked_internal_state(), 2);

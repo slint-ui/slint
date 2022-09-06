@@ -11,7 +11,7 @@ TestCase := Rectangle {
 let instance = TestCase::new();
 let begin = instance.get_xx();
 assert_eq!(begin, instance.get_xx());
-slint::testing::mock_elapsed_time(600);
+slint_testing::mock_elapsed_time(600);
 assert_eq!(begin + 600, instance.get_xx());
 ```
 
@@ -22,7 +22,7 @@ const TestCase &instance = *handle;
 
 auto begin = instance.get_xx();
 assert_eq(begin, instance.get_xx());
-slint::testing::mock_elapsed_time(600);
+slint_testing::mock_elapsed_time(600);
 assert_eq(begin + 600, instance.get_xx());
 ```
 

@@ -24,9 +24,9 @@ TestCase := Window {
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
 assert_eq(instance.get_last_clicked(), 0);
-slint::testing::send_mouse_click(&instance, 15., 145.);
+slint_testing::send_mouse_click(&instance, 15., 145.);
 assert_eq(instance.get_last_clicked(), 1);
-slint::testing::send_mouse_click(&instance, 15., 155.);
+slint_testing::send_mouse_click(&instance, 15., 155.);
 assert_eq(instance.get_last_clicked(), 2);
 ```
 
@@ -34,9 +34,9 @@ assert_eq(instance.get_last_clicked(), 2);
 ```rust
 let instance = TestCase::new();
 assert_eq!(instance.get_last_clicked(), 0);
-slint::testing::send_mouse_click(&instance, 15., 145.);
+slint_testing::send_mouse_click(&instance, 15., 145.);
 assert_eq!(instance.get_last_clicked(), 1);
-slint::testing::send_mouse_click(&instance, 15., 155.);
+slint_testing::send_mouse_click(&instance, 15., 155.);
 assert_eq!(instance.get_last_clicked(), 2);
 ```
 

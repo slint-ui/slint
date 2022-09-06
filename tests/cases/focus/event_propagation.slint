@@ -50,13 +50,13 @@ let instance = TestCase::new();
 assert!(!instance.get_input1_focused());
 assert!(instance.get_input2_focused());
 
-slint::testing::send_keyboard_string_sequence(&instance, "Hello");
+slint_testing::send_keyboard_string_sequence(&instance, "Hello");
 assert_eq!(instance.get_input2_text(), "Hello");
 assert_eq!(instance.get_input1_text(), "");
 assert_eq!(instance.get_received(), "");
 
-slint::testing::set_current_keyboard_modifiers(&instance, ctrl_modifier);
-slint::testing::send_keyboard_string_sequence(&instance, "ß");
+slint_testing::set_current_keyboard_modifiers(&instance, ctrl_modifier);
+slint_testing::send_keyboard_string_sequence(&instance, "ß");
 assert_eq!(instance.get_input2_text(), "Hello");
 assert_eq!(instance.get_input1_text(), "");
 assert_eq!(instance.get_received(), "ß");
@@ -72,12 +72,12 @@ const TestCase &instance = *handle;
 assert(!instance.get_input1_focused());
 assert(instance.get_input2_focused());
 
-slint::testing::send_keyboard_string_sequence(&instance, "Hello");
+slint_testing::send_keyboard_string_sequence(&instance, "Hello");
 assert_eq(instance.get_input2_text(), "Hello");
 assert_eq(instance.get_input1_text(), "");
 assert_eq(instance.get_received(), "");
 
-slint::testing::send_keyboard_string_sequence(&instance, "ß", ctrl_modifier);
+slint_testing::send_keyboard_string_sequence(&instance, "ß", ctrl_modifier);
 assert_eq(instance.get_input2_text(), "Hello");
 assert_eq(instance.get_input1_text(), "");
 assert_eq(instance.get_received(), "ß");

@@ -16,13 +16,13 @@ TestCase := Rectangle {
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-slint::testing::send_mouse_click(&instance, 5., 5.);
+slint_testing::send_mouse_click(&instance, 5., 5.);
 assert_eq(instance.get_value(), 1);
 ```
 
 ```rust
 let instance = TestCase::new();
-slint::testing::send_mouse_click(&instance, 5., 5.);
+slint_testing::send_mouse_click(&instance, 5., 5.);
 assert_eq!(instance.get_value(), 1);
 
 ```

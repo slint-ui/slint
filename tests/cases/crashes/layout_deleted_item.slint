@@ -40,10 +40,10 @@ const TestCase &instance = *handle;
 auto vec_model = std::make_shared<slint::VectorModel<int>>(std::vector<int>{1, 2});
 instance.set_model(vec_model);
 instance.on_clicked([vec_model] { vec_model->erase(vec_model->row_count()-1); });
-slint::testing::send_mouse_click(&instance, 95., 5.);
+slint_testing::send_mouse_click(&instance, 95., 5.);
 assert_eq(instance.get_model()->row_count(), 1);
 assert(instance.get_hover());
-slint::testing::send_mouse_click(&instance, 95., 5.);
+slint_testing::send_mouse_click(&instance, 95., 5.);
 assert_eq(instance.get_model()->row_count(), 0);
 assert(!instance.get_hover());
 ```
@@ -54,10 +54,10 @@ let instance = TestCase::new();
 let vec_model = std::rc::Rc::new(slint::VecModel::from(vec![1i32, 2i32]));
 instance.set_model(vec_model.clone().into());
 instance.on_clicked(move || { vec_model.remove(vec_model.row_count() - 1); });
-slint::testing::send_mouse_click(&instance, 95., 5.);
+slint_testing::send_mouse_click(&instance, 95., 5.);
 assert_eq!(instance.get_model().row_count(), 1);
 assert!(instance.get_hover());
-slint::testing::send_mouse_click(&instance, 95., 5.);
+slint_testing::send_mouse_click(&instance, 95., 5.);
 assert_eq!(instance.get_model().row_count(), 0);
 assert!(!instance.get_hover());
 ```

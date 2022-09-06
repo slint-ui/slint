@@ -46,7 +46,7 @@ TestCase := Rectangle {
 use slint::Model;
 let instance = TestCase::new();
 
-slint::testing::send_mouse_click(&instance, 15., 5.);
+slint_testing::send_mouse_click(&instance, 15., 5.);
 assert_eq!(instance.get_clicked_score(), 792);
 
 assert_eq!(instance.get_model().row_data(1).unwrap().2, 792.);
@@ -63,12 +63,12 @@ let another_model = std::rc::Rc::new(slint::VecModel::<ModelData>::from(
 
 instance.set_model(slint::ModelRc::from(another_model.clone()));
 
-slint::testing::send_mouse_click(&instance, 25., 5.);
+slint_testing::send_mouse_click(&instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 336);
 assert_eq!(another_model.row_data(2).unwrap().2, 336.);
 
 instance.invoke_manual_score_update(2, 100);
-slint::testing::send_mouse_click(&instance, 25., 5.);
+slint_testing::send_mouse_click(&instance, 25., 5.);
 assert_eq!(instance.get_clicked_score(), 439);
 assert_eq!(another_model.row_data(2).unwrap().2, 439.);
 assert_eq!(another_model.row_data(2).unwrap().1, slint::SharedString::from("world"));
@@ -77,13 +77,13 @@ instance.invoke_manual_score_update(200, 100);
 assert_eq!(another_model.row_count(), 3);
 
 another_model.insert(1, ("new_a".into(), "inserted".into(), 444.));
-slint::testing::send_mouse_click(&instance, 25., 5.);  // click on "a2"
+slint_testing::send_mouse_click(&instance, 25., 5.);  // click on "a2"
 assert_eq!(instance.get_clicked_score(), 222 + 3);
-slint::testing::send_mouse_click(&instance, 15., 5.);  // click on "new_a"
+slint_testing::send_mouse_click(&instance, 15., 5.);  // click on "new_a"
 assert_eq!(instance.get_clicked_score(), 444 + 3);
 
 another_model.remove(2); // remove "a2"
-slint::testing::send_mouse_click(&instance, 25., 5.);  // click on "a3"
+slint_testing::send_mouse_click(&instance, 25., 5.);  // click on "a3"
 assert_eq!(instance.get_clicked_score(), 439 + 3);
 
 
@@ -92,7 +92,7 @@ assert_eq!(instance.get_clicked_score(), 439 + 3);
 ```cpp
 auto handle = TestCase::create();
 const TestCase &instance = *handle;
-slint::testing::send_mouse_click(&instance, 15., 5.);
+slint_testing::send_mouse_click(&instance, 15., 5.);
 assert_eq(instance.get_clicked_score(), 792);
 
 assert_eq(std::get<2>(*instance.get_model()->row_data(1)), 792.);
@@ -107,12 +107,12 @@ array.push_back(ModelData{"a3", "world", 333.});
 auto another_model = std::make_shared<slint::VectorModel<ModelData>>(std::move(array));
 instance.set_model(another_model);
 
-slint::testing::send_mouse_click(&instance, 25., 5.);
+slint_testing::send_mouse_click(&instance, 25., 5.);
 assert_eq(instance.get_clicked_score(), 336);
 assert_eq(std::get<2>(*another_model->row_data(2)), 336.);
 
 instance.invoke_manual_score_update(2, 100);
-slint::testing::send_mouse_click(&instance, 25., 5.);
+slint_testing::send_mouse_click(&instance, 25., 5.);
 assert_eq(instance.get_clicked_score(), 439);
 assert_eq(std::get<2>(*another_model->row_data(2)), 439.);
 assert_eq(std::get<1>(*another_model->row_data(2)), "world");
@@ -121,13 +121,13 @@ instance.invoke_manual_score_update(200, 100);
 assert_eq(another_model->row_count(), 3);
 
 another_model->insert(1, ModelData{"new_a", "inserted", 444.});
-slint::testing::send_mouse_click(&instance, 25., 5.);  // click on "a2"
+slint_testing::send_mouse_click(&instance, 25., 5.);  // click on "a2"
 assert_eq(instance.get_clicked_score(), 222 + 3);
-slint::testing::send_mouse_click(&instance, 15., 5.);  // click on "new_a"
+slint_testing::send_mouse_click(&instance, 15., 5.);  // click on "new_a"
 assert_eq(instance.get_clicked_score(), 444 + 3);
 
 another_model->erase(2); // remove "a2"
-slint::testing::send_mouse_click(&instance, 25., 5.);  // click on "a3"
+slint_testing::send_mouse_click(&instance, 25., 5.);  // click on "a3"
 assert_eq(instance.get_clicked_score(), 439 + 3);
 
 ```

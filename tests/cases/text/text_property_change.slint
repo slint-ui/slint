@@ -34,10 +34,10 @@ TestCase := Window {
 /*
 ```rust
 let instance = TestCase::new();
-slint::testing::send_mouse_click(&instance, 5., 5.);
+slint_testing::send_mouse_click(&instance, 5., 5.);
 assert!(instance.get_input_focused());
 assert_eq!(instance.get_text(), "");
-slint::testing::send_keyboard_string_sequence(&instance, "Hallo");
+slint_testing::send_keyboard_string_sequence(&instance, "Hallo");
 assert_eq!(instance.get_text(), "Hallo");
 ```
 */

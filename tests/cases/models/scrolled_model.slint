@@ -47,7 +47,7 @@ TestCase := Rectangle {
 let instance = TestCase::new();
 
 // This should not crash:
-slint::testing::send_keyboard_string_sequence(&instance, &"\t");
+slint_testing::send_keyboard_string_sequence(&instance, &"\t");
 ```
 
 ```cpp
@@ -55,7 +55,7 @@ auto handle = TestCase::create();
 const TestCase &instance = *handle;
 
 // This should not crash:
-slint::testing::send_keyboard_string_sequence(&instance, "\t");
+slint_testing::send_keyboard_string_sequence(&instance, "\t");
 ```
 
 ```js

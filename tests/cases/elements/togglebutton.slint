@@ -22,11 +22,11 @@ const TestCase &instance = *handle;
 assert(instance.get_checked());
 
 // click on button
-slint::testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 50., 50.);
 assert(!instance.get_checked());
 
 // click on button again
-slint::testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 50., 50.);
 assert(instance.get_checked());
 
 ```
@@ -37,11 +37,11 @@ let instance = TestCase::new();
 assert!(instance.get_checked());
 
 // click on button
-slint::testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 50., 50.);
 assert!(!instance.get_checked());
 
 // click on button again
-slint::testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 50., 50.);
 assert!(instance.get_checked());
 
 ```

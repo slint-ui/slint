@@ -34,14 +34,14 @@ TestCase := Window {
 use slint::{WindowEvent, PointerEventButton, LogicalPosition};
 let instance = TestCase::new();
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(300.0, 100.0) });
-slint::testing::mock_elapsed_time(5000);
+slint_testing::mock_elapsed_time(5000);
 instance.window().dispatch_event(WindowEvent::PointerPressed { position: LogicalPosition::new(300.0, 100.0), button: PointerEventButton::Left });
 assert_eq!(instance.get_offset_x(), 0.);
 assert_eq!(instance.get_offset_y(), 0.);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(200.0, 50.0) });
 assert_eq!(instance.get_offset_x(), 100.);
 assert_eq!(instance.get_offset_y(), 50.);
-slint::testing::mock_elapsed_time(200);
+slint_testing::mock_elapsed_time(200);
 assert_eq!(instance.get_offset_x(), 100.);
 assert_eq!(instance.get_offset_y(), 50.);
 instance.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(100.0, 50.0) });
@@ -51,18 +51,18 @@ instance.window().dispatch_event(WindowEvent::PointerReleased { position: Logica
 // Start of the animation, the position is still unchanged
 assert_eq!(instance.get_offset_x(), 200.);
 assert_eq!(instance.get_offset_y(), 50.);
-slint::testing::mock_elapsed_time(50);
+slint_testing::mock_elapsed_time(50);
 // middle of the animation
 assert!(instance.get_offset_x() > 210.);
 assert!(instance.get_offset_y() > 60.);
 assert!(instance.get_offset_x() < 290.);
 assert!(instance.get_offset_y() < 70.);
 
-slint::testing::mock_elapsed_time(200);
+slint_testing::mock_elapsed_time(200);
 // end of the animation
 assert_eq!(instance.get_offset_x(), 450.);
 assert_eq!(instance.get_offset_y(), 112.5);
-slint::testing::mock_elapsed_time(50);
+slint_testing::mock_elapsed_time(50);
 assert_eq!(instance.get_offset_x(), 450.);
 assert_eq!(instance.get_offset_y(), 112.5);
 ```

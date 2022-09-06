@@ -21,16 +21,16 @@ let control_modifier = slint::private_unstable_api::re_exports::KeyboardModifier
 };
 
 let instance = TestCase::new();
-slint::testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 50., 50.);
 assert!(instance.get_input_focused());
 assert_eq!(instance.get_test_text(), "");
-slint::testing::send_keyboard_string_sequence(&instance, "Test");
+slint_testing::send_keyboard_string_sequence(&instance, "Test");
 assert_eq!(instance.get_test_text(), "Test");
 assert!(!instance.get_has_selection());
 
-slint::testing::set_current_keyboard_modifiers(&instance, control_modifier);
-slint::testing::send_keyboard_string_sequence(&instance, "a");
-slint::testing::set_current_keyboard_modifiers(&instance, slint::private_unstable_api::re_exports::KeyboardModifiers::default());
+slint_testing::set_current_keyboard_modifiers(&instance, control_modifier);
+slint_testing::send_keyboard_string_sequence(&instance, "a");
+slint_testing::set_current_keyboard_modifiers(&instance, slint::private_unstable_api::re_exports::KeyboardModifiers::default());
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 4);
 assert_eq!(instance.get_test_anchor_pos(), 0);
