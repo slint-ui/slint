@@ -31,15 +31,12 @@ unsafe-single-threaded = []
 
 text_layout = []
 
-## The sofwtare renderer
-software-renderer = ["integer-sqrt", "text_layout"]
-
 unicode = ["unicode-script", "unicode-linebreak"]
 
 image-decoders = ["image", "clru"]
 svg = ["resvg", "usvg", "tiny-skia"]
 
-default = ["std", "text_layout", "unicode"]
+default = ["std", "integer-sqrt", "text_layout", "unicode"]
 
 [dependencies]
 i-slint-common = { version = "=0.3.0", path = "../common" }
