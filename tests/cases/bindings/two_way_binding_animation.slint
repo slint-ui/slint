@@ -40,17 +40,17 @@ assert_eq!(instance.get_hello(), 40);
 assert_eq!(instance.get_binding_dep(), 100);
 
 // Half the animation
-slint::testing::mock_elapsed_time(600);
+slint_testing::mock_elapsed_time(600);
 assert_eq!(instance.get_hello(), 50);
 assert_eq!(instance.get_binding_dep(), 125);
 
 
 // Remaining half
-slint::testing::mock_elapsed_time(600);
+slint_testing::mock_elapsed_time(600);
 assert_eq!(instance.get_hello(), 60);
 assert_eq!(instance.get_binding_dep(), 150);
 
-slint::testing::mock_elapsed_time(100);
+slint_testing::mock_elapsed_time(100);
 assert_eq!(instance.get_hello(), 60);
 assert_eq!(instance.get_binding_dep(), 150);
 
@@ -58,7 +58,7 @@ assert_eq!(instance.get_binding_dep(), 150);
 // querying the value (because te dirty event should cause the animation to start)
 instance.set_condition(true);
 instance.set_hello(30);
-slint::testing::mock_elapsed_time(600);
+slint_testing::mock_elapsed_time(600);
 assert_eq!(instance.get_hello(), 45);
 assert_eq!(instance.get_binding_dep(), 125);
 
@@ -77,17 +77,17 @@ assert_eq(instance.get_hello(), 40);
 assert_eq(instance.get_binding_dep(), 100);
 
 // Half the animation
-slint::testing::mock_elapsed_time(600);
+slint_testing::mock_elapsed_time(600);
 assert_eq(instance.get_hello(), 50);
 assert_eq(instance.get_binding_dep(), 125);
 
 
 // Remaining half
-slint::testing::mock_elapsed_time(600);
+slint_testing::mock_elapsed_time(600);
 assert_eq(instance.get_hello(), 60);
 assert_eq(instance.get_binding_dep(), 150);
 
-slint::testing::mock_elapsed_time(100);
+slint_testing::mock_elapsed_time(100);
 assert_eq(instance.get_hello(), 60);
 assert_eq(instance.get_binding_dep(), 150);
 
@@ -95,7 +95,7 @@ assert_eq(instance.get_binding_dep(), 150);
 // querying the value (because te dirty event should cause the animation to start)
 instance.set_condition(true);
 instance.set_hello(30);
-slint::testing::mock_elapsed_time(600);
+slint_testing::mock_elapsed_time(600);
 assert_eq(instance.get_hello(), 45);
 assert_eq(instance.get_binding_dep(), 125);
 ```

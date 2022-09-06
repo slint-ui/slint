@@ -54,29 +54,29 @@ assert_eq(instance.get_test(), true);
 assert_eq(instance.get_el1clip(), false);
 
 // clip, outside
-slint::testing::send_mouse_click(&instance, 37., 27.);
+slint_testing::send_mouse_click(&instance, 37., 27.);
 assert_eq(instance.get_touch1(), 0);
 assert_eq(instance.get_touch2(), 0);
 
 // clip, inside
-slint::testing::send_mouse_click(&instance, 37., 33.);
+slint_testing::send_mouse_click(&instance, 37., 33.);
 assert_eq(instance.get_touch1(), 0);
 assert_eq(instance.get_touch2(), 1);
 
 
 // no-clip, outside
-slint::testing::send_mouse_click(&instance, 17., 7.);
+slint_testing::send_mouse_click(&instance, 17., 7.);
 assert_eq(instance.get_touch1(), 1);
 assert_eq(instance.get_touch2(), 1);
 
 // no-clip, inside
-slint::testing::send_mouse_click(&instance, 17., 13.);
+slint_testing::send_mouse_click(&instance, 17., 13.);
 assert_eq(instance.get_touch1(), 2);
 assert_eq(instance.get_touch2(), 1);
 
 // now clip also el1
 instance.set_el1clip(true);
-slint::testing::send_mouse_click(&instance, 17., 7.);
+slint_testing::send_mouse_click(&instance, 17., 7.);
 assert_eq(instance.get_touch1(), 2);
 assert_eq(instance.get_touch2(), 1);
 
@@ -91,28 +91,28 @@ assert_eq!(instance.get_test(), true);
 assert_eq!(instance.get_el1clip(), false);
 
 // clip, outside
-slint::testing::send_mouse_click(&instance, 37., 27.);
+slint_testing::send_mouse_click(&instance, 37., 27.);
 assert_eq!(instance.get_touch1(), 0, "a. touch1");
 assert_eq!(instance.get_touch2(), 0, "a. touch2");
 
 // clip, inside
-slint::testing::send_mouse_click(&instance, 37., 33.);
+slint_testing::send_mouse_click(&instance, 37., 33.);
 assert_eq!(instance.get_touch1(), 0, "b. touch1");
 assert_eq!(instance.get_touch2(), 1, "b. touch2");
 
 // no-clip, outside
-slint::testing::send_mouse_click(&instance, 17., 7.);
+slint_testing::send_mouse_click(&instance, 17., 7.);
 assert_eq!(instance.get_touch1(), 1, "c. touch1");
 assert_eq!(instance.get_touch2(), 1, "c. touch2");
 
 // no-clip, inside
-slint::testing::send_mouse_click(&instance, 17., 13.);
+slint_testing::send_mouse_click(&instance, 17., 13.);
 assert_eq!(instance.get_touch1(), 2, "d. touch1");
 assert_eq!(instance.get_touch2(), 1, "d. touch2");
 
 // now clip also el1
 instance.set_el1clip(true);
-slint::testing::send_mouse_click(&instance, 17., 7.);
+slint_testing::send_mouse_click(&instance, 17., 7.);
 assert_eq!(instance.get_touch1(), 2, "e. touch1");
 assert_eq!(instance.get_touch2(), 1, "e. touch2");
 ```

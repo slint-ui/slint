@@ -119,3 +119,73 @@ pub fn init() {
     i_slint_core::platform::set_platform(Box::new(TestingBackend::default()))
         .expect("platform already initialized");
 }
+
+/// This module contains functions useful for unit tests
+mod for_unit_test {
+    use core::cell::Cell;
+    use i_slint_core::api::ComponentHandle;
+    pub use i_slint_core::tests::slint_mock_elapsed_time as mock_elapsed_time;
+    use i_slint_core::window::WindowInner;
+    use i_slint_core::SharedString;
+
+    thread_local!(static KEYBOARD_MODIFIERS : Cell<i_slint_core::input::KeyboardModifiers> = Default::default());
+
+    /// Simulate a mouse click
+    pub fn send_mouse_click<
+        X: vtable::HasStaticVTable<i_slint_core::component::ComponentVTable> + 'static,
+        Component: Into<vtable::VRc<i_slint_core::component::ComponentVTable, X>> + ComponentHandle,
+    >(
+        component: &Component,
+        x: f32,
+        y: f32,
+    ) {
+        let rc = component.clone_strong().into();
+        let dyn_rc = vtable::VRc::into_dyn(rc.clone());
+        i_slint_core::tests::slint_send_mouse_click(
+            &dyn_rc,
+            x,
+            y,
+            &WindowInner::from_pub(component.window()).window_adapter(),
+        );
+    }
+
+    /// Simulate a change in keyboard modifiers being pressed
+    pub fn set_current_keyboard_modifiers<
+        X: vtable::HasStaticVTable<i_slint_core::component::ComponentVTable>,
+        Component: Into<vtable::VRc<i_slint_core::component::ComponentVTable, X>> + ComponentHandle,
+    >(
+        _component: &Component,
+        modifiers: i_slint_core::input::KeyboardModifiers,
+    ) {
+        KEYBOARD_MODIFIERS.with(|x| x.set(modifiers))
+    }
+
+    /// Simulate entering a sequence of ascii characters key by key.
+    pub fn send_keyboard_string_sequence<
+        X: vtable::HasStaticVTable<i_slint_core::component::ComponentVTable>,
+        Component: Into<vtable::VRc<i_slint_core::component::ComponentVTable, X>> + ComponentHandle,
+    >(
+        component: &Component,
+        sequence: &str,
+    ) {
+        i_slint_core::tests::send_keyboard_string_sequence(
+            &SharedString::from(sequence),
+            KEYBOARD_MODIFIERS.with(|x| x.get()),
+            &WindowInner::from_pub(component.window()).window_adapter(),
+        )
+    }
+
+    /// Applies the specified scale factor to the window that's associated with the given component.
+    /// This overrides the value provided by the windowing system.
+    pub fn set_window_scale_factor<
+        X: vtable::HasStaticVTable<i_slint_core::component::ComponentVTable>,
+        Component: Into<vtable::VRc<i_slint_core::component::ComponentVTable, X>> + ComponentHandle,
+    >(
+        component: &Component,
+        factor: f32,
+    ) {
+        WindowInner::from_pub(component.window()).set_scale_factor(factor)
+    }
+}
+
+pub use for_unit_test::*;

@@ -44,7 +44,7 @@ let file_model = vec![
 let file_model = std::rc::Rc::new(slint::VecModel::from(file_model));
 // this should not panic
 ui.set_file_model(file_model.into());
-slint::testing::send_mouse_click(&ui, 10., 10.);
+slint_testing::send_mouse_click(&ui, 10., 10.);
 ```
 
 */

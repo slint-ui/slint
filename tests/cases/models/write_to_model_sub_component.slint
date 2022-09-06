@@ -29,7 +29,7 @@ let instance = TestCase::new();
 
 let the_model = std::rc::Rc::new(slint::VecModel::<i32>::from(vec![1, 2, 3]));
 instance.set_mod(the_model.clone().into());
-slint::testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 50., 50.);
 assert_eq!(the_model.row_data(1).unwrap() , 2+8);
 ```
 
@@ -40,7 +40,7 @@ std::vector<int> array { 1 , 2 ,  3 };
 auto the_model = std::make_shared<slint::VectorModel<int>>(std::move(array));
 instance.set_mod(the_model);
 
-slint::testing::send_mouse_click(&instance, 50., 50.);
+slint_testing::send_mouse_click(&instance, 50., 50.);
 assert_eq(*the_model->row_data(1) , 2+8);
 ```
 

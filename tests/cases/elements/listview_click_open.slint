@@ -54,25 +54,25 @@ export TestCase := Window {
 let instance = TestCase::new();
 
 // Open the item 6
-slint::testing::send_mouse_click(&instance, 50., 25. * 6. + 10.);
-slint::testing::send_mouse_click(&instance, 250., 10.);
+slint_testing::send_mouse_click(&instance, 50., 25. * 6. + 10.);
+slint_testing::send_mouse_click(&instance, 250., 10.);
 assert_eq!(instance.get_last_clicked(), 6);
 instance.set_last_clicked(-1);
-slint::testing::send_mouse_click(&instance, 250., 270.);
+slint_testing::send_mouse_click(&instance, 250., 270.);
 assert_eq!(instance.get_last_clicked(), 6);
 
 // Close the item 6
-slint::testing::send_mouse_click(&instance, 50., 160.);
+slint_testing::send_mouse_click(&instance, 50., 160.);
 // Item 6 should stay the first, so in position 3 we have the 9th item
-slint::testing::send_mouse_click(&instance, 250., 25. * 3. + 10.);
+slint_testing::send_mouse_click(&instance, 250., 25. * 3. + 10.);
 assert_eq!(instance.get_last_clicked(), 9);
 
 // Open the 10th item (position 4)
-slint::testing::send_mouse_click(&instance, 50., 25. * 4. + 10.);
-slint::testing::send_mouse_click(&instance, 250., 10.);
+slint_testing::send_mouse_click(&instance, 50., 25. * 4. + 10.);
+slint_testing::send_mouse_click(&instance, 250., 10.);
 assert_eq!(instance.get_last_clicked(), 10);
 instance.set_last_clicked(-1);
-slint::testing::send_mouse_click(&instance, 250., 270.);
+slint_testing::send_mouse_click(&instance, 250., 270.);
 assert_eq!(instance.get_last_clicked(), 10);
 ```
 */
