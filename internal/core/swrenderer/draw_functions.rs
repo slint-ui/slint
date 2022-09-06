@@ -317,11 +317,11 @@ pub trait TargetPixel: Sized + Copy {
     /// Blend a single pixel with a color
     fn blend(&mut self, color: PremultipliedRgbaColor);
     /// Blend a color to all the pixel in the slice.
-    fn blend_slice(to_fill: &mut [Self], color: PremultipliedRgbaColor) {
+    fn blend_slice(slice: &mut [Self], color: PremultipliedRgbaColor) {
         if color.alpha == u8::MAX {
-            to_fill.fill(Self::from_rgb(color.red, color.green, color.blue))
+            slice.fill(Self::from_rgb(color.red, color.green, color.blue))
         } else {
-            for x in to_fill {
+            for x in slice {
                 Self::blend(x, color);
             }
         }
