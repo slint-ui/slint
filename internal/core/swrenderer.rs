@@ -64,27 +64,32 @@ pub trait LineBufferProvider {
 ///     is only useful if the device does not have enough memory to render the whole window
 ///     in one single buffer
 ///
-/// The `BUFFER_COUNT` parameter specifies how many buffers are being re-used.
+/// ### `MAX_BUFFER_AGE`
+///
+/// The `MAX_BUFFER_AGE` parameter specifies how many buffers are being re-used.
+/// This means that the buffer passed to the render functions still contains a rendering of
+/// the window that was refreshed as least that amount of frame ago.
 /// It will impact how much of the screen needs to be redrawn.
+///
 /// Typical value can be:
 ///  - **0:** No attempt at tracking dirty items will be made. The full screen is always redrawn.
 ///  - **1:** Only redraw the parts that have changed since the previous call to render.
 ///           This is assuming that the same buffer is passed on every call to render.
 ///  - **2:** Redraw the part that have changed during the two last frames.
 ///           This is assuming double buffering and swapping of the buffers.
-pub struct SoftwareRenderer<const BUFFER_COUNT: usize = 0> {
+pub struct SoftwareRenderer<const MAX_BUFFER_AGE: usize> {
     partial_cache: RefCell<crate::item_rendering::PartialRenderingCache>,
     /// This is the area which we are going to redraw in the next frame, no matter if the items are dirty or not
     force_dirty: Cell<crate::item_rendering::DirtyRegion>,
     /// This is the area which was dirty on the previous frames, in case we do double buffering
     ///
-    /// We really only need BUFFER_COUNT - 1 but that's not allowed because we cannot do operations with
+    /// We really only need MAX_BUFFER_AGE - 1 but that's not allowed because we cannot do operations with
     /// generic parameters
-    prev_frame_dirty: [Cell<DirtyRegion>; BUFFER_COUNT],
+    prev_frame_dirty: [Cell<DirtyRegion>; MAX_BUFFER_AGE],
     window: Weak<dyn crate::window::WindowAdapter>,
 }
 
-impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
+impl<const MAX_BUFFER_AGE: usize> SoftwareRenderer<MAX_BUFFER_AGE> {
     /// Create a new Renderer for a given window.
     ///
     /// The `window` parameter can be coming from [`Rc::new_cyclic()`](alloc::rc::Rc::new_cyclic())
@@ -94,7 +99,7 @@ impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
             window: window.clone(),
             partial_cache: Default::default(),
             force_dirty: Default::default(),
-            prev_frame_dirty: [DirtyRegion::default(); BUFFER_COUNT].map(|x| x.into()),
+            prev_frame_dirty: [DirtyRegion::default(); MAX_BUFFER_AGE].map(|x| x.into()),
         }
     }
 
@@ -105,11 +110,11 @@ impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
         dirty_region: DirtyRegion,
         screen_size: PhysicalSize,
     ) -> DirtyRegion {
-        if BUFFER_COUNT == 0 {
+        if MAX_BUFFER_AGE == 0 {
             PhysicalRect { origin: euclid::point2(0, 0), size: screen_size }
-        } else if BUFFER_COUNT == 1 {
+        } else if MAX_BUFFER_AGE == 1 {
             dirty_region
-        } else if BUFFER_COUNT == 2 {
+        } else if MAX_BUFFER_AGE == 2 {
             dirty_region.union(&self.prev_frame_dirty[0].replace(dirty_region))
         } else {
             let mut prev = dirty_region;
@@ -197,7 +202,7 @@ impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
     ///
     /// ```rust
     /// # use i_slint_core::swrenderer::{LineBufferProvider, SoftwareRenderer, Rgb565Pixel};
-    /// # fn xxx<'a>(the_frame_buffer: &'a mut [Rgb565Pixel], display_width: usize, renderer: &SoftwareRenderer) {
+    /// # fn xxx<'a>(the_frame_buffer: &'a mut [Rgb565Pixel], display_width: usize, renderer: &SoftwareRenderer<0>) {
     /// struct FrameBuffer<'a>{ frame_buffer: &'a mut [Rgb565Pixel], stride: usize }
     /// impl<'a> LineBufferProvider for FrameBuffer<'a> {
     ///     type TargetPixel = Rgb565Pixel;
@@ -238,7 +243,7 @@ impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
     }
 }
 
-impl<const BUFFER_COUNT: usize> Renderer for SoftwareRenderer<BUFFER_COUNT> {
+impl<const MAX_BUFFER_AGE: usize> Renderer for SoftwareRenderer<MAX_BUFFER_AGE> {
     fn text_size(
         &self,
         font_request: crate::graphics::FontRequest,
@@ -284,11 +289,11 @@ impl<const BUFFER_COUNT: usize> Renderer for SoftwareRenderer<BUFFER_COUNT> {
     }
 }
 
-fn render_window_frame_by_line<const BUFFER_COUNT: usize>(
+fn render_window_frame_by_line<const MAX_BUFFER_AGE: usize>(
     window: &WindowInner,
     background: Color,
     size: PhysicalSize,
-    renderer: &SoftwareRenderer<BUFFER_COUNT>,
+    renderer: &SoftwareRenderer<MAX_BUFFER_AGE>,
     mut line_buffer: impl LineBufferProvider,
 ) {
     let mut scene = prepare_scene(window, size, renderer);
@@ -626,10 +631,10 @@ struct RoundedRectangle {
     bottom_clip: PhysicalLength,
 }
 
-fn prepare_scene<const BUFFER_COUNT: usize>(
+fn prepare_scene<const MAX_BUFFER_AGE: usize>(
     window: &WindowInner,
     size: PhysicalSize,
-    swrenderer: &SoftwareRenderer<BUFFER_COUNT>,
+    swrenderer: &SoftwareRenderer<MAX_BUFFER_AGE>,
 ) -> Scene {
     let factor = ScaleFactor::new(window.scale_factor());
     let prepare_scene = SceneBuilder::new(size, factor, window, PrepareScene::default());
@@ -1292,14 +1297,15 @@ fn bpp(format: PixelFormat) -> u16 {
 /// This is a minimal adaptor for a Window that doesn't have any other feature than rendering
 /// using the software renderer.
 ///
-/// The `BUFFER_COUNT` generic parameter is forwarded to the [`SoftwareRenderer`]
-pub struct MinimalSoftwareWindow<const BUFFER_COUNT: usize> {
+/// The [`MAX_BUFFER_AGE`](SoftwareRenderer#max_buffer_age) generic parameter is forwarded to
+/// the [`SoftwareRenderer`]
+pub struct MinimalSoftwareWindow<const MAX_BUFFER_AGE: usize> {
     window: Window,
-    renderer: SoftwareRenderer<BUFFER_COUNT>,
+    renderer: SoftwareRenderer<MAX_BUFFER_AGE>,
     needs_redraw: Cell<bool>,
 }
 
-impl<const BUFFER_COUNT: usize> MinimalSoftwareWindow<BUFFER_COUNT> {
+impl<const MAX_BUFFER_AGE: usize> MinimalSoftwareWindow<MAX_BUFFER_AGE> {
     /// Instantiate a new MinimalWindowAdaptor
     pub fn new() -> Rc<Self> {
         Rc::new_cyclic(|w: &Weak<Self>| Self {
@@ -1317,7 +1323,7 @@ impl<const BUFFER_COUNT: usize> MinimalSoftwareWindow<BUFFER_COUNT> {
     /// Return true if something was redrawn.
     pub fn draw_if_needed(
         &self,
-        render_callback: impl FnOnce(&SoftwareRenderer<BUFFER_COUNT>),
+        render_callback: impl FnOnce(&SoftwareRenderer<MAX_BUFFER_AGE>),
     ) -> bool {
         if self.needs_redraw.replace(false) {
             render_callback(&self.renderer);
@@ -1328,8 +1334,8 @@ impl<const BUFFER_COUNT: usize> MinimalSoftwareWindow<BUFFER_COUNT> {
     }
 }
 
-impl<const BUFFER_COUNT: usize> crate::window::WindowAdapterSealed
-    for MinimalSoftwareWindow<BUFFER_COUNT>
+impl<const MAX_BUFFER_AGE: usize> crate::window::WindowAdapterSealed
+    for MinimalSoftwareWindow<MAX_BUFFER_AGE>
 {
     fn request_redraw(&self) {
         self.needs_redraw.set(true);
@@ -1339,13 +1345,13 @@ impl<const BUFFER_COUNT: usize> crate::window::WindowAdapterSealed
     }
 }
 
-impl<const BUFFER_COUNT: usize> WindowAdapter for MinimalSoftwareWindow<BUFFER_COUNT> {
+impl<const MAX_BUFFER_AGE: usize> WindowAdapter for MinimalSoftwareWindow<MAX_BUFFER_AGE> {
     fn window(&self) -> &Window {
         &self.window
     }
 }
 
-impl<const BUFFER_COUNT: usize> core::ops::Deref for MinimalSoftwareWindow<BUFFER_COUNT> {
+impl<const MAX_BUFFER_AGE: usize> core::ops::Deref for MinimalSoftwareWindow<MAX_BUFFER_AGE> {
     type Target = Window;
     fn deref(&self) -> &Self::Target {
         &self.window
