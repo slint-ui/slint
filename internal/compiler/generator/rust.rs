@@ -1118,7 +1118,7 @@ fn generate_item_tree(
             ),
             Some(quote! {
                 _self.window_adapter.set(window_adapter);
-                _self.window_adapter.get().unwrap().window().window_handle().set_component(&VRc::into_dyn(self_rc.clone()));
+                slint::private_unstable_api::re_exports::WindowInner::from_pub(_self.window_adapter.get().unwrap().window()).set_component(&VRc::into_dyn(self_rc.clone()));
             }),
         )
     } else {
@@ -1231,12 +1231,6 @@ fn generate_item_tree(
                 use slint::private_unstable_api::re_exports::*;
                 new_vref!(let vref : VRef<ComponentVTable> for Component = self.as_ref().get_ref());
                 slint::private_unstable_api::re_exports::unregister_component(self.as_ref(), vref, Self::item_array(), self.window_adapter.get().unwrap());
-            }
-        }
-
-        impl slint::private_unstable_api::re_exports::WindowHandleAccess for #inner_component_id {
-            fn window_handle(&self) -> &slint::private_unstable_api::re_exports::WindowInner {
-                self.window_adapter.get().unwrap().window().window_handle()
             }
         }
 
@@ -2000,7 +1994,7 @@ fn compile_builtin_function_call(
                 let window_tokens = access_window_adapter_field(ctx);
                 let focus_item = access_item_rc(pr, ctx);
                 quote!(
-                    #window_tokens.window().window_handle().set_focus_item(#focus_item);
+                    slint::private_unstable_api::re_exports::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item);
                 )
             } else {
                 panic!("internal error: invalid args to SetFocusItem {:?}", arguments)
@@ -2028,7 +2022,7 @@ fn compile_builtin_function_call(
                 let y = compile_expression(y, ctx);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
                 quote!(
-                    #window_adapter_tokens.window().window_handle().show_popup(
+                    slint::private_unstable_api::re_exports::WindowInner::from_pub(#window_adapter_tokens.window()).show_popup(
                         &VRc::into_dyn(#popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).into()),
                         Point::new(#x as slint::private_unstable_api::re_exports::Coord, #y as slint::private_unstable_api::re_exports::Coord),
                         #parent_component
@@ -2079,7 +2073,7 @@ fn compile_builtin_function_call(
         }
         BuiltinFunction::GetWindowScaleFactor => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
-            quote!(#window_adapter_tokens.window().window_handle().scale_factor())
+            quote!(slint::private_unstable_api::re_exports::WindowInner::from_pub(#window_adapter_tokens.window()).scale_factor())
         }
         BuiltinFunction::AnimationTick => {
             quote!(slint::private_unstable_api::re_exports::animation_tick())

@@ -21,7 +21,7 @@ use crate::lengths::{
 };
 use crate::renderer::Renderer;
 use crate::textlayout::{FontMetrics as _, TextParagraphLayout};
-use crate::window::{WindowAdapter, WindowHandleAccess, WindowInner};
+use crate::window::{WindowAdapter, WindowInner};
 use crate::{Color, Coord, ImageInner, StaticTextures};
 use alloc::rc::{Rc, Weak};
 use alloc::{vec, vec::Vec};
@@ -133,10 +133,10 @@ impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
     /// returns the dirty region for this frame (not including the extra_draw_region)
     pub fn render(&self, buffer: &mut [impl TargetPixel], buffer_stride: usize) {
         let window = self.window.upgrade().expect("render() called on a destroyed Window");
-        let window = window.window().window_handle();
-        let factor = ScaleFactor::new(window.scale_factor());
+        let window_inner = WindowInner::from_pub(window.window());
+        let factor = ScaleFactor::new(window_inner.scale_factor());
         let (size, background) = if let Some(window_item) =
-            window.window_item().as_ref().map(|item| item.as_pin_ref())
+            window_inner.window_item().as_ref().map(|item| item.as_pin_ref())
         {
             (
                 (euclid::size2(window_item.width() as f32, window_item.height() as f32) * factor)
@@ -152,7 +152,7 @@ impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
         let buffer_renderer = SceneBuilder::new(
             size,
             factor,
-            window,
+            window_inner,
             RenderToBuffer { buffer, stride: buffer_stride },
         );
         let mut renderer = crate::item_rendering::PartialRenderer::new(
@@ -161,7 +161,7 @@ impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
             buffer_renderer,
         );
 
-        window.draw_contents(|components| {
+        window_inner.draw_contents(|components| {
             for (component, origin) in components {
                 renderer.compute_dirty_regions(component, *origin);
             }
@@ -218,17 +218,17 @@ impl<const BUFFER_COUNT: usize> SoftwareRenderer<BUFFER_COUNT> {
     /// ```
     pub fn render_by_line(&self, line_buffer: impl LineBufferProvider) {
         let window = self.window.upgrade().expect("render() called on a destroyed Window");
-        let window = window.window().window_handle();
-        let component_rc = window.component();
+        let window_inner = WindowInner::from_pub(window.window());
+        let component_rc = window_inner.component();
         let component = crate::component::ComponentRc::borrow_pin(&component_rc);
         if let Some(window_item) = crate::items::ItemRef::downcast_pin::<crate::items::WindowItem>(
             component.as_ref().get_item_ref(0),
         ) {
-            let factor = ScaleFactor::new(window.scale_factor());
+            let factor = ScaleFactor::new(window_inner.scale_factor());
             let size =
                 euclid::size2(window_item.width() as f32, window_item.height() as f32) * factor;
             render_window_frame_by_line(
-                window,
+                window_inner,
                 window_item.background(),
                 size.cast(),
                 &self,

@@ -31,7 +31,7 @@ use i_slint_core::items::{Item, ItemConsts, ItemRc, ItemVTable, RenderingResult,
 use i_slint_core::layout::{LayoutInfo, Orientation};
 #[cfg(feature = "rtti")]
 use i_slint_core::rtti::*;
-use i_slint_core::window::{WindowAdapter, WindowAdapterRc, WindowHandleAccess};
+use i_slint_core::window::{WindowAdapter, WindowAdapterRc, WindowInner};
 use i_slint_core::{
     declare_item_vtable, Callback, ItemVTable_static, Property, SharedString, SharedVector,
 };
@@ -59,7 +59,7 @@ macro_rules! fn_render {
             let $dpr: f32 = backend.scale_factor();
 
             let window = backend.window();
-            let active: bool = window.window_handle().active();
+            let active: bool = WindowInner::from_pub(window).active();
             // This should include self.enabled() as well, but not every native widget
             // has that property right now.
             let $initial_state = cpp!(unsafe [ active as "bool" ] -> i32 as "int" {

@@ -21,7 +21,7 @@ use std::cell::RefCell;
 use std::rc::{Rc, Weak};
 
 use i_slint_core::input::{KeyEvent, KeyEventType, KeyboardModifiers};
-use i_slint_core::window::{WindowAdapter, WindowHandleAccess};
+use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::SharedString;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::convert::FromWasmAbi;
@@ -96,10 +96,10 @@ impl WasmInputHelper {
         h.add_event_listener("blur", move |_: web_sys::Event| {
             // Make sure that the window gets marked as unfocused when the focus leaves the input
             if let Some(window_adapter) = win.upgrade() {
-                let window = window_adapter.window().window_handle();
+                let window_inner = WindowInner::from_pub(window_adapter.window());
                 if !canvas.matches(":focus").unwrap_or(false) {
-                    window.set_active(false);
-                    window.set_focus(false);
+                    window_inner.set_active(false);
+                    window_inner.set_focus(false);
                 }
             }
         });
@@ -109,7 +109,7 @@ impl WasmInputHelper {
             if let (Some(window_adapter), Some(text)) = (win.upgrade(), event_text(&e)) {
                 e.prevent_default();
                 shared_state2.borrow_mut().has_key_down = true;
-                window_adapter.window().window_handle().process_key_input(&KeyEvent {
+                WindowInner::from_pub(window_adapter.window()).process_key_input(&KeyEvent {
                     modifiers: modifiers(&e),
                     text,
                     event_type: KeyEventType::KeyPressed,
@@ -123,7 +123,7 @@ impl WasmInputHelper {
             if let (Some(window_adapter), Some(text)) = (win.upgrade(), event_text(&e)) {
                 e.prevent_default();
                 shared_state2.borrow_mut().has_key_down = false;
-                window_adapter.window().window_handle().process_key_input(&KeyEvent {
+                WindowInner::from_pub(window_adapter.window()).process_key_input(&KeyEvent {
                     modifiers: modifiers(&e),
                     text,
                     event_type: KeyEventType::KeyReleased,
@@ -138,14 +138,14 @@ impl WasmInputHelper {
             if let (Some(window_adapter), Some(data)) = (win.upgrade(), e.data()) {
                 if !e.is_composing() && e.input_type() != "insertCompositionText" {
                     if !shared_state2.borrow_mut().has_key_down {
-                        let window = window_adapter.window().window_handle();
+                        let window_inner = WindowInner::from_pub(window_adapter.window());
                         let text = SharedString::from(data.as_str());
-                        window.process_key_input(&KeyEvent {
+                        window_inner.process_key_input(&KeyEvent {
                             modifiers: Default::default(),
                             text: text.clone(),
                             event_type: KeyEventType::KeyPressed,
                         });
-                        window.process_key_input(&KeyEvent {
+                        window_inner.process_key_input(&KeyEvent {
                             modifiers: Default::default(),
                             text,
                             event_type: KeyEventType::KeyReleased,
@@ -163,7 +163,7 @@ impl WasmInputHelper {
             let input = h.input.clone();
             h.add_event_listener(event, move |e: web_sys::CompositionEvent| {
                 if let (Some(window_adapter), Some(data)) = (win.upgrade(), e.data()) {
-                    let window = window_adapter.window().window_handle();
+                    let window_inner = WindowInner::from_pub(window_adapter.window());
                     let is_end = event == "compositionend";
                     let (text, to_delete) =
                         shared_state2.borrow_mut().text_from_compose(data, is_end);
@@ -174,19 +174,19 @@ impl WasmInputHelper {
                                 as &str,
                         );
                         for _ in 0..to_delete {
-                            window.process_key_input(&KeyEvent {
+                            window_inner.process_key_input(&KeyEvent {
                                 modifiers: Default::default(),
                                 text: backspace.clone(),
                                 event_type: KeyEventType::KeyPressed,
                             });
                         }
                     }
-                    window.process_key_input(&KeyEvent {
+                    window_inner.process_key_input(&KeyEvent {
                         modifiers: Default::default(),
                         text: text.clone(),
                         event_type: KeyEventType::KeyPressed,
                     });
-                    window.process_key_input(&KeyEvent {
+                    window_inner.process_key_input(&KeyEvent {
                         modifiers: Default::default(),
                         text,
                         event_type: KeyEventType::KeyReleased,

@@ -28,7 +28,7 @@ use i_slint_core::model::Repeater;
 use i_slint_core::properties::InterpolatedPropertyValue;
 use i_slint_core::rtti::{self, AnimatedBindingKind, FieldOffset, PropertyInfo};
 use i_slint_core::slice::Slice;
-use i_slint_core::window::{WindowAdapter, WindowHandleAccess};
+use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::{Brush, Color, Property, SharedString, SharedVector};
 use std::collections::BTreeMap;
 use std::collections::HashMap;
@@ -405,11 +405,7 @@ impl<'id> ComponentDescription<'id> {
         window_adapter: &Rc<dyn WindowAdapter>,
     ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
         let component_ref = instantiate(self, None, Some(window_adapter), Default::default());
-        component_ref
-            .as_pin_ref()
-            .window_adapter()
-            .window()
-            .window_handle()
+        WindowInner::from_pub(component_ref.as_pin_ref().window_adapter().window())
             .set_component(&vtable::VRc::into_dyn(component_ref.clone()));
         component_ref.run_setup_code();
         component_ref
@@ -1465,12 +1461,6 @@ impl<'id> From<ComponentBox<'id>> for ErasedComponentBox {
     }
 }
 
-impl i_slint_core::window::WindowHandleAccess for ErasedComponentBox {
-    fn window_handle(&self) -> &i_slint_core::window::WindowInner {
-        self.window_adapter().window().window_handle()
-    }
-}
-
 pub fn get_repeater_by_name<'a, 'id>(
     instance_ref: InstanceRef<'a, '_>,
     name: &str,
@@ -1737,7 +1727,7 @@ pub fn show_popup(
     let inst =
         instantiate(compiled, Some(parent_comp), Some(parent_window_adapter), Default::default());
     inst.run_setup_code();
-    parent_window_adapter.window().window_handle().show_popup(
+    WindowInner::from_pub(parent_window_adapter.window()).show_popup(
         &vtable::VRc::into_dyn(inst),
         pos,
         parent_item,

@@ -12,7 +12,7 @@ use i_slint_core::graphics::{
     euclid, rendering_metrics_collector::RenderingMetricsCollector, Point, Rect, Size,
 };
 use i_slint_core::renderer::Renderer;
-use i_slint_core::window::{WindowAdapter, WindowHandleAccess};
+use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::Coord;
 
 use crate::WindowSystemName;
@@ -135,7 +135,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
 
         canvas.opengl_context.make_current();
 
-        let window = window_adapter.window().window_handle();
+        let window = WindowInner::from_pub(window_adapter.window());
 
         window.draw_contents(|components| {
             {
@@ -228,7 +228,7 @@ impl Renderer for FemtoVGRenderer {
             None => return 0,
         };
 
-        let window = window_adapter.window().window_handle();
+        let window = WindowInner::from_pub(window_adapter.window());
 
         let scale_factor = window.scale_factor();
         let pos = pos * scale_factor;
@@ -307,7 +307,7 @@ impl Renderer for FemtoVGRenderer {
             None => return Default::default(),
         };
 
-        let window = window_adapter.window().window_handle();
+        let window = WindowInner::from_pub(window_adapter.window());
 
         let text = text_input.text();
         let scale_factor = window.scale_factor();

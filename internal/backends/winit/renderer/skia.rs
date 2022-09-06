@@ -9,7 +9,7 @@ use i_slint_core::api::{
 };
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use i_slint_core::item_rendering::ItemCache;
-use i_slint_core::window::{WindowAdapter, WindowHandleAccess};
+use i_slint_core::window::{WindowAdapter, WindowInner};
 
 use crate::WindowSystemName;
 
@@ -80,11 +80,11 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
     }
 
     fn render(&self, canvas: &Self::Canvas, window_adapter: &dyn WindowAdapter) {
-        let window = window_adapter.window().window_handle();
+        let window_inner = WindowInner::from_pub(window_adapter.window());
 
         canvas.surface.render(|skia_canvas, gr_context| {
-            window.draw_contents(|components| {
-                if let Some(window_item) = window.window_item() {
+            window_inner.draw_contents(|components| {
+                if let Some(window_item) = window_inner.window_item() {
                     skia_canvas
                         .clear(itemrenderer::to_skia_color(&window_item.as_pin_ref().background()));
                 }

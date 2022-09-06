@@ -14,7 +14,7 @@ use i_slint_core::items::{
     self, Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, Layer, Opacity,
     RenderingResult,
 };
-use i_slint_core::window::WindowHandleAccess;
+use i_slint_core::window::WindowInner;
 use i_slint_core::{Brush, Color, ImageInner, Property, SharedString};
 
 use super::fonts;
@@ -245,7 +245,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         let string = string.as_str();
         let font = fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text.font_request(self.window.window_handle()),
+                text.font_request(WindowInner::from_pub(&self.window)),
                 self.scale_factor,
                 &text.text(),
             )
@@ -283,7 +283,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         let font = fonts::FONT_CACHE.with(|cache| {
             cache.borrow_mut().font(
-                text_input.font_request(&self.window.window_handle().window_adapter()),
+                text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter()),
                 self.scale_factor,
                 &text_input.text(),
             )

@@ -16,7 +16,7 @@ use corelib::component::ComponentRc;
 use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};
 use corelib::layout::Orientation;
-use corelib::window::{WindowAdapter, WindowAdapterSealed, WindowHandleAccess};
+use corelib::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
 use corelib::Property;
 use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
@@ -106,7 +106,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
             GraphicsWindowBackendState::Mapped(_) => return,
         };
 
-        let runtime_window = self.window().window_handle();
+        let runtime_window = WindowInner::from_pub(self.window());
         let component_rc = runtime_window.component();
         let component = ComponentRc::borrow_pin(&component_rc);
 
@@ -196,7 +196,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
         let canvas = self.renderer.create_canvas(window_builder);
 
         let id = canvas.with_window_handle(|winit_window| {
-            self.window.window_handle().set_scale_factor(
+            WindowInner::from_pub(&self.window).set_scale_factor(
                 scale_factor_override.unwrap_or_else(|| winit_window.scale_factor()) as _,
             );
             // On wasm, with_inner_size on the WindowBuilder don't have effect, so apply manually

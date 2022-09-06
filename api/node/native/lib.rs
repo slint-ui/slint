@@ -4,7 +4,7 @@
 use core::cell::RefCell;
 use i_slint_compiler::langtype::Type;
 use i_slint_core::model::{Model, ModelRc};
-use i_slint_core::window::WindowHandleAccess;
+use i_slint_core::window::WindowInner;
 use i_slint_core::{ImageInner, SharedVector};
 use neon::prelude::*;
 use rand::RngCore;
@@ -352,7 +352,7 @@ declare_types! {
             let this = cx.this();
             let component = cx.borrow(&this, |x| x.0.as_ref().map(|c| c.clone_strong()));
             let component = component.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            let window_adapter = component.window().window_handle().window_adapter();
+            let window_adapter = WindowInner::from_pub(component.window()).window_adapter();
             let mut obj = SlintWindow::new::<_, JsValue, _>(&mut cx, std::iter::empty())?;
             cx.borrow_mut(&mut obj, |mut obj| obj.0 = Some(window_adapter));
             Ok(obj.as_value(&mut cx))
