@@ -122,7 +122,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
             ("Slint Window".to_string(), false, true)
         };
 
-        let window_builder = winit::window::WindowBuilder::new()
+        let mut window_builder = winit::window::WindowBuilder::new()
             .with_title(window_title)
             .with_resizable(is_resizable);
 
@@ -138,35 +138,49 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
                 .filter(|f| *f > 0.)
         };
 
-        let window_builder = if std::env::var("SLINT_FULLSCREEN").is_ok() {
-            window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
-        } else {
-            let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
-            let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
-            let s = LogicalSize::new(
-                layout_info_h.preferred_bounded(),
-                layout_info_v.preferred_bounded(),
-            );
-
-            if let Some(requested_size) = requested_size {
-                // It would be nice to bound this with our constraints, but those are in logical coordinates
-                // and we don't know the scale factor yet...
-                window_builder.with_inner_size(winit::dpi::Size::new(
-                    winit::dpi::PhysicalSize::new(requested_size.width, requested_size.height),
-                ))
-            } else if s.width > 0 as Coord && s.height > 0 as Coord {
-                // Make sure that the window's inner size is in sync with the root window item's
-                // width/height.
-                runtime_window.set_window_item_geometry(s.width, s.height);
-                if let Some(f) = scale_factor_override {
-                    window_builder.with_inner_size(s.to_physical::<f32>(f))
-                } else {
-                    window_builder.with_inner_size(s)
-                }
+        let into_size = |s: winit::dpi::LogicalSize<f32>| -> winit::dpi::Size {
+            if let Some(f) = scale_factor_override {
+                s.to_physical::<f32>(f).into()
             } else {
-                window_builder
+                s.into()
             }
         };
+
+        let layout_info_h = component.as_ref().layout_info(Orientation::Horizontal);
+        let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
+        let s =
+            LogicalSize::new(layout_info_h.preferred_bounded(), layout_info_v.preferred_bounded());
+
+        let window_builder =
+            if std::env::var("SLINT_FULLSCREEN").is_ok() {
+                window_builder.with_fullscreen(Some(winit::window::Fullscreen::Borderless(None)))
+            } else {
+                if layout_info_h.min >= 1. || layout_info_v.min >= 1. {
+                    window_builder = window_builder.with_min_inner_size(into_size(
+                        LogicalSize::new(layout_info_h.min, layout_info_v.min),
+                    ))
+                }
+                if layout_info_h.max < f32::MAX || layout_info_v.max < f32::MAX {
+                    window_builder = window_builder.with_max_inner_size(into_size(
+                        LogicalSize::new(layout_info_h.max, layout_info_v.max),
+                    ))
+                }
+
+                if let Some(requested_size) = requested_size {
+                    // It would be nice to bound this with our constraints, but those are in logical coordinates
+                    // and we don't know the scale factor yet...
+                    window_builder.with_inner_size(winit::dpi::Size::new(
+                        winit::dpi::PhysicalSize::new(requested_size.width, requested_size.height),
+                    ))
+                } else if s.width > 0 as Coord && s.height > 0 as Coord {
+                    // Make sure that the window's inner size is in sync with the root window item's
+                    // width/height.
+                    runtime_window.set_window_item_geometry(s.width, s.height);
+                    window_builder.with_inner_size(into_size(s))
+                } else {
+                    window_builder
+                }
+            };
 
         let window_builder =
             if no_frame { window_builder.with_decorations(false) } else { window_builder };
@@ -185,6 +199,11 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
             self.window.window_handle().set_scale_factor(
                 scale_factor_override.unwrap_or_else(|| winit_window.scale_factor()) as _,
             );
+            // On wasm, with_inner_size on the WindowBuilder don't have effect, so apply manually
+            #[cfg(target_arch = "wasm32")]
+            if (s.width > 0 as Coord && s.height > 0 as Coord) {
+                winit_window.set_inner_size(s);
+            }
             winit_window.id()
         });
 
