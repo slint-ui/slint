@@ -1,4 +1,4 @@
-# Slint on Microcontrolers (MCU)
+# Slint on micro-controllers (MCU)
 
 This document explain how to use slint to develop a UI on a MCU.
 
@@ -8,10 +8,10 @@ Each MCU or board needs the proper toolchain for cross compilation,
 has its own hal crate (Hardware Abstraction Layer) and drivers, and other tools to flash and debug the device.
 
 This is out of scope for this document. You can check the [Rust Embedded Book](https://docs.rust-embedded.org/book/)
-or other ressources specific to your device that will guide you to get a "hello world" working on your device.
+or other resources specific to your device that will guide you to get a "hello world" working on your device.
 
 You will need nightly Rust, since stable Rust unfortunately doesn't provide a way to use a global allocator in a `#![no_std]` project.
-(untill [#51540](https://github.com/rust-lang/rust/issues/51540) or [#66741](https://github.com/rust-lang/rust/issues/66741) is stabilized)
+(until [#51540](https://github.com/rust-lang/rust/issues/51540) or [#66741](https://github.com/rust-lang/rust/issues/66741) is stabilized)
 
 ## Set the feature flags
 
@@ -35,9 +35,9 @@ And the additional feature you need is `renderer-software` to enable the softwar
 
 ## `build.rs`
 
-When targetting MCU, you will need a build script with to compile the `.slint` files using the `slint-build` crate.
-You will have to use the `slint_build::EmbedResourcesKind::EmbedForSoftwareRenderer` config option to tell
-the slint compiler to embedd the images and font in the binary in the proper format.
+When targeting MCU, you will need a build script to compile the `.slint` files using the `slint-build` crate.
+You will have to use the `slint_build::EmbedResourcesKind::EmbedForSoftwareRenderer` configuration option to tell
+the slint compiler to embed the images and font in the binary in the proper format.
 
 ```rust,no_run
 fn main() {
@@ -53,15 +53,15 @@ fn main() {
 
 The idea is to call `[slint::platform::set_platform]` before constructing your Slint application.
 
-The [`Platform`] trait has two main responsabilities:
+The [`Platform`] trait has two main responsibilities:
  1. Give a window that will be used when creating your component with `new()`
  2. Be a source of time. Since on bare metal, we don't have [`std::time::Instant`] as a
     source of time, so you need to provide the time from some time source that will likely
-    be provided from the hal crate of your decive.
+    be provided from the hal crate of your device.
 
 Optionally, you can also use the Platform trait to run the event loop.
 
-A typical platfrom looks like this:
+A typical platform looks like this:
 
 ```rust,no_run
 #![no_std]
@@ -128,14 +128,14 @@ You've got two choices:
  1. Implement [`slint::platform::Platform::run_event_loop`]. In this case, you can start
     the event loop in a similar way than on desktop platform using the [`run()`](slint::ComponentHandle::run) function
     of your component, or use [`slint::run_event_loop()`].
- 2. Use a `loop { ... }` dirrectly in your main function.
+ 2. Use a `loop { ... }` directly in your main function.
 
- The second option might be more convinient on MCUs because you can initialize all the devices in your main function
+ The second option might be more convenient on MCUs because you can initialize all the devices in your main function
  and you can access them in there without moving them in your Platform implementation.
  In our examples, we use the first option so we can use a different Platform with the same code to
  run on different devices.
 
-A typical eventloop looks like this:
+A typical event-loop looks like this:
 
 ```rust,no_run
 use slint::platform::{software_renderer::MinimalSoftwareWindow};
@@ -175,7 +175,7 @@ loop {
 
 ## The renderer
 
-On MCU, we currently only support software rendering. In the previous example, we've instentiated a
+On MCU, we currently only support software rendering. In the previous example, we've instantiated a
 [`slint::platform::software_renderer::MinimalSoftwareWindow`]. This will give us an instance of the
 [`slint::platform::software_renderer::SoftwareRenderer`] through the
 [`draw_if_needed()`](MinimalSoftwareWindow::draw_if_needed) function.
@@ -317,7 +317,7 @@ loop {
 ```
 
 There might be faster way to do that than using the synchronous DrawTarget::fill_contiguous
-funciton to do that.
+function to do that.
 For example, some device might be able to send the line to the display asynchronously using
 DMA. In that case, we'd have two line buffer. One working line, and one which is being send
 to the screen, in parallel.
