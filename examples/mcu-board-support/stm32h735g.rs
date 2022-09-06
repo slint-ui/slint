@@ -13,7 +13,7 @@ use hal::gpio::Speed::High;
 use hal::pac;
 use hal::prelude::*;
 use hal::rcc::rec::OctospiClkSelGetter;
-use slint::platform::swrenderer;
+use slint::platform::software_renderer;
 use stm32h7xx_hal as hal; // global logger
 
 #[cfg(feature = "panic-probe")]
@@ -32,7 +32,7 @@ const DISPLAY_WIDTH: usize = 480;
 const DISPLAY_HEIGHT: usize = 272;
 
 /// The Pixel type of the backing store
-pub type TargetPixel = swrenderer::Rgb565Pixel;
+pub type TargetPixel = software_renderer::Rgb565Pixel;
 
 #[global_allocator]
 static ALLOCATOR: CortexMHeap = CortexMHeap::empty();
@@ -45,12 +45,14 @@ pub fn init() {
 
 #[derive(Default)]
 struct StmBackend {
-    window: core::cell::RefCell<Option<Rc<slint::platform::swrenderer::MinimalSoftwareWindow<2>>>>,
+    window: core::cell::RefCell<
+        Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow<2>>>,
+    >,
     timer: once_cell::unsync::OnceCell<hal::timer::Timer<pac::TIM2>>,
 }
 impl slint::platform::Platform for StmBackend {
     fn create_window_adapter(&self) -> Rc<dyn slint::platform::WindowAdapter> {
-        let window = slint::platform::swrenderer::MinimalSoftwareWindow::new();
+        let window = slint::platform::software_renderer::MinimalSoftwareWindow::new();
         self.window.replace(Some(window.clone()));
         window
     }
@@ -206,10 +208,10 @@ impl slint::platform::Platform for StmBackend {
 
         #[link_section = ".frame_buffer"]
         static mut FB1: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
-            [swrenderer::Rgb565Pixel(0); DISPLAY_WIDTH * DISPLAY_HEIGHT];
+            [software_renderer::Rgb565Pixel(0); DISPLAY_WIDTH * DISPLAY_HEIGHT];
         #[link_section = ".frame_buffer"]
         static mut FB2: [TargetPixel; DISPLAY_WIDTH * DISPLAY_HEIGHT] =
-            [swrenderer::Rgb565Pixel(0); DISPLAY_WIDTH * DISPLAY_HEIGHT];
+            [software_renderer::Rgb565Pixel(0); DISPLAY_WIDTH * DISPLAY_HEIGHT];
         // SAFETY the init function is only called once (as enforced by Peripherals::take)
         let (fb1, fb2) = unsafe { (&mut FB1, &mut FB2) };
 

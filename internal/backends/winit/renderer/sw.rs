@@ -1,11 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-//! Delegate the rendering to the [`i_slint_core::swrenderer::SoftwareRenderer`]
+//! Delegate the rendering to the [`i_slint_core::software_renderer::SoftwareRenderer`]
 
 use super::WinitCompatibleCanvas;
 use i_slint_core::graphics::Rgb8Pixel;
-pub use i_slint_core::swrenderer::SoftwareRenderer;
+pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::window::WindowAdapter;
 use std::cell::RefCell;
 use std::rc::Weak;
@@ -45,10 +45,10 @@ impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRende
         } else {
             struct FrameBuffer<'a> {
                 buffer: &'a mut [Rgb8Pixel],
-                line: Vec<i_slint_core::swrenderer::Rgb565Pixel>,
+                line: Vec<i_slint_core::software_renderer::Rgb565Pixel>,
             }
-            impl<'a> i_slint_core::swrenderer::LineBufferProvider for FrameBuffer<'a> {
-                type TargetPixel = i_slint_core::swrenderer::Rgb565Pixel;
+            impl<'a> i_slint_core::software_renderer::LineBufferProvider for FrameBuffer<'a> {
+                type TargetPixel = i_slint_core::software_renderer::Rgb565Pixel;
                 fn process_line(
                     &mut self,
                     line: usize,

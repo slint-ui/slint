@@ -37,7 +37,7 @@ fn previous_focus_item(item: ItemRc) -> ItemRc {
 ///
 /// This trait is Sealed, meaning that you are not expected to implement this trait
 /// yourself, but you should use the provided window adapter. Currently only
-/// [`MinimalSoftwareWindow`](crate::swrenderer::MinimalSoftwareWindow) is available
+/// [`MinimalSoftwareWindow`](crate::software_renderer::MinimalSoftwareWindow) is available
 ///  for [`platform`](crate::platform) implementer
 pub trait WindowAdapter: WindowAdapterSealed {
     /// Returns the window API.

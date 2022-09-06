@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// cSpell: ignore swrenderer
-
 //! This module contains the [`SoftwareRenderer`] and related types.
 //!
 //! It is only available with the `renderer-software` feature.
@@ -201,7 +199,7 @@ impl<const MAX_BUFFER_AGE: usize> SoftwareRenderer<MAX_BUFFER_AGE> {
     /// then be more efficient)
     ///
     /// ```rust
-    /// # use i_slint_core::swrenderer::{LineBufferProvider, SoftwareRenderer, Rgb565Pixel};
+    /// # use i_slint_core::software_renderer::{LineBufferProvider, SoftwareRenderer, Rgb565Pixel};
     /// # fn xxx<'a>(the_frame_buffer: &'a mut [Rgb565Pixel], display_width: usize, renderer: &SoftwareRenderer<0>) {
     /// struct FrameBuffer<'a>{ frame_buffer: &'a mut [Rgb565Pixel], stride: usize }
     /// impl<'a> LineBufferProvider for FrameBuffer<'a> {
@@ -635,13 +633,13 @@ struct RoundedRectangle {
 fn prepare_scene<const MAX_BUFFER_AGE: usize>(
     window: &WindowInner,
     size: PhysicalSize,
-    swrenderer: &SoftwareRenderer<MAX_BUFFER_AGE>,
+    software_renderer: &SoftwareRenderer<MAX_BUFFER_AGE>,
 ) -> Scene {
     let factor = ScaleFactor::new(window.scale_factor());
     let prepare_scene = SceneBuilder::new(size, factor, window, PrepareScene::default());
     let mut renderer = crate::item_rendering::PartialRenderer::new(
-        &swrenderer.partial_cache,
-        swrenderer.force_dirty.take(),
+        &software_renderer.partial_cache,
+        software_renderer.force_dirty.take(),
         prepare_scene,
     );
 
@@ -655,7 +653,7 @@ fn prepare_scene<const MAX_BUFFER_AGE: usize>(
             * factor)
             .round_out()
             .cast();
-        dirty_region = swrenderer.apply_dirty_region(dirty_region, size);
+        dirty_region = software_renderer.apply_dirty_region(dirty_region, size);
 
         renderer.combine_clip((dirty_region.cast() / factor).to_untyped().cast(), 0 as _, 0 as _);
         for (component, origin) in components {
