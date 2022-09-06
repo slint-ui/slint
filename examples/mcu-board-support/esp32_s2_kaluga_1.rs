@@ -41,12 +41,12 @@ pub fn init() {
 
 #[derive(Default)]
 struct EspBackend {
-    window: RefCell<Option<Rc<slint::platform::swrenderer::MinimalSoftwareWindow<1>>>>,
+    window: RefCell<Option<Rc<slint::platform::software_renderer::MinimalSoftwareWindow<1>>>>,
 }
 
 impl slint::platform::Platform for EspBackend {
     fn create_window_adapter(&self) -> Rc<dyn slint::platform::WindowAdapter> {
-        let window = slint::platform::swrenderer::MinimalSoftwareWindow::new();
+        let window = slint::platform::software_renderer::MinimalSoftwareWindow::new();
         self.window.replace(Some(window.clone()));
         window
     }
@@ -104,8 +104,10 @@ impl slint::platform::Platform for EspBackend {
 
         display.init(&mut delay).unwrap();
         display.set_orientation(st7789::Orientation::Landscape).unwrap();
-        let mut buffer_provider =
-            DrawBuffer { display, buffer: &mut [slint::platform::swrenderer::Rgb565Pixel(0); 320] };
+        let mut buffer_provider = DrawBuffer {
+            display,
+            buffer: &mut [slint::platform::software_renderer::Rgb565Pixel(0); 320],
+        };
 
         self.window.borrow().as_ref().unwrap().set_size(slint::PhysicalSize::new(320, 240));
 
@@ -127,20 +129,20 @@ impl slint::platform::Platform for EspBackend {
 
 struct DrawBuffer<'a, Display> {
     display: Display,
-    buffer: &'a mut [slint::platform::swrenderer::Rgb565Pixel],
+    buffer: &'a mut [slint::platform::software_renderer::Rgb565Pixel],
 }
 
 impl<DI: display_interface::WriteOnlyDataCommand, RST: OutputPin<Error = Infallible>>
-    slint::platform::swrenderer::LineBufferProvider
+    slint::platform::software_renderer::LineBufferProvider
     for &mut DrawBuffer<'_, st7789::ST7789<DI, RST>>
 {
-    type TargetPixel = slint::platform::swrenderer::Rgb565Pixel;
+    type TargetPixel = slint::platform::software_renderer::Rgb565Pixel;
 
     fn process_line(
         &mut self,
         line: usize,
         range: core::ops::Range<usize>,
-        render_fn: impl FnOnce(&mut [slint::platform::swrenderer::Rgb565Pixel]),
+        render_fn: impl FnOnce(&mut [slint::platform::software_renderer::Rgb565Pixel]),
     ) {
         let buffer = &mut self.buffer[range.clone()];
         render_fn(buffer);

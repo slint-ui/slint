@@ -22,7 +22,7 @@ use rp_pico::hal::gpio::{self, Interrupt as GpioInterrupt};
 use rp_pico::hal::pac::interrupt;
 use rp_pico::hal::timer::{Alarm, Alarm0};
 use rp_pico::hal::{self, pac, prelude::*, Timer};
-use slint::platform::swrenderer as renderer;
+use slint::platform::software_renderer as renderer;
 use slint::{PointerEventButton, WindowEvent};
 
 #[cfg(feature = "panic-probe")]
@@ -63,12 +63,12 @@ pub fn init() {
 
 #[derive(Default)]
 struct PicoBackend {
-    window: RefCell<Option<Rc<slint::platform::swrenderer::MinimalSoftwareWindow<1>>>>,
+    window: RefCell<Option<Rc<renderer::MinimalSoftwareWindow<1>>>>,
 }
 
 impl slint::platform::Platform for PicoBackend {
     fn create_window_adapter(&self) -> Rc<dyn slint::platform::WindowAdapter> {
-        let window = slint::platform::swrenderer::MinimalSoftwareWindow::new();
+        let window = renderer::MinimalSoftwareWindow::new();
         self.window.replace(Some(window.clone()));
         window
     }

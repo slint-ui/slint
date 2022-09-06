@@ -32,7 +32,7 @@ unsafe-single-threaded = []
 text_layout = []
 
 ## The sofwtare renderer
-swrenderer = ["integer-sqrt", "text_layout"]
+software-renderer = ["integer-sqrt", "text_layout"]
 
 unicode = ["unicode-script", "unicode-linebreak"]
 

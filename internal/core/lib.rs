@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// cSpell: ignore sharedvector swrenderer textlayout
+// cSpell: ignore sharedvector textlayout
 
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
@@ -35,9 +35,9 @@ pub mod properties;
 pub mod renderer;
 pub mod sharedvector;
 pub mod slice;
+#[cfg(feature = "software_renderer")]
+pub mod software_renderer;
 pub mod string;
-#[cfg(feature = "swrenderer")]
-pub mod swrenderer;
 pub mod tests;
 pub mod timers;
 pub mod window;

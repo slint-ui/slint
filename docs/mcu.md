@@ -68,7 +68,7 @@ A typical platfrom looks like this:
 extern crate alloc;
 use alloc::{rc::Rc, boxed::Box};
 # mod hal { pub struct Timer(); impl Timer { pub fn get_time(&self) -> u64 { todo!() } } }
-use slint::platform::{Platform, swrenderer::MinimalSoftwareWindow};
+use slint::platform::{Platform, software_renderer::MinimalSoftwareWindow};
 
 # slint::slint!{ export MyUI := Window {} } /*
 slint::include_modules!();
@@ -138,7 +138,7 @@ You've got two choices:
 A typical eventloop looks like this:
 
 ```rust,no_run
-use slint::platform::{swrenderer::MinimalSoftwareWindow};
+use slint::platform::{software_renderer::MinimalSoftwareWindow};
 let window = MinimalSoftwareWindow::<0>::new();
 # fn check_for_touch_event() -> Option<slint::WindowEvent> { todo!() }
 # mod hal { pub fn wfi() {} }
@@ -176,8 +176,8 @@ loop {
 ## The renderer
 
 On MCU, we currently only support software rendering. In the previous example, we've instentiated a
-[`slint::platform::swrenderer::MinimalSoftwareWindow`]. This will give us an instance of the
-[`slint::platform::swrenderer::SoftwareRenderer`] through the
+[`slint::platform::software_renderer::MinimalSoftwareWindow`]. This will give us an instance of the
+[`slint::platform::software_renderer::SoftwareRenderer`] through the
 [`draw_if_needed()`](MinimalSoftwareWindow::draw_if_needed) function.
 
 There are two ways to render, depending on the kind of screen and the amount of RAM.
@@ -189,21 +189,21 @@ line of pixel to the screen (typically via SPI). In that case, you would use the
 [`SoftwareRenderer::render_by_line()`] function.
 
 Either way, you would render to a buffer (a full, or just a line), which is a slice of pixel.
-So a slice of something that implement the [`slint::platform::swrenderer::TargetPixel`] trait.
-By default, this trait is implemented for [`slint::Rgb8Pixel`] and [`slint::platform::swrenderer::Rgb565Pixel`].
+So a slice of something that implement the [`slint::platform::software_renderer::TargetPixel`] trait.
+By default, this trait is implemented for [`slint::Rgb8Pixel`] and [`slint::platform::software_renderer::Rgb565Pixel`].
 
 ### Rendering in a buffer
 
 In this example, we'll use double buffering and swap between the buffer.
 
 ```rust,no_run
-use slint::platform::swrenderer::Rgb565Pixel;
+use slint::platform::software_renderer::Rgb565Pixel;
 # fn is_swap_pending()->bool {false} fn swap_buffers() {}
 
 // Note that we use `2` as the const generic parameter which is our buffer count,
 // since we have two buffer, we always need to refresh what changed in the two
 // previous frames
-let window = slint::platform::swrenderer::MinimalSoftwareWindow::<2>::new();
+let window = slint::platform::software_renderer::MinimalSoftwareWindow::<2>::new();
 
 const DISPLAY_WIDTH: usize = 320;
 const DISPLAY_HEIGHT: usize = 240;
@@ -268,12 +268,12 @@ use embedded_graphics_core::{prelude::*, primitives::Rectangle, pixelcolor::raw:
 
 struct DisplayWrapper<'a, T>{
     display: &'a mut T,
-    line_buffer: &'a mut [slint::platform::swrenderer::Rgb565Pixel],
+    line_buffer: &'a mut [slint::platform::software_renderer::Rgb565Pixel],
 };
 impl<T: DrawTarget<Color = embedded_graphics_core::pixelcolor::Rgb565>>
-    slint::platform::swrenderer::LineBufferProvider for DisplayWrapper<'_, T>
+    slint::platform::software_renderer::LineBufferProvider for DisplayWrapper<'_, T>
 {
-    type TargetPixel = slint::platform::swrenderer::Rgb565Pixel;
+    type TargetPixel = slint::platform::software_renderer::Rgb565Pixel;
     fn process_line(
         &mut self,
         line: usize,
@@ -294,10 +294,10 @@ impl<T: DrawTarget<Color = embedded_graphics_core::pixelcolor::Rgb565>>
 // Note that we use `1` as the const generic parameter which is our buffer count.
 // The buffer is not in our RAM, but actually within the display itself.
 // We just need to re-render what changed in the last frame.
-let window = slint::platform::swrenderer::MinimalSoftwareWindow::<1>::new();
+let window = slint::platform::software_renderer::MinimalSoftwareWindow::<1>::new();
 
 const DISPLAY_WIDTH: usize = 320;
-let mut line_buffer = [slint::platform::swrenderer::Rgb565Pixel(0); DISPLAY_WIDTH];
+let mut line_buffer = [slint::platform::software_renderer::Rgb565Pixel(0); DISPLAY_WIDTH];
 
 let mut display = hal::Display::new(/*...*/);
 

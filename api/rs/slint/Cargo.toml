@@ -95,12 +95,12 @@ renderer-skia = ["i-slint-backend-selector/renderer-skia", "std"]
 ## The Skia based rendering engine that will always use OpenGL.
 renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "std"]
 
-## This feature makes the `slint::platform::swrenderer` module available in the public API.
+## This feature makes the `slint::platform::software_renderer` module available in the public API.
 ## Use this to render with Slint for example on MCUs, when you provide you own `slint::platform::Platform`.
 ## Alternatively, enabling this feature alongside `eventloop-winit` enables selecting the software
 ## renderer at run-time when using winit, via the `SLINT_BACKEND=software` environment variable.
 renderer-software = [
-  "i-slint-core/swrenderer",
+  "i-slint-core/software-renderer",
   "i-slint-backend-selector/renderer-software",
 ]
 
