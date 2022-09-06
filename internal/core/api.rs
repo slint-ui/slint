@@ -660,7 +660,7 @@ pub use weak_handle::*;
 /// ```
 pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) -> Result<(), EventLoopError> {
     crate::platform::event_loop_proxy()
-        .ok_or(EventLoopError::Uninitialized)?
+        .ok_or(EventLoopError::NoEventLoopProvider)?
         .invoke_from_event_loop(alloc::boxed::Box::new(func))
 }
 
@@ -669,10 +669,12 @@ pub fn invoke_from_event_loop(func: impl FnOnce() + Send + 'static) -> Result<()
 /// it will return immediately and once control is passed back to the event loop,
 /// the initial call to `slint::run_event_loop()` will return.
 pub fn quit_event_loop() -> Result<(), EventLoopError> {
-    crate::platform::event_loop_proxy().ok_or(EventLoopError::Uninitialized)?.quit_event_loop()
+    crate::platform::event_loop_proxy()
+        .ok_or(EventLoopError::NoEventLoopProvider)?
+        .quit_event_loop()
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 #[non_exhaustive]
 /// Error returned from the [`invoke_from_event_loop()`] and [`quit_event_loop()`] function
 pub enum EventLoopError {
@@ -680,7 +682,7 @@ pub enum EventLoopError {
     EventLoopTerminated,
     /// The event could not be sent because the Slint platform abstraction was not yet initialized,
     /// or the platform does not support event loop.
-    Uninitialized,
+    NoEventLoopProvider,
 }
 
 #[test]
