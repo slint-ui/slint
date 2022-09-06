@@ -35,18 +35,15 @@ pub mod properties;
 pub mod renderer;
 pub mod sharedvector;
 pub mod slice;
-#[cfg(feature = "software_renderer")]
 pub mod software_renderer;
 pub mod string;
 pub mod tests;
+pub mod textlayout;
 pub mod timers;
 pub mod window;
 
 #[cfg(feature = "rtti")]
 pub mod rtti;
-
-#[cfg(feature = "text_layout")]
-pub mod textlayout;
 
 #[doc(inline)]
 pub use string::SharedString;
