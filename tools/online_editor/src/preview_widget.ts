@@ -47,7 +47,7 @@ export class PreviewWidget extends Widget {
     this.addClass("content");
     this.addClass("preview");
     this.title.label = "Preview";
-    this.title.caption = `Slint code preview`;
+    this.title.caption = `Slint Viewer`;
 
     this.#canvas_id = "canvas_" + Math.random().toString(36).slice(2, 11);
     this.canvasNode.id = this.#canvas_id;
