@@ -212,20 +212,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
             mapped_window.canvas.resize_event()
         }
     }
-
-    fn inner_size(&self) -> corelib::api::PhysicalSize {
-        match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped { requested_size, .. } => {
-                requested_size.unwrap_or_default()
-            }
-            GraphicsWindowBackendState::Mapped(mapped_window) => {
-                mapped_window.canvas.with_window_handle(|winit_window| {
-                    let size = winit_window.inner_size();
-                    corelib::api::PhysicalSize::new(size.width, size.height)
-                })
-            }
-        }
-    }
 }
 
 impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapter for GLWindow<Renderer> {
@@ -272,7 +258,60 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
             return;
         }
 
-        WinitWindow::apply_window_properties(self as &dyn WinitWindow, window_item);
+        let title = window_item.title();
+        let no_frame = window_item.no_frame();
+        let icon = window_item.icon();
+        let mut width = window_item.width() as f32;
+        let mut height = window_item.height() as f32;
+
+        self.set_icon(icon);
+
+        let mut must_resize = false;
+
+        self.with_window_handle(&mut |winit_window| {
+            winit_window.set_title(&title);
+            if no_frame && winit_window.fullscreen().is_none() {
+                winit_window.set_decorations(false);
+            } else {
+                winit_window.set_decorations(true);
+            }
+
+            if width <= 0. || height <= 0. {
+                must_resize = true;
+
+                let winit_size =
+                    winit_window.inner_size().to_logical(self.window().scale_factor() as f64);
+
+                if width <= 0. {
+                    width = winit_size.width;
+                }
+                if height <= 0. {
+                    height = winit_size.height;
+                }
+            }
+
+            let existing_size: winit::dpi::LogicalSize<f32> =
+                winit_window.inner_size().to_logical(self.window().scale_factor().into());
+
+            if (existing_size.width - width).abs() > 1.
+                || (existing_size.height - height).abs() > 1.
+            {
+                // If we're in fullscreen state, don't try to resize the window but maintain the surface
+                // size we've been assigned to from the windowing system. Weston/Wayland don't like it
+                // when we create a surface that's bigger than the screen due to constraints (#532).
+                if winit_window.fullscreen().is_none() {
+                    winit_window.set_inner_size(winit::dpi::LogicalSize::new(width, height));
+                }
+            }
+        });
+
+        if must_resize {
+            let win = self.window();
+
+            win.set_size(
+                i_slint_core::api::LogicalSize::new(width, height).to_physical(win.scale_factor()),
+            );
+        }
     }
 
     fn apply_geometry_constraint(
@@ -280,7 +319,58 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         constraints_horizontal: corelib::layout::LayoutInfo,
         constraints_vertical: corelib::layout::LayoutInfo,
     ) {
-        self.apply_constraints(constraints_horizontal, constraints_vertical)
+        self.with_window_handle(&mut |winit_window| {
+            // If we're in fullscreen state, don't try to resize the window but maintain the surface
+            // size we've been assigned to from the windowing system. Weston/Wayland don't like it
+            // when we create a surface that's bigger than the screen due to constraints (#532).
+            if winit_window.fullscreen().is_some() {
+                return;
+            }
+
+            if (constraints_horizontal, constraints_vertical) != self.constraints() {
+                let min_width = constraints_horizontal.min.min(constraints_horizontal.max) as f32;
+                let min_height = constraints_vertical.min.min(constraints_vertical.max) as f32;
+                let max_width = constraints_horizontal.max.max(constraints_horizontal.min) as f32;
+                let max_height = constraints_vertical.max.max(constraints_vertical.min) as f32;
+
+                let sf = self.window().scale_factor();
+
+                winit_window.set_resizable(true);
+                winit_window.set_min_inner_size(if min_width > 0. || min_height > 0. {
+                    Some(winit::dpi::PhysicalSize::new(min_width * sf, min_height * sf))
+                } else {
+                    None
+                });
+                winit_window.set_max_inner_size(
+                    if max_width < i32::MAX as f32 || max_height < i32::MAX as f32 {
+                        Some(winit::dpi::PhysicalSize::new(
+                            (max_width * sf).min(65535.),
+                            (max_height * sf).min(65535.),
+                        ))
+                    } else {
+                        None
+                    },
+                );
+                self.set_constraints((constraints_horizontal, constraints_vertical));
+                winit_window.set_resizable(min_width < max_width || min_height < max_height);
+
+                #[cfg(target_arch = "wasm32")]
+                {
+                    // set_max_inner_size / set_min_inner_size don't work on wasm, so apply the size manually
+                    let existing_size: winit::dpi::LogicalSize<f32> =
+                        winit_window.inner_size().to_logical(sf as f64);
+                    if !(min_width..=max_width).contains(&(existing_size.width))
+                        || !(min_height..=max_height).contains(&(existing_size.height))
+                    {
+                        let new_size = winit::dpi::LogicalSize::new(
+                            existing_size.width.min(max_width).max(min_width),
+                            existing_size.height.min(max_height).max(min_height),
+                        );
+                        winit_window.set_inner_size(new_size);
+                    }
+                }
+            }
+        });
     }
 
     fn show(&self) {
