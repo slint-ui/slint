@@ -2,71 +2,19 @@
 <html>
   <head>
     <meta charset="utf-8" />
+    <link rel="stylesheet" href="/styles/index.css" />
     <link
-      href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/css/bootstrap.min.css"
+      href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css"
       rel="stylesheet"
-      integrity="sha384-gH2yIJqKdNHPEq0n4Mqa/HGKIhSkIHeL5AyhkYV8i59U5AR6csBvApHHNl/vI1Bx"
+      integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN"
       crossorigin="anonymous"
     />
-    <title>Slint Online Editor</title>
-    <style>
-      canvas {
-        touch-action: none;
-      }
-    </style>
     <script type="module" src="./src/index.ts"></script>
   </head>
 
   <body>
-    <!-- cSpell: ignore printerdemo -->
-    <p>
-      This is a prototype for an online editor for the Slint language. More info
-      <a href="https://github.com/slint-ui/slint">github.com/slint-ui/slint</a>
-    </p>
-    <p>
-      Select a demo to load:
-      <select id="select_combo">
-        <option value="">-- Select a demo --</option>
-        <option value="examples/gallery/gallery.slint">Gallery</option>
-        <option value="examples/printerdemo/ui/printerdemo.slint">
-          Printer demo
-        </option>
-        <option value="examples/todo/ui/todo.slint">Todo demo</option>
-        <option value="examples/iot-dashboard/main.slint">IOT Dashboard</option>
-      </select>
-    </p>
-    <p>
-      <button type="button" id="compile_button">Compile!</button>
-      &nbsp; &nbsp;
-      <input type="checkbox" id="auto_compile" name="auto_compile" checked />
-      <label for="auto_compile">Automatically compile on change</label>
-      <!--
-        &nbsp; &nbsp; &nbsp; &nbsp;
-        <label for="style_combo">Style:</label>
-        <select id="style_combo">
-            <option value="fluent">fluent</option>
-        </select>
-        -->
-      &nbsp; &nbsp; &nbsp; &nbsp;
-      <a href="../docs/rust/slint/docs/langref/index.html"
-        >Slint Language Reference</a
-      >
-    </p>
-
-    <div id="preview" style="max-width: 48%; float: right">
-        <canvas id="rendering_canvas" width="800" height="600"></canvas>
-        <pre id="rendering_errors" style='color: red; background-color:#fee; margin:0'></pre>
+    <div class="loader">
+      <img class="loader-image" src="static/loader.svg" />
     </div>
-    <div id="editor_area" class="d-block" style="height: 600px; width: 48%">
-      <ul id="tabs" class="nav nav-tabs"></ul>
-      <div id="editor" class="h-100 border"></div>
-      <p><a id="permalink" href="#">permalink</a></p>
-    </div>
-
-    <script
-      src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0/dist/js/bootstrap.bundle.min.js"
-      integrity="sha384-A3rJD856KowSb7dwlZdYEkO39Gagi7vIsF0jrRAoQmDKKtQBHUuLZ9AsSv4jD4Xa"
-      crossorigin="anonymous"
-    ></script>
   </body>
 </html>

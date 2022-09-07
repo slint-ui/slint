@@ -1,445 +1,129 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// cSpell: ignore mimetypes
+// cSpell: ignore lumino permalink
 
-import { slint_language } from "./highlighting";
+import { CommandRegistry } from "@lumino/commands";
+import { DockPanel, Menu, MenuBar, SplitPanel, Widget } from "@lumino/widgets";
 
-import "monaco-editor/esm/vs/editor/editor.all.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/accessibilityHelp/accessibilityHelp.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/iPadShowKeyboard/iPadShowKeyboard.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/inspectTokens/inspectTokens.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneCommandsQuickAccess.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneGotoLineQuickAccess.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneGotoSymbolQuickAccess.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneHelpQuickAccess.js";
-import "monaco-editor/esm/vs/editor/standalone/browser/referenceSearch/standaloneReferenceSearch.js";
+import { EditorWidget } from "./editor_widget";
+import { PreviewWidget } from "./preview_widget";
+import { WelcomeWidget } from "./welcome_widget";
 
-import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
+const commands = new CommandRegistry();
 
-import {
-  MonacoLanguageClient,
-  CloseAction,
-  ErrorAction,
-  MonacoServices,
-  MessageTransports,
-  Message,
-  RequestMessage,
-  ResponseMessage,
-} from "monaco-languageclient";
-import {
-  BrowserMessageReader,
-  BrowserMessageWriter,
-} from "vscode-languageserver-protocol/browser";
+function create_build_menu(): Menu {
+  const menu = new Menu({ commands });
+  menu.title.label = "Build";
 
-import { FilterProxyReader } from "./proxy";
+  menu.addItem({ command: "slint:compile" });
+  menu.addItem({ command: "slint:auto_compile" });
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-(self as any).MonacoEnvironment = {
-  getWorker(_: unknown, _label: unknown) {
-    return new Worker(new URL("worker/monaco_worker.mjs", import.meta.url), {
-      type: "module",
+  return menu;
+}
+
+function create_demo_menu(editor: EditorWidget): Menu {
+  const menu = new Menu({ commands });
+  menu.title.label = "Demos";
+
+  for (const demo of editor.known_demos()) {
+    const command_name = "slint:set_demo_" + demo[1];
+    commands.addCommand(command_name, {
+      label: demo[1],
+      execute: () => {
+        editor.set_demo(demo[0]);
+      },
     });
-  },
-};
-
-import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
-
-(async function () {
-  await slint_init();
-
-  monaco.languages.register({
-    id: "slint",
-    extensions: [".slint"],
-    aliases: ["Slint", "slint"],
-    mimetypes: ["application/slint"],
-  });
-  monaco.languages.onLanguage("slint", () => {
-    monaco.languages.setMonarchTokensProvider("slint", slint_language);
-  });
-  const editor_element = document.getElementById("editor");
-  if (editor_element == null) {
-    console.error("No editor id found!");
-    return;
+    menu.addItem({ command: command_name });
   }
-  const editor = monaco.editor.create(editor_element, {
-    cursorBlinking: "smooth",
-    cursorSurroundingLines: 2,
-    glyphMargin: true,
-    language: "slint",
-    lightbulb: { enabled: true },
-  });
-  MonacoServices.install();
+  return menu;
+}
 
-  let base_url = "";
-  let event_loop_started = false;
-  let current_preview_instance: slint.WrappedInstance | null = null;
+function create_share_menu(): Menu {
+  const menu = new Menu({ commands });
+  menu.title.label = "Share";
 
-  interface ModelAndViewState {
-    model: monaco.editor.ITextModel;
-    view_state: monaco.editor.ICodeEditorViewState | null;
-  }
+  menu.addItem({ command: "slint:copy_permalink" });
 
-  /// Index by url. Inline documents will use the empty string.
-  const editor_documents: Map<string, ModelAndViewState> = new Map();
+  return menu;
+}
 
-  const hello_world = `import { Button, VerticalBox } from "std-widgets.slint";
-  export Demo := Window {
-      VerticalBox {
-          alignment: start;
-          Text {
-              text: "Hello World!";
-              font-size: 24px;
-              horizontal-alignment: center;
-          }
-          Image {
-              source: @image-url("https://slint-ui.com/logo/slint-logo-full-light.svg");
-              height: 100px;
-          }
-          HorizontalLayout { alignment: center; Button { text: "OK!"; } }    
-      }
-  }  
-`;
+function main() {
+  const preview = new PreviewWidget();
+  const editor = new EditorWidget();
+  const welcome = new WelcomeWidget();
 
-  function load_from_url(url: string) {
-    clearTabs();
-    fetch(url).then((x) =>
-      x.text().then((y) => {
-        base_url = url;
-        const model = createMainModel(y, url);
-        addTab(model, url);
-      })
-    );
-  }
-
-  const select = document.getElementById("select_combo") as HTMLInputElement;
-  if (select == null) {
-    console.error("No select_combo id found!");
-    return;
-  }
-  function select_combo_changed() {
-    if (select.value) {
-      let tag = "master";
-      {
-        let found;
-        if (
-          (found = window.location.pathname.match(/releases\/([^/]*)\/editor/))
-        ) {
-          tag = "v" + found[1];
-        }
-      }
-      load_from_url(
-        `https://raw.githubusercontent.com/slint-ui/slint/${tag}/${select.value}`
-      );
-    } else {
-      clearTabs();
-      base_url = "";
-      const model = createMainModel(hello_world, "");
-      addTab(model);
-    }
-  }
-  select.onchange = select_combo_changed;
-
-  const style_combo = document.getElementById(
-    "style_combo"
-  ) as HTMLInputElement;
-  if (style_combo) {
-    style_combo.onchange = update_preview;
-  }
-
-  const compile_button = document.getElementById(
-    "compile_button"
-  ) as HTMLButtonElement;
-  compile_button.onclick = function () {
-    update_preview();
+  editor.onRenderRequest = (style, source, url, fetcher) => {
+    return preview.render(style, source, url, fetcher);
   };
 
-  const auto_compile = document.getElementById(
-    "auto_compile"
-  ) as HTMLInputElement;
-  auto_compile.onchange = function () {
-    if (auto_compile.checked) {
-      update_preview();
-    }
-  };
+  commands.addCommand("slint:compile", {
+    label: "Compile",
+    iconClass: "fa fa-hammer",
+    mnemonic: 1,
+    execute: () => {
+      editor.compile();
+    },
+  });
 
-  function tabTitleFromURL(url: string): string {
-    if (url === "") {
-      return "unnamed.slint";
-    }
-    try {
-      const parsed_url = new URL(url);
-      const path = parsed_url.pathname;
-      return path.substring(path.lastIndexOf("/") + 1);
-    } catch (e) {
-      return url;
-    }
-  }
+  commands.addCommand("slint:auto_compile", {
+    label: "Automatically Compile on Change",
+    mnemonic: 1,
+    isToggled: () => {
+      return editor.auto_compile;
+    },
+    execute: () => {
+      editor.auto_compile = !editor.auto_compile;
+    },
+  });
 
-  function maybe_update_preview_automatically() {
-    if (auto_compile.checked) {
-      if (keystroke_timeout_handle) {
-        clearTimeout(keystroke_timeout_handle);
-      }
-      keystroke_timeout_handle = setTimeout(update_preview, 500);
-    }
-  }
-
-  function createMainModel(
-    source: string,
-    url: string
-  ): monaco.editor.ITextModel {
-    const model = monaco.editor.createModel(
-      source,
-      "slint",
-      monaco.Uri.parse(url)
-    );
-    model.onDidChangeContent(function () {
-      const permalink = document.getElementById(
-        "permalink"
-      ) as HTMLAnchorElement;
+  commands.addCommand("slint:copy_permalink", {
+    label: "Copy Permalink to Clipboard",
+    iconClass: "fa da-share",
+    mnemonic: 1,
+    execute: () => {
       const params = new URLSearchParams();
-      params.set("snippet", editor.getModel()?.getValue() || "");
+      params.set("snippet", editor.current_editor_content);
       const this_url = new URL(window.location.toString());
       this_url.search = params.toString();
-      permalink.href = this_url.toString();
-      maybe_update_preview_automatically();
-    });
-    editor_documents.set(url, { model, view_state: null });
-    update_preview();
-    return model;
-  }
+      const share_url = this_url.toString();
 
-  function clearTabs() {
-    const tab_bar = document.getElementById("tabs") as HTMLUListElement;
-    tab_bar.innerHTML = "";
-    editor_documents.clear();
-  }
+      navigator.clipboard.writeText(share_url);
+    },
+  });
 
-  function addTab(_model: monaco.editor.ITextModel, url = "") {
-    const tab_bar = document.getElementById("tabs") as HTMLUListElement;
-    const tab = document.createElement("li");
-    tab.setAttribute("class", "nav-item");
-    tab.dataset["url"] = url;
-    tab.innerHTML = `<span class="nav-link">${tabTitleFromURL(url)}</span>`;
-    tab_bar.appendChild(tab);
-    tab.addEventListener("click", (e) => {
-      e.preventDefault();
-      setCurrentTab(url);
-    });
-    if (tab_bar.childElementCount == 1) {
-      setCurrentTab(url);
-    }
-  }
+  commands.addKeyBinding({
+    keys: ["Accel B"],
+    selector: "body",
+    command: "slint:compile",
+  });
 
-  function setCurrentTab(url: string) {
-    const current_tab = document.querySelector(
-      `#tabs li[class~="nav-item"] span[class~="nav-link"][class~="active"]`
-    );
-    if (current_tab != null) {
-      current_tab.className = "nav-link";
+  const menu_bar = new MenuBar();
+  menu_bar.id = "menuBar";
+  menu_bar.addMenu(create_share_menu());
+  menu_bar.addMenu(create_build_menu());
+  menu_bar.addMenu(create_demo_menu(editor));
 
-      const url = current_tab.parentElement?.dataset.url;
-      if (url != null) {
-        const model_and_state = editor_documents.get(url);
-        if (model_and_state !== undefined) {
-          model_and_state.view_state = editor.saveViewState();
-          editor_documents.set(url, model_and_state);
-        }
-      }
-    }
-    const new_current = document.querySelector(
-      `#tabs li[class~="nav-item"][data-url="${url}"] span[class~="nav-link"]`
-    );
-    if (new_current != undefined) {
-      new_current.className = "nav-link active";
-    }
-    const model_and_state = editor_documents.get(url);
-    if (model_and_state != null) {
-      editor.setModel(model_and_state.model);
-      if (model_and_state.view_state != null) {
-        editor.restoreViewState(model_and_state.view_state);
-      }
-    }
-    editor.focus();
-  }
+  const dock = new DockPanel();
+  dock.addWidget(preview);
+  dock.addWidget(welcome, { mode: "split-bottom", ref: preview });
 
-  function update_preview() {
-    const main_model_and_state = editor_documents.get(base_url);
-    if (main_model_and_state != null) {
-      const source = main_model_and_state.model.getValue();
-      setTimeout(function () {
-        render_or_error(source, base_url);
-      }, 1);
-    }
-  }
+  const main = new SplitPanel({ orientation: "horizontal" });
+  main.id = "main";
+  main.addWidget(editor);
+  main.addWidget(dock);
 
-  async function read_from_url(url: string): Promise<string> {
-    let model_and_state = editor_documents.get(url);
-    if (model_and_state === undefined) {
-      const response = await fetch(url);
-      const doc = await response.text();
-
-      // Did this get added in the meantime?
-      model_and_state = editor_documents.get(url);
-      if (model_and_state === undefined) {
-        const model = monaco.editor.createModel(
-          doc,
-          "slint",
-          monaco.Uri.parse(url)
-        );
-        model.onDidChangeContent(function () {
-          maybe_update_preview_automatically();
-        });
-        editor_documents.set(url, { model, view_state: null });
-        addTab(model, url);
-        return doc;
-      }
-    }
-    return model_and_state.model.getValue();
-  }
-
-  async function render_or_error(
-    source: string,
-    base_url: string,
-  ) {
-    const style =
-      (document.getElementById("style_combo") as HTMLInputElement)?.value ??
-      "fluent";
-
-    let markers = [];
-    const { component, diagnostics, error_string } =
-      await slint.compile_from_string_with_style(
-        source,
-        base_url,
-        style,
-        read_from_url
-      );
-
-    const diagnostics_area = document.getElementById("rendering_errors") as HTMLDivElement;
-    const canvas = document.getElementById("rendering_canvas") as HTMLCanvasElement;
-
-    if (error_string != "") {
-      diagnostics_area.innerText = error_string;
-      canvas.style.visibility = "hidden";
-      diagnostics_area.style.visibility = "visible";
-    } else {
-      canvas.style.visibility = "visible";
-      diagnostics_area.style.visibility = "hidden";
-    }
-
-    markers = diagnostics.map(function (x) {
-      return {
-        severity: 3 - x.level,
-        message: x.message,
-        source: x.fileName,
-        startLineNumber: x.lineNumber,
-        startColumn: x.columnNumber,
-        endLineNumber: x.lineNumber,
-        endColumn: -1,
-      };
-    });
-    const model = editor.getModel();
-    if (model != null) {
-      monaco.editor.setModelMarkers(model, "slint", markers);
-    }
-
-    if (component !== undefined) {
-      if (current_preview_instance === null) {
-        current_preview_instance = component.create("rendering_canvas");
-        current_preview_instance.show();
-      } else {
-        current_preview_instance = component.create_with_existing_window(current_preview_instance);
-      }
-      if (!event_loop_started) {
-        event_loop_started = true;
-        slint.run_event_loop();
-      }
-    }
-  }
-
-  let keystroke_timeout_handle: number;
-
-  const params = new URLSearchParams(window.location.search);
-  const code = params.get("snippet");
-  const load_url = params.get("load_url");
-
-  if (code) {
-    clearTabs();
-    const model = createMainModel(code, "");
-    addTab(model);
-  } else if (load_url) {
-    load_from_url(load_url);
-  } else {
-    clearTabs();
-    base_url = "";
-    const model = createMainModel(hello_world, "");
-    addTab(model);
-  }
-
-  function createLanguageClient(
-    transports: MessageTransports
-  ): MonacoLanguageClient {
-    return new MonacoLanguageClient({
-      name: "Slint Language Client",
-      clientOptions: {
-        // use a language id as a document selector
-        documentSelector: [{ language: "slint" }],
-        // disable the default error handler
-        errorHandler: {
-          error: () => ({ action: ErrorAction.Continue }),
-          closed: () => ({ action: CloseAction.DoNotRestart }),
-        },
-      },
-      // create a language client connection to the server running in the web worker
-      connectionProvider: {
-        get: (_encoding: string) => {
-          return Promise.resolve(transports);
-        },
-      },
-    });
-  }
-
-  const lsp_worker = new Worker(
-    new URL("worker/lsp_worker.ts", import.meta.url),
-    {
-      type: "module",
-    }
-  );
-
-  lsp_worker.onmessage = (m) => {
-    // We cannot start sending messages to the client before we start listening which
-    // the server only does in a future after the wasm is loaded.
-    if (m.data === "OK") {
-      const writer = new BrowserMessageWriter(lsp_worker);
-
-      const reader = new FilterProxyReader(
-        new BrowserMessageReader(lsp_worker),
-        (data: Message) => {
-          if ((data as RequestMessage).method == "slint/load_file") {
-            const request = data as RequestMessage;
-            const url = (request.params as string[])[0];
-
-            read_from_url(url).then((contents) => {
-              writer.write({
-                jsonrpc: request.jsonrpc,
-                id: request.id,
-                result: contents,
-                error: undefined,
-              } as ResponseMessage);
-            });
-
-            return true;
-          }
-          return false;
-        }
-      );
-
-      const languageClient = createLanguageClient({ reader, writer });
-
-      languageClient.start();
-
-      reader.onClose(() => languageClient.stop());
-    }
+  window.onresize = () => {
+    main.update();
   };
-})();
+
+  document.addEventListener("keydown", (event: KeyboardEvent) => {
+    commands.processKeydownEvent(event);
+  });
+
+  document.body.innerHTML = ""; // clear loader
+  Widget.attach(menu_bar, document.body);
+  Widget.attach(main, document.body);
+}
+
+window.onload = main;
