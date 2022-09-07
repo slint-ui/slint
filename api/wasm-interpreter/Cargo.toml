@@ -16,7 +16,7 @@ homepage = "https://slint-ui.com"
 crate-type = ["cdylib"]
 
 [dependencies]
-slint-interpreter = { path = "../../internal/interpreter", default-features = false, features = ["std", "eventloop-winit", "renderer-femtovg", "compat-0-2-0"] }
+slint-interpreter = { path = "../../internal/interpreter", default-features = false, features = ["std", "eventloop-winit", "renderer-femtovg", "compat-0.3.0"] }
 
 vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
 

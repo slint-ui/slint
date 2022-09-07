@@ -19,13 +19,15 @@ path = "lib.rs"
 
 [features]
 
-default = ["std", "eventloop-winit", "renderer-femtovg", "backend-qt", "compat-0-2-0"]
+default = ["std", "eventloop-winit", "renderer-femtovg", "backend-qt", "compat-0.3.0"]
 
 ## Mandatory feature:
-## This feature is required to keep the compatibility with Slint 0.2.0
+## This feature is required to keep the compatibility with Slint 0.3.0
 ## Newer patch version may put current functionality behind a new feature
 ## that would be enabled by default only if this feature was added
-compat-0-2-0 = []
+"compat-0.3.0" = []
+# For compatibility with 0.2
+compat-0-2-0 = ["compat-0.3.0"]
 
 ## enable the [`print_diagnostics`] function to show diagnostic in the console output
 display-diagnostics = ["i-slint-compiler/display-diagnostics"]
@@ -65,7 +67,7 @@ eventloop-winit-wayland = ["i-slint-backend-selector/eventloop-winit-wayland", "
 ## This feature is an alias for `backend-qt`
 eventloop-qt = ["backend-qt"]
 
-## The `femtovg` crate is available for rendering. 
+## The `femtovg` crate is available for rendering.
 renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "std"]
 
 ## The Skia based rendering engine.

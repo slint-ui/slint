@@ -91,7 +91,7 @@ web-sys = { version = "0.3", features = [ "HtmlImageElement" ] }
 usvg = { version= "0.23", optional = true, default-features = false, features = ["text", "memmap-fonts"] }
 
 [dev-dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-0-2-0"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-0.3.0"] }
 i-slint-backend-testing = { path="../backends/testing" }
 rustybuzz = "0.5.0"
 ttf-parser = "0.15.0"
