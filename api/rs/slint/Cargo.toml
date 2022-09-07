@@ -64,30 +64,31 @@ unsafe-single-threaded = ["i-slint-core/unsafe-single-threaded"]
 #! Both backends are compiled in. If you want to not compile one of these you need
 #! to disable the default feature and re-enable one backend. It is also possible
 #! to use Slint without backend if you provide the platform abstraction yourself
-#! with [`platform::set_platform()`]
+#! with [`platform::set_platform()`].
 #!
 #! If you enable the Winit backend, you need to also include a renderer.
 #! `renderer-winit-femtovg` is the only stable renderer, the other ones are experimental
 #!
-#! It is also possible to change the backend and renderer at runtime when several
+#! It is also possible to select the backend and renderer at runtime when several
 #! are enabled, using the `SLINT_BACKEND`  environment variable.
-#!  * `SLINT_BACKEND=Qt` forces the Qt backend
-#!  * `SLINT_BACKEND=winit` forces the winit backend
-#!  * `SLINT_BACKEND=winit-femtovg` forces the winit backend with the femtovg renderer
-#!  * `SLINT_BACKEND=winit-skia` forces the winit backend with the skia renderer
-#!  * `SLINT_BACKEND=winit-software` forces the winit backend with the software renderer
-#! If the specified backend is not existing, the default will be used.
+#!  * `SLINT_BACKEND=Qt` selects the Qt backend
+#!  * `SLINT_BACKEND=winit` selects the winit backend
+#!  * `SLINT_BACKEND=winit-femtovg` selects the winit backend with the femtovg renderer
+#!  * `SLINT_BACKEND=winit-skia` selects the winit backend with the skia renderer
+#!  * `SLINT_BACKEND=winit-software` selects the winit backend with the software renderer
+#! If the selected backend is not available, the default will be used.
 
 
 ## The Qt backend feature uses Qt for the windowing system integration and rendering.
-## This backend also provide the `native` style.
+## This backend also provides the `native` style.
 ## It requires Qt 5.15 or later to be installed. If Qt is not installed, the
 ## backend will not be operational
 backend-qt = ["i-slint-backend-selector/i-slint-backend-qt", "std"]
 
 ## The [winit](https://crates.io/crates/log) crate is used for the event loop and windowing system integration.
-## With this feature, both x11 and wayland windowing systems are supported. For a smaller build, omit
-## this feature and select one of the other specific `backend-winit-XX` features.
+## It supports Windows, macOS, web browsers, X11 and Wayland. X11 and wayland are only available when
+## compiling for Linux or other Unix-like operating systems. With this feature, both X11 and Wayland are supported.
+## For a smaller build, omit this feature and select one of the other specific `backend-winit-XX` features.
 backend-winit = ["i-slint-backend-selector/backend-winit", "std"]
 
 ## Simliar to `backend-winit` this enables the winit based event loop but only

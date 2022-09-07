@@ -151,7 +151,7 @@ pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> PixelFont
         let fonts = fonts.borrow();
         let fallback_font = *fonts
             .first()
-            .expect("The Software renderer cannot be used without enabling the `EmbedForSoftwareRenderer` option at compile time. Enable that option or use another renderer.");
+            .expect("The software renderer requires enabling the `EmbedForSoftwareRenderer` option when compiling slint files.");
 
         request.family.as_ref().map_or(fallback_font, |requested_family| {
             fonts
