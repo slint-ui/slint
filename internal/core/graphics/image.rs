@@ -392,7 +392,7 @@ impl ImageInner {
                                 });
                                 slice.fill_with(|| iter.next().unwrap());
                             }
-                            PixelFormat::Rgba => {
+                            PixelFormat::RgbaPremultiplied => {
                                 let mut iter = source.chunks_exact(4).map(|p| Rgba8Pixel {
                                     r: p[0],
                                     g: p[1],
@@ -401,7 +401,7 @@ impl ImageInner {
                                 });
                                 slice.fill_with(|| iter.next().unwrap());
                             }
-                            PixelFormat::RgbaPremultiplied => {
+                            PixelFormat::Rgba => {
                                 let mut iter = source.chunks_exact(4).map(|p| {
                                     let a = p[3];
                                     Rgba8Pixel {
