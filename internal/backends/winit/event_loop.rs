@@ -45,6 +45,9 @@ pub trait WinitWindow: WindowAdapter {
     fn input_method_focused(&self) -> bool {
         false
     }
+    /// Returns true if request_redraw() was called since the last event loop iteration
+    /// and resets the state back to false.
+    fn take_pending_redraw(&self) -> bool;
 }
 
 struct NotRunningEventLoop {
@@ -461,6 +464,14 @@ pub fn run() {
     // we have scheduled for a sync between the `Window` item properties the the winit window, so that we
     // apply them at `MainEventsCleared` time.
     let mut windows_with_pending_property_updates = Vec::new();
+    // With winit on Windows and with wasm, calling winit::Window::request_redraw() will not always deliver an
+    // Event::RedrawRequested (for example when the mouse cursor is outside of the window). So when we get woken
+    // up by the event loop to process new events from the operating system (NewEvents), we take note of all windows
+    // that called request_redraw() since the last iteration and we will call draw() ourselves, unless they received
+    // an Event::RedrawRequested in this new iteration. This vector collects the window ids of windows with pending
+    // redraw requests in the beginning of the loop iteration, removes ids that are covered by a windowing system
+    // supplied Event::RedrawRequested, and drains them for drawing at RedrawEventsCleared.
+    let mut windows_with_pending_redraw_requests = Vec::new();
 
     // last seen cursor position, (physical coordinate)
     let mut cursor_pos = Point::default();
@@ -475,6 +486,9 @@ pub fn run() {
 
         Event::RedrawRequested(id) => {
             if let Some(window) = window_by_id(id) {
+                if let Ok(pos) = windows_with_pending_redraw_requests.binary_search(&id) {
+                    windows_with_pending_redraw_requests.remove(pos);
+                }
                 window.draw();
             }
         }
@@ -512,13 +526,27 @@ pub fn run() {
 
         Event::NewEvents(_) => {
             *control_flow = ControlFlow::Wait;
+
+            windows_with_pending_redraw_requests.clear();
+            ALL_WINDOWS.with(|windows| {
+                for (window_id, window_weak) in windows.borrow().iter() {
+                    if window_weak.upgrade().map_or(false, |window| window.take_pending_redraw()) {
+                        if let Err(insert_pos) =
+                            windows_with_pending_redraw_requests.binary_search(window_id)
+                        {
+                            windows_with_pending_redraw_requests.insert(insert_pos, *window_id);
+                        }
+                    }
+                }
+            });
+
             corelib::platform::update_timers_and_animations();
         }
 
         Event::MainEventsCleared => {
             for window in windows_with_pending_property_updates
                 .drain(..)
-                .flat_map(|window_id| window_by_id(window_id))
+                .filter_map(|window_id| window_by_id(window_id))
             {
                 WindowInner::from_pub(window.window()).update_window_properties();
             }
@@ -533,6 +561,13 @@ pub fn run() {
                 })
             {
                 *control_flow = ControlFlow::Poll;
+            }
+
+            for window in windows_with_pending_redraw_requests
+                .drain(..)
+                .filter_map(|window_id| window_by_id(window_id))
+            {
+                window.draw();
             }
 
             if *control_flow == ControlFlow::Wait {

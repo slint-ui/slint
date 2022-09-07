@@ -30,6 +30,7 @@ pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer + 'static> {
     map_state: RefCell<GraphicsWindowBackendState<Renderer>>,
     keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
+    pending_redraw: Cell<bool>,
 
     renderer: Renderer,
 
@@ -54,6 +55,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
             }),
             keyboard_modifiers: Default::default(),
             currently_pressed_key_code: Default::default(),
+            pending_redraw: Cell::new(false),
             renderer: Renderer::new(
                 &(self_weak.clone() as _),
                 #[cfg(target_arch = "wasm32")]
@@ -119,6 +121,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
 }
 
 impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Renderer> {
+    fn take_pending_redraw(&self) -> bool {
+        self.pending_redraw.take()
+    }
+
     fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>> {
         &self.currently_pressed_key_code
     }
@@ -134,7 +140,16 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
             None => return, // caller bug, doesn't make sense to call draw() when not mapped
         };
 
+        self.pending_redraw.set(false);
         self.renderer.render(&window.canvas, self);
+
+        // If during rendering a new redraw_request() was issued (for example in a rendering notifier callback), then
+        // pretend that an animation is running, so that we return Poll from the event loop to ensure a repaint as
+        // soon as possible.
+        if self.pending_redraw.get() {
+            i_slint_core::animations::CURRENT_ANIMATION_DRIVER
+                .with(|driver| driver.set_has_active_animations());
+        }
     }
 
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window)) {
@@ -222,6 +237,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapter for GLWindow<Ren
 
 impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWindow<Renderer> {
     fn request_redraw(&self) {
+        self.pending_redraw.set(true);
         self.with_window_handle(&mut |window| window.request_redraw())
     }
 

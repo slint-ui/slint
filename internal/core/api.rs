@@ -327,14 +327,6 @@ impl Window {
     /// This function issues a request to the windowing system to redraw the contents of the window.
     pub fn request_redraw(&self) {
         self.0.window_adapter().request_redraw();
-
-        // When this function is called by the user, we want it to translate to a requestAnimationFrame()
-        // on the web. If called through the rendering notifier (so from within the event loop processing),
-        // unfortunately winit will only do that if set the control flow to Poll. This hack achieves that.
-        // Similarly, the winit win32 event loop doesn't queue the redraw request and needs a Poll nudge.
-        #[cfg(any(target_arch = "wasm32", target_os = "windows"))]
-        crate::animations::CURRENT_ANIMATION_DRIVER
-            .with(|driver| driver.set_has_active_animations());
     }
 
     /// This function returns the scale factor that allows converting between logical and
