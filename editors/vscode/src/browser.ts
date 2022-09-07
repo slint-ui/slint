@@ -161,7 +161,7 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
 
     const vscode = acquireVsCodeApi();
     let promises = {};
-    let current_instance = undefined;
+    let current_instance = null;
 
     async function load_file(url) {
         let promise = new Promise(resolve => {
@@ -183,14 +183,13 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
         vscode.postMessage({ command: 'preview_ready' });
         if (component !== undefined) {
             document.getElementById("slint_error_div").innerHTML = "";
-            let instance = component.create("slint_canvas");
-            instance.show();
-            if (current_instance) {
-                current_instance.hide();
+            if (current_instance !== null) {
+                current_instance = component.create_with_existing_window(current_instance);
             } else {
+                current_instance = component.create("slint_canvas");
+                current_instance.show();
                 slint.run_event_loop();
             }
-            current_instance = instance;
         }
     }
 
