@@ -595,7 +595,10 @@ impl WindowInner {
         };
 
         let location = match self.window_adapter().create_popup(Rect::new(position, size)) {
-            None => PopupWindowLocation::ChildWindow(position),
+            None => {
+                self.window_adapter().request_redraw();
+                PopupWindowLocation::ChildWindow(position)
+            }
 
             Some(window_adapter) => {
                 WindowInner::from_pub(window_adapter.window()).set_component(popup_componentrc);
