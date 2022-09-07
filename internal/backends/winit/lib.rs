@@ -82,7 +82,7 @@ cfg_if::cfg_if! {
     } else if #[cfg(enable_skia_renderer)] {
         type DefaultRenderer = renderer::skia::SkiaRenderer;
     } else if #[cfg(feature = "renderer-software")] {
-        type DefaultRenderer = renderer::sw::SoftwareRenderer;
+        type DefaultRenderer = renderer::sw::SoftwareRenderer<0>;
     } else {
         compile_error!("Please select a feature to build with the winit event loop: `renderer-femtovg`, `renderer-skia`, `renderer-skia-opengl` or `renderer-software`");
     }
