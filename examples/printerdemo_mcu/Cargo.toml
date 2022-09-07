@@ -19,7 +19,7 @@ mcu-simulator = ["slint/renderer-software", "slint/eventloop-winit", "slint/std"
 mcu-pico-st7789 = ["mcu-board-support/pico-st7789"]
 
 [dependencies]
-slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-0-2-0"] }
+slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-0.3.0"] }
 mcu-board-support = { path = "../mcu-board-support" }
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"], optional = true }
 

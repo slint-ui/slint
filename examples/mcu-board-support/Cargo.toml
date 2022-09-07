@@ -22,7 +22,7 @@ stm32h735g = ["slint/unsafe-single-threaded", "embedded-hal", "cortex-m-rt", "al
 esp32-s2-kaluga-1 = ["slint/unsafe-single-threaded", "esp32s2-hal", "embedded-hal", "xtensa-lx-rt", "esp-alloc", "esp-println", "display-interface", "display-interface-spi", "st7789", "slint/libm"]
 
 [dependencies]
-slint = { version = "=0.3.0", path = "../../api/rs/slint", default-features = false, features = ["compat-0-2-0", "renderer-software"] }
+slint = { version = "=0.3.0", path = "../../api/rs/slint", default-features = false, features = ["compat-0.3.0", "renderer-software"] }
 i-slint-core-macros = { version = "=0.3.0", path = "../../internal/core-macros" }
 
 derive_more = "0.99.5"

@@ -19,12 +19,12 @@ A typical line in Cargo.toml looks like that:
 
 ```toml
 [dependencies]
-slint = { version = "0.2.6", default-features = false, features = ["compat-0-2-0", "unsafe-single-threaded", "libm", "renderer-software"] }
+slint = { version = "0.2.6", default-features = false, features = ["compat-0.3.0", "unsafe-single-threaded", "libm", "renderer-software"] }
 # ... other stuf
 ```
 
 Slint uses the standard library by default, so we need to disable the default features.
-Then you need the `compat-0-2-0` feature ([see why in this blog post](https://slint-ui.com/blog/rust-adding-default-cargo-feature.html))
+Then you need the `compat-0.3.0` feature ([see why in this blog post](https://slint-ui.com/blog/rust-adding-default-cargo-feature.html))
 
 As we don't have `std`, you will also need to enable the `unsafe-single-threaded` feature: Slint can't use `thread_local!` and will use unsafe static instead.
 By setting this feature, you promise not to use Slint API from a different thread or interrupt handler.
