@@ -153,6 +153,17 @@ impl WrappedCompiledComp {
     pub fn create(&self, canvas_id: String) -> Result<WrappedInstance, JsValue> {
         Ok(WrappedInstance(self.0.create_with_canvas_id(&canvas_id)))
     }
+    /// Creates this compiled component in the canvas of the provided instance.
+    /// For this to work, the provided instance needs to be visible (show() must've been
+    /// called) and the event loop must be running (`slint.run_event_loop()`). After this
+    /// call the provided instance is not rendered anymore and can be discarded.
+    #[wasm_bindgen]
+    pub fn create_with_existing_window(
+        &self,
+        instance: WrappedInstance,
+    ) -> Result<WrappedInstance, JsValue> {
+        Ok(WrappedInstance(self.0.create_with_existing_window(instance.0.window())))
+    }
 }
 
 #[wasm_bindgen]

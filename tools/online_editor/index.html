@@ -53,7 +53,10 @@
       >
     </p>
 
-    <div id="preview" style="max-width: 48%; float: right"></div>
+    <div id="preview" style="max-width: 48%; float: right">
+        <canvas id="rendering_canvas" width="800" height="600"></canvas>
+        <pre id="rendering_errors" style='color: red; background-color:#fee; margin:0'></pre>
+    </div>
     <div id="editor_area" class="d-block" style="height: 600px; width: 48%">
       <ul id="tabs" class="nav nav-tabs"></ul>
       <div id="editor" class="h-100 border"></div>
