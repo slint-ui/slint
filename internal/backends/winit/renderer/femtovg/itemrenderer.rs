@@ -317,7 +317,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         let mut cursor_point: Option<Point> = None;
 
-        let baseline_y = fonts::layout_text_lines(
+        let next_y = fonts::layout_text_lines(
             text.as_str(),
             &font,
             Size::new(width, height),
@@ -402,7 +402,9 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                 };
                 if cursor_visible
                     && (range.contains(&cursor_pos)
-                        || (cursor_pos == range.end && cursor_pos == text.len()))
+                        || (cursor_pos == range.end
+                            && cursor_pos == text.len()
+                            && !text.ends_with('\n')))
                 {
                     let cursor_x = metrics
                         .glyphs
@@ -421,7 +423,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         );
 
         if let Some(cursor_point) =
-            cursor_point.or_else(|| cursor_visible.then(|| [0., baseline_y].into()))
+            cursor_point.or_else(|| cursor_visible.then(|| [0., next_y].into()))
         {
             let mut cursor_rect = femtovg::Path::new();
             cursor_rect.rect(
