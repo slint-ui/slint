@@ -83,7 +83,7 @@ function tabTitleFromURL(url: string): string {
 }
 
 class EditorPaneWidget extends Widget {
-  #auto_compile = true;
+  auto_compile = true;
   #style = "fluent";
   #editor_documents: Map<string, ModelAndViewState>;
   #editor: monaco.editor.IStandaloneCodeEditor | null;
@@ -95,7 +95,7 @@ class EditorPaneWidget extends Widget {
     _style: string,
     _source: string,
     _url: string,
-    _fetch: (_url: string) => Promise<string>
+    _fetch: (_url: string) => Promise<string>,
   ) => Promise<monaco.editor.IMarkerData[]>;
 
   #onModelRemoved?: (_url: string) => void;
@@ -144,14 +144,6 @@ class EditorPaneWidget extends Widget {
 
   next_era() {
     this.#edit_era += 1;
-  }
-
-  set auto_compile(value: boolean) {
-    this.#auto_compile = value;
-  }
-
-  get auto_compile() {
-    return this.#auto_compile;
   }
 
   set style(value: string) {
@@ -219,7 +211,7 @@ class EditorPaneWidget extends Widget {
   }
 
   protected update_preview() {
-    const base_url = this.#base_url != null ? this.#base_url : "";
+    const base_url = this.#base_url ?? "";
     const main_model_and_state = this.#editor_documents.get(base_url);
 
     if (main_model_and_state != null) {
@@ -234,7 +226,7 @@ class EditorPaneWidget extends Widget {
             base_url,
             (url: string) => {
               return this.fetch_url_content(era, url);
-            }
+            },
           ).then((markers: monaco.editor.IMarkerData[]) => {
             if (this.#editor != null) {
               const model = this.#editor.getModel();
@@ -260,7 +252,7 @@ class EditorPaneWidget extends Widget {
   }
 
   private async setup_editor(container: HTMLDivElement): Promise<void> {
-    container.className += "edit-area";
+    container.classList.add("edit-area");
 
     monaco.languages.register({
       id: "slint",
@@ -282,7 +274,7 @@ class EditorPaneWidget extends Widget {
     MonacoServices.install();
 
     function createLanguageClient(
-      transports: MessageTransports
+      transports: MessageTransports,
     ): MonacoLanguageClient {
       return new MonacoLanguageClient({
         name: "Slint Language Client",
@@ -306,7 +298,7 @@ class EditorPaneWidget extends Widget {
 
     const lsp_worker = new Worker(
       new URL("worker/lsp_worker.ts", import.meta.url),
-      { type: "module" }
+      { type: "module" },
     );
     let worker_is_set_up = false;
     lsp_worker.onmessage = (m) => {
@@ -341,8 +333,8 @@ class EditorPaneWidget extends Widget {
       _style: string,
       _source: string,
       _url: string,
-      _fetch: (_url: string) => Promise<string>
-    ) => Promise<monaco.editor.IMarkerData[]>
+      _fetch: (_url: string) => Promise<string>,
+    ) => Promise<monaco.editor.IMarkerData[]>,
   ) {
     this.#onRenderRequest = request;
   }
@@ -384,9 +376,9 @@ class EditorPaneWidget extends Widget {
 }
 
 export class EditorWidget extends Widget {
-  private tab_bar: TabBar<Widget>;
-  private editor: EditorPaneWidget;
-  private tab_map: Map<string, Title<Widget>>;
+  #tab_bar: TabBar<Widget>;
+  #editor: EditorPaneWidget;
+  #tab_map: Map<string, Title<Widget>>;
 
   private static createNode(): HTMLDivElement {
     const node = document.createElement("div");
@@ -401,52 +393,52 @@ export class EditorWidget extends Widget {
     this.title.label = "Editor";
     this.title.closable = false;
     this.title.caption = `Slint code editor`;
-    this.tab_map = new Map();
+    this.#tab_map = new Map();
 
     const layout = new BoxLayout({ spacing: 0 });
 
-    this.tab_bar = new TabBar<Widget>({ name: "Open Documents Tab Bar" });
-    layout.addWidget(this.tab_bar);
+    this.#tab_bar = new TabBar<Widget>({ name: "Open Documents Tab Bar" });
+    layout.addWidget(this.#tab_bar);
 
-    this.editor = new EditorPaneWidget();
-    layout.addWidget(this.editor);
+    this.#editor = new EditorPaneWidget();
+    layout.addWidget(this.#editor);
 
     this.layout = layout;
 
-    this.editor.onModelsCleared = () => {
-      this.tab_bar.clearTabs();
-      this.tab_map.clear();
+    this.#editor.onModelsCleared = () => {
+      this.#tab_bar.clearTabs();
+      this.#tab_map.clear();
     };
-    this.editor.onModelAdded = (url: string) => {
-      const title = this.tab_bar.addTab({
+    this.#editor.onModelAdded = (url: string) => {
+      const title = this.#tab_bar.addTab({
         owner: this,
         label: tabTitleFromURL(url),
       });
-      this.tab_map.set(url, title);
+      this.#tab_map.set(url, title);
     };
-    this.editor.onModelRemoved = (url: string) => {
-      const title = this.tab_map.get(url);
+    this.#editor.onModelRemoved = (url: string) => {
+      const title = this.#tab_map.get(url);
       if (title != null) {
-        this.tab_bar.removeTab(title);
-        this.tab_map.delete(url);
+        this.#tab_bar.removeTab(title);
+        this.#tab_map.delete(url);
       }
     };
-    this.editor.onModelSelected = (url: string) => {
-      const title = this.tab_map.get(url);
-      if (title != null && this.tab_bar.currentTitle != title) {
-        this.tab_bar.currentTitle = title;
+    this.#editor.onModelSelected = (url: string) => {
+      const title = this.#tab_map.get(url);
+      if (title != null && this.#tab_bar.currentTitle != title) {
+        this.#tab_bar.currentTitle = title;
       }
     };
-    this.tab_bar.currentChanged.connect(
+    this.#tab_bar.currentChanged.connect(
       (_: TabBar<Widget>, args: TabBar.ICurrentChangedArgs<Widget>) => {
         const title = args.currentTitle;
 
-        for (const [url, value] of this.tab_map.entries()) {
+        for (const [url, value] of this.#tab_map.entries()) {
           if (value === title) {
-            this.editor.set_model(url);
+            this.#editor.set_model(url);
           }
         }
-      }
+      },
     );
 
     const params = new URLSearchParams(window.location.search);
@@ -454,47 +446,47 @@ export class EditorWidget extends Widget {
     const load_url = params.get("load_url");
 
     if (code) {
-      this.editor.clear_models();
-      this.editor.add_model("", createModel(code));
+      this.#editor.clear_models();
+      this.#editor.add_model("", createModel(code));
     } else if (load_url) {
       this.load_from_url(load_url);
     } else {
-      this.editor.clear_models();
-      this.editor.add_model("", createModel(hello_world));
+      this.#editor.clear_models();
+      this.#editor.add_model("", createModel(hello_world));
     }
   }
 
   get current_editor_content(): string {
-    return this.editor.current_editor_content;
+    return this.#editor.current_editor_content;
   }
 
   compile() {
-    this.editor.compile();
+    this.#editor.compile();
   }
 
   set auto_compile(value: boolean) {
-    this.editor.auto_compile = value;
+    this.#editor.auto_compile = value;
   }
 
   get auto_compile() {
-    return this.editor.auto_compile;
+    return this.#editor.auto_compile;
   }
 
   set style(value: string) {
-    this.editor.style = value;
+    this.#editor.style = value;
   }
 
   get style() {
-    return this.editor.style;
+    return this.#editor.style;
   }
 
   protected load_from_url(url: string) {
-    this.editor.clear_models();
+    this.#editor.clear_models();
     fetch(url).then((x) =>
       x.text().then((y) => {
         const model = createModel(y);
-        this.editor.add_model(url, model);
-      })
+        this.#editor.add_model(url, model);
+      }),
     );
   }
 
@@ -520,12 +512,12 @@ export class EditorWidget extends Widget {
         }
       }
       this.load_from_url(
-        `https://raw.githubusercontent.com/slint-ui/slint/${tag}/${location}`
+        `https://raw.githubusercontent.com/slint-ui/slint/${tag}/${location}`,
       );
     } else {
-      this.editor.clear_models();
+      this.#editor.clear_models();
       const model = createModel(hello_world);
-      this.editor.add_model("", model);
+      this.#editor.add_model("", model);
     }
   }
 
@@ -534,9 +526,9 @@ export class EditorWidget extends Widget {
       _style: string,
       _source: string,
       _url: string,
-      _fetch: (_url: string) => Promise<string>
-    ) => Promise<monaco.editor.IMarkerData[]>
+      _fetch: (_url: string) => Promise<string>,
+    ) => Promise<monaco.editor.IMarkerData[]>,
   ) {
-    this.editor.onRenderRequest = request;
+    this.#editor.onRenderRequest = request;
   }
 }
