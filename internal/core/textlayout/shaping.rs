@@ -231,6 +231,10 @@ fn test_shape_boundaries_empty() {
 }
 
 #[test]
+#[cfg_attr(
+    not(feature = "unicode-script"),
+    ignore = "Not supported without the unicode-script feature"
+)]
 fn test_shape_boundaries_script_change() {
     {
         let text = "abc🍌🐒defதோசை.";
