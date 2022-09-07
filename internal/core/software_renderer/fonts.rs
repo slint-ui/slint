@@ -149,8 +149,9 @@ impl crate::textlayout::FontMetrics<PhysicalLength> for PixelFont {
 pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> PixelFont {
     let font = FONTS.with(|fonts| {
         let fonts = fonts.borrow();
-        let fallback_font =
-            *fonts.first().expect("internal error: cannot render text without fonts");
+        let fallback_font = *fonts
+            .first()
+            .expect("The Software renderer cannot be used without enabling the `EmbedForSoftwareRenderer` option at compile time. Enable that option or use another renderer.");
 
         request.family.as_ref().map_or(fallback_font, |requested_family| {
             fonts

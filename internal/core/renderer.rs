@@ -57,7 +57,7 @@ pub trait Renderer {
         &self,
         _data: &'static [u8],
     ) -> Result<(), Box<dyn std::error::Error>> {
-        unimplemented!()
+        Err("This renderer does not support registering font.".into())
     }
 
     #[cfg(feature = "std")]
@@ -68,7 +68,7 @@ pub trait Renderer {
         &self,
         _path: &std::path::Path,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        unimplemented!()
+        Err("This renderer does not support registering font.".into())
     }
 
     fn register_bitmap_font(&self, _font_data: &'static crate::graphics::BitmapFont) {
