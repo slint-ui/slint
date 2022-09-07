@@ -59,10 +59,9 @@ function main() {
 
   commands.addCommand("slint:compile", {
     label: "Compile",
-    mnemonic: 1,
     iconClass: "fa fa-hammer",
+    mnemonic: 1,
     execute: () => {
-      console.log("Compile");
       editor.compile();
     },
   });
@@ -79,9 +78,9 @@ function main() {
   });
 
   commands.addCommand("slint:copy_permalink", {
-    label: "Copy PermaLink to Clip Board",
-    mnemonic: 1,
+    label: "Copy Permalink to Clipboard",
     iconClass: "fa da-share",
+    mnemonic: 1,
     execute: () => {
       const params = new URLSearchParams();
       params.set("snippet", editor.current_editor_content);

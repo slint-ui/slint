@@ -83,24 +83,24 @@ function tabTitleFromURL(url: string): string {
 }
 
 class EditorPaneWidget extends Widget {
-  private _auto_compile = true;
-  private _style = "fluent";
-  private _editor_documents: Map<string, ModelAndViewState>;
-  private _editor: monaco.editor.IStandaloneCodeEditor | undefined;
-  private _keystroke_timeout_handle: number | undefined;
-  private _base_url: string | undefined;
+  #auto_compile = true;
+  #style = "fluent";
+  #editor_documents: Map<string, ModelAndViewState>;
+  #editor: monaco.editor.IStandaloneCodeEditor | null;
+  #keystroke_timeout_handle: number | undefined;
+  #base_url: string | undefined;
 
-  private _onRenderRequest?: (
+  #onRenderRequest?: (
     _style: string,
     _source: string,
     _url: string,
     _fetch: (_url: string) => Promise<string>
   ) => Promise<monaco.editor.IMarkerData[]>;
 
-  private _onModelRemoved?: (_url: string) => void;
-  private _onModelAdded?: (_url: string) => void;
-  private _onModelSelected?: (_url: string) => void;
-  private _onModelsCleared?: () => void;
+  #onModelRemoved?: (_url: string) => void;
+  #onModelAdded?: (_url: string) => void;
+  #onModelSelected?: (_url: string) => void;
+  #onModelsCleared?: () => void;
 
   static createNode(): HTMLElement {
     const node = document.createElement("div");
@@ -114,13 +114,15 @@ class EditorPaneWidget extends Widget {
     const node = EditorPaneWidget.createNode();
 
     super({ node: node });
-    this._editor_documents = new Map();
+    this.#editor = null;
+
+    this.#editor_documents = new Map();
     this.setFlag(Widget.Flag.DisallowLayout);
     this.addClass("content");
     this.addClass("editor");
     this.title.label = "Editor";
     this.title.closable = false;
-    this.title.caption = `Slint code editor`;
+    this.title.caption = `Slint Code Editor`;
 
     this.setup_editor(this.contentNode);
   }
@@ -130,7 +132,7 @@ class EditorPaneWidget extends Widget {
   }
 
   get current_editor_content(): string {
-    return this._editor?.getModel()?.getValue() || "";
+    return this.#editor?.getModel()?.getValue() || "";
   }
 
   compile() {
@@ -138,78 +140,65 @@ class EditorPaneWidget extends Widget {
   }
 
   set auto_compile(value: boolean) {
-    this._auto_compile = value;
+    this.#auto_compile = value;
   }
 
   get auto_compile() {
-    return this._auto_compile;
+    return this.#auto_compile;
   }
 
   set style(value: string) {
-    this._style = value;
+    this.#style = value;
     this.update_preview();
   }
 
   get style() {
-    return this._style;
+    return this.#style;
   }
 
   public clear_models() {
-    console.log("Clearing all models!");
-    this._editor_documents.clear();
-    if (this._onModelsCleared != null) {
-      this._onModelsCleared();
-    }
+    this.#editor_documents.clear();
+    this.#onModelsCleared?.();
   }
 
   private resize_editor() {
-    if (this._editor != null) {
+    if (this.#editor != null) {
       const width = this.contentNode.offsetWidth;
       const height = this.contentNode.offsetHeight;
-      this._editor.layout({ width, height });
+      this.#editor.layout({ width, height });
     }
   }
 
   public add_model(url: string, model: monaco.editor.ITextModel) {
-    console.log("Adding model for url", url);
-    if (this._editor_documents.get(url) != null) {
-      console.log("  => Already known!");
+    if (this.#editor_documents.get(url) != null) {
       return; // already know that URL
     }
     model.onDidChangeContent(() => {
       this.maybe_update_preview_automatically();
     });
-    this._editor_documents.set(url, { model, view_state: null });
-    if (this._onModelAdded != null) {
-      this._onModelAdded(url);
-    }
-    if (this._editor_documents.size === 1) {
-      this._base_url = url;
+    this.#editor_documents.set(url, { model, view_state: null });
+    this.#onModelAdded?.(url);
+    if (this.#editor_documents.size === 1) {
+      this.#base_url = url;
       this.set_model(url);
     }
     this.update_preview();
   }
 
   public remove_model(url: string) {
-    console.log("Removing model for url", url);
-    this._editor_documents.delete(url);
-    if (this._onModelRemoved != null) {
-      this._onModelRemoved(url);
-    }
+    this.#editor_documents.delete(url);
+    this.#onModelRemoved?.(url);
   }
 
   public set_model(url: string): boolean {
-    console.log("Setting model for url", url);
-    const model_and_state = this._editor_documents.get(url);
-    if (model_and_state != null && this._editor != null) {
-      this._editor.setModel(model_and_state.model);
+    const model_and_state = this.#editor_documents.get(url);
+    if (model_and_state != null && this.#editor != null) {
+      this.#editor.setModel(model_and_state.model);
       if (model_and_state.view_state != null) {
-        this._editor.restoreViewState(model_and_state.view_state);
+        this.#editor.restoreViewState(model_and_state.view_state);
       }
-      this._editor.focus();
-      if (this._onModelSelected != null) {
-        this._onModelSelected(url);
-      }
+      this.#editor.focus();
+      this.#onModelSelected?.(url);
       return true;
     }
     return false;
@@ -222,24 +211,24 @@ class EditorPaneWidget extends Widget {
   }
 
   protected update_preview() {
-    const base_url = this._base_url != null ? this._base_url : "";
-    const main_model_and_state = this._editor_documents.get(base_url);
+    const base_url = this.#base_url != null ? this.#base_url : "";
+    const main_model_and_state = this.#editor_documents.get(base_url);
 
     if (main_model_and_state != null) {
       const source = main_model_and_state.model.getValue();
 
       setTimeout(() => {
-        if (this._onRenderRequest != null) {
-          this._onRenderRequest(
-            this._style,
+        if (this.#onRenderRequest != null) {
+          this.#onRenderRequest(
+            this.#style,
             source,
             base_url,
             (url: string) => {
               return this.fetch_url_content(url);
             }
           ).then((markers: monaco.editor.IMarkerData[]) => {
-            if (this._editor != null) {
-              const model = this._editor.getModel();
+            if (this.#editor != null) {
+              const model = this.#editor.getModel();
               if (model != null) {
                 monaco.editor.setModelMarkers(model, "slint", markers);
               }
@@ -252,11 +241,10 @@ class EditorPaneWidget extends Widget {
 
   protected maybe_update_preview_automatically() {
     if (this.auto_compile) {
-      console.log("Refreshing auto_compile timeout.");
-      if (this._keystroke_timeout_handle != null) {
-        clearTimeout(this._keystroke_timeout_handle);
+      if (this.#keystroke_timeout_handle != null) {
+        clearTimeout(this.#keystroke_timeout_handle);
       }
-      this._keystroke_timeout_handle = setTimeout(() => {
+      this.#keystroke_timeout_handle = setTimeout(() => {
         this.update_preview();
       }, 500);
     }
@@ -275,7 +263,7 @@ class EditorPaneWidget extends Widget {
       monaco.languages.setMonarchTokensProvider("slint", slint_language);
     });
 
-    this._editor = monaco.editor.create(container, {
+    this.#editor = monaco.editor.create(container, {
       language: "slint",
       glyphMargin: true,
       lightbulb: {
@@ -347,38 +335,34 @@ class EditorPaneWidget extends Widget {
       _fetch: (_url: string) => Promise<string>
     ) => Promise<monaco.editor.IMarkerData[]>
   ) {
-    this._onRenderRequest = request;
+    this.#onRenderRequest = request;
   }
 
   set onModelsCleared(f: () => void) {
-    this._onModelsCleared = f;
+    this.#onModelsCleared = f;
   }
 
   set onModelAdded(f: (_url: string) => void) {
-    this._onModelAdded = f;
+    this.#onModelAdded = f;
   }
   set onModelRemoved(f: (_url: string) => void) {
-    this._onModelRemoved = f;
+    this.#onModelRemoved = f;
   }
   set onModelSelected(f: (_url: string) => void) {
-    this._onModelSelected = f;
+    this.#onModelSelected = f;
   }
 
   protected async fetch_url_content(url: string): Promise<string> {
-    console.log("Fetching ", url);
-
-    let model_and_state = this._editor_documents.get(url);
+    let model_and_state = this.#editor_documents.get(url);
     if (model_and_state != null) {
-      console.log("*** Fetch shortcut!");
       return model_and_state.model.getValue();
     }
 
     const response = await fetch(url);
     const doc = await response.text();
 
-    model_and_state = this._editor_documents.get(url);
+    model_and_state = this.#editor_documents.get(url);
     if (model_and_state != null) {
-      console.log("*** Not storing again...");
       return model_and_state.model.getValue();
     }
 
@@ -419,12 +403,10 @@ export class EditorWidget extends Widget {
     this.layout = layout;
 
     this.editor.onModelsCleared = () => {
-      console.log("Clearing all Tabs");
       this.tab_bar.clearTabs();
       this.tab_map.clear();
     };
     this.editor.onModelAdded = (url: string) => {
-      console.log("Adding Tab for", url);
       const title = this.tab_bar.addTab({
         owner: this,
         label: tabTitleFromURL(url),
@@ -432,7 +414,6 @@ export class EditorWidget extends Widget {
       this.tab_map.set(url, title);
     };
     this.editor.onModelRemoved = (url: string) => {
-      console.log("Removing Tab for", url);
       const title = this.tab_map.get(url);
       if (title != null) {
         this.tab_bar.removeTab(title);
@@ -440,7 +421,6 @@ export class EditorWidget extends Widget {
       }
     };
     this.editor.onModelSelected = (url: string) => {
-      console.log("Selecting Tab for", url);
       const title = this.tab_map.get(url);
       if (title != null && this.tab_bar.currentTitle != title) {
         this.tab_bar.currentTitle = title;
