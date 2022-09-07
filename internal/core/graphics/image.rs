@@ -240,6 +240,18 @@ pub enum PixelFormat {
     AlphaMap,
 }
 
+impl PixelFormat {
+    /// The number of bytes in a pixel
+    pub fn bpp(self) -> usize {
+        match self {
+            PixelFormat::Rgb => 3,
+            PixelFormat::Rgba => 4,
+            PixelFormat::RgbaPremultiplied => 4,
+            PixelFormat::AlphaMap => 1,
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Clone, PartialEq, Debug)]
 /// Some raw pixel data which is typically stored in the binary
@@ -359,6 +371,65 @@ impl ImageInner {
                         return None;
                     }
                 }
+            }
+            ImageInner::StaticTextures(ts) => {
+                let mut buffer =
+                    SharedPixelBuffer::<Rgba8Pixel>::new(ts.size.width, ts.size.height);
+                let stride = buffer.stride() as usize;
+                let slice = buffer.make_mut_slice();
+                for t in ts.textures.iter() {
+                    let rect = t.rect.to_usize();
+                    for y in 0..rect.height() {
+                        let slice = &mut slice[(rect.min_y() + y) * stride..][rect.x_range()];
+                        let source = &ts.data[t.index + y * rect.width() * t.format.bpp()..];
+                        match t.format {
+                            PixelFormat::Rgb => {
+                                let mut iter = source.chunks_exact(3).map(|p| Rgba8Pixel {
+                                    r: p[0],
+                                    g: p[1],
+                                    b: p[2],
+                                    a: 255,
+                                });
+                                slice.fill_with(|| iter.next().unwrap());
+                            }
+                            PixelFormat::RgbaPremultiplied => {
+                                let mut iter = source.chunks_exact(4).map(|p| Rgba8Pixel {
+                                    r: p[0],
+                                    g: p[1],
+                                    b: p[2],
+                                    a: p[3],
+                                });
+                                slice.fill_with(|| iter.next().unwrap());
+                            }
+                            PixelFormat::Rgba => {
+                                let mut iter = source.chunks_exact(4).map(|p| {
+                                    let a = p[3];
+                                    Rgba8Pixel {
+                                        r: (p[0] as u16 * a as u16 / 255) as u8,
+                                        g: (p[1] as u16 * a as u16 / 255) as u8,
+                                        b: (p[2] as u16 * a as u16 / 255) as u8,
+                                        a,
+                                    }
+                                });
+                                slice.fill_with(|| iter.next().unwrap());
+                            }
+                            PixelFormat::AlphaMap => {
+                                let col = t.color.to_argb_u8();
+                                let mut iter = source.iter().map(|p| {
+                                    let a = *p as u32 * col.alpha as u32;
+                                    Rgba8Pixel {
+                                        r: (col.red as u32 * a / (255 * 255)) as u8,
+                                        g: (col.green as u32 * a / (255 * 255)) as u8,
+                                        b: (col.blue as u32 * a / (255 * 255)) as u8,
+                                        a: (a / 255) as u8,
+                                    }
+                                });
+                                slice.fill_with(|| iter.next().unwrap());
+                            }
+                        };
+                    }
+                }
+                Some(SharedImageBuffer::RGBA8Premultiplied(buffer))
             }
             _ => None,
         }

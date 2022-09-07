@@ -72,7 +72,7 @@ pub trait Renderer {
     }
 
     fn register_bitmap_font(&self, _font_data: &'static crate::graphics::BitmapFont) {
-        unimplemented!()
+        crate::debug_log!("Internal error: The current renderer cannot load fonts build with the `EmbedForSoftwareRenderer` option. Please use the software Renderer, or disable that option when building your slint files");
     }
 
     /// This function is called through the public API to register a callback that the backend needs to invoke during
