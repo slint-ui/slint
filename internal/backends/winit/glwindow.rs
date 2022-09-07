@@ -214,6 +214,50 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
 
         crate::event_loop::register_window(id, self.self_weak.upgrade().unwrap());
     }
+
+    fn hide_impl(&self) {
+        self.unmap();
+
+        /* FIXME:
+        if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
+            existing_blinker.stop();
+        }*/
+        crate::event_loop::with_window_target(|event_loop| {
+            event_loop.event_loop_proxy().send_event(crate::event_loop::CustomEvent::WindowHidden)
+        })
+        .unwrap();
+    }
+
+    fn request_window_properties_update_impl(&self) {
+        self.with_window_handle(&mut |window| {
+            let window_id = window.id();
+            crate::event_loop::with_window_target(|event_loop| {
+                event_loop
+                    .event_loop_proxy()
+                    .send_event(crate::event_loop::CustomEvent::UpdateWindowProperties(window_id))
+            })
+            .ok();
+        })
+    }
+
+    fn call_with_event_loop(&self, callback: fn(&Self)) {
+        // With wasm, winit's `run()` consumes the event loop and access to it from outside the event handler yields
+        // loop and thus ends up trying to create a new event loop instance, which panics in winit. Instead, forward
+        // the call to be invoked from within the event loop
+        #[cfg(target_arch = "wasm32")]
+        corelib::api::invoke_from_event_loop({
+            let self_weak = send_wrapper::SendWrapper::new(self.self_weak.clone());
+
+            move || {
+                if let Some(this) = self_weak.take().upgrade() {
+                    callback(&this)
+                }
+            }
+        })
+        .unwrap();
+        #[cfg(not(target_arch = "wasm32"))]
+        callback(self)
+    }
 }
 
 impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Renderer> {
@@ -351,15 +395,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
     }
 
     fn request_window_properties_update(&self) {
-        self.with_window_handle(&mut |window| {
-            let window_id = window.id();
-            crate::event_loop::with_window_target(|event_loop| {
-                event_loop
-                    .event_loop_proxy()
-                    .send_event(crate::event_loop::CustomEvent::UpdateWindowProperties(window_id))
-            })
-            .ok();
-        })
+        self.call_with_event_loop(Self::request_window_properties_update_impl);
     }
 
     fn apply_window_properties(&self, window_item: Pin<&i_slint_core::items::WindowItem>) {
@@ -380,35 +416,11 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
     }
 
     fn show(&self) {
-        // Creating a new winit::Window requires access to the running event loop (`&EventLoopWindowTarget`), which
-        // is only possible from within the event loop handler with wasm, as `run()` consumes the event loop. Work
-        // around by invoking `show()` from within the event loop handler.
-        #[cfg(target_arch = "wasm32")]
-        corelib::api::invoke_from_event_loop({
-            let self_weak = send_wrapper::SendWrapper::new(self.self_weak.clone());
-
-            move || {
-                if let Some(this) = self_weak.take().upgrade() {
-                    this.show_impl();
-                }
-            }
-        })
-        .unwrap();
-        #[cfg(not(target_arch = "wasm32"))]
-        self.show_impl();
+        self.call_with_event_loop(Self::show_impl);
     }
 
     fn hide(&self) {
-        self.unmap();
-
-        /* FIXME:
-        if let Some(existing_blinker) = self.cursor_blinker.borrow().upgrade() {
-            existing_blinker.stop();
-        }*/
-        crate::event_loop::with_window_target(|event_loop| {
-            event_loop.event_loop_proxy().send_event(crate::event_loop::CustomEvent::WindowHidden)
-        })
-        .unwrap();
+        self.call_with_event_loop(Self::hide_impl);
     }
 
     fn set_mouse_cursor(&self, cursor: MouseCursor) {
