@@ -104,13 +104,7 @@ impl Texture {
                     } else {
                         image_flags
                     };
-                    canvas
-                        .borrow_mut()
-                        .create_image(
-                            &html_image.dom_element,
-                            femtovg::ImageFlags::PREMULTIPLIED | image_flags,
-                        )
-                        .unwrap()
+                    canvas.borrow_mut().create_image(&html_image.dom_element, image_flags).unwrap()
                 } else {
                     return None;
                 }
