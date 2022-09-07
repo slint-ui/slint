@@ -903,13 +903,13 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                         let actual_y = clipped_relative_source_rect.origin.y as usize
                             + source_rect.origin.y as usize
                             - t.rect.origin.y as usize;
-                        let stride = t.rect.width() as u16 * bpp(t.format);
+                        let stride = t.rect.width() as u16 * t.format.bpp() as u16;
                         self.processor.process_texture(
                             target_rect.cast(),
                             SceneTexture {
                                 data: &data.as_slice()[(t.index
                                     + (stride as usize) * actual_y
-                                    + (bpp(t.format) as usize) * actual_x)..],
+                                    + (t.format.bpp()) * actual_x)..],
                                 stride,
                                 source_size: clipped_relative_source_rect.size.ceil().cast(),
                                 format: t.format,
@@ -1280,16 +1280,6 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
 
     fn as_any(&mut self) -> Option<&mut dyn core::any::Any> {
         None
-    }
-}
-
-/// bytes per pixels
-fn bpp(format: PixelFormat) -> u16 {
-    match format {
-        PixelFormat::Rgb => 3,
-        PixelFormat::Rgba => 4,
-        PixelFormat::RgbaPremultiplied => 4,
-        PixelFormat::AlphaMap => 1,
     }
 }
 

@@ -22,7 +22,7 @@ pub(super) fn draw_texture_line(
     let super::SceneTexture { data, format, stride, source_size, color } = *texture;
     let source_size = source_size.cast::<usize>();
     let span_size = span.size.cast::<usize>();
-    let bpp = super::bpp(format) as usize;
+    let bpp = format.bpp();
     let y = (line - span.origin.y_length()).cast::<usize>();
     let y_pos = (y.get() * source_size.height / span_size.height) * stride as usize;
     for (x, pix) in line_buffer
