@@ -340,7 +340,7 @@ fn test_exact_fit() {
 #[test]
 fn test_no_line_separators_characters_rendered() {
     let font = FixedTestFont;
-    let text = "Hello\nWorld";
+    let text = "Hello\nWorld\n";
 
     let mut lines = Vec::new();
 
