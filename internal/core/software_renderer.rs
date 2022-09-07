@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 //! This module contains the [`SoftwareRenderer`] and related types.
-//!
-//! It is only available with the `renderer-software` feature.
+
 #![warn(missing_docs)]
 
 mod draw_functions;

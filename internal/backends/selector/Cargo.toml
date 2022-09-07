@@ -15,14 +15,14 @@ homepage = "https://slint-ui.com"
 path = "lib.rs"
 
 [features]
-eventloop-winit = ["eventloop-winit-x11", "eventloop-winit-wayland"]
-eventloop-winit-x11 = ["i-slint-backend-winit/x11"]
-eventloop-winit-wayland = ["i-slint-backend-winit/wayland"]
+backend-winit = ["backend-winit-x11", "backend-winit-wayland"]
+backend-winit-x11 = ["i-slint-backend-winit/x11"]
+backend-winit-wayland = ["i-slint-backend-winit/wayland"]
 
-renderer-femtovg = ["i-slint-backend-winit/renderer-femtovg"]
-renderer-skia = ["i-slint-backend-winit/renderer-skia"]
-renderer-skia-opengl = ["i-slint-backend-winit/renderer-skia-opengl"]
-renderer-software = ["i-slint-backend-winit?/renderer-software"]
+renderer-winit-femtovg = ["i-slint-backend-winit/renderer-winit-femtovg"]
+renderer-winit-skia = ["i-slint-backend-winit/renderer-winit-skia"]
+renderer-winit-skia-opengl = ["i-slint-backend-winit/renderer-winit-skia-opengl"]
+renderer-winit-software = ["i-slint-backend-winit/renderer-winit-software"]
 
 rtti = ["i-slint-backend-winit?/rtti", "i-slint-backend-qt?/rtti"]
 

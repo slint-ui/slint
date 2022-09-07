@@ -19,7 +19,7 @@ path = "lib.rs"
 
 [features]
 
-default = ["std", "eventloop-winit", "renderer-femtovg", "backend-qt", "compat-0.3.0"]
+default = ["std", "backend-winit", "renderer-winit-femtovg", "backend-qt", "compat-0.3.0"]
 
 ## Mandatory feature:
 ## This feature is required to keep the compatibility with Slint 0.3.0
@@ -40,44 +40,40 @@ std = ["i-slint-core/std"]
 
 #! ### Backends
 
+#! See the documentation of the [`slint` crate](https://docs.rs/slint/latest/slint/#backends)
+
 ## The Qt backend feature uses Qt for the windowing system integration and rendering.
-## This backend is required to use the `native` style.
+## This backend also provide the `native` style.
 ## It requires Qt 5.15 or later to be installed. If Qt is not installed, the
 ## backend will not be operational
 backend-qt = ["i-slint-backend-selector/i-slint-backend-qt", "std"]
 
-# The following backend-gl-* are just alias
-backend-gl-all = ["eventloop-winit", "renderer-femtovg"]
-backend-gl-x11 = ["eventloop-winit-x11", "renderer-femtovg"]
-backend-gl-wayland = ["eventloop-winit-wayland", "renderer-femtovg"]
+## The [winit](https://crates.io/crates/log) crate is used for the event loop and windowing system integration.
+## With this feature, both x11 and wayland windowing systems are supported. For a smaller build, omit
+## this feature and select one of the other specific `backend-winit-XX` features.
+backend-winit = ["i-slint-backend-selector/backend-winit", "std"]
 
-## The the `winit` crate is used for the event loop and windowing system integration.
-## With this feature, all windowing systems are supported. For a smaller build, omit
-## this feature and select one of the other specific `eventloop-winit-XX` features.
-eventloop-winit = ["i-slint-backend-selector/eventloop-winit", "std"]
-
-## Simliar to `eventloop-winit` this enables the winit based event loop but only
+## Simliar to `backend-winit` this enables the winit based event loop but only
 ## with support for the X Window System on Unix.
-eventloop-winit-x11 = ["i-slint-backend-selector/eventloop-winit-x11", "std"]
+backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11", "std"]
 
-## Simliar to `eventloop-winit` this enables the winit based event loop but only
+## Simliar to `backend-winit` this enables the winit based event loop but only
 ## with support for the Wayland window system on Unix.
-eventloop-winit-wayland = ["i-slint-backend-selector/eventloop-winit-wayland", "std"]
+backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"]
 
-## This feature is an alias for `backend-qt`
-eventloop-qt = ["backend-qt"]
+## Enable the `winit` backend and make it capable of renderer using the
+## [femtovg](https://crates.io/crates/femtovg) crate.
+renderer-winit-femtovg = ["i-slint-backend-selector/renderer-winit-femtovg", "std"]
 
-## The `femtovg` crate is available for rendering.
-renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg", "std"]
+## (Experimental) Enable the `winit` backend and make it capable of renderer using [Skia](https://skia.org/)
+renderer-winit-skia = ["i-slint-backend-selector/renderer-winit-skia", "std"]
 
-## The Skia based rendering engine.
-renderer-skia = ["i-slint-backend-selector/renderer-skia", "std"]
+## (Experimental) Same as `renderer-winit-skia`, but Skia will always use OpenGL.
+renderer-winit-skia-opengl = ["i-slint-backend-selector/renderer-winit-skia-opengl", "std"]
 
-## The Skia based rendering engine that will always use OpenGL.
-renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl", "std"]
+## (Experimental) Enable the `winit` backend and make it capable of renderer using the software renderer
+renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]
 
-## This feature is an alias for `backend-qt`
-renderer-qt = ["backend-qt"]
 
 [dependencies]
 i-slint-compiler = { version = "=0.3.0", path = "../compiler" }

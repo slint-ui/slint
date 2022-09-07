@@ -15,7 +15,7 @@ path = "main.rs"
 name = "printerdemo_mcu"
 
 [features]
-mcu-simulator = ["slint/renderer-software", "slint/eventloop-winit", "slint/std"]
+mcu-simulator = ["slint/renderer-winit-software", "slint/backend-winit", "slint/std"]
 mcu-pico-st7789 = ["mcu-board-support/pico-st7789"]
 
 [dependencies]

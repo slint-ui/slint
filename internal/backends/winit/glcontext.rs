@@ -76,7 +76,7 @@ impl OpenGLContext {
         }
     }
 
-    #[cfg(any(feature = "renderer-femtovg", enable_skia_renderer))]
+    #[cfg(any(feature = "renderer-winit-femtovg", enable_skia_renderer))]
     pub fn with_current_context<T>(&self, cb: impl FnOnce(&Self) -> T) -> T {
         if matches!(self.0.borrow().as_ref().unwrap(), OpenGLContextState::Current { .. }) {
             cb(self)

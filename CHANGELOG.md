@@ -10,8 +10,7 @@ All notable changes to this project are documented in this file.
  - `mod` now works on any numeric type, not only integers.
  - Minimum rust version is now 1.60
  - The "backend-gl-*" Rust crate features for configuring the GL renderer have been
-   split up into "eventloop-winit/x11/wayland" and "renderer-femtovg". The old
-   names are still available for compatibility.
+   changed and split by renderer
  - `VecModel::remove` now return the removed element
 
 ### Added

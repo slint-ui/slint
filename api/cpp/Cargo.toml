@@ -27,14 +27,14 @@ interpreter = ["slint-interpreter"]
 testing = ["i-slint-backend-testing"] # Enable some function used by the integration tests
 
 backend-qt = ["i-slint-backend-selector/i-slint-backend-qt"]
-eventloop-winit = ["i-slint-backend-selector/eventloop-winit"]
-eventloop-winit-x11 = ["i-slint-backend-selector/eventloop-winit-x11"]
-eventloop-winit-wayland = ["i-slint-backend-selector/eventloop-winit-wayland"]
-renderer-femtovg = ["i-slint-backend-selector/renderer-femtovg"]
-renderer-skia = ["i-slint-backend-selector/renderer-skia"]
-renderer-skia-opengl = ["i-slint-backend-selector/renderer-skia-opengl"]
+backend-winit = ["i-slint-backend-selector/backend-winit"]
+backend-winit-x11 = ["i-slint-backend-selector/backend-winit-x11"]
+backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland"]
+renderer-winit-femtovg = ["i-slint-backend-selector/renderer-winit-femtovg"]
+renderer-winit-skia = ["i-slint-backend-selector/renderer-winit-skia"]
+renderer-winit-skia-opengl = ["i-slint-backend-selector/renderer-winit-skia-opengl"]
 
-default = ["eventloop-winit", "renderer-femtovg", "backend-qt"]
+default = ["backend-winit", "renderer-winit-femtovg", "backend-qt"]
 
 [dependencies]
 i-slint-backend-selector = { version = "=0.3.0", path="../../internal/backends/selector" }

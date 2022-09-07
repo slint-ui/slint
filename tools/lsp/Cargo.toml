@@ -34,24 +34,24 @@ name = "slint_lsp_wasm"
 [features]
 backend-qt = ["slint-interpreter/backend-qt", "preview"]
 eventloop-qt = ["backend-qt"]
-renderer-qt = ["backend-qt"]
+renderer-winit-qt = ["backend-qt"]
 
-eventloop-winit = ["slint-interpreter/eventloop-winit", "preview"]
-eventloop-winit-x11 = ["slint-interpreter/eventloop-winit-x11", "preview"]
-eventloop-winit-wayland = ["slint-interpreter/eventloop-winit-wayland", "preview"]
+backend-winit = ["slint-interpreter/backend-winit", "preview"]
+backend-winit-x11 = ["slint-interpreter/backend-winit-x11", "preview"]
+backend-winit-wayland = ["slint-interpreter/backend-winit-wayland", "preview"]
 
-renderer-femtovg = ["slint-interpreter/renderer-femtovg", "preview"]
-renderer-skia = ["slint-interpreter/renderer-skia", "preview"]
-renderer-skia-opengl = ["slint-interpreter/renderer-skia-opengl", "preview"]
+renderer-winit-femtovg = ["slint-interpreter/renderer-winit-femtovg", "preview"]
+renderer-winit-skia = ["slint-interpreter/renderer-winit-skia", "preview"]
+renderer-winit-skia-opengl = ["slint-interpreter/renderer-winit-skia-opengl", "preview"]
 
 # Compat
-backend-gl-all = ["eventloop-winit", "renderer-femtovg"]
-backend-gl-wayland = ["eventloop-winit-wayland", "renderer-femtovg"]
-backend-gl-x11 = ["eventloop-winit-x11", "renderer-femtovg"]
+backend-gl-all = ["backend-winit", "renderer-winit-femtovg"]
+backend-gl-wayland = ["backend-winit-wayland", "renderer-winit-femtovg"]
+backend-gl-x11 = ["backend-winit-x11", "renderer-winit-femtovg"]
 
 preview = ["slint-interpreter", "i-slint-core", "i-slint-backend-selector"]
 
-default = ["backend-qt", "eventloop-winit", "renderer-femtovg", "preview"]
+default = ["backend-qt", "backend-winit", "renderer-winit-femtovg", "preview"]
 
 [dependencies]
 i-slint-compiler = { version = "=0.3.0", path = "../../internal/compiler"}

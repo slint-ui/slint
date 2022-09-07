@@ -19,7 +19,7 @@ A typical line in Cargo.toml looks like that:
 
 ```toml
 [dependencies]
-slint = { version = "0.2.6", default-features = false, features = ["compat-0.3.0", "unsafe-single-threaded", "libm", "renderer-software"] }
+slint = { version = "0.2.6", default-features = false, features = ["compat-0.3.0", "unsafe-single-threaded", "libm", "renderer-winit-software"] }
 # ... other stuf
 ```
 
@@ -31,7 +31,7 @@ By setting this feature, you promise not to use Slint API from a different threa
 
 You will also need the `libm` feature to for the math operation that would otherwise be taken care by the std lib.
 
-And the additional feature you need is `renderer-software` to enable the software renderer we will need to render a Slint scene on MCU.
+And the additional feature you need is `renderer-winit-software` to enable the software renderer we will need to render a Slint scene on MCU.
 
 ## `build.rs`
 
