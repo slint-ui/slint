@@ -73,6 +73,7 @@ import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
 
   let base_url = "";
   let event_loop_started = false;
+  let current_preview_instance: slint.WrappedInstance | null = null;
 
   interface ModelAndViewState {
     model: monaco.editor.ITextModel;
@@ -267,9 +268,8 @@ import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
     const main_model_and_state = editor_documents.get(base_url);
     if (main_model_and_state != null) {
       const source = main_model_and_state.model.getValue();
-      const div = document.getElementById("preview") as HTMLDivElement;
       setTimeout(function () {
-        render_or_error(source, base_url, div);
+        render_or_error(source, base_url);
       }, 1);
     }
   }
@@ -302,19 +302,11 @@ import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
   async function render_or_error(
     source: string,
     base_url: string,
-    div: HTMLDivElement
   ) {
     const style =
       (document.getElementById("style_combo") as HTMLInputElement)?.value ??
       "fluent";
 
-    const canvas_id = "canvas_" + Math.random().toString(36).slice(2, 11);
-    const canvas = document.createElement("canvas");
-    canvas.width = 800;
-    canvas.height = 600;
-    canvas.id = canvas_id;
-    div.innerHTML = "";
-    div.appendChild(canvas);
     let markers = [];
     const { component, diagnostics, error_string } =
       await slint.compile_from_string_with_style(
@@ -324,14 +316,16 @@ import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
         read_from_url
       );
 
+    const diagnostics_area = document.getElementById("rendering_errors") as HTMLDivElement;
+    const canvas = document.getElementById("rendering_canvas") as HTMLCanvasElement;
+
     if (error_string != "") {
-      const text = document.createTextNode(error_string);
-      const p = document.createElement("pre");
-      p.appendChild(text);
-      div.innerHTML =
-        "<pre style='color: red; background-color:#fee; margin:0'>" +
-        p.innerHTML +
-        "</pre>";
+      diagnostics_area.innerText = error_string;
+      canvas.style.visibility = "hidden";
+      diagnostics_area.style.visibility = "visible";
+    } else {
+      canvas.style.visibility = "visible";
+      diagnostics_area.style.visibility = "hidden";
     }
 
     markers = diagnostics.map(function (x) {
@@ -351,8 +345,12 @@ import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
     }
 
     if (component !== undefined) {
-      const instance = component.create(canvas_id);
-      instance.show();
+      if (current_preview_instance === null) {
+        current_preview_instance = component.create("rendering_canvas");
+        current_preview_instance.show();
+      } else {
+        current_preview_instance = component.create_with_existing_window(current_preview_instance);
+      }
       if (!event_loop_started) {
         event_loop_started = true;
         slint.run_event_loop();
