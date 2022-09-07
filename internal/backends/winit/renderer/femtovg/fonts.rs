@@ -624,9 +624,9 @@ impl FontCache {
 }
 
 /// Layout the given string in lines, and call the `layout_line` callback with the line to draw at position y.
-/// The signature of the `layout_line` function is: `(canvas, text, pos, start_index, line_metrics)`.
+/// The signature of the `layout_line` function is: `(text, pos, start_index, line_metrics)`.
 /// start index is the starting byte of the text in the string.
-/// Returns the baseline y coordinate.
+/// Returns the y coordinate of where to place the cursor if it is at the end of the text
 pub(crate) fn layout_text_lines(
     string: &str,
     font: &Font,
@@ -739,5 +739,5 @@ pub(crate) fn layout_text_lines(
             start = index;
         }
     }
-    baseline_y
+    y
 }
