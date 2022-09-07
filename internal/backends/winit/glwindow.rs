@@ -392,7 +392,8 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                     this.show_impl();
                 }
             }
-        });
+        })
+        .unwrap();
         #[cfg(not(target_arch = "wasm32"))]
         self.show_impl();
     }
