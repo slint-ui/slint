@@ -185,7 +185,8 @@ impl i_slint_core::platform::Platform for Backend {
                         proxy
                             .send_event(crate::event_loop::CustomEvent::WakeEventLoopWorkaround)?;
                         proxy.send_event(e)?;
-                    });
+                        Ok(())
+                    })?
                 }
                 Ok(())
             }

@@ -201,7 +201,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
             );
             // On wasm, with_inner_size on the WindowBuilder don't have effect, so apply manually
             #[cfg(target_arch = "wasm32")]
-            if (s.width > 0 as Coord && s.height > 0 as Coord) {
+            if s.width > 0 as Coord && s.height > 0 as Coord {
                 winit_window.set_inner_size(s);
             }
             winit_window.id()
@@ -392,7 +392,8 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                     this.show_impl();
                 }
             }
-        });
+        })
+        .unwrap();
         #[cfg(not(target_arch = "wasm32"))]
         self.show_impl();
     }
