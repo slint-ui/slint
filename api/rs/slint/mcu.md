@@ -136,8 +136,8 @@ struct MyPlatform {
 
 impl Platform for MyPlatform {
     fn create_window_adapter(&self) -> Rc<dyn slint::platform::WindowAdapter> {
-        // Since on MCU, there can be only one window, just return a clone of self.window.
-        // We'll also use the same window in the event loop
+        // Since on MCUs, there can be only one window, just return a clone of self.window.
+        // We'll also use the same window in the event loop.
         self.window.clone()
     }
     fn duration_since_start(&self) -> core::time::Duration {
@@ -151,10 +151,10 @@ impl Platform for MyPlatform {
 
 // #[hal::entry]
 fn main() {
-    // init the allocator, and other devices stuff
-    //...
+    // Initialize the heap allocator, peripheral devices and other things.
+    // ...
 
-    // init a window (we'll need it later)
+    // Initialize a window (we'll need it later).
     let window = MinimalSoftwareWindow::new();
     slint::platform::set_platform(Box::new(MyPlatform {
         window: window.clone(),
@@ -163,11 +163,11 @@ fn main() {
     }))
     .unwrap();
 
-    // setup the UI
+    // Setup the UI.
     let ui = MyUI::new();
     // ... setup callback and properties on `ui` ...
 
-    // Make sure the window cover our all screen
+    // Make sure the window covers our entire screen.
     window.set_size(slint::PhysicalSize::new(320, 240));
 
     // ... start event loop (see later) ...
@@ -197,25 +197,25 @@ let window = MinimalSoftwareWindow::<0>::new();
 # mod hal { pub fn wfi() {} }
 //...
 loop {
-    // Let slint run the timer hooks and update animations
+    // Let Slint run the timer hooks and update animations.
     slint::platform::update_timers_and_animations();
 
-    // Check the touch screen or input device  using your driver
+    // Check the touch screen or input device using your driver.
     if let Some(event) = check_for_touch_event(/*...*/) {
         // convert the event from the driver into a `slint::WindowEvent`
-        // and pass it to the window
+        // and pass it to the window.
         window.dispatch_event(event);
     }
 
-    // Draw the scene if something needs to be drawn
+    // Draw the scene if something needs to be drawn.
     window.draw_if_needed(|renderer| {
-        // see next section
+        // see next section about rendering.
         todo!()
     });
 
     // ... maybe some more application logic ...
 
-    // Put the MCU to sleep
+    // Try to put the MCU to sleep
     if !window.has_active_animations() {
         if let Some(duration) = slint::platform::duration_until_next_timer_update() {
             // ... schedule an interrupt in `duration` ...
