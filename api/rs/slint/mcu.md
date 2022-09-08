@@ -25,8 +25,8 @@ A typical line in Cargo.toml looks like that:
 
 ```toml
 [dependencies]
-slint = { version = "0.2.6", default-features = false, features = ["compat-0.3.0", "unsafe-single-threaded", "libm", "renderer-winit-software"] }
-# ... other stuf
+slint = { version = "0.3.0", default-features = false, features = ["compat-0.3.0", "unsafe-single-threaded", "libm", "renderer-winit-software"] }
+# ... other stuff
 ```
 
 Slint uses the standard library by default, so we need to disable the default features.
