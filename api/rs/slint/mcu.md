@@ -391,11 +391,15 @@ the screen using DMA asynchronously.
 Hint: If you see wrong colors on your device, it may be necessary to invert the bits in the u16 pixel
 representation before sending them to the screen driver.
 
-## Supported Boards
+## Example Implementations
 
-Our example use a support crate containing an implementation of the [`Platform`] trait
-for the device we tested.
+Slint's own examples use a helper crate called `mcu-board-support` that provides implementations of
+the `Platform` trait for some MCUs, along with support for touch input and system timers.
 
-You can also make use of that crate, but you will need to use `git="..."` in your Cargo.toml
+You can find the crate in our Git repository at:
 
-<https://github.com/slint-ui/slint/tree/master/examples/mcu-board-support>
+    <https://github.com/slint-ui/slint/tree/master/examples/mcu-board-support>
+
+If your MCU is among the supported boards, then you can use it by specifying it as a
+[dependency from our Git repository](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#specifying-dependencies-from-git-repositories)
+in your `Cargo.toml`.
