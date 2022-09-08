@@ -134,22 +134,16 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
     }
 
     /// Draw the items of the specified `component` in the given window.
-    fn draw(&self) {
+    fn draw(&self) -> bool {
         let window = match self.borrow_mapped_window() {
             Some(window) => window,
-            None => return, // caller bug, doesn't make sense to call draw() when not mapped
+            None => return false, // caller bug, doesn't make sense to call draw() when not mapped
         };
 
         self.pending_redraw.set(false);
         self.renderer.render(&window.canvas, self);
 
-        // If during rendering a new redraw_request() was issued (for example in a rendering notifier callback), then
-        // pretend that an animation is running, so that we return Poll from the event loop to ensure a repaint as
-        // soon as possible.
-        if self.pending_redraw.get() {
-            i_slint_core::animations::CURRENT_ANIMATION_DRIVER
-                .with(|driver| driver.set_has_active_animations());
-        }
+        self.pending_redraw.get()
     }
 
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window)) {

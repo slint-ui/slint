@@ -30,7 +30,8 @@ pub(crate) static QUIT_ON_LAST_WINDOW_CLOSED: std::sync::atomic::AtomicBool =
 pub trait WinitWindow: WindowAdapter {
     fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>>;
     fn current_keyboard_modifiers(&self) -> &Cell<KeyboardModifiers>;
-    fn draw(&self);
+    /// Returns true if during the drawing request_redraw() was called.
+    fn draw(&self) -> bool;
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window));
     fn constraints(&self) -> (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo);
     fn set_constraints(
@@ -489,7 +490,13 @@ pub fn run() {
                 if let Ok(pos) = windows_with_pending_redraw_requests.binary_search(&id) {
                     windows_with_pending_redraw_requests.remove(pos);
                 }
-                window.draw();
+                let redraw_requested_during_draw = window.draw();
+                if redraw_requested_during_draw {
+                    // If during rendering a new redraw_request() was issued (for example in a rendering notifier callback), then
+                    // pretend that an animation is running, so that we return Poll from the event loop to ensure a repaint as
+                    // soon as possible.
+                    *control_flow = ControlFlow::Poll;
+                }
             }
         }
 
@@ -567,7 +574,13 @@ pub fn run() {
                 .drain(..)
                 .filter_map(|window_id| window_by_id(window_id))
             {
-                window.draw();
+                let redraw_requested_during_draw = window.draw();
+                if redraw_requested_during_draw {
+                    // If during rendering a new redraw_request() was issued (for example in a rendering notifier callback), then
+                    // pretend that an animation is running, so that we return Poll from the event loop to ensure a repaint as
+                    // soon as possible.
+                    *control_flow = ControlFlow::Poll;
+                }
             }
 
             if *control_flow == ControlFlow::Wait {
