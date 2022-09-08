@@ -2,7 +2,7 @@
 
 This document explain how to use Slint to develop a UI on a MCU.
 
-## Install toolchain / hal
+## Install Toolchain / HAL
 
 Each MCU or board needs the proper toolchain for cross compilation,
 has its own hal crate (Hardware Abstraction Layer) and drivers, and other tools to flash and debug the device.
@@ -13,7 +13,7 @@ or other resources specific to your device that will guide you to get a "hello w
 You will need nightly Rust, since stable Rust unfortunately doesn't provide a way to use a global allocator in a `#![no_std]` project.
 (until [#51540](https://github.com/rust-lang/rust/issues/51540) or [#66741](https://github.com/rust-lang/rust/issues/66741) is stabilized)
 
-## Set the feature flags
+## Set the Feature Flags
 
 A typical line in Cargo.toml looks like that:
 
@@ -49,7 +49,7 @@ fn main() {
 }
 ```
 
-## The `Platform` trait
+## The `Platform` Trait
 
 The idea is to call `[slint::platform::set_platform]` before constructing your Slint application.
 
@@ -121,7 +121,7 @@ fn main() {
 }
 ```
 
-## The event loop
+## The Event Loop
 
 Once you have initialized your Platform, you can start the event loop.
 You've got two choices:
@@ -173,7 +173,7 @@ loop {
 
 ```
 
-## The renderer
+## The Renderer
 
 On MCU, we currently only support software rendering. In the previous example, we've instantiated a
 [`slint::platform::software_renderer::MinimalSoftwareWindow`]. This will give us an instance of the
@@ -192,7 +192,7 @@ Either way, you would render to a buffer (a full, or just a line), which is a sl
 So a slice of something that implement the [`slint::platform::software_renderer::TargetPixel`] trait.
 By default, this trait is implemented for [`slint::Rgb8Pixel`] and [`slint::platform::software_renderer::Rgb565Pixel`].
 
-### Rendering in a buffer
+### Rendering into a Buffer
 
 In this example, we'll use double buffering and swap between the buffer.
 
@@ -240,7 +240,7 @@ loop {
 
 ```
 
-### Render line by line
+### Render Line by Line
 
 The line by line provider works by implementing the [`LineBufferProvider`] trait.
 
@@ -322,7 +322,7 @@ For example, some device might be able to send the line to the display asynchron
 DMA. In that case, we'd have two line buffer. One working line, and one which is being send
 to the screen, in parallel.
 
-## Our supported boards
+## Supported Boards
 
 Our example use a support crate containing an implementation of the [`Platform`] trait
 for the device we tested.
