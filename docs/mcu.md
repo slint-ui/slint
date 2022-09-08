@@ -1,6 +1,6 @@
 # Slint on Microcontrollers (MCU)
 
-This document explain how to use slint to develop a UI on a MCU.
+This document explain how to use Slint to develop a UI on a MCU.
 
 ## Install toolchain / hal
 
