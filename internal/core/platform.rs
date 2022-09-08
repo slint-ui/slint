@@ -144,9 +144,9 @@ pub enum SetPlatformError {
     AlreadySet,
 }
 
-/// Set the slint platform abstraction.
+/// Set the Slint platform abstraction.
 ///
-/// If the platform abstraction was already set this will return `Err`
+/// If the platform abstraction was already set this will return `Err`.
 pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlatformError> {
     PLATFORM_INSTANCE.with(|instance| {
         if instance.get().is_some() {
