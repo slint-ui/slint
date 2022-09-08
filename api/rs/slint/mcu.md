@@ -33,6 +33,9 @@ Start by adding a dependency to the `slint` crate to your `Cargo.toml`:
 version = "0.3.0"
 default-features = false
 features = ["compat-0.3.0", "unsafe-single-threaded", "libm"]
+
+[build-dependencies]
+slint-build = version = "0.3.0"
 ```
 
 The default features of the `slint` create are tailored towards hosted environments and includes the "std" feature. In bare metal environments,
@@ -48,11 +51,16 @@ In addition we select two additional features:
  * `libm`: MCUs often don't provide hardware support for floating point arithmetic. The `libm` feature enables the use of software emulation, with the help of
    the [libm](https://crates.io/crates/libm) crate.
 
+Finally, we add `slint-build` as a build dependency in order to compile the `.slint` design files to Rust code.
+
 ## Changes to `build.rs`
 
-When targeting MCU, you will need a build script to compile the `.slint` files using the `slint-build` crate.
-You will have to use the `slint_build::EmbedResourcesKind::EmbedForSoftwareRenderer` configuration option to tell
-the slint compiler to embed the images and font in the binary in the proper format.
+When targeting MCUs, you need a [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) to compile the `.slint` files using the `slint-build` crate.
+Use the `slint_build::EmbedResourcesKind::EmbedForSoftwareRenderer` configuration option to tell the slint compiler to embed the images and fonts in the binary
+in a format that's suitable for the software based renderer we're going to use.
+
+The following example of a `build.rs` script compiles the `main.slint` design file in the `ui/` sub-directory to Rust code and embeds the code as well as all
+graphical assets needed into the program binary.
 
 ```rust,no_run
 fn main() {
@@ -63,6 +71,9 @@ fn main() {
     ).unwrap();
 }
 ```
+
+Hint: If you observe that your `build.rs` script is not used, double check that your `Cargo.toml` is using the
+[package.build](https://doc.rust-lang.org/cargo/reference/manifest.html#package-build) manifest key: `build = "build.rs"`.
 
 ## The `Platform` Trait
 
