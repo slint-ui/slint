@@ -169,14 +169,13 @@ pub fn update_timers_and_animations() {
     crate::animations::update_animations();
 }
 
-/// Return the duration before the next timer should be activated. This is basically the
-/// maximum time before calling [`update_timers_and_animations()`].
+/// Returns the duration before the next timer is expected to be activated. This is the
+/// largest amount of time that you can wait before calling [`update_timers_and_animations()`].
 ///
-/// That is typically called by the implementation of the event loop to know how long the
-/// thread can go to sleep before the next event.
-///
-/// Note: this does not include animations. [`Window::has_active_animations()`](crate::api::Window::has_active_animations())
-/// can be called to know if a window has running animation
+/// Call this in your own event loop implementation to know how long the current thread can
+/// go to sleep. Note that this does not take currently activate animations into account.
+/// Only go to sleep if [`Window::has_active_animations()`](crate::api::Window::has_active_animations())
+/// returns false.
 pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
     crate::timers::TimerList::next_timeout().map(|timeout| {
         let duration_since_start = crate::platform::PLATFORM_INSTANCE
