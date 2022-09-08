@@ -208,13 +208,13 @@ loop {
         window.dispatch_event(event);
     }
 
+    // ... maybe some more application logic ...
+
     // Draw the scene if something needs to be drawn.
     window.draw_if_needed(|renderer| {
         // see next section about rendering.
         todo!()
     });
-
-    // ... maybe some more application logic ...
 
     // Try to put the MCU to sleep
     if !window.has_active_animations() {
