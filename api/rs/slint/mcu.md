@@ -2,10 +2,10 @@
 
 This document explain how to use Slint to develop a UI on a MCU.
 
-## Install Toolchain / HAL
+## Install Toolchain / Hardware Abstraction Layer (HAL)
 
 Each MCU or board needs the proper toolchain for cross compilation,
-has its own hal crate (Hardware Abstraction Layer) and drivers, and other tools to flash and debug the device.
+has its own HAL crate and drivers, and other tools to flash and debug the device.
 
 This is out of scope for this document. You can check the [Rust Embedded Book](https://docs.rust-embedded.org/book/)
 or other resources specific to your device that will guide you to get a "hello world" working on your device.
