@@ -1209,7 +1209,7 @@ impl<DirtyHandler: PropertyDirtyHandler> PropertyTracker<DirtyHandler> {
     }
 
     /// Register this property tracker as a dependency to the current binding/property tracker being evaluated
-    fn register_as_dependency_to_current_binding(self: Pin<&Self>) {
+    pub fn register_as_dependency_to_current_binding(self: Pin<&Self>) {
         if CURRENT_BINDING.is_set() {
             CURRENT_BINDING.with(|cur_binding| {
                 if let Some(cur_binding) = cur_binding {

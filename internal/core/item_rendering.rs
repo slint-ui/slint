@@ -385,36 +385,38 @@ impl<'a, T> PartialRenderer<'a, T> {
 
     /// Visit the tree of item and compute what are the dirty regions
     pub fn compute_dirty_regions(&mut self, component: &ComponentRc, origin: Point) {
-        crate::properties::evaluate_no_tracking(|| {
-            crate::item_tree::visit_items(
-                component,
-                crate::item_tree::TraversalOrder::BackToFront,
-                |_, item, _, offset| {
-                    let mut borrowed = self.cache.borrow_mut();
-                    match item.cached_rendering_data_offset().get_entry(&mut borrowed) {
-                        Some(CachedGraphicsData { data, dependency_tracker: Some(tr) }) => {
-                            if tr.is_dirty() {
-                                let old_geom = *data;
-                                drop(borrowed);
-                                let geom = item.as_ref().geometry();
-                                self.mark_dirty_rect(old_geom, *offset);
-                                self.mark_dirty_rect(geom, *offset);
-                                ItemVisitorResult::Continue(*offset + geom.origin.to_vector())
-                            } else {
-                                ItemVisitorResult::Continue(*offset + data.origin.to_vector())
-                            }
-                        }
-                        _ => {
+        crate::item_tree::visit_items(
+            component,
+            crate::item_tree::TraversalOrder::BackToFront,
+            |_, item, _, offset| {
+                let mut borrowed = self.cache.borrow_mut();
+                match item.cached_rendering_data_offset().get_entry(&mut borrowed) {
+                    Some(CachedGraphicsData { data, dependency_tracker: Some(tr) }) => {
+                        if tr.is_dirty() {
+                            let old_geom = *data;
                             drop(borrowed);
-                            let geom = item.as_ref().geometry();
+                            let geom = crate::properties::evaluate_no_tracking(|| {
+                                item.as_ref().geometry()
+                            });
+                            self.mark_dirty_rect(old_geom, *offset);
                             self.mark_dirty_rect(geom, *offset);
                             ItemVisitorResult::Continue(*offset + geom.origin.to_vector())
+                        } else {
+                            tr.as_ref().register_as_dependency_to_current_binding();
+                            ItemVisitorResult::Continue(*offset + data.origin.to_vector())
                         }
                     }
-                },
-                origin.to_vector(),
-            )
-        });
+                    _ => {
+                        drop(borrowed);
+                        let geom =
+                            crate::properties::evaluate_no_tracking(|| item.as_ref().geometry());
+                        self.mark_dirty_rect(geom, *offset);
+                        ItemVisitorResult::Continue(*offset + geom.origin.to_vector())
+                    }
+                }
+            },
+            origin.to_vector(),
+        );
     }
 
     fn mark_dirty_rect(&mut self, rect: Rect, offset: euclid::default::Vector2D<Coord>) {
