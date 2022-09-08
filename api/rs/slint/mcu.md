@@ -23,7 +23,7 @@ In the following sections we assume that your setup is complete and you have a n
 
 ## Changes to `Cargo.toml`
 
-A typical line in Cargo.toml looks like that:
+Start by adding a dependency to the `slint` crate to your `Cargo.toml`:
 
 ```toml
 [dependencies]
@@ -31,13 +31,18 @@ slint = { version = "0.3.0", default-features = false, features = ["compat-0.3.0
 # ... other stuff
 ```
 
-Slint uses the standard library by default, so we need to disable the default features.
-Then you need the `compat-0.3.0` feature ([see why in this blog post](https://slint-ui.com/blog/rust-adding-default-cargo-feature.html))
+The default features of the `slint` create are tailored towards hosted environments and includes the "std" feature. In bare metal environments,
+you need to disable the default features and select at least the `compat-0.3.0` feature (see [this blog post](https://slint-ui.com/blog/rust-adding-default-cargo-feature.html)
+for a longer explanation).
 
-As we don't have `std`, you will also need to enable the `unsafe-single-threaded` feature: Slint can't use `thread_local!` and will use unsafe static instead.
-By setting this feature, you promise not to use Slint API from a different thread or interrupt handler.
+In addition we select two additional features:
 
-You will also need the `libm` feature to for the math operation that would otherwise be taken care by the std lib.
+ * `unsafe-single-threaded`: Slint internally uses Rust's [`thread_local!`](https://doc.rust-lang.org/std/macro.thread_local.html) macro to store global data.
+   This feature is only available in the Rust Standard Library (std), which is not available in bare-metal environments. As a fallback, the `unsafe-single-threaded`
+   feature will change Slint to use unsafe static for storage. By setting this feature, you guarantee not to use Slint API from a thread other than the main thread,
+   or from interrupt handlers.
+ * `libm`: MCUs often don't provide hardware support for floating point arithmetic. The `libm` feature enables the use of software emulation, with the help of
+   the [libm](https://crates.io/crates/libm) crate.
 
 ## Changes to `build.rs`
 
