@@ -398,7 +398,7 @@ the `Platform` trait for some MCUs, along with support for touch input and syste
 
 You can find the crate in our Git repository at:
 
-    <https://github.com/slint-ui/slint/tree/master/examples/mcu-board-support>
+<https://github.com/slint-ui/slint/tree/master/examples/mcu-board-support>
 
 If your MCU is among the supported boards, then you can use it by specifying it as a
 [dependency from our Git repository](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#specifying-dependencies-from-git-repositories)
