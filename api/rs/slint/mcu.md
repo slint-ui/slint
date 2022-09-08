@@ -184,7 +184,7 @@ You can choose between two options:
    event loop in a way similar to desktop platforms, using the [`run()`](slint::ComponentHandle::run) function
    of your component, or use [`slint::run_event_loop()`]. Both of these functions will call your implementation
    of [`slint::platform::Platform::run_event_loop`].
- * Implement a `loop { ... }` directly in your main function. This is called a super loop architecture and common
+ * Implement a `loop { ... }` directly in your main function: This is called a super loop architecture and common
    for programs running in bare metal environments on MCUs. It allows you to initialize you device peripherals
    and access them without the need to move them into your `Platform` implementation.
 
