@@ -219,9 +219,9 @@ loop {
     // Try to put the MCU to sleep
     if !window.has_active_animations() {
         if let Some(duration) = slint::platform::duration_until_next_timer_update() {
-            // ... schedule an interrupt in `duration` ...
+            // ... schedule a timer interrupt in `duration` ...
         }
-        hal::wfi(); // Wait for interupt
+        hal::wfi(); // Wait for interrupt
     }
 }
 
