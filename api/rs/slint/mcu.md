@@ -96,7 +96,7 @@ In the following sections we are going to cover how to use them and how they int
 
 ### The `Platform` Trait
 
-The `slint::platform::Platform` trait defines the interface between Slint and platform APIs typically provided by operating and windowing systems.
+The [`slint::platform::Platform`] trait defines the interface between Slint and platform APIs typically provided by operating and windowing systems.
 
 You need to provide an minimal implementation of this trait and call [`slint::platform::set_platform`] before constructing your Slint application.
 
