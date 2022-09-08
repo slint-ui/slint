@@ -1,4 +1,4 @@
-# Slint on Micro-Controllers (MCU)
+# Slint on Microcontrollers (MCU)
 
 This document explain how to use slint to develop a UI on a MCU.
 
