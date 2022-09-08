@@ -29,10 +29,15 @@ pub use draw_functions::{PremultipliedRgbaColor, Rgb565Pixel, TargetPixel};
 
 type DirtyRegion = PhysicalRect;
 
-/// Provide a buffer for the [`SoftwareRenderer::render_by_line`] function.
+/// This trait defines a bi-directional interface between Slint and your code to send lines to your screen, when using
+/// the [`SoftwareRenderer::render_by_line`] function.
 ///
-/// See the [`render_by_line`](SoftwareRenderer::render_by_line) documentation
-/// for an example
+/// * Through the associated `TargetPixel` type Slint knows how to create and manipulate pixels without having to know
+///   the exact device-specific binary representation and operations for blending.
+/// * Through the `process_line` function Slint notifies you when a line can be rendered and provides a callback that
+///   you can invoke to fill a slice of pixels for the given line.
+///
+/// See the [`render_by_line`](SoftwareRenderer::render_by_line) documentation for an example.
 pub trait LineBufferProvider {
     /// The pixel type of the buffer
     type TargetPixel: TargetPixel;

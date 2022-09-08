@@ -17,7 +17,7 @@ use alloc::string::String;
 #[cfg(feature = "std")]
 use once_cell::sync::OnceCell;
 
-/// Interface implemented by back-ends
+/// This trait defines the interface between Slint and platform APIs typically provided by operating and windowing systems.
 pub trait Platform {
     /// Instantiate a window for a component.
     fn create_window_adapter(&self) -> Rc<dyn WindowAdapter>;
