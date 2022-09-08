@@ -160,10 +160,11 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
     })
 }
 
-/// Fire timer events and update animations
+/// Call this function to update and potentially activate any pending timers, as well
+/// as advance the state of any active animtaions.
 ///
-/// This function should be called before rendering or processing input event.
-/// It should basically be called on every iteration of the event loop.
+/// This function should be called before rendering or processing input event, at the
+/// beginning of each event loop iteration.
 pub fn update_timers_and_animations() {
     crate::timers::TimerList::maybe_activate_timers();
     crate::animations::update_animations();
