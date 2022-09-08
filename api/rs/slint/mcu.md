@@ -15,7 +15,7 @@ as well as the curated list of [Awesome Embedded Rust](https://github.com/rust-e
 crates, tools and training materials. These resources should guide you through the initial setup and often come with "hello world" examples
 to get started with your device.
 
-In addition, Slint requires a nightly version of Rust. This is due to the fact that the support for using a custom global allocator in a bare metal
+In order to set a global allocator, required by Slint, you will need a **nightly** version of Rust. This is due to the fact that the support for using a custom global allocator in a bare metal
 environment with `#![no_std]` has not been stabilized yet (see [#51540](https://github.com/rust-lang/rust/issues/51540) or
 [#66741](https://github.com/rust-lang/rust/issues/66741) for tracking issues).
 
