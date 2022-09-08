@@ -188,7 +188,8 @@ You can choose between two options:
    for programs running in bare metal environments on MCUs. It allows you to initialize you device peripherals
    and access them without the need to move them into your `Platform` implementation.
 
-A typical super loop with Slint looks like this:
+A typical super loop with Slint combines the tasks of querying input drivers, application specific computations,
+rendering and possibly putting the device into a low-power sleep state. Below is an example:
 
 ```rust,no_run
 use slint::platform::{software_renderer::MinimalSoftwareWindow};
