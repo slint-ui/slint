@@ -19,7 +19,9 @@ In addition, Slint requires a nightly version of Rust. This is due to the fact t
 environment with `#![no_std]` has not been stabilized yet (see [#51540](https://github.com/rust-lang/rust/issues/51540) or
 [#66741](https://github.com/rust-lang/rust/issues/66741) for tracking issues).
 
-## Set the Feature Flags
+In the following sections we assume that your setup is complete and you have a non-graphical skeleton Rust program running on your MCU.
+
+## Changes to `Cargo.toml`
 
 A typical line in Cargo.toml looks like that:
 
@@ -39,7 +41,7 @@ You will also need the `libm` feature to for the math operation that would other
 
 And the additional feature you need is `renderer-winit-software` to enable the software renderer we will need to render a Slint scene on MCU.
 
-## `build.rs`
+## Changes to `build.rs`
 
 When targeting MCU, you will need a build script to compile the `.slint` files using the `slint-build` crate.
 You will have to use the `slint_build::EmbedResourcesKind::EmbedForSoftwareRenderer` configuration option to tell
