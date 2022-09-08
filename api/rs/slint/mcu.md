@@ -229,26 +229,32 @@ loop {
 
 ### The Renderer
 
-On MCU, we currently only support software rendering. In the previous example, we've instantiated a
-[`slint::platform::software_renderer::MinimalSoftwareWindow`]. This will give us an instance of the
-[`slint::platform::software_renderer::SoftwareRenderer`] through the
-[`draw_if_needed()`](MinimalSoftwareWindow::draw_if_needed) function.
+In desktop and embedded environments, Slint typically uses operating system provided, often hardware-accelerated APIs to render the user interface.
+In contrast, most MCUs don't have dedicated chips to render advanced graphics. Instead, the CPU is responsible for computing the colors of each
+pixels on the screen. This is called software rendering, and Slint provides a software renderer for this task.
 
-There are two ways to render, depending on the kind of screen and the amount of RAM.
+In the previous example, we've instantiated a [`slint::platform::software_renderer::MinimalSoftwareWindow`]. This struct implements the
+`slint::platform::WindowAdapter` trait and also holds an instance of a [`slint::platform::software_renderer::SoftwareRenderer`]. You can access it
+through the [`draw_if_needed()`](MinimalSoftwareWindow::draw_if_needed) function.
 
-If you have enough RAM to hold one, or even two, frame buffer, you can use the
-[`SoftwareRenderer::render()`] function.
-Otherwise, if you can't hold a frame buffer in memory, you can render line by line and send these
-line of pixel to the screen (typically via SPI). In that case, you would use the
-[`SoftwareRenderer::render_by_line()`] function.
+We provide two different ways of using the renderer, depending on the amount of RAM your MCU is equipped with and the kind of screen that is attached:
 
-Either way, you would render to a buffer (a full, or just a line), which is a slice of pixel.
-So a slice of something that implement the [`slint::platform::software_renderer::TargetPixel`] trait.
-By default, this trait is implemented for [`slint::Rgb8Pixel`] and [`slint::platform::software_renderer::Rgb565Pixel`].
+ * Use the [`SoftwareRenderer::render()`] function if you have enough RAM to allocate one, or even two, copies of the entire screen (also known as
+   frame buffer). 
+ * Use the [`SoftwareRenderer::render_by_line()`] function to render the entire user interface line by line and send each line of pixels to the screen,
+   typically via the SPI. This requires allocating at least enough RAM to store one single line of pixels.
+
+With both methods you instruct Slint to render into a buffer, that either represents the entire screen or just a line. That buffer is a slice of
+a type that implements the [`slint::platform::software_renderer::TargetPixel`] trait.
+
+For convenience, Slint provides an implementation for [`slint::Rgb8Pixel`] as well as [`slint::platform::software_renderer::Rgb565Pixel`].
 
 #### Rendering into a Buffer
 
-In this example, we'll use double buffering and swap between the buffer.
+The following example uses double buffering and swaps between them. This requires a graphics driver that can be provided
+with the address of what should be the currently displayed frame buffer, also known as front buffer. A dedicated chip is then responsible for
+reading from RAM and transferring the contents to the attached screen, without any interference of the CPU. Meanwhile, Slint can render into
+the second buffer, the back buffer.
 
 ```rust,no_run
 use slint::platform::software_renderer::Rgb565Pixel;
@@ -296,11 +302,17 @@ loop {
 
 #### Render Line by Line
 
-The line by line provider works by implementing the [`LineBufferProvider`] trait.
+When rendering the user interface line by line, you need to implement the [`LineBufferProvider`] trait. It
+defines a bi-directional interface between Slint and your code to send lines to your screen:
 
-This example use a screen driver that implements the [`embedded_graphics`](https://lib.rs/embedded-graphics) traits
-by using the [DrawTarget::fill_contiguous](https://docs.rs/embedded-graphics/0.7.1/embedded_graphics/draw_target/trait.DrawTarget.html)
-function
+* Through the associated `TargetPixel` type Slint knows how to create and manipulate pixels without having to know
+  the exact device-specific binary representation and operations for blending.
+* Through the `process_line` function Slint notifies you when a line can be rendered and provides a callback that
+  you can invoke to fill a slice of pixels for the given line.
+
+The following example defines a `DisplayWrapper` struct that connects screen driver that implements the [`embedded_graphics`](https://lib.rs/embedded-graphics) traits
+with Slint's `Rgb565Pixel` type to implement the `LineBufferProvider` trait. The pixels for one line are sent to the screen by calling
+the [DrawTarget::fill_contiguous](https://docs.rs/embedded-graphics/0.7.1/embedded_graphics/draw_target/trait.DrawTarget.html) function.
 
 ```rust,no_run
 use embedded_graphics_core::{prelude::*, primitives::Rectangle, pixelcolor::raw::RawU16};
@@ -345,9 +357,10 @@ impl<T: DrawTarget<Color = embedded_graphics_core::pixelcolor::Rgb565>>
     }
 }
 
-// Note that we use `1` as the const generic parameter which is our buffer count.
-// The buffer is not in our RAM, but actually within the display itself.
-// We just need to re-render what changed in the last frame.
+// Note that we use `1` as the const generic parameter for MinimalSoftwareWindow to indicate
+// the maximum age of the buffer we provide to `render_fn` inside `process_line`.
+// What's shown on the screen buffer is not in our RAM, but actually within the display itself.
+// We just need to re-render what changed since the last frame.
 let window = slint::platform::software_renderer::MinimalSoftwareWindow::<1>::new();
 
 const DISPLAY_WIDTH: usize = 320;
@@ -370,11 +383,13 @@ loop {
 
 ```
 
-There might be faster way to do that than using the synchronous DrawTarget::fill_contiguous
-function to do that.
-For example, some device might be able to send the line to the display asynchronously using
-DMA. In that case, we'd have two line buffer. One working line, and one which is being send
-to the screen, in parallel.
+Hint: In our experience, using then synchronous `DrawTarget::fill_contiguous` function is slow. If
+your device is capable of using DMA, you may be able to achieve better performance by using
+two line buffers: One buffer to render into with the CPU, while the other buffer is transferred to
+the screen using DMA asynchronously.
+
+Hint: If you see wrong colors on your device, it may be necessary to invert the bits in the u16 pixel
+representation before sending them to the screen driver.
 
 ## Supported Boards
 
