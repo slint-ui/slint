@@ -49,8 +49,8 @@ In addition we select three features:
    This feature is only available in the Rust Standard Library (std), which is not available in bare-metal environments. As a fallback, the `unsafe-single-threaded`
    feature will change Slint to use unsafe static for storage. By setting this feature, you guarantee not to use Slint API from a thread other than the main thread,
    or from interrupt handlers.
- * `libm`: MCUs often don't provide hardware support for floating point arithmetic. The `libm` feature enables the use of software emulation, with the help of
-   the [libm](https://crates.io/crates/libm) crate.
+ * `libm`: The Rust Standard Library (std) provides traits and functions for floating point arithmetic. Without `std`, this feature enables the use of the
+   [libm](https://crates.io/crates/libm) crate to substitute this functionality.
 
 Finally, we add `slint-build` as a build dependency in order to compile the `.slint` design files to Rust code.
 
