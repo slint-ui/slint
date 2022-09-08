@@ -14,7 +14,7 @@ All notable changes to this project are documented in this file.
 ### Added
 
  - Added the `platform` module providing API to use slint on bare metal with a software renderer
- - Experimental Skia renderer
+ - Added an experimental Skia renderer
  - `Button`: Add a `checkable` property that turns the button into a toggle
    button. Use the new `checked` property to query whether the toggle button
    is pressed down or not.
@@ -28,15 +28,15 @@ All notable changes to this project are documented in this file.
  - Added `animation-tick()`
  - `SharedString` implements `std::fmt::Write` and added `slint::format!`
  - `Image` can now be rotated with the `rotation-*` properties
- - Use docking widgets and integration of slint-lsp into the Online Code Editor
+ - Use docking widgets and integration of slint-lsp into the [Online Code Editor](https://slint-ui.com/editor).
 
 
 ### Fixed
  - Fixed Ctrl+Backspace/Ctrl+Del not deleting words in text input elements.
- - Resizing of preview window from our editor extension
+ - Resizing of live-preview window in the IDE integrations.
  - Preferred size of the TabWidget in the fluent style take in account the size of the tabs (#1363)
  - Fixed cursor behavior when typing the Enter key at the end of a TextEdit (#1318)
- - Fixed a leak on image resources with the GL backend
+ - Fixed a memory leak of images when using the GL backend.
  - Fixed starting and stopping `slint::Timer` from withing their callback (#1532)
 
 ## [0.2.5] - 2022-07-06
