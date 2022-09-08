@@ -73,9 +73,6 @@ fn main() {
 }
 ```
 
-Hint: If you observe that your `build.rs` script is not used, double check that your `Cargo.toml` is using the
-[package.build](https://doc.rust-lang.org/cargo/reference/manifest.html#package-build) manifest key: `build = "build.rs"`.
-
 ## Application Structure
 
 A graphical application in hosted environments is typically composed of at least three different tasks:
