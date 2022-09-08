@@ -176,19 +176,19 @@ fn main() {
 
 ### The Event Loop
 
-Once you have initialized your Platform, you can start the event loop.
-You've got two choices:
- 1. Implement [`slint::platform::Platform::run_event_loop`]. In this case, you can start
-    the event loop in a similar way than on desktop platform using the [`run()`](slint::ComponentHandle::run) function
-    of your component, or use [`slint::run_event_loop()`].
- 2. Use a `loop { ... }` directly in your main function.
+With a `Platform` in place, you can write the main event loop to drive all the different tasks.
 
- The second option might be more convenient on MCUs because you can initialize all the devices in your main function
- and you can access them in there without moving them in your Platform implementation.
- In our examples, we use the first option so we can use a different Platform with the same code to
- run on different devices.
+You can choose between two options:
 
-A typical event-loop looks like this:
+ * You can implement [`slint::platform::Platform::run_event_loop`]: Use this if you want to start the
+   event loop in a way similar to desktop platforms, using the [`run()`](slint::ComponentHandle::run) function
+   of your component, or use [`slint::run_event_loop()`]. Both of these functions will call your implementation
+   of [`slint::platform::Platform::run_event_loop`].
+ * Implement a `loop { ... }` directly in your main function. This is called a super loop architecture and common
+   for programs running in bare metal environments on MCUs. It allows you to initialize you device peripherals
+   and access them without the need to move them into your `Platform` implementation.
+
+A typical super loop with Slint looks like this:
 
 ```rust,no_run
 use slint::platform::{software_renderer::MinimalSoftwareWindow};
