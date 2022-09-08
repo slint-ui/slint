@@ -381,7 +381,7 @@ loop {
 
 ```
 
-Hint: In our experience, using then synchronous `DrawTarget::fill_contiguous` function is slow. If
+Hint: In our experience, using the synchronous `DrawTarget::fill_contiguous` function is slow. If
 your device is capable of using DMA, you may be able to achieve better performance by using
 two line buffers: One buffer to render into with the CPU, while the other buffer is transferred to
 the screen using DMA asynchronously.
