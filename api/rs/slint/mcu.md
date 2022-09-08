@@ -27,8 +27,12 @@ Start by adding a dependency to the `slint` crate to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-slint = { version = "0.3.0", default-features = false, features = ["compat-0.3.0", "unsafe-single-threaded", "libm"] }
-# ... other stuff
+# ... your other dependencies
+
+[dependencies.slint]
+version = "0.3.0"
+default-features = false
+features = ["compat-0.3.0", "unsafe-single-threaded", "libm"]
 ```
 
 The default features of the `slint` create are tailored towards hosted environments and includes the "std" feature. In bare metal environments,
