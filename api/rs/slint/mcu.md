@@ -75,7 +75,29 @@ fn main() {
 Hint: If you observe that your `build.rs` script is not used, double check that your `Cargo.toml` is using the
 [package.build](https://doc.rust-lang.org/cargo/reference/manifest.html#package-build) manifest key: `build = "build.rs"`.
 
-## The `Platform` Trait
+## Application Structure
+
+A graphical application in hosted environments is typically composed of at least three different tasks:
+
+ * Receive user input from operation system APIs.
+ * React to the input by performing application specific computations.
+ * Render an updated user interface and present it on the screen using device-independent operating system APIs.
+
+The operating system provides what is typically called an event loop to connect and schedule these tasks. Slint implements the
+task of receiving user input and forwarding it to the user interface layer, as well as rendering the interface to the screen.
+
+In bare metal environments it becomes your responsibility to substitute and connect functionality that is otherwise provided by the operating system:
+
+ * You need to select crates that allow you to initialize the chips that drive peripherals, such as a touch input or display controller.
+   Sometimes it may be necessary for you to develop your own drivers.
+ * You need to drive the event loop yourself by querying peripherals for input, forwarding input into computational modules of your
+   application and instructing Slint to render the user interface.
+
+In Slint the two primary APIs you need to use to accomplish these tasks the `Platform` trait as well as the `slint::Window` struct.
+In the following sections we are going to cover how to use them and how they integrate into your event loop.
+
+### The `Platform` Trait
+
 
 The idea is to call `[slint::platform::set_platform]` before constructing your Slint application.
 
@@ -147,7 +169,7 @@ fn main() {
 }
 ```
 
-## The Event Loop
+### The Event Loop
 
 Once you have initialized your Platform, you can start the event loop.
 You've got two choices:
@@ -199,7 +221,7 @@ loop {
 
 ```
 
-## The Renderer
+### The Renderer
 
 On MCU, we currently only support software rendering. In the previous example, we've instantiated a
 [`slint::platform::software_renderer::MinimalSoftwareWindow`]. This will give us an instance of the
@@ -218,7 +240,7 @@ Either way, you would render to a buffer (a full, or just a line), which is a sl
 So a slice of something that implement the [`slint::platform::software_renderer::TargetPixel`] trait.
 By default, this trait is implemented for [`slint::Rgb8Pixel`] and [`slint::platform::software_renderer::Rgb565Pixel`].
 
-### Rendering into a Buffer
+#### Rendering into a Buffer
 
 In this example, we'll use double buffering and swap between the buffer.
 
@@ -266,7 +288,7 @@ loop {
 
 ```
 
-### Render Line by Line
+#### Render Line by Line
 
 The line by line provider works by implementing the [`LineBufferProvider`] trait.
 
