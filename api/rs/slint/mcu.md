@@ -39,11 +39,12 @@ slint-build = version = "0.3.0"
 ```
 
 The default features of the `slint` create are tailored towards hosted environments and includes the "std" feature. In bare metal environments,
-you need to disable the default features and select at least the `compat-0.3.0` feature (see [this blog post](https://slint-ui.com/blog/rust-adding-default-cargo-feature.html)
-for a longer explanation).
+you need to disable the default features.
 
-In addition we select two additional features:
+In addition we select three features:
 
+ * `compat-0.3.0`: You need to select this feature when disabling the default features. See [this blog post](https://slint-ui.com/blog/rust-adding-default-cargo-feature.html)
+   for a detailed explanation.
  * `unsafe-single-threaded`: Slint internally uses Rust's [`thread_local!`](https://doc.rust-lang.org/std/macro.thread_local.html) macro to store global data.
    This feature is only available in the Rust Standard Library (std), which is not available in bare-metal environments. As a fallback, the `unsafe-single-threaded`
    feature will change Slint to use unsafe static for storage. By setting this feature, you guarantee not to use Slint API from a thread other than the main thread,
