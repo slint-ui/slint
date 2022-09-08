@@ -45,9 +45,9 @@ pub trait WindowAdapter: WindowAdapterSealed {
     fn window(&self) -> &Window;
 }
 
-/// Implementation details behind [`WindowAdapter`],  but since this
+/// Implementation details behind [`WindowAdapter`], but since this
 /// trait is not exported in the public API, it is not possible for the
-/// users to call or re-implement these function
+/// users to call or re-implement these functions.
 #[doc(hidden)]
 pub trait WindowAdapterSealed {
     /// Registers the window with the windowing system.
