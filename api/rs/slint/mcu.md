@@ -27,7 +27,7 @@ Start by adding a dependency to the `slint` crate to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-# ... your other dependencies
+... your other dependencies
 
 [dependencies.slint]
 version = "0.3.0"
