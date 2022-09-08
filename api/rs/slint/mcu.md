@@ -112,7 +112,7 @@ A minimal implementation needs to cover two functions:
 There are additional functions in the trait that you can implement, for example handling of debug output, a delegated event loop or an interface
 to safely deliver events in multi-threaded environments.
 
-A typical minimal implementation of the `Platform` trait that uses the `MinimalSoftwareWindow` looks like this:
+A typical minimal implementation of the [`Platform`] trait that uses the [`MinimalSoftwareWindow`] looks like this:
 
 ```rust,no_run
 #![no_std]
