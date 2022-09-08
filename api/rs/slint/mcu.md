@@ -1,17 +1,23 @@
 # Slint on Microcontrollers (MCU)
 
-This document explain how to use Slint to develop a UI on a MCU.
+This document explains how to use Slint to develop a UI on a MCU.
 
 ## Install Toolchain / Hardware Abstraction Layer (HAL)
 
-Each MCU or board needs the proper toolchain for cross compilation,
-has its own HAL crate and drivers, and other tools to flash and debug the device.
+Writing an application in Rust that runs on a MCU requires the following software components:
 
-This is out of scope for this document. You can check the [Rust Embedded Book](https://docs.rust-embedded.org/book/)
-or other resources specific to your device that will guide you to get a "hello world" working on your device.
+* You need to install a Rust toolchain to cross-compile to the target architecture.
+* You need to locate and select the correct HAL crates and drivers, and depend on them in your `Cargo.toml`.
+* You need to install tools for flashing and debugging your code on the device.
 
-You will need nightly Rust, since stable Rust unfortunately doesn't provide a way to use a global allocator in a `#![no_std]` project.
-(until [#51540](https://github.com/rust-lang/rust/issues/51540) or [#66741](https://github.com/rust-lang/rust/issues/66741) is stabilized)
+Covering these is out of scope for this document, but we recommend reading the [Rust Embedded Book](https://docs.rust-embedded.org/book/),
+as well as the curated list of [Awesome Embedded Rust](https://github.com/rust-embedded/awesome-embedded-rust) for a wide range of different
+crates, tools and training materials. These resources should guide you through the initial setup and often come with "hello world" examples
+to get started with your device.
+
+In addition, Slint requires a nightly version of Rust. This is due to the fact that the support for using a custom global allocator in a bare metal
+environment with `#![no_std]` has not been stabilized yet (see [#51540](https://github.com/rust-lang/rust/issues/51540) or
+[#66741](https://github.com/rust-lang/rust/issues/66741) for tracking issues).
 
 ## Set the Feature Flags
 
