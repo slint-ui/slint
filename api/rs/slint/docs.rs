@@ -184,7 +184,7 @@ pub mod debugging_techniques {
 }
 
 pub mod mcu {
-    #![doc = include_str!("docs/mcu.md")]
+    #![doc = include_str!("mcu.md")]
     use crate::platform::software_renderer::*;
     use crate::platform::*;
     mod slint {
