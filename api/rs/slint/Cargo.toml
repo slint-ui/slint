@@ -137,4 +137,4 @@ rustdoc-args = [
   "--html-in-header",
   "docs/resources/slint-docs-highlight.html",
 ]
-features = ["document-features", "renderer-winit-software"]
+features = ["document-features"]
