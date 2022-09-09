@@ -275,14 +275,13 @@ macro_rules! include_modules {
     };
 }
 
-/// Module containing the items required to implement your own platform.
+/// This module contains items that you need to use or implement if you want use Slint in an environment without
+/// one of the supplied platform backends such as qt or winit.
 ///
-/// By default, slint comes with a platform abstraction as part of the backend (winit or qt).
-/// You may want to write your own backend.
-/// To do so, you need to call [`platform::set_platform()`] with your own
-/// implementation of the [`platform::Platform`] trait.
+/// The primary interface is the [`platform::Platform`] trait. Pass your implementation of it to Slint by calling
+/// [`platform::set_platform()`] early on in your application, before creating any Slint components.
 ///
-/// Follow the documentation and examples from the [MCU page](crate::docs::mcu).
+/// The [Slint on Micro-Controllers (MCU)](crate::docs::mcu) documentation has additional examples.
 pub mod platform {
     pub use i_slint_core::platform::*;
 }

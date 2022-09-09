@@ -31,22 +31,23 @@ fn previous_focus_item(item: ItemRc) -> ItemRc {
     item.previous_focus_item()
 }
 
-/// This trait represents the adapter layer between the [`Window`] API, and the
+/// This trait represents the adaptation layer between the [`Window`] API, and the
 /// internal type from the backend that provides functionality such as device-independent pixels,
-/// window resizing and other typically windowing system related tasks.
+/// window resizing, and other typically windowing system related tasks.
 ///
-/// This trait is Sealed, meaning that you are not expected to implement this trait
-/// yourself, but you should use the provided window adapter. Currently only
-/// [`MinimalSoftwareWindow`](crate::software_renderer::MinimalSoftwareWindow) is available
-///  for [`platform`](crate::platform) implementer
+/// This trait is [sealed](https://rust-lang.github.io/api-guidelines/future-proofing.html#sealed-traits-protect-against-downstream-implementations-c-sealed),
+/// meaning that you are not expected to implement this trait
+/// yourself, but you should use the provided window adapter. Use
+/// [`MinimalSoftwareWindow`](crate::software_renderer::MinimalSoftwareWindow) when
+/// implementing your own [`platform`](crate::platform).
 pub trait WindowAdapter: WindowAdapterSealed {
     /// Returns the window API.
     fn window(&self) -> &Window;
 }
 
-/// Implementation details behind [`WindowAdapter`],  but since this
+/// Implementation details behind [`WindowAdapter`], but since this
 /// trait is not exported in the public API, it is not possible for the
-/// users to call or re-implement these function
+/// users to call or re-implement these functions.
 #[doc(hidden)]
 pub trait WindowAdapterSealed {
     /// Registers the window with the windowing system.

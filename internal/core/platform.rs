@@ -144,9 +144,9 @@ pub enum SetPlatformError {
     AlreadySet,
 }
 
-/// Set the slint platform abstraction.
+/// Set the Slint platform abstraction.
 ///
-/// If the platform abstraction was already set this will return `Err`
+/// If the platform abstraction was already set this will return `Err`.
 pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlatformError> {
     PLATFORM_INSTANCE.with(|instance| {
         if instance.get().is_some() {
@@ -160,23 +160,23 @@ pub fn set_platform(platform: Box<dyn Platform + 'static>) -> Result<(), SetPlat
     })
 }
 
-/// Fire timer events and update animations
+/// Call this function to update and potentially activate any pending timers, as well
+/// as advance the state of any active animtaions.
 ///
-/// This function should be called before rendering or processing input event.
-/// It should basically be called on every iteration of the event loop.
+/// This function should be called before rendering or processing input event, at the
+/// beginning of each event loop iteration.
 pub fn update_timers_and_animations() {
     crate::timers::TimerList::maybe_activate_timers();
     crate::animations::update_animations();
 }
 
-/// Return the duration before the next timer should be activated. This is basically the
-/// maximum time before calling [`update_timers_and_animations()`].
+/// Returns the duration before the next timer is expected to be activated. This is the
+/// largest amount of time that you can wait before calling [`update_timers_and_animations()`].
 ///
-/// That is typically called by the implementation of the event loop to know how long the
-/// thread can go to sleep before the next event.
-///
-/// Note: this does not include animations. [`Window::has_active_animations()`](crate::api::Window::has_active_animations())
-/// can be called to know if a window has running animation
+/// Call this in your own event loop implementation to know how long the current thread can
+/// go to sleep. Note that this does not take currently activate animations into account.
+/// Only go to sleep if [`Window::has_active_animations()`](crate::api::Window::has_active_animations())
+/// returns false.
 pub fn duration_until_next_timer_update() -> Option<core::time::Duration> {
     crate::timers::TimerList::next_timeout().map(|timeout| {
         let duration_since_start = crate::platform::PLATFORM_INSTANCE
