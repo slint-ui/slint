@@ -89,7 +89,7 @@ In bare metal environments it becomes your responsibility to substitute and conn
  * You need to drive the event loop yourself by querying peripherals for input, forwarding input into computational modules of your
    application and instructing Slint to render the user interface.
 
-In Slint the two primary APIs you need to use to accomplish these tasks the `Platform` trait as well as the `slint::Window` struct.
+In Slint the two primary APIs you need to use to accomplish these tasks the [`slint::platform::Platform`] trait as well as the [`slint::Window`] struct.
 In the following sections we are going to cover how to use them and how they integrate into your event loop.
 
 ### The `Platform` Trait
