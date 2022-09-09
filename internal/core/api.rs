@@ -374,7 +374,7 @@ impl Window {
         self.0.process_mouse_input(event.into())
     }
 
-    /// Returns true if there is an animation currently running
+    /// Returns true if there is an animation currently active on any property in the Window; false otherwise.
     pub fn has_active_animations(&self) -> bool {
         // TODO make it really per window.
         crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.has_active_animations())
