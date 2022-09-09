@@ -23,7 +23,7 @@ In the following sections we assume that your setup is complete and you have a n
 
 ## Changes to `Cargo.toml`
 
-Start by adding a dependency to the `slint` crate to your `Cargo.toml`:
+Start by adding a dependency to the `slint` and the `slint-build` crate to your `Cargo.toml`:
 
 ```toml
 [dependencies]
@@ -41,7 +41,7 @@ slint-build = "0.3"
 The default features of the `slint` create are tailored towards hosted environments and includes the "std" feature. In bare metal environments,
 you need to disable the default features.
 
-In addition we select three features:
+Three features are selected:
 
  * `compat-0.3.0`: You need to select this feature when disabling the default features. See [this blog post](https://slint-ui.com/blog/rust-adding-default-cargo-feature.html)
    for a detailed explanation.
@@ -51,8 +51,6 @@ In addition we select three features:
    or from interrupt handlers.
  * `libm`: The Rust Standard Library (std) provides traits and functions for floating point arithmetic. Without `std`, this feature enables the use of the
    [libm](https://crates.io/crates/libm) crate to substitute this functionality.
-
-Finally, we add `slint-build` as a build dependency in order to compile the `.slint` design files to Rust code.
 
 ## Changes to `build.rs`
 
