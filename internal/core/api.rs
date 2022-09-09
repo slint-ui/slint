@@ -364,17 +364,17 @@ impl Window {
         }
     }
 
-    /// Dispatch a window event to the window
+    /// Dispatch a window event to the scene.
     ///
-    /// Any position in the event should be in logical pixel relative to the window coordinate
+    /// Use this when you're implementing your own backend and want to forward user input events.
     ///
-    /// Note: This function is usually called by the Slint backend. You should only call this function
-    /// if implementing your own backend or for testing purposes.
+    /// Any position fields in the event must be in the logical pixel coordinate system relative to
+    /// the top left corner of the window.
     pub fn dispatch_event(&self, event: WindowEvent) {
         self.0.process_mouse_input(event.into())
     }
 
-    /// Returns true if there is an animation currently running
+    /// Returns true if there is an animation currently active on any property in the Window; false otherwise.
     pub fn has_active_animations(&self) -> bool {
         // TODO make it really per window.
         crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.has_active_animations())
@@ -383,23 +383,42 @@ impl Window {
 
 pub use crate::input::PointerEventButton;
 
-/// An event sent to a window
+/// A event that describes user input.
+///
+/// Slint backends typically receive events from the windowing system, translate them to this
+/// enum and deliver to the scene of items via [`Window::dispatch_event()`].
+///
+/// The pointer variants describe events originating from an input device such as a mouse
+/// or a contact point on a touch-enabled surface.
+///
+/// All position fields are in logical window coordinates.
 #[allow(missing_docs)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[non_exhaustive]
 pub enum WindowEvent {
-    /// The mouse or finger was pressed
-    PointerPressed { position: LogicalPosition, button: PointerEventButton },
-    /// The mouse or finger was released
-    PointerReleased { position: LogicalPosition, button: PointerEventButton },
-    /// The position of the pointer has changed
+    /// A pointer was pressed.
+    PointerPressed {
+        position: LogicalPosition,
+        /// The button that was pressed.
+        button: PointerEventButton,
+    },
+    /// A pointer was released.
+    PointerReleased {
+        position: LogicalPosition,
+        /// The button that was released.
+        button: PointerEventButton,
+    },
+    /// The position of the pointer has changed.
     PointerMoved { position: LogicalPosition },
-    /// Wheel was rotated.
-    /// `pos` is the position of the mouse when the event happens.
-    /// `delta_x` is the amount of pixels to scroll in horizontal direction,
-    /// `delta_y` is the amount of pixels to scroll in vertical direction.
-    PointerScrolled { position: LogicalPosition, delta_x: f32, delta_y: f32 },
-    /// The mouse exited the item or component
+    /// The wheel button of a mouse was rotated to initiate scrolling.
+    PointerScrolled {
+        position: LogicalPosition,
+        /// The amount of logical pixels to scroll in the horizontal direction.
+        delta_x: f32,
+        /// The amount of logical pixels to scroll in the vertical direction.
+        delta_y: f32,
+    },
+    /// The pointer exited the window.
     PointerExited,
 }
 
