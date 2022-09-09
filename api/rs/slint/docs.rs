@@ -191,8 +191,3 @@ pub mod mcu {
         pub use crate::*;
     }
 }
-
-pub mod migration {
-    #![doc = include_str!("migration.md")]
-    use crate::*;
-}

@@ -41,8 +41,6 @@ Welcome to Slint C++'s documentation!
 
    markdown/debugging_techniques.md
 
-   cpp_migration.md
-
 .. image:: https://github.com/slint-ui/slint/workflows/CI/badge.svg
    :target: https://github.com/slint-ui/slint/actions
    :alt: GitHub CI Build Status
