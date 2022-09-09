@@ -149,7 +149,7 @@ html to the documentation with the `--html-in-header` rustdoc flag.
 Here is how to build the documentation to include preview of the .slint files.
 
 ```sh
-RUSTDOCFLAGS="--html-in-header=$PWD/docs/resources/slint-docs-preview.html --html-in-header=$PWD/docs/resources/slint-docs-highlight.html" cargo doc --no-deps --features slint/document-features
+RUSTDOCFLAGS="--html-in-header=$PWD/docs/resources/slint-docs-preview.html --html-in-header=$PWD/docs/resources/slint-docs-highlight.html" cargo doc --no-deps --features slint/document-features,slint/log
 ```
 
 ### C++ doc
