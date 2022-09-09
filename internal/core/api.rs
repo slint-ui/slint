@@ -364,12 +364,12 @@ impl Window {
         }
     }
 
-    /// Dispatch a window event to the window
+    /// Dispatch a window event to the scene.
     ///
-    /// Any position in the event should be in logical pixel relative to the window coordinate
+    /// Use this when you're implementing your own backend and want to forward user input events.
     ///
-    /// Note: This function is usually called by the Slint backend. You should only call this function
-    /// if implementing your own backend or for testing purposes.
+    /// Any position fields in the event must be in the logical pixel coordinate system relative to
+    /// the top left corner of the window.
     pub fn dispatch_event(&self, event: WindowEvent) {
         self.0.process_mouse_input(event.into())
     }
