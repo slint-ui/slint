@@ -23,7 +23,7 @@ Files: helper_crates/const-field-offset/*
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: MIT or Apache-2.0
 
-Files:  api/cpp/docs/* docs/* api/*/*.json api/rs/slint/migration.md
+Files:  api/cpp/docs/* docs/* api/*/*.json api/rs/slint/migration.md api/rs/slint/mcu.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 

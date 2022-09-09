@@ -1,6 +1,6 @@
 # Slint MCU backend
 
-See also the [MCU docs](../../docs/mcu.md)
+See also the [MCU docs](../../api/rs/slint/mcu.md)
 
 ## How to use
 
