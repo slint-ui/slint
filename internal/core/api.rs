@@ -408,7 +408,7 @@ pub enum WindowEvent {
         /// The button that was released.
         button: PointerEventButton,
     },
-    /// The position of the pointe has changed.
+    /// The position of the pointer has changed.
     PointerMoved { position: LogicalPosition },
     /// The wheel button of a mouse was rotated to initiate scrolling.
     PointerScrolled {
