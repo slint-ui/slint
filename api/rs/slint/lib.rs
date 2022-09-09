@@ -22,7 +22,6 @@ If you are already familiar with Slint, the following topics provide related inf
  * [Positioning and Layout of Elements](docs::layouting)
  * [Debugging Techniques](docs::debugging_techniques)
  * [Slint on Microcontrollers (MCU)](docs::mcu)
- * [Migration from older version](docs::migration)
 
 ## How to use this crate:
 
