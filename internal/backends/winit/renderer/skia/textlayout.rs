@@ -46,6 +46,14 @@ pub fn create_layout(
     h_align: items::TextHorizontalAlignment,
     overflow: items::TextOverflow,
 ) -> skia_safe::textlayout::Paragraph {
+    // For the Qt backend, text_size() with max_width == Some(0.) results in an empty
+    // bounding rect and Qt::Qt::TextWordWrap being omitted from the text flags. That
+    // means qt_format_text() will call QTextLine::setLineWidth() with "infinite width"
+    // and essentially treat it as if max_width was None. For compatibility we do the same.
+    // During the layout computation we might get called with 0 when computing text height
+    // constraints on a window that's not shown yet and stil has a zero width.
+    let max_width = max_width.filter(|width| *width > 0.);
+
     let mut text_style = text_style.unwrap_or_default();
 
     if let Some(family_name) = font_request.family {
