@@ -86,7 +86,7 @@ In bare metal environments it is your responsibility to substitute and connect f
    application and instructing Slint to render the user interface.
 
 In Slint, the two primary APIs you need to use to accomplish these tasks are the [`slint::platform::Platform`] trait as well as the [`slint::Window`] struct.
-In the following sections we are going to cover how to use them and how they integrate into your event loop.
+In the following sections we're going to cover how to use them and how they integrate into your event loop.
 
 ### The `Platform` Trait
 
