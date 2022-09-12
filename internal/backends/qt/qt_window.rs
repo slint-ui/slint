@@ -16,7 +16,7 @@ use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{
     self, FillRule, ImageRendering, InputType, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
-    PointerEventButton, RenderingResult, TextOverflow, TextWrap,
+    PointerEventButton, RenderingResult, TextOverflow, TextWrap, WindowItem,
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
@@ -1347,7 +1347,18 @@ impl WindowAdapterSealed for QtWindow {
         let component_rc = WindowInner::from_pub(&self.window).component();
         let component = ComponentRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
-        if let Some(window_item) = ItemRef::downcast_pin(root_item) {
+        if let Some(window_item) = ItemRef::downcast_pin::<WindowItem>(root_item) {
+            if window_item.width() <= 0. {
+                window_item.width.set(
+                    component.as_ref().layout_info(Orientation::Horizontal).preferred_bounded(),
+                )
+            }
+            if window_item.height() <= 0. {
+                window_item
+                    .height
+                    .set(component.as_ref().layout_info(Orientation::Vertical).preferred_bounded())
+            }
+
             self.apply_window_properties(window_item);
         }
 
