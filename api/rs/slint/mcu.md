@@ -41,7 +41,7 @@ slint-build = "0.3"
 The default features of the `slint` crate are tailored towards hosted environments and includes the "std" feature. In bare metal environments,
 you need to disable the default features.
 
-Three features are selected:
+In the snippet above, three features are selected:
 
  * `compat-0.3.0`: You need to select this feature when disabling the default features. See [this blog post](https://slint-ui.com/blog/rust-adding-default-cargo-feature.html)
    for a detailed explanation.
