@@ -94,12 +94,12 @@ The [`slint::platform::Platform`] trait defines the interface between Slint and 
 
 You need to provide a minimal implementation of this trait and call [`slint::platform::set_platform`] before constructing your Slint application.
 
-A minimal implementation needs to cover two functions:
+This minimal implementation needs to cover two functions:
 
  * `fn create_window_adapter(&self) -> Rc<dyn WindowAdapter + 'static>;`: Implement this function to return an implementation of the `WindowAdapter`
    trait that will be associated with the Slint components you create. We provide a convenience struct [`slint::platform::software_renderer::MinimalSoftwareWindow`]
    that implements this trait.
- * `fn duration_since_start(&self) -> Duration`: In order for animations in `.slint` design files to change properties correctly, Slint needs to know
+ * `fn duration_since_start(&self) -> Duration`: For animations in `.slint` design files to change properties correctly, Slint needs to know
    how much time has elapsed since two rendered frames. In a bare metal environment you need to provide a source of time. Often the HAL crate of your
    device provides a system timer API for this, which you can query in your impementation.
 
