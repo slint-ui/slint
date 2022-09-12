@@ -100,7 +100,7 @@ This minimal implementation needs to cover two functions:
    trait that will be associated with the Slint components you create. We provide a convenience struct [`slint::platform::software_renderer::MinimalSoftwareWindow`]
    that implements this trait.
  * `fn duration_since_start(&self) -> Duration`: For animations in `.slint` design files to change properties correctly, Slint needs to know
-   how much time has elapsed since two rendered frames. In a bare metal environment you need to provide a source of time. Often the HAL crate of your
+   how much time has elapsed between two rendered frames. In a bare metal environment you need to provide a source of time. Often the HAL crate of your
    device provides a system timer API for this, which you can query in your impementation.
 
 There are additional functions in the trait that you can implement, for example handling of debug output, a delegated event loop or an interface
