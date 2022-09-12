@@ -55,13 +55,13 @@ class Component {
 }
 
 interface Point {
-    x: Number;
-    y: Number;
+    x: number;
+    y: number;
 }
 
 interface Size {
-    width: Number;
-    height: Number;
+    width: number;
+    height: number;
 }
 
 interface SlintWindow {
