@@ -75,7 +75,7 @@ Typically, a graphical application in hosted environments is comprised of at lea
  * Reacts to the input by performing application specific computations.
  * Renders an updated user interface and presents it on the screen using device-independent operating system APIs.
 
-The operating system provides what is typically called an event loop to connect and schedule these tasks. Slint implements the
+The operating system provides an event loop to connect and schedule these tasks. Slint implements the
 task of receiving user input and forwarding it to the user interface layer, as well as rendering the interface to the screen.
 
 In bare metal environments it becomes your responsibility to substitute and connect functionality that is otherwise provided by the operating system:
