@@ -23,7 +23,7 @@ The following sections assume that your setup is complete and you have a non-gra
 
 ## Changes to `Cargo.toml`
 
-Start by adding a dependency to the `slint` and the `slint-build` crate to your `Cargo.toml`:
+Start by adding a dependency to the `slint` and the `slint-build` crates to your `Cargo.toml`:
 
 ```toml
 [dependencies]
