@@ -78,7 +78,7 @@ Typically, a graphical application in hosted environments is comprised of at lea
 The operating system provides an event loop to connect and schedule these tasks. Slint implements the
 task of receiving user input and forwarding it to the user interface layer, as well as rendering the user interface to the screen.
 
-In bare metal environments it becomes your responsibility to substitute and connect functionality that is otherwise provided by the operating system:
+In bare metal environments it is your responsibility to substitute and connect functionality that is otherwise provided by the operating system:
 
  * You need to select crates that allow you to initialize the chips that drive peripherals, such as a touch input or display controller.
    Sometimes it may be necessary for you to develop your own drivers.
