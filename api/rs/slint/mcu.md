@@ -15,7 +15,7 @@ as well as the curated list of [Awesome Embedded Rust](https://github.com/rust-e
 crates, tools and training materials. These resources should guide you through the initial setup and often come with "hello world" examples
 to get started with your device.
 
-Slint requires a global memory allocator. That is currently only available in the nightly version of Rust, because the support for using a custom global
+Slint requires a global memory allocator. That is currently only possible in the nightly version of Rust, because the support for using a custom global
 allocator in a bare metal environment with `#![no_std]` has not been stabilized yet (see [#51540](https://github.com/rust-lang/rust/issues/51540) or
 [#66741](https://github.com/rust-lang/rust/issues/66741) for tracking issues).
 
