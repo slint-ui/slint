@@ -7,7 +7,7 @@ The following scetions explain how to use Slint to develop a UI on a MCU in a ba
 Writing an application in Rust that runs on a MCU requires several prerequisites:
 
 * Install a Rust toolchain to cross-compile to the target architecture.
-* Locate and select the correct HAL crates and drivers, and depend on them in your `Cargo.toml`.
+* Locate and select the correct Hardware Abstraction Layer (HAL) crates and drivers, and depend on them in your `Cargo.toml`.
 * Install tools for flashing and debugging your code on the device.
 
 We recommend reading the [Rust Embedded Book](https://docs.rust-embedded.org/book/),
