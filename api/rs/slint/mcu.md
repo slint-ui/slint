@@ -377,9 +377,6 @@ your device is capable of using DMA, you may be able to achieve better performan
 two line buffers: One buffer to render into with the CPU, while the other buffer is transferred to
 the screen using DMA asynchronously.
 
-Note: If you see wrong colors on your screen, it may be necessary to invert the bits in the u16 pixel
-representation before sending them to the screen driver.
-
 ## Example Implementations
 
 The examples that come with Slint use a helper crate called `mcu-board-support`. It provides implementations of
