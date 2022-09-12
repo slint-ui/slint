@@ -52,12 +52,7 @@ In the snippet above, three features are selected:
 
 ## Changes to `build.rs`
 
-When targeting MCUs, you need a [build script](https://doc.rust-lang.org/cargo/reference/build-scripts.html) to compile the `.slint` files using the `slint-build` crate.
-Use the `slint_build::EmbedResourcesKind::EmbedForSoftwareRenderer` configuration option to tell the slint compiler to embed the images and fonts in the binary
-in a format that's suitable for the software based renderer we're going to use.
-
-The following example of a `build.rs` script compiles the `main.slint` design file in the `ui/` sub-directory to Rust code and embeds the code as well as all
-graphical assets needed into the program binary.
+Next, write a build script to compile the `.slint` files to Rust code for embedding into the program binary, using the `slint-build` crate:
 
 ```rust,no_run
 fn main() {
@@ -68,6 +63,9 @@ fn main() {
     ).unwrap();
 }
 ```
+
+Use the `slint_build::EmbedResourcesKind::EmbedForSoftwareRenderer` configuration option to tell the Slint compiler to embed the images and fonts in the binary
+in a format that's suitable for the software based renderer we're going to use.
 
 ## Application Structure
 
