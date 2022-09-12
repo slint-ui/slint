@@ -290,7 +290,7 @@ loop {
 
 ```
 
-#### Render Line by Line
+#### Rendering Line by Line
 
 When rendering the user interface line by line, you need to implement the [`LineBufferProvider`] trait. It
 defines a bi-directional interface between Slint and your code to send lines to your screen:
