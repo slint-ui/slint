@@ -221,9 +221,8 @@ loop {
 
 ### The Renderer
 
-In desktop and embedded environments, Slint typically uses operating system provided APIs to render the user interface. These APIs are often hardware accelerated.
-In contrast, most MCUs don't have dedicated chips to render advanced graphics. Instead, the CPU is responsible for computing the colors of each
-pixels on the screen. This is called software rendering, and Slint provides a software renderer for this task.
+In desktop and embedded environments, Slint typically uses operating system provided APIs to render the user interface using the GPU.
+In contrast, most MCUs don't have GPUs. Instead, the all the rendering is done by sotfware on the CPU. This is called software rendering, and Slint provides a SoftwareRenderer for this task.
 
 In the previous example, we've instantiated a [`slint::platform::software_renderer::MinimalSoftwareWindow`]. This struct implements the
 `slint::platform::WindowAdapter` trait and also holds an instance of a [`slint::platform::software_renderer::SoftwareRenderer`]. You obtain access to it
