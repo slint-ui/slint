@@ -19,7 +19,7 @@ Slint requires a global memory allocator. That is available the nightly version 
 allocator in a bare metal environment with `#![no_std]` has not been stabilized yet (see [#51540](https://github.com/rust-lang/rust/issues/51540) or
 [#66741](https://github.com/rust-lang/rust/issues/66741) for tracking issues).
 
-In the following sections we assume that your setup is complete and you have a non-graphical skeleton Rust program running on your MCU.
+The following sections assume that your setup is complete and you have a non-graphical skeleton Rust program running on your MCU.
 
 ## Changes to `Cargo.toml`
 
