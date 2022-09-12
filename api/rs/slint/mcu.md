@@ -293,14 +293,14 @@ loop {
 #### Rendering Line by Line
 
 When rendering the user interface line by line, you need to implement the [`LineBufferProvider`] trait. It
-defines a bi-directional interface between Slint and your code to send lines to your screen:
+defines a bi-directional interface between Slint and your code to send lines to the screen:
 
-* Through the associated `TargetPixel` type Slint knows how to create and manipulate pixels without having to know
-  the exact device-specific binary representation and operations for blending.
-* Through the `process_line` function Slint notifies you when a line can be rendered and provides a callback that
-  you can invoke to fill a slice of pixels for the given line.
+* The trait's associated `TargetPixel` type let's Slint know how to create and manipulate pixels. How exactly the pixels are
+  represented in your device and how they are blended remains your implementation detail.
+* The trait's `process_line` function notifies you when a line can be rendered and provides a callback that you can invoke
+  to fill a slice of pixels for the given line.
 
-The following example defines a `DisplayWrapper` struct that connects screen driver that implements the [`embedded_graphics`](https://lib.rs/embedded-graphics) traits
+The following example defines a `DisplayWrapper` struct: It connects screen driver that implements the [`embedded_graphics`](https://lib.rs/embedded-graphics) traits
 with Slint's `Rgb565Pixel` type to implement the `LineBufferProvider` trait. The pixels for one line are sent to the screen by calling
 the [DrawTarget::fill_contiguous](https://docs.rs/embedded-graphics/0.7.1/embedded_graphics/draw_target/trait.DrawTarget.html) function.
 
@@ -373,17 +373,17 @@ loop {
 
 ```
 
-Hint: In our experience, using the synchronous `DrawTarget::fill_contiguous` function is slow. If
+Note: In our experience, using the synchronous `DrawTarget::fill_contiguous` function is slow. If
 your device is capable of using DMA, you may be able to achieve better performance by using
 two line buffers: One buffer to render into with the CPU, while the other buffer is transferred to
 the screen using DMA asynchronously.
 
-Hint: If you see wrong colors on your device, it may be necessary to invert the bits in the u16 pixel
+Note: If you see wrong colors on your screen, it may be necessary to invert the bits in the u16 pixel
 representation before sending them to the screen driver.
 
 ## Example Implementations
 
-Slint's own examples use a helper crate called `mcu-board-support` that provides implementations of
+The examples that come with Slint use a helper crate called `mcu-board-support`. It provides implementations of
 the `Platform` trait for some MCUs, along with support for touch input and system timers.
 
 You can find the crate in our Git repository at:
