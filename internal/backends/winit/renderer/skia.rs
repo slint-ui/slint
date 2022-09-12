@@ -157,18 +157,114 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
 
     fn text_input_byte_offset_for_position(
         &self,
-        _text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
-        _pos: i_slint_core::graphics::Point,
+        text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
+        pos: i_slint_core::graphics::Point,
     ) -> usize {
-        todo!()
+        let window_adapter = match self.window_adapter_weak.upgrade() {
+            Some(window) => window,
+            None => return 0,
+        };
+
+        let window = WindowInner::from_pub(window_adapter.window());
+
+        let scale_factor = window.scale_factor();
+
+        let max_width = text_input.width() * scale_factor;
+        let max_height = text_input.height() * scale_factor;
+        let pos = pos * scale_factor;
+
+        if max_width <= 0. || max_height <= 0. {
+            return 0;
+        }
+
+        let string = text_input.text();
+        let string = string.as_str();
+        let font_request = text_input.font_request(&window_adapter);
+
+        let layout = textlayout::create_layout(
+            font_request,
+            scale_factor,
+            string,
+            None,
+            Some(max_width),
+            text_input.horizontal_alignment(),
+            i_slint_core::items::TextOverflow::Clip,
+        );
+
+        let layout_top_y = match text_input.vertical_alignment() {
+            i_slint_core::items::TextVerticalAlignment::Top => 0.,
+            i_slint_core::items::TextVerticalAlignment::Center => {
+                (max_height - layout.height()) / 2.
+            }
+            i_slint_core::items::TextVerticalAlignment::Bottom => max_height - layout.height(),
+        };
+
+        layout
+            .get_glyph_position_at_coordinate((pos.x, pos.y - layout_top_y))
+            .position
+            .try_into()
+            .unwrap_or_default()
     }
 
     fn text_input_cursor_rect_for_byte_offset(
         &self,
-        _text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
-        _byte_offset: usize,
+        text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
+        byte_offset: usize,
     ) -> i_slint_core::graphics::Rect {
-        todo!()
+        let window_adapter = match self.window_adapter_weak.upgrade() {
+            Some(window) => window,
+            None => return Default::default(),
+        };
+
+        let window = WindowInner::from_pub(window_adapter.window());
+
+        let scale_factor = window.scale_factor();
+
+        let max_width = text_input.width() * scale_factor;
+        let max_height = text_input.height() * scale_factor;
+
+        if max_width <= 0. || max_height <= 0. {
+            return Default::default();
+        }
+
+        let string = text_input.text();
+        let string = string.as_str();
+        let font_request = text_input.font_request(&window_adapter);
+
+        let layout = textlayout::create_layout(
+            font_request,
+            scale_factor,
+            string,
+            None,
+            Some(max_width),
+            text_input.horizontal_alignment(),
+            i_slint_core::items::TextOverflow::Clip,
+        );
+
+        let layout_top_y = match text_input.vertical_alignment() {
+            i_slint_core::items::TextVerticalAlignment::Top => 0.,
+            i_slint_core::items::TextVerticalAlignment::Center => {
+                (max_height - layout.height()) / 2.
+            }
+            i_slint_core::items::TextVerticalAlignment::Bottom => max_height - layout.height(),
+        };
+
+        let boxes = layout.get_rects_for_range(
+            byte_offset..byte_offset,
+            skia_safe::textlayout::RectHeightStyle::Tight,
+            skia_safe::textlayout::RectWidthStyle::Tight,
+        );
+
+        boxes
+            .first()
+            .map(|text_box| {
+                let rect = text_box.rect;
+                i_slint_core::graphics::Rect::new(
+                    [rect.x() / scale_factor, (rect.y() + layout_top_y) / scale_factor].into(),
+                    [rect.width() / scale_factor, rect.height() / scale_factor].into(),
+                )
+            })
+            .unwrap_or_default()
     }
 
     fn register_font_from_memory(
