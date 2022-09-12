@@ -38,7 +38,7 @@ features = ["compat-0.3.0", "unsafe-single-threaded", "libm"]
 slint-build = "0.3"
 ```
 
-The default features of the `slint` create are tailored towards hosted environments and includes the "std" feature. In bare metal environments,
+The default features of the `slint` crate are tailored towards hosted environments and includes the "std" feature. In bare metal environments,
 you need to disable the default features.
 
 Three features are selected:
