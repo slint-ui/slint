@@ -1,6 +1,6 @@
 # Slint on Microcontrollers (MCU)
 
-The following scetions explain how to use Slint to develop a UI on a MCU in a bare metal environment.
+The following sections explain how to use Slint to develop a UI on a MCU in a bare metal environment.
 
 ## Prerequisites
 
