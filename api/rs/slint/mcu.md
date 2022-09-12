@@ -103,8 +103,8 @@ This minimal implementation needs to cover two functions:
    how much time has elapsed between two rendered frames. In a bare metal environment you need to provide a source of time. Often the HAL crate of your
    device provides a system timer API for this, which you can query in your impementation.
 
-There are additional functions in the trait that you can implement, for example handling of debug output, a delegated event loop or an interface
-to safely deliver events in multi-threaded environments.
+There are additional functions in the trait that you can implement, for example to handle debug output, to delegate the event loop or to implement
+the interface to safely deliver events in multi-threaded environments.
 
 A typical minimal implementation of the [`Platform`] trait that uses the [`MinimalSoftwareWindow`] looks like this:
 
