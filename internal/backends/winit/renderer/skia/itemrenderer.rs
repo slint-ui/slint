@@ -390,10 +390,92 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
 
     fn draw_text_input(
         &mut self,
-        _text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
+        text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) {
-        //todo!()
+        let max_width = text_input.width() * self.scale_factor;
+        let max_height = text_input.height() * self.scale_factor;
+
+        if max_width <= 0. || max_height <= 0. {
+            return;
+        }
+
+        let string = text_input.text();
+        let string = string.as_str();
+        let font_request =
+            text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter());
+
+        let paint = match self.brush_to_paint(text_input.color(), max_width, max_height) {
+            Some(paint) => paint,
+            None => return,
+        };
+
+        let mut text_style = skia_safe::textlayout::TextStyle::new();
+        text_style.set_foreground_color(paint);
+
+        let layout = super::textlayout::create_layout(
+            font_request,
+            self.scale_factor,
+            string,
+            Some(text_style),
+            Some(max_width),
+            text_input.horizontal_alignment(),
+            i_slint_core::items::TextOverflow::Clip,
+        );
+
+        let layout_top_y = match text_input.vertical_alignment() {
+            items::TextVerticalAlignment::Top => 0.,
+            items::TextVerticalAlignment::Center => (max_height - layout.height()) / 2.,
+            items::TextVerticalAlignment::Bottom => max_height - layout.height(),
+        };
+
+        // TODO: draw text selections
+
+        layout.paint(&mut self.canvas, skia_safe::Point::new(0., layout_top_y));
+
+        let cursor_pos = text_input.cursor_position();
+
+        let cursor_visible = cursor_pos >= 0
+            && text_input.cursor_visible()
+            && text_input.enabled()
+            && !text_input.read_only();
+
+        if cursor_visible {
+            let cursor_byte_offset = cursor_pos as usize;
+
+            // TODO: This doesn't work at the end of the text.
+            let next_char_offset_after_cursor = string[cursor_byte_offset..]
+                .char_indices()
+                .skip(1)
+                .next()
+                .map_or_else(|| string.len(), |(offset, _)| cursor_byte_offset + offset);
+
+            let boxes = layout.get_rects_for_range(
+                cursor_byte_offset..next_char_offset_after_cursor,
+                skia_safe::textlayout::RectHeightStyle::Tight,
+                skia_safe::textlayout::RectWidthStyle::Tight,
+            );
+
+            let cursor_rect = boxes
+                .first()
+                .map(|text_box| {
+                    let rect = text_box.rect;
+                    skia_safe::Rect::from_xywh(
+                        rect.x(),
+                        rect.y() + layout_top_y,
+                        text_input.text_cursor_width() * self.scale_factor,
+                        rect.height(),
+                    )
+                })
+                .unwrap_or_default();
+
+            let cursor_paint = match self.brush_to_paint(text_input.color(), 0., 0.) {
+                Some(paint) => paint,
+                None => return,
+            };
+
+            self.canvas.draw_rect(cursor_rect, &cursor_paint);
+        }
     }
 
     fn draw_path(
