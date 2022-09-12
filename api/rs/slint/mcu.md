@@ -221,24 +221,22 @@ loop {
 
 ### The Renderer
 
-In desktop and embedded environments, Slint typically uses operating system provided, often hardware-accelerated APIs to render the user interface.
+In desktop and embedded environments, Slint typically uses operating system provided APIs to render the user interface. These APIs are often hardware accelerated.
 In contrast, most MCUs don't have dedicated chips to render advanced graphics. Instead, the CPU is responsible for computing the colors of each
 pixels on the screen. This is called software rendering, and Slint provides a software renderer for this task.
 
 In the previous example, we've instantiated a [`slint::platform::software_renderer::MinimalSoftwareWindow`]. This struct implements the
-`slint::platform::WindowAdapter` trait and also holds an instance of a [`slint::platform::software_renderer::SoftwareRenderer`]. You can access it
-through the [`draw_if_needed()`](MinimalSoftwareWindow::draw_if_needed) function.
+`slint::platform::WindowAdapter` trait and also holds an instance of a [`slint::platform::software_renderer::SoftwareRenderer`]. You obtain access to it
+through the callback parameter of the [`draw_if_needed()`](MinimalSoftwareWindow::draw_if_needed) function.
 
-We provide two different ways of using the renderer, depending on the amount of RAM your MCU is equipped with and the kind of screen that is attached:
+Depending on the amount of RAM your MCU is equipped with, and the kind of screen that is attached, you can choose between two different ways of using the renderer:
 
  * Use the [`SoftwareRenderer::render()`] function if you have enough RAM to allocate one, or even two, copies of the entire screen (also known as
    frame buffer). 
  * Use the [`SoftwareRenderer::render_by_line()`] function to render the entire user interface line by line and send each line of pixels to the screen,
    typically via the SPI. This requires allocating at least enough RAM to store one single line of pixels.
 
-With both methods you instruct Slint to render into a buffer, that either represents the entire screen or just a line. That buffer is a slice of
-a type that implements the [`slint::platform::software_renderer::TargetPixel`] trait.
-
+With both methods Slint renders into a provided buffer, which is a slice of a type that implements the [`slint::platform::software_renderer::TargetPixel`] trait.
 For convenience, Slint provides an implementation for [`slint::Rgb8Pixel`] as well as [`slint::platform::software_renderer::Rgb565Pixel`].
 
 #### Rendering into a Buffer
