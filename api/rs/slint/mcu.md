@@ -47,8 +47,8 @@ In the snippet above, three features are selected:
  * `unsafe-single-threaded`: Slint internally uses Rust's [`thread_local!`](https://doc.rust-lang.org/std/macro.thread_local.html) macro to store global data.
    This feature is only available in the Rust Standard Library (std), but is not available in bare metal environments. As a fallback, the `unsafe-single-threaded`
    feature changes Slint to use unsafe static for storage. This way, you guarantee to use Slint API only from the main thread, or from interrupt handlers.
- * `libm`: The Rust Standard Library (std) provides traits and functions for floating point arithmetic. Without "std", this feature enables the use of the
-   [libm](https://crates.io/crates/libm) crate to substitute this functionality.
+ * `libm`: We select this feature to enable the use of the [libm](https://crates.io/crates/libm) crate to provide traits and functions for floating point arithmetic.
+   They are typically provided by the Rust Standard Library (std), but that is not available in bare metal environments.
 
 ## Changes to `build.rs`
 
