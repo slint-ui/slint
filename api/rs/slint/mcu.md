@@ -69,11 +69,11 @@ in a format that's suitable for the software based renderer we're going to use.
 
 ## Application Structure
 
-A graphical application in hosted environments is typically composed of at least three different tasks:
+Typically, a graphical application in hosted environments is comprised of at least three different tasks:
 
- * Receive user input from operation system APIs.
- * React to the input by performing application specific computations.
- * Render an updated user interface and present it on the screen using device-independent operating system APIs.
+ * Receives user input from operation system APIs.
+ * Reacts to the input by performing application specific computations.
+ * Renders an updated user interface and presents it on the screen using device-independent operating system APIs.
 
 The operating system provides what is typically called an event loop to connect and schedule these tasks. Slint implements the
 task of receiving user input and forwarding it to the user interface layer, as well as rendering the interface to the screen.
