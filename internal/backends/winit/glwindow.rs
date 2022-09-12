@@ -318,9 +318,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         if must_resize {
             let win = self.window();
 
-            win.set_size(
-                i_slint_core::api::LogicalSize::new(width, height).to_physical(win.scale_factor()),
-            );
+            win.set_size(i_slint_core::api::LogicalSize::new(width, height));
         }
     }
 
@@ -456,8 +454,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 if let Some(requested_size) = requested_size {
                     // It would be nice to bound this with our constraints, but those are in logical coordinates
                     // and we don't know the scale factor yet...
+                    let physical_size =
+                        requested_size.to_physical(scale_factor_override.unwrap_or(1.0) as f32);
                     window_builder.with_inner_size(winit::dpi::Size::new(
-                        winit::dpi::PhysicalSize::new(requested_size.width, requested_size.height),
+                        winit::dpi::PhysicalSize::new(physical_size.width, physical_size.height),
                     ))
                 } else if s.width > 0 as Coord && s.height > 0 as Coord {
                     // Make sure that the window's inner size is in sync with the root window item's
@@ -473,8 +473,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 if no_frame { window_builder.with_decorations(false) } else { window_builder };
 
             let window_builder = if let Some(requested_position) = requested_position {
+                let physical_position =
+                    requested_position.to_physical(scale_factor_override.unwrap_or(1.0) as f32);
                 window_builder.with_position(winit::dpi::Position::new(
-                    winit::dpi::PhysicalPosition::new(requested_position.x, requested_position.y),
+                    winit::dpi::PhysicalPosition::new(physical_position.x, physical_position.y),
                 ))
             } else {
                 window_builder
@@ -585,9 +587,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
 
     fn position(&self) -> corelib::api::PhysicalPosition {
         match &*self.map_state.borrow() {
-            GraphicsWindowBackendState::Unmapped { requested_position, .. } => {
-                requested_position.unwrap_or_default()
-            }
+            GraphicsWindowBackendState::Unmapped { requested_position, .. } => requested_position
+                .as_ref()
+                .map(|p| p.to_physical(self.window().scale_factor()))
+                .unwrap_or_default(),
             GraphicsWindowBackendState::Mapped(mapped_window) => mapped_window
                 .canvas
                 .with_window_handle(|winit_window| match winit_window.outer_position() {
@@ -599,22 +602,23 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         }
     }
 
-    fn set_position(&self, position: corelib::api::PhysicalPosition) {
+    fn set_position(&self, position: corelib::api::RequestedPosition) {
         match &mut *self.map_state.borrow_mut() {
             GraphicsWindowBackendState::Unmapped { requested_position, .. } => {
                 *requested_position = Some(position)
             }
             GraphicsWindowBackendState::Mapped(mapped_window) => {
+                let physical_position = position.to_physical(self.window().scale_factor());
                 mapped_window.canvas.with_window_handle(|winit_window| {
                     winit_window.set_outer_position(winit::dpi::Position::new(
-                        winit::dpi::PhysicalPosition::new(position.x, position.y),
+                        winit::dpi::PhysicalPosition::new(physical_position.x, physical_position.y),
                     ))
                 })
             }
         }
     }
 
-    fn set_inner_size(&self, size: corelib::api::PhysicalSize) {
+    fn set_size(&self, size: corelib::api::RequestedSize) {
         if let Ok(mut map_state) = self.map_state.try_borrow_mut() {
             // otherwise we are called from the resize event
             match &mut *map_state {
@@ -622,9 +626,12 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                     *requested_size = Some(size)
                 }
                 GraphicsWindowBackendState::Mapped(mapped_window) => {
+                    let physical_size = size.to_physical(self.window().scale_factor());
                     mapped_window.canvas.with_window_handle(|winit_window| {
-                        winit_window
-                            .set_inner_size(winit::dpi::PhysicalSize::new(size.width, size.height));
+                        winit_window.set_inner_size(winit::dpi::PhysicalSize::new(
+                            physical_size.width,
+                            physical_size.height,
+                        ));
                     });
                 }
             }
@@ -645,8 +652,8 @@ struct MappedWindow<Renderer: WinitCompatibleRenderer> {
 
 enum GraphicsWindowBackendState<Renderer: WinitCompatibleRenderer> {
     Unmapped {
-        requested_position: Option<corelib::api::PhysicalPosition>,
-        requested_size: Option<corelib::api::PhysicalSize>,
+        requested_position: Option<corelib::api::RequestedPosition>,
+        requested_size: Option<corelib::api::RequestedSize>,
     },
     Mapped(MappedWindow<Renderer>),
 }

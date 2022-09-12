@@ -48,7 +48,7 @@ impl LogicalPosition {
 
 /// A position represented in the coordinate space of physical device pixels. That is the space after applying
 /// a display device specific scale factor to pixels from the logical coordinate space.
-#[derive(Debug, Default, Copy, Clone, PartialEq)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
 pub struct PhysicalPosition {
     /// The x coordinate.
     pub x: i32,
@@ -81,9 +81,28 @@ impl PhysicalPosition {
     }
 }
 
+/// The requested position to render the window at.
+#[derive(Clone, Debug, derive_more::From, PartialEq)]
+pub enum RequestedPosition {
+    /// In physical screen coordinates
+    Physical(PhysicalPosition),
+    /// In logical screen coordinates
+    Logical(LogicalPosition),
+}
+
+impl RequestedPosition {
+    /// Turn the `RequestedPosition` into a `PhysicalPosition`.
+    pub fn to_physical(&self, scale_factor: f32) -> PhysicalPosition {
+        match self {
+            RequestedPosition::Physical(pos) => pos.clone(),
+            RequestedPosition::Logical(pos) => pos.to_physical(scale_factor),
+        }
+    }
+}
+
 /// A size represented in the coordinate space of logical pixels. That is the space before applying
 /// a display device specific scale factor.
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub struct LogicalSize {
     /// The width in logical pixels.
     pub width: f32,
@@ -122,7 +141,7 @@ impl LogicalSize {
 
 /// A size represented in the coordinate space of physical device pixels. That is the space after applying
 /// a display device specific scale factor to pixels from the logical coordinate space.
-#[derive(Debug, Default, Copy, Clone, PartialEq)]
+#[derive(Debug, Default, Copy, Clone, Eq, PartialEq)]
 pub struct PhysicalSize {
     /// The width in physical pixels.
     pub width: u32,
@@ -155,6 +174,33 @@ impl PhysicalSize {
     #[cfg(feature = "ffi")]
     pub(crate) fn to_euclid(&self) -> crate::graphics::euclid::default::Size2D<u32> {
         [self.width, self.height].into()
+    }
+}
+
+/// The requested size to render the window.
+#[derive(Clone, Debug, derive_more::From, PartialEq)]
+pub enum RequestedSize {
+    /// In physical screen pixels.
+    Physical(PhysicalSize),
+    /// In logical screen pixels.
+    Logical(LogicalSize),
+}
+
+impl RequestedSize {
+    /// Turn the `RequestedSize` into a `PhysicalSize`.
+    pub fn to_physical(&self, scale_factor: f32) -> PhysicalSize {
+        match self {
+            RequestedSize::Physical(size) => size.clone(),
+            RequestedSize::Logical(size) => size.to_physical(scale_factor),
+        }
+    }
+
+    /// Turn the `RequestedSize` into a `LogicalSize`.
+    pub fn to_logical(&self, scale_factor: f32) -> LogicalSize {
+        match self {
+            RequestedSize::Physical(size) => size.to_logical(scale_factor),
+            RequestedSize::Logical(size) => size.clone(),
+        }
     }
 }
 
@@ -344,7 +390,8 @@ impl Window {
     /// Sets the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     /// Note that on some windowing systems, such as Wayland, this functionality is not available.
-    pub fn set_position(&self, position: PhysicalPosition) {
+    pub fn set_position(&self, position: impl Into<RequestedPosition>) {
+        let position = position.into();
         self.0.window_adapter().set_position(position)
     }
 
@@ -356,11 +403,14 @@ impl Window {
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
-    pub fn set_size(&self, size: PhysicalSize) {
+    pub fn set_size(&self, size: impl Into<RequestedSize>) {
+        let size = size.into();
         let l = size.to_logical(self.scale_factor());
+        let p = size.to_physical(self.scale_factor());
+
         self.0.set_window_item_geometry(l.width as _, l.height as _);
-        if self.0.inner_size.replace(size) != size {
-            self.0.window_adapter().set_inner_size(size);
+        if self.0.inner_size.replace(p) != p {
+            self.0.window_adapter().set_size(size);
         }
     }
 

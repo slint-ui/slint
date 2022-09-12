@@ -185,16 +185,26 @@ public:
         return pos;
     }
 
-    void set_position(const slint::Point<int> &pos)
+    void set_logical_position(const slint::Point<float> &pos)
     {
-        cbindgen_private::slint_windowrc_set_position(&inner, &pos);
+        cbindgen_private::slint_windowrc_set_logical_position(&inner, &pos);
+    }
+
+    void set_physical_position(const slint::Point<int> &pos)
+    {
+        cbindgen_private::slint_windowrc_set_physical_position(&inner, &pos);
     }
 
     slint::Size<unsigned int> size() const { return cbindgen_private::slint_windowrc_size(&inner); }
 
-    void set_size(const slint::Size<unsigned int> &size)
+    void set_logical_size(const slint::Size<float> &size)
     {
-        cbindgen_private::slint_windowrc_set_size(&inner, &size);
+        cbindgen_private::slint_windowrc_set_logical_size(&inner, &size);
+    }
+
+    void set_physical_size(const slint::Size<unsigned int> &size)
+    {
+        cbindgen_private::slint_windowrc_set_physical_size(&inner, &size);
     }
 
     /// Registers a font by the specified path. The path must refer to an existing
@@ -421,15 +431,22 @@ public:
     /// Sets the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     /// Note that on some windowing systems, such as Wayland, this functionality is not available.
-    void set_position(const slint::Point<int> &pos) { inner.set_position(pos); }
+    void set_position(const slint::Point<float> &pos) { inner.set_logical_position(pos); }
+    /// Sets the position of the window on the screen, in physical screen coordinates and including
+    /// a window frame (if present).
+    /// Note that on some windowing systems, such as Wayland, this functionality is not available.
+    void set_position(const slint::Point<int> &pos) { inner.set_physical_position(pos); }
 
     /// Returns the size of the window on the screen, in physical screen coordinates and excluding
     /// a window frame (if present).
     slint::Size<unsigned int> size() const { return inner.size(); }
 
+    /// Resizes the window to the specified size on the screen, in logical pixels and excluding
+    /// a window frame (if present).
+    void set_size(const slint::Size<float> &size) { inner.set_logical_size(size); }
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
-    void set_size(const slint::Size<unsigned int> &size) { inner.set_size(size); }
+    void set_size(const slint::Size<unsigned int> &size) { inner.set_physical_size(size); }
 
     /// \private
     private_api::WindowAdapterRc &window_handle() { return inner; }

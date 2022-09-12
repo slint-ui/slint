@@ -1568,17 +1568,20 @@ impl WindowAdapterSealed for QtWindow {
         i_slint_core::api::PhysicalPosition::new(qp.x as _, qp.y as _)
     }
 
-    fn set_position(&self, position: i_slint_core::api::PhysicalPosition) {
+    fn set_position(&self, position: i_slint_core::api::RequestedPosition) {
+        let physical_position = position.to_physical(self.window().scale_factor());
         let widget_ptr = self.widget_ptr();
-        let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
+        let pos = qttypes::QPoint { x: physical_position.x as _, y: physical_position.y as _ };
         cpp! {unsafe [widget_ptr as "QWidget*", pos as "QPoint"] {
             widget_ptr->move(pos);
         }};
     }
 
-    fn set_inner_size(&self, size: i_slint_core::api::PhysicalSize) {
+    fn set_size(&self, size: i_slint_core::api::RequestedSize) {
+        let physical_size = size.to_physical(self.window().scale_factor());
         let widget_ptr = self.widget_ptr();
-        let sz = qttypes::QSize { width: size.width as _, height: size.height as _ };
+        let sz =
+            qttypes::QSize { width: physical_size.width as _, height: physical_size.height as _ };
         cpp! {unsafe [widget_ptr as "QWidget*", sz as "QSize"] {
             widget_ptr->resize(sz);
         }};
