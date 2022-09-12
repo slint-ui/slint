@@ -46,7 +46,7 @@ Three features are selected:
  * `compat-0.3.0`: You need to select this feature when disabling the default features. See [this blog post](https://slint-ui.com/blog/rust-adding-default-cargo-feature.html)
    for a detailed explanation.
  * `unsafe-single-threaded`: Slint internally uses Rust's [`thread_local!`](https://doc.rust-lang.org/std/macro.thread_local.html) macro to store global data.
-   This feature is only available in the Rust Standard Library (std), which is not available in bare-metal environments. As a fallback, the `unsafe-single-threaded`
+   This feature is only available in the Rust Standard Library (std), which is not available in bare metal environments. As a fallback, the `unsafe-single-threaded`
    feature will change Slint to use unsafe static for storage. By setting this feature, you guarantee not to use Slint API from a thread other than the main thread,
    or from interrupt handlers.
  * `libm`: The Rust Standard Library (std) provides traits and functions for floating point arithmetic. Without `std`, this feature enables the use of the
