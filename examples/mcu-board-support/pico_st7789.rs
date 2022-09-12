@@ -118,6 +118,7 @@ impl slint::platform::Platform for PicoBackend {
         let spi = singleton!(:shared_bus::BusManagerSimple<hal::Spi<hal::spi::Enabled,  pac::SPI1, 8>> = shared_bus::BusManagerSimple::new(spi)).unwrap();
 
         let rst = pins.gpio15.into_push_pull_output();
+        let bl = pins.gpio13.into_push_pull_output();
 
         let dc = pins.gpio8.into_push_pull_output();
         let cs = pins.gpio9.into_push_pull_output();
@@ -127,16 +128,13 @@ impl slint::platform::Platform for PicoBackend {
 
         let di = display_interface_spi::SPIInterface::new(spi.acquire_spi(), dc, cs);
 
-        let mut display =
-            st7789::ST7789::new(di, rst, DISPLAY_SIZE.width as _, DISPLAY_SIZE.height as _);
-
-        // Turn on backlight
-        {
-            let mut bl = pins.gpio13.into_push_pull_output();
-            bl.set_low().unwrap();
-            delay.delay_us(10_000);
-            bl.set_high().unwrap();
-        }
+        let mut display = st7789::ST7789::new(
+            di,
+            Some(rst),
+            Some(bl),
+            DISPLAY_SIZE.width as _,
+            DISPLAY_SIZE.height as _,
+        );
 
         display.init(&mut delay).unwrap();
         display.set_orientation(st7789::Orientation::Landscape).unwrap();
@@ -300,12 +298,13 @@ struct DrawBuffer<Display, PioTransfer, Stolen> {
 impl<
         DI: display_interface::WriteOnlyDataCommand,
         RST: OutputPin<Error = Infallible>,
+        BL: OutputPin<Error = Infallible>,
         TO: WriteTarget<TransmittedWord = u8> + FullDuplex<u8>,
         CH: SingleChannel,
         DC_: OutputPin<Error = Infallible>,
         CS_: OutputPin<Error = Infallible>,
     > renderer::LineBufferProvider
-    for &mut DrawBuffer<st7789::ST7789<DI, RST>, PioTransfer<TO, CH>, (DC_, CS_)>
+    for &mut DrawBuffer<st7789::ST7789<DI, RST, BL>, PioTransfer<TO, CH>, (DC_, CS_)>
 {
     type TargetPixel = TargetPixel;
 
@@ -361,11 +360,12 @@ impl<
 impl<
         DI: display_interface::WriteOnlyDataCommand,
         RST: OutputPin<Error = Infallible>,
+        BL: OutputPin<Error = Infallible>,
         TO: WriteTarget<TransmittedWord = u8> + FullDuplex<u8>,
         CH: SingleChannel,
         DC_: OutputPin<Error = Infallible>,
         CS_: OutputPin<Error = Infallible>,
-    > DrawBuffer<st7789::ST7789<DI, RST>, PioTransfer<TO, CH>, (DC_, CS_)>
+    > DrawBuffer<st7789::ST7789<DI, RST, BL>, PioTransfer<TO, CH>, (DC_, CS_)>
 {
     fn flush_frame(&mut self) {
         let (ch, b, spi) = self.pio.take().unwrap().wait();
@@ -567,18 +567,11 @@ fn panic(info: &core::panic::PanicInfo) -> ! {
     let mut delay = cortex_m::delay::Delay::new(core.SYST, clocks.system_clock.freq().raw());
 
     let rst = pins.gpio15.into_push_pull_output();
+    let bl = pins.gpio13.into_push_pull_output();
     let dc = pins.gpio8.into_push_pull_output();
     let cs = pins.gpio9.into_push_pull_output();
     let di = display_interface_spi::SPIInterface::new(spi, dc, cs);
-    let mut display = st7789::ST7789::new(di, rst, 320, 240);
-
-    // Turn on backlight
-    {
-        let mut bl = pins.gpio13.into_push_pull_output();
-        bl.set_low().unwrap();
-        delay.delay_us(10_000);
-        bl.set_high().unwrap();
-    }
+    let mut display = st7789::ST7789::new(di, Some(rst), Some(bl), 320, 240);
 
     use core::fmt::Write;
     use embedded_graphics::{

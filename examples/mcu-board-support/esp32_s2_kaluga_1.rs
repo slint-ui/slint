@@ -99,7 +99,7 @@ impl slint::platform::Platform for EspBackend {
 
         let di = SPIInterfaceNoCS::new(spi, dc.into_push_pull_output());
         let reset = rst.into_push_pull_output();
-        let mut display = st7789::ST7789::new(di, reset, 320, 240);
+        let mut display = st7789::ST7789::new(di, Some(reset), Some(backlight), 320, 240);
         let mut delay = Delay::new(&clocks);
 
         display.init(&mut delay).unwrap();
@@ -132,9 +132,12 @@ struct DrawBuffer<'a, Display> {
     buffer: &'a mut [slint::platform::software_renderer::Rgb565Pixel],
 }
 
-impl<DI: display_interface::WriteOnlyDataCommand, RST: OutputPin<Error = Infallible>>
-    slint::platform::software_renderer::LineBufferProvider
-    for &mut DrawBuffer<'_, st7789::ST7789<DI, RST>>
+impl<
+        DI: display_interface::WriteOnlyDataCommand,
+        RST: OutputPin<Error = Infallible>,
+        BL: OutputPin<Error = Infallible>,
+    > slint::platform::software_renderer::LineBufferProvider
+    for &mut DrawBuffer<'_, st7789::ST7789<DI, RST, BL>>
 {
     type TargetPixel = slint::platform::software_renderer::Rgb565Pixel;
 
