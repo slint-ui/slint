@@ -25,6 +25,8 @@ struct ComponentVTable;
 struct ItemVTable;
 }
 #include "slint_internal.h"
+#include "slint_size.h"
+#include "slint_point.h"
 #include "slint_backend_internal.h"
 #include "slint_qt_internal.h"
 #include "slint_selector_internal.h"
@@ -178,31 +180,31 @@ public:
 
     void request_redraw() const { cbindgen_private::slint_windowrc_request_redraw(&inner); }
 
-    slint::Point<int> position() const
+    slint::PhysicalPosition position() const
     {
-        slint::Point<int> pos { 0, 0 };
+        slint::PhysicalPosition pos { 0, 0 };
         cbindgen_private::slint_windowrc_position(&inner, &pos);
         return pos;
     }
 
-    void set_logical_position(const slint::Point<float> &pos)
+    void set_logical_position(const slint::LogicalPosition &pos)
     {
         cbindgen_private::slint_windowrc_set_logical_position(&inner, &pos);
     }
 
-    void set_physical_position(const slint::Point<int> &pos)
+    void set_physical_position(const slint::PhysicalPosition &pos)
     {
         cbindgen_private::slint_windowrc_set_physical_position(&inner, &pos);
     }
 
-    slint::Size<unsigned int> size() const { return cbindgen_private::slint_windowrc_size(&inner); }
+    slint::PhysicalSize size() const { return cbindgen_private::slint_windowrc_size(&inner); }
 
-    void set_logical_size(const slint::Size<float> &size)
+    void set_logical_size(const slint::LogicalSize &size)
     {
         cbindgen_private::slint_windowrc_set_logical_size(&inner, &size);
     }
 
-    void set_physical_size(const slint::Size<unsigned int> &size)
+    void set_physical_size(const slint::PhysicalSize &size)
     {
         cbindgen_private::slint_windowrc_set_physical_size(&inner, &size);
     }
@@ -426,27 +428,27 @@ public:
 
     /// Returns the position of the window on the screen, in physical screen coordinates and
     /// including a window frame (if present).
-    slint::Point<int> position() const { return inner.position(); }
+    slint::PhysicalPosition position() const { return inner.position(); }
 
     /// Sets the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     /// Note that on some windowing systems, such as Wayland, this functionality is not available.
-    void set_position(const slint::Point<float> &pos) { inner.set_logical_position(pos); }
+    void set_position(const slint::LogicalPosition &pos) { inner.set_logical_position(pos); }
     /// Sets the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     /// Note that on some windowing systems, such as Wayland, this functionality is not available.
-    void set_position(const slint::Point<int> &pos) { inner.set_physical_position(pos); }
+    void set_position(const slint::PhysicalPosition &pos) { inner.set_physical_position(pos); }
 
     /// Returns the size of the window on the screen, in physical screen coordinates and excluding
     /// a window frame (if present).
-    slint::Size<unsigned int> size() const { return inner.size(); }
+    slint::PhysicalSize size() const { return inner.size(); }
 
     /// Resizes the window to the specified size on the screen, in logical pixels and excluding
     /// a window frame (if present).
-    void set_size(const slint::Size<float> &size) { inner.set_logical_size(size); }
+    void set_size(const slint::LogicalSize &size) { inner.set_logical_size(size); }
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
-    void set_size(const slint::Size<unsigned int> &size) { inner.set_physical_size(size); }
+    void set_size(const slint::PhysicalSize &size) { inner.set_physical_size(size); }
 
     /// \private
     private_api::WindowAdapterRc &window_handle() { return inner; }

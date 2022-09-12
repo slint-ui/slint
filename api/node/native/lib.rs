@@ -491,24 +491,24 @@ declare_types! {
         method show(mut cx) {
             let this = cx.this();
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
-            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            window.show();
+            let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            window_adapter.show();
             Ok(JsUndefined::new().as_value(&mut cx))
         }
 
         method hide(mut cx) {
             let this = cx.this();
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
-            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            window.hide();
+            let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            window_adapter.hide();
             Ok(JsUndefined::new().as_value(&mut cx))
         }
 
         method get_logical_position(mut cx) {
             let this = cx.this();
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
-            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            let pos = window.position().to_logical(window.window().scale_factor());
+            let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let pos = window_adapter.position().to_logical(window_adapter.window().scale_factor());
 
             let point_object = JsObject::new(&mut cx);
             let x_value = JsNumber::new(&mut cx, pos.x).as_value(&mut cx);
@@ -521,8 +521,8 @@ declare_types! {
         method get_physical_position(mut cx) {
             let this = cx.this();
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
-            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            let pos = window.position();
+            let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let pos = window_adapter.position();
 
             let point_object = JsObject::new(&mut cx);
             let x_value = JsNumber::new(&mut cx, pos.x).as_value(&mut cx);
@@ -535,13 +535,13 @@ declare_types! {
         method set_logical_position(mut cx) {
             let this = cx.this();
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
-            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
 
             let point_object = cx.argument::<JsObject>(0)?;
             let x = point_object.get(&mut cx, "x")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
             let y = point_object.get(&mut cx, "y")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
 
-            window.set_position(i_slint_core::api::LogicalPosition::new(x as f32, y as f32).into());
+            window_adapter.set_position(i_slint_core::api::LogicalPosition::new(x as f32, y as f32).into());
 
             Ok(JsUndefined::new().as_value(&mut cx))
         }
@@ -549,13 +549,13 @@ declare_types! {
         method set_physical_position(mut cx) {
             let this = cx.this();
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
-            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
 
             let point_object = cx.argument::<JsObject>(0)?;
             let x = point_object.get(&mut cx, "x")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
             let y = point_object.get(&mut cx, "y")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
 
-            window.set_position(i_slint_core::api::PhysicalPosition::new(x as i32, y as i32).into());
+            window_adapter.set_position(i_slint_core::api::PhysicalPosition::new(x as i32, y as i32).into());
 
             Ok(JsUndefined::new().as_value(&mut cx))
         }
@@ -598,7 +598,7 @@ declare_types! {
             let width = size_object.get(&mut cx, "width")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
             let height = size_object.get(&mut cx, "height")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
 
-            window.set_size(i_slint_core::api::LogicalSize::new(width as f32, height as f32).into());
+            window.set_size(i_slint_core::api::LogicalSize::new(width as f32, height as f32));
 
             Ok(JsUndefined::new().as_value(&mut cx))
         }
@@ -613,7 +613,7 @@ declare_types! {
             let width = size_object.get(&mut cx, "width")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
             let height = size_object.get(&mut cx, "height")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
 
-            window.set_size(i_slint_core::api::PhysicalSize::new(width as u32, height as u32).into());
+            window.set_size(i_slint_core::api::PhysicalSize::new(width as u32, height as u32));
 
             Ok(JsUndefined::new().as_value(&mut cx))
         }
