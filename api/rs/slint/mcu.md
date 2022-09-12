@@ -82,7 +82,7 @@ In bare metal environments it is your responsibility to substitute and connect f
 
  * Select crates that allow you to initialize the chips that drive peripherals, such as a touch input or display controller.
    If there are no crates, you may have to to develop your own drivers.
- * Drive the event loop yourself by querying peripherals for input, forwarding input into computational modules of your
+ * Drive the event loop yourself by querying peripherals for input, forwarding that input into computational modules of your
    application and instructing Slint to render the user interface.
 
 In Slint the two primary APIs you need to use to accomplish these tasks the [`slint::platform::Platform`] trait as well as the [`slint::Window`] struct.
