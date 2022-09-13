@@ -21,7 +21,6 @@ default = ["simulator"]
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-0.3.0"] }
 mcu-board-support = { path = "../mcu-board-support" }
-chrono = { version = "0.4", default-features = false, features = ["clock", "std"], optional = true }
 
 [build-dependencies]
 slint-build = { path = "../../api/rs/build" }
