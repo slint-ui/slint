@@ -6,7 +6,9 @@
 #![warn(missing_docs)]
 //! Exposed Window API
 
-use crate::api::{CloseRequestResponse, PhysicalPosition, PhysicalSize, Window};
+use crate::api::{
+    CloseRequestResponse, PhysicalPosition, PhysicalSize, RequestedPosition, RequestedSize, Window,
+};
 use crate::component::{ComponentRc, ComponentRef, ComponentVTable, ComponentWeak};
 use crate::graphics::{Point, Rect, Size};
 use crate::input::{
@@ -123,13 +125,13 @@ pub trait WindowAdapterSealed {
     /// a window frame (if present).
     ///
     /// The default implementation does nothing
-    fn set_position(&self, _position: PhysicalPosition) {}
+    fn set_position(&self, _position: RequestedPosition) {}
 
-    /// Resizes the window to the specified size on the screen, in physical pixels and excluding
-    /// a window frame (if present).
+    /// Resizes the window to the specified size on the screen, in physical or logical pixels
+    /// and excluding a window frame (if present).
     ///
     /// The default implementation does nothing
-    fn set_inner_size(&self, _size: PhysicalSize) {}
+    fn set_size(&self, _size: RequestedSize) {}
 
     /// Return the renderer
     fn renderer(&self) -> &dyn Renderer;
@@ -928,12 +930,24 @@ pub mod ffi {
     /// a window frame (if present).
     /// Note that on some windowing systems, such as Wayland, this functionality is not available.
     #[no_mangle]
-    pub unsafe extern "C" fn slint_windowrc_set_position(
+    pub unsafe extern "C" fn slint_windowrc_set_physical_position(
         handle: *const WindowAdapterRcOpaque,
         pos: &euclid::default::Point2D<i32>,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.set_position(crate::api::PhysicalPosition::new(pos.x, pos.y));
+        window_adapter.set_position(crate::api::PhysicalPosition::new(pos.x, pos.y).into());
+    }
+
+    /// Sets the position of the window on the screen, in physical screen coordinates and including
+    /// a window frame (if present).
+    /// Note that on some windowing systems, such as Wayland, this functionality is not available.
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_set_logical_position(
+        handle: *const WindowAdapterRcOpaque,
+        pos: &euclid::default::Point2D<f32>,
+    ) {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.set_position(crate::api::LogicalPosition::new(pos.x, pos.y).into());
     }
 
     /// Returns the size of the window on the screen, in physical screen coordinates and excluding
@@ -947,11 +961,22 @@ pub mod ffi {
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
     #[no_mangle]
-    pub unsafe extern "C" fn slint_windowrc_set_size(
+    pub unsafe extern "C" fn slint_windowrc_set_physical_size(
         handle: *const WindowAdapterRcOpaque,
         size: &IntSize,
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.set_inner_size(crate::api::PhysicalSize::new(size.width, size.height));
+        window_adapter.set_size(crate::api::PhysicalSize::new(size.width, size.height).into());
+    }
+
+    /// Resizes the window to the specified size on the screen, in physical pixels and excluding
+    /// a window frame (if present).
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_set_logical_size(
+        handle: *const WindowAdapterRcOpaque,
+        size: &Size,
+    ) {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.set_size(crate::api::LogicalSize::new(size.width, size.height).into());
     }
 }

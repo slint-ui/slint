@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace slint {
 
 /// The Point structure is used to represent a two-dimensional point
@@ -25,5 +27,10 @@ namespace cbindgen_private {
 template<typename T>
 using Point2D = Point<T>;
 }
+
+/// A position in logical pixel coordinates
+using LogicalPosition = Point<float>;
+/// A position in physical pixel coordinates
+using PhysicalPosition = Point<int32_t>;
 
 }

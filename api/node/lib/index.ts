@@ -55,20 +55,22 @@ class Component {
 }
 
 interface Point {
-    x: Number;
-    y: Number;
+    x: number;
+    y: number;
 }
 
 interface Size {
-    width: Number;
-    height: Number;
+    width: number;
+    height: number;
 }
 
 interface SlintWindow {
     show(): void;
     hide(): void;
-    position: Point;
-    size: Size;
+    logical_position: Point;
+    physical_position: Point;
+    logical_size: Size;
+    physical_size: Size;
 }
 
 /**
@@ -87,17 +89,29 @@ class WindowAPI implements SlintWindow {
     hide(): void {
         this.impl.hide();
     }
-    get position(): Point {
-        return this.impl.get_position();
+    get logical_position(): Point {
+        return this.impl.get_logical_position();
     }
-    set position(pos: Point) {
-        this.impl.set_position(pos);
+    set logical_position(pos: Point) {
+        this.impl.set_logical_position(pos);
     }
-    get size(): Size {
-        return this.impl.get_size();
+    get physical_position(): Point {
+        return this.impl.get_physical_position();
     }
-    set size(size: Size) {
-        this.impl.set_size(size);
+    set physical_position(pos: Point) {
+        this.impl.set_physical_position(pos);
+    }
+    get logical_size(): Size {
+        return this.impl.get_logical_size();
+    }
+    set logical_size(size: Size) {
+        this.impl.set_logical_size(size);
+    }
+    get physical_size(): Size {
+        return this.impl.get_physical_size();
+    }
+    set physical_size(size: Size) {
+        this.impl.set_physical_size(size);
     }
 }
 

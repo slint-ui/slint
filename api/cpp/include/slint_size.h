@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include <cstdint>
+
 namespace slint {
 
 /// The Size structure is used to represent a two-dimensional size
@@ -25,5 +27,10 @@ namespace cbindgen_private {
 template<typename T>
 using Size2D = Size<T>;
 }
+
+/// A size given in logical pixels
+using LogicalSize = Size<float>;
+/// A size given in physical pixels.
+using PhysicalSize = Size<uint32_t>;
 
 }

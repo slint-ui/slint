@@ -491,24 +491,24 @@ declare_types! {
         method show(mut cx) {
             let this = cx.this();
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
-            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            window.show();
+            let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            window_adapter.show();
             Ok(JsUndefined::new().as_value(&mut cx))
         }
 
         method hide(mut cx) {
             let this = cx.this();
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
-            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            window.hide();
+            let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            window_adapter.hide();
             Ok(JsUndefined::new().as_value(&mut cx))
         }
 
-        method get_position(mut cx) {
+        method get_logical_position(mut cx) {
             let this = cx.this();
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
-            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
-            let pos = window.position();
+            let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let pos = window_adapter.position().to_logical(window_adapter.window().scale_factor());
 
             let point_object = JsObject::new(&mut cx);
             let x_value = JsNumber::new(&mut cx, pos.x).as_value(&mut cx);
@@ -518,21 +518,63 @@ declare_types! {
             Ok(point_object.as_value(&mut cx))
         }
 
-        method set_position(mut cx) {
+        method get_physical_position(mut cx) {
             let this = cx.this();
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
-            let window = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let pos = window_adapter.position();
+
+            let point_object = JsObject::new(&mut cx);
+            let x_value = JsNumber::new(&mut cx, pos.x).as_value(&mut cx);
+            point_object.set(&mut cx, "x", x_value)?;
+            let y_value = JsNumber::new(&mut cx, pos.y).as_value(&mut cx);
+            point_object.set(&mut cx, "y", y_value)?;
+            Ok(point_object.as_value(&mut cx))
+        }
+
+        method set_logical_position(mut cx) {
+            let this = cx.this();
+            let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
+            let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
 
             let point_object = cx.argument::<JsObject>(0)?;
             let x = point_object.get(&mut cx, "x")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
             let y = point_object.get(&mut cx, "y")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
 
-            window.set_position(i_slint_core::api::PhysicalPosition::new(x as i32, y as i32));
+            window_adapter.set_position(i_slint_core::api::LogicalPosition::new(x as f32, y as f32).into());
 
             Ok(JsUndefined::new().as_value(&mut cx))
         }
 
-        method get_size(mut cx) {
+        method set_physical_position(mut cx) {
+            let this = cx.this();
+            let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
+            let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+
+            let point_object = cx.argument::<JsObject>(0)?;
+            let x = point_object.get(&mut cx, "x")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
+            let y = point_object.get(&mut cx, "y")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
+
+            window_adapter.set_position(i_slint_core::api::PhysicalPosition::new(x as i32, y as i32).into());
+
+            Ok(JsUndefined::new().as_value(&mut cx))
+        }
+
+        method get_logical_size(mut cx) {
+            let this = cx.this();
+            let window_adapter = cx.borrow(&this, |x| x.0.as_ref().cloned());
+            let window_adapter = window_adapter.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let size = window_adapter.window().size().to_logical(window_adapter.window().scale_factor());
+
+            let size_object = JsObject::new(&mut cx);
+            let width_value = JsNumber::new(&mut cx, size.width).as_value(&mut cx);
+            size_object.set(&mut cx, "width", width_value)?;
+            let height_value = JsNumber::new(&mut cx, size.height).as_value(&mut cx);
+            size_object.set(&mut cx, "height", height_value)?;
+            Ok(size_object.as_value(&mut cx))
+        }
+
+        method get_physical_size(mut cx) {
             let this = cx.this();
             let window_adapter = cx.borrow(&this, |x| x.0.as_ref().cloned());
             let window_adapter = window_adapter.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
@@ -546,7 +588,22 @@ declare_types! {
             Ok(size_object.as_value(&mut cx))
         }
 
-        method set_size(mut cx) {
+        method set_logical_size(mut cx) {
+            let this = cx.this();
+            let window_adapter = cx.borrow(&this, |x| x.0.as_ref().cloned());
+            let window_adapter = window_adapter.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            let window = window_adapter.window();
+
+            let size_object = cx.argument::<JsObject>(0)?;
+            let width = size_object.get(&mut cx, "width")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
+            let height = size_object.get(&mut cx, "height")?.downcast_or_throw::<JsNumber, _>(&mut cx)?.value();
+
+            window.set_size(i_slint_core::api::LogicalSize::new(width as f32, height as f32));
+
+            Ok(JsUndefined::new().as_value(&mut cx))
+        }
+
+        method set_physical_size(mut cx) {
             let this = cx.this();
             let window_adapter = cx.borrow(&this, |x| x.0.as_ref().cloned());
             let window_adapter = window_adapter.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
