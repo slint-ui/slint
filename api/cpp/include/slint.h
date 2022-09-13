@@ -182,7 +182,7 @@ public:
 
     slint::PhysicalPosition position() const
     {
-        slint::PhysicalPosition pos { 0, 0 };
+        slint::PhysicalPosition pos;
         cbindgen_private::slint_windowrc_position(&inner, &pos);
         return pos;
     }
@@ -197,7 +197,10 @@ public:
         cbindgen_private::slint_windowrc_set_physical_position(&inner, &pos);
     }
 
-    slint::PhysicalSize size() const { return cbindgen_private::slint_windowrc_size(&inner); }
+    slint::PhysicalSize size() const
+    {
+        return slint::PhysicalSize(cbindgen_private::slint_windowrc_size(&inner));
+    }
 
     void set_logical_size(const slint::LogicalSize &size)
     {

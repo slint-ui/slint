@@ -29,8 +29,16 @@ using Size2D = Size<T>;
 }
 
 /// A size given in logical pixels
-using LogicalSize = Size<float>;
+struct LogicalSize : public Size<float>
+{
+    /// Explicitly convert a Size<float> to a LogicalSize
+    explicit LogicalSize(const Size<float> s) : Size<float>(s) {};
+};
 /// A size given in physical pixels.
-using PhysicalSize = Size<uint32_t>;
+struct PhysicalSize : public Size<uint32_t>
+{
+    /// Explicitly convert a Size<uint32_t> to a LogicalSize
+    explicit PhysicalSize(const Size<uint32_t> s) : Size<uint32_t>(s) {};
+};
 
 }
