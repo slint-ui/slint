@@ -44,6 +44,38 @@ fn size_to_winit(pos: &corelib::api::RequestedSize) -> winit::dpi::Size {
     }
 }
 
+fn icon_to_winit(icon: corelib::graphics::Image) -> Option<winit::window::Icon> {
+    let image_inner: &ImageInner = (&icon).into();
+
+    let pixel_buffer = match image_inner {
+        ImageInner::EmbeddedImage { buffer, .. } => buffer.clone(),
+        _ => return None,
+    };
+
+    // This could become a method in SharedPixelBuffer...
+    let rgba_pixels: Vec<u8> = match &pixel_buffer {
+        SharedImageBuffer::RGB8(pixels) => pixels
+            .as_bytes()
+            .chunks(3)
+            .flat_map(|rgb| IntoIterator::into_iter([rgb[0], rgb[1], rgb[2], 255]))
+            .collect(),
+        SharedImageBuffer::RGBA8(pixels) => pixels.as_bytes().to_vec(),
+        SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels
+            .as_bytes()
+            .chunks(4)
+            .flat_map(|rgba| {
+                let alpha = rgba[3] as u32;
+                IntoIterator::into_iter(rgba)
+                    .take(3)
+                    .map(move |component| (*component as u32 * alpha / 255) as u8)
+                    .chain(std::iter::once(alpha as u8))
+            })
+            .collect(),
+    };
+
+    winit::window::Icon::from_rgba(rgba_pixels, pixel_buffer.width(), pixel_buffer.height()).ok()
+}
+
 /// GraphicsWindow is an implementation of the [WindowAdapter][`crate::eventloop::WindowAdapter`] trait. This is
 /// typically instantiated by entry factory functions of the different graphics back ends.
 pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer + 'static> {
@@ -187,46 +219,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
         }
     }
 
-    fn set_icon(&self, icon: corelib::graphics::Image) {
-        let image_inner: &ImageInner = (&icon).into();
-        let pixel_buffer = match image_inner {
-            ImageInner::EmbeddedImage { buffer, .. } => buffer.clone(),
-            _ => return,
-        };
-
-        // This could become a method in SharedPixelBuffer...
-        let rgba_pixels: Vec<u8> = match &pixel_buffer {
-            SharedImageBuffer::RGB8(pixels) => pixels
-                .as_bytes()
-                .chunks(3)
-                .flat_map(|rgb| IntoIterator::into_iter([rgb[0], rgb[1], rgb[2], 255]))
-                .collect(),
-            SharedImageBuffer::RGBA8(pixels) => pixels.as_bytes().to_vec(),
-            SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels
-                .as_bytes()
-                .chunks(4)
-                .flat_map(|rgba| {
-                    let alpha = rgba[3] as u32;
-                    IntoIterator::into_iter(rgba)
-                        .take(3)
-                        .map(move |component| (*component as u32 * alpha / 255) as u8)
-                        .chain(std::iter::once(alpha as u8))
-                })
-                .collect(),
-        };
-
-        self.with_window_handle(&mut |window| {
-            window.set_window_icon(
-                winit::window::Icon::from_rgba(
-                    rgba_pixels.clone(), // FIXME: if the closure were FnOnce we could move rgba_pixels
-                    pixel_buffer.width(),
-                    pixel_buffer.height(),
-                )
-                .ok(),
-            );
-        })
-    }
-
     #[cfg(target_arch = "wasm32")]
     fn input_method_focused(&self) -> bool {
         match self.virtual_keyboard_helper.try_borrow() {
@@ -290,23 +282,16 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
             return;
         }
 
-        let title = window_item.title();
-        let no_frame = window_item.no_frame();
-        let icon = window_item.icon();
         let mut width = window_item.width() as f32;
         let mut height = window_item.height() as f32;
-
-        self.set_icon(icon);
 
         let mut must_resize = false;
 
         self.with_window_handle(&mut |winit_window| {
-            winit_window.set_title(&title);
-            if no_frame && winit_window.fullscreen().is_none() {
-                winit_window.set_decorations(false);
-            } else {
-                winit_window.set_decorations(true);
-            }
+            winit_window.set_window_icon(icon_to_winit(window_item.icon()));
+            winit_window.set_title(&window_item.title());
+            winit_window
+                .set_decorations(!window_item.no_frame() || winit_window.fullscreen().is_some());
 
             if width <= 0. || height <= 0. {
                 must_resize = true;
@@ -412,25 +397,23 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 GraphicsWindowBackendState::Mapped(_) => return,
             };
 
+            let mut window_builder = winit::window::WindowBuilder::new();
+
             let runtime_window = WindowInner::from_pub(self_.window());
             let component_rc = runtime_window.component();
             let component = ComponentRc::borrow_pin(&component_rc);
 
-            let (window_title, no_frame, is_resizable) = if let Some(window_item) =
+            window_builder = if let Some(window_item) =
                 runtime_window.window_item().as_ref().map(|i| i.as_pin_ref())
             {
-                (
-                    window_item.title().to_string(),
-                    window_item.no_frame(),
-                    window_item.height() <= 0 as _ && window_item.width() <= 0 as _,
-                )
+                window_builder
+                    .with_title(window_item.title().to_string())
+                    .with_resizable(window_item.height() <= 0 as _ || window_item.width() <= 0 as _)
+                    .with_decorations(!window_item.no_frame())
+                    .with_window_icon(icon_to_winit(window_item.icon()))
             } else {
-                ("Slint Window".to_string(), false, true)
+                window_builder.with_title("Slint Window".to_string())
             };
-
-            let mut window_builder = winit::window::WindowBuilder::new()
-                .with_title(window_title)
-                .with_resizable(is_resizable);
 
             let scale_factor_override = runtime_window.scale_factor();
             // If the scale factor was already set programmatically, use that
@@ -501,9 +484,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                     window_builder
                 }
             };
-
-            let window_builder =
-                if no_frame { window_builder.with_decorations(false) } else { window_builder };
 
             let window_builder = if let Some(pos) = &requested_position {
                 window_builder.with_position(position_to_winit(pos))
