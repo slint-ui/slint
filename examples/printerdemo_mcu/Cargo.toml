@@ -15,8 +15,8 @@ path = "main.rs"
 name = "printerdemo_mcu"
 
 [features]
-mcu-simulator = ["slint/renderer-winit-software", "slint/backend-winit", "slint/std"]
-mcu-pico-st7789 = ["mcu-board-support/pico-st7789"]
+simulator = ["slint/renderer-winit-software", "slint/backend-winit", "slint/std"]
+default = ["simulator"]
 
 [dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["compat-0.3.0"] }
