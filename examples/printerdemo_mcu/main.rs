@@ -13,14 +13,6 @@ use slint::Model;
 
 slint::include_modules!();
 
-/// Returns the current time formated as a string
-fn current_time() -> slint::SharedString {
-    #[cfg(feature = "chrono")]
-    return chrono::Local::now().format("%H:%M:%S %d/%m/%Y").to_string().into();
-    #[cfg(not(feature = "chrono"))]
-    return "".into();
-}
-
 struct PrinterQueueData {
     data: Rc<slint::VecModel<PrinterQueueItem>>,
     print_progress_timer: slint::Timer,
@@ -35,7 +27,7 @@ impl PrinterQueueData {
             owner: env!("CARGO_PKG_AUTHORS").into(),
             pages: 1,
             size: "100kB".into(),
-            submission_date: current_time(),
+            submission_date: "".into(),
         })
     }
 }
