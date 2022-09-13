@@ -1,5 +1,7 @@
 # Slint on Microcontrollers
 
+![](https://slint-ui.com/blog/porting-slint-to-microcontrollers/rp-pico_and_screen.jpg)
+
 The following sections explain how to use Slint to develop a UI on a Microcontroller (MCU) in a bare metal environment.
 
 ## Prerequisites
