@@ -17,20 +17,24 @@ repos:
       - id: trailing-whitespace
       - id: end-of-file-fixer
   - repo: https://github.com/psf/black
-    rev: 22.6.0
+    rev: 22.8.0
     hooks:
       - id: black
+  - repo: https://github.com/pre-commit/mirrors-clang-format
+    rev: v14.0.6
+    hooks:
+      - id: clang-format
   - repo: https://github.com/cheshirekow/cmake-format-precommit
     rev: v0.6.13
     hooks:
       - id: cmake-format
       - id: cmake-lint
   - repo: https://github.com/streetsidesoftware/cspell-cli
-    rev: v6.5.0
+    rev: v6.8.2
     hooks:
       - id: cspell
   - repo: https://github.com/redwarp/optimize-png-hooks
-    rev: v1.2.0
+    rev: v1.2.2
     hooks:
       - id: optimize-png
   - repo: https://github.com/doublify/pre-commit-rust
@@ -40,6 +44,6 @@ repos:
     # -   id: cargo-check ### slow...
     # -   id: clippy ### slow...
   - repo: https://github.com/pre-commit/mirrors-prettier
-    rev: "v2.7.1"
+    rev: "v3.0.0-alpha.0"
     hooks:
       - id: prettier
