@@ -349,6 +349,13 @@ fn process_window_event(
                 runtime_window.process_key_input(&event);
             };
         }
+        WindowEvent::Ime(winit::event::Ime::Commit(string)) => {
+            let modifiers = window.current_keyboard_modifiers().get();
+            let mut event = key_event(KeyEventType::KeyPressed, string.into(), modifiers);
+            runtime_window.process_key_input(&event);
+            event.event_type = KeyEventType::KeyReleased;
+            runtime_window.process_key_input(&event);
+        }
         WindowEvent::ModifiersChanged(state) => {
             // To provide an easier cross-platform behavior, we map the command key to control
             // on macOS, and control to meta.
