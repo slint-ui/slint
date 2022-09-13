@@ -294,7 +294,7 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
           command: check
-          args: --target=thumbv6m-none-eabi -p printerdemo_mcu --features mcu-pico-st7789
+          args: --target=thumbv6m-none-eabi -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789
 
   docs:
     uses: slint-ui/slint/.github/workflows/build_docs.yaml@master
