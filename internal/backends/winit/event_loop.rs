@@ -38,7 +38,7 @@ pub trait WinitWindow: WindowAdapter {
         &self,
         constraints: (corelib::layout::LayoutInfo, corelib::layout::LayoutInfo),
     );
-    fn set_icon(&self, icon: corelib::graphics::Image);
+
     /// Called by the event loop when a WindowEvent::Resized is received.
     fn resize_event(&self, _size: winit::dpi::PhysicalSize<u32>) {}
 
