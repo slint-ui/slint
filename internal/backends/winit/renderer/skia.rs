@@ -199,11 +199,18 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
             i_slint_core::items::TextVerticalAlignment::Bottom => max_height - layout.height(),
         };
 
-        layout
-            .get_glyph_position_at_coordinate((pos.x, pos.y - layout_top_y))
-            .position
-            .try_into()
-            .unwrap_or_default()
+        let utf16_index =
+            layout.get_glyph_position_at_coordinate((pos.x, pos.y - layout_top_y)).position;
+        let mut utf16_count = 0;
+        string
+            .char_indices()
+            .find(|(_, x)| {
+                let r = utf16_count >= utf16_index;
+                utf16_count += x.len_utf16() as i32;
+                r
+            })
+            .unwrap_or((string.len(), '\0'))
+            .0
     }
 
     fn text_input_cursor_rect_for_byte_offset(
@@ -249,14 +256,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
             i_slint_core::items::TextVerticalAlignment::Bottom => max_height - layout.height(),
         };
 
-        let boxes = layout.get_rects_for_range(
-            byte_offset..byte_offset,
-            skia_safe::textlayout::RectHeightStyle::Tight,
-            skia_safe::textlayout::RectWidthStyle::Tight,
-        );
-
-        boxes
-            .first()
+        textlayout::cursor_rect(string, byte_offset, layout)
             .map(|text_box| {
                 let rect = text_box.rect;
                 i_slint_core::graphics::Rect::new(

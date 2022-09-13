@@ -128,3 +128,19 @@ pub fn register_font_from_memory(data: &'static [u8]) -> Result<(), Box<dyn std:
 pub fn register_font_from_path(path: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
     register_font(CustomFontSource::ByPath(path.into()))
 }
+
+pub fn cursor_rect(
+    string: &str,
+    cursor_pos: usize,
+    layout: skia_safe::textlayout::Paragraph,
+) -> Option<skia_safe::textlayout::TextBox> {
+    // TODO: This doesn't work at the end of the text.
+    let cursor_utf16_offset = string[..cursor_pos].chars().map(char::len_utf16).sum();
+    let next = string[cursor_pos..].chars().next().map_or(0, char::len_utf16);
+    let boxes = layout.get_rects_for_range(
+        cursor_utf16_offset..cursor_utf16_offset + next,
+        skia_safe::textlayout::RectHeightStyle::Max,
+        skia_safe::textlayout::RectWidthStyle::Max,
+    );
+    boxes.into_iter().next()
+}
