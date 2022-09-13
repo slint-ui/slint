@@ -964,13 +964,13 @@ impl ComponentHandle for ComponentInstance {
     fn show(&self) {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.borrow_instance().window_adapter().show();
+        comp.borrow_instance().window_adapter().window().show();
     }
 
     fn hide(&self) {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.borrow_instance().window_adapter().hide();
+        comp.borrow_instance().window_adapter().window().hide();
     }
 
     fn run(&self) {
