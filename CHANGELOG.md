@@ -4,17 +4,18 @@ All notable changes to this project are documented in this file.
 ## Unreleased
 
 ### Breaking Changes
+
  - `mod` now works on any numeric type, not only integers.
- - Minimum rust version is now 1.60
+ - Minimum rust version is now 1.60.
  - The "backend-gl-*" Rust crate features for configuring the GL renderer have been
-   changed and split by renderer
- - `VecModel::remove` now return the removed element
- - `slint::invoke_from_event_loop` and `slint::quit_event_loop` now return a Result
+   changed and split by renderer.
+ - `VecModel::remove` now returns the removed element.
+ - `slint::invoke_from_event_loop` and `slint::quit_event_loop` now return a Result.
 
 ### Added
 
- - Added the `platform` module providing API to use slint on bare metal with a software renderer
- - Added an experimental Skia renderer
+ - Added the `platform` module providing API to use slint on bare metal with a software renderer.
+ - Added an experimental Skia renderer.
  - `Button`: Add a `checkable` property that turns the button into a toggle
    button. Use the new `checked` property to query whether the toggle button
    is pressed down or not.
@@ -25,19 +26,19 @@ All notable changes to this project are documented in this file.
    size of the window on the screen.
  - Added `slint::Window::dispatch_event` and `slint::WindowEvent` to be able to manually
    send a mouse or touch event to a window.
- - Added `animation-tick()`
- - `SharedString` implements `std::fmt::Write` and added `slint::format!`
- - `Image` can now be rotated with the `rotation-*` properties
+ - Added `animation-tick()`.
+ - `SharedString` implements `std::fmt::Write` and added `slint::format!`.
+ - `Image` can now be rotated with the `rotation-*` properties.
  - Use docking widgets and integration of slint-lsp into the [Online Code Editor](https://slint-ui.com/editor).
 
 
 ### Fixed
  - Fixed Ctrl+Backspace/Ctrl+Del not deleting words in text input elements.
  - Resizing of live-preview window in the IDE integrations.
- - Preferred size of the TabWidget in the fluent style take in account the size of the tabs (#1363)
- - Fixed cursor behavior when typing the Enter key at the end of a TextEdit (#1318)
+ - Preferred size of the TabWidget in the fluent style take in account the size of the tabs (#1363).
+ - Fixed cursor behavior when typing the Enter key at the end of a TextEdit (#1318).
  - Fixed a memory leak of images when using the GL backend.
- - Fixed starting and stopping `slint::Timer` from withing their callback (#1532)
+ - Fixed starting and stopping `slint::Timer` from withing their callback (#1532).
 
 ## [0.2.5] - 2022-07-06
 
