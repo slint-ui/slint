@@ -43,7 +43,7 @@ In your build.rs, you must include a call to `slint_build::print_rustc_flags().u
 
 
 ```sh
-cargo run -p printerdemo_mcu --features=mcu-simulator --release
+cargo run -p printerdemo_mcu --features=simulator --release
 ```
 
 ### On the Raspberry Pi Pico
@@ -53,7 +53,7 @@ You need nightly rust because that's the only way to get an allocator.
 Build the demo with:
 
 ```sh
-cargo +nightly build -p printerdemo_mcu --features=mcu-pico-st7789 --target=thumbv6m-none-eabi --release
+cargo +nightly build -p printerdemo_mcu --no-default-features --features=mcu-bord-support/pico-st7789 --target=thumbv6m-none-eabi --release
 ```
 
 You should process the file with  [elf2uf2-rs](https://github.com/jonil/elf2uf2-rs)
@@ -165,7 +165,7 @@ This was tested using a second Raspberry Pi Pico programmed as a probe with [Dap
 Using [probe-run](https://github.com/knurling-rs/probe-run) (`cargo install probe-run`)
 
 ```sh
-CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-run --chip STM32H735IGKx" cargo +nightly run -p printerdemo_mcu --features=mcu-board-support/stm32h735g --target=thumbv7em-none-eabihf --release
+CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-run --chip STM32H735IGKx" cargo +nightly run -p printerdemo_mcu --no-default-features  --features=mcu-board-support/stm32h735g --target=thumbv7em-none-eabihf --release
 ```
 
 ### ESP32-S2-Kaluga-1
@@ -176,7 +176,7 @@ Also `cargo instal espflash`
 To compile and run the demo:
 
 ```sh
-cargo +esp build -p printerdemo_mcu --target xtensa-esp32s2-none-elf --features=mcu-board-support/esp32-s2-kaluga-1 --release --config examples/mcu-board-support/esp32_s2_kaluga_1/cargo-config.toml
+cargo +esp build -p printerdemo_mcu --target xtensa-esp32s2-none-elf --no-default-features --features=mcu-board-support/esp32-s2-kaluga-1 --release --config examples/mcu-board-support/esp32_s2_kaluga_1/cargo-config.toml
 espflash --monitor /dev/ttyUSB1 target/xtensa-esp32s2-none-elf/release/printerdemo_mcu
 ```
 
