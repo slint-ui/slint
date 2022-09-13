@@ -3,7 +3,7 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
-### Changed
+### Breaking Changes
  - `mod` now works on any numeric type, not only integers.
  - Minimum rust version is now 1.60
  - The "backend-gl-*" Rust crate features for configuring the GL renderer have been
