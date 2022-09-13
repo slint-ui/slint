@@ -391,3 +391,7 @@ You can find the crate in our Git repository at:
 If your MCU is among the supported boards, then you can use it by specifying it as a
 [dependency from our Git repository](https://doc.rust-lang.org/cargo/reference/specifying-dependencies.html#specifying-dependencies-from-git-repositories)
 in your `Cargo.toml`.
+
+For an entire template, check out our [Slint Bare Metal Microcontroller Rust Template](https://github.com/slint-ui/slint-mcu-rust-template).
+
+We also have a version of our printer demo that we've adapted to small screens, the [MCU Printer Demo](https://github.com/slint-ui/slint/tree/master/examples/printerdemo_mcu).
