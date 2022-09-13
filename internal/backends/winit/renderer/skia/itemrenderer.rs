@@ -441,23 +441,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             && !text_input.read_only();
 
         if cursor_visible {
-            let cursor_byte_offset = cursor_pos as usize;
-
-            // TODO: This doesn't work at the end of the text.
-            let next_char_offset_after_cursor = string[cursor_byte_offset..]
-                .char_indices()
-                .skip(1)
-                .next()
-                .map_or_else(|| string.len(), |(offset, _)| cursor_byte_offset + offset);
-
-            let boxes = layout.get_rects_for_range(
-                cursor_byte_offset..next_char_offset_after_cursor,
-                skia_safe::textlayout::RectHeightStyle::Tight,
-                skia_safe::textlayout::RectWidthStyle::Tight,
-            );
-
-            let cursor_rect = boxes
-                .first()
+            let cursor_rect = super::textlayout::cursor_rect(string, cursor_pos as usize, layout)
                 .map(|text_box| {
                     let rect = text_box.rect;
                     skia_safe::Rect::from_xywh(
