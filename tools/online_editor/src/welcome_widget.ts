@@ -31,7 +31,7 @@ export class WelcomeWidget extends Widget {
     this.addClass("content");
     this.addClass("welcome".toLowerCase());
     this.title.label = "Welcome";
-    this.title.closable = false;
+    this.title.closable = true;
     this.title.caption = `Welcome to Slint`;
   }
 }
