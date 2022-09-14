@@ -59,7 +59,7 @@ impl WindowAdapterSealed for TestingWindow {
         unimplemented!()
     }
 
-    fn set_position(&self, _position: i_slint_core::api::RequestedPosition) {
+    fn set_position(&self, _position: i_slint_core::api::WindowPosition) {
         unimplemented!()
     }
 }

@@ -81,21 +81,22 @@ impl PhysicalPosition {
     }
 }
 
-/// The requested position to render the window at.
+/// The position of the window in either physical or logical pixels. This is used
+/// with [`Window::set_position`].
 #[derive(Clone, Debug, derive_more::From, PartialEq)]
-pub enum RequestedPosition {
-    /// In physical screen coordinates
+pub enum WindowPosition {
+    /// The position in physical pixels.
     Physical(PhysicalPosition),
-    /// In logical screen coordinates
+    /// The position in logical pixels.
     Logical(LogicalPosition),
 }
 
-impl RequestedPosition {
-    /// Turn the `RequestedPosition` into a `PhysicalPosition`.
+impl WindowPosition {
+    /// Turn the `WindowPosition` into a `PhysicalPosition`.
     pub fn to_physical(&self, scale_factor: f32) -> PhysicalPosition {
         match self {
-            RequestedPosition::Physical(pos) => pos.clone(),
-            RequestedPosition::Logical(pos) => pos.to_physical(scale_factor),
+            WindowPosition::Physical(pos) => pos.clone(),
+            WindowPosition::Logical(pos) => pos.to_physical(scale_factor),
         }
     }
 }
@@ -177,29 +178,30 @@ impl PhysicalSize {
     }
 }
 
-/// The requested size to render the window.
+/// The size of a window represented in either physical or logical pixels. This is used
+/// with [`Window::set_size`].
 #[derive(Clone, Debug, derive_more::From, PartialEq)]
-pub enum RequestedSize {
-    /// In physical screen pixels.
+pub enum WindowSize {
+    /// The size in physical pixels.
     Physical(PhysicalSize),
-    /// In logical screen pixels.
+    /// The size in logical screen pixels.
     Logical(LogicalSize),
 }
 
-impl RequestedSize {
-    /// Turn the `RequestedSize` into a `PhysicalSize`.
+impl WindowSize {
+    /// Turn the `WindowSize` into a `PhysicalSize`.
     pub fn to_physical(&self, scale_factor: f32) -> PhysicalSize {
         match self {
-            RequestedSize::Physical(size) => size.clone(),
-            RequestedSize::Logical(size) => size.to_physical(scale_factor),
+            WindowSize::Physical(size) => size.clone(),
+            WindowSize::Logical(size) => size.to_physical(scale_factor),
         }
     }
 
-    /// Turn the `RequestedSize` into a `LogicalSize`.
+    /// Turn the `WindowSize` into a `LogicalSize`.
     pub fn to_logical(&self, scale_factor: f32) -> LogicalSize {
         match self {
-            RequestedSize::Physical(size) => size.to_logical(scale_factor),
-            RequestedSize::Logical(size) => size.clone(),
+            WindowSize::Physical(size) => size.to_logical(scale_factor),
+            WindowSize::Logical(size) => size.clone(),
         }
     }
 }
@@ -390,7 +392,7 @@ impl Window {
     /// Sets the position of the window on the screen, in physical screen coordinates and including
     /// a window frame (if present).
     /// Note that on some windowing systems, such as Wayland, this functionality is not available.
-    pub fn set_position(&self, position: impl Into<RequestedPosition>) {
+    pub fn set_position(&self, position: impl Into<WindowPosition>) {
         let position = position.into();
         self.0.window_adapter().set_position(position)
     }
@@ -403,7 +405,7 @@ impl Window {
 
     /// Resizes the window to the specified size on the screen, in physical pixels and excluding
     /// a window frame (if present).
-    pub fn set_size(&self, size: impl Into<RequestedSize>) {
+    pub fn set_size(&self, size: impl Into<WindowSize>) {
         let size = size.into();
         let l = size.to_logical(self.scale_factor());
         let p = size.to_physical(self.scale_factor());
