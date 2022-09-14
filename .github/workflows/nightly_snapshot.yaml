@@ -279,7 +279,7 @@ jobs:
         run: |
             git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
             git config --global user.name "${GITHUB_ACTOR}"
-            git clone "https://tronical:${{ secrets.WWW_PUBLISH_SECRET }}@github.com/slint-ui/www" --depth 1
+            git clone "https://tronical:${{ secrets.WWW_PUBLISH_SECRET }}@github.com/tronical/www" --depth 1
             cd www
 
             target_branch=${GITHUB_REF##*/}
