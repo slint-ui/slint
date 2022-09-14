@@ -81,7 +81,8 @@ impl PhysicalPosition {
     }
 }
 
-/// The position of the window in either physical or logical pixels.
+/// The position of the window in either physical or logical pixels. This is used
+/// with [`Window::set_position`].
 #[derive(Clone, Debug, derive_more::From, PartialEq)]
 pub enum WindowPosition {
     /// The position in physical pixels.
@@ -177,7 +178,8 @@ impl PhysicalSize {
     }
 }
 
-/// The size of a window represented in either physical or logical pixels.
+/// The size of a window represented in either physical or logical pixels. This is used
+/// with [`Window::set_size`].
 #[derive(Clone, Debug, derive_more::From, PartialEq)]
 pub enum WindowSize {
     /// The size in physical pixels.
