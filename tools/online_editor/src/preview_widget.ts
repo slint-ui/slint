@@ -9,8 +9,13 @@ import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
 import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
 
+let was_initialized = false;
+
 async function setup_preview() {
-  await slint_init();
+  if (!was_initialized) {
+    await slint_init();
+  }
+  was_initialized = true;
 }
 
 export class PreviewWidget extends Widget {
@@ -66,9 +71,7 @@ export class PreviewWidget extends Widget {
     base_url: string,
     load_callback: (_url: string) => Promise<string>
   ): Promise<monaco.editor.IMarkerData[]> {
-    if (this.#instance == null) {
-      await setup_preview();
-    }
+    await setup_preview();
 
     const { component, diagnostics, error_string } =
       await slint.compile_from_string_with_style(
