@@ -23,6 +23,8 @@ export class PreviewWidget extends Widget {
     content.className = "preview-container";
 
     const canvas = document.createElement("canvas");
+    canvas.width = 800;
+    canvas.height = 600;
     content.appendChild(canvas);
 
     const error_area = document.createElement("div");
