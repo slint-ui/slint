@@ -89,6 +89,7 @@ class EditorPaneWidget extends Widget {
   #editor: monaco.editor.IStandaloneCodeEditor | null;
   #keystroke_timeout_handle: number | undefined;
   #base_url: string | undefined;
+  #edit_era: number;
 
   #onRenderRequest?: (
     _style: string,
@@ -124,6 +125,8 @@ class EditorPaneWidget extends Widget {
     this.title.closable = false;
     this.title.caption = `Slint Code Editor`;
 
+    this.#edit_era = 0;
+
     this.setup_editor(this.contentNode);
   }
 
@@ -137,6 +140,10 @@ class EditorPaneWidget extends Widget {
 
   compile() {
     this.update_preview();
+  }
+
+  next_era() {
+    this.#edit_era += 1;
   }
 
   set auto_compile(value: boolean) {
@@ -157,6 +164,7 @@ class EditorPaneWidget extends Widget {
   }
 
   public clear_models() {
+    this.next_era();
     this.#editor_documents.clear();
     this.#onModelsCleared?.();
   }
@@ -216,6 +224,7 @@ class EditorPaneWidget extends Widget {
 
     if (main_model_and_state != null) {
       const source = main_model_and_state.model.getValue();
+      const era = this.#edit_era;
 
       setTimeout(() => {
         if (this.#onRenderRequest != null) {
@@ -224,7 +233,7 @@ class EditorPaneWidget extends Widget {
             source,
             base_url,
             (url: string) => {
-              return this.fetch_url_content(url);
+              return this.fetch_url_content(era, url);
             }
           ).then((markers: monaco.editor.IMarkerData[]) => {
             if (this.#editor != null) {
@@ -352,7 +361,7 @@ class EditorPaneWidget extends Widget {
     this.#onModelSelected = f;
   }
 
-  protected async fetch_url_content(url: string): Promise<string> {
+  protected async fetch_url_content(era: number, url: string): Promise<string> {
     let model_and_state = this.#editor_documents.get(url);
     if (model_and_state != null) {
       return model_and_state.model.getValue();
@@ -366,8 +375,10 @@ class EditorPaneWidget extends Widget {
       return model_and_state.model.getValue();
     }
 
-    const model = createModel(doc);
-    this.add_model(url, model);
+    if (era == this.#edit_era) {
+      const model = createModel(doc);
+      this.add_model(url, model);
+    }
     return doc;
   }
 }
