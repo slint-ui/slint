@@ -104,9 +104,10 @@ function main() {
   menu_bar.addMenu(create_build_menu());
   menu_bar.addMenu(create_demo_menu(editor));
 
-  const dock = new DockPanel();
+  const dock = new SplitPanel({ orientation: "vertical" });
   dock.addWidget(preview);
-  dock.addWidget(welcome, { mode: "split-bottom", ref: preview });
+  dock.addWidget(welcome);
+  dock.setRelativeSizes([1, 0.5]);
 
   const main = new SplitPanel({ orientation: "horizontal" });
   main.id = "main";
