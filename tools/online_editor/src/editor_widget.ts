@@ -181,8 +181,8 @@ class EditorPaneWidget extends Widget {
     if (this.#editor_documents.size === 1) {
       this.#base_url = url;
       this.set_model(url);
+      this.update_preview();
     }
-    this.update_preview();
   }
 
   public remove_model(url: string) {
