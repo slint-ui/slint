@@ -22,23 +22,23 @@ use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
 use winit::dpi::LogicalSize;
 
-fn position_to_winit(pos: &corelib::api::RequestedPosition) -> winit::dpi::Position {
+fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
     match pos {
-        corelib::api::RequestedPosition::Logical(pos) => {
+        corelib::api::WindowPosition::Logical(pos) => {
             winit::dpi::Position::new(winit::dpi::LogicalPosition::new(pos.x, pos.y))
         }
-        corelib::api::RequestedPosition::Physical(pos) => {
+        corelib::api::WindowPosition::Physical(pos) => {
             winit::dpi::Position::new(winit::dpi::PhysicalPosition::new(pos.x, pos.y))
         }
     }
 }
 
-fn size_to_winit(pos: &corelib::api::RequestedSize) -> winit::dpi::Size {
+fn size_to_winit(pos: &corelib::api::WindowSize) -> winit::dpi::Size {
     match pos {
-        corelib::api::RequestedSize::Logical(size) => {
+        corelib::api::WindowSize::Logical(size) => {
             winit::dpi::Size::new(winit::dpi::LogicalSize::new(size.width, size.height))
         }
-        corelib::api::RequestedSize::Physical(size) => {
+        corelib::api::WindowSize::Physical(size) => {
             winit::dpi::Size::new(winit::dpi::PhysicalSize::new(size.width, size.height))
         }
     }
@@ -611,7 +611,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         }
     }
 
-    fn set_position(&self, position: corelib::api::RequestedPosition) {
+    fn set_position(&self, position: corelib::api::WindowPosition) {
         match &mut *self.map_state.borrow_mut() {
             GraphicsWindowBackendState::Unmapped { requested_position, .. } => {
                 *requested_position = Some(position)
@@ -624,7 +624,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         }
     }
 
-    fn set_size(&self, size: corelib::api::RequestedSize) {
+    fn set_size(&self, size: corelib::api::WindowSize) {
         if let Ok(mut map_state) = self.map_state.try_borrow_mut() {
             // otherwise we are called from the resize event
             match &mut *map_state {
@@ -654,8 +654,8 @@ struct MappedWindow<Renderer: WinitCompatibleRenderer> {
 
 enum GraphicsWindowBackendState<Renderer: WinitCompatibleRenderer> {
     Unmapped {
-        requested_position: Option<corelib::api::RequestedPosition>,
-        requested_size: Option<corelib::api::RequestedSize>,
+        requested_position: Option<corelib::api::WindowPosition>,
+        requested_size: Option<corelib::api::WindowSize>,
     },
     Mapped(MappedWindow<Renderer>),
 }

@@ -7,7 +7,7 @@
 //! Exposed Window API
 
 use crate::api::{
-    CloseRequestResponse, PhysicalPosition, PhysicalSize, RequestedPosition, RequestedSize, Window,
+    CloseRequestResponse, PhysicalPosition, PhysicalSize, Window, WindowPosition, WindowSize,
 };
 use crate::component::{ComponentRc, ComponentRef, ComponentVTable, ComponentWeak};
 use crate::graphics::{Point, Rect, Size};
@@ -125,13 +125,13 @@ pub trait WindowAdapterSealed {
     /// a window frame (if present).
     ///
     /// The default implementation does nothing
-    fn set_position(&self, _position: RequestedPosition) {}
+    fn set_position(&self, _position: WindowPosition) {}
 
     /// Resizes the window to the specified size on the screen, in physical or logical pixels
     /// and excluding a window frame (if present).
     ///
     /// The default implementation does nothing
-    fn set_size(&self, _size: RequestedSize) {}
+    fn set_size(&self, _size: WindowSize) {}
 
     /// Return the renderer
     fn renderer(&self) -> &dyn Renderer;
