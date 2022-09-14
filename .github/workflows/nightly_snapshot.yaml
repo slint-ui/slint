@@ -259,7 +259,7 @@ jobs:
       with:
           name: slint-vscode.zip
           path: |
-              ${{ steps.publishToOpenVSX.outputs.vsixPath }}
+              ${{ steps.publishToVSCM.outputs.vsixPath }}
 
   publish_artifacts:
     if: github.event.inputs.private != 'true'
