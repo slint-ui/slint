@@ -91,7 +91,7 @@ pub enum WindowPosition {
 }
 
 impl WindowPosition {
-    /// Turn the `RequestedPosition` into a `PhysicalPosition`.
+    /// Turn the `WindowPosition` into a `PhysicalPosition`.
     pub fn to_physical(&self, scale_factor: f32) -> PhysicalPosition {
         match self {
             WindowPosition::Physical(pos) => pos.clone(),
