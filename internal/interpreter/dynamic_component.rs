@@ -64,20 +64,6 @@ impl<'id> ComponentBox<'id> {
     }
 }
 
-impl<'id> Drop for ComponentBox<'id> {
-    fn drop(&mut self) {
-        let instance_ref = self.borrow_instance();
-        if let Some(window_adapter) = eval::window_adapter_ref(instance_ref) {
-            i_slint_core::component::unregister_component(
-                instance_ref.instance,
-                Pin::into_inner(instance_ref.borrow()),
-                instance_ref.component_type.item_array.as_slice(),
-                window_adapter,
-            );
-        }
-    }
-}
-
 pub(crate) struct ItemWithinComponent {
     offset: usize,
     pub(crate) rtti: Rc<ItemRTTI>,
@@ -216,6 +202,22 @@ impl Component for ErasedComponentBox {
 }
 
 i_slint_core::ComponentVTable_static!(static COMPONENT_BOX_VT for ErasedComponentBox);
+
+impl<'id> Drop for ErasedComponentBox {
+    fn drop(&mut self) {
+        generativity::make_guard!(guard);
+        let unerase = self.unerase(guard);
+        let instance_ref = unerase.borrow_instance();
+        if let Some(window_adapter) = eval::window_adapter_ref(instance_ref) {
+            i_slint_core::component::unregister_component(
+                instance_ref.instance,
+                vtable::VRef::new(self),
+                instance_ref.component_type.item_array.as_slice(),
+                window_adapter,
+            );
+        }
+    }
+}
 
 #[derive(Default)]
 pub(crate) struct ComponentExtraData {
