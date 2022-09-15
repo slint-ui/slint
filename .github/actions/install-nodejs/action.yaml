@@ -1,0 +1,40 @@
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+---
+name: Install NodeJS
+description: Set up NodeJS
+
+outputs:
+  node-version:
+    description: "The node JS version that was installed"
+    value: ${{ steps.node-query.outputs.node-version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@v1
+      with:
+        node-version: "12"
+    - id: node-version
+      if: runner.os == 'Windows'
+      run: |
+        echo "::set-output name=node-version::$(node --version)"
+      shell: powershell
+    - id: node-query
+      if: runner.os != 'Windows'
+      run: |
+        echo "::set-output name=node-version::$(node --version)"
+      shell: bash
+    - name: Cache native node libraries
+      uses: actions/cache@v2
+      if: runner.os == 'Windows'
+      with:
+        path: ~/node-gyp/cache
+        key: ${{ runner.os }}-${{ github.job }}-${{ steps.node-version.outputs.node-version }}
+    - name: Ensure node-gyp cache is populated
+      if: runner.os == 'Windows'
+      run: |
+        npm install -g node-gyp
+      shell: powershell
