@@ -713,77 +713,26 @@ pub fn visit_items<State>(
     mut visitor: impl FnMut(&ComponentRc, Pin<ItemRef>, usize, &State) -> ItemVisitorResult<State>,
     state: State,
 ) -> VisitChildrenResult {
-    visit_internal(
-        component,
-        order,
-        &mut |component, item, index, state| (visitor(component, item, index, state), ()),
-        &mut |_, _, _, r| r,
-        -1,
-        &state,
-    )
+    visit_internal(component, order, &mut visitor, -1, &state)
 }
 
-/// Visit each items recursively
-///
-/// The state parameter returned by the visitor is passed to each child.
-///
-/// Returns the index of the item that cancelled, or -1 if nobody cancelled
-pub fn visit_items_with_post_visit<State, PostVisitState>(
+fn visit_internal<State>(
     component: &ComponentRc,
     order: TraversalOrder,
-    mut visitor: impl FnMut(
-        &ComponentRc,
-        Pin<ItemRef>,
-        usize,
-        &State,
-    ) -> (ItemVisitorResult<State>, PostVisitState),
-    mut post_visitor: impl FnMut(
-        &ComponentRc,
-        Pin<ItemRef>,
-        PostVisitState,
-        VisitChildrenResult,
-    ) -> VisitChildrenResult,
-    state: State,
-) -> VisitChildrenResult {
-    visit_internal(component, order, &mut visitor, &mut post_visitor, -1, &state)
-}
-
-fn visit_internal<State, PostVisitState>(
-    component: &ComponentRc,
-    order: TraversalOrder,
-    visitor: &mut impl FnMut(
-        &ComponentRc,
-        Pin<ItemRef>,
-        usize,
-        &State,
-    ) -> (ItemVisitorResult<State>, PostVisitState),
-    post_visitor: &mut impl FnMut(
-        &ComponentRc,
-        Pin<ItemRef>,
-        PostVisitState,
-        VisitChildrenResult,
-    ) -> VisitChildrenResult,
+    visitor: &mut impl FnMut(&ComponentRc, Pin<ItemRef>, usize, &State) -> ItemVisitorResult<State>,
     index: isize,
     state: &State,
 ) -> VisitChildrenResult {
-    let mut actual_visitor = |component: &ComponentRc,
-                              index: usize,
-                              item: Pin<ItemRef>|
-     -> VisitChildrenResult {
-        match visitor(component, item, index, state) {
-            (ItemVisitorResult::Continue(state), post_visit_state) => {
-                let r =
-                    visit_internal(component, order, visitor, post_visitor, index as isize, &state);
-                post_visitor(component, item, post_visit_state, r)
+    let mut actual_visitor =
+        |component: &ComponentRc, index: usize, item: Pin<ItemRef>| -> VisitChildrenResult {
+            match visitor(component, item, index, state) {
+                ItemVisitorResult::Continue(state) => {
+                    visit_internal(component, order, visitor, index as isize, &state)
+                }
+
+                ItemVisitorResult::Abort => VisitChildrenResult::abort(index, 0),
             }
-            (ItemVisitorResult::Abort, post_visit_state) => post_visitor(
-                component,
-                item,
-                post_visit_state,
-                VisitChildrenResult::abort(index, 0),
-            ),
-        }
-    };
+        };
     vtable::new_vref!(let mut actual_visitor : VRefMut<ItemVisitorVTable> for ItemVisitor = &mut actual_visitor);
     VRc::borrow_pin(component).as_ref().visit_children_item(index, order, actual_visitor)
 }
