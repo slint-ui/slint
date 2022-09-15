@@ -314,13 +314,10 @@ jobs:
     env:
       SLINT_NO_QT: 1
       CARGO_INCREMENTAL: false
-      # There were binding loops with layout in our demo, so ignore theses errors
-      # Also ignore errors that were warnings before
-      SLINT_INTERPRETER_ERROR_WHITELIST: "is part of a binding loop;must be called;duplicated element id;Unknown type Clip;in Path"
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        from_version: ['0.1.0', '0.1.6']
+        from_version: ['0.3.0']
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
@@ -341,23 +338,21 @@ jobs:
           git checkout v${{ matrix.from_version }} --no-overlay -- tests/helper_components
           # Remove examples from the workspace because they may no longer exist or their Cargo.toml might prevent the build of the updater
           sed -i "/examples/d" Cargo.toml
-    - name: "Commit old checkout"
-      run: |
-          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-          git config --global user.name "${GITHUB_ACTOR}"
-          git commit -a -m "REVERT TESTS TO v${{ matrix.from_version }}"
-    - name: run the updater
-      run: |
-        cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i examples/*/*.60
-        cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i examples/*/*/*.60
-        cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i tests/cases/*.60
-        cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i tests/cases/*/*.60
-    - name: Show the diff
-      run: git diff
+    # - name: "Commit old checkout"
+    #   run: |
+    #       git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+    #       git config --global user.name "${GITHUB_ACTOR}"
+    #       git commit -a -m "REVERT TESTS TO v${{ matrix.from_version }}"
+    # - name: run the updater
+    #   run: |
+    #     cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i examples/*/*.slint
+    #     cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i examples/*/*/*.slint
+    #     cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i tests/cases/*.slint
+    #     cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i tests/cases/*/*.slint
+    # - name: Show the diff
+    #   run: git diff
     - name: test
       uses: actions-rs/cargo@v1
       with:
           command: test
-          # skip example_printerdemo_old because that was not in 0.0.5
-          # skip test_interpreter_examples_rotate because the internal rotate element was removed
-          args: --bin test-driver-interpreter -- --skip example_printerdemo_old --skip test_interpreter_examples_rotate
+          args: --bin test-driver-interpreter
