@@ -23,18 +23,13 @@ jobs:
     runs-on: windows-2022
     steps:
       - uses: actions/checkout@v2
-      - name: Install latest stable Rust
-        uses: actions-rs/toolchain@v1
+      - uses: ./.github/actions/setup-rust
         with:
-          toolchain: stable
           target: x86_64-pc-windows-msvc
       - name: Install Qt
         uses: jurplel/install-qt-action@v3
         with:
           version: 6.2.1
-      - uses: Swatinem/rust-cache@v1
-        with:
-          key: x
       - uses: actions-rs/install@v0.1
         with:
           crate: cargo-about
@@ -75,18 +70,13 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
       - uses: actions/checkout@v2
-      - name: Install latest stable Rust
-        uses: actions-rs/toolchain@v1
+      - uses: ./.github/actions/setup-rust
         with:
-          toolchain: stable
           target: x86_64-unknown-linux-gnu
       - name: Install Qt
         uses: jurplel/install-qt-action@v3
         with:
           version: 5.15.2
-      - uses: Swatinem/rust-cache@v1
-        with:
-          key: x
       - uses: actions-rs/install@v0.1
         with:
           crate: cargo-about
@@ -112,23 +102,16 @@ jobs:
     runs-on: macOS-11
     steps:
       - uses: actions/checkout@v2
-      - name: Install latest stable Rust
-        uses: actions-rs/toolchain@v1
+      - uses: ./.github/actions/setup-rust
         with:
-          toolchain: stable
           target: x86_64-apple-darwin
-      - name: Install latest stable Rust
-        uses: actions-rs/toolchain@v1
+      - uses: ./.github/actions/setup-rust
         with:
-          toolchain: stable
           target: aarch64-apple-darwin
       - name: Install Qt
         uses: jurplel/install-qt-action@v3
         with:
           version: 6.2.1
-      - uses: Swatinem/rust-cache@v1
-        with:
-          key: x
       - uses: actions-rs/install@v0.1
         with:
           crate: cargo-about

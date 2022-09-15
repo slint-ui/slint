@@ -15,13 +15,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
-    - name: Install latest stable
-      uses: actions-rs/toolchain@v1
+    - uses: ./.github/actions/setup-rust
       with:
-          toolchain: stable
-          profile: minimal
-          target: wasm32-unknown-unknown
-    - uses: Swatinem/rust-cache@v1
+        target: wasm32-unknown-unknown
     - name: Install wasm-pack
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     - name: Gallery WASM build

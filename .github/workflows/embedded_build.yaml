@@ -49,12 +49,9 @@ jobs:
           - x86_64-unknown-linux-gnu
     steps:
     - uses: actions/checkout@v2
-    - name: Install latest stable
-      uses: actions-rs/toolchain@v1
+    - uses: ./.github/actions/setup-rust
       with:
-          toolchain: stable
-          override: true
-          target: ${{ matrix.target }}
+        target: ${{ matrix.target }}
     - name: Build
       uses: actions-rs/cargo@v1
       with:
