@@ -32,12 +32,7 @@ jobs:
       uses: jurplel/install-qt-action@v3
       with:
         version: 6.2.1
-    - name: Install latest stable
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: stable
-          override: true
-    - uses: Swatinem/rust-cache@v1
+    - uses: ./.github/actions/setup-rust
     - uses: actions-rs/install@v0.1
       with:
         crate: cargo-about

@@ -28,13 +28,9 @@ jobs:
         key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('examples/**/package.json', 'api/**/package.json') }}
         restore-keys: |
           ${{ runner.os }}-${{ github.job }}-node-
-    - name: Install latest stable
-      uses: actions-rs/toolchain@v1
+    - uses: ./.github/actions/setup-rust
       with:
-          toolchain: stable
-          profile: minimal
-          target: wasm32-unknown-unknown
-    - uses: Swatinem/rust-cache@v1
+        target: wasm32-unknown-unknown
     - name: Install wasm-pack
       run: curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
     - name: Install NPM dependencies
@@ -46,7 +42,7 @@ jobs:
     - name: Build slint-wasm-lsp
       run: npm run build:wasm_lsp-release
       working-directory: tools/online_editor
-    - name: Lint online editor # This needs the slint-wasm-interpreter!
+    - name: Lint online editor  # This needs the slint-wasm-interpreter!
       run: |
           npm run syntax_check
           npm run lint

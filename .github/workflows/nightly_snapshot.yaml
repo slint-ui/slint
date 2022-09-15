@@ -58,11 +58,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
-    - name: Install latest stable
-      uses: actions-rs/toolchain@v1
+    - uses: ./.github/actions/setup-rust
       with:
-          toolchain: stable
-          target: ${{ matrix.toolchain }}
+        target: ${{ matrix.toolchain }}
     - name: Install Linux Dependencies
       if: matrix.os == 'ubuntu-latest'
       run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
@@ -89,11 +87,9 @@ jobs:
     runs-on: macOS-11
     steps:
     - uses: actions/checkout@v2
-    - name: Install latest stable
-      uses: actions-rs/toolchain@v1
+    - uses: ./.github/actions/setup-rust
       with:
-          toolchain: stable
-          target: x86_64-apple-darwin
+        target: x86_64-apple-darwin
     - name: Install cargo-bundle
       run: cargo install cargo-bundle
     - name: Build Main LSP Bundle
@@ -116,11 +112,9 @@ jobs:
     runs-on: macOS-11
     steps:
     - uses: actions/checkout@v2
-    - name: Install latest stable
-      uses: actions-rs/toolchain@v1
+    - uses: ./.github/actions/setup-rust
       with:
-          toolchain: stable
-          target: aarch64-apple-darwin
+        target: aarch64-apple-darwin
     - name: Build AArch64 LSP
       uses: actions-rs/cargo@v1
       with:
@@ -171,12 +165,9 @@ jobs:
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
-    - name: Install latest stable
-      uses: actions-rs/toolchain@v1
+    - uses: ./.github/actions/setup-rust
       with:
-          toolchain: stable
-          override: true
-          target: ${{ matrix.target }}
+        target: ${{ matrix.target }}
     - name: Build LSP
       uses: actions-rs/cargo@v1
       with:

@@ -38,11 +38,10 @@ jobs:
            ~/.cargo/bin/mdbook
            ~/.cargo/bin/mdbook-linkcheck
         key: ${{ runner.os }}-${{ github.job }}-mdbook-${{ env.MDBOOK_VERSION }}-${{ env.MDBOOK_LINKCHECK_VERSION }}
-    - name: Install nightly
-      uses: actions-rs/toolchain@v1
+    - uses: ./.github/actions/setup-rust
       with:
-          toolchain: nightly
-    - uses: Swatinem/rust-cache@v1
+        toolchain: nightly
+        components: rustfmt
     - name: Install mdbook
       run: cargo install mdbook --version ${{ env.MDBOOK_VERSION }} || true
     - name: Install mdbook-linkcheck
