@@ -25,10 +25,7 @@ jobs:
       run: |
         rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
         echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ -Z unstable-options" >> $GITHUB_ENV
-    - name: Setup Node.js
-      uses: actions/setup-node@v1
-      with:
-        node-version: '12'
+    - uses: ./.github/actions/install-nodejs
     - name: Cache mdbook and mdbook-linkcheck
       uses: actions/cache@v2
       with:
@@ -58,7 +55,7 @@ jobs:
         key: ${{ runner.os }}-pipenv-v1-${{ hashFiles('**/Pipfile') }}
         restore-keys: |
           ${{ runner.os }}-pipenv-v1
-    - name: Remove docs from cache # Avoid stale docs
+    - name: Remove docs from cache  # Avoid stale docs
       run: |
           rm -rf target/doc target/cppdocs api/node/docs
     - name: Check Rust formatting

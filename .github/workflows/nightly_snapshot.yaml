@@ -210,10 +210,7 @@ jobs:
         path: editors/vscode/bin
     - name: Fix permissions
       run: chmod 755 editors/vscode/bin/* editors/vscode/bin/*.app/Contents/MacOS/*
-    - name: Setup Node.js
-      uses: actions/setup-node@v1
-      with:
-        node-version: '12'
+    - uses: ./.github/actions/install-nodejs
     - name: "Prepare meta-data files for nightly package"
       env:
         RELEASE_INPUT: ${{ github.event.inputs.release }}
