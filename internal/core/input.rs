@@ -6,7 +6,7 @@
 #![warn(missing_docs)]
 
 use crate::graphics::Point;
-use crate::item_tree::{ItemRc, ItemVisitorResult, ItemWeak, VisitChildrenResult};
+use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
 use crate::items::{ItemRef, TextCursorDirection};
 use crate::window::WindowAdapter;
@@ -486,105 +486,98 @@ pub fn process_mouse_input(
     }
 
     let mut result = MouseInputState::default();
-    type State = (Vector2D<Coord>, Vec<(ItemWeak, InputEventFilterResult)>, MouseEvent);
-    crate::item_tree::visit_items_with_post_visit(
-        &component,
-        crate::item_tree::TraversalOrder::FrontToBack,
-        |comp_rc: &ComponentRc,
-         item: core::pin::Pin<ItemRef>,
-         item_index: usize,
-         (offset, mouse_grabber_stack, mouse_event): &State| {
-            let item_rc = ItemRc::new(comp_rc.clone(), item_index);
-
-            let mut mouse_event = *mouse_event;
-
-            let geom = item.as_ref().geometry();
-            let geom = geom.translate(*offset);
-
-            let mut mouse_grabber_stack = mouse_grabber_stack.clone();
-
-            let post_visit_state = if mouse_event.position().map_or(false, |p| geom.contains(p))
-                || crate::item_rendering::is_clipping_item(item)
-            {
-                let mut event2 = mouse_event;
-                event2.translate(-geom.origin.to_vector());
-                let filter_result = item.as_ref().input_event_filter_before_children(
-                    event2,
-                    window_adapter,
-                    &item_rc,
-                );
-                mouse_grabber_stack.push((item_rc.downgrade(), filter_result));
-                match filter_result {
-                    InputEventFilterResult::ForwardAndIgnore => None,
-                    InputEventFilterResult::ForwardEvent => {
-                        Some((event2, mouse_grabber_stack.clone(), item_rc, false))
-                    }
-                    InputEventFilterResult::ForwardAndInterceptGrab => {
-                        Some((event2, mouse_grabber_stack.clone(), item_rc, false))
-                    }
-                    InputEventFilterResult::InterceptAndDispatch(mut next_event) => {
-                        next_event.translate(geom.origin.to_vector());
-                        mouse_event = next_event;
-                        Some((event2, mouse_grabber_stack.clone(), item_rc, true))
-                    }
-                    InputEventFilterResult::Intercept => {
-                        return (
-                            ItemVisitorResult::Abort,
-                            Some((event2, mouse_grabber_stack, item_rc, true)),
-                        )
-                    }
-                }
-            } else {
-                mouse_grabber_stack
-                    .push((item_rc.downgrade(), InputEventFilterResult::ForwardAndIgnore));
-                None
-            };
-
-            (
-                ItemVisitorResult::Continue((
-                    geom.origin.to_vector(),
-                    mouse_grabber_stack,
-                    mouse_event,
-                )),
-                post_visit_state,
-            )
-        },
-        |_, item, post_state, r| {
-            if let Some((event2, mouse_grabber_stack, item_rc, intercept)) = post_state {
-                if r.has_aborted() && !intercept {
-                    return r;
-                }
-                match item.as_ref().input_event(event2, window_adapter, &item_rc) {
-                    InputEventResult::EventAccepted => {
-                        if result.item_stack.is_empty() {
-                            // In case the item stack is set already, it shouldn't
-                            // be overridden as we have to keep the deepest stack
-                            // for `send_exit_events` to work properly.
-                            result.item_stack = mouse_grabber_stack;
-                            result.grabbed = false;
-                        }
-                        return VisitChildrenResult::abort(item_rc.index(), 0);
-                    }
-                    InputEventResult::EventIgnored => {
-                        return VisitChildrenResult::CONTINUE;
-                    }
-                    InputEventResult::GrabMouse => {
-                        result.item_stack = mouse_grabber_stack;
-                        result.item_stack.last_mut().unwrap().1 =
-                            InputEventFilterResult::ForwardAndInterceptGrab;
-                        result.grabbed = true;
-                        return VisitChildrenResult::abort(item_rc.index(), 0);
-                    }
-                }
-            }
-            r
-        },
-        (Vector2D::new(0 as Coord, 0 as Coord), Vec::new(), mouse_event),
-    );
+    let root = ItemRc::new(component.clone(), 0);
+    send_mouse_event_to_item(mouse_event, root, window_adapter, &mut result);
 
     send_exit_events(&mouse_input_state, mouse_event.position(), window_adapter);
 
     result
+}
+
+fn send_mouse_event_to_item(
+    mouse_event: MouseEvent,
+    item_rc: ItemRc,
+    window_adapter: &Rc<dyn WindowAdapter>,
+    result: &mut MouseInputState,
+) -> VisitChildrenResult {
+    let item = item_rc.borrow();
+    let geom = item.as_ref().geometry();
+    let mut event2 = mouse_event;
+    event2.translate(-geom.origin.to_vector());
+
+    let filter_result = if mouse_event.position().map_or(false, |p| geom.contains(p))
+        || crate::item_rendering::is_clipping_item(item)
+    {
+        item.as_ref().input_event_filter_before_children(event2, window_adapter, &item_rc)
+    } else {
+        InputEventFilterResult::ForwardAndIgnore
+    };
+
+    let (forward_to_children, ignore) = match filter_result {
+        InputEventFilterResult::ForwardEvent => (true, false),
+        InputEventFilterResult::ForwardAndIgnore => (true, true),
+        InputEventFilterResult::ForwardAndInterceptGrab => (true, false),
+        InputEventFilterResult::Intercept => (false, false),
+        InputEventFilterResult::InterceptAndDispatch(new_event) => {
+            event2 = new_event;
+            (true, false)
+        }
+    };
+
+    result.item_stack.push((item_rc.downgrade(), filter_result));
+    if forward_to_children {
+        let mut actual_visitor =
+            |component: &ComponentRc, index: usize, _: Pin<ItemRef>| -> VisitChildrenResult {
+                send_mouse_event_to_item(
+                    event2,
+                    ItemRc::new(component.clone(), index),
+                    window_adapter,
+                    result,
+                )
+            };
+        vtable::new_vref!(let mut actual_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut actual_visitor);
+        let r = vtable::VRc::borrow_pin(&item_rc.component()).as_ref().visit_children_item(
+            item_rc.index() as isize,
+            crate::item_tree::TraversalOrder::FrontToBack,
+            actual_visitor,
+        );
+        if r.has_aborted() {
+            // the event was intercepted by a children
+            if matches!(filter_result, InputEventFilterResult::InterceptAndDispatch(_)) {
+                let mut event = mouse_event;
+                event.translate(-geom.origin.to_vector());
+                item.as_ref().input_event(event, window_adapter, &item_rc);
+            }
+            return r;
+        }
+    };
+
+    let r = if ignore {
+        InputEventResult::EventIgnored
+    } else {
+        let mut event = mouse_event;
+        event.translate(-geom.origin.to_vector());
+        item.as_ref().input_event(event, window_adapter, &item_rc)
+    };
+    match r {
+        InputEventResult::EventAccepted => {
+            return VisitChildrenResult::abort(item_rc.index(), 0);
+        }
+        InputEventResult::EventIgnored => {
+            let _pop = result.item_stack.pop();
+            debug_assert_eq!(
+                _pop.map(|x| (x.0.upgrade().unwrap().index(), x.1)).unwrap(),
+                (item_rc.index(), filter_result)
+            );
+            return VisitChildrenResult::CONTINUE;
+        }
+        InputEventResult::GrabMouse => {
+            result.item_stack.last_mut().unwrap().1 =
+                InputEventFilterResult::ForwardAndInterceptGrab;
+            result.grabbed = true;
+            return VisitChildrenResult::abort(item_rc.index(), 0);
+        }
+    }
 }
 
 /// The TextCursorBlinker takes care of providing a toggled boolean property
