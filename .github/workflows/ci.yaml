@@ -33,11 +33,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Install Linux Dependencies
-      if: matrix.os == 'ubuntu-20.04'
-      run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
+    - uses: ./.github/actions/install-linux-dependencies
     - name: Install Qt
-      if: matrix.os != 'windows-2022'
+      if: runner.os != 'Windows'
       uses: jurplel/install-qt-action@v3
       with:
         version: '5.15.2'
@@ -91,27 +89,24 @@ jobs:
       RUST_BACKTRACE: 1
     strategy:
       matrix:
-        os: [ubuntu-20.04, macOS-11, windows-2022]
+        os: [ubuntu-20.04, macos-11, windows-2022]
     runs-on: ${{ matrix.os }}
 
     steps:
     - uses: actions/checkout@v2
-    - name: Install Linux Dependencies
-      if: matrix.os == 'ubuntu-20.04'
-      run: |
-          sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev gcc-10 g++-10
-          echo "CXX=g++-10" >> $GITHUB_ENV
+    - uses: ./.github/actions/install-linux-dependencies
+      with:
+        force-gcc-10: true
     - name: Install Qt
-      if: matrix.os != 'windows-2022'
+      if: runner.os != 'Windows'
       uses: jurplel/install-qt-action@v3
       with:
         version: '5.15.2'
     - name: Set default style
-      if: matrix.os != 'windows-2022'
-      run: |
-          echo "SLINT_STYLE=native" >> $GITHUB_ENV
+      if: runner.os != 'Windows'
+      run: echo "SLINT_STYLE=native" >> $GITHUB_ENV
     - name: Set default style
-      if: matrix.os == 'windows-2022'
+      if: runner.os == 'Windows'
       run: |
           echo "SLINT_STYLE=fluent" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -134,15 +129,13 @@ jobs:
       CARGO_INCREMENTAL: false
     strategy:
       matrix:
-        os: [ubuntu-20.04, macOS-11, windows-2022]
+        os: [ubuntu-20.04, macos-11, windows-2022]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
-    - name: Install Linux Dependencies
-      if: matrix.os == 'ubuntu-20.04'
-      run: |
-          sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev gcc-10 g++-10
-          echo "CXX=g++-10" >> $GITHUB_ENV
+    - uses: ./.github/actions/install-linux-dependencies
+      with:
+        force-gcc-10: true
     - name: Install Qt (Ubuntu)
       uses: jurplel/install-qt-action@v3
       if: matrix.os == 'ubuntu-20.04'
@@ -193,10 +186,9 @@ jobs:
       CARGO_INCREMENTAL: false
     steps:
     - uses: actions/checkout@v2
-    - name: Install Linux Dependencies
-      run: |
-          sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev gcc-10 g++-10
-          echo "CXX=g++-10" >> $GITHUB_ENV
+    - uses: ./.github/actions/install-linux-dependencies
+      with:
+        force-gcc-10: true
     - name: Install Qt (Ubuntu)
       uses: jurplel/install-qt-action@v3
       with:
@@ -264,8 +256,7 @@ jobs:
     - uses: actions/checkout@v2
       with:
         fetch-depth: 0
-    - name: Install Linux Dependencies
-      run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
+    - uses: ./.github/actions/install-linux-dependencies
     - uses: ./.github/actions/setup-rust
     - name: Checkout old version
       run: |

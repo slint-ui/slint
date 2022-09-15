@@ -19,9 +19,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v2
-    - name: Install Linux Dependencies
-      if: matrix.os == 'ubuntu-20.04'
-      run: sudo apt-get install libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev
+    - uses: ./.github/actions/install-linux-dependencies
     - name: Install Qt (Ubuntu)
       uses: jurplel/install-qt-action@v3
       if: matrix.os == 'ubuntu-20.04'
