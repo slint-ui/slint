@@ -1,8 +1,25 @@
 @import "@lumino/default-theme/style/index.css";
 @import "./content.css";
 
+/* Prefixes and what they help support:
+
+    -webkit- ( OLD - iOS 6-, Safari 3.1-6, Chrome 21-28, Opera 15-16 )
+    -moz- ( OLD - Firefox 19-27 )
+    -ms- ( IE 10, 11 )
+
+    For more information, visit: 
+    https://caniuse.com/
+
+*/
+
 body {
+  display: -webkit-flex;
+  display: -moz-flex;
+  display: -ms-flexbox;
   display: flex;
+  -webkit-flex-direction: column;
+  -moz-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
   position: absolute;
   top: 0;
@@ -15,10 +32,16 @@ body {
 }
 
 #menuBar {
+  -webkit-flex: 0 0 auto;
+  -moz-flex: 0 0 auto;
+  -ms-flex: 0 0 auto;
   flex: 0 0 auto;
 }
 
 #main {
+  -webkit-flex: 1 1 auto;
+  -moz-flex: 1 1 auto;
+  -ms-flex: 1 1 auto;
   flex: 1 1 auto;
 }
 

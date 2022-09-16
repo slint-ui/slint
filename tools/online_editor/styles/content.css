@@ -1,6 +1,9 @@
 .content {
   min-width: 50px;
   min-height: 50px;
+  display: -webkit-flex;
+  display: -moz-flex;
+  display: -ms-flex;
   display: flex;
   flex-direction: column;
   padding: 8px;
@@ -11,6 +14,9 @@
 }
 
 .content > div {
+  -webkit-flex: 1 1 auto;
+  -moz-flex: 1 1 auto;
+  -ms-flex: 1 1 auto;
   flex: 1 1 auto;
   border: 1px solid #505050;
   overflow: auto;
@@ -21,7 +27,13 @@
 }
 
 .editor .container {
+  display: -webkit-flex;
+  display: -moz-flex;
+  display: -ms-flex;
   display: flex;
+  -webkit-flex-direction: column;
+  -moz-flex-direction: column;
+  -ms-flex-direction: column;
   flex-direction: column;
   align-items: stretch;
 }
@@ -38,6 +50,9 @@
 }
 
 .preview .preview-container {
+  display: -webkit-flex;
+  display: -moz-flex;
+  display: -ms-flex;
   display: flex;
   align-items: center;
   justify-content: center;
