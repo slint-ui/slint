@@ -15,17 +15,23 @@
 //! cargo run --bin syntax_updater -- --from 0.0.5 -i  **/*.md
 //! ````
 
+use clap::Parser;
 use i_slint_compiler::diagnostics::BuildDiagnostics;
-use i_slint_compiler::object_tree;
+use i_slint_compiler::object_tree::{self, Component, Document, ElementRc};
 use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
+use i_slint_compiler::typeloader::TypeLoader;
+use std::cell::RefCell;
 use std::io::Write;
 use std::path::Path;
-
-use clap::Parser;
+use std::rc::Rc;
 
 mod from_0_0_5;
 mod from_0_0_6;
 mod from_0_1_0;
+
+mod experiments {
+    pub(super) mod lookup_changes;
+}
 
 #[derive(clap::Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -40,14 +46,14 @@ struct Cli {
     /// Version to update from
     #[clap(long, name = "version", action)]
     from: String,
+
+    /// Do the lookup changes from issue #273
+    #[clap(long, action)]
+    experimental_lookup_changes: bool,
 }
 
 fn main() -> std::io::Result<()> {
     let args = Cli::parse();
-    if !matches!(args.from.as_str(), "0.0.5" | "0.0.6") && !args.from.starts_with("0.1.") {
-        eprintln!("Invalid from version is supported, use `--from 0.1.x`");
-        std::process::exit(1);
-    }
 
     for path in &args.paths {
         let source = std::fs::read_to_string(path)?;
@@ -160,7 +166,33 @@ fn process_file(
     let mut diag = BuildDiagnostics::default();
     let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(path), &mut diag);
     let len = syntax_node.node.text_range().end().into();
-    visit_node(syntax_node, &mut file, &mut State::default(), args)?;
+    let mut state = State::default();
+    if args.experimental_lookup_changes {
+        let doc = syntax_node.clone().into();
+        let mut type_loader = TypeLoader::new(
+            i_slint_compiler::typeregister::TypeRegister::builtin(),
+            i_slint_compiler::CompilerConfiguration::new(
+                i_slint_compiler::generator::OutputFormat::Llr,
+            ),
+            &mut BuildDiagnostics::default(),
+        );
+        let dependency_registry = Rc::new(RefCell::new(
+            i_slint_compiler::typeregister::TypeRegister::new(&type_loader.global_type_registry),
+        ));
+        let foreign_imports = spin_on::spin_on(type_loader.load_dependencies_recursively(
+            &doc,
+            &mut diag,
+            &dependency_registry,
+        ));
+        let current_doc = crate::object_tree::Document::from_node(
+            doc,
+            foreign_imports,
+            &mut diag,
+            &dependency_registry,
+        );
+        state.current_doc = Rc::new(current_doc).into()
+    }
+    visit_node(syntax_node, &mut file, &mut state, args)?;
     if diag.has_error() {
         file.write_all(&source.as_bytes()[len..])?;
         diag.print();
@@ -174,6 +206,13 @@ struct State {
     element_name: Option<String>,
     /// When visiting a binding, this is the name of the current property
     property_name: Option<String>,
+
+    /// The Document being visited
+    current_doc: Option<Rc<Document>>,
+    /// The component in scope,
+    current_component: Option<Rc<Component>>,
+    /// The element in scope
+    current_elem: Option<ElementRc>,
 }
 
 fn visit_node(
@@ -191,11 +230,31 @@ fn visit_node(
         SyntaxKind::CallbackDeclaration => {
             state.property_name = node.child_text(SyntaxKind::Identifier)
         }
+        SyntaxKind::Component => {
+            if let Some(doc) = &state.current_doc {
+                let component_name =
+                    syntax_nodes::Component::from(node.clone()).DeclaredIdentifier().to_string();
+                state.current_component =
+                    doc.inner_components.iter().find(|c| c.id == component_name).cloned();
+            }
+        }
         SyntaxKind::Element => {
             let element_node = syntax_nodes::Element::from(node.clone());
             state.element_name = element_node
                 .QualifiedName()
                 .map(|qn| object_tree::QualifiedTypeName::from_node(qn).to_string());
+            if let Some(parent_el) = state.current_elem.take() {
+                state.current_elem = parent_el
+                    .borrow()
+                    .children
+                    .iter()
+                    .find(|c| c.borrow().node.as_ref().map_or(false, |n| n.node == node.node))
+                    .cloned()
+            } else if let Some(parent_co) = &state.current_component {
+                if node.parent().map_or(false, |n| n.kind() == SyntaxKind::Component) {
+                    state.current_elem = Some(parent_co.root_element.clone())
+                }
+            }
         }
         _ => (),
     }
@@ -228,6 +287,9 @@ fn fold_node(
     if args.from.as_str() <= "0.1.6" && from_0_1_0::fold_node(node, file, state)? {
         return Ok(true);
     }
+    if args.experimental_lookup_changes
+        && experiments::lookup_changes::fold_node(node, file, state)?
+    {}
     Ok(false)
 }
 
