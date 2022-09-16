@@ -12,7 +12,12 @@
     "lint": "eslint src",
     "start": "rimraf dist && npm run build:wasm_lsp && npm run build:wasm_preview && npm run start:vite",
     "start:vite": "vite --open",
-    "syntax_check": "tsc --build"
+    "start:vite_cypress": "vite --port=3001",
+    "syntax_check": "tsc --build --force",
+    "test:cypress_run-chromium": "cypress run --browser=chromium --e2e",
+    "test:cypress_open-chromium": "cypress open --browser=chromium --e2e",
+    "test:cypress_run-ff": "cypress run --browser=firefox --e2e",
+    "test:cypress_open-ff": "cypress open --browser=firefox --e2e"
   },
   "keywords": [],
   "author": "",
@@ -26,9 +31,11 @@
     "vscode-languageserver-protocol": "^3.17.2"
   },
   "devDependencies": {
+    "@frsource/cypress-plugin-visual-regression-diff": "^1.9.17",
     "@types/vscode": "^1.70.0",
     "@typescript-eslint/eslint-plugin": "^5.33.0",
     "@typescript-eslint/parser": "^5.33.0",
+    "cypress": "^10.7.0",
     "eslint": "^8.22.0",
     "rimraf": "^3.0.2",
     "typescript": "^4.7.4",
