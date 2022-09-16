@@ -24,7 +24,6 @@ console_error_panic_hook = { version = "0.1.6", optional = true }
 js-sys = "0.3.44"
 wasm-bindgen-futures = { version = "0.4.18" }
 wasm-bindgen = { version = "0.2.66" }
-wee_alloc = { version = "0.4.5", optional = true }
 
 [dependencies.web-sys]
 version = "0.3"
