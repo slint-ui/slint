@@ -1,6 +1,18 @@
 # Changelog
 All notable changes to this project are documented in this file.
 
+## Unreleased
+
+### Changed
+
+### Added
+
+### Fixed
+
+ - TextInput now show the Text mouse cursor
+ - In Flickable, added a small delay before passing the Press pointer event to the children
+
+
 ## [0.3.0] - 2022-09-14
 
 ### Breaking Changes

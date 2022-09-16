@@ -520,6 +520,7 @@ pub(crate) fn process_delayed_event(
     window_adapter: &Rc<dyn WindowAdapter>,
     mut mouse_input_state: MouseInputState,
 ) -> MouseInputState {
+    // the take bellow will also destroy the Timer
     let event = match mouse_input_state.delayed.take() {
         Some(e) => e.1,
         None => return mouse_input_state,
