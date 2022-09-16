@@ -1,0 +1,52 @@
+# Copyright © SixtyFPS GmbH <info@slint-ui.com>
+# SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+# cSpell: ignore vite
+
+# This is heavily inspired by the cypress example configuration found here:
+# https://github.com/cypress-io/cypress-realworld-app/blob/develop/.github/workflows/main.yml
+
+---
+name: Test online editor (cypress)
+description: Test the online editor using cypress
+
+inputs:
+  browser:
+    description: "The browser to test with"
+    required: false
+    default: "chrome"
+  wasm-binaries:
+    description: "The WASM binaries to download and use"
+    required: true
+    default: wasm
+
+runs:
+  using: composite
+  steps:
+    - name: Download the WASM binaries
+      uses: actions/download-artifact@v3
+      with:
+        name: ${{ inputs.wasm-binaries }}
+
+    - name: Install NPM dependencies
+      run: npm install
+      shell: bash
+      working-directory: tools/online_editor
+
+    - name: "UI Tests - Chrome"
+      uses: cypress-io/github-action@v4
+      with:
+        browser: ${{ inputs.browser }}
+        working-directory: tools/online_editor
+        start: npm run start:vite_cypress
+        wait-on: "http://localhost:3001"
+        wait-on-timeout: 120
+        config-file: cypress.config.ts
+      env:
+        DEBUG: "cypress:server:args"
+
+    - uses: actions/upload-artifact@v2
+      if: failure()
+      with:
+        name: cypress-screenshots-chrome
+        path: tools/online_editor/cypress/screenshots
