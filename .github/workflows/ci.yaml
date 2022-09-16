@@ -128,25 +128,6 @@ jobs:
       with:
           command: test
           args: --verbose -p  test-driver-cpp --features slint-cpp/backend-qt
-    - name: Clean cache # Otherwise the cache is much too big
-      if: matrix.os == 'ubuntu-20.04'
-      run: |
-          du -hs target
-          rm -rf target/*/*/*slint*
-          rm -rf target/*/*slint*
-          rm -rf target/*/*/test*
-          rm -rf target/*/*test*
-          du -hs target
-    - name: Clean cache # Otherwise the cache is much too big
-      if: matrix.os == 'windows-2022'
-      run: |
-          du -hs target
-          rm -Recurse -Force target/*/incremental
-          rm -Recurse -Force target/*/*/*slint*
-          rm -Recurse -Force target/*/*slint*
-          rm -Recurse -Force target/*/*/test*
-          rm -Recurse -Force target/*/*test*
-          du -hs target
 
   cpp_cmake:
     env:
