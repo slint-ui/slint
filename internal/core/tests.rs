@@ -20,7 +20,8 @@ pub extern "C" fn slint_mock_elapsed_time(time_in_ms: u64) {
         let mut tick = driver.current_tick();
         tick += core::time::Duration::from_millis(time_in_ms);
         driver.update_animations(tick)
-    })
+    });
+    crate::platform::update_timers_and_animations();
 }
 
 /// Simulate a click on a position within the component.

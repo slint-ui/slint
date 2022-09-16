@@ -9,7 +9,8 @@ use crate::graphics::Point;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
 use crate::items::{ItemRef, TextCursorDirection};
-use crate::window::WindowAdapter;
+use crate::timers::Timer;
+use crate::window::{WindowAdapter, WindowInner};
 use crate::{component::ComponentRc, SharedString};
 use crate::{Coord, Property};
 use alloc::rc::Rc;
@@ -130,6 +131,13 @@ pub enum InputEventFilterResult {
     Intercept,
     /// Similar to `Intercept` but the contained [`MouseEvent`] will be forwarded to children
     InterceptAndDispatch(MouseEvent),
+    /// The event will be forwarding to the children with a delay (in milliseconds), unless it is
+    /// being intercepted.
+    /// This is what happens when the flickable wants to delay the event.
+    /// This should only be used for Press event, and the event will be sent after the delay, or
+    /// if a release event is seen before that delay
+    //(Can't use core::time::Duration because it is not repr(c))
+    DelayForwarding(u64),
 }
 
 impl Default for InputEventFilterResult {
@@ -396,6 +404,7 @@ pub struct MouseInputState {
     item_stack: Vec<(ItemWeak, InputEventFilterResult)>,
     /// true if the top item of the stack has the mouse grab
     grabbed: bool,
+    delayed: Option<(crate::timers::Timer, MouseEvent)>,
 }
 
 /// Try to handle the mouse grabber. Return true if the event has handled, or false otherwise
@@ -429,7 +438,13 @@ fn handle_mouse_grab(
         let g = item.borrow().as_ref().geometry();
         event.translate(-g.origin.to_vector());
 
-        if it.1 == InputEventFilterResult::ForwardAndInterceptGrab
+        let interested = matches!(
+            it.1,
+            InputEventFilterResult::ForwardAndInterceptGrab
+                | InputEventFilterResult::DelayForwarding(_)
+        );
+
+        if interested
             && item.borrow().as_ref().input_event_filter_before_children(
                 event,
                 window_adapter,
@@ -481,17 +496,57 @@ pub fn process_mouse_input(
     window_adapter: &Rc<dyn WindowAdapter>,
     mut mouse_input_state: MouseInputState,
 ) -> MouseInputState {
+    if matches!(mouse_event, MouseEvent::Released { .. }) {
+        mouse_input_state = process_delayed_event(window_adapter, mouse_input_state);
+    }
+
     if handle_mouse_grab(&mouse_event, window_adapter, &mut mouse_input_state) {
         return mouse_input_state;
     }
 
     let mut result = MouseInputState::default();
     let root = ItemRc::new(component.clone(), 0);
-    send_mouse_event_to_item(mouse_event, root, window_adapter, &mut result);
-
+    let r = send_mouse_event_to_item(mouse_event, root, window_adapter, &mut result, false);
+    if mouse_input_state.delayed.is_some() && !r.has_aborted() {
+        // Keep the delayed event
+        return mouse_input_state;
+    }
     send_exit_events(&mouse_input_state, mouse_event.position(), window_adapter);
 
     result
+}
+
+pub(crate) fn process_delayed_event(
+    window_adapter: &Rc<dyn WindowAdapter>,
+    mut mouse_input_state: MouseInputState,
+) -> MouseInputState {
+    let event = match mouse_input_state.delayed.take() {
+        Some(e) => e.1,
+        None => return mouse_input_state,
+    };
+
+    let top_item = match mouse_input_state.item_stack.last().unwrap().0.upgrade() {
+        Some(i) => i,
+        None => return MouseInputState::default(),
+    };
+
+    let mut actual_visitor =
+        |component: &ComponentRc, index: usize, _: Pin<ItemRef>| -> VisitChildrenResult {
+            send_mouse_event_to_item(
+                event,
+                ItemRc::new(component.clone(), index),
+                window_adapter,
+                &mut mouse_input_state,
+                true,
+            )
+        };
+    vtable::new_vref!(let mut actual_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut actual_visitor);
+    vtable::VRc::borrow_pin(&top_item.component()).as_ref().visit_children_item(
+        top_item.index() as isize,
+        crate::item_tree::TraversalOrder::FrontToBack,
+        actual_visitor,
+    );
+    mouse_input_state
 }
 
 fn send_mouse_event_to_item(
@@ -499,16 +554,22 @@ fn send_mouse_event_to_item(
     item_rc: ItemRc,
     window_adapter: &Rc<dyn WindowAdapter>,
     result: &mut MouseInputState,
+    ignore_delays: bool,
 ) -> VisitChildrenResult {
     let item = item_rc.borrow();
     let geom = item.as_ref().geometry();
-    let mut event2 = mouse_event;
-    event2.translate(-geom.origin.to_vector());
+    // translated in our coordinate
+    let mut event_for_children = mouse_event;
+    event_for_children.translate(-geom.origin.to_vector());
 
     let filter_result = if mouse_event.position().map_or(false, |p| geom.contains(p))
         || crate::item_rendering::is_clipping_item(item)
     {
-        item.as_ref().input_event_filter_before_children(event2, window_adapter, &item_rc)
+        item.as_ref().input_event_filter_before_children(
+            event_for_children,
+            window_adapter,
+            &item_rc,
+        )
     } else {
         InputEventFilterResult::ForwardAndIgnore
     };
@@ -519,8 +580,27 @@ fn send_mouse_event_to_item(
         InputEventFilterResult::ForwardAndInterceptGrab => (true, false),
         InputEventFilterResult::Intercept => (false, false),
         InputEventFilterResult::InterceptAndDispatch(new_event) => {
-            event2 = new_event;
+            event_for_children = new_event;
             (true, false)
+        }
+        InputEventFilterResult::DelayForwarding(_) if ignore_delays => (true, false),
+        InputEventFilterResult::DelayForwarding(duration) => {
+            let timer = Timer::default();
+            let w = Rc::downgrade(window_adapter);
+            timer.start(
+                crate::timers::TimerMode::SingleShot,
+                core::time::Duration::from_millis(duration),
+                move || {
+                    if let Some(w) = w.upgrade() {
+                        WindowInner::from_pub(w.window()).process_delayed_event();
+                    }
+                },
+            );
+            result.delayed = Some((timer, mouse_event));
+            result
+                .item_stack
+                .push((item_rc.downgrade(), InputEventFilterResult::DelayForwarding(duration)));
+            return VisitChildrenResult::abort(item_rc.index(), 0);
         }
     };
 
@@ -529,10 +609,11 @@ fn send_mouse_event_to_item(
         let mut actual_visitor =
             |component: &ComponentRc, index: usize, _: Pin<ItemRef>| -> VisitChildrenResult {
                 send_mouse_event_to_item(
-                    event2,
+                    event_for_children,
                     ItemRc::new(component.clone(), index),
                     window_adapter,
                     result,
+                    ignore_delays,
                 )
             };
         vtable::new_vref!(let mut actual_visitor : VRefMut<crate::item_tree::ItemVisitorVTable> for crate::item_tree::ItemVisitor = &mut actual_visitor);
