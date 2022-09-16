@@ -495,28 +495,23 @@ state.borrow_mut().timer_500.start(TimerMode::Repeated, Duration::from_millis(50
 });
 slint::platform::update_timers_and_animations();
 i_slint_core::tests::slint_mock_elapsed_time(100);
-slint::platform::update_timers_and_animations();
-i_slint_core::tests::slint_mock_elapsed_time(100);
 assert_eq!(state.borrow().timer_200_called, 0);
 assert_eq!(state.borrow().timer_once_called, 0);
 assert_eq!(state.borrow().timer_500_called, 0);
-slint::platform::update_timers_and_animations();
+i_slint_core::tests::slint_mock_elapsed_time(100);
 assert_eq!(state.borrow().timer_200_called, 1);
 assert_eq!(state.borrow().timer_once_called, 0);
 assert_eq!(state.borrow().timer_500_called, 0);
 i_slint_core::tests::slint_mock_elapsed_time(100);
-slint::platform::update_timers_and_animations();
 assert_eq!(state.borrow().timer_200_called, 1);
 assert_eq!(state.borrow().timer_once_called, 1);
 assert_eq!(state.borrow().timer_500_called, 0);
 i_slint_core::tests::slint_mock_elapsed_time(200); // total: 500
-slint::platform::update_timers_and_animations();
 assert_eq!(state.borrow().timer_200_called, 2);
 assert_eq!(state.borrow().timer_once_called, 1);
 assert_eq!(state.borrow().timer_500_called, 1);
 for _ in 0..10 {
     i_slint_core::tests::slint_mock_elapsed_time(100);
-    slint::platform::update_timers_and_animations();
 }
 // total: 1500
 assert_eq!(state.borrow().timer_200_called, 7);
@@ -527,19 +522,16 @@ state.borrow().timer_200.restart();
 state.borrow().timer_500.stop();
 slint::platform::update_timers_and_animations();
 i_slint_core::tests::slint_mock_elapsed_time(100);
-slint::platform::update_timers_and_animations();
 assert_eq!(state.borrow().timer_200_called, 7);
 assert_eq!(state.borrow().timer_once_called, 1);
 assert_eq!(state.borrow().timer_500_called, 3);
 slint::platform::update_timers_and_animations();
 i_slint_core::tests::slint_mock_elapsed_time(100);
-slint::platform::update_timers_and_animations();
 assert_eq!(state.borrow().timer_200_called, 8);
 assert_eq!(state.borrow().timer_once_called, 1);
 assert_eq!(state.borrow().timer_500_called, 3);
 slint::platform::update_timers_and_animations();
 i_slint_core::tests::slint_mock_elapsed_time(100);
-slint::platform::update_timers_and_animations();
 assert_eq!(state.borrow().timer_200_called, 8);
 assert_eq!(state.borrow().timer_once_called, 2);
 assert_eq!(state.borrow().timer_500_called, 3);
@@ -557,7 +549,6 @@ state.borrow().timer_200.start(TimerMode::SingleShot, Duration::from_millis(200)
 });
 for _ in 0..5 {
     i_slint_core::tests::slint_mock_elapsed_time(75);
-    slint::platform::update_timers_and_animations();
 }
 assert_eq!(state.borrow().timer_200_called, 10);
 assert_eq!(state.borrow().timer_once_called, 2);
@@ -565,7 +556,6 @@ assert_eq!(state.borrow().timer_500_called, 3);
 state.borrow().timer_200.restart();
 for _ in 0..5 {
     i_slint_core::tests::slint_mock_elapsed_time(75);
-    slint::platform::update_timers_and_animations();
 }
 assert_eq!(state.borrow().timer_200_called, 11);
 assert_eq!(state.borrow().timer_once_called, 2);
@@ -586,7 +576,6 @@ state.borrow_mut().timer_500.start(TimerMode::Repeated, Duration::from_millis(50
 });
 for _ in 0..20 {
     i_slint_core::tests::slint_mock_elapsed_time(100);
-    slint::platform::update_timers_and_animations();
 }
 assert_eq!(state.borrow().timer_200_called, 7011);
 assert_eq!(state.borrow().timer_once_called, 2);

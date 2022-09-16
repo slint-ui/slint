@@ -331,6 +331,15 @@ impl WindowInner {
             }
         }
     }
+
+    /// Called by the input code's internal timer to send an event that was delayed
+    pub(crate) fn process_delayed_event(&self) {
+        self.mouse_input_state.set(crate::input::process_delayed_event(
+            &self.window_adapter(),
+            self.mouse_input_state.take(),
+        ));
+    }
+
     /// Receive a key event and pass it to the items of the component to
     /// change their state.
     ///

@@ -211,7 +211,7 @@ impl FlickableData {
                 if inner.capture_events {
                     InputEventFilterResult::Intercept
                 } else {
-                    InputEventFilterResult::ForwardAndInterceptGrab
+                    InputEventFilterResult::DelayForwarding(100)
                 }
             }
             MouseEvent::Exit | MouseEvent::Released { button: PointerEventButton::Left, .. } => {
@@ -318,25 +318,29 @@ impl FlickableData {
     fn mouse_released(inner: &mut FlickableDataInner, flick: Pin<&Flickable>, event: MouseEvent) {
         if let (Some(pressed_time), Some(pos)) = (inner.pressed_time, event.position()) {
             let dist = (pos - inner.pressed_pos).cast::<f32>();
-            let speed =
-                dist / ((crate::animations::current_tick() - pressed_time).as_millis() as f32);
 
-            let duration = 250;
-            let final_pos = ensure_in_bound(
-                flick,
-                (inner.pressed_viewport_pos.cast() + dist + speed * (duration as f32)).cast(),
-            );
-            let anim = PropertyAnimation {
-                duration,
-                easing: EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]),
-                ..PropertyAnimation::default()
-            };
-            (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
-                .apply_pin(flick)
-                .set_animated_value(final_pos.x, anim.clone());
-            (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
-                .apply_pin(flick)
-                .set_animated_value(final_pos.y, anim);
+            let millis = (crate::animations::current_tick() - pressed_time).as_millis();
+            if dist.square_length() > (DISTANCE_THRESHOLD * DISTANCE_THRESHOLD) as f32 && millis > 1
+            {
+                let speed = dist / (millis as f32);
+
+                let duration = 250;
+                let final_pos = ensure_in_bound(
+                    flick,
+                    (inner.pressed_viewport_pos.cast() + dist + speed * (duration as f32)).cast(),
+                );
+                let anim = PropertyAnimation {
+                    duration,
+                    easing: EasingCurve::CubicBezier([0.0, 0.0, 0.58, 1.0]),
+                    ..PropertyAnimation::default()
+                };
+                (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
+                    .apply_pin(flick)
+                    .set_animated_value(final_pos.x, anim.clone());
+                (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
+                    .apply_pin(flick)
+                    .set_animated_value(final_pos.y, anim);
+            }
         }
         inner.capture_events = false; // FIXME: should only be set to false once the flick animation is over
         inner.pressed_time = None;
