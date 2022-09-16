@@ -16,12 +16,13 @@ use crate::SharedString;
 /// This function will add some milliseconds to the fake time
 #[no_mangle]
 pub extern "C" fn slint_mock_elapsed_time(time_in_ms: u64) {
-    crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
+    let tick = crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| {
         let mut tick = driver.current_tick();
         tick += core::time::Duration::from_millis(time_in_ms);
-        driver.update_animations(tick)
+        driver.update_animations(tick);
+        tick
     });
-    crate::platform::update_timers_and_animations();
+    crate::timers::TimerList::maybe_activate_timers(tick);
 }
 
 /// Simulate a click on a position within the component.
