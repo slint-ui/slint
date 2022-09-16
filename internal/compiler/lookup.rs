@@ -24,7 +24,7 @@ pub struct LookupCtx<'a> {
     /// (some property come in the scope)
     pub property_type: Type,
 
-    /// Here is the stack in which id applies
+    /// Here is the stack in which id applies. (the last element in the scope is looked up first)
     pub component_scope: &'a [ElementRc],
 
     /// Somewhere to report diagnostics
