@@ -49,14 +49,21 @@ export class PreviewWidget extends Widget {
     this.title.label = "Preview";
     this.title.caption = `Slint Viewer`;
 
-    this.#canvas_id = "canvas_" + Math.random().toString(36).slice(2, 11);
-    this.canvasNode.id = this.#canvas_id;
-
+    this.#canvas_id = "";
     this.#instance = null;
   }
 
-  protected get canvasNode(): HTMLCanvasElement {
-    return this.node.getElementsByTagName("canvas")[0] as HTMLCanvasElement;
+  protected get canvas_id(): string {
+    if (this.#canvas_id === "") {
+      this.#canvas_id = "canvas_" + Math.random().toString(36).slice(2, 11);
+      const canvas = document.createElement("canvas");
+      canvas.id = this.#canvas_id;
+      canvas.className = "slint-preview";
+
+      this.node.getElementsByTagName("div")[0].appendChild(canvas);
+    }
+
+    return this.#canvas_id;
   }
 
   protected get errorNode(): HTMLDivElement {
@@ -71,7 +78,7 @@ export class PreviewWidget extends Widget {
     style: string,
     source: string,
     base_url: string,
-    load_callback: (_url: string) => Promise<string>
+    load_callback: (_url: string) => Promise<string>,
   ): Promise<monaco.editor.IMarkerData[]> {
     await setup_preview();
 
@@ -80,7 +87,7 @@ export class PreviewWidget extends Widget {
         source,
         base_url,
         style,
-        load_callback
+        load_callback,
       );
 
     const error_area = this.errorNode;
@@ -113,7 +120,7 @@ export class PreviewWidget extends Widget {
 
     if (component != null) {
       if (this.#instance == null) {
-        this.#instance = component.create(this.#canvas_id);
+        this.#instance = component.create(this.canvas_id);
         this.#instance.show();
         slint.run_event_loop();
       } else {
