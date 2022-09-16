@@ -325,10 +325,15 @@ impl Item for TextInput {
                     WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
                 }
             }
-            MouseEvent::Released { button: PointerEventButton::Left, .. } | MouseEvent::Exit => {
+            MouseEvent::Released { button: PointerEventButton::Left, .. } => {
+                self.as_ref().pressed.set(false)
+            }
+            MouseEvent::Exit => {
+                window_adapter.set_mouse_cursor(super::MouseCursor::Default);
                 self.as_ref().pressed.set(false)
             }
             MouseEvent::Moved { position } => {
+                window_adapter.set_mouse_cursor(super::MouseCursor::Text);
                 if self.as_ref().pressed.get() {
                     let clicked_offset = window_adapter
                         .renderer()
