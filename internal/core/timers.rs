@@ -214,8 +214,7 @@ impl TimerList {
 
     /// Activates any expired timers by calling their callback function. Returns true if any timers were
     /// activated; false otherwise.
-    pub fn maybe_activate_timers() -> bool {
-        let now = Instant::now();
+    pub fn maybe_activate_timers(now: Instant) -> bool {
         // Shortcut: Is there any timer worth activating?
         if TimerList::next_timeout().map(|timeout| now < timeout).unwrap_or(false) {
             return false;
