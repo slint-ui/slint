@@ -30,19 +30,19 @@ repos:
       - id: cmake-format
       - id: cmake-lint
   - repo: https://github.com/streetsidesoftware/cspell-cli
-    rev: v6.8.2
+    rev: v6.9.0
     hooks:
       - id: cspell
-  - repo: https://github.com/redwarp/optimize-png-hooks
-    rev: v1.2.2
+  - repo: https://github.com/shssoichiro/oxipng
+    rev: v6.0.1
     hooks:
-      - id: optimize-png
+      - id: oxipng
   - repo: https://github.com/doublify/pre-commit-rust
     rev: v1.0
     hooks:
       - id: fmt
-    # -   id: cargo-check ### slow...
-    # -   id: clippy ### slow...
+      # -   id: cargo-check ### slow...
+      # -   id: clippy ### slow...
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: "v3.0.0-alpha.0"
     hooks:
