@@ -19,8 +19,6 @@ jobs:
       RUSTDOCFLAGS: --html-in-header=/home/runner/work/slint/slint/docs/resources/slint-docs-preview.html --html-in-header=/home/runner/work/slint/slint/docs/resources/slint-docs-highlight.html -D warnings -W deprecated -W suspicious-auto-trait-impls
       SLINT_NO_QT: 1
       CARGO_INCREMENTAL: false
-      MDBOOK_VERSION: 0.4.10
-      MDBOOK_LINKCHECK_VERSION: 0.7.4
     steps:
     - uses: actions/checkout@v2
     - name: Set up rgb crate rustdoc link
@@ -37,15 +35,18 @@ jobs:
         path: |
            ~/.cargo/bin/mdbook
            ~/.cargo/bin/mdbook-linkcheck
-        key: ${{ runner.os }}-${{ github.job }}-mdbook-${{ env.MDBOOK_VERSION }}-${{ env.MDBOOK_LINKCHECK_VERSION }}
     - uses: ./.github/actions/setup-rust
       with:
         toolchain: nightly
         components: rustfmt
     - name: Install mdbook
-      run: cargo install mdbook --version ${{ env.MDBOOK_VERSION }} || true
+      uses: actions-rs/install@v0.1
+      with:
+        crate: mdbook
     - name: Install mdbook-linkcheck
-      run: cargo install mdbook-linkcheck --version ${{ env.MDBOOK_LINKCHECK_VERSION }} || true
+      uses: actions-rs/install@v0.1
+      with:
+        crate: mdbook-linkcheck
     - name: Install apt dependencies
       run: sudo apt-get install doxygen clang-format
     - name: Upgrade pip and install pipenv
