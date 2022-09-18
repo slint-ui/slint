@@ -35,6 +35,7 @@ jobs:
         path: |
            ~/.cargo/bin/mdbook
            ~/.cargo/bin/mdbook-linkcheck
+        key: ${{ runner.os }}-${{ github.job }}-mdbook
     - uses: ./.github/actions/setup-rust
       with:
         toolchain: nightly
