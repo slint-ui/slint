@@ -122,7 +122,14 @@ export class PreviewWidget extends Widget {
       if (this.#instance == null) {
         this.#instance = component.create(this.canvas_id);
         this.#instance.show();
-        slint.run_event_loop();
+        try {
+          slint.run_event_loop();
+        } catch (e) {
+          // The winit event loop, when targeting wasm, throws a JavaScript exception to break out of
+          // Rust without running any destructors. Don't rethrow the exception but swallow it, as
+          // this is no error and we truly want to resolve the promise of this function by returning
+          // the model markers.
+        }
       } else {
         this.#instance = component.create_with_existing_window(this.#instance);
       }
