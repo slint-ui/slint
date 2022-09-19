@@ -5,6 +5,16 @@
 name: Install NodeJS
 description: Set up NodeJS
 
+inputs:
+  package-lock:
+    description: "The package-lock-json file to use"
+    required: false
+    default: ""
+  package-manager:
+    description: "The package manager (e.g. npm) in use (requires package-lock)"
+    required: false
+    default: ""
+
 outputs:
   node-version:
     description: "The node JS version that was installed"
@@ -14,9 +24,11 @@ runs:
   using: composite
   steps:
     - name: Setup Node.js
-      uses: actions/setup-node@v1
+      uses: actions/setup-node@v3
       with:
         node-version: "12"
+        cache: ${{ inputs.package-manager }}
+        cache-dependency-path: ${{ inputs.package-lock }}
     - id: node-version
       if: runner.os == 'Windows'
       run: |
@@ -28,7 +40,7 @@ runs:
         echo "::set-output name=node-version::$(node --version)"
       shell: bash
     - name: Cache native node libraries
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       if: runner.os == 'Windows'
       with:
         path: ~/node-gyp/cache

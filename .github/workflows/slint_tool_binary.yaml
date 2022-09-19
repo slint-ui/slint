@@ -22,7 +22,7 @@ jobs:
   build_windows:
     runs-on: windows-2022
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: ./.github/actions/setup-rust
         with:
           target: x86_64-pc-windows-msvc
@@ -60,7 +60,7 @@ jobs:
             bash -x ./scripts/prepare_binary_package.sh pkg\${{ github.event.inputs.program || inputs.program }} --with-qt
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
             name: ${{ github.event.inputs.program || inputs.program }}-windows
             path: |
@@ -69,7 +69,7 @@ jobs:
   build_linux:
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: ./.github/actions/setup-rust
         with:
           target: x86_64-unknown-linux-gnu
@@ -93,7 +93,7 @@ jobs:
       - name: Tar artifacts to preserve permissions
         run: tar czvf ${{ github.event.inputs.program || inputs.program }}-linux.tar.gz ${{ github.event.inputs.program || inputs.program }}
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
             name: ${{ github.event.inputs.program || inputs.program }}-linux
             path: ${{ github.event.inputs.program || inputs.program }}-linux.tar.gz
@@ -101,7 +101,7 @@ jobs:
   build_macos:
     runs-on: macOS-11
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - uses: ./.github/actions/setup-rust
         with:
           target: x86_64-apple-darwin
@@ -144,7 +144,7 @@ jobs:
       - name: Tar artifacts to preserve permissions
         run: tar czvf ${{ github.event.inputs.program || inputs.program }}-macos.tar.gz ${{ github.event.inputs.program || inputs.program }}
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
             name: ${{ github.event.inputs.program || inputs.program }}-macos
             path: ${{ github.event.inputs.program || inputs.program }}-macos.tar.gz

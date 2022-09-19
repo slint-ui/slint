@@ -20,14 +20,14 @@ jobs:
       SLINT_NO_QT: 1
       CARGO_INCREMENTAL: false
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Set up rgb crate rustdoc link
       run: |
         rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`
         echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ -Z unstable-options" >> $GITHUB_ENV
     - uses: ./.github/actions/install-nodejs
     - name: Cache mdbook and mdbook-linkcheck
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: |
            ~/.cargo/bin/mdbook
@@ -48,7 +48,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install --user pipenv
     - name: Cache Pipenv virtualenv
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       id: pipenv-cache
       with:
         path: ~/.local/share/virtualenvs
@@ -96,7 +96,7 @@ jobs:
           npm run docs
       working-directory: api/node
     - name: "Upload Docs Artifacts"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: docs
           path: |

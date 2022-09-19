@@ -14,7 +14,7 @@ jobs:
       CARGO_INCREMENTAL: false
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
       with:
         target: wasm32-unknown-unknown
@@ -66,7 +66,7 @@ jobs:
         wasm-pack build --release --target web
       working-directory: examples/opengl_underlay
     - name: "Upload Demo Artifacts"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: wasm_demo
           path: |

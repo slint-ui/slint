@@ -32,7 +32,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
     - name: Install Qt
       if: runner.os != 'Windows'
@@ -77,7 +77,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
       with:
         force-gcc-10: true
@@ -116,7 +116,7 @@ jobs:
         os: [ubuntu-20.04, macos-11, windows-2022]
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
       with:
         force-gcc-10: true
@@ -156,7 +156,7 @@ jobs:
       working-directory: ${{ runner.workspace }}/cppbuild
       run: cmake --build . --config Debug --target package
     - name: "Create C++ packages artefact"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: cpp_bin-${{ matrix.os }}
           path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*
@@ -169,7 +169,7 @@ jobs:
       QT_QPA_PLATFORM: offscreen
       CARGO_INCREMENTAL: false
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
       with:
         force-gcc-10: true
@@ -177,7 +177,7 @@ jobs:
       uses: jurplel/install-qt-action@v3
       with:
         version: 5.15.2
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: cpp_bin-ubuntu-20.04
         path: cpp-package
@@ -205,7 +205,7 @@ jobs:
       RUSTFLAGS: --cfg slint_int_coord
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
       with:
         toolchain: nightly
@@ -237,7 +237,7 @@ jobs:
         from_version: ['0.3.0']
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         fetch-depth: 0
     - uses: ./.github/actions/install-linux-dependencies

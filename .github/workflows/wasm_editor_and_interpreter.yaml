@@ -17,6 +17,9 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/install-nodejs
+        with:
+          package-manager: "npm"
+          package-lock: "tools/online_editor/package-lock.json"
       - uses: ./.github/actions/setup-rust
         with:
           target: wasm32-unknown-unknown
@@ -31,7 +34,7 @@ jobs:
         working-directory: tools/online_editor
 
       - name: "Upload wasm Artifacts"
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: wasm
           path: |
@@ -44,16 +47,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/install-nodejs
+        with:
+          package-manager: "npm"
+          package-lock: "tools/online_editor/package-lock.json"
       - name: Download the WASM binaries
         uses: actions/download-artifact@v3
         with:
           name: wasm
-      - uses: actions/cache@v2
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('api/wasm-interpreter/pkg/package.json', 'tools/lsp/pkg/package.json', 'tools/online_editor/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ github.job }}-node-
 
       - name: Install NPM dependencies
         run: npm install
@@ -64,7 +64,7 @@ jobs:
         working-directory: tools/online_editor
 
       - name: "Upload online_editor Artifacts"
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: online_editor
           path: tools/online_editor/dist/
@@ -75,22 +75,19 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: ./.github/actions/install-nodejs
+        with:
+          package-manager: "npm"
+          package-lock: "tools/online_editor/package-lock.json"
       - name: Download the WASM binaries
         uses: actions/download-artifact@v3
         with:
           name: wasm
-      - uses: actions/cache@v2
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('api/wasm-interpreter/pkg/package.json', 'tools/lsp/pkg/package.json', 'tools/online_editor/package.json') }}
-          restore-keys: |
-            ${{ runner.os }}-${{ github.job }}-node-
 
       - name: Install NPM dependencies
         run: npm install
         working-directory: tools/online_editor
 
-      - name: Lint online editor # This needs the slint-wasm-interpreter!
+      - name: Lint online editor
         run: |
           npm run syntax_check
           npm run lint

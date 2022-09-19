@@ -57,7 +57,7 @@ jobs:
             artifact_name: slint-lsp-x86_64-pc-windows-gnu.exe
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
       with:
         target: ${{ matrix.toolchain }}
@@ -73,7 +73,7 @@ jobs:
           mkdir bin
           cp target/${{ matrix.toolchain }}/release/${{ matrix.binary_built }} bin/${{ matrix.artifact_name }}
     - name: "Upload LSP Artifact"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: vscode-lsp-binary-${{ matrix.toolchain }}
           path: |
@@ -84,7 +84,7 @@ jobs:
       SLINT_NO_QT: 1
     runs-on: macos-11
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
       with:
         target: x86_64-apple-darwin
@@ -98,7 +98,7 @@ jobs:
           mkdir bin
           cp -a target/release/bundle/osx/Slint\ Live\ Preview.app bin
     - name: "Upload LSP Artifact"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: vscode-lsp-binary-x86_64-apple-darwin
           path: |
@@ -109,7 +109,7 @@ jobs:
       SLINT_NO_QT: 1
     runs-on: macos-11
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
       with:
         target: aarch64-apple-darwin
@@ -124,7 +124,7 @@ jobs:
           mkdir bin
           cp -a target/aarch64-apple-darwin/release/slint-lsp bin/slint-lsp-aarch64-apple-darwin
     - name: "Upload LSP Artifact"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: vscode-lsp-binary-aarch64-apple-darwin
           path: |
@@ -134,10 +134,10 @@ jobs:
     needs: [build_vscode_lsp_macos_x86_64, build_vscode_lsp_macos_aarch64]
     runs-on: macos-11
     steps:
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: vscode-lsp-binary-x86_64-apple-darwin
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: vscode-lsp-binary-aarch64-apple-darwin
         path: bin
@@ -147,7 +147,7 @@ jobs:
         mv tmp Slint\ Live\ Preview.app/Contents/MacOS/slint-lsp
         rm -rf bin
     - name: "Upload LSP macOS bundle Artifact"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: vscode-lsp-binary-darwin
           path: .
@@ -162,7 +162,7 @@ jobs:
           - aarch64-unknown-linux-gnu
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
       with:
         target: ${{ matrix.target }}
@@ -177,7 +177,7 @@ jobs:
           mkdir bin
           cp target/${{ matrix.target }}/release/slint-lsp bin/slint-lsp-${{ matrix.target }}
     - name: "Upload LSP Artifact"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: vscode-lsp-binary-${{ matrix.target }}
           path: |
@@ -187,24 +187,24 @@ jobs:
     needs: [build_vscode_lsp_linux_windows, build_vscode_lsp_macos_bundle, build_vscode_cross_linux_lsp]
     runs-on: macos-11
     steps:
-    - uses: actions/checkout@v2
-    - uses: actions/download-artifact@v2
+    - uses: actions/checkout@v3
+    - uses: actions/download-artifact@v3
       with:
         name: vscode-lsp-binary-x86_64-unknown-linux-gnu
         path: editors/vscode/bin
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: vscode-lsp-binary-x86_64-pc-windows-gnu
         path: editors/vscode/bin
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: vscode-lsp-binary-darwin
         path: editors/vscode/bin
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: vscode-lsp-binary-armv7-unknown-linux-gnueabihf
         path: editors/vscode/bin
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         name: vscode-lsp-binary-aarch64-unknown-linux-gnu
         path: editors/vscode/bin
@@ -241,7 +241,7 @@ jobs:
         extensionFile: ${{ steps.publishToVSCM.outputs.vsixPath }}
         packagePath: ''
     - name: "Upload extension artifact"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: slint-vscode.zip
           path: |
@@ -252,16 +252,16 @@ jobs:
     needs: [docs, wasm_demo, wasm]
     runs-on: ubuntu-20.04
     steps:
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: docs
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: online_editor
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: wasm
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v3
         with:
           name: wasm_demo
       - name: Publish Docs and Demos
