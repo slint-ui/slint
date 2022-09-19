@@ -12,7 +12,7 @@
     "lint": "eslint src",
     "start": "rimraf dist && npm run build:wasm_lsp && npm run build:wasm_preview && npm run start:vite",
     "start:vite": "vite --open",
-    "syntax_check": "tsc --build"
+    "syntax_check": "tsc --build --force"
   },
   "keywords": [],
   "author": "",

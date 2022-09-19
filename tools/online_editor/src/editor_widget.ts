@@ -87,7 +87,7 @@ class EditorPaneWidget extends Widget {
   #style = "fluent";
   #editor_documents: Map<string, ModelAndViewState>;
   #editor: monaco.editor.IStandaloneCodeEditor | null;
-  #keystroke_timeout_handle: number | undefined;
+  #keystroke_timeout_handle: number | NodeJS.Timeout | undefined;
   #base_url: string | undefined;
   #edit_era: number;
 
