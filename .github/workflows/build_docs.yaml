@@ -41,13 +41,9 @@ jobs:
         toolchain: nightly
         components: rustfmt
     - name: Install mdbook
-      uses: actions-rs/install@v0.1
-      with:
-        crate: mdbook
+      run: cargo install mdbook || true
     - name: Install mdbook-linkcheck
-      uses: actions-rs/install@v0.1
-      with:
-        crate: mdbook-linkcheck
+      run: cargo install mdbook-linkcheck || true
     - name: Install apt dependencies
       run: sudo apt-get install doxygen clang-format
     - name: Upgrade pip and install pipenv
