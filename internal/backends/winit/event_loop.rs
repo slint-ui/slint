@@ -192,10 +192,6 @@ fn window_by_id(id: winit::window::WindowId) -> Option<Rc<dyn WinitWindow>> {
 /// This enum captures run-time specific events that can be dispatched to the event loop in
 /// addition to the winit events.
 pub enum CustomEvent {
-    /// Request for the event loop to wake up and redraw all windows. This is used on the
-    /// web for example to request an animation frame.
-    #[cfg(target_arch = "wasm32")]
-    RedrawAllWindows,
     /// On wasm request_redraw doesn't wake the event loop, so we need to manually send an event
     /// so that the event loop can run
     #[cfg(target_arch = "wasm32")]
@@ -211,24 +207,11 @@ impl std::fmt::Debug for CustomEvent {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             #[cfg(target_arch = "wasm32")]
-            Self::RedrawAllWindows => write!(f, "RedrawAllWindows"),
-            #[cfg(target_arch = "wasm32")]
             Self::WakeEventLoopWorkaround => write!(f, "WakeEventLoopWorkaround"),
             Self::UpdateWindowProperties(e) => write!(f, "UpdateWindowProperties({:?})", e),
             Self::UserEvent(_) => write!(f, "UserEvent"),
             Self::WindowHidden => write!(f, "WindowHidden"),
             Self::Exit => write!(f, "Exit"),
-        }
-    }
-}
-
-#[cfg(target_arch = "wasm32")]
-fn redraw_all_windows() {
-    let all_windows_weak =
-        ALL_WINDOWS.with(|windows| windows.borrow().values().cloned().collect::<Vec<_>>());
-    for window_weak in all_windows_weak {
-        if let Some(window) = window_weak.upgrade() {
-            window.request_redraw();
         }
     }
 }
@@ -529,9 +512,6 @@ pub fn run() {
         Event::UserEvent(CustomEvent::UserEvent(user)) => {
             user();
         }
-
-        #[cfg(target_arch = "wasm32")]
-        Event::UserEvent(CustomEvent::RedrawAllWindows) => redraw_all_windows(),
 
         #[cfg(target_arch = "wasm32")]
         Event::UserEvent(CustomEvent::WakeEventLoopWorkaround) => {
