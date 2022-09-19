@@ -244,13 +244,13 @@ impl OpenGLContext {
                     );
 
                     window.set_inner_size(existing_canvas_size);
-                    window.request_redraw();
-                    crate::event_loop::with_window_target(|event_loop| {
-                        event_loop
-                            .event_loop_proxy()
-                            .send_event(crate::event_loop::CustomEvent::RedrawAllWindows)
-                            .ok();
+                    let winit_window_weak = send_wrapper::SendWrapper::new(Rc::downgrade(&window));
+                    i_slint_core::api::invoke_from_event_loop(move || {
+                        if let Some(winit_window) = winit_window_weak.take().upgrade() {
+                            winit_window.request_redraw();
+                        }
                     })
+                    .unwrap();
                 }
             };
 
