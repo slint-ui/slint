@@ -16,6 +16,7 @@
 //! ````
 
 use clap::Parser;
+use experiments::lookup_changes::LookupChangeState;
 use i_slint_compiler::diagnostics::BuildDiagnostics;
 use i_slint_compiler::object_tree::{self, Component, Document, ElementRc};
 use i_slint_compiler::parser::{syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
@@ -35,7 +36,7 @@ mod experiments {
 
 #[derive(clap::Parser)]
 #[clap(author, version, about, long_about = None)]
-struct Cli {
+pub struct Cli {
     #[clap(name = "path to .slint file(s)", action)]
     paths: Vec<std::path::PathBuf>,
 
@@ -50,6 +51,10 @@ struct Cli {
     /// Do the lookup changes from issue #273
     #[clap(long, action)]
     experimental_lookup_changes: bool,
+
+    /// Move all properties declaration to root
+    #[clap(long, action)]
+    experimental_move_declaration: bool,
 }
 
 fn main() -> std::io::Result<()> {
@@ -202,8 +207,6 @@ fn process_file(
 
 #[derive(Default, Clone)]
 struct State {
-    /// Current element name in scope
-    element_name: Option<String>,
     /// When visiting a binding, this is the name of the current property
     property_name: Option<String>,
 
@@ -213,6 +216,8 @@ struct State {
     current_component: Option<Rc<Component>>,
     /// The element in scope
     current_elem: Option<ElementRc>,
+
+    lookup_change: LookupChangeState,
 }
 
 fn visit_node(
@@ -236,13 +241,21 @@ fn visit_node(
                     syntax_nodes::Component::from(node.clone()).DeclaredIdentifier().to_string();
                 state.current_component =
                     doc.inner_components.iter().find(|c| c.id == component_name).cloned();
+                if args.experimental_move_declaration {
+                    experiments::lookup_changes::collect_movable_properties(&mut state);
+                }
+            }
+        }
+        SyntaxKind::RepeatedElement | SyntaxKind::ConditionalElement => {
+            if args.experimental_move_declaration {
+                experiments::lookup_changes::collect_movable_properties(&mut state);
             }
         }
         SyntaxKind::Element => {
-            let element_node = syntax_nodes::Element::from(node.clone());
+            /*let element_node = syntax_nodes::Element::from(node.clone());
             state.element_name = element_node
                 .QualifiedName()
-                .map(|qn| object_tree::QualifiedTypeName::from_node(qn).to_string());
+                .map(|qn| object_tree::QualifiedTypeName::from_node(qn).to_string());*/
             if let Some(parent_el) = state.current_elem.take() {
                 state.current_elem = parent_el
                     .borrow()
@@ -263,11 +276,21 @@ fn visit_node(
         return Ok(());
     }
     for n in node.children_with_tokens() {
-        match n {
-            NodeOrToken::Node(n) => visit_node(n, file, &mut state, args)?,
-            NodeOrToken::Token(t) => fold_token(t, file, &mut state)?,
-        };
+        visit_node_or_token(n, file, &mut state, args)?;
     }
+    Ok(())
+}
+
+pub(crate) fn visit_node_or_token(
+    n: NodeOrToken,
+    file: &mut impl Write,
+    state: &mut State,
+    args: &Cli,
+) -> std::io::Result<()> {
+    match n {
+        NodeOrToken::Node(n) => visit_node(n, file, state, args)?,
+        NodeOrToken::Token(t) => fold_token(t, file, state)?,
+    };
     Ok(())
 }
 
@@ -287,9 +310,11 @@ fn fold_node(
     if args.from.as_str() <= "0.1.6" && from_0_1_0::fold_node(node, file, state)? {
         return Ok(true);
     }
-    if args.experimental_lookup_changes
-        && experiments::lookup_changes::fold_node(node, file, state)?
-    {}
+    if (args.experimental_lookup_changes || args.experimental_move_declaration)
+        && experiments::lookup_changes::fold_node(node, file, state, args)?
+    {
+        return Ok(true);
+    }
     Ok(false)
 }
 

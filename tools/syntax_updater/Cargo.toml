@@ -20,6 +20,7 @@ clap = { version = "3.2", features = ["derive", "wrap_help"] }
 codemap = "0.1"
 codemap-diagnostic = "0.1.1"
 spin_on = "0.1"
+by_address = "1.0.4"
 
 [[bin]]
 name = "syntax_updater"
