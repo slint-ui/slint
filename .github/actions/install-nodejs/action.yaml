@@ -16,7 +16,7 @@ runs:
     - name: Setup Node.js
       uses: actions/setup-node@v1
       with:
-        node-version: "12"
+        node-version: "16"
     - id: node-version
       if: runner.os == 'Windows'
       run: |
