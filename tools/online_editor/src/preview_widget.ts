@@ -9,7 +9,7 @@ import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
 import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
 
-const ensure_slint_wasm_bindgen_glue_initialized = slint_init();
+const ensure_slint_wasm_bindgen_glue_initialized: Promise<slint.InitOutput> = slint_init();
 
 export class PreviewWidget extends Widget {
   #instance: slint.WrappedInstance | null;
