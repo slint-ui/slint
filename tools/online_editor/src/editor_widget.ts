@@ -90,6 +90,7 @@ class EditorPaneWidget extends Widget {
   #keystroke_timeout_handle: number | undefined;
   #base_url: string | undefined;
   #edit_era: number;
+  readonly editor_ready: Promise<void>;
 
   #onRenderRequest?: (
     _style: string,
@@ -127,7 +128,7 @@ class EditorPaneWidget extends Widget {
 
     this.#edit_era = 0;
 
-    this.setup_editor(this.contentNode);
+    this.editor_ready = this.setup_editor(this.contentNode);
   }
 
   protected get contentNode(): HTMLDivElement {
@@ -300,32 +301,27 @@ class EditorPaneWidget extends Widget {
       new URL("worker/lsp_worker.ts", import.meta.url),
       { type: "module" },
     );
-    let worker_is_set_up = false;
-    lsp_worker.onmessage = (m) => {
-      // We cannot start sending messages to the client before we start listening which
-      // the server only does in a future after the wasm is loaded.
-      if (m.data === "OK") {
-        const reader = new BrowserMessageReader(lsp_worker);
-        const writer = new BrowserMessageWriter(lsp_worker);
 
-        const languageClient = createLanguageClient({ reader, writer });
+    const ensure_lsp_running = new Promise<void>((resolve_lsp_worker_promise) => {
+      lsp_worker.onmessage = (m) => {
+        // We cannot start sending messages to the client before we start listening which
+        // the server only does in a future after the wasm is loaded.
+        if (m.data === "OK") {
+          const reader = new BrowserMessageReader(lsp_worker);
+          const writer = new BrowserMessageWriter(lsp_worker);
 
-        languageClient.start();
+          const languageClient = createLanguageClient({ reader, writer });
 
-        reader.onClose(() => languageClient.stop());
+          languageClient.start();
 
-        worker_is_set_up = true;
-      }
-    };
+          reader.onClose(() => languageClient.stop());
 
-    // Wait a bit for the worker to come up... leaving the loader in place;-)
-    for (let i = 0; i < 10; ++i) {
-      if (!worker_is_set_up) {
-        await new Promise((f) => setTimeout(f, 1000));
-      } else {
-        break;
-      }
-    }
+          resolve_lsp_worker_promise();
+        }
+      };
+    });
+
+    await ensure_lsp_running;
   }
 
   set onRenderRequest(
@@ -478,6 +474,10 @@ export class EditorWidget extends Widget {
 
   get style() {
     return this.#editor.style;
+  }
+
+  get editor_ready() {
+    return this.#editor.editor_ready;
   }
 
   protected load_from_url(url: string) {

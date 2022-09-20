@@ -121,7 +121,9 @@ function main() {
     commands.processKeydownEvent(event);
   });
 
-  document.body.innerHTML = ""; // clear loader
+  editor.editor_ready.then(() => {
+    document.body.getElementsByClassName("loader")[0].remove()
+  });
   Widget.attach(menu_bar, document.body);
   Widget.attach(main, document.body);
 }
