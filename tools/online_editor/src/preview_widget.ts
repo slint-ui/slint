@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// cSpell: ignore lumino
+// cSpell: ignore bindgen lumino winit
 
 import { Widget } from "@lumino/widgets";
 import { Message } from "@lumino/messaging";
@@ -10,7 +10,8 @@ import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
 import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
 
-const ensure_slint_wasm_bindgen_glue_initialized: Promise<slint.InitOutput> = slint_init();
+const ensure_slint_wasm_bindgen_glue_initialized: Promise<slint.InitOutput> =
+  slint_init();
 
 export class PreviewWidget extends Widget {
   #instance: slint.WrappedInstance | null;
@@ -22,11 +23,6 @@ export class PreviewWidget extends Widget {
     const node = document.createElement("div");
     const content = document.createElement("div");
     content.className = "preview-container";
-
-    const canvas = document.createElement("canvas");
-    canvas.width = 800;
-    canvas.height = 600;
-    content.appendChild(canvas);
 
     const error_area = document.createElement("div");
     error_area.className = "error-area";
@@ -60,6 +56,8 @@ export class PreviewWidget extends Widget {
     if (this.#canvas_id === "") {
       this.#canvas_id = "canvas_" + Math.random().toString(36).slice(2, 11);
       const canvas = document.createElement("canvas");
+      canvas.width = 800;
+      canvas.height = 600;
       canvas.id = this.#canvas_id;
       canvas.className = "slint-preview";
 
