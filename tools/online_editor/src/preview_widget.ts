@@ -4,6 +4,7 @@
 // cSpell: ignore lumino
 
 import { Widget } from "@lumino/widgets";
+import { Message } from "@lumino/messaging";
 
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
@@ -14,6 +15,8 @@ const ensure_slint_wasm_bindgen_glue_initialized: Promise<slint.InitOutput> = sl
 export class PreviewWidget extends Widget {
   #instance: slint.WrappedInstance | null;
   #canvas_id: string;
+  #ensure_attached_to_dom: Promise<void>;
+  #resolve_attached_to_dom: () => void;
 
   static createNode(): HTMLElement {
     const node = document.createElement("div");
@@ -44,6 +47,13 @@ export class PreviewWidget extends Widget {
 
     this.#canvas_id = "";
     this.#instance = null;
+    this.#resolve_attached_to_dom = () => {
+      // dummy, to be replaced with resolution function provided to promise
+      // executor.
+    };
+    this.#ensure_attached_to_dom = new Promise((resolve) => {
+      this.#resolve_attached_to_dom = resolve;
+    });
   }
 
   protected get canvas_id(): string {
@@ -65,6 +75,11 @@ export class PreviewWidget extends Widget {
 
   dispose() {
     super.dispose();
+  }
+
+  protected onAfterAttach(msg: Message): void {
+    super.onAfterAttach(msg);
+    this.#resolve_attached_to_dom();
   }
 
   public async render(
@@ -113,6 +128,9 @@ export class PreviewWidget extends Widget {
 
     if (component != null) {
       if (this.#instance == null) {
+        // It's not enough for the canvas element to exist, in order to extract a webgl rendering
+        // context, the element needs to be attached to the window's dom.
+        await this.#ensure_attached_to_dom;
         this.#instance = component.create(this.canvas_id);
         this.#instance.show();
         try {
