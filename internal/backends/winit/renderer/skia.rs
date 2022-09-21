@@ -149,6 +149,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
             max_width.map(|w| w * scale_factor),
             Default::default(),
             Default::default(),
+            None,
         );
 
         [layout.max_intrinsic_width().ceil() / scale_factor, layout.height().ceil() / scale_factor]
@@ -189,6 +190,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
             Some(max_width),
             text_input.horizontal_alignment(),
             i_slint_core::items::TextOverflow::Clip,
+            None,
         );
 
         let layout_top_y = match text_input.vertical_alignment() {
@@ -246,6 +248,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
             Some(max_width),
             text_input.horizontal_alignment(),
             i_slint_core::items::TextOverflow::Clip,
+            None,
         );
 
         let layout_top_y = match text_input.vertical_alignment() {

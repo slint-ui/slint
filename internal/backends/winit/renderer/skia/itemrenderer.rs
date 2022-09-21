@@ -377,6 +377,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             Some(max_width),
             text.horizontal_alignment(),
             text.overflow(),
+            None,
         );
 
         let y = match text.vertical_alignment() {
@@ -413,6 +414,17 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         let mut text_style = skia_safe::textlayout::TextStyle::new();
         text_style.set_foreground_color(paint);
 
+        let (selection_anchor_pos, selection_cursor_pos) = text_input.selection_anchor_and_cursor();
+        let selection = if selection_anchor_pos != selection_cursor_pos {
+            Some(super::textlayout::Selection {
+                range: (selection_anchor_pos..selection_cursor_pos),
+                foreground: text_input.selection_foreground_color(),
+                background: text_input.selection_background_color(),
+            })
+        } else {
+            None
+        };
+
         let layout = super::textlayout::create_layout(
             font_request,
             self.scale_factor,
@@ -421,6 +433,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             Some(max_width),
             text_input.horizontal_alignment(),
             i_slint_core::items::TextOverflow::Clip,
+            selection.as_ref(),
         );
 
         let layout_top_y = match text_input.vertical_alignment() {
