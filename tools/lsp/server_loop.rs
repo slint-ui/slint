@@ -311,14 +311,16 @@ pub fn query_properties_command(
     )?;
     if let Ok(element) = element_at_position(
         document_cache,
-        TextDocumentIdentifier { uri: text_document },
+        TextDocumentIdentifier { uri: text_document.clone() },
         Position { line, character },
     ) {
-        properties::query_properties(&element).map(|r| {
-            serde_json::to_value(r).expect("Failed to serialize command execution result!")
-        })
+        properties::query_properties(&element)
+            .map(|r| serde_json::to_value(r).expect("Failed to serialize property query result!"))
     } else {
-        Ok(serde_json::Value::Null)
+        Ok(serde_json::to_value(properties::QueryPropertyResponse::no_element_response(
+            text_document.to_string(),
+        ))
+        .expect("Failed to serialize none-element property query result!"))
     }
 }
 
