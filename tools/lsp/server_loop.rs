@@ -288,19 +288,38 @@ pub fn query_properties_command(
 ) -> Result<serde_json::Value, Error> {
     use crate::properties;
 
-    let e = || -> Error { "InvalidParameter".into() };
-
-    let text_document = Url::parse(params.get(0).ok_or_else(e)?.as_str().ok_or_else(e)?)?;
-    let line = u32::try_from(params.get(1).ok_or_else(e)?.as_u64().ok_or_else(e)?)?;
-    let character = u32::try_from(params.get(2).ok_or_else(e)?.as_u64().ok_or_else(e)?)?;
-    let element = element_at_position(
+    let text_document = Url::parse(
+        params
+            .get(0)
+            .ok_or_else(|| -> Error { "No first parameter".into() })?
+            .as_str()
+            .ok_or_else(|| -> Error { "Failed to convert first parameter to string".into() })?,
+    )?;
+    let line = u32::try_from(
+        params
+            .get(1)
+            .ok_or_else(|| -> Error { "No second parameter".into() })?
+            .as_u64()
+            .ok_or_else(|| -> Error { "Failed to convert second parameter to int".into() })?,
+    )?;
+    let character = u32::try_from(
+        params
+            .get(2)
+            .ok_or_else(|| -> Error { "No third parameter.".into() })?
+            .as_u64()
+            .ok_or_else(|| -> Error { "Failed to convert third parameter to int".into() })?,
+    )?;
+    if let Ok(element) = element_at_position(
         document_cache,
         TextDocumentIdentifier { uri: text_document },
         Position { line, character },
-    )?;
-
-    properties::query_properties(&element)
-        .map(|r| serde_json::to_value(r).expect("Failed to serialize command execution result!"))
+    ) {
+        properties::query_properties(&element).map(|r| {
+            serde_json::to_value(r).expect("Failed to serialize command execution result!")
+        })
+    } else {
+        Ok(serde_json::Value::Null)
+    }
 }
 
 #[cfg(feature = "preview")]
