@@ -3,11 +3,20 @@
 
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::object_tree::{Element, ElementRc};
+use i_slint_compiler::parser::{syntax_nodes, SyntaxKind};
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub(crate) struct DefinitionInformation {
+    start_offset: u32,
+    end_offset: u32,
+    expression_start: u32,
+    expression_end: u32,
+}
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub(crate) struct DeclarationInformation {
     uri: String,
-    character_offset: u32,
+    start_offset: u32,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -15,13 +24,26 @@ pub(crate) struct PropertyInformation {
     name: String,
     type_name: String,
     declared_at: Option<DeclarationInformation>,
-    defined_at: Option<(u32, u32)>, // Range in the elements source file!
+    defined_at: Option<DefinitionInformation>, // Range in the elements source file!
+}
+
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+pub(crate) struct ElementInformation {
+    id: String,
+    type_name: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
 pub(crate) struct QueryPropertyResponse {
     properties: Vec<PropertyInformation>,
-    source_file: Option<String>,
+    element: Option<ElementInformation>,
+    source_uri: Option<String>,
+}
+
+impl QueryPropertyResponse {
+    pub fn no_element_response(uri: String) -> Self {
+        QueryPropertyResponse { properties: vec![], element: None, source_uri: Some(uri) }
+    }
 }
 
 // This gets defined accessibility properties...
@@ -46,7 +68,7 @@ fn get_element_properties(element: &Element) -> impl Iterator<Item = PropertyInf
             value
                 .type_node()
                 .map(|n| n.text_range().start().into())
-                .map(|p| DeclarationInformation { uri: file.clone(), character_offset: p })
+                .map(|p| DeclarationInformation { uri: file.clone(), start_offset: p })
         });
         PropertyInformation {
             name: name.clone(),
@@ -60,7 +82,7 @@ fn get_element_properties(element: &Element) -> impl Iterator<Item = PropertyInf
 fn insert_property_definition_range(
     property: &str,
     properties: &mut [PropertyInformation],
-    range: (u32, u32),
+    range: DefinitionInformation,
 ) {
     let index = properties
         .binary_search_by(|p| (p.name[..]).cmp(property))
@@ -68,31 +90,65 @@ fn insert_property_definition_range(
     properties[index].defined_at = Some(range);
 }
 
-fn insert_property_definitions(element: &Element, properties: &mut Vec<PropertyInformation>) {
-    let node = if let Some(node) = element.node.as_ref() {
-        node
-    } else {
-        return;
+fn find_expression_range(
+    element: &syntax_nodes::Element,
+    offset: u32,
+) -> Option<DefinitionInformation> {
+    let mut result = DefinitionInformation {
+        start_offset: 0,
+        end_offset: 0,
+        expression_start: 0,
+        expression_end: 0,
     };
+    if let Some(token) = element.token_at_offset(offset.into()).right_biased() {
+        for ancestor in token.parent_ancestors() {
+            if ancestor.kind() == SyntaxKind::BindingExpression {
+                // The BindingExpression contains leading and trailing whitespace + `;`
+                let expr_range = ancestor
+                    .first_child()
+                    .expect("A BindingExpression needs to have a child!")
+                    .text_range();
+                result.expression_start = expr_range.start().into();
+                result.expression_end = expr_range.end().into();
+                continue;
+            }
+            if ancestor.kind() == SyntaxKind::Binding {
+                let total_range = ancestor.text_range();
+                result.start_offset = total_range.start().into();
+                result.end_offset = total_range.end().into();
+                break;
+            }
+            if ancestor.kind() == SyntaxKind::Element {
+                // There should have been a binding before the element!
+                break;
+            }
+        }
+    }
+    if result.start_offset < result.expression_start
+        && result.expression_start <= result.expression_end
+        && result.expression_end < result.end_offset
+    {
+        return Some(result);
+    } else {
+        None
+    }
+}
+
+fn insert_property_definitions(element: &Element, properties: &mut Vec<PropertyInformation>) {
+    let element_node = element.node.as_ref().expect("Element has to have a node here!");
+    let element_range = element_node.text_range();
 
     for (k, v) in &element.bindings {
         if let Some(span) = &v.borrow().span {
-            let offset: u32 = span.span().offset.try_into().unwrap_or(u32::MAX);
+            let offset = span.span().offset as u32;
             if element.source_file().map(|sf| sf.path())
-                != span.source_file.as_ref().map(|sf| sf.path())
-                && node.text_range().contains(offset.into())
+                == span.source_file.as_ref().map(|sf| sf.path())
+                && element_range.contains(offset.into())
             {
-                continue; // ignore definitions in files other than the element
+                if let Some(definition) = find_expression_range(element_node, offset) {
+                    insert_property_definition_range(k, properties, definition);
+                }
             }
-
-            if let Some(token) = node.token_at_offset(offset.into()).left_biased() {
-                let range = token.text_range();
-                insert_property_definition_range(
-                    k,
-                    properties,
-                    (range.start().into(), range.end().into()),
-                );
-            };
         }
     }
 }
@@ -138,10 +194,16 @@ fn get_properties(element: &ElementRc) -> Vec<PropertyInformation> {
     result
 }
 
+fn get_element_information(element: &ElementRc) -> Option<ElementInformation> {
+    let e = element.borrow();
+    Some(ElementInformation { id: e.id.clone(), type_name: format!("{}", e.base_type) })
+}
+
 pub(crate) fn query_properties(element: &ElementRc) -> Result<QueryPropertyResponse, crate::Error> {
     Ok(QueryPropertyResponse {
         properties: get_properties(&element),
-        source_file: source_file(&element.borrow()),
+        element: get_element_information(&element),
+        source_uri: source_file(&element.borrow()),
     })
 }
 
@@ -182,5 +244,12 @@ mod tests {
             &find_property(&result, "accessible-role").unwrap().type_name,
             "enum AccessibleRole"
         );
+
+        // Poke deeper:
+        let result = properties_at_position(21, 30).unwrap();
+        let property = find_property(&result, "background").unwrap();
+
+        let def_at = property.defined_at.as_ref().unwrap();
+        assert_eq!((def_at.expression_end - def_at.expression_start) as usize, "lightblue".len());
     }
 }
