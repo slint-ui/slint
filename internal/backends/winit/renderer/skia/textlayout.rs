@@ -4,8 +4,10 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use i_slint_core::items;
 use i_slint_core::{graphics::FontRequest, Coord};
+use i_slint_core::{items, Color};
+
+use super::itemrenderer::to_skia_color;
 
 pub const DEFAULT_FONT_SIZE: f32 = 12.;
 
@@ -37,6 +39,12 @@ thread_local! {
     }
 }
 
+pub struct Selection {
+    pub range: std::ops::Range<usize>,
+    pub background: Color,
+    pub foreground: Color,
+}
+
 pub fn create_layout(
     font_request: FontRequest,
     scale_factor: f32,
@@ -45,6 +53,7 @@ pub fn create_layout(
     max_width: Option<Coord>,
     h_align: items::TextHorizontalAlignment,
     overflow: items::TextOverflow,
+    selection: Option<&Selection>,
 ) -> skia_safe::textlayout::Paragraph {
     let mut text_style = text_style.unwrap_or_default();
 
@@ -80,7 +89,31 @@ pub fn create_layout(
         skia_safe::textlayout::ParagraphBuilder::new(&style, font_cache.font_collection.clone())
     });
     builder.push_style(&text_style);
-    builder.add_text(text);
+
+    if let Some(selection) = selection {
+        let before_selection = &text[..selection.range.start];
+        builder.add_text(before_selection);
+
+        let mut selection_background_paint = skia_safe::Paint::default();
+        selection_background_paint.set_color(to_skia_color(&selection.background));
+        let mut selection_foreground_paint = skia_safe::Paint::default();
+        selection_foreground_paint.set_color(to_skia_color(&selection.foreground));
+
+        let mut selection_style = text_style.clone();
+        selection_style.set_background_color(selection_background_paint);
+        selection_style.set_foreground_color(selection_foreground_paint);
+
+        builder.push_style(&selection_style);
+        let selected_text = &text[selection.range.clone()];
+        builder.add_text(selected_text);
+        builder.pop();
+
+        let after_selection = &text[selection.range.end..];
+        builder.add_text(after_selection);
+    } else {
+        builder.add_text(text);
+    }
+
     let mut paragraph = builder.build();
     paragraph.layout(max_width.unwrap_or(core::f32::MAX));
     paragraph
