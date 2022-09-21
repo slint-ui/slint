@@ -133,14 +133,58 @@ pub fn cursor_rect(
     string: &str,
     cursor_pos: usize,
     layout: skia_safe::textlayout::Paragraph,
-) -> Option<skia_safe::textlayout::TextBox> {
-    // TODO: This doesn't work at the end of the text.
-    let cursor_utf16_offset = string[..cursor_pos].chars().map(char::len_utf16).sum();
-    let next = string[cursor_pos..].chars().next().map_or(0, char::len_utf16);
+    cursor_width: f32,
+) -> skia_safe::Rect {
+    if string.is_empty() {
+        return skia_safe::Rect::from_xywh(0., 0., cursor_width, layout.height());
+    }
+
+    // The cursor is visually between characters, but the logical cursor_pos refers to the
+    // index in the string that is the start of a glyph cluster. The cursor is to be drawn
+    // at the left edge of that glyph cluster.
+    // When the cursor is at the end of the text, there's no glyph cluster to the right.
+    // Instead we pick the previous glyph cluster and select the right edge of it.
+
+    let select_glyph_box_edge_x = if cursor_pos == string.len() {
+        |rect: &skia_safe::Rect| rect.right
+    } else {
+        |rect: &skia_safe::Rect| rect.left
+    };
+
+    let mut grapheme_cursor =
+        unicode_segmentation::GraphemeCursor::new(cursor_pos, string.len(), true);
+    let adjacent_grapheme_byte_range = if cursor_pos == string.len() {
+        let prev_grapheme = match grapheme_cursor.prev_boundary(string, 0) {
+            Ok(byte_offset) => byte_offset.unwrap_or(0),
+            Err(_) => return Default::default(),
+        };
+
+        prev_grapheme..cursor_pos
+    } else {
+        let next_grapheme = match grapheme_cursor.next_boundary(string, 0) {
+            Ok(byte_offset) => byte_offset.unwrap_or_else(|| string.len()),
+            Err(_) => return Default::default(),
+        };
+
+        cursor_pos..next_grapheme
+    };
+
+    let adjacent_grapheme_utf16_start =
+        string[..adjacent_grapheme_byte_range.start].chars().map(char::len_utf16).sum();
+    let adjacent_grapheme_utf16_next: usize =
+        string[adjacent_grapheme_byte_range].chars().map(char::len_utf16).sum();
+
     let boxes = layout.get_rects_for_range(
-        cursor_utf16_offset..cursor_utf16_offset + next,
+        adjacent_grapheme_utf16_start..adjacent_grapheme_utf16_start + adjacent_grapheme_utf16_next,
         skia_safe::textlayout::RectHeightStyle::Max,
         skia_safe::textlayout::RectWidthStyle::Max,
     );
-    boxes.into_iter().next()
+    boxes
+        .into_iter()
+        .next()
+        .map(|textbox| {
+            let x = select_glyph_box_edge_x(&textbox.rect);
+            skia_safe::Rect::from_xywh(x, textbox.rect.y(), cursor_width, textbox.rect.height())
+        })
+        .unwrap_or_default()
 }

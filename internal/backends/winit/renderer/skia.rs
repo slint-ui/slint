@@ -256,15 +256,25 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
             i_slint_core::items::TextVerticalAlignment::Bottom => max_height - layout.height(),
         };
 
-        textlayout::cursor_rect(string, byte_offset, layout)
-            .map(|text_box| {
-                let rect = text_box.rect;
-                i_slint_core::graphics::Rect::new(
-                    [rect.x() / scale_factor, (rect.y() + layout_top_y) / scale_factor].into(),
-                    [rect.width() / scale_factor, rect.height() / scale_factor].into(),
-                )
-            })
-            .unwrap_or_default()
+        let physical_cursor_rect = textlayout::cursor_rect(
+            string,
+            byte_offset,
+            layout,
+            text_input.text_cursor_width() * scale_factor,
+        );
+
+        i_slint_core::graphics::Rect::new(
+            [
+                physical_cursor_rect.x() / scale_factor,
+                (physical_cursor_rect.y() + layout_top_y) / scale_factor,
+            ]
+            .into(),
+            [
+                physical_cursor_rect.width() / scale_factor,
+                physical_cursor_rect.height() / scale_factor,
+            ]
+            .into(),
+        )
     }
 
     fn register_font_from_memory(

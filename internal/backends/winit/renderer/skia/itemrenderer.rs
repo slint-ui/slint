@@ -441,17 +441,13 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             && !text_input.read_only();
 
         if cursor_visible {
-            let cursor_rect = super::textlayout::cursor_rect(string, cursor_pos as usize, layout)
-                .map(|text_box| {
-                    let rect = text_box.rect;
-                    skia_safe::Rect::from_xywh(
-                        rect.x(),
-                        rect.y() + layout_top_y,
-                        text_input.text_cursor_width() * self.scale_factor,
-                        rect.height(),
-                    )
-                })
-                .unwrap_or_default();
+            let cursor_rect = super::textlayout::cursor_rect(
+                string,
+                cursor_pos as usize,
+                layout,
+                text_input.text_cursor_width() * self.scale_factor,
+            )
+            .with_offset((0.0, layout_top_y));
 
             let cursor_paint = match self.brush_to_paint(text_input.color(), 0., 0.) {
                 Some(paint) => paint,
