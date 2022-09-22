@@ -258,6 +258,7 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: online_editor
+          path: online_editor
       - uses: actions/download-artifact@v2
         with:
           name: wasm
