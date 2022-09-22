@@ -70,6 +70,26 @@ and their description.
 This works when compiling Slint as a package, using `cmake --build` and `cmake --install`, or when including Slint
 using `FetchContent`.
 
+### Backends
+
+Slint needs a backend that will act as liaison between Slint and the OS.
+By default, Slint will use the Qt backend, if Qt is installed, otherwise, it
+will use [Winit](https://crates.io/crates/winit) with [Femtovg](https://crates.io/crates/femtovg).
+Both backends are compiled in. If you want to not compile one of these you need
+to disable the `SLINT_FEATURE_BACKEND_WINIT` and `SLINT_FEATURE_RENDERER_WINIT_FEMTOVG` features and enable
+the backend and renderer features you choose.
+
+If you enable the Winit backend, you need to also include a renderer.
+`SLINT_FEATURE_RENDERER_WINIT_FEMTOVG` is the only stable renderer, the other ones are experimental
+It is also possible to select the backend and renderer at runtime when several
+are enabled, using the `SLINT_BACKEND`  environment variable.
+ * `SLINT_BACKEND=Qt` selects the Qt backend
+ * `SLINT_BACKEND=winit` selects the winit backend
+ * `SLINT_BACKEND=winit-femtovg` selects the winit backend with the femtovg renderer
+ * `SLINT_BACKEND=winit-skia` selects the winit backend with the skia renderer
+ * `SLINT_BACKEND=winit-software` selects the winit backend with the software renderer
+If the selected backend is not available, the default will be used.
+
 ### Cross-compiling
 
 It is possible to cross-compile Slint to a different target architecture when building with CMake. In order to complete
