@@ -1,4 +1,4 @@
-# Slint build guide
+# Slint Build Guide
 
 This page explains how to build and test Slint.
 
@@ -61,22 +61,23 @@ cargo test
 **Important:** Note that `cargo test` does not work without first calling `cargo build` because the
 the required dynamic library will not be found.
 
-### C++ test
+### C++ Tests
 
-The C++ crate are not included in the workspace's default members, so it need to be build explicitly
+The C++ tests are contained in the `test-driver-cpp` crate. It requires the Slint C++ library to be built,
+which is not done by default. Build it explicitly before running the tests:
 
 ```sh
 cargo build --lib -p slint-cpp
 cargo test -p test-driver-cpp
 ```
 
-### More info about tests
+### More Info About Tests
 
-See [testing.md](./testing.md)
+For more details about the tests and how they are implemented, see [testing.md](./testing.md).
 
 ## C++ API Build
 
-This is just a normal cmake build.
+The Slint C++ API is implemented as a normal cmake build:
 
 ```sh
 mkdir cppbuild && cd cppbuild
@@ -84,14 +85,14 @@ cmake -GNinja ..
 cmake --build .
 ```
 
-The build will call cargo to build the rust libraries, and build the examples.
-In order to install the libraries and everything you need, use:
+The build will call cargo to build the Rust libraries, and build the examples.
+To install the libraries and everything you need, use:
 
 ```sh
 cmake --install .
 ```
 
-You can pass `-DCMAKE_INSTALL_PREFIX` in the first cmake command in order to choose the install location
+You can pass `-DCMAKE_INSTALL_PREFIX` in the first cmake command in order to choose the installation location.
 
 ### Node.JS API Build
 
@@ -130,7 +131,7 @@ DISPLAY=:0 ./printerdemo
 
 See the [examples](/examples) folder for examples to build, run and test.
 
-## Running the viewer
+## Running the Viewer
 
 Slint also includes a viewer tool that can load `.slint` files dynamically at run-time. It is a
 cargo-integrated binary and can be run directly on the `.slint` files, for example:
@@ -139,22 +140,28 @@ cargo-integrated binary and can be run directly on the `.slint` files, for examp
 cargo run --release --bin slint-viewer -- examples/printerdemo/ui/printerdemo.slint
 ```
 
-## Generating the documentation
+## Generating the Documentation
 
-### rustdoc
+### Rust
+
+The documentation for the different crates is built using rustdoc.
 
 The language reference has snippets in the .slint language which can be previewed by injecting
 html to the documentation with the `--html-in-header` rustdoc flag.
 
-Here is how to build the documentation to include preview of the .slint files.
+Use the following command line to build the documentation to include preview of the .slint files.
 
 ```sh
 RUSTDOCFLAGS="--html-in-header=$PWD/docs/resources/slint-docs-preview.html --html-in-header=$PWD/docs/resources/slint-docs-highlight.html" cargo doc --no-deps --features slint/document-features,slint/log
 ```
 
-### C++ doc
+The documentation will be located in the `target/doc` sub-folder.
 
-To generate the C++ API documentation, one need to have doxygen installed, and run this command
+### C++
+
+The C++ documentation requires Python and doxygen to be installed on your system.
+
+Run the following command to invoke doxygen and related tools and generate the documentation in the `target/cppdocs` sub-folder:
 
 ```sh
 cargo xtask cppdocs
