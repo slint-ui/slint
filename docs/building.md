@@ -28,7 +28,7 @@ For Linux a few additional packages beyond the usual build essentials are needed
 
 ### Windows
 
-- Make sure the MSVC Build Tools are installed: `winget install Microsoft.VisualStudio.2019.BuildTools`
+- Make sure the MSVC Build Tools are installed: `winget install Microsoft.VisualStudio.2022.BuildTools`
 - (optional) make sure Qt is installed and `qmake` is in the `Path`
 
 ### NodeJS API (optional)
