@@ -58,7 +58,7 @@ unsafe-single-threaded = ["i-slint-core/unsafe-single-threaded"]
 
 #! ### Backends
 
-#! Slint needs a backend that will do the liaison between Slint and the OS.
+#! Slint needs a backend that will act as liaison between Slint and the OS.
 #! By default, Slint will use the Qt backend, if Qt is installed, otherwise, it
 #! will use [Winit](https://crates.io/crates/winit) with [Femtovg](https://crates.io/crates/femtovg).
 #! Both backends are compiled in. If you want to not compile one of these you need
