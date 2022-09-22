@@ -85,10 +85,11 @@ pub fn create_layout(
         items::TextHorizontalAlignment::Right => skia_safe::textlayout::TextAlign::Right,
     });
 
+    style.set_text_style(&text_style);
+
     let mut builder = FONT_CACHE.with(|font_cache| {
         skia_safe::textlayout::ParagraphBuilder::new(&style, font_cache.font_collection.clone())
     });
-    builder.push_style(&text_style);
 
     if let Some(selection) = selection {
         let before_selection = &text[..selection.range.start];
