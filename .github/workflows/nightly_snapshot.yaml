@@ -67,7 +67,7 @@ jobs:
       with:
           command: build
           toolchain: stable
-          args: --target ${{ matrix.toolchain }} --release -p slint-lsp
+          args: --target ${{ matrix.toolchain }} --release -p slint-lsp --no-default-features --features preview,backend-winit,renderer-winit-skia
     - name: Create artifact directory
       run: |
           mkdir bin
@@ -92,7 +92,7 @@ jobs:
       run: cargo install cargo-bundle
     - name: Build Main LSP Bundle
       working-directory: tools/lsp
-      run: cargo bundle --release
+      run: cargo bundle --release --no-default-features --features preview,renderer-winit-skia
     - name: Create artifact directory
       run: |
           mkdir bin
@@ -118,7 +118,7 @@ jobs:
       with:
           command: build
           toolchain: stable
-          args: --target aarch64-apple-darwin --release -p slint-lsp
+          args: --target aarch64-apple-darwin --release -p slint-lsp --no-default-features --features preview,renderer-winit-skia
     - name: Create artifact directory
       run: |
           mkdir bin
