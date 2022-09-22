@@ -442,8 +442,6 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             items::TextVerticalAlignment::Bottom => max_height - layout.height(),
         };
 
-        // TODO: draw text selections
-
         layout.paint(&mut self.canvas, skia_safe::Point::new(0., layout_top_y));
 
         let cursor_pos = text_input.cursor_position();
