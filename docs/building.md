@@ -31,22 +31,19 @@ For Linux a few additional packages beyond the usual build essentials are needed
 - Make sure the MSVC Build Tools are installed: `winget install Microsoft.VisualStudio.2022.BuildTools`
 - (optional) make sure Qt is installed and `qmake` is in the `Path`
 
-### NodeJS API (optional)
-
-To use Slint from Node.JS, the following extra dependencies are needed.
-
-- **node** (including npm) At this time you will need to use the LTS version.
-- **python**
-
-Node.JS support is not built by default! Check below for the extra commands
-to run.
-
 ### C++ API (optional)
 
 To use Slint from C++, the following extra dependencies are needed:
 
 - **[cmake](https://cmake.org/download/)** (3.19 or newer)
 - A C++ compiler that can supports C++20 (e.g., **MSVC 2019 16.6** on Windows)
+
+### Node.js API (optional)
+
+To use Slint from Node.js, the following extra dependencies are needed.
+
+- **[Node.js](https://nodejs.org/en/)** (including npm) At this time you will need to use the LTS version.
+- **[Python](https://www.python.org)**
 
 ## Building and Testing
 
@@ -69,6 +66,17 @@ which is not done by default. Build it explicitly before running the tests:
 ```sh
 cargo build --lib -p slint-cpp
 cargo test -p test-driver-cpp
+```
+
+### Node.js Tests
+
+The Node.js tests are contained in the `test-driver-nodejs` crate. It requires the Slint node library to be built,
+which is not done by default. Build it explicitly before running the tests:
+
+```sh
+```sh
+cargo build -p slint-node
+cargo build -p test-driver-nodejs
 ```
 
 ### More Info About Tests
@@ -94,17 +102,23 @@ cmake --install .
 
 You can pass `-DCMAKE_INSTALL_PREFIX` in the first cmake command in order to choose the installation location.
 
-### Node.JS API Build
+### Node.js API Build
 
-Run
+The Slint Node.js API is implemented as npm build. You can build it locally using the following command line:
 
 ```sh
-cargo build -p slint-node
-cargo build -p test-driver-nodejs
+cd api/node
+npm install
 ```
 
-after the steps above were done as `slint-node` will need the build results
-of the default build step to function.
+To build your own project against the Git version of the Slint Node.js API, add the path to the `api/node` folder
+in the dependencies section of your `package.json`:
+
+```json
+    "dependencies": {
+        "slint-ui": "/path/to/api/node"
+    },
+```
 
 ## Cross-Compiling
 
