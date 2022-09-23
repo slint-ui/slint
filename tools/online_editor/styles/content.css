@@ -75,6 +75,35 @@
   width: 100%;
 }
 
+.properties-editor .element-header {
+  background: #3333ff;
+  color: #ffffff;
+  font-size: 120%;
+
+  width: 100%;
+  height: 50px;
+}
+
+.properties-editor .name-column {
+  white-space: nowrap;
+}
+
+.properties-editor .type-column {
+  white-space: nowrap;
+}
+
+.properties-editor .value-column {
+  width: 90%;
+}
+
+.properties-editor .properties-table {
+  width: 100%;
+}
+
+.properties-editor .properties-table .undefined {
+  background-color: #b0b0b0;
+}
+
 .help > div {
   background: #f1c4f1;
 }

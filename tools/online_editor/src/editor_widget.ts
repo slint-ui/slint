@@ -3,10 +3,11 @@
 
 // cSpell: ignore lumino mimetypes printerdemo
 
+import { slint_language } from "./highlighting";
+import { PropertyQuery } from "./lsp_integration";
+
 import { BoxLayout, TabBar, Title, Widget } from "@lumino/widgets";
 import { Message } from "@lumino/messaging";
-
-import { slint_language } from "./highlighting";
 
 import "monaco-editor/esm/vs/editor/editor.all.js";
 import "monaco-editor/esm/vs/editor/standalone/browser/accessibilityHelp/accessibilityHelp.js";
@@ -33,6 +34,8 @@ import {
   BrowserMessageWriter,
 } from "vscode-languageserver-protocol/browser";
 
+import { commands } from "vscode";
+
 interface ModelAndViewState {
   model: monaco.editor.ITextModel;
   view_state: monaco.editor.ICodeEditorViewState | null;
@@ -56,8 +59,11 @@ export Demo := Window {
 }
 `;
 
-function createModel(source: string): monaco.editor.ITextModel {
-  return monaco.editor.createModel(source, "slint");
+function createModel(
+  source: string,
+  uri?: monaco.Uri,
+): monaco.editor.ITextModel {
+  return monaco.editor.createModel(source, "slint", uri);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -90,6 +96,13 @@ class EditorPaneWidget extends Widget {
   #keystroke_timeout_handle: number | undefined;
   #base_url: string | undefined;
   #edit_era: number;
+  #disposables: monaco.IDisposable[] = [];
+  #current_properties = "";
+
+  onNewPropertyData = (_h: unknown, _p: PropertyQuery) => {
+      // empty default
+  };
+
   readonly editor_ready: Promise<void>;
 
   #onRenderRequest?: (
@@ -131,12 +144,28 @@ class EditorPaneWidget extends Widget {
     this.editor_ready = this.setup_editor(this.contentNode);
   }
 
+  dispose() {
+    this.#disposables.forEach((d: monaco.IDisposable) => d.dispose());
+    this.#disposables = [];
+    this.#editor?.dispose();
+    this.#editor = null;
+    super.dispose();
+  }
+
   protected get contentNode(): HTMLDivElement {
     return this.node.getElementsByTagName("div")[0] as HTMLDivElement;
   }
 
   get current_editor_content(): string {
     return this.#editor?.getModel()?.getValue() || "";
+  }
+
+  get supported_actions(): string[] | undefined {
+    return this.#editor?.getSupportedActions().map((a) => a.id);
+  }
+
+  get supported_commands(): Thenable<string[]> {
+    return commands.getCommands();
   }
 
   compile() {
@@ -264,15 +293,50 @@ class EditorPaneWidget extends Widget {
     monaco.languages.onLanguage("slint", () => {
       monaco.languages.setMonarchTokensProvider("slint", slint_language);
     });
+    MonacoServices.install();
 
-    this.#editor = monaco.editor.create(container, {
+    const editor = monaco.editor.create(container, {
       language: "slint",
       glyphMargin: true,
       lightbulb: {
         enabled: true,
       },
     });
-    MonacoServices.install();
+
+    this.#editor = editor;
+
+    this.#disposables.push(
+      editor.onDidChangeCursorPosition(
+        (pos: monaco.editor.ICursorPositionChangedEvent) => {
+          const model = editor.getModel();
+          if (model != null) {
+            const offset =
+              model.getOffsetAt(pos.position) -
+              model.getOffsetAt({
+                lineNumber: pos.position.lineNumber,
+                column: 0,
+              });
+            const uri = model.uri;
+
+            commands
+              .executeCommand(
+                "queryProperties",
+                uri.toString(),
+                pos.position.lineNumber - 1,
+                offset,
+              )
+              .then((r) => {
+                const result = r as PropertyQuery;
+                const result_str = JSON.stringify(result);
+                if (this.#current_properties != result_str) {
+                  this.#current_properties = result_str;
+                  this.onNewPropertyData(model as unknown, result);
+                }
+              });
+          }
+        },
+      ),
+    );
 
     function createLanguageClient(
       transports: MessageTransports,
@@ -302,24 +366,26 @@ class EditorPaneWidget extends Widget {
       { type: "module" },
     );
 
-    const ensure_lsp_running = new Promise<void>((resolve_lsp_worker_promise) => {
-      lsp_worker.onmessage = (m) => {
-        // We cannot start sending messages to the client before we start listening which
-        // the server only does in a future after the wasm is loaded.
-        if (m.data === "OK") {
-          const reader = new BrowserMessageReader(lsp_worker);
-          const writer = new BrowserMessageWriter(lsp_worker);
+    const ensure_lsp_running = new Promise<void>(
+      (resolve_lsp_worker_promise) => {
+        lsp_worker.onmessage = (m) => {
+          // We cannot start sending messages to the client before we start listening which
+          // the server only does in a future after the wasm is loaded.
+          if (m.data === "OK") {
+            const reader = new BrowserMessageReader(lsp_worker);
+            const writer = new BrowserMessageWriter(lsp_worker);
 
-          const languageClient = createLanguageClient({ reader, writer });
+            const languageClient = createLanguageClient({ reader, writer });
 
-          languageClient.start();
+            languageClient.start();
 
-          reader.onClose(() => languageClient.stop());
+            reader.onClose(() => languageClient.stop());
 
-          resolve_lsp_worker_promise();
-        }
-      };
-    });
+            resolve_lsp_worker_promise();
+          }
+        };
+      },
+    );
 
     await ensure_lsp_running;
   }
@@ -364,10 +430,15 @@ class EditorPaneWidget extends Widget {
     }
 
     if (era == this.#edit_era) {
-      const model = createModel(doc);
+      const model = createModel(doc, monaco.Uri.parse(url));
       this.add_model(url, model);
     }
     return doc;
+  }
+
+  textAt(handle: unknown, start: number, end: number): string {
+    const model = handle as monaco.editor.ITextModel;
+    return model.getValue().substring(start, end);
   }
 }
 
@@ -480,11 +551,19 @@ export class EditorWidget extends Widget {
     return this.#editor.editor_ready;
   }
 
+  get supported_actions(): string[] | undefined {
+    return this.#editor.supported_actions;
+  }
+
+  get supported_commands(): Thenable<string[]> {
+    return this.#editor.supported_commands;
+  }
+
   protected load_from_url(url: string) {
     this.#editor.clear_models();
     fetch(url).then((x) =>
       x.text().then((y) => {
-        const model = createModel(y);
+        const model = createModel(y, monaco.Uri.parse(url));
         this.#editor.add_model(url, model);
       }),
     );
@@ -530,5 +609,15 @@ export class EditorWidget extends Widget {
     ) => Promise<monaco.editor.IMarkerData[]>,
   ) {
     this.#editor.onRenderRequest = request;
+  }
+
+  set onNewPropertyData(
+    handler: (_h: unknown, _properties: PropertyQuery) => void,
+  ) {
+    this.#editor.onNewPropertyData = handler;
+  }
+
+  textAt(handle: unknown, start: number, end: number): string {
+    return this.#editor.textAt(handle, start, end);
   }
 }

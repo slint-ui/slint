@@ -8,6 +8,7 @@ import { DockPanel, Menu, MenuBar, SplitPanel, Widget } from "@lumino/widgets";
 
 import { EditorWidget } from "./editor_widget";
 import { PreviewWidget } from "./preview_widget";
+import { PropertiesWidget } from "./properties_widget";
 import { WelcomeWidget } from "./welcome_widget";
 
 const commands = new CommandRegistry();
@@ -51,10 +52,17 @@ function create_share_menu(): Menu {
 function main() {
   const preview = new PreviewWidget();
   const editor = new EditorWidget();
+  const properties = new PropertiesWidget();
   const welcome = new WelcomeWidget();
 
   editor.onRenderRequest = (style, source, url, fetcher) => {
     return preview.render(style, source, url, fetcher);
+  };
+  editor.onNewPropertyData = (h, p) => {
+    properties.set_properties(h, p);
+  };
+  properties.onQueryText = (handler, start, end) => {
+    return editor.textAt(handler, start, end);
   };
 
   commands.addCommand("slint:compile", {
@@ -107,6 +115,7 @@ function main() {
   const dock = new DockPanel();
   dock.addWidget(preview);
   dock.addWidget(welcome, { mode: "split-bottom", ref: preview });
+  dock.addWidget(properties, { mode: "tab-after", ref: welcome });
 
   const main = new SplitPanel({ orientation: "horizontal" });
   main.id = "main";
@@ -122,8 +131,9 @@ function main() {
   });
 
   editor.editor_ready.then(() => {
-    document.body.getElementsByClassName("loader")[0].remove()
+    document.body.getElementsByClassName("loader")[0].remove();
   });
+
   Widget.attach(menu_bar, document.body);
   Widget.attach(main, document.body);
 }
