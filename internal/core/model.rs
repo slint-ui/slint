@@ -339,6 +339,17 @@ impl<T: 'static> VecModel<T> {
     }
 }
 
+impl<T: Clone + 'static> VecModel<T> {
+    /// Appends all the elements in the slice to the model
+    pub fn extend_from_slice(&self, src: &[T]) {
+        let mut array = self.array.borrow_mut();
+        let old_idx = array.len();
+
+        array.extend_from_slice(src);
+        self.notify.row_added(old_idx, src.len());
+    }
+}
+
 impl<T> From<Vec<T>> for VecModel<T> {
     fn from(array: Vec<T>) -> Self {
         VecModel { array: RefCell::new(array), notify: Default::default() }
