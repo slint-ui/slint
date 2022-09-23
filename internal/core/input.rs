@@ -597,7 +597,7 @@ fn send_mouse_event_to_item(
                     }
                 },
             );
-            result.delayed = Some((timer, mouse_event));
+            result.delayed = Some((timer, event_for_children));
             result
                 .item_stack
                 .push((item_rc.downgrade(), InputEventFilterResult::DelayForwarding(duration)));
