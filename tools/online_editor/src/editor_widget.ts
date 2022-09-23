@@ -99,8 +99,9 @@ class EditorPaneWidget extends Widget {
   #disposables: monaco.IDisposable[] = [];
   #current_properties = "";
 
-  // eslint-disable-next-line
-  onNewPropertyData = (_h: unknown, _p: PropertyQuery) => {};
+  onNewPropertyData = (_h: unknown, _p: PropertyQuery) => {
+      // empty default
+  };
 
   readonly editor_ready: Promise<void>;
 
