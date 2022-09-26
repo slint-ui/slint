@@ -26,10 +26,6 @@ use std::io::Write;
 use std::path::Path;
 use std::rc::Rc;
 
-mod from_0_0_5;
-mod from_0_0_6;
-mod from_0_1_0;
-
 mod experiments {
     pub(super) mod lookup_changes;
 }
@@ -43,10 +39,6 @@ pub struct Cli {
     /// modify the file inline instead of printing to stdout
     #[clap(short, long, action)]
     inline: bool,
-
-    /// Version to update from
-    #[clap(long, name = "version", action)]
-    from: String,
 
     /// Do the lookup changes from issue #273
     #[clap(long, action)]
@@ -301,15 +293,6 @@ fn fold_node(
     state: &mut State,
     args: &Cli,
 ) -> std::io::Result<bool> {
-    if args.from == "0.0.5" && from_0_0_5::fold_node(node, file, state)? {
-        return Ok(true);
-    }
-    if args.from.as_str() <= "0.0.6" && from_0_0_6::fold_node(node, file, state)? {
-        return Ok(true);
-    }
-    if args.from.as_str() <= "0.1.6" && from_0_1_0::fold_node(node, file, state)? {
-        return Ok(true);
-    }
     if (args.experimental_lookup_changes || args.experimental_move_declaration)
         && experiments::lookup_changes::fold_node(node, file, state, args)?
     {
