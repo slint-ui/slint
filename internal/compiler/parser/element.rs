@@ -70,6 +70,18 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 _ if p.peek().as_str() == "if" => {
                     parse_if_element(&mut *p);
                 }
+                SyntaxKind::Identifier if p.nth(1).as_str() == "property" => {
+                    if matches!(p.peek().as_str(), "input" | "output" | "inout") {
+                        // TODO: in/out property #191
+                        parse_property_declaration(&mut *p);
+                    } else {
+                        p.consume();
+                        if !had_parse_error {
+                            p.error("Parse error");
+                            had_parse_error = true;
+                        }
+                    }
+                }
                 SyntaxKind::LBracket if p.peek().as_str() == "states" => {
                     parse_states(&mut *p);
                 }
@@ -322,14 +334,18 @@ fn parse_callback_declaration(p: &mut impl Parser) {
 
 #[cfg_attr(test, parser_test)]
 /// ```test,PropertyDeclaration
+/// input property <int> xxx;
 /// property<int> foobar;
 /// property<string> text: "Something";
 /// property<string> text <=> two.way;
 /// property alias <=> two.way;
 /// ```
 fn parse_property_declaration(p: &mut impl Parser) {
-    debug_assert_eq!(p.peek().as_str(), "property");
     let mut p = p.start_node(SyntaxKind::PropertyDeclaration);
+    if p.peek().as_str() != "property" {
+        p.consume(); // input/output/inout
+    }
+    debug_assert_eq!(p.peek().as_str(), "property");
     p.consume(); // property
 
     if p.test(SyntaxKind::LAngle) {
