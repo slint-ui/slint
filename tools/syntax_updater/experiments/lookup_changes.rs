@@ -196,10 +196,12 @@ fn move_properties_to_root(
     file: &mut impl Write,
     args: &Cli,
 ) -> std::io::Result<bool> {
-    if state.lookup_change.property_mappings.is_empty() {
+    if state.lookup_change.property_mappings.is_empty() && !args.new_component_declaration {
         return Ok(false);
     }
     let mut seen_brace = false;
+    let mut generated_sub_element = false;
+    let element = node.clone().into();
     for c in node.children_with_tokens() {
         let k = c.kind();
         if k == SyntaxKind::LBrace {
@@ -231,7 +233,22 @@ fn move_properties_to_root(
                 state.current_elem = old_current_element;
             }
             seen_brace = false;
-        } else if k == SyntaxKind::RBrace {
+        }
+
+        if args.new_component_declaration {
+            if super::new_component_declaration::process_component_node(
+                &element,
+                &c,
+                file,
+                &mut generated_sub_element,
+                state,
+                args,
+            )? {
+                continue;
+            }
+        }
+
+        if k == SyntaxKind::RBrace {
             file.write_all(
                 &**std::mem::take(&mut state.lookup_change.extra_component_stuff).borrow(),
             )?;

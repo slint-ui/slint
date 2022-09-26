@@ -29,6 +29,7 @@ use std::rc::Rc;
 mod experiments {
     pub(super) mod input_output_properties;
     pub(super) mod lookup_changes;
+    pub(super) mod new_component_declaration;
 }
 
 #[derive(clap::Parser)]
@@ -52,6 +53,10 @@ pub struct Cli {
     /// Mark top level property as `inout` #191
     #[clap(long, action)]
     input_output_properties: bool,
+
+    /// New component declaration #1682 (implies fully_qualify)
+    #[clap(long, action)]
+    new_component_declaration: bool,
 }
 
 fn main() -> std::io::Result<()> {
@@ -303,7 +308,12 @@ fn fold_node(
     {
         return Ok(true);
     }
-    if (args.fully_qualify || args.move_declaration)
+    if args.new_component_declaration
+        && experiments::new_component_declaration::fold_node(node, file, state, args)?
+    {
+        return Ok(true);
+    }
+    if (args.fully_qualify || args.move_declaration || args.new_component_declaration)
         && experiments::lookup_changes::fold_node(node, file, state, args)?
     {
         return Ok(true);
