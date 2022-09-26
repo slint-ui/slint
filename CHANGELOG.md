@@ -7,6 +7,8 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
+  - Added `slint::FilterModel` to the C++ API.
+
 ### Fixed
 
  - TextInput now show the Text mouse cursor
