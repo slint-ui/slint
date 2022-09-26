@@ -5,13 +5,9 @@
 
 import { Widget } from "@lumino/widgets";
 
-import { Element, Property, PropertyQuery } from "./lsp_integration";
+import { BindingTextProvider, Element, Property, PropertyQuery } from "./lsp_integration";
 
 export class PropertiesWidget extends Widget {
-  #onQueryText = (_handler: unknown, _start: number, _end: number) => {
-    return "";
-  };
-
   static createNode(): HTMLElement {
     const node = document.createElement("div");
     const content = document.createElement("div");
@@ -75,7 +71,7 @@ export class PropertiesWidget extends Widget {
     }
   }
 
-  private populate_table(handler: unknown, properties: Property[]) {
+  private populate_table(binding_text_provider: BindingTextProvider, properties: Property[]) {
     const table = this.tableNode;
 
     table.innerHTML = "";
@@ -103,10 +99,8 @@ export class PropertiesWidget extends Widget {
       const value_field = document.createElement("td");
       value_field.className = "value-column";
       if (p.defined_at != null) {
-        value_field.innerText = this.#onQueryText(
-          handler,
-          p.defined_at.expression_start,
-          p.defined_at.expression_end,
+        value_field.innerText = binding_text_provider.binding_text(
+          p.defined_at
         );
       } else {
         value_field.innerText = "";
@@ -117,12 +111,8 @@ export class PropertiesWidget extends Widget {
     }
   }
 
-  set_properties(handler: unknown, properties: PropertyQuery) {
+  set_properties(binding_text_provider: BindingTextProvider, properties: PropertyQuery) {
     this.set_header(properties.element);
-    this.populate_table(handler, properties.properties);
-  }
-
-  set onQueryText(f: (_h: unknown, _s: number, _e: number) => string) {
-    this.#onQueryText = f;
+    this.populate_table(binding_text_provider, properties.properties);
   }
 }

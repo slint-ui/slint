@@ -30,3 +30,7 @@ export interface PropertyQuery {
   element: Element | null;
   properties: Property[];
 }
+
+export interface BindingTextProvider {
+  binding_text(_location: DefinitionPosition): string;
+}
