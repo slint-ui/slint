@@ -58,11 +58,8 @@ function main() {
   editor.onRenderRequest = (style, source, url, fetcher) => {
     return preview.render(style, source, url, fetcher);
   };
-  editor.onNewPropertyData = (h, p) => {
-    properties.set_properties(h, p);
-  };
-  properties.onQueryText = (handler, start, end) => {
-    return editor.textAt(handler, start, end);
+  editor.onNewPropertyData = (binding_text_provider, p) => {
+    properties.set_properties(binding_text_provider, p);
   };
 
   commands.addCommand("slint:compile", {

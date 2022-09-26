@@ -4,7 +4,7 @@
 // cSpell: ignore lumino mimetypes printerdemo
 
 import { slint_language } from "./highlighting";
-import { PropertyQuery } from "./lsp_integration";
+import { PropertyQuery, BindingTextProvider, DefinitionPosition } from "./lsp_integration";
 
 import { BoxLayout, TabBar, Title, Widget } from "@lumino/widgets";
 import { Message } from "@lumino/messaging";
@@ -88,6 +88,8 @@ function tabTitleFromURL(url: string): string {
   }
 }
 
+type PropertyDataNotifier = (_binding_text_provider: BindingTextProvider, _p: PropertyQuery) => void;
+
 class EditorPaneWidget extends Widget {
   auto_compile = true;
   #style = "fluent";
@@ -99,9 +101,7 @@ class EditorPaneWidget extends Widget {
   #disposables: monaco.IDisposable[] = [];
   #current_properties = "";
 
-  onNewPropertyData = (_h: unknown, _p: PropertyQuery) => {
-      // empty default
-  };
+  onNewPropertyData: PropertyDataNotifier | null = null;
 
   readonly editor_ready: Promise<void>;
 
@@ -330,7 +330,7 @@ class EditorPaneWidget extends Widget {
                 const result_str = JSON.stringify(result);
                 if (this.#current_properties != result_str) {
                   this.#current_properties = result_str;
-                  this.onNewPropertyData(model as unknown, result);
+                  this.onNewPropertyData?.(new ModelBindingTextProvider(model), result);
                 }
               });
           }
@@ -612,12 +612,20 @@ export class EditorWidget extends Widget {
   }
 
   set onNewPropertyData(
-    handler: (_h: unknown, _properties: PropertyQuery) => void,
+    handler: PropertyDataNotifier,
   ) {
     this.#editor.onNewPropertyData = handler;
   }
 
   textAt(handle: unknown, start: number, end: number): string {
     return this.#editor.textAt(handle, start, end);
+  }
+}
+
+class ModelBindingTextProvider implements BindingTextProvider {
+  #model: monaco.editor.ITextModel
+  constructor(model: monaco.editor.ITextModel) { this.#model = model; }
+  binding_text(location: DefinitionPosition): string {
+    return this.#model.getValue().substring(location.expression_start, location.expression_end);
   }
 }
