@@ -27,6 +27,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 mod experiments {
+    pub(super) mod input_output_properties;
     pub(super) mod lookup_changes;
 }
 
@@ -42,11 +43,15 @@ pub struct Cli {
 
     /// Do the lookup changes from issue #273
     #[clap(long, action)]
-    experimental_lookup_changes: bool,
+    fully_qualify: bool,
 
-    /// Move all properties declaration to root
+    /// Move all properties declaration to root (implies fully_qualify)
     #[clap(long, action)]
-    experimental_move_declaration: bool,
+    move_declaration: bool,
+
+    /// Mark top level property as `inout` #191
+    #[clap(long, action)]
+    input_output_properties: bool,
 }
 
 fn main() -> std::io::Result<()> {
@@ -164,7 +169,7 @@ fn process_file(
     let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(path), &mut diag);
     let len = syntax_node.node.text_range().end().into();
     let mut state = State::default();
-    if args.experimental_lookup_changes {
+    if args.fully_qualify {
         let doc = syntax_node.clone().into();
         let mut type_loader = TypeLoader::new(
             i_slint_compiler::typeregister::TypeRegister::builtin(),
@@ -233,13 +238,13 @@ fn visit_node(
                     syntax_nodes::Component::from(node.clone()).DeclaredIdentifier().to_string();
                 state.current_component =
                     doc.inner_components.iter().find(|c| c.id == component_name).cloned();
-                if args.experimental_move_declaration {
+                if args.move_declaration {
                     experiments::lookup_changes::collect_movable_properties(&mut state);
                 }
             }
         }
         SyntaxKind::RepeatedElement | SyntaxKind::ConditionalElement => {
-            if args.experimental_move_declaration {
+            if args.move_declaration {
                 experiments::lookup_changes::collect_movable_properties(&mut state);
             }
         }
@@ -293,7 +298,12 @@ fn fold_node(
     state: &mut State,
     args: &Cli,
 ) -> std::io::Result<bool> {
-    if (args.experimental_lookup_changes || args.experimental_move_declaration)
+    if args.input_output_properties
+        && experiments::input_output_properties::fold_node(node, file, state, args)?
+    {
+        return Ok(true);
+    }
+    if (args.fully_qualify || args.move_declaration)
         && experiments::lookup_changes::fold_node(node, file, state, args)?
     {
         return Ok(true);
