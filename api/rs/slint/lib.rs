@@ -115,7 +115,7 @@ as a struct with the same name as the component.
 
 For example, if you have
 
-```slint
+```slint,no-preview
 export MyComponent := Window { /*...*/ }
 ```
 
