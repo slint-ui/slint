@@ -7,7 +7,7 @@
 
 #include <slint.h>
 
-struct ModelObserver : public slint::private_api::AbstractRepeaterView
+struct ModelObserver : public slint::private_api::ModelChangeListener
 {
     void row_added(int index, int count) override { added_rows.push_back(Range { index, count }); }
     void row_changed(int index) override { changed_rows.push_back(index); }

@@ -436,13 +436,13 @@ inline Value::Value(const std::shared_ptr<slint::Model<Value>> &model)
 {
     using cbindgen_private::ModelAdaptorVTable;
     using vtable::VRef;
-    struct ModelWrapper : private_api::AbstractRepeaterView
+    struct ModelWrapper : private_api::ModelChangeListener
     {
         std::shared_ptr<slint::Model<Value>> model;
         cbindgen_private::ModelNotifyOpaque notify;
         // This kind of mean that the rust code has ownership of "this" until the drop function is
         // called
-        std::shared_ptr<AbstractRepeaterView> self;
+        std::shared_ptr<ModelChangeListener> self;
         ~ModelWrapper() { cbindgen_private::slint_interpreter_model_notify_destructor(&notify); }
 
         void row_added(int index, int count) override

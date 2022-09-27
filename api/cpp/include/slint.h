@@ -595,15 +595,15 @@ inline float layout_cache_access(const SharedVector<float> &cache, int offset, i
 }
 
 // models
-struct AbstractRepeaterView
+struct ModelChangeListener
 {
-    virtual ~AbstractRepeaterView() = default;
+    virtual ~ModelChangeListener() = default;
     virtual void row_added(int index, int count) = 0;
     virtual void row_removed(int index, int count) = 0;
     virtual void row_changed(int index) = 0;
     virtual void reset() = 0;
 };
-using ModelPeer = std::weak_ptr<AbstractRepeaterView>;
+using ModelPeer = std::weak_ptr<ModelChangeListener>;
 
 template<typename M>
 auto access_array_index(const M &model, int index)
@@ -834,7 +834,7 @@ class FilterModel;
 
 namespace private_api {
 template<typename ModelData>
-struct FilterModelInner : private_api::AbstractRepeaterView
+struct FilterModelInner : private_api::ModelChangeListener
 {
     FilterModelInner(std::shared_ptr<slint::Model<ModelData>> source_model,
                      std::function<bool(const ModelData &)> filter_fn,
@@ -989,7 +989,7 @@ class Repeater
 {
     private_api::Property<std::shared_ptr<Model<ModelData>>> model;
 
-    struct RepeaterInner : AbstractRepeaterView
+    struct RepeaterInner : ModelChangeListener
     {
         enum class State { Clean, Dirty };
         struct ComponentWithState
