@@ -18,6 +18,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <span>
+#include <functional>
 
 namespace slint::cbindgen_private {
 // Workaround https://github.com/eqrion/cbindgen/issues/43
