@@ -81,12 +81,22 @@ SCENARIO("Filtering Insert")
     REQUIRE(observer->changed_rows.empty());
     REQUIRE(observer->removed_rows.empty());
     REQUIRE(!observer->model_reset);
+    observer->clear();
 
     REQUIRE(even_rows->row_count() == 4);
     REQUIRE(even_rows->row_data(0) == 2);
     REQUIRE(even_rows->row_data(1) == 10);
     REQUIRE(even_rows->row_data(2) == 4);
     REQUIRE(even_rows->row_data(3) == 6);
+
+    // insert odd number -> no change
+    vec_model->insert(0, 1);
+
+    REQUIRE(observer->added_rows.empty());
+    REQUIRE(observer->changed_rows.empty());
+    REQUIRE(observer->removed_rows.empty());
+    REQUIRE(!observer->model_reset);
+    observer->clear();
 }
 
 SCENARIO("Filtering Change")

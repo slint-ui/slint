@@ -859,6 +859,10 @@ struct FilterModelInner : private_api::AbstractRepeaterView
             }
         }
 
+        if (added_accepted_rows.empty()) {
+            return;
+        }
+
         auto insertion_point = std::lower_bound(accepted_rows.begin(), accepted_rows.end(), index);
 
         insertion_point = accepted_rows.insert(insertion_point, added_accepted_rows.begin(),
