@@ -181,6 +181,9 @@ SCENARIO("Filtering Model Remove")
     auto even_rows = std::make_shared<slint::FilterModel<int>>(
             vec_model, [](auto value) { return value % 2 == 0; });
 
+    auto observer = std::make_shared<ModelObserver>();
+    even_rows->attach_peer(observer);
+
     REQUIRE(even_rows->row_count() == 3);
     REQUIRE(even_rows->row_data(0) == 2);
     REQUIRE(even_rows->row_data(1) == 4);
@@ -188,6 +191,13 @@ SCENARIO("Filtering Model Remove")
 
     // Erase unrelated row
     vec_model->erase(0);
+
+    REQUIRE(observer->added_rows.empty());
+    REQUIRE(observer->changed_rows.empty());
+    REQUIRE(observer->removed_rows.empty());
+    REQUIRE(!observer->model_reset);
+    observer->clear();
+
     REQUIRE(even_rows->row_count() == 3);
     REQUIRE(even_rows->row_data(0) == 2);
     REQUIRE(even_rows->row_data(1) == 4);
@@ -195,6 +205,14 @@ SCENARIO("Filtering Model Remove")
 
     // Erase trailing even 6
     vec_model->erase(4);
+
+    REQUIRE(observer->added_rows.empty());
+    REQUIRE(observer->changed_rows.empty());
+    REQUIRE(observer->removed_rows.size() == 1);
+    REQUIRE(observer->removed_rows[0] == ModelObserver::Range { 2, 1 });
+    REQUIRE(!observer->model_reset);
+    observer->clear();
+
     REQUIRE(even_rows->row_count() == 2);
     REQUIRE(even_rows->row_data(0) == 2);
     REQUIRE(even_rows->row_data(1) == 4);

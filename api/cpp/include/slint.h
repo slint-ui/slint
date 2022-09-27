@@ -899,10 +899,12 @@ struct FilterModelInner : private_api::AbstractRepeaterView
 
         auto mapped_removed_len = mapped_row_end - mapped_row_start;
 
-        auto it = accepted_rows.erase(mapped_row_start, mapped_row_end);
         auto mapped_removed_index =
-                it != accepted_rows.end() ? std::optional<int>(*it) : std::nullopt;
+                (mapped_row_start != accepted_rows.end() && *mapped_row_start == index)
+                ? std::optional<int>(mapped_row_start - accepted_rows.begin())
+                : std::nullopt;
 
+        auto it = accepted_rows.erase(mapped_row_start, mapped_row_end);
         for (; it != accepted_rows.end(); ++it) {
             *it -= count;
         }
