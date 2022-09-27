@@ -5,6 +5,9 @@ use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::object_tree::{Element, ElementRc};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind};
 
+#[cfg(target_arch = "wasm32")]
+use crate::wasm_prelude::*;
+
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub(crate) struct DefinitionInformation {
     start_offset: u32,
@@ -65,10 +68,17 @@ fn get_element_properties(element: &Element) -> impl Iterator<Item = PropertyInf
 
     element.property_declarations.iter().map(move |(name, value)| {
         let declared_at = file.as_ref().and_then(|file| {
-            value
-                .type_node()
-                .map(|n| n.text_range().start().into())
-                .map(|p| DeclarationInformation { uri: file.clone(), start_offset: p })
+            value.type_node().map(|n| n.text_range().start().into()).map(|p| {
+                DeclarationInformation {
+                    uri: lsp_types::Url::from_file_path(file)
+                        .unwrap_or_else(|_| {
+                            lsp_types::Url::parse("file:///)")
+                                .expect("That should have been valid as URL!")
+                        })
+                        .to_string(),
+                    start_offset: p,
+                }
+            })
         });
         PropertyInformation {
             name: name.clone(),
@@ -154,7 +164,7 @@ fn insert_property_definitions(element: &Element, properties: &mut Vec<PropertyI
 }
 
 fn get_properties(element: &ElementRc) -> Vec<PropertyInformation> {
-    let mut result: Vec<_> = get_reserved_properties().collect();
+    let mut result = vec![];
 
     let mut current_element = Some(element.clone());
     while let Some(e) = current_element {
@@ -187,7 +197,14 @@ fn get_properties(element: &ElementRc) -> Vec<PropertyInformation> {
         }
     }
 
-    result.sort_by(|a, b| a.name.cmp(&b.name));
+    result.extend(get_reserved_properties()); // Add reserved properties last!
+
+    // We can have duplicate properties that were defined and then changed further up the
+    // Element tree. So we need to remove duplicates.
+    result.sort_by(|a, b| b.name.cmp(&a.name)); // Sort is stable, sort `z` before `a`!
+    result.reverse(); // Now the property definition is first and `a` is before `z`
+    result.dedup_by(|a, b| a.name == b.name); // LEave the property definition in place, remove
+                                              // re-definitions
 
     insert_property_definitions(&element.borrow(), &mut result);
 
@@ -211,7 +228,7 @@ pub(crate) fn query_properties(element: &ElementRc) -> Result<QueryPropertyRespo
 mod tests {
     use super::*;
 
-    use crate::test::complex_document_cache;
+    use crate::test::{complex_document_cache, loaded_document_cache};
 
     fn find_property<'a>(
         properties: &'a [PropertyInformation],
@@ -220,8 +237,12 @@ mod tests {
         properties.iter().find(|p| p.name == name)
     }
 
-    fn properties_at_position(line: u32, character: u32) -> Option<Vec<PropertyInformation>> {
-        let (mut dc, url, _) = complex_document_cache("fluent");
+    fn properties_at_position_in_cache(
+        line: u32,
+        character: u32,
+        mut dc: crate::server_loop::DocumentCache,
+        url: lsp_types::Url,
+    ) -> Option<Vec<PropertyInformation>> {
         let element = crate::server_loop::element_at_position(
             &mut dc,
             lsp_types::TextDocumentIdentifier { uri: url },
@@ -229,6 +250,11 @@ mod tests {
         )
         .ok()?;
         Some(get_properties(&element))
+    }
+
+    fn properties_at_position(line: u32, character: u32) -> Option<Vec<PropertyInformation>> {
+        let (dc, url, _) = complex_document_cache("fluent");
+        properties_at_position_in_cache(line, character, dc, url)
     }
 
     #[test]
@@ -251,5 +277,84 @@ mod tests {
 
         let def_at = property.defined_at.as_ref().unwrap();
         assert_eq!((def_at.expression_end - def_at.expression_start) as usize, "lightblue".len());
+    }
+
+    #[test]
+    fn test_get_property_definition() {
+        let (dc, url, _) = loaded_document_cache("fluent",
+            r#"import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
+
+Base1 := Rectangle {
+    property<int> foo = 42;
+}
+
+Base2 := Base1 {
+    foo: 23;
+}
+
+MainWindow := Window {
+    property <duration> total-time: slider.value * 1s;
+    property <duration> elapsed-time;
+
+    callback tick(duration);
+    tick(passed-time) => {
+        elapsed-time += passed-time;
+        elapsed-time = min(elapsed-time, total-time);
+    }
+
+    VerticalBox {
+        HorizontalBox {
+            padding-left: 0;
+            Text { text: "Elapsed Time:"; }
+            Base2 {
+                foo: 15;
+                min-width: 200px;
+                max-height: 30px;
+                background: gray;
+                Rectangle {
+                    height: 100%;
+                    width: parent.width * (elapsed-time/total-time);
+                    background: lightblue;
+                }
+            }
+        }
+        Text{
+            text: (total-time / 1s) + "s";
+        }
+        HorizontalBox {
+            padding-left: 0;
+            Text {
+                text: "Duration:";
+                vertical-alignment: center;
+            }
+            slider := Slider {
+                maximum: 30s / 1s;
+                value: 10s / 1s;
+                changed(new-duration) => {
+                    root.total-time = new-duration * 1s;
+                    root.elapsed-time = min(root.elapsed-time, root.total-time);
+                }
+            }
+        }
+        Button {
+            text: "Reset";
+            clicked => {
+                elapsed-time = 0
+            }
+        }
+    }
+}
+            "#.to_string());
+        let file_url = url.clone();
+        let result = properties_at_position_in_cache(28, 15, dc, url).unwrap();
+
+        let foo_property = find_property(&result, "foo").unwrap();
+
+        assert_eq!(foo_property.type_name, "int");
+
+        let declaration = foo_property.declared_at.as_ref().unwrap();
+        assert_eq!(declaration.uri, file_url.to_string());
+        assert_eq!(declaration.start_offset, 125); // This should probably point to the start of
+                                                   // `property<int> foo = 42`, not to the `<`
     }
 }
