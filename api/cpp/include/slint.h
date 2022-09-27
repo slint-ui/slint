@@ -1071,9 +1071,9 @@ struct SortModelInner : private_api::ModelChangeListener
         }
 
         // Adjust the existing sorted row indices to match the updated source model
-        for (auto it = sorted_rows.begin(), end = sorted_rows.end(); it != end; ++it) {
-            if (*it >= first_inserted_row)
-                *it += count;
+        for (auto &row : sorted_rows) {
+            if (row >= first_inserted_row)
+                row += count;
         }
 
         for (int row = first_inserted_row; row < first_inserted_row + count; ++row) {
