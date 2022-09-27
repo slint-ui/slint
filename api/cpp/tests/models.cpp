@@ -366,11 +366,10 @@ SCENARIO("Sorted Model Change")
     /// Change the entry with the value 4 to 10 -> maintain order
     vec_model->set_row_data(1, 10);
 
-    REQUIRE(observer->added_rows.size() == 1);
-    REQUIRE(observer->removed_rows[0] == ModelObserver::Range { 3, 1 });
-    REQUIRE(observer->changed_rows.empty());
-    REQUIRE(observer->removed_rows[0] == ModelObserver::Range { 3, 1 });
-    REQUIRE(observer->removed_rows.size() == 1);
+    REQUIRE(observer->added_rows.empty());
+    REQUIRE(observer->changed_rows.size() == 1);
+    REQUIRE(observer->changed_rows[0] == 3);
+    REQUIRE(observer->removed_rows.empty());
     REQUIRE(!observer->model_reset);
     observer->clear();
 

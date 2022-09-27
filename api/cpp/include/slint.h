@@ -1097,13 +1097,9 @@ struct SortModelInner : private_api::ModelChangeListener
             return;
         }
 
-        for (auto it = sorted_rows.begin(); it != sorted_rows.end(); ++it) {
-            if (*it == changed_row) {
-                it = sorted_rows.erase(it);
-                target_model.row_removed(it - sorted_rows.begin(), 1);
-                break;
-            }
-        }
+        auto removed_row_it =
+                sorted_rows.erase(std::find(sorted_rows.begin(), sorted_rows.end(), changed_row));
+        auto removed_row = std::distance(sorted_rows.begin(), removed_row_it);
 
         ModelData changed_value = *source_model->row_data(changed_row);
         auto insertion_point =
@@ -1114,7 +1110,14 @@ struct SortModelInner : private_api::ModelChangeListener
                                  });
 
         insertion_point = sorted_rows.insert(insertion_point, changed_row);
-        target_model.row_added(insertion_point - sorted_rows.begin(), 1);
+        auto inserted_row = std::distance(sorted_rows.begin(), insertion_point);
+
+        if (inserted_row == removed_row) {
+            target_model.row_changed(removed_row);
+        } else {
+            target_model.row_removed(removed_row, 1);
+            target_model.row_added(inserted_row, 1);
+        }
     }
     void row_removed(int first_removed_row, int count) override
     {
