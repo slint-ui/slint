@@ -952,7 +952,7 @@ public:
     /// FilterModel.
     FilterModel(std::shared_ptr<Model<ModelData>> source_model,
                 std::function<bool(const ModelData &)> filter_fn)
-        : inner(std::make_unique<private_api::FilterModelInner<ModelData>>(
+        : inner(std::make_shared<private_api::FilterModelInner<ModelData>>(
                 std::move(source_model), std::move(filter_fn), *this))
     {
         inner->source_model->attach_peer(inner);
