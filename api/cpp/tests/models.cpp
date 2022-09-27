@@ -281,3 +281,119 @@ SCENARIO("Mapped Model")
     REQUIRE(plus_one_model->row_data(2) == 3);
     REQUIRE(plus_one_model->row_data(3) == 5);
 }
+
+SCENARIO("Sorted Model Insert")
+{
+    auto vec_model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 3, 4, 1, 2 });
+
+    auto sorted_model = std::make_shared<slint::SortModel<int>>(
+            vec_model, [](auto lhs, auto rhs) { return lhs < rhs; });
+
+    auto observer = std::make_shared<ModelObserver>();
+    sorted_model->attach_peer(observer);
+
+    REQUIRE(sorted_model->row_count() == 4);
+    REQUIRE(sorted_model->row_data(0) == 1);
+    REQUIRE(sorted_model->row_data(1) == 2);
+    REQUIRE(sorted_model->row_data(2) == 3);
+    REQUIRE(sorted_model->row_data(3) == 4);
+
+    vec_model->insert(0, 10);
+
+    REQUIRE(observer->added_rows.size() == 1);
+    REQUIRE(observer->added_rows[0] == ModelObserver::Range { 4, 1 });
+    REQUIRE(observer->changed_rows.empty());
+    REQUIRE(observer->removed_rows.empty());
+    REQUIRE(!observer->model_reset);
+    observer->clear();
+
+    REQUIRE(sorted_model->row_count() == 5);
+    REQUIRE(sorted_model->row_data(0) == 1);
+    REQUIRE(sorted_model->row_data(1) == 2);
+    REQUIRE(sorted_model->row_data(2) == 3);
+    REQUIRE(sorted_model->row_data(3) == 4);
+    REQUIRE(sorted_model->row_data(4) == 10);
+}
+
+SCENARIO("Sorted Model Remove")
+{
+    auto vec_model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 3, 4, 1, 2 });
+
+    auto sorted_model = std::make_shared<slint::SortModel<int>>(
+            vec_model, [](auto lhs, auto rhs) { return lhs < rhs; });
+
+    auto observer = std::make_shared<ModelObserver>();
+    sorted_model->attach_peer(observer);
+
+    REQUIRE(sorted_model->row_count() == 4);
+    REQUIRE(sorted_model->row_data(0) == 1);
+    REQUIRE(sorted_model->row_data(1) == 2);
+    REQUIRE(sorted_model->row_data(2) == 3);
+    REQUIRE(sorted_model->row_data(3) == 4);
+
+    /// Remove the entry with the value 4
+    vec_model->erase(1);
+
+    REQUIRE(observer->added_rows.empty());
+    REQUIRE(observer->changed_rows.empty());
+    REQUIRE(observer->removed_rows.size() == 1);
+    REQUIRE(observer->removed_rows[0] == ModelObserver::Range { 3, 1 });
+    REQUIRE(!observer->model_reset);
+    observer->clear();
+
+    REQUIRE(sorted_model->row_count() == 3);
+    REQUIRE(sorted_model->row_data(0) == 1);
+    REQUIRE(sorted_model->row_data(1) == 2);
+    REQUIRE(sorted_model->row_data(2) == 3);
+}
+
+SCENARIO("Sorted Model Change")
+{
+    auto vec_model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 3, 4, 1, 2 });
+
+    auto sorted_model = std::make_shared<slint::SortModel<int>>(
+            vec_model, [](auto lhs, auto rhs) { return lhs < rhs; });
+
+    auto observer = std::make_shared<ModelObserver>();
+    sorted_model->attach_peer(observer);
+
+    REQUIRE(sorted_model->row_count() == 4);
+    REQUIRE(sorted_model->row_data(0) == 1);
+    REQUIRE(sorted_model->row_data(1) == 2);
+    REQUIRE(sorted_model->row_data(2) == 3);
+    REQUIRE(sorted_model->row_data(3) == 4);
+
+    /// Change the entry with the value 4 to 10 -> maintain order
+    vec_model->set_row_data(1, 10);
+
+    REQUIRE(observer->added_rows.size() == 1);
+    REQUIRE(observer->removed_rows[0] == ModelObserver::Range { 3, 1 });
+    REQUIRE(observer->changed_rows.empty());
+    REQUIRE(observer->removed_rows[0] == ModelObserver::Range { 3, 1 });
+    REQUIRE(observer->removed_rows.size() == 1);
+    REQUIRE(!observer->model_reset);
+    observer->clear();
+
+    REQUIRE(sorted_model->row_count() == 4);
+    REQUIRE(sorted_model->row_data(0) == 1);
+    REQUIRE(sorted_model->row_data(1) == 2);
+    REQUIRE(sorted_model->row_data(2) == 3);
+    REQUIRE(sorted_model->row_data(3) == 10);
+
+    /// Change the entry with the value 10 to 0 -> new order with remove and insert
+    vec_model->set_row_data(1, 0);
+
+    REQUIRE(observer->added_rows.size() == 1);
+    REQUIRE(observer->added_rows[0] == ModelObserver::Range { 0, 1 });
+    REQUIRE(observer->changed_rows.empty());
+    REQUIRE(observer->removed_rows.size() == 1);
+    REQUIRE(observer->removed_rows[0] == ModelObserver::Range { 3, 1 });
+    REQUIRE(!observer->model_reset);
+    observer->clear();
+
+    REQUIRE(sorted_model->row_count() == 4);
+    REQUIRE(sorted_model->row_data(0) == 0);
+    REQUIRE(sorted_model->row_data(1) == 1);
+    REQUIRE(sorted_model->row_data(2) == 2);
+    REQUIRE(sorted_model->row_data(3) == 3);
+}

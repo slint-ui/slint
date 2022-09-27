@@ -1049,6 +1049,179 @@ private:
     std::function<MappedModelData(const SourceModelData &)> map_fn;
 };
 
+template<typename ModelData>
+class SortModel;
+
+namespace private_api {
+template<typename ModelData>
+struct SortModelInner : private_api::ModelChangeListener
+{
+    SortModelInner(std::shared_ptr<slint::Model<ModelData>> source_model,
+                   std::function<bool(const ModelData &, const ModelData &)> sort_fn,
+                   slint::SortModel<ModelData> &target_model)
+        : source_model(source_model), sort_fn(sort_fn), target_model(target_model)
+    {
+    }
+
+    void row_added(int first_inserted_row, int count) override
+    {
+        if (sorted_rows_dirty) {
+            reset();
+            return;
+        }
+
+        // Adjust the existing sorted row indices to match the updated source model
+        for (auto it = sorted_rows.begin(), end = sorted_rows.end(); it != end; ++it) {
+            if (*it >= first_inserted_row)
+                *it += count;
+        }
+
+        for (int row = first_inserted_row; row < first_inserted_row + count; ++row) {
+
+            ModelData inserted_value = *source_model->row_data(row);
+            auto insertion_point =
+                    std::lower_bound(sorted_rows.begin(), sorted_rows.end(), inserted_value,
+                                     [this](int sorted_row, const ModelData &inserted_value) {
+                                         auto sorted_elem = source_model->row_data(sorted_row);
+                                         return sort_fn(*sorted_elem, inserted_value);
+                                     });
+
+            insertion_point = sorted_rows.insert(insertion_point, row);
+            target_model.row_added(insertion_point - sorted_rows.begin(), 1);
+        }
+    }
+    void row_changed(int changed_row) override
+    {
+        if (sorted_rows_dirty) {
+            reset();
+            return;
+        }
+
+        for (auto it = sorted_rows.begin(); it != sorted_rows.end(); ++it) {
+            if (*it == changed_row) {
+                it = sorted_rows.erase(it);
+                target_model.row_removed(it - sorted_rows.begin(), 1);
+                break;
+            }
+        }
+
+        ModelData changed_value = *source_model->row_data(changed_row);
+        auto insertion_point =
+                std::lower_bound(sorted_rows.begin(), sorted_rows.end(), changed_value,
+                                 [this](int sorted_row, const ModelData &changed_value) {
+                                     auto sorted_elem = source_model->row_data(sorted_row);
+                                     return sort_fn(*sorted_elem, changed_value);
+                                 });
+
+        insertion_point = sorted_rows.insert(insertion_point, changed_row);
+        target_model.row_added(insertion_point - sorted_rows.begin(), 1);
+    }
+    void row_removed(int first_removed_row, int count) override
+    {
+        if (sorted_rows_dirty) {
+            reset();
+            return;
+        }
+
+        std::vector<int> removed_rows;
+        removed_rows.reserve(count);
+
+        for (auto it = sorted_rows.begin(); it != sorted_rows.end();) {
+            if (*it >= first_removed_row) {
+                if (*it < first_removed_row + count) {
+                    removed_rows.push_back(it - sorted_rows.begin());
+                    it = sorted_rows.erase(it);
+                    continue;
+                } else {
+                    *it -= count;
+                }
+            }
+            ++it;
+        }
+
+        for (int removed_row : removed_rows) {
+            target_model.row_removed(removed_row, 1);
+        }
+    }
+    void reset() override
+    {
+        sorted_rows_dirty = true;
+        target_model.reset();
+    }
+
+    void ensure_sorted()
+    {
+        if (!sorted_rows_dirty) {
+            return;
+        }
+
+        sorted_rows.resize(source_model->row_count());
+        for (size_t i = 0; i < sorted_rows.size(); ++i)
+            sorted_rows[i] = i;
+
+        std::sort(sorted_rows.begin(), sorted_rows.end(), [this](int lhs_index, int rhs_index) {
+            auto lhs_elem = source_model->row_data(lhs_index);
+            auto rhs_elem = source_model->row_data(rhs_index);
+            return sort_fn(*lhs_elem, *rhs_elem);
+        });
+
+        sorted_rows_dirty = false;
+    }
+
+    std::shared_ptr<slint::Model<ModelData>> source_model;
+    std::function<bool(const ModelData &, const ModelData &)> sort_fn;
+    slint::SortModel<ModelData> &target_model;
+    std::vector<int> sorted_rows;
+    bool sorted_rows_dirty = true;
+};
+}
+
+/// The SortModel acts as an adapter model for a given source model by sorting all rows
+/// with by order provided by the given sorting function. The sorting function is called for
+/// pairs of elements of the source model.
+template<typename ModelData>
+class SortModel : public Model<ModelData>
+{
+    friend struct private_api::SortModelInner<ModelData>;
+
+public:
+    /// Constructs a new SortModel that provides a sorted view on the \a source_model by applying
+    /// the order given by the specified \a sort_fn.
+    SortModel(std::shared_ptr<Model<ModelData>> source_model,
+              std::function<bool(const ModelData &, const ModelData &)> sort_fn)
+        : inner(std::make_shared<private_api::SortModelInner<ModelData>>(std::move(source_model),
+                                                                         std::move(sort_fn), *this))
+    {
+        inner->source_model->attach_peer(inner);
+    }
+
+    int row_count() const override { return inner->source_model->row_count(); }
+
+    std::optional<ModelData> row_data(int i) const override
+    {
+        inner->ensure_sorted();
+        return inner->source_model->row_data(inner->sorted_rows[i]);
+    }
+
+    /// Re-applies the model's sort function on each row of the source model. Use this if state
+    /// external to the sort function has changed.
+    void sort() { inner->reset(); }
+
+    /// Given the \a sorted_row_index, this function returns the corresponding row index in the
+    /// source model.
+    int unsorted_row(int sorted_row_index) const
+    {
+        inner->ensure_sorted();
+        return inner->sorted_rows[sorted_row_index];
+    }
+
+    /// Returns the source model of this filter model.
+    std::shared_ptr<Model<ModelData>> source_model() const { return inner->source_model; }
+
+private:
+    std::shared_ptr<private_api::SortModelInner<ModelData>> inner;
+};
+
 namespace private_api {
 
 template<typename C, typename ModelData>
