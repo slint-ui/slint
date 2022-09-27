@@ -217,3 +217,67 @@ SCENARIO("Filtering Model Remove")
     REQUIRE(even_rows->row_data(0) == 2);
     REQUIRE(even_rows->row_data(1) == 4);
 }
+
+SCENARIO("Mapped Model")
+{
+    auto vec_model = std::make_shared<slint::VectorModel<int>>(std::vector<int> { 1, 2, 3, 4 });
+
+    auto plus_one_model = std::make_shared<slint::MapModel<int, int>>(
+            vec_model, [](auto value) { return value + 1; });
+
+    auto observer = std::make_shared<ModelObserver>();
+    plus_one_model->attach_peer(observer);
+
+    REQUIRE(plus_one_model->row_count() == 4);
+    REQUIRE(plus_one_model->row_data(0) == 2);
+    REQUIRE(plus_one_model->row_data(1) == 3);
+    REQUIRE(plus_one_model->row_data(2) == 4);
+    REQUIRE(plus_one_model->row_data(3) == 5);
+
+    vec_model->insert(0, 100);
+
+    REQUIRE(observer->added_rows.size() == 1);
+    REQUIRE(observer->added_rows[0] == ModelObserver::Range { 0, 1 });
+    REQUIRE(observer->changed_rows.empty());
+    REQUIRE(observer->removed_rows.empty());
+    REQUIRE(!observer->model_reset);
+    observer->clear();
+
+    REQUIRE(plus_one_model->row_count() == 5);
+    REQUIRE(plus_one_model->row_data(0) == 101);
+    REQUIRE(plus_one_model->row_data(1) == 2);
+    REQUIRE(plus_one_model->row_data(2) == 3);
+    REQUIRE(plus_one_model->row_data(3) == 4);
+    REQUIRE(plus_one_model->row_data(4) == 5);
+
+    vec_model->set_row_data(1, 3);
+
+    REQUIRE(observer->added_rows.empty());
+    REQUIRE(observer->changed_rows.size() == 1);
+    REQUIRE(observer->changed_rows[0] == 1);
+    REQUIRE(observer->removed_rows.empty());
+    REQUIRE(!observer->model_reset);
+    observer->clear();
+
+    REQUIRE(plus_one_model->row_count() == 5);
+    REQUIRE(plus_one_model->row_data(0) == 101);
+    REQUIRE(plus_one_model->row_data(1) == 4);
+    REQUIRE(plus_one_model->row_data(2) == 3);
+    REQUIRE(plus_one_model->row_data(3) == 4);
+    REQUIRE(plus_one_model->row_data(4) == 5);
+
+    vec_model->erase(3);
+
+    REQUIRE(observer->added_rows.empty());
+    REQUIRE(observer->changed_rows.empty());
+    REQUIRE(observer->removed_rows.size() == 1);
+    REQUIRE(observer->removed_rows[0] == ModelObserver::Range { 3, 1 });
+    REQUIRE(!observer->model_reset);
+    observer->clear();
+
+    REQUIRE(plus_one_model->row_count() == 4);
+    REQUIRE(plus_one_model->row_data(0) == 101);
+    REQUIRE(plus_one_model->row_data(1) == 4);
+    REQUIRE(plus_one_model->row_data(2) == 3);
+    REQUIRE(plus_one_model->row_data(3) == 5);
+}
