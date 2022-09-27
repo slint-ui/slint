@@ -18,6 +18,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <span>
+#include <functional>
 
 namespace slint::cbindgen_private {
 // Workaround https://github.com/eqrion/cbindgen/issues/43
@@ -826,6 +827,159 @@ public:
         data.insert(data.begin() + index, value);
         this->row_added(int(index), 1);
     }
+};
+
+template<typename ModelData>
+class FilterModel;
+
+namespace private_api {
+template<typename ModelData>
+struct FilterModelInner : private_api::AbstractRepeaterView
+{
+    FilterModelInner(std::shared_ptr<slint::Model<ModelData>> source_model,
+                     std::function<bool(const ModelData &)> filter_fn,
+                     slint::FilterModel<ModelData> &target_model)
+        : source_model(source_model), filter_fn(filter_fn), target_model(target_model)
+    {
+        update_mapping();
+    }
+
+    void row_added(int index, int count) override
+    {
+        if (count == 0) {
+            return;
+        }
+
+        std::vector<int> added_accepted_rows;
+        for (int i = index; i < index + count; ++i) {
+            if (auto data = source_model->row_data(i)) {
+                if (filter_fn(*data)) {
+                    added_accepted_rows.push_back(i);
+                }
+            }
+        }
+
+        if (added_accepted_rows.empty()) {
+            return;
+        }
+
+        auto insertion_point = std::lower_bound(accepted_rows.begin(), accepted_rows.end(), index);
+
+        insertion_point = accepted_rows.insert(insertion_point, added_accepted_rows.begin(),
+                                               added_accepted_rows.end());
+
+        for (auto it = insertion_point + added_accepted_rows.size(); it != accepted_rows.end();
+             ++it)
+            (*it) += count;
+
+        target_model.row_added(insertion_point - accepted_rows.begin(), added_accepted_rows.size());
+    }
+    void row_changed(int index) override
+    {
+        auto existing_row = std::lower_bound(accepted_rows.begin(), accepted_rows.end(), index);
+        auto existing_row_index = existing_row - accepted_rows.begin();
+        bool is_contained = existing_row != accepted_rows.end() && *existing_row == index;
+        auto accepted_updated_row = filter_fn(*source_model->row_data(index));
+
+        if (is_contained && accepted_updated_row) {
+            target_model.row_changed(existing_row_index);
+        } else if (!is_contained && accepted_updated_row) {
+            accepted_rows.insert(existing_row, index);
+            target_model.row_added(existing_row_index, 1);
+        } else if (is_contained && !accepted_updated_row) {
+            accepted_rows.erase(existing_row);
+            target_model.row_removed(existing_row_index, 1);
+        }
+    }
+    void row_removed(int index, int count) override
+    {
+        auto mapped_row_start = std::lower_bound(accepted_rows.begin(), accepted_rows.end(), index);
+        auto mapped_row_end =
+                std::lower_bound(accepted_rows.begin(), accepted_rows.end(), index + count);
+
+        auto mapped_removed_len = mapped_row_end - mapped_row_start;
+
+        auto mapped_removed_index =
+                (mapped_row_start != accepted_rows.end() && *mapped_row_start == index)
+                ? std::optional<int>(mapped_row_start - accepted_rows.begin())
+                : std::nullopt;
+
+        auto it = accepted_rows.erase(mapped_row_start, mapped_row_end);
+        for (; it != accepted_rows.end(); ++it) {
+            *it -= count;
+        }
+
+        if (mapped_removed_index) {
+            target_model.row_removed(*mapped_removed_index, mapped_removed_len);
+        }
+    }
+    void reset() override
+    {
+        update_mapping();
+        target_model.reset();
+    }
+
+    void update_mapping()
+    {
+        accepted_rows.clear();
+        for (int i = 0, count = source_model->row_count(); i < count; ++i) {
+            if (auto data = source_model->row_data(i)) {
+                if (filter_fn(*data)) {
+                    accepted_rows.push_back(i);
+                }
+            }
+        }
+    }
+
+    std::shared_ptr<slint::Model<ModelData>> source_model;
+    std::function<bool(const ModelData &)> filter_fn;
+    std::vector<int> accepted_rows;
+    slint::FilterModel<ModelData> &target_model;
+};
+}
+
+/// The FilterModel acts as an adapter model for a given source model by applying a filter
+/// function. The filter function is called for each row on the source model and if the
+/// filter accepts the row (i.e. returns true), the row is also visible in the FilterModel.
+template<typename ModelData>
+class FilterModel : public Model<ModelData>
+{
+    friend struct private_api::FilterModelInner<ModelData>;
+
+public:
+    /// Constructs a new FilterModel that provides a limited view on the \a source_model by applying
+    /// \a filter_fn on each row. If the provided function returns true, the row is exposed by the
+    /// FilterModel.
+    FilterModel(std::shared_ptr<Model<ModelData>> source_model,
+                std::function<bool(const ModelData &)> filter_fn)
+        : inner(std::make_unique<private_api::FilterModelInner<ModelData>>(
+                std::move(source_model), std::move(filter_fn), *this))
+    {
+        inner->source_model->attach_peer(inner);
+    }
+
+    int row_count() const override { return inner->accepted_rows.size(); }
+
+    std::optional<ModelData> row_data(int i) const override
+    {
+        if (i < 0 || size_t(i) >= inner->accepted_rows.size())
+            return {};
+        return inner->source_model->row_data(inner->accepted_rows[i]);
+    }
+
+    /// Re-applies the model's filter function on each row of the source model. Use this if state
+    /// external to the filter function has changed.
+    void apply_filter() { inner->reset(); }
+
+    /// Given the \a filtered_row index, this function returns the corresponding row index in the
+    /// source model.
+    int unfiltered_row(int filtered_row) const { return inner->accepted_rows[filtered_row]; }
+
+    /// Returns the source model of this filter model.
+    std::shared_ptr<Model<ModelData>> source_model() const { return inner->source_model; }
+
+private:
+    std::shared_ptr<private_api::FilterModelInner<ModelData>> inner;
 };
 
 namespace private_api {
