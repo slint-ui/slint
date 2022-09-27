@@ -982,6 +982,73 @@ private:
     std::shared_ptr<private_api::FilterModelInner<ModelData>> inner;
 };
 
+template<typename SourceModelData, typename MappedModelData>
+class MapModel;
+
+namespace private_api {
+template<typename SourceModelData, typename MappedModelData>
+struct MapModelInner : private_api::ModelChangeListener
+{
+    MapModelInner(slint::MapModel<SourceModelData, MappedModelData> &target_model)
+        : target_model(target_model)
+    {
+    }
+
+    void row_added(int index, int count) override { target_model.row_added(index, count); }
+    void row_changed(int index) override { target_model.row_changed(index); }
+    void row_removed(int index, int count) override { target_model.row_removed(index, count); }
+    void reset() override { target_model.reset(); }
+
+    slint::MapModel<SourceModelData, MappedModelData> &target_model;
+};
+}
+
+/// The MapModel acts as an adapter model for a given source model by applying a mapping
+/// function. The mapping function is called for each row on the source model and allows
+/// transforming the values on the fly. The MapModel has two template parameters: The
+/// SourceModelData specifies the data type of the underlying source model, and the
+/// MappedModelData the data type of this MapModel. This permits not only changing the
+/// values of the underlying source model, but also changing the data type itself. For
+/// example a MapModel can be used to adapt a model that provides numbers to be a model
+/// that exposes all numbers converted to strings, by calling `std::to_string` on each
+/// value given in the mapping lambda expression.
+template<typename SourceModelData, typename MappedModelData = SourceModelData>
+class MapModel : public Model<MappedModelData>
+{
+    friend struct private_api::MapModelInner<SourceModelData, MappedModelData>;
+
+public:
+    /// Constructs a new MapModel that provides an altered view on the \a source_model by applying
+    /// \a map_fn on the data in each row.
+    MapModel(std::shared_ptr<Model<SourceModelData>> source_model,
+             std::function<MappedModelData(const SourceModelData &)> map_fn)
+        : inner(std::make_unique<private_api::MapModelInner<SourceModelData, MappedModelData>>(
+                *this)),
+          model(source_model),
+          map_fn(map_fn)
+    {
+        model->attach_peer(inner);
+    }
+
+    int row_count() const override { return model->row_count(); }
+
+    std::optional<MappedModelData> row_data(int i) const override
+    {
+        if (auto source_data = model->row_data(i))
+            return map_fn(*source_data);
+        else
+            return {};
+    }
+
+    /// Returns the source model of this filter model.
+    std::shared_ptr<Model<SourceModelData>> source_model() const { return model; }
+
+private:
+    std::shared_ptr<private_api::MapModelInner<SourceModelData, MappedModelData>> inner;
+    std::shared_ptr<slint::Model<SourceModelData>> model;
+    std::function<MappedModelData(const SourceModelData &)> map_fn;
+};
+
 namespace private_api {
 
 template<typename C, typename ModelData>
