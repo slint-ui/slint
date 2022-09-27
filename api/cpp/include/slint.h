@@ -873,16 +873,18 @@ struct FilterModelInner : private_api::AbstractRepeaterView
     void row_changed(int index) override
     {
         auto existing_row = std::lower_bound(accepted_rows.begin(), accepted_rows.end(), index);
+        auto existing_row_index = existing_row - accepted_rows.begin();
         bool is_contained = existing_row != accepted_rows.end() && *existing_row == index;
         auto accepted_updated_row = filter_fn(*source_model->row_data(index));
 
         if (is_contained && accepted_updated_row) {
-            target_model.row_changed(*existing_row);
+            target_model.row_changed(existing_row_index);
         } else if (!is_contained && accepted_updated_row) {
             accepted_rows.insert(existing_row, index);
+            target_model.row_added(existing_row_index, 1);
         } else if (is_contained && !accepted_updated_row) {
             accepted_rows.erase(existing_row);
-            target_model.row_removed(index, 1);
+            target_model.row_removed(existing_row_index, 1);
         }
     }
     void row_removed(int index, int count) override
