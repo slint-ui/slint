@@ -877,7 +877,7 @@ struct FilterModelInner : private_api::ModelChangeListener
     void row_changed(int index) override
     {
         auto existing_row = std::lower_bound(accepted_rows.begin(), accepted_rows.end(), index);
-        auto existing_row_index = existing_row - accepted_rows.begin();
+        auto existing_row_index = std::distance(accepted_rows.begin(), existing_row);
         bool is_contained = existing_row != accepted_rows.end() && *existing_row == index;
         auto accepted_updated_row = filter_fn(*source_model->row_data(index));
 
@@ -897,7 +897,7 @@ struct FilterModelInner : private_api::ModelChangeListener
         auto mapped_row_end =
                 std::lower_bound(accepted_rows.begin(), accepted_rows.end(), index + count);
 
-        auto mapped_removed_len = mapped_row_end - mapped_row_start;
+        auto mapped_removed_len = std::distance(mapped_row_start, mapped_row_end);
 
         auto mapped_removed_index =
                 (mapped_row_start != accepted_rows.end() && *mapped_row_start == index)
@@ -1087,7 +1087,7 @@ struct SortModelInner : private_api::ModelChangeListener
                                      });
 
             insertion_point = sorted_rows.insert(insertion_point, row);
-            target_model.row_added(insertion_point - sorted_rows.begin(), 1);
+            target_model.row_added(std::distance(sorted_rows.begin(), insertion_point), 1);
         }
     }
     void row_changed(int changed_row) override
@@ -1132,7 +1132,7 @@ struct SortModelInner : private_api::ModelChangeListener
         for (auto it = sorted_rows.begin(); it != sorted_rows.end();) {
             if (*it >= first_removed_row) {
                 if (*it < first_removed_row + count) {
-                    removed_rows.push_back(it - sorted_rows.begin());
+                    removed_rows.push_back(std::distance(sorted_rows.begin(), it));
                     it = sorted_rows.erase(it);
                     continue;
                 } else {
