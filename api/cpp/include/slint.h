@@ -930,7 +930,7 @@ struct FilterModelInner : private_api::AbstractRepeaterView
 };
 }
 
-/// The FilterModel acts as a proxy model for a given source model by applying a filter
+/// The FilterModel acts as an adapter model for a given source model by applying a filter
 /// function. The filter function is called for each row on the source model and if the
 /// filter accepts the row (i.e. returns true), the row is also visible in the FilterModel.
 template<typename ModelData>
