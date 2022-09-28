@@ -7,7 +7,7 @@ All notable changes to this project are documented in this file.
 
 ### Added
 
-  - Added `slint::FilterModel` and `slint::MapModel` to the C++ API.
+  - Added `slint::FilterModel`, `slint::MapModel`, and `slint::SortModel` to the C++ API.
 
 ### Fixed
 
