@@ -60,7 +60,7 @@ You should process the file with  [elf2uf2-rs](https://github.com/jonil/elf2uf2-
 
 ```sh
 cargo install elf2uf2-rs
-elf2uf2-rs target/thumbv6m-none-eabi/release/printerdemo_mcu
+elf2uf2-rs -d target/thumbv6m-none-eabi/release/printerdemo_mcu
 ```
 
 Then upload the demo to the raspberry pi: push the "bootsel" white button on the device while connecting the
