@@ -49,8 +49,8 @@ SCENARIO("Filtering Model")
     auto vec_model =
             std::make_shared<slint::VectorModel<int>>(std::vector<int> { 1, 2, 3, 4, 5, 6 });
 
-    auto even_rows = std::make_shared<slint::FilterModel<int>>(
-            vec_model, [](auto value) { return value % 2 == 0; });
+    auto even_rows =
+            slint::Model<int>::filter(vec_model, [](auto value) { return value % 2 == 0; });
 
     REQUIRE(even_rows->row_count() == 3);
     REQUIRE(even_rows->row_data(0) == 2);
@@ -63,8 +63,8 @@ SCENARIO("Filtering Insert")
     auto vec_model =
             std::make_shared<slint::VectorModel<int>>(std::vector<int> { 1, 2, 3, 4, 5, 6 });
 
-    auto even_rows = std::make_shared<slint::FilterModel<int>>(
-            vec_model, [](auto value) { return value % 2 == 0; });
+    auto even_rows =
+            slint::Model<int>::filter(vec_model, [](auto value) { return value % 2 == 0; });
 
     auto observer = std::make_shared<ModelObserver>();
     even_rows->attach_peer(observer);
@@ -104,8 +104,8 @@ SCENARIO("Filtering Change")
     auto vec_model =
             std::make_shared<slint::VectorModel<int>>(std::vector<int> { 1, 2, 3, 4, 5, 6 });
 
-    auto even_rows = std::make_shared<slint::FilterModel<int>>(
-            vec_model, [](auto value) { return value % 2 == 0; });
+    auto even_rows =
+            slint::Model<int>::filter(vec_model, [](auto value) { return value % 2 == 0; });
 
     auto observer = std::make_shared<ModelObserver>();
     even_rows->attach_peer(observer);
@@ -178,8 +178,8 @@ SCENARIO("Filtering Model Remove")
     auto vec_model =
             std::make_shared<slint::VectorModel<int>>(std::vector<int> { 1, 2, 3, 4, 5, 6 });
 
-    auto even_rows = std::make_shared<slint::FilterModel<int>>(
-            vec_model, [](auto value) { return value % 2 == 0; });
+    auto even_rows =
+            slint::Model<int>::filter(vec_model, [](auto value) { return value % 2 == 0; });
 
     auto observer = std::make_shared<ModelObserver>();
     even_rows->attach_peer(observer);

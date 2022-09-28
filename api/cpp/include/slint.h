@@ -617,6 +617,9 @@ auto access_array_index(const M &model, int index)
 
 } // namespace private_api
 
+template<typename ModelData, typename FilterFn>
+class FilterModel;
+
 /// \rst
 /// A Model is providing Data for |Repetition|_ repetitions or |ListView|_ elements of the
 /// :code:`.slint` language
@@ -675,6 +678,14 @@ public:
     {
         track_row_data_changes(row);
         return row_data(row);
+    }
+
+    template<typename FilterFn>
+    static std::shared_ptr<FilterModel<ModelData, FilterFn>>
+    filter(std::shared_ptr<Model<ModelData>> source_model, FilterFn filter_fn)
+    {
+        return std::make_shared<FilterModel<ModelData, FilterFn>>(std::move(source_model),
+                                                                  std::move(filter_fn));
     }
 
 protected:
@@ -829,16 +840,15 @@ public:
     }
 };
 
-template<typename ModelData>
+template<typename ModelData, typename FilterFn>
 class FilterModel;
 
 namespace private_api {
-template<typename ModelData>
+template<typename ModelData, typename FilterFn>
 struct FilterModelInner : private_api::ModelChangeListener
 {
-    FilterModelInner(std::shared_ptr<slint::Model<ModelData>> source_model,
-                     std::function<bool(const ModelData &)> filter_fn,
-                     slint::FilterModel<ModelData> &target_model)
+    FilterModelInner(std::shared_ptr<slint::Model<ModelData>> source_model, FilterFn filter_fn,
+                     slint::FilterModel<ModelData, FilterFn> &target_model)
         : source_model(source_model), filter_fn(filter_fn), target_model(target_model)
     {
         update_mapping();
@@ -932,27 +942,26 @@ struct FilterModelInner : private_api::ModelChangeListener
     }
 
     std::shared_ptr<slint::Model<ModelData>> source_model;
-    std::function<bool(const ModelData &)> filter_fn;
+    FilterFn filter_fn;
     std::vector<int> accepted_rows;
-    slint::FilterModel<ModelData> &target_model;
+    slint::FilterModel<ModelData, FilterFn> &target_model;
 };
 }
 
 /// The FilterModel acts as an adapter model for a given source model by applying a filter
 /// function. The filter function is called for each row on the source model and if the
 /// filter accepts the row (i.e. returns true), the row is also visible in the FilterModel.
-template<typename ModelData>
+template<typename ModelData, typename FilterFn>
 class FilterModel : public Model<ModelData>
 {
-    friend struct private_api::FilterModelInner<ModelData>;
+    friend struct private_api::FilterModelInner<ModelData, FilterFn>;
 
 public:
     /// Constructs a new FilterModel that provides a limited view on the \a source_model by applying
     /// \a filter_fn on each row. If the provided function returns true, the row is exposed by the
     /// FilterModel.
-    FilterModel(std::shared_ptr<Model<ModelData>> source_model,
-                std::function<bool(const ModelData &)> filter_fn)
-        : inner(std::make_shared<private_api::FilterModelInner<ModelData>>(
+    FilterModel(std::shared_ptr<Model<ModelData>> source_model, FilterFn filter_fn)
+        : inner(std::make_shared<private_api::FilterModelInner<ModelData, FilterFn>>(
                 std::move(source_model), std::move(filter_fn), *this))
     {
         inner->source_model->attach_peer(inner);
@@ -979,7 +988,7 @@ public:
     std::shared_ptr<Model<ModelData>> source_model() const { return inner->source_model; }
 
 private:
-    std::shared_ptr<private_api::FilterModelInner<ModelData>> inner;
+    std::shared_ptr<private_api::FilterModelInner<ModelData, FilterFn>> inner;
 };
 
 template<typename SourceModelData, typename MappedModelData>
