@@ -135,15 +135,18 @@ impl<'a> SkiaRenderer<'a> {
         // TODO: avoid doing creating an SkImage multiple times when the same source is used in multiple image elements
         let skia_image = self.image_cache.get_or_update_cache_entry(item_rc, || {
             let image = source_property.get();
-            super::cached_image::as_skia_image(image, target_width, target_height).and_then(
-                |skia_image| match colorize_property
-                    .map(|p| p.get())
-                    .filter(|c| !c.is_transparent())
-                {
+            super::cached_image::as_skia_image(
+                image,
+                target_width,
+                target_height,
+                self.scale_factor,
+            )
+            .and_then(|skia_image| {
+                match colorize_property.map(|p| p.get()).filter(|c| !c.is_transparent()) {
                     Some(color) => self.colorize_image(skia_image, color),
                     None => Some(skia_image),
-                },
-            )
+                }
+            })
         });
 
         let skia_image = match skia_image {
