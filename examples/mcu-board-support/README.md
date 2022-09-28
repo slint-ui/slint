@@ -53,7 +53,7 @@ You need nightly rust because that's the only way to get an allocator.
 Build the demo with:
 
 ```sh
-cargo +nightly build -p printerdemo_mcu --no-default-features --features=mcu-bord-support/pico-st7789 --target=thumbv6m-none-eabi --release
+cargo +nightly build -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --target=thumbv6m-none-eabi --release
 ```
 
 You should process the file with  [elf2uf2-rs](https://github.com/jonil/elf2uf2-rs)
