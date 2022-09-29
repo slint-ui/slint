@@ -7,8 +7,9 @@ use core::cell::RefCell;
 #[cfg(all(not(feature = "std"), feature = "unsafe-single-threaded"))]
 use crate::thread_local_ as thread_local;
 
+use super::{PhysicalLength, PhysicalSize};
 use crate::graphics::{BitmapFont, BitmapGlyph, BitmapGlyphs, FontRequest};
-use crate::lengths::{LogicalLength, LogicalSize, PhysicalLength, PhysicalSize, ScaleFactor};
+use crate::lengths::{LogicalLength, LogicalSize, ScaleFactor};
 use crate::slice::Slice;
 use crate::textlayout::{Glyph, TextLayout, TextShaper};
 use crate::Coord;
