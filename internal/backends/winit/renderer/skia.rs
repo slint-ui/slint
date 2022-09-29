@@ -148,12 +148,14 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         max_width: Option<i_slint_core::Coord>,
         scale_factor: f32,
     ) -> i_slint_core::graphics::Size {
-        let layout = textlayout::create_layout(
+        let (layout, _) = textlayout::create_layout(
             font_request,
             ScaleFactor::new(scale_factor),
             text,
             None,
             max_width.map(|w| LogicalLength::new(w)),
+            Default::default(),
+            Default::default(),
             Default::default(),
             Default::default(),
             None,
@@ -178,7 +180,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         let scale_factor = ScaleFactor::new(window.scale_factor());
 
         let max_width = LogicalLength::new(text_input.width());
-        let max_height = LogicalLength::new(text_input.height()) * scale_factor;
+        let max_height = LogicalLength::new(text_input.height());
         let pos = LogicalPoint::from_untyped(pos) * scale_factor;
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
@@ -189,29 +191,21 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         let string = string.as_str();
         let font_request = text_input.font_request(&window_adapter);
 
-        let layout = textlayout::create_layout(
+        let (layout, layout_top_left) = textlayout::create_layout(
             font_request,
             scale_factor,
             string,
             None,
             Some(max_width),
+            max_height,
             text_input.horizontal_alignment(),
+            text_input.vertical_alignment(),
             i_slint_core::items::TextOverflow::Clip,
             None,
         );
 
-        let layout_top_y = match text_input.vertical_alignment() {
-            i_slint_core::items::TextVerticalAlignment::Top => 0.,
-            i_slint_core::items::TextVerticalAlignment::Center => {
-                (max_height.get() - layout.height()) / 2.
-            }
-            i_slint_core::items::TextVerticalAlignment::Bottom => {
-                max_height.get() - layout.height()
-            }
-        };
-
         let utf16_index =
-            layout.get_glyph_position_at_coordinate((pos.x, pos.y - layout_top_y)).position;
+            layout.get_glyph_position_at_coordinate((pos.x, pos.y - layout_top_left.y)).position;
         let mut utf16_count = 0;
         string
             .char_indices()
@@ -239,7 +233,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         let scale_factor = ScaleFactor::new(window.scale_factor());
 
         let max_width = LogicalLength::new(text_input.width());
-        let max_height = LogicalLength::new(text_input.height()) * scale_factor;
+        let max_height = LogicalLength::new(text_input.height());
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return Default::default();
@@ -249,26 +243,18 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         let string = string.as_str();
         let font_request = text_input.font_request(&window_adapter);
 
-        let layout = textlayout::create_layout(
+        let (layout, layout_top_left) = textlayout::create_layout(
             font_request,
             scale_factor,
             string,
             None,
             Some(max_width),
+            max_height,
             text_input.horizontal_alignment(),
+            text_input.vertical_alignment(),
             i_slint_core::items::TextOverflow::Clip,
             None,
         );
-
-        let layout_top_y = match text_input.vertical_alignment() {
-            i_slint_core::items::TextVerticalAlignment::Top => 0.,
-            i_slint_core::items::TextVerticalAlignment::Center => {
-                (max_height.get() - layout.height()) / 2.
-            }
-            i_slint_core::items::TextVerticalAlignment::Bottom => {
-                max_height.get() - layout.height()
-            }
-        };
 
         let physical_cursor_rect = textlayout::cursor_rect(
             string,
@@ -277,9 +263,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
             LogicalLength::new(text_input.text_cursor_width()) * scale_factor,
         );
 
-        (physical_cursor_rect.translate(PhysicalPoint::new(0., layout_top_y).to_vector())
-            / scale_factor)
-            .to_untyped()
+        (physical_cursor_rect.translate(layout_top_left.to_vector()) / scale_factor).to_untyped()
     }
 
     fn register_font_from_memory(

@@ -4,7 +4,9 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
+use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::FontRequest;
+use i_slint_core::items::TextVerticalAlignment;
 use i_slint_core::lengths::{LogicalLength, ScaleFactor};
 use i_slint_core::{items, Color};
 
@@ -53,10 +55,12 @@ pub fn create_layout(
     text: &str,
     text_style: Option<skia_safe::textlayout::TextStyle>,
     max_width: Option<LogicalLength>,
+    max_height: LogicalLength,
     h_align: items::TextHorizontalAlignment,
+    v_align: TextVerticalAlignment,
     overflow: items::TextOverflow,
     selection: Option<&Selection>,
-) -> skia_safe::textlayout::Paragraph {
+) -> (skia_safe::textlayout::Paragraph, PhysicalPoint) {
     let mut text_style = text_style.unwrap_or_default();
 
     if let Some(family_name) = font_request.family {
@@ -122,7 +126,17 @@ pub fn create_layout(
     paragraph.layout(
         max_width.map_or(core::f32::MAX, |logical_width| (logical_width * scale_factor).get()),
     );
-    paragraph
+
+    let max_height = max_height * scale_factor;
+    let layout_height = PhysicalLength::new(paragraph.height());
+
+    let layout_top_y = match v_align {
+        i_slint_core::items::TextVerticalAlignment::Top => PhysicalLength::zero(),
+        i_slint_core::items::TextVerticalAlignment::Center => (max_height - layout_height) / 2.,
+        i_slint_core::items::TextVerticalAlignment::Bottom => max_height - layout_height,
+    };
+
+    (paragraph, PhysicalPoint::from_lengths(Default::default(), layout_top_y))
 }
 
 fn register_font(source: CustomFontSource) -> Result<(), Box<dyn std::error::Error>> {
