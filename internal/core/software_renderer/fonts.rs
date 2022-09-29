@@ -69,7 +69,7 @@ impl FontMetrics for BitmapGlyphs {
     }
 }
 
-const DEFAULT_FONT_SIZE: Coord = 12 as Coord;
+const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12 as Coord);
 
 // A font that is resolved to a specific pixel size.
 pub struct PixelFont {
@@ -147,7 +147,7 @@ impl crate::textlayout::FontMetrics<PhysicalLength> for PixelFont {
     }
 }
 
-pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> PixelFont {
+pub fn match_font(request: &FontRequest<LogicalLength>, scale_factor: ScaleFactor) -> PixelFont {
     let font = FONTS.with(|fonts| {
         let fonts = fonts.borrow();
         let fallback_font = *fonts
@@ -166,8 +166,7 @@ pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> PixelFont
     });
 
     let requested_pixel_size: PhysicalLength =
-        (LogicalLength::new(request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE)).cast() * scale_factor)
-            .cast();
+        (request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE).cast() * scale_factor).cast();
 
     let nearest_pixel_size = font
         .glyphs
@@ -181,12 +180,11 @@ pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> PixelFont
 
 pub fn text_layout_for_font<'a>(
     font: &'a PixelFont,
-    font_request: &FontRequest,
+    font_request: &FontRequest<LogicalLength>,
     scale_factor: ScaleFactor,
 ) -> TextLayout<'a, PixelFont> {
-    let letter_spacing = font_request
-        .letter_spacing
-        .map(|spacing| (LogicalLength::new(spacing).cast() * scale_factor).cast());
+    let letter_spacing =
+        font_request.letter_spacing.map(|spacing| (spacing.cast() * scale_factor).cast());
 
     TextLayout { font, letter_spacing }
 }
@@ -196,7 +194,7 @@ pub fn register_bitmap_font(font_data: &'static BitmapFont) {
 }
 
 pub fn text_size(
-    font_request: FontRequest,
+    font_request: FontRequest<LogicalLength>,
     text: &str,
     max_width: Option<LogicalLength>,
     scale_factor: ScaleFactor,

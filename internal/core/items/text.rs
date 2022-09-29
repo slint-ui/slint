@@ -170,7 +170,7 @@ impl ItemConsts for Text {
 }
 
 impl Text {
-    pub fn font_request(self: Pin<&Self>, window: &WindowInner) -> FontRequest {
+    pub fn font_request(self: Pin<&Self>, window: &WindowInner) -> FontRequest<LogicalLength> {
         let window_item = window.window_item();
 
         FontRequest {
@@ -197,8 +197,9 @@ impl Text {
                 } else {
                     Some(font_size)
                 }
+                .map(|l| LogicalLength::new(l))
             },
-            letter_spacing: Some(self.letter_spacing()),
+            letter_spacing: Some(LogicalLength::new(self.letter_spacing())),
         }
     }
 }
@@ -832,7 +833,10 @@ impl TextInput {
         }
     }
 
-    pub fn font_request(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) -> FontRequest {
+    pub fn font_request(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+    ) -> FontRequest<LogicalLength> {
         let window_item = WindowInner::from_pub(window_adapter.window()).window_item();
 
         FontRequest {
@@ -859,8 +863,9 @@ impl TextInput {
                 } else {
                     Some(font_size)
                 }
+                .map(|l| LogicalLength::new(l))
             },
-            letter_spacing: Some(self.letter_spacing()),
+            letter_spacing: Some(LogicalLength::new(self.letter_spacing())),
         }
     }
 }

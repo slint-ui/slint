@@ -215,7 +215,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
 impl Renderer for FemtoVGRenderer {
     fn text_size(
         &self,
-        font_request: i_slint_core::graphics::FontRequest,
+        font_request: i_slint_core::graphics::FontRequest<LogicalLength>,
         text: &str,
         max_width: Option<LogicalLength>,
         scale_factor: ScaleFactor,
@@ -328,7 +328,10 @@ impl Renderer for FemtoVGRenderer {
         let width = LogicalLength::new(text_input.width()) * scale_factor;
         let height = LogicalLength::new(text_input.height()) * scale_factor;
         if width.get() <= 0. || height.get() <= 0. {
-            return LogicalRect::new(LogicalPoint::default(), LogicalSize::new(1.0, font_size));
+            return LogicalRect::new(
+                LogicalPoint::default(),
+                LogicalSize::from_lengths(LogicalLength::new(1.0), font_size),
+            );
         }
 
         let font = crate::renderer::femtovg::fonts::FONT_CACHE.with(|cache| {
@@ -368,7 +371,10 @@ impl Renderer for FemtoVGRenderer {
             },
         );
 
-        LogicalRect::new(result / scale_factor, LogicalSize::new(1.0, font_size))
+        LogicalRect::new(
+            result / scale_factor,
+            LogicalSize::from_lengths(LogicalLength::new(1.0), font_size),
+        )
     }
 
     fn register_font_from_memory(

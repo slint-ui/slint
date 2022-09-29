@@ -1619,7 +1619,7 @@ impl WindowAdapterSealed for QtWindow {
 impl Renderer for QtWindow {
     fn text_size(
         &self,
-        font_request: i_slint_core::graphics::FontRequest,
+        font_request: i_slint_core::graphics::FontRequest<LogicalLength>,
         text: &str,
         max_width: Option<LogicalLength>,
         _scale_factor: ScaleFactor,
@@ -1783,11 +1783,12 @@ fn accessible_item(item: Option<ItemRc>) -> Option<ItemRc> {
     None
 }
 
-fn get_font(request: FontRequest) -> QFont {
+fn get_font(request: FontRequest<LogicalLength>) -> QFont {
     let family: qttypes::QString = request.family.unwrap_or_default().as_str().into();
-    let pixel_size: f32 = request.pixel_size.unwrap_or(0.);
+    let pixel_size: f32 = request.pixel_size.map_or(0., |logical_size| logical_size.get());
     let weight: i32 = request.weight.unwrap_or(0);
-    let letter_spacing: f32 = request.letter_spacing.unwrap_or_default();
+    let letter_spacing: f32 =
+        request.letter_spacing.map_or(0., |logical_spacing| logical_spacing.get());
     cpp!(unsafe [family as "QString", pixel_size as "float", weight as "int", letter_spacing as "float"] -> QFont as "QFont" {
         QFont f;
         if (!family.isEmpty())

@@ -145,7 +145,7 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
 impl i_slint_core::renderer::Renderer for SkiaRenderer {
     fn text_size(
         &self,
-        font_request: i_slint_core::graphics::FontRequest,
+        font_request: i_slint_core::graphics::FontRequest<LogicalLength>,
         text: &str,
         max_width: Option<LogicalLength>,
         scale_factor: ScaleFactor,
