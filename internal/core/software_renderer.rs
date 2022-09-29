@@ -1013,12 +1013,12 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     fn draw_border_rectangle(&mut self, rect: Pin<&crate::items::BorderRectangle>, _: &ItemRc) {
         let geom = LogicalRect::new(LogicalPoint::default(), rect.logical_geometry().size_length());
         if self.should_draw(&geom) {
-            let border = rect.border_width();
-            let radius = rect.border_radius();
+            let border = rect.logical_border_width();
+            let radius = rect.logical_border_radius();
             // FIXME: gradients
             let color = rect.background().color();
-            if radius > 0 as _ {
-                let radius = LogicalLength::new(radius)
+            if radius.get() > 0 as _ {
+                let radius = radius
                     .min(geom.width_length() / 2 as Coord)
                     .min(geom.height_length() / 2 as Coord);
                 if let Some(clipped) = geom.intersection(&self.current_state.clip) {
@@ -1033,7 +1033,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                             .cast(),
                         RoundedRectangle {
                             radius: (radius.cast() * self.scale_factor).cast(),
-                            width: (LogicalLength::new(border).cast() * self.scale_factor).cast(),
+                            width: (border.cast() * self.scale_factor).cast(),
                             border_color: rect.border_color().color().into(),
                             inner_color: color.into(),
                             top_clip: PhysicalLength::new(
@@ -1055,8 +1055,9 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
             }
 
             if color.alpha() > 0 {
-                if let Some(r) =
-                    geom.inflate(-border, -border).intersection(&self.current_state.clip)
+                if let Some(r) = geom
+                    .inflate(-border.get(), -border.get())
+                    .intersection(&self.current_state.clip)
                 {
                     self.processor.process_rectangle(
                         (r.translate(self.current_state.offset.to_vector()).cast()
@@ -1067,7 +1068,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     );
                 }
             }
-            if border > 0.01 as Coord {
+            if border.get() > 0.01 as Coord {
                 // FIXME: radius
                 // FIXME: gradients
                 let border_color = rect.border_color().color();
@@ -1083,7 +1084,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                             );
                         }
                     };
-                    let b = border;
+                    let b = border.get();
                     add_border(euclid::rect(0 as _, 0 as _, geom.width(), b));
                     add_border(euclid::rect(0 as _, geom.height() - b, geom.width(), b));
                     add_border(euclid::rect(0 as _, b, b, geom.height() - b - b));

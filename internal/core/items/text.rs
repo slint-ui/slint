@@ -110,9 +110,7 @@ impl Item for Text {
             Orientation::Vertical => {
                 let h = match self.wrap() {
                     TextWrap::NoWrap => implicit_size(None).height,
-                    TextWrap::WordWrap => {
-                        implicit_size(Some(LogicalLength::new(self.width()))).height
-                    }
+                    TextWrap::WordWrap => implicit_size(Some(self.logical_width())).height,
                 }
                 .ceil();
                 LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
@@ -191,15 +189,14 @@ impl Text {
                 }
             },
             pixel_size: {
-                let font_size = self.font_size();
-                if font_size == 0 as Coord {
+                let font_size = self.logical_font_size();
+                if font_size.get() == 0 as Coord {
                     window_item.as_ref().and_then(|item| item.as_pin_ref().font_size())
                 } else {
                     Some(font_size)
                 }
-                .map(|l| LogicalLength::new(l))
             },
-            letter_spacing: Some(LogicalLength::new(self.letter_spacing())),
+            letter_spacing: Some(self.logical_letter_spacing()),
         }
     }
 }
@@ -291,9 +288,7 @@ impl Item for TextInput {
             Orientation::Vertical => {
                 let h = match self.wrap() {
                     TextWrap::NoWrap => implicit_size(None).height,
-                    TextWrap::WordWrap => {
-                        implicit_size(Some(LogicalLength::new(self.width()))).height
-                    }
+                    TextWrap::WordWrap => implicit_size(Some(self.logical_width())).height,
                 }
                 .ceil();
                 LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
@@ -857,15 +852,14 @@ impl TextInput {
                 }
             },
             pixel_size: {
-                let font_size = self.font_size();
-                if font_size == 0 as Coord {
+                let font_size = self.logical_font_size();
+                if font_size.get() == 0 as Coord {
                     window_item.as_ref().and_then(|item| item.as_pin_ref().font_size())
                 } else {
                     Some(font_size)
                 }
-                .map(|l| LogicalLength::new(l))
             },
-            letter_spacing: Some(LogicalLength::new(self.letter_spacing())),
+            letter_spacing: Some(self.logical_letter_spacing()),
         }
     }
 }

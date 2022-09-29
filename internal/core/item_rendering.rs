@@ -290,8 +290,8 @@ pub trait ItemRenderer {
 
             let clip_region_valid = self.combine_clip(
                 euclid::rect(0 as Coord, 0 as Coord, geometry.width(), geometry.height()),
-                LogicalLength::new(clip_item.border_radius()),
-                LogicalLength::new(clip_item.border_width()),
+                clip_item.logical_border_radius(),
+                clip_item.logical_border_width(),
             );
 
             // If clipping is enabled but the clip element is outside the visible range, then we don't
