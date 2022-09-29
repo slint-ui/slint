@@ -202,13 +202,13 @@ impl<'a> SkiaRenderer<'a> {
             // We don't need to include the size of the "layer" item itself, since it has no content.
             let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
                 let self_ref = item_rc.borrow();
-                LogicalRect::from_untyped(&self_ref.as_ref().geometry().union(
+                LogicalRect::from_untyped(&self_ref.as_ref().geometry()).union(
                     &i_slint_core::item_rendering::item_children_bounding_rect(
                         &item_rc.component(),
                         item_rc.index() as isize,
                         &current_clip,
                     ),
-                ))
+                )
             });
             children_rect.size_length()
         }) {
@@ -632,34 +632,33 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
 
     fn combine_clip(
         &mut self,
-        rect: i_slint_core::graphics::Rect,
-        radius: i_slint_core::Coord,
-        border_width: i_slint_core::Coord,
+        rect: LogicalRect,
+        radius: LogicalLength,
+        border_width: LogicalLength,
     ) -> bool {
-        let mut rect = LogicalRect::from_untyped(&rect) * self.scale_factor;
-        let mut border_width = LogicalLength::new(border_width) * self.scale_factor;
+        let mut rect = rect * self.scale_factor;
+        let mut border_width = border_width * self.scale_factor;
         // In CSS the border is entirely towards the inside of the boundary
         // geometry, while in femtovg the line with for a stroke is 50% in-
         // and 50% outwards. We choose the CSS model, so the inner rectangle
         // is adjusted accordingly.
         adjust_rect_and_border_for_inner_drawing(&mut rect, &mut border_width);
 
-        let radius = LogicalLength::new(radius) * self.scale_factor;
+        let radius = radius * self.scale_factor;
         let rounded_rect =
             skia_safe::RRect::new_rect_xy(to_skia_rect(&rect), radius.get(), radius.get());
         self.canvas.clip_rrect(rounded_rect, None, true);
         self.canvas.local_clip_bounds().is_some()
     }
 
-    fn get_current_clip(&self) -> i_slint_core::graphics::Rect {
-        (from_skia_rect(&self.canvas.local_clip_bounds().unwrap_or_default()) / self.scale_factor)
-            .to_untyped()
+    fn get_current_clip(&self) -> LogicalRect {
+        from_skia_rect(&self.canvas.local_clip_bounds().unwrap_or_default()) / self.scale_factor
     }
 
-    fn translate(&mut self, x: i_slint_core::Coord, y: i_slint_core::Coord) {
+    fn translate(&mut self, x: LogicalLength, y: LogicalLength) {
         self.canvas.translate(skia_safe::Vector::from((
-            x * self.scale_factor.get(),
-            y * self.scale_factor.get(),
+            (x * self.scale_factor).get(),
+            (y * self.scale_factor).get(),
         )));
     }
 

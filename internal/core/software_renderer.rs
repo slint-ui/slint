@@ -9,12 +9,12 @@ mod draw_functions;
 mod fonts;
 
 use crate::api::Window;
-use crate::graphics::{IntRect, PixelFormat, Rect as RectF, SharedImageBuffer};
+use crate::graphics::{IntRect, PixelFormat, SharedImageBuffer};
 use crate::item_rendering::ItemRenderer;
 use crate::items::{ImageFit, ItemRc};
 use crate::lengths::{
-    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, PhysicalPx, PointLengths,
-    RectLengths, ScaleFactor, SizeLengths,
+    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx,
+    PointLengths, RectLengths, ScaleFactor, SizeLengths,
 };
 use crate::renderer::Renderer;
 use crate::textlayout::{FontMetrics as _, TextParagraphLayout};
@@ -24,6 +24,7 @@ use alloc::rc::{Rc, Weak};
 use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
+use euclid::num::Zero;
 
 pub use draw_functions::{PremultipliedRgbaColor, Rgb565Pixel, TargetPixel};
 
@@ -178,14 +179,15 @@ impl<const MAX_BUFFER_AGE: usize> SoftwareRenderer<MAX_BUFFER_AGE> {
                 renderer.compute_dirty_regions(component, *origin);
             }
 
-            let dirty_region = (LogicalRect::from_untyped(&renderer.dirty_region.to_rect()).cast()
-                * factor)
-                .round_out()
-                .cast();
+            let dirty_region = (renderer.dirty_region.to_rect().cast() * factor).round_out().cast();
 
             let to_draw = self.apply_dirty_region(dirty_region, size);
 
-            renderer.combine_clip((to_draw.cast() / factor).to_untyped().cast(), 0 as _, 0 as _);
+            renderer.combine_clip(
+                (to_draw.cast() / factor).cast(),
+                LogicalLength::zero(),
+                LogicalLength::zero(),
+            );
 
             if background.alpha() != 0 {
                 renderer.actual_renderer.processor.process_rectangle(to_draw, background);
@@ -658,13 +660,14 @@ fn prepare_scene<const MAX_BUFFER_AGE: usize>(
             renderer.compute_dirty_regions(component, *origin);
         }
 
-        dirty_region = (LogicalRect::from_untyped(&renderer.dirty_region.to_rect()).cast()
-            * factor)
-            .round_out()
-            .cast();
+        dirty_region = (renderer.dirty_region.to_rect().cast() * factor).round_out().cast();
         dirty_region = software_renderer.apply_dirty_region(dirty_region, size);
 
-        renderer.combine_clip((dirty_region.cast() / factor).to_untyped().cast(), 0 as _, 0 as _);
+        renderer.combine_clip(
+            (dirty_region.cast() / factor).cast(),
+            LogicalLength::zero(),
+            LogicalLength::zero(),
+        );
         for (component, origin) in components {
             crate::item_rendering::render_component_items(component, &mut renderer, *origin);
         }
@@ -1227,8 +1230,13 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         // TODO
     }
 
-    fn combine_clip(&mut self, other: RectF, _radius: Coord, _border_width: Coord) -> bool {
-        match self.current_state.clip.intersection(&LogicalRect::from_untyped(&other)) {
+    fn combine_clip(
+        &mut self,
+        other: LogicalRect,
+        _radius: LogicalLength,
+        _border_width: LogicalLength,
+    ) -> bool {
+        match self.current_state.clip.intersection(&other) {
             Some(r) => {
                 self.current_state.clip = r;
                 true
@@ -1241,14 +1249,14 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         // TODO: handle radius and border
     }
 
-    fn get_current_clip(&self) -> crate::graphics::Rect {
-        self.current_state.clip.to_untyped()
+    fn get_current_clip(&self) -> LogicalRect {
+        self.current_state.clip
     }
 
-    fn translate(&mut self, x: Coord, y: Coord) {
-        self.current_state.offset.x += x;
-        self.current_state.offset.y += y;
-        self.current_state.clip = self.current_state.clip.translate((-x, -y).into())
+    fn translate(&mut self, x: LogicalLength, y: LogicalLength) {
+        let translation_vec = LogicalSize::from_lengths(x, y).to_vector();
+        self.current_state.offset += translation_vec;
+        self.current_state.clip = self.current_state.clip.translate(-translation_vec)
     }
 
     fn rotate(&mut self, _angle_in_degrees: f32) {

@@ -19,6 +19,7 @@ use i_slint_core::items::{
     PointerEventButton, RenderingResult, TextOverflow, TextWrap, WindowItem,
 };
 use i_slint_core::layout::Orientation;
+use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 use i_slint_core::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
 use i_slint_core::{ImageInner, PathData, Property, SharedString};
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
@@ -850,7 +851,13 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }
     }
 
-    fn combine_clip(&mut self, rect: Rect, radius: f32, mut border_width: f32) -> bool {
+    fn combine_clip(
+        &mut self,
+        rect: LogicalRect,
+        radius: LogicalLength,
+        border_width: LogicalLength,
+    ) -> bool {
+        let mut border_width: f32 = border_width.get();
         let mut clip_rect = qttypes::QRectF {
             x: rect.min_x() as _,
             y: rect.min_y() as _,
@@ -871,12 +878,15 @@ impl ItemRenderer for QtItemRenderer<'_> {
         }}
     }
 
-    fn get_current_clip(&self) -> Rect {
+    fn get_current_clip(&self) -> LogicalRect {
         let painter: &QPainterPtr = &self.painter;
         let res = cpp! { unsafe [painter as "const QPainterPtr*" ] -> qttypes::QRectF as "QRectF" {
             return (*painter)->clipBoundingRect();
         }};
-        Rect::new(Point::new(res.x as _, res.y as _), Size::new(res.width as _, res.height as _))
+        LogicalRect::new(
+            LogicalPoint::new(res.x as _, res.y as _),
+            LogicalSize::new(res.width as _, res.height as _),
+        )
     }
 
     fn save_state(&mut self) {
@@ -930,7 +940,9 @@ impl ItemRenderer for QtItemRenderer<'_> {
         Some(&mut self.painter)
     }
 
-    fn translate(&mut self, x: f32, y: f32) {
+    fn translate(&mut self, x: LogicalLength, y: LogicalLength) {
+        let x: f32 = x.get();
+        let y: f32 = y.get();
         let painter: &mut QPainterPtr = &mut self.painter;
         cpp! { unsafe [painter as "QPainterPtr*", x as "float", y as "float"] {
             (*painter)->translate(x, y);
@@ -1165,7 +1177,7 @@ impl QtItemRenderer<'_> {
             // We don't need to include the size of the opacity item itself, since it has no content.
             let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
                 let self_ref = self_rc.borrow();
-                self_ref.as_ref().geometry().union(
+                LogicalRect::from_untyped(&self_ref.as_ref().geometry()).union(
                     &i_slint_core::item_rendering::item_children_bounding_rect(
                         &self_rc.component(),
                         self_rc.index() as isize,

@@ -6,9 +6,9 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use euclid::approxeq::ApproxEq;
-use i_slint_core::graphics::euclid;
+use i_slint_core::graphics::euclid::{self, Vector2D};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
-use i_slint_core::graphics::{Image, IntRect, Point, Rect, Size};
+use i_slint_core::graphics::{Image, IntRect, Point, Size};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{
     self, Clip, FillRule, ImageFit, ImageRendering, InputType, ItemRc, Layer, Opacity,
@@ -740,7 +740,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         // If clipping is enabled but the clip element is outside the visible range, then we don't
         // need to bother doing anything, not even rendering the children.
-        if !self.get_current_clip().intersects(&geometry.to_untyped()) {
+        if !self.get_current_clip().intersects(&geometry) {
             return RenderingResult::ContinueRenderingWithoutChildren;
         }
 
@@ -768,19 +768,20 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             self.graphics_cache.release(item_rc);
             // Note: This is correct, combine_clip is API and operates on logical coordinates.
             self.combine_clip(
-                euclid::rect(0., 0., geometry.width(), geometry.height()),
-                radius.get(),
-                border_width.get(),
+                LogicalRect::new(LogicalPoint::zero(), geometry.size_length()),
+                radius,
+                border_width,
             );
             RenderingResult::ContinueRenderingChildren
         }
     }
 
-    fn combine_clip(&mut self, clip_rect: Rect, radius: f32, border_width: f32) -> bool {
-        let clip_rect = LogicalRect::from_untyped(&clip_rect);
-        let radius = LogicalLength::new(radius);
-        let border_width = LogicalLength::new(border_width);
-
+    fn combine_clip(
+        &mut self,
+        clip_rect: LogicalRect,
+        radius: LogicalLength,
+        border_width: LogicalLength,
+    ) -> bool {
         let clip = &mut self.state.last_mut().unwrap().scissor;
         let clip_region_valid = match clip.intersection(&clip_rect) {
             Some(r) => {
@@ -812,8 +813,8 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         clip_region_valid
     }
 
-    fn get_current_clip(&self) -> Rect {
-        self.state.last().unwrap().scissor.to_untyped()
+    fn get_current_clip(&self) -> LogicalRect {
+        self.state.last().unwrap().scissor
     }
 
     fn save_state(&mut self) {
@@ -883,12 +884,12 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         None
     }
 
-    fn translate(&mut self, x: f32, y: f32) {
+    fn translate(&mut self, x: LogicalLength, y: LogicalLength) {
         self.canvas
             .borrow_mut()
-            .translate(x * self.scale_factor.get(), y * self.scale_factor.get());
+            .translate((x * self.scale_factor).get(), (y * self.scale_factor).get());
         let clip = &mut self.state.last_mut().unwrap().scissor;
-        *clip = clip.translate((-x, -y).into())
+        *clip = clip.translate(Vector2D::from_lengths(-x, -y))
     }
 
     fn rotate(&mut self, angle_in_degrees: f32) {
@@ -1046,13 +1047,13 @@ impl<'a> GLItemRenderer<'a> {
                 // We don't need to include the size of the opacity item itself, since it has no content.
                 let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
                     let self_ref = item_rc.borrow();
-                    LogicalRect::from_untyped(&self_ref.as_ref().geometry().union(
+                    LogicalRect::from_untyped(&self_ref.as_ref().geometry()).union(
                         &i_slint_core::item_rendering::item_children_bounding_rect(
                             &item_rc.component(),
                             item_rc.index() as isize,
                             &current_clip,
                         ),
-                    ))
+                    )
                 });
                 children_rect.size
             })
