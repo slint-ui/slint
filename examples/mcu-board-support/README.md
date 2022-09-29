@@ -56,20 +56,19 @@ Build the demo with:
 cargo +nightly build -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789 --target=thumbv6m-none-eabi --release
 ```
 
-You should process the file with  [elf2uf2-rs](https://github.com/jonil/elf2uf2-rs)
+The resulting file can be flashed conveniently with [elf2uf2-rs](https://github.com/jonil/elf2uf2-rs). Install it using `cargo install`:
 
 ```sh
 cargo install elf2uf2-rs
-elf2uf2-rs -d target/thumbv6m-none-eabi/release/printerdemo_mcu
 ```
 
-Then upload the demo to the raspberry pi: push the "bootsel" white button on the device while connecting the
+Then upload the demo to the Raspberry Pi Pico: push the "bootsel" white button on the device while connecting the
 micro-usb cable to the device, this connect some storage where you can store the binary.
 
 Or from the command on linux: (connect the device while pressing the "bootsel" button.
 
 ```sh
-# mount the device
+# If you're on Linux: mount the device
 udisksctl mount -b /dev/sda1
 # upload
 elf2uf2-rs -d target/thumbv6m-none-eabi/release/printerdemo_mcu
