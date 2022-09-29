@@ -185,17 +185,15 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             return;
         }
 
-        let mut border_width = LogicalLength::new(rect.border_width()) * self.scale_factor;
+        let mut border_width = rect.logical_border_width() * self.scale_factor;
         // In CSS the border is entirely towards the inside of the boundary
         // geometry, while in femtovg the line with for a stroke is 50% in-
         // and 50% outwards. We choose the CSS model, so the inner rectangle
         // is adjusted accordingly.
         adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
 
-        let mut path = rect_with_radius_to_path(
-            geometry,
-            LogicalLength::new(rect.border_radius()) * self.scale_factor,
-        );
+        let mut path =
+            rect_with_radius_to_path(geometry, rect.logical_border_radius() * self.scale_factor);
 
         let fill_paint = self.brush_to_paint(rect.background(), &mut path);
 
@@ -245,8 +243,8 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
     }
 
     fn draw_text(&mut self, text: Pin<&items::Text>, _: &ItemRc) {
-        let max_width = LogicalLength::new(text.width()) * self.scale_factor;
-        let max_height = LogicalLength::new(text.height()) * self.scale_factor;
+        let max_width = text.logical_width() * self.scale_factor;
+        let max_height = text.logical_height() * self.scale_factor;
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return;
@@ -265,8 +263,9 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         let paint = match self
             .brush_to_paint(text.color(), &mut rect_to_path(item_rect(text, self.scale_factor)))
         {
-            Some(paint) => font
-                .init_paint(LogicalLength::new(text.letter_spacing()) * self.scale_factor, paint),
+            Some(paint) => {
+                font.init_paint(text.logical_letter_spacing() * self.scale_factor, paint)
+            }
             None => return,
         };
 
@@ -287,8 +286,8 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
     }
 
     fn draw_text_input(&mut self, text_input: Pin<&items::TextInput>, _: &ItemRc) {
-        let width = LogicalLength::new(text_input.width()) * self.scale_factor;
-        let height = LogicalLength::new(text_input.height()) * self.scale_factor;
+        let width = text_input.logical_width() * self.scale_factor;
+        let height = text_input.logical_height() * self.scale_factor;
         if width.get() <= 0. || height.get() <= 0. {
             return;
         }
@@ -305,10 +304,9 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             text_input.color(),
             &mut rect_to_path(item_rect(text_input, self.scale_factor)),
         ) {
-            Some(paint) => font.init_paint(
-                LogicalLength::new(text_input.letter_spacing()) * self.scale_factor,
-                paint,
-            ),
+            Some(paint) => {
+                font.init_paint(text_input.logical_letter_spacing() * self.scale_factor, paint)
+            }
             None => return,
         };
 
@@ -456,7 +454,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             cursor_rect.rect(
                 cursor_point.x,
                 cursor_point.y,
-                (LogicalLength::new(text_input.text_cursor_width()) * self.scale_factor).get(),
+                (text_input.logical_text_cursor_width() * self.scale_factor).get(),
                 font_height.get(),
             );
             canvas.fill_path(&mut cursor_rect, paint);
@@ -556,9 +554,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         let border_paint =
             self.brush_to_paint(path.stroke(), &mut femtovg_path).map(|mut paint| {
-                paint.set_line_width(
-                    (LogicalLength::new(path.stroke_width()) * self.scale_factor).get(),
-                );
+                paint.set_line_width((path.logical_stroke_width() * self.scale_factor).get());
                 paint
             });
 
@@ -703,9 +699,11 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         );
 
         self.canvas.borrow_mut().save_with(|canvas| {
-            let blur = LogicalLength::new(box_shadow.blur()) * self.scale_factor;
-            let offset =
-                LogicalPoint::new(box_shadow.offset_x(), box_shadow.offset_y()) * self.scale_factor;
+            let blur = box_shadow.logical_blur() * self.scale_factor;
+            let offset = LogicalPoint::from_lengths(
+                box_shadow.logical_offset_x(),
+                box_shadow.logical_offset_y(),
+            ) * self.scale_factor;
             canvas.translate(offset.x - blur.get(), offset.y - blur.get());
             canvas.fill_path(&mut shadow_image_rect, shadow_image_paint);
         });
@@ -744,8 +742,8 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             return RenderingResult::ContinueRenderingWithoutChildren;
         }
 
-        let radius = LogicalLength::new(clip_item.border_radius());
-        let border_width = LogicalLength::new(clip_item.border_width());
+        let radius = clip_item.logical_border_radius();
+        let border_width = clip_item.logical_border_width();
 
         if radius.get() > 0. {
             if let Some(layer_image) =

@@ -983,15 +983,11 @@ impl Item for Rotate {
         backend: &mut ItemRendererRef,
         _self_rc: &ItemRc,
     ) -> RenderingResult {
-        (*backend).translate(
-            LogicalLength::new(self.rotation_origin_x()),
-            LogicalLength::new(self.rotation_origin_y()),
-        );
+        let origin_x = self.logical_rotation_origin_x();
+        let origin_y = self.logical_rotation_origin_y();
+        (*backend).translate(origin_x, origin_y);
         (*backend).rotate(self.rotation_angle());
-        (*backend).translate(
-            LogicalLength::new(-self.rotation_origin_x()),
-            LogicalLength::new(-self.rotation_origin_y()),
-        );
+        (*backend).translate(-origin_x, -origin_y);
         RenderingResult::ContinueRenderingChildren
     }
 }
@@ -1119,9 +1115,9 @@ impl WindowItem {
         }
     }
 
-    pub fn font_size(self: Pin<&Self>) -> Option<Coord> {
-        let font_size = self.default_font_size();
-        if font_size <= 0 as Coord {
+    pub fn font_size(self: Pin<&Self>) -> Option<LogicalLength> {
+        let font_size = self.logical_default_font_size();
+        if font_size.get() <= 0 as Coord {
             None
         } else {
             Some(font_size)

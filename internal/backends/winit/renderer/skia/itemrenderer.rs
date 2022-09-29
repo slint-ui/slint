@@ -283,14 +283,14 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             return;
         }
 
-        let mut border_width = LogicalLength::new(rect.border_width()) * self.scale_factor;
+        let mut border_width = rect.logical_border_width() * self.scale_factor;
         // In CSS the border is entirely towards the inside of the boundary
         // geometry, while in femtovg the line with for a stroke is 50% in-
         // and 50% outwards. We choose the CSS model, so the inner rectangle
         // is adjusted accordingly.
         adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
 
-        let radius = LogicalLength::new(rect.border_radius()) * self.scale_factor;
+        let radius = rect.logical_border_radius() * self.scale_factor;
         let rounded_rect =
             skia_safe::RRect::new_rect_xy(to_skia_rect(&geometry), radius.get(), radius.get());
 
@@ -374,8 +374,8 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         text: std::pin::Pin<&i_slint_core::items::Text>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) {
-        let max_width = LogicalLength::new(text.width());
-        let max_height = LogicalLength::new(text.height());
+        let max_width = text.logical_width();
+        let max_height = text.logical_height();
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return;
@@ -418,8 +418,8 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) {
-        let max_width = LogicalLength::new(text_input.width());
-        let max_height = LogicalLength::new(text_input.height());
+        let max_width = text_input.logical_width();
+        let max_height = text_input.logical_height();
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return;
@@ -480,7 +480,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
                 string,
                 cursor_pos as usize,
                 layout,
-                LogicalLength::new(text_input.text_cursor_width()) * self.scale_factor,
+                text_input.logical_text_cursor_width() * self.scale_factor,
             )
             .translate(layout_top_left.to_vector());
 
@@ -622,7 +622,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             None => return,
         };
 
-        let blur = LogicalLength::new(box_shadow.blur()) * self.scale_factor;
+        let blur = box_shadow.logical_blur() * self.scale_factor;
         self.canvas.draw_image(
             cached_shadow_image,
             to_skia_point(offset - PhysicalPoint::from_lengths(blur, blur).to_vector()),
