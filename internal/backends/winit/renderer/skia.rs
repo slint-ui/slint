@@ -7,11 +7,18 @@ use std::rc::{Rc, Weak};
 use i_slint_core::api::{
     GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError,
 };
+use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use i_slint_core::item_rendering::ItemCache;
+use i_slint_core::lengths::{LogicalLength, LogicalPoint, PhysicalPx, ScaleFactor};
 use i_slint_core::window::{WindowAdapter, WindowInner};
 
 use crate::WindowSystemName;
+
+type PhysicalLength = euclid::Length<f32, PhysicalPx>;
+type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
+type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
+type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
 
 mod cached_image;
 mod itemrenderer;
@@ -143,10 +150,10 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
     ) -> i_slint_core::graphics::Size {
         let layout = textlayout::create_layout(
             font_request,
-            scale_factor,
+            ScaleFactor::new(scale_factor),
             text,
             None,
-            max_width.map(|w| w * scale_factor),
+            max_width.map(|w| LogicalLength::new(w)),
             Default::default(),
             Default::default(),
             None,
@@ -168,13 +175,13 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
 
         let window = WindowInner::from_pub(window_adapter.window());
 
-        let scale_factor = window.scale_factor();
+        let scale_factor = ScaleFactor::new(window.scale_factor());
 
-        let max_width = text_input.width() * scale_factor;
-        let max_height = text_input.height() * scale_factor;
-        let pos = pos * scale_factor;
+        let max_width = LogicalLength::new(text_input.width());
+        let max_height = LogicalLength::new(text_input.height()) * scale_factor;
+        let pos = LogicalPoint::from_untyped(pos) * scale_factor;
 
-        if max_width <= 0. || max_height <= 0. {
+        if max_width.get() <= 0. || max_height.get() <= 0. {
             return 0;
         }
 
@@ -196,9 +203,11 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         let layout_top_y = match text_input.vertical_alignment() {
             i_slint_core::items::TextVerticalAlignment::Top => 0.,
             i_slint_core::items::TextVerticalAlignment::Center => {
-                (max_height - layout.height()) / 2.
+                (max_height.get() - layout.height()) / 2.
             }
-            i_slint_core::items::TextVerticalAlignment::Bottom => max_height - layout.height(),
+            i_slint_core::items::TextVerticalAlignment::Bottom => {
+                max_height.get() - layout.height()
+            }
         };
 
         let utf16_index =
@@ -227,12 +236,12 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
 
         let window = WindowInner::from_pub(window_adapter.window());
 
-        let scale_factor = window.scale_factor();
+        let scale_factor = ScaleFactor::new(window.scale_factor());
 
-        let max_width = text_input.width() * scale_factor;
-        let max_height = text_input.height() * scale_factor;
+        let max_width = LogicalLength::new(text_input.width());
+        let max_height = LogicalLength::new(text_input.height()) * scale_factor;
 
-        if max_width <= 0. || max_height <= 0. {
+        if max_width.get() <= 0. || max_height.get() <= 0. {
             return Default::default();
         }
 
@@ -254,30 +263,23 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         let layout_top_y = match text_input.vertical_alignment() {
             i_slint_core::items::TextVerticalAlignment::Top => 0.,
             i_slint_core::items::TextVerticalAlignment::Center => {
-                (max_height - layout.height()) / 2.
+                (max_height.get() - layout.height()) / 2.
             }
-            i_slint_core::items::TextVerticalAlignment::Bottom => max_height - layout.height(),
+            i_slint_core::items::TextVerticalAlignment::Bottom => {
+                max_height.get() - layout.height()
+            }
         };
 
         let physical_cursor_rect = textlayout::cursor_rect(
             string,
             byte_offset,
             layout,
-            text_input.text_cursor_width() * scale_factor,
+            LogicalLength::new(text_input.text_cursor_width()) * scale_factor,
         );
 
-        i_slint_core::graphics::Rect::new(
-            [
-                physical_cursor_rect.x() / scale_factor,
-                (physical_cursor_rect.y() + layout_top_y) / scale_factor,
-            ]
-            .into(),
-            [
-                physical_cursor_rect.width() / scale_factor,
-                physical_cursor_rect.height() / scale_factor,
-            ]
-            .into(),
-        )
+        (physical_cursor_rect.translate(PhysicalPoint::new(0., layout_top_y).to_vector())
+            / scale_factor)
+            .to_untyped()
     }
 
     fn register_font_from_memory(
