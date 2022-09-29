@@ -4,10 +4,15 @@
 // cSpell: ignore lumino mimetypes printerdemo
 
 import { slint_language } from "./highlighting";
-import { PropertyQuery, BindingTextProvider, DefinitionPosition } from "./lsp_integration";
+import {
+  PropertyQuery,
+  BindingTextProvider,
+  DefinitionPosition,
+} from "./lsp_integration";
+import { FilterProxyReader } from "./proxy";
 
 import { BoxLayout, TabBar, Title, Widget } from "@lumino/widgets";
-import { Message } from "@lumino/messaging";
+import { Message as LuminoMessage } from "@lumino/messaging";
 
 import "monaco-editor/esm/vs/editor/editor.all.js";
 import "monaco-editor/esm/vs/editor/standalone/browser/accessibilityHelp/accessibilityHelp.js";
@@ -22,11 +27,14 @@ import "monaco-editor/esm/vs/editor/standalone/browser/referenceSearch/standalon
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
 import {
-  MonacoLanguageClient,
   CloseAction,
   ErrorAction,
-  MonacoServices,
+  Message,
   MessageTransports,
+  MonacoLanguageClient,
+  MonacoServices,
+  RequestMessage,
+  ResponseMessage,
 } from "monaco-languageclient";
 
 import {
@@ -88,7 +96,10 @@ function tabTitleFromURL(url: string): string {
   }
 }
 
-type PropertyDataNotifier = (_binding_text_provider: BindingTextProvider, _p: PropertyQuery) => void;
+type PropertyDataNotifier = (
+  _binding_text_provider: BindingTextProvider,
+  _p: PropertyQuery,
+) => void;
 
 class EditorPaneWidget extends Widget {
   auto_compile = true;
@@ -234,7 +245,7 @@ class EditorPaneWidget extends Widget {
     return false;
   }
 
-  protected onResize(_msg: Message): void {
+  protected onResize(_msg: LuminoMessage): void {
     if (this.isAttached) {
       this.resize_editor();
     }
@@ -330,7 +341,10 @@ class EditorPaneWidget extends Widget {
                 const result_str = JSON.stringify(result);
                 if (this.#current_properties != result_str) {
                   this.#current_properties = result_str;
-                  this.onNewPropertyData?.(new ModelBindingTextProvider(model), result);
+                  this.onNewPropertyData?.(
+                    new ModelBindingTextProvider(model),
+                    result,
+                  );
                 }
               });
           }
@@ -372,7 +386,27 @@ class EditorPaneWidget extends Widget {
           // We cannot start sending messages to the client before we start listening which
           // the server only does in a future after the wasm is loaded.
           if (m.data === "OK") {
-            const reader = new BrowserMessageReader(lsp_worker);
+            const reader = new FilterProxyReader(
+              new BrowserMessageReader(lsp_worker),
+              (data: Message) => {
+                if ((data as RequestMessage).method == "slint/load_file") {
+                  const request = data as RequestMessage;
+                  const url = (request.params as string[])[0];
+
+                  this.read_from_url(url).then((contents) => {
+                    writer.write({
+                      jsonrpc: request.jsonrpc,
+                      id: request.id,
+                      result: contents,
+                      error: undefined,
+                    } as ResponseMessage);
+                  });
+
+                  return true;
+                }
+                return false;
+              },
+            );
             const writer = new BrowserMessageWriter(lsp_worker);
 
             const languageClient = createLanguageClient({ reader, writer });
@@ -439,6 +473,25 @@ class EditorPaneWidget extends Widget {
   textAt(handle: unknown, start: number, end: number): string {
     const model = handle as monaco.editor.ITextModel;
     return model.getValue().substring(start, end);
+  }
+
+  async read_from_url(url: string): Promise<string> {
+    let model_and_state = this.#editor_documents.get(url);
+    if (model_and_state != null) {
+      return model_and_state.model.getValue();
+    }
+
+    const response = await fetch(url);
+    const text = await response.text();
+
+    model_and_state = this.#editor_documents.get(url);
+    if (model_and_state != null) {
+      return model_and_state.model.getValue();
+    } else {
+      const model = createModel(text, monaco.Uri.parse(url));
+      this.add_model(url, model);
+      return text;
+    }
   }
 }
 
@@ -559,14 +612,9 @@ export class EditorWidget extends Widget {
     return this.#editor.supported_commands;
   }
 
-  protected load_from_url(url: string) {
+  protected async load_from_url(url: string) {
     this.#editor.clear_models();
-    fetch(url).then((x) =>
-      x.text().then((y) => {
-        const model = createModel(y, monaco.Uri.parse(url));
-        this.#editor.add_model(url, model);
-      }),
-    );
+    await this.#editor.read_from_url(url);
   }
 
   known_demos(): [string, string][] {
@@ -579,7 +627,7 @@ export class EditorWidget extends Widget {
     ];
   }
 
-  set_demo(location: string) {
+  async set_demo(location: string) {
     if (location) {
       let tag = "master";
       {
@@ -590,7 +638,7 @@ export class EditorWidget extends Widget {
           tag = "v" + found[1];
         }
       }
-      this.load_from_url(
+      await this.load_from_url(
         `https://raw.githubusercontent.com/slint-ui/slint/${tag}/${location}`,
       );
     } else {
@@ -611,9 +659,7 @@ export class EditorWidget extends Widget {
     this.#editor.onRenderRequest = request;
   }
 
-  set onNewPropertyData(
-    handler: PropertyDataNotifier,
-  ) {
+  set onNewPropertyData(handler: PropertyDataNotifier) {
     this.#editor.onNewPropertyData = handler;
   }
 
@@ -623,9 +669,13 @@ export class EditorWidget extends Widget {
 }
 
 class ModelBindingTextProvider implements BindingTextProvider {
-  #model: monaco.editor.ITextModel
-  constructor(model: monaco.editor.ITextModel) { this.#model = model; }
+  #model: monaco.editor.ITextModel;
+  constructor(model: monaco.editor.ITextModel) {
+    this.#model = model;
+  }
   binding_text(location: DefinitionPosition): string {
-    return this.#model.getValue().substring(location.expression_start, location.expression_end);
+    return this.#model
+      .getValue()
+      .substring(location.expression_start, location.expression_end);
   }
 }

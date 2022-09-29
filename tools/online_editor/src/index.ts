@@ -32,7 +32,7 @@ function create_demo_menu(editor: EditorWidget): Menu {
     commands.addCommand(command_name, {
       label: demo[1],
       execute: () => {
-        editor.set_demo(demo[0]);
+        return editor.set_demo(demo[0]);
       },
     });
     menu.addItem({ command: command_name });
