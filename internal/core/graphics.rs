@@ -130,17 +130,39 @@ impl<T> RenderingCache<T> {
 /// It is submitted as a request to the platform font system (i.e. CoreText on macOS) and in exchange the
 /// backend returns a Box<dyn Font>.
 #[derive(Debug, Clone, PartialEq, Default)]
-pub struct FontRequest {
+pub struct FontRequest<LengthType> {
     /// The name of the font family to be used, such as "Helvetica". An empty family name means the system
     /// default font family should be used.
     pub family: Option<SharedString>,
     /// If the weight is None, the system default font weight should be used.
     pub weight: Option<i32>,
     /// If the pixel size is None, the system default font size should be used.
-    pub pixel_size: Option<Coord>,
+    pub pixel_size: Option<LengthType>,
     /// The additional spacing (or shrinking if negative) between glyphs. This is usually not submitted to
     /// the font-subsystem but collected here for API convenience
-    pub letter_spacing: Option<Coord>,
+    pub letter_spacing: Option<LengthType>,
+}
+
+impl<
+        PrimitiveLengthType: Copy + core::ops::Mul<Output = PrimitiveLengthType>,
+        FromUnit,
+        ToUnit,
+    > core::ops::Mul<crate::graphics::euclid::Scale<PrimitiveLengthType, FromUnit, ToUnit>>
+    for FontRequest<crate::graphics::euclid::Length<PrimitiveLengthType, FromUnit>>
+{
+    type Output = FontRequest<crate::graphics::euclid::Length<PrimitiveLengthType, ToUnit>>;
+
+    fn mul(
+        self,
+        scale: crate::graphics::euclid::Scale<PrimitiveLengthType, FromUnit, ToUnit>,
+    ) -> Self::Output {
+        Self::Output {
+            family: self.family.clone(),
+            weight: self.weight.clone(),
+            pixel_size: self.pixel_size.map(|size| size * scale),
+            letter_spacing: self.letter_spacing.map(|spacing| spacing * scale),
+        }
+    }
 }
 
 #[cfg(feature = "ffi")]

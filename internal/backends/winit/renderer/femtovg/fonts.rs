@@ -14,7 +14,7 @@ use std::collections::{HashMap, HashSet};
 
 use super::{PhysicalLength, PhysicalPoint, PhysicalSize};
 
-pub const DEFAULT_FONT_SIZE: f32 = 12.;
+pub const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12.);
 pub const DEFAULT_FONT_WEIGHT: i32 = 400; // CSS normal
 
 #[cfg(not(any(
@@ -75,7 +75,7 @@ struct FontCacheKey {
 #[derive(Clone)]
 pub struct Font {
     fonts: SharedVector<femtovg::FontId>,
-    pixel_size: f32,
+    pixel_size: PhysicalLength,
     text_context: TextContext,
 }
 
@@ -86,7 +86,7 @@ impl Font {
         mut paint: femtovg::Paint,
     ) -> femtovg::Paint {
         paint.set_font(&self.fonts);
-        paint.set_font_size(self.pixel_size);
+        paint.set_font_size(self.pixel_size.get());
         paint.set_text_baseline(femtovg::Baseline::Top);
         paint.set_letter_spacing(letter_spacing.get());
         paint
@@ -129,14 +129,14 @@ impl Font {
 }
 
 pub(crate) fn text_size(
-    font_request: &i_slint_core::graphics::FontRequest,
+    font_request: &i_slint_core::graphics::FontRequest<LogicalLength>,
     scale_factor: ScaleFactor,
     text: &str,
     max_width: Option<LogicalLength>,
 ) -> LogicalSize {
     let font =
         FONT_CACHE.with(|cache| cache.borrow_mut().font(font_request.clone(), scale_factor, text));
-    let letter_spacing = LogicalLength::new(font_request.letter_spacing.unwrap_or_default());
+    let letter_spacing = font_request.letter_spacing.unwrap_or_default();
     font.text_size(letter_spacing * scale_factor, text, max_width.map(|x| x * scale_factor))
         / scale_factor
 }
@@ -253,7 +253,7 @@ thread_local! {
 }
 
 impl FontCache {
-    fn load_single_font(&mut self, request: &FontRequest) -> LoadedFont {
+    fn load_single_font(&mut self, request: &FontRequest<PhysicalLength>) -> LoadedFont {
         let text_context = self.text_context.clone();
         let cache_key = FontCacheKey {
             family: request.family.clone().unwrap_or_default(),
@@ -327,13 +327,13 @@ impl FontCache {
 
     pub fn font(
         &mut self,
-        mut request: FontRequest,
+        mut request: FontRequest<LogicalLength>,
         scale_factor: ScaleFactor,
         reference_text: &str,
     ) -> Font {
-        request.pixel_size =
-            Some(request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE) * scale_factor.get());
+        request.pixel_size = Some(request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE));
         request.weight = request.weight.or(Some(DEFAULT_FONT_WEIGHT));
+        let request = request * scale_factor;
 
         let primary_font = self.load_single_font(&request);
 
@@ -403,13 +403,13 @@ impl FontCache {
     #[cfg(target_os = "macos")]
     fn font_fallbacks_for_request(
         &self,
-        _request: &FontRequest,
+        _request: &FontRequest<PhysicalLength>,
         _primary_font: &LoadedFont,
         _reference_text: &str,
-    ) -> Vec<FontRequest> {
+    ) -> Vec<FontRequest<PhysicalLength>> {
         let requested_font = match core_text::font::new_from_name(
             &_request.family.as_ref().map_or_else(|| "", |s| s.as_str()),
-            _request.pixel_size.unwrap_or_default() as f64,
+            _request.pixel_size.unwrap_or_default().get() as f64,
         ) {
             Ok(f) => f,
             Err(_) => return vec![],
@@ -433,10 +433,10 @@ impl FontCache {
     #[cfg(target_os = "windows")]
     fn font_fallbacks_for_request(
         &self,
-        request: &FontRequest,
+        request: &FontRequest<PhysicalLength>,
         _primary_font: &LoadedFont,
         reference_text: &str,
-    ) -> Vec<FontRequest> {
+    ) -> Vec<FontRequest<PhysicalLength>> {
         let system_font_fallback = match dwrote::FontFallback::get_system_fallback() {
             Some(fallback) => fallback,
             None => return Vec::new(),
@@ -518,10 +518,10 @@ impl FontCache {
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows"), not(target_arch = "wasm32")))]
     fn font_fallbacks_for_request(
         &self,
-        _request: &FontRequest,
+        _request: &FontRequest<PhysicalLength>,
         _primary_font: &LoadedFont,
         _reference_text: &str,
-    ) -> Vec<FontRequest> {
+    ) -> Vec<FontRequest<PhysicalLength>> {
         self.fontconfig_fallback_families
             .iter()
             .map(|family_name| FontRequest {
@@ -537,10 +537,10 @@ impl FontCache {
     #[cfg(target_arch = "wasm32")]
     fn font_fallbacks_for_request(
         &self,
-        _request: &FontRequest,
+        _request: &FontRequest<PhysicalLength>,
         _primary_font: &LoadedFont,
         _reference_text: &str,
-    ) -> Vec<FontRequest> {
+    ) -> Vec<FontRequest<PhysicalLength>> {
         [FontRequest {
             family: Some("DejaVu Sans".into()),
             weight: _request.weight,
@@ -553,7 +553,7 @@ impl FontCache {
         .collect()
     }
 
-    fn is_known_family(&self, request: &FontRequest) -> bool {
+    fn is_known_family(&self, request: &FontRequest<PhysicalLength>) -> bool {
         request
             .family
             .as_ref()
