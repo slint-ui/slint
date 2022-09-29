@@ -258,16 +258,16 @@ impl<const MAX_BUFFER_AGE: usize> Renderer for SoftwareRenderer<MAX_BUFFER_AGE> 
         &self,
         font_request: crate::graphics::FontRequest,
         text: &str,
-        max_width: Option<Coord>,
-        scale_factor: f32,
-    ) -> crate::graphics::Size {
-        fonts::text_size(font_request, text, max_width, ScaleFactor::new(scale_factor)).to_untyped()
+        max_width: Option<LogicalLength>,
+        scale_factor: ScaleFactor,
+    ) -> LogicalSize {
+        fonts::text_size(font_request, text, max_width, scale_factor)
     }
 
     fn text_input_byte_offset_for_position(
         &self,
         _text_input: Pin<&crate::items::TextInput>,
-        _pos: crate::graphics::Point,
+        _pos: LogicalPoint,
     ) -> usize {
         0
     }
@@ -275,7 +275,7 @@ impl<const MAX_BUFFER_AGE: usize> Renderer for SoftwareRenderer<MAX_BUFFER_AGE> 
         &self,
         _text_input: Pin<&crate::items::TextInput>,
         _byte_offset: usize,
-    ) -> crate::graphics::Rect {
+    ) -> LogicalRect {
         Default::default()
     }
 

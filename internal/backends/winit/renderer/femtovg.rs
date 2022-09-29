@@ -8,15 +8,12 @@ use std::rc::{Rc, Weak};
 use i_slint_core::api::{
     GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError,
 };
-use i_slint_core::graphics::{
-    euclid, rendering_metrics_collector::RenderingMetricsCollector, Point, Rect, Size,
-};
+use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::{WindowAdapter, WindowInner};
-use i_slint_core::Coord;
 
 use crate::WindowSystemName;
 
@@ -220,22 +217,16 @@ impl Renderer for FemtoVGRenderer {
         &self,
         font_request: i_slint_core::graphics::FontRequest,
         text: &str,
-        max_width: Option<Coord>,
-        scale_factor: f32,
-    ) -> Size {
-        crate::renderer::femtovg::fonts::text_size(
-            &font_request,
-            ScaleFactor::new(scale_factor),
-            text,
-            max_width.map(|w| LogicalLength::new(w)),
-        )
-        .to_untyped()
+        max_width: Option<LogicalLength>,
+        scale_factor: ScaleFactor,
+    ) -> LogicalSize {
+        crate::renderer::femtovg::fonts::text_size(&font_request, scale_factor, text, max_width)
     }
 
     fn text_input_byte_offset_for_position(
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
-        pos: Point,
+        pos: LogicalPoint,
     ) -> usize {
         let window_adapter = match self.window_adapter_weak.upgrade() {
             Some(window) => window,
@@ -245,7 +236,7 @@ impl Renderer for FemtoVGRenderer {
         let window = WindowInner::from_pub(window_adapter.window());
 
         let scale_factor = ScaleFactor::new(window.scale_factor());
-        let pos = LogicalPoint::from_untyped(pos) * scale_factor;
+        let pos = pos * scale_factor;
         let text = text_input.text();
 
         let mut result = text.len();
@@ -318,7 +309,7 @@ impl Renderer for FemtoVGRenderer {
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
-    ) -> Rect {
+    ) -> LogicalRect {
         let window_adapter = match self.window_adapter_weak.upgrade() {
             Some(window) => window,
             None => return Default::default(),
@@ -337,7 +328,7 @@ impl Renderer for FemtoVGRenderer {
         let width = LogicalLength::new(text_input.width()) * scale_factor;
         let height = LogicalLength::new(text_input.height()) * scale_factor;
         if width.get() <= 0. || height.get() <= 0. {
-            return Rect::new(Point::default(), Size::new(1.0, font_size));
+            return LogicalRect::new(LogicalPoint::default(), LogicalSize::new(1.0, font_size));
         }
 
         let font = crate::renderer::femtovg::fonts::FONT_CACHE.with(|cache| {
@@ -377,7 +368,7 @@ impl Renderer for FemtoVGRenderer {
             },
         );
 
-        LogicalRect::new(result / scale_factor, LogicalSize::new(1.0, font_size)).to_untyped()
+        LogicalRect::new(result / scale_factor, LogicalSize::new(1.0, font_size))
     }
 
     fn register_font_from_memory(

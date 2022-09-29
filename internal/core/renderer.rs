@@ -4,8 +4,7 @@
 use alloc::boxed::Box;
 use core::pin::Pin;
 
-use crate::graphics::{Point, Rect, Size};
-use crate::Coord;
+use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 
 pub trait Renderer {
     /// Returns the size of the given text in logical pixels.
@@ -14,9 +13,9 @@ pub trait Renderer {
         &self,
         font_request: crate::graphics::FontRequest,
         text: &str,
-        max_width: Option<Coord>,
-        scale_factor: f32,
-    ) -> Size;
+        max_width: Option<LogicalLength>,
+        scale_factor: ScaleFactor,
+    ) -> LogicalSize;
 
     /// Returns the (UTF-8) byte offset in the text property that refers to the character that contributed to
     /// the glyph cluster that's visually nearest to the given coordinate. This is used for hit-testing,
@@ -25,7 +24,7 @@ pub trait Renderer {
     fn text_input_byte_offset_for_position(
         &self,
         text_input: Pin<&crate::items::TextInput>,
-        pos: Point,
+        pos: LogicalPoint,
     ) -> usize;
 
     /// That's the opposite of [`Self::text_input_byte_offset_for_position`]
@@ -35,7 +34,7 @@ pub trait Renderer {
         &self,
         text_input: Pin<&crate::items::TextInput>,
         byte_offset: usize,
-    ) -> Rect;
+    ) -> LogicalRect;
 
     /// Clear the caches for the items that are being removed
     fn free_graphics_resources(

@@ -10,7 +10,7 @@ use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
 use i_slint_core::graphics::{
-    euclid, Brush, Color, FontRequest, Image, IntSize, Point, Rect, SharedImageBuffer, Size,
+    euclid, Brush, Color, FontRequest, Image, IntSize, Point, Rect, SharedImageBuffer,
 };
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
@@ -19,7 +19,7 @@ use i_slint_core::items::{
     PointerEventButton, RenderingResult, TextOverflow, TextWrap, WindowItem,
 };
 use i_slint_core::layout::Orientation;
-use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
+use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 use i_slint_core::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
 use i_slint_core::{ImageInner, PathData, Property, SharedString};
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
@@ -1621,16 +1621,16 @@ impl Renderer for QtWindow {
         &self,
         font_request: i_slint_core::graphics::FontRequest,
         text: &str,
-        max_width: Option<f32>,
-        _scale_factor: f32,
-    ) -> Size {
-        get_font(font_request).text_size(text, max_width)
+        max_width: Option<LogicalLength>,
+        _scale_factor: ScaleFactor,
+    ) -> LogicalSize {
+        get_font(font_request).text_size(text, max_width.map(|logical_width| logical_width.get()))
     }
 
     fn text_input_byte_offset_for_position(
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
-        pos: Point,
+        pos: LogicalPoint,
     ) -> usize {
         if pos.y < 0. {
             return 0;
@@ -1692,7 +1692,7 @@ impl Renderer for QtWindow {
         &self,
         text_input: Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
-    ) -> Rect {
+    ) -> LogicalRect {
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
         let font: QFont = get_font(
             text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter()),
@@ -1732,7 +1732,10 @@ impl Renderer for QtWindow {
             return QFontInfo(font).pixelSize();
         }};
 
-        Rect::new(Point::new(r.x as _, r.y as _), Size::new(1.0, font_size as f32))
+        LogicalRect::new(
+            LogicalPoint::new(r.x as _, r.y as _),
+            LogicalSize::new(1.0, font_size as f32),
+        )
     }
 
     fn register_font_from_memory(
@@ -1815,7 +1818,7 @@ fn get_font(request: FontRequest) -> QFont {
 cpp_class! {pub unsafe struct QFont as "QFont"}
 
 impl QFont {
-    fn text_size(&self, text: &str, max_width: Option<f32>) -> i_slint_core::graphics::Size {
+    fn text_size(&self, text: &str, max_width: Option<f32>) -> LogicalSize {
         let string = qttypes::QString::from(text);
         let mut r = qttypes::QRectF::default();
         if let Some(max) = max_width {
@@ -1826,7 +1829,7 @@ impl QFont {
                 -> qttypes::QSizeF as "QSizeF"{
             return QFontMetricsF(*self).boundingRect(r, r.isEmpty() ? 0 : Qt::TextWordWrap , string).size();
         }};
-        i_slint_core::graphics::Size::new(size.width as _, size.height as _)
+        LogicalSize::new(size.width as _, size.height as _)
     }
 }
 

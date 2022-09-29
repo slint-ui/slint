@@ -198,16 +198,14 @@ pub fn register_bitmap_font(font_data: &'static BitmapFont) {
 pub fn text_size(
     font_request: FontRequest,
     text: &str,
-    max_width: Option<Coord>,
+    max_width: Option<LogicalLength>,
     scale_factor: ScaleFactor,
 ) -> LogicalSize {
     let font = match_font(&font_request, scale_factor);
     let layout = text_layout_for_font(&font, &font_request, scale_factor);
 
-    let (longest_line_width, height) = layout.text_size(
-        text,
-        max_width.map(|max_width| (LogicalLength::new(max_width).cast() * scale_factor).cast()),
-    );
+    let (longest_line_width, height) =
+        layout.text_size(text, max_width.map(|max_width| (max_width.cast() * scale_factor).cast()));
 
     (PhysicalSize::from_lengths(longest_line_width, height).cast() / scale_factor).cast()
 }
