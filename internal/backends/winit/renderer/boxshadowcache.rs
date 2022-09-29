@@ -3,15 +3,21 @@
 
 use std::{cell::RefCell, collections::BTreeMap};
 
-use i_slint_core::{items::ItemRc, Color};
+use i_slint_core::graphics::euclid;
+use i_slint_core::items::ItemRc;
+use i_slint_core::lengths::LogicalLength;
+use i_slint_core::{
+    lengths::{PhysicalPx, ScaleFactor},
+    Color,
+};
 
 #[derive(Clone, PartialEq, Debug, Default)]
 pub struct BoxShadowOptions {
-    pub width: f32,
-    pub height: f32,
+    pub width: euclid::Length<f32, PhysicalPx>,
+    pub height: euclid::Length<f32, PhysicalPx>,
     pub color: Color,
-    pub blur: f32,
-    pub radius: f32,
+    pub blur: euclid::Length<f32, PhysicalPx>,
+    pub radius: euclid::Length<f32, PhysicalPx>,
 }
 
 impl Eq for BoxShadowOptions {}
@@ -40,18 +46,18 @@ impl PartialOrd for BoxShadowOptions {
 impl BoxShadowOptions {
     fn new(
         box_shadow: std::pin::Pin<&i_slint_core::items::BoxShadow>,
-        scale_factor: f32,
+        scale_factor: ScaleFactor,
     ) -> Option<Self> {
         let color = box_shadow.color();
         if color.alpha() == 0 {
             return None;
         }
         Some(Self {
-            width: box_shadow.width() * scale_factor,
-            height: box_shadow.height() * scale_factor,
+            width: LogicalLength::new(box_shadow.width()) * scale_factor,
+            height: LogicalLength::new(box_shadow.height()) * scale_factor,
             color,
-            blur: box_shadow.blur() * scale_factor, // This effectively becomes the blur radius, so scale to physical pixels
-            radius: box_shadow.border_radius() * scale_factor,
+            blur: LogicalLength::new(box_shadow.blur()) * scale_factor, // This effectively becomes the blur radius, so scale to physical pixels
+            radius: LogicalLength::new(box_shadow.border_radius()) * scale_factor,
         })
     }
 }
@@ -70,7 +76,7 @@ impl<ImageType: Clone> BoxShadowCache<ImageType> {
         item_rc: &ItemRc,
         item_cache: &i_slint_core::item_rendering::ItemCache<Option<ImageType>>,
         box_shadow: std::pin::Pin<&i_slint_core::items::BoxShadow>,
-        scale_factor: f32,
+        scale_factor: ScaleFactor,
         shadow_render_fn: impl FnOnce(&BoxShadowOptions) -> ImageType,
     ) -> Option<ImageType> {
         item_cache.get_or_update_cache_entry(item_rc, || {
