@@ -375,7 +375,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         _self_rc: &i_slint_core::items::ItemRc,
     ) {
         let max_width = LogicalLength::new(text.width());
-        let max_height = LogicalLength::new(text.height()) * self.scale_factor;
+        let max_height = LogicalLength::new(text.height());
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return;
@@ -385,33 +385,32 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         let string = string.as_str();
         let font_request = text.font_request(WindowInner::from_pub(&self.window));
 
-        let paint =
-            match self.brush_to_paint(text.color(), max_width * self.scale_factor, max_height) {
-                Some(paint) => paint,
-                None => return,
-            };
+        let paint = match self.brush_to_paint(
+            text.color(),
+            max_width * self.scale_factor,
+            max_height * self.scale_factor,
+        ) {
+            Some(paint) => paint,
+            None => return,
+        };
 
         let mut text_style = skia_safe::textlayout::TextStyle::new();
         text_style.set_foreground_color(paint);
 
-        let layout = super::textlayout::create_layout(
+        let (layout, layout_top_left) = super::textlayout::create_layout(
             font_request,
             self.scale_factor,
             string,
             Some(text_style),
             Some(max_width),
+            max_height,
             text.horizontal_alignment(),
+            text.vertical_alignment(),
             text.overflow(),
             None,
         );
 
-        let y = match text.vertical_alignment() {
-            items::TextVerticalAlignment::Top => 0.,
-            items::TextVerticalAlignment::Center => (max_height.get() - layout.height()) / 2.,
-            items::TextVerticalAlignment::Bottom => max_height.get() - layout.height(),
-        };
-
-        layout.paint(&mut self.canvas, skia_safe::Point::new(0., y));
+        layout.paint(&mut self.canvas, to_skia_point(layout_top_left));
     }
 
     fn draw_text_input(
@@ -420,7 +419,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         _self_rc: &i_slint_core::items::ItemRc,
     ) {
         let max_width = LogicalLength::new(text_input.width());
-        let max_height = LogicalLength::new(text_input.height()) * self.scale_factor;
+        let max_height = LogicalLength::new(text_input.height());
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return;
@@ -434,7 +433,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         let paint = match self.brush_to_paint(
             text_input.color(),
             max_width * self.scale_factor,
-            max_height,
+            max_height * self.scale_factor,
         ) {
             Some(paint) => paint,
             None => return,
@@ -454,24 +453,20 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             None
         };
 
-        let layout = super::textlayout::create_layout(
+        let (layout, layout_top_left) = super::textlayout::create_layout(
             font_request,
             self.scale_factor,
             string,
             Some(text_style),
             Some(max_width),
+            max_height,
             text_input.horizontal_alignment(),
+            text_input.vertical_alignment(),
             i_slint_core::items::TextOverflow::Clip,
             selection.as_ref(),
         );
 
-        let layout_top_y = match text_input.vertical_alignment() {
-            items::TextVerticalAlignment::Top => 0.,
-            items::TextVerticalAlignment::Center => (max_height.get() - layout.height()) / 2.,
-            items::TextVerticalAlignment::Bottom => max_height.get() - layout.height(),
-        };
-
-        layout.paint(&mut self.canvas, skia_safe::Point::new(0., layout_top_y));
+        layout.paint(&mut self.canvas, to_skia_point(layout_top_left));
 
         let cursor_pos = text_input.cursor_position();
 
@@ -487,7 +482,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
                 layout,
                 LogicalLength::new(text_input.text_cursor_width()) * self.scale_factor,
             )
-            .translate(PhysicalPoint::new(0.0, layout_top_y).to_vector());
+            .translate(layout_top_left.to_vector());
 
             let cursor_paint = match self.brush_to_paint(
                 text_input.color(),
