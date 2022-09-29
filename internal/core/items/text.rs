@@ -20,6 +20,7 @@ use crate::input::{
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::{LayoutInfo, Orientation};
+use crate::lengths::{LogicalLength, LogicalPoint, ScaleFactor};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::{WindowAdapter, WindowInner};
@@ -73,7 +74,7 @@ impl Item for Text {
                 self.font_request(window_inner),
                 self.text().as_str(),
                 max_width,
-                window_adapter.window().scale_factor(),
+                ScaleFactor::new(window_adapter.window().scale_factor()),
             )
         };
 
@@ -91,7 +92,7 @@ impl Item for Text {
                                 self.font_request(window_inner),
                                 "…",
                                 None,
-                                window_inner.scale_factor(),
+                                ScaleFactor::new(window_inner.scale_factor()),
                             )
                             .width,
                     ),
@@ -109,7 +110,9 @@ impl Item for Text {
             Orientation::Vertical => {
                 let h = match self.wrap() {
                     TextWrap::NoWrap => implicit_size(None).height,
-                    TextWrap::WordWrap => implicit_size(Some(self.width())).height,
+                    TextWrap::WordWrap => {
+                        implicit_size(Some(LogicalLength::new(self.width()))).height
+                    }
                 }
                 .ceil();
                 LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
@@ -264,7 +267,7 @@ impl Item for TextInput {
                     }
                 },
                 max_width,
-                window_adapter.window().scale_factor(),
+                ScaleFactor::new(window_adapter.window().scale_factor()),
             )
         };
 
@@ -287,7 +290,9 @@ impl Item for TextInput {
             Orientation::Vertical => {
                 let h = match self.wrap() {
                     TextWrap::NoWrap => implicit_size(None).height,
-                    TextWrap::WordWrap => implicit_size(Some(self.width())).height,
+                    TextWrap::WordWrap => {
+                        implicit_size(Some(LogicalLength::new(self.width()))).height
+                    }
                 }
                 .ceil();
                 LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
@@ -315,6 +320,7 @@ impl Item for TextInput {
         }
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left } => {
+                let position = LogicalPoint::from_untyped(position);
                 let clicked_offset =
                     window_adapter.renderer().text_input_byte_offset_for_position(self, position)
                         as i32;
@@ -333,6 +339,7 @@ impl Item for TextInput {
                 self.as_ref().pressed.set(false)
             }
             MouseEvent::Moved { position } => {
+                let position = LogicalPoint::from_untyped(position);
                 window_adapter.set_mouse_cursor(super::MouseCursor::Text);
                 if self.as_ref().pressed.get() {
                     let clicked_offset = window_adapter
@@ -600,7 +607,7 @@ impl TextInput {
                 self.font_request(window_adapter),
                 " ",
                 None,
-                window_adapter.window().scale_factor(),
+                ScaleFactor::new(window_adapter.window().scale_factor()),
             )
             .height;
 
@@ -726,7 +733,8 @@ impl TextInput {
             let pos = window_adapter
                 .renderer()
                 .text_input_cursor_rect_for_byte_offset(self, new_position as usize)
-                .origin;
+                .origin
+                .to_untyped();
             if reset_preferred_x_pos {
                 self.preferred_x_pos.set(pos.x);
             }

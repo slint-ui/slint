@@ -10,7 +10,9 @@ use i_slint_core::api::{
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use i_slint_core::item_rendering::ItemCache;
-use i_slint_core::lengths::{LogicalLength, LogicalPoint, PhysicalPx, ScaleFactor};
+use i_slint_core::lengths::{
+    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
+};
 use i_slint_core::window::{WindowAdapter, WindowInner};
 
 use crate::WindowSystemName;
@@ -145,15 +147,15 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         &self,
         font_request: i_slint_core::graphics::FontRequest,
         text: &str,
-        max_width: Option<i_slint_core::Coord>,
-        scale_factor: f32,
-    ) -> i_slint_core::graphics::Size {
+        max_width: Option<LogicalLength>,
+        scale_factor: ScaleFactor,
+    ) -> LogicalSize {
         let (layout, _) = textlayout::create_layout(
             font_request,
-            ScaleFactor::new(scale_factor),
+            scale_factor,
             text,
             None,
-            max_width.map(|w| LogicalLength::new(w)),
+            max_width,
             Default::default(),
             Default::default(),
             Default::default(),
@@ -161,14 +163,14 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
             None,
         );
 
-        [layout.max_intrinsic_width().ceil() / scale_factor, layout.height().ceil() / scale_factor]
-            .into()
+        PhysicalSize::new(layout.max_intrinsic_width().ceil(), layout.height().ceil())
+            / scale_factor
     }
 
     fn text_input_byte_offset_for_position(
         &self,
         text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
-        pos: i_slint_core::graphics::Point,
+        pos: LogicalPoint,
     ) -> usize {
         let window_adapter = match self.window_adapter_weak.upgrade() {
             Some(window) => window,
@@ -181,7 +183,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
 
         let max_width = LogicalLength::new(text_input.width());
         let max_height = LogicalLength::new(text_input.height());
-        let pos = LogicalPoint::from_untyped(pos) * scale_factor;
+        let pos = pos * scale_factor;
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return 0;
@@ -222,7 +224,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         &self,
         text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
         byte_offset: usize,
-    ) -> i_slint_core::graphics::Rect {
+    ) -> LogicalRect {
         let window_adapter = match self.window_adapter_weak.upgrade() {
             Some(window) => window,
             None => return Default::default(),
@@ -263,7 +265,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
             LogicalLength::new(text_input.text_cursor_width()) * scale_factor,
         );
 
-        (physical_cursor_rect.translate(layout_top_left.to_vector()) / scale_factor).to_untyped()
+        physical_cursor_rect.translate(layout_top_left.to_vector()) / scale_factor
     }
 
     fn register_font_from_memory(

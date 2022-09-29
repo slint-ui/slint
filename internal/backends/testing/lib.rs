@@ -4,7 +4,7 @@
 #![doc = include_str!("README.md")]
 #![doc(html_logo_url = "https://slint-ui.com/logo/slint-logo-square-light.svg")]
 
-use i_slint_core::graphics::{Point, Rect, Size};
+use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::WindowAdapter;
 use i_slint_core::window::WindowAdapterSealed;
@@ -75,16 +75,16 @@ impl Renderer for TestingWindow {
         &self,
         _font_request: i_slint_core::graphics::FontRequest,
         text: &str,
-        _max_width: Option<f32>,
-        _scale_factor: f32,
-    ) -> Size {
-        Size::new(text.len() as f32 * 10., 10.)
+        _max_width: Option<LogicalLength>,
+        _scale_factor: ScaleFactor,
+    ) -> LogicalSize {
+        LogicalSize::new(text.len() as f32 * 10., 10.)
     }
 
     fn text_input_byte_offset_for_position(
         &self,
         _text_input: Pin<&i_slint_core::items::TextInput>,
-        _pos: Point,
+        _pos: LogicalPoint,
     ) -> usize {
         0
     }
@@ -93,7 +93,7 @@ impl Renderer for TestingWindow {
         &self,
         _text_input: Pin<&i_slint_core::items::TextInput>,
         _byte_offset: usize,
-    ) -> Rect {
+    ) -> LogicalRect {
         Default::default()
     }
 
