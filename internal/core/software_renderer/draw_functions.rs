@@ -4,8 +4,9 @@
 //! This is the module for the functions that are drawing the pixels
 //! on the line buffer
 
+use super::{PhysicalLength, PhysicalRect};
 use crate::graphics::{PixelFormat, Rgb8Pixel};
-use crate::lengths::{PhysicalLength, PhysicalRect, PointLengths, SizeLengths};
+use crate::lengths::{PointLengths, SizeLengths};
 use crate::Color;
 use derive_more::{Add, Mul, Sub};
 #[cfg(feature = "embedded-graphics")]

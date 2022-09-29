@@ -13,8 +13,8 @@ use crate::graphics::{IntRect, PixelFormat, Rect as RectF, SharedImageBuffer};
 use crate::item_rendering::ItemRenderer;
 use crate::items::{ImageFit, ItemRc};
 use crate::lengths::{
-    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, PhysicalLength, PhysicalPoint,
-    PhysicalPx, PhysicalRect, PhysicalSize, PointLengths, RectLengths, ScaleFactor, SizeLengths,
+    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, PhysicalPx, PointLengths,
+    RectLengths, ScaleFactor, SizeLengths,
 };
 use crate::renderer::Renderer;
 use crate::textlayout::{FontMetrics as _, TextParagraphLayout};
@@ -26,6 +26,11 @@ use core::cell::{Cell, RefCell};
 use core::pin::Pin;
 
 pub use draw_functions::{PremultipliedRgbaColor, Rgb565Pixel, TargetPixel};
+
+type PhysicalLength = euclid::Length<i16, PhysicalPx>;
+type PhysicalRect = euclid::Rect<i16, PhysicalPx>;
+type PhysicalSize = euclid::Size2D<i16, PhysicalPx>;
+type PhysicalPoint = euclid::Point2D<i16, PhysicalPx>;
 
 type DirtyRegion = PhysicalRect;
 
