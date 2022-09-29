@@ -644,12 +644,7 @@ impl WindowInner {
 
     /// Returns the scale factor set on the window, as provided by the windowing system.
     pub fn scale_factor(&self) -> f32 {
-        self.scale_factor_property().get()
-    }
-
-    /// Returns the scale factor set on the window, as provided by the windowing system.
-    pub fn scale_factor_property(&self) -> Pin<&Property<f32>> {
-        self.scale_factor.as_ref()
+        self.scale_factor.as_ref().get()
     }
 
     /// Sets the scale factor for the window. This is set by the backend or for testing.
