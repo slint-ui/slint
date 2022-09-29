@@ -16,6 +16,7 @@ use crate::input::{
 };
 use crate::item_tree::ItemRc;
 use crate::items::{ItemRef, MouseCursor};
+use crate::lengths::{LogicalPoint, LogicalRect};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
 use crate::{Callback, Coord};
@@ -166,7 +167,7 @@ pub enum PopupWindowLocation {
     /// The popup is rendered in its own top-level window that is know to the windowing system.
     TopLevel(Rc<dyn WindowAdapter>),
     /// The popup is rendered as an embedded child window at the given position.
-    ChildWindow(Point),
+    ChildWindow(Point), // TODO: change to LogicalPoint
 }
 
 /// This structure defines a graphical element that is designed to pop up from the surrounding
@@ -517,7 +518,7 @@ impl WindowInner {
 
     /// Calls the render_components to render the main component and any sub-window components, tracked by a
     /// property dependency tracker.
-    pub fn draw_contents(&self, render_components: impl FnOnce(&[(&ComponentRc, Point)])) {
+    pub fn draw_contents(&self, render_components: impl FnOnce(&[(&ComponentRc, LogicalPoint)])) {
         let draw_fn = || {
             let component_rc = self.component();
 
@@ -525,17 +526,17 @@ impl WindowInner {
                 self.active_popup.borrow().as_ref().and_then(|popup| match popup.location {
                     PopupWindowLocation::TopLevel(_) => None,
                     PopupWindowLocation::ChildWindow(coordinates) => {
-                        Some((popup.component.clone(), coordinates))
+                        Some((popup.component.clone(), LogicalPoint::from_untyped(coordinates)))
                     }
                 });
 
             if let Some((popup_component, popup_coordinates)) = popup_component {
                 render_components(&[
-                    (&component_rc, Point::default()),
+                    (&component_rc, LogicalPoint::default()),
                     (&popup_component, popup_coordinates),
                 ])
             } else {
-                render_components(&[(&component_rc, Point::default())]);
+                render_components(&[(&component_rc, LogicalPoint::default())]);
             }
         };
 
@@ -626,10 +627,13 @@ impl WindowInner {
     pub fn close_popup(&self) {
         if let Some(current_popup) = self.active_popup.replace(None) {
             if let PopupWindowLocation::ChildWindow(offset) = current_popup.location {
+                let offset = LogicalPoint::from_untyped(offset);
                 // Refresh the area that was previously covered by the popup.
                 let popup_region = crate::properties::evaluate_no_tracking(|| {
                     let popup_component = ComponentRc::borrow_pin(&current_popup.component);
-                    popup_component.as_ref().get_item_ref(0).as_ref().geometry()
+                    LogicalRect::from_untyped(
+                        &popup_component.as_ref().get_item_ref(0).as_ref().geometry(),
+                    )
                 })
                 .translate(offset.to_vector());
 

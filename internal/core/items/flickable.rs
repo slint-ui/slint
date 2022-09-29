@@ -19,6 +19,7 @@ use crate::input::{
 use crate::item_rendering::CachedRenderingData;
 use crate::items::{PropertyAnimation, Rectangle};
 use crate::layout::{LayoutInfo, Orientation};
+use crate::lengths::LogicalLength;
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
@@ -32,6 +33,7 @@ use core::pin::Pin;
 use core::time::Duration;
 #[allow(unused)]
 use euclid::num::Ceil;
+use euclid::num::Zero;
 use i_slint_core_macros::*;
 #[cfg(not(feature = "std"))]
 #[allow(unused)]
@@ -133,8 +135,8 @@ impl Item for Flickable {
         let geometry = self.geometry();
         (*backend).combine_clip(
             euclid::rect(0 as _, 0 as _, geometry.width(), geometry.height()),
-            0 as _,
-            0 as _,
+            LogicalLength::zero(),
+            LogicalLength::zero(),
         );
         RenderingResult::ContinueRenderingChildren
     }

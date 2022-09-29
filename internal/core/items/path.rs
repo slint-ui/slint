@@ -17,6 +17,7 @@ use crate::input::{
 use crate::item_rendering::CachedRenderingData;
 
 use crate::layout::{LayoutInfo, Orientation};
+use crate::lengths::{LogicalLength, LogicalRect};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
@@ -24,6 +25,7 @@ use crate::{Coord, Property};
 use alloc::rc::Rc;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
+use euclid::num::Zero;
 use i_slint_core_macros::*;
 
 /// The implementation of the `Path` element
@@ -115,7 +117,11 @@ impl Item for Path {
         let clip = self.clip();
         if clip {
             (*backend).save_state();
-            (*backend).combine_clip(self.geometry(), 0 as _, 0 as _);
+            (*backend).combine_clip(
+                LogicalRect::from_untyped(&self.geometry()),
+                LogicalLength::zero(),
+                LogicalLength::zero(),
+            );
         }
         (*backend).draw_path(self, self_rc);
         if clip {
