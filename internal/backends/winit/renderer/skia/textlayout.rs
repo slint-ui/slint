@@ -4,10 +4,12 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 
-use i_slint_core::{graphics::FontRequest, Coord};
+use i_slint_core::graphics::FontRequest;
+use i_slint_core::lengths::{LogicalLength, ScaleFactor};
 use i_slint_core::{items, Color};
 
 use super::itemrenderer::to_skia_color;
+use super::{PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
 
 pub const DEFAULT_FONT_SIZE: f32 = 12.;
 
@@ -47,10 +49,10 @@ pub struct Selection {
 
 pub fn create_layout(
     font_request: FontRequest,
-    scale_factor: f32,
+    scale_factor: ScaleFactor,
     text: &str,
     text_style: Option<skia_safe::textlayout::TextStyle>,
-    max_width: Option<Coord>,
+    max_width: Option<LogicalLength>,
     h_align: items::TextHorizontalAlignment,
     overflow: items::TextOverflow,
     selection: Option<&Selection>,
@@ -61,12 +63,13 @@ pub fn create_layout(
         text_style.set_font_families(&[family_name.as_str()]);
     }
 
-    let pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE) * scale_factor;
+    let pixel_size =
+        LogicalLength::new(font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE)) * scale_factor;
 
     if let Some(letter_spacing) = font_request.letter_spacing {
-        text_style.set_letter_spacing(letter_spacing * scale_factor);
+        text_style.set_letter_spacing((LogicalLength::new(letter_spacing) * scale_factor).get());
     }
-    text_style.set_font_size(pixel_size);
+    text_style.set_font_size(pixel_size.get());
     text_style.set_font_style(skia_safe::FontStyle::new(
         font_request.weight.map_or(skia_safe::font_style::Weight::NORMAL, |w| w.into()),
         skia_safe::font_style::Width::NORMAL,
@@ -116,7 +119,9 @@ pub fn create_layout(
     }
 
     let mut paragraph = builder.build();
-    paragraph.layout(max_width.unwrap_or(core::f32::MAX));
+    paragraph.layout(
+        max_width.map_or(core::f32::MAX, |logical_width| (logical_width * scale_factor).get()),
+    );
     paragraph
 }
 
@@ -167,10 +172,13 @@ pub fn cursor_rect(
     string: &str,
     cursor_pos: usize,
     layout: skia_safe::textlayout::Paragraph,
-    cursor_width: f32,
-) -> skia_safe::Rect {
+    cursor_width: PhysicalLength,
+) -> PhysicalRect {
     if string.is_empty() {
-        return skia_safe::Rect::from_xywh(0., 0., cursor_width, layout.height());
+        return PhysicalRect::new(
+            PhysicalPoint::default(),
+            PhysicalSize::from_lengths(cursor_width, PhysicalLength::new(layout.height())),
+        );
     }
 
     // The cursor is visually between characters, but the logical cursor_pos refers to the
@@ -218,7 +226,13 @@ pub fn cursor_rect(
         .next()
         .map(|textbox| {
             let x = select_glyph_box_edge_x(&textbox.rect);
-            skia_safe::Rect::from_xywh(x, textbox.rect.y(), cursor_width, textbox.rect.height())
+            PhysicalRect::new(
+                PhysicalPoint::new(x, textbox.rect.y()),
+                PhysicalSize::from_lengths(
+                    cursor_width,
+                    PhysicalLength::new(textbox.rect.height()),
+                ),
+            )
         })
         .unwrap_or_default()
 }
