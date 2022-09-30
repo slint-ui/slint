@@ -23,7 +23,7 @@ slint_init().then((_) => {
     return true;
   }
 
-  async function load_file(path: string): Promise<Uint8Array> {
+  async function load_file(path: string): Promise<string> {
     return await connection.sendRequest("slint/load_file", path);
   }
 

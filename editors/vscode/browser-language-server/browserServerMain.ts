@@ -21,8 +21,9 @@ slint_init(slint_wasm_data).then((_) => {
         return true;
     }
 
-    async function load_file(path: string): Promise<Uint8Array> {
-        return await connection.sendRequest("slint/load_file", path);
+    async function load_file(path: string): Promise<string> {
+        const contents: Uint8Array = await connection.sendRequest("slint/load_file", path);
+        return new TextDecoder().decode(contents);
     }
 
     connection.onInitialize((params: InitializeParams): InitializeResult => {
