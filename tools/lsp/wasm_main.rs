@@ -129,7 +129,7 @@ impl Drop for ReentryGuardLock {
 
 #[wasm_bindgen(typescript_custom_section)]
 const IMPORT_CALLBACK_FUNCTION_SECTION: &'static str = r#"
-type ImportCallbackFunction = (url: string) => Promise<Uint8Array>;
+type ImportCallbackFunction = (url: string) => Promise<string>;
 "#;
 
 #[wasm_bindgen]
@@ -234,12 +234,11 @@ impl SlintServer {
 }
 
 async fn load_file(path: String, load_file: &Function) -> std::io::Result<String> {
-    let value = load_file
+    let string_promise = load_file
         .call1(&JsValue::UNDEFINED, &path.into())
         .map_err(|x| std::io::Error::new(ErrorKind::Other, format!("{x:?}")))?;
-    let array = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(value))
-        .await
-        .map_err(|e| std::io::Error::new(ErrorKind::Other, format!("{e:?}")))?;
-    String::from_utf8(js_sys::Uint8Array::from(array).to_vec())
-        .map_err(|e| std::io::Error::new(ErrorKind::InvalidData, e.to_string()))
+    let string_future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(string_promise));
+    let js_value =
+        string_future.await.map_err(|e| std::io::Error::new(ErrorKind::Other, format!("{e:?}")))?;
+    return Ok(js_value.as_string().unwrap_or_default());
 }

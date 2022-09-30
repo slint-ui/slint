@@ -394,13 +394,10 @@ class EditorPaneWidget extends Widget {
                   const url = (request.params as string[])[0];
 
                   this.read_from_url(url).then((text_contents) => {
-                    // The lsp expects a Uint8Array, so we need to convert our string into one.
-                    const encoder = new TextEncoder();
-                    const contents_as_uint8array = encoder.encode(text_contents);
                     writer.write({
                       jsonrpc: request.jsonrpc,
                       id: request.id,
-                      result: contents_as_uint8array,
+                      result: text_contents,
                       error: undefined,
                     } as ResponseMessage);
                   });
