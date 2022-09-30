@@ -147,7 +147,7 @@ impl crate::textlayout::FontMetrics<PhysicalLength> for PixelFont {
     }
 }
 
-pub fn match_font(request: &FontRequest<LogicalLength>, scale_factor: ScaleFactor) -> PixelFont {
+pub fn match_font(request: &FontRequest, scale_factor: ScaleFactor) -> PixelFont {
     let font = FONTS.with(|fonts| {
         let fonts = fonts.borrow();
         let fallback_font = *fonts
@@ -180,7 +180,7 @@ pub fn match_font(request: &FontRequest<LogicalLength>, scale_factor: ScaleFacto
 
 pub fn text_layout_for_font<'a>(
     font: &'a PixelFont,
-    font_request: &FontRequest<LogicalLength>,
+    font_request: &FontRequest,
     scale_factor: ScaleFactor,
 ) -> TextLayout<'a, PixelFont> {
     let letter_spacing =
@@ -194,7 +194,7 @@ pub fn register_bitmap_font(font_data: &'static BitmapFont) {
 }
 
 pub fn text_size(
-    font_request: FontRequest<LogicalLength>,
+    font_request: FontRequest,
     text: &str,
     max_width: Option<LogicalLength>,
     scale_factor: ScaleFactor,

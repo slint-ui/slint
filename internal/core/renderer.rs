@@ -11,7 +11,7 @@ pub trait Renderer {
     /// When set, `max_width` means that one need to wrap the text so it does not go further than that
     fn text_size(
         &self,
-        font_request: crate::graphics::FontRequest<LogicalLength>,
+        font_request: crate::graphics::FontRequest,
         text: &str,
         max_width: Option<LogicalLength>,
         scale_factor: ScaleFactor,

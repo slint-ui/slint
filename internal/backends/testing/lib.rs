@@ -73,7 +73,7 @@ impl WindowAdapter for TestingWindow {
 impl Renderer for TestingWindow {
     fn text_size(
         &self,
-        _font_request: i_slint_core::graphics::FontRequest<LogicalLength>,
+        _font_request: i_slint_core::graphics::FontRequest,
         text: &str,
         _max_width: Option<LogicalLength>,
         _scale_factor: ScaleFactor,

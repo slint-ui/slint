@@ -394,7 +394,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         text_style.set_foreground_color(paint);
 
         let (layout, layout_top_left) = super::textlayout::create_layout(
-            font_request * self.scale_factor,
+            font_request,
             self.scale_factor,
             string,
             Some(text_style),
@@ -446,7 +446,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         };
 
         let (layout, layout_top_left) = super::textlayout::create_layout(
-            font_request * self.scale_factor,
+            font_request,
             self.scale_factor,
             string,
             Some(text_style),

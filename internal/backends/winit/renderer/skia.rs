@@ -145,13 +145,13 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
 impl i_slint_core::renderer::Renderer for SkiaRenderer {
     fn text_size(
         &self,
-        font_request: i_slint_core::graphics::FontRequest<LogicalLength>,
+        font_request: i_slint_core::graphics::FontRequest,
         text: &str,
         max_width: Option<LogicalLength>,
         scale_factor: ScaleFactor,
     ) -> LogicalSize {
         let (layout, _) = textlayout::create_layout(
-            font_request * scale_factor,
+            font_request,
             scale_factor,
             text,
             None,
@@ -194,7 +194,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         let font_request = text_input.font_request(&window_adapter);
 
         let (layout, layout_top_left) = textlayout::create_layout(
-            font_request * scale_factor,
+            font_request,
             scale_factor,
             string,
             None,
@@ -246,7 +246,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         let font_request = text_input.font_request(&window_adapter);
 
         let (layout, layout_top_left) = textlayout::create_layout(
-            font_request * scale_factor,
+            font_request,
             scale_factor,
             string,
             None,
