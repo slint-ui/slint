@@ -118,7 +118,7 @@ fn adjust_rect_and_border_for_inner_drawing(
 }
 
 fn item_rect<Item: items::Item>(item: Pin<&Item>, scale_factor: ScaleFactor) -> PhysicalRect {
-    let geometry = LogicalRect::from_untyped(&item.geometry());
+    let geometry = item.logical_geometry();
     PhysicalRect::new(PhysicalPoint::default(), geometry.size * scale_factor)
 }
 
