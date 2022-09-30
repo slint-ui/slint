@@ -8,6 +8,7 @@
 use crate::component::{ComponentRc, ComponentVTable};
 use crate::graphics::{Point, Rect};
 use crate::items::{ItemRef, ItemVTable};
+use crate::lengths::LogicalRect;
 use crate::SharedString;
 use core::pin::Pin;
 use vtable::*;
@@ -182,6 +183,10 @@ impl ItemRc {
 
     pub fn geometry(&self) -> Rect {
         self.borrow().as_ref().geometry()
+    }
+
+    pub fn logical_geometry(&self) -> LogicalRect {
+        LogicalRect::from_untyped(&self.borrow().as_ref().geometry())
     }
 
     pub fn map_to_window(&self, p: Point) -> Point {

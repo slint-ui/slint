@@ -1044,8 +1044,7 @@ impl<'a> GLItemRenderer<'a> {
             .render_layer(item_rc, &|| {
                 // We don't need to include the size of the opacity item itself, since it has no content.
                 let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
-                    let self_ref = item_rc.borrow();
-                    LogicalRect::from_untyped(&self_ref.as_ref().geometry()).union(
+                    item_rc.logical_geometry().union(
                         &i_slint_core::item_rendering::item_children_bounding_rect(
                             &item_rc.component(),
                             item_rc.index() as isize,
