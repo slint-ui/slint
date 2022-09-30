@@ -119,13 +119,7 @@ fn adjust_rect_and_border_for_inner_drawing(
 
 fn item_rect<Item: items::Item>(item: Pin<&Item>, scale_factor: ScaleFactor) -> PhysicalRect {
     let geometry = LogicalRect::from_untyped(&item.geometry());
-    PhysicalRect::new(
-        PhysicalPoint::default(),
-        PhysicalSize::from_lengths(
-            geometry.width_length() * scale_factor,
-            geometry.height_length() * scale_factor,
-        ),
-    )
+    PhysicalRect::new(PhysicalPoint::default(), geometry.size * scale_factor)
 }
 
 fn path_bounding_box(canvas: &CanvasRc, path: &mut femtovg::Path) -> euclid::default::Box2D<f32> {
