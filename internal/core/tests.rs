@@ -88,7 +88,29 @@ pub extern "C" fn send_keyboard_string_sequence(
 /// implementation details for debug_log()
 #[doc(hidden)]
 pub fn debug_log_impl(args: core::fmt::Arguments) {
-    crate::platform::PLATFORM_INSTANCE.with(|p| p.get().map(|p| p.debug_log(args)));
+    crate::platform::PLATFORM_INSTANCE.with(|p| match p.get() {
+        Some(platform) => platform.debug_log(args),
+        None => default_debug_log(args),
+    });
+}
+
+#[doc(hidden)]
+pub fn default_debug_log(_arguments: core::fmt::Arguments) {
+    cfg_if::cfg_if! {
+        if #[cfg(target_arch = "wasm32")] {
+            use wasm_bindgen::prelude::*;
+
+            #[wasm_bindgen]
+            extern "C" {
+                #[wasm_bindgen(js_namespace = console)]
+                pub fn log(s: &str);
+            }
+
+            log(&_arguments.to_string());
+        } else if #[cfg(feature = "std")] {
+            eprintln!("{}", _arguments);
+        }
+    }
 }
 
 #[macro_export]
