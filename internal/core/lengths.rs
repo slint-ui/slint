@@ -13,6 +13,7 @@ pub type LogicalLength = euclid::Length<Coord, LogicalPx>;
 pub type LogicalRect = euclid::Rect<Coord, LogicalPx>;
 pub type LogicalPoint = euclid::Point2D<Coord, LogicalPx>;
 pub type LogicalSize = euclid::Size2D<Coord, LogicalPx>;
+pub type LogicalVector = euclid::Vector2D<Coord, LogicalPx>;
 
 pub type ScaleFactor = euclid::Scale<f32, LogicalPx, PhysicalPx>;
 
@@ -39,6 +40,16 @@ pub trait PointLengths {
 }
 
 impl<T: Copy, U> PointLengths for euclid::Point2D<T, U> {
+    type LengthType = euclid::Length<T, U>;
+    fn x_length(&self) -> Self::LengthType {
+        euclid::Length::new(self.x)
+    }
+    fn y_length(&self) -> Self::LengthType {
+        euclid::Length::new(self.y)
+    }
+}
+
+impl<T: Copy, U> PointLengths for euclid::Vector2D<T, U> {
     type LengthType = euclid::Length<T, U>;
     fn x_length(&self) -> Self::LengthType {
         euclid::Length::new(self.x)

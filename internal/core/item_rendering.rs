@@ -12,7 +12,7 @@ use crate::item_tree::{
     ItemRc, ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult,
 };
 use crate::lengths::{
-    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, PointLengths,
+    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalVector,
 };
 use crate::Coord;
 use alloc::boxed::Box;
@@ -175,7 +175,7 @@ pub fn render_item_children(
             let (do_draw, item_geometry) = renderer.filter_item(item);
 
             let item_origin = item_geometry.origin;
-            renderer.translate(item_origin.x_length(), item_origin.y_length());
+            renderer.translate(item_origin.to_vector());
 
             // Don't render items that are clipped, with the exception of the Clip or Flickable since
             // they themselves clip their content.
@@ -214,7 +214,7 @@ pub fn render_component_items(
     origin: LogicalPoint,
 ) {
     renderer.save_state();
-    renderer.translate(origin.x_length(), origin.y_length());
+    renderer.translate(origin.to_vector());
 
     render_item_children(renderer, component, -1);
 
@@ -319,7 +319,7 @@ pub trait ItemRenderer {
     /// Get the current clip bounding box in the current transformed coordinate.
     fn get_current_clip(&self) -> LogicalRect;
 
-    fn translate(&mut self, x: LogicalLength, y: LogicalLength);
+    fn translate(&mut self, distance: LogicalVector);
     fn rotate(&mut self, angle_in_degrees: f32);
     /// Apply the opacity (between 0 and 1) for all following items until the next call to restore_state.
     fn apply_opacity(&mut self, opacity: f32);
@@ -525,8 +525,8 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
         self.actual_renderer.get_current_clip()
     }
 
-    fn translate(&mut self, x: LogicalLength, y: LogicalLength) {
-        self.actual_renderer.translate(x, y)
+    fn translate(&mut self, distance: LogicalVector) {
+        self.actual_renderer.translate(distance)
     }
 
     fn rotate(&mut self, angle_in_degrees: f32) {

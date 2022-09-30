@@ -8,8 +8,8 @@ use i_slint_core::graphics::euclid;
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::lengths::{
-    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, RectLengths,
-    ScaleFactor,
+    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    PointLengths, RectLengths, ScaleFactor,
 };
 use i_slint_core::window::WindowInner;
 use i_slint_core::{items, Brush, Color, Property};
@@ -647,10 +647,10 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         from_skia_rect(&self.canvas.local_clip_bounds().unwrap_or_default()) / self.scale_factor
     }
 
-    fn translate(&mut self, x: LogicalLength, y: LogicalLength) {
+    fn translate(&mut self, distance: LogicalVector) {
         self.canvas.translate(skia_safe::Vector::from((
-            (x * self.scale_factor).get(),
-            (y * self.scale_factor).get(),
+            (distance.x_length() * self.scale_factor).get(),
+            (distance.y_length() * self.scale_factor).get(),
         )));
     }
 

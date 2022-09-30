@@ -19,7 +19,9 @@ use i_slint_core::items::{
     PointerEventButton, RenderingResult, TextOverflow, TextWrap, WindowItem,
 };
 use i_slint_core::layout::Orientation;
-use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
+use i_slint_core::lengths::{
+    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, ScaleFactor,
+};
 use i_slint_core::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
 use i_slint_core::{ImageInner, PathData, Property, SharedString};
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
@@ -940,9 +942,9 @@ impl ItemRenderer for QtItemRenderer<'_> {
         Some(&mut self.painter)
     }
 
-    fn translate(&mut self, x: LogicalLength, y: LogicalLength) {
-        let x: f32 = x.get();
-        let y: f32 = y.get();
+    fn translate(&mut self, distance: LogicalVector) {
+        let x: f32 = distance.x;
+        let y: f32 = distance.y;
         let painter: &mut QPainterPtr = &mut self.painter;
         cpp! { unsafe [painter as "QPainterPtr*", x as "float", y as "float"] {
             (*painter)->translate(x, y);
