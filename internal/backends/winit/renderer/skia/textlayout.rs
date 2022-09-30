@@ -50,7 +50,7 @@ pub struct Selection {
 }
 
 pub fn create_layout(
-    font_request: FontRequest<PhysicalLength>,
+    font_request: FontRequest,
     scale_factor: ScaleFactor,
     text: &str,
     text_style: Option<skia_safe::textlayout::TextStyle>,
@@ -67,10 +67,10 @@ pub fn create_layout(
         text_style.set_font_families(&[family_name.as_str()]);
     }
 
-    let pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE * scale_factor);
+    let pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE) * scale_factor;
 
     if let Some(letter_spacing) = font_request.letter_spacing {
-        text_style.set_letter_spacing(letter_spacing.get());
+        text_style.set_letter_spacing((letter_spacing * scale_factor).get());
     }
     text_style.set_font_size(pixel_size.get());
     text_style.set_font_style(skia_safe::FontStyle::new(

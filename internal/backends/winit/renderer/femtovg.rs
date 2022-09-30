@@ -215,7 +215,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
 impl Renderer for FemtoVGRenderer {
     fn text_size(
         &self,
-        font_request: i_slint_core::graphics::FontRequest<LogicalLength>,
+        font_request: i_slint_core::graphics::FontRequest,
         text: &str,
         max_width: Option<LogicalLength>,
         scale_factor: ScaleFactor,

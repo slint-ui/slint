@@ -168,7 +168,7 @@ impl ItemConsts for Text {
 }
 
 impl Text {
-    pub fn font_request(self: Pin<&Self>, window: &WindowInner) -> FontRequest<LogicalLength> {
+    pub fn font_request(self: Pin<&Self>, window: &WindowInner) -> FontRequest {
         let window_item = window.window_item();
 
         FontRequest {
@@ -828,10 +828,7 @@ impl TextInput {
         }
     }
 
-    pub fn font_request(
-        self: Pin<&Self>,
-        window_adapter: &Rc<dyn WindowAdapter>,
-    ) -> FontRequest<LogicalLength> {
+    pub fn font_request(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) -> FontRequest {
         let window_item = WindowInner::from_pub(window_adapter.window()).window_item();
 
         FontRequest {

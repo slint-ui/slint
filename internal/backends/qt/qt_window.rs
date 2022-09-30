@@ -1618,7 +1618,7 @@ impl WindowAdapterSealed for QtWindow {
 impl Renderer for QtWindow {
     fn text_size(
         &self,
-        font_request: i_slint_core::graphics::FontRequest<LogicalLength>,
+        font_request: i_slint_core::graphics::FontRequest,
         text: &str,
         max_width: Option<LogicalLength>,
         _scale_factor: ScaleFactor,
@@ -1782,7 +1782,7 @@ fn accessible_item(item: Option<ItemRc>) -> Option<ItemRc> {
     None
 }
 
-fn get_font(request: FontRequest<LogicalLength>) -> QFont {
+fn get_font(request: FontRequest) -> QFont {
     let family: qttypes::QString = request.family.unwrap_or_default().as_str().into();
     let pixel_size: f32 = request.pixel_size.map_or(0., |logical_size| logical_size.get());
     let weight: i32 = request.weight.unwrap_or(0);

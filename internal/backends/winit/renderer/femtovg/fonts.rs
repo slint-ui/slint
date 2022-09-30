@@ -129,7 +129,7 @@ impl Font {
 }
 
 pub(crate) fn text_size(
-    font_request: &i_slint_core::graphics::FontRequest<LogicalLength>,
+    font_request: &i_slint_core::graphics::FontRequest,
     scale_factor: ScaleFactor,
     text: &str,
     max_width: Option<LogicalLength>,
@@ -185,7 +185,7 @@ pub struct FontCache {
         target_os = "ios",
         target_arch = "wasm32"
     )))]
-    fontconfig_fallback_families: Vec<String>,
+    fontconfig_fallback_families: Vec<SharedString>,
 }
 
 impl Default for FontCache {
@@ -223,7 +223,10 @@ impl Default for FontCache {
                 target_arch = "wasm32"
             )))]
             let default_sans_serif_family = {
-                fontconfig_fallback_families = fontconfig::find_families("sans-serif");
+                fontconfig_fallback_families = fontconfig::find_families("sans-serif")
+                    .into_iter()
+                    .map(|s| s.into())
+                    .collect::<Vec<SharedString>>();
                 fontconfig_fallback_families.remove(0)
             };
             font_db.set_sans_serif_family(default_sans_serif_family);
@@ -253,26 +256,22 @@ thread_local! {
 }
 
 impl FontCache {
-    fn load_single_font(&mut self, request: &FontRequest<PhysicalLength>) -> LoadedFont {
+    fn load_single_font(&mut self, family: Option<&SharedString>, weight: i32) -> LoadedFont {
         let text_context = self.text_context.clone();
-        let cache_key = FontCacheKey {
-            family: request.family.clone().unwrap_or_default(),
-            weight: request.weight.unwrap(),
-        };
+        let cache_key = FontCacheKey { family: family.cloned().unwrap_or_default(), weight };
 
         if let Some(loaded_font) = self.loaded_fonts.get(&cache_key) {
             return *loaded_font;
         }
 
-        let family = request
-            .family
+        let family = family
             .as_ref()
             .map_or(fontdb::Family::SansSerif, |family| fontdb::Family::Name(family));
 
         //let now = std::time::Instant::now();
         let query = fontdb::Query {
             families: &[family],
-            weight: fontdb::Weight(request.weight.unwrap() as u16),
+            weight: fontdb::Weight(weight as u16),
             ..Default::default()
         };
 
@@ -327,15 +326,14 @@ impl FontCache {
 
     pub fn font(
         &mut self,
-        mut request: FontRequest<LogicalLength>,
+        font_request: FontRequest,
         scale_factor: ScaleFactor,
         reference_text: &str,
     ) -> Font {
-        request.pixel_size = Some(request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE));
-        request.weight = request.weight.or(Some(DEFAULT_FONT_WEIGHT));
-        let request = request * scale_factor;
+        let pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE) * scale_factor;
+        let weight = font_request.weight.unwrap_or(DEFAULT_FONT_WEIGHT);
 
-        let primary_font = self.load_single_font(&request);
+        let primary_font = self.load_single_font(font_request.family.as_ref(), weight);
 
         use unicode_script::{Script, UnicodeScript};
         // map from required script to sample character
@@ -366,18 +364,23 @@ impl FontCache {
         //);
 
         let fallbacks = if !matches!(coverage_result, GlyphCoverageCheckResult::Complete) {
-            self.font_fallbacks_for_request(&request, &primary_font, reference_text)
+            self.font_fallbacks_for_request(
+                font_request.family.as_ref(),
+                pixel_size,
+                &primary_font,
+                reference_text,
+            )
         } else {
             Vec::new()
         };
 
         let fonts = core::iter::once(primary_font.femtovg_font_id)
-            .chain(fallbacks.iter().filter_map(|fallback_request| {
+            .chain(fallbacks.iter().filter_map(|fallback_family| {
                 if matches!(coverage_result, GlyphCoverageCheckResult::Complete) {
                     return None;
                 }
 
-                let fallback_font = self.load_single_font(fallback_request);
+                let fallback_font = self.load_single_font(Some(fallback_family), weight);
 
                 coverage_result = self.check_and_update_script_coverage(
                     &mut scripts_required,
@@ -393,23 +396,20 @@ impl FontCache {
             }))
             .collect::<SharedVector<_>>();
 
-        Font {
-            fonts,
-            text_context: self.text_context.clone(),
-            pixel_size: request.pixel_size.unwrap(),
-        }
+        Font { fonts, text_context: self.text_context.clone(), pixel_size }
     }
 
     #[cfg(target_os = "macos")]
     fn font_fallbacks_for_request(
         &self,
-        _request: &FontRequest<PhysicalLength>,
+        _family: Option<&SharedString>,
+        _pixel_size: PhysicalLength,
         _primary_font: &LoadedFont,
         _reference_text: &str,
-    ) -> Vec<FontRequest<PhysicalLength>> {
+    ) -> Vec<SharedString> {
         let requested_font = match core_text::font::new_from_name(
-            &_request.family.as_ref().map_or_else(|| "", |s| s.as_str()),
-            _request.pixel_size.unwrap_or_default().get() as f64,
+            &_family.as_ref().map_or_else(|| "", |s| s.as_str()),
+            _pixel_size.get() as f64,
         ) {
             Ok(f) => f,
             Err(_) => return vec![],
@@ -420,29 +420,25 @@ impl FontCache {
             &core_foundation::array::CFArray::from_CFTypes(&[]),
         )
         .iter()
-        .map(|fallback_descriptor| FontRequest {
-            family: Some(fallback_descriptor.family_name().into()),
-            weight: _request.weight,
-            pixel_size: _request.pixel_size,
-            letter_spacing: _request.letter_spacing,
-        })
-        .filter(|request| self.is_known_family(request))
+        .map(|fallback_descriptor| fallback_descriptor.family_name().into())
+        .filter(|family| self.is_known_family(family))
         .collect::<Vec<_>>()
     }
 
     #[cfg(target_os = "windows")]
     fn font_fallbacks_for_request(
         &self,
-        request: &FontRequest<PhysicalLength>,
+        _family: Option<&SharedString>,
+        _pixel_size: PhysicalLength,
         _primary_font: &LoadedFont,
         reference_text: &str,
-    ) -> Vec<FontRequest<PhysicalLength>> {
+    ) -> Vec<SharedString> {
         let system_font_fallback = match dwrote::FontFallback::get_system_fallback() {
             Some(fallback) => fallback,
             None => return Vec::new(),
         };
         let font_collection = dwrote::FontCollection::get_system(false);
-        let base_family = Some(request.family.as_ref().map_or_else(|| "", |s| s.as_str()));
+        let base_family = Some(_family.as_ref().map_or_else(|| "", |s| s.as_str()));
 
         let reference_text_utf16: Vec<u16> = reference_text.encode_utf16().collect();
 
@@ -494,16 +490,9 @@ impl FontCache {
             );
 
             if let Some(fallback_font) = fallback_result.mapped_font {
-                let family = fallback_font.family_name();
-
-                let fallback = FontRequest {
-                    family: Some(family.into()),
-                    weight: request.weight,
-                    pixel_size: request.pixel_size,
-                    letter_spacing: request.letter_spacing,
-                };
-                if self.is_known_family(&fallback) {
-                    fallback_fonts.push(fallback)
+                let family = fallback_font.family_name().into();
+                if self.is_known_family(&family) {
+                    fallback_fonts.push(family)
                 }
             } else {
                 break;
@@ -518,47 +507,35 @@ impl FontCache {
     #[cfg(all(not(target_os = "macos"), not(target_os = "windows"), not(target_arch = "wasm32")))]
     fn font_fallbacks_for_request(
         &self,
-        _request: &FontRequest<PhysicalLength>,
+        _family: Option<&SharedString>,
+        _pixel_size: PhysicalLength,
         _primary_font: &LoadedFont,
         _reference_text: &str,
-    ) -> Vec<FontRequest<PhysicalLength>> {
+    ) -> Vec<SharedString> {
         self.fontconfig_fallback_families
             .iter()
-            .map(|family_name| FontRequest {
-                family: Some(family_name.into()),
-                weight: _request.weight,
-                pixel_size: _request.pixel_size,
-                letter_spacing: _request.letter_spacing,
-            })
-            .filter(|request| self.is_known_family(request))
+            .filter(|family_name| self.is_known_family(family_name))
+            .cloned()
             .collect()
     }
 
     #[cfg(target_arch = "wasm32")]
     fn font_fallbacks_for_request(
         &self,
-        _request: &FontRequest<PhysicalLength>,
+        _family: Option<&SharedString>,
+        _pixel_size: PhysicalLength,
         _primary_font: &LoadedFont,
         _reference_text: &str,
-    ) -> Vec<FontRequest<PhysicalLength>> {
-        [FontRequest {
-            family: Some("DejaVu Sans".into()),
-            weight: _request.weight,
-            pixel_size: _request.pixel_size,
-            letter_spacing: _request.letter_spacing,
-        }]
-        .iter()
-        .filter(|request| self.is_known_family(request))
-        .cloned()
-        .collect()
+    ) -> Vec<SharedString> {
+        ["DejaVu Sans".into()]
+            .iter()
+            .filter(|family_name| self.is_known_family(family_name))
+            .cloned()
+            .collect()
     }
 
-    fn is_known_family(&self, request: &FontRequest<PhysicalLength>) -> bool {
-        request
-            .family
-            .as_ref()
-            .map(|family_name| self.available_families.contains(family_name))
-            .unwrap_or(false)
+    fn is_known_family(&self, family: &SharedString) -> bool {
+        self.available_families.contains(family)
     }
 
     // From the set of script without coverage, remove all entries that are known to be covered by
