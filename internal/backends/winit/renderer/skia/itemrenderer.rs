@@ -374,8 +374,8 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         text: std::pin::Pin<&i_slint_core::items::Text>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) {
-        let max_width = text.logical_width();
-        let max_height = text.logical_height();
+        let max_width = text.logical_width() * self.scale_factor;
+        let max_height = text.logical_height() * self.scale_factor;
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return;
@@ -385,11 +385,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         let string = string.as_str();
         let font_request = text.font_request(WindowInner::from_pub(&self.window));
 
-        let paint = match self.brush_to_paint(
-            text.color(),
-            max_width * self.scale_factor,
-            max_height * self.scale_factor,
-        ) {
+        let paint = match self.brush_to_paint(text.color(), max_width, max_height) {
             Some(paint) => paint,
             None => return,
         };
@@ -398,7 +394,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         text_style.set_foreground_color(paint);
 
         let (layout, layout_top_left) = super::textlayout::create_layout(
-            font_request,
+            font_request * self.scale_factor,
             self.scale_factor,
             string,
             Some(text_style),
@@ -418,8 +414,8 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         text_input: std::pin::Pin<&i_slint_core::items::TextInput>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) {
-        let max_width = text_input.logical_width();
-        let max_height = text_input.logical_height();
+        let max_width = text_input.logical_width() * self.scale_factor;
+        let max_height = text_input.logical_height() * self.scale_factor;
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return;
@@ -430,11 +426,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         let font_request =
             text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter());
 
-        let paint = match self.brush_to_paint(
-            text_input.color(),
-            max_width * self.scale_factor,
-            max_height * self.scale_factor,
-        ) {
+        let paint = match self.brush_to_paint(text_input.color(), max_width, max_height) {
             Some(paint) => paint,
             None => return,
         };
@@ -454,7 +446,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         };
 
         let (layout, layout_top_left) = super::textlayout::create_layout(
-            font_request,
+            font_request * self.scale_factor,
             self.scale_factor,
             string,
             Some(text_style),
