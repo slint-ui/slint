@@ -11,7 +11,9 @@ use crate::graphics::CachedGraphicsData;
 use crate::item_tree::{
     ItemRc, ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult,
 };
-use crate::lengths::{LogicalLength, LogicalPoint, LogicalPx, LogicalRect, PointLengths};
+use crate::lengths::{
+    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, PointLengths,
+};
 use crate::Coord;
 use alloc::boxed::Box;
 use core::cell::{Cell, RefCell};
@@ -230,7 +232,7 @@ pub fn item_children_bounding_rect(
 
     let mut actual_visitor =
         |component: &ComponentRc, index: usize, item: Pin<ItemRef>| -> VisitChildrenResult {
-            let item_geometry = LogicalRect::from_untyped(&item.as_ref().geometry());
+            let item_geometry = item.logical_geometry();
 
             let local_clip_rect = clip_rect.translate(-item_geometry.origin.to_vector());
 
@@ -347,7 +349,7 @@ pub trait ItemRenderer {
     ///  - if the item needs to be drawn (false means it is clipped or doesn't need to be drawn)
     ///  - the geometry of the item
     fn filter_item(&mut self, item: Pin<ItemRef>) -> (bool, LogicalRect) {
-        let item_geometry = LogicalRect::from_untyped(&item.as_ref().geometry());
+        let item_geometry = item.logical_geometry();
         (self.get_current_clip().intersects(&item_geometry), item_geometry)
     }
 
@@ -401,9 +403,8 @@ impl<'a, T> PartialRenderer<'a, T> {
                         if tr.is_dirty() {
                             let old_geom = *data;
                             drop(borrowed);
-                            let geom = crate::properties::evaluate_no_tracking(|| {
-                                LogicalRect::from_untyped(&item.as_ref().geometry())
-                            });
+                            let geom =
+                                crate::properties::evaluate_no_tracking(|| item.logical_geometry());
                             self.mark_dirty_rect(old_geom, *offset);
                             self.mark_dirty_rect(geom, *offset);
                             ItemVisitorResult::Continue(*offset + geom.origin.to_vector())
@@ -414,9 +415,8 @@ impl<'a, T> PartialRenderer<'a, T> {
                     }
                     _ => {
                         drop(borrowed);
-                        let geom = crate::properties::evaluate_no_tracking(|| {
-                            LogicalRect::from_untyped(&item.as_ref().geometry())
-                        });
+                        let geom =
+                            crate::properties::evaluate_no_tracking(|| item.logical_geometry());
                         self.mark_dirty_rect(geom, *offset);
                         ItemVisitorResult::Continue(*offset + geom.origin.to_vector())
                     }
@@ -482,15 +482,12 @@ impl<'a, T: ItemRenderer> ItemRenderer for PartialRenderer<'a, T> {
                 dependency_tracker
                     .get_or_insert_with(|| Box::pin(crate::properties::PropertyTracker::default()))
                     .as_ref()
-                    .evaluate_if_dirty(|| {
-                        *data = LogicalRect::from_untyped(&item.as_ref().geometry())
-                    });
+                    .evaluate_if_dirty(|| *data = item.logical_geometry());
                 *data
             }
             None => {
-                let cache_entry = crate::graphics::CachedGraphicsData::new(|| {
-                    LogicalRect::from_untyped(&item.as_ref().geometry())
-                });
+                let cache_entry =
+                    crate::graphics::CachedGraphicsData::new(|| item.logical_geometry());
                 let geom = cache_entry.data;
                 rendering_data.cache_index.set(cache.insert(cache_entry));
                 rendering_data.cache_generation.set(cache.generation());
