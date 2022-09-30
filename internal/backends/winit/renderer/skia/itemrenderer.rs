@@ -8,7 +8,8 @@ use i_slint_core::graphics::euclid;
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::lengths::{
-    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, RectLengths, ScaleFactor,
+    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, RectLengths,
+    ScaleFactor,
 };
 use i_slint_core::window::WindowInner;
 use i_slint_core::{items, Brush, Color, Property};
@@ -774,7 +775,7 @@ pub fn to_skia_size(size: &PhysicalSize) -> skia_safe::Size {
 }
 
 fn item_rect<Item: items::Item>(item: Pin<&Item>, scale_factor: ScaleFactor) -> PhysicalRect {
-    let geometry = LogicalRect::from_untyped(&item.geometry());
+    let geometry = item.logical_geometry();
     PhysicalRect::new(PhysicalPoint::default(), geometry.size * scale_factor)
 }
 
