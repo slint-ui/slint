@@ -74,21 +74,7 @@ pub trait Platform {
     /// should direct the output to some developer visible terminal. The default implementation
     /// uses stderr if available, or `console.log` when targeting wasm.
     fn debug_log(&self, _arguments: core::fmt::Arguments) {
-        cfg_if::cfg_if! {
-            if #[cfg(target_arch = "wasm32")] {
-                use wasm_bindgen::prelude::*;
-
-                #[wasm_bindgen]
-                extern "C" {
-                    #[wasm_bindgen(js_namespace = console)]
-                    pub fn log(s: &str);
-                }
-
-                log(&_arguments.to_string());
-            } else if #[cfg(feature = "std")] {
-                eprintln!("{}", _arguments);
-            }
-        }
+        crate::tests::default_debug_log(_arguments);
     }
 }
 

@@ -12,8 +12,6 @@ mod server_loop;
 mod util;
 
 use i_slint_compiler::CompilerConfiguration;
-#[cfg(not(feature = "preview"))]
-use i_slint_core::window::WindowAdapter;
 use js_sys::Function;
 use lsp_types::InitializeParams;
 use serde::Serialize;
@@ -145,11 +143,6 @@ pub fn create(
 ) -> Result<SlintServer, JsError> {
     console_error_panic_hook::set_once();
 
-    // make sure the backend is initialized for logging
-    #[cfg(not(feature = "preview"))]
-    i_slint_core::platform::set_platform(Box::new(DummyBackend {}))
-        .expect("platform already initialized");
-
     let init_param = init_param.into_serde()?;
 
     let mut compiler_config =
@@ -238,14 +231,4 @@ async fn load_file(path: String, load_file: &Function) -> std::io::Result<String
         .map_err(|e| std::io::Error::new(ErrorKind::Other, format!("{e:?}")))?;
     String::from_utf8(js_sys::Uint8Array::from(array).to_vec())
         .map_err(|e| std::io::Error::new(ErrorKind::InvalidData, e.to_string()))
-}
-
-#[cfg(not(feature = "preview"))]
-struct DummyBackend {}
-
-#[cfg(not(feature = "preview"))]
-impl i_slint_core::platform::Platform for DummyBackend {
-    fn create_window_adapter(&self) -> Rc<dyn WindowAdapter> {
-        unimplemented!()
-    }
 }
