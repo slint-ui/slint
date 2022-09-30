@@ -5,11 +5,14 @@
 
 use femtovg::TextContext;
 use i_slint_core::graphics::euclid;
-use i_slint_core::graphics::{FontRequest, Point, Size};
+use i_slint_core::graphics::FontRequest;
 use i_slint_core::items::{TextHorizontalAlignment, TextOverflow, TextVerticalAlignment, TextWrap};
+use i_slint_core::lengths::{LogicalLength, LogicalSize, ScaleFactor, SizeLengths};
 use i_slint_core::{SharedString, SharedVector};
 use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
+
+use super::{PhysicalLength, PhysicalPoint, PhysicalSize};
 
 pub const DEFAULT_FONT_SIZE: f32 = 12.;
 pub const DEFAULT_FONT_WEIGHT: i32 = 400; // CSS normal
@@ -77,15 +80,24 @@ pub struct Font {
 }
 
 impl Font {
-    pub fn init_paint(&self, letter_spacing: f32, mut paint: femtovg::Paint) -> femtovg::Paint {
+    pub fn init_paint(
+        &self,
+        letter_spacing: PhysicalLength,
+        mut paint: femtovg::Paint,
+    ) -> femtovg::Paint {
         paint.set_font(&self.fonts);
         paint.set_font_size(self.pixel_size);
         paint.set_text_baseline(femtovg::Baseline::Top);
-        paint.set_letter_spacing(letter_spacing);
+        paint.set_letter_spacing(letter_spacing.get());
         paint
     }
 
-    pub fn text_size(&self, letter_spacing: f32, text: &str, max_width: Option<f32>) -> Size {
+    pub fn text_size(
+        &self,
+        letter_spacing: PhysicalLength,
+        text: &str,
+        max_width: Option<PhysicalLength>,
+    ) -> PhysicalSize {
         let paint = self.init_paint(letter_spacing, femtovg::Paint::default());
         let font_metrics = self.text_context.measure_font(paint).unwrap();
         let mut lines = 0;
@@ -93,7 +105,8 @@ impl Font {
         let mut start = 0;
         if let Some(max_width) = max_width {
             while start < text.len() {
-                let index = self.text_context.break_text(max_width, &text[start..], paint).unwrap();
+                let index =
+                    self.text_context.break_text(max_width.get(), &text[start..], paint).unwrap();
                 if index == 0 {
                     break;
                 }
@@ -117,14 +130,15 @@ impl Font {
 
 pub(crate) fn text_size(
     font_request: &i_slint_core::graphics::FontRequest,
-    scale_factor: f32,
+    scale_factor: ScaleFactor,
     text: &str,
-    max_width: Option<f32>,
-) -> Size {
+    max_width: Option<LogicalLength>,
+) -> LogicalSize {
     let font =
         FONT_CACHE.with(|cache| cache.borrow_mut().font(font_request.clone(), scale_factor, text));
-    let letter_spacing = font_request.letter_spacing.unwrap_or_default();
-    font.text_size(letter_spacing, text, max_width.map(|x| x * scale_factor)) / scale_factor
+    let letter_spacing = LogicalLength::new(font_request.letter_spacing.unwrap_or_default());
+    font.text_size(letter_spacing * scale_factor, text, max_width.map(|x| x * scale_factor))
+        / scale_factor
 }
 
 #[derive(Copy, Clone)]
@@ -314,10 +328,11 @@ impl FontCache {
     pub fn font(
         &mut self,
         mut request: FontRequest,
-        scale_factor: f32,
+        scale_factor: ScaleFactor,
         reference_text: &str,
     ) -> Font {
-        request.pixel_size = Some(request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE) * scale_factor);
+        request.pixel_size =
+            Some(request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE) * scale_factor.get());
         request.weight = request.weight.or(Some(DEFAULT_FONT_WEIGHT));
 
         let primary_font = self.load_single_font(&request);
@@ -630,20 +645,23 @@ impl FontCache {
 pub(crate) fn layout_text_lines(
     string: &str,
     font: &Font,
-    Size { width: max_width, height: max_height, .. }: Size,
+    max_size: PhysicalSize,
     (horizontal_alignment, vertical_alignment): (TextHorizontalAlignment, TextVerticalAlignment),
     wrap: TextWrap,
     overflow: TextOverflow,
     single_line: bool,
     paint: femtovg::Paint,
-    mut layout_line: impl FnMut(&str, Point, usize, &femtovg::TextMetrics),
-) -> f32 {
+    mut layout_line: impl FnMut(&str, PhysicalPoint, usize, &femtovg::TextMetrics),
+) -> PhysicalLength {
     let wrap = wrap == TextWrap::WordWrap;
     let elide = overflow == TextOverflow::Elide;
 
+    let max_width = max_size.width_length();
+    let max_height = max_size.height_length();
+
     let text_context = FONT_CACHE.with(|cache| cache.borrow().text_context.clone());
     let font_metrics = text_context.measure_font(paint).unwrap();
-    let font_height = font_metrics.height();
+    let font_height = PhysicalLength::new(font_metrics.height());
 
     let text_height = || {
         if single_line {
@@ -651,38 +669,38 @@ pub(crate) fn layout_text_lines(
         } else {
             // Note: this is kind of doing twice the layout because text_size also does it
             font.text_size(
-                paint.letter_spacing(),
+                PhysicalLength::new(paint.letter_spacing()),
                 string,
                 if wrap { Some(max_width) } else { None },
             )
-            .height
+            .height_length()
         }
     };
 
-    let mut process_line = |text: &str,
-                            y: f32,
-                            start: usize,
-                            line_metrics: &femtovg::TextMetrics| {
-        let x = match horizontal_alignment {
-            TextHorizontalAlignment::Left => 0.,
-            TextHorizontalAlignment::Center => {
-                max_width / 2. - f32::min(max_width, line_metrics.width()) / 2.
-            }
-            TextHorizontalAlignment::Right => max_width - f32::min(max_width, line_metrics.width()),
+    let mut process_line =
+        |text: &str, y: PhysicalLength, start: usize, line_metrics: &femtovg::TextMetrics| {
+            let x = match horizontal_alignment {
+                TextHorizontalAlignment::Left => PhysicalLength::default(),
+                TextHorizontalAlignment::Center => {
+                    max_width / 2. - max_width.min(PhysicalLength::new(line_metrics.width())) / 2.
+                }
+                TextHorizontalAlignment::Right => {
+                    max_width - max_width.min(PhysicalLength::new(line_metrics.width()))
+                }
+            };
+            layout_line(text, PhysicalPoint::from_lengths(x, y), start, line_metrics);
         };
-        layout_line(text, Point::new(x, y), start, line_metrics);
-    };
 
     let baseline_y = match vertical_alignment {
-        TextVerticalAlignment::Top => 0.,
+        TextVerticalAlignment::Top => PhysicalLength::default(),
         TextVerticalAlignment::Center => max_height / 2. - text_height() / 2.,
         TextVerticalAlignment::Bottom => max_height - text_height(),
     };
     let mut y = baseline_y;
     let mut start = 0;
     'lines: while start < string.len() && y + font_height <= max_height {
-        if wrap && (!elide || y + 2. * font_height <= max_height) {
-            let index = text_context.break_text(max_width, &string[start..], paint).unwrap();
+        if wrap && (!elide || y + font_height * 2. <= max_height) {
+            let index = text_context.break_text(max_width.get(), &string[start..], paint).unwrap();
             if index == 0 {
                 // FIXME the word is too big to be shown, but we should still break, ideally
                 break;
@@ -702,18 +720,20 @@ pub(crate) fn layout_text_lines(
             let line = &string[start..index];
             let text_metrics = text_context.measure_text(0., 0., line, paint).unwrap();
             let elide_last_line =
-                elide && index < string.len() && y + 2. * font_height > max_height;
-            if text_metrics.width() > max_width || elide_last_line {
+                elide && index < string.len() && y + font_height * 2. > max_height;
+            if text_metrics.width() > max_width.get() || elide_last_line {
                 let w = max_width
                     - if elide {
-                        text_context.measure_text(0., 0., "…", paint).unwrap().width()
+                        PhysicalLength::new(
+                            text_context.measure_text(0., 0., "…", paint).unwrap().width(),
+                        )
                     } else {
-                        0.
+                        PhysicalLength::default()
                     };
                 let mut current_x = 0.;
                 for glyph in &text_metrics.glyphs {
                     current_x += glyph.advance_x;
-                    if current_x >= w {
+                    if current_x >= w.get() {
                         let txt = &line[..glyph.byte_index];
                         if elide {
                             let elided = format!("{}…", txt);

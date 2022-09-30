@@ -8,18 +8,22 @@ use std::rc::Rc;
 use euclid::approxeq::ApproxEq;
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
-use i_slint_core::graphics::{Image, IntRect, IntSize, Point, Rect, Size};
+use i_slint_core::graphics::{Image, IntRect, Point, Rect, Size};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{
-    self, Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, Layer, Opacity,
+    self, Clip, FillRule, ImageFit, ImageRendering, InputType, ItemRc, Layer, Opacity,
     RenderingResult,
+};
+use i_slint_core::lengths::{
+    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PointLengths,
+    RectLengths, ScaleFactor,
 };
 use i_slint_core::window::WindowInner;
 use i_slint_core::{Brush, Color, ImageInner, Property, SharedString};
 
-use super::fonts;
 use super::images::{Texture, TextureCacheKey};
-use super::PASSWORD_CHARACTER;
+use super::{fonts, PhysicalLength, PhysicalPoint, PhysicalRect};
+use super::{PhysicalSize, PASSWORD_CHARACTER};
 
 use super::super::boxshadowcache::BoxShadowCache;
 
@@ -57,7 +61,7 @@ const KAPPA90: f32 = 0.55228;
 
 #[derive(Clone)]
 struct State {
-    scissor: Rect,
+    scissor: LogicalRect,
     global_alpha: f32,
     current_render_target: femtovg::RenderTarget,
 }
@@ -72,18 +76,19 @@ pub struct GLItemRenderer<'a> {
     // `set_render_target` commands with image ids that have been deleted.
     layer_images_to_delete_after_flush: RefCell<Vec<Rc<super::images::Texture>>>,
     window: &'a i_slint_core::api::Window,
-    scale_factor: f32,
+    scale_factor: ScaleFactor,
     /// track the state manually since femtovg don't have accessor for its state
     state: Vec<State>,
     metrics: RenderingMetrics,
 }
 
-fn rect_with_radius_to_path(rect: Rect, border_radius: f32) -> femtovg::Path {
+fn rect_with_radius_to_path(rect: PhysicalRect, border_radius: PhysicalLength) -> femtovg::Path {
     let mut path = femtovg::Path::new();
     let x = rect.origin.x;
     let y = rect.origin.y;
     let width = rect.size.width;
     let height = rect.size.height;
+    let border_radius = border_radius.get();
     // If we're drawing a circle, use directly connected bezier curves instead of
     // ones with intermediate LineTo verbs, as `rounded_rect` creates, to avoid
     // rendering artifacts due to those edges.
@@ -95,23 +100,26 @@ fn rect_with_radius_to_path(rect: Rect, border_radius: f32) -> femtovg::Path {
     path
 }
 
-fn rect_to_path(r: Rect) -> femtovg::Path {
-    rect_with_radius_to_path(r, 0.)
+fn rect_to_path(r: PhysicalRect) -> femtovg::Path {
+    rect_with_radius_to_path(r, PhysicalLength::default())
 }
 
-fn adjust_rect_and_border_for_inner_drawing(rect: &mut Rect, border_width: &mut f32) {
+fn adjust_rect_and_border_for_inner_drawing(
+    rect: &mut PhysicalRect,
+    border_width: &mut PhysicalLength,
+) {
     // If the border width exceeds the width, just fill the rectangle.
-    *border_width = border_width.min((rect.size.width as f32) / 2.);
+    *border_width = border_width.min(rect.width_length() / 2.);
     // adjust the size so that the border is drawn within the geometry
-    rect.origin.x += *border_width / 2.;
-    rect.origin.y += *border_width / 2.;
-    rect.size.width -= *border_width;
-    rect.size.height -= *border_width;
+
+    let half_border_size = PhysicalSize::from_lengths(*border_width / 2., *border_width / 2.);
+    rect.origin += half_border_size;
+    rect.size -= half_border_size;
 }
 
-fn item_rect<Item: items::Item>(item: Pin<&Item>, scale_factor: f32) -> Rect {
-    let geometry = item.geometry();
-    euclid::rect(0., 0., geometry.width() * scale_factor, geometry.height() * scale_factor)
+fn item_rect<Item: items::Item>(item: Pin<&Item>, scale_factor: ScaleFactor) -> PhysicalRect {
+    let geometry = LogicalRect::from_untyped(&item.geometry());
+    PhysicalRect::new(PhysicalPoint::default(), geometry.size * scale_factor)
 }
 
 fn path_bounding_box(canvas: &CanvasRc, path: &mut femtovg::Path) -> euclid::default::Box2D<f32> {
@@ -131,10 +139,10 @@ fn path_bounding_box(canvas: &CanvasRc, path: &mut femtovg::Path) -> euclid::def
 
 // Return a femtovg::Path (in physical pixels) that represents the clip_rect, radius and border_width (all logical!)
 fn clip_path_for_rect_alike_item(
-    mut clip_rect: Rect,
-    mut radius: f32,
-    mut border_width: f32,
-    scale_factor: f32,
+    clip_rect: LogicalRect,
+    mut radius: LogicalLength,
+    mut border_width: LogicalLength,
+    scale_factor: ScaleFactor,
 ) -> femtovg::Path {
     // Femtovg renders evenly 50% inside and 50% outside of the border width. The
     // adjust_rect_and_border_for_inner_drawing adjusts the rect so that for drawing it
@@ -144,9 +152,9 @@ fn clip_path_for_rect_alike_item(
     border_width *= 2.;
 
     // Convert from logical to physical pixels
-    border_width *= scale_factor;
-    radius *= scale_factor;
-    clip_rect *= scale_factor;
+    let mut border_width = border_width * scale_factor;
+    let radius = radius * scale_factor;
+    let mut clip_rect = clip_rect * scale_factor;
 
     adjust_rect_and_border_for_inner_drawing(&mut clip_rect, &mut border_width);
 
@@ -177,19 +185,22 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             return;
         }
 
-        let mut border_width = rect.border_width() * self.scale_factor;
+        let mut border_width = LogicalLength::new(rect.border_width()) * self.scale_factor;
         // In CSS the border is entirely towards the inside of the boundary
         // geometry, while in femtovg the line with for a stroke is 50% in-
         // and 50% outwards. We choose the CSS model, so the inner rectangle
         // is adjusted accordingly.
         adjust_rect_and_border_for_inner_drawing(&mut geometry, &mut border_width);
 
-        let mut path = rect_with_radius_to_path(geometry, rect.border_radius() * self.scale_factor);
+        let mut path = rect_with_radius_to_path(
+            geometry,
+            LogicalLength::new(rect.border_radius()) * self.scale_factor,
+        );
 
         let fill_paint = self.brush_to_paint(rect.background(), &mut path);
 
         let border_paint = self.brush_to_paint(rect.border_color(), &mut path).map(|mut paint| {
-            paint.set_line_width(border_width);
+            paint.set_line_width(border_width.get());
             paint
         });
 
@@ -234,10 +245,10 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
     }
 
     fn draw_text(&mut self, text: Pin<&items::Text>, _: &ItemRc) {
-        let max_width = text.width() * self.scale_factor;
-        let max_height = text.height() * self.scale_factor;
+        let max_width = LogicalLength::new(text.width()) * self.scale_factor;
+        let max_height = LogicalLength::new(text.height()) * self.scale_factor;
 
-        if max_width <= 0. || max_height <= 0. {
+        if max_width.get() <= 0. || max_height.get() <= 0. {
             return;
         }
 
@@ -254,7 +265,8 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         let paint = match self
             .brush_to_paint(text.color(), &mut rect_to_path(item_rect(text, self.scale_factor)))
         {
-            Some(paint) => font.init_paint(text.letter_spacing() * self.scale_factor, paint),
+            Some(paint) => font
+                .init_paint(LogicalLength::new(text.letter_spacing()) * self.scale_factor, paint),
             None => return,
         };
 
@@ -262,7 +274,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         fonts::layout_text_lines(
             string,
             &font,
-            Size::new(max_width, max_height),
+            PhysicalSize::from_lengths(max_width, max_height),
             (text.horizontal_alignment(), text.vertical_alignment()),
             text.wrap(),
             text.overflow(),
@@ -275,9 +287,9 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
     }
 
     fn draw_text_input(&mut self, text_input: Pin<&items::TextInput>, _: &ItemRc) {
-        let width = text_input.width() * self.scale_factor;
-        let height = text_input.height() * self.scale_factor;
-        if width <= 0. || height <= 0. {
+        let width = LogicalLength::new(text_input.width()) * self.scale_factor;
+        let height = LogicalLength::new(text_input.height()) * self.scale_factor;
+        if width.get() <= 0. || height.get() <= 0. {
             return;
         }
 
@@ -293,7 +305,10 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             text_input.color(),
             &mut rect_to_path(item_rect(text_input, self.scale_factor)),
         ) {
-            Some(paint) => font.init_paint(text_input.letter_spacing() * self.scale_factor, paint),
+            Some(paint) => font.init_paint(
+                LogicalLength::new(text_input.letter_spacing()) * self.scale_factor,
+                paint,
+            ),
             None => return,
         };
 
@@ -305,7 +320,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             && !text_input.read_only();
         let mut cursor_pos = cursor_pos as usize;
         let mut canvas = self.canvas.borrow_mut();
-        let font_height = canvas.measure_font(paint).unwrap().height();
+        let font_height = PhysicalLength::new(canvas.measure_font(paint).unwrap().height());
         let mut text = text_input.text();
 
         if let InputType::Password = text_input.input_type() {
@@ -315,12 +330,12 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             text = SharedString::from(PASSWORD_CHARACTER.repeat(text.chars().count()));
         };
 
-        let mut cursor_point: Option<Point> = None;
+        let mut cursor_point: Option<PhysicalPoint> = None;
 
         let next_y = fonts::layout_text_lines(
             text.as_str(),
             &font,
-            Size::new(width, height),
+            PhysicalSize::from_lengths(width, height),
             (text_input.horizontal_alignment(), text_input.vertical_alignment()),
             text_input.wrap(),
             items::TextOverflow::Clip,
@@ -333,9 +348,9 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                         || range.contains(&max_select)
                         || (min_select..max_select).contains(&start))
                 {
-                    let mut selection_start_x = 0.;
-                    let mut selection_end_x = 0.;
-                    let mut after_selection_x = 0.;
+                    let mut selection_start_x = PhysicalLength::default();
+                    let mut selection_end_x = PhysicalLength::default();
+                    let mut after_selection_x = PhysicalLength::default();
                     // Determine the first and last (inclusive) glyph of the selection. The anchor
                     // will always be at the start of a grapheme boundary, so there's at ShapedGlyph
                     // that has a matching byte index. For the selection end we have to look for the
@@ -346,20 +361,27 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                     // steps with clip to draw each part of the ligature in a different color
                     for glyph in &metrics.glyphs {
                         if glyph.byte_index == min_select.saturating_sub(start) {
-                            selection_start_x = glyph.x - glyph.bearing_x;
+                            selection_start_x = PhysicalLength::new(glyph.x - glyph.bearing_x);
                         }
                         if glyph.byte_index == max_select - start
                             || glyph.byte_index >= to_draw.len()
                         {
-                            after_selection_x = glyph.x - glyph.bearing_x;
+                            after_selection_x = PhysicalLength::new(glyph.x - glyph.bearing_x);
                             break;
                         }
-                        selection_end_x = glyph.x + glyph.advance_x;
+                        selection_end_x = PhysicalLength::new(glyph.x + glyph.advance_x);
                     }
 
-                    let selection_rect = Rect::new(
-                        pos + euclid::vec2(selection_start_x, 0.),
-                        Size::new(selection_end_x - selection_start_x, font_height),
+                    let selection_rect = PhysicalRect::new(
+                        pos + PhysicalPoint::from_lengths(
+                            selection_start_x,
+                            PhysicalLength::default(),
+                        )
+                        .to_vector(),
+                        PhysicalSize::from_lengths(
+                            selection_end_x - selection_start_x,
+                            font_height,
+                        ),
                     );
                     canvas.fill_path(
                         &mut rect_to_path(selection_rect),
@@ -380,7 +402,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                         .unwrap();
                     canvas
                         .fill_text(
-                            pos.x + selection_start_x,
+                            pos.x + selection_start_x.get(),
                             pos.y,
                             &to_draw[min_select.saturating_sub(start)
                                 ..(max_select - start).min(to_draw.len())]
@@ -390,7 +412,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                         .unwrap();
                     canvas
                         .fill_text(
-                            pos.x + after_selection_x,
+                            pos.x + after_selection_x.get(),
                             pos.y,
                             &to_draw[(max_select - start).min(to_draw.len())..].trim_end(),
                             paint,
@@ -406,31 +428,36 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                             && cursor_pos == text.len()
                             && !text.ends_with('\n')))
                 {
-                    let cursor_x = metrics
-                        .glyphs
-                        .iter()
-                        .find_map(|glyph| {
-                            if glyph.byte_index == (cursor_pos as usize - start) {
-                                Some(glyph.x)
-                            } else {
-                                None
-                            }
-                        })
-                        .unwrap_or_else(|| metrics.width());
-                    cursor_point = Some([pos.x + cursor_x, pos.y].into());
+                    let cursor_x = PhysicalLength::new(
+                        metrics
+                            .glyphs
+                            .iter()
+                            .find_map(|glyph| {
+                                if glyph.byte_index == (cursor_pos as usize - start) {
+                                    Some(glyph.x)
+                                } else {
+                                    None
+                                }
+                            })
+                            .unwrap_or_else(|| metrics.width()),
+                    );
+                    cursor_point = Some(PhysicalPoint::from_lengths(
+                        pos.x_length() + cursor_x,
+                        pos.y_length(),
+                    ));
                 }
             },
         );
 
-        if let Some(cursor_point) =
-            cursor_point.or_else(|| cursor_visible.then(|| [0., next_y].into()))
-        {
+        if let Some(cursor_point) = cursor_point.or_else(|| {
+            cursor_visible.then(|| PhysicalPoint::from_lengths(PhysicalLength::default(), next_y))
+        }) {
             let mut cursor_rect = femtovg::Path::new();
             cursor_rect.rect(
                 cursor_point.x,
                 cursor_point.y,
-                text_input.text_cursor_width() * self.scale_factor,
-                font_height,
+                (LogicalLength::new(text_input.text_cursor_width()) * self.scale_factor).get(),
+                font_height.get(),
             );
             canvas.fill_path(&mut cursor_rect, paint);
         }
@@ -474,32 +501,34 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                     } else {
                         Solidity::Solid
                     });
-                    femtovg_path.move_to(at.x * self.scale_factor, at.y * self.scale_factor);
+                    femtovg_path
+                        .move_to(at.x * self.scale_factor.get(), at.y * self.scale_factor.get());
                     orient.area = 0.;
                     orient.prev = at;
                 }
                 lyon_path::Event::Line { from: _, to } => {
-                    femtovg_path.line_to(to.x * self.scale_factor, to.y * self.scale_factor);
+                    femtovg_path
+                        .line_to(to.x * self.scale_factor.get(), to.y * self.scale_factor.get());
                     orient.add_point(to);
                 }
                 lyon_path::Event::Quadratic { from: _, ctrl, to } => {
                     femtovg_path.quad_to(
-                        ctrl.x * self.scale_factor,
-                        ctrl.y * self.scale_factor,
-                        to.x * self.scale_factor,
-                        to.y * self.scale_factor,
+                        ctrl.x * self.scale_factor.get(),
+                        ctrl.y * self.scale_factor.get(),
+                        to.x * self.scale_factor.get(),
+                        to.y * self.scale_factor.get(),
                     );
                     orient.add_point(to);
                 }
 
                 lyon_path::Event::Cubic { from: _, ctrl1, ctrl2, to } => {
                     femtovg_path.bezier_to(
-                        ctrl1.x * self.scale_factor,
-                        ctrl1.y * self.scale_factor,
-                        ctrl2.x * self.scale_factor,
-                        ctrl2.y * self.scale_factor,
-                        to.x * self.scale_factor,
-                        to.y * self.scale_factor,
+                        ctrl1.x * self.scale_factor.get(),
+                        ctrl1.y * self.scale_factor.get(),
+                        ctrl2.x * self.scale_factor.get(),
+                        ctrl2.y * self.scale_factor.get(),
+                        to.x * self.scale_factor.get(),
+                        to.y * self.scale_factor.get(),
                     );
                     orient.add_point(to);
                 }
@@ -527,7 +556,9 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         let border_paint =
             self.brush_to_paint(path.stroke(), &mut femtovg_path).map(|mut paint| {
-                paint.set_line_width(path.stroke_width() * self.scale_factor);
+                paint.set_line_width(
+                    (LogicalLength::new(path.stroke_width()) * self.scale_factor).get(),
+                );
                 paint
             });
 
@@ -570,8 +601,10 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                 let height = shadow_options.height;
                 let radius = shadow_options.radius;
 
-                let shadow_rect: euclid::Rect<f32, euclid::UnknownUnit> =
-                    euclid::rect(0., 0., width + 2. * blur, height + 2. * blur);
+                let shadow_rect = PhysicalRect::new(
+                    PhysicalPoint::default(),
+                    PhysicalSize::from_lengths(width + blur * 2., height + blur * 2.),
+                );
 
                 let shadow_image_width = shadow_rect.width().ceil() as u32;
                 let shadow_image_height = shadow_rect.height().ceil() as u32;
@@ -600,16 +633,22 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                     );
 
                     let mut shadow_path = femtovg::Path::new();
-                    shadow_path.rounded_rect(blur, blur, width, height, radius);
+                    shadow_path.rounded_rect(
+                        blur.get(),
+                        blur.get(),
+                        width.get(),
+                        height.get(),
+                        radius.get(),
+                    );
                     canvas.fill_path(
                         &mut shadow_path,
                         femtovg::Paint::color(femtovg::Color::rgb(255, 255, 255)),
                     );
                 }
 
-                let shadow_image = if blur > 0. {
+                let shadow_image = if blur.get() > 0. {
                     let blurred_image = shadow_image
-                        .filter(femtovg::ImageFilter::GaussianBlur { sigma: blur / 2. });
+                        .filter(femtovg::ImageFilter::GaussianBlur { sigma: blur.get() / 2. });
 
                     self.canvas.borrow_mut().set_render_target(blurred_image.as_render_target());
 
@@ -664,10 +703,10 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         );
 
         self.canvas.borrow_mut().save_with(|canvas| {
-            let blur = box_shadow.blur() * self.scale_factor;
-            let offset_x = box_shadow.offset_x() * self.scale_factor;
-            let offset_y = box_shadow.offset_y() * self.scale_factor;
-            canvas.translate(offset_x - blur, offset_y - blur);
+            let blur = LogicalLength::new(box_shadow.blur()) * self.scale_factor;
+            let offset =
+                LogicalPoint::new(box_shadow.offset_x(), box_shadow.offset_y()) * self.scale_factor;
+            canvas.translate(offset.x - blur.get(), offset.y - blur.get());
             canvas.fill_path(&mut shadow_image_rect, shadow_image_paint);
         });
     }
@@ -697,20 +736,20 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             return RenderingResult::ContinueRenderingChildren;
         }
 
-        let geometry = clip_item.as_ref().geometry();
+        let geometry = clip_item.as_ref().logical_geometry();
 
         // If clipping is enabled but the clip element is outside the visible range, then we don't
         // need to bother doing anything, not even rendering the children.
-        if !self.get_current_clip().intersects(&geometry) {
+        if !self.get_current_clip().intersects(&geometry.to_untyped()) {
             return RenderingResult::ContinueRenderingWithoutChildren;
         }
 
-        let radius = clip_item.border_radius();
-        let border_width = clip_item.border_width();
+        let radius = LogicalLength::new(clip_item.border_radius());
+        let border_width = LogicalLength::new(clip_item.border_width());
 
-        if radius > 0. {
+        if radius.get() > 0. {
             if let Some(layer_image) =
-                self.render_layer(item_rc, &|| clip_item.as_ref().geometry().size)
+                self.render_layer(item_rc, &|| clip_item.as_ref().logical_geometry().size)
             {
                 let layer_image_paint = layer_image.as_paint();
 
@@ -727,16 +766,21 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             RenderingResult::ContinueRenderingWithoutChildren
         } else {
             self.graphics_cache.release(item_rc);
+            // Note: This is correct, combine_clip is API and operates on logical coordinates.
             self.combine_clip(
                 euclid::rect(0., 0., geometry.width(), geometry.height()),
-                radius,
-                border_width,
+                radius.get(),
+                border_width.get(),
             );
             RenderingResult::ContinueRenderingChildren
         }
     }
 
     fn combine_clip(&mut self, clip_rect: Rect, radius: f32, border_width: f32) -> bool {
+        let clip_rect = LogicalRect::from_untyped(&clip_rect);
+        let radius = LogicalLength::new(radius);
+        let border_width = LogicalLength::new(border_width);
+
         let clip = &mut self.state.last_mut().unwrap().scissor;
         let clip_region_valid = match clip.intersection(&clip_rect) {
             Some(r) => {
@@ -744,7 +788,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
                 true
             }
             None => {
-                *clip = Rect::default();
+                *clip = LogicalRect::default();
                 false
             }
         };
@@ -763,13 +807,13 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         // femtovg only supports rectangular clipping. Non-rectangular clips must be handled via `apply_clip`,
         // which can render children into a layer.
-        debug_assert!(radius == 0.);
+        debug_assert!(radius.get() == 0.);
 
         clip_region_valid
     }
 
     fn get_current_clip(&self) -> Rect {
-        self.state.last().unwrap().scissor
+        self.state.last().unwrap().scissor.to_untyped()
     }
 
     fn save_state(&mut self) {
@@ -783,7 +827,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
     }
 
     fn scale_factor(&self) -> f32 {
-        self.scale_factor
+        self.scale_factor.get()
     }
 
     fn draw_cached_pixmap(
@@ -825,7 +869,8 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
     fn draw_string(&mut self, string: &str, color: Color) {
         let font = fonts::FONT_CACHE
             .with(|cache| cache.borrow_mut().font(Default::default(), self.scale_factor, string));
-        let paint = font.init_paint(0.0, femtovg::Paint::color(to_femtovg_color(&color)));
+        let paint = font
+            .init_paint(PhysicalLength::default(), femtovg::Paint::color(to_femtovg_color(&color)));
         let mut canvas = self.canvas.borrow_mut();
         canvas.fill_text(0., 0., string, paint).unwrap();
     }
@@ -839,7 +884,9 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
     }
 
     fn translate(&mut self, x: f32, y: f32) {
-        self.canvas.borrow_mut().translate(x * self.scale_factor, y * self.scale_factor);
+        self.canvas
+            .borrow_mut()
+            .translate(x * self.scale_factor.get(), y * self.scale_factor.get());
         let clip = &mut self.state.last_mut().unwrap().scissor;
         *clip = clip.translate((-x, -y).into())
     }
@@ -850,24 +897,24 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         let clip = &mut self.state.last_mut().unwrap().scissor;
         // Compute the bounding box of the rotated rectangle
         let (sin, cos) = angle_in_radians.sin_cos();
-        let rotate_point = |p: Point| (p.x * cos - p.y * sin, p.x * sin + p.y * cos);
+        let rotate_point = |p: LogicalPoint| (p.x * cos - p.y * sin, p.x * sin + p.y * cos);
         let corners = [
             rotate_point(clip.origin),
             rotate_point(clip.origin + euclid::vec2(clip.width(), 0.)),
             rotate_point(clip.origin + euclid::vec2(0., clip.height())),
             rotate_point(clip.origin + clip.size),
         ];
-        let origin: Point = (
+        let origin: LogicalPoint = (
             corners.iter().fold(f32::MAX, |a, b| b.0.min(a)),
             corners.iter().fold(f32::MAX, |a, b| b.1.min(a)),
         )
             .into();
-        let end: Point = (
+        let end: LogicalPoint = (
             corners.iter().fold(f32::MIN, |a, b| b.0.max(a)),
             corners.iter().fold(f32::MIN, |a, b| b.1.max(a)),
         )
             .into();
-        *clip = Rect::new(origin, (end - origin).into());
+        *clip = LogicalRect::new(origin, (end - origin).into());
     }
 
     fn apply_opacity(&mut self, opacity: f32) {
@@ -888,7 +935,7 @@ impl<'a> GLItemRenderer<'a> {
         width: u32,
         height: u32,
     ) -> Self {
-        let scale_factor = window.scale_factor();
+        let scale_factor = ScaleFactor::new(window.scale_factor());
         Self {
             graphics_cache: &canvas.graphics_cache,
             texture_cache: &canvas.texture_cache,
@@ -898,9 +945,9 @@ impl<'a> GLItemRenderer<'a> {
             window,
             scale_factor,
             state: vec![State {
-                scissor: Rect::new(
-                    Point::default(),
-                    Size::new(width as f32, height as f32) / scale_factor,
+                scissor: LogicalRect::new(
+                    LogicalPoint::default(),
+                    PhysicalSize::new(width as f32, height as f32) / scale_factor,
                 ),
                 global_alpha: 1.,
                 current_render_target: femtovg::RenderTarget::Screen,
@@ -912,7 +959,7 @@ impl<'a> GLItemRenderer<'a> {
     fn render_layer(
         &mut self,
         item_rc: &ItemRc,
-        layer_logical_size_fn: &dyn Fn() -> Size,
+        layer_logical_size_fn: &dyn Fn() -> LogicalSize,
     ) -> Option<Rc<Texture>> {
         let existing_layer_texture =
             self.graphics_cache.with_entry(item_rc, |cache_entry| match cache_entry {
@@ -922,7 +969,7 @@ impl<'a> GLItemRenderer<'a> {
 
         let cache_entry = self.graphics_cache.get_or_update_cache_entry(item_rc, || {
             ItemGraphicsCacheEntry::Texture({
-                let size: IntSize = (layer_logical_size_fn() * self.scale_factor).ceil().cast();
+                let size = (layer_logical_size_fn() * self.scale_factor).ceil().cast();
 
                 let layer_image = existing_layer_texture
                     .and_then(|layer_texture| {
@@ -931,7 +978,7 @@ impl<'a> GLItemRenderer<'a> {
                         // Then it is safe to render new content into it in this callback and when we return
                         // into `get_or_update_cache_entry` the first ref is dropped.
                         debug_assert_eq!(Rc::strong_count(&layer_texture), 2);
-                        if layer_texture.size() == Some(size) {
+                        if layer_texture.size() == Some(size.to_untyped()) {
                             Some(layer_texture)
                         } else {
                             None
@@ -962,9 +1009,10 @@ impl<'a> GLItemRenderer<'a> {
                 }
 
                 *self.state.last_mut().unwrap() = State {
-                    scissor: Rect::new(
-                        Point::default(),
-                        Size::new(size.width as f32, size.height as f32),
+                    scissor: LogicalRect::new(
+                        LogicalPoint::default(),
+                        PhysicalSize::new(size.width as f32, size.height as f32)
+                            / self.scale_factor,
                     ),
                     global_alpha: 1.,
                     current_render_target: layer_image.as_render_target(),
@@ -998,13 +1046,13 @@ impl<'a> GLItemRenderer<'a> {
                 // We don't need to include the size of the opacity item itself, since it has no content.
                 let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
                     let self_ref = item_rc.borrow();
-                    self_ref.as_ref().geometry().union(
+                    LogicalRect::from_untyped(&self_ref.as_ref().geometry().union(
                         &i_slint_core::item_rendering::item_children_bounding_rect(
                             &item_rc.component(),
                             item_rc.index() as isize,
                             &current_clip,
                         ),
-                    )
+                    ))
                 });
                 children_rect.size
             })
@@ -1109,10 +1157,10 @@ impl<'a> GLItemRenderer<'a> {
         colorize_property: Option<Pin<&Property<Brush>>>,
         image_rendering: ImageRendering,
     ) {
-        let target_w = target_width.get() * self.scale_factor;
-        let target_h = target_height.get() * self.scale_factor;
+        let target_w = LogicalLength::new(target_width.get()) * self.scale_factor;
+        let target_h = LogicalLength::new(target_height.get()) * self.scale_factor;
 
-        if target_w <= 0. || target_h <= 0. {
+        if target_w.get() <= 0. || target_h.get() <= 0. {
             return;
         }
 
@@ -1199,27 +1247,27 @@ impl<'a> GLItemRenderer<'a> {
         // The source_to_target scale is applied to the paint that holds the image as well as path
         // begin rendered.
         let (source_to_target_scale_x, source_to_target_scale_y) = match image_fit {
-            ImageFit::Fill => (target_w / source_width, target_h / source_height),
+            ImageFit::Fill => (target_w.get() / source_width, target_h.get() / source_height),
             ImageFit::Cover => {
-                let ratio = f32::max(target_w / source_width, target_h / source_height);
+                let ratio = f32::max(target_w.get() / source_width, target_h.get() / source_height);
 
-                if source_width > target_w / ratio {
-                    source_x += (source_width - target_w / ratio) / 2.;
+                if source_width > target_w.get() / ratio {
+                    source_x += (source_width - target_w.get() / ratio) / 2.;
                 }
-                if source_height > target_h / ratio {
-                    source_y += (source_height - target_h / ratio) / 2.
+                if source_height > target_h.get() / ratio {
+                    source_y += (source_height - target_h.get() / ratio) / 2.
                 }
 
                 (ratio, ratio)
             }
             ImageFit::Contain => {
-                let ratio = f32::min(target_w / source_width, target_h / source_height);
+                let ratio = f32::min(target_w.get() / source_width, target_h.get() / source_height);
 
-                if source_width < target_w / ratio {
-                    image_fit_offset.x = (target_w - source_width * ratio) / 2.;
+                if source_width < target_w.get() / ratio {
+                    image_fit_offset.x = (target_w.get() - source_width * ratio) / 2.;
                 }
-                if source_height < target_h / ratio {
-                    image_fit_offset.y = (target_h - source_height * ratio) / 2.
+                if source_height < target_h.get() / ratio {
+                    image_fit_offset.y = (target_h.get() - source_height * ratio) / 2.
                 }
 
                 (ratio, ratio)

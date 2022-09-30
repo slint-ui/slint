@@ -574,11 +574,11 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             self_rc,
             self.image_cache,
             box_shadow,
-            self.scale_factor.get(),
+            self.scale_factor,
             |shadow_options| {
                 let shadow_size: skia_safe::Size = (
-                    shadow_options.width + 2. * shadow_options.blur,
-                    shadow_options.height + 2. * shadow_options.blur,
+                    shadow_options.width.get() + shadow_options.blur.get() * 2.,
+                    shadow_options.height.get() + shadow_options.blur.get() * 2.,
                 )
                     .into();
 
@@ -591,13 +591,13 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
 
                 let rounded_rect = skia_safe::RRect::new_rect_xy(
                     skia_safe::Rect::from_xywh(
-                        shadow_options.blur,
-                        shadow_options.blur,
-                        shadow_options.width,
-                        shadow_options.height,
+                        shadow_options.blur.get(),
+                        shadow_options.blur.get(),
+                        shadow_options.width.get(),
+                        shadow_options.height.get(),
                     ),
-                    shadow_options.radius,
-                    shadow_options.radius,
+                    shadow_options.radius.get(),
+                    shadow_options.radius.get(),
                 );
 
                 let mut paint = skia_safe::Paint::default();
@@ -605,7 +605,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
                 paint.set_anti_alias(true);
                 paint.set_mask_filter(skia_safe::MaskFilter::blur(
                     skia_safe::BlurStyle::Normal,
-                    shadow_options.blur / 2.,
+                    shadow_options.blur.get() / 2.,
                     None,
                 ));
 

@@ -11,11 +11,19 @@ use i_slint_core::api::{
 use i_slint_core::graphics::{
     euclid, rendering_metrics_collector::RenderingMetricsCollector, Point, Rect, Size,
 };
+use i_slint_core::lengths::{
+    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
+};
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::{WindowAdapter, WindowInner};
 use i_slint_core::Coord;
 
 use crate::WindowSystemName;
+
+type PhysicalLength = euclid::Length<f32, PhysicalPx>;
+type PhysicalRect = euclid::Rect<f32, PhysicalPx>;
+type PhysicalSize = euclid::Size2D<f32, PhysicalPx>;
+type PhysicalPoint = euclid::Point2D<f32, PhysicalPx>;
 
 use self::itemrenderer::CanvasRc;
 
@@ -215,7 +223,13 @@ impl Renderer for FemtoVGRenderer {
         max_width: Option<Coord>,
         scale_factor: f32,
     ) -> Size {
-        crate::renderer::femtovg::fonts::text_size(&font_request, scale_factor, text, max_width)
+        crate::renderer::femtovg::fonts::text_size(
+            &font_request,
+            ScaleFactor::new(scale_factor),
+            text,
+            max_width.map(|w| LogicalLength::new(w)),
+        )
+        .to_untyped()
     }
 
     fn text_input_byte_offset_for_position(
@@ -230,15 +244,15 @@ impl Renderer for FemtoVGRenderer {
 
         let window = WindowInner::from_pub(window_adapter.window());
 
-        let scale_factor = window.scale_factor();
-        let pos = pos * scale_factor;
+        let scale_factor = ScaleFactor::new(window.scale_factor());
+        let pos = LogicalPoint::from_untyped(pos) * scale_factor;
         let text = text_input.text();
 
         let mut result = text.len();
 
-        let width = text_input.width() * scale_factor;
-        let height = text_input.height() * scale_factor;
-        if width <= 0. || height <= 0. || pos.y < 0. {
+        let width = LogicalLength::new(text_input.width()) * scale_factor;
+        let height = LogicalLength::new(text_input.height()) * scale_factor;
+        if width.get() <= 0. || height.get() <= 0. || pos.y < 0. {
             return 0;
         }
 
@@ -260,14 +274,17 @@ impl Renderer for FemtoVGRenderer {
             text.as_str()
         };
 
-        let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
+        let paint = font.init_paint(
+            LogicalLength::new(text_input.letter_spacing()) * scale_factor,
+            Default::default(),
+        );
         let text_context = crate::renderer::femtovg::fonts::FONT_CACHE
             .with(|cache| cache.borrow().text_context.clone());
         let font_height = text_context.measure_font(paint).unwrap().height();
         crate::renderer::femtovg::fonts::layout_text_lines(
             actual_text,
             &font,
-            Size::new(width, height),
+            PhysicalSize::from_lengths(width, height),
             (text_input.horizontal_alignment(), text_input.vertical_alignment()),
             text_input.wrap(),
             i_slint_core::items::TextOverflow::Clip,
@@ -310,17 +327,17 @@ impl Renderer for FemtoVGRenderer {
         let window = WindowInner::from_pub(window_adapter.window());
 
         let text = text_input.text();
-        let scale_factor = window.scale_factor();
+        let scale_factor = ScaleFactor::new(window.scale_factor());
 
         let font_size =
             text_input.font_request(&window_adapter).pixel_size.unwrap_or(fonts::DEFAULT_FONT_SIZE);
 
-        let mut result = Point::default();
+        let mut result = PhysicalPoint::default();
 
-        let width = text_input.width() * scale_factor;
-        let height = text_input.height() * scale_factor;
-        if width <= 0. || height <= 0. {
-            return Rect::new(result, Size::new(1.0, font_size));
+        let width = LogicalLength::new(text_input.width()) * scale_factor;
+        let height = LogicalLength::new(text_input.height()) * scale_factor;
+        if width.get() <= 0. || height.get() <= 0. {
+            return Rect::new(Point::default(), Size::new(1.0, font_size));
         }
 
         let font = crate::renderer::femtovg::fonts::FONT_CACHE.with(|cache| {
@@ -331,11 +348,14 @@ impl Renderer for FemtoVGRenderer {
             )
         });
 
-        let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
+        let paint = font.init_paint(
+            LogicalLength::new(text_input.letter_spacing()) * scale_factor,
+            Default::default(),
+        );
         fonts::layout_text_lines(
             text.as_str(),
             &font,
-            Size::new(width, height),
+            PhysicalSize::from_lengths(width, height),
             (text_input.horizontal_alignment(), text_input.vertical_alignment()),
             text_input.wrap(),
             i_slint_core::items::TextOverflow::Clip,
@@ -345,18 +365,19 @@ impl Renderer for FemtoVGRenderer {
                 if (start..=(start + line_text.len())).contains(&byte_offset) {
                     for glyph in &metrics.glyphs {
                         if glyph.byte_index == (byte_offset - start) {
-                            result = line_pos + euclid::vec2(glyph.x, 0.0);
+                            result = line_pos + PhysicalPoint::new(glyph.x, 0.0).to_vector();
                             return;
                         }
                     }
                     if let Some(last) = metrics.glyphs.last() {
-                        result = line_pos + euclid::vec2(last.x + last.advance_x, last.y);
+                        result = line_pos
+                            + PhysicalPoint::new(last.x + last.advance_x, last.y).to_vector();
                     }
                 }
             },
         );
 
-        Rect::new(result / scale_factor, Size::new(1.0, font_size))
+        LogicalRect::new(result / scale_factor, LogicalSize::new(1.0, font_size)).to_untyped()
     }
 
     fn register_font_from_memory(
