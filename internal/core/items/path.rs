@@ -17,7 +17,7 @@ use crate::input::{
 use crate::item_rendering::CachedRenderingData;
 
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{LogicalLength, LogicalRect};
+use crate::lengths::{LogicalItemGeometry, LogicalLength};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
@@ -118,7 +118,7 @@ impl Item for Path {
         if clip {
             (*backend).save_state();
             (*backend).combine_clip(
-                LogicalRect::from_untyped(&self.geometry()),
+                self.logical_geometry(),
                 LogicalLength::zero(),
                 LogicalLength::zero(),
             );

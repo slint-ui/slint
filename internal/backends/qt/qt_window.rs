@@ -1176,8 +1176,7 @@ impl QtItemRenderer<'_> {
         let mut layer_image = self.render_layer(self_rc, &|| {
             // We don't need to include the size of the opacity item itself, since it has no content.
             let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
-                let self_ref = self_rc.borrow();
-                LogicalRect::from_untyped(&self_ref.as_ref().geometry()).union(
+                self_rc.logical_geometry().union(
                     &i_slint_core::item_rendering::item_children_bounding_rect(
                         &self_rc.component(),
                         self_rc.index() as isize,
