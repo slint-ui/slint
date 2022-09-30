@@ -288,10 +288,10 @@ pub trait ItemRenderer {
     // For example the GL backend uses a layered rendering approach.
     fn visit_clip(&mut self, clip_item: Pin<&Clip>, _self_rc: &ItemRc) -> RenderingResult {
         if clip_item.clip() {
-            let geometry = clip_item.geometry();
+            let geometry = clip_item.logical_geometry();
 
             let clip_region_valid = self.combine_clip(
-                euclid::rect(0 as Coord, 0 as Coord, geometry.width(), geometry.height()),
+                LogicalRect::new(LogicalPoint::default(), geometry.size),
                 clip_item.logical_border_radius(),
                 clip_item.logical_border_width(),
             );
