@@ -40,6 +40,7 @@ export class PreviewWidget extends Widget {
     this.addClass("preview");
     this.title.label = "Preview";
     this.title.caption = `Slint Viewer`;
+    this.title.closable = true;
 
     this.#canvas_id = "";
     this.#instance = null;

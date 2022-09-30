@@ -4,7 +4,14 @@
 // cSpell: ignore lumino permalink
 
 import { CommandRegistry } from "@lumino/commands";
-import { DockPanel, Menu, MenuBar, SplitPanel, Widget } from "@lumino/widgets";
+import {
+  DockPanel,
+  Layout,
+  Menu,
+  MenuBar,
+  SplitPanel,
+  Widget,
+} from "@lumino/widgets";
 
 import { EditorWidget } from "./editor_widget";
 import { PreviewWidget } from "./preview_widget";
@@ -40,27 +47,233 @@ function create_demo_menu(editor: EditorWidget): Menu {
   return menu;
 }
 
-function create_share_menu(): Menu {
+function create_share_menu(editor: EditorWidget): Menu {
   const menu = new Menu({ commands });
   menu.title.label = "Share";
+
+  commands.addCommand("slint:copy_permalink", {
+    label: "Copy Permalink to Clipboard",
+    iconClass: "fa da-share",
+    mnemonic: 1,
+    execute: () => {
+      const params = new URLSearchParams();
+      params.set("snippet", editor.current_editor_content);
+      const this_url = new URL(window.location.toString());
+      this_url.search = params.toString();
+      const share_url = this_url.toString();
+
+      navigator.clipboard.writeText(share_url);
+    },
+  });
 
   menu.addItem({ command: "slint:copy_permalink" });
 
   return menu;
 }
 
-function main() {
-  const preview = new PreviewWidget();
-  const editor = new EditorWidget();
-  const properties = new PropertiesWidget();
-  const welcome = new WelcomeWidget();
+function widget_pseudo_url(id: string): string {
+  return "::widget:://" + id;
+}
 
-  editor.onRenderRequest = (style, source, url, fetcher) => {
-    return preview.render(style, source, url, fetcher);
-  };
-  editor.onNewPropertyData = (binding_text_provider, p) => {
-    properties.set_properties(binding_text_provider, p);
-  };
+function id_from_pseudo_url(url: string): string {
+  const id = url.substring(14);
+  console.assert(url == widget_pseudo_url(id));
+  return id;
+}
+
+function create_view_menu(dock_widgets: DockWidgets): Menu {
+  const dock = dock_widgets.dock;
+
+  const menu = new Menu({ commands });
+  menu.title.label = "Views";
+
+  commands.addCommand("slint:save-dock-layout", {
+    label: "Save Dock Layout",
+    caption: "Save the current dock layout",
+    execute: () => {
+      const layout = dock.saveLayout();
+      const widgets = Array.from(dock.widgets());
+
+      const objMap: Map<object, string> = new Map();
+      for (const w of widgets) {
+        objMap.set(w, widget_pseudo_url(w.title.label));
+      }
+      objMap.set(dock, "::widget:://DockPanel");
+      if (dock.layout != null) {
+        objMap.set(dock.layout, "::object:://DockLayout");
+      }
+      if (dock.parent != null) {
+        objMap.set(dock.parent, "::widget:://parent");
+      }
+      try {
+        const layout_str = JSON.stringify(layout, (_, value) => {
+          const result = objMap.get(value);
+          if (result === undefined) {
+            return value;
+          }
+          return result;
+        });
+        localStorage.setItem("layout", layout_str);
+      } catch (e) {
+        console.log("Failed to save dock layout!", e);
+      }
+    },
+  });
+
+  commands.addCommand("slint:reset-dock-layout", {
+    label: "Reset to Default Layout",
+    caption: "Reset to default layout",
+    execute: () => {
+      localStorage.removeItem("layout");
+    },
+  });
+
+  commands.addCommand("slint:restore-dock-layout", {
+    label: "Restore Dock Layout",
+    caption: "Restore the stored Dock layout",
+    execute: () => {
+      const layout_str = localStorage.getItem("layout");
+      if (layout_str != null && layout_str != "") {
+        const idMap: Map<string, Widget | Layout | null | undefined> =
+          new Map();
+        for (const id of dock_widgets.ids) {
+          idMap.set(widget_pseudo_url(id), dock_widgets.widget(id));
+        }
+        idMap.set("::widget:://DockPanel", dock);
+        idMap.set("::object:://DockLayout", dock.layout);
+        idMap.set("::object:://parent", dock.parent);
+
+        try {
+          const layout = JSON.parse(layout_str, (_, value) => {
+            const obj = idMap.get(value);
+            if (obj === undefined) {
+              // nothing we need to map!
+              return value;
+            }
+            if (obj === null) {
+              // We need to create this first!
+              return dock_widgets.create(id_from_pseudo_url(value));
+            } else {
+              return obj;
+            }
+          });
+          dock.restoreLayout(layout);
+        } catch (e) {
+          console.log("Failed to restore layout!", e);
+        }
+      }
+    },
+  });
+
+  menu.addItem({ command: "slint:save-dock-layout" });
+  menu.addItem({ command: "slint:restore-dock-layout" });
+  menu.addItem({ command: "slint:reset-dock-layout" });
+
+  for (const w of dock.widgets()) {
+    const id = w.title.label;
+    const command_name = "slint:visibility_" + id;
+    commands.addCommand(command_name, {
+      label: "Show " + w.title.label,
+      isToggled: () => {
+        return dock_widgets.widget(id) != null;
+      },
+      execute: () => {
+        const widget = dock_widgets.widget(id);
+        if (widget == null) {
+          dock_widgets.create(id);
+        } else {
+          widget.close();
+        }
+      },
+    });
+
+    menu.addItem({ command: command_name });
+  }
+
+  return menu;
+}
+
+class DockWidgets {
+  #factories: Map<string, () => Widget> = new Map();
+  #dock: DockPanel;
+
+  constructor(dock: DockPanel, ...factories: [() => Widget, any][]) {
+    this.#dock = dock;
+
+    for (const data of factories) {
+      const factory = data[0];
+      const widget = factory();
+      const id = widget.title.label;
+      const layout = data[1];
+
+      console.assert(!this.#factories.has(id));
+      this.#factories.set(id, factory);
+      const ref = layout.ref;
+      if (typeof ref === "string") {
+        layout.ref = this.widget(ref);
+      }
+      console.assert(widget.title.label === id);
+      dock.addWidget(widget, layout);
+    }
+  }
+
+  create(id: string): Widget {
+    const widget = this.#factories.get(id)!();
+    this.#dock.addWidget(widget);
+    return widget;
+  }
+
+  widget(id: string): Widget | null {
+    for (const w of this.#dock.widgets()) {
+      if (w.title.label == id) {
+        return w;
+      }
+    }
+    return null;
+  }
+
+  get dock(): DockPanel {
+    return this.#dock;
+  }
+
+  get ids(): string[] {
+    return Array.from(this.#factories.keys());
+  }
+}
+
+function main() {
+  const editor = new EditorWidget();
+  const dock = new DockPanel();
+
+  const dock_widgets = new DockWidgets(
+    dock,
+    [
+      () => {
+        const preview = new PreviewWidget();
+        editor.onRenderRequest = (style, source, url, fetcher) => {
+          return preview.render(style, source, url, fetcher);
+        };
+        return preview;
+      },
+      {},
+    ],
+    [
+      () => {
+        return new WelcomeWidget();
+      },
+      { mode: "split-bottom", ref: "Preview" },
+    ],
+    [
+      () => {
+        const properties = new PropertiesWidget();
+        editor.onNewPropertyData = (binding_text_provider, p) => {
+          properties.set_properties(binding_text_provider, p);
+        };
+        return properties;
+      },
+      { mode: "tab-after", ref: "Welcome" },
+    ],
+  );
 
   commands.addCommand("slint:compile", {
     label: "Compile",
@@ -82,21 +295,6 @@ function main() {
     },
   });
 
-  commands.addCommand("slint:copy_permalink", {
-    label: "Copy Permalink to Clipboard",
-    iconClass: "fa da-share",
-    mnemonic: 1,
-    execute: () => {
-      const params = new URLSearchParams();
-      params.set("snippet", editor.current_editor_content);
-      const this_url = new URL(window.location.toString());
-      this_url.search = params.toString();
-      const share_url = this_url.toString();
-
-      navigator.clipboard.writeText(share_url);
-    },
-  });
-
   commands.addKeyBinding({
     keys: ["Accel B"],
     selector: "body",
@@ -105,19 +303,17 @@ function main() {
 
   const menu_bar = new MenuBar();
   menu_bar.id = "menuBar";
-  menu_bar.addMenu(create_share_menu());
+  menu_bar.addMenu(create_share_menu(editor));
   menu_bar.addMenu(create_build_menu());
   menu_bar.addMenu(create_demo_menu(editor));
-
-  const dock = new DockPanel();
-  dock.addWidget(preview);
-  dock.addWidget(welcome, { mode: "split-bottom", ref: preview });
-  dock.addWidget(properties, { mode: "tab-after", ref: welcome });
+  menu_bar.addMenu(create_view_menu(dock_widgets));
 
   const main = new SplitPanel({ orientation: "horizontal" });
   main.id = "main";
   main.addWidget(editor);
   main.addWidget(dock);
+
+  commands.execute("slint:restore-dock-layout");
 
   window.onresize = () => {
     main.update();
