@@ -776,13 +776,7 @@ pub fn to_skia_size(size: &PhysicalSize) -> skia_safe::Size {
 
 fn item_rect<Item: items::Item>(item: Pin<&Item>, scale_factor: ScaleFactor) -> PhysicalRect {
     let geometry = LogicalRect::from_untyped(&item.geometry());
-    PhysicalRect::new(
-        PhysicalPoint::default(),
-        PhysicalSize::from_lengths(
-            geometry.width_length() * scale_factor,
-            geometry.height_length() * scale_factor,
-        ),
-    )
+    PhysicalRect::new(PhysicalPoint::default(), geometry.size * scale_factor)
 }
 
 pub fn to_skia_color(col: &Color) -> skia_safe::Color {
