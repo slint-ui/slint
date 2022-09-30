@@ -129,6 +129,17 @@ impl Drop for ReentryGuardLock {
     }
 }
 
+#[wasm_bindgen(typescript_custom_section)]
+const IMPORT_CALLBACK_FUNCTION_SECTION: &'static str = r#"
+type ImportCallbackFunction = (url: string) => Promise<Uint8Array>;
+"#;
+
+#[wasm_bindgen]
+extern "C" {
+    #[wasm_bindgen(typescript_type = "ImportCallbackFunction")]
+    pub type ImportCallbackFunction;
+}
+
 #[wasm_bindgen]
 pub struct SlintServer {
     document_cache: Rc<RefCell<DocumentCache>>,
@@ -141,7 +152,7 @@ pub struct SlintServer {
 pub fn create(
     init_param: JsValue,
     send_notification: Function,
-    load_file: Function,
+    load_file: ImportCallbackFunction,
 ) -> Result<SlintServer, JsError> {
     console_error_panic_hook::set_once();
 
@@ -155,7 +166,7 @@ pub fn create(
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
     compiler_config.open_import_fallback = Some(Rc::new(move |path| {
-        let load_file = load_file.clone();
+        let load_file = Function::from(load_file.clone());
         Box::pin(async move { Some(self::load_file(path, &load_file).await) })
     }));
 
