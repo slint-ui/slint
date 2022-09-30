@@ -5,7 +5,12 @@
 
 import { Widget } from "@lumino/widgets";
 
-import { BindingTextProvider, Element, Property, PropertyQuery } from "./lsp_integration";
+import {
+  BindingTextProvider,
+  Element,
+  Property,
+  PropertyQuery,
+} from "./lsp_integration";
 
 export class PropertiesWidget extends Widget {
   static createNode(): HTMLElement {
@@ -37,7 +42,7 @@ export class PropertiesWidget extends Widget {
     this.addClass("content");
     this.addClass("properties-editor".toLowerCase());
     this.title.label = "Properties";
-    this.title.closable = false;
+    this.title.closable = true;
     this.title.caption = `Element Properties`;
 
     this.set_header(null);
@@ -71,7 +76,10 @@ export class PropertiesWidget extends Widget {
     }
   }
 
-  private populate_table(binding_text_provider: BindingTextProvider, properties: Property[]) {
+  private populate_table(
+    binding_text_provider: BindingTextProvider,
+    properties: Property[],
+  ) {
     const table = this.tableNode;
 
     table.innerHTML = "";
@@ -100,7 +108,7 @@ export class PropertiesWidget extends Widget {
       value_field.className = "value-column";
       if (p.defined_at != null) {
         value_field.innerText = binding_text_provider.binding_text(
-          p.defined_at
+          p.defined_at,
         );
       } else {
         value_field.innerText = "";
@@ -111,7 +119,10 @@ export class PropertiesWidget extends Widget {
     }
   }
 
-  set_properties(binding_text_provider: BindingTextProvider, properties: PropertyQuery) {
+  set_properties(
+    binding_text_provider: BindingTextProvider,
+    properties: PropertyQuery,
+  ) {
     this.set_header(properties.element);
     this.populate_table(binding_text_provider, properties.properties);
   }
