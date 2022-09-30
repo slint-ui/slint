@@ -50,12 +50,12 @@ pub struct Selection {
 }
 
 pub fn create_layout(
-    font_request: FontRequest<LogicalLength>,
+    font_request: FontRequest<PhysicalLength>,
     scale_factor: ScaleFactor,
     text: &str,
     text_style: Option<skia_safe::textlayout::TextStyle>,
-    max_width: Option<LogicalLength>,
-    max_height: LogicalLength,
+    max_width: Option<PhysicalLength>,
+    max_height: PhysicalLength,
     h_align: items::TextHorizontalAlignment,
     v_align: TextVerticalAlignment,
     overflow: items::TextOverflow,
@@ -67,10 +67,10 @@ pub fn create_layout(
         text_style.set_font_families(&[family_name.as_str()]);
     }
 
-    let pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE);
+    let pixel_size = font_request.pixel_size.unwrap_or(DEFAULT_FONT_SIZE * scale_factor);
 
     if let Some(letter_spacing) = font_request.letter_spacing {
-        text_style.set_letter_spacing((letter_spacing * scale_factor).get());
+        text_style.set_letter_spacing(letter_spacing.get());
     }
     text_style.set_font_size(pixel_size.get());
     text_style.set_font_style(skia_safe::FontStyle::new(
@@ -122,11 +122,8 @@ pub fn create_layout(
     }
 
     let mut paragraph = builder.build();
-    paragraph.layout(
-        max_width.map_or(core::f32::MAX, |logical_width| (logical_width * scale_factor).get()),
-    );
+    paragraph.layout(max_width.map_or(core::f32::MAX, |physical_width| physical_width.get()));
 
-    let max_height = max_height * scale_factor;
     let layout_height = PhysicalLength::new(paragraph.height());
 
     let layout_top_y = match v_align {

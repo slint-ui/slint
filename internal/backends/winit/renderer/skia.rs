@@ -151,11 +151,11 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         scale_factor: ScaleFactor,
     ) -> LogicalSize {
         let (layout, _) = textlayout::create_layout(
-            font_request,
+            font_request * scale_factor,
             scale_factor,
             text,
             None,
-            max_width,
+            max_width.map(|w| w * scale_factor),
             Default::default(),
             Default::default(),
             Default::default(),
@@ -181,8 +181,8 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
 
         let scale_factor = ScaleFactor::new(window.scale_factor());
 
-        let max_width = text_input.logical_width();
-        let max_height = text_input.logical_height();
+        let max_width = text_input.logical_width() * scale_factor;
+        let max_height = text_input.logical_height() * scale_factor;
         let pos = pos * scale_factor;
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
@@ -194,7 +194,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         let font_request = text_input.font_request(&window_adapter);
 
         let (layout, layout_top_left) = textlayout::create_layout(
-            font_request,
+            font_request * scale_factor,
             scale_factor,
             string,
             None,
@@ -234,8 +234,8 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
 
         let scale_factor = ScaleFactor::new(window.scale_factor());
 
-        let max_width = text_input.logical_width();
-        let max_height = text_input.logical_height();
+        let max_width = text_input.logical_width() * scale_factor;
+        let max_height = text_input.logical_height() * scale_factor;
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return Default::default();
@@ -246,7 +246,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
         let font_request = text_input.font_request(&window_adapter);
 
         let (layout, layout_top_left) = textlayout::create_layout(
-            font_request,
+            font_request * scale_factor,
             scale_factor,
             string,
             None,
