@@ -19,7 +19,7 @@ use crate::input::{
 use crate::item_rendering::CachedRenderingData;
 use crate::items::{PropertyAnimation, Rectangle};
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::LogicalLength;
+use crate::lengths::{LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
@@ -132,9 +132,9 @@ impl Item for Flickable {
         backend: &mut ItemRendererRef,
         _self_rc: &ItemRc,
     ) -> RenderingResult {
-        let geometry = self.geometry();
+        let geometry = self.logical_geometry();
         (*backend).combine_clip(
-            euclid::rect(0 as _, 0 as _, geometry.width(), geometry.height()),
+            LogicalRect::new(LogicalPoint::default(), geometry.size),
             LogicalLength::zero(),
             LogicalLength::zero(),
         );
