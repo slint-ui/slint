@@ -985,7 +985,7 @@ impl Item for Rotate {
     ) -> RenderingResult {
         let origin = LogicalVector::from_lengths(
             self.logical_rotation_origin_x(),
-            self.logical_rotation_origin_x(),
+            self.logical_rotation_origin_y(),
         );
         (*backend).translate(origin);
         (*backend).rotate(self.rotation_angle());
