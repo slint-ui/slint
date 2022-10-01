@@ -9,7 +9,7 @@ use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::lengths::{
     LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    PointLengths, RectLengths, ScaleFactor,
+    RectLengths, ScaleFactor,
 };
 use i_slint_core::window::WindowInner;
 use i_slint_core::{items, Brush, Color, Property};
@@ -648,10 +648,8 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
     }
 
     fn translate(&mut self, distance: LogicalVector) {
-        self.canvas.translate(skia_safe::Vector::from((
-            (distance.x_length() * self.scale_factor).get(),
-            (distance.y_length() * self.scale_factor).get(),
-        )));
+        let distance = distance * self.scale_factor;
+        self.canvas.translate(skia_safe::Vector::from((distance.x, distance.y)));
     }
 
     fn rotate(&mut self, angle_in_degrees: f32) {
