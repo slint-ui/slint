@@ -13,8 +13,8 @@ use crate::graphics::{IntRect, PixelFormat, SharedImageBuffer};
 use crate::item_rendering::ItemRenderer;
 use crate::items::{ImageFit, ItemRc};
 use crate::lengths::{
-    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx,
-    PointLengths, RectLengths, ScaleFactor, SizeLengths,
+    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    PhysicalPx, PointLengths, RectLengths, ScaleFactor, SizeLengths,
 };
 use crate::renderer::Renderer;
 use crate::textlayout::{FontMetrics as _, TextParagraphLayout};
@@ -1254,10 +1254,9 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         self.current_state.clip
     }
 
-    fn translate(&mut self, x: LogicalLength, y: LogicalLength) {
-        let translation_vec = LogicalSize::from_lengths(x, y).to_vector();
-        self.current_state.offset += translation_vec;
-        self.current_state.clip = self.current_state.clip.translate(-translation_vec)
+    fn translate(&mut self, distance: LogicalVector) {
+        self.current_state.offset += distance;
+        self.current_state.clip = self.current_state.clip.translate(-distance)
     }
 
     fn rotate(&mut self, _angle_in_degrees: f32) {

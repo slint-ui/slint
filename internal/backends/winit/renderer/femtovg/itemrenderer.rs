@@ -6,7 +6,7 @@ use std::pin::Pin;
 use std::rc::Rc;
 
 use euclid::approxeq::ApproxEq;
-use i_slint_core::graphics::euclid::{self, Vector2D};
+use i_slint_core::graphics::euclid::{self};
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{Image, IntRect, Point, Size};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
@@ -15,8 +15,8 @@ use i_slint_core::items::{
     RenderingResult,
 };
 use i_slint_core::lengths::{
-    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PointLengths,
-    RectLengths, ScaleFactor,
+    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    PointLengths, RectLengths, ScaleFactor,
 };
 use i_slint_core::window::WindowInner;
 use i_slint_core::{Brush, Color, ImageInner, Property, SharedString};
@@ -882,12 +882,11 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
         None
     }
 
-    fn translate(&mut self, x: LogicalLength, y: LogicalLength) {
-        self.canvas
-            .borrow_mut()
-            .translate((x * self.scale_factor).get(), (y * self.scale_factor).get());
+    fn translate(&mut self, distance: LogicalVector) {
+        let physical_distance = distance * self.scale_factor;
+        self.canvas.borrow_mut().translate(physical_distance.x, physical_distance.y);
         let clip = &mut self.state.last_mut().unwrap().scissor;
-        *clip = clip.translate(Vector2D::from_lengths(-x, -y))
+        *clip = clip.translate(-distance)
     }
 
     fn rotate(&mut self, angle_in_degrees: f32) {

@@ -28,7 +28,7 @@ use crate::input::{
 use crate::item_rendering::CachedRenderingData;
 pub use crate::item_tree::ItemRc;
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::LogicalLength;
+use crate::lengths::{LogicalLength, LogicalVector};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::{WindowAdapter, WindowAdapterRc, WindowInner};
@@ -983,11 +983,13 @@ impl Item for Rotate {
         backend: &mut ItemRendererRef,
         _self_rc: &ItemRc,
     ) -> RenderingResult {
-        let origin_x = self.logical_rotation_origin_x();
-        let origin_y = self.logical_rotation_origin_y();
-        (*backend).translate(origin_x, origin_y);
+        let origin = LogicalVector::from_lengths(
+            self.logical_rotation_origin_x(),
+            self.logical_rotation_origin_y(),
+        );
+        (*backend).translate(origin);
         (*backend).rotate(self.rotation_angle());
-        (*backend).translate(-origin_x, -origin_y);
+        (*backend).translate(-origin);
         RenderingResult::ContinueRenderingChildren
     }
 }
