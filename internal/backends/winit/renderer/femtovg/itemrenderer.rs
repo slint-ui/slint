@@ -883,10 +883,8 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
     }
 
     fn translate(&mut self, distance: LogicalVector) {
-        self.canvas.borrow_mut().translate(
-            (distance.x_length() * self.scale_factor).get(),
-            (distance.y_length() * self.scale_factor).get(),
-        );
+        let physical_distance = distance * self.scale_factor;
+        self.canvas.borrow_mut().translate(physical_distance.x, physical_distance.y);
         let clip = &mut self.state.last_mut().unwrap().scissor;
         *clip = clip.translate(-distance)
     }
