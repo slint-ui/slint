@@ -72,7 +72,7 @@ glutin = { version = "0.29", default-features = false }
 [target.'cfg(target_family = "windows")'.dependencies]
 dwrote = { version = "0.11.0", optional = true }
 winapi = { version = "0.3", optional = true, features = ["dwrite"] }
-skia-safe = { version = "0.54.0", optional = true, features = ["d3d"] }
+skia-safe = { version = "0.55.0", optional = true, features = ["d3d"] }
 wio = { version = "0.2.2", optional = true }
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
