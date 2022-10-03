@@ -3,8 +3,8 @@
 
 // cSpell: ignore bindgen lumino winit
 
-import { Widget } from "@lumino/widgets";
 import { Message } from "@lumino/messaging";
+import { Widget } from "@lumino/widgets";
 
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
@@ -51,6 +51,11 @@ export class PreviewWidget extends Widget {
     this.#ensure_attached_to_dom = new Promise((resolve) => {
       this.#resolve_attached_to_dom = resolve;
     });
+  }
+
+  protected onCloseRequest(msg: Message): void {
+    super.onCloseRequest(msg);
+    this.dispose();
   }
 
   protected get canvas_id(): string {

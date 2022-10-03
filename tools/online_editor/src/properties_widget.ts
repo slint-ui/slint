@@ -3,6 +3,7 @@
 
 // cSpell: ignore lumino
 
+import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
 
 import {
@@ -46,6 +47,11 @@ export class PropertiesWidget extends Widget {
     this.title.caption = `Element Properties`;
 
     this.set_header(null);
+  }
+
+  protected onCloseRequest(msg: Message): void {
+    super.onCloseRequest(msg);
+    this.dispose();
   }
 
   protected get contentNode(): HTMLDivElement {

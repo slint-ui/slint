@@ -5,6 +5,7 @@
 
 import { CommandRegistry } from "@lumino/commands";
 import {
+  DockLayout,
   DockPanel,
   Layout,
   Menu,
@@ -197,7 +198,10 @@ class DockWidgets {
   #factories: Map<string, () => Widget> = new Map();
   #dock: DockPanel;
 
-  constructor(dock: DockPanel, ...factories: [() => Widget, any][]) {
+  constructor(
+    dock: DockPanel,
+    ...factories: [() => Widget, any][] // eslint-disable-line
+  ) {
     this.#dock = dock;
 
     for (const data of factories) {
@@ -213,14 +217,19 @@ class DockWidgets {
         layout.ref = this.widget(ref);
       }
       console.assert(widget.title.label === id);
-      dock.addWidget(widget, layout);
+      dock.addWidget(widget, layout as DockLayout.IAddOptions);
     }
   }
 
-  create(id: string): Widget {
-    const widget = this.#factories.get(id)!();
-    this.#dock.addWidget(widget);
-    return widget;
+  create(id: string): Widget | null {
+    const factory = this.#factories.get(id);
+    if (factory != null) {
+      const widget = factory();
+      this.#dock.addWidget(widget);
+      return widget;
+    } else {
+      return null;
+    }
   }
 
   widget(id: string): Widget | null {
@@ -242,39 +251,6 @@ class DockWidgets {
 }
 
 function main() {
-  const editor = new EditorWidget();
-  const dock = new DockPanel();
-
-  const dock_widgets = new DockWidgets(
-    dock,
-    [
-      () => {
-        const preview = new PreviewWidget();
-        editor.onRenderRequest = (style, source, url, fetcher) => {
-          return preview.render(style, source, url, fetcher);
-        };
-        return preview;
-      },
-      {},
-    ],
-    [
-      () => {
-        return new WelcomeWidget();
-      },
-      { mode: "split-bottom", ref: "Preview" },
-    ],
-    [
-      () => {
-        const properties = new PropertiesWidget();
-        editor.onNewPropertyData = (binding_text_provider, p) => {
-          properties.set_properties(binding_text_provider, p);
-        };
-        return properties;
-      },
-      { mode: "tab-after", ref: "Welcome" },
-    ],
-  );
-
   commands.addCommand("slint:compile", {
     label: "Compile",
     iconClass: "fa fa-hammer",
@@ -300,6 +276,41 @@ function main() {
     selector: "body",
     command: "slint:compile",
   });
+
+  const editor = new EditorWidget();
+  const dock = new DockPanel();
+
+  const dock_widgets = new DockWidgets(
+    dock,
+    [
+      () => {
+        const preview = new PreviewWidget();
+        editor.onRenderRequest = (style, source, url, fetcher) => {
+          return preview.render(style, source, url, fetcher);
+        };
+
+        commands.execute("slint:compile");
+        return preview;
+      },
+      {},
+    ],
+    [
+      () => {
+        return new WelcomeWidget();
+      },
+      { mode: "split-bottom", ref: "Preview" },
+    ],
+    [
+      () => {
+        const properties = new PropertiesWidget();
+        editor.onNewPropertyData = (binding_text_provider, p) => {
+          properties.set_properties(binding_text_provider, p);
+        };
+        return properties;
+      },
+      { mode: "tab-after", ref: "Welcome" },
+    ],
+  );
 
   const menu_bar = new MenuBar();
   menu_bar.id = "menuBar";
