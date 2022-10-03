@@ -3,6 +3,7 @@
 
 // cSpell: ignore lumino
 
+import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
 
 export class WelcomeWidget extends Widget {
@@ -33,5 +34,10 @@ export class WelcomeWidget extends Widget {
     this.title.label = "Welcome";
     this.title.closable = true;
     this.title.caption = `Welcome to Slint`;
+  }
+
+  protected onCloseRequest(msg: Message): void {
+    super.onCloseRequest(msg);
+    this.dispose();
   }
 }
