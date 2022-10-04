@@ -456,6 +456,9 @@ class EditorPaneWidget extends Widget {
     }
 
     const response = await fetch(url);
+    if (!response.ok) {
+      return "Failed to access URL: " + response.statusText;
+    }
     const doc = await response.text();
 
     model_and_state = this.#editor_documents.get(url);
@@ -476,22 +479,7 @@ class EditorPaneWidget extends Widget {
   }
 
   async read_from_url(url: string): Promise<string> {
-    let model_and_state = this.#editor_documents.get(url);
-    if (model_and_state != null) {
-      return model_and_state.model.getValue();
-    }
-
-    const response = await fetch(url);
-    const text = await response.text();
-
-    model_and_state = this.#editor_documents.get(url);
-    if (model_and_state != null) {
-      return model_and_state.model.getValue();
-    } else {
-      const model = createModel(text, monaco.Uri.parse(url));
-      this.add_model(url, model);
-      return text;
-    }
+    return this.fetch_url_content(this.#edit_era, url);
   }
 }
 
