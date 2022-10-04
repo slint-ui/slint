@@ -417,17 +417,60 @@ fn test_filter_model() {
 struct SortModelInner<M, F>
 where
     M: Model + 'static,
-    F: Fn(&M::Data, &M::Data) -> bool + 'static,
+    F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static,
 {
     wrapped_model: M,
-    sort_function: F,
+    sort_function: RefCell<F>,
+    // This vector saves the indices of the elements that are not filtered out
+    mapping: RefCell<Vec<usize>>,
     notify: ModelNotify,
+}
+
+impl<M, F> SortModelInner<M, F> where M: Model + 'static, F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static {
+    fn build_mapping_vec(&self) {
+        // let mut mapping = self.mapping.borrow_mut();
+        // *mapping = self
+        //     .wrapped_model
+        //     .iter()
+        //     .enumerate()
+        //     .map(|e| (self.filter_function)(&e).then(|| i))
+        //     .collect();
+
+        let sorted_list = {
+            let mut sorted_list = self.wrapped_model.iter().collect::<Vec<M::Data>>();
+            let mut sort_function = self.sort_function.borrow_mut();
+            sorted_list.sort_by(|a, b| (sort_function)(a, b));
+            sort_function
+        };
+
+      //  self.wrapped_model.iter().enumerate()  .filter_map(|(i, e)| (self.filter_function)(&e).then(|| i))
+
+    //     // let mut mapping = self.mapping.borrow_mut();
+
+    //    let sort_list = {
+    //     let  mapping  = self
+    //     .wrapped_model.iter().collect:: <Vec<M::Data>>();
+    //         let mut sort_function = self.sort_function.borrow_mut();
+
+    //         sort_list.sort_by(|a, b| (sort_function)(a, b));
+    //         sort_list
+    //     };
+       
+    //     *(self.mapping.borrow_mut()) = sort_list;
+    //     let mut sort_list  = self
+    //     .wrapped_model.iter().collect:: <Vec<M::Data>>();
+    //     sort_list.sort_by(|a, b| (sort_function)(a, b))
+
+    //    *mapping = sort_list;
+        // *mapping = self
+        //     .wrapped_model.iter().enumerate().collect();
+    }
 }
 
 impl<M, F> ModelChangeListener for SortModelInner<M, F>
 where
     M: Model + 'static,
-    F: Fn(&M::Data, &M::Data) -> bool + 'static,
+    F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static,
 {
     fn row_changed(&self, row: usize) {
         todo!()
@@ -449,16 +492,16 @@ where
 pub struct SortModel<M, F>(Pin<Box<ModelChangeListenerContainer<SortModelInner<M, F>>>>)
 where
     M: Model + 'static,
-    F: Fn(&M::Data, &M::Data) -> bool + 'static;
+    F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static;
 
 impl<M, F> SortModel<M, F>
 where
     M: Model + 'static,
-    F: Fn(&M::Data, &M::Data) -> bool + 'static,
+    F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static,
 {
     pub fn new(wrapped_model: M, sort_function: F) -> Self {
         let sorted_model_inner =
-            SortModelInner { wrapped_model, sort_function, notify: Default::default() };
+            SortModelInner { wrapped_model, sort_function: RefCell::new(sort_function), mapping: RefCell::new(Vec::new()),notify: Default::default() };
 
         let container = Box::pin(ModelChangeListenerContainer::new(sorted_model_inner));
 
@@ -471,12 +514,12 @@ where
 impl<M, F> Model for SortModel<M, F>
 where
     M: Model + 'static,
-    F: Fn(&M::Data, &M::Data) -> bool + 'static,
+    F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static,
 {
     type Data = M::Data;
 
     fn row_count(&self) -> usize {
-        todo!()
+        self.0.wrapped_model.row_count()
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
@@ -537,7 +580,7 @@ mod sort_tests {
     #[test]
     fn test_sorted_model_insert() {
         let wrapped_rc = Rc::new(VecModel::from(vec![3, 4, 1, 2]));
-        let sorted_model = SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs < rhs);
+        let sorted_model = SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs.partial_cmp(rhs));
 
         let observer = Box::pin(ModelChangeListenerContainer::<TestView>::default());
         sorted_model.model_tracker().attach_peer(Pin::as_ref(&observer).model_peer());
@@ -568,7 +611,7 @@ mod sort_tests {
     #[test]
     fn test_sorted_model_remove() {
         let wrapped_rc = Rc::new(VecModel::from(vec![3, 4, 1, 2]));
-        let sorted_model = SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs < rhs);
+        let sorted_model = SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs.partial_cmp(rhs));
 
         let observer = Box::pin(ModelChangeListenerContainer::<TestView>::default());
         sorted_model.model_tracker().attach_peer(Pin::as_ref(&observer).model_peer());
@@ -598,7 +641,7 @@ mod sort_tests {
     #[test]
     fn test_sorted_model_changed() {
         let wrapped_rc = Rc::new(VecModel::from(vec![3, 4, 1, 2]));
-        let sorted_model = SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs < rhs);
+        let sorted_model = SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs.partial_cmp(rhs));
 
         let observer = Box::pin(ModelChangeListenerContainer::<TestView>::default());
         sorted_model.model_tracker().attach_peer(Pin::as_ref(&observer).model_peer());
