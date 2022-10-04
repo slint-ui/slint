@@ -13,6 +13,8 @@ import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
 const ensure_slint_wasm_bindgen_glue_initialized: Promise<slint.InitOutput> =
   slint_init();
 
+let is_event_loop_running = false;
+
 export class PreviewWidget extends Widget {
   #instance: slint.WrappedInstance | null;
   #canvas_id: string;
@@ -41,6 +43,8 @@ export class PreviewWidget extends Widget {
     this.title.label = "Preview";
     this.title.caption = `Slint Viewer`;
     this.title.closable = true;
+
+    console.log("Event loop running?", is_event_loop_running);
 
     this.#canvas_id = "";
     this.#instance = null;
@@ -138,12 +142,16 @@ export class PreviewWidget extends Widget {
         this.#instance = component.create(this.canvas_id);
         this.#instance.show();
         try {
-          slint.run_event_loop();
+          if (!is_event_loop_running) {
+            slint.run_event_loop();
+            // this will trigger a JS exception, so this line will never be reached!
+          }
         } catch (e) {
           // The winit event loop, when targeting wasm, throws a JavaScript exception to break out of
           // Rust without running any destructors. Don't rethrow the exception but swallow it, as
           // this is no error and we truly want to resolve the promise of this function by returning
           // the model markers.
+          is_event_loop_running = true; // Assume the winit caused the exception and that the event loop is up now
         }
       } else {
         this.#instance = component.create_with_existing_window(this.#instance);
