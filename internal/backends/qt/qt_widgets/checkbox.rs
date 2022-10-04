@@ -86,6 +86,7 @@ impl Item for NativeCheckBox {
         self: Pin<&Self>,
         event: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> KeyEventResult {
         match event.event_type {
             KeyEventType::KeyPressed if event.text == " " || event.text == "\n" => {
@@ -102,6 +103,7 @@ impl Item for NativeCheckBox {
         self: Pin<&Self>,
         event: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> FocusEventResult {
         if self.enabled() {
             Self::FIELD_OFFSETS

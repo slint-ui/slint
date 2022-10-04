@@ -140,6 +140,7 @@ impl Item for Text {
         self: Pin<&Self>,
         _: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -148,6 +149,7 @@ impl Item for Text {
         self: Pin<&Self>,
         _: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -354,6 +356,7 @@ impl Item for TextInput {
         self: Pin<&Self>,
         event: &KeyEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> KeyEventResult {
         if !self.enabled() {
             return KeyEventResult::EventIgnored;
@@ -486,6 +489,7 @@ impl Item for TextInput {
         self: Pin<&Self>,
         event: &FocusEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> FocusEventResult {
         match event {
             FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {

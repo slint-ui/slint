@@ -150,12 +150,14 @@ pub struct ItemVTable {
         core::pin::Pin<VRef<ItemVTable>>,
         &FocusEvent,
         window_adapter: &WindowAdapterRc,
+        self_rc: &ItemRc,
     ) -> FocusEventResult,
 
     pub key_event: extern "C" fn(
         core::pin::Pin<VRef<ItemVTable>>,
         &KeyEvent,
         window_adapter: &WindowAdapterRc,
+        self_rc: &ItemRc,
     ) -> KeyEventResult,
 
     pub render: extern "C" fn(
@@ -219,6 +221,7 @@ impl Item for Rectangle {
         self: Pin<&Self>,
         _: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -227,6 +230,7 @@ impl Item for Rectangle {
         self: Pin<&Self>,
         _: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -305,6 +309,7 @@ impl Item for BorderRectangle {
         self: Pin<&Self>,
         _: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -313,6 +318,7 @@ impl Item for BorderRectangle {
         self: Pin<&Self>,
         _: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -485,6 +491,7 @@ impl Item for TouchArea {
         self: Pin<&Self>,
         _: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -493,6 +500,7 @@ impl Item for TouchArea {
         self: Pin<&Self>,
         _: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -574,6 +582,7 @@ impl Item for FocusScope {
         self: Pin<&Self>,
         event: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> KeyEventResult {
         let r = match event.event_type {
             KeyEventType::KeyPressed => {
@@ -593,6 +602,7 @@ impl Item for FocusScope {
         self: Pin<&Self>,
         event: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> FocusEventResult {
         if !self.enabled() {
             return FocusEventResult::FocusIgnored;
@@ -691,6 +701,7 @@ impl Item for Clip {
         self: Pin<&Self>,
         _: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -699,6 +710,7 @@ impl Item for Clip {
         self: Pin<&Self>,
         _: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -772,6 +784,7 @@ impl Item for Opacity {
         self: Pin<&Self>,
         _: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -780,6 +793,7 @@ impl Item for Opacity {
         self: Pin<&Self>,
         _: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -882,6 +896,7 @@ impl Item for Layer {
         self: Pin<&Self>,
         _: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -890,6 +905,7 @@ impl Item for Layer {
         self: Pin<&Self>,
         _: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -966,6 +982,7 @@ impl Item for Rotate {
         self: Pin<&Self>,
         _: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -974,6 +991,7 @@ impl Item for Rotate {
         self: Pin<&Self>,
         _: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -1086,6 +1104,7 @@ impl Item for WindowItem {
         self: Pin<&Self>,
         _: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -1094,6 +1113,7 @@ impl Item for WindowItem {
         self: Pin<&Self>,
         _: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -1201,6 +1221,7 @@ impl Item for BoxShadow {
         self: Pin<&Self>,
         _: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -1209,6 +1230,7 @@ impl Item for BoxShadow {
         self: Pin<&Self>,
         _: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }

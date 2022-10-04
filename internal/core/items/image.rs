@@ -88,6 +88,7 @@ impl Item for ImageItem {
         self: Pin<&Self>,
         _: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -96,6 +97,7 @@ impl Item for ImageItem {
         self: Pin<&Self>,
         _: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
@@ -184,6 +186,7 @@ impl Item for ClippedImage {
         self: Pin<&Self>,
         _: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -192,6 +195,7 @@ impl Item for ClippedImage {
         self: Pin<&Self>,
         _: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }

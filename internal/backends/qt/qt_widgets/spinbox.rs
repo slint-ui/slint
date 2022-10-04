@@ -198,6 +198,7 @@ impl Item for NativeSpinBox {
         self: Pin<&Self>,
         event: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> KeyEventResult {
         if !self.enabled() || event.event_type != KeyEventType::KeyPressed {
             return KeyEventResult::EventIgnored;
@@ -221,6 +222,7 @@ impl Item for NativeSpinBox {
         self: Pin<&Self>,
         event: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> FocusEventResult {
         match event {
             FocusEvent::FocusIn => {
