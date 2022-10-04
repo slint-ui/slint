@@ -457,10 +457,10 @@ where
     F: Fn(&M::Data, &M::Data) -> bool + 'static,
 {
     pub fn new(wrapped_model: M, sort_function: F) -> Self {
-        let sort_model_inner =
+        let sorted_model_inner =
             SortModelInner { wrapped_model, sort_function, notify: Default::default() };
 
-        let container = Box::pin(ModelChangeListenerContainer::new(sort_model_inner));
+        let container = Box::pin(ModelChangeListenerContainer::new(sorted_model_inner));
 
         container.wrapped_model.model_tracker().attach_peer(container.as_ref().model_peer());
 
@@ -488,16 +488,158 @@ where
     }
 }
 
-#[test]
-fn test_sort_model_insert() {
-    let wrapped_rc = Rc::new(VecModel::from(vec![3, 4, 1, 2]));
-    let sort_model = SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs < rhs);
+#[cfg(test)]
+mod sort_tests {
+    use super::*;
 
-    assert_eq!(sort_model.row_count(), 4);
-    assert_eq!(sort_model.row_data(0).unwrap(), 1);
-    assert_eq!(sort_model.row_data(0).unwrap(), 2);
-    assert_eq!(sort_model.row_data(0).unwrap(), 3);
-    assert_eq!(sort_model.row_data(0).unwrap(), 4);
+    #[derive(Default)]
+    struct TestView {
+        // Track the parameters reported by the model (row counts, indices, etc.).
+        // The last field in the tuple is the row size the model reports at the time
+        // of callback
+        changed_rows: RefCell<Vec<(usize, usize)>>,
+        added_rows: RefCell<Vec<(usize, usize, usize)>>,
+        removed_rows: RefCell<Vec<(usize, usize, usize)>>,
+        reset: RefCell<usize>,
+        model: RefCell<Option<std::rc::Weak<dyn Model<Data = i32>>>>,
+    }
+    impl TestView {
+        fn clear(&self) {
+            self.changed_rows.borrow_mut().clear();
+            self.added_rows.borrow_mut().clear();
+            self.removed_rows.borrow_mut().clear();
+        }
+        fn row_count(&self) -> usize {
+            self.model
+                .borrow()
+                .as_ref()
+                .and_then(|model| model.upgrade())
+                .map_or(0, |model| model.row_count())
+        }
+    }
+    impl ModelChangeListener for TestView {
+        fn row_changed(&self, row: usize) {
+            self.changed_rows.borrow_mut().push((row, self.row_count()));
+        }
 
-    wrapped_rc.insert(0, 10);
+        fn row_added(&self, index: usize, count: usize) {
+            self.added_rows.borrow_mut().push((index, count, self.row_count()));
+        }
+
+        fn row_removed(&self, index: usize, count: usize) {
+            self.removed_rows.borrow_mut().push((index, count, self.row_count()));
+        }
+        fn reset(&self) {
+            *self.reset.borrow_mut() += 1;
+        }
+    }
+
+    #[test]
+    fn test_sorted_model_insert() {
+        let wrapped_rc = Rc::new(VecModel::from(vec![3, 4, 1, 2]));
+        let sorted_model = SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs < rhs);
+
+        let observer = Box::pin(ModelChangeListenerContainer::<TestView>::default());
+        sorted_model.model_tracker().attach_peer(Pin::as_ref(&observer).model_peer());
+
+        assert_eq!(sorted_model.row_count(), 4);
+        assert_eq!(sorted_model.row_data(0).unwrap(), 1);
+        assert_eq!(sorted_model.row_data(1).unwrap(), 2);
+        assert_eq!(sorted_model.row_data(2).unwrap(), 3);
+        assert_eq!(sorted_model.row_data(3).unwrap(), 4);
+
+        wrapped_rc.insert(0, 10);
+
+        assert_eq!(observer.added_rows.borrow().len(), 1);
+        assert!(observer.added_rows.borrow().eq(&[(4, 1, 10)]));
+        assert!(observer.changed_rows.borrow().is_empty());
+        assert!(observer.removed_rows.borrow().is_empty());
+        assert_eq!(*observer.reset.borrow(), 0);
+        observer.clear();
+
+        assert_eq!(sorted_model.row_count(), 5);
+        assert_eq!(sorted_model.row_data(0).unwrap(), 1);
+        assert_eq!(sorted_model.row_data(1).unwrap(), 2);
+        assert_eq!(sorted_model.row_data(2).unwrap(), 3);
+        assert_eq!(sorted_model.row_data(3).unwrap(), 4);
+        assert_eq!(sorted_model.row_data(4).unwrap(), 10);
+    }
+
+    #[test]
+    fn test_sorted_model_remove() {
+        let wrapped_rc = Rc::new(VecModel::from(vec![3, 4, 1, 2]));
+        let sorted_model = SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs < rhs);
+
+        let observer = Box::pin(ModelChangeListenerContainer::<TestView>::default());
+        sorted_model.model_tracker().attach_peer(Pin::as_ref(&observer).model_peer());
+
+        assert_eq!(sorted_model.row_count(), 4);
+        assert_eq!(sorted_model.row_data(0).unwrap(), 1);
+        assert_eq!(sorted_model.row_data(1).unwrap(), 2);
+        assert_eq!(sorted_model.row_data(2).unwrap(), 3);
+        assert_eq!(sorted_model.row_data(3).unwrap(), 4);
+
+        // Remove the entry with the value 4
+        wrapped_rc.remove(1);
+
+        assert!(observer.added_rows.borrow().is_empty());
+        assert!(observer.changed_rows.borrow().is_empty());
+        assert_eq!(observer.removed_rows.borrow().len(), 1);
+        assert!(observer.removed_rows.borrow().eq(&[(3, 1, 4)]));
+        assert_eq!(*observer.reset.borrow(), 0);
+        observer.clear();
+
+        assert_eq!(sorted_model.row_count(), 3);
+        assert_eq!(sorted_model.row_data(0).unwrap(), 1);
+        assert_eq!(sorted_model.row_data(1).unwrap(), 2);
+        assert_eq!(sorted_model.row_data(2).unwrap(), 3);
+    }
+
+    #[test]
+    fn test_sorted_model_changed() {
+        let wrapped_rc = Rc::new(VecModel::from(vec![3, 4, 1, 2]));
+        let sorted_model = SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs < rhs);
+
+        let observer = Box::pin(ModelChangeListenerContainer::<TestView>::default());
+        sorted_model.model_tracker().attach_peer(Pin::as_ref(&observer).model_peer());
+
+        assert_eq!(sorted_model.row_count(), 4);
+        assert_eq!(sorted_model.row_data(0).unwrap(), 1);
+        assert_eq!(sorted_model.row_data(1).unwrap(), 2);
+        assert_eq!(sorted_model.row_data(2).unwrap(), 3);
+        assert_eq!(sorted_model.row_data(3).unwrap(), 4);
+
+        // Change the entry with the value 4 to 10 -> maintain order
+        sorted_model.set_row_data(1, 10);
+
+        assert!(observer.added_rows.borrow().is_empty());
+        assert_eq!(observer.changed_rows.borrow().len(), 1);
+        assert_eq!(observer.changed_rows.borrow().get(0).unwrap().1, 3);
+        assert!(observer.removed_rows.borrow().is_empty());
+        assert_eq!(*observer.reset.borrow(), 0);
+        observer.clear();
+
+        assert_eq!(sorted_model.row_count(), 4);
+        assert_eq!(sorted_model.row_data(0).unwrap(), 1);
+        assert_eq!(sorted_model.row_data(1).unwrap(), 2);
+        assert_eq!(sorted_model.row_data(2).unwrap(), 3);
+        assert_eq!(sorted_model.row_data(3).unwrap(), 10);
+
+        // Change the entry with the value 10 to 0 -> new order with remove and insert
+        sorted_model.set_row_data(1, 0);
+
+        assert_eq!(observer.added_rows.borrow().len(), 1);
+        assert!(observer.added_rows.borrow().get(0).unwrap().eq(&(3, 1, 0)));
+        assert!(observer.changed_rows.borrow().is_empty());
+        assert_eq!(observer.removed_rows.borrow().len(), 1);
+        assert!(observer.removed_rows.borrow().get(0).unwrap().eq(&(3, 1, 10)));
+        assert_eq!(*observer.reset.borrow(), 0);
+        observer.clear();
+
+        assert_eq!(sorted_model.row_count(), 4);
+        assert_eq!(sorted_model.row_data(0).unwrap(), 0);
+        assert_eq!(sorted_model.row_data(1).unwrap(), 1);
+        assert_eq!(sorted_model.row_data(2).unwrap(), 2);
+        assert_eq!(sorted_model.row_data(3).unwrap(), 3);
+    }
 }
