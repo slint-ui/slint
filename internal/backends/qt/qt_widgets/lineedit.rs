@@ -110,6 +110,7 @@ impl Item for NativeLineEdit {
         self: Pin<&Self>,
         _: &KeyEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> KeyEventResult {
         KeyEventResult::EventIgnored
     }
@@ -118,6 +119,7 @@ impl Item for NativeLineEdit {
         self: Pin<&Self>,
         _: &FocusEvent,
         _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
     ) -> FocusEventResult {
         FocusEventResult::FocusIgnored
     }
