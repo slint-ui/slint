@@ -21,6 +21,8 @@ import { WelcomeWidget } from "./welcome_widget";
 
 const commands = new CommandRegistry();
 
+const local_storage_key_layout = "layout_v1";
+
 function create_build_menu(): Menu {
   const menu = new Menu({ commands });
   menu.title.label = "Build";
@@ -114,7 +116,7 @@ function create_view_menu(dock_widgets: DockWidgets): Menu {
           }
           return result;
         });
-        localStorage.setItem("layout", layout_str);
+        localStorage.setItem(local_storage_key_layout, layout_str);
       } catch (e) {
         console.log("Failed to save dock layout!", e);
       }
@@ -124,19 +126,24 @@ function create_view_menu(dock_widgets: DockWidgets): Menu {
   commands.addCommand("slint:reset-dock-layout", {
     label: "Reset to Default Layout",
     caption: "Reset to default layout",
+    isEnabled: () => {
+      return localStorage.getItem(local_storage_key_layout) != null;
+    },
     execute: () => {
-      localStorage.removeItem("layout");
+      localStorage.removeItem(local_storage_key_layout);
     },
   });
 
   commands.addCommand("slint:restore-dock-layout", {
     label: "Restore Dock Layout",
     caption: "Restore the stored Dock layout",
+    isEnabled: () => {
+      return localStorage.getItem(local_storage_key_layout) != null;
+    },
     execute: () => {
-      const layout_str = localStorage.getItem("layout");
+      const layout_str = localStorage.getItem(local_storage_key_layout);
       if (layout_str != null && layout_str != "") {
-        const idMap: Map<string, Widget | Layout | null | undefined> =
-          new Map();
+        const idMap: Map<string, Widget | Layout | null> = new Map();
         for (const id of dock_widgets.ids) {
           idMap.set(widget_pseudo_url(id), dock_widgets.widget(id));
         }
