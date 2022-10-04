@@ -413,3 +413,91 @@ fn test_filter_model() {
     assert_eq!(filter.row_data(4).unwrap(), 8);
     assert_eq!(filter.row_count(), 5);
 }
+
+struct SortModelInner<M, F>
+where
+    M: Model + 'static,
+    F: Fn(&M::Data, &M::Data) -> bool + 'static,
+{
+    wrapped_model: M,
+    sort_function: F,
+    notify: ModelNotify,
+}
+
+impl<M, F> ModelChangeListener for SortModelInner<M, F>
+where
+    M: Model + 'static,
+    F: Fn(&M::Data, &M::Data) -> bool + 'static,
+{
+    fn row_changed(&self, row: usize) {
+        todo!()
+    }
+
+    fn row_added(&self, index: usize, count: usize) {
+        todo!()
+    }
+
+    fn row_removed(&self, index: usize, count: usize) {
+        todo!()
+    }
+
+    fn reset(&self) {
+        todo!()
+    }
+}
+
+pub struct SortModel<M, F>(Pin<Box<ModelChangeListenerContainer<SortModelInner<M, F>>>>)
+where
+    M: Model + 'static,
+    F: Fn(&M::Data, &M::Data) -> bool + 'static;
+
+impl<M, F> SortModel<M, F>
+where
+    M: Model + 'static,
+    F: Fn(&M::Data, &M::Data) -> bool + 'static,
+{
+    pub fn new(wrapped_model: M, sort_function: F) -> Self {
+        let sort_model_inner =
+            SortModelInner { wrapped_model, sort_function, notify: Default::default() };
+
+        let container = Box::pin(ModelChangeListenerContainer::new(sort_model_inner));
+
+        container.wrapped_model.model_tracker().attach_peer(container.as_ref().model_peer());
+
+        Self(container)
+    }
+}
+
+impl<M, F> Model for SortModel<M, F>
+where
+    M: Model + 'static,
+    F: Fn(&M::Data, &M::Data) -> bool + 'static,
+{
+    type Data = M::Data;
+
+    fn row_count(&self) -> usize {
+        todo!()
+    }
+
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        todo!()
+    }
+
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        &self.0.notify
+    }
+}
+
+#[test]
+fn test_sort_model_insert() {
+    let wrapped_rc = Rc::new(VecModel::from(vec![3, 4, 1, 2]));
+    let sort_model = SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs < rhs);
+
+    assert_eq!(sort_model.row_count(), 4);
+    assert_eq!(sort_model.row_data(0).unwrap(), 1);
+    assert_eq!(sort_model.row_data(0).unwrap(), 2);
+    assert_eq!(sort_model.row_data(0).unwrap(), 3);
+    assert_eq!(sort_model.row_data(0).unwrap(), 4);
+
+    wrapped_rc.insert(0, 10);
+}
