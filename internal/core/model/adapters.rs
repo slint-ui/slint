@@ -434,15 +434,10 @@ where
     F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static,
 {
     fn build_mapping_vec(&self) {
-        let mut mapping = self.mapping.borrow_mut();
-
-        *mapping = {
-            let mut sorted_list: Vec<(usize, M::Data)> =
-                self.wrapped_model.iter().enumerate().collect();
-            let mut sort_function = self.sort_function.borrow_mut();
-            sorted_list.sort_by(|a, b| (sort_function)(&a.1, &b.1));
-            sorted_list.iter().map(|m| m.0).collect()
-        };
+        self.mapping.borrow_mut().clear();
+        self.mapping.borrow_mut().extend((0..self.wrapped_model.row_count()).into_iter());
+        self.mapping.borrow_mut().sort_by(|lhs, rhs| 
+        (self.sort_function.borrow_mut())(&self.wrapped_model.row_data(*lhs).unwrap(), &self.wrapped_model.row_data(*rhs).unwrap()));
     }
 }
 
@@ -509,7 +504,11 @@ where
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
-        todo!()
+        self.0
+            .mapping
+            .borrow()
+            .get(row)
+            .map(|&wrapped_row| self.0.wrapped_model.row_data(wrapped_row).unwrap())
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
@@ -532,12 +531,14 @@ mod sort_tests {
         reset: RefCell<usize>,
         model: RefCell<Option<std::rc::Weak<dyn Model<Data = i32>>>>,
     }
+
     impl TestView {
         fn clear(&self) {
             self.changed_rows.borrow_mut().clear();
             self.added_rows.borrow_mut().clear();
             self.removed_rows.borrow_mut().clear();
         }
+
         fn row_count(&self) -> usize {
             self.model
                 .borrow()
@@ -546,6 +547,7 @@ mod sort_tests {
                 .map_or(0, |model| model.row_count())
         }
     }
+
     impl ModelChangeListener for TestView {
         fn row_changed(&self, row: usize) {
             self.changed_rows.borrow_mut().push((row, self.row_count()));
