@@ -1,8 +1,11 @@
 # Copyright © SixtyFPS GmbH <info@slint-ui.com>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-FROM rustembedded/cross:x86_64-unknown-linux-gnu
-# Unfortunately the base container is based on Centos7 rather than Ubuntu
+# Use cross-image once https://github.com/rust-embedded/cross/pull/591 is merged & released
+# FROM rustembedded/cross:x86_64-unknown-linux-gnu
+FROM ghcr.io/slint-ui/cross-x86_64-base:1.0
 
-RUN yum update --assumeyes
-RUN yum install --assumeyes glibc fontconfig-devel libxcb-devel xcb-util-renderutil-devel xcb-util-devel libxkbcommon-devel python3
+RUN apt-get update && \
+    apt-get install --assume-yes libfontconfig1-dev libxcb1-dev libxcb-render0-dev libxcb-shape0-dev libxcb-xfixes0-dev libxkbcommon-dev python3 \
+                                     libfontconfig1-dev \
+                                     clang libstdc++-10-dev

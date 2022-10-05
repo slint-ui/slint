@@ -1,11 +1,14 @@
 # Copyright © SixtyFPS GmbH <info@slint-ui.com>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-FROM rustembedded/cross:aarch64-unknown-linux-gnu-0.2.1
+# Use cross-image once https://github.com/rust-embedded/cross/pull/591 is merged & released
+#FROM rustembedded/cross:aarch64-unknown-linux-gnu-0.2.1
+FROM ghcr.io/slint-ui/cross-aarch64-base:1.0
 
 RUN dpkg --add-architecture arm64 && \
     apt-get update && \
     apt-get install --assume-yes libfontconfig1-dev:arm64 libxcb1-dev:arm64 libxcb-render0-dev:arm64 libxcb-shape0-dev:arm64 libxcb-xfixes0-dev:arm64 libxkbcommon-dev:arm64 python3 \
-                                 libfontconfig1-dev
+                                 libfontconfig1-dev \
+                                 clang libstdc++-10-dev:arm64
 
 ENV PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/pkgconfig
