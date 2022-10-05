@@ -52,12 +52,16 @@ jobs:
     - uses: ./.github/actions/setup-rust
       with:
         target: ${{ matrix.target }}
+    - name: Enable Skia build
+      if: matrix.target != 'riscv64gc-unknown-linux-gnu'
+      run: |
+          echo "EXTRA_ARGS=--features slint/renderer-winit-skia" >> $GITHUB_ENV
     - name: Build
       uses: actions-rs/cargo@v1
       with:
           use-cross: true
           command: build
-          args: --release --target=${{ matrix.target }} --workspace --exclude slint-node --exclude mcu-board-support --exclude printerdemo_mcu
+          args: --release --target=${{ matrix.target }} --workspace --exclude slint-node --exclude mcu-board-support --exclude printerdemo_mcu ${{ env.EXTRA_ARGS }}
     - name: "Upload printerdemo artifact"
       uses: actions/upload-artifact@v2
       with:
