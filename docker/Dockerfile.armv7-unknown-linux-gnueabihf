@@ -1,11 +1,14 @@
 # Copyright © SixtyFPS GmbH <info@slint-ui.com>
 # SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-FROM rustembedded/cross:armv7-unknown-linux-gnueabihf-0.2.1
+# Use cross-image once https://github.com/rust-embedded/cross/pull/591 is merged & released
+#FROM rustembedded/cross:armv7-unknown-linux-gnueabihf-0.2.1
+FROM ghcr.io/slint-ui/cross-armv7-base:1.0
 
 RUN dpkg --add-architecture armhf && \
     apt-get update && \
     apt-get install --assume-yes libfontconfig1-dev:armhf libxcb1-dev:armhf libxcb-render0-dev:armhf libxcb-shape0-dev:armhf libxcb-xfixes0-dev:armhf libxkbcommon-dev:armhf python3 \
-                                 libfontconfig1-dev
+                                 libfontconfig1-dev \
+                                 clang libstdc++-10-dev:armhf
 
 ENV PKG_CONFIG_PATH=/usr/lib/arm-linux-gnueabihf/pkgconfig
