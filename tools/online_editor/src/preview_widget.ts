@@ -44,8 +44,6 @@ export class PreviewWidget extends Widget {
     this.title.caption = `Slint Viewer`;
     this.title.closable = true;
 
-    console.log("Event loop running?", is_event_loop_running);
-
     this.#canvas_id = "";
     this.#instance = null;
     this.#resolve_attached_to_dom = () => {
