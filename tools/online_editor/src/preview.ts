@@ -1,5 +1,5 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
-// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+// SPDX-License-Identifier: AGPL-3.0-only OR LicenseRef-Slint-commercial
 
 import slint_init, * as slint from "@preview/slint_wasm_interpreter.js";
 
@@ -37,7 +37,7 @@ export Demo := Window {
   async function render_or_error(
     source: string,
     base_url: string,
-    div: HTMLDivElement
+    div: HTMLDivElement,
   ) {
     const canvas_id = "canvas_" + Math.random().toString(36).slice(2, 11);
     const canvas = document.createElement("canvas");
@@ -61,7 +61,7 @@ export Demo := Window {
             return doc;
           }
           return file_source;
-        }
+        },
       );
 
     if (error_string != "") {
