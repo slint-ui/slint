@@ -210,7 +210,7 @@ pub trait ModelExt: Model {
 
     /// Returns a new Model where the elements are sorted by the function `sort_function`.
     /// This is a shortcut for [`SortModel::new()`].
-    fn sort<F>(self, sort_function: F) -> SortModel<Self, F>
+    fn sort_by<F>(self, sort_function: F) -> SortModel<Self, F>
     where
         Self: Sized + 'static,
         F: FnMut(&Self::Data, &Self::Data) -> std::cmp::Ordering + 'static,

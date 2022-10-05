@@ -489,16 +489,28 @@ where
         }
 
         for row in index..(index + count) {
-            let inserted_value = self.wrapped_model.borrow().row_data(row).unwrap();
+            let insertion_index = if let Some(insertion_index) = self
+                .mapping
+                .borrow()
+                .iter()
+                .skip_while(|i| {
+                    (self.sort_function.borrow_mut())(
+                        // inserted value
+                        &self.wrapped_model.borrow().row_data(**i).unwrap(),
+                        &self.wrapped_model.borrow().row_data(row).unwrap(),
+                    ) == std::cmp::Ordering::Less
+                })
+                .map(|i| *i)
+                .collect::<Vec<usize>>()
+                .first()
+            {
+                *insertion_index
+            } else {
+                self.mapping.borrow().len()
+            };
 
-            for sorted_row in self.mapping.borrow().iter() {
-                let ordering = (self.sort_function.borrow_mut())(
-                    &self.wrapped_model.borrow().row_data(row).unwrap(),
-                    &self.wrapped_model.borrow().row_data(*sorted_row).unwrap(),
-                );
-
-                
-            }
+            self.mapping.borrow_mut().insert(insertion_index, row);
+            self.notify.row_added(insertion_index, 1)
         }
     }
 
@@ -507,21 +519,32 @@ where
             return;
         }
 
-        let mut mapping = self.mapping.borrow_mut();
+        let mut removed_rows = vec![0; count];
 
-        let start = mapping.binary_search(&index).unwrap_or_else(|s| s);
-        let end = mapping.binary_search(&(index + count)).unwrap_or_else(|e| e);
-        let range = start..end;
+        let mut i = 0;
 
-        if !range.is_empty() {
-            mapping.copy_within(end.., start);
-            let new_size = mapping.len() - range.len();
-            mapping.truncate(new_size);
+        loop {
+            if i >= self.mapping.borrow().len() {
+                break;
+            }
+            
+            let sort_index = *self.mapping.borrow().get(i).unwrap();
 
-            mapping.iter_mut().skip(start).for_each(|i| *i -= count);
+            if sort_index >= index {
+                if sort_index < index + count {
+                    removed_rows.push(sort_index);
+                    self.mapping.borrow_mut().remove(i);
+                    continue;
+                } else {
+                    *self.mapping.borrow_mut().get_mut(i).unwrap() -= count;
+                }
+            }
 
-            drop(mapping);
-            self.notify.row_removed(start, range.len());
+            i += 1;
+        }
+
+        for removed_row in removed_rows {
+            self.notify.row_removed(removed_row, 1);
         }
     }
 
@@ -592,9 +615,9 @@ mod sort_tests {
         // Track the parameters reported by the model (row counts, indices, etc.).
         // The last field in the tuple is the row size the model reports at the time
         // of callback
-        changed_rows: RefCell<Vec<(usize, usize)>>,
-        added_rows: RefCell<Vec<(usize, usize, usize)>>,
-        removed_rows: RefCell<Vec<(usize, usize, usize)>>,
+        changed_rows: RefCell<Vec<(usize)>>,
+        added_rows: RefCell<Vec<(usize, usize)>>,
+        removed_rows: RefCell<Vec<(usize, usize)>>,
         reset: RefCell<usize>,
         model: RefCell<Option<std::rc::Weak<dyn Model<Data = i32>>>>,
     }
@@ -605,27 +628,19 @@ mod sort_tests {
             self.added_rows.borrow_mut().clear();
             self.removed_rows.borrow_mut().clear();
         }
-
-        fn row_count(&self) -> usize {
-            self.model
-                .borrow()
-                .as_ref()
-                .and_then(|model| model.upgrade())
-                .map_or(0, |model| model.row_count())
-        }
     }
 
     impl ModelChangeListener for TestView {
         fn row_changed(&self, row: usize) {
-            self.changed_rows.borrow_mut().push((row, self.row_count()));
+            self.changed_rows.borrow_mut().push((row));
         }
 
         fn row_added(&self, index: usize, count: usize) {
-            self.added_rows.borrow_mut().push((index, count, self.row_count()));
+            self.added_rows.borrow_mut().push((index, count));
         }
 
         fn row_removed(&self, index: usize, count: usize) {
-            self.removed_rows.borrow_mut().push((index, count, self.row_count()));
+            self.removed_rows.borrow_mut().push((index, count));
         }
         fn reset(&self) {
             *self.reset.borrow_mut() += 1;
@@ -649,7 +664,7 @@ mod sort_tests {
         wrapped_rc.insert(0, 10);
 
         assert_eq!(observer.added_rows.borrow().len(), 1);
-        assert!(observer.added_rows.borrow().eq(&[(4, 1, 10)]));
+        assert!(observer.added_rows.borrow().eq(&[(4, 1)]));
         assert!(observer.changed_rows.borrow().is_empty());
         assert!(observer.removed_rows.borrow().is_empty());
         assert_eq!(*observer.reset.borrow(), 0);
@@ -683,7 +698,7 @@ mod sort_tests {
         assert!(observer.added_rows.borrow().is_empty());
         assert!(observer.changed_rows.borrow().is_empty());
         assert_eq!(observer.removed_rows.borrow().len(), 1);
-        assert!(observer.removed_rows.borrow().eq(&[(3, 1, 4)]));
+        assert!(observer.removed_rows.borrow().eq(&[(3, 1)]));
         assert_eq!(*observer.reset.borrow(), 0);
         observer.clear();
 
@@ -712,7 +727,7 @@ mod sort_tests {
 
         assert!(observer.added_rows.borrow().is_empty());
         assert_eq!(observer.changed_rows.borrow().len(), 1);
-        assert_eq!(observer.changed_rows.borrow().get(0).unwrap().1, 3);
+        assert_eq!(*observer.changed_rows.borrow().get(0).unwrap(), 3);
         assert!(observer.removed_rows.borrow().is_empty());
         assert_eq!(*observer.reset.borrow(), 0);
         observer.clear();
@@ -727,10 +742,10 @@ mod sort_tests {
         sorted_model.set_row_data(1, 0);
 
         assert_eq!(observer.added_rows.borrow().len(), 1);
-        assert!(observer.added_rows.borrow().get(0).unwrap().eq(&(3, 1, 0)));
+        assert!(observer.added_rows.borrow().get(0).unwrap().eq(&(3, 1)));
         assert!(observer.changed_rows.borrow().is_empty());
         assert_eq!(observer.removed_rows.borrow().len(), 1);
-        assert!(observer.removed_rows.borrow().get(0).unwrap().eq(&(3, 1, 10)));
+        assert!(observer.removed_rows.borrow().get(0).unwrap().eq(&(3, 1)));
         assert_eq!(*observer.reset.borrow(), 0);
         observer.clear();
 
