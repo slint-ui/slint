@@ -436,8 +436,12 @@ where
     fn build_mapping_vec(&self) {
         self.mapping.borrow_mut().clear();
         self.mapping.borrow_mut().extend((0..self.wrapped_model.row_count()).into_iter());
-        self.mapping.borrow_mut().sort_by(|lhs, rhs| 
-        (self.sort_function.borrow_mut())(&self.wrapped_model.row_data(*lhs).unwrap(), &self.wrapped_model.row_data(*rhs).unwrap()));
+        self.mapping.borrow_mut().sort_by(|lhs, rhs| {
+            (self.sort_function.borrow_mut())(
+                &self.wrapped_model.row_data(*lhs).unwrap(),
+                &self.wrapped_model.row_data(*rhs).unwrap(),
+            )
+        });
     }
 }
 
@@ -447,15 +451,78 @@ where
     F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static,
 {
     fn row_changed(&self, row: usize) {
-        todo!()
+        let mut mapping = self.mapping.borrow_mut();
+
+        let (index, is_contained) = match mapping.binary_search(&row) {
+            Ok(index) => (index, true),
+            Err(index) => (index, false),
+        };
+
+        // if is_contained {
+        //     drop(mapping);
+        // }
+
+        // if is_contained {
+        //     drop(mapping);
+        //     self.notify.row_changed(index);
+        // } else if !is_contained && should_be_contained {
+        //     mapping.insert(index, row);
+        //     drop(mapping);
+        //     self.notify.row_added(index, 1);
+        // } else if is_contained && !should_be_contained {
+        //     mapping.remove(index);
+        //     drop(mapping);
+        //     self.notify.row_removed(index, 1);
+        // }
     }
 
     fn row_added(&self, index: usize, count: usize) {
-        todo!()
+        if count == 0 {
+            return;
+        }
+
+        // Adjust the existing sorted row indices to match the updated source model
+        for row in self.mapping.borrow_mut().iter_mut() {
+            if *row >= index {
+                *row += count;
+            }
+        }
+
+        for row in index..(index + count) {
+            let inserted_value = self.wrapped_model.borrow().row_data(row).unwrap();
+
+            for sorted_row in self.mapping.borrow().iter() {
+                let ordering = (self.sort_function.borrow_mut())(
+                    &self.wrapped_model.borrow().row_data(row).unwrap(),
+                    &self.wrapped_model.borrow().row_data(*sorted_row).unwrap(),
+                );
+
+                
+            }
+        }
     }
 
     fn row_removed(&self, index: usize, count: usize) {
-        todo!()
+        if count == 0 {
+            return;
+        }
+
+        let mut mapping = self.mapping.borrow_mut();
+
+        let start = mapping.binary_search(&index).unwrap_or_else(|s| s);
+        let end = mapping.binary_search(&(index + count)).unwrap_or_else(|e| e);
+        let range = start..end;
+
+        if !range.is_empty() {
+            mapping.copy_within(end.., start);
+            let new_size = mapping.len() - range.len();
+            mapping.truncate(new_size);
+
+            mapping.iter_mut().skip(start).for_each(|i| *i -= count);
+
+            drop(mapping);
+            self.notify.row_removed(start, range.len());
+        }
     }
 
     fn reset(&self) {
