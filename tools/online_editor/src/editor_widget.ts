@@ -43,6 +43,7 @@ import {
 } from "vscode-languageserver-protocol/browser";
 
 import { commands } from "vscode";
+import { StandaloneServices, ICodeEditorService } from "vscode/services";
 
 interface ModelAndViewState {
   model: monaco.editor.ITextModel;
@@ -305,6 +306,32 @@ class EditorPaneWidget extends Widget {
       monaco.languages.setMonarchTokensProvider("slint", slint_language);
     });
     MonacoServices.install();
+
+    const code_editor_service = StandaloneServices.get(ICodeEditorService);
+    this.#disposables.push(
+      code_editor_service.registerCodeEditorOpenHandler(
+        (
+          { resource, options },
+          source: monaco.editor.ICodeEditor | null,
+          _sideBySide?: boolean,
+        ): Promise<monaco.editor.ICodeEditor | null> => {
+          if (editor == null) {
+            return Promise.resolve(editor);
+          }
+
+          if (!this.set_model(resource.toString())) {
+            return Promise.resolve(null);
+          }
+
+          if (options != null && options.selection != undefined) {
+            editor.setSelection(options.selection as monaco.IRange);
+            editor.revealLine(options.selection.startLineNumber);
+          }
+
+          return Promise.resolve(source);
+        },
+      ),
+    );
 
     const editor = monaco.editor.create(container, {
       language: "slint",
