@@ -17,6 +17,9 @@ MainWindow := Window {
 
     callback popup_confirmed;
     callback show_confirm_popup;
+
+    callback sort-by-name(bool);
+
     show_confirm_popup => { confirm_popup.show(); }
 
     confirm_popup := PopupWindow {
@@ -79,6 +82,10 @@ MainWindow := Window {
 
             CheckBox {  
                 text: "Name";
+
+                toggled => {
+                    sort-by-name(checked);
+                }
             }
 
             CheckBox {  

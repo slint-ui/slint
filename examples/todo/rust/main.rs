@@ -1,8 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use slint::Model;
-use std::rc::Rc;
+use slint::{Model, SortModel};
+use std::{borrow::Borrow, rc::Rc};
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
@@ -65,6 +65,26 @@ pub fn main() {
             }
         });
     }
+
+    let weak_window = main_window.as_weak();
+
+    main_window.on_sort_by_name({
+        let todo_model = todo_model.clone();
+
+        move |active| {
+            if active {
+                weak_window.unwrap().set_todo_model(
+                    Rc::new(SortModel::new(todo_model.clone(), |lhs, rhs| {
+                        lhs.title.to_lowercase().cmp(&rhs.title.to_lowercase())
+                    }))
+                    .into(),
+                )
+            } else {
+                weak_window.unwrap().set_todo_model(todo_model.clone().into());
+            }
+          
+        }
+    });
 
     main_window.set_todo_model(todo_model.into());
 
