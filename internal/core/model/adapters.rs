@@ -457,6 +457,7 @@ where
     // This vector saves the indices of the elements in sorted order.
     mapping: RefCell<Vec<usize>>,
     notify: ModelNotify,
+    sorted_rows_dirty: Cell<bool>,
 }
 
 impl<M> SortModelInner<M>
@@ -464,6 +465,10 @@ where
     M: Model + 'static,
 {
     fn build_mapping_vec(&self) {
+        if !self.sorted_rows_dirty.get() {
+            return;
+        }
+
         let mut mapping = self.mapping.borrow_mut();
 
         mapping.clear();
@@ -474,6 +479,8 @@ where
                 &self.wrapped_model.row_data(*rhs).unwrap(),
             )
         });
+
+        self.sorted_rows_dirty.set(false);
     }
 }
 
@@ -482,6 +489,11 @@ where
     M: Model + 'static,
 {
     fn row_changed(&self, row: usize) {
+        if self.sorted_rows_dirty.get() {
+            self.reset();
+            return;
+        }
+
         let removed_index = self.mapping.borrow().binary_search(&row).unwrap();
         self.mapping.borrow_mut().remove(removed_index);
 
@@ -504,6 +516,11 @@ where
 
     fn row_added(&self, index: usize, count: usize) {
         if count == 0 {
+            return;
+        }
+
+        if self.sorted_rows_dirty.get() {
+            self.reset();
             return;
         }
 
@@ -530,6 +547,11 @@ where
 
     fn row_removed(&self, index: usize, count: usize) {
         if count == 0 {
+            return;
+        }
+
+        if self.sorted_rows_dirty.get() {
+            self.reset();
             return;
         }
 
@@ -563,7 +585,7 @@ where
     }
 
     fn reset(&self) {
-        self.build_mapping_vec();
+        self.sorted_rows_dirty.set(true);
         self.notify.reset();
     }
 }
@@ -679,9 +701,8 @@ where
             }),
             mapping: RefCell::new(Vec::new()),
             notify: Default::default(),
+            sorted_rows_dirty: Cell::new(true),
         };
-
-        sorted_model_inner.build_mapping_vec();
 
         let container = Box::pin(ModelChangeListenerContainer::new(sorted_model_inner));
 
@@ -701,9 +722,8 @@ where
             sort_helper: Box::new(AscendingSortHelper),
             mapping: RefCell::new(Vec::new()),
             notify: Default::default(),
+            sorted_rows_dirty: Cell::new(true),
         };
-
-        sorted_model_inner.build_mapping_vec();
 
         let container = Box::pin(ModelChangeListenerContainer::new(sorted_model_inner));
 
@@ -720,6 +740,7 @@ where
 
     /// Gets the row index of the underlying unsorted model for a given sorted row index.
     pub fn unsorted_row(&self, sorted_row: usize) -> usize {
+        self.0.build_mapping_vec();
         self.0.mapping.borrow()[sorted_row]
     }
 }
@@ -735,6 +756,8 @@ where
     }
 
     fn row_data(&self, row: usize) -> Option<Self::Data> {
+        self.0.build_mapping_vec();
+
         self.0
             .mapping
             .borrow()
