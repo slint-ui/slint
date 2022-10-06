@@ -212,8 +212,11 @@ pub struct KeyEvent {
     pub event_type: KeyEventType,
 
     /// If the event type is KeyEventType::UpdateComposition, then this field specifies
-    /// the start and the end of the selection as byte offsets within the preedit text.
-    pub preedit_selection: Option<(usize, usize)>,
+    /// the start of the selection as byte offsets within the preedit text.
+    pub preedit_selection_start: usize,
+    /// If the event type is KeyEventType::UpdateComposition, then this field specifies
+    /// the end of the selection as byte offsets within the preedit text.
+    pub preedit_selection_end: usize,
 }
 
 impl KeyEvent {
