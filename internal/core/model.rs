@@ -208,9 +208,19 @@ pub trait ModelExt: Model {
         FilterModel::new(self, filter_function)
     }
 
+    /// Returns a new Model where the elements are sorted ascending.
+    /// This is a shortcut for [`SortModel::new_ascending()`].
+    fn sort<F>(self) -> SortModel<Self>
+    where
+        Self: Sized + 'static,
+        Self::Data: std::cmp::Ord,
+    {
+        SortModel::new_ascending(self)
+    }
+
     /// Returns a new Model where the elements are sorted by the function `sort_function`.
     /// This is a shortcut for [`SortModel::new()`].
-    fn sort_by<F>(self, sort_function: F) -> SortModel<Self, F>
+    fn sort_by<F>(self, sort_function: F) -> SortModel<Self>
     where
         Self: Sized + 'static,
         F: FnMut(&Self::Data, &Self::Data) -> std::cmp::Ordering + 'static,

@@ -3,7 +3,7 @@
 
 //! This module contains adapter models.
 
-use core::borrow::{Borrow, BorrowMut};
+use core::{borrow::Borrow, marker::PhantomData};
 
 use super::*;
 
@@ -416,28 +416,58 @@ fn test_filter_model() {
     assert_eq!(filter.row_count(), 5);
 }
 
-struct SortModelInner<M, F>
+trait SortHelper<D> {
+    fn sort(&self, lhs: &D, rhs: &D) -> std::cmp::Ordering;
+}
+
+struct AscendingSortHelper;
+
+impl<D> SortHelper<D> for AscendingSortHelper
+where
+    D: std::cmp::Ord,
+{
+    fn sort(&self, lhs: &D, rhs: &D) -> std::cmp::Ordering {
+        lhs.cmp(rhs)
+    }
+}
+
+struct FnSortHelper<F, D>
+where
+    F: FnMut(&D, &D) -> std::cmp::Ordering + 'static,
+{
+    sort_function: RefCell<F>,
+    _type: PhantomData<D>,
+}
+
+impl<F, D> SortHelper<D> for FnSortHelper<F, D>
+where
+    F: FnMut(&D, &D) -> std::cmp::Ordering + 'static,
+{
+    fn sort(&self, lhs: &D, rhs: &D) -> std::cmp::Ordering {
+        (self.sort_function.borrow_mut())(lhs, rhs)
+    }
+}
+
+struct SortModelInner<M>
 where
     M: Model + 'static,
-    F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static,
 {
     wrapped_model: M,
-    sort_function: RefCell<F>,
+    sort_helper: Box<dyn SortHelper<M::Data>>,
     // This vector saves the indices of the elements that are not filtered out
     mapping: RefCell<Vec<usize>>,
     notify: ModelNotify,
 }
 
-impl<M, F> SortModelInner<M, F>
+impl<M> SortModelInner<M>
 where
     M: Model + 'static,
-    F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static,
 {
     fn build_mapping_vec(&self) {
         self.mapping.borrow_mut().clear();
         self.mapping.borrow_mut().extend((0..self.wrapped_model.row_count()).into_iter());
         self.mapping.borrow_mut().sort_by(|lhs, rhs| {
-            (self.sort_function.borrow_mut())(
+            self.sort_helper.sort(
                 &self.wrapped_model.row_data(*lhs).unwrap(),
                 &self.wrapped_model.row_data(*rhs).unwrap(),
             )
@@ -445,10 +475,9 @@ where
     }
 }
 
-impl<M, F> ModelChangeListener for SortModelInner<M, F>
+impl<M> ModelChangeListener for SortModelInner<M>
 where
     M: Model + 'static,
-    F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static,
 {
     fn row_changed(&self, row: usize) {
         let removed_index = self.mapping.borrow().binary_search(&row).unwrap();
@@ -460,7 +489,7 @@ where
             .iter()
             .enumerate()
             .skip_while(|e| {
-                (self.sort_function.borrow_mut())(
+                self.sort_helper.sort(
                     // inserted value
                     &self.wrapped_model.borrow().row_data(*e.1).unwrap(),
                     &self.wrapped_model.borrow().row_data(row).unwrap(),
@@ -504,7 +533,7 @@ where
                 .iter()
                 .enumerate()
                 .skip_while(|e| {
-                    (self.sort_function.borrow_mut())(
+                    self.sort_helper.sort(
                         // inserted value
                         &self.wrapped_model.borrow().row_data(*e.1).unwrap(),
                         &self.wrapped_model.borrow().row_data(row).unwrap(),
@@ -565,20 +594,44 @@ where
     }
 }
 
-pub struct SortModel<M, F>(Pin<Box<ModelChangeListenerContainer<SortModelInner<M, F>>>>)
+pub struct SortModel<M>(Pin<Box<ModelChangeListenerContainer<SortModelInner<M>>>>)
 where
-    M: Model + 'static,
-    F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static;
+    M: Model + 'static;
 
-impl<M, F> SortModel<M, F>
+impl<M> SortModel<M>
 where
     M: Model + 'static,
-    F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static,
 {
-    pub fn new(wrapped_model: M, sort_function: F) -> Self {
+    pub fn new<F>(wrapped_model: M, sort_function: F) -> Self
+    where
+        F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static,
+    {
         let sorted_model_inner = SortModelInner {
             wrapped_model,
-            sort_function: RefCell::new(sort_function),
+            sort_helper: Box::new(FnSortHelper {
+                sort_function: RefCell::new(sort_function),
+                _type: PhantomData::default(),
+            }),
+            mapping: RefCell::new(Vec::new()),
+            notify: Default::default(),
+        };
+
+        sorted_model_inner.build_mapping_vec();
+
+        let container = Box::pin(ModelChangeListenerContainer::new(sorted_model_inner));
+
+        container.wrapped_model.model_tracker().attach_peer(container.as_ref().model_peer());
+
+        Self(container)
+    }
+
+    pub fn new_ascending(wrapped_model: M) -> Self
+    where
+        M::Data: std::cmp::Ord,
+    {
+        let sorted_model_inner = SortModelInner {
+            wrapped_model,
+            sort_helper: Box::new(AscendingSortHelper),
             mapping: RefCell::new(Vec::new()),
             notify: Default::default(),
         };
@@ -593,10 +646,9 @@ where
     }
 }
 
-impl<M, F> Model for SortModel<M, F>
+impl<M> Model for SortModel<M>
 where
     M: Model + 'static,
-    F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static,
 {
     type Data = M::Data;
 
