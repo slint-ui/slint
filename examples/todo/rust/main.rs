@@ -97,6 +97,7 @@ pub fn main() {
         }
     });
 
+    main_window.set_is_sorting_enabled(true);
     main_window.set_todo_model(todo_model.into());
 
     main_window.run();

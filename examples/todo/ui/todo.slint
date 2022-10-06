@@ -53,6 +53,7 @@ MainWindow := Window {
         { title: "Profit", checked: false },
     ];
 
+    property <bool> is-sorting-enabled: false;
     property <bool> is-sort-by-name <=> cb-sort-by-name.checked;
     property <bool> is-sort-by-done <=> cb-sort-by-done.checked;
 
@@ -76,6 +77,7 @@ MainWindow := Window {
         }
 
         HorizontalBox { 
+            visible: is-sorting-enabled;
             alignment: start; 
 
             Text {  

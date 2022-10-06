@@ -44,5 +44,27 @@ int main()
         return slint::CloseRequestResponse::HideWindow;
     });
 
+    demo->set_is_sorting_enabled(true);
+
+    demo->on_sort([todo_model, demo = slint::ComponentWeakHandle(demo)](bool sort_by_name,
+                                                                        bool sort_by_done) {
+        if (!sort_by_name && !sort_by_done) {
+            (*demo.lock())->set_todo_model(todo_model);
+            return;
+        }
+
+        if (sort_by_name) {
+            (*demo.lock())
+                    ->set_todo_model(std::make_shared<slint::SortModel<TodoItem>>(
+                            todo_model, [](auto lhs, auto rhs) { return lhs.title < rhs.title; }));
+        }
+
+         if (sort_by_done) {
+            (*demo.lock())
+                    ->set_todo_model(std::make_shared<slint::SortModel<TodoItem>>(
+                            todo_model, [](auto lhs, auto rhs) { return lhs.checked > rhs.checked; }));
+        }
+    });
+
     demo->run();
 }
