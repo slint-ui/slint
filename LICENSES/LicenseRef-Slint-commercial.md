@@ -1,5 +1,5 @@
 # **Slint Software License Agreement**
-Version 1.2, 22 August 2022
+Version 1.2
 
 Copyright © 2022 SixtyFPS GmbH <https://slint-ui.com/imprint.html>
 
