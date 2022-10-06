@@ -333,10 +333,12 @@ fn process_window_event(
             };
         }
         WindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
+            let preedit_selection = preedit_selection.unwrap_or((0, 0));
             let event = KeyEvent {
                 event_type: KeyEventType::UpdateComposition,
                 text: string.into(),
-                preedit_selection,
+                preedit_selection_start: preedit_selection.0,
+                preedit_selection_end: preedit_selection.1,
                 ..Default::default()
             };
             runtime_window.process_key_input(&event);

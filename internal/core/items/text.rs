@@ -492,12 +492,8 @@ impl Item for TextInput {
             KeyEventType::UpdateComposition => {
                 self.as_ref().preedit_text.set(event.text.clone());
 
-                let (preedit_selection_start, preedit_selection_end) = event
-                    .preedit_selection
-                    .map_or((0, 0), |(start, end)| (start as i32, end as i32));
-
-                self.as_ref().preedit_selection_start.set(preedit_selection_start);
-                self.as_ref().preedit_selection_end.set(preedit_selection_end);
+                self.as_ref().preedit_selection_start.set(event.preedit_selection_start as i32);
+                self.as_ref().preedit_selection_end.set(event.preedit_selection_end as i32);
 
                 KeyEventResult::EventAccepted
             }
