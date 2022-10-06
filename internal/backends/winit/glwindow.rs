@@ -16,6 +16,7 @@ use corelib::component::ComponentRc;
 use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};
 use corelib::layout::Orientation;
+use corelib::lengths::LogicalPoint;
 use corelib::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
 use corelib::Property;
 use corelib::{graphics::*, Coord};
@@ -573,21 +574,36 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         &self.renderer
     }
 
-    #[cfg(target_arch = "wasm32")]
-    fn show_virtual_keyboard(&self, _it: corelib::items::InputType) {
-        let mut vkh = self.virtual_keyboard_helper.borrow_mut();
-        let h = vkh.get_or_insert_with(|| {
-            let canvas = self.borrow_mapped_window().unwrap().canvas.html_canvas_element().clone();
-            super::wasm_input_helper::WasmInputHelper::new(self.self_weak.clone(), canvas)
+    fn enable_input_method(&self, it: corelib::items::InputType) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            let mut vkh = self.virtual_keyboard_helper.borrow_mut();
+            let h = vkh.get_or_insert_with(|| {
+                let canvas =
+                    self.borrow_mapped_window().unwrap().canvas.html_canvas_element().clone();
+                super::wasm_input_helper::WasmInputHelper::new(self.self_weak.clone(), canvas)
+            });
+            h.show();
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        self.with_window_handle(&mut |winit_window| {
+            winit_window.set_ime_allowed(matches!(it, corelib::items::InputType::Text))
         });
-        h.show();
     }
 
-    #[cfg(target_arch = "wasm32")]
-    fn hide_virtual_keyboard(&self) {
+    fn disable_input_method(&self) {
+        #[cfg(target_arch = "wasm32")]
         if let Some(h) = &*self.virtual_keyboard_helper.borrow() {
             h.hide()
         }
+        #[cfg(not(target_arch = "wasm32"))]
+        self.with_window_handle(&mut |winit_window| winit_window.set_ime_allowed(false));
+    }
+
+    fn set_ime_position(&self, ime_pos: LogicalPoint) {
+        self.with_window_handle(&mut |winit_window| {
+            winit_window.set_ime_position(winit::dpi::LogicalPosition::new(ime_pos.x, ime_pos.y))
+        })
     }
 
     fn as_any(&self) -> &dyn std::any::Any {

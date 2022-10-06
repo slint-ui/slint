@@ -45,8 +45,9 @@ thread_local! {
 
 pub struct Selection {
     pub range: std::ops::Range<usize>,
-    pub background: Color,
-    pub foreground: Color,
+    pub background: Option<Color>,
+    pub foreground: Option<Color>,
+    pub underline: bool,
 }
 
 pub fn create_layout(
@@ -101,14 +102,25 @@ pub fn create_layout(
         let before_selection = &text[..selection.range.start];
         builder.add_text(before_selection);
 
-        let mut selection_background_paint = skia_safe::Paint::default();
-        selection_background_paint.set_color(to_skia_color(&selection.background));
-        let mut selection_foreground_paint = skia_safe::Paint::default();
-        selection_foreground_paint.set_color(to_skia_color(&selection.foreground));
-
         let mut selection_style = text_style.clone();
-        selection_style.set_background_color(selection_background_paint);
-        selection_style.set_foreground_color(selection_foreground_paint);
+
+        if let Some(selection_background) = selection.background {
+            let mut selection_background_paint = skia_safe::Paint::default();
+            selection_background_paint.set_color(to_skia_color(&selection_background));
+            selection_style.set_background_color(selection_background_paint);
+        }
+
+        if let Some(selection_foreground) = selection.foreground {
+            let mut selection_foreground_paint = skia_safe::Paint::default();
+            selection_foreground_paint.set_color(to_skia_color(&selection_foreground));
+            selection_style.set_foreground_color(selection_foreground_paint);
+        }
+
+        if selection.underline {
+            selection_style.decoration_mut().ty = skia_safe::textlayout::TextDecoration::UNDERLINE;
+            selection_style.decoration_mut().color =
+                text_style.foreground().map_or(skia_safe::Color::BLACK, |paint| paint.color());
+        }
 
         builder.push_style(&selection_style);
         let selected_text = &text[selection.range.clone()];

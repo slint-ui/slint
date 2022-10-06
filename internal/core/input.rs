@@ -185,6 +185,11 @@ pub enum KeyEventType {
     KeyPressed,
     /// A key on a keyboard was released.
     KeyReleased,
+    /// The input method updates the currently composed text. The KeyEvent's text field is the pre-edit text and
+    /// composition_selection specifies the placement of the cursor within the pre-edit text.
+    UpdateComposition,
+    /// The input method replaces the currently composed text with the final result of the composition.
+    CommitComposition,
 }
 
 impl Default for KeyEventType {
@@ -205,6 +210,10 @@ pub struct KeyEvent {
     // note: this field is not exported in the .slint in the KeyEvent builtin struct
     /// Indicates whether the key was pressed or released
     pub event_type: KeyEventType,
+
+    /// If the event type is KeyEventType::UpdateComposition, then this field specifies
+    /// the start and the end of the selection as byte offsets within the preedit text.
+    pub preedit_selection: Option<(usize, usize)>,
 }
 
 impl KeyEvent {

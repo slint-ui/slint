@@ -236,6 +236,9 @@ pub struct TextInput {
     pub pressed: core::cell::Cell<bool>,
     pub single_line: Property<bool>,
     pub read_only: Property<bool>,
+    pub preedit_text: Property<SharedString>,
+    pub preedit_selection_start: Property<i32>, // byte offset, relative to cursor
+    pub preedit_selection_end: Property<i32>,   // byte offset, relative to cursor
     pub cached_rendering_data: CachedRenderingData,
     // The x position where the cursor wants to be.
     // It is not updated when moving up and down even when the line is shorter.
@@ -324,7 +327,7 @@ impl Item for TextInput {
                         as i32;
                 self.as_ref().pressed.set(true);
                 self.as_ref().anchor_position.set(clicked_offset);
-                self.set_cursor_position(clicked_offset, true, window_adapter);
+                self.set_cursor_position(clicked_offset, true, window_adapter, self_rc);
                 if !self.has_focus() {
                     WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
                 }
@@ -344,7 +347,7 @@ impl Item for TextInput {
                         .renderer()
                         .text_input_byte_offset_for_position(self, position)
                         as i32;
-                    self.set_cursor_position(clicked_offset, true, window_adapter);
+                    self.set_cursor_position(clicked_offset, true, window_adapter, self_rc);
                 }
             }
             _ => return InputEventResult::EventIgnored,
@@ -356,7 +359,7 @@ impl Item for TextInput {
         self: Pin<&Self>,
         event: &KeyEvent,
         window_adapter: &Rc<dyn WindowAdapter>,
-        _self_rc: &ItemRc,
+        self_rc: &ItemRc,
     ) -> KeyEventResult {
         if !self.enabled() {
             return KeyEventResult::EventIgnored;
@@ -372,6 +375,7 @@ impl Item for TextInput {
                                 direction,
                                 event.modifiers.into(),
                                 window_adapter,
+                                self_rc,
                             );
                             return KeyEventResult::EventAccepted;
                         }
@@ -380,6 +384,7 @@ impl Item for TextInput {
                                 self,
                                 TextCursorDirection::Forward,
                                 window_adapter,
+                                self_rc,
                             );
                             return KeyEventResult::EventAccepted;
                         }
@@ -389,6 +394,7 @@ impl Item for TextInput {
                                 self,
                                 TextCursorDirection::PreviousCharacter,
                                 window_adapter,
+                                self_rc,
                             );
                             return KeyEventResult::EventAccepted;
                         }
@@ -397,6 +403,7 @@ impl Item for TextInput {
                                 self,
                                 TextCursorDirection::ForwardByWord,
                                 window_adapter,
+                                self_rc,
                             );
                             return KeyEventResult::EventAccepted;
                         }
@@ -405,6 +412,7 @@ impl Item for TextInput {
                                 self,
                                 TextCursorDirection::BackwardByWord,
                                 window_adapter,
+                                self_rc,
                             );
                             return KeyEventResult::EventAccepted;
                         }
@@ -434,7 +442,7 @@ impl Item for TextInput {
                 match event.shortcut() {
                     Some(shortcut) => match shortcut {
                         StandardShortcut::SelectAll => {
-                            self.select_all(window_adapter);
+                            self.select_all(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Copy => {
@@ -442,12 +450,12 @@ impl Item for TextInput {
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Paste if !self.read_only() => {
-                            self.paste(window_adapter);
+                            self.paste(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Cut if !self.read_only() => {
                             self.copy();
-                            self.delete_selection(window_adapter);
+                            self.delete_selection(window_adapter, self_rc);
                             return KeyEventResult::EventAccepted;
                         }
                         StandardShortcut::Paste | StandardShortcut::Cut => {
@@ -460,7 +468,7 @@ impl Item for TextInput {
                 if self.read_only() || event.modifiers.control {
                     return KeyEventResult::EventIgnored;
                 }
-                self.delete_selection(window_adapter);
+                self.delete_selection(window_adapter, self_rc);
 
                 let mut text: String = self.text().into();
 
@@ -471,7 +479,7 @@ impl Item for TextInput {
                 self.as_ref().text.set(text.into());
                 let new_cursor_pos = (insert_pos + event.text.len()) as i32;
                 self.as_ref().anchor_position.set(new_cursor_pos);
-                self.set_cursor_position(new_cursor_pos, true, window_adapter);
+                self.set_cursor_position(new_cursor_pos, true, window_adapter, self_rc);
 
                 // Keep the cursor visible when inserting text. Blinking should only occur when
                 // nothing is entered or the cursor isn't moved.
@@ -479,6 +487,28 @@ impl Item for TextInput {
 
                 Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
 
+                KeyEventResult::EventAccepted
+            }
+            KeyEventType::UpdateComposition => {
+                self.as_ref().preedit_text.set(event.text.clone());
+
+                let (preedit_selection_start, preedit_selection_end) = event
+                    .preedit_selection
+                    .map_or((0, 0), |(start, end)| (start as i32, end as i32));
+
+                self.as_ref().preedit_selection_start.set(preedit_selection_start);
+                self.as_ref().preedit_selection_end.set(preedit_selection_end);
+
+                KeyEventResult::EventAccepted
+            }
+            KeyEventType::CommitComposition => {
+                // Winit says that it will always send an event to empty the pre-edit area, but with
+                // korean IME on Windows for example that's not the case. Qt also doesn't make that guarantee,
+                // so clear it by hand here.
+                self.preedit_text.set(Default::default());
+                self.preedit_selection_start.set(0);
+                self.preedit_selection_end.set(0);
+                self.insert(&event.text, window_adapter, self_rc);
                 KeyEventResult::EventAccepted
             }
             _ => KeyEventResult::EventIgnored,
@@ -495,12 +525,12 @@ impl Item for TextInput {
             FocusEvent::FocusIn | FocusEvent::WindowReceivedFocus => {
                 self.has_focus.set(true);
                 self.show_cursor(window_adapter);
-                window_adapter.show_virtual_keyboard(self.input_type());
+                window_adapter.enable_input_method(self.input_type());
             }
             FocusEvent::FocusOut | FocusEvent::WindowLostFocus => {
                 self.has_focus.set(false);
                 self.hide_cursor();
-                window_adapter.hide_virtual_keyboard();
+                window_adapter.disable_input_method();
             }
         }
         FocusEventResult::FocusAccepted
@@ -573,6 +603,22 @@ impl From<KeyboardModifiers> for AnchorMode {
     }
 }
 
+/// This struct holds the fields needed for rendering a TextInput item after applying any
+/// on-going composition. This way the renderer's don't have to duplicate the code for extracting
+/// and applying the pre-edit text, cursor placement within, etc.
+pub struct TextInputVisualRepresentation {
+    /// The text to be rendered including any pre-edit string
+    pub text: String,
+    /// If set, this field specifies the range as byte offsets within the text field where the composition
+    /// is in progress. Renderers typically provide visual feedback for the currently composed text, such as
+    /// by using underlines.
+    pub preedit_range: core::ops::Range<usize>,
+    /// If set, specifies the range as byte offsets within the text where to draw the selection.
+    pub selection_range: core::ops::Range<usize>,
+    /// The position where to draw the cursor, as byte offset within the text.
+    pub cursor_position: Option<usize>,
+}
+
 impl TextInput {
     fn show_cursor(&self, window_adapter: &Rc<dyn WindowAdapter>) {
         WindowInner::from_pub(window_adapter.window())
@@ -589,6 +635,7 @@ impl TextInput {
         direction: TextCursorDirection,
         anchor_mode: AnchorMode,
         window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
     ) -> bool {
         let text = self.text();
         if text.is_empty() {
@@ -713,7 +760,12 @@ impl TextInput {
                 self.as_ref().anchor_position.set(new_cursor_pos as i32);
             }
         }
-        self.set_cursor_position(new_cursor_pos as i32, reset_preferred_x_pos, window_adapter);
+        self.set_cursor_position(
+            new_cursor_pos as i32,
+            reset_preferred_x_pos,
+            window_adapter,
+            self_rc,
+        );
 
         // Keep the cursor visible when moving. Blinking should only occur when
         // nothing is entered or the cursor isn't moved.
@@ -727,6 +779,7 @@ impl TextInput {
         new_position: i32,
         reset_preferred_x_pos: bool,
         window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
     ) {
         self.cursor_position.set(new_position);
         if new_position >= 0 {
@@ -739,21 +792,42 @@ impl TextInput {
                 self.preferred_x_pos.set(pos.x);
             }
             Self::FIELD_OFFSETS.cursor_position_changed.apply_pin(self).call(&(pos,));
+            self.update_ime_position(window_adapter, self_rc);
         }
+    }
+
+    fn update_ime_position(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
+        let cursor_position = self.cursor_position();
+        let cursor_point_relative = window_adapter
+            .renderer()
+            .text_input_cursor_rect_for_byte_offset(self, cursor_position as usize)
+            .to_box2d()
+            .max;
+        let cursor_point_absolute = self_rc.map_to_window(cursor_point_relative);
+        window_adapter.set_ime_position(cursor_point_absolute);
     }
 
     fn select_and_delete(
         self: Pin<&Self>,
         step: TextCursorDirection,
         window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
     ) {
         if !self.has_selection() {
-            self.move_cursor(step, AnchorMode::KeepAnchor, window_adapter);
+            self.move_cursor(step, AnchorMode::KeepAnchor, window_adapter, self_rc);
         }
-        self.delete_selection(window_adapter);
+        self.delete_selection(window_adapter, self_rc);
     }
 
-    fn delete_selection(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
+    fn delete_selection(
+        self: Pin<&Self>,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
         let text: String = self.text().into();
         if text.is_empty() {
             return;
@@ -767,7 +841,7 @@ impl TextInput {
         let text = [text.split_at(anchor).0, text.split_at(cursor).1].concat();
         self.text.set(text.into());
         self.anchor_position.set(anchor as i32);
-        self.set_cursor_position(anchor as i32, true, window_adapter);
+        self.set_cursor_position(anchor as i32, true, window_adapter, self_rc);
         Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
 
@@ -790,8 +864,13 @@ impl TextInput {
         anchor_pos != cursor_pos
     }
 
-    fn insert(self: Pin<&Self>, text_to_insert: &str, window_adapter: &Rc<dyn WindowAdapter>) {
-        self.delete_selection(window_adapter);
+    fn insert(
+        self: Pin<&Self>,
+        text_to_insert: &str,
+        window_adapter: &Rc<dyn WindowAdapter>,
+        self_rc: &ItemRc,
+    ) {
+        self.delete_selection(window_adapter, self_rc);
         let mut text: String = self.text().into();
         let cursor_pos = self.selection_anchor_and_cursor().1;
         if text_to_insert.contains('\n') && self.single_line() {
@@ -802,13 +881,23 @@ impl TextInput {
         let cursor_pos = cursor_pos + text_to_insert.len();
         self.text.set(text.into());
         self.anchor_position.set(cursor_pos as i32);
-        self.set_cursor_position(cursor_pos as i32, true, window_adapter);
+        self.set_cursor_position(cursor_pos as i32, true, window_adapter, self_rc);
         Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
 
-    fn select_all(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
-        self.move_cursor(TextCursorDirection::StartOfText, AnchorMode::MoveAnchor, window_adapter);
-        self.move_cursor(TextCursorDirection::EndOfText, AnchorMode::KeepAnchor, window_adapter);
+    fn select_all(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
+        self.move_cursor(
+            TextCursorDirection::StartOfText,
+            AnchorMode::MoveAnchor,
+            window_adapter,
+            self_rc,
+        );
+        self.move_cursor(
+            TextCursorDirection::EndOfText,
+            AnchorMode::KeepAnchor,
+            window_adapter,
+            self_rc,
+        );
     }
 
     fn copy(self: Pin<&Self>) {
@@ -824,11 +913,11 @@ impl TextInput {
         });
     }
 
-    fn paste(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>) {
+    fn paste(self: Pin<&Self>, window_adapter: &Rc<dyn WindowAdapter>, self_rc: &ItemRc) {
         if let Some(text) =
             crate::platform::PLATFORM_INSTANCE.with(|p| p.get().and_then(|p| p.clipboard_text()))
         {
-            self.insert(&text, window_adapter);
+            self.insert(&text, window_adapter, self_rc);
         }
     }
 
@@ -862,5 +951,46 @@ impl TextInput {
             },
             letter_spacing: Some(self.logical_letter_spacing()),
         }
+    }
+
+    pub fn visual_representation(self: Pin<&Self>) -> TextInputVisualRepresentation {
+        let mut text: String = self.text().into();
+
+        let preedit_text = self.preedit_text();
+
+        let (preedit_range, selection_range, cursor_position) = if !preedit_text.is_empty() {
+            let cursor_position = self.cursor_position() as usize;
+
+            text.insert_str(cursor_position, &preedit_text);
+
+            let preedit_selection_start = self.preedit_selection_start() as usize;
+            let preedit_selection_end = self.preedit_selection_end() as usize;
+
+            let selection_range =
+                cursor_position + preedit_selection_start..cursor_position + preedit_selection_end;
+
+            let preedit_range = cursor_position..cursor_position + preedit_text.len();
+
+            let cursor_position = Some(cursor_position + preedit_selection_end);
+
+            (preedit_range, selection_range, cursor_position)
+        } else {
+            let preedit_range = Default::default();
+
+            let (selection_anchor_pos, selection_cursor_pos) = self.selection_anchor_and_cursor();
+            let selection_range = selection_anchor_pos..selection_cursor_pos;
+
+            let cursor_position = self.cursor_position();
+            let cursor_visible = cursor_position >= 0
+                && self.cursor_visible()
+                && self.enabled()
+                && !self.read_only();
+            let cursor_position =
+                if cursor_visible { Some(cursor_position as usize) } else { None };
+
+            (preedit_range, selection_range, cursor_position)
+        };
+
+        TextInputVisualRepresentation { text, preedit_range, selection_range, cursor_position }
     }
 }

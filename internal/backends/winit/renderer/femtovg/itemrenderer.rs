@@ -310,16 +310,24 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             None => return,
         };
 
-        let (mut min_select, mut max_select) = text_input.selection_anchor_and_cursor();
-        let cursor_pos = text_input.cursor_position();
-        let cursor_visible = cursor_pos >= 0
-            && text_input.cursor_visible()
-            && text_input.enabled()
-            && !text_input.read_only();
-        let mut cursor_pos = cursor_pos as usize;
+        let visual_representation = text_input.visual_representation();
+
+        let (mut min_select, mut max_select) = if !visual_representation.preedit_range.is_empty() {
+            (visual_representation.preedit_range.start, visual_representation.preedit_range.end)
+        } else {
+            text_input.selection_anchor_and_cursor()
+        };
+
+        let (cursor_visible, mut cursor_pos) =
+            if let Some(cursor_pos) = visual_representation.cursor_position {
+                (true, cursor_pos)
+            } else {
+                (false, 0)
+            };
+
         let mut canvas = self.canvas.borrow_mut();
         let font_height = PhysicalLength::new(canvas.measure_font(paint).unwrap().height());
-        let mut text = text_input.text();
+        let mut text: SharedString = visual_representation.text.into();
 
         if let InputType::Password = text_input.input_type() {
             min_select = text[..min_select].chars().count() * PASSWORD_CHARACTER.len();
