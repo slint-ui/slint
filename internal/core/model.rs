@@ -210,7 +210,7 @@ pub trait ModelExt: Model {
 
     /// Returns a new Model where the elements are sorted ascending.
     /// This is a shortcut for [`SortModel::new_ascending()`].
-    fn sort<F>(self) -> SortModel<Self>
+    fn sort(self) -> SortModel<Self>
     where
         Self: Sized + 'static,
         Self::Data: std::cmp::Ord,

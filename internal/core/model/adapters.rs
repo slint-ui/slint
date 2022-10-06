@@ -594,6 +594,95 @@ where
     }
 }
 
+/// Provides a sorted subset of rows by another [`Model`].
+///
+/// When the other Model is updated, the `Sorted` is updated accordingly.
+///
+/// ## Example
+///
+/// Here we have a [`VecModel`] holding [`SharedString`]s.
+/// It is then sorted into a `SortModel`.
+///
+/// ```
+/// # use slint::{Model, VecModel, SharedString, SortModel};
+/// let model = VecModel::from(vec![
+///     SharedString::from("Lorem"),
+///     SharedString::from("ipsum"),
+///     SharedString::from("dolor"),
+/// ]);
+///
+/// let sorted_model = SortModel::new(model, |lhs, rhs| lhs.to_lowercase().cmp(&rhs.to_lowercase()));
+///
+/// assert_eq!(sorted_model.row_data(0).unwrap(), SharedString::from("dolor"));
+/// assert_eq!(sorted_model.row_data(1).unwrap(), SharedString::from("ipsum"));
+/// assert_eq!(sorted_model.row_data(2).unwrap(), SharedString::from("Lorem"));
+/// ```
+///
+/// Alternatively you can use the shortcut [`ModelExt::sort_by`].
+/// ```
+/// # use slint::{Model, ModelExt, VecModel, SharedString, SortModel};
+/// let sorted_model = VecModel::from(vec![
+///     SharedString::from("Lorem"),
+///     SharedString::from("ipsum"),
+///     SharedString::from("dolor"),
+/// ]).sort_by(|lhs, rhs| lhs.to_lowercase().cmp(&rhs.to_lowercase()));
+/// # assert_eq!(sorted_model.row_data(0).unwrap(), SharedString::from("dolor"));
+/// # assert_eq!(sorted_model.row_data(1).unwrap(), SharedString::from("ipsum"));
+/// # assert_eq!(sorted_model.row_data(2).unwrap(), SharedString::from("Lorem"));
+/// ```
+/// 
+/// It is also possible to get a ascending sorted  `SortModel` order for `std::cmp::Ord` type items.
+///
+/// ```
+/// # use slint::{Model, VecModel, SortModel};
+/// let model = VecModel::from(vec![
+///     5,
+///     1,
+///     3,
+/// ]);
+///
+/// let sorted_model = SortModel::new_ascending(model);
+///
+/// assert_eq!(sorted_model.row_data(0).unwrap(), 1);
+/// assert_eq!(sorted_model.row_data(1).unwrap(), 3);
+/// assert_eq!(sorted_model.row_data(2).unwrap(), 5);
+/// ```
+///
+/// Alternatively you can use the shortcut [`ModelExt::sort`].
+/// ```
+/// # use slint::{Model, ModelExt, VecModel, SharedString, SortModel};
+/// let sorted_model = VecModel::from(vec![
+///     5,
+///     1,
+///     3,
+/// ]).sort();
+/// # assert_eq!(sorted_model.row_data(0).unwrap(), 1);
+/// # assert_eq!(sorted_model.row_data(1).unwrap(), 3);
+/// # assert_eq!(sorted_model.row_data(2).unwrap(), 5);
+/// ```
+///
+/// If you want to modify the underlying [`VecModel`] you can give it a [`Rc`] of the SortModel:
+/// ```
+/// # use std::rc::Rc;
+/// # use slint::{Model, VecModel, SharedString, SortModel};
+/// let model = Rc::new(VecModel::from(vec![
+///     SharedString::from("Lorem"),
+///     SharedString::from("ipsum"),
+///     SharedString::from("dolor"),
+/// ]));
+///
+/// let sorted_model = SortModel::new(model.clone(), |lhs, rhs| lhs.to_lowercase().cmp(&rhs.to_lowercase()));
+///
+/// assert_eq!(sorted_model.row_data(0).unwrap(), SharedString::from("dolor"));
+/// assert_eq!(sorted_model.row_data(1).unwrap(), SharedString::from("ipsum"));
+/// assert_eq!(sorted_model.row_data(2).unwrap(), SharedString::from("Lorem"));
+///
+/// model.set_row_data(1, SharedString::from("opsom"));
+///
+/// assert_eq!(sorted_model.row_data(0).unwrap(), SharedString::from("dolor"));
+/// assert_eq!(sorted_model.row_data(1).unwrap(), SharedString::from("Lorem"));
+/// assert_eq!(sorted_model.row_data(2).unwrap(), SharedString::from("opsom"));
+/// ```
 pub struct SortModel<M>(Pin<Box<ModelChangeListenerContainer<SortModelInner<M>>>>)
 where
     M: Model + 'static;
@@ -602,6 +691,8 @@ impl<M> SortModel<M>
 where
     M: Model + 'static,
 {
+    /// Creates a new SortModel based on the given `wrapped_model` and sorted by `sort_function`.
+    /// Alternativly you can use [`ModelExt::sort_by`] on your Model.
     pub fn new<F>(wrapped_model: M, sort_function: F) -> Self
     where
         F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static,
@@ -625,6 +716,8 @@ where
         Self(container)
     }
 
+    /// Creates a new SortModel based on the given `wrapped_model` and sorted in ascending order.
+    /// Alternativly you can use [`ModelExt::sort`] on your Model.
     pub fn new_ascending(wrapped_model: M) -> Self
     where
         M::Data: std::cmp::Ord,
@@ -643,6 +736,17 @@ where
         container.wrapped_model.model_tracker().attach_peer(container.as_ref().model_peer());
 
         Self(container)
+    }
+
+    /// Manually reapply the sorting. You need to run this e.g. if the sort function compares
+    /// against mutable state and it has changed.
+    pub fn apply_sorting(&self) {
+        self.0.reset();
+    }
+
+    /// Gets the row index of the underlying unsorted model for a given sorted row index.
+    pub fn unsorted_row(&self, sorted_row: usize) -> usize {
+        self.0.mapping.borrow()[sorted_row]
     }
 }
 

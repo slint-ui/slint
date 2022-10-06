@@ -246,7 +246,7 @@ pub use i_slint_core::graphics::{
     Brush, Color, Image, LoadImageError, Rgb8Pixel, Rgba8Pixel, RgbaColor, SharedPixelBuffer,
 };
 pub use i_slint_core::model::{
-    FilterModel, MapModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,
+    FilterModel, MapModel, SortModel, Model, ModelExt, ModelNotify, ModelPeer, ModelRc, ModelTracker,
     StandardListViewItem, VecModel,
 };
 pub use i_slint_core::sharedvector::SharedVector;
