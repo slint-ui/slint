@@ -454,7 +454,7 @@ where
 {
     wrapped_model: M,
     sort_helper: Box<dyn SortHelper<M::Data>>,
-    // This vector saves the indices of the elements that are not filtered out
+    // This vector saves the indices of the elements in sorted order.
     mapping: RefCell<Vec<usize>>,
     notify: ModelNotify,
 }
