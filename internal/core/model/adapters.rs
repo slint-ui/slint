@@ -500,7 +500,7 @@ where
                         &self.wrapped_model.borrow().row_data(row).unwrap(),
                     ) == std::cmp::Ordering::Less
                 })
-                .map(|i| *i)
+                .copied()
                 .collect::<Vec<usize>>()
                 .first()
             {
@@ -519,7 +519,7 @@ where
             return;
         }
 
-        let mut removed_rows = vec![0; count];
+        let mut removed_rows = vec![];
 
         let mut i = 0;
 
@@ -527,13 +527,14 @@ where
             if i >= self.mapping.borrow().len() {
                 break;
             }
-            
+
             let sort_index = *self.mapping.borrow().get(i).unwrap();
 
             if sort_index >= index {
                 if sort_index < index + count {
-                    removed_rows.push(sort_index);
+                    removed_rows.push(i);
                     self.mapping.borrow_mut().remove(i);
+                    println!("test");
                     continue;
                 } else {
                     *self.mapping.borrow_mut().get_mut(i).unwrap() -= count;
