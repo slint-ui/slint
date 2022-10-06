@@ -37,9 +37,8 @@ Slint is in active development. The state of the toolkit for each platform is as
    [Video of Slint on STM32](https://www.youtube.com/watch?v=NNNOJJsOAis) –
    [Video of Slint on RP2040](https://www.youtube.com/watch?v=dkBwNocItGs) – 
    [docs](https://slint-ui.com/docs/rust/slint/docs/mcu/index.html)
- - **Desktop**: *In Progress*. While Slint is usable on Windows, Linux and Mac, we are working on
-    improving the platform support in subsequent releases to reach the level of integration that
-    have aimed for.
+ - **Desktop**: *In Progress*. While Slint is usable on Windows, Linux and Mac, we are working on 
+   improving the platform support in subsequent releases.
  - **Mobile** (Android/iOS): *Todo*. We haven't started supporting mobile platforms yet, but it
    is our intention to do so in the near future.
  - **Web**: *In Progress*. Slint apps can be compiled to WebAssembly and can run in a web browser.
@@ -47,6 +46,7 @@ Slint is in active development. The state of the toolkit for each platform is as
    The web support is currently limited to demo purposes.
 
 ### Accessibility
+
  Slint supports keyboard based navigation of many widgets, and user interfaces are scalable. 
  The basic infrastructure for assistive technology like screen readers is in place, but currently requires 
  the Qt backend.
@@ -167,7 +167,7 @@ List of some open source projects using Slint: (Contact us or open a pull reques
 
 Slint can be used under either a [commercial license](./LICENSES/LicenseRef-Slint-commercial.md) or [GNU GPLv3](./LICENSES/GPL-3.0-only.txt), at your choice.
 
-The commercial license is provided for free if you help us promote Slint: Check out our
+The commercial license can be provided for free if you help us promote Slint: Check out our
 [ambassador license](https://slint-ui.com/ambassador-program.html).
 
 See also the [Licensing FAQ](FAQ.md#licensing)
