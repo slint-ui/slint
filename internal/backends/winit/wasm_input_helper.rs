@@ -113,6 +113,7 @@ impl WasmInputHelper {
                     modifiers: modifiers(&e),
                     text,
                     event_type: KeyEventType::KeyPressed,
+                    ..Default::default()
                 });
             }
         });
@@ -127,6 +128,7 @@ impl WasmInputHelper {
                     modifiers: modifiers(&e),
                     text,
                     event_type: KeyEventType::KeyReleased,
+                    ..Default::default()
                 });
             }
         });
@@ -144,11 +146,13 @@ impl WasmInputHelper {
                             modifiers: Default::default(),
                             text: text.clone(),
                             event_type: KeyEventType::KeyPressed,
+                            ..Default::default()
                         });
                         window_inner.process_key_input(&KeyEvent {
                             modifiers: Default::default(),
                             text,
                             event_type: KeyEventType::KeyReleased,
+                            ..Default::default()
                         });
                         shared_state2.borrow_mut().has_key_down = false;
                     }
@@ -178,6 +182,7 @@ impl WasmInputHelper {
                                 modifiers: Default::default(),
                                 text: backspace.clone(),
                                 event_type: KeyEventType::KeyPressed,
+                                ..Default::default()
                             });
                         }
                     }
@@ -185,11 +190,13 @@ impl WasmInputHelper {
                         modifiers: Default::default(),
                         text: text.clone(),
                         event_type: KeyEventType::KeyPressed,
+                        ..Default::default()
                     });
                     window_inner.process_key_input(&KeyEvent {
                         modifiers: Default::default(),
                         text,
                         event_type: KeyEventType::KeyReleased,
+                        ..Default::default()
                     });
                     if is_end {
                         input.set_value("");
