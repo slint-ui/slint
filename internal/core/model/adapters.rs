@@ -3,7 +3,7 @@
 
 //! This module contains adapter models.
 
-use core::{borrow::Borrow, marker::PhantomData};
+use core::{marker::PhantomData};
 
 use super::*;
 
@@ -497,10 +497,10 @@ where
         let removed_index = self.mapping.borrow().binary_search(&row).unwrap();
         self.mapping.borrow_mut().remove(removed_index);
 
-        let changed_data = self.wrapped_model.borrow().row_data(row).unwrap();
+        let changed_data = self.wrapped_model.row_data(row).unwrap();
         let insertion_index = self.mapping.borrow().partition_point(|existing_row| {
             self.sort_helper
-                .sort(&self.wrapped_model.borrow().row_data(*existing_row).unwrap(), &changed_data)
+                .sort(&self.wrapped_model.row_data(*existing_row).unwrap(), &changed_data)
                 == std::cmp::Ordering::Less
         });
 
@@ -532,10 +532,10 @@ where
         }
 
         for row in index..(index + count) {
-            let changed_data = self.wrapped_model.borrow().row_data(row).unwrap();
+            let changed_data = self.wrapped_model.row_data(row).unwrap();
             let insertion_index = self.mapping.borrow().partition_point(|existing_row| {
                 self.sort_helper.sort(
-                    &self.wrapped_model.borrow().row_data(*existing_row).unwrap(),
+                    &self.wrapped_model.row_data(*existing_row).unwrap(),
                     &changed_data,
                 ) == std::cmp::Ordering::Less
             });
