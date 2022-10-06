@@ -451,29 +451,38 @@ where
     F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static,
 {
     fn row_changed(&self, row: usize) {
-        let mut mapping = self.mapping.borrow_mut();
+        let removed_index = self.mapping.borrow().binary_search(&row).unwrap();
+        self.mapping.borrow_mut().remove(removed_index);
 
-        let (index, is_contained) = match mapping.binary_search(&row) {
-            Ok(index) => (index, true),
-            Err(index) => (index, false),
+        let insertion_index = if let Some(insertion_index) = self
+            .mapping
+            .borrow()
+            .iter()
+            .enumerate()
+            .skip_while(|e| {
+                (self.sort_function.borrow_mut())(
+                    // inserted value
+                    &self.wrapped_model.borrow().row_data(*e.1).unwrap(),
+                    &self.wrapped_model.borrow().row_data(row).unwrap(),
+                ) == std::cmp::Ordering::Less
+            })
+            .map(|e| e.0)
+            .collect::<Vec<usize>>()
+            .first()
+        {
+            *insertion_index
+        } else {
+            self.mapping.borrow().len()
         };
 
-        // if is_contained {
-        //     drop(mapping);
-        // }
+        self.mapping.borrow_mut().insert(insertion_index, row);
 
-        // if is_contained {
-        //     drop(mapping);
-        //     self.notify.row_changed(index);
-        // } else if !is_contained && should_be_contained {
-        //     mapping.insert(index, row);
-        //     drop(mapping);
-        //     self.notify.row_added(index, 1);
-        // } else if is_contained && !should_be_contained {
-        //     mapping.remove(index);
-        //     drop(mapping);
-        //     self.notify.row_removed(index, 1);
-        // }
+        if insertion_index == removed_index {
+            self.notify.row_changed(removed_index);
+        } else {
+            self.notify.row_removed(removed_index, 1);
+            self.notify.row_added(insertion_index, 1);
+        }
     }
 
     fn row_added(&self, index: usize, count: usize) {
@@ -493,14 +502,15 @@ where
                 .mapping
                 .borrow()
                 .iter()
-                .skip_while(|i| {
+                .enumerate()
+                .skip_while(|e| {
                     (self.sort_function.borrow_mut())(
                         // inserted value
-                        &self.wrapped_model.borrow().row_data(**i).unwrap(),
+                        &self.wrapped_model.borrow().row_data(*e.1).unwrap(),
                         &self.wrapped_model.borrow().row_data(row).unwrap(),
                     ) == std::cmp::Ordering::Less
                 })
-                .copied()
+                .map(|e| e.0)
                 .collect::<Vec<usize>>()
                 .first()
             {
@@ -616,11 +626,10 @@ mod sort_tests {
         // Track the parameters reported by the model (row counts, indices, etc.).
         // The last field in the tuple is the row size the model reports at the time
         // of callback
-        changed_rows: RefCell<Vec<(usize)>>,
+        changed_rows: RefCell<Vec<usize>>,
         added_rows: RefCell<Vec<(usize, usize)>>,
         removed_rows: RefCell<Vec<(usize, usize)>>,
         reset: RefCell<usize>,
-        model: RefCell<Option<std::rc::Weak<dyn Model<Data = i32>>>>,
     }
 
     impl TestView {
@@ -633,7 +642,7 @@ mod sort_tests {
 
     impl ModelChangeListener for TestView {
         fn row_changed(&self, row: usize) {
-            self.changed_rows.borrow_mut().push((row));
+            self.changed_rows.borrow_mut().push(row);
         }
 
         fn row_added(&self, index: usize, count: usize) {
@@ -724,7 +733,7 @@ mod sort_tests {
         assert_eq!(sorted_model.row_data(3).unwrap(), 4);
 
         // Change the entry with the value 4 to 10 -> maintain order
-        sorted_model.set_row_data(1, 10);
+        wrapped_rc.set_row_data(1, 10);
 
         assert!(observer.added_rows.borrow().is_empty());
         assert_eq!(observer.changed_rows.borrow().len(), 1);
@@ -740,10 +749,10 @@ mod sort_tests {
         assert_eq!(sorted_model.row_data(3).unwrap(), 10);
 
         // Change the entry with the value 10 to 0 -> new order with remove and insert
-        sorted_model.set_row_data(1, 0);
+        wrapped_rc.set_row_data(1, 0);
 
         assert_eq!(observer.added_rows.borrow().len(), 1);
-        assert!(observer.added_rows.borrow().get(0).unwrap().eq(&(3, 1)));
+        assert!(observer.added_rows.borrow().get(0).unwrap().eq(&(0, 1)));
         assert!(observer.changed_rows.borrow().is_empty());
         assert_eq!(observer.removed_rows.borrow().len(), 1);
         assert!(observer.removed_rows.borrow().get(0).unwrap().eq(&(3, 1)));
