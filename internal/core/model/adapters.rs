@@ -417,23 +417,23 @@ fn test_filter_model() {
 }
 
 trait SortHelper<D> {
-    fn sort(&self, lhs: &D, rhs: &D) -> std::cmp::Ordering;
+    fn sort(&self, lhs: &D, rhs: &D) -> core::cmp::Ordering;
 }
 
 struct AscendingSortHelper;
 
 impl<D> SortHelper<D> for AscendingSortHelper
 where
-    D: std::cmp::Ord,
+    D: core::cmp::Ord,
 {
-    fn sort(&self, lhs: &D, rhs: &D) -> std::cmp::Ordering {
+    fn sort(&self, lhs: &D, rhs: &D) -> core::cmp::Ordering {
         lhs.cmp(rhs)
     }
 }
 
 struct FnSortHelper<F, D>
 where
-    F: FnMut(&D, &D) -> std::cmp::Ordering + 'static,
+    F: FnMut(&D, &D) -> core::cmp::Ordering + 'static,
 {
     sort_function: RefCell<F>,
     _type: PhantomData<D>,
@@ -441,9 +441,9 @@ where
 
 impl<F, D> SortHelper<D> for FnSortHelper<F, D>
 where
-    F: FnMut(&D, &D) -> std::cmp::Ordering + 'static,
+    F: FnMut(&D, &D) -> core::cmp::Ordering + 'static,
 {
-    fn sort(&self, lhs: &D, rhs: &D) -> std::cmp::Ordering {
+    fn sort(&self, lhs: &D, rhs: &D) -> core::cmp::Ordering {
         (self.sort_function.borrow_mut())(lhs, rhs)
     }
 }
@@ -493,7 +493,7 @@ where
                     // inserted value
                     &self.wrapped_model.borrow().row_data(*e.1).unwrap(),
                     &self.wrapped_model.borrow().row_data(row).unwrap(),
-                ) == std::cmp::Ordering::Less
+                ) == core::cmp::Ordering::Less
             })
             .map(|e| e.0)
             .collect::<Vec<usize>>()
@@ -537,7 +537,7 @@ where
                         // inserted value
                         &self.wrapped_model.borrow().row_data(*e.1).unwrap(),
                         &self.wrapped_model.borrow().row_data(row).unwrap(),
-                    ) == std::cmp::Ordering::Less
+                    ) == core::cmp::Ordering::Less
                 })
                 .map(|e| e.0)
                 .collect::<Vec<usize>>()
@@ -695,7 +695,7 @@ where
     /// Alternativly you can use [`ModelExt::sort_by`] on your Model.
     pub fn new<F>(wrapped_model: M, sort_function: F) -> Self
     where
-        F: FnMut(&M::Data, &M::Data) -> std::cmp::Ordering + 'static,
+        F: FnMut(&M::Data, &M::Data) -> core::cmp::Ordering + 'static,
     {
         let sorted_model_inner = SortModelInner {
             wrapped_model,
@@ -720,7 +720,7 @@ where
     /// Alternativly you can use [`ModelExt::sort`] on your Model.
     pub fn new_ascending(wrapped_model: M) -> Self
     where
-        M::Data: std::cmp::Ord,
+        M::Data: core::cmp::Ord,
     {
         let sorted_model_inner = SortModelInner {
             wrapped_model,
