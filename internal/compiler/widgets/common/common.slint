@@ -40,7 +40,7 @@ export LineEditInner := Rectangle {
     placeholder := Text {
         height: 100%; width: 100%;
         vertical-alignment: center;
-        text: root.text == "" ? root.placeholder-text : "";
+        text: (root.text == "" && input.preedit-text == "") ? root.placeholder-text : "";
     }
 }
 

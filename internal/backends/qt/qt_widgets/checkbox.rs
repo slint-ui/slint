@@ -96,6 +96,9 @@ impl Item for NativeCheckBox {
             }
             KeyEventType::KeyPressed => KeyEventResult::EventIgnored,
             KeyEventType::KeyReleased => KeyEventResult::EventIgnored,
+            KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
+                KeyEventResult::EventIgnored
+            }
         }
     }
 

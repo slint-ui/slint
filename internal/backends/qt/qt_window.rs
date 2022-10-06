@@ -1333,6 +1333,7 @@ impl QtWindow {
             event_type: if released { KeyEventType::KeyReleased } else { KeyEventType::KeyPressed },
             text,
             modifiers,
+            ..Default::default()
         };
         WindowInner::from_pub(&self.window).process_key_input(&event);
 

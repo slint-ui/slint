@@ -101,11 +101,15 @@ pub trait WindowAdapterSealed {
     /// Set the mouse cursor
     fn set_mouse_cursor(&self, _cursor: MouseCursor) {}
 
-    /// This is called when the virtual keyboard should be shown because a widget that
-    /// uses input has the focus.
-    fn show_virtual_keyboard(&self, _: crate::items::InputType) {}
-    /// This is called when the widget that needed the keyboard loses focus
-    fn hide_virtual_keyboard(&self) {}
+    /// This is called when an editable text input field has received the focus and input methods such as
+    /// virtual keyboard should be shown.
+    fn enable_input_method(&self, _: crate::items::InputType) {}
+    /// This is called when the widget that needed the keyboard loses focus and any active input method should
+    /// be disabled.
+    fn disable_input_method(&self) {}
+    /// Update the position of the text input area. The provided point is in
+    /// window coordinates (not item relative!).
+    fn set_ime_position(&self, _: LogicalPoint) {}
 
     /// Return self as any so the backend can upcast
     fn as_any(&self) -> &dyn core::any::Any {

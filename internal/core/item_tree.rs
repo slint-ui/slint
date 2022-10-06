@@ -6,9 +6,9 @@
 //! This module contains code that helps navigating the tree of item
 
 use crate::component::{ComponentRc, ComponentVTable};
-use crate::graphics::{Point, Rect};
+use crate::graphics::Rect;
 use crate::items::{ItemRef, ItemVTable};
-use crate::lengths::{LogicalItemGeometry, LogicalRect};
+use crate::lengths::{LogicalItemGeometry, LogicalPoint, LogicalRect};
 use crate::SharedString;
 use core::pin::Pin;
 use vtable::*;
@@ -189,11 +189,11 @@ impl ItemRc {
         self.borrow().logical_geometry()
     }
 
-    pub fn map_to_window(&self, p: Point) -> Point {
+    pub fn map_to_window(&self, p: LogicalPoint) -> LogicalPoint {
         let mut current = self.clone();
         let mut result = p;
         while let Some(parent) = current.parent_item() {
-            let geometry = parent.geometry();
+            let geometry = parent.logical_geometry();
             result += geometry.origin.to_vector();
             current = parent.clone();
         }

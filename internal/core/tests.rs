@@ -76,11 +76,13 @@ pub extern "C" fn send_keyboard_string_sequence(
             event_type: KeyEventType::KeyPressed,
             text: text.clone(),
             modifiers,
+            ..Default::default()
         });
         WindowInner::from_pub(window_adapter.window()).process_key_input(&KeyEvent {
             event_type: KeyEventType::KeyReleased,
             text,
             modifiers,
+            ..Default::default()
         });
     }
 }

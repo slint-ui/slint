@@ -421,8 +421,6 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
             return;
         }
 
-        let string = text_input.text();
-        let string = string.as_str();
         let font_request =
             text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter());
 
@@ -434,12 +432,21 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         let mut text_style = skia_safe::textlayout::TextStyle::new();
         text_style.set_foreground_color(paint);
 
-        let (selection_anchor_pos, selection_cursor_pos) = text_input.selection_anchor_and_cursor();
-        let selection = if selection_anchor_pos != selection_cursor_pos {
+        let visual_representation = text_input.visual_representation();
+
+        let selection = if !visual_representation.preedit_range.is_empty() {
             Some(super::textlayout::Selection {
-                range: (selection_anchor_pos..selection_cursor_pos),
-                foreground: text_input.selection_foreground_color(),
-                background: text_input.selection_background_color(),
+                range: visual_representation.preedit_range,
+                foreground: None,
+                background: None,
+                underline: true,
+            })
+        } else if !visual_representation.selection_range.is_empty() {
+            Some(super::textlayout::Selection {
+                range: visual_representation.selection_range,
+                foreground: text_input.selection_foreground_color().into(),
+                background: text_input.selection_background_color().into(),
+                underline: false,
             })
         } else {
             None
@@ -448,7 +455,7 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
         let (layout, layout_top_left) = super::textlayout::create_layout(
             font_request,
             self.scale_factor,
-            string,
+            &visual_representation.text,
             Some(text_style),
             Some(max_width),
             max_height,
@@ -460,17 +467,10 @@ impl<'a> ItemRenderer for SkiaRenderer<'a> {
 
         layout.paint(&mut self.canvas, to_skia_point(layout_top_left));
 
-        let cursor_pos = text_input.cursor_position();
-
-        let cursor_visible = cursor_pos >= 0
-            && text_input.cursor_visible()
-            && text_input.enabled()
-            && !text_input.read_only();
-
-        if cursor_visible {
+        if let Some(cursor_position) = visual_representation.cursor_position {
             let cursor_rect = super::textlayout::cursor_rect(
-                string,
-                cursor_pos as usize,
+                &visual_representation.text,
+                cursor_position,
                 layout,
                 text_input.logical_text_cursor_width() * self.scale_factor,
             )

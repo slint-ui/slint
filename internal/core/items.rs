@@ -591,6 +591,9 @@ impl Item for FocusScope {
             KeyEventType::KeyReleased => {
                 Self::FIELD_OFFSETS.key_released.apply_pin(self).call(&(event.clone(),))
             }
+            KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
+                EventResult::Reject
+            }
         };
         match r {
             EventResult::Accept => KeyEventResult::EventAccepted,

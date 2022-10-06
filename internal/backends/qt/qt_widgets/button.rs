@@ -289,6 +289,9 @@ impl Item for NativeButton {
                 KeyEventResult::EventAccepted
             }
             KeyEventType::KeyReleased => KeyEventResult::EventIgnored,
+            KeyEventType::UpdateComposition | KeyEventType::CommitComposition => {
+                KeyEventResult::EventIgnored
+            }
         }
     }
 

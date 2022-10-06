@@ -243,7 +243,7 @@ fn process_window_event(
         text: SharedString,
         modifiers: KeyboardModifiers,
     ) -> KeyEvent {
-        let mut event = KeyEvent { event_type, text, modifiers };
+        let mut event = KeyEvent { event_type, text, modifiers, ..Default::default() };
 
         let tab = String::from(corelib::input::key_codes::Tab);
 
@@ -332,11 +332,21 @@ fn process_window_event(
                 runtime_window.process_key_input(&event);
             };
         }
-        WindowEvent::Ime(winit::event::Ime::Commit(string)) => {
-            let modifiers = window.current_keyboard_modifiers().get();
-            let mut event = key_event(KeyEventType::KeyPressed, string.into(), modifiers);
+        WindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
+            let event = KeyEvent {
+                event_type: KeyEventType::UpdateComposition,
+                text: string.into(),
+                preedit_selection,
+                ..Default::default()
+            };
             runtime_window.process_key_input(&event);
-            event.event_type = KeyEventType::KeyReleased;
+        }
+        WindowEvent::Ime(winit::event::Ime::Commit(string)) => {
+            let event = KeyEvent {
+                event_type: KeyEventType::CommitComposition,
+                text: string.into(),
+                ..Default::default()
+            };
             runtime_window.process_key_input(&event);
         }
         WindowEvent::ModifiersChanged(state) => {
