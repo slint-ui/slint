@@ -495,7 +495,7 @@ where
             self.sort_helper
                 .borrow_mut()
                 .cmp(&self.wrapped_model.row_data(*existing_row).unwrap(), &changed_data)
-                == std::cmp::Ordering::Less
+                == core::cmp::Ordering::Less
         });
 
         self.mapping.borrow_mut().insert(insertion_index, row);
@@ -531,7 +531,7 @@ where
                 self.sort_helper
                     .borrow_mut()
                     .cmp(&self.wrapped_model.row_data(*existing_row).unwrap(), &changed_data)
-                    == std::cmp::Ordering::Less
+                    == core::cmp::Ordering::Less
             });
 
             self.mapping.borrow_mut().insert(insertion_index, row);
@@ -621,7 +621,7 @@ where
 /// # assert_eq!(sorted_model.row_data(2).unwrap(), SharedString::from("Lorem"));
 /// ```
 ///
-/// It is also possible to get a ascending sorted  `SortModel` order for `std::cmp::Ord` type items.
+/// It is also possible to get a ascending sorted  `SortModel` order for `core::cmp::Ord` type items.
 ///
 /// ```
 /// # use slint::{Model, VecModel, SortModel};
