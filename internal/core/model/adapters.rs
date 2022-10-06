@@ -595,7 +595,7 @@ where
     }
 }
 
-/// Provides a sorted subset of rows by another [`Model`].
+/// Provides a sorted view of rows by another [`Model`].
 ///
 /// When the other Model is updated, the `Sorted` is updated accordingly.
 ///
