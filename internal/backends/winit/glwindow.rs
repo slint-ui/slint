@@ -574,7 +574,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         &self.renderer
     }
 
-    fn enable_input_method(&self, it: corelib::items::InputType) {
+    fn enable_input_method(&self, _it: corelib::items::InputType) {
         #[cfg(target_arch = "wasm32")]
         {
             let mut vkh = self.virtual_keyboard_helper.borrow_mut();
@@ -587,7 +587,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         }
         #[cfg(not(target_arch = "wasm32"))]
         self.with_window_handle(&mut |winit_window| {
-            winit_window.set_ime_allowed(matches!(it, corelib::items::InputType::Text))
+            winit_window.set_ime_allowed(matches!(_it, corelib::items::InputType::Text))
         });
     }
 
