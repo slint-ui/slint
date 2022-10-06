@@ -6,7 +6,7 @@ Copyright © 2022 SixtyFPS GmbH <https://slint-ui.com/imprint.html>
 
 SixtyFPS GmbH with offices at Am Panke-Park 47, 16321 Bernau
 bei Berlin, Germany (“**SixtyFPS**”) grants a license to the software 
-(“**Licensed Software**”) as specified in **Exhibit A** which are provided 
+(“**Licensed Software**”) as specified in **Exhibit A** which is provided 
 subject to the terms of this Slint Software License Agreement (the “**Agreement**”). 
 Each Party to this Agreement may be referred to 
 herein individually as a “**Party**” or collectively as the “**Parties**.”
@@ -24,9 +24,12 @@ Parties.
 1.  The Party to whom SixtyFPS grants the Licensed Software under this Agreement 
     will be referred to herein as the "**Customer**".
 
-2.  As part of the license grant, SixtyFPS will issue a Slint Software License Certificate 
-    ("**License Certificate**") pertaining to the Customer's use of the 
-    Licensed Software.
+2.  As part of the license grant, a Slint Software License Certificate 
+    ("**License Certificate**") will be issued containing details of (1) the
+    license grant, (2) the permitted scope of Customer's use of the Licensed Software
+    and (3) contact details of the Customer. In case of any changes to the information 
+    provided in (2) and (3) above, Customer is obliged to notify SixtyFPS in writing, 
+    not later than 7 days after any such change has occured. 
 
 3.  The Term of this Agreement shall begin on the date mentioned in the License
     Certificate ("**Effective Date**") and shall continue unless terminated 
@@ -82,28 +85,27 @@ Parties.
     The maximum permitted number of distributions of Customer's Products (**Distributions**) 
     is specified in the License Certificate.
 
-12. The license grants are conditional on the full and timely payment of all 
-    applicable Fees; if said Fees are not paid in full and at their due date, 
-    the licenses shall not be granted and the Customer's Products shall be 
+12. The grant in clause 11 above shall not apply for an **Eval License**, a license 
+    provided to Customer for the purpose of evaluating the Licensed Software.
+
+13. The license grants are conditional on the full and timely payment of all 
+    applicable Fees; if said Fees are not paid in full and by their due date, 
+    the license shall not be granted and the Customer's Products shall be 
     deemed as made in breach of the Agreement ex tunc.
 
-13. If the license is granted under the **Ambassador Program**, then clause 12 above shall not apply
-    and instead, the license grants shall be conditional on the fullfilment of the obligations 
-    set forth below; if said obligations are not fulfilled, the licenses shall not be granted 
-    and the Customer's Products shall be deemed as made in breach of the Agreement ex tunc. The
-    obligations are as follows:
+14. Clause 13 above shall not apply for an **Ambassador License**, a license 
+    provided to Customer for free. Instead, the license grants shall be conditional on the 
+    fullfilment of the obligations set forth below; if said obligations are not fulfilled, 
+    the license shall not be granted and the Customer's Products shall be deemed as made in 
+    breach of the Agreement ex tunc. The obligations are as follows:
 
-    1. Customer grants SixtyFPS the right to use Customer's name and logo in marketing material,
+    1. Showcase: Customer grants SixtyFPS the right to use Customer's name, logo and Customer's Products in marketing materials,
 
-    2. Customer will include reasonably visible notices in the documentation, marketing materials and social 
-      media channels related to Customer's Products that such were built with the Licensed Software,
+    2. Spread the word: Customer will include reasonably visible notices in the documentation, marketing materials and social 
+       media channels related to Customer's Products that such were built with the Licensed Software,
 
-    3. Customer agrees to provide a written testimonial statement about the use of the Licensed Software.
-
-14. If the license is granted for the purpose of evaluation (**Eval License**), then clauses 10 and 11 above
-    shall not apply and instead, SixtyFPS grants Customer a non-exclusive, time-limited, revocable,
-    non-transferable license to use the Licensed Software during the Term. Said license also 
-    includes the right to make changes to the Licensed Software.
+    3. Give feedback: Customer agrees to provide relevant feedback that would help SixtyFPS improve the Licensed Software.
+       SixtyFPS may use any such feedback in testimonials.
 
 15. The Fees and any other charges under this Agreement shall be paid by Customer no later 
     than thirty (30) days from the date of the applicable invoice from SixtyFPS. A late payment 
@@ -220,7 +222,7 @@ Parties.
     conducting the audit. In the case of a material violation, Customer
     agrees to pay SixtyFPS any amounts owing that are attributable to
     the unauthorized use. In the alternative, SixtyFPS reserves the
-    right, at SixtyFPS's sole option, to terminate the licenses for the
+    right, at SixtyFPS's sole option, to terminate the license for the
     Licensed Software. SixtyFPS auditor shall before the audit sign
     Customer's standard NDA, and shall only be allowed to report
     violations of the terms of the Agreement to SixtyFPS, with a copy to
@@ -241,24 +243,21 @@ Parties.
     applicable fees and contractual penalties, if any, in connection with
     the use of the Licensed Software.
 
-24. In case of an Eval License, this Agreement will terminate at the end of
-    the **Eval Period** as specified in the License Certificate.
-
-25. Both Parties shall comply with all applicable laws and regulations
+24. Both Parties shall comply with all applicable laws and regulations
     relating to the Licensed Software in the countries in which the
     Parties use or modify the Licensed Software.
 
-26. All notices and communications between the Parties shall be in
+25. All notices and communications between the Parties shall be in
     writing and shall be deemed given when received. For avoidance of
     doubt, email is considered a written form of communication.
 
-27. This Agreement shall be construed, interpreted and governed by the
+26. This Agreement shall be construed, interpreted and governed by the
     laws of the Federal Republic of Germany.
 
-28. No term or condition contained in Customer's purchase order will
+27. No term or condition contained in Customer's purchase order will
     apply unless expressly accepted by SixtyFPS in writing.
 
-29. Customer may assign this Agreement, in whole or in part (whether by
+28. Customer may assign this Agreement, in whole or in part (whether by
     operation of law or otherwise), with prior consent of SixtyFPS, which 
     shall not be unreasonably withheld or delayed. SixtyFPS
     may assign this Agreement or any of its rights hereunder or
@@ -266,7 +265,7 @@ Parties.
     Any attempt to assign this Agreement other than in accordance with 
     this provision shall be null and void.
 
-30. This Agreement constitutes the complete agreement between the
+29. This Agreement constitutes the complete agreement between the
     Parties and supersedes all prior or contemporaneous discussions,
     representations, and proposals, written or oral, with respect to the
     subject matters discussed herein. No modification of this Agreement
@@ -298,8 +297,8 @@ Parties.
 
 # Exhibit B - Support.
 
-During the Term, SixtyFPS agrees to provide Support to Customer as set
-forth in this Exhibit B.
+During the Term, Customer can purchase Support Hours on payment of applicable Support Fees
+to avail **Priority Support** as set forth in this Exhibit B. 
 
 1.  **Scope**
 
@@ -313,21 +312,17 @@ forth in this Exhibit B.
     Support for an older official stable release is not guaranteed but may be provided 
     on a best effort basis.
 
-2.  **Support Hours and Fees**
-
-    Customer can purchase Support Hours on payment of applicable Support Fees.
-
-3. **Validity of Support Hours**
+2. **Validity of Support Hours**
 
     Unused Support Hours expire 12 months from date of purchase.
     
-4.  **Ownership**
+3.  **Ownership**
 
     SixtyFPS may choose to include all changes, including problem fixes
     and enhancements, to the Licensed Software and make it available for
     use to all users.
 
-5.  **Problem Isolation**
+4.  **Problem Isolation**
 
     Customer will perform initial problem isolation before a problem is
     reported to SixtyFPS. Customer is advised to recreate potential
@@ -336,32 +331,32 @@ forth in this Exhibit B.
     release of the Licensed Software before distribution of any Customer's Products incorporating such
     release.
 
-6.  **Reporting a problem**
+5.  **Reporting a problem**
 
     Customer shall use issue tracking systems as provided by SixtyFPS to
     report problems. The problem description shall be in English.
 
-7.  **Problem recreation at SixtyFPS**
+6.  **Problem recreation at SixtyFPS**
 
     If SixtyFPS cannot reasonably replicate the setup under which the problem can
     be recreated, then in SixtyFPS’s sole discretion, SixtyFPS may ask Customer to provide
     the necessary setup or elect to recreate the problem at the Customer location. Any costs incurred
-    will be invoiced to Customer.
+    will be invoiced to the Customer.
 
-8.  **Errors in Modified Source**
+7.  **Errors in Modified Source**
 
     SixtyFPS is not responsible for errors introduced by Customer
     modifications to Licensed Software. Defects must be demonstrated on
     an unmodified version of Licensed Software provided by SixtyFPS.
     
-9. **Non Licensed Software related problems**
+8. **Non Licensed Software related problems**
 
     SixtyFPS will make reasonable efforts to provide workarounds for problems 
     that are not directly related to the Licensed Software but are present in 
     the Customer's Products built with the Licensed Software. Customer understands 
     that workarounds may not be possible for all problems.
 
-10. **Operating Systems Updates**
+9. **Operating Systems Updates**
 
     SixtyFPS shall consider making commercially reasonable efforts to provide 
     Customers with updates to the Licensed Software for newly released versions 
@@ -383,46 +378,17 @@ bei Berlin, Germany (“**SixtyFPS**”) grants a license to the Licensed Softwa
 subject to the terms of the Slint Software License Agreement (the “**Agreement**”).
 
 All terms in this Slint Software License Certificate ("**License Certificate**") 
-will have the same meaning as defined in the Agreement.
+will have the same meaning as defined in the Agreement. 
 
-1. Customer details
-    1. Customer's Name:
-    2. Customer's Address:
-    3. Customer's Contact Person(s) with Email address(es):
-
-2. License grant
-    1. Effective Date:
-    2. Maintenance Period:
-    3. Customer's Product(s):
+1. License grant
+    1. Type: Ambassador / Eval / Paid
+    2. Effective Date:
+    3. Maintenance Period:
     4. Number of User Seat(s):
-        1. Name(s) and Email address(es):
     5. Number of Distribution(s):
-    6. Obligations under Ambassador Program: Applicable / Not-applicable
-    7. Eval License: Yes / No
-        1. Eval Period:
 
-By receiving this License Certificate, the Customer accepts the terms of the Agreement.
+2. Permitted scope of Customer's use of Licensed Software
+    1. Customer's Product(s)
+    2. Name(s) and Email address(es) of User Seat(s)
 
-The Parties agree that subsequent License Certificates will be deemed without a signature
-provided that there are no modifications to the Agreement since the last signed License Certificate.
-
-IN WITNESS WHEREOF, the persons signing below warrant that they are duly
-authorized to sign for, and on behalf of, the respective Parties.
-
-| **SixtyFPS**                |             | **Customer**                |
-|-----------------------------|-------------|-----------------------------|
-|                             |             |                             |
-| **Name**                    |             | **Name**                    |
-|                             |             |                             |
-| **Position**                |             | **Position**                |
-|                             |             |                             |
-| **Date, Signature**         |             | **Date, Signature**         |
-|                             |             |                             |
-|                             |             |                             |
-| **Name**                    |             | **Name**                    |
-|                             |             |                             |
-| **Position**                |             | **Position**                |
-|                             |             |                             |
-| **Date, Signature**         |             | **Date, Signature**         |
-
-Enclosed: Slint Software License Agreement
+3. Customer's contact person(s) with email address(es):  
