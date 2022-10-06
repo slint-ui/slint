@@ -464,9 +464,11 @@ where
     M: Model + 'static,
 {
     fn build_mapping_vec(&self) {
-        self.mapping.borrow_mut().clear();
-        self.mapping.borrow_mut().extend((0..self.wrapped_model.row_count()).into_iter());
-        self.mapping.borrow_mut().sort_by(|lhs, rhs| {
+        let mut mapping = self.mapping.borrow_mut();
+
+        mapping.clear();
+        mapping.extend((0..self.wrapped_model.row_count()).into_iter());
+        mapping.sort_by(|lhs, rhs| {
             self.sort_helper.sort(
                 &self.wrapped_model.row_data(*lhs).unwrap(),
                 &self.wrapped_model.row_data(*rhs).unwrap(),
@@ -573,7 +575,6 @@ where
                 if sort_index < index + count {
                     removed_rows.push(i);
                     self.mapping.borrow_mut().remove(i);
-                    println!("test");
                     continue;
                 } else {
                     *self.mapping.borrow_mut().get_mut(i).unwrap() -= count;
@@ -630,7 +631,7 @@ where
 /// # assert_eq!(sorted_model.row_data(1).unwrap(), SharedString::from("ipsum"));
 /// # assert_eq!(sorted_model.row_data(2).unwrap(), SharedString::from("Lorem"));
 /// ```
-/// 
+///
 /// It is also possible to get a ascending sorted  `SortModel` order for `std::cmp::Ord` type items.
 ///
 /// ```
