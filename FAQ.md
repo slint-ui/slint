@@ -14,7 +14,7 @@
 
 ## Where does the name come from?
 
-The name *Slint* is derived from our design goals: **S**traightforward, **Li**ghtweight **N**ative **T**oolkit.
+The name *Slint* is derived from our design goals: **S**calable, **L**ightweight **I**ntuitive **N**ative **T**oolkit.
 
 ## Why are you creating a new markup language?
 
@@ -38,30 +38,25 @@ languages.
 
 # Licensing
 
-Slint is available under two licenses:
+Slint can be used under either a [commercial license](./LICENSES/LicenseRef-Slint-commercial.md) or [GNU GPLv3](./LICENSES/GPL-3.0-only.txt), at your choice.
 
- * GPLv3, for the growing ecosystem of Free and Open Source Software.
- * Commercial, for use in closed-source projects. See <https://slint-ui.com/#offering>
-
-The commercial license is free if you help us promote Slint: Check out our
+The commercial license is provided for free if you help us promote Slint: Check out our
 [ambassador license](https://slint-ui.com/ambassador-program.html).
 
-## What is the commercial licensing model?
+## What are the commercial licensing options?
 
-The basic principle behind our commercial licensing is that you start for free and pay when you're shipping.
+We offer 3 options under the commercial license - Ambassador, Flex and Buyout. All 3 options include a non-exclusive, perpetual, irrevocable, non-transferable right to use Slint.
 
-We offer a perpetual license option and we generally deploy a per-product license, regardless of how many developers, designers, Q&A engineers are using Slint.
+The Ambassador license is provided for free in lieu of helping us promote Slint.
 
-If this doesn't fit you, don't hesitate to contact us and we'd be happy to work together to find a solution.
+The Flex license is a per User-Seat license (with updates included as long as the subscription is active) to develop apps with Slint.
+Distribution of such apps requires additional fees.
 
-You can find a more detailed overview of our commercial licensing and the pricing at <https://slint-ui.com/pricing.html>.
+The Buyout license is a volume-based buyout license that includes unlimited User-Seats (with updates included) to develop apps with Slint as well as distribute such apps up to the purchased volume.
 
 ## Can I try Slint using the GPL version and then switch to the commercial license later?
 
-Yes. The GPL is a distribution license that applies only when you ship your application. You can
-evaluate Slint and develop your product internally using the GPL license, and only acquire a commercial
-license when you want to ship your product. If you choose a per seat licensing model, the time spent
-developing needs to be accounted for. However, support for bug fixes requires a commercial license.
+Yes. You can evaluate Slint using the GPL license, and acquire the commercial license after the evaluation, with the option to transfer the development work from GPL to commercial for free.
 
 ## Is there a discount or reduction for independent developers or small businesses?
 
@@ -70,5 +65,4 @@ Yes, check out our [Ambassador program](https://slint-ui.com/ambassador-program.
 ## I want to develop a free software product using Slint, but I don't like the GPL and prefer to use a non-copyleft license.
 
 You can still publish your own source code under a permissive license compatible with the GPL, such as BSD, MIT, or Apache license.
-The distribution of a binary or a package containing Slint still needs to be licensed under the GPL.
-It is up to those who want to distribute a non-free version of the application to acquire a commercial license.
+The distribution of a binary or a package containing Slint still needs to be licensed under the GPL. If this is not an option, kindly consider our [commercial licensing options](#what-are-the-commercial-licensing-options).
