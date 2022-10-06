@@ -6,55 +6,40 @@ Copyright © 2022 SixtyFPS GmbH <https://slint-ui.com/imprint.html>
 
 SixtyFPS GmbH with offices at Am Panke-Park 47, 16321 Bernau bei Berlin, Germany
 (**SixtyFPS**) grants a license to the software (**Licensed Software**), as
-specified herein, subject to the terms of this Slint Software License Agreement
-(**Agreement**).
+specified herein, subject to the Terms and Conditions of this Slint Software
+License Agreement (**Agreement**).
 
-The Licensed Software includes
-
-- Slint compiler tool to translate Slint Design Markup Language
-    files to Rust (last stable Rust version at the time of licensed
-    Slint version) and C++ (second last C++ version at the time of
-    licensed Slint version),
-
-- Slint run-time library that can render interactive
-    user-interfaces and provides Rust and C++ APIs (as per above
-    versioning) to control the interfaces,
-
-- API Documentation for Slint and reference documentation for
-    Slint Design Markup Language, and
-
-- Source code of Slint.
+The Party to whom SixtyFPS grants the Licensed Software under this Agreement
+will be referred to as the **Customer**.
 
 Each Party to this Agreement may be referred to herein individually as a
 **Party** or collectively as the **Parties**.
 
+## Licensed Software
+
+The Licensed Software includes
+
+1. Slint compiler tool to translate Slint Design Markup Language
+    files to Rust (last stable Rust version at the time of licensed
+    Slint version) and C++ (second last C++ version at the time of
+    licensed Slint version),
+
+2. Slint run-time library that can render interactive
+    user-interfaces and provides Rust and C++ APIs (as per above
+    versioning) to control the interfaces,
+
+3. API Documentation for Slint and reference documentation for
+    Slint Design Markup Language, and
+
+4. Source code of Slint.
+
 ## Terms and Conditions
 
-1. The Party to whom SixtyFPS grants the Licensed Software under this Agreement
-    will be referred to herein as the **Customer**.
-
-2. As part of the license grant, a Slint Software License Certificate
-    (**License Certificate**) will be issued containing details of
-
-    1. the license grant,
-
-    2. the permitted scope of Customer's use of the Licensed Software, and
-
-    3. contact details of the Customer.
-
-    In case of any changes to the information provided in 2.2 and 2.3 above,
-    Customer is obliged to notify SixtyFPS in writing, not later than 7 days
-    after any such change has occured.
-
-3. The Term of this Agreement shall begin on the date mentioned in the License
-    Certificate (**Effective Date**) and shall continue unless terminated
-    earlier as herein provided (**Term**).
-
-4. The Licensed Software is protected by copyright laws and international
+1. The Licensed Software is protected by copyright laws and international
     copyright treaties, as well as other intellectual property laws and
     treaties. The Licensed Software is licensed, not sold.
 
-5. The Licensed Software may provide links to third Party libraries or code
+2. The Licensed Software may provide links to third Party libraries or code
     (collectively **Third Party Libraries**) to implement various functions.
     Third Party Libraries do not comprise part of the Licensed Software. In some
     cases, access to Third Party Libraries may be included along with the
@@ -70,39 +55,51 @@ Each Party to this Agreement may be referred to herein individually as a
         copyright notices and licenses, will be listed and made available to
         Customer.
 
-6. New releases of the Licensed Software (**Updates**) will be made available
+3. As part of the license grant, a Slint Software License Certificate
+    (**License Certificate**) will be issued containing details of
+
+    1. the license grant,
+
+    2. the permitted scope of Customer's use of the Licensed Software, and
+
+    3. contact details of the Customer.
+
+    In case of any changes to the information provided in 3.2 and 3.3 above,
+    Customer is obliged to notify SixtyFPS in writing, not later than 7 days
+    after any such change has occured.
+
+4. The Term of this Agreement shall begin on the date mentioned in the License
+    Certificate (**Effective Date**) and shall continue unless terminated
+    earlier as herein provided (**Term**).
+
+5. New releases of the Licensed Software (**Updates**) will be made available
     to Customer for the period (**Maintenance Period**) as specified in the
     License Certificate. Such Updates may be bound by additional license terms.
     Customer consents to any such additional license terms, without which
     Customer may not install, copy, or otherwise use such Updates.
 
-7. The Licensed Software is to be used exclusively with Customer's software
-    products (**Customer's Products**) which are described in the License
+6. The Licensed Software is to be used exclusively with Customer's software
+    products (**Customer's Products**) as specified in the License
     Certificate.
 
-8. Customer's employee(s) acting within the scope of their employment or third
-    party consultant(s) acting within the scope of their services on behalf of
-    Customer for the sole purposes of designing, developing, and testing
-    Customer's Products using the Licensed Software is collectively referred to
-    as **User Seats** in this Agreement. The maximum permitted number of User
-    Seats is specified in the License Certificate.
-
-9. SixtyFPS grants Customer a perpetual, non-exclusive, non-transferable right
+7. SixtyFPS grants Customer a perpetual, non-exclusive, non-transferable right
     to use the Licensed Software, including making modifications to the Licensed
-    Software, during the Term.
+    Software, during the Term. The number of users using the Licensed Software
+    is limited to the amount of **User Seats** as specified in the License
+    Certificate. For clarity, each user is counted as a User Seat.
 
-10. SixtyFPS grants Customer a perpetual, non-exclusive, non-transferable right
-    to reproduce and distribute the object code form (**Distributions**) of the
-    Licensed Software, including any modifications made to the Licensed
-    Software, exclusively with Customer's Products and limited to the number of
-    Distributions as specified in the License Certificate, during the Term.
+8. SixtyFPS grants Customer a perpetual, non-exclusive, non-transferable right
+    to reproduce and distribute the object code form of the Licensed Software,
+    including any modifications made to the Licensed Software, during the Term.
+    Such distributions is permitted only with Customer's Products and limited to
+    the amount of **Distributions** as specified in the License Certificate.
 
-11. The license grants are conditional on the full and timely payment of all
+9. The license grants are conditional on the full and timely payment of all
     applicable Fees; if said Fees are not paid in full and by their due date,
     the license shall not be granted and the Customer's Products shall be
     deemed as made in breach of the Agreement ex tunc.
 
-12. Clause 11 above shall not apply for an **Ambassador License**, a license
+10. Clause 10 above shall not apply for an **Ambassador License**, a license
     provided to Customer for free. Instead, the license grants shall be
     conditional on the fullfilment of the obligations as specified herein. If
     said obligations are not fulfilled, the license shall not be granted and
@@ -120,20 +117,20 @@ Each Party to this Agreement may be referred to herein individually as a
         help SixtyFPS improve the Licensed Software. SixtyFPS may use any such
         feedback in testimonials.
 
-13. The Fees and any other charges under this Agreement shall be paid by
+11. The Fees and any other charges under this Agreement shall be paid by
     Customer no later than thirty (30) days from the date of the applicable
     invoice from SixtyFPS. A late payment charge of the lower of (a) one percent
     per month; or (b) the interest rate stipulated by applicable law, shall be
     charged on any unpaid balances that remain past due and which have not been
     disputed by the Customer in good faith.
 
-14. The Fees and any other charges payable under this Agreement are gross
+12. The Fees and any other charges payable under this Agreement are gross
     amounts but exclusive of any value added tax, use tax, sales tax,
     withholding tax and other taxes, duties or tariffs levied directly for the
     sale, delivery or use of the Licensed Software pursuant to any applicable
     law.
 
-15. The Parties also agree to all of the following conditions:
+13. The Parties also agree to all of the following conditions:
 
     1. Customer may not remove or alter any copyright, trademark or other
         proprietary rights notice contained in any portion of the Licensed
@@ -144,7 +141,7 @@ Each Party to this Agreement may be referred to herein individually as a
     3. Customer will indemnify and hold SixtyFPS, its affiliated companies and
         its suppliers, harmless from and against any claims or liabilities
         arising out of the use, reproduction or distribution of Customer's
-        Products, except as set out in clause 15.4. immediately below,
+        Products, except as set out in clause 13.4. immediately below,
 
     4. SixtyFPS shall indemnify and hold Customer, its related companies, its
         suppliers, distributors and customers, harmless from and against any
@@ -170,7 +167,7 @@ Each Party to this Agreement may be referred to herein individually as a
         the indemnifying Party, such consent not to be unreasonably withheld or
         delayed.
 
-16. The Licensed Software is licensed to Customer "as is". To the maximum extent
+14. The Licensed Software is licensed to Customer "as is". To the maximum extent
     permitted by applicable law, SixtyFPS on behalf of itself and its suppliers,
     disclaims all warranties and conditions, either express or implied,
     including, but not limited to, implied warranties of merchantability or
@@ -181,7 +178,7 @@ Each Party to this Agreement may be referred to herein individually as a
     as far as legally permissible, Customer waives any such legal rights
     vis-à-vis SixtyFPS.
 
-17. SixtyFPS shall not under any circumstances be liable to Customer based on
+15. SixtyFPS shall not under any circumstances be liable to Customer based on
     failure of the Licensed Software if the failure resulted from Customer's
     changing of the Licensed Software, from Customer's accident, abuse or
     misapplication, nor shall either party except in case of gross negligence or
@@ -191,7 +188,7 @@ Each Party to this Agreement may be referred to herein individually as a
     the other party exceed the total amount Customer payable to SixtyFPS in
     connection with this agreement.
 
-18. Each Party shall hold Confidential Information of the other Party, its
+16. Each Party shall hold Confidential Information of the other Party, its
     customers, and licensors in confidence, and without written permission from
     will not disclose to any person or use for its own benefit, any such
     information. **Confidential Information** includes without limitation the
@@ -223,7 +220,7 @@ Each Party to this Agreement may be referred to herein individually as a
         remedies available, each Party shall be entitled to enforcement of such
         obligations by court injunction.
 
-19. During the Term, an independent, certified auditor on SixtyFPS's behalf,
+17. During the Term, an independent, certified auditor on SixtyFPS's behalf,
     may, upon its reasonable request, with 30 (thirty) days written notice, and
     at its sole expense, examine Customer's books and records solely with
     respect to Customer's use of the Licensed Software. Any such audit shall be
@@ -238,42 +235,42 @@ Each Party to this Agreement may be referred to herein individually as a
     Customer shall be provided the right to provide comments to the report
     before it is finalized.
 
-20. If Customer materially breaches this Agreement, SixtyFPS will provide a 60
+18. If Customer materially breaches this Agreement, SixtyFPS will provide a 60
     (sixty) days written notice to the Customer during which any such breach(es)
     may be cured, failing which SixtyFPS will terminate the agreement. Customer
     undertakes to pay a contractual penalty for each case of negligent breach of
-    this Agreement of EUR 10.000, which shall not be subject to a judicial right
-    of reduction. SixtyFPS shall in any case be free to assert any further
-    damage/loss or other claims. The amount of contractual penalty shall be
-    offset against claims for damages, if any.
+    this Agreement of EUR 10000 (ten thousand euros), which shall not be subject
+    to a judicial right of reduction. SixtyFPS shall in any case be free to
+    assert any further damage/loss or other claims. The amount of contractual
+    penalty shall be offset against claims for damages, if any.
 
-21. Customer may terminate this Agreement at any time for any reason upon 90
+19. Customer may terminate this Agreement at any time for any reason upon 90
     (ninety) days notice to SixtyFPS and upon payment of all applicable fees and
     contractual penalties, if any, in connection with the use of the Licensed
     Software.
 
-22. Both Parties shall comply with all applicable laws and regulations relating
+20. Both Parties shall comply with all applicable laws and regulations relating
     to the Licensed Software in the countries in which the Parties use or modify
     the Licensed Software.
 
-23. All notices and communications between the Parties shall be in  writing and
+21. All notices and communications between the Parties shall be in  writing and
     shall be deemed given when received. For avoidance of doubt, email is
     considered a written form of communication.
 
-24. This Agreement shall be construed, interpreted and governed by the laws of
+22. This Agreement shall be construed, interpreted and governed by the laws of
     the Federal Republic of Germany.
 
-25. No term or condition contained in Customer's purchase order will apply
+23. No term or condition contained in Customer's purchase order will apply
     unless expressly accepted by SixtyFPS in writing.
 
-26. Customer may assign this Agreement, in whole or in part (whether by
+24. Customer may assign this Agreement, in whole or in part (whether by
     operation of law or otherwise), with prior consent of SixtyFPS, which shall
     not be unreasonably withheld or delayed. SixtyFPS may assign this Agreement
     or any of its rights hereunder or delegate any of its obligations hereunder
     with prior notice to the Customer. Any attempt to assign this Agreement
     other than in accordance with this provision shall be null and void.
 
-27. This Agreement constitutes the complete agreement between the Parties and
+25. This Agreement constitutes the complete agreement between the Parties and
     supersedes all prior or contemporaneous discussions, representations, and
     proposals, written or oral, with respect to the subject matters discussed
     herein. No modification of this Agreement will be effective unless contained
@@ -299,8 +296,8 @@ as defined in the Agreement.
     1. Type: Ambassador / Eval / Paid
     2. Effective Date:
     3. Maintenance Period:
-    4. Number of User Seat(s):
-    5. Number of Distribution(s):
+    4. Amount of User Seat(s):
+    5. Amount of Distribution(s):
 
 2. Permitted scope of Customer's use of Licensed Software
     1. Customer's Product(s)
