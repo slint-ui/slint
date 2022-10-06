@@ -8,46 +8,49 @@
 [![REUSE status](https://api.reuse.software/badge/github.com/slint-ui/slint)](https://api.reuse.software/info/github.com/slint-ui/slint)
 [![Discussions](https://img.shields.io/github/discussions/slint-ui/slint)](https://github.com/slint-ui/slint/discussions)
 
-Slint is a toolkit to efficiently develop fluid graphical user interfaces for any display: embedded devices and desktop applications. We support multiple programming languages, such as
-Rust, C++, and JavaScript.
+Slint is a toolkit to efficiently design, develop and deploy responsive apps on any screen. Frontends built with Slint can be easily integrated with backends written in different programming languages such as C/C++, Rust, and JavaScript. Slint is developed by SixtyFPS GmbH together with the community. We invite you to use Slint and be part of its community.
 
-Our design goals are:
+## Design Goals
 
+We use the following design goals as a guide when developing Slint
+
+ - **Scalable**: Run on any screen connected to a device, from desktop computers to low end embedded systems.
  - **Lightweight**: Fit into a few hundred kilobytes of RAM and require little processing power.
- - **Straightforward**: Programmers and designers should feel productive and be able to enjoy the design and development process.
-   The APIs should be consistent, easy to use, and intuitive, no matter the target language. High-quality documentation
-   should describe the APIs, teach concepts and how to use them.
- - **Native**: We support many different target platforms, from embedded devices to desktops including mobile and web. Both the user and the developer should feel at
-   home on each platform. The look and feel and experience should match the users' expectations of a
-   native application.
+ - **Intuitive**: Both developers and designers should feel productive and enjoy the design and development process.
+   The APIs should be consistent and easy to use, no matter the target language.
+ - **Native**: Slint apps should match the users' expectations of a native application. Various target platforms such as 
+   embedded devices, desktops, mobile and web should be supported so that both the user and the developer feel comfortable on
+   their platform of choice.
 
-## Quick Start
+## Get Started
 
 Check the [online demos](#demos-running-in-webassembly-simulation) or
-[build on your own system](docs/building.md).
+[build on your own system](docs/building.md). Also check out the [documentation](#documentation).
 
 ## Current Status
 
-Slint is in active development. Its state of development depends on the kind of application.
+Slint is in active development. The state of the toolkit for each platform is as follows:
 
- - **Embedded**: *Ready!* Slint is already happily used by customers on embedded devices
+ - **Embedded**: *Ready!* Slint is already being used in production projects by customers 
    (running on an Arm processor with Linux).
- - **Microcontrollers**: *Ready*. You can make GUI working on MCU with less than 300K of RAM.
+ - **Microcontrollers** (MCU): *Ready*. Slint apps can run on MCUs with less than 300K of RAM.
    [Video of Slint on STM32](https://www.youtube.com/watch?v=NNNOJJsOAis) –
    [Video of Slint on RP2040](https://www.youtube.com/watch?v=dkBwNocItGs) – 
    [docs](https://slint-ui.com/docs/rust/slint/docs/mcu/index.html)
- - **Desktop**: *In Progress*. Slint is usable on Windows, Linux and Mac. We plan on building
-   up the desktop support in subsequent releases to reach the level of integration we're aiming for.
+ - **Desktop**: *In Progress*. While Slint is usable on Windows, Linux and Mac, we are working on
+    improving the platform support in subsequent releases to reach the level of integration that
+    have aimed for.
  - **Mobile** (Android/iOS): *Todo*. We haven't started supporting mobile platforms yet, but it
-   is our intention to do so in the future.
- - **Web**: Our focus is on Embedded and Desktop applications. We do not intend to compete in
-   the web space as a primary platform. That said, Slint can compile to WebAssembly and the
-   demos are running in a web browser. But the web support is currently limited to demo purposes.
- - **Accessibility**: Slint supports keyboard based navigation of many widgets, and user interfaces
-   are scalable. The basic infrastructure for assistive technology like screen readers is in place,
-   but requires the Qt backend at this time.
+   is our intention to do so in the near future.
+ - **Web**: *In Progress*. Slint apps can be compiled to WebAssembly and can run in a web browser.
+   As there are many other web frameworks, the web platform is not one of our primary target platforms.
+   The web support is currently limited to demo purposes.
 
-   We are aware that more work is needed to get best-of-class support for users with special needs.
+### Accessibility
+ Slint supports keyboard based navigation of many widgets, and user interfaces are scalable. 
+ The basic infrastructure for assistive technology like screen readers is in place, but currently requires 
+ the Qt backend.
+ We are aware that more work is needed to get best-of-class support for users with special needs.
 
 ### Stay up to date
 
@@ -160,26 +163,23 @@ List of some open source projects using Slint: (Contact us or open a pull reques
  - **[Project Trains Launcher](https://github.com/Project-Trains/launcher)**: Cross-platform game launcher made for Project Trains simulator.
  - **[Mastermind](https://github.com/ElevenJune/mastermind_Rust)**: Mastermind game coded in Rust.
 
+## License
+
+Slint can be used under either a [commercial license](./LICENSES/LicenseRef-Slint-commercial.md) or [GNU GPLv3](./LICENSES/GPL-3.0-only.txt), at your choice.
+
+The commercial license is provided for free if you help us promote Slint: Check out our
+[ambassador license](https://slint-ui.com/ambassador-program.html).
+
+See also the [Licensing FAQ](FAQ.md#licensing)
+
 ## Contributions
 
 We welcome your contributions: in the form of code, bug reports or feedback.
 
  * If you see an [RFC tag](https://github.com/slint-ui/slint/labels/rfc) on an issue, feel free to
    chime in.
- * For contribution guidelines see [CONTRIBUTING.md](CONTRIBUTING.md). The dual-licensing requires the
+ * For contribution guidelines see [CONTRIBUTING.md](CONTRIBUTING.md). The dual-licensing of Slint requires the
    contributor to accept a CLA.
-
-## License
-
-This software is provided under a dual licensing scheme:
-
- - **GNU GPLv3**: Open source license ideal for free software.
- - **Commercial Slint license**: <https://slint-ui.com/#offering>
-
-The commercial license is free if you help us promote Slint: Check out our
-[ambassador license](https://slint-ui.com/ambassador-program.html).
-
-See also the [Licensing FAQ](FAQ.md#licensing)
 
 ## Frequently Asked Questions
 
@@ -187,13 +187,10 @@ Please see our separate [FAQ](FAQ.md).
 
 ## About us
 
-Olivier and Simon started their open source journey in the KDE project, the popular Open Source Desktop Environment
-for Linux. Later they met while working together in a small company in Norway called Trolltech, on the Qt C++ toolkit.
-Here, they gained valuable experience in API design, cross-platform software development and user interface components.
-Simon continued in the Qt Company as one lead developer and maintainer of the QtQml engine, while Olivier
-co-founded [Woboq](https://woboq.com), a software consulting company. Years later, and now based in Berlin, they are starting a
-new project. With Slint they aim to make developing user interfaces fun for everyone: from JavaScript, C++, or
-Rust developers all the way to UI/UX designers.
+We are passionate about software - API design, cross-platform software development and user interface components.
+Our aim to make developing user interfaces fun for everyone: from JavaScript, C++, or Rust developers all the 
+way to UI/UX designers. We believe that software grows organically and keeping it open source is the best way 
+to sustain that growth. Our team members are located remotely in Germany.
 
 ## Contact us
 
