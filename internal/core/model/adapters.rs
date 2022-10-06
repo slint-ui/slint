@@ -485,26 +485,12 @@ where
         let removed_index = self.mapping.borrow().binary_search(&row).unwrap();
         self.mapping.borrow_mut().remove(removed_index);
 
-        let insertion_index = if let Some(insertion_index) = self
-            .mapping
-            .borrow()
-            .iter()
-            .enumerate()
-            .skip_while(|e| {
-                self.sort_helper.sort(
-                    // inserted value
-                    &self.wrapped_model.borrow().row_data(*e.1).unwrap(),
-                    &self.wrapped_model.borrow().row_data(row).unwrap(),
-                ) == core::cmp::Ordering::Less
-            })
-            .map(|e| e.0)
-            .collect::<Vec<usize>>()
-            .first()
-        {
-            *insertion_index
-        } else {
-            self.mapping.borrow().len()
-        };
+        let changed_data = self.wrapped_model.borrow().row_data(row).unwrap();
+        let insertion_index = self.mapping.borrow().partition_point(|existing_row| {
+            self.sort_helper
+                .sort(&self.wrapped_model.borrow().row_data(*existing_row).unwrap(), &changed_data)
+                == std::cmp::Ordering::Less
+        });
 
         self.mapping.borrow_mut().insert(insertion_index, row);
 
@@ -529,26 +515,13 @@ where
         }
 
         for row in index..(index + count) {
-            let insertion_index = if let Some(insertion_index) = self
-                .mapping
-                .borrow()
-                .iter()
-                .enumerate()
-                .skip_while(|e| {
-                    self.sort_helper.sort(
-                        // inserted value
-                        &self.wrapped_model.borrow().row_data(*e.1).unwrap(),
-                        &self.wrapped_model.borrow().row_data(row).unwrap(),
-                    ) == core::cmp::Ordering::Less
-                })
-                .map(|e| e.0)
-                .collect::<Vec<usize>>()
-                .first()
-            {
-                *insertion_index
-            } else {
-                self.mapping.borrow().len()
-            };
+            let changed_data = self.wrapped_model.borrow().row_data(row).unwrap();
+            let insertion_index = self.mapping.borrow().partition_point(|existing_row| {
+                self.sort_helper.sort(
+                    &self.wrapped_model.borrow().row_data(*existing_row).unwrap(),
+                    &changed_data,
+                ) == std::cmp::Ordering::Less
+            });
 
             self.mapping.borrow_mut().insert(insertion_index, row);
             self.notify.row_added(insertion_index, 1)
