@@ -211,7 +211,7 @@ pub trait ModelExt: Model {
     /// Returns a new Model where the elements are sorted ascending.
     /// This is a shortcut for [`SortModel::new_ascending()`].
     #[must_use]
-    fn sort(self) -> SortModel<Self>
+    fn sort(self) -> SortModel<Self, adapters::AscendingSortHelper>
     where
         Self: Sized + 'static,
         Self::Data: std::cmp::Ord,
@@ -221,7 +221,7 @@ pub trait ModelExt: Model {
 
     /// Returns a new Model where the elements are sorted by the function `sort_function`.
     /// This is a shortcut for [`SortModel::new()`].
-    fn sort_by<F>(self, sort_function: F) -> SortModel<Self>
+    fn sort_by<F>(self, sort_function: F) -> SortModel<Self, F>
     where
         Self: Sized + 'static,
         F: FnMut(&Self::Data, &Self::Data) -> std::cmp::Ordering + 'static,
