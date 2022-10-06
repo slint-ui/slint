@@ -604,7 +604,7 @@ where
 ///     SharedString::from("dolor"),
 /// ]);
 ///
-/// let sorted_model = SortModel::new(model, |lhs, rhs| lhs.to_lowercase().cmp(&rhs.to_lowercase()));
+/// let sorted_model = SortModel::new(model, ≈));
 ///
 /// assert_eq!(sorted_model.row_data(0).unwrap(), SharedString::from("dolor"));
 /// assert_eq!(sorted_model.row_data(1).unwrap(), SharedString::from("ipsum"));

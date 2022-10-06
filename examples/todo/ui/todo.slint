@@ -18,7 +18,7 @@ MainWindow := Window {
     callback popup_confirmed;
     callback show_confirm_popup;
 
-    callback sort-by-name(bool);
+    callback sort(bool, bool);
 
     show_confirm_popup => { confirm_popup.show(); }
 
@@ -53,6 +53,9 @@ MainWindow := Window {
         { title: "Profit", checked: false },
     ];
 
+    property <bool> is-sort-by-name <=> cb-sort-by-name.checked;
+    property <bool> is-sort-by-done <=> cb-sort-by-done.checked;
+
     VerticalBox {
         HorizontalBox {
             text-edit := LineEdit {
@@ -80,16 +83,20 @@ MainWindow := Window {
                 vertical-alignment: center;
             }
 
-            CheckBox {  
+            cb-sort-by-name := CheckBox {  
                 text: "Name";
 
                 toggled => {
-                    sort-by-name(checked);
+                    sort(is-sort-by-name, is-sort-by-done);
                 }
             }
 
-            CheckBox {  
+            cb-sort-by-done := CheckBox {  
                 text: "Done";
+
+                toggled => {
+                    sort(is-sort-by-name, is-sort-by-done);
+                }
             }
         }
 
