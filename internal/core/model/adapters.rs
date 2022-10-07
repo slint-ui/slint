@@ -368,7 +368,7 @@ where
             .mapping
             .borrow()
             .get(row)
-            .map(|&wrapped_row| self.0.wrapped_model.row_data(wrapped_row).unwrap())
+            .and_then(|&wrapped_row| self.0.wrapped_model.row_data(wrapped_row))
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
@@ -412,4 +412,513 @@ fn test_filter_model() {
     assert_eq!(filter.row_data(3).unwrap(), 6);
     assert_eq!(filter.row_data(4).unwrap(), 8);
     assert_eq!(filter.row_count(), 5);
+}
+
+pub trait SortHelper<D> {
+    fn cmp(&mut self, lhs: &D, rhs: &D) -> core::cmp::Ordering;
+}
+
+pub struct AscendingSortHelper;
+
+impl<D> SortHelper<D> for AscendingSortHelper
+where
+    D: core::cmp::Ord,
+{
+    fn cmp(&mut self, lhs: &D, rhs: &D) -> core::cmp::Ordering {
+        lhs.cmp(rhs)
+    }
+}
+
+impl<F, D> SortHelper<D> for F
+where
+    F: FnMut(&D, &D) -> core::cmp::Ordering + 'static,
+{
+    fn cmp(&mut self, lhs: &D, rhs: &D) -> core::cmp::Ordering {
+        (self)(lhs, rhs)
+    }
+}
+
+struct SortModelInner<M, S>
+where
+    M: Model + 'static,
+    S: SortHelper<M::Data>,
+{
+    wrapped_model: M,
+    sort_helper: RefCell<S>,
+    // This vector saves the indices of the elements in sorted order.
+    mapping: RefCell<Vec<usize>>,
+    notify: ModelNotify,
+    sorted_rows_dirty: Cell<bool>,
+}
+
+impl<M, S> SortModelInner<M, S>
+where
+    M: Model + 'static,
+    S: SortHelper<M::Data>,
+{
+    fn build_mapping_vec(&self) {
+        if !self.sorted_rows_dirty.get() {
+            return;
+        }
+
+        let mut mapping = self.mapping.borrow_mut();
+
+        mapping.clear();
+        mapping.extend((0..self.wrapped_model.row_count()).into_iter());
+        mapping.sort_by(|lhs, rhs| {
+            self.sort_helper.borrow_mut().cmp(
+                &self.wrapped_model.row_data(*lhs).unwrap(),
+                &self.wrapped_model.row_data(*rhs).unwrap(),
+            )
+        });
+
+        self.sorted_rows_dirty.set(false);
+    }
+}
+
+impl<M, S> ModelChangeListener for SortModelInner<M, S>
+where
+    M: Model + 'static,
+    S: SortHelper<M::Data>,
+{
+    fn row_changed(&self, row: usize) {
+        if self.sorted_rows_dirty.get() {
+            self.reset();
+            return;
+        }
+
+        let mut mapping = self.mapping.borrow_mut();
+        let removed_index = mapping.iter().position(|r| *r == row).unwrap();
+        mapping.remove(removed_index);
+
+        let changed_data = self.wrapped_model.row_data(row).unwrap();
+        let insertion_index = mapping.partition_point(|existing_row| {
+            self.sort_helper
+                .borrow_mut()
+                .cmp(&self.wrapped_model.row_data(*existing_row).unwrap(), &changed_data)
+                == core::cmp::Ordering::Less
+        });
+
+        mapping.insert(insertion_index, row);
+
+        drop(mapping);
+
+        if insertion_index == removed_index {
+            self.notify.row_changed(removed_index);
+        } else {
+            self.notify.row_removed(removed_index, 1);
+            self.notify.row_added(insertion_index, 1);
+        }
+    }
+
+    fn row_added(&self, index: usize, count: usize) {
+        if count == 0 {
+            return;
+        }
+
+        if self.sorted_rows_dirty.get() {
+            self.reset();
+            return;
+        }
+
+        // Adjust the existing sorted row indices to match the updated source model
+        for row in self.mapping.borrow_mut().iter_mut() {
+            if *row >= index {
+                *row += count;
+            }
+        }
+
+        for row in index..(index + count) {
+            let added_data = self.wrapped_model.row_data(row).unwrap();
+            let insertion_index = self.mapping.borrow().partition_point(|existing_row| {
+                self.sort_helper
+                    .borrow_mut()
+                    .cmp(&self.wrapped_model.row_data(*existing_row).unwrap(), &added_data)
+                    == core::cmp::Ordering::Less
+            });
+
+            self.mapping.borrow_mut().insert(insertion_index, row);
+            self.notify.row_added(insertion_index, 1)
+        }
+    }
+
+    fn row_removed(&self, index: usize, count: usize) {
+        if count == 0 {
+            return;
+        }
+
+        if self.sorted_rows_dirty.get() {
+            self.reset();
+            return;
+        }
+
+        let mut removed_rows = Vec::new();
+
+        let mut i = 0;
+
+        loop {
+            if i >= self.mapping.borrow().len() {
+                break;
+            }
+
+            let sort_index = self.mapping.borrow()[i];
+
+            if sort_index >= index {
+                if sort_index < index + count {
+                    removed_rows.push(i);
+                    self.mapping.borrow_mut().remove(i);
+                    continue;
+                } else {
+                    self.mapping.borrow_mut()[i] -= count;
+                }
+            }
+
+            i += 1;
+        }
+
+        for removed_row in removed_rows {
+            self.notify.row_removed(removed_row, 1);
+        }
+    }
+
+    fn reset(&self) {
+        self.sorted_rows_dirty.set(true);
+        self.notify.reset();
+    }
+}
+
+/// Provides a sorted view of rows by another [`Model`].
+///
+/// When the other Model is updated, the `Sorted` is updated accordingly.
+///
+/// ## Example
+///
+/// Here we have a [`VecModel`] holding [`SharedString`]s.
+/// It is then sorted into a `SortModel`.
+///
+/// ```
+/// # use slint::{Model, VecModel, SharedString, SortModel};
+/// let model = VecModel::from(vec![
+///     SharedString::from("Lorem"),
+///     SharedString::from("ipsum"),
+///     SharedString::from("dolor"),
+/// ]);
+///
+/// let sorted_model = SortModel::new(model, |lhs, rhs| lhs.to_lowercase().cmp(&rhs.to_lowercase()));
+///
+/// assert_eq!(sorted_model.row_data(0).unwrap(), SharedString::from("dolor"));
+/// assert_eq!(sorted_model.row_data(1).unwrap(), SharedString::from("ipsum"));
+/// assert_eq!(sorted_model.row_data(2).unwrap(), SharedString::from("Lorem"));
+/// ```
+///
+/// Alternatively you can use the shortcut [`ModelExt::sort_by`].
+/// ```
+/// # use slint::{Model, ModelExt, VecModel, SharedString, SortModel};
+/// let sorted_model = VecModel::from(vec![
+///     SharedString::from("Lorem"),
+///     SharedString::from("ipsum"),
+///     SharedString::from("dolor"),
+/// ]).sort_by(|lhs, rhs| lhs.to_lowercase().cmp(&rhs.to_lowercase()));
+/// # assert_eq!(sorted_model.row_data(0).unwrap(), SharedString::from("dolor"));
+/// # assert_eq!(sorted_model.row_data(1).unwrap(), SharedString::from("ipsum"));
+/// # assert_eq!(sorted_model.row_data(2).unwrap(), SharedString::from("Lorem"));
+/// ```
+///
+/// It is also possible to get a ascending sorted  `SortModel` order for `core::cmp::Ord` type items.
+///
+/// ```
+/// # use slint::{Model, VecModel, SortModel};
+/// let model = VecModel::from(vec![
+///     5,
+///     1,
+///     3,
+/// ]);
+///
+/// let sorted_model = SortModel::new_ascending(model);
+///
+/// assert_eq!(sorted_model.row_data(0).unwrap(), 1);
+/// assert_eq!(sorted_model.row_data(1).unwrap(), 3);
+/// assert_eq!(sorted_model.row_data(2).unwrap(), 5);
+/// ```
+///
+/// Alternatively you can use the shortcut [`ModelExt::sort`].
+/// ```
+/// # use slint::{Model, ModelExt, VecModel, SharedString, SortModel};
+/// let sorted_model = VecModel::from(vec![
+///     5,
+///     1,
+///     3,
+/// ]).sort();
+/// # assert_eq!(sorted_model.row_data(0).unwrap(), 1);
+/// # assert_eq!(sorted_model.row_data(1).unwrap(), 3);
+/// # assert_eq!(sorted_model.row_data(2).unwrap(), 5);
+/// ```
+///
+/// If you want to modify the underlying [`VecModel`] you can give it a [`Rc`] of the SortModel:
+/// ```
+/// # use std::rc::Rc;
+/// # use slint::{Model, VecModel, SharedString, SortModel};
+/// let model = Rc::new(VecModel::from(vec![
+///     SharedString::from("Lorem"),
+///     SharedString::from("ipsum"),
+///     SharedString::from("dolor"),
+/// ]));
+///
+/// let sorted_model = SortModel::new(model.clone(), |lhs, rhs| lhs.to_lowercase().cmp(&rhs.to_lowercase()));
+///
+/// assert_eq!(sorted_model.row_data(0).unwrap(), SharedString::from("dolor"));
+/// assert_eq!(sorted_model.row_data(1).unwrap(), SharedString::from("ipsum"));
+/// assert_eq!(sorted_model.row_data(2).unwrap(), SharedString::from("Lorem"));
+///
+/// model.set_row_data(1, SharedString::from("opsom"));
+///
+/// assert_eq!(sorted_model.row_data(0).unwrap(), SharedString::from("dolor"));
+/// assert_eq!(sorted_model.row_data(1).unwrap(), SharedString::from("Lorem"));
+/// assert_eq!(sorted_model.row_data(2).unwrap(), SharedString::from("opsom"));
+/// ```
+pub struct SortModel<M, S>(Pin<Box<ModelChangeListenerContainer<SortModelInner<M, S>>>>)
+where
+    M: Model + 'static,
+    S: SortHelper<M::Data>;
+
+impl<M, F> SortModel<M, F>
+where
+    M: Model + 'static,
+    F: FnMut(&M::Data, &M::Data) -> core::cmp::Ordering + 'static,
+{
+    /// Creates a new SortModel based on the given `wrapped_model` and sorted by `sort_function`.
+    /// Alternativly you can use [`ModelExt::sort_by`] on your Model.
+    pub fn new(wrapped_model: M, sort_function: F) -> Self
+    where
+        F: FnMut(&M::Data, &M::Data) -> core::cmp::Ordering + 'static,
+    {
+        let sorted_model_inner = SortModelInner {
+            wrapped_model,
+            sort_helper: RefCell::new(sort_function),
+            mapping: RefCell::new(Vec::new()),
+            notify: Default::default(),
+            sorted_rows_dirty: Cell::new(true),
+        };
+
+        let container = Box::pin(ModelChangeListenerContainer::new(sorted_model_inner));
+
+        container.wrapped_model.model_tracker().attach_peer(container.as_ref().model_peer());
+
+        Self(container)
+    }
+}
+
+impl<M> SortModel<M, AscendingSortHelper>
+where
+    M: Model + 'static,
+    M::Data: core::cmp::Ord,
+{
+    /// Creates a new SortModel based on the given `wrapped_model` and sorted in ascending order.
+    /// Alternativly you can use [`ModelExt::sort`] on your Model.
+    pub fn new_ascending(wrapped_model: M) -> Self
+    where
+        M::Data: core::cmp::Ord,
+    {
+        let sorted_model_inner = SortModelInner {
+            wrapped_model,
+            sort_helper: RefCell::new(AscendingSortHelper),
+            mapping: RefCell::new(Vec::new()),
+            notify: Default::default(),
+            sorted_rows_dirty: Cell::new(true),
+        };
+
+        let container = Box::pin(ModelChangeListenerContainer::new(sorted_model_inner));
+
+        container.wrapped_model.model_tracker().attach_peer(container.as_ref().model_peer());
+
+        Self(container)
+    }
+
+    /// Manually reapply the sorting. You need to run this e.g. if the sort function compares
+    /// against mutable state and it has changed.
+    pub fn apply_sorting(&self) {
+        self.0.reset();
+    }
+
+    /// Gets the row index of the underlying unsorted model for a given sorted row index.
+    pub fn unsorted_row(&self, sorted_row: usize) -> usize {
+        self.0.build_mapping_vec();
+        self.0.mapping.borrow()[sorted_row]
+    }
+}
+
+impl<M, S> Model for SortModel<M, S>
+where
+    M: Model + 'static,
+    S: SortHelper<M::Data>,
+{
+    type Data = M::Data;
+
+    fn row_count(&self) -> usize {
+        self.0.wrapped_model.row_count()
+    }
+
+    fn row_data(&self, row: usize) -> Option<Self::Data> {
+        self.0.build_mapping_vec();
+
+        self.0
+            .mapping
+            .borrow()
+            .get(row)
+            .and_then(|&wrapped_row| self.0.wrapped_model.row_data(wrapped_row))
+    }
+
+    fn model_tracker(&self) -> &dyn ModelTracker {
+        &self.0.notify
+    }
+}
+
+#[cfg(test)]
+mod sort_tests {
+    use super::*;
+
+    #[derive(Default)]
+    struct TestView {
+        // Track the parameters reported by the model (row counts, indices, etc.).
+        // The last field in the tuple is the row size the model reports at the time
+        // of callback
+        changed_rows: RefCell<Vec<usize>>,
+        added_rows: RefCell<Vec<(usize, usize)>>,
+        removed_rows: RefCell<Vec<(usize, usize)>>,
+        reset: RefCell<usize>,
+    }
+
+    impl TestView {
+        fn clear(&self) {
+            self.changed_rows.borrow_mut().clear();
+            self.added_rows.borrow_mut().clear();
+            self.removed_rows.borrow_mut().clear();
+        }
+    }
+
+    impl ModelChangeListener for TestView {
+        fn row_changed(&self, row: usize) {
+            self.changed_rows.borrow_mut().push(row);
+        }
+
+        fn row_added(&self, index: usize, count: usize) {
+            self.added_rows.borrow_mut().push((index, count));
+        }
+
+        fn row_removed(&self, index: usize, count: usize) {
+            self.removed_rows.borrow_mut().push((index, count));
+        }
+        fn reset(&self) {
+            *self.reset.borrow_mut() += 1;
+        }
+    }
+
+    #[test]
+    fn test_sorted_model_insert() {
+        let wrapped_rc = Rc::new(VecModel::from(vec![3, 4, 1, 2]));
+        let sorted_model = SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs.cmp(rhs));
+
+        let observer = Box::pin(ModelChangeListenerContainer::<TestView>::default());
+        sorted_model.model_tracker().attach_peer(Pin::as_ref(&observer).model_peer());
+
+        assert_eq!(sorted_model.row_count(), 4);
+        assert_eq!(sorted_model.row_data(0).unwrap(), 1);
+        assert_eq!(sorted_model.row_data(1).unwrap(), 2);
+        assert_eq!(sorted_model.row_data(2).unwrap(), 3);
+        assert_eq!(sorted_model.row_data(3).unwrap(), 4);
+
+        wrapped_rc.insert(0, 10);
+
+        assert_eq!(observer.added_rows.borrow().len(), 1);
+        assert!(observer.added_rows.borrow().eq(&[(4, 1)]));
+        assert!(observer.changed_rows.borrow().is_empty());
+        assert!(observer.removed_rows.borrow().is_empty());
+        assert_eq!(*observer.reset.borrow(), 0);
+        observer.clear();
+
+        assert_eq!(sorted_model.row_count(), 5);
+        assert_eq!(sorted_model.row_data(0).unwrap(), 1);
+        assert_eq!(sorted_model.row_data(1).unwrap(), 2);
+        assert_eq!(sorted_model.row_data(2).unwrap(), 3);
+        assert_eq!(sorted_model.row_data(3).unwrap(), 4);
+        assert_eq!(sorted_model.row_data(4).unwrap(), 10);
+    }
+
+    #[test]
+    fn test_sorted_model_remove() {
+        let wrapped_rc = Rc::new(VecModel::from(vec![3, 4, 1, 2]));
+        let sorted_model = SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs.cmp(rhs));
+
+        let observer = Box::pin(ModelChangeListenerContainer::<TestView>::default());
+        sorted_model.model_tracker().attach_peer(Pin::as_ref(&observer).model_peer());
+
+        assert_eq!(sorted_model.row_count(), 4);
+        assert_eq!(sorted_model.row_data(0).unwrap(), 1);
+        assert_eq!(sorted_model.row_data(1).unwrap(), 2);
+        assert_eq!(sorted_model.row_data(2).unwrap(), 3);
+        assert_eq!(sorted_model.row_data(3).unwrap(), 4);
+
+        // Remove the entry with the value 4
+        wrapped_rc.remove(1);
+
+        assert!(observer.added_rows.borrow().is_empty());
+        assert!(observer.changed_rows.borrow().is_empty());
+        assert_eq!(observer.removed_rows.borrow().len(), 1);
+        assert!(observer.removed_rows.borrow().eq(&[(3, 1)]));
+        assert_eq!(*observer.reset.borrow(), 0);
+        observer.clear();
+
+        assert_eq!(sorted_model.row_count(), 3);
+        assert_eq!(sorted_model.row_data(0).unwrap(), 1);
+        assert_eq!(sorted_model.row_data(1).unwrap(), 2);
+        assert_eq!(sorted_model.row_data(2).unwrap(), 3);
+    }
+
+    #[test]
+    fn test_sorted_model_changed() {
+        let wrapped_rc = Rc::new(VecModel::from(vec![3, 4, 1, 2]));
+        let sorted_model = SortModel::new(wrapped_rc.clone(), |lhs, rhs| lhs.cmp(rhs));
+
+        let observer = Box::pin(ModelChangeListenerContainer::<TestView>::default());
+        sorted_model.model_tracker().attach_peer(Pin::as_ref(&observer).model_peer());
+
+        assert_eq!(sorted_model.row_count(), 4);
+        assert_eq!(sorted_model.row_data(0).unwrap(), 1);
+        assert_eq!(sorted_model.row_data(1).unwrap(), 2);
+        assert_eq!(sorted_model.row_data(2).unwrap(), 3);
+        assert_eq!(sorted_model.row_data(3).unwrap(), 4);
+
+        // Change the entry with the value 4 to 10 -> maintain order
+        wrapped_rc.set_row_data(1, 10);
+
+        assert!(observer.added_rows.borrow().is_empty());
+        assert_eq!(observer.changed_rows.borrow().len(), 1);
+        assert_eq!(*observer.changed_rows.borrow().get(0).unwrap(), 3);
+        assert!(observer.removed_rows.borrow().is_empty());
+        assert_eq!(*observer.reset.borrow(), 0);
+        observer.clear();
+
+        assert_eq!(sorted_model.row_count(), 4);
+        assert_eq!(sorted_model.row_data(0).unwrap(), 1);
+        assert_eq!(sorted_model.row_data(1).unwrap(), 2);
+        assert_eq!(sorted_model.row_data(2).unwrap(), 3);
+        assert_eq!(sorted_model.row_data(3).unwrap(), 10);
+
+        // Change the entry with the value 10 to 0 -> new order with remove and insert
+        wrapped_rc.set_row_data(1, 0);
+
+        assert_eq!(observer.added_rows.borrow().len(), 1);
+        assert!(observer.added_rows.borrow().get(0).unwrap().eq(&(0, 1)));
+        assert!(observer.changed_rows.borrow().is_empty());
+        assert_eq!(observer.removed_rows.borrow().len(), 1);
+        assert!(observer.removed_rows.borrow().get(0).unwrap().eq(&(3, 1)));
+        assert_eq!(*observer.reset.borrow(), 0);
+        observer.clear();
+
+        assert_eq!(sorted_model.row_count(), 4);
+        assert_eq!(sorted_model.row_data(0).unwrap(), 0);
+        assert_eq!(sorted_model.row_data(1).unwrap(), 1);
+        assert_eq!(sorted_model.row_data(2).unwrap(), 2);
+        assert_eq!(sorted_model.row_data(3).unwrap(), 3);
+    }
 }

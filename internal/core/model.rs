@@ -10,7 +10,7 @@ use crate::item_tree::TraversalOrder;
 use crate::items::ItemRef;
 use crate::layout::Orientation;
 use crate::{Coord, Property, SharedString, SharedVector};
-pub use adapters::{FilterModel, MapModel};
+pub use adapters::{FilterModel, MapModel, SortModel};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
@@ -206,6 +206,27 @@ pub trait ModelExt: Model {
         F: Fn(&Self::Data) -> bool + 'static,
     {
         FilterModel::new(self, filter_function)
+    }
+
+    /// Returns a new Model where the elements are sorted ascending.
+    /// This is a shortcut for [`SortModel::new_ascending()`].
+    #[must_use]
+    fn sort(self) -> SortModel<Self, adapters::AscendingSortHelper>
+    where
+        Self: Sized + 'static,
+        Self::Data: core::cmp::Ord,
+    {
+        SortModel::new_ascending(self)
+    }
+
+    /// Returns a new Model where the elements are sorted by the function `sort_function`.
+    /// This is a shortcut for [`SortModel::new()`].
+    fn sort_by<F>(self, sort_function: F) -> SortModel<Self, F>
+    where
+        Self: Sized + 'static,
+        F: FnMut(&Self::Data, &Self::Data) -> core::cmp::Ordering + 'static,
+    {
+        SortModel::new(self, sort_function)
     }
 }
 
