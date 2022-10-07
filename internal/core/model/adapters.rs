@@ -768,6 +768,11 @@ where
             .and_then(|&wrapped_row| self.0.wrapped_model.row_data(wrapped_row))
     }
 
+    fn set_row_data(&self, row: usize, data: Self::Data) {
+        let mapped_row = self.0.mapping.borrow().binary_search(&row).unwrap();
+        self.0.wrapped_model.set_row_data(mapped_row, data);
+    }
+
     fn model_tracker(&self) -> &dyn ModelTracker {
         &self.0.notify
     }
