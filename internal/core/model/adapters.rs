@@ -501,6 +501,8 @@ where
 
         mapping.insert(insertion_index, row);
 
+        drop(mapping);
+
         if insertion_index == removed_index {
             self.notify.row_changed(removed_index);
         } else {
