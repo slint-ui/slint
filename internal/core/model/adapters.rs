@@ -567,7 +567,7 @@ where
                     self.mapping.borrow_mut().remove(i);
                     continue;
                 } else {
-                    *self.mapping.borrow_mut().get_mut(i).unwrap() -= count;
+                    *self.mapping.borrow_mut()[i] -= count;
                 }
             }
 
