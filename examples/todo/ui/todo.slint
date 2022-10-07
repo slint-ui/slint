@@ -18,7 +18,7 @@ MainWindow := Window {
     callback popup_confirmed;
     callback show_confirm_popup;
 
-    callback sort(bool, bool);
+    callback sort();
 
     show_confirm_popup => { confirm_popup.show(); }
 
@@ -54,7 +54,6 @@ MainWindow := Window {
     ];
 
     property <bool> is-sorting-enabled: false;
-    property <bool> is-sort-by-name <=> cb-sort-by-name.checked;
     property <bool> is-sort-by-done <=> cb-sort-by-done.checked;
 
     VerticalBox {
@@ -80,24 +79,11 @@ MainWindow := Window {
             visible: is-sorting-enabled;
             alignment: start; 
 
-            Text {  
-                text: "Sorty by";
-                vertical-alignment: center;
-            }
-
-            cb-sort-by-name := CheckBox {  
-                text: "Name";
-
-                toggled => {
-                    sort(is-sort-by-name, is-sort-by-done);
-                }
-            }
-
             cb-sort-by-done := CheckBox {  
-                text: "Done";
+                text: "Sort by done";
 
                 toggled => {
-                    sort(is-sort-by-name, is-sort-by-done);
+                    sort();
                 }
             }
         }

@@ -71,24 +71,17 @@ pub fn main() {
     main_window.on_sort({
         let todo_model = todo_model.clone();
 
-        move |sort_by_name, sort_by_done| {
-            if !sort_by_name && !sort_by_done {
-                weak_window.unwrap().set_todo_model(todo_model.clone().into());
+        move || {
+            let window = weak_window.unwrap();
+
+            if !window.get_is_sort_by_done() {
+                window.set_todo_model(todo_model.clone().into());
                 return;
             }
-
-            if sort_by_name {
-                weak_window.unwrap().set_todo_model(
-                    Rc::new(SortModel::new(weak_window.unwrap().get_todo_model(), |lhs, rhs| {
-                        lhs.title.to_lowercase().cmp(&rhs.title.to_lowercase())
-                    }))
-                    .into(),
-                )
-            }
-
-            if sort_by_done {
-                weak_window.unwrap().set_todo_model(
-                    Rc::new(SortModel::new(weak_window.unwrap().get_todo_model(), |lhs, rhs| {
+            
+            if window.get_is_sort_by_done() {
+                window.set_todo_model(
+                    Rc::new(SortModel::new(window.get_todo_model(), |lhs, rhs| {
                         rhs.checked.cmp(&lhs.checked)
                     }))
                     .into(),
