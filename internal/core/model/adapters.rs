@@ -488,7 +488,7 @@ where
         }
 
         let mut mapping = self.mapping.borrow_mut();
-        let removed_index = mapping.binary_search(&row).unwrap();
+        let removed_index = mapping.iter().find(|r| **r == row).copied().unwrap();
         mapping.remove(removed_index);
 
         let changed_data = self.wrapped_model.row_data(row).unwrap();
