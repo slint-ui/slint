@@ -559,7 +559,7 @@ where
                 break;
             }
 
-            let sort_index = *self.mapping.borrow().get(i).unwrap();
+            let sort_index = *self.mapping.borrow()[i];
 
             if sort_index >= index {
                 if sort_index < index + count {
