@@ -550,7 +550,7 @@ where
             return;
         }
 
-        let mut removed_rows = vec![];
+        let mut removed_rows = Vec::new();
 
         let mut i = 0;
 

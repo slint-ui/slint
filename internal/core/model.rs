@@ -214,7 +214,7 @@ pub trait ModelExt: Model {
     fn sort(self) -> SortModel<Self, adapters::AscendingSortHelper>
     where
         Self: Sized + 'static,
-        Self::Data: std::cmp::Ord,
+        Self::Data: core::cmp::Ord,
     {
         SortModel::new_ascending(self)
     }
@@ -224,7 +224,7 @@ pub trait ModelExt: Model {
     fn sort_by<F>(self, sort_function: F) -> SortModel<Self, F>
     where
         Self: Sized + 'static,
-        F: FnMut(&Self::Data, &Self::Data) -> std::cmp::Ordering + 'static,
+        F: FnMut(&Self::Data, &Self::Data) -> core::cmp::Ordering + 'static,
     {
         SortModel::new(self, sort_function)
     }
