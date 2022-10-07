@@ -769,7 +769,7 @@ where
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
-        let mapped_row = self.0.mapping.borrow().binary_search(&row).unwrap();
+        let mapped_row = self.0.mapping.borrow().iter().position(|r| *r == row).unwrap();
         self.0.wrapped_model.set_row_data(mapped_row, data);
     }
 
