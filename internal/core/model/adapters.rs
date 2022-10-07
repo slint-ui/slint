@@ -559,7 +559,7 @@ where
                 break;
             }
 
-            let sort_index = *self.mapping.borrow()[i];
+            let sort_index = self.mapping.borrow()[i];
 
             if sort_index >= index {
                 if sort_index < index + count {
@@ -567,7 +567,7 @@ where
                     self.mapping.borrow_mut().remove(i);
                     continue;
                 } else {
-                    *self.mapping.borrow_mut()[i] -= count;
+                    self.mapping.borrow_mut()[i] -= count;
                 }
             }
 
