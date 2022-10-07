@@ -5,3 +5,5 @@ node_modules
 tools/figma_import/target
 tools/figma_import/figma_output
 *.code-workspace
+/build
+/_deps
