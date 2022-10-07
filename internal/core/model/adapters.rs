@@ -527,11 +527,11 @@ where
         }
 
         for row in index..(index + count) {
-            let changed_data = self.wrapped_model.row_data(row).unwrap();
+            let added_data = self.wrapped_model.row_data(row).unwrap();
             let insertion_index = self.mapping.borrow().partition_point(|existing_row| {
                 self.sort_helper
                     .borrow_mut()
-                    .cmp(&self.wrapped_model.row_data(*existing_row).unwrap(), &changed_data)
+                    .cmp(&self.wrapped_model.row_data(*existing_row).unwrap(), &added_data)
                     == core::cmp::Ordering::Less
             });
 
