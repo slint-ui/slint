@@ -368,7 +368,7 @@ where
             .mapping
             .borrow()
             .get(row)
-            .map(|&wrapped_row| self.0.wrapped_model.row_data(wrapped_row).unwrap())
+            .and_then(|&wrapped_row| self.0.wrapped_model.row_data(wrapped_row))
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
@@ -487,18 +487,19 @@ where
             return;
         }
 
-        let removed_index = self.mapping.borrow().binary_search(&row).unwrap();
-        self.mapping.borrow_mut().remove(removed_index);
+        let mut mapping = self.mapping.borrow_mut();
+        let removed_index = mapping.binary_search(&row).unwrap();
+        mapping.remove(removed_index);
 
         let changed_data = self.wrapped_model.row_data(row).unwrap();
-        let insertion_index = self.mapping.borrow().partition_point(|existing_row| {
+        let insertion_index = mapping.partition_point(|existing_row| {
             self.sort_helper
                 .borrow_mut()
                 .cmp(&self.wrapped_model.row_data(*existing_row).unwrap(), &changed_data)
                 == core::cmp::Ordering::Less
         });
 
-        self.mapping.borrow_mut().insert(insertion_index, row);
+        mapping.insert(insertion_index, row);
 
         if insertion_index == removed_index {
             self.notify.row_changed(removed_index);
@@ -762,7 +763,7 @@ where
             .mapping
             .borrow()
             .get(row)
-            .map(|&wrapped_row| self.0.wrapped_model.row_data(wrapped_row).unwrap())
+            .and_then(|&wrapped_row| self.0.wrapped_model.row_data(wrapped_row))
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
