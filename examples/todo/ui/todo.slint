@@ -54,8 +54,8 @@ MainWindow := Window {
     ];
 
     property <bool> is-header-visible: false;
-    property <bool> is-sort-by-name <=> cb-sort-by-name.checked;
-    property <bool> is-filter-done <=> cb-filter-done.checked;
+    property <bool> is-sort-by-name: false;
+    property <bool> is-filter-done: false;
 
     VerticalBox {
         HorizontalBox {
@@ -76,20 +76,21 @@ MainWindow := Window {
             }
         }
 
-        HorizontalBox { 
-            visible: is-header-visible;
+        if (is-header-visible) : HorizontalBox { 
             alignment: start; 
 
-            cb-sort-by-name := CheckBox {  
+            CheckBox {  
                 text: "Sort by name";
+                checked <=> is-sort-by-name;
 
                 toggled => {
                     sort_filter();
                 }
             }
 
-            cb-filter-done := CheckBox {  
+            CheckBox {  
                 text: "Hide done items";
+                checked <=> is-filter-done;
 
                 toggled => {
                     sort_filter();

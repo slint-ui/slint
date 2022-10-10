@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use slint::{Model, SortModel, FilterModel};
+use slint::{FilterModel, Model, SortModel};
 use std::rc::Rc;
 
 #[cfg(target_arch = "wasm32")]
@@ -76,13 +76,10 @@ pub fn main() {
 
             if window.get_is_filter_done() {
                 window.set_todo_model(
-                    Rc::new(FilterModel::new(window.get_todo_model(), |e| {
-                        !e.checked
-                    }))
-                    .into(),
+                    Rc::new(FilterModel::new(window.get_todo_model(), |e| !e.checked)).into(),
                 );
             }
-            
+
             if window.get_is_sort_by_name() {
                 window.set_todo_model(
                     Rc::new(SortModel::new(window.get_todo_model(), |lhs, rhs| {
