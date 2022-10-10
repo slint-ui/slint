@@ -18,7 +18,7 @@ MainWindow := Window {
     callback popup_confirmed;
     callback show_confirm_popup;
 
-    callback sort();
+    callback sort_filter();
 
     show_confirm_popup => { confirm_popup.show(); }
 
@@ -54,7 +54,8 @@ MainWindow := Window {
     ];
 
     property <bool> is-sorting-enabled: false;
-    property <bool> is-sort-by-done <=> cb-sort-by-done.checked;
+    property <bool> is-sort-by-name <=> cb-sort-by-name.checked;
+    property <bool> is-filter-done <=> cb-filter-done.checked;
 
     VerticalBox {
         HorizontalBox {
@@ -79,16 +80,20 @@ MainWindow := Window {
             visible: is-sorting-enabled;
             alignment: start; 
 
-            cb-sort-by-done := CheckBox {  
-                text: "Sort by done";
+            cb-sort-by-name := CheckBox {  
+                text: "Sort by name";
 
                 toggled => {
-                    sort();
+                    sort_filter();
                 }
             }
 
-            LineEdit {
-                placeholder-text: "Search by name 🔍";
+            cb-filter-done := CheckBox {  
+                text: "Hide done items";
+
+                toggled => {
+                    sort_filter();
+                }
             }
         }
 

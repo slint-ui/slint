@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use slint::{Model, SortModel};
+use slint::{Model, SortModel, FilterModel};
 use std::rc::Rc;
 
 #[cfg(target_arch = "wasm32")]
@@ -66,23 +66,27 @@ pub fn main() {
         });
     }
 
-    let weak_window = main_window.as_weak();
-
-    main_window.on_sort({
+    main_window.on_sort_filter({
+        let weak_window = main_window.as_weak();
         let todo_model = todo_model.clone();
 
         move || {
             let window = weak_window.unwrap();
+            window.set_todo_model(todo_model.clone().into());
 
-            if !window.get_is_sort_by_done() {
-                window.set_todo_model(todo_model.clone().into());
-                return;
+            if window.get_is_filter_done() {
+                window.set_todo_model(
+                    Rc::new(FilterModel::new(window.get_todo_model(), |e| {
+                        !e.checked
+                    }))
+                    .into(),
+                );
             }
             
-            if window.get_is_sort_by_done() {
+            if window.get_is_sort_by_name() {
                 window.set_todo_model(
                     Rc::new(SortModel::new(window.get_todo_model(), |lhs, rhs| {
-                        rhs.checked.cmp(&lhs.checked)
+                        lhs.title.to_lowercase().cmp(&rhs.title.to_lowercase())
                     }))
                     .into(),
                 );
