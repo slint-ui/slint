@@ -53,7 +53,7 @@ MainWindow := Window {
         { title: "Profit", checked: false },
     ];
 
-    property <bool> is-sorting-enabled: false;
+    property <bool> is-header-visible: false;
     property <bool> is-sort-by-name <=> cb-sort-by-name.checked;
     property <bool> is-filter-done <=> cb-filter-done.checked;
 
@@ -77,7 +77,7 @@ MainWindow := Window {
         }
 
         HorizontalBox { 
-            visible: is-sorting-enabled;
+            visible: is-header-visible;
             alignment: start; 
 
             cb-sort-by-name := CheckBox {  
