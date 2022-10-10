@@ -1,4 +1,4 @@
-# ![Slint](./logo/slint-logo-full-light.svg#gh-light-mode-only)![Slint](./logo/slint-logo-full-dark.svg#gh-dark-mode-only)
+# ![Slint](./logo/slint-logo-full-light.svg#gh-light-mode-only)![Slint](./logo/slint-logo-full-white.svg#gh-dark-mode-only)
 
 <!-- cSpell: ignore ChipTrack Moiré Trolltech valign Woboq -->
 

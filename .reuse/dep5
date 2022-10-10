@@ -11,7 +11,7 @@ Files: .clang-format .gitattributes .gitignore */.gitignore .pre-commit-config.y
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-Files: CHANGELOG.md CONTRIBUTING.md FAQ.md README.md internal/*/README.md editors/README.md internal/*/CHANGELOG.md api/*/README.md api/*/README.md tools/*/README.md tools/*/CHANGELOG.md
+Files: *.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
@@ -23,11 +23,11 @@ Files: helper_crates/const-field-offset/*
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: MIT or Apache-2.0
 
-Files:  api/cpp/docs/* docs/* api/*/*.json api/rs/slint/migration.md api/rs/slint/mcu.md
+Files:  api/cpp/docs/* docs/* api/*/*.json 
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-Files: examples/README.md examples/*/README.md examples/*.json examples/*/README examples/*/README.txt examples/qt_viewer/interface.ui
+Files:  examples/*.json examples/*/README examples/*/README.txt examples/qt_viewer/interface.ui
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 
