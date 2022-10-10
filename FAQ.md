@@ -41,18 +41,18 @@ languages.
 Slint can be used under either a [commercial license](./LICENSES/LicenseRef-Slint-commercial.md) or [GNU GPLv3](./LICENSES/GPL-3.0-only.txt), at your choice.
 
 The commercial license can be provided for free if you help us promote Slint: Check out our
-[ambassador license](https://slint-ui.com/ambassador-program.html).
+[ambassador program](https://slint-ui.com/ambassador-program.html).
 
 ## What are the commercial licensing options?
 
 We offer 3 options under the commercial license - Ambassador, Flex and Buyout. All 3 options include a non-exclusive, perpetual, irrevocable, non-transferable right to use Slint.
 
-The Ambassador license is a free license that can be provided in lieu of helping us promote Slint.
+The Ambassador option is a free license that can be provided in lieu of helping us promote Slint.
 
-The Flex license is a per User-Seat license (with updates included as long as the subscription is active) to develop apps with Slint.
+The Flex option is a per User-Seat license (with updates included as long as the subscription is active) to develop apps with Slint.
 Distribution of such apps requires additional fees.
 
-The Buyout license is a volume-based buyout license that includes unlimited User-Seats (with updates included) to develop apps with Slint as well as distribute such apps up to the purchased volume.
+The Buyout option is a volume-based buyout license that includes unlimited User-Seats (with updates included) to develop apps with Slint as well as distribute such apps up to the purchased volume.
 
 ## Can I try Slint using the GPL version and then switch to the commercial license later?
 
@@ -64,8 +64,4 @@ Yes, check out our [Ambassador program](https://slint-ui.com/ambassador-program.
 
 ## I want to develop a free software product using Slint, but I don't like the GPL and prefer to use a non-copyleft license.
 
-A couple of options could be:
-
-  * publish your own source code under a permissive license compatible with the GPL, such as BSD, MIT, or Apache license. However, the binary or the package
-    containing Slint needs to be licensed under GPL,
-  * consider of one of our [commercial licensing options](#what-are-the-commercial-licensing-options).
+You can publish your own source code under a permissive license compatible with the GPL, such as BSD, MIT, or Apache license. However, the binary or the package containing Slint needs to be licensed under GPL.
