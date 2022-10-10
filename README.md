@@ -22,11 +22,6 @@ We use the following design goals as a guide when developing Slint
    embedded devices, desktops, mobile and web should be supported so that both the user and the developer feel comfortable on
    their platform of choice.
 
-## Get Started
-
-Check the [online demos](#demos-running-in-webassembly-simulation) or
-[build on your own system](docs/building.md). Also check out the [documentation](#documentation).
-
 ## Current Status
 
 Slint is in active development. The state of the toolkit for each platform is as follows:
