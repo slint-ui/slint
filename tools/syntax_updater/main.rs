@@ -313,7 +313,7 @@ fn fold_node(
     {
         return Ok(true);
     }
-    if (args.fully_qualify || args.move_declaration || args.new_component_declaration)
+    if (args.fully_qualify || args.move_declaration)
         && experiments::lookup_changes::fold_node(node, file, state, args)?
     {
         return Ok(true);
