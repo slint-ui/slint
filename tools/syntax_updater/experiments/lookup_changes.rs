@@ -200,8 +200,6 @@ fn move_properties_to_root(
         return Ok(false);
     }
     let mut seen_brace = false;
-    let mut generated_sub_element = false;
-    let element = node.clone().into();
     for c in node.children_with_tokens() {
         let k = c.kind();
         if k == SyntaxKind::LBrace {
@@ -235,23 +233,10 @@ fn move_properties_to_root(
             seen_brace = false;
         }
 
-        if args.new_component_declaration {
-            if super::new_component_declaration::process_component_node(
-                &element,
-                &c,
-                file,
-                &mut generated_sub_element,
-                state,
-                args,
-            )? {
-                continue;
-            }
-        }
-
         if k == SyntaxKind::RBrace {
-            file.write_all(
-                &**std::mem::take(&mut state.lookup_change.extra_component_stuff).borrow(),
-            )?;
+            file.write_all(&*std::mem::take(
+                &mut *state.lookup_change.extra_component_stuff.borrow_mut(),
+            ))?;
         }
         crate::visit_node_or_token(c, file, state, args)?;
     }
