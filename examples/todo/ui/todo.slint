@@ -18,7 +18,7 @@ MainWindow := Window {
     callback popup_confirmed;
     callback show_confirm_popup;
 
-    callback sort_filter();
+    callback apply_sorting_and_filtering();
 
     show_confirm_popup => { confirm_popup.show(); }
 
@@ -53,9 +53,9 @@ MainWindow := Window {
         { title: "Profit", checked: false },
     ];
 
-    property <bool> is-header-visible: false;
+    property <bool> show-header: false;
     property <bool> is-sort-by-name: false;
-    property <bool> is-filter-done: false;
+    property <bool> hide-done-items: false;
 
     VerticalBox {
         HorizontalBox {
@@ -76,7 +76,7 @@ MainWindow := Window {
             }
         }
 
-        if (is-header-visible) : HorizontalBox { 
+        if (show-header) : HorizontalBox { 
             alignment: start; 
 
             CheckBox {  
@@ -84,16 +84,16 @@ MainWindow := Window {
                 checked <=> is-sort-by-name;
 
                 toggled => {
-                    sort_filter();
+                    apply_sorting_and_filtering();
                 }
             }
 
             CheckBox {  
                 text: "Hide done items";
-                checked <=> is-filter-done;
+                checked <=> hide-done-items;
 
                 toggled => {
-                    sort_filter();
+                    apply_sorting_and_filtering();
                 }
             }
         }

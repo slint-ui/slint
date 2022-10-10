@@ -66,7 +66,7 @@ pub fn main() {
         });
     }
 
-    main_window.on_sort_filter({
+    main_window.on_apply_sorting_and_filtering({
         let weak_window = main_window.as_weak();
         let todo_model = todo_model.clone();
 
@@ -74,7 +74,7 @@ pub fn main() {
             let window = weak_window.unwrap();
             window.set_todo_model(todo_model.clone().into());
 
-            if window.get_is_filter_done() {
+            if window.get_hide_done_items() {
                 window.set_todo_model(
                     Rc::new(FilterModel::new(window.get_todo_model(), |e| !e.checked)).into(),
                 );
@@ -91,7 +91,7 @@ pub fn main() {
         }
     });
 
-    main_window.set_is_header_visible(true);
+    main_window.set_show_header(true);
     main_window.set_todo_model(todo_model.into());
 
     main_window.run();
