@@ -82,6 +82,7 @@ cpp! {{
     struct SlintWidget : QWidget {
         void *rust_window;
         bool isMouseButtonDown = false;
+        QPoint ime_position;
 
         SlintWidget() {
             setMouseTracking(true);
@@ -234,6 +235,63 @@ cpp! {{
             } else {
                 return QWidget::sizeHint();
             }
+        }
+
+        QVariant inputMethodQuery(Qt::InputMethodQuery query) const override {
+            switch (query) {
+            case Qt::ImCursorRectangle: {
+                return QRect(ime_position.x(), ime_position.y(), 1, 1);
+            }
+            default: break;
+            }
+            return QWidget::inputMethodQuery(query);
+        }
+
+        void inputMethodEvent(QInputMethodEvent *event) override {
+            QString commit_string = event->commitString();
+            QString preedit_string = event->preeditString();
+            int replacement_start = event->replacementStart();
+            int replacement_length = qMax(0, event->replacementLength());
+            if (replacement_start < 0) {
+                // Not sure if this can happen yet, but this way we can safely cast to usize below.
+                replacement_start = 0;
+                replacement_length = 0;
+            }
+
+            int preedit_cursor = -1;
+            for (const QInputMethodEvent::Attribute &attribute: event->attributes()) {
+                if (attribute.type == QInputMethodEvent::Cursor) {
+                    if (attribute.length > 0) {
+                        preedit_cursor = attribute.start;
+                    }
+                }
+            }
+            event->accept();
+            rust!(Slint_inputMethodEvent [rust_window: &QtWindow as "void*", commit_string: qttypes::QString as "QString",
+                preedit_string: qttypes::QString as "QString", replacement_start: i32 as "int", replacement_length: i32 as "int",
+                preedit_cursor: i32 as "int"] {
+                    let runtime_window = WindowInner::from_pub(&rust_window.window);
+
+                    if !preedit_string.is_empty() {
+                        let event = KeyEvent {
+                            event_type: KeyEventType::UpdateComposition,
+                            text: preedit_string.to_string().into(),
+                            preedit_selection_start: replacement_start as usize,
+                            preedit_selection_end: replacement_start as usize + replacement_length as usize,
+                            ..Default::default()
+                        };
+                        runtime_window.process_key_input(&event);
+                    }
+
+                    if !commit_string.is_empty() {
+                        let event = KeyEvent {
+                            event_type: KeyEventType::CommitComposition,
+                            text: commit_string.to_string().into(),
+                            ..Default::default()
+                        };
+                        runtime_window.process_key_input(&event);
+                    }
+                });
         }
     };
 
@@ -591,19 +649,6 @@ impl ItemRenderer for QtItemRenderer<'_> {
     fn draw_text_input(&mut self, text_input: std::pin::Pin<&items::TextInput>, _: &ItemRc) {
         let rect: qttypes::QRectF = get_geometry!(items::TextInput, text_input);
         let fill_brush: qttypes::QBrush = into_qbrush(text_input.color(), rect.width, rect.height);
-        let selection_foreground_color: u32 =
-            text_input.selection_foreground_color().as_argb_encoded();
-        let selection_background_color: u32 =
-            text_input.selection_background_color().as_argb_encoded();
-
-        let text = text_input.text();
-        let mut string: qttypes::QString = text.as_str().into();
-
-        if let InputType::Password = text_input.input_type() {
-            cpp! { unsafe [mut string as "QString"] {
-                string.fill(QChar(qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr)));
-            }}
-        }
 
         let font: QFont = get_font(
             text_input.font_request(&WindowInner::from_pub(&self.window).window_adapter()),
@@ -621,29 +666,60 @@ impl ItemRenderer for QtItemRenderer<'_> {
             TextWrap::WordWrap => key_generated::Qt_TextFlag_TextWordWrap,
         };
 
+        let visual_representation = text_input.visual_representation();
+
+        let text = &visual_representation.text;
+        let mut string: qttypes::QString = text.as_str().into();
+
+        if let InputType::Password = text_input.input_type() {
+            cpp! { unsafe [mut string as "QString"] {
+                string.fill(QChar(qApp->style()->styleHint(QStyle::SH_LineEdit_PasswordCharacter, nullptr, nullptr)));
+            }}
+        }
+
         // convert byte offsets to offsets in Qt UTF-16 encoded string, as that's
         // what QTextLayout expects.
-        let cursor_position_as_offset: i32 = text_input.cursor_position();
-        let anchor_position_as_offset: i32 = text_input.anchor_position();
+
+        let (
+            cursor_position_as_offset,
+            anchor_position_as_offset,
+            selection_foreground_color,
+            selection_background_color,
+            underline_selection,
+        ): (usize, usize, u32, u32, bool) = if !visual_representation.preedit_range.is_empty() {
+            (
+                visual_representation.preedit_range.start,
+                visual_representation.preedit_range.end,
+                Color::default().as_argb_encoded(),
+                Color::default().as_argb_encoded(),
+                true,
+            )
+        } else {
+            (
+                text_input.cursor_position().max(0) as usize,
+                text_input.anchor_position().max(0) as usize,
+                text_input.selection_foreground_color().as_argb_encoded(),
+                text_input.selection_background_color().as_argb_encoded(),
+                false,
+            )
+        };
+
         let cursor_position: i32 = if cursor_position_as_offset > 0 {
-            utf8_byte_offset_to_utf16_units(text.as_str(), cursor_position_as_offset as usize)
-                as i32
+            utf8_byte_offset_to_utf16_units(text.as_str(), cursor_position_as_offset) as i32
         } else {
             0
         };
         let anchor_position: i32 = if anchor_position_as_offset > 0 {
-            utf8_byte_offset_to_utf16_units(text.as_str(), anchor_position_as_offset as usize)
-                as i32
+            utf8_byte_offset_to_utf16_units(text.as_str(), anchor_position_as_offset) as i32
         } else {
             0
         };
 
-        let text_cursor_width: f32 =
-            if text_input.cursor_visible() && text_input.enabled() && !text_input.read_only() {
-                text_input.text_cursor_width()
-            } else {
-                0.
-            };
+        let text_cursor_width: f32 = if visual_representation.cursor_position.is_some() {
+            text_input.text_cursor_width()
+        } else {
+            0.
+        };
 
         let single_line: bool = text_input.single_line();
 
@@ -654,6 +730,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
                 fill_brush as "QBrush",
                 selection_foreground_color as "QRgb",
                 selection_background_color as "QRgb",
+                underline_selection as "bool",
                 mut string as "QString",
                 flags as "int",
                 single_line as "bool",
@@ -670,8 +747,15 @@ impl ItemRenderer for QtItemRenderer<'_> {
             QVector<QTextLayout::FormatRange> selections;
             if (anchor_position != cursor_position) {
                 QTextCharFormat fmt;
-                fmt.setBackground(QColor::fromRgba(selection_background_color));
-                fmt.setForeground(QColor::fromRgba(selection_foreground_color));
+                if (qAlpha(selection_background_color) != 0) {
+                    fmt.setBackground(QColor::fromRgba(selection_background_color));
+                }
+                if (qAlpha(selection_background_color) != 0) {
+                    fmt.setForeground(QColor::fromRgba(selection_foreground_color));
+                }
+                if (underline_selection) {
+                    fmt.setFontUnderline(true);
+                }
                 selections << QTextLayout::FormatRange{
                     std::min(anchor_position, cursor_position),
                     std::abs(anchor_position - cursor_position),
@@ -1560,6 +1644,30 @@ impl WindowAdapterSealed for QtWindow {
         };
         cpp! {unsafe [widget_ptr as "QWidget*", cursor_shape as "Qt::CursorShape"] {
             widget_ptr->setCursor(QCursor{cursor_shape});
+        }};
+    }
+
+    fn enable_input_method(&self, input: i_slint_core::items::InputType) {
+        let enable: bool = matches!(input, i_slint_core::items::InputType::Text);
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "QWidget*", enable as "bool"] {
+            widget_ptr->setAttribute(Qt::WA_InputMethodEnabled, enable);
+        }};
+    }
+
+    fn disable_input_method(&self) {
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "QWidget*"] {
+            widget_ptr->setAttribute(Qt::WA_InputMethodEnabled, false);
+        }};
+    }
+
+    fn set_ime_position(&self, position: LogicalPoint) {
+        let pos = qttypes::QPoint { x: position.x as _, y: position.y as _ };
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "SlintWidget*", pos as "QPoint"]  {
+            widget_ptr->ime_position = pos;
+            QGuiApplication::inputMethod()->update(Qt::ImQueryInput);
         }};
     }
 
