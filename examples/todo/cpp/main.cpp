@@ -47,22 +47,21 @@ int main()
     demo->set_is_header_visible(true);
 
     demo->on_sort_filter([todo_model, demo = slint::ComponentWeakHandle(demo)] {
-        (*demo.lock())->set_todo_model(todo_model);
+        auto demo_lock = *demo.lock();
+        (*demo_lock)->set_todo_model(todo_model);
 
-        if ((*demo.lock())->get_is_filter_done())
-        {
-            (*demo.lock())
+        if ((*demo_lock)->get_is_filter_done()) {
+            (*demo_lock)
                     ->set_todo_model(std::make_shared<slint::FilterModel<TodoItem>>(
-                            todo_model, [](auto e) { return !e.checked; }));
+                            (*demo_lock)->get_todo_model(), [](auto e) { return !e.checked; }));
         }
 
-        if ((*demo.lock())->get_is_sort_by_name())
-            {
-                (*demo.lock())
-                        ->set_todo_model(std::make_shared<slint::SortModel<TodoItem>>(
-                                todo_model,
-                                [](auto lhs, auto rhs) { return lhs.title < rhs.title; }));
-            }
+        if ((*demo_lock)->get_is_sort_by_name()) {
+            (*demo_lock)
+                    ->set_todo_model(std::make_shared<slint::SortModel<TodoItem>>(
+                            (*demo_lock)->get_todo_model(),
+                            [](auto lhs, auto rhs) { return lhs.title < rhs.title; }));
+        }
     });
 
     demo->run();
