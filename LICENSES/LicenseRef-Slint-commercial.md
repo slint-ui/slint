@@ -282,27 +282,3 @@ The Licensed Software includes
     remedy provided is determined to have failed for its essential purpose, all
     limitations of liability and exclusions of damages set forth in this
     Agreement shall remain in effect.
-
-## Slint Software License Certificate
-
-Copyright © 2022 SixtyFPS GmbH <https://slint-ui.com/imprint.html>
-
-SixtyFPS GmbH with offices at Am Panke-Park 47, 16321 Bernau bei Berlin, Germany
-grants a license to the Licensed Software subject to the terms of the Slint
-Software License Agreement (**Agreement**).
-
-All terms in this Slint Software License Certificate will have the same meaning
-as defined in the Agreement.
-
-1. License grant
-    1. Type: Ambassador / Eval / Paid
-    2. Effective Date:
-    3. Maintenance Period:
-    4. Amount of User Seat(s):
-    5. Amount of Distribution(s):
-
-2. Permitted scope of your use of Licensed Software
-    1. Product(s)
-    2. Name(s) and Email address(es) of User Seat(s):
-
-3. Your contact detail(s):
