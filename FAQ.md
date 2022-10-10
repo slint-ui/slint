@@ -38,7 +38,7 @@ languages.
 
 # Licensing
 
-Slint can be used under either a [commercial license](./LICENSES/LicenseRef-Slint-commercial.md) or [GNU GPLv3](./LICENSES/GPL-3.0-only.txt), at your choice.
+You can use Slint under either a [commercial license](./LICENSES/LicenseRef-Slint-commercial.md) or [GNU GPLv3](./LICENSES/GPL-3.0-only.txt).
 
 The commercial license can be provided for free if you help us promote Slint: Check out our
 [ambassador program](https://slint-ui.com/ambassador-program.html).
@@ -56,7 +56,7 @@ The Buyout option is a volume-based buyout license that includes unlimited User-
 
 ## Can I try Slint using the GPL version and then switch to the commercial license later?
 
-Yes. You can evaluate Slint using the GPL license, and acquire the commercial license after the evaluation, with the option to transfer the development work from GPL to commercial for free.
+Yes. You can evaluate Slint using the GPL license, and obtain the commercial license after the evaluation, with the option to transfer the development work from GPL to commercial for free.
 
 ## Is there a discount or reduction for independent developers or small businesses?
 

@@ -4,7 +4,7 @@ Version 1.2
 
 Copyright © 2022 SixtyFPS GmbH <https://slint-ui.com/imprint.html>
 
-SixtyFPS GmbH with offices at Am Panke-Park 47, 16321 Bernau bei Berlin, Germany
+SixtyFPS GmbH with offices at Oranienburger Str. 44, 16540 Hohen Neuendorf, Germany
 (**SixtyFPS**) grants a license to the software (**Licensed Software**), as
 specified herein, subject to the Terms and Conditions of this Slint Software
 License Agreement (**Agreement**).
