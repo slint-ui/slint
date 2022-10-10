@@ -100,15 +100,15 @@ The Licensed Software includes
 
 9. The license grants are conditional on the full and timely payment of all
     applicable Fees; if said Fees are not paid in full and by their due date,
-    the license shall not be granted and the your Products shall be
-    deemed as made in breach of the Agreement ex tunc.
+    the license shall not be granted and your Products shall be deemed as made 
+    in breach of the Agreement ex tunc.
 
-10. Clause 10 above shall not apply for an **Ambassador License**, a license
-    provided to you for free. Instead, the license grants shall be
-    conditional on the fullfilment of the obligations as specified herein. If
-    said obligations are not fulfilled, the license shall not be granted and
-    the your Products shall be deemed as made in breach of the Agreement
-    ex tunc. The obligations are as follows:
+10. Clause 9 above shall not apply for a license granted under the **Ambassador**
+    option. Instead, the license grants shall be conditional on the fullfilment
+    of the obligations as specified herein. If said obligations are not 
+    fulfilled, the license shall not be granted and your Products shall be 
+    deemed as made in breach of the Agreement ex tunc. The obligations are as 
+    follows:
 
     1. Showcase: You grant SixtyFPS the right to use your name,
         logo and your Products in marketing materials,
@@ -238,7 +238,7 @@ The Licensed Software includes
     provided the right to provide comments to the report before it is finalized.
 
 18. If you materially breache this Agreement, SixtyFPS will provide a 60 (sixty)
-    days written notice to the you during which any such breach(es) may be 
+    days written notice to you during which any such breach(es) may be 
     cured, failing which SixtyFPS will terminate the agreement. You undertake to
     pay a contractual penalty for each case of negligent breach of this 
     Agreement of EUR 10000 (ten thousand euros), which shall not be subject to a
