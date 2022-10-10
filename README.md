@@ -10,18 +10,6 @@
 
 Slint is a toolkit to efficiently design, develop and deploy responsive apps on any screen. Frontends built with Slint can be easily integrated with backends written in different programming languages such as C/C++, Rust, and JavaScript. Slint is developed by SixtyFPS GmbH together with the community. We invite you to use Slint and be part of its community.
 
-## Design Goals
-
-We use the following design goals as a guide when developing Slint
-
- - **Scalable**: Run on any screen connected to a device, from desktop computers to low end embedded systems.
- - **Lightweight**: Fit into a few hundred kilobytes of RAM and require little processing power.
- - **Intuitive**: Both developers and designers should feel productive and enjoy the design and development process.
-   The APIs should be consistent and easy to use, no matter the target language.
- - **Native**: Slint apps should match the users' expectations of a native application. Various target platforms such as 
-   embedded devices, desktops, mobile and web should be supported so that both the user and the developer feel comfortable on
-   their platform of choice.
-
 ## Get Started
 
 Check the [online demos](#demos-running-in-webassembly-simulation) or
