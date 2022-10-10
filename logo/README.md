@@ -6,7 +6,8 @@ It is (manually) copied into the website under https://slint-ui.com/logo/
 
 ### Logo
 
- * Do not modify the logo by changing the colors, removing the box, or other alterations to the corporate identity.
+ * Do not modify the logo by changing the colors, removing the box or its gradient, changing of the aspect ration, 
+   or other alterations to the corporate identity.
 
  * The logo with the dark box is no longer recommended to use. Prefer always using the logo with the white box.
 
@@ -20,18 +21,15 @@ It is (manually) copied into the website under https://slint-ui.com/logo/
    `slint-logo-simple-light.svg` on light background  or `slint-logo-simple-white.svg` on dark background.
 
    ![Slint logo simple](./slint-logo-simple-light.svg#gh-light-mode-only)![Slint logo simple](./slint-logo-simple-white.svg#gh-dark-mode-only)
+   
+ * For the rare cases where a square or circular logo is required (eg, social media avatar), `slint-logo-circle-light.svg`
+   or `slint-logo-square-light.svg` can be used. Prefer the logo with the text on the right if possible.
 
- * For a logo that works on both light and dark background, you can use the square version `slint-logo-square-light.svg`
+   ![Slint logo circle](./slint-logo-circle-light.svg)   ![Slint logo square](./slint-logo-square-light.svg)
 
-   ![Slint logo square](./slint-logo-square-light.svg)
-
- * For an small icon where the text would not be visible otherwise, use `slint-logo-small-light.svg`.
+ * For an small icon where the text would not be visible otherwise, use `slint-logo-small-light.svg`
 
    ![Slint logo small](./slint-logo-small-light.svg)
-
- * For the rare cases where a circular logo is required, `slint-logo-circle-light.svg` can be used.
-
-   ![Slint logo circle](./slint-logo-circle-light.svg)
 
 ### Color
 
