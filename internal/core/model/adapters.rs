@@ -372,7 +372,7 @@ where
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
-        let wrapped_row = self.0.mapping.borrow()[row]; 
+        let wrapped_row = self.0.mapping.borrow()[row];
         self.0.wrapped_model.set_row_data(wrapped_row, data);
     }
 
@@ -774,8 +774,8 @@ where
     }
 
     fn set_row_data(&self, row: usize, data: Self::Data) {
-       let wrapped_row = self.0.mapping.borrow()[row]; 
-       self.0.wrapped_model.set_row_data(wrapped_row, data);
+        let wrapped_row = self.0.mapping.borrow()[row];
+        self.0.wrapped_model.set_row_data(wrapped_row, data);
     }
 
     fn model_tracker(&self) -> &dyn ModelTracker {
