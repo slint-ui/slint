@@ -6,10 +6,9 @@
 [![REUSE status](https://api.reuse.software/badge/github.com/slint-ui/slint)](https://api.reuse.software/info/github.com/slint-ui/slint)
 [![Discussions](https://img.shields.io/github/discussions/slint-ui/slint)](https://github.com/slint-ui/slint/discussions)
 
-Slint is a toolkit to efficiently design, develop and deploy responsive apps on
-any screen. Frontends built with Slint can be easily integrated with backends
-written in different programming languages such as C/C++, Rust, and JavaScript.
-Slint is developed by SixtyFPS GmbH together with the community. We invite you
+Slint is a toolkit to efficiently develop fluid graphical user interfaces for
+any display: embedded devices and desktop applications. We support multiple
+programming languages, such as Rust, C++, and JavaScript. We invite you
 to use Slint and be part of its community.
 
 ## Design Goals
