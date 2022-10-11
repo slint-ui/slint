@@ -71,8 +71,7 @@ pub fn parse_element_content(p: &mut impl Parser) {
                     parse_if_element(&mut *p);
                 }
                 SyntaxKind::Identifier if p.nth(1).as_str() == "property" => {
-                    if matches!(p.peek().as_str(), "input" | "output" | "inout") {
-                        // TODO: in/out property #191
+                    if matches!(p.peek().as_str(), "input" | "output" | "inout" | "private") {
                         parse_property_declaration(&mut *p);
                     } else {
                         p.consume();

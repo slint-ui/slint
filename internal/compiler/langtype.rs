@@ -9,7 +9,7 @@ use std::rc::Rc;
 use itertools::Itertools;
 
 use crate::expression_tree::{Expression, Unit};
-use crate::object_tree::Component;
+use crate::object_tree::{Component, PropertyVisibility};
 use crate::parser::syntax_nodes;
 use crate::typeregister::TypeRegister;
 
@@ -247,12 +247,22 @@ impl Type {
                 match b.properties.get(resolved_name.as_ref()) {
                     None => {
                         if b.is_non_item_type {
-                            PropertyLookupResult { resolved_name, property_type: Type::Invalid }
+                            PropertyLookupResult {
+                                resolved_name,
+                                property_type: Type::Invalid,
+                                property_visibility: PropertyVisibility::Private,
+                                is_local_to_component: false,
+                            }
                         } else {
                             crate::typeregister::reserved_property(name)
                         }
                     }
-                    Some(p) => PropertyLookupResult { resolved_name, property_type: p.ty.clone() },
+                    Some(p) => PropertyLookupResult {
+                        resolved_name,
+                        property_type: p.ty.clone(),
+                        property_visibility: PropertyVisibility::InOut,
+                        is_local_to_component: false,
+                    },
                 }
             }
             Type::Native(n) => {
@@ -263,11 +273,18 @@ impl Type {
                 };
                 let property_type =
                     n.lookup_property(resolved_name.as_ref()).cloned().unwrap_or_default();
-                PropertyLookupResult { resolved_name, property_type }
+                PropertyLookupResult {
+                    resolved_name,
+                    property_type,
+                    property_visibility: PropertyVisibility::InOut,
+                    is_local_to_component: false,
+                }
             }
             _ => PropertyLookupResult {
                 resolved_name: Cow::Borrowed(name),
                 property_type: Type::Invalid,
+                property_visibility: PropertyVisibility::Private,
+                is_local_to_component: false,
             },
         }
     }
@@ -632,11 +649,24 @@ impl BuiltinElement {
 pub struct PropertyLookupResult<'a> {
     pub resolved_name: std::borrow::Cow<'a, str>,
     pub property_type: Type,
+    pub property_visibility: PropertyVisibility,
+    /// True if the property is part of the the current component (for visibility purposes)
+    pub is_local_to_component: bool,
 }
 
 impl<'a> PropertyLookupResult<'a> {
     pub fn is_valid(&self) -> bool {
         self.property_type != Type::Invalid
+    }
+
+    /// Can this property be used in an assignment
+    pub fn is_valid_for_assignment(&self) -> bool {
+        match (self.property_visibility, self.is_local_to_component) {
+            (PropertyVisibility::Private, false) => false,
+            (PropertyVisibility::Input, true) => false,
+            (PropertyVisibility::Output, false) => false,
+            _ => true,
+        }
     }
 }
 
