@@ -41,11 +41,10 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
                     }
                     DefaultSizeBinding::ImplicitSize => {
                         let has_length_property_binding = |elem: &ElementRc, property: &str| {
-                            debug_assert!({
-                                let PropertyLookupResult { resolved_name: _, property_type } =
-                                    elem.borrow().lookup_property(property);
-                                property_type == Type::LogicalLength
-                            });
+                            debug_assert_eq!(
+                                elem.borrow().lookup_property(property).property_type,
+                                Type::LogicalLength
+                            );
 
                             elem.borrow().is_binding_set(property, true)
                         };
@@ -73,16 +72,14 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
                             // If an image is in a layout and has no explicit width or height specified, change the default for image-fit
                             // to `contain`
                             if !width_specified || !height_specified {
-                                let PropertyLookupResult {
-                                    resolved_name: image_fit_prop_name,
-                                    property_type: image_fit_prop_type,
-                                } = elem.borrow().lookup_property("image-fit");
+                                let image_fit_lookup = elem.borrow().lookup_property("image-fit");
 
                                 elem.borrow_mut().set_binding_if_not_set(
-                                    image_fit_prop_name.into(),
+                                    image_fit_lookup.resolved_name.into(),
                                     || {
                                         Expression::EnumerationValue(
-                                            image_fit_prop_type
+                                            image_fit_lookup
+                                                .property_type
                                                 .as_enum()
                                                 .clone()
                                                 .try_value_from_string("contain")
@@ -175,11 +172,8 @@ fn fix_percent_size(
     let mut b = binding.borrow_mut();
     if let Some(parent) = parent {
         debug_assert_eq!(
-            parent.borrow().lookup_property(property),
-            PropertyLookupResult {
-                resolved_name: property.into(),
-                property_type: Type::LogicalLength
-            }
+            parent.borrow().lookup_property(property).property_type,
+            Type::LogicalLength
         );
         b.expression = Expression::BinaryExpression {
             lhs: Box::new(std::mem::take(&mut b.expression).maybe_convert_to(
@@ -196,7 +190,7 @@ fn fix_percent_size(
 }
 
 fn make_default_100(elem: &ElementRc, parent_element: &ElementRc, property: &str) {
-    let PropertyLookupResult { resolved_name, property_type } =
+    let PropertyLookupResult { resolved_name, property_type, .. } =
         parent_element.borrow().lookup_property(property);
     if property_type != Type::LogicalLength {
         return;

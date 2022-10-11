@@ -324,6 +324,31 @@ impl Component {
     }
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum PropertyVisibility {
+    Private,
+    Input,
+    Output,
+    InOut,
+}
+
+impl Default for PropertyVisibility {
+    fn default() -> Self {
+        Self::Private
+    }
+}
+
+impl std::fmt::Display for PropertyVisibility {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PropertyVisibility::Private => f.write_str("private"),
+            PropertyVisibility::Input => f.write_str("input"),
+            PropertyVisibility::Output => f.write_str("output"),
+            PropertyVisibility::InOut => f.write_str("inout"),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 pub struct PropertyDeclaration {
     pub property_type: Type,
@@ -332,6 +357,7 @@ pub struct PropertyDeclaration {
     pub expose_in_public_api: bool,
     /// Public API property exposed as an alias: it shouldn't be generated but instead forward to the alias.
     pub is_alias: Option<NamedReference>,
+    pub visibility: PropertyVisibility,
 }
 
 impl PropertyDeclaration {
@@ -698,6 +724,7 @@ impl Element {
             let PropertyLookupResult {
                 resolved_name: prop_name,
                 property_type: maybe_existing_prop_type,
+                ..
             } = r.lookup_property(&unresolved_prop_name);
             if !matches!(maybe_existing_prop_type, Type::Invalid) {
                 diag.push_error(
@@ -706,11 +733,34 @@ impl Element {
                 )
             }
 
+            let visibility = prop_decl
+                .child_token(SyntaxKind::Identifier)
+                .and_then(|t| match t.text() {
+                    "input" => Some(PropertyVisibility::Input),
+                    "output" => Some(PropertyVisibility::Output),
+                    "inout" => Some(PropertyVisibility::InOut),
+                    "private" => Some(PropertyVisibility::Private),
+                    _ => None,
+                })
+                .unwrap_or_else(|| {
+                    if node
+                        .parent()
+                        .and_then(|n| syntax_nodes::Component::new(n))
+                        .and_then(|c| c.child_token(SyntaxKind::ColonEqual))
+                        .is_some()
+                    {
+                        PropertyVisibility::InOut
+                    } else {
+                        PropertyVisibility::Private
+                    }
+                });
+
             r.property_declarations.insert(
                 prop_name.to_string(),
                 PropertyDeclaration {
                     property_type: prop_type,
                     node: Some(Either::Left(prop_decl.clone())),
+                    visibility,
                     ..Default::default()
                 },
             );
@@ -790,7 +840,7 @@ impl Element {
 
         for con_node in node.CallbackConnection() {
             let unresolved_name = unwrap_or_continue!(parser::identifier_text(&con_node); diag);
-            let PropertyLookupResult { resolved_name, property_type } =
+            let PropertyLookupResult { resolved_name, property_type, .. } =
                 r.lookup_property(&unresolved_name);
             if let Type::Callback { args, .. } = &property_type {
                 let num_arg = con_node.DeclaredIdentifier().count();
@@ -838,25 +888,37 @@ impl Element {
             for prop_name_token in anim.QualifiedName() {
                 match QualifiedTypeName::from_node(prop_name_token.clone()).members.as_slice() {
                     [unresolved_prop_name] => {
-                        let PropertyLookupResult { resolved_name, property_type } =
-                            r.lookup_property(unresolved_prop_name);
+                        let lookup_result = r.lookup_property(unresolved_prop_name);
+                        let valid_assign = lookup_result.is_valid_for_assignment();
                         if let Some(anim_element) = animation_element_from_node(
                             &anim,
                             &prop_name_token,
-                            property_type,
+                            lookup_result.property_type,
                             diag,
                             tr,
                         ) {
-                            if unresolved_prop_name != resolved_name.as_ref() {
-                                diag.push_property_deprecation_warning(
-                                    unresolved_prop_name,
-                                    &resolved_name,
+                            if !valid_assign {
+                                diag.push_error(
+                                    format!(
+                                        "animating {} property '{}'",
+                                        lookup_result.property_visibility, unresolved_prop_name
+                                    ),
                                     &prop_name_token,
                                 );
                             }
 
-                            let expr_binding =
-                                r.bindings.entry(resolved_name.to_string()).or_insert_with(|| {
+                            if unresolved_prop_name != lookup_result.resolved_name.as_ref() {
+                                diag.push_property_deprecation_warning(
+                                    unresolved_prop_name,
+                                    &lookup_result.resolved_name,
+                                    &prop_name_token,
+                                );
+                            }
+
+                            let expr_binding = r
+                                .bindings
+                                .entry(lookup_result.resolved_name.to_string())
+                                .or_insert_with(|| {
                                     let mut r = BindingExpression::from(Expression::Invalid);
                                     r.priority = 1;
                                     r.span = Some(prop_name_token.to_source_location());
@@ -941,9 +1003,10 @@ impl Element {
                 property_changes: state
                     .StatePropertyChange()
                     .filter_map(|s| {
-                        lookup_property_from_qualified_name(s.QualifiedName(), &r, diag).map(
-                            |(ne, _)| (ne, Expression::Uncompiled(s.BindingExpression().into()), s),
-                        )
+                        lookup_property_from_qualified_name_for_state(s.QualifiedName(), &r, diag)
+                            .map(|(ne, _)| {
+                                (ne, Expression::Uncompiled(s.BindingExpression().into()), s)
+                            })
                     })
                     .collect(),
             };
@@ -961,12 +1024,11 @@ impl Element {
                     .PropertyAnimation()
                     .flat_map(|pa| pa.QualifiedName().map(move |qn| (pa.clone(), qn)))
                     .filter_map(|(pa, qn)| {
-                        lookup_property_from_qualified_name(qn.clone(), &r, diag).and_then(
-                            |(ne, prop_type)| {
+                        lookup_property_from_qualified_name_for_state(qn.clone(), &r, diag)
+                            .and_then(|(ne, prop_type)| {
                                 animation_element_from_node(&pa, &qn, prop_type, diag, tr)
                                     .map(|anim_element| (ne, qn.to_source_location(), anim_element))
-                            },
-                        )
+                            })
                     })
                     .collect(),
                 node: trs.DeclaredIdentifier().into(),
@@ -1072,9 +1134,18 @@ impl Element {
     /// the provided name points towards a property alias. Type::Invalid is returned if the property does
     /// not exist.
     pub fn lookup_property<'a>(&self, name: &'a str) -> PropertyLookupResult<'a> {
-        self.property_declarations.get(name).cloned().map(|decl| decl.property_type).map_or_else(
-            || self.base_type.lookup_property(name),
-            |property_type| PropertyLookupResult { resolved_name: name.into(), property_type },
+        self.property_declarations.get(name).map_or_else(
+            || {
+                let mut r = self.base_type.lookup_property(name);
+                r.is_local_to_component = false;
+                r
+            },
+            |p| PropertyLookupResult {
+                resolved_name: name.into(),
+                property_type: p.property_type.clone(),
+                property_visibility: p.visibility,
+                is_local_to_component: true,
+            },
         )
     }
 
@@ -1090,11 +1161,10 @@ impl Element {
     ) {
         for (name_token, b) in bindings {
             let unresolved_name = crate::parser::normalize_identifier(name_token.text());
-            let PropertyLookupResult { resolved_name, property_type } =
-                self.lookup_property(&unresolved_name);
-            if !property_type.is_property_type() {
+            let lookup_result = self.lookup_property(&unresolved_name);
+            if !lookup_result.property_type.is_property_type() {
                 diag.push_error(
-                    match property_type {
+                    match lookup_result.property_type {
                         Type::Invalid => {
                             if self.base_type != Type::Invalid {
                                 format!(
@@ -1115,19 +1185,33 @@ impl Element {
                     },
                     &name_token,
                 );
+            } else if !lookup_result.is_local_to_component
+                && (lookup_result.property_visibility == PropertyVisibility::Private
+                    || lookup_result.property_visibility == PropertyVisibility::Output)
+            {
+                diag.push_error(
+                    format!(
+                        "assigning to {} property '{}'",
+                        lookup_result.property_visibility, unresolved_name
+                    ),
+                    &name_token,
+                );
             }
 
-            if resolved_name != unresolved_name {
+            if lookup_result.resolved_name != unresolved_name {
                 diag.push_property_deprecation_warning(
                     &unresolved_name,
-                    &resolved_name,
+                    &lookup_result.resolved_name,
                     &name_token,
                 );
             }
 
             if self
                 .bindings
-                .insert(resolved_name.to_string(), BindingExpression::new_uncompiled(b).into())
+                .insert(
+                    lookup_result.resolved_name.to_string(),
+                    BindingExpression::new_uncompiled(b).into(),
+                )
                 .is_some()
             {
                 diag.push_error("Duplicated property binding".into(), &name_token);
@@ -1347,8 +1431,9 @@ impl std::fmt::Display for QualifiedTypeName {
     }
 }
 
-/// Return a NamedReference, if the reference is invalid, there will be a diagnostic
-fn lookup_property_from_qualified_name(
+/// Return a NamedReference for a qualified name used in a state (or transition),
+/// if the reference is invalid, there will be a diagnostic
+fn lookup_property_from_qualified_name_for_state(
     node: syntax_nodes::QualifiedName,
     r: &Rc<RefCell<Element>>,
     diag: &mut BuildDiagnostics,
@@ -1356,24 +1441,44 @@ fn lookup_property_from_qualified_name(
     let qualname = QualifiedTypeName::from_node(node.clone());
     match qualname.members.as_slice() {
         [unresolved_prop_name] => {
-            let PropertyLookupResult { resolved_name, property_type } =
-                r.borrow().lookup_property(unresolved_prop_name.as_ref());
-            if !property_type.is_property_type() {
+            let lookup_result = r.borrow().lookup_property(unresolved_prop_name.as_ref());
+            if !lookup_result.property_type.is_property_type() {
                 diag.push_error(format!("'{}' is not a valid property", qualname), &node);
+            } else if !lookup_result.is_valid_for_assignment() {
+                diag.push_error(
+                    format!(
+                        "'{}' cannot be set in a state because it is {}",
+                        qualname, lookup_result.property_visibility
+                    ),
+                    &node,
+                );
             }
-            Some((NamedReference::new(r, &resolved_name), property_type))
+            Some((
+                NamedReference::new(r, &lookup_result.resolved_name),
+                lookup_result.property_type,
+            ))
         }
         [elem_id, unresolved_prop_name] => {
             if let Some(element) = find_element_by_id(r, elem_id.as_ref()) {
-                let PropertyLookupResult { resolved_name, property_type } =
-                    element.borrow().lookup_property(unresolved_prop_name.as_ref());
-                if !property_type.is_property_type() {
+                let lookup_result = element.borrow().lookup_property(unresolved_prop_name.as_ref());
+                if !lookup_result.is_valid() {
                     diag.push_error(
                         format!("'{}' not found in '{}'", unresolved_prop_name, elem_id),
                         &node,
                     );
+                } else if !lookup_result.is_valid_for_assignment() {
+                    diag.push_error(
+                        format!(
+                            "'{}' cannot be set in a state because it is {}",
+                            qualname, lookup_result.property_visibility
+                        ),
+                        &node,
+                    );
                 }
-                Some((NamedReference::new(&element, &resolved_name), property_type))
+                Some((
+                    NamedReference::new(&element, &lookup_result.resolved_name),
+                    lookup_result.property_type,
+                ))
             } else {
                 diag.push_error(format!("'{}' is not a valid element id", elem_id), &node);
                 None

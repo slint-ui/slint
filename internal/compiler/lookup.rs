@@ -328,7 +328,7 @@ impl LookupObject for ElementRc {
     }
 
     fn lookup(&self, _ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
-        let crate::langtype::PropertyLookupResult { resolved_name, property_type } =
+        let crate::langtype::PropertyLookupResult { resolved_name, property_type, .. } =
             self.borrow().lookup_property(name);
         (property_type != Type::Invalid).then(|| LookupResult::Expression {
             expression: expression_from_reference(

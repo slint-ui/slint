@@ -133,7 +133,12 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
 pub fn reserved_property(name: &str) -> PropertyLookupResult {
     for (p, t) in reserved_properties() {
         if p == name {
-            return PropertyLookupResult { property_type: t, resolved_name: name.into() };
+            return PropertyLookupResult {
+                property_type: t,
+                resolved_name: name.into(),
+                is_local_to_component: false,
+                property_visibility: crate::object_tree::PropertyVisibility::InOut,
+            };
         }
     }
 
@@ -146,13 +151,20 @@ pub fn reserved_property(name: &str) -> PropertyLookupResult {
                         return PropertyLookupResult {
                             property_type: Type::LogicalLength,
                             resolved_name: format!("{}-{}", pre, suf).into(),
+                            is_local_to_component: false,
+                            property_visibility: crate::object_tree::PropertyVisibility::InOut,
                         };
                     }
                 }
             }
         }
     }
-    PropertyLookupResult { resolved_name: name.into(), property_type: Type::Invalid }
+    PropertyLookupResult {
+        resolved_name: name.into(),
+        property_type: Type::Invalid,
+        is_local_to_component: false,
+        property_visibility: crate::object_tree::PropertyVisibility::Private,
+    }
 }
 
 /// These member functions are injected in every time

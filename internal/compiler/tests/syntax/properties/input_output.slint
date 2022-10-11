@@ -1,0 +1,97 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+component Compo inherits Rectangle {
+    property <int> priv1: 42;
+    private property <int> priv2: priv1;
+    output property <int> output1: priv2;
+    input property <int> input1: output1;
+    inout property <int> inout1: input1;
+
+    TouchArea {
+        clicked => {
+            priv1 = 32;
+            priv2 = 78;
+            output1 = input1;
+            input1 = 75;
+            inout1 = 75;
+        }
+    }
+
+    states [
+        xxx when false : {
+            priv1: 42;
+            priv2: 55;
+            output1: 55;
+            input1: 12;
+//          ^error{'input1' cannot be set in a state because it is input}
+            inout1: 78;
+        }
+    ]
+
+    animate input1 {}
+//          ^error{animating input property 'input1'}
+}
+
+OldCompo := Rectangle {
+    property <int> inout2: 42;
+    private property <int> priv2: inout2;
+    output property <int> output1: priv2;
+    input property <int> input1: output1;
+    inout property <int> inout1: input1;
+
+    TouchArea {
+        clicked => {
+            pub1 = 32;
+            priv2 = 78;
+            output1 = input1;
+            input1 = 75;
+            inout1 = 75;
+        }
+    }
+}
+
+component Foo inherits Rectangle {
+
+    c1 := OldCompo {
+        inout2: 42;
+        priv2: 55;
+//      ^error{assigning to private property 'priv2'}
+        output1: 855;
+//      ^error{assigning to output property 'output1'}
+        input1: 12;
+        inout1: 78;
+
+        animate output1 {}
+//              ^error{animating output property 'output1'}
+
+        animate priv2 {}
+//              ^error{animating private property 'priv2'}
+
+    }
+
+    c2 := Compo {
+        priv1: 42;
+//      ^error{assigning to private property 'priv1'}
+        priv2: 55;
+//      ^error{assigning to private property 'priv2'}
+        output1: 585;
+//      ^error{assigning to output property 'output1'}
+        input1: 12;
+        inout1: 78;
+    }
+
+    states [
+        foo when true: {
+            c2.priv1: 45;
+//          ^error{'c2.priv1' cannot be set in a state because it is private}
+
+            c1.priv2: 89;
+//          ^error{'c1.priv2' cannot be set in a state because it is private}
+
+            c2.output1: 55;
+//          ^error{'c2.output1' cannot be set in a state because it is output}
+        }
+    ]
+}
+

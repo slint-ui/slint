@@ -69,7 +69,7 @@ pub struct LayoutItem {
 impl LayoutItem {
     pub fn rect(&self) -> LayoutRect {
         let p = |unresolved_name: &str| {
-            let PropertyLookupResult { resolved_name, property_type } =
+            let PropertyLookupResult { resolved_name, property_type, .. } =
                 self.element.borrow().lookup_property(unresolved_name);
             if property_type == Type::LogicalLength {
                 Some(NamedReference::new(&self.element, resolved_name.as_ref()))

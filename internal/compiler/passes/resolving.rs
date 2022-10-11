@@ -1036,7 +1036,7 @@ fn continue_lookup_within_element(
     };
     let prop_name = crate::parser::normalize_identifier(second.text());
 
-    let PropertyLookupResult { resolved_name, property_type } =
+    let PropertyLookupResult { resolved_name, property_type, .. } =
         elem.borrow().lookup_property(&prop_name);
     if property_type.is_property_type() {
         if resolved_name != prop_name {
