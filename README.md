@@ -76,12 +76,13 @@ Refer to the README of each language directory in the `api` folder:
 
 ### Embedded
 
+[Video of Slint on RaspberryPi](https://www.youtube.com/watch?v=_BDbNHrjK7g)
+
 ### MCU
 
 | STM32| RP2040 |
 |--------------|----------------|
-| [Video of Slint on STM32](https://www.youtube.com/watch?v=NNNOJJsOAis) |
-[Video of Slint on RP2040](https://www.youtube.com/watch?v=dkBwNocItGs) |
+| [Video of Slint on STM32](https://www.youtube.com/watch?v=NNNOJJsOAis) | [Video of Slint on RP2040](https://www.youtube.com/watch?v=dkBwNocItGs) |
 
 ### WebAssembly
 
