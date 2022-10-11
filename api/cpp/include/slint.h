@@ -967,6 +967,11 @@ public:
         return inner->source_model->row_data(inner->accepted_rows[i]);
     }
 
+    void set_row_data(int i, const ModelData &value) override
+    {
+        inner->source_model->set_row_data(inner->accepted_rows[i], value);
+    }
+
     /// Re-applies the model's filter function on each row of the source model. Use this if state
     /// external to the filter function has changed.
     void apply_filter() { inner->reset(); }
@@ -1204,6 +1209,11 @@ public:
     {
         inner->ensure_sorted();
         return inner->source_model->row_data(inner->sorted_rows[i]);
+    }
+
+    void set_row_data(int i, const ModelData &value) override
+    {
+        inner->source_model->set_row_data(inner->sorted_rows[i], value);
     }
 
     /// Re-applies the model's sort function on each row of the source model. Use this if state

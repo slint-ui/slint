@@ -17,6 +17,9 @@ MainWindow := Window {
 
     callback popup_confirmed;
     callback show_confirm_popup;
+
+    callback apply_sorting_and_filtering();
+
     show_confirm_popup => { confirm_popup.show(); }
 
     confirm_popup := PopupWindow {
@@ -50,6 +53,10 @@ MainWindow := Window {
         { title: "Profit", checked: false },
     ];
 
+    property <bool> show-header: false;
+    property <bool> is-sort-by-name: false;
+    property <bool> hide-done-items: false;
+
     VerticalBox {
         HorizontalBox {
             text-edit := LineEdit {
@@ -65,6 +72,28 @@ MainWindow := Window {
                 clicked => {
                     todo-added(text-edit.text);
                     text-edit.text = "";
+                }
+            }
+        }
+
+        if (show-header) : HorizontalBox { 
+            alignment: start; 
+
+            CheckBox {  
+                text: "Sort by name";
+                checked <=> is-sort-by-name;
+
+                toggled => {
+                    apply_sorting_and_filtering();
+                }
+            }
+
+            CheckBox {  
+                text: "Hide done items";
+                checked <=> hide-done-items;
+
+                toggled => {
+                    apply_sorting_and_filtering();
                 }
             }
         }

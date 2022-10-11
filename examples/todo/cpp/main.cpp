@@ -44,5 +44,25 @@ int main()
         return slint::CloseRequestResponse::HideWindow;
     });
 
+    demo->set_show_header(true);
+
+    demo->on_apply_sorting_and_filtering([todo_model, demo = slint::ComponentWeakHandle(demo)] {
+        auto demo_lock = demo.lock();
+        (*demo_lock)->set_todo_model(todo_model);
+
+        if ((*demo_lock)->get_hide_done_items()) {
+            (*demo_lock)
+                    ->set_todo_model(std::make_shared<slint::FilterModel<TodoItem>>(
+                            (*demo_lock)->get_todo_model(), [](auto e) { return !e.checked; }));
+        }
+
+        if ((*demo_lock)->get_is_sort_by_name()) {
+            (*demo_lock)
+                    ->set_todo_model(std::make_shared<slint::SortModel<TodoItem>>(
+                            (*demo_lock)->get_todo_model(),
+                            [](auto lhs, auto rhs) { return lhs.title < rhs.title; }));
+        }
+    });
+
     demo->run();
 }
