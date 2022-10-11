@@ -219,9 +219,9 @@ We welcome your contributions: in the form of code, bug reports or feedback.
 
 Please see our separate [FAQ](FAQ.md).
 
-## About us
+## About us (SixtyFPS GmbH)
 
-We are passionate about software - API design, cross-platform software \
+We are passionate about software - API design, cross-platform software 
 development and user interface components. Our aim is to make developing user
 interfaces fun for everyone: from JavaScript, C++, or Rust developers all the
 way to UI/UX designers. We believe that software grows organically and keeping
