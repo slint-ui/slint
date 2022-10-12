@@ -665,7 +665,7 @@ unsafe fn mark_dependencies_dirty(dependencies: *mut DependencyListHead) {
     });
 }
 
-/// Types that can be set as bindings for a Property<T>
+/// Types that can be set as bindings for a `Property<T>`
 pub trait Binding<T> {
     /// Evaluate the binding and return the new value
     fn evaluate(&self, old_value: &T) -> T;
@@ -842,7 +842,7 @@ impl<T: Clone> Property<T> {
     /// If other properties have bindings depending of this property, these properties will
     /// be marked as dirty.
     ///
-    /// Closures of type `Fn()->T` implements Binding<T> and can be used as a binding
+    /// Closures of type `Fn()->T` implements `Binding<T>` and can be used as a binding
     ///
     /// ## Example
     /// ```

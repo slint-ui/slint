@@ -77,7 +77,7 @@ pub use vrc::*;
 /// # Safety
 ///
 /// The Target object needs to be implemented correctly.
-/// And there should be a VTable::VTable::new<T> function that returns a
+/// And there should be a `VTable::VTable::new<T>` function that returns a
 /// VTable suitable for the type T.
 pub unsafe trait VTableMeta {
     /// That's the trait object that implements the functions

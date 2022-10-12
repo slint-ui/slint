@@ -358,7 +358,7 @@ pub struct TouchArea {
     pub pressed: Property<bool>,
     pub has_hover: Property<bool>,
     /// FIXME: there should be just one property for the point instead of two.
-    /// Could even be merged with pressed in a Property<Option<Point>> (of course, in the
+    /// Could even be merged with pressed in a `Property<Option<Point>>` (of course, in the
     /// implementation item only, for the compiler it would stay separate properties)
     pub pressed_x: Property<Coord>,
     pub pressed_y: Property<Coord>,

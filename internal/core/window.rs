@@ -712,7 +712,7 @@ impl WindowInner {
     }
 }
 
-/// Internal alias for Rc<dyn WindowAdapter>.
+/// Internal alias for `Rc<dyn WindowAdapter>`.
 pub type WindowAdapterRc = Rc<dyn WindowAdapter>;
 
 /// This module contains the functions needed to interface with the event loop and window traits

@@ -326,12 +326,12 @@ pub enum Expression {
     ///
     BoolLiteral(bool),
 
-    /// Reference to the callback <name> in the <element>
+    /// Reference to the callback `<name>` in the `<element>`
     ///
     /// Note: if we are to separate expression and statement, we probably do not need to have callback reference within expressions
     CallbackReference(NamedReference),
 
-    /// Reference to the callback <name> in the <element>
+    /// Reference to the callback `<name>` in the `<element>`
     PropertyReference(NamedReference),
 
     /// Reference to a function built into the run-time, implemented natively

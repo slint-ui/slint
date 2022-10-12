@@ -19,7 +19,7 @@ use core::cell::Cell;
 ///
 #[repr(C)]
 pub struct Callback<Arg: ?Sized, Ret = ()> {
-    /// FIXME: Box<dyn> is a fat object and we probably want to put an erased type in there
+    /// FIXME: `Box<dyn>` is a fat object and we probably want to put an erased type in there
     handler: Cell<Option<Box<dyn FnMut(&Arg, &mut Ret)>>>,
 }
 

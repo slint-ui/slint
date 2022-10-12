@@ -8,7 +8,7 @@
 Some convention used in the generated code:
  - `_self` is of type `Pin<&ComponentType>`  where ComponentType is the type of the generated sub component,
     this is existing for any evaluation of a binding
- - `self_rc` is of type `VRc<ComponentVTable, ComponentType>` or Rc<ComponentType> for globals
+ - `self_rc` is of type `VRc<ComponentVTable, ComponentType>` or `Rc<ComponentType>` for globals
     this is usually a local variable to the init code that shouldn't rbe relied upon by the binding code.
 */
 

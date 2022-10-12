@@ -450,7 +450,7 @@ pub struct Element {
     /// Main owner for a reference to a property.
     pub named_references: crate::namedreference::NamedReferenceContainer,
 
-    /// Tis element is part of a `for <xxx> in <model>:
+    /// This element is part of a `for <xxx> in <model>`:
     pub repeated: Option<RepeatedElementInfo>,
 
     pub states: Vec<State>,

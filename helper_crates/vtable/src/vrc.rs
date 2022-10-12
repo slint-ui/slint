@@ -227,7 +227,7 @@ impl<VTable: VTableMetaDropInPlace, X> VRc<VTable, X> {
         }
     }
 
-    /// Gets a Pin<VRef> pointing to this instance
+    /// Gets a `Pin<VRef>` pointing to this instance
     ///
     /// This is safe because there is no way to access a mutable reference to the pointee.
     /// (There is no `get_mut` or `make_mut`),
