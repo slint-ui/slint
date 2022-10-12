@@ -8,7 +8,7 @@
   - [What are the commercial licensing options?](#what-are-the-commercial-licensing-options)
   - [What does perpetual mean?](#what-does-perpetual-mean)
   - [Are updates included?](#are-updates-included)
-  - [Can I try Slint using the Ambassador option and then switch to the commercial license later?](#can-i-try-slint-using-the-ambassador-option-and-then-switch-to-the-commercial-license-later)
+  - [Can I try Slint using the Ambassador option and then switch to a paid option later?](#can-i-try-slint-using-the-ambassador-option-and-then-switch-to-a-paid-option-later)
   - [Can I try Slint using the GPL version and then switch to the commercial license later?](#can-i-try-slint-under-the-gpl-and-then-switch-to-the-commercial-license-later)
   - [Is there a discount or reduction for independent developers or small businesses?](#is-there-a-discount-or-reduction-for-independent-developers-or-small-businesses)
   - [I want to develop a free software product using Slint, but I don't like the GPL and prefer to use a non-copyleft license.](#i-want-to-develop-a-free-software-product-using-slint-but-i-dont-like-the-gpl-and-prefer-to-use-a-non-copyleft-license)
@@ -54,9 +54,9 @@ The commercial license can be provided for free if you help us promote Slint: Ch
 ### What are the commercial licensing options?
 
 We offer - Ambassador, Flex and Buyout commercial licensing options. All options
-include a non-exclusive, perpetual, irrevocable, non-transferable right to use
-Slint. Updates are included in the Ambassador and Buyout options. With the Flex
-option, updates are included as long as the subscription is active.
+include a perpetual, non-exclusive, non-transferable right to use Slint. Updates
+are included in the Ambassador and Buyout options. With the Flex option, updates
+are included as long as the subscription is active.
 
 The Ambassador option is a free license that can be provided in lieu of helping
 us promote Slint.
@@ -67,7 +67,8 @@ on embedded devices, you can purchase the required amount of distributions. At
 any point of time, you could also switch to the Buyout option.
 
 The Buyout option includes unlimited User-Seats and a prebuy of distribitions of
-your Slint based applications on embedded devices.
+your Slint based applications on embedded devices. 30 hours of priority support
+is also included.
 
 ### What does perpetual mean?
 
