@@ -5,8 +5,11 @@
   - [Why are you creating a new markup language?](#why-are-you-creating-a-new-markup-language)
   - [Will there be API bindings to integrate with my favorite programming language?](#will-there-be-api-bindings-to-integrate-with-my-favorite-programming-language)
 - [Licensing](#licensing)
-  - [What is the commercial licensing model?](#what-is-the-commercial-licensing-model)
-  - [Can I try Slint using the GPL version and then switch to the commercial license later?](#can-i-try-slint-using-the-gpl-version-and-then-switch-to-the-commercial-license-later)
+  - [What are the commercial licensing options?](#what-are-the-commercial-licensing-options)
+  - [What does perpetual mean?](#what-does-perpetual-mean)
+  - [Are updates included?](#are-updates-included)
+  - [Can I try Slint using the Ambassador option and then switch to the commercial license later?][def]
+  - [Can I try Slint using the GPL version and then switch to the commercial license later?](#can-i-try-slint-under-the-gpl-and-then-switch-to-the-commercial-license-later)
   - [Is there a discount or reduction for independent developers or small businesses?](#is-there-a-discount-or-reduction-for-independent-developers-or-small-businesses)
   - [I want to develop a free software product using Slint, but I don't like the GPL and prefer to use a non-copyleft license.](#i-want-to-develop-a-free-software-product-using-slint-but-i-dont-like-the-gpl-and-prefer-to-use-a-non-copyleft-license)
 
@@ -66,7 +69,23 @@ any point of time, you could also switch to the Buyout option.
 The Buyout option includes unlimited User-Seats and a prebuy of distribitions of
 your Slint based applications on embedded devices.
 
-### Can I try Slint using the GPL version and then switch to the commercial license later?
+### What does perpetual mean?
+
+The perpetual right allows you to use the version(s) of Slint, provided under the
+commercial license, for ever.
+
+### Are updates included?
+
+Yes, updates are included. With the Flex option, updates are included as long as
+the subscription is active.
+
+### Can I try Slint using the Ambassador option and then switch to the commercial license later?
+
+Yes. You can evaluate Slint using the GPL license, and obtain the commercial
+license after the evaluation, with the option of transferring the code
+developed under the GPL to commercial for free.
+
+### Can I try Slint under the GPL and then switch to the commercial license later?
 
 Yes. You can evaluate Slint using the GPL license, and obtain the commercial
 license after the evaluation, with the option of transferring the code
