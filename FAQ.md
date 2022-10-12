@@ -60,8 +60,8 @@ us promote Slint.
 
 With the Flex option, you can choose the number of User-Seats you would need to
 develop your applications with Slint. Before distribution of such applications
-on embedded devices, you can either switch to the Buyout option or purchase the
-required amount of distributions separately.
+on embedded devices, you can purchase the required amount of distributions. At
+any point of time, you could also switch to the Buyout option.
 
 The Buyout option includes unlimited User-Seats and a prebuy of distribitions of
 your Slint based applications on embedded devices.
