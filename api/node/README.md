@@ -41,7 +41,7 @@ let main = new ui.Main();
 main.run();
 ```
 
-See [/examples/printerdemo/node](/examples/printerdemo/node) for a full example.
+See [/examples/todo/node](/examples/todo/node) for a full example.
 
 ## API Overview
 
