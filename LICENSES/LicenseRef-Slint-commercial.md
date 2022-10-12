@@ -84,13 +84,12 @@ The Licensed Software includes
 6. The Licensed Software is to be used exclusively with your software
     products (**Products**) specified in the License Certificate.
 
-7. We grant you a perpetual, non-exclusive, non-transferable right
-    to use the Licensed Software for the sole purposes of designing, developing, 
-    and testing your Products, including making modifications to the Licensed
-    Software, during the Term. The number of **Users** using the Licensed
-    Software to build your Products is limited to the amount of **User Seats**
-    specified in the License Certificate. For clarity, each unique User is
-    counted as one User Seat.
+7. We grant you a perpetual, non-exclusive, non-transferable right to use the
+    Licensed Software, including making modifications, for the sole purposes of
+    designing, developing, and testing your Products during the Term. The number
+    of **Users** using the Licensed Software to design, develop and test your
+    Products is limited to the amount of **User Seats** specified in the License
+    Certificate. For clarity, each unique User is counted as one User Seat.
 
 8. We grant you a perpetual, non-exclusive, non-transferable right to reproduce
     and distribute the object code form of the Licensed Software, including any
