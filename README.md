@@ -13,7 +13,7 @@ to use Slint and be part of its community.
 
 ## Design Goals
 
-We use the following design goals as a guide when developing Slint
+We use the following design goals as a guide when developing Slint:
 
 - **Scalable**: Run on any screen connected to a device, from desktop computers
     to low end embedded systems.

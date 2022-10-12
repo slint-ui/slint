@@ -234,7 +234,7 @@ The Licensed Software includes
     shall be provided the right to provide comments to the report before it is
     finalized.
 
-18. If you materially breache this Agreement, we will provide a 60 (sixty) days
+18. If you materially breach this Agreement, we will provide a 60 (sixty) days
     written notice to you during which any such breach(es) may be cured, failing
     which we will terminate the agreement. You undertake to pay a contractual
     penalty for each case of negligent breach of this Agreement of EUR 10000
