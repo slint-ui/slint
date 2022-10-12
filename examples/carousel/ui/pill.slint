@@ -1,22 +1,21 @@
-// import { Brushes, Durations, Radius, Sizes, Spacing } from "../theme/theme.slint";
-// import { Label } from "label.slint";
+import { Theme } from "theme.slint";
+import { Label } from "label.slint";
 
+export Pill := Rectangle {
+    property <color> foreground: Theme.window-background;
+    property <string> text: "text";
 
-// export Pill := Rectangle {
-//     property <color> foreground: Theme.widget-background;
-//     property <string> text;
+    padding: Theme.widget-spacing-medium;
+    background: Theme.widget-foreground;
+    border-radius: Theme.widget-radius-regular;
 
-//     padding: Style.padding;
-//     background: Theme.widget-foreground;
-//     border-radius: Style.border-radius;
+    width: label.width + self.padding;
+    height: label.height + self.padding;
 
-//     width: label.width + self.padding;
-//     height: label.height + self.padding;
-
-//     label := Label { 
-//         x: root.padding / 2;
-//         y: root.padding / 2;
-//         color: root.foreground;
-//         text: root.text;
-//      }
-// }
+    label := Label { 
+        x: root.padding / 2;
+        y: root.padding / 2;
+        color: root.foreground;
+        text <=> root.text;
+     }
+}
