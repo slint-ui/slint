@@ -6,6 +6,7 @@
 use cpp::*;
 use euclid::approxeq::ApproxEq;
 use i_slint_core::component::{ComponentRc, ComponentRef};
+use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
@@ -527,8 +528,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
             get_geometry!(items::BorderRectangle, rect),
             rect.background(),
             rect.border_color(),
-            rect.border_width(),
-            rect.border_radius(),
+            rect.border_width().get(),
+            rect.border_radius().get(),
         );
     }
 
@@ -716,7 +717,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         };
 
         let text_cursor_width: f32 = if visual_representation.cursor_position.is_some() {
-            text_input.text_cursor_width()
+            text_input.text_cursor_width().get()
         } else {
             0.
         };
@@ -777,7 +778,7 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let rect: qttypes::QRectF = get_geometry!(items::Path, path);
         let fill_brush: qttypes::QBrush = into_qbrush(path.fill(), rect.width, rect.height);
         let stroke_brush: qttypes::QBrush = into_qbrush(path.stroke(), rect.width, rect.height);
-        let stroke_width: f32 = path.stroke_width();
+        let stroke_width: f32 = path.stroke_width().get();
         let (offset, path_events) = path.fitted_path_events();
         let pos = qttypes::QPoint { x: offset.x as _, y: offset.y as _ };
         let mut painter_path = QPainterPath::default();
@@ -855,12 +856,12 @@ impl ItemRenderer for QtItemRenderer<'_> {
                     Brush::SolidColor(box_shadow.color()),
                     Brush::default(),
                     0.,
-                    box_shadow.border_radius(),
+                    box_shadow.border_radius().get(),
                 );
 
                 drop(painter_);
 
-                let blur_radius = box_shadow.blur();
+                let blur_radius = box_shadow.blur().get();
 
                 if blur_radius > 0. {
                     cpp! {
@@ -904,8 +905,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
         let blur_radius = box_shadow.blur();
 
         let shadow_offset = qttypes::QPointF {
-            x: (box_shadow.offset_x() - blur_radius) as f64,
-            y: (box_shadow.offset_y() - blur_radius) as f64,
+            x: (box_shadow.offset_x() - blur_radius).get() as f64,
+            y: (box_shadow.offset_y() - blur_radius).get() as f64,
         };
 
         let painter: &mut QPainterPtr = &mut self.painter;
@@ -1446,12 +1447,12 @@ impl WindowAdapterSealed for QtWindow {
         let component = ComponentRc::borrow_pin(&component_rc);
         let root_item = component.as_ref().get_item_ref(0);
         if let Some(window_item) = ItemRef::downcast_pin::<WindowItem>(root_item) {
-            if window_item.width() <= 0. {
+            if window_item.width() <= LogicalLength::zero() {
                 window_item.width.set(
                     component.as_ref().layout_info(Orientation::Horizontal).preferred_bounded(),
                 )
             }
-            if window_item.height() <= 0. {
+            if window_item.height() <= LogicalLength::zero() {
                 window_item
                     .height
                     .set(component.as_ref().layout_info(Orientation::Vertical).preferred_bounded())
@@ -1504,8 +1505,8 @@ impl WindowAdapterSealed for QtWindow {
         let title: qttypes::QString = window_item.title().as_str().into();
         let no_frame = window_item.no_frame();
         let mut size = qttypes::QSize {
-            width: window_item.width().ceil() as _,
-            height: window_item.height().ceil() as _,
+            width: window_item.width().get().ceil() as _,
+            height: window_item.height().get().ceil() as _,
         };
         if size.width == 0 || size.height == 0 {
             let existing_size = cpp!(unsafe [widget_ptr as "QWidget*"] -> qttypes::QSize as "QSize" {

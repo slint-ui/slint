@@ -9,6 +9,7 @@
 */
 use copypasta::ClipboardProvider;
 use corelib::items::PointerEventButton;
+use corelib::lengths::LogicalSize;
 use i_slint_core as corelib;
 
 use corelib::api::EventLoopError;
@@ -426,7 +427,7 @@ fn process_window_event(
         WindowEvent::ScaleFactorChanged { scale_factor, new_inner_size: size } => {
             if std::env::var("SLINT_SCALE_FACTOR").is_err() {
                 let size = size.to_logical(scale_factor);
-                runtime_window.set_window_item_geometry(size.width, size.height);
+                runtime_window.set_window_item_geometry(LogicalSize::new(size.width, size.height));
                 runtime_window.set_scale_factor(scale_factor as f32);
             }
         }

@@ -16,7 +16,7 @@ use crate::input::{
 use crate::item_rendering::CachedRenderingData;
 use crate::item_rendering::ItemRenderer;
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::LogicalLength;
+use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
@@ -45,7 +45,11 @@ impl Item for ImageItem {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
+        .to_untyped()
     }
 
     fn layout_info(
@@ -59,7 +63,7 @@ impl Item for ImageItem {
                 _ if natural_size.width == 0 || natural_size.height == 0 => 0 as Coord,
                 Orientation::Horizontal => natural_size.width as Coord,
                 Orientation::Vertical => {
-                    natural_size.height as Coord * self.width() / natural_size.width as Coord
+                    natural_size.height as Coord * self.width().get() / natural_size.width as Coord
                 }
             },
             ..Default::default()
@@ -143,7 +147,11 @@ impl Item for ClippedImage {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
+        .to_untyped()
     }
 
     fn layout_info(
@@ -157,7 +165,7 @@ impl Item for ClippedImage {
                 _ if natural_size.width == 0 || natural_size.height == 0 => 0 as Coord,
                 Orientation::Horizontal => natural_size.width as Coord,
                 Orientation::Vertical => {
-                    natural_size.height as Coord * self.width() / natural_size.width as Coord
+                    natural_size.height as Coord * self.width().get() / natural_size.width as Coord
                 }
             },
             ..Default::default()

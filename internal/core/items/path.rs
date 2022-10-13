@@ -17,7 +17,10 @@ use crate::input::{
 use crate::item_rendering::CachedRenderingData;
 
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{LogicalItemGeometry, LogicalLength};
+use crate::lengths::{
+    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
+    PointLengths,
+};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
@@ -54,7 +57,11 @@ impl Item for Path {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
+        .to_untyped()
     }
 
     fn layout_info(
@@ -75,8 +82,8 @@ impl Item for Path {
             if self.clip()
                 && (pos.x < 0 as _
                     || pos.y < 0 as _
-                    || pos.x > self.width()
-                    || pos.y > self.height())
+                    || pos.x_length() > self.width()
+                    || pos.y_length() > self.height())
             {
                 return InputEventFilterResult::Intercept;
             }
@@ -137,14 +144,12 @@ impl Path {
     /// Returns an iterator of the events of the path and an offset, so that the
     /// shape fits into the width/height of the path while respecting the stroke
     /// width.
-    pub fn fitted_path_events(
-        self: Pin<&Self>,
-    ) -> (euclid::default::Vector2D<Coord>, PathDataIterator) {
+    pub fn fitted_path_events(self: Pin<&Self>) -> (LogicalVector, PathDataIterator) {
         let stroke_width = self.stroke_width();
-        let bounds_width = (self.width() - stroke_width).max(0 as _);
-        let bounds_height = (self.height() - stroke_width).max(0 as _);
+        let bounds_width = (self.width() - stroke_width).max(LogicalLength::zero());
+        let bounds_height = (self.height() - stroke_width).max(LogicalLength::zero());
         let offset =
-            euclid::default::Vector2D::new(stroke_width / 2 as Coord, stroke_width / 2 as Coord);
+            LogicalVector::from_lengths(stroke_width / 2 as Coord, stroke_width / 2 as Coord);
 
         let viewbox_width = self.viewbox_width();
         let viewbox_height = self.viewbox_height();
@@ -160,7 +165,7 @@ impl Path {
             None
         };
 
-        elements_iter.fit(bounds_width as _, bounds_height as _, maybe_viewbox);
+        elements_iter.fit(bounds_width.get() as _, bounds_height.get() as _, maybe_viewbox);
         (offset, elements_iter)
     }
 }

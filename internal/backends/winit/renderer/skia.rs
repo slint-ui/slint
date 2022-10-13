@@ -181,8 +181,8 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
 
         let scale_factor = ScaleFactor::new(window.scale_factor());
 
-        let max_width = text_input.logical_width() * scale_factor;
-        let max_height = text_input.logical_height() * scale_factor;
+        let max_width = text_input.width() * scale_factor;
+        let max_height = text_input.height() * scale_factor;
         let pos = pos * scale_factor;
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
@@ -234,8 +234,8 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
 
         let scale_factor = ScaleFactor::new(window.scale_factor());
 
-        let max_width = text_input.logical_width() * scale_factor;
-        let max_height = text_input.logical_height() * scale_factor;
+        let max_width = text_input.width() * scale_factor;
+        let max_height = text_input.height() * scale_factor;
 
         if max_width.get() <= 0. || max_height.get() <= 0. {
             return Default::default();
@@ -262,7 +262,7 @@ impl i_slint_core::renderer::Renderer for SkiaRenderer {
             string,
             byte_offset,
             layout,
-            text_input.logical_text_cursor_width() * scale_factor,
+            text_input.text_cursor_width() * scale_factor,
         );
 
         physical_cursor_rect.translate(layout_top_left.to_vector()) / scale_factor

@@ -52,11 +52,11 @@ impl BoxShadowOptions {
             return None;
         }
         Some(Self {
-            width: box_shadow.logical_width() * scale_factor,
-            height: box_shadow.logical_height() * scale_factor,
+            width: box_shadow.width() * scale_factor,
+            height: box_shadow.height() * scale_factor,
             color,
-            blur: box_shadow.logical_blur() * scale_factor, // This effectively becomes the blur radius, so scale to physical pixels
-            radius: box_shadow.logical_border_radius() * scale_factor,
+            blur: box_shadow.blur() * scale_factor, // This effectively becomes the blur radius, so scale to physical pixels
+            radius: box_shadow.border_radius() * scale_factor,
         })
     }
 }

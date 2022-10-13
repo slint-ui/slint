@@ -12,7 +12,8 @@ use crate::item_tree::{
     ItemRc, ItemVisitor, ItemVisitorResult, ItemVisitorVTable, VisitChildrenResult,
 };
 use crate::lengths::{
-    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalVector,
+    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalPx, LogicalRect, LogicalSize,
+    LogicalVector,
 };
 use crate::Coord;
 use alloc::boxed::Box;
@@ -292,8 +293,8 @@ pub trait ItemRenderer {
 
             let clip_region_valid = self.combine_clip(
                 LogicalRect::new(LogicalPoint::default(), geometry.size),
-                clip_item.logical_border_radius(),
-                clip_item.logical_border_width(),
+                clip_item.border_radius(),
+                clip_item.border_width(),
             );
 
             // If clipping is enabled but the clip element is outside the visible range, then we don't
@@ -467,7 +468,7 @@ macro_rules! forward_rendering_call {
                 let height = Ty::FIELD_OFFSETS.height.apply_pin(obj).get_untracked();
                 let x = Ty::FIELD_OFFSETS.x.apply_pin(obj).get_untracked();
                 let y = Ty::FIELD_OFFSETS.y.apply_pin(obj).get_untracked();
-                euclid::rect(x, y, width, height)
+                LogicalRect::new(LogicalPoint::new(x, y), LogicalSize::new(width, height))
             })
         }
     };

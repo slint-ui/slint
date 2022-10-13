@@ -152,7 +152,8 @@ impl<const MAX_BUFFER_AGE: usize> SoftwareRenderer<MAX_BUFFER_AGE> {
             window_inner.window_item().as_ref().map(|item| item.as_pin_ref())
         {
             (
-                (euclid::size2(window_item.width() as f32, window_item.height() as f32) * factor)
+                (LogicalSize::from_lengths(window_item.width(), window_item.height()).cast()
+                    * factor)
                     .cast(),
                 window_item.background(),
             )
@@ -239,8 +240,8 @@ impl<const MAX_BUFFER_AGE: usize> SoftwareRenderer<MAX_BUFFER_AGE> {
             component.as_ref().get_item_ref(0),
         ) {
             let factor = ScaleFactor::new(window_inner.scale_factor());
-            let size =
-                euclid::size2(window_item.width() as f32, window_item.height() as f32) * factor;
+            let size = LogicalSize::from_lengths(window_item.width(), window_item.height()).cast()
+                * factor;
             render_window_frame_by_line(
                 window_inner,
                 window_item.background(),
@@ -1013,8 +1014,8 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
     fn draw_border_rectangle(&mut self, rect: Pin<&crate::items::BorderRectangle>, _: &ItemRc) {
         let geom = LogicalRect::new(LogicalPoint::default(), rect.logical_geometry().size_length());
         if self.should_draw(&geom) {
-            let border = rect.logical_border_width();
-            let radius = rect.logical_border_radius();
+            let border = rect.border_width();
+            let radius = rect.border_radius();
             // FIXME: gradients
             let color = rect.background().color();
             if radius.get() > 0 as _ {

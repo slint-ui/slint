@@ -20,7 +20,7 @@ use crate::input::{
 };
 use crate::item_rendering::{CachedRenderingData, ItemRenderer};
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{LogicalLength, LogicalPoint, ScaleFactor};
+use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, ScaleFactor};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::{WindowAdapter, WindowInner};
@@ -60,7 +60,11 @@ impl Item for Text {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
+        .to_untyped()
     }
 
     fn layout_info(
@@ -110,7 +114,7 @@ impl Item for Text {
             Orientation::Vertical => {
                 let h = match self.wrap() {
                     TextWrap::NoWrap => implicit_size(None).height,
-                    TextWrap::WordWrap => implicit_size(Some(self.logical_width())).height,
+                    TextWrap::WordWrap => implicit_size(Some(self.width())).height,
                 }
                 .ceil();
                 LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
@@ -191,14 +195,14 @@ impl Text {
                 }
             },
             pixel_size: {
-                let font_size = self.logical_font_size();
+                let font_size = self.font_size();
                 if font_size.get() == 0 as Coord {
                     window_item.as_ref().and_then(|item| item.as_pin_ref().font_size())
                 } else {
                     Some(font_size)
                 }
             },
-            letter_spacing: Some(self.logical_letter_spacing()),
+            letter_spacing: Some(self.letter_spacing()),
         }
     }
 }
@@ -250,7 +254,11 @@ impl Item for TextInput {
 
     // FIXME: width / height.  or maybe it doesn't matter?  (
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
+        .to_untyped()
     }
 
     fn layout_info(
@@ -293,7 +301,7 @@ impl Item for TextInput {
             Orientation::Vertical => {
                 let h = match self.wrap() {
                     TextWrap::NoWrap => implicit_size(None).height,
-                    TextWrap::WordWrap => implicit_size(Some(self.logical_width())).height,
+                    TextWrap::WordWrap => implicit_size(Some(self.width())).height,
                 }
                 .ceil();
                 LayoutInfo { min: h, preferred: h, ..LayoutInfo::default() }
@@ -938,14 +946,14 @@ impl TextInput {
                 }
             },
             pixel_size: {
-                let font_size = self.logical_font_size();
+                let font_size = self.font_size();
                 if font_size.get() == 0 as Coord {
                     window_item.as_ref().and_then(|item| item.as_pin_ref().font_size())
                 } else {
                     Some(font_size)
                 }
             },
-            letter_spacing: Some(self.logical_letter_spacing()),
+            letter_spacing: Some(self.letter_spacing()),
         }
     }
 

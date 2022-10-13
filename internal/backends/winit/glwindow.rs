@@ -13,15 +13,15 @@ use crate::event_loop::WinitWindow;
 use crate::renderer::{WinitCompatibleCanvas, WinitCompatibleRenderer};
 use const_field_offset::FieldOffsets;
 use corelib::component::ComponentRc;
+use corelib::graphics::euclid::num::Zero;
 use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};
 use corelib::layout::Orientation;
-use corelib::lengths::LogicalPoint;
+use corelib::lengths::{LogicalLength, LogicalPoint, LogicalSize};
 use corelib::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
 use corelib::Property;
 use corelib::{graphics::*, Coord};
 use i_slint_core as corelib;
-use winit::dpi::LogicalSize;
 
 fn position_to_winit(pos: &corelib::api::WindowPosition) -> winit::dpi::Position {
     match pos {
@@ -283,8 +283,8 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
             return;
         }
 
-        let mut width = window_item.width() as f32;
-        let mut height = window_item.height() as f32;
+        let mut width = window_item.width().get() as f32;
+        let mut height = window_item.height().get() as f32;
 
         let mut must_resize = false;
 
@@ -409,7 +409,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
             {
                 window_builder
                     .with_title(window_item.title().to_string())
-                    .with_resizable(window_item.height() <= 0 as _ || window_item.width() <= 0 as _)
+                    .with_resizable(
+                        window_item.height() <= LogicalLength::zero()
+                            || window_item.width() <= LogicalLength::zero(),
+                    )
                     .with_decorations(!window_item.no_frame())
                     .with_window_icon(icon_to_winit(window_item.icon()))
             } else {
@@ -443,7 +446,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 window_item.width.set(layout_info_h.preferred_bounded());
             }
             let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
-            let s = LogicalSize::new(
+            let s = winit::dpi::LogicalSize::new(
                 layout_info_h.preferred_bounded(),
                 layout_info_v.preferred_bounded(),
             );
@@ -453,12 +456,12 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
             } else {
                 if layout_info_h.min >= 1. || layout_info_v.min >= 1. {
                     window_builder = window_builder.with_min_inner_size(into_size(
-                        LogicalSize::new(layout_info_h.min, layout_info_v.min),
+                        winit::dpi::LogicalSize::new(layout_info_h.min, layout_info_v.min),
                     ))
                 }
                 if layout_info_h.max < f32::MAX || layout_info_v.max < f32::MAX {
                     window_builder = window_builder.with_max_inner_size(into_size(
-                        LogicalSize::new(layout_info_h.max, layout_info_v.max),
+                        winit::dpi::LogicalSize::new(layout_info_h.max, layout_info_v.max),
                     ))
                 }
 
@@ -479,7 +482,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
                 } else if s.width > 0 as Coord && s.height > 0 as Coord {
                     // Make sure that the window's inner size is in sync with the root window item's
                     // width/height.
-                    runtime_window.set_window_item_geometry(s.width, s.height);
+                    runtime_window.set_window_item_geometry(LogicalSize::new(s.width, s.height));
                     window_builder.with_inner_size(into_size(s))
                 } else {
                     window_builder
