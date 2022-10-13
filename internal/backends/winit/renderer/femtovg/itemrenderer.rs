@@ -1171,12 +1171,12 @@ impl<'a> GLItemRenderer<'a> {
                 let target_size_for_scalable_source = matches!(image_inner, ImageInner::Svg(..))
                     .then(|| {
                         // get the scale factor as a property again, to ensure the cache is invalidated when the scale factor changes
-                        let scale_factor = self.window.scale_factor();
-                        [
-                            (target_width.get() * scale_factor) as u32,
-                            (target_height.get() * scale_factor) as u32,
-                        ]
-                        .into()
+                        let scale_factor = ScaleFactor::new(self.window.scale_factor());
+                        PhysicalSize::from_lengths(
+                            LogicalLength::new(target_width.get()) * scale_factor,
+                            LogicalLength::new(target_height.get()) * scale_factor,
+                        )
+                        .cast()
                     });
 
                 TextureCacheKey::new(image_inner, target_size_for_scalable_source, image_rendering)

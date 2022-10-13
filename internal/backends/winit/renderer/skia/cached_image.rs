@@ -51,7 +51,7 @@ pub(crate) fn as_skia_image(
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
             let target_size =
                 LogicalSize::new(target_width.get(), target_height.get()) * scale_factor;
-            let pixels = match svg.render(target_size.to_untyped().cast()).ok()? {
+            let pixels = match svg.render(target_size.cast()).ok()? {
                 SharedImageBuffer::RGB8(_) => unreachable!(),
                 SharedImageBuffer::RGBA8(_) => unreachable!(),
                 SharedImageBuffer::RGBA8Premultiplied(pixels) => pixels,

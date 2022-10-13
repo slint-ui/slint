@@ -11,7 +11,7 @@ use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
 use i_slint_core::graphics::{
-    euclid, Brush, Color, FontRequest, Image, IntSize, Point, Rect, SharedImageBuffer,
+    euclid, Brush, Color, FontRequest, Image, Point, Rect, SharedImageBuffer,
 };
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
@@ -21,7 +21,7 @@ use i_slint_core::items::{
 };
 use i_slint_core::layout::Orientation;
 use i_slint_core::lengths::{
-    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, ScaleFactor,
+    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PhysicalPx, ScaleFactor,
 };
 use i_slint_core::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
 use i_slint_core::{ImageInner, PathData, Property, SharedString};
@@ -1080,7 +1080,7 @@ fn shared_image_buffer_to_pixmap(buffer: &SharedImageBuffer) -> Option<qttypes::
 
 pub(crate) fn image_to_pixmap(
     image: &ImageInner,
-    source_size: Option<IntSize>,
+    source_size: Option<euclid::Size2D<u32, PhysicalPx>>,
 ) -> Option<qttypes::QPixmap> {
     shared_image_buffer_to_pixmap(&image.render_to_buffer(source_size)?)
 }
@@ -1154,7 +1154,7 @@ impl QtItemRenderer<'_> {
                         || !rect.height.approx_eq(&target_height))
             });
             let source_size = if !has_source_clipping {
-                Some(IntSize::new(target_width as u32, target_height as u32))
+                Some(euclid::size2(target_width as u32, target_height as u32))
             } else {
                 // Source size & clipping is not implemented yet
                 None
