@@ -133,11 +133,9 @@ impl LogicalSize {
         PhysicalSize::from_logical(*self, scale_factor)
     }
 
-    /*
-    pub(crate) fn to_euclid(&self) -> crate::graphics::Size {
+    pub(crate) fn to_euclid(&self) -> crate::lengths::LogicalSize {
         [self.width as _, self.height as _].into()
     }
-    */
 }
 
 /// A size represented in the coordinate space of physical device pixels. That is the space after applying
@@ -407,10 +405,10 @@ impl Window {
     /// a window frame (if present).
     pub fn set_size(&self, size: impl Into<WindowSize>) {
         let size = size.into();
-        let l = size.to_logical(self.scale_factor());
+        let l = size.to_logical(self.scale_factor()).to_euclid();
         let p = size.to_physical(self.scale_factor());
 
-        self.0.set_window_item_geometry(l.width as _, l.height as _);
+        self.0.set_window_item_geometry(l);
         if self.0.inner_size.replace(p) != p {
             self.0.window_adapter().set_size(size);
         }

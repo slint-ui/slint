@@ -28,7 +28,9 @@ use crate::input::{
 use crate::item_rendering::CachedRenderingData;
 pub use crate::item_tree::ItemRc;
 use crate::layout::{LayoutInfo, Orientation};
-use crate::lengths::{LogicalLength, LogicalVector};
+use crate::lengths::{
+    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PointLengths,
+};
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::{WindowAdapter, WindowAdapterRc, WindowInner};
@@ -188,7 +190,11 @@ impl Item for Rectangle {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
+        .to_untyped()
     }
 
     fn layout_info(
@@ -276,7 +282,11 @@ impl Item for BorderRectangle {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
+        .to_untyped()
     }
 
     fn layout_info(
@@ -379,7 +389,11 @@ impl Item for TouchArea {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
+        .to_untyped()
     }
 
     fn layout_info(
@@ -426,8 +440,12 @@ impl Item for TouchArea {
         }
         let result = if let MouseEvent::Released { position, button } = event {
             if button == PointerEventButton::Left
-                && euclid::rect(0 as Coord, 0 as Coord, self.width(), self.height())
-                    .contains(position)
+                && LogicalRect::new(
+                    LogicalPoint::default(),
+                    LogicalSize::from_lengths(self.width(), self.height()),
+                )
+                .to_untyped()
+                .contains(position)
             {
                 Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
             }
@@ -438,6 +456,7 @@ impl Item for TouchArea {
 
         match event {
             MouseEvent::Pressed { position, button } => {
+                let position = LogicalPoint::from_untyped(position);
                 self.grabbed.set(true);
                 if button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(position.x);
@@ -546,7 +565,11 @@ impl Item for FocusScope {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
+        .to_untyped()
     }
 
     fn layout_info(
@@ -661,7 +684,11 @@ impl Item for Clip {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
+        .to_untyped()
     }
 
     fn layout_info(
@@ -682,8 +709,8 @@ impl Item for Clip {
             if self.clip()
                 && (pos.x < 0 as Coord
                     || pos.y < 0 as Coord
-                    || pos.x > self.width()
-                    || pos.y > self.height())
+                    || pos.x_length() > self.width()
+                    || pos.y_length() > self.height())
             {
                 return InputEventFilterResult::Intercept;
             }
@@ -754,7 +781,11 @@ impl Item for Opacity {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
+        .to_untyped()
     }
 
     fn layout_info(
@@ -866,7 +897,11 @@ impl Item for Layer {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
+        .to_untyped()
     }
 
     fn layout_info(
@@ -952,7 +987,11 @@ impl Item for Rotate {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
+        .to_untyped()
     }
 
     fn layout_info(
@@ -1004,10 +1043,8 @@ impl Item for Rotate {
         backend: &mut ItemRendererRef,
         _self_rc: &ItemRc,
     ) -> RenderingResult {
-        let origin = LogicalVector::from_lengths(
-            self.logical_rotation_origin_x(),
-            self.logical_rotation_origin_y(),
-        );
+        let origin =
+            LogicalVector::from_lengths(self.rotation_origin_x(), self.rotation_origin_y());
         (*backend).translate(origin);
         (*backend).rotate(self.rotation_angle());
         (*backend).translate(-origin);
@@ -1074,7 +1111,11 @@ impl Item for WindowItem {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(0 as _, 0 as _, self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::default(),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
+        .to_untyped()
     }
 
     fn layout_info(
@@ -1141,7 +1182,7 @@ impl WindowItem {
     }
 
     pub fn font_size(self: Pin<&Self>) -> Option<LogicalLength> {
-        let font_size = self.logical_default_font_size();
+        let font_size = self.default_font_size();
         if font_size.get() <= 0 as Coord {
             None
         } else {
@@ -1191,7 +1232,11 @@ impl Item for BoxShadow {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> Rect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
+        .to_untyped()
     }
 
     fn layout_info(

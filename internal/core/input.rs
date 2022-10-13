@@ -9,15 +9,15 @@ use crate::graphics::Point;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
 use crate::items::{ItemRef, TextCursorDirection};
+use crate::lengths::{LogicalPoint, LogicalVector};
 use crate::timers::Timer;
 use crate::window::{WindowAdapter, WindowInner};
+use crate::Property;
 use crate::{component::ComponentRc, SharedString};
-use crate::{Coord, Property};
 use alloc::rc::Rc;
 use alloc::vec::Vec;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
-use euclid::default::Vector2D;
 
 /// A mouse or touch event
 ///
@@ -44,7 +44,7 @@ pub enum MouseEvent {
 
 impl MouseEvent {
     /// The position of the cursor for this event, if any
-    pub fn position(&self) -> Option<Point> {
+    pub fn position(&self) -> Option<LogicalPoint> {
         match self {
             MouseEvent::Pressed { position, .. } => Some(*position),
             MouseEvent::Released { position, .. } => Some(*position),
@@ -52,10 +52,11 @@ impl MouseEvent {
             MouseEvent::Wheel { position, .. } => Some(*position),
             MouseEvent::Exit => None,
         }
+        .map(|untyped| LogicalPoint::from_untyped(untyped))
     }
 
     /// Translate the position by the given value
-    pub fn translate(&mut self, vec: Vector2D<Coord>) {
+    pub fn translate(&mut self, vec: LogicalVector) {
         let pos = match self {
             MouseEvent::Pressed { position, .. } => Some(position),
             MouseEvent::Released { position, .. } => Some(position),
@@ -64,7 +65,7 @@ impl MouseEvent {
             MouseEvent::Exit => None,
         };
         if let Some(pos) = pos {
-            *pos += vec;
+            *pos += vec.to_untyped();
         }
     }
 }
@@ -447,7 +448,7 @@ fn handle_mouse_grab(
             item.borrow().as_ref().input_event(MouseEvent::Exit, window_adapter, &item);
             return false;
         }
-        let g = item.borrow().as_ref().geometry();
+        let g = item.logical_geometry();
         event.translate(-g.origin.to_vector());
 
         let interested = matches!(
@@ -483,12 +484,12 @@ fn handle_mouse_grab(
 
 fn send_exit_events(
     mouse_input_state: &MouseInputState,
-    mut pos: Option<Point>,
+    mut pos: Option<LogicalPoint>,
     window_adapter: &Rc<dyn WindowAdapter>,
 ) {
     for it in mouse_input_state.item_stack.iter() {
         let item = if let Some(item) = it.0.upgrade() { item } else { break };
-        let g = item.borrow().as_ref().geometry();
+        let g = item.logical_geometry();
         let contains = pos.map_or(false, |p| g.contains(p));
         if let Some(p) = pos.as_mut() {
             *p -= g.origin.to_vector();
@@ -570,7 +571,7 @@ fn send_mouse_event_to_item(
     ignore_delays: bool,
 ) -> VisitChildrenResult {
     let item = item_rc.borrow();
-    let geom = item.as_ref().geometry();
+    let geom = item_rc.logical_geometry();
     // translated in our coordinate
     let mut event_for_children = mouse_event;
     event_for_children.translate(-geom.origin.to_vector());

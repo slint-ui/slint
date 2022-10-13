@@ -56,10 +56,10 @@ pub fn slint_element(input: TokenStream) -> TokenStream {
                     segments.first()
                 {
                     if *ident == "Coord" {
-                        logical_length_property_names
-                            .push(syn::Ident::new(&format!("logical_{}", *name), name.span()));
+                        logical_length_property_names.push(name);
                         logical_length_property_field_names.push(name);
                         logical_length_property_visibility.push(field.vis.clone());
+                        continue;
                     }
                 }
             }

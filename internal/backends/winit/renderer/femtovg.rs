@@ -241,8 +241,8 @@ impl Renderer for FemtoVGRenderer {
 
         let mut result = text.len();
 
-        let width = text_input.logical_width() * scale_factor;
-        let height = text_input.logical_height() * scale_factor;
+        let width = text_input.width() * scale_factor;
+        let height = text_input.height() * scale_factor;
         if width.get() <= 0. || height.get() <= 0. || pos.y < 0. {
             return 0;
         }
@@ -265,8 +265,7 @@ impl Renderer for FemtoVGRenderer {
             text.as_str()
         };
 
-        let paint =
-            font.init_paint(text_input.logical_letter_spacing() * scale_factor, Default::default());
+        let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
         let text_context = crate::renderer::femtovg::fonts::FONT_CACHE
             .with(|cache| cache.borrow().text_context.clone());
         let font_height = text_context.measure_font(paint).unwrap().height();
@@ -323,8 +322,8 @@ impl Renderer for FemtoVGRenderer {
 
         let mut result = PhysicalPoint::default();
 
-        let width = text_input.logical_width() * scale_factor;
-        let height = text_input.logical_height() * scale_factor;
+        let width = text_input.width() * scale_factor;
+        let height = text_input.height() * scale_factor;
         if width.get() <= 0. || height.get() <= 0. {
             return LogicalRect::new(
                 LogicalPoint::default(),
@@ -340,8 +339,7 @@ impl Renderer for FemtoVGRenderer {
             )
         });
 
-        let paint =
-            font.init_paint(text_input.logical_letter_spacing() * scale_factor, Default::default());
+        let paint = font.init_paint(text_input.letter_spacing() * scale_factor, Default::default());
         fonts::layout_text_lines(
             text.as_str(),
             &font,

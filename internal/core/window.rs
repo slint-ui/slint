@@ -10,20 +10,21 @@ use crate::api::{
     CloseRequestResponse, PhysicalPosition, PhysicalSize, Window, WindowPosition, WindowSize,
 };
 use crate::component::{ComponentRc, ComponentRef, ComponentVTable, ComponentWeak};
-use crate::graphics::{Point, Rect, Size};
+use crate::graphics::{Point, Rect};
 use crate::input::{
     key_codes, KeyEvent, KeyEventType, MouseEvent, MouseInputState, TextCursorBlinker,
 };
 use crate::item_tree::ItemRc;
 use crate::items::{ItemRef, MouseCursor};
-use crate::lengths::{LogicalItemGeometry, LogicalPoint};
+use crate::lengths::{LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalSize};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
-use crate::{Callback, Coord};
+use crate::Callback;
 use alloc::boxed::Box;
 use alloc::rc::{Rc, Weak};
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
+use euclid::num::Zero;
 use vtable::VRcMapped;
 
 fn next_focus_item(item: ItemRc) -> ItemRc {
@@ -297,6 +298,7 @@ impl WindowInner {
         let component = embedded_popup_component
             .as_ref()
             .and_then(|(popup_component, coordinates)| {
+                let coordinates = LogicalPoint::from_untyped(*coordinates);
                 event.translate(-coordinates.to_vector());
 
                 if let MouseEvent::Pressed { position, .. } = &event {
@@ -589,7 +591,7 @@ impl WindowInner {
         {
             (window_item.width(), window_item.height())
         } else {
-            (0 as Coord, 0 as Coord)
+            (LogicalLength::zero(), LogicalLength::zero())
         };
 
         let layout_info_h =
@@ -597,16 +599,16 @@ impl WindowInner {
         let layout_info_v =
             popup_component.as_ref().layout_info(crate::layout::Orientation::Vertical);
 
-        if w <= 0 as Coord {
-            w = layout_info_h.preferred;
+        if w <= LogicalLength::zero() {
+            w = LogicalLength::new(layout_info_h.preferred);
         }
-        if h <= 0 as Coord {
-            h = layout_info_v.preferred;
+        if h <= LogicalLength::zero() {
+            h = LogicalLength::new(layout_info_v.preferred);
         }
-        w = w.clamp(layout_info_h.min, layout_info_h.max);
-        h = h.clamp(layout_info_v.min, layout_info_v.max);
+        w = w.max(LogicalLength::new(layout_info_h.min)).min(LogicalLength::new(layout_info_h.max));
+        h = h.max(LogicalLength::new(layout_info_v.min)).min(LogicalLength::new(layout_info_v.max));
 
-        let size = Size::new(w, h);
+        let size = LogicalSize::from_lengths(w, h);
 
         if let Some(window_item) = ItemRef::downcast_pin(popup_root) {
             let width_property =
@@ -617,17 +619,18 @@ impl WindowInner {
             height_property.set(size.height);
         };
 
-        let location = match self.window_adapter().create_popup(Rect::new(position, size)) {
-            None => {
-                self.window_adapter().request_redraw();
-                PopupWindowLocation::ChildWindow(position)
-            }
+        let location =
+            match self.window_adapter().create_popup(Rect::new(position, size.to_untyped())) {
+                None => {
+                    self.window_adapter().request_redraw();
+                    PopupWindowLocation::ChildWindow(position)
+                }
 
-            Some(window_adapter) => {
-                WindowInner::from_pub(window_adapter.window()).set_component(popup_componentrc);
-                PopupWindowLocation::TopLevel(window_adapter)
-            }
-        };
+                Some(window_adapter) => {
+                    WindowInner::from_pub(window_adapter.window()).set_component(popup_componentrc);
+                    PopupWindowLocation::TopLevel(window_adapter)
+                }
+            };
 
         self.active_popup
             .replace(Some(PopupWindow { location, component: popup_componentrc.clone() }));
@@ -673,15 +676,14 @@ impl WindowInner {
 
     /// Sets the size of the window item. This method is typically called in response to receiving a
     /// window resize event from the windowing system.
-    /// Size is in logical pixels.
-    pub fn set_window_item_geometry(&self, width: Coord, height: Coord) {
+    pub fn set_window_item_geometry(&self, size: LogicalSize) {
         if let Some(component_rc) = self.try_component() {
             let component = ComponentRc::borrow_pin(&component_rc);
             let root_item = component.as_ref().get_item_ref(0);
             if let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
             {
-                window_item.width.set(width);
-                window_item.height.set(height);
+                window_item.width.set(size.width);
+                window_item.height.set(size.height);
             }
         }
     }
@@ -725,6 +727,7 @@ pub mod ffi {
     use super::*;
     use crate::api::{RenderingNotifier, RenderingState, SetRenderingNotifierError};
     use crate::graphics::IntSize;
+    use crate::graphics::Size;
 
     /// This enum describes a low-level access to specific graphics APIs used
     /// by the renderer.
