@@ -1824,7 +1824,7 @@ impl Renderer for QtWindow {
         };
         let single_line: bool = text_input.single_line();
         let r = cpp! { unsafe [font as "QFont", mut string as "QString", offset as "int", flags as "int", rect as "QRectF", single_line as "bool"]
-                -> qttypes::QPointF as "QPointF" {
+                -> qttypes::QRectF as "QRectF" {
             if (!single_line) {
                 string.replace(QChar('\n'), QChar::LineSeparator);
             }
@@ -1833,18 +1833,13 @@ impl Renderer for QtWindow {
 
             QTextLine textLine = layout.lineForTextPosition(offset);
             if (!textLine.isValid())
-                return QPointF();
-            return QPointF(textLine.x() + textLine.cursorToX(offset), textLine.y());
-        }};
-
-        let font_size = cpp! { unsafe [font as "QFont"]
-                -> i32 as "int" {
-            return QFontInfo(font).pixelSize();
+                return QRectF();
+            return QRectF(textLine.x() + textLine.cursorToX(offset), layout.position().y() + textLine.y(), 1.0, textLine.height());
         }};
 
         LogicalRect::new(
             LogicalPoint::new(r.x as _, r.y as _),
-            LogicalSize::new(1.0, font_size as f32),
+            LogicalSize::new(r.width as _, r.height as _),
         )
     }
 
