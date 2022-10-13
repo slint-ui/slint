@@ -9,8 +9,7 @@ use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::lengths::{
-    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    RectLengths, ScaleFactor,
+    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, RectLengths, ScaleFactor,
 };
 use i_slint_core::window::WindowInner;
 use i_slint_core::{items, Brush, Color, Property};
@@ -203,7 +202,7 @@ impl<'a> SkiaRenderer<'a> {
         if let Some(layer_image) = self.render_layer(item_rc, &|| {
             // We don't need to include the size of the "layer" item itself, since it has no content.
             let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
-                item_rc.logical_geometry().union(
+                item_rc.geometry().union(
                     &i_slint_core::item_rendering::item_children_bounding_rect(
                         &item_rc.component(),
                         item_rc.index() as isize,
@@ -774,7 +773,7 @@ pub fn to_skia_size(size: &PhysicalSize) -> skia_safe::Size {
 }
 
 fn item_rect<Item: items::Item>(item: Pin<&Item>, scale_factor: ScaleFactor) -> PhysicalRect {
-    let geometry = item.logical_geometry();
+    let geometry = item.geometry();
     PhysicalRect::new(PhysicalPoint::default(), geometry.size * scale_factor)
 }
 

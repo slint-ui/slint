@@ -8,7 +8,6 @@ When adding an item or a property, it needs to be kept in sync with different pl
 Lookup the [`crate::items`] module documentation.
 */
 use super::{ImageFit, ImageRendering, Item, ItemConsts, ItemRc, RenderingResult};
-use crate::graphics::Rect;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyEventResult, MouseEvent,
@@ -44,12 +43,11 @@ pub struct ImageItem {
 impl Item for ImageItem {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
             LogicalPoint::from_lengths(self.x(), self.y()),
             LogicalSize::from_lengths(self.width(), self.height()),
         )
-        .to_untyped()
     }
 
     fn layout_info(
@@ -146,12 +144,11 @@ pub struct ClippedImage {
 impl Item for ClippedImage {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
             LogicalPoint::from_lengths(self.x(), self.y()),
             LogicalSize::from_lengths(self.width(), self.height()),
         )
-        .to_untyped()
     }
 
     fn layout_info(

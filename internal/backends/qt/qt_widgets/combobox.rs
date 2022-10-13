@@ -24,7 +24,7 @@ pub struct NativeComboBox {
 impl Item for NativeComboBox {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
@@ -175,7 +175,7 @@ pub struct NativeComboBoxPopup {
 impl Item for NativeComboBoxPopup {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 

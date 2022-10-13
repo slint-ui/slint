@@ -13,7 +13,7 @@ use super::{
     PointerEventButton, RenderingResult, TextHorizontalAlignment, TextOverflow,
     TextVerticalAlignment, TextWrap, VoidArg,
 };
-use crate::graphics::{Brush, Color, FontRequest, Rect};
+use crate::graphics::{Brush, Color, FontRequest};
 use crate::input::{
     key_codes, FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyboardModifiers, MouseEvent, StandardShortcut, TextShortcut,
@@ -59,12 +59,11 @@ pub struct Text {
 impl Item for Text {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
             LogicalPoint::from_lengths(self.x(), self.y()),
             LogicalSize::from_lengths(self.width(), self.height()),
         )
-        .to_untyped()
     }
 
     fn layout_info(
@@ -253,12 +252,11 @@ impl Item for TextInput {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     // FIXME: width / height.  or maybe it doesn't matter?  (
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
             LogicalPoint::from_lengths(self.x(), self.y()),
             LogicalSize::from_lengths(self.width(), self.height()),
         )
-        .to_untyped()
     }
 
     fn layout_info(

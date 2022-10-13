@@ -23,7 +23,7 @@ pub struct NativeStandardListViewItem {
 impl Item for NativeStandardListViewItem {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 

@@ -56,7 +56,7 @@ option.frame = true;
 impl Item for NativeSpinBox {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 

@@ -151,6 +151,7 @@ fn gen_corelib(
         "PointerEventKind",
         "PointerEventButton",
         "PointerEvent",
+        "Rect",
     ]
     .iter()
     .chain(items.iter())
@@ -202,6 +203,7 @@ fn gen_corelib(
         "slint_image_load_from_path",
         "slint_image_load_from_embedded_data",
         "Coord",
+        "LogicalRect",
     ]
     .iter()
     .chain(public_exported_types.iter())
@@ -463,6 +465,8 @@ namespace slint {
         using private_api::Property;
         using private_api::PathData;
         using private_api::Point;
+        struct Rect;
+        using LogicalRect = Rect;
     }
 }",
         )

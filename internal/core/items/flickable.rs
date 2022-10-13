@@ -12,7 +12,6 @@ use super::{
     Item, ItemConsts, ItemRc, ItemRendererRef, KeyEventResult, PointerEventButton, RenderingResult,
 };
 use crate::animations::{EasingCurve, Instant};
-use crate::graphics::Rect;
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent, MouseEvent,
 };
@@ -20,8 +19,7 @@ use crate::item_rendering::CachedRenderingData;
 use crate::items::{PropertyAnimation, Rectangle};
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
-    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    PointLengths,
+    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PointLengths,
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -62,12 +60,11 @@ pub struct Flickable {
 impl Item for Flickable {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
             LogicalPoint::from_lengths(self.x(), self.y()),
             LogicalSize::from_lengths(self.width(), self.height()),
         )
-        .to_untyped()
     }
 
     fn layout_info(
@@ -145,7 +142,7 @@ impl Item for Flickable {
         backend: &mut ItemRendererRef,
         _self_rc: &ItemRc,
     ) -> RenderingResult {
-        let geometry = self.logical_geometry();
+        let geometry = self.geometry();
         (*backend).combine_clip(
             LogicalRect::new(LogicalPoint::default(), geometry.size),
             LogicalLength::zero(),

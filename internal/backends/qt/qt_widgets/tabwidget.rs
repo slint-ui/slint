@@ -164,7 +164,7 @@ impl Item for NativeTabWidget {
         bind!(tabbar_height = vertical_metrics.tabbar_size);
     }
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 
@@ -340,7 +340,7 @@ pub struct NativeTab {
 impl Item for NativeTab {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 

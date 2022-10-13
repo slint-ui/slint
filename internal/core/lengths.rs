@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use crate::{items::ItemRef, Coord};
+use crate::Coord;
 /// This type is used as a tagging type for use with [`euclid::Scale`] to convert
 /// between physical and logical pixels.
 pub struct PhysicalPx;
@@ -78,21 +78,5 @@ impl<T: Copy, U> RectLengths for euclid::Rect<T, U> {
     }
     fn height_length(&self) -> Self::LengthType {
         self.size_length().height_length()
-    }
-}
-
-pub trait LogicalItemGeometry {
-    fn logical_geometry(&self) -> LogicalRect;
-}
-
-impl<T: crate::items::Item> LogicalItemGeometry for core::pin::Pin<&T> {
-    fn logical_geometry(&self) -> LogicalRect {
-        LogicalRect::from_untyped(&self.geometry())
-    }
-}
-
-impl<'a> LogicalItemGeometry for core::pin::Pin<ItemRef<'a>> {
-    fn logical_geometry(&self) -> LogicalRect {
-        LogicalRect::from_untyped(&self.as_ref().geometry())
     }
 }
