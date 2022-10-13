@@ -496,10 +496,10 @@ macro_rules! get_geometry {
         type Ty = $ty;
         let width = Ty::FIELD_OFFSETS.width.apply_pin($obj).get();
         let height = Ty::FIELD_OFFSETS.height.apply_pin($obj).get();
-        if width <= 0. || height <= 0. {
+        if width <= LogicalLength::zero() || height <= LogicalLength::zero() {
             return Default::default();
         };
-        qttypes::QRectF { x: 0., y: 0., width: width as _, height: height as _ }
+        qttypes::QRectF { x: 0., y: 0., width: width.get() as _, height: height.get() as _ }
     }};
 }
 
@@ -1139,15 +1139,15 @@ impl QtItemRenderer<'_> {
         source_property: Pin<&Property<Image>>,
         dest_rect: qttypes::QRectF,
         source_rect: Option<qttypes::QRectF>,
-        target_width: std::pin::Pin<&Property<f32>>,
-        target_height: std::pin::Pin<&Property<f32>>,
+        target_width: std::pin::Pin<&Property<LogicalLength>>,
+        target_height: std::pin::Pin<&Property<LogicalLength>>,
         image_fit: ImageFit,
         rendering: ImageRendering,
         colorize_property: Option<Pin<&Property<Brush>>>,
     ) {
         // Caller ensured that zero/negative width/height resulted in an early return via get_geometry!.
-        debug_assert!(target_width.get() > 0.);
-        debug_assert!(target_height.get() > 0.);
+        debug_assert!(target_width.get() > LogicalLength::zero());
+        debug_assert!(target_height.get() > LogicalLength::zero());
 
         let pixmap: qttypes::QPixmap = self.cache.get_or_update_cache_entry(item_rc, || {
             let source = source_property.get();
@@ -1155,7 +1155,8 @@ impl QtItemRenderer<'_> {
             let source: &ImageInner = (&source).into();
 
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
-            let t = euclid::size2(target_width.get(), target_height.get()).cast::<f64>();
+            let t =
+                euclid::size2(target_width.get().get(), target_height.get().get()).cast::<f64>();
 
             let source_size = if source.is_svg() {
                 let has_source_clipping = source_rect.map_or(false, |rect| {
@@ -1466,14 +1467,14 @@ impl WindowAdapterSealed for QtWindow {
         let root_item = component.as_ref().get_item_ref(0);
         if let Some(window_item) = ItemRef::downcast_pin::<WindowItem>(root_item) {
             if window_item.width() <= LogicalLength::zero() {
-                window_item.width.set(
+                window_item.width.set(LogicalLength::new(
                     component.as_ref().layout_info(Orientation::Horizontal).preferred_bounded(),
-                )
+                ))
             }
             if window_item.height() <= LogicalLength::zero() {
-                window_item
-                    .height
-                    .set(component.as_ref().layout_info(Orientation::Vertical).preferred_bounded())
+                window_item.height.set(LogicalLength::new(
+                    component.as_ref().layout_info(Orientation::Vertical).preferred_bounded(),
+                ))
             }
 
             self.apply_window_properties(window_item);
@@ -1531,11 +1532,11 @@ impl WindowAdapterSealed for QtWindow {
                 return widget_ptr->size();
             });
             if size.width == 0 {
-                window_item.width.set(existing_size.width as _);
+                window_item.width.set(LogicalLength::new(existing_size.width as _));
                 size.width = existing_size.width;
             }
             if size.height == 0 {
-                window_item.height.set(existing_size.height as _);
+                window_item.height.set(LogicalLength::new(existing_size.height as _));
                 size.height = existing_size.height;
             }
         }

@@ -468,7 +468,10 @@ macro_rules! forward_rendering_call {
                 let height = Ty::FIELD_OFFSETS.height.apply_pin(obj).get_untracked();
                 let x = Ty::FIELD_OFFSETS.x.apply_pin(obj).get_untracked();
                 let y = Ty::FIELD_OFFSETS.y.apply_pin(obj).get_untracked();
-                LogicalRect::new(LogicalPoint::new(x, y), LogicalSize::new(width, height))
+                LogicalRect::new(
+                    LogicalPoint::from_lengths(x, y),
+                    LogicalSize::from_lengths(width, height),
+                )
             })
         }
     };

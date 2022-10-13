@@ -23,6 +23,7 @@ use i_slint_core::item_tree::{
 };
 use i_slint_core::items::{AccessibleRole, Flickable, ItemRef, ItemVTable, PropertyAnimation};
 use i_slint_core::layout::{BoxLayoutCellData, LayoutInfo, Orientation};
+use i_slint_core::lengths::LogicalLength;
 use i_slint_core::model::RepeatedComponent;
 use i_slint_core::model::Repeater;
 use i_slint_core::properties::InterpolatedPropertyValue;
@@ -110,12 +111,16 @@ impl RepeatedComponent for ErasedComponentBox {
         s.component_type.set_property(s.borrow(), "model_data", data).unwrap();
     }
 
-    fn listview_layout(self: Pin<&Self>, offset_y: &mut f32, viewport_width: Pin<&Property<f32>>) {
+    fn listview_layout(
+        self: Pin<&Self>,
+        offset_y: &mut LogicalLength,
+        viewport_width: Pin<&Property<LogicalLength>>,
+    ) {
         generativity::make_guard!(guard);
         let s = self.unerase(guard);
 
         s.component_type
-            .set_property(s.borrow(), "y", Value::Number(*offset_y as f64))
+            .set_property(s.borrow(), "y", Value::Number(offset_y.get() as f64))
             .expect("cannot set y");
         let h: f32 = s
             .component_type
@@ -129,6 +134,8 @@ impl RepeatedComponent for ErasedComponentBox {
             .expect("missing width")
             .try_into()
             .expect("width not the right type");
+        let h = LogicalLength::new(h);
+        let w = LogicalLength::new(w);
         *offset_y += h;
         let vp_w = viewport_width.get();
         if vp_w < w {
@@ -674,18 +681,18 @@ fn ensure_repeater_updated<'id>(
         .unwrap()
         .is_listview
     {
-        let assume_property_f32 =
-            |prop| unsafe { Pin::new_unchecked(&*(prop as *const Property<f32>)) };
-        let get_prop = |nr: &NamedReference| -> f32 {
+        let assume_property_logical_length =
+            |prop| unsafe { Pin::new_unchecked(&*(prop as *const Property<LogicalLength>)) };
+        let get_prop = |nr: &NamedReference| -> LogicalLength {
             eval::load_property(instance_ref, &nr.element(), nr.name()).unwrap().try_into().unwrap()
         };
         repeater.ensure_updated_listview(
             init,
-            assume_property_f32(get_property_ptr(&lv.viewport_width, instance_ref)),
-            assume_property_f32(get_property_ptr(&lv.viewport_height, instance_ref)),
-            assume_property_f32(get_property_ptr(&lv.viewport_y, instance_ref)),
+            assume_property_logical_length(get_property_ptr(&lv.viewport_width, instance_ref)),
+            assume_property_logical_length(get_property_ptr(&lv.viewport_height, instance_ref)),
+            assume_property_logical_length(get_property_ptr(&lv.viewport_y, instance_ref)),
             get_prop(&lv.listview_width),
-            assume_property_f32(get_property_ptr(&lv.listview_height, instance_ref)),
+            assume_property_logical_length(get_property_ptr(&lv.listview_height, instance_ref)),
         );
     } else {
         repeater.ensure_updated(init);

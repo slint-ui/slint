@@ -179,10 +179,10 @@ pub type ItemRef<'a> = vtable::VRef<'a, ItemVTable>;
 /// The implementation of the `Rectangle` element
 pub struct Rectangle {
     pub background: Property<Brush>,
-    pub x: Property<Coord>,
-    pub y: Property<Coord>,
-    pub width: Property<Coord>,
-    pub height: Property<Coord>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -267,12 +267,12 @@ declare_item_vtable! {
 /// The implementation of the `BorderRectangle` element
 pub struct BorderRectangle {
     pub background: Property<Brush>,
-    pub x: Property<Coord>,
-    pub y: Property<Coord>,
-    pub width: Property<Coord>,
-    pub height: Property<Coord>,
-    pub border_width: Property<Coord>,
-    pub border_radius: Property<Coord>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
+    pub border_width: Property<LogicalLength>,
+    pub border_radius: Property<LogicalLength>,
     pub border_color: Property<Brush>,
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -357,10 +357,10 @@ declare_item_vtable! {
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct TouchArea {
-    pub x: Property<Coord>,
-    pub y: Property<Coord>,
-    pub width: Property<Coord>,
-    pub height: Property<Coord>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub enabled: Property<bool>,
     /// FIXME: We should annotate this as an "output" property.
     pub pressed: Property<bool>,
@@ -368,11 +368,11 @@ pub struct TouchArea {
     /// FIXME: there should be just one property for the point instead of two.
     /// Could even be merged with pressed in a `Property<Option<Point>>` (of course, in the
     /// implementation item only, for the compiler it would stay separate properties)
-    pub pressed_x: Property<Coord>,
-    pub pressed_y: Property<Coord>,
+    pub pressed_x: Property<LogicalLength>,
+    pub pressed_y: Property<LogicalLength>,
     /// FIXME: should maybe be as parameter to the mouse event instead. Or at least just one property
-    pub mouse_x: Property<Coord>,
-    pub mouse_y: Property<Coord>,
+    pub mouse_x: Property<LogicalLength>,
+    pub mouse_y: Property<LogicalLength>,
     pub mouse_cursor: Property<MouseCursor>,
     pub clicked: Callback<VoidArg>,
     pub moved: Callback<VoidArg>,
@@ -411,8 +411,8 @@ impl Item for TouchArea {
             return InputEventFilterResult::ForwardAndIgnore;
         }
         if let Some(pos) = event.position() {
-            Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(pos.x);
-            Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(pos.y);
+            Self::FIELD_OFFSETS.mouse_x.apply_pin(self).set(pos.x_length());
+            Self::FIELD_OFFSETS.mouse_y.apply_pin(self).set(pos.y_length());
         }
         let hovering = !matches!(event, MouseEvent::Exit);
         Self::FIELD_OFFSETS.has_hover.apply_pin(self).set(hovering);
@@ -454,8 +454,8 @@ impl Item for TouchArea {
             MouseEvent::Pressed { position, button } => {
                 self.grabbed.set(true);
                 if button == PointerEventButton::Left {
-                    Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(position.x);
-                    Self::FIELD_OFFSETS.pressed_y.apply_pin(self).set(position.y);
+                    Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(position.x_length());
+                    Self::FIELD_OFFSETS.pressed_y.apply_pin(self).set(position.y_length());
                     Self::FIELD_OFFSETS.pressed.apply_pin(self).set(true);
                 }
                 Self::FIELD_OFFSETS
@@ -544,10 +544,10 @@ declare_item_vtable! {
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct FocusScope {
-    pub x: Property<Coord>,
-    pub y: Property<Coord>,
-    pub width: Property<Coord>,
-    pub height: Property<Coord>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub enabled: Property<bool>,
     pub has_focus: Property<bool>,
     pub key_pressed: Callback<KeyEventArg, EventResult>,
@@ -664,12 +664,12 @@ declare_item_vtable! {
 #[pin]
 /// The implementation of the `Clip` element
 pub struct Clip {
-    pub x: Property<Coord>,
-    pub y: Property<Coord>,
-    pub width: Property<Coord>,
-    pub height: Property<Coord>,
-    pub border_radius: Property<Coord>,
-    pub border_width: Property<Coord>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
+    pub border_radius: Property<LogicalLength>,
+    pub border_width: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
     pub clip: Property<bool>,
 }
@@ -762,10 +762,10 @@ declare_item_vtable! {
 /// The Opacity Item is not meant to be used directly by the .slint code, instead, the `opacity: xxx` or `visible: false` should be used
 pub struct Opacity {
     // FIXME: this element shouldn't need these geometry property
-    pub x: Property<Coord>,
-    pub y: Property<Coord>,
-    pub width: Property<Coord>,
-    pub height: Property<Coord>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub opacity: Property<f32>,
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -877,10 +877,10 @@ declare_item_vtable! {
 /// The Layer Item is not meant to be used directly by the .slint code, instead, the `layer: xxx` property should be used
 pub struct Layer {
     // FIXME: this element shouldn't need these geometry property
-    pub x: Property<Coord>,
-    pub y: Property<Coord>,
-    pub width: Property<Coord>,
-    pub height: Property<Coord>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub cache_rendering_hint: Property<bool>,
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -964,13 +964,13 @@ declare_item_vtable! {
 #[pin]
 /// The implementation of the `Rotate` element
 pub struct Rotate {
-    pub x: Property<Coord>,
-    pub y: Property<Coord>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
     pub rotation_angle: Property<f32>,
-    pub rotation_origin_x: Property<Coord>,
-    pub rotation_origin_y: Property<Coord>,
-    pub width: Property<Coord>,
-    pub height: Property<Coord>,
+    pub rotation_origin_x: Property<LogicalLength>,
+    pub rotation_origin_y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
 }
 
@@ -1085,14 +1085,14 @@ impl Default for PropertyAnimation {
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct WindowItem {
-    pub width: Property<Coord>,
-    pub height: Property<Coord>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub background: Property<Brush>,
     pub title: Property<SharedString>,
     pub no_frame: Property<bool>,
     pub icon: Property<crate::graphics::Image>,
     pub default_font_family: Property<SharedString>,
-    pub default_font_size: Property<Coord>,
+    pub default_font_size: Property<LogicalLength>,
     pub default_font_weight: Property<i32>,
     pub cached_rendering_data: CachedRenderingData,
 }
@@ -1204,16 +1204,16 @@ declare_item_vtable! {
 #[pin]
 pub struct BoxShadow {
     // Rectangle properties
-    pub x: Property<Coord>,
-    pub y: Property<Coord>,
-    pub width: Property<Coord>,
-    pub height: Property<Coord>,
-    pub border_radius: Property<Coord>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
+    pub border_radius: Property<LogicalLength>,
     // Shadow specific properties
-    pub offset_x: Property<Coord>,
-    pub offset_y: Property<Coord>,
+    pub offset_x: Property<LogicalLength>,
+    pub offset_y: Property<LogicalLength>,
     pub color: Property<Color>,
-    pub blur: Property<Coord>,
+    pub blur: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
 }
 

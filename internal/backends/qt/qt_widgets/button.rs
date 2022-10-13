@@ -104,10 +104,10 @@ type ActualStandardButtonKind = Option<StandardButtonKind>;
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeButton {
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub text: Property<SharedString>,
     pub icon: Property<i_slint_core::graphics::Image>,
     pub pressed: Property<bool>,
@@ -191,7 +191,10 @@ impl Item for NativeButton {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
     }
 
     fn layout_info(
@@ -263,7 +266,12 @@ impl Item for NativeButton {
             MouseEvent::Wheel { .. } => return InputEventResult::EventIgnored,
         });
         if let MouseEvent::Released { position, .. } = event {
-            if euclid::rect(0., 0., self.width(), self.height()).contains(position) {
+            if LogicalRect::new(
+                LogicalPoint::default(),
+                LogicalSize::from_lengths(self.width(), self.height()),
+            )
+            .contains(position)
+            {
                 self.activate();
             }
             InputEventResult::EventAccepted

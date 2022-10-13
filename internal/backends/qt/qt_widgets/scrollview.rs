@@ -9,21 +9,21 @@ use super::*;
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeScrollView {
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
-    pub horizontal_max: Property<f32>,
-    pub horizontal_page_size: Property<f32>,
-    pub horizontal_value: Property<f32>,
-    pub vertical_max: Property<f32>,
-    pub vertical_page_size: Property<f32>,
-    pub vertical_value: Property<f32>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
+    pub horizontal_max: Property<LogicalLength>,
+    pub horizontal_page_size: Property<LogicalLength>,
+    pub horizontal_value: Property<LogicalLength>,
+    pub vertical_max: Property<LogicalLength>,
+    pub vertical_page_size: Property<LogicalLength>,
+    pub vertical_value: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
-    pub native_padding_left: Property<f32>,
-    pub native_padding_right: Property<f32>,
-    pub native_padding_top: Property<f32>,
-    pub native_padding_bottom: Property<f32>,
+    pub native_padding_left: Property<LogicalLength>,
+    pub native_padding_right: Property<LogicalLength>,
+    pub native_padding_top: Property<LogicalLength>,
+    pub native_padding_bottom: Property<LogicalLength>,
     pub enabled: Property<bool>,
     pub has_focus: Property<bool>,
     data: Property<NativeSliderData>,
@@ -65,24 +65,27 @@ impl Item for NativeScrollView {
 
         self.native_padding_left.set_binding({
             let paddings = paddings.clone();
-            move || paddings.as_ref().get().left as _
+            move || LogicalLength::new(paddings.as_ref().get().left as _)
         });
         self.native_padding_right.set_binding({
             let paddings = paddings.clone();
-            move || paddings.as_ref().get().right as _
+            move || LogicalLength::new(paddings.as_ref().get().right as _)
         });
         self.native_padding_top.set_binding({
             let paddings = paddings.clone();
-            move || paddings.as_ref().get().top as _
+            move || LogicalLength::new(paddings.as_ref().get().top as _)
         });
         self.native_padding_bottom.set_binding({
             let paddings = paddings;
-            move || paddings.as_ref().get().bottom as _
+            move || LogicalLength::new(paddings.as_ref().get().bottom as _)
         });
     }
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
     }
 
     fn layout_info(
@@ -94,7 +97,8 @@ impl Item for NativeScrollView {
             min: match orientation {
                 Orientation::Horizontal => self.native_padding_left() + self.native_padding_right(),
                 Orientation::Vertical => self.native_padding_top() + self.native_padding_bottom(),
-            },
+            }
+            .get(),
             stretch: 1.,
             ..LayoutInfo::default()
         }
@@ -119,19 +123,19 @@ impl Item for NativeScrollView {
         let mut data = self.data();
         let active_controls = data.active_controls;
         let pressed = data.pressed;
-        let left = self.native_padding_left();
-        let right = self.native_padding_right();
-        let top = self.native_padding_top();
-        let bottom = self.native_padding_bottom();
+        let left = self.native_padding_left().get();
+        let right = self.native_padding_right().get();
+        let top = self.native_padding_top().get();
+        let bottom = self.native_padding_bottom().get();
 
         let mut handle_scrollbar = |horizontal: bool,
                                     pos: qttypes::QPoint,
                                     size: qttypes::QSize,
-                                    value_prop: Pin<&Property<f32>>,
+                                    value_prop: Pin<&Property<LogicalLength>>,
                                     page_size: i32,
                                     max: i32| {
             let pressed: bool = data.pressed != 0;
-            let value: i32 = value_prop.get() as i32;
+            let value: i32 = value_prop.get().get() as i32;
             let new_control = cpp!(unsafe [
                 pos as "QPoint",
                 value as "int",
@@ -195,7 +199,7 @@ impl Item for NativeScrollView {
                                 return -value;
                         }
                     });
-                    value_prop.set(-(new_val.min(max).max(0) as f32));
+                    value_prop.set(LogicalLength::new(-(new_val.min(max).max(0) as f32)));
                     InputEventResult::EventIgnored
                 }
                 MouseEvent::Moved { .. } => {
@@ -204,7 +208,7 @@ impl Item for NativeScrollView {
                         let new_val = data.pressed_val
                             + ((pos as f32) - data.pressed_x) * (max + (page_size as f32))
                                 / size as f32;
-                        value_prop.set(-new_val.min(max).max(0.));
+                        value_prop.set(LogicalLength::new(-new_val.min(max).max(0.)));
                         InputEventResult::GrabMouse
                     } else {
                         InputEventResult::EventAccepted
@@ -233,8 +237,8 @@ impl Item for NativeScrollView {
                     height: (size.height as f32 - (bottom + top)) as _,
                 },
                 Self::FIELD_OFFSETS.vertical_value.apply_pin(self),
-                self.vertical_page_size() as i32,
-                self.vertical_max() as i32,
+                self.vertical_page_size().get() as i32,
+                self.vertical_max().get() as i32,
             )
         } else if pressed == 1 || pos.y > (size.height as f32 - bottom) {
             handle_scrollbar(
@@ -248,8 +252,8 @@ impl Item for NativeScrollView {
                     height: (bottom - top) as _,
                 },
                 Self::FIELD_OFFSETS.horizontal_value.apply_pin(self),
-                self.horizontal_page_size() as i32,
-                self.horizontal_max() as i32,
+                self.horizontal_page_size().get() as i32,
+                self.horizontal_max().get() as i32,
             )
         } else {
             Default::default()
@@ -278,10 +282,10 @@ impl Item for NativeScrollView {
 
         let data = this.data();
         let margins = qttypes::QMargins {
-            left: this.native_padding_left() as _,
-            top: this.native_padding_top() as _,
-            right: this.native_padding_right() as _,
-            bottom: this.native_padding_bottom() as _,
+            left: this.native_padding_left().get() as _,
+            top: this.native_padding_top().get() as _,
+            right: this.native_padding_right().get() as _,
+            bottom: this.native_padding_bottom().get() as _,
         };
         let enabled: bool = this.enabled();
         let has_focus: bool = this.has_focus();
@@ -399,9 +403,9 @@ impl Item for NativeScrollView {
                 width: scrollbars_width as _,
                 height: ((size.height as f32 / dpr) - if frame_around_contents { scrollbars_height } else { (margins.bottom + margins.top) as f32 }) as _,
             },
-            this.vertical_value() as i32,
-            this.vertical_page_size() as i32,
-            this.vertical_max() as i32,
+            this.vertical_value().get() as i32,
+            this.vertical_page_size().get() as i32,
+            this.vertical_max().get() as i32,
             data.active_controls,
             data.pressed == 2,
             initial_state
@@ -414,9 +418,9 @@ impl Item for NativeScrollView {
                 width: ((size.width as f32 / dpr) - if frame_around_contents { scrollbars_width } else { (margins.left + margins.right) as _ }) as _,
                 height: (scrollbars_height) as _,
             },
-            this.horizontal_value() as i32,
-            this.horizontal_page_size() as i32,
-            this.horizontal_max() as i32,
+            this.horizontal_value().get() as i32,
+            this.horizontal_page_size().get() as i32,
+            this.horizontal_max().get() as i32,
             data.active_controls,
             data.pressed == 1,
             initial_state

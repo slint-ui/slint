@@ -31,10 +31,10 @@ use i_slint_core_macros::*;
 /// The implementation of the `Image` element
 pub struct ImageItem {
     pub source: Property<crate::graphics::Image>,
-    pub x: Property<Coord>,
-    pub y: Property<Coord>,
-    pub width: Property<Coord>,
-    pub height: Property<Coord>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub image_fit: Property<ImageFit>,
     pub image_rendering: Property<ImageRendering>,
     pub cached_rendering_data: CachedRenderingData,
@@ -127,10 +127,10 @@ impl ItemConsts for ImageItem {
 /// The implementation of the `ClippedImage` element
 pub struct ClippedImage {
     pub source: Property<crate::graphics::Image>,
-    pub x: Property<Coord>,
-    pub y: Property<Coord>,
-    pub width: Property<Coord>,
-    pub height: Property<Coord>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub image_fit: Property<ImageFit>,
     pub image_rendering: Property<ImageRendering>,
     pub colorize: Property<Brush>,

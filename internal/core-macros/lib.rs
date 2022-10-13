@@ -36,9 +36,6 @@ pub fn slint_element(input: TokenStream) -> TokenStream {
     let mut property_names = Vec::new();
     let mut property_visibility = Vec::new();
     let mut property_types = Vec::new();
-    let mut logical_length_property_names = Vec::new();
-    let mut logical_length_property_field_names = Vec::new();
-    let mut logical_length_property_visibility = Vec::new();
 
     for field in fields {
         if let Some(property_type) = property_type(&field.ty) {
@@ -47,21 +44,6 @@ pub fn slint_element(input: TokenStream) -> TokenStream {
                 pub_prop_field_names_normalized.push(normalize_identifier(name));
                 pub_prop_field_names.push(name);
                 pub_prop_field_types.push(&field.ty);
-            }
-
-            if let syn::Type::Path(syn::TypePath { path: syn::Path { segments, .. }, .. }) =
-                &property_type
-            {
-                if let Some(syn::PathSegment { ident, arguments: syn::PathArguments::None }) =
-                    segments.first()
-                {
-                    if *ident == "Coord" {
-                        logical_length_property_names.push(name);
-                        logical_length_property_field_names.push(name);
-                        logical_length_property_visibility.push(field.vis.clone());
-                        continue;
-                    }
-                }
             }
 
             property_names.push(name);
@@ -142,11 +124,6 @@ pub fn slint_element(input: TokenStream) -> TokenStream {
             #(
                 #property_visibility fn #property_names(self: core::pin::Pin<&Self>) -> #property_types {
                     Self::FIELD_OFFSETS.#property_names.apply_pin(self).get()
-                }
-            )*
-            #(
-                #logical_length_property_visibility fn #logical_length_property_names(self: core::pin::Pin<&Self>) -> LogicalLength {
-                    LogicalLength::new(Self::FIELD_OFFSETS.#logical_length_property_field_names.apply_pin(self).get())
                 }
             )*
         }

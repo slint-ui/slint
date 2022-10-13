@@ -9,12 +9,14 @@ use crate::component::ComponentVTable;
 use crate::item_tree::TraversalOrder;
 use crate::items::ItemRef;
 use crate::layout::Orientation;
+use crate::lengths::{LogicalLength, RectLengths};
 use crate::{Coord, Property, SharedString, SharedVector};
 pub use adapters::{FilterModel, MapModel, SortModel};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 use core::cell::{Cell, RefCell};
 use core::pin::Pin;
+use euclid::num::Zero;
 #[allow(unused)]
 use euclid::num::{Ceil, Floor};
 pub use model_peer::*;
@@ -608,8 +610,8 @@ pub trait RepeatedComponent:
     /// it should be updated to be to the y position of the next item.
     fn listview_layout(
         self: Pin<&Self>,
-        _offset_y: &mut Coord,
-        _viewport_width: Pin<&Property<Coord>>,
+        _offset_y: &mut LogicalLength,
+        _viewport_width: Pin<&Property<LogicalLength>>,
     ) {
     }
 
@@ -636,12 +638,12 @@ struct RepeaterInner<C: RepeatedComponent> {
     /// The model row (index) of the first component in the `components` vector.
     offset: usize,
     /// The average visible item height.
-    cached_item_height: Coord,
+    cached_item_height: LogicalLength,
     /// The viewport_y last time the layout of the ListView was done
-    previous_viewport_y: Coord,
+    previous_viewport_y: LogicalLength,
     /// the position of the item in the row `offset` (which corresponds to `components[0]`).
     /// We will try to keep this constant when re-layouting items
-    anchor_y: Coord,
+    anchor_y: LogicalLength,
 }
 
 impl<C: RepeatedComponent> Default for RepeaterInner<C> {
@@ -816,36 +818,36 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     pub fn ensure_updated_listview(
         self: Pin<&Self>,
         init: impl Fn() -> ComponentRc<C>,
-        viewport_width: Pin<&Property<Coord>>,
-        viewport_height: Pin<&Property<Coord>>,
-        viewport_y: Pin<&Property<Coord>>,
-        listview_width: Coord,
-        listview_height: Pin<&Property<Coord>>,
+        viewport_width: Pin<&Property<LogicalLength>>,
+        viewport_height: Pin<&Property<LogicalLength>>,
+        viewport_y: Pin<&Property<LogicalLength>>,
+        listview_width: LogicalLength,
+        listview_height: Pin<&Property<LogicalLength>>,
     ) {
         viewport_width.set(listview_width);
         let model = self.model();
         let row_count = model.row_count();
         if row_count == 0 {
             self.0.inner.borrow_mut().components.clear();
-            viewport_height.set(0 as _);
-            viewport_y.set(0 as _);
+            viewport_height.set(LogicalLength::zero());
+            viewport_y.set(LogicalLength::zero());
 
             return;
         }
 
         let listview_height = listview_height.get();
-        let mut vp_y = viewport_y.get().min(0 as _);
+        let mut vp_y = viewport_y.get().min(LogicalLength::zero());
 
         // We need some sort of estimation of the element height
         let cached_item_height = self.data().inner.borrow_mut().cached_item_height;
-        let element_height = if cached_item_height > 0 as Coord {
+        let element_height = if cached_item_height > LogicalLength::zero() {
             cached_item_height
         } else {
-            let total_height = Cell::new(0 as Coord);
+            let total_height = Cell::new(LogicalLength::zero());
             let count = Cell::new(0);
             let get_height_visitor = |item: Pin<ItemRef>| {
                 count.set(count.get() + 1);
-                let height = item.as_ref().geometry().height();
+                let height = item.as_ref().geometry().height_length();
                 total_height.set(total_height.get() + height);
             };
             for c in self.data().inner.borrow().components.iter() {
@@ -879,14 +881,14 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         let mut inner = data.inner.borrow_mut();
         let one_and_a_half_screen = listview_height * 3 as Coord / 2 as Coord;
         let first_item_y = inner.anchor_y;
-        let last_item_bottom = first_item_y + inner.components.len() as Coord * element_height;
+        let last_item_bottom = first_item_y + element_height * inner.components.len() as Coord;
 
         let (mut new_offset, mut new_offset_y) = if first_item_y > -vp_y + one_and_a_half_screen
             || last_item_bottom + element_height < -vp_y
         {
             // We are jumping more than 1.5 screens, consider this as a random seek.
             inner.components.clear();
-            inner.offset = ((-vp_y / element_height).floor() as usize).min(row_count - 1);
+            inner.offset = ((-vp_y / element_height).get().floor() as usize).min(row_count - 1);
             (inner.offset, -vp_y)
         } else if vp_y < inner.previous_viewport_y {
             // we scrolled down, try to find out the new offset.
@@ -902,7 +904,13 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     c.0 = RepeatedComponentState::Clean;
                 }
                 let h =
-                    c.1.as_ref().unwrap().as_pin_ref().get_item_ref(0).as_ref().geometry().height();
+                    c.1.as_ref()
+                        .unwrap()
+                        .as_pin_ref()
+                        .get_item_ref(0)
+                        .as_ref()
+                        .geometry()
+                        .height_length();
                 if it_y + h >= -vp_y || new_offset + 1 >= row_count {
                     break;
                 }
@@ -929,7 +937,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                     .get_item_ref(0)
                     .as_ref()
                     .geometry()
-                    .height();
+                    .height_length();
             }
             // If there is still a gap, fill it with new component before
             let mut new_components = Vec::new();
@@ -938,7 +946,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                 let new_component = init();
                 new_component.update(new_offset, model.row_data(new_offset).unwrap());
                 new_offset_y -=
-                    new_component.as_pin_ref().get_item_ref(0).as_ref().geometry().height();
+                    new_component.as_pin_ref().get_item_ref(0).as_ref().geometry().height_length();
                 new_components.push(new_component);
             }
             if !new_components.is_empty() {
@@ -984,7 +992,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
                 inner.components.push((RepeatedComponentState::Clean, Some(new_component)));
                 idx += 1;
             }
-            if y < -vp_y + listview_height && vp_y < 0 as Coord {
+            if y < -vp_y + listview_height && vp_y < LogicalLength::zero() {
                 assert!(idx >= row_count);
                 // we reached the end of the model, and we still have room. scroll a bit up.
                 vp_y = listview_height - y;
@@ -1003,7 +1011,7 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
 
             // Now re-compute some coordinate such a way that the scrollbar are adjusted.
             inner.cached_item_height = (y - new_offset_y) / inner.components.len() as Coord;
-            inner.anchor_y = inner.offset as Coord * inner.cached_item_height;
+            inner.anchor_y = inner.cached_item_height * inner.offset as Coord;
             viewport_height.set(inner.cached_item_height * row_count as Coord);
             let new_viewport_y = -inner.anchor_y + vp_y + new_offset_y;
             viewport_y.set(new_viewport_y);

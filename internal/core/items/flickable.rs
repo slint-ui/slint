@@ -45,10 +45,10 @@ use num_traits::Float;
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct Flickable {
-    pub x: Property<Coord>,
-    pub y: Property<Coord>,
-    pub width: Property<Coord>,
-    pub height: Property<Coord>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub viewport: Rectangle,
     pub interactive: Property<bool>,
     data: FlickableDataBox,
@@ -212,7 +212,7 @@ impl FlickableData {
             MouseEvent::Pressed { position, button: PointerEventButton::Left } => {
                 inner.pressed_pos = position;
                 inner.pressed_time = Some(crate::animations::current_tick());
-                inner.pressed_viewport_pos = LogicalPoint::new(
+                inner.pressed_viewport_pos = LogicalPoint::from_lengths(
                     (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
                         .apply_pin(flick)
                         .get(),
@@ -241,16 +241,16 @@ impl FlickableData {
                         if crate::animations::current_tick() - pressed_time > DURATION_THRESHOLD {
                             return false;
                         }
-                        let can_move_horiz = LogicalLength::new(
-                            (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.width)
-                                .apply_pin(flick)
-                                .get(),
-                        ) > flick.width();
-                        let can_move_vert = LogicalLength::new(
-                            (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.height)
-                                .apply_pin(flick)
-                                .get(),
-                        ) > flick.height();
+                        let can_move_horiz = (Flickable::FIELD_OFFSETS.viewport
+                            + Rectangle::FIELD_OFFSETS.width)
+                            .apply_pin(flick)
+                            .get()
+                            > flick.width();
+                        let can_move_vert = (Flickable::FIELD_OFFSETS.viewport
+                            + Rectangle::FIELD_OFFSETS.height)
+                            .apply_pin(flick)
+                            .get()
+                            > flick.height();
                         let diff = position - inner.pressed_pos;
                         (can_move_horiz && diff.x.abs() > DISTANCE_THRESHOLD)
                             || (can_move_vert && diff.y.abs() > DISTANCE_THRESHOLD)
@@ -293,10 +293,10 @@ impl FlickableData {
                     );
                     (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
                         .apply_pin(flick)
-                        .set(new_pos.x);
+                        .set(new_pos.x_length());
                     (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
                         .apply_pin(flick)
-                        .set(new_pos.y);
+                        .set(new_pos.y_length());
                     InputEventResult::GrabMouse
                 } else {
                     inner.capture_events = false;
@@ -304,7 +304,7 @@ impl FlickableData {
                 }
             }
             MouseEvent::Wheel { delta_x, delta_y, .. } => {
-                let old_pos = LogicalPoint::new(
+                let old_pos = LogicalPoint::from_lengths(
                     (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
                         .apply_pin(flick)
                         .get(),
@@ -318,10 +318,10 @@ impl FlickableData {
                 );
                 (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
                     .apply_pin(flick)
-                    .set(new_pos.x);
+                    .set(new_pos.x_length());
                 (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
                     .apply_pin(flick)
-                    .set(new_pos.y);
+                    .set(new_pos.y_length());
                 InputEventResult::EventAccepted
             }
         }
@@ -348,10 +348,10 @@ impl FlickableData {
                 };
                 (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
                     .apply_pin(flick)
-                    .set_animated_value(final_pos.x, anim.clone());
+                    .set_animated_value(final_pos.x_length(), anim.clone());
                 (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.y)
                     .apply_pin(flick)
-                    .set_animated_value(final_pos.y, anim);
+                    .set_animated_value(final_pos.y_length(), anim);
             }
         }
         inner.capture_events = false; // FIXME: should only be set to false once the flick animation is over
@@ -363,14 +363,11 @@ impl FlickableData {
 fn ensure_in_bound(flick: Pin<&Flickable>, p: LogicalPoint) -> LogicalPoint {
     let w = flick.width();
     let h = flick.height();
-    let vw = LogicalLength::new(
-        (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.width).apply_pin(flick).get(),
-    );
-    let vh = LogicalLength::new(
-        (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.height)
-            .apply_pin(flick)
-            .get(),
-    );
+    let vw =
+        (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.width).apply_pin(flick).get();
+    let vh = (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.height)
+        .apply_pin(flick)
+        .get();
 
     let min = LogicalPoint::from_lengths(w - vw, h - vh);
     let max = LogicalPoint::default();

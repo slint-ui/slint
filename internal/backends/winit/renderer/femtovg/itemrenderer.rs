@@ -1157,14 +1157,14 @@ impl<'a> GLItemRenderer<'a> {
         item_rc: &ItemRc,
         source_property: Pin<&Property<Image>>,
         source_clip_rect: IntRect,
-        target_width: Pin<&Property<f32>>,
-        target_height: Pin<&Property<f32>>,
+        target_width: Pin<&Property<LogicalLength>>,
+        target_height: Pin<&Property<LogicalLength>>,
         image_fit: ImageFit,
         colorize_property: Option<Pin<&Property<Brush>>>,
         image_rendering: ImageRendering,
     ) {
-        let target_w = LogicalLength::new(target_width.get()) * self.scale_factor;
-        let target_h = LogicalLength::new(target_height.get()) * self.scale_factor;
+        let target_w = target_width.get() * self.scale_factor;
+        let target_h = target_height.get() * self.scale_factor;
 
         if target_w.get() <= 0. || target_h.get() <= 0. {
             return;
@@ -1178,10 +1178,8 @@ impl<'a> GLItemRenderer<'a> {
                 let target_size_for_scalable_source = image_inner.is_svg().then(|| {
                     // get the scale factor as a property again, to ensure the cache is invalidated when the scale factor changes
                     let scale_factor = ScaleFactor::new(self.window.scale_factor());
-                    let t = LogicalSize::from_lengths(
-                        LogicalLength::new(target_width.get()),
-                        LogicalLength::new(target_height.get()),
-                    ) * scale_factor;
+                    let t = LogicalSize::from_lengths(target_width.get(), target_height.get())
+                        * scale_factor;
 
                     i_slint_core::graphics::fit_size(image_fit, t, image.size()).cast()
                 });
