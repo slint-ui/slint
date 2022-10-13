@@ -489,7 +489,7 @@ cpp! {{
             QRectF r = rust!(Slint_accessible_item_rect
                 [item: *const ItemWeak as "void*"] -> qttypes::QRectF as "QRectF" {
                     if let Some(item_rc) = item.as_ref().unwrap().upgrade() {
-                        let geometry = item_rc.logical_geometry();
+                        let geometry = item_rc.geometry();
 
                         let mapped = item_rc.map_to_window(geometry.origin);
 

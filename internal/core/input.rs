@@ -448,7 +448,7 @@ fn handle_mouse_grab(
             item.borrow().as_ref().input_event(MouseEvent::Exit, window_adapter, &item);
             return false;
         }
-        let g = item.logical_geometry();
+        let g = item.geometry();
         event.translate(-g.origin.to_vector());
 
         let interested = matches!(
@@ -489,7 +489,7 @@ fn send_exit_events(
 ) {
     for it in mouse_input_state.item_stack.iter() {
         let item = if let Some(item) = it.0.upgrade() { item } else { break };
-        let g = item.logical_geometry();
+        let g = item.geometry();
         let contains = pos.map_or(false, |p| g.contains(p));
         if let Some(p) = pos.as_mut() {
             *p -= g.origin.to_vector();
@@ -571,7 +571,7 @@ fn send_mouse_event_to_item(
     ignore_delays: bool,
 ) -> VisitChildrenResult {
     let item = item_rc.borrow();
-    let geom = item_rc.logical_geometry();
+    let geom = item_rc.geometry();
     // translated in our coordinate
     let mut event_for_children = mouse_event;
     event_for_children.translate(-geom.origin.to_vector());

@@ -16,7 +16,7 @@ use crate::input::{
 };
 use crate::item_tree::ItemRc;
 use crate::items::{ItemRef, MouseCursor};
-use crate::lengths::{LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalSize};
+use crate::lengths::{LogicalLength, LogicalPoint, LogicalSize};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
 use crate::Callback;
@@ -307,7 +307,8 @@ impl WindowInner {
                         .as_ref()
                         .get_item_ref(0)
                         .as_ref()
-                        .geometry();
+                        .geometry()
+                        .to_untyped();
                     if !geom.contains(*position) {
                         self.close_popup();
                         return None;
@@ -571,9 +572,10 @@ impl WindowInner {
     pub fn show_popup(
         &self,
         popup_componentrc: &ComponentRc,
-        mut position: Point,
+        position: Point,
         parent_item: &ItemRc,
     ) {
+        let mut position = LogicalPoint::from_untyped(position);
         let mut parent_item = parent_item.clone();
         loop {
             position += parent_item.borrow().as_ref().geometry().origin.to_vector();
@@ -619,18 +621,20 @@ impl WindowInner {
             height_property.set(size.height);
         };
 
-        let location =
-            match self.window_adapter().create_popup(Rect::new(position, size.to_untyped())) {
-                None => {
-                    self.window_adapter().request_redraw();
-                    PopupWindowLocation::ChildWindow(position)
-                }
+        let location = match self
+            .window_adapter()
+            .create_popup(Rect::new(position.to_untyped(), size.to_untyped()))
+        {
+            None => {
+                self.window_adapter().request_redraw();
+                PopupWindowLocation::ChildWindow(position.to_untyped())
+            }
 
-                Some(window_adapter) => {
-                    WindowInner::from_pub(window_adapter.window()).set_component(popup_componentrc);
-                    PopupWindowLocation::TopLevel(window_adapter)
-                }
-            };
+            Some(window_adapter) => {
+                WindowInner::from_pub(window_adapter.window()).set_component(popup_componentrc);
+                PopupWindowLocation::TopLevel(window_adapter)
+            }
+        };
 
         self.active_popup
             .replace(Some(PopupWindow { location, component: popup_componentrc.clone() }));
@@ -644,7 +648,7 @@ impl WindowInner {
                 // Refresh the area that was previously covered by the popup.
                 let popup_region = crate::properties::evaluate_no_tracking(|| {
                     let popup_component = ComponentRc::borrow_pin(&current_popup.component);
-                    popup_component.as_ref().get_item_ref(0).logical_geometry()
+                    popup_component.as_ref().get_item_ref(0).as_ref().geometry()
                 })
                 .translate(offset.to_vector());
 

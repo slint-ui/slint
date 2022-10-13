@@ -20,7 +20,7 @@ When adding an item or a property, it needs to be kept in sync with different pl
 #![allow(non_upper_case_globals)]
 #![allow(missing_docs)] // because documenting each property of items is redundant
 
-use crate::graphics::{Brush, Color, Point, Rect};
+use crate::graphics::{Brush, Color, Point};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyEventResult, KeyEventType, MouseEvent,
@@ -114,7 +114,7 @@ pub struct ItemVTable {
     pub init: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>, window_adapter: &WindowAdapterRc),
 
     /// Returns the geometry of this item (relative to its parent item)
-    pub geometry: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> Rect,
+    pub geometry: extern "C" fn(core::pin::Pin<VRef<ItemVTable>>) -> LogicalRect,
 
     /// offset in bytes from the *const ItemImpl.
     /// isize::MAX  means None
@@ -189,12 +189,11 @@ pub struct Rectangle {
 impl Item for Rectangle {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
             LogicalPoint::from_lengths(self.x(), self.y()),
             LogicalSize::from_lengths(self.width(), self.height()),
         )
-        .to_untyped()
     }
 
     fn layout_info(
@@ -281,12 +280,11 @@ pub struct BorderRectangle {
 impl Item for BorderRectangle {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
             LogicalPoint::from_lengths(self.x(), self.y()),
             LogicalSize::from_lengths(self.width(), self.height()),
         )
-        .to_untyped()
     }
 
     fn layout_info(
@@ -388,12 +386,11 @@ pub struct TouchArea {
 impl Item for TouchArea {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
             LogicalPoint::from_lengths(self.x(), self.y()),
             LogicalSize::from_lengths(self.width(), self.height()),
         )
-        .to_untyped()
     }
 
     fn layout_info(
@@ -564,12 +561,11 @@ pub struct FocusScope {
 impl Item for FocusScope {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
             LogicalPoint::from_lengths(self.x(), self.y()),
             LogicalSize::from_lengths(self.width(), self.height()),
         )
-        .to_untyped()
     }
 
     fn layout_info(
@@ -683,12 +679,11 @@ pub struct Clip {
 impl Item for Clip {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
             LogicalPoint::from_lengths(self.x(), self.y()),
             LogicalSize::from_lengths(self.width(), self.height()),
         )
-        .to_untyped()
     }
 
     fn layout_info(
@@ -780,12 +775,11 @@ pub struct Opacity {
 impl Item for Opacity {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
             LogicalPoint::from_lengths(self.x(), self.y()),
             LogicalSize::from_lengths(self.width(), self.height()),
         )
-        .to_untyped()
     }
 
     fn layout_info(
@@ -896,12 +890,11 @@ pub struct Layer {
 impl Item for Layer {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
             LogicalPoint::from_lengths(self.x(), self.y()),
             LogicalSize::from_lengths(self.width(), self.height()),
         )
-        .to_untyped()
     }
 
     fn layout_info(
@@ -986,12 +979,11 @@ pub struct Rotate {
 impl Item for Rotate {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
             LogicalPoint::from_lengths(self.x(), self.y()),
             LogicalSize::from_lengths(self.width(), self.height()),
         )
-        .to_untyped()
     }
 
     fn layout_info(
@@ -1110,12 +1102,11 @@ pub struct WindowItem {
 impl Item for WindowItem {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
             LogicalPoint::default(),
             LogicalSize::from_lengths(self.width(), self.height()),
         )
-        .to_untyped()
     }
 
     fn layout_info(
@@ -1231,12 +1222,11 @@ pub struct BoxShadow {
 impl Item for BoxShadow {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
             LogicalPoint::from_lengths(self.x(), self.y()),
             LogicalSize::from_lengths(self.width(), self.height()),
         )
-        .to_untyped()
     }
 
     fn layout_info(

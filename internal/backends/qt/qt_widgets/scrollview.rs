@@ -81,7 +81,7 @@ impl Item for NativeScrollView {
         });
     }
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         euclid::rect(self.x(), self.y(), self.width(), self.height())
     }
 

@@ -9,7 +9,7 @@ Lookup the [`crate::items`] module documentation.
 */
 
 use super::{FillRule, Item, ItemConsts, ItemRc, ItemRendererRef, RenderingResult};
-use crate::graphics::{Brush, PathData, PathDataIterator, Rect};
+use crate::graphics::{Brush, PathData, PathDataIterator};
 use crate::input::{
     FocusEvent, FocusEventResult, InputEventFilterResult, InputEventResult, KeyEvent,
     KeyEventResult, MouseEvent,
@@ -18,8 +18,7 @@ use crate::item_rendering::CachedRenderingData;
 
 use crate::layout::{LayoutInfo, Orientation};
 use crate::lengths::{
-    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    PointLengths,
+    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PointLengths,
 };
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
@@ -56,12 +55,11 @@ pub struct Path {
 impl Item for Path {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
-    fn geometry(self: Pin<&Self>) -> Rect {
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
         LogicalRect::new(
             LogicalPoint::from_lengths(self.x(), self.y()),
             LogicalSize::from_lengths(self.width(), self.height()),
         )
-        .to_untyped()
     }
 
     fn layout_info(
@@ -126,11 +124,7 @@ impl Item for Path {
         let clip = self.clip();
         if clip {
             (*backend).save_state();
-            (*backend).combine_clip(
-                self.logical_geometry(),
-                LogicalLength::zero(),
-                LogicalLength::zero(),
-            );
+            (*backend).combine_clip(self.geometry(), LogicalLength::zero(), LogicalLength::zero());
         }
         (*backend).draw_path(self, self_rc);
         if clip {

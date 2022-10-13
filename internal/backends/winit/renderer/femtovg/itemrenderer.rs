@@ -12,12 +12,12 @@ use i_slint_core::graphics::rendering_metrics_collector::RenderingMetrics;
 use i_slint_core::graphics::{Image, IntRect, Point, Size};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{
-    self, Clip, FillRule, ImageFit, ImageRendering, InputType, ItemRc, Layer, Opacity,
+    self, Clip, FillRule, ImageFit, ImageRendering, InputType, Item, ItemRc, Layer, Opacity,
     RenderingResult,
 };
 use i_slint_core::lengths::{
-    LogicalItemGeometry, LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector,
-    PointLengths, RectLengths, ScaleFactor,
+    LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PointLengths,
+    RectLengths, ScaleFactor,
 };
 use i_slint_core::window::WindowInner;
 use i_slint_core::{Brush, Color, ImageInner, Property, SharedString};
@@ -119,7 +119,7 @@ fn adjust_rect_and_border_for_inner_drawing(
 }
 
 fn item_rect<Item: items::Item>(item: Pin<&Item>, scale_factor: ScaleFactor) -> PhysicalRect {
-    let geometry = item.logical_geometry();
+    let geometry = item.geometry();
     PhysicalRect::new(PhysicalPoint::default(), geometry.size * scale_factor)
 }
 
@@ -736,7 +736,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
             return RenderingResult::ContinueRenderingChildren;
         }
 
-        let geometry = clip_item.as_ref().logical_geometry();
+        let geometry = clip_item.as_ref().geometry();
 
         // If clipping is enabled but the clip element is outside the visible range, then we don't
         // need to bother doing anything, not even rendering the children.
@@ -749,7 +749,7 @@ impl<'a> ItemRenderer for GLItemRenderer<'a> {
 
         if radius.get() > 0. {
             if let Some(layer_image) =
-                self.render_layer(item_rc, &|| clip_item.as_ref().logical_geometry().size)
+                self.render_layer(item_rc, &|| clip_item.as_ref().geometry().size)
             {
                 let layer_image_paint = layer_image.as_paint();
 
@@ -1045,7 +1045,7 @@ impl<'a> GLItemRenderer<'a> {
             .render_layer(item_rc, &|| {
                 // We don't need to include the size of the opacity item itself, since it has no content.
                 let children_rect = i_slint_core::properties::evaluate_no_tracking(|| {
-                    item_rc.logical_geometry().union(
+                    item_rc.geometry().union(
                         &i_slint_core::item_rendering::item_children_bounding_rect(
                             &item_rc.component(),
                             item_rc.index() as isize,

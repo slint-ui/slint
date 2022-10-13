@@ -22,13 +22,14 @@ use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
 use i_slint_core::graphics::euclid;
-use i_slint_core::graphics::{Color, Rect};
+use i_slint_core::graphics::Color;
 use i_slint_core::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
 };
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
 use i_slint_core::items::{Item, ItemConsts, ItemRc, ItemVTable, RenderingResult, VoidArg};
 use i_slint_core::layout::{LayoutInfo, Orientation};
+use i_slint_core::lengths::LogicalRect;
 #[cfg(feature = "rtti")]
 use i_slint_core::rtti::*;
 use i_slint_core::window::{WindowAdapter, WindowAdapterRc, WindowInner};
