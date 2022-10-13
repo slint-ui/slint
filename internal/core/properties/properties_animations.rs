@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use super::*;
-use crate::items::PropertyAnimation;
+use crate::{items::PropertyAnimation, lengths::LogicalLength};
 
 enum AnimationState {
     Delaying,
@@ -197,6 +197,12 @@ impl InterpolatedPropertyValue for i64 {
 impl InterpolatedPropertyValue for u8 {
     fn interpolate(&self, target_value: &Self, t: f32) -> Self {
         ((*self as f32) + (t * ((*target_value as f32) - (*self as f32)))).min(255.).max(0.) as u8
+    }
+}
+
+impl InterpolatedPropertyValue for LogicalLength {
+    fn interpolate(&self, target_value: &Self, t: f32) -> Self {
+        LogicalLength::new(self.get().interpolate(&target_value.get(), t))
     }
 }
 

@@ -10,15 +10,15 @@ use super::*;
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeLineEdit {
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
-    pub native_padding_left: Property<f32>,
-    pub native_padding_right: Property<f32>,
-    pub native_padding_top: Property<f32>,
-    pub native_padding_bottom: Property<f32>,
+    pub native_padding_left: Property<LogicalLength>,
+    pub native_padding_right: Property<LogicalLength>,
+    pub native_padding_top: Property<LogicalLength>,
+    pub native_padding_bottom: Property<LogicalLength>,
     pub has_focus: Property<bool>,
     pub enabled: Property<bool>,
     pub input_type: Property<InputType>,
@@ -53,24 +53,27 @@ impl Item for NativeLineEdit {
 
         self.native_padding_left.set_binding({
             let paddings = paddings.clone();
-            move || paddings.as_ref().get().left as _
+            move || LogicalLength::new(paddings.as_ref().get().left as _)
         });
         self.native_padding_right.set_binding({
             let paddings = paddings.clone();
-            move || paddings.as_ref().get().right as _
+            move || LogicalLength::new(paddings.as_ref().get().right as _)
         });
         self.native_padding_top.set_binding({
             let paddings = paddings.clone();
-            move || paddings.as_ref().get().top as _
+            move || LogicalLength::new(paddings.as_ref().get().top as _)
         });
         self.native_padding_bottom.set_binding({
             let paddings = paddings;
-            move || paddings.as_ref().get().bottom as _
+            move || LogicalLength::new(paddings.as_ref().get().bottom as _)
         });
     }
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
     }
 
     fn layout_info(
@@ -82,7 +85,8 @@ impl Item for NativeLineEdit {
             min: match orientation {
                 Orientation::Horizontal => self.native_padding_left() + self.native_padding_right(),
                 Orientation::Vertical => self.native_padding_top() + self.native_padding_bottom(),
-            },
+            }
+            .get(),
             stretch: if orientation == Orientation::Horizontal { 1. } else { 0. },
             ..LayoutInfo::default()
         }

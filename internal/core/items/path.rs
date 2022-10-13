@@ -35,15 +35,15 @@ use i_slint_core_macros::*;
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct Path {
-    pub x: Property<Coord>,
-    pub y: Property<Coord>,
-    pub width: Property<Coord>,
-    pub height: Property<Coord>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub elements: Property<PathData>,
     pub fill: Property<Brush>,
     pub fill_rule: Property<FillRule>,
     pub stroke: Property<Brush>,
-    pub stroke_width: Property<Coord>,
+    pub stroke_width: Property<LogicalLength>,
     pub viewbox_x: Property<f32>,
     pub viewbox_y: Property<f32>,
     pub viewbox_width: Property<f32>,

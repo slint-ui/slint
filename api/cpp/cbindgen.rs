@@ -205,6 +205,7 @@ fn gen_corelib(
         "Coord",
         "LogicalRect",
         "LogicalPoint",
+        "LogicalLength",
     ]
     .iter()
     .chain(public_exported_types.iter())
@@ -470,6 +471,7 @@ namespace slint {
         struct Rect;
         using LogicalRect = Rect;
         using LogicalPoint = Point2D<float>;
+        using LogicalLength = float;
     }
 }",
         )

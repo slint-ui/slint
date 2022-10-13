@@ -21,7 +21,6 @@ use crate::qt_window::QPainterPtr;
 use const_field_offset::FieldOffsets;
 use core::pin::Pin;
 use cpp::cpp;
-use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::Color;
 use i_slint_core::input::{
     FocusEvent, InputEventFilterResult, InputEventResult, KeyEvent, KeyEventResult, MouseEvent,
@@ -29,7 +28,7 @@ use i_slint_core::input::{
 use i_slint_core::item_rendering::{CachedRenderingData, ItemRenderer};
 use i_slint_core::items::{Item, ItemConsts, ItemRc, ItemVTable, RenderingResult, VoidArg};
 use i_slint_core::layout::{LayoutInfo, Orientation};
-use i_slint_core::lengths::LogicalRect;
+use i_slint_core::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize};
 #[cfg(feature = "rtti")]
 use i_slint_core::rtti::*;
 use i_slint_core::window::{WindowAdapter, WindowAdapterRc, WindowInner};
@@ -45,8 +44,8 @@ type ItemRendererRef<'a> = &'a mut dyn ItemRenderer;
 /// and return Default::default in case the size is too small
 macro_rules! get_size {
     ($self:ident) => {{
-        let width = $self.width();
-        let height = $self.height();
+        let width = $self.width().get();
+        let height = $self.height().get();
         if width < 1. || height < 1. {
             return Default::default();
         };
@@ -85,8 +84,8 @@ macro_rules! fn_render {
                 backend.draw_cached_pixmap(
                     item_rc,
                     &|callback| {
-                        let width = self.width() * $dpr;
-                        let height = self.height() * $dpr;
+                        let width = self.width().get() * $dpr;
+                        let height = self.height().get() * $dpr;
                         if width < 1. || height < 1. {
                             return Default::default();
                         };

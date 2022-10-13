@@ -9,17 +9,17 @@ use super::*;
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeGroupBox {
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub enabled: Property<bool>,
     pub title: Property<SharedString>,
     pub cached_rendering_data: CachedRenderingData,
-    pub native_padding_left: Property<f32>,
-    pub native_padding_right: Property<f32>,
-    pub native_padding_top: Property<f32>,
-    pub native_padding_bottom: Property<f32>,
+    pub native_padding_left: Property<LogicalLength>,
+    pub native_padding_right: Property<LogicalLength>,
+    pub native_padding_top: Property<LogicalLength>,
+    pub native_padding_bottom: Property<LogicalLength>,
 }
 
 #[repr(C)]
@@ -108,7 +108,7 @@ impl Item for NativeGroupBox {
             move || {
                 let margins =
                     GroupBoxData::FIELD_OFFSETS.paddings.apply_pin(shared_data.as_ref()).get();
-                margins.left as _
+                LogicalLength::new(margins.left as _)
             }
         });
 
@@ -117,7 +117,7 @@ impl Item for NativeGroupBox {
             move || {
                 let margins =
                     GroupBoxData::FIELD_OFFSETS.paddings.apply_pin(shared_data.as_ref()).get();
-                margins.right as _
+                LogicalLength::new(margins.right as _)
             }
         });
 
@@ -126,7 +126,7 @@ impl Item for NativeGroupBox {
             move || {
                 let margins =
                     GroupBoxData::FIELD_OFFSETS.paddings.apply_pin(shared_data.as_ref()).get();
-                margins.top as _
+                LogicalLength::new(margins.top as _)
             }
         });
 
@@ -134,13 +134,16 @@ impl Item for NativeGroupBox {
             move || {
                 let margins =
                     GroupBoxData::FIELD_OFFSETS.paddings.apply_pin(shared_data.as_ref()).get();
-                margins.bottom as _
+                LogicalLength::new(margins.bottom as _)
             }
         });
     }
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
     }
 
     fn layout_info(

@@ -30,9 +30,9 @@ struct StyleChangeListener : QWidget {
 #[pin]
 #[pin_drop]
 pub struct NativeStyleMetrics {
-    pub layout_spacing: Property<f32>,
-    pub layout_padding: Property<f32>,
-    pub text_cursor_width: Property<f32>,
+    pub layout_spacing: Property<LogicalLength>,
+    pub layout_padding: Property<LogicalLength>,
+    pub text_cursor_width: Property<LogicalLength>,
     pub window_background: Property<Color>,
     pub default_text_color: Property<Color>,
     pub textedit_background: Property<Color>,
@@ -104,15 +104,15 @@ impl NativeStyleMetrics {
                 spacing = qApp->style()->layoutSpacing(QSizePolicy::DefaultType, QSizePolicy::DefaultType, Qt::Horizontal);
             return spacing;
         });
-        self.layout_spacing.set(layout_spacing.max(0.0));
+        self.layout_spacing.set(LogicalLength::new(layout_spacing.max(0.0)));
         let layout_padding = cpp!(unsafe [] -> f32 as "float" {
             return qApp->style()->pixelMetric(QStyle::PM_LayoutLeftMargin);
         });
-        self.layout_padding.set(layout_padding.max(0.0));
+        self.layout_padding.set(LogicalLength::new(layout_padding.max(0.0)));
         let text_cursor_width = cpp!(unsafe [] -> f32 as "float" {
             return qApp->style()->pixelMetric(QStyle::PM_TextCursorWidth);
         });
-        self.text_cursor_width.set(text_cursor_width.max(0.0));
+        self.text_cursor_width.set(LogicalLength::new(text_cursor_width.max(0.0)));
         let window_background = cpp!(unsafe[] -> u32 as "QRgb" {
             return qApp->palette().color(QPalette::Window).rgba();
         });

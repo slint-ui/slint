@@ -443,7 +443,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
             if let Some(window_item) = runtime_window.window_item() {
                 // Setting the width to its preferred size before querying the vertical layout info
                 // is important in case the height depends on the width
-                window_item.width.set(layout_info_h.preferred_bounded());
+                window_item.width.set(LogicalLength::new(layout_info_h.preferred_bounded()));
             }
             let layout_info_v = component.as_ref().layout_info(Orientation::Vertical);
             let s = winit::dpi::LogicalSize::new(

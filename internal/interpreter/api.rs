@@ -350,6 +350,23 @@ impl TryFrom<Value> for i_slint_core::Color {
     }
 }
 
+impl From<i_slint_core::lengths::LogicalLength> for Value {
+    #[inline]
+    fn from(l: i_slint_core::lengths::LogicalLength) -> Self {
+        Value::Number(l.get() as _)
+    }
+}
+impl TryFrom<Value> for i_slint_core::lengths::LogicalLength {
+    type Error = Value;
+    #[inline]
+    fn try_from(v: Value) -> Result<i_slint_core::lengths::LogicalLength, Self::Error> {
+        match v {
+            Value::Number(n) => Ok(i_slint_core::lengths::LogicalLength::new(n as _)),
+            _ => Err(v),
+        }
+    }
+}
+
 /// Normalize the identifier to use dashes
 pub(crate) fn normalize_identifier(ident: &str) -> Cow<'_, str> {
     if ident.contains('_') {

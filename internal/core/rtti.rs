@@ -39,6 +39,7 @@ macro_rules! declare_ValueType_2 {
             crate::Brush,
             crate::graphics::Point,
             crate::items::PointerEvent,
+            crate::lengths::LogicalLength,
             $(crate::items::$Name,)*
         ];
     };

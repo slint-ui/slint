@@ -11,27 +11,27 @@ use super::*;
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeTabWidget {
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub cached_rendering_data: CachedRenderingData,
-    pub content_min_height: Property<f32>,
-    pub content_min_width: Property<f32>,
-    pub tabbar_preferred_height: Property<f32>,
-    pub tabbar_preferred_width: Property<f32>,
+    pub content_min_height: Property<LogicalLength>,
+    pub content_min_width: Property<LogicalLength>,
+    pub tabbar_preferred_height: Property<LogicalLength>,
+    pub tabbar_preferred_width: Property<LogicalLength>,
     pub current_index: Property<i32>,
     pub current_focused: Property<i32>,
 
     // outputs
-    pub content_x: Property<f32>,
-    pub content_y: Property<f32>,
-    pub content_height: Property<f32>,
-    pub content_width: Property<f32>,
-    pub tabbar_x: Property<f32>,
-    pub tabbar_y: Property<f32>,
-    pub tabbar_height: Property<f32>,
-    pub tabbar_width: Property<f32>,
+    pub content_x: Property<LogicalLength>,
+    pub content_y: Property<LogicalLength>,
+    pub content_height: Property<LogicalLength>,
+    pub content_width: Property<LogicalLength>,
+    pub tabbar_x: Property<LogicalLength>,
+    pub tabbar_y: Property<LogicalLength>,
+    pub tabbar_height: Property<LogicalLength>,
+    pub tabbar_width: Property<LogicalLength>,
 }
 
 impl Item for NativeTabWidget {
@@ -50,10 +50,10 @@ impl Item for NativeTabWidget {
         #[derive(FieldOffsets, Default)]
         #[pin]
         struct TabBarSharedData {
-            width: Property<f32>,
-            height: Property<f32>,
-            tabbar_preferred_height: Property<f32>,
-            tabbar_preferred_width: Property<f32>,
+            width: Property<LogicalLength>,
+            height: Property<LogicalLength>,
+            tabbar_preferred_height: Property<LogicalLength>,
+            tabbar_preferred_width: Property<LogicalLength>,
             horizontal_metrics: Property<TabWidgetMetrics>,
             vertical_metrics: Property<TabWidgetMetrics>,
         }
@@ -82,6 +82,7 @@ impl Item for NativeTabWidget {
                         width: TabBarSharedData::FIELD_OFFSETS
                             .width
                             .apply_pin(shared_data.as_ref())
+                            .get()
                             .get() as _,
                         height: (std::i32::MAX / 2) as _,
                     },
@@ -89,6 +90,7 @@ impl Item for NativeTabWidget {
                         width: TabBarSharedData::FIELD_OFFSETS
                             .tabbar_preferred_width
                             .apply_pin(shared_data.as_ref())
+                            .get()
                             .get() as _,
                         height: (std::i32::MAX / 2) as _,
                     },
@@ -99,6 +101,7 @@ impl Item for NativeTabWidget {
                         height: TabBarSharedData::FIELD_OFFSETS
                             .height
                             .apply_pin(shared_data.as_ref())
+                            .get()
                             .get() as _,
                     },
                     qttypes::QSizeF {
@@ -106,6 +109,7 @@ impl Item for NativeTabWidget {
                         height: TabBarSharedData::FIELD_OFFSETS
                             .tabbar_preferred_height
                             .apply_pin(shared_data.as_ref())
+                            .get()
                             .get() as _,
                     },
                 ),
@@ -150,7 +154,7 @@ impl Item for NativeTabWidget {
                         .$field1
                         .apply_pin(shared_data.as_ref())
                         .get();
-                    metrics.$field2 as f32
+                    LogicalLength::new(metrics.$field2 as f32)
                 });
             };
         }
@@ -165,7 +169,10 @@ impl Item for NativeTabWidget {
     }
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
     }
 
     fn layout_info(
@@ -176,22 +183,22 @@ impl Item for NativeTabWidget {
         let (content_size, tabbar_size) = match orientation {
             Orientation::Horizontal => (
                 qttypes::QSizeF {
-                    width: self.content_min_width() as _,
+                    width: self.content_min_width().get() as _,
                     height: (std::i32::MAX / 2) as _,
                 },
                 qttypes::QSizeF {
-                    width: self.tabbar_preferred_width() as _,
+                    width: self.tabbar_preferred_width().get() as _,
                     height: (std::i32::MAX / 2) as _,
                 },
             ),
             Orientation::Vertical => (
                 qttypes::QSizeF {
                     width: (std::i32::MAX / 2) as _,
-                    height: self.content_min_height() as _,
+                    height: self.content_min_height().get() as _,
                 },
                 qttypes::QSizeF {
                     width: (std::i32::MAX / 2) as _,
-                    height: self.tabbar_preferred_height() as _,
+                    height: self.tabbar_preferred_height().get() as _,
                 },
             ),
         };
@@ -262,8 +269,8 @@ impl Item for NativeTabWidget {
 
     fn_render! { this dpr size painter widget initial_state =>
         let tabbar_size = qttypes::QSizeF {
-            width: this.tabbar_preferred_width() as _,
-            height: this.tabbar_preferred_height() as _,
+            width: this.tabbar_preferred_width().get() as _,
+            height: this.tabbar_preferred_height().get() as _,
         };
         cpp!(unsafe [
             painter as "QPainterPtr*",
@@ -322,10 +329,10 @@ fn slint_get_NativeTabWidgetVTable() -> NativeTabWidgetVTable for NativeTabWidge
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
 pub struct NativeTab {
-    pub x: Property<f32>,
-    pub y: Property<f32>,
-    pub width: Property<f32>,
-    pub height: Property<f32>,
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
     pub title: Property<SharedString>,
     pub icon: Property<i_slint_core::graphics::Image>,
     pub enabled: Property<bool>,
@@ -341,7 +348,10 @@ impl Item for NativeTab {
     fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
 
     fn geometry(self: Pin<&Self>) -> LogicalRect {
-        euclid::rect(self.x(), self.y(), self.width(), self.height())
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
     }
 
     fn layout_info(

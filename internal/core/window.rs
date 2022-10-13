@@ -16,7 +16,7 @@ use crate::input::{
 };
 use crate::item_tree::ItemRc;
 use crate::items::{ItemRef, MouseCursor};
-use crate::lengths::{LogicalLength, LogicalPoint, LogicalSize};
+use crate::lengths::{LogicalLength, LogicalPoint, LogicalSize, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
 use crate::Callback;
@@ -621,8 +621,8 @@ impl WindowInner {
                 crate::items::WindowItem::FIELD_OFFSETS.width.apply_pin(window_item);
             let height_property =
                 crate::items::WindowItem::FIELD_OFFSETS.height.apply_pin(window_item);
-            width_property.set(size.width);
-            height_property.set(size.height);
+            width_property.set(size.width_length());
+            height_property.set(size.height_length());
         };
 
         let location = match self
@@ -690,8 +690,8 @@ impl WindowInner {
             let root_item = component.as_ref().get_item_ref(0);
             if let Some(window_item) = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item)
             {
-                window_item.width.set(size.width);
-                window_item.height.set(size.height);
+                window_item.width.set(size.width_length());
+                window_item.height.set(size.height_length());
             }
         }
     }

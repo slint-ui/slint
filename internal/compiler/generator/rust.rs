@@ -66,7 +66,7 @@ impl quote::ToTokens for crate::embedded_resources::PixelFormat {
     }
 }
 
-fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
+fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
     match ty {
         Type::Int32 => Some(quote!(i32)),
         Type::Float32 => Some(quote!(f32)),
@@ -80,13 +80,13 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Bool => Some(quote!(bool)),
         Type::Image => Some(quote!(slint::private_unstable_api::re_exports::Image)),
         Type::Struct { fields, name: None, .. } => {
-            let elem = fields.values().map(rust_type).collect::<Option<Vec<_>>>()?;
+            let elem = fields.values().map(rust_primitive_type).collect::<Option<Vec<_>>>()?;
             // This will produce a tuple
             Some(quote!((#(#elem,)*)))
         }
         Type::Struct { name: Some(name), .. } => Some(struct_name_to_tokens(name)),
         Type::Array(o) => {
-            let inner = rust_type(o)?;
+            let inner = rust_primitive_type(o)?;
             Some(quote!(slint::private_unstable_api::re_exports::ModelRc<#inner>))
         }
         Type::Enumeration(e) => {
@@ -100,6 +100,31 @@ fn rust_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
             >
         )),
         _ => None,
+    }
+}
+
+fn rust_property_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
+    match ty {
+        Type::LogicalLength => Some(quote!(slint::private_unstable_api::re_exports::LogicalLength)),
+        _ => rust_primitive_type(ty),
+    }
+}
+
+fn primitive_property_value(ty: &Type, property_accessor: TokenStream) -> TokenStream {
+    let value = quote!(#property_accessor.get());
+    match ty {
+        Type::LogicalLength => quote!(#value.get()),
+        _ => value,
+    }
+}
+
+fn set_primitive_property_value(ty: &Type, value_expression: TokenStream) -> TokenStream {
+    match ty {
+        Type::LogicalLength => {
+            let rust_ty = rust_primitive_type(ty).unwrap_or(quote!(_));
+            quote!(slint::private_unstable_api::re_exports::LogicalLength::new(#value_expression as #rust_ty))
+        }
+        _ => value_expression,
     }
 }
 
@@ -380,7 +405,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
 fn generate_struct(name: &str, fields: &BTreeMap<String, Type>) -> TokenStream {
     let component_id = struct_name_to_tokens(name);
     let (declared_property_vars, declared_property_types): (Vec<_>, Vec<_>) =
-        fields.iter().map(|(name, ty)| (ident(name), rust_type(ty).unwrap())).unzip();
+        fields.iter().map(|(name, ty)| (ident(name), rust_primitive_type(ty).unwrap())).unzip();
 
     quote! {
         #[derive(Default, PartialEq, Debug, Clone)]
@@ -427,8 +452,11 @@ fn handle_property_init(
     } else {
         let tokens_for_expression =
             compile_expression(&binding_expression.expression.borrow(), ctx);
+
+        let tokens_for_expression = set_primitive_property_value(prop_type, tokens_for_expression);
+
         init.push(if binding_expression.is_constant && !binding_expression.is_state_info {
-            let t = rust_type(prop_type).unwrap_or(quote!(_));
+            let t = rust_property_type(prop_type).unwrap_or(quote!(_));
 
             // When there is a `return` statement, we must use a lambda expression in the generated code so that the
             // generated code can have an actual return in it. We only want to do that if necessary because otherwise
@@ -498,8 +526,10 @@ fn public_api(
         let prop = access_member(r, ctx);
 
         if let Type::Callback { args, return_type } = ty {
-            let callback_args = args.iter().map(|a| rust_type(a).unwrap()).collect::<Vec<_>>();
-            let return_type = return_type.as_ref().map_or(quote!(()), |a| rust_type(a).unwrap());
+            let callback_args =
+                args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
+            let return_type =
+                return_type.as_ref().map_or(quote!(()), |a| rust_primitive_type(a).unwrap());
             let args_name = (0..args.len()).map(|i| format_ident!("arg_{}", i)).collect::<Vec<_>>();
             let caller_ident = format_ident!("invoke_{}", prop_ident);
             property_and_callback_accessors.push(quote!(
@@ -523,10 +553,12 @@ fn public_api(
                 }
             ));
         } else {
-            let rust_property_type = rust_type(ty).unwrap();
+            let rust_property_type = rust_primitive_type(ty).unwrap();
 
             let getter_ident = format_ident!("get_{}", prop_ident);
             let setter_ident = format_ident!("set_{}", prop_ident);
+
+            let prop_expression = primitive_property_value(ty, prop);
 
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
@@ -534,7 +566,7 @@ fn public_api(
                     #[allow(unused_imports)]
                     use slint::private_unstable_api::re_exports::*;
                     let _self = #self_init;
-                    #prop.get()
+                    #prop_expression
                 }
             ));
 
@@ -586,13 +618,15 @@ fn generate_sub_component(
     for property in component.properties.iter().filter(|p| p.use_count.get() > 0) {
         let prop_ident = ident(&property.name);
         if let Type::Callback { args, return_type } = &property.ty {
-            let callback_args = args.iter().map(|a| rust_type(a).unwrap()).collect::<Vec<_>>();
-            let return_type = return_type.as_ref().map_or(quote!(()), |a| rust_type(a).unwrap());
+            let callback_args =
+                args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
+            let return_type =
+                return_type.as_ref().map_or(quote!(()), |a| rust_primitive_type(a).unwrap());
             declared_callbacks.push(prop_ident.clone());
             declared_callbacks_types.push(callback_args);
             declared_callbacks_ret.push(return_type);
         } else {
-            let rust_property_type = rust_type(&property.ty).unwrap();
+            let rust_property_type = rust_property_type(&property.ty).unwrap();
             declared_property_vars.push(prop_ident.clone());
             declared_property_types.push(rust_property_type.clone());
         }
@@ -980,13 +1014,15 @@ fn generate_global(global: &llr::GlobalComponent, root: &llr::PublicComponent) -
     for property in global.properties.iter().filter(|p| p.use_count.get() > 0) {
         let prop_ident = ident(&property.name);
         if let Type::Callback { args, return_type } = &property.ty {
-            let callback_args = args.iter().map(|a| rust_type(a).unwrap()).collect::<Vec<_>>();
-            let return_type = return_type.as_ref().map_or(quote!(()), |a| rust_type(a).unwrap());
+            let callback_args =
+                args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
+            let return_type =
+                return_type.as_ref().map_or(quote!(()), |a| rust_primitive_type(a).unwrap());
             declared_callbacks.push(prop_ident.clone());
             declared_callbacks_types.push(callback_args);
             declared_callbacks_ret.push(return_type);
         } else {
-            let rust_property_type = rust_type(&property.ty).unwrap();
+            let rust_property_type = rust_property_type(&property.ty).unwrap();
             declared_property_vars.push(prop_ident.clone());
             declared_property_types.push(rust_property_type.clone());
         }
@@ -1340,8 +1376,8 @@ fn generate_repeated_component(
         quote! {
             fn listview_layout(
                 self: core::pin::Pin<&Self>,
-                offset_y: &mut slint::private_unstable_api::re_exports::Coord,
-                viewport_width: core::pin::Pin<&slint::private_unstable_api::re_exports::Property<slint::private_unstable_api::re_exports::Coord>>,
+                offset_y: &mut slint::private_unstable_api::re_exports::LogicalLength,
+                viewport_width: core::pin::Pin<&slint::private_unstable_api::re_exports::Property<slint::private_unstable_api::re_exports::LogicalLength>>,
             ) {
                 use slint::private_unstable_api::re_exports::*;
                 let _self = self;
@@ -1367,19 +1403,27 @@ fn generate_repeated_component(
     };
 
     let data_type = if let Some(data_prop) = repeated.data_prop {
-        rust_type(&repeated.sub_tree.root.properties[data_prop].ty).unwrap()
+        rust_primitive_type(&repeated.sub_tree.root.properties[data_prop].ty).unwrap()
     } else {
         quote!(())
     };
 
-    let access_prop = |&property_index| {
+    let access_prop = |property_index| {
         access_member(
             &llr::PropertyReference::Local { sub_component_path: vec![], property_index },
             &ctx,
         )
     };
-    let index_prop = repeated.index_prop.iter().map(access_prop);
-    let data_prop = repeated.data_prop.iter().map(access_prop);
+    let index_prop = repeated.index_prop.into_iter().map(access_prop);
+    let set_data_expr = repeated.data_prop.into_iter().map(|property_index| {
+        let prop_type = ctx.property_ty(&llr::PropertyReference::Local {
+            sub_component_path: vec![],
+            property_index,
+        });
+        let data_prop = access_prop(property_index);
+        let value_tokens = set_primitive_property_value(prop_type, quote!(_data));
+        quote!(#data_prop.set(#value_tokens);)
+    });
 
     quote!(
         #component
@@ -1390,7 +1434,7 @@ fn generate_repeated_component(
                 let self_rc = self.self_weak.get().unwrap().upgrade().unwrap();
                 let _self = self_rc.as_pin_ref();
                 #(#index_prop.set(_index as _);)*
-                #(#data_prop.set(_data);)*
+                #(#set_data_expr)*
             }
             #extra_fn
         }
@@ -1421,6 +1465,8 @@ fn property_set_value_tokens(
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let prop = access_member(property, ctx);
+    let prop_type = ctx.property_ty(property);
+    let value_tokens = set_primitive_property_value(prop_type, value_tokens);
     if let Some(animation) = ctx.current_sub_component.and_then(|c| c.animations.get(property)) {
         let animation_tokens = compile_expression(animation, ctx);
         return quote!(#prop.set_animated_value(#value_tokens as _, #animation_tokens));
@@ -1674,7 +1720,8 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         }
         Expression::PropertyReference(nr) => {
             let access = access_member(nr, ctx);
-            quote!(#access.get())
+            let prop_type = ctx.property_ty(nr);
+            primitive_property_value(prop_type, access)
         }
         Expression::BuiltinFunctionCall { function, arguments } => {
             compile_builtin_function_call(*function, arguments, ctx)
@@ -1853,7 +1900,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
         Expression::Array { values, element_ty, as_model } => {
             let val = values.iter().map(|e| compile_expression(e, ctx));
             if *as_model {
-                let rust_element_ty = rust_type(element_ty).unwrap();
+                let rust_element_ty = rust_primitive_type(element_ty).unwrap();
                 quote!(slint::private_unstable_api::re_exports::ModelRc::new(
                     slint::private_unstable_api::re_exports::VecModel::<#rust_element_ty>::from(
                         slint::private_unstable_api::re_exports::vec![#(#val as _),*]
@@ -1879,7 +1926,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                         if t.as_unit_product().is_some() {
                             // number needs to be converted to the right things because intermediate
                             // result might be f64 and that's usually not what the type of the tuple is in the end
-                            let t = rust_type(t).unwrap();
+                            let t = rust_primitive_type(t).unwrap();
                             quote!(as #t)
                         } else {
                             quote!()
