@@ -6,6 +6,7 @@ use std::rc::Rc;
 
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::{ImageCacheKey, IntSize, SharedImageBuffer};
+use i_slint_core::lengths::PhysicalPx;
 use i_slint_core::{items::ImageRendering, ImageInner};
 
 use super::itemrenderer::CanvasRc;
@@ -84,7 +85,7 @@ impl Texture {
     pub fn new_from_image(
         image: &ImageInner,
         canvas: &CanvasRc,
-        target_size_for_scalable_source: Option<euclid::default::Size2D<u32>>,
+        target_size_for_scalable_source: Option<euclid::Size2D<u32, PhysicalPx>>,
         scaling: ImageRendering,
     ) -> Option<Rc<Self>> {
         let image_flags = match scaling {
@@ -129,14 +130,14 @@ impl Drop for Texture {
 #[derive(PartialEq, Eq, Hash, Debug)]
 pub struct TextureCacheKey {
     source_key: ImageCacheKey,
-    target_size_for_scalable_source: Option<euclid::default::Size2D<u32>>,
+    target_size_for_scalable_source: Option<euclid::Size2D<u32, PhysicalPx>>,
     gpu_image_flags: ImageRendering,
 }
 
 impl TextureCacheKey {
     pub fn new(
         resource: &ImageInner,
-        target_size_for_scalable_source: Option<euclid::default::Size2D<u32>>,
+        target_size_for_scalable_source: Option<euclid::Size2D<u32, PhysicalPx>>,
         gpu_image_flags: ImageRendering,
     ) -> Option<Self> {
         ImageCacheKey::new(resource).map(|source_key| Self {

@@ -3,6 +3,7 @@
 
 #![cfg(feature = "svg")]
 
+use crate::lengths::PhysicalPx;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::SharedString;
 
@@ -41,7 +42,7 @@ impl ParsedSVG {
     /// Renders the SVG with the specified size.
     pub fn render(
         &self,
-        size: euclid::default::Size2D<u32>,
+        size: euclid::Size2D<u32, PhysicalPx>,
     ) -> Result<SharedImageBuffer, usvg::Error> {
         let tree = &self.svg_tree;
         // resvg doesn't support scaling to width/height, just fit to width.

@@ -5,6 +5,7 @@
 This module contains image decoding and caching related types for the run-time library.
 */
 
+use crate::lengths::PhysicalPx;
 use crate::slice::Slice;
 use crate::{SharedString, SharedVector};
 
@@ -358,7 +359,7 @@ impl ImageInner {
     /// Returns None if the image can't be rendered in a buffer
     pub fn render_to_buffer(
         &self,
-        _target_size_for_scalable_source: Option<IntSize>,
+        _target_size_for_scalable_source: Option<euclid::Size2D<u32, PhysicalPx>>,
     ) -> Option<SharedImageBuffer> {
         match self {
             ImageInner::EmbeddedImage { buffer, .. } => Some(buffer.clone()),
