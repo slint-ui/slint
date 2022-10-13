@@ -1,0 +1,80 @@
+import { Theme } from "theme.slint";
+
+
+export Carousel := FocusScope {
+    forward-focus: focus-scope;
+
+    property <int> selected-index;
+    property <length> spacing;
+    property <length> itemWidth;
+    property <int> count: 0;
+
+    callback move-right();
+    callback move-left();
+    callback enter();
+    callback move-focus-up();
+
+    move-right => { 
+        root.selected-index = Math.min(root.selected-index + 1, root.count - 1);
+    }
+
+    move-left => {  
+        root.selected-index = max(root.selected-index - 1, 0);
+    }
+    
+    focus-scope:= FocusScope {
+        key-pressed(event) => {
+            if(event.text == Keys.UpArrow) {
+                root.move-focus-up();
+                return accept;
+            }
+
+            if(event.text == Keys.RightArrow) {
+                root.move-right();
+                return accept;
+            }
+
+            if(event.text == Keys.LeftArrow) {
+                root.move-left();
+                return accept;
+            }
+
+            if(event.text == Keys.Return) {
+                root.enter();
+                return accept;
+            }
+
+            return accept;
+        }
+    }
+
+    TouchArea { 
+        width: parent.width;
+        height: parent.height;
+
+        clicked => {
+            focus-scope.focus()
+        }
+     }
+
+
+    Rectangle {  
+        clip: true;
+        background: transparent;
+        width: parent.width;
+        height: parent.height;
+       
+        Flickable {
+            interactive: false;
+            animate viewport-x { duration: Theme.duration-fast; easing: ease-in; }
+            viewport-x: root.itemWidth + 2* root.spacing - root.selected-index * (root.itemWidth + root.spacing);
+    
+            HorizontalLayout { 
+                spacing: root.spacing;
+                height: parent.height;
+        
+                @children
+            }
+        }
+    }  
+}
