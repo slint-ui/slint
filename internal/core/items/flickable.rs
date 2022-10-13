@@ -210,7 +210,7 @@ impl FlickableData {
         let mut inner = self.inner.borrow_mut();
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left } => {
-                inner.pressed_pos = LogicalPoint::from_untyped(position);
+                inner.pressed_pos = position;
                 inner.pressed_time = Some(crate::animations::current_tick());
                 inner.pressed_viewport_pos = LogicalPoint::new(
                     (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
@@ -251,7 +251,7 @@ impl FlickableData {
                                 .apply_pin(flick)
                                 .get(),
                         ) > flick.height();
-                        let diff = LogicalPoint::from_untyped(position) - inner.pressed_pos;
+                        let diff = position - inner.pressed_pos;
                         (can_move_horiz && diff.x.abs() > DISTANCE_THRESHOLD)
                             || (can_move_vert && diff.y.abs() > DISTANCE_THRESHOLD)
                     });
@@ -289,8 +289,7 @@ impl FlickableData {
                     inner.capture_events = true;
                     let new_pos = ensure_in_bound(
                         flick,
-                        inner.pressed_viewport_pos
-                            + (LogicalPoint::from_untyped(position) - inner.pressed_pos),
+                        inner.pressed_viewport_pos + (position - inner.pressed_pos),
                     );
                     (Flickable::FIELD_OFFSETS.viewport + Rectangle::FIELD_OFFSETS.x)
                         .apply_pin(flick)
