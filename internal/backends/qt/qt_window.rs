@@ -112,7 +112,7 @@ cpp! {{
             QPoint pos = event->pos();
             int button = event->button();
             rust!(Slint_mousePressEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
-                let position = Point::new(pos.x as _, pos.y as _);
+                let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
                 rust_window.mouse_event(MouseEvent::Pressed{ position, button })
             });
@@ -136,7 +136,7 @@ cpp! {{
             QPoint pos = event->pos();
             int button = event->button();
             rust!(Slint_mouseReleaseEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint", button: u32 as "int" ] {
-                let position = Point::new(pos.x as _, pos.y as _);
+                let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 let button = from_qt_button(button);
                 rust_window.mouse_event(MouseEvent::Released{ position, button })
             });
@@ -151,7 +151,7 @@ cpp! {{
         void mouseMoveEvent(QMouseEvent *event) override {
             QPoint pos = event->pos();
             rust!(Slint_mouseMoveEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPoint as "QPoint"] {
-                let position = Point::new(pos.x as _, pos.y as _);
+                let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 rust_window.mouse_event(MouseEvent::Moved{position})
             });
         }
@@ -162,7 +162,7 @@ cpp! {{
                 delta = event->angleDelta();
             }
             rust!(Slint_mouseWheelEvent [rust_window: &QtWindow as "void*", pos: qttypes::QPointF as "QPointF", delta: qttypes::QPoint as "QPoint"] {
-                let position = Point::new(pos.x as _, pos.y as _);
+                let position = LogicalPoint::new(pos.x as _, pos.y as _);
                 rust_window.mouse_event(MouseEvent::Wheel{position, delta_x: delta.x as _, delta_y: delta.y as _})
             });
         }

@@ -327,7 +327,6 @@ impl Item for TextInput {
         }
         match event {
             MouseEvent::Pressed { position, button: PointerEventButton::Left } => {
-                let position = LogicalPoint::from_untyped(position);
                 let clicked_offset =
                     window_adapter.renderer().text_input_byte_offset_for_position(self, position)
                         as i32;
@@ -346,7 +345,6 @@ impl Item for TextInput {
                 self.as_ref().pressed.set(false)
             }
             MouseEvent::Moved { position } => {
-                let position = LogicalPoint::from_untyped(position);
                 window_adapter.set_mouse_cursor(super::MouseCursor::Text);
                 if self.as_ref().pressed.get() {
                     let clicked_offset = window_adapter

@@ -5,7 +5,6 @@
 */
 #![warn(missing_docs)]
 
-use crate::graphics::Point;
 use crate::item_tree::{ItemRc, ItemWeak, VisitChildrenResult};
 pub use crate::items::PointerEventButton;
 use crate::items::{ItemRef, TextCursorDirection};
@@ -28,16 +27,16 @@ use core::pin::Pin;
 #[allow(missing_docs)]
 pub enum MouseEvent {
     /// The mouse or finger was pressed
-    Pressed { position: Point, button: PointerEventButton },
+    Pressed { position: LogicalPoint, button: PointerEventButton },
     /// The mouse or finger was released
-    Released { position: Point, button: PointerEventButton },
+    Released { position: LogicalPoint, button: PointerEventButton },
     /// The position of the pointer has changed
-    Moved { position: Point },
+    Moved { position: LogicalPoint },
     /// Wheel was operated.
     /// `pos` is the position of the mouse when the event happens.
     /// `delta_x` is the amount of pixels to scroll in horizontal direction,
     /// `delta_y` is the amount of pixels to scroll in vertical direction.
-    Wheel { position: Point, delta_x: f32, delta_y: f32 },
+    Wheel { position: LogicalPoint, delta_x: f32, delta_y: f32 },
     /// The mouse exited the item or component
     Exit,
 }
@@ -52,7 +51,6 @@ impl MouseEvent {
             MouseEvent::Wheel { position, .. } => Some(*position),
             MouseEvent::Exit => None,
         }
-        .map(|untyped| LogicalPoint::from_untyped(untyped))
     }
 
     /// Translate the position by the given value
@@ -65,7 +63,7 @@ impl MouseEvent {
             MouseEvent::Exit => None,
         };
         if let Some(pos) = pos {
-            *pos += vec.to_untyped();
+            *pos += vec;
         }
     }
 }

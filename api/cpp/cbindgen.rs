@@ -204,6 +204,7 @@ fn gen_corelib(
         "slint_image_load_from_embedded_data",
         "Coord",
         "LogicalRect",
+        "LogicalPoint",
     ]
     .iter()
     .chain(public_exported_types.iter())
@@ -467,6 +468,7 @@ namespace slint {
         using private_api::Point;
         struct Rect;
         using LogicalRect = Rect;
+        using LogicalPoint = Point2D<float>;
     }
 }",
         )

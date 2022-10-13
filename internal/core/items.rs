@@ -441,7 +441,6 @@ impl Item for TouchArea {
                     LogicalPoint::default(),
                     LogicalSize::from_lengths(self.width(), self.height()),
                 )
-                .to_untyped()
                 .contains(position)
             {
                 Self::FIELD_OFFSETS.clicked.apply_pin(self).call(&());
@@ -453,7 +452,6 @@ impl Item for TouchArea {
 
         match event {
             MouseEvent::Pressed { position, button } => {
-                let position = LogicalPoint::from_untyped(position);
                 self.grabbed.set(true);
                 if button == PointerEventButton::Left {
                     Self::FIELD_OFFSETS.pressed_x.apply_pin(self).set(position.x);

@@ -307,8 +307,7 @@ impl WindowInner {
                         .as_ref()
                         .get_item_ref(0)
                         .as_ref()
-                        .geometry()
-                        .to_untyped();
+                        .geometry();
                     if !geom.contains(*position) {
                         self.close_popup();
                         return None;
