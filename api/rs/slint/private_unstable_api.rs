@@ -187,7 +187,7 @@ pub mod re_exports {
     };
     pub use i_slint_core::items::*;
     pub use i_slint_core::layout::*;
-    pub use i_slint_core::lengths::LogicalLength;
+    pub use i_slint_core::lengths::{LogicalLength, LogicalPoint};
     pub use i_slint_core::model::*;
     pub use i_slint_core::properties::{set_state_binding, Property, PropertyTracker, StateInfo};
     pub use i_slint_core::slice::Slice;

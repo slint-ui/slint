@@ -58,6 +58,7 @@ pub enum BuiltinFunction {
     TextInputFocused,
     SetTextInputFocused,
     ImplicitLayoutInfo(Orientation),
+    MapPointToWindow,
     RegisterCustomFontByPath,
     RegisterCustomFontByMemory,
     RegisterBitmapFont,
@@ -194,6 +195,13 @@ impl BuiltinFunction {
             BuiltinFunction::SetTextInputFocused => {
                 Type::Function { return_type: Box::new(Type::Void), args: vec![Type::Bool] }
             }
+            BuiltinFunction::MapPointToWindow => {
+                let point = crate::typeregister::logical_point_type();
+                Type::Function {
+                    return_type: Box::new(point.clone()),
+                    args: vec![Type::ElementReference, point],
+                }
+            }
             BuiltinFunction::RegisterCustomFontByPath => {
                 Type::Function { return_type: Box::new(Type::Void), args: vec![Type::String] }
             }
@@ -261,6 +269,7 @@ impl BuiltinFunction {
             BuiltinFunction::SetTextInputFocused => false,
             BuiltinFunction::TextInputFocused => false,
             BuiltinFunction::ImplicitLayoutInfo(_) => false,
+            BuiltinFunction::MapPointToWindow => true,
             BuiltinFunction::RegisterCustomFontByPath
             | BuiltinFunction::RegisterCustomFontByMemory
             | BuiltinFunction::RegisterBitmapFont => false,
@@ -304,6 +313,7 @@ impl BuiltinFunction {
             BuiltinFunction::ArrayLength => true,
             BuiltinFunction::Rgb => true,
             BuiltinFunction::ImplicitLayoutInfo(_) => true,
+            BuiltinFunction::MapPointToWindow => true,
             BuiltinFunction::SetTextInputFocused => false,
             BuiltinFunction::TextInputFocused => true,
             BuiltinFunction::RegisterCustomFontByPath

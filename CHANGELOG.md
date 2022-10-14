@@ -27,6 +27,7 @@ All notable changes to this project are documented in this file.
  - Added functions on color: `transparentize`, `mix`, and `with-alpha`.
  - Added a `close()` function and a `close-on-click` boolean property to `PopupWindow`.
  - Added basic translation infrastructure with `@tr("...")`
+ - Added `absolute-x` and `absolute-y` properties to every element, for computing window-absolute positions.
 
 ### Rust
 

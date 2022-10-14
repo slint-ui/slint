@@ -25,6 +25,7 @@ mod focus_item;
 pub mod generate_item_indices;
 pub mod infer_aliases_types;
 mod inlining;
+mod lower_absolute_coordinates;
 mod lower_accessibility;
 mod lower_layout;
 mod lower_popups;
@@ -117,6 +118,7 @@ pub async fn run_passes(
         lower_popups::lower_popups(component, &doc.local_registry, diag);
         lower_layout::lower_layouts(component, type_loader, diag).await;
         default_geometry::default_geometry(component, diag);
+        lower_absolute_coordinates::lower_absolute_coordinates(component);
         z_order::reorder_by_z_order(component, diag);
         lower_property_to_element::lower_property_to_element(
             component,

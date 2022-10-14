@@ -21,6 +21,9 @@ pub const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
     ("z", Type::Float32),
 ];
 
+pub(crate) const RESERVED_ABSOLUTE_GEOMETRY_PROPERTIES: &[(&str, Type)] =
+    &[("absolute-x", Type::LogicalLength), ("absolute-y", Type::LogicalLength)];
+
 pub const RESERVED_LAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("min-width", Type::LogicalLength),
     ("min-height", Type::LogicalLength),
@@ -111,6 +114,7 @@ pub const RESERVED_ACCESSIBILITY_PROPERTIES: &[(&str, Type)] = &[
 pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
     RESERVED_GEOMETRY_PROPERTIES
         .iter()
+        .chain(RESERVED_ABSOLUTE_GEOMETRY_PROPERTIES.iter())
         .chain(RESERVED_LAYOUT_PROPERTIES.iter())
         .chain(RESERVED_OTHER_PROPERTIES.iter())
         .chain(RESERVED_DROP_SHADOW_PROPERTIES.iter())
@@ -394,5 +398,17 @@ impl TypeRegister {
             Some(parent) => parent.borrow().empty_type(),
             None => self.empty_type.clone(),
         }
+    }
+}
+
+pub fn logical_point_type() -> Type {
+    Type::Struct {
+        fields: IntoIterator::into_iter([
+            ("x".to_owned(), Type::LogicalLength),
+            ("y".to_owned(), Type::LogicalLength),
+        ])
+        .collect(),
+        name: Some("Point".into()),
+        node: None,
     }
 }

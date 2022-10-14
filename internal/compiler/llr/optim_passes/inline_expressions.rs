@@ -100,6 +100,7 @@ fn builtin_function_cost(function: &BuiltinFunction) -> isize {
         BuiltinFunction::ArrayLength => 50,
         BuiltinFunction::Rgb => 50,
         BuiltinFunction::ImplicitLayoutInfo(_) => isize::MAX,
+        BuiltinFunction::MapPointToWindow => isize::MAX,
         BuiltinFunction::RegisterCustomFontByPath => isize::MAX,
         BuiltinFunction::RegisterCustomFontByMemory => isize::MAX,
         BuiltinFunction::RegisterBitmapFont => isize::MAX,

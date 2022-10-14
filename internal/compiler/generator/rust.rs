@@ -2444,6 +2444,20 @@ fn compile_builtin_function_call(
         BuiltinFunction::Translate => {
             quote!(slint::private_unstable_api::translate(#(#a),*))
         }
+        BuiltinFunction::MapPointToWindow => {
+            if let [Expression::PropertyReference(pr), Expression::Struct { values, .. }] =
+                arguments
+            {
+                let item_rc = access_item_rc(pr, ctx);
+                let x_expr = compile_expression(values.get("x").unwrap(), ctx);
+                let y_expr = compile_expression(values.get("y").unwrap(), ctx);
+                quote!(
+                    (*#item_rc).map_to_window(slint::private_unstable_api::re_exports::LogicalPoint::new(#x_expr as _, #y_expr as _)).to_untyped()
+                )
+            } else {
+                panic!("internal error: invalid args to MapPointToWindow {:?}", arguments)
+            }
+        }
     }
 }
 
