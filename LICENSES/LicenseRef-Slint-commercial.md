@@ -182,11 +182,11 @@ The Licensed Software includes
 15. We shall not under any circumstances be liable to you based on failure of
     the Licensed Software if the failure resulted from your changing of the
     Licensed Software, from your accident, abuse or misapplication, nor shall
-    either party except in case of gross negligence or willful misconduct be
+    we except in case of gross negligence or willful misconduct be
     liable for special damages, punitive or exemplary damages, damages for loss
     of profits or interruption of business or for loss or corruption of data,
-    nor shall any award of damages from either party to the other party exceed
-    the total amount you paid to us in connection with this agreement.
+    nor shall any award of damages exceed the total amount you paid to us in
+    connection with this Agreement.
 
 16. Each Party shall hold Confidential Information of the other Party, its
     customers, and licensors in confidence, and without written permission from
@@ -251,7 +251,7 @@ The Licensed Software includes
     to the Licensed Software in the countries in which the Parties use or modify
     the Licensed Software.
 
-21. All notices and communications between the Parties shall be in  writing and
+21. All notices and communications between the Parties shall be in writing and
     shall be deemed given when received. For avoidance of doubt, email is
     considered a written form of communication.
 
