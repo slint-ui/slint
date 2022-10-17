@@ -1,0 +1,87 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+component Compo inherits Rectangle {
+    property <int> priv1: 42;
+    private property <int> priv2: priv1;
+    output property <int> output1: priv2;
+    input property <int> input1: output1;
+    inout property <int> inout1: input1;
+
+    TouchArea {
+        clicked => {
+            priv1 = 32;
+            priv2 = 78;
+            output1 = input1;
+            input1 = 75;
+//          ^error{Assignment on a input property}
+            inout1 = 75;
+        }
+    }
+
+}
+
+OldCompo := Rectangle {
+    property <int> inout2: 42;
+    private property <int> priv2: inout2;
+    output property <int> output1: priv2;
+    input property <int> input1: output1;
+    inout property <int> inout1: input1;
+
+    TouchArea {
+        clicked => {
+            inout2 = 32;
+            priv2 = 78;
+            output1 = input1;
+            input1 = 75;
+//          ^error{Assignment on a input property}
+            inout1 = 75;
+        }
+    }
+}
+
+component A inherits Compo {
+    input1: priv1;
+//          ^error{Unknown unqualified identifier 'priv1'}
+}
+
+component Foo inherits Rectangle {
+
+    input property <[int]> input_model;
+
+    c1 := OldCompo {
+
+    }
+
+    c2 := Compo {
+        inout1: self.priv1;
+//                   ^error{'priv1' is private}
+    }
+
+
+    TouchArea {
+        clicked => {
+            c1.inout2 = 32;
+            c1.priv2 = 78;
+//             ^error{'priv2' is private}
+            c1.output1 = c1.input1;
+//          ^error{Assignment on a output property}
+            c1.input1 = 75;
+            c1.inout1 = 75;
+
+            c2.priv1 = 32;
+//             ^error{'priv1' is private}
+            c2.priv2 = 78;
+//             ^error{'priv2' is private}
+            c2.output1 = c1.inout2;
+//          ^error{Assignment on a output property}
+            c2.input1 = 75;
+            c2.inout1 = 75;
+
+            input_model[42] += 12;
+//          ^error{Self assignment on a input property}
+
+        }
+    }
+}
+
