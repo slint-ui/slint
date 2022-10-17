@@ -41,8 +41,10 @@ export Card := Rectangle {
         }
     
         image := Image {
-            width: 100%;
-            height: 100%;
+            x: (parent.width - width) / 2;
+            y: (parent.height - height) / 2;
+            width: 80%;
+            height: 80%;
             colorize: Theme.foureground;
         }
     }
