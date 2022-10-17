@@ -24,5 +24,5 @@ quote = "1.0"
 proc-macro2 = "1.0"
 
 [dev-dependencies]
-memoffset = "0.6"
+memoffset = "0.7.1"
 const-field-offset = { path = "..", features = ["field-offset-trait"] }

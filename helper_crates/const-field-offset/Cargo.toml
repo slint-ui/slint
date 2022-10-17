@@ -19,4 +19,4 @@ const-field-offset-macro = { version = "=0.1.2", path = "./macro" }
 field-offset = "0.3.2"
 
 [dev-dependencies]
-memoffset = "0.6"
+memoffset = "0.7.1"
