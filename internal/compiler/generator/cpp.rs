@@ -2187,7 +2187,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     '≥' => ">=",
                     '&' => "&&",
                     '|' => "||",
-                    '/' => "/(double)",
+                    '/' => "/(float)",
                     _ => op.encode_utf8(&mut buffer),
                 },
             )

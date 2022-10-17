@@ -33,3 +33,19 @@ ComplexTestCase := Window {
     }
     TestCase {  }
 }
+
+TypeConversionTestCase := Window {
+    property<length> popup_y: height / 2;
+    height: 400px;
+    popup := PopupWindow {   
+        y <=> popup_y;
+    }
+}
+
+/*
+```cpp
+auto handle = TypeConversionTestCase::create();
+const TypeConversionTestCase &instance = *handle;
+assert_eq(instance.get_popup_y(), 200.);
+```
+*/
