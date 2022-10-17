@@ -233,7 +233,7 @@ pub trait ModelExt: Model {
 impl<T: Model> ModelExt for T {}
 
 /// An iterator over the elements of a model.
-/// This struct is created by the [Model::iter()] trait function.
+/// This struct is created by the [`Model::iter()`] trait function.
 pub struct ModelIterator<'a, T> {
     model: &'a dyn Model<Data = T>,
     row: usize,
@@ -337,15 +337,30 @@ impl<T: 'static> VecModel<T> {
         *self.array.borrow_mut() = new.into();
         self.notify.reset();
     }
+
+    /// Extend the model with the content of the iterator
+    ///
+    /// Similar to [`Vec::extend`]
+    pub fn extend<I: IntoIterator<Item = T>>(&self, iter: I) {
+        let mut array = self.array.borrow_mut();
+        let old_idx = array.len();
+        array.extend(iter);
+        let count = array.len() - old_idx;
+        drop(array);
+        self.notify.row_added(old_idx, count);
+    }
 }
 
 impl<T: Clone + 'static> VecModel<T> {
     /// Appends all the elements in the slice to the model
+    ///
+    /// Similar to [`Vec::extend_from_slice`]
     pub fn extend_from_slice(&self, src: &[T]) {
         let mut array = self.array.borrow_mut();
         let old_idx = array.len();
 
         array.extend_from_slice(src);
+        drop(array);
         self.notify.row_added(old_idx, src.len());
     }
 }
@@ -1191,6 +1206,7 @@ fn test_vecmodel_set_vec() {
             self.changed_rows.borrow_mut().clear();
             self.added_rows.borrow_mut().clear();
             self.removed_rows.borrow_mut().clear();
+            *self.reset.borrow_mut() = 0;
         }
         fn row_count(&self) -> usize {
             self.model
@@ -1237,4 +1253,20 @@ fn test_vecmodel_set_vec() {
     assert!(view.removed_rows.borrow().is_empty());
     assert_eq!(*view.reset.borrow(), 1);
     view.clear();
+
+    model.extend_from_slice(&[9, 10, 11]);
+    assert!(view.changed_rows.borrow().is_empty());
+    assert_eq!(&*view.added_rows.borrow(), &[(3, 3, 6)]);
+    assert!(view.removed_rows.borrow().is_empty());
+    assert_eq!(*view.reset.borrow(), 0);
+    view.clear();
+
+    model.extend([12, 13]);
+    assert!(view.changed_rows.borrow().is_empty());
+    assert_eq!(&*view.added_rows.borrow(), &[(6, 2, 8)]);
+    assert!(view.removed_rows.borrow().is_empty());
+    assert_eq!(*view.reset.borrow(), 0);
+    view.clear();
+
+    assert_eq!(model.iter().collect::<Vec<_>>(), vec![6, 7, 8, 9, 10, 11, 12, 13]);
 }

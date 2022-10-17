@@ -8,6 +8,7 @@ All notable changes to this project are documented in this file.
 ### Added
 
   - Added `slint::FilterModel`, `slint::MapModel`, and `slint::SortModel` to the C++ API.
+  - Added `VecModel::extend` and `VecModel::extend_from_slice`
 
 ### Fixed
 
