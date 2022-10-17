@@ -33,3 +33,14 @@ ComplexTestCase := Window {
     }
     TestCase {  }
 }
+
+TypeConversionTestCase := Window {
+    height: 400px;
+    popup := PopupWindow {
+        y: root.height / 2;
+        x: root.height + 155.52px;
+    }
+    TouchArea {
+        clicked => { popup.show() }
+     }
+}

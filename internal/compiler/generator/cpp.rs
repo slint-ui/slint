@@ -2187,7 +2187,7 @@ fn compile_expression(expr: &llr::Expression, ctx: &EvaluationContext) -> String
                     '≥' => ">=",
                     '&' => "&&",
                     '|' => "||",
-                    '/' => "/(double)",
+                    '/' => "/(float)",
                     _ => op.encode_utf8(&mut buffer),
                 },
             )
@@ -2444,8 +2444,7 @@ fn compile_builtin_function_call(
                 let x = compile_expression(x, ctx);
                 let y = compile_expression(y, ctx);
                 format!(
-                    "{}.show_popup<{}>({}, {{ {}, {} }}, {{ {} }})",
-                    window, popup_window_id, component_access, x, y, parent_component,
+                    "{window}.show_popup<{popup_window_id}>({component_access}, {{ static_cast<float>({x}), static_cast<float>({y}) }}, {{ {parent_component} }})"
                 )
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {:?}", arguments)
