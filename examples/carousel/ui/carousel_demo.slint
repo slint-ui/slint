@@ -6,7 +6,7 @@ import { SettingsPage } from "settings_page.slint";
 
 MainWindow := Window {
     property<[NavigationItem]> navigation-items: [
-       { title: "Home" },
+       { title: "Home", image: @image-url("") },
        { title: "Settings" },
        { title: "About" },
     ];
@@ -31,7 +31,6 @@ MainWindow := Window {
             title: item.title;
             clicked => { selected-index = index; }
         }
-
 
         enter => { show-page = true; }
     }

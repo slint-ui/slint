@@ -9,6 +9,7 @@ export Card := Rectangle {
     property <length> title-spacing: Theme.spacing-medium;
     property <length> title-area-height: Theme.size-small;
     property <string> title: "title";
+    property <image> image-source <=> image.source;
 
     background: transparent;
     width: Theme.size-medium;
@@ -39,7 +40,9 @@ export Card := Rectangle {
             border-color: Theme.border-color-regular;
         }
     
-        @children
+        image := Image {
+
+        }
     }
 
     // Selection text
