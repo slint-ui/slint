@@ -29,6 +29,17 @@ pub(crate) fn fold_node(
             }
         }
         return Ok(true);
+    } else if kind == SyntaxKind::StructDeclaration
+        && node.child_token(SyntaxKind::ColonEqual).is_some()
+    {
+        for n in node.children_with_tokens() {
+            if n.kind() == SyntaxKind::ColonEqual {
+                // remove the ':=' in structs
+            } else {
+                crate::visit_node_or_token(n, file, state, args)?;
+            }
+        }
+        return Ok(true);
     }
     Ok(false)
 }
