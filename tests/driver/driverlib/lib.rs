@@ -18,7 +18,7 @@ impl TestCase {
     }
 }
 
-/// Returns a list of all the `.slint` files in the `tests/cases` subfolders.
+/// Returns a list of all the `.slint` files in the `tests/cases` sub-folders.
 pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
     let mut results = vec![];
 
@@ -39,6 +39,12 @@ pub fn collect_test_cases() -> std::io::Result<Vec<TestCase>> {
             std::path::PathBuf::from(absolute_path.strip_prefix(&case_root_dir).unwrap());
         if let Some(filter) = &filter {
             if !relative_path.to_str().unwrap().contains(filter) {
+                continue;
+            }
+        }
+        if let Some(filename) = absolute_path.file_name() {
+            if filename.to_string_lossy().starts_with('_') {
+                // Skip files starting with '_' so that we can test multi-file setups
                 continue;
             }
         }
