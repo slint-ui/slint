@@ -1,0 +1,16 @@
+// Files starting with _ will be ignored by the test drivers
+import { ListView } from "std-widgets.slint";
+
+struct ExportMe := {
+    text: string,
+}
+
+export Child := VerticalLayout {
+    property<[ExportMe]> data;
+
+    ListView {
+        for d[i] in data: Text {
+            text: d.text;
+        }
+    }
+}
