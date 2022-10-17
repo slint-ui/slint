@@ -6,9 +6,9 @@ import { SettingsPage } from "settings_page.slint";
 
 MainWindow := Window {
     property<[NavigationItem]> navigation-items: [
-       { title: "Home", image: @image-url("") },
-       { title: "Settings" },
-       { title: "About" },
+       { title: "Home", image: @image-url("icons/home_black_24dp.svg") },
+       { title: "Settings", image: @image-url("icons/settings_black_24dp.svg") },
+       { title: "About", image: @image-url("icons/info_black_24dp.svg") },
     ];
     property <int> selected-index: 0;
     property <bool> show-page: false;
@@ -16,8 +16,9 @@ MainWindow := Window {
     title: "Carousel example";
     preferred-width: 600px;
     preferred-height: 400px;
-    background: black;
+    background: Theme.window-background;
     forward-focus: carousel;
+    padding: Theme.spacing-big;
 
     carousel := Carousel {  
         // width of a `Card`
@@ -29,6 +30,7 @@ MainWindow := Window {
         for item[index] in navigation-items : Card {
             is-selected: index == selected-index;
             title: item.title;
+            image-source: item.image;
             clicked => { selected-index = index; }
         }
 
