@@ -10,7 +10,7 @@
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::*;
-use crate::langtype::{PropertyLookupResult, Type};
+use crate::langtype::Type;
 use crate::lookup::{LookupCtx, LookupObject, LookupResult};
 use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
@@ -711,14 +711,13 @@ impl Expression {
             .or_else(|| node.child_token(SyntaxKind::DivEqual).and(Some('/')))
             .or_else(|| node.child_token(SyntaxKind::Equal).and(Some('=')))
             .unwrap_or('_');
-        if !lhs.try_set_rw() && lhs.ty() != Type::Invalid {
-            ctx.diag.push_error(
-                format!(
-                    "{} needs to be done on a property",
-                    if op == '=' { "Assignment" } else { "Self assignment" }
-                ),
-                &node,
-            );
+        if lhs.ty() != Type::Invalid {
+            if let Err(msg) = lhs.try_set_rw() {
+                ctx.diag.push_error(
+                    format!("{} {}", if op == '=' { "Assignment" } else { "Self assignment" }, msg),
+                    &node,
+                );
+            }
         }
         let ty = lhs.ty();
         let expected_ty = match op {
@@ -1036,21 +1035,31 @@ fn continue_lookup_within_element(
     };
     let prop_name = crate::parser::normalize_identifier(second.text());
 
-    let PropertyLookupResult { resolved_name, property_type, .. } =
-        elem.borrow().lookup_property(&prop_name);
-    if property_type.is_property_type() {
-        if resolved_name != prop_name {
-            ctx.diag.push_property_deprecation_warning(&prop_name, &resolved_name, &second);
+    let lookup_result = elem.borrow().lookup_property(&prop_name);
+    if lookup_result.property_type.is_property_type() {
+        if !lookup_result.is_local_to_component
+            && lookup_result.property_visibility == PropertyVisibility::Private
+        {
+            ctx.diag.push_error(format!("'{}' is private", second.text()), &second);
+            return Expression::Invalid;
         }
-        let prop = Expression::PropertyReference(NamedReference::new(elem, &resolved_name));
+        if lookup_result.resolved_name != prop_name {
+            ctx.diag.push_property_deprecation_warning(
+                &prop_name,
+                &lookup_result.resolved_name,
+                &second,
+            );
+        }
+        let prop =
+            Expression::PropertyReference(NamedReference::new(elem, &lookup_result.resolved_name));
         maybe_lookup_object(prop, it, ctx)
-    } else if matches!(property_type, Type::Callback { .. }) {
+    } else if matches!(lookup_result.property_type, Type::Callback { .. }) {
         if let Some(x) = it.next() {
             ctx.diag.push_error("Cannot access fields of callback".into(), &x)
         }
-        Expression::CallbackReference(NamedReference::new(elem, &resolved_name))
-    } else if matches!(property_type, Type::Function { .. }) {
-        let member = elem.borrow().base_type.lookup_member_function(&resolved_name);
+        Expression::CallbackReference(NamedReference::new(elem, &lookup_result.resolved_name))
+    } else if matches!(lookup_result.property_type, Type::Function { .. }) {
+        let member = elem.borrow().base_type.lookup_member_function(&lookup_result.resolved_name);
         Expression::MemberFunction {
             base: Box::new(Expression::ElementReference(Rc::downgrade(elem))),
             base_node: Some(NodeOrToken::Node(node.into())),

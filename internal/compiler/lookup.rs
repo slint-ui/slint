@@ -11,7 +11,7 @@ use crate::expression_tree::{
 };
 use crate::langtype::{Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
-use crate::object_tree::{find_parent_element, ElementRc};
+use crate::object_tree::{find_parent_element, ElementRc, PropertyVisibility};
 use crate::parser::NodeOrToken;
 use crate::typeregister::TypeRegister;
 
@@ -335,15 +335,22 @@ impl LookupObject for ElementRc {
     }
 
     fn lookup(&self, _ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
-        let crate::langtype::PropertyLookupResult { resolved_name, property_type, .. } =
-            self.borrow().lookup_property(name);
-        (property_type != Type::Invalid).then(|| LookupResult::Expression {
-            expression: expression_from_reference(
-                NamedReference::new(self, &resolved_name),
-                &property_type,
-            ),
-            deprecated: (resolved_name != name).then(|| resolved_name.to_string()),
-        })
+        let lookup_result = self.borrow().lookup_property(name);
+        if lookup_result.property_type != Type::Invalid
+            && (lookup_result.is_local_to_component
+                || lookup_result.property_visibility != PropertyVisibility::Private)
+        {
+            Some(LookupResult::Expression {
+                expression: expression_from_reference(
+                    NamedReference::new(self, &lookup_result.resolved_name),
+                    &lookup_result.property_type,
+                ),
+                deprecated: (lookup_result.resolved_name != name)
+                    .then(|| lookup_result.resolved_name.to_string()),
+            })
+        } else {
+            None
+        }
     }
 }
 
