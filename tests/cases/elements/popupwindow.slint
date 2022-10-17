@@ -35,17 +35,12 @@ ComplexTestCase := Window {
 }
 
 TypeConversionTestCase := Window {
-    property<length> popup_y: height / 2;
     height: 400px;
-    popup := PopupWindow {   
-        y <=> popup_y;
+    popup := PopupWindow {
+        y: root.height / 2;
+        x: root.height + 155.52px;
     }
+    TouchArea {
+        clicked => { popup.show() }
+     }
 }
-
-/*
-```cpp
-auto handle = TypeConversionTestCase::create();
-const TypeConversionTestCase &instance = *handle;
-assert_eq(instance.get_popup_y(), 200.);
-```
-*/
