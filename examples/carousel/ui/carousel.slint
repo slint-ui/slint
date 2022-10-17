@@ -63,7 +63,6 @@ export Carousel := FocusScope {
     Rectangle {  
         clip: true;
         background: transparent;
-        width: parent.width;
        
         Flickable {
             interactive: false;
@@ -71,8 +70,7 @@ export Carousel := FocusScope {
             viewport-x: center-x - root.selected-index * (root.itemWidth + root.spacing);
     
             HorizontalLayout { 
-                spacing: root.spacing;
-                height: parent.height;
+                spacing <=> root.spacing;
         
                 @children
             }
