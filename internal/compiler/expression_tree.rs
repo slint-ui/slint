@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore funcref
+
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::langtype::{BuiltinElement, EnumerationValue, Type};
 use crate::layout::Orientation;
@@ -659,7 +661,13 @@ impl Expression {
                 visitor(&**index);
             }
             Expression::RepeaterIndexReference { .. } => {}
-            Expression::RepeaterModelReference { .. } => {}
+            Expression::RepeaterModelReference { element } => {
+                if let Some(e) = element.upgrade() {
+                    if let Some(r) = &e.borrow().repeated {
+                        visitor(&r.model);
+                    }
+                }
+            }
             Expression::Cast { from, .. } => visitor(&**from),
             Expression::CodeBlock(sub) => {
                 sub.iter().for_each(visitor);
