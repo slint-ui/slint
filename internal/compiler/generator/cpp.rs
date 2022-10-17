@@ -2441,8 +2441,8 @@ fn compile_builtin_function_call(
                 let popup_window_id =
                     ident(&current_sub_component.popup_windows[*popup_index as usize].root.name);
                 let parent_component = access_item_rc(parent_ref, ctx);
-                let x = format!("(float){}", compile_expression(x, ctx));
-                let y = format!("(float){}", compile_expression(y, ctx));
+                let x = compile_expression(x, ctx);
+                let y = compile_expression(y, ctx);
                 format!(
                     "{window}.show_popup<{popup_window_id}>({component_access}, {{ static_cast<float>({x}), static_cast<float>({y}) }}, {{ {parent_component} }})"
                 )
