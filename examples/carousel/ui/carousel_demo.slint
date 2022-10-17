@@ -32,6 +32,7 @@ MainWindow := Window {
             is-selected: index == selected-index;
             title: item.title;
             image-source: item.image;
+            y: (parent.height - height) / 2;
             clicked => { selected-index = index; }
         }
 
