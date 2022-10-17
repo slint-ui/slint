@@ -1,0 +1,75 @@
+import { Theme } from "theme.slint";
+import { TitleLabel } from "title_label.slint";
+
+export Card := Rectangle {
+    callback clicked; 
+
+    property <length> spacing: Theme.spacing-medium;
+    property <bool> is-selected : false;
+    property <length> title-spacing: Theme.spacing-medium;
+    property <length> title-area-height: Theme.size-small;
+    property <string> title: "title";
+
+    background: transparent;
+    width: Theme.size-medium;
+    height: Theme.size-medium;
+
+    // background
+    background := Rectangle { 
+        width: parent.width;
+        height: parent.height;
+        opacity: 0.95;
+
+        clip: true;
+        border-radius: Theme.radius-big;
+    
+        TouchArea { 
+            clicked => { 
+                root.clicked()
+             }
+         }
+    
+        border:= Rectangle { 
+            opacity: 0.95;
+            width: root.width;
+            height: root.height;
+            background: Theme.background-regular;
+            border-radius: background.border-radius;
+            border-width: Theme.spacing-regular;
+            border-color: Theme.border-color-regular;
+        }
+    
+        @children
+    }
+
+    // Selection text
+    titleArea := TitleLabel {
+        text <=> title;
+        visible: false;
+        x: root.spacing + parent.width;
+        y: parent.height - self.height;
+        height: root.title-area-height;
+    }
+
+    states [
+         selected when is-selected : {
+            width: Theme.size-big;
+            height: Theme.size-big;
+            border.border-color: Theme.border-color-selected;
+            titleArea.visible: true;
+         }
+     ]
+
+     transitions [ 
+         in selected : {
+             animate width { duration: Theme.duration-regular; easing: ease-in; }
+             animate height { duration: Theme.duration-regular; easing: ease-in; }
+             animate  border.border-color { duration: Theme.duration-regular; easing: ease-in; }
+         }
+         out selected : {
+            animate width { duration: Theme.duration-regular; easing: ease-in; }
+            animate height { duration: Theme.duration-regular; easing: ease-in; }
+            animate  border.border-color { duration: Theme.duration-regular; easing: ease-in; }
+        }
+      ]
+}

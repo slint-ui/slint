@@ -1,0 +1,13 @@
+import { Theme } from "theme.slint";
+
+import { Label } from "label.slint";
+
+global Style := {
+    property <length> font-size: Theme.font-size-big;
+    property <int> font-weight: Theme.font-weight-bold;
+}
+
+export TitleLabel := Label {
+    font-size: Style.font-size;
+    font-weight: Style.font-weight;
+}

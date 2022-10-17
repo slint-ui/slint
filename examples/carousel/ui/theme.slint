@@ -4,13 +4,11 @@ import "fonts/Roboto-Bold.ttf";
 export global Theme := {
     // brushes
     property <brush> window-background: @linear-gradient(90deg, #424242 0%, #212121 100%);
-    property <brush> widget-background-regular: @linear-gradient(90deg, #212121 0%, #424242 100%);
-    property <brush> widget-border-regular: @linear-gradient(90deg, #757575 0%, #616161 100%);
-    property <brush> widget-border-selected: @linear-gradient(90deg, #FAFAFA 0%, #BDBDBD 100%);
-    property <brush> widget-progress-background: @linear-gradient(90deg, #9E9E9E 0%, #616161 100%);
-    property <brush> widget-progress-indicator: @linear-gradient(90deg, #FAFAFA 0%, #F5F5F5 100%);
-    property <brush> widget-foreground: #FAFAFA;
-    property <brush> widget-foreground-discreet: #BDBDBD;
+    property <brush> background-regular: @linear-gradient(90deg, #212121 0%, #424242 100%);
+    property <brush> border-color-regular: @linear-gradient(90deg, #757575 0%, #616161 100%);
+    property <brush> border-color-selected: @linear-gradient(90deg, #FAFAFA 0%, #BDBDBD 100%);
+    property <brush> foureground: #FAFAFA;
+    property <brush> foureground-discreet: #BDBDBD;
 
     // durations
     property <duration> duration-slow: 1600ms;
@@ -18,23 +16,23 @@ export global Theme := {
     property <duration> duration-fast: 150ms;
 
     // radius
-    property <length> widget-radius-small: 2px;
-    property <length> widget-radius-regular: 4px;
-    property <length> widget-radius-medium: 8px;
-    property <length> widget-radius-big: 16px;
+    property <length> radius-small: 2px;
+    property <length> radius-regular: 4px;
+    property <length> radius-medium: 8px;
+    property <length> radius-big: 16px;
 
     // sizes
-    property <length> widget-height-small: 24px;
-    property <length> widget-height-regular: 32px;
-    property <length> widget-height-medium: 128px;
-    property <length> widget-height-big: 200px;
+    property <length> size-small: 24px;
+    property <length> size-regular: 32px;
+    property <length> size-medium: 128px;
+    property <length> size-big: 200px;
 
     // spacings
-    property <length> widget-spacing-small: 2px;
-    property <length> widget-spacing-regular: 4px;
-    property <length> widget-spacing-medium: 8px;
-    property <length> widget-spacing-big: 16px;
-    property <length> widget-spacing-extra-big: 32px;
+    property <length> spacing-small: 2px;
+    property <length> spacing-regular: 4px;
+    property <length> spacing-medium: 8px;
+    property <length> spacing-big: 16px;
+    property <length> spacing-extra-big: 32px;
 
     // typo
     property <string> font-family: "Roboto";

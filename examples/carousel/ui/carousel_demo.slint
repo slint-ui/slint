@@ -1,13 +1,46 @@
 import { NavigationItem } from "navigation_item.slint";
+import { Carousel } from "carousel.slint";
+import { Card } from "card.slint";
+import { Theme } from "theme.slint";
+import { SettingsPage } from "settings_page.slint";
 
 MainWindow := Window {
-
-    property<[NavigationItem]> navigation_items: [
+    property<[NavigationItem]> navigation-items: [
+       { title: "Home" },
        { title: "Settings" },
        { title: "About" },
     ];
+    property <int> selected-index: 0;
+    property <bool> show-page: false;
 
-    preferred-width: 400px;
-    preferred-height: 600px;
+    title: "Carousel example";
+    preferred-width: 600px;
+    preferred-height: 400px;
+    background: black;
+    forward-focus: carousel;
 
+    carousel := Carousel {  
+        // width of a `Card`
+        itemWidth: Theme.size-medium;
+        count: navigation-items.length;
+        selected-index <=> root.selected-index;
+        spacing: Theme.spacing-medium;
+       
+        for item[index] in navigation-items : Card {
+            is-selected: index == selected-index;
+            title: item.title;
+            clicked => { selected-index = index; }
+        }
+
+
+        enter => { show-page = true; }
+    }
+
+    if show-page : Rectangle {
+        background: green;
+
+        if selected-index == 1 : SettingsPage {
+
+        }
+    }
 }

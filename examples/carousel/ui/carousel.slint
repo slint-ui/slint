@@ -67,7 +67,7 @@ export Carousel := FocusScope {
         Flickable {
             interactive: false;
             animate viewport-x { duration: Theme.duration-fast; easing: ease-in; }
-            viewport-x: root.itemWidth + 2* root.spacing - root.selected-index * (root.itemWidth + root.spacing);
+            viewport-x: root.itemWidth + 2 * root.spacing - root.selected-index * (root.itemWidth + root.spacing);
     
             HorizontalLayout { 
                 spacing: root.spacing;
