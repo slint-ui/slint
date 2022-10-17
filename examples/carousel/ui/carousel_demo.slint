@@ -21,6 +21,7 @@ MainWindow := Window {
     padding: Theme.spacing-big;
 
     carousel := Carousel {  
+        y: (root.height - height) / 2;
         // width of a `Card`
         itemWidth: Theme.size-medium;
         count: navigation-items.length;
