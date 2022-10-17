@@ -12,7 +12,6 @@ use hal::delay::Delay;
 use hal::gpio::Speed::High;
 use hal::pac;
 use hal::prelude::*;
-use hal::rcc::rec::OctospiClkSelGetter;
 use slint::platform::software_renderer;
 use stm32h7xx_hal as hal; // global logger
 
@@ -79,15 +78,6 @@ impl slint::platform::Platform for StmBackend {
             .freeze(pwrcfg, &dp.SYSCFG);
 
         assert_eq!(ccdr.clocks.hclk(), 200.MHz::<1, 1>());
-        // Octospi from HCLK at 200MHz
-        assert_eq!(
-            ccdr.peripheral.OCTOSPI2.get_kernel_clk_mux(),
-            hal::rcc::rec::OctospiClkSel::RCC_HCLK3
-        );
-        assert_eq!(
-            ccdr.peripheral.OCTOSPI1.get_kernel_clk_mux(),
-            hal::rcc::rec::OctospiClkSel::RCC_HCLK3
-        );
 
         let mut delay = Delay::new(cp.SYST, ccdr.clocks);
 
