@@ -1,4 +1,12 @@
+import { NavigationItem } from "navigation_item.slint";
+
 MainWindow := Window {
+
+    property<[NavigationItem]> navigation_items: [
+       { title: "Settings" },
+       { title: "About" },
+    ];
+
     preferred-width: 400px;
     preferred-height: 600px;
 
