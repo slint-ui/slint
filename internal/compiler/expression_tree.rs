@@ -1133,16 +1133,21 @@ impl Expression {
     /// Try to mark this expression to a lvalue that can be assigned to.
     ///
     /// Return true if the expression is a "lvalue" that can be used as the left hand side of a `=` or `+=` or similar
-    pub fn try_set_rw(&mut self) -> bool {
+    pub fn try_set_rw(&mut self) -> Result<(), String> {
         match self {
             Expression::PropertyReference(nr) => {
                 nr.mark_as_set();
-                true
+                let lookup = nr.element().borrow().lookup_property(nr.name());
+                if lookup.is_valid_for_assignment() {
+                    Ok(())
+                } else {
+                    Err(format!("on a {} property", lookup.property_visibility))
+                }
             }
             Expression::StructFieldAccess { base, .. } => base.try_set_rw(),
-            Expression::RepeaterModelReference { .. } => true,
-            Expression::ArrayIndex { .. } => true,
-            _ => false,
+            Expression::RepeaterModelReference { .. } => Ok(()),
+            Expression::ArrayIndex { array, .. } => array.try_set_rw(),
+            _ => Err("needs to be done on a property".into()),
         }
     }
 }
