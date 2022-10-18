@@ -442,11 +442,7 @@ impl ImageInner {
             #[cfg(feature = "svg")]
             Self::Svg(_) => true,
             #[cfg(target_arch = "wasm32")]
-            Self::HTMLImage(html_image)
-                if html_image.dom_element.current_src().ends_with(".svg") =>
-            {
-                true
-            }
+            Self::HTMLImage(html_image) => html_image.is_svg(),
             _ => false,
         }
     }
