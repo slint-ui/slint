@@ -389,18 +389,23 @@ fn visit_layout_items_dependencies<'a>(
     vis: &mut impl FnMut(&PropertyPath),
 ) {
     for it in items {
-        if let Some(nr) = it.element.borrow().layout_info_prop(orientation) {
+        let mut element = it.element.clone();
+        if element.borrow().repeated.is_some() {
+            element = it.element.borrow().base_type.as_component().root_element.clone();
+        }
+
+        if let Some(nr) = element.borrow().layout_info_prop(orientation) {
             vis(&nr.clone().into());
         } else {
-            if let Type::Component(base) = &it.element.borrow().base_type {
+            if let Type::Component(base) = &element.borrow().base_type {
                 if let Some(nr) = base.root_element.borrow().layout_info_prop(orientation) {
                     vis(&PropertyPath {
-                        elements: vec![ByAddress(it.element.clone())],
+                        elements: vec![ByAddress(element.clone())],
                         prop: nr.clone(),
                     });
                 }
             }
-            visit_implicit_layout_info_dependencies(orientation, &it.element, vis);
+            visit_implicit_layout_info_dependencies(orientation, &element, vis);
         }
 
         for (nr, _) in it.constraints.for_each_restrictions(orientation) {

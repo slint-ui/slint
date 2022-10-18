@@ -5,5 +5,22 @@ App := Rectangle {
     property <string> hello: "ooo";
     if (hello != "") : Text { text <=> hello; }
 
-    property<bool> test: hello == "ooo";
+    property<bool> test1: hello == "ooo";
+
+    // Another crash:
+    property <string> directory: "hello";
+    vl := VerticalLayout {
+        if true: pp:= Rectangle {
+            property <string> text <=> root.directory;
+            HorizontalLayout {
+                inner := Text {
+                    text: pp.text;
+                }
+            }
+        }
+    }
+    ref := Text { text: "hello"; }
+    property<bool> test2: vl.preferred-width == ref.preferred-width;
+
+    property<bool> test: test1 && test2;
 }
