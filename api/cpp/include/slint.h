@@ -30,7 +30,6 @@ struct ItemVTable;
 #include "slint_point.h"
 #include "slint_backend_internal.h"
 #include "slint_qt_internal.h"
-#include "slint_selector_internal.h"
 
 /// \rst
 /// The :code:`slint` namespace is the primary entry point into the Slint C++ API.
@@ -117,6 +116,8 @@ public:
 
     float scale_factor() const { return slint_windowrc_get_scale_factor(&inner); }
     void set_scale_factor(float value) const { slint_windowrc_set_scale_factor(&inner, value); }
+
+    bool dark_style() const { return slint_windowrc_dark_style(&inner); }
 
     template<typename Component, typename ItemArray>
     void unregister_component(Component *c, ItemArray items) const

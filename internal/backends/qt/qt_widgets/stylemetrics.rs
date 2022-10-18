@@ -53,7 +53,7 @@ pub struct NativeStyleMetrics {
 
 impl const_field_offset::PinnedDrop for NativeStyleMetrics {
     fn drop(self: Pin<&mut Self>) {
-        native_style_metrics_deinit(self);
+        slint_native_style_metrics_deinit(self);
     }
 }
 
@@ -183,12 +183,14 @@ impl i_slint_core::rtti::BuiltinGlobal for NativeStyleMetrics {
     }
 }
 
-pub fn native_style_metrics_init(self_: Pin<&NativeStyleMetrics>) {
+#[no_mangle]
+pub extern "C" fn slint_native_style_metrics_init(self_: Pin<&NativeStyleMetrics>) {
     self_.style_change_listener.set(core::ptr::null()); // because the C++ code don't initialize it
     self_.init_impl();
 }
 
-pub fn native_style_metrics_deinit(self_: Pin<&mut NativeStyleMetrics>) {
+#[no_mangle]
+pub extern "C" fn slint_native_style_metrics_deinit(self_: Pin<&mut NativeStyleMetrics>) {
     let scl = self_.style_change_listener.get();
     cpp!(unsafe [scl as "StyleChangeListener*"] { delete scl; });
     self_.style_change_listener.set(core::ptr::null());

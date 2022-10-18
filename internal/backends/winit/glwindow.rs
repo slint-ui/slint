@@ -658,6 +658,10 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
             }
         }
     }
+
+    fn dark_style(&self) -> bool {
+        dark_light::detect() == dark_light::Mode::Dark
+    }
 }
 
 impl<Renderer: WinitCompatibleRenderer + 'static> Drop for GLWindow<Renderer> {

@@ -8,7 +8,6 @@
 extern crate alloc;
 
 use alloc::boxed::Box;
-use core::pin::Pin;
 use i_slint_core::platform::Platform;
 
 cfg_if::cfg_if! {
@@ -74,9 +73,6 @@ cfg_if::cfg_if! {
         }
         pub type NativeWidgets = ();
         pub type NativeGlobals = ();
-        pub mod native_widgets {
-            pub struct NativeStyleMetrics{}
-        }
         pub const HAS_NATIVE_STYLE: bool = false;
     }
 }
@@ -96,24 +92,4 @@ pub fn use_modules() {
     i_slint_backend_qt::use_modules();
     #[cfg(feature = "i-slint-backend-winit")]
     i_slint_backend_winit::use_modules();
-}
-
-#[no_mangle]
-pub extern "C" fn slint_native_style_metrics_init(_self: Pin<&native_widgets::NativeStyleMetrics>) {
-    #[cfg(any(
-        all(feature = "i-slint-backend-qt", not(no_qt)),
-        feature = "i-slint-backend-winit"
-    ))]
-    default_backend::native_style_metrics_init(_self);
-}
-
-#[no_mangle]
-pub extern "C" fn slint_native_style_metrics_deinit(
-    _self: Pin<&mut native_widgets::NativeStyleMetrics>,
-) {
-    #[cfg(any(
-        all(feature = "i-slint-backend-qt", not(no_qt)),
-        feature = "i-slint-backend-winit"
-    ))]
-    default_backend::native_style_metrics_deinit(_self);
 }
