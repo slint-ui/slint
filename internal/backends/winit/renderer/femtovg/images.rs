@@ -100,7 +100,7 @@ impl Texture {
                     // Anecdotal evidence suggests that HTMLImageElement converts to a texture with
                     // pre-multipled alpha. It's possible that this is not generally applicable, but it
                     // is the case for SVGs.
-                    let image_flags = if html_image.dom_element.current_src().ends_with(".svg") {
+                    let image_flags = if html_image.is_svg() {
                         if let Some(target_size) = target_size_for_scalable_source {
                             let dom_element = &html_image.dom_element;
                             dom_element.set_width(target_size.width);
