@@ -11,9 +11,10 @@ use crate::expression_tree::{
 };
 use crate::langtype::{Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
-use crate::object_tree::{find_parent_element, ElementRc, PropertyVisibility};
+use crate::object_tree::{ElementRc, PropertyVisibility};
 use crate::parser::NodeOrToken;
 use crate::typeregister::TypeRegister;
+use std::cell::RefCell;
 
 /// Contains information which allow to lookup identifier in expressions
 pub struct LookupCtx<'a> {
@@ -199,11 +200,16 @@ impl LookupObject for SpecialIdLookup {
         let last = ctx.component_scope.last();
         None.or_else(|| f("self", Expression::ElementReference(Rc::downgrade(last?)).into()))
             .or_else(|| {
-                f(
-                    "parent",
-                    Expression::ElementReference(Rc::downgrade(&find_parent_element(last?)?))
-                        .into(),
-                )
+                let len = ctx.component_scope.len();
+                if len >= 2 {
+                    f(
+                        "parent",
+                        Expression::ElementReference(Rc::downgrade(&ctx.component_scope[len - 2]))
+                            .into(),
+                    )
+                } else {
+                    None
+                }
             })
             .or_else(|| f("true", Expression::BoolLiteral(true).into()))
             .or_else(|| f("false", Expression::BoolLiteral(false).into()))
@@ -219,44 +225,59 @@ impl LookupObject for IdLookup {
         f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         fn visit<R>(
-            roots: &[ElementRc],
+            root: &ElementRc,
             f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
         ) -> Option<R> {
-            for e in roots.iter().rev() {
-                if !e.borrow().id.is_empty() {
-                    if let Some(r) =
-                        f(&e.borrow().id, Expression::ElementReference(Rc::downgrade(e)).into())
-                    {
-                        return Some(r);
-                    }
+            if !root.borrow().id.is_empty() {
+                if let Some(r) =
+                    f(&root.borrow().id, Expression::ElementReference(Rc::downgrade(root)).into())
+                {
+                    return Some(r);
                 }
-                for x in &e.borrow().children {
-                    if x.borrow().repeated.is_some() {
-                        continue;
-                    }
-                    if let Some(r) = visit(&[x.clone()], f) {
-                        return Some(r);
-                    }
+            }
+            for x in &root.borrow().children {
+                if x.borrow().repeated.is_some() {
+                    continue;
+                }
+                if let Some(r) = visit(&x, f) {
+                    return Some(r);
                 }
             }
             None
         }
-        visit(ctx.component_scope, f)
+        for e in ctx.component_scope.iter().rev() {
+            if e.borrow().repeated.is_some() {
+                if let Some(r) = visit(e, f) {
+                    return Some(r);
+                }
+            }
+        }
+        if let Some(root) = ctx.component_scope.first() {
+            if let Some(r) = visit(root, f) {
+                return Some(r);
+            }
+        }
+        None
     }
     // TODO: hash based lookup
 }
 
 struct InScopeLookup;
-impl LookupObject for InScopeLookup {
-    fn for_each_entry<R>(
-        &self,
+impl InScopeLookup {
+    fn visit_scope<R>(
         ctx: &LookupCtx,
-        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+        mut visit_entry: impl FnMut(&str, LookupResult) -> Option<R>,
+        mut visit_legacy_scope: impl FnMut(&ElementRc) -> Option<R>,
+        mut visit_scope: impl FnMut(&ElementRc) -> Option<R>,
     ) -> Option<R> {
-        for elem in ctx.component_scope.iter().rev() {
+        let is_legacy = ctx
+            .component_scope
+            .first()
+            .map_or(false, |e| e.borrow().enclosing_component.upgrade().unwrap().is_legacy_syntax);
+        for (idx, elem) in ctx.component_scope.iter().rev().enumerate() {
             if let Some(repeated) = &elem.borrow().repeated {
                 if !repeated.index_id.is_empty() {
-                    if let Some(r) = f(
+                    if let Some(r) = visit_entry(
                         &repeated.index_id,
                         Expression::RepeaterIndexReference { element: Rc::downgrade(elem) }.into(),
                     ) {
@@ -264,45 +285,74 @@ impl LookupObject for InScopeLookup {
                     }
                 }
                 if !repeated.model_data_id.is_empty() {
-                    if let Some(r) = f(
+                    if let Some(r) = visit_entry(
                         &repeated.model_data_id,
-                        Expression::RepeaterIndexReference { element: Rc::downgrade(elem) }.into(),
+                        Expression::RepeaterModelReference { element: Rc::downgrade(elem) }.into(),
                     ) {
                         return Some(r);
                     }
                 }
             }
 
-            if let Some(r) = elem.for_each_entry(ctx, f) {
-                return Some(r);
+            if is_legacy {
+                if elem.borrow().repeated.is_some()
+                    || idx == 0
+                    || idx == ctx.component_scope.len() - 1
+                {
+                    if let Some(r) = visit_legacy_scope(elem) {
+                        return Some(r);
+                    }
+                }
+            } else {
+                if let Some(r) = visit_scope(elem) {
+                    return Some(r);
+                }
             }
         }
         None
+    }
+}
+impl LookupObject for InScopeLookup {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        let f = RefCell::new(f);
+        Self::visit_scope(
+            ctx,
+            |str, r| f.borrow_mut()(str, r),
+            |elem| elem.for_each_entry(ctx, *f.borrow_mut()),
+            |elem| {
+                for (name, prop) in &elem.borrow().property_declarations {
+                    let e = expression_from_reference(
+                        NamedReference::new(elem, name),
+                        &prop.property_type,
+                    );
+                    if let Some(r) = f.borrow_mut()(name, e.into()) {
+                        return Some(r);
+                    }
+                }
+                None
+            },
+        )
     }
 
     fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
         if name.is_empty() {
             return None;
         }
-        for elem in ctx.component_scope.iter().rev() {
-            if let Some(repeated) = &elem.borrow().repeated {
-                if repeated.index_id == name {
-                    return Some(LookupResult::from(Expression::RepeaterIndexReference {
-                        element: Rc::downgrade(elem),
-                    }));
-                }
-                if repeated.model_data_id == name {
-                    return Some(LookupResult::from(Expression::RepeaterModelReference {
-                        element: Rc::downgrade(elem),
-                    }));
-                }
-            }
-
-            if let Some(r) = elem.lookup(ctx, name) {
-                return Some(r);
-            }
-        }
-        None
+        Self::visit_scope(
+            ctx,
+            |str, r| (str == name).then(|| r),
+            |elem| elem.lookup(ctx, name),
+            |elem| {
+                elem.borrow().property_declarations.get(name).map(|prop| {
+                    expression_from_reference(NamedReference::new(elem, name), &prop.property_type)
+                        .into()
+                })
+            },
+        )
     }
 }
 

@@ -1,0 +1,35 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+component Compo inherits Text {
+
+    property <string> background: text;
+//                                ^error{Unknown unqualified identifier 'text'. Did you mean 'self.text'?}
+
+    Rectangle {
+        background: background;
+//                 ^error{Cannot convert string to brush}
+    }
+
+    Text {
+        text: background; // works: lookup in the root
+    }
+
+    if true : Rectangle {
+        property <color> text;
+        Text {
+            color: text; // works
+            text: background; // works
+            width: border-color;
+//                 ^error{Unknown unqualified identifier 'border-color'$}
+            height: text;
+//                 ^error{Cannot convert color to length}
+        }
+    }
+
+    Rectangle {
+        width: text;
+//             ^error{Unknown unqualified identifier 'text'. Did you mean 'root.text'?}
+    }
+
+}

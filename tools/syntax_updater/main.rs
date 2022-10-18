@@ -174,7 +174,7 @@ fn process_file(
     let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(path), &mut diag);
     let len = syntax_node.node.text_range().end().into();
     let mut state = State::default();
-    if args.fully_qualify {
+    if args.fully_qualify || args.move_declaration {
         let doc = syntax_node.clone().into();
         let mut type_loader = TypeLoader::new(
             i_slint_compiler::typeregister::TypeRegister::builtin(),
@@ -254,10 +254,6 @@ fn visit_node(
             }
         }
         SyntaxKind::Element => {
-            /*let element_node = syntax_nodes::Element::from(node.clone());
-            state.element_name = element_node
-                .QualifiedName()
-                .map(|qn| object_tree::QualifiedTypeName::from_node(qn).to_string());*/
             if let Some(parent_el) = state.current_elem.take() {
                 state.current_elem = parent_el
                     .borrow()
@@ -270,6 +266,8 @@ fn visit_node(
                     state.current_elem = Some(parent_co.root_element.clone())
                 }
             }
+
+            experiments::lookup_changes::enter_element(&mut state);
         }
         _ => (),
     }

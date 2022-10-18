@@ -239,6 +239,9 @@ pub struct Component {
     /// This is the main entry point for the code generators. Such a component
     /// should have the full API, etc.
     pub is_root_component: Cell<bool>,
+
+    /// True when this component was declared with the `:=` symbol instead of the `component` keyword
+    pub is_legacy_syntax: bool,
 }
 
 impl Component {
@@ -259,6 +262,7 @@ impl Component {
                 tr,
             ),
             child_insertion_point: RefCell::new(child_insertion_point),
+            is_legacy_syntax: node.child_token(SyntaxKind::ColonEqual).is_some(),
             ..Default::default()
         };
         let c = Rc::new(c);
