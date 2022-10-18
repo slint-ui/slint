@@ -53,6 +53,10 @@ impl HTMLImage {
     pub fn source(&self) -> String {
         self.dom_element.src()
     }
+
+    pub fn is_svg(&self) -> bool {
+        self.dom_element.current_src().ends_with(".svg")
+    }
 }
 
 impl super::OpaqueImage for HTMLImage {
