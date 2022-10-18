@@ -40,6 +40,11 @@ jobs:
         sed -i "s/#wasm# //" Cargo.toml
         wasm-pack build --release --target web
       working-directory: examples/todo/rust
+    - name: Carousel demo WASM build
+      run: |
+        sed -i "s/#wasm# //" Cargo.toml
+        wasm-pack build --release --target web
+      working-directory: examples/carousel/rust
     - name: Sliding Puzzle demo WASM build
       run: |
         sed -i "s/#wasm# //" Cargo.toml
@@ -74,6 +79,7 @@ jobs:
               examples/printerdemo/rust/
               examples/printerdemo_old/rust/
               examples/todo/
+              examples/carousel/
               examples/memory/
               examples/slide_puzzle/
               examples/imagefilter/
