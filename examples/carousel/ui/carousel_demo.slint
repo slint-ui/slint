@@ -1,24 +1,24 @@
-import { NavigationItem } from "navigation_item.slint";
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
 import { Carousel } from "carousel.slint";
 import { Card } from "card.slint";
 import { Theme } from "theme.slint";
-import { SettingsPage } from "settings_page.slint";
 
 MainWindow := Window {
-    property<[NavigationItem]> navigation-items: [
+    property<[{ title: string, image: image}]> navigation-items: [
        { title: "Home", image: @image-url("icons/home_black_24dp.svg") },
        { title: "Settings", image: @image-url("icons/settings_black_24dp.svg") },
        { title: "About", image: @image-url("icons/info_black_24dp.svg") },
     ];
     property <int> selected-index: 0;
-    property <bool> show-page: false;
 
     title: "Carousel example";
     preferred-width: 600px;
     preferred-height: 400px;
     background: Theme.window-background;
-    forward-focus: carousel;
     padding: Theme.spacing-regular;
+    forward-focus: carousel;
 
     carousel := Carousel {  
         y: (root.height - height) / 2;
@@ -33,24 +33,8 @@ MainWindow := Window {
             title: item.title;
             image-source: item.image;
             y: (parent.height - height) / 2;
+
             clicked => { selected-index = index; }
-        }
-
-        enter => { show-page = true; }
+        }  
     }
-
-    if show-page : Rectangle {
-        background: green;
-
-        if selected-index == 1 : SettingsPage {
-
-        }
-    }
-
-    // Image {
-    //     width: 140px;
-    //     x: parent.width - width - root.padding;
-    //     y: parent.height - height - root.padding;
-    //     source: @image-url("icons/slint-logo-simple-white.svg");
-    // }
 }

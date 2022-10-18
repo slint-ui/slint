@@ -1,0 +1,11 @@
+{
+    "name": "carousel",
+    "version": "0.3.1",
+    "main": "main.js",
+    "dependencies": {
+        "slint-ui": "../../../api/node"
+    },
+    "scripts": {
+        "start": "node ."
+    }
+}

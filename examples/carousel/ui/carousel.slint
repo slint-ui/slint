@@ -2,8 +2,10 @@ import { Theme } from "theme.slint";
 
 
 export Carousel := FocusScope {
-    forward-focus: focus-scope;
-    height: Theme.size-big;
+    callback move-right();
+    callback move-left();
+    callback enter();
+    callback move-focus-up();
 
     property <int> selected-index;
     property <length> spacing;
@@ -12,13 +14,11 @@ export Carousel := FocusScope {
     property <length> center-x: (width - Theme.size-big) / 2;
     property <duration> duation: Theme.duration-regular;
 
-    callback move-right();
-    callback move-left();
-    callback enter();
-    callback move-focus-up();
+    forward-focus: focus-scope;
+    height: Theme.size-big;
 
     move-right => { 
-        root.selected-index = Math.min(root.selected-index + 1, root.count - 1);
+        root.selected-index = min(root.selected-index + 1, root.count - 1);
     }
 
     move-left => {  

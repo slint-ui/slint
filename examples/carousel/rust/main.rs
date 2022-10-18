@@ -1,9 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use slint::{FilterModel, Model, SortModel};
-use std::rc::Rc;
-
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -16,8 +13,5 @@ pub fn main() {
     #[cfg(all(debug_assertions, target_arch = "wasm32"))]
     console_error_panic_hook::set_once();
 
-    let main_window = MainWindow::new();
-   
-
-    main_window.run();
+    MainWindow::new().run()
 }
