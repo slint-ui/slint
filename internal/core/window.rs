@@ -139,6 +139,11 @@ pub trait WindowAdapterSealed {
     /// The default implementation does nothing
     fn set_size(&self, _size: WindowSize) {}
 
+    /// returns wether a dark theme is used
+    fn dark_style(&self) -> bool {
+        false
+    }
+
     /// Return the renderer
     fn renderer(&self) -> &dyn Renderer;
 }
@@ -1000,5 +1005,14 @@ pub mod ffi {
     ) {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
         window_adapter.set_size(crate::api::LogicalSize::new(size.width, size.height).into());
+    }
+
+    /// Return wether the style is using a dark theme
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_dark_style(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> bool {
+        let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
+        window_adapter.dark_style()
     }
 }

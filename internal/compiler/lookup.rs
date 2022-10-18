@@ -586,6 +586,16 @@ impl LookupObject for BuiltinFunctionLookup {
                     .into(),
                 )
             })
+            .or_else(|| {
+                f(
+                    "dark-style",
+                    Expression::BuiltinFunctionReference(
+                        BuiltinFunction::DarkStyle,
+                        ctx.current_token.as_ref().map(|t| t.to_source_location()),
+                    )
+                    .into(),
+                )
+            })
     }
 }
 

@@ -45,6 +45,7 @@ pub enum BuiltinFunction {
     ImageSize,
     ArrayLength,
     Rgb,
+    DarkStyle,
     ImplicitLayoutInfo(Orientation),
     RegisterCustomFontByPath,
     RegisterCustomFontByMemory,
@@ -150,6 +151,9 @@ impl BuiltinFunction {
                 return_type: Box::new(Type::Color),
                 args: vec![Type::Int32, Type::Int32, Type::Int32, Type::Float32],
             },
+            BuiltinFunction::DarkStyle => {
+                Type::Function { return_type: Box::new(Type::Bool), args: vec![] }
+            }
             BuiltinFunction::RegisterCustomFontByPath => {
                 Type::Function { return_type: Box::new(Type::Void), args: vec![Type::String] }
             }
@@ -167,6 +171,7 @@ impl BuiltinFunction {
         match self {
             BuiltinFunction::GetWindowScaleFactor => false,
             BuiltinFunction::AnimationTick => false,
+            BuiltinFunction::DarkStyle => false,
             // Even if it is not pure, we optimize it away anyway
             BuiltinFunction::Debug => true,
             BuiltinFunction::Mod

@@ -64,8 +64,6 @@ mod renderer {
 #[cfg(target_arch = "wasm32")]
 pub(crate) mod wasm_input_helper;
 
-mod stylemetrics;
-
 #[cfg(target_arch = "wasm32")]
 pub fn create_gl_window_with_canvas_id(canvas_id: String) -> Rc<dyn WindowAdapter> {
     GLWindow::<crate::renderer::femtovg::FemtoVGRenderer>::new(canvas_id)
@@ -96,14 +94,9 @@ cfg_if::cfg_if! {
 pub fn use_modules() {}
 
 pub type NativeWidgets = ();
-pub type NativeGlobals = (stylemetrics::NativeStyleMetrics, ());
-pub mod native_widgets {
-    pub use super::stylemetrics::NativeStyleMetrics;
-}
+pub type NativeGlobals = ();
 pub const HAS_NATIVE_STYLE: bool = false;
-
-pub use stylemetrics::native_style_metrics_deinit;
-pub use stylemetrics::native_style_metrics_init;
+pub mod native_widgets {}
 
 pub struct Backend {
     window_factory_fn: fn() -> Rc<dyn WindowAdapter>,

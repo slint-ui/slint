@@ -34,6 +34,7 @@ use std::rc::{Rc, Weak};
 
 use crate::key_generated;
 use i_slint_core::renderer::Renderer;
+use once_cell::unsync::OnceCell;
 
 cpp! {{
     #include <QtWidgets/QtWidgets>
@@ -204,7 +205,14 @@ cpp! {{
                 bool active = isActiveWindow();
                 rust!(Slint_updateWindowActivation [rust_window: &QtWindow as "void*", active: bool as "bool"] {
                     WindowInner::from_pub(&rust_window.window).set_active(active)
-                 });
+                });
+            } else if (event->type() == QEvent::PaletteChange || event->type() == QEvent::StyleChange) {
+                bool dark_style = qApp->palette().color(QPalette::Window).valueF() < 0.5;
+                rust!(Slint_updateWindowDarkStyle [rust_window: &QtWindow as "void*", dark_style: bool as "bool"] {
+                    if let Some(ds) = rust_window.dark_style.get() {
+                        ds.as_ref().set(dark_style);
+                    }
+                });
             }
             QWidget::changeEvent(event);
         }
@@ -1305,6 +1313,8 @@ pub struct QtWindow {
     cache: ItemCache<qttypes::QPixmap>,
 
     tree_structure_changed: RefCell<bool>,
+
+    dark_style: OnceCell<Pin<Box<Property<bool>>>>,
 }
 
 impl QtWindow {
@@ -1328,6 +1338,7 @@ impl QtWindow {
                 rendering_metrics_collector: Default::default(),
                 cache: Default::default(),
                 tree_structure_changed: RefCell::new(false),
+                dark_style: Default::default(),
             }
         });
         let widget_ptr = rc.widget_ptr();
@@ -1724,6 +1735,15 @@ impl WindowAdapterSealed for QtWindow {
         cpp! {unsafe [widget_ptr as "QWidget*", sz as "QSize"] {
             widget_ptr->resize(sz);
         }};
+    }
+
+    fn dark_style(&self) -> bool {
+        let ds = self.dark_style.get_or_init(|| {
+            Box::pin(Property::new(cpp! {unsafe [] -> bool as "bool" {
+                return qApp->palette().color(QPalette::Window).valueF() < 0.5;
+            }}))
+        });
+        ds.as_ref().get()
     }
 }
 

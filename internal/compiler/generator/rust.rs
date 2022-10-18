@@ -2132,6 +2132,10 @@ fn compile_builtin_function_call(
                 slint::private_unstable_api::re_exports::Color::from_argb_u8(a, r, g, b)
             })
         }
+        BuiltinFunction::DarkStyle => {
+            let window_adapter_tokens = access_window_adapter_field(ctx);
+            quote!(#window_adapter_tokens.dark_style())
+        }
     }
 }
 

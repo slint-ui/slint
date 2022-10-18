@@ -97,6 +97,7 @@ fn builtin_function_cost(function: BuiltinFunction) -> isize {
         BuiltinFunction::RegisterCustomFontByPath => isize::MAX,
         BuiltinFunction::RegisterCustomFontByMemory => isize::MAX,
         BuiltinFunction::RegisterBitmapFont => isize::MAX,
+        BuiltinFunction::DarkStyle => isize::MAX,
     }
 }
 

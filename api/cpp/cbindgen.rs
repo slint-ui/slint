@@ -321,6 +321,7 @@ fn gen_corelib(
             "slint_windowrc_size",
             "slint_windowrc_set_logical_size",
             "slint_windowrc_set_physical_size",
+            "slint_windowrc_dark_style",
             "slint_new_path_elements",
             "slint_new_path_events",
             "slint_color_brighter",
@@ -529,31 +530,6 @@ fn gen_backend_qt(
     Ok(())
 }
 
-fn gen_backend_selector(
-    root_dir: &Path,
-    include_dir: &Path,
-    dependencies: &mut Vec<PathBuf>,
-) -> anyhow::Result<()> {
-    let mut config = default_config();
-
-    config.export.include.clear();
-
-    let mut crate_dir = root_dir.to_owned();
-    crate_dir.extend(["internal", "backends", "selector"].iter());
-
-    ensure_cargo_rerun_for_crate(&crate_dir, dependencies)?;
-
-    cbindgen::Builder::new()
-        .with_config(config)
-        .with_crate(crate_dir)
-        .with_include("slint_qt_internal.h")
-        .generate()
-        .context("Unable to generate bindings for slint_selector_internal.h")?
-        .write_to_file(include_dir.join("slint_selector_internal.h"));
-
-    Ok(())
-}
-
 fn gen_backend(
     root_dir: &Path,
     include_dir: &Path,
@@ -656,7 +632,6 @@ pub fn gen_all(root_dir: &Path, include_dir: &Path) -> anyhow::Result<Vec<PathBu
     enums(&include_dir.join("slint_enums_internal.h"))?;
     gen_corelib(root_dir, include_dir, &mut deps)?;
     gen_backend_qt(root_dir, include_dir, &mut deps)?;
-    gen_backend_selector(root_dir, include_dir, &mut deps)?;
     gen_backend(root_dir, include_dir, &mut deps)?;
     gen_interpreter(root_dir, include_dir, &mut deps)?;
     Ok(deps)
