@@ -12,8 +12,7 @@ pub(crate) fn fold_node(
     args: &Cli,
 ) -> std::io::Result<bool> {
     debug_assert!(args.input_output_properties);
-    let kind = node.kind();
-    if kind == SyntaxKind::PropertyDeclaration
+    if node.kind() == SyntaxKind::PropertyDeclaration
         && node
             .parent()
             .and_then(|n| n.parent())

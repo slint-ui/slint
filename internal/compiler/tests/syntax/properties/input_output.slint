@@ -30,7 +30,7 @@ component Compo inherits Rectangle {
     ]
 
     animate input1 {}
-//          ^error{animating input property 'input1'}
+//          ^error{Cannot animate input property 'input1'}
 }
 
 OldCompo := Rectangle {
@@ -56,27 +56,27 @@ component Foo inherits Rectangle {
     c1 := OldCompo {
         inout2: 42;
         priv2: 55;
-//      ^error{assigning to private property 'priv2'}
+//      ^error{Cannot assign to private property 'priv2'}
         output1: 855;
-//      ^error{assigning to output property 'output1'}
+//      ^error{Cannot assign to output property 'output1'}
         input1: 12;
         inout1: 78;
 
         animate output1 {}
-//              ^error{animating output property 'output1'}
+//              ^error{Cannot animate output property 'output1'}
 
         animate priv2 {}
-//              ^error{animating private property 'priv2'}
+//              ^error{Cannot animate private property 'priv2'}
 
     }
 
     c2 := Compo {
         priv1: 42;
-//      ^error{assigning to private property 'priv1'}
+//      ^error{Cannot assign to private property 'priv1'}
         priv2: 55;
-//      ^error{assigning to private property 'priv2'}
+//      ^error{Cannot assign to private property 'priv2'}
         output1: 585;
-//      ^error{assigning to output property 'output1'}
+//      ^error{Cannot assign to output property 'output1'}
         input1: 12;
         inout1: 78;
     }
