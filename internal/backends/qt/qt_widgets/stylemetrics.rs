@@ -82,15 +82,23 @@ impl NativeStyleMetrics {
     }
 
     fn init_impl(self: Pin<&Self>) {
+        let wrong_thread = cpp!(unsafe [] -> bool as "bool" {
+            static QMutex mtx;
+            QMutexLocker locker(&mtx);
+            ensure_initialized();
+            return qApp->thread() != QThread::currentThread();
+        });
+        if wrong_thread {
+            return;
+        }
+
         if self.style_change_listener.get().is_null() {
             self.style_change_listener.set(cpp!(unsafe [self as "void*"] -> *const u8 as "void*"{
-                ensure_initialized();
                 return new StyleChangeListener(self);
             }));
         }
 
         let layout_spacing = cpp!(unsafe [] -> f32 as "float" {
-            ensure_initialized();
             int spacing = qApp->style()->pixelMetric(QStyle::PM_LayoutHorizontalSpacing);
             if (spacing < 0)
                 spacing = qApp->style()->layoutSpacing(QSizePolicy::DefaultType, QSizePolicy::DefaultType, Qt::Horizontal);
@@ -98,7 +106,6 @@ impl NativeStyleMetrics {
         });
         self.layout_spacing.set(layout_spacing.max(0.0));
         let layout_padding = cpp!(unsafe [] -> f32 as "float" {
-            ensure_initialized();
             return qApp->style()->pixelMetric(QStyle::PM_LayoutLeftMargin);
         });
         self.layout_padding.set(layout_padding.max(0.0));
