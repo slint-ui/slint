@@ -18,7 +18,7 @@ MainWindow := Window {
     preferred-height: 400px;
     background: Theme.window-background;
     forward-focus: carousel;
-    padding: Theme.spacing-big;
+    padding: Theme.spacing-regular;
 
     carousel := Carousel {  
         y: (root.height - height) / 2;
@@ -46,4 +46,11 @@ MainWindow := Window {
 
         }
     }
+
+    // Image {
+    //     width: 140px;
+    //     x: parent.width - width - root.padding;
+    //     y: parent.height - height - root.padding;
+    //     source: @image-url("icons/slint-logo-simple-white.svg");
+    // }
 }
