@@ -3,7 +3,7 @@
 
 global Palette := {
     property <color> window-background: #eee;
-    property <color> background: #ddd;
+    property <color> widget-background: #ddd;
     property <color> widget-stroke: #888;
     property <color> window-border: #ccc;
     property <color> text-color: #666;
@@ -156,7 +156,7 @@ Button := TouchArea {
         border-width: 1.5px;
         border-color: root.has-hover ? Palette.widget-stroke : transparent;
         border-radius: 3px;
-        background: root.pressed ? Palette.background.darker(30%) : Palette.background;
+        background: root.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
         t := Label {
             width: 100%;
             horizontal-alignment: center;
@@ -178,7 +178,7 @@ CheckBox := TouchArea {
                 border-width: 1.5px;
                 border-color: root.has-hover ? Palette.widget-stroke : transparent;
                 border-radius: 3px;
-                background: root.pressed ? Palette.background.darker(30%) : Palette.background;
+                background: root.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
                 if checked : Path {
                     stroke: root.has-hover ? Palette.widget-stroke.darker(100%) : Palette.widget-stroke;
                     stroke-width: root.pressed ? 2.5px : 2px;
@@ -208,7 +208,7 @@ RadioButton := TouchArea {
                 border-width: 1.5px;
                 border-color: root.has-hover ? Palette.widget-stroke : transparent;
                 border-radius: width / 2;
-                background: root.pressed ? Palette.background.darker(30%) : Palette.background;
+                background: root.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
                 if checked : Rectangle {
                     background: root.has-hover ? Palette.widget-stroke.darker(100%) : Palette.widget-stroke;
                     border-radius: width / 2;
@@ -236,8 +236,8 @@ SelectableLabel := TouchArea {
         border-radius: 3px;
         background:
             root.checked ? Palette.hyper-blue :
-            root.pressed ? Palette.background.darker(30%) :
-            root.has-hover ? Palette.background : transparent;
+            root.pressed ? Palette.widget-background.darker(30%) :
+            root.has-hover ? Palette.widget-background : transparent;
         t := Label {
             width: 100%;
             horizontal-alignment: center;
@@ -262,7 +262,7 @@ Slider := Rectangle {
         height: parent.height / 2;
         y: (parent.height - height) / 2;
         border-radius: 2px;
-        background: Palette.background;
+        background: Palette.widget-background;
     }
 
 
@@ -272,7 +272,7 @@ Slider := Rectangle {
         border-radius: height / 2;
         border-color: touch.has-hover ? Palette.widget-stroke.darker(100%) :  Palette.widget-stroke;
         border-width: touch.pressed ? 4px : touch.has-hover ? 3px : 2px;
-        background: touch.pressed ? Palette.background.darker(30%) : Palette.background;
+        background: touch.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
         x: (root.width - handle.width) * max(0, min(1, (value - minimum)/(maximum - minimum)));
     }
     touch := TouchArea {
@@ -308,7 +308,7 @@ DragValue := TouchArea {
         border-width: 1.5px;
         border-color: root.has-hover ? Palette.widget-stroke : transparent;
         border-radius: 3px;
-        background: root.pressed ? Palette.background.darker(30%) : Palette.background;
+        background: root.pressed ? Palette.widget-background.darker(30%) : Palette.widget-background;
         t := Label {
             width: 100%;
             horizontal-alignment: center;

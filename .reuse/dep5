@@ -62,3 +62,11 @@ License: GPL-3.0-only OR LicenseRef-Slint-commercial
 Files: editors/vscode/*.json editors/vscode/README.md
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+Files: examples/carousel/icons/*.svg
+Copyright: Material Icons <https://fonts.google.com/icons?selected=Material+Iconse>
+License: Apache-2.0
+
+Files: examples/carousel/fonts/*.ttf
+Copyright: Roboto <https://fonts.google.com/specimen/Roboto/about>
+License: Apache-2.0
