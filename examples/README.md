@@ -10,6 +10,8 @@ A custom carousel navigation widget that can be controlled by touch, mouse and k
 | --- | --- | --- | --- | --- | --- |
 | [`ui.slint`](./carousel/ui/carousel_demo.slint) | [`main.rs`](./carousel/rust/main.rs) | [`main.cpp`](./carousel/cpp/main.cpp) | [`main.js`](./carousel/node/main.js) | [Online simulation](https://slint-ui.com/snapshots/master/demos/carousel/) | [Preview in Online Code Editor](https://slint-ui.com/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/carousel/ui/carousel_demo.slint) |
 
+![Screenshot of the Carousel Demo](https://slint-ui.com/resources/carousel_screenshot.png "Carousel Demo")
+
 ### [`printerdemo`](./printerdemo)
 
 A fictional user interface for the touch screen of a printer
