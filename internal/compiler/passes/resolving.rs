@@ -84,29 +84,22 @@ pub fn resolve_expressions(
     diag: &mut BuildDiagnostics,
 ) {
     for component in doc.inner_components.iter() {
-        let scope = ComponentScope(vec![component.root_element.clone()]);
+        let scope = ComponentScope(vec![]);
 
         recurse_elem(&component.root_element, &scope, &mut |elem, scope| {
             let mut new_scope = scope.clone();
             let mut is_repeated = elem.borrow().repeated.is_some();
-            if is_repeated {
-                new_scope.0.push(elem.clone())
-            }
             new_scope.0.push(elem.clone());
             let mut two_ways = vec![];
             visit_element_expressions(elem, |expr, property_name, property_type| {
                 if is_repeated {
                     // The first expression is always the model and it needs to be resolved with the parent scope
                     debug_assert!(elem.borrow().repeated.as_ref().is_none()); // should be none because it is taken by the visit_element_expressions function
-                    let mut parent_scope = scope.clone();
-                    if let Some(parent) = find_parent_element(elem) {
-                        parent_scope.0.push(parent)
-                    };
                     resolve_expression(
                         expr,
                         property_name,
                         property_type(),
-                        &parent_scope,
+                        &scope,
                         &doc.local_registry,
                         type_loader,
                         &mut two_ways,
@@ -129,7 +122,6 @@ pub fn resolve_expressions(
             for (prop, nr) in two_ways {
                 elem.borrow().bindings.get(&prop).unwrap().borrow_mut().two_way_bindings.push(nr);
             }
-            new_scope.0.pop();
             new_scope
         })
     }
@@ -539,6 +531,16 @@ impl Expression {
                     {
                         ctx.diag.push_error(format!("Unknown unqualified identifier '{}'. Use space before the '-' if you meant a subtraction", first.text()), &node);
                         return Expression::Invalid;
+                    }
+                }
+                for (prefix, e) in
+                    [("self", ctx.component_scope.last()), ("root", ctx.component_scope.first())]
+                {
+                    if let Some(e) = e {
+                        if e.lookup(ctx, &first_str).is_some() {
+                            ctx.diag.push_error(format!("Unknown unqualified identifier '{0}'. Did you mean '{prefix}.{0}'?", first.text()), &node);
+                            return Expression::Invalid;
+                        }
                     }
                 }
 

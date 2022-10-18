@@ -31,6 +31,9 @@ pub struct LookupChangeState {
 
     /// Elements that should get an id
     elements_id: HashMap<ByAddress<ElementRc>, String>,
+
+    /// the full lookup scope
+    pub scope: Vec<ElementRc>,
 }
 
 pub(crate) fn fold_node(
@@ -135,9 +138,12 @@ fn fully_qualify_property_access(
                         .as_ref()
                         .map_or(false, |c| Rc::ptr_eq(&element, &c.root_element))
                     {
-                        // We could decide to also prefix all root properties with root
-                        //write!(file, "root.")?;
-                    } else if state.current_elem.as_ref().map_or(false, |e| Rc::ptr_eq(&element, e))
+                        write!(file, "root.")?;
+                    } else if state
+                        .lookup_change
+                        .scope
+                        .last()
+                        .map_or(false, |e| Rc::ptr_eq(&element, e))
                     {
                         if let Some(replace_self) = &state.lookup_change.replace_self {
                             write!(file, "{replace_self}.")?;
@@ -255,17 +261,9 @@ fn with_lookup_ctx<R>(state: &crate::State, f: impl FnOnce(&mut LookupCtx) -> R)
         .zip(state.property_name.as_ref())
         .map_or(Type::Invalid, |(e, n)| e.borrow().lookup_property(&n).property_type);
 
-    let scope = state
-        .current_component
-        .as_ref()
-        .map(|c| c.root_element.clone())
-        .into_iter()
-        .chain(state.current_elem.clone().into_iter())
-        .collect::<Vec<_>>();
-
     lookup_context.property_name = state.property_name.as_ref().map(String::as_str);
     lookup_context.property_type = ty;
-    lookup_context.component_scope = &scope;
+    lookup_context.component_scope = &state.lookup_change.scope;
     Some(f(&mut lookup_context))
 }
 
@@ -317,5 +315,19 @@ fn ensure_element_has_id(
         elements_id.entry(ByAddress(element.clone())).or_insert_with(|| {
             format!("_{}", ID_GEN.fetch_add(1, std::sync::atomic::Ordering::Relaxed))
         });
+    }
+}
+
+pub(crate) fn enter_element(state: &mut crate::State) {
+    if state
+        .lookup_change
+        .scope
+        .last()
+        .map_or(false, |e| e.borrow().base_type.to_string() == "Path")
+    {
+        // Path's sub-elements have strange lookup rules: They are considering self as the Path
+        state.lookup_change.replace_self = Some("parent".into());
+    } else {
+        state.lookup_change.scope.extend(state.current_elem.iter().cloned())
     }
 }
