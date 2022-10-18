@@ -2,16 +2,6 @@
 
 These examples demonstrate the main features of Slint and how to use them in different language environments.
 
-### [`carousel`](./carousel)
-
-A custom carousel widget that can be controlled by touch, mouse and keyboard
-
-| `.slint` Design | Rust Source | C++ Source | Node Source | Online wasm Preview | Open in code editor |
-| --- | --- | --- | --- | --- | --- |
-| [`ui.slint`](./carousel/ui/carousel_demo.slint) | [`main.rs`](./carousel/rust/main.rs) | [`main.cpp`](./carousel/cpp/main.cpp) | [`main.js`](./carousel/node/main.js) | [Online simulation](https://slint-ui.com/snapshots/master/demos/carousel/) | [Preview in Online Code Editor](https://slint-ui.com/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/carousel/ui/carousel_demo.slint) |
-
-![Screenshot of the Carousel Demo](https://user-images.githubusercontent.com/6715107/196391434-a8e9db64-a14c-4a9c-b08c-5a9fc74e4e3d.png "Carousel Demo")
-
 ### [`printerdemo`](./printerdemo)
 
 A fictional user interface for the touch screen of a printer
@@ -41,6 +31,16 @@ A simple todo mvc application
 | [`todo.slint`](./todo/ui/todo.slint) | [`main.rs`](./todo/rust/main.rs) | [`main.cpp`](./todo/cpp/main.cpp) | [`main.js`](./todo/node/main.js) | [Online simulation](https://slint-ui.com/snapshots/master/demos/todo/) | [Preview in Online Code Editor](https://slint-ui.com/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/todo/ui/todo.slint) |
 
 ![Screenshot of the Todo Demo](https://slint-ui.com/resources/todo_screenshot.png "Todo Demo")
+
+### [`carousel`](./carousel)
+
+A custom carousel widget that can be controlled by touch, mouse and keyboard
+
+| `.slint` Design | Rust Source | C++ Source | Node Source | Online wasm Preview | Open in code editor |
+| --- | --- | --- | --- | --- | --- |
+| [`ui.slint`](./carousel/ui/carousel_demo.slint) | [`main.rs`](./carousel/rust/main.rs) | [`main.cpp`](./carousel/cpp/main.cpp) | [`main.js`](./carousel/node/main.js) | [Online simulation](https://slint-ui.com/snapshots/master/demos/carousel/) | [Preview in Online Code Editor](https://slint-ui.com/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/carousel/ui/carousel_demo.slint) |
+
+![Screenshot of the Carousel Demo](https://user-images.githubusercontent.com/6715107/196391434-a8e9db64-a14c-4a9c-b08c-5a9fc74e4e3d.png "Carousel Demo")
 
 ### [`slide_puzzle`](./slide_puzzle)
 
