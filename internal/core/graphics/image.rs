@@ -435,6 +435,20 @@ impl ImageInner {
             _ => None,
         }
     }
+
+    /// Returns true if the image is an SVG (either backed by resvg or HTML image wrapper).
+    pub fn is_svg(&self) -> bool {
+        match self {
+            Self::Svg(_) => true,
+            #[cfg(target_arch = "wasm32")]
+            Self::HTMLImage(html_image)
+                if html_image.dom_element.current_src().ends_with(".svg") =>
+            {
+                true
+            }
+            _ => false,
+        }
+    }
 }
 
 impl PartialEq for ImageInner {
