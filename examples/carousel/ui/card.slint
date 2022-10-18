@@ -2,14 +2,15 @@ import { Theme } from "theme.slint";
 import { TitleLabel } from "title_label.slint";
 
 export Card := Rectangle {
-    callback clicked; 
+    callback clicked <=> touch-area.clicked;  
 
+    property <string> title: "title";
+    property <bool> is-selected: false;
+    property <image> image-source <=> image.source;
     property <length> spacing: Theme.spacing-medium;
-    property <bool> is-selected : false;
     property <length> title-spacing: Theme.spacing-medium;
     property <length> title-area-height: Theme.size-small;
-    property <string> title: "title";
-    property <image> image-source <=> image.source;
+    property <duration> duration: Theme.duration-regular;
 
     background: transparent;
     width: Theme.size-medium;
@@ -17,35 +18,19 @@ export Card := Rectangle {
 
     // background
     background := Rectangle { 
-        width: parent.width;
-        height: parent.height;
         opacity: 0.95;
-
         clip: true;
         border-radius: Theme.radius-big;
+        background: Theme.background-regular;
     
-        TouchArea { 
-            clicked => { 
-                root.clicked()
-             }
-         }
-    
-        border:= Rectangle { 
-            opacity: 0.95;
-            width: root.width;
-            height: root.height;
-            background: Theme.background-regular;
-            border-radius: background.border-radius;
-            border-width: Theme.spacing-regular;
-            border-color: Theme.border-color-regular;
-        }
-    
+        touch-area := TouchArea {}
+  
         image := Image {
             x: (parent.width - width) / 2;
             y: (parent.height - height) / 2;
             width: 80%;
             height: 80%;
-            colorize: Theme.foureground;
+            colorize: Theme.foreground;
         }
     }
 
@@ -55,28 +40,41 @@ export Card := Rectangle {
         visible: false;
         x: root.spacing + parent.width;
         y: parent.height - self.height;
-        height: root.title-area-height;
     }
 
     states [
-         selected when is-selected : {
+        selected-pressed when touch-area.pressed : {
+            background.background: Theme.background-pressed;
+            image.colorize: Theme.foreground-hover;
             width: Theme.size-big;
             height: Theme.size-big;
-            border.border-color: Theme.border-color-selected;
+            background.border-color: Theme.border-color-selected;
             titleArea.visible: true;
-         }
+        }
+        pressed when touch-area.pressed : {
+            background.background: Theme.background-pressed;
+            image.colorize: Theme.foreground-hover;
+        }
+        selected-hover when touch-area.has-hover && is-selected : {
+            background.background: Theme.background-hover;
+            image.colorize: Theme.foreground-hover;
+            width: Theme.size-big;
+            height: Theme.size-big;
+            background.border-color: Theme.border-color-selected;
+            titleArea.visible: true;
+        }
+        hover when touch-area.has-hover : {
+            background.background: Theme.background-hover;
+            image.colorize: Theme.foreground-hover;
+        }
+        selected when is-selected : {
+            width: Theme.size-big;
+            height: Theme.size-big;
+            background.border-color: Theme.border-color-selected;
+            titleArea.visible: true;
+        }
      ]
 
-     transitions [ 
-         in selected : {
-             animate width { duration: Theme.duration-regular; easing: ease-in; }
-             animate height { duration: Theme.duration-regular; easing: ease-in; }
-             animate  border.border-color { duration: Theme.duration-regular; easing: ease-in; }
-         }
-         out selected : {
-            animate width { duration: Theme.duration-regular; easing: ease-in; }
-            animate height { duration: Theme.duration-regular; easing: ease-in; }
-            animate  border.border-color { duration: Theme.duration-regular; easing: ease-in; }
-        }
-      ]
+     animate width { duration: duration; easing: ease-in; }
+     animate height { duration: duration; easing: ease-in; }
 }

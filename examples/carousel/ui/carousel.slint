@@ -10,6 +10,7 @@ export Carousel := FocusScope {
     property <length> itemWidth;
     property <int> count: 0;
     property <length> center-x: (width - Theme.size-big) / 2;
+    property <duration> duation: Theme.duration-regular;
 
     callback move-right();
     callback move-left();
@@ -66,7 +67,7 @@ export Carousel := FocusScope {
        
         Flickable {
             interactive: false;
-            animate viewport-x { duration: Theme.duration-fast; easing: ease-in; }
+            animate viewport-x { duration: duation; easing: ease-in; }
             viewport-x: center-x - root.selected-index * (root.itemWidth + root.spacing);
     
             HorizontalLayout { 
