@@ -41,23 +41,29 @@ export Card := Rectangle {
             pressed when touch-area.pressed : {
                 background: Theme.background-pressed;
                 image.colorize: Theme.foreground-hover;
+                titleArea.color: Theme.foreground-hover;
             }
             hover when touch-area.has-hover : {
                 background: Theme.background-hover;
                 image.colorize: Theme.foreground-hover;
+                titleArea.color: Theme.foreground-hover;
             }
          ]
+
+           // Selection text
+        titleArea := TitleLabel {
+            x: (parent.width - width) / 2;
+            y: parent.height - height - 8px;
+            text <=> title;
+            visible: false;
+
+            animate color { duration: Theme.duration-fast; }
+        }
 
          animate background { duration: Theme.duration-fast; }
     }
 
-    // Selection text
-    titleArea := TitleLabel {
-        x: root.spacing + parent.width;
-        y: parent.height - self.height;
-        text <=> title;
-        visible: false;
-    }
+  
 
     states [
         selected when is-selected : {
