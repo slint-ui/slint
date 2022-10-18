@@ -900,7 +900,7 @@ impl Element {
                             if !valid_assign {
                                 diag.push_error(
                                     format!(
-                                        "animating {} property '{}'",
+                                        "Cannot animate {} property '{}'",
                                         lookup_result.property_visibility, unresolved_prop_name
                                     ),
                                     &prop_name_token,
@@ -1191,7 +1191,7 @@ impl Element {
             {
                 diag.push_error(
                     format!(
-                        "assigning to {} property '{}'",
+                        "Cannot assign to {} property '{}'",
                         lookup_result.property_visibility, unresolved_name
                     ),
                     &name_token,
