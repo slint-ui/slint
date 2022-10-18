@@ -1,0 +1,39 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import "fonts/Roboto-Regular.ttf";
+import "fonts/Roboto-Bold.ttf";
+
+export global Theme := {
+    // brushes
+    property <brush> window-background: #2C2F36;
+    property <brush> background-regular: #0025FF;
+    property <brush> background-hover: #FFFFFF;
+    property <brush> background-pressed: #BDBDBD;
+    property <brush> foreground: #FFFFFF;
+    property <brush> foreground-hover: #0025FF;
+
+    // durations
+    property <duration> duration-fast: 100ms;
+    property <duration> duration-regular: 250ms;
+
+    // radius
+    property <length> radius-regular: 16px;
+
+    // sizes
+    property <length> size-small: 24px;
+    property <length> size-regular: 32px;
+    property <length> size-medium: 128px;
+    property <length> size-big: 200px;
+
+    // spacings
+    property <length> spacing-regular: 4px;
+    property <length> spacing-medium: 8px;
+
+    // typo
+    property <string> font-family: "Roboto";
+    property <length> font-size-regular: 12px;
+    property <length> font-size-extra-medium: 24px;
+    property <int> font-weight-regular: 400;
+    property <int> font-weight-bold: 900;
+}

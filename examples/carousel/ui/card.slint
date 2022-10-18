@@ -1,0 +1,72 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Theme } from "theme.slint";
+import { TitleLabel } from "title_label.slint";
+
+export Card := Rectangle {
+    callback clicked <=> touch-area.clicked;  
+
+    property <string> title: "title";
+    property <bool> is-selected: false;
+    property <image> image-source <=> image.source;
+    property <length> spacing: Theme.spacing-medium;
+    property <length> title-spacing: Theme.spacing-medium;
+    property <length> title-area-height: Theme.size-small;
+
+    background: transparent;
+    width: Theme.size-medium;
+    height: Theme.size-medium;
+
+    // background
+    background := Rectangle { 
+        opacity: 0.95;
+        clip: true;
+        border-radius: Theme.radius-regular;
+        background: Theme.background-regular;
+    
+        touch-area := TouchArea {}
+  
+        image := Image {
+            x: (parent.width - width) / 2;
+            y: (parent.height - height) / 2;
+            width: 80%;
+            height: 80%;
+            colorize: Theme.foreground;
+
+            animate colorize { duration: Theme.duration-fast; }
+        }
+
+        states [   
+            pressed when touch-area.pressed : {
+                background: Theme.background-pressed;
+                image.colorize: Theme.foreground-hover;
+            }
+            hover when touch-area.has-hover : {
+                background: Theme.background-hover;
+                image.colorize: Theme.foreground-hover;
+            }
+         ]
+
+         animate background { duration: Theme.duration-fast; }
+    }
+
+    // Selection text
+    titleArea := TitleLabel {
+        x: root.spacing + parent.width;
+        y: parent.height - self.height;
+        text <=> title;
+        visible: false;
+    }
+
+    states [
+        selected when is-selected : {
+            width: Theme.size-big;
+            height: Theme.size-big;
+            titleArea.visible: true;
+        }
+     ]
+
+     animate width { duration: Theme.duration-regular; easing: ease-in; }
+     animate height { duration: Theme.duration-regular; easing: ease-in; }
+}

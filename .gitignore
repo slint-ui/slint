@@ -7,3 +7,4 @@ tools/figma_import/figma_output
 *.code-workspace
 /build
 /_deps
+package-lock.json

@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+
+<!-- Copyright © SixtyFPS GmbH <info@slint-ui.com> -->
+<!-- SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial -->
+
+<html>
+<!--
+  This is a static html file used to display the wasm build.
+  In order to generate the build
+   - uncomment the #wasm# lines in Cargo.toml
+   - Run `wasm-pack build --release --target web` in this directory.
+-->
+
+<head>
+  <meta charset="UTF-8">
+  <title>Slint Carousel example (Web Assembly version)</title>
+  <link rel="stylesheet" href="https://slint-ui.com/css/demos-v1.css">
+  <style>
+    @media screen and (max-width: 992px) and (orientation: landscape) {
+      .hide-in-mobile-landscape {
+        display: none;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+      }
+
+      canvas {
+        width: 100vw !important;
+        height: 100vh !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <h1 class="hide-in-mobile-landscape">Carousel example</h1>
+  <p class="hide-in-mobile-landscape">This is the <a href="https://slint-ui.com">Slint</a> Carousel example compiled to
+    WebAssembly.</p>
+  <div id="spinner" style="position: relative;">
+    <div class="spinner">Loading...</div>
+  </div>
+  <canvas id="canvas" width="640" height="480" unselectable="on"></canvas>
+  <p class="hide-in-mobile-landscape links">
+    <a href="https://github.com/slint-ui/slint/blob/master/examples/carousel/ui/carousel_demo.slint">
+      View Source Code on GitHub</a> -
+    <a
+      href="https://slint-ui.com/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/carousel/ui/carousel_demo.slint">
+      Edit in the online code editor
+    </a>
+  </p>
+  <script type="module">
+    import init from './pkg/carousel.js';
+    init().finally(() => {
+      document.getElementById("spinner").remove();
+    });
+  </script>
+</body>
+
+</html>
