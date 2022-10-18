@@ -13,7 +13,6 @@ export Card := Rectangle {
     property <length> spacing: Theme.spacing-medium;
     property <length> title-spacing: Theme.spacing-medium;
     property <length> title-area-height: Theme.size-small;
-    property <duration> duration: Theme.duration-regular;
 
     background: transparent;
     width: Theme.size-medium;
@@ -34,7 +33,22 @@ export Card := Rectangle {
             width: 80%;
             height: 80%;
             colorize: Theme.foreground;
+
+            animate colorize { duration: Theme.duration-fast; }
         }
+
+        states [   
+            pressed when touch-area.pressed : {
+                background: Theme.background-pressed;
+                image.colorize: Theme.foreground-hover;
+            }
+            hover when touch-area.has-hover : {
+                background: Theme.background-hover;
+                image.colorize: Theme.foreground-hover;
+            }
+         ]
+
+         animate background { duration: Theme.duration-fast; }
     }
 
     // Selection text
@@ -46,28 +60,6 @@ export Card := Rectangle {
     }
 
     states [
-        selected-pressed when touch-area.pressed : {
-            background.background: Theme.background-pressed;
-            image.colorize: Theme.foreground-hover;
-            width: Theme.size-big;
-            height: Theme.size-big;
-            titleArea.visible: true;
-        }
-        pressed when touch-area.pressed : {
-            background.background: Theme.background-pressed;
-            image.colorize: Theme.foreground-hover;
-        }
-        selected-hover when touch-area.has-hover && is-selected : {
-            background.background: Theme.background-hover;
-            image.colorize: Theme.foreground-hover;
-            width: Theme.size-big;
-            height: Theme.size-big;
-            titleArea.visible: true;
-        }
-        hover when touch-area.has-hover : {
-            background.background: Theme.background-hover;
-            image.colorize: Theme.foreground-hover;
-        }
         selected when is-selected : {
             width: Theme.size-big;
             height: Theme.size-big;
@@ -75,6 +67,6 @@ export Card := Rectangle {
         }
      ]
 
-     animate width { duration: duration; easing: ease-in; }
-     animate height { duration: duration; easing: ease-in; }
+     animate width { duration: Theme.duration-regular; easing: ease-in; }
+     animate height { duration: Theme.duration-regular; easing: ease-in; }
 }
