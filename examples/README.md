@@ -2,6 +2,14 @@
 
 These examples demonstrate the main features of Slint and how to use them in different language environments.
 
+### [`carousel`](./carousel)
+
+A custom carousel navigation widget that can be controlled by touch, mouse and keyboard
+
+| `.slint` Design | Rust Source | C++ Source | Node Source | Online wasm Preview | Open in code editor |
+| --- | --- | --- | --- | --- | --- |
+| [`ui.slint`](./carousel/ui/carousel_demo.slint) | [`main.rs`](./carousel/rust/main.rs) | [`main.cpp`](./carousel/cpp/main.cpp) | [`main.js`](./carousel/node/main.js) | [Online simulation](https://slint-ui.com/snapshots/master/demos/carousel/) | [Preview in Online Code Editor](https://slint-ui.com/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/carousel/ui/carousel_demo.slint) |
+
 ### [`printerdemo`](./printerdemo)
 
 A fictional user interface for the touch screen of a printer
