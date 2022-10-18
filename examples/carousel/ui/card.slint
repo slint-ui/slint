@@ -23,7 +23,7 @@ export Card := Rectangle {
     background := Rectangle { 
         opacity: 0.95;
         clip: true;
-        border-radius: Theme.radius-big;
+        border-radius: Theme.radius-regular;
         background: Theme.background-regular;
     
         touch-area := TouchArea {}
@@ -51,7 +51,6 @@ export Card := Rectangle {
             image.colorize: Theme.foreground-hover;
             width: Theme.size-big;
             height: Theme.size-big;
-            background.border-color: Theme.border-color-selected;
             titleArea.visible: true;
         }
         pressed when touch-area.pressed : {
@@ -63,7 +62,6 @@ export Card := Rectangle {
             image.colorize: Theme.foreground-hover;
             width: Theme.size-big;
             height: Theme.size-big;
-            background.border-color: Theme.border-color-selected;
             titleArea.visible: true;
         }
         hover when touch-area.has-hover : {
@@ -73,7 +71,6 @@ export Card := Rectangle {
         selected when is-selected : {
             width: Theme.size-big;
             height: Theme.size-big;
-            background.border-color: Theme.border-color-selected;
             titleArea.visible: true;
         }
      ]
