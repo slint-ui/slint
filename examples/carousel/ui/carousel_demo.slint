@@ -19,10 +19,11 @@ MainWindow := Window {
     background: Theme.window-background;
     padding: Theme.spacing-regular;
     forward-focus: carousel;
+    default-font-family: Theme.font-family;
 
     carousel := Carousel {  
         y: (root.height - height) / 2;
-        // width of a `Card`
+        height: 100%;
         itemWidth: Theme.size-medium;
         count: navigation-items.length;
         selected-index <=> root.selected-index;

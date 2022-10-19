@@ -18,9 +18,10 @@ export Card := Rectangle {
     background: Theme.background-regular;
     width: Theme.size-medium;
     height: Theme.size-medium;
+    clip: false;
 
     touch-area := TouchArea {}
-  
+
     image := Image {
         x: (parent.width - width) / 2;
         y: (parent.height - height) / 2;
@@ -30,48 +31,44 @@ export Card := Rectangle {
 
         animate colorize { duration: Theme.duration-fast; }
     }
-       // Selection text
-    titleArea := TitleLabel {
+    
+    // Selection text
+    title-label := TitleLabel {
         x: (parent.width - width) / 2;
-        y: parent.height - height - 8px;
+        y: parent.height;
         text <=> title;
         visible: false;
-
-        animate color { duration: Theme.duration-fast; }
+        color: Theme.foreground;
     }
 
     states [
-        hover-selected when touch-area.has-hover && is-selected  : {
-            background: Theme.background-hover;
-            image.colorize: Theme.foreground-hover;
-            titleArea.color: Theme.foreground-hover;
-               width: Theme.size-big;
-            height: Theme.size-big;
-            titleArea.visible: true;
-        }
-        selected when is-selected : {
-            width: Theme.size-big;
-            height: Theme.size-big;
-            titleArea.visible: true;
-        }
         pressed-selected when touch-area.pressed && is-selected  : {
             background: Theme.background-pressed;
             image.colorize: Theme.foreground-hover;
-            titleArea.color: Theme.foreground-hover;
             width: Theme.size-big;
             height: Theme.size-big;
-            titleArea.visible: true;
+            title-label.visible: true;
+        }
+        hover-selected when touch-area.has-hover && is-selected  : {
+            background: Theme.background-hover;
+            image.colorize: Theme.foreground-hover;
+            width: Theme.size-big;
+            height: Theme.size-big;
+            title-label.visible: true;
         }
         pressed when touch-area.pressed : {
             background: Theme.background-pressed;
             image.colorize: Theme.foreground-hover;
-            titleArea.color: Theme.foreground-hover;
         }
 
         hover when touch-area.has-hover: {
             background: Theme.background-hover;
             image.colorize: Theme.foreground-hover;
-            titleArea.color: Theme.foreground-hover;
+        }
+        selected when is-selected : {
+            width: Theme.size-big;
+            height: Theme.size-big;
+            title-label.visible: true;
         }
      ]
 
