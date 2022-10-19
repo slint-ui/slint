@@ -310,9 +310,22 @@ function main() {
     ],
     [
       () => {
-        return new OutlineWidget(() => {
+        const outline = new OutlineWidget(() => {
           return [editor.language_client, editor.current_text_document_uri];
         });
+
+        outline.on_goto_position = (
+          uri: string,
+          sl: number,
+          sc: number,
+          el: number,
+          ec: number,
+        ) => {
+          console.log("Index: goto_position called", uri, sl, sc, el, ec);
+          editor.goto_position(uri, sl, sc, el, ec);
+        };
+
+        return outline;
       },
       { mode: "tab-after", ref: "Welcome" },
     ],
