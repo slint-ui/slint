@@ -478,7 +478,9 @@ SCENARIO("Send key events")
             property <string> result;
             scope := FocusScope {
                 key-pressed(event) => {
-                    result += event.text;
+                    if (event.text != Key.Shift && event.text != Key.Control) {
+                        result += event.text;
+                    }
                     return accept;
                 }
             }
@@ -487,7 +489,7 @@ SCENARIO("Send key events")
                                                "");
     REQUIRE(comp_def.has_value());
     auto instance = comp_def->create();
-    slint::testing::send_keyboard_string_sequence(&*instance, "Hello keys!", {});
+    slint::testing::send_keyboard_string_sequence(&*instance, "Hello keys!");
     REQUIRE(*instance->get_property("result")->to_string() == "Hello keys!");
 }
 

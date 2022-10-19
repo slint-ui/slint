@@ -74,11 +74,11 @@ export SideBar := Rectangle {
                      current-item = current-focused;
                      return accept;
                 }
-                if (event.text == Keys.UpArrow) {
+                if (event.text == Key.UpArrow) {
                      focused-tab = Math.max(focused-tab - 1,  0);
                      return accept;
                 }
-                if (event.text == Keys.DownArrow) {
+                if (event.text == Key.DownArrow) {
                      focused-tab = Math.min(focused-tab + 1, model.length - 1);
                      return accept;
                 }

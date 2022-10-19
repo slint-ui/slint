@@ -88,11 +88,11 @@ export ComboBox := FocusScope {
     }
 
     key-pressed(event) => {
-        if (event.text == Keys.UpArrow) {
+        if (event.text == Key.UpArrow) {
             current-index = Math.max(current-index - 1, 0);
             current-value = model[current-index];
             return accept;
-        } else if (event.text == Keys.DownArrow) {
+        } else if (event.text == Key.DownArrow) {
             current-index = Math.min(current-index + 1, model.length - 1);
             current-value = model[current-index];
             return accept;

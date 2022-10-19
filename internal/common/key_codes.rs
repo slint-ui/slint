@@ -18,6 +18,20 @@ macro_rules! for_each_special_keys {
 '\u{0019}'  # Backtab     # Qt_Key_Key_Backtab      #              ;
 '\u{007f}'  # Delete      # Qt_Key_Key_Delete       # Delete       ;
 
+// The modifier key codes comes from https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/keyCode.
+'\u{0010}'  # Shift       # Qt_Key_Key_Shift        # LShift       ;
+'\u{0011}'  # Control     # Qt_Key_Key_Meta         # LControl     ;
+'\u{0012}'  # Alt         # Qt_Key_Key_Alt          # LAlt         ;
+'\u{0013}'  # AltGr       # Qt_Key_Key_AltGr        # RAlt         ;
+'\u{0014}'  # CapsLock    # Qt_Key_Key_CapsLock     #              ;
+
+'\u{0015}'  # ShiftR      #                         # RShift       ;
+'\u{0016}'  # ControlR    #                         # RControl     ;
+
+// meta defines the macos command key (check DOM_VK_META on https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/keyCode)
+'\u{00E0}'  # Meta        # Qt_Key_Key_Control      # LWin         ;
+'\u{00E1}'  # MetaR       #                         # RWin         ;
+
 '\u{F700}'	# UpArrow     # Qt_Key_Key_Up           # Up           ;
 '\u{F701}'	# DownArrow   # Qt_Key_Key_Down         # Down         ;
 '\u{F702}'	# LeftArrow   # Qt_Key_Key_Left         # Left         ;

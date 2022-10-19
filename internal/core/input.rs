@@ -68,26 +68,6 @@ impl MouseEvent {
     }
 }
 
-impl From<crate::api::WindowEvent> for MouseEvent {
-    fn from(event: crate::api::WindowEvent) -> Self {
-        match event {
-            crate::api::WindowEvent::PointerPressed { position, button } => {
-                MouseEvent::Pressed { position: position.to_euclid().cast(), button }
-            }
-            crate::api::WindowEvent::PointerReleased { position, button } => {
-                MouseEvent::Released { position: position.to_euclid().cast(), button }
-            }
-            crate::api::WindowEvent::PointerMoved { position } => {
-                MouseEvent::Moved { position: position.to_euclid().cast() }
-            }
-            crate::api::WindowEvent::PointerScrolled { position, delta_x, delta_y } => {
-                MouseEvent::Wheel { position: position.to_euclid().cast(), delta_x, delta_y }
-            }
-            crate::api::WindowEvent::PointerExited => MouseEvent::Exit,
-        }
-    }
-}
-
 /// This value is returned by the `input_event` function of an Item
 /// to notify the run-time about how the event was handled and
 /// what the next steps are.
@@ -145,16 +125,85 @@ impl Default for InputEventFilterResult {
     }
 }
 
-/// This module contains the constant character code used to represent the keys
+/// This module contains the constant character code used to represent the keys.
 #[allow(missing_docs, non_upper_case_globals)]
 pub mod key_codes {
     macro_rules! declare_consts_for_special_keys {
        ($($char:literal # $name:ident # $($_qt:ident)|* # $($_winit:ident)|* ;)*) => {
             $(pub const $name : char = $char;)*
+
+            #[allow(missing_docs)]
+            #[derive(Debug, Copy, Clone, PartialEq)]
+            #[non_exhaustive]
+            #[repr(C)]
+            /// The `Key` enum is used to map a specific key by name e.g. `Key::Control` to an
+            /// internal used unicode representation. The enum is convertible to [`std::char`] and [`slint::SharedString`](`crate::SharedString`).
+            /// Use this with [`slint::WindowEvent`](`crate::api::WindowEvent`) to supply key events to Slint's platform abstraction.
+            ///
+            /// ```
+            /// let slint_key_code: char = slint::Key::Tab.into();
+            /// assert_eq!(slint_key_code, '\t')
+            /// ```
+            pub enum Key {
+                $($name,)*
+            }
+
+            impl From<Key> for char {
+                fn from(k: Key) -> Self {
+                    match k {
+                        $(Key::$name => $name,)*
+                    }
+                }
+            }
+
+            impl From<Key> for crate::SharedString {
+                fn from(k: Key) -> Self {
+                    char::from(k).into()
+                }
+            }
         };
     }
 
     i_slint_common::for_each_special_keys!(declare_consts_for_special_keys);
+}
+
+/// Internal struct to maintain the pressed/released state of the keys that
+/// map to keyboard modifiers.
+#[derive(Clone, Copy, Default, Debug)]
+pub(crate) struct InternalKeyboardModifierState {
+    left_alt: bool,
+    right_alt: bool,
+    left_control: bool,
+    right_control: bool,
+    left_meta: bool,
+    right_meta: bool,
+    left_shift: bool,
+    right_shift: bool,
+}
+
+impl InternalKeyboardModifierState {
+    /// Updates a flag of the modifiers if the key of the given text is pressed.
+    /// Returns an updated modifier if detected; None otherwise;
+    pub(crate) fn state_update(mut self, pressed: bool, text: &SharedString) -> Option<Self> {
+        if let Some(key_code) = text.chars().next() {
+            match key_code {
+                key_codes::Alt => self.left_alt = pressed,
+                key_codes::Control => self.left_control = pressed,
+                key_codes::ControlR => self.right_control = pressed,
+                key_codes::Shift => self.left_shift = pressed,
+                key_codes::ShiftR => self.right_shift = pressed,
+                key_codes::Meta => self.left_meta = pressed,
+                key_codes::MetaR => self.right_meta = pressed,
+                _ => return None,
+            };
+            // Encoded keyboard modifiers must appear as individual key events. This could
+            // be relaxed by implementing a string split, but right now WindowEvent::KeyPressed
+            // holds only a single char.
+            debug_assert_eq!(key_code.len_utf8(), text.len());
+        }
+
+        Some(self)
+    }
 }
 
 /// KeyboardModifier provides booleans to indicate possible modifier keys
@@ -170,10 +219,21 @@ pub struct KeyboardModifiers {
     pub alt: bool,
     /// Indicates the control key on a keyboard.
     pub control: bool,
-    /// Indicates the logo key on macOS and the windows key on Windows.
+    /// Indicates the command key on macos.
     pub meta: bool,
     /// Indicates the shift key on a keyboard.
     pub shift: bool,
+}
+
+impl From<InternalKeyboardModifierState> for KeyboardModifiers {
+    fn from(internal_state: InternalKeyboardModifierState) -> Self {
+        Self {
+            alt: internal_state.left_alt | internal_state.right_alt,
+            control: internal_state.left_control | internal_state.right_control,
+            meta: internal_state.left_meta | internal_state.right_meta,
+            shift: internal_state.left_shift | internal_state.right_shift,
+        }
+    }
 }
 
 /// This enum defines the different kinds of key events that can happen.
@@ -200,9 +260,29 @@ impl Default for KeyEventType {
 /// Represents a key event sent by the windowing system.
 #[derive(Debug, Clone, PartialEq, Default)]
 #[repr(C)]
+pub struct KeyInputEvent {
+    /// The unicode representation of the key pressed.
+    pub text: SharedString,
+
+    // note: this field is not exported in the .slint in the KeyEvent builtin struct
+    /// Indicates whether the key was pressed or released
+    pub event_type: KeyEventType,
+
+    /// If the event type is KeyEventType::UpdateComposition, then this field specifies
+    /// the start of the selection as byte offsets within the preedit text.
+    pub preedit_selection_start: usize,
+    /// If the event type is KeyEventType::UpdateComposition, then this field specifies
+    /// the end of the selection as byte offsets within the preedit text.
+    pub preedit_selection_end: usize,
+}
+
+/// Represents a key event.
+#[derive(Debug, Clone, PartialEq, Default)]
+#[repr(C)]
 pub struct KeyEvent {
     /// The keyboard modifiers active at the time of the key press event.
     pub modifiers: KeyboardModifiers,
+
     /// The unicode representation of the key pressed.
     pub text: SharedString,
 

@@ -17,11 +17,6 @@ TestCase := TextInput {
 const LEFT_CODE: char = '\u{F702}';
 const BACK_CODE: char = '\u{0008}'; // backspace \b
 
-let shift_modifier = slint::private_unstable_api::re_exports::KeyboardModifiers {
-    shift: true,
-    ..Default::default()
-};
-
 let instance = TestCase::new();
 slint_testing::send_mouse_click(&instance, 50., 50.);
 assert!(instance.get_input_focused());
@@ -30,7 +25,7 @@ slint_testing::send_keyboard_string_sequence(&instance, "😍");
 assert_eq!(instance.get_test_text(), "😍");
 assert!(!instance.get_has_selection());
 
-slint_testing::set_current_keyboard_modifiers(&instance, shift_modifier);
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), true);
 slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
 assert!(instance.get_has_selection());
 assert_eq!(instance.get_test_cursor_pos(), 0);

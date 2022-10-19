@@ -132,13 +132,10 @@ pub fn init() {
 
 /// This module contains functions useful for unit tests
 mod for_unit_test {
-    use core::cell::Cell;
     use i_slint_core::api::ComponentHandle;
     pub use i_slint_core::tests::slint_mock_elapsed_time as mock_elapsed_time;
     use i_slint_core::window::WindowInner;
     use i_slint_core::SharedString;
-
-    thread_local!(static KEYBOARD_MODIFIERS : Cell<i_slint_core::input::KeyboardModifiers> = Default::default());
 
     /// Simulate a mouse click
     pub fn send_mouse_click<
@@ -159,15 +156,20 @@ mod for_unit_test {
         );
     }
 
-    /// Simulate a change in keyboard modifiers being pressed
-    pub fn set_current_keyboard_modifiers<
+    /// Simulate entering a sequence of ascii characters key by (pressed or released).
+    pub fn send_keyboard_char<
         X: vtable::HasStaticVTable<i_slint_core::component::ComponentVTable>,
         Component: Into<vtable::VRc<i_slint_core::component::ComponentVTable, X>> + ComponentHandle,
     >(
-        _component: &Component,
-        modifiers: i_slint_core::input::KeyboardModifiers,
+        component: &Component,
+        string: char,
+        pressed: bool,
     ) {
-        KEYBOARD_MODIFIERS.with(|x| x.set(modifiers))
+        i_slint_core::tests::slint_send_keyboard_char(
+            &SharedString::from(string),
+            pressed,
+            &WindowInner::from_pub(component.window()).window_adapter(),
+        )
     }
 
     /// Simulate entering a sequence of ascii characters key by key.
@@ -180,7 +182,6 @@ mod for_unit_test {
     ) {
         i_slint_core::tests::send_keyboard_string_sequence(
             &SharedString::from(sequence),
-            KEYBOARD_MODIFIERS.with(|x| x.get()),
             &WindowInner::from_pub(component.window()).window_adapter(),
         )
     }

@@ -10,12 +10,16 @@ All notable changes to this project are documented in this file.
  - `Window`'s `default-font-size` property is now always set to a non-zero value, provided by 
    either the style or the backend.
  - In the interpreter, calling `set_property` or `get_property` on properties of the base no longer works.
+ - Renamed the `Keys` namespace for use in `key-pressed`/`key-released` callbacks to `Key`. The
+   old name continues to work.
 
 ### Added
 
  - Added `material` style with `material-light` and `fluent-dark` as explicit styles
  - Added `Window::is_visible` 
  - Added `From<char>` for `SharedString` in Rust.
+ - Added `KeyPressed` and `KeyReleased` variants to `slint::WindowEvent` in Rust, along
+   with `slint::Key`, for use by custom platform backends.
 
 ### Fixed
 

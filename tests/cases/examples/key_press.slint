@@ -7,10 +7,10 @@ W := Window {
         field := FocusScope {
             vertical_stretch: 1;
             key-pressed(event) => {
-                if (event.text == Keys.F1) {
+                if (event.text == Key.F1) {
                     debug("F1");
                 }
-                if (event.text == Keys.PageUp) {
+                if (event.text == Key.PageUp) {
                     debug("PageUp");
                 }
                 if (event.modifiers.control) {

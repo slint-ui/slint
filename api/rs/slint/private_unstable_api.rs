@@ -162,7 +162,8 @@ pub mod re_exports {
     };
     pub use i_slint_core::graphics::*;
     pub use i_slint_core::input::{
-        FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers, MouseEvent,
+        key_codes::Key, FocusEvent, InputEventResult, KeyEvent, KeyEventResult, KeyboardModifiers,
+        MouseEvent,
     };
     pub use i_slint_core::item_tree::{
         visit_item_tree, ItemTreeNode, ItemVisitorRefMut, ItemVisitorVTable, ItemWeak,

@@ -1108,6 +1108,18 @@ pub mod testing {
             &WindowInner::from_pub(comp.window()).window_adapter(),
         );
     }
+    /// Wrapper around [`i_slint_core::tests::slint_send_keyboard_char`]
+    pub fn send_keyboard_char(
+        comp: &super::ComponentInstance,
+        string: i_slint_core::SharedString,
+        pressed: bool,
+    ) {
+        i_slint_core::tests::slint_send_keyboard_char(
+            &string,
+            pressed,
+            &WindowInner::from_pub(comp.window()).window_adapter(),
+        );
+    }
     /// Wrapper around [`i_slint_core::tests::send_keyboard_string_sequence`]
     pub fn send_keyboard_string_sequence(
         comp: &super::ComponentInstance,
@@ -1115,7 +1127,6 @@ pub mod testing {
     ) {
         i_slint_core::tests::send_keyboard_string_sequence(
             &string,
-            Default::default(),
             &WindowInner::from_pub(comp.window()).window_adapter(),
         );
     }

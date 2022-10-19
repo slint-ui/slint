@@ -149,10 +149,10 @@ export SpinBox := FocusScope {
     }
 
     key-pressed(event) => {
-        if (enabled && event.text == Keys.UpArrow && value < maximum) {
+        if (enabled && event.text == Key.UpArrow && value < maximum) {
             value += 1;
             accept
-        } else if (enabled && event.text == Keys.DownArrow && value > minimum) {
+        } else if (enabled && event.text == Key.DownArrow && value > minimum) {
             value -= 1;
             accept
         } else {

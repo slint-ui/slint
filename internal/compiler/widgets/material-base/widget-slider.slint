@@ -86,10 +86,10 @@ export Slider := Rectangle {
         width: 0px;
 
         key-pressed(event) => {
-            if (enabled && event.text == Keys.RightArrow) {
+            if (enabled && event.text == Key.RightArrow) {
                 value = Math.min(value + 1, maximum);
                 accept
-            } else if (enabled && event.text == Keys.LeftArrow) {
+            } else if (enabled && event.text == Key.LeftArrow) {
                 value = Math.max(value - 1, minimum);
                 accept
             } else {

@@ -15,7 +15,7 @@ use i_slint_core as corelib;
 
 use corelib::api::EventLoopError;
 use corelib::graphics::euclid;
-use corelib::input::{KeyEvent, KeyEventType, KeyboardModifiers, MouseEvent};
+use corelib::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use corelib::window::*;
 use corelib::{Coord, SharedString};
 use std::cell::{Cell, RefCell, RefMut};
@@ -30,7 +30,6 @@ pub(crate) static QUIT_ON_LAST_WINDOW_CLOSED: std::sync::atomic::AtomicBool =
 
 pub trait WinitWindow: WindowAdapter {
     fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>>;
-    fn current_keyboard_modifiers(&self) -> &Cell<KeyboardModifiers>;
     /// Returns true if during the drawing request_redraw() was called.
     fn draw(&self) -> bool;
     fn with_window_handle(&self, callback: &mut dyn FnMut(&winit::window::Window));
@@ -225,8 +224,7 @@ mod key_codes {
                     $($(winit::event::VirtualKeyCode::$winit => $char,)*)*
                     _ => return None,
                 };
-                let mut buffer = [0; 6];
-                Some(i_slint_core::SharedString::from(char.encode_utf8(&mut buffer) as &str))
+                Some(char.into())
             }
         };
     }
@@ -239,23 +237,6 @@ fn process_window_event(
     cursor_pos: &mut LogicalPoint,
     pressed: &mut bool,
 ) {
-    fn key_event(
-        event_type: KeyEventType,
-        text: SharedString,
-        modifiers: KeyboardModifiers,
-    ) -> KeyEvent {
-        let mut event = KeyEvent { event_type, text, modifiers, ..Default::default() };
-
-        let tab = String::from(corelib::input::key_codes::Tab);
-
-        // map Shift-Tab into (Shift) Backtab to have a similar behavior as Qt backend
-        if event.text == tab && modifiers.shift {
-            event.text = SharedString::from(String::from(corelib::input::key_codes::Backtab));
-        }
-
-        event
-    }
-
     let runtime_window = WindowInner::from_pub(window.window());
     match event {
         WindowEvent::Resized(size) => {
@@ -279,7 +260,7 @@ fn process_window_event(
                     .and_then(winit_key_code_to_string)
                     .filter(|key_text| !key_text.starts_with(char::is_control))
             } else {
-                Some(ch.to_string().into())
+                Some(SharedString::from(ch))
             };
 
             let text = match text {
@@ -287,13 +268,16 @@ fn process_window_event(
                 None => return,
             };
 
-            let modifiers = window.current_keyboard_modifiers().get();
-
-            let mut event = key_event(KeyEventType::KeyPressed, text, modifiers);
-
-            runtime_window.process_key_input(&event);
-            event.event_type = KeyEventType::KeyReleased;
-            runtime_window.process_key_input(&event);
+            runtime_window.process_key_input(KeyInputEvent {
+                event_type: KeyEventType::KeyPressed,
+                text: text.clone(),
+                ..Default::default()
+            });
+            runtime_window.process_key_input(KeyInputEvent {
+                event_type: KeyEventType::KeyReleased,
+                text: text.clone(),
+                ..Default::default()
+            });
         }
         WindowEvent::Focused(have_focus) => {
             let have_focus = have_focus || window.input_method_focused();
@@ -305,63 +289,51 @@ fn process_window_event(
             }
         }
         WindowEvent::KeyboardInput { ref input, .. } => {
+            // For now: Match Qt's behavior of mapping command to control and control to meta (LWin/RWin).
+            let key_code = input.virtual_keycode.map(|key_code| match key_code {
+                #[cfg(target_os = "macos")]
+                winit::event::VirtualKeyCode::LControl => winit::event::VirtualKeyCode::LWin,
+                #[cfg(target_os = "macos")]
+                winit::event::VirtualKeyCode::RControl => winit::event::VirtualKeyCode::RWin,
+                #[cfg(target_os = "macos")]
+                winit::event::VirtualKeyCode::LWin => winit::event::VirtualKeyCode::LControl,
+                #[cfg(target_os = "macos")]
+                winit::event::VirtualKeyCode::RWin => winit::event::VirtualKeyCode::RControl,
+                code @ _ => code,
+            });
             window.currently_pressed_key_code().set(match input.state {
-                winit::event::ElementState::Pressed => input.virtual_keycode,
+                winit::event::ElementState::Pressed => key_code,
                 _ => None,
             });
-            if let Some(text) = input.virtual_keycode.and_then(key_codes::winit_key_to_string) {
-                #[allow(unused_mut)]
-                let mut modifiers = window.current_keyboard_modifiers().get();
-                // On wasm, the WindowEvent::ModifiersChanged event is not received
-                #[cfg(target_arch = "wasm32")]
-                #[allow(deprecated)]
-                {
-                    modifiers.shift |= input.modifiers.shift();
-                    modifiers.control |= input.modifiers.ctrl();
-                    modifiers.meta |= input.modifiers.logo();
-                    modifiers.alt |= input.modifiers.alt();
-                }
-
-                let event = key_event(
-                    match input.state {
+            if let Some(text) = key_code.and_then(key_codes::winit_key_to_string) {
+                runtime_window.process_key_input(KeyInputEvent {
+                    event_type: match input.state {
                         winit::event::ElementState::Pressed => KeyEventType::KeyPressed,
                         winit::event::ElementState::Released => KeyEventType::KeyReleased,
                     },
                     text,
-                    modifiers,
-                );
-                runtime_window.process_key_input(&event);
+                    ..Default::default()
+                });
             };
         }
         WindowEvent::Ime(winit::event::Ime::Preedit(string, preedit_selection)) => {
             let preedit_selection = preedit_selection.unwrap_or((0, 0));
-            let event = KeyEvent {
+            let event = KeyInputEvent {
                 event_type: KeyEventType::UpdateComposition,
                 text: string.into(),
                 preedit_selection_start: preedit_selection.0,
                 preedit_selection_end: preedit_selection.1,
                 ..Default::default()
             };
-            runtime_window.process_key_input(&event);
+            runtime_window.process_key_input(event);
         }
         WindowEvent::Ime(winit::event::Ime::Commit(string)) => {
-            let event = KeyEvent {
+            let event = KeyInputEvent {
                 event_type: KeyEventType::CommitComposition,
                 text: string.into(),
                 ..Default::default()
             };
-            runtime_window.process_key_input(&event);
-        }
-        WindowEvent::ModifiersChanged(state) => {
-            // To provide an easier cross-platform behavior, we map the command key to control
-            // on macOS, and control to meta.
-            #[cfg(target_os = "macos")]
-            let (control, meta) = (state.logo(), state.ctrl());
-            #[cfg(not(target_os = "macos"))]
-            let (control, meta) = (state.ctrl(), state.logo());
-            let modifiers =
-                KeyboardModifiers { shift: state.shift(), alt: state.alt(), control, meta };
-            window.current_keyboard_modifiers().set(modifiers);
+            runtime_window.process_key_input(event);
         }
         WindowEvent::CursorMoved { position, .. } => {
             let position = position.to_logical(runtime_window.scale_factor() as f64);
