@@ -43,22 +43,22 @@ export Card := Rectangle {
 
     states [
         pressed-selected when touch-area.pressed && is-selected  : {
-            background: Theme.background-pressed;
-            image.colorize: Theme.foreground-hover;
+            background: Theme.background-selected-pressed;
+            image.colorize: Theme.foreground-selected-pressed;
             width: Theme.size-big;
             height: Theme.size-big;
             title-label.visible: true;
         }
         hover-selected when touch-area.has-hover && is-selected  : {
-            background: Theme.background-hover;
-            image.colorize: Theme.foreground-hover;
+            background: Theme.background-selected-hover;
+            image.colorize: Theme.foreground-selected-hover;
             width: Theme.size-big;
             height: Theme.size-big;
             title-label.visible: true;
         }
         pressed when touch-area.pressed : {
             background: Theme.background-pressed;
-            image.colorize: Theme.foreground-hover;
+            image.colorize: Theme.foreground-pressed;
         }
 
         hover when touch-area.has-hover: {
@@ -66,6 +66,8 @@ export Card := Rectangle {
             image.colorize: Theme.foreground-hover;
         }
         selected when is-selected : {
+            background: Theme.background-selected;
+            image.colorize: Theme.foreground-selected;
             width: Theme.size-big;
             height: Theme.size-big;
             title-label.visible: true;

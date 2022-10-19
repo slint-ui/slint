@@ -222,6 +222,11 @@ impl slint::platform::Platform for PicoBackend {
                     })
                 {
                     window.dispatch_event(event);
+
+                    // removes hover state on widgets
+                    if matches!(event, WindowEvent::PointerReleased { .. }) {
+                        window.dispatch_event(WindowEvent::PointerExited);
+                    }
                     // Don't go to sleep after a touch event that forces a redraw
                     continue;
                 }

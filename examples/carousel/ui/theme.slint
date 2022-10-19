@@ -8,10 +8,17 @@ export global Theme := {
     // brushes
     property <brush> window-background: #2C2F36;
     property <brush> background-regular: #0025FF;
-    property <brush> background-hover: #FFFFFF;
-    property <brush> background-pressed: #BDBDBD;
+    property <brush> background-hover: background-regular.darker(0.2);
+    property <brush> background-pressed: background-regular.darker(0.4);
+    property <brush> background-selected: foreground;
+    property <brush> background-selected-hover: background-selected.darker(0.2);
+    property <brush> background-selected-pressed: background-selected.darker(0.4);
     property <brush> foreground: #FFFFFF;
-    property <brush> foreground-hover: #0025FF;
+    property <brush> foreground-hover: foreground.darker(0.2);
+    property <brush> foreground-pressed: foreground.darker(0.4);
+    property <brush> foreground-selected: background-regular;
+    property <brush> foreground-selected-hover: foreground-selected.darker(0.2);
+    property <brush> foreground-selected-pressed: foreground-selected.darker(0.4);
 
     // durations
     property <duration> duration-fast: 100ms;
