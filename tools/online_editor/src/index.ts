@@ -310,7 +310,9 @@ function main() {
     ],
     [
       () => {
-        return new OutlineWidget();
+        return new OutlineWidget(() => {
+          return [editor.language_client, editor.current_text_document_uri];
+        });
       },
       { mode: "tab-after", ref: "Welcome" },
     ],
