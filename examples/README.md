@@ -36,6 +36,8 @@ A simple todo mvc application
 
 A custom carousel widget that can be controlled by touch, mouse and keyboard
 
+The example can be run on desktop, wasm and mcu platforms
+
 | `.slint` Design | Rust Source | C++ Source | Node Source | Online wasm Preview | Open in code editor |
 | --- | --- | --- | --- | --- | --- |
 | [`ui.slint`](./carousel/ui/carousel_demo.slint) | [`main.rs`](./carousel/rust/main.rs) | [`main.cpp`](./carousel/cpp/main.cpp) | [`main.js`](./carousel/node/main.js) | [Online simulation](https://slint-ui.com/snapshots/master/demos/carousel/) | [Preview in Online Code Editor](https://slint-ui.com/snapshots/master/editor?load_url=https://raw.githubusercontent.com/slint-ui/slint/master/examples/carousel/ui/carousel_demo.slint) |

@@ -15,10 +15,17 @@ path = "main.rs"
 name = "carousel"
 
 [dependencies]
-slint = { path = "../../../api/rs/slint" }
+slint = { path = "../../../api/rs/slint", default-features = false }
+mcu-board-support = { path = "../../mcu-board-support", optional = true }
 
 [build-dependencies]
 slint-build = { path = "../../../api/rs/build" }
+
+[features]
+default = ["slint/default"]
+mcu = ["mcu-board-support", "slint/compat-0-3-0"]
+mcu-simulator = ["mcu", "slint/renderer-winit-software", "slint/backend-winit", "slint/std"]
+
 
 # Remove the `#wasm#` to uncomment the wasm build.
 # This is commented out by default because we don't want to build it as a library by default
