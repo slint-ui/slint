@@ -43,10 +43,10 @@ fn collect_structs_in_component(root_component: &Rc<Component>, hash: &mut BTree
     });
 
     visit_all_expressions(root_component, |expr, _| {
-        expr.visit_recursive(&mut |expr| {
-            if let Expression::Struct { ty, .. } = expr {
-                maybe_collect_object(ty)
-            }
+        expr.visit_recursive(&mut |expr| match expr {
+            Expression::Struct { ty, .. } => maybe_collect_object(ty),
+            Expression::Array { element_ty, .. } => maybe_collect_object(element_ty),
+            _ => (),
         })
     });
 }
