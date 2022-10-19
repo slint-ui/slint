@@ -109,8 +109,9 @@ class EditorPaneWidget extends Widget {
     monaco.editor.ICodeEditorViewState | null | undefined
   >;
   #editor: monaco.editor.IStandaloneCodeEditor | null;
-  #keystroke_timeout_handle: number | undefined;
-  #base_url: string | undefined;
+  #client?: MonacoLanguageClient;
+  #keystroke_timeout_handle?: number;
+  #base_url?: string;
   #edit_era: number;
   #disposables: monaco.IDisposable[] = [];
   #current_properties = "";
@@ -182,6 +183,14 @@ class EditorPaneWidget extends Widget {
 
   get supported_commands(): Thenable<string[]> {
     return commands.getCommands();
+  }
+
+  get language_client(): MonacoLanguageClient | undefined {
+    return this.#client;
+  }
+
+  get current_text_document_uri(): string | undefined {
+    return this.#editor?.getModel()?.uri.toString();
   }
 
   compile() {
@@ -448,11 +457,14 @@ class EditorPaneWidget extends Widget {
             );
             const writer = new BrowserMessageWriter(lsp_worker);
 
-            const languageClient = createLanguageClient({ reader, writer });
+            this.#client = createLanguageClient({ reader, writer });
 
-            languageClient.start();
+            this.#client.start();
 
-            reader.onClose(() => languageClient.stop());
+            reader.onClose(() => {
+              this.#client.stop();
+              this.#client = null;
+            });
 
             resolve_lsp_worker_promise();
           }
@@ -606,6 +618,14 @@ export class EditorWidget extends Widget {
 
   get current_editor_content(): string {
     return this.#editor.current_editor_content;
+  }
+
+  get language_client(): MonacoLanguageClient | undefined {
+    return this.#editor.language_client;
+  }
+
+  get current_text_document_uri(): string | undefined {
+    return this.#editor.current_text_document_uri;
   }
 
   compile() {
