@@ -16,6 +16,7 @@ import {
 
 import { EditorWidget } from "./editor_widget";
 import { PreviewWidget } from "./preview_widget";
+import { OutlineWidget } from "./outline_widget";
 import { PropertiesWidget } from "./properties_widget";
 import { WelcomeWidget } from "./welcome_widget";
 
@@ -306,6 +307,12 @@ function main() {
         return new WelcomeWidget();
       },
       { mode: "split-bottom", ref: "Preview" },
+    ],
+    [
+      () => {
+        return new OutlineWidget();
+      },
+      { mode: "tab-after", ref: "Welcome" },
     ],
     [
       () => {
