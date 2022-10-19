@@ -193,6 +193,42 @@ class EditorPaneWidget extends Widget {
     return this.#editor?.getModel()?.uri.toString();
   }
 
+  goto_position(
+    uri: string,
+    start_line: number,
+    start_character: number,
+    end_line?: number,
+    end_character?: number,
+  ) {
+    console.log(
+      "EW: goto_position called",
+      uri,
+      start_line,
+      start_character,
+      end_line,
+      end_character,
+    );
+    if (end_line == null) {
+      end_line = start_line;
+    }
+    if (end_character == null) {
+      end_character = start_character;
+    }
+
+    if (!this.set_model(uri)) {
+      console.log("EditWidget: No model for URL", uri, "found.");
+      return;
+    }
+
+    this.#editor?.setSelection({
+      startLineNumber: start_line,
+      startColumn: start_character,
+      endLineNumber: end_line,
+      endColumn: end_character,
+    } as monaco.IRange);
+    this.#editor?.revealLine(start_line);
+  }
+
   compile() {
     this.update_preview();
   }
@@ -673,6 +709,22 @@ export class EditorWidget extends Widget {
       ["examples/todo/ui/todo.slint", "Todo Demo"],
       ["examples/iot-dashboard/main.slint", "IOT Dashboard"],
     ];
+  }
+
+  goto_position(
+    uri: string,
+    start_line: number,
+    start_character: number,
+    end_line?: number,
+    end_character?: number,
+  ) {
+    this.#editor?.goto_position(
+      uri,
+      start_line,
+      start_character,
+      end_line,
+      end_character,
+    );
   }
 
   async set_demo(location: string) {

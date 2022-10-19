@@ -49,6 +49,14 @@ function set_data(
   data: DocumentSymbol[],
   indent: number,
   table: HTMLTableElement,
+  uri: string,
+  goto_position: (
+    _uri: string,
+    _start_line: number,
+    _start_character: number,
+    _end_line: number,
+    _end_column: number,
+  ) => void,
 ) {
   for (const d of data) {
     const row = document.createElement("tr");
@@ -67,10 +75,19 @@ function set_data(
     cell.innerText = d.name;
 
     row.appendChild(cell);
+    row.addEventListener("click", () =>
+      goto_position(
+        uri,
+        d.selectionRange.start.line + 1,
+        d.selectionRange.start.character,
+        d.selectionRange.end.line + 1,
+        d.selectionRange.end.character,
+      ),
+    );
     table.appendChild(row);
 
     if (d.children != null) {
-      set_data(d.children, indent + 1, table);
+      set_data(d.children, indent + 1, table, uri, goto_position);
     }
   }
 }
@@ -78,6 +95,22 @@ function set_data(
 export class OutlineWidget extends Widget {
   #callback: () => [MonacoLanguageClient | undefined, string | undefined];
   #intervalId = -1;
+  #onGotoPosition = (
+    uri: string,
+    start_line: number,
+    start_column: number,
+    end_line: number,
+    end_column: number,
+  ) => {
+    console.log(
+      "Goto Position ignored:",
+      uri,
+      start_line,
+      start_column,
+      end_line,
+      end_column,
+    );
+  };
 
   static createNode(): HTMLElement {
     const node = document.createElement("div");
@@ -106,7 +139,7 @@ export class OutlineWidget extends Widget {
             textDocument: { uri: uri },
           } as DocumentSymbolParams)
           .then((r: DocumentSymbol[] | SymbolInformation[] | null) =>
-            this.update_data(r),
+            this.update_data(uri, r),
           );
       } else {
         if (uri == null) {
@@ -119,11 +152,26 @@ export class OutlineWidget extends Widget {
     }, 5000);
   }
 
+  set on_goto_position(
+    callback: (
+      _uri: string,
+      _start_line: number,
+      _start_character: number,
+      _end_line: number,
+      _end_column: number,
+    ) => void,
+  ) {
+    this.#onGotoPosition = callback;
+  }
+
   protected get contentNode(): HTMLDivElement {
     return this.node.getElementsByTagName("div")[0] as HTMLDivElement;
   }
 
-  protected update_data(data: DocumentSymbol[] | SymbolInformation[] | null) {
+  protected update_data(
+    uri: string,
+    data: DocumentSymbol[] | SymbolInformation[] | null,
+  ) {
     if (data == null) {
       this.set_error("No data received");
       return;
@@ -136,7 +184,7 @@ export class OutlineWidget extends Widget {
     const table = document.createElement("table");
     table.className = "outline-table";
 
-    set_data(data as DocumentSymbol[], 0, table);
+    set_data(data as DocumentSymbol[], 0, table, uri, this.#onGotoPosition);
 
     this.clear_data();
     this.contentNode.appendChild(table);
