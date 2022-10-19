@@ -12,7 +12,8 @@ use crate::api::{
 use crate::component::{ComponentRc, ComponentRef, ComponentVTable, ComponentWeak};
 use crate::graphics::Point;
 use crate::input::{
-    key_codes, KeyEvent, KeyEventType, MouseEvent, MouseInputState, TextCursorBlinker,
+    key_codes, InternalKeyboardModifierState, KeyEvent, KeyEventType, KeyInputEvent,
+    KeyboardModifiers, MouseEvent, MouseInputState, TextCursorBlinker,
 };
 use crate::item_tree::ItemRc;
 use crate::items::{ItemRef, MouseCursor};
@@ -33,6 +34,17 @@ fn next_focus_item(item: ItemRc) -> ItemRc {
 
 fn previous_focus_item(item: ItemRc) -> ItemRc {
     item.previous_focus_item()
+}
+
+/// Transforms a `KeyInputEvent` into an `KeyEvent` with the given `KeyboardModifiers`.
+fn input_as_key_event(input: KeyInputEvent, modifiers: KeyboardModifiers) -> KeyEvent {
+    KeyEvent {
+        modifiers,
+        text: input.text,
+        event_type: input.event_type,
+        preedit_selection_start: input.preedit_selection_start,
+        preedit_selection_end: input.preedit_selection_end,
+    }
 }
 
 /// This trait represents the adaptation layer between the [`Window`] API, and the
@@ -202,6 +214,7 @@ pub struct WindowInner {
     window_adapter_weak: Weak<dyn WindowAdapter>,
     component: RefCell<ComponentWeak>,
     mouse_input_state: Cell<MouseInputState>,
+    modifiers: Cell<InternalKeyboardModifierState>,
     redraw_tracker: Pin<Box<PropertyTracker<WindowRedrawTracker>>>,
     /// Gets dirty when the layout restrictions, or some other property of the windows change
     window_properties_tracker: Pin<Box<PropertyTracker<WindowPropertiesTracker>>>,
@@ -251,6 +264,7 @@ impl WindowInner {
             window_adapter_weak,
             component: Default::default(),
             mouse_input_state: Default::default(),
+            modifiers: Default::default(),
             redraw_tracker: Box::pin(redraw_tracker),
             window_properties_tracker: Box::pin(window_properties_tracker),
             focus_item: Default::default(),
@@ -271,6 +285,7 @@ impl WindowInner {
         self.close_popup();
         self.focus_item.replace(Default::default());
         self.mouse_input_state.replace(Default::default());
+        self.modifiers.replace(Default::default());
         self.component.replace(ComponentRc::downgrade(component));
         self.window_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
         let window_adapter = self.window_adapter();
@@ -370,7 +385,18 @@ impl WindowInner {
     /// Arguments:
     /// * `event`: The key event received by the windowing system.
     /// * `component`: The Slint compiled component that provides the tree of items.
-    pub fn process_key_input(&self, event: &KeyEvent) {
+    pub fn process_key_input(&self, event: KeyInputEvent) {
+        if let Some(updated_modifier) = self
+            .modifiers
+            .get()
+            .state_update(event.event_type == KeyEventType::KeyPressed, &event.text)
+        {
+            // Updates the key modifiers depending on the key code and pressed state.
+            self.modifiers.set(updated_modifier);
+        }
+
+        let event = input_as_key_event(event, self.modifiers.get().into());
+
         let mut item = self.focus_item.borrow().clone().upgrade();
         while let Some(focus_item) = item {
             if !focus_item.is_visible() {
@@ -378,7 +404,7 @@ impl WindowInner {
                 self.take_focus_item();
             } else {
                 if focus_item.borrow().as_ref().key_event(
-                    event,
+                    &event,
                     &self.window_adapter(),
                     &focus_item,
                 ) == crate::input::KeyEventResult::EventAccepted
@@ -390,9 +416,13 @@ impl WindowInner {
         }
 
         // Make Tab/Backtab handle keyboard focus
-        if event.text.starts_with(key_codes::Tab) && event.event_type == KeyEventType::KeyPressed {
+        if event.text.starts_with(key_codes::Tab)
+            && !event.modifiers.shift
+            && event.event_type == KeyEventType::KeyPressed
+        {
             self.focus_next_item();
-        } else if event.text.starts_with(key_codes::Backtab)
+        } else if (event.text.starts_with(key_codes::Backtab)
+            || (event.text.starts_with(key_codes::Tab) && event.modifiers.shift))
             && event.event_type == KeyEventType::KeyPressed
         {
             self.focus_previous_item();

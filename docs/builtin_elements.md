@@ -494,7 +494,7 @@ The FocusScope exposes callback to intercept the pressed key when it has focus.
 
 The KeyEvent has a text property which is a character of the key entered.
 When a non-printable key is pressed, the character will be either a control character,
-or it will be mapped to a private unicode character. The mapping of these non-printable, special characters is available in the [`Keys`](#keys) namespace
+or it will be mapped to a private unicode character. The mapping of these non-printable, special characters is available in the [`Key`](#key) namespace
 
 ### Properties
 
@@ -522,7 +522,7 @@ Example := Window {
             if (event.modifiers.control) {
                 debug("control was pressed during this event");
             }
-            if (event.text == Keys.Escape) {
+            if (event.text == Key.Escape) {
                 debug("Esc key was pressed")
             }
             accept
@@ -820,9 +820,9 @@ This structure is generated and passed to the `pointer-event` callback of the `T
 
 The following namespaces provide access to common constants such as special keys or named colors.
 
-## `Keys`
+## `Key`
 
-Use the constants in the `Keys` namespace to handle pressing of keys that don't have a printable character. Check the value of [`KeyEvent`](#keyevent)'s `text` property
+Use the constants in the `Key` namespace to handle pressing of keys that don't have a printable character. Check the value of [`KeyEvent`](#keyevent)'s `text` property
 against the constants below.
 
 * **`Backspace`**
@@ -831,6 +831,15 @@ against the constants below.
 * **`Escape`**
 * **`Backtab`**
 * **`Delete`**
+* **`Shift`**
+* **`Control`**
+* **`Alt`**
+* **`AltGr`**
+* **`CapsLock`**
+* **`ShiftR`**
+* **`ControlR`**
+* **`Meta`**
+* **`MetaR`**
 * **`UpArrow`**
 * **`DownArrow`**
 * **`LeftArrow`**

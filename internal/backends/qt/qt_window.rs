@@ -11,7 +11,7 @@ use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
 use i_slint_core::graphics::{euclid, Brush, Color, FontRequest, Image, Point, SharedImageBuffer};
-use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
+use i_slint_core::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{
     self, FillRule, ImageRendering, InputType, ItemRc, ItemRef, Layer, MouseCursor, Opacity,
@@ -172,19 +172,17 @@ cpp! {{
         }
 
         void keyPressEvent(QKeyEvent *event) override {
-            uint modifiers = uint(event->modifiers());
             QString text =  event->text();
             int key = event->key();
-            rust!(Slint_keyPress [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", modifiers: u32 as "uint"] {
-                rust_window.key_event(key, text.clone(), modifiers, false);
+            rust!(Slint_keyPress [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString"] {
+                rust_window.key_event(key, text.clone(), false);
             });
         }
         void keyReleaseEvent(QKeyEvent *event) override {
-            uint modifiers = uint(event->modifiers());
             QString text =  event->text();
             int key = event->key();
-            rust!(Slint_keyRelease [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString", modifiers: u32 as "uint"] {
-                rust_window.key_event(key, text.clone(), modifiers, true);
+            rust!(Slint_keyRelease [rust_window: &QtWindow as "void*", key: i32 as "int", text: qttypes::QString as "QString"] {
+                rust_window.key_event(key, text.clone(), true);
             });
         }
 
@@ -280,23 +278,23 @@ cpp! {{
                     let runtime_window = WindowInner::from_pub(&rust_window.window);
 
                     if !preedit_string.is_empty() {
-                        let event = KeyEvent {
+                        let event = KeyInputEvent {
                             event_type: KeyEventType::UpdateComposition,
                             text: preedit_string.to_string().into(),
                             preedit_selection_start: replacement_start as usize,
                             preedit_selection_end: replacement_start as usize + replacement_length as usize,
                             ..Default::default()
                         };
-                        runtime_window.process_key_input(&event);
+                        runtime_window.process_key_input(event);
                     }
 
                     if !commit_string.is_empty() {
-                        let event = KeyEvent {
+                        let event = KeyInputEvent {
                             event_type: KeyEventType::CommitComposition,
                             text: commit_string.to_string().into(),
                             ..Default::default()
                         };
-                        runtime_window.process_key_input(&event);
+                        runtime_window.process_key_input(event);
                     }
                 });
         }
@@ -1419,25 +1417,18 @@ impl QtWindow {
         timer_event();
     }
 
-    fn key_event(&self, key: i32, text: qttypes::QString, qt_modifiers: u32, released: bool) {
+    fn key_event(&self, key: i32, text: qttypes::QString, released: bool) {
         i_slint_core::animations::update_animations();
         let text: String = text.into();
-        let modifiers = i_slint_core::input::KeyboardModifiers {
-            control: (qt_modifiers & key_generated::Qt_KeyboardModifier_ControlModifier) != 0,
-            alt: (qt_modifiers & key_generated::Qt_KeyboardModifier_AltModifier) != 0,
-            shift: (qt_modifiers & key_generated::Qt_KeyboardModifier_ShiftModifier) != 0,
-            meta: (qt_modifiers & key_generated::Qt_KeyboardModifier_MetaModifier) != 0,
-        };
 
         let text = qt_key_to_string(key as key_generated::Qt_Key, text);
 
-        let event = KeyEvent {
+        let event = KeyInputEvent {
             event_type: if released { KeyEventType::KeyReleased } else { KeyEventType::KeyPressed },
             text,
-            modifiers,
             ..Default::default()
         };
-        WindowInner::from_pub(&self.window).process_key_input(&event);
+        WindowInner::from_pub(&self.window).process_key_input(event);
 
         timer_event();
     }
@@ -2024,8 +2015,7 @@ mod key_codes {
                     $($(key_generated::$qt => $char,)*)*
                     _ => return None,
                 };
-                let mut buffer = [0; 6];
-                Some(i_slint_core::SharedString::from(char.encode_utf8(&mut buffer) as &str))
+                Some(char.into())
             }
         };
     }

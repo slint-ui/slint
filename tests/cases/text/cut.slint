@@ -16,16 +16,6 @@ TestCase := TextInput {
 
 const LEFT_CODE: char = '\u{F702}';
 
-let shift_modifier = slint::private_unstable_api::re_exports::KeyboardModifiers {
-    shift: true,
-    ..Default::default()
-};
-
-let control_modifier = slint::private_unstable_api::re_exports::KeyboardModifiers {
-    control: true,
-    ..Default::default()
-};
-
 let instance = TestCase::new();
 slint_testing::send_mouse_click(&instance, 50., 50.);
 assert!(instance.get_input_focused());
@@ -34,14 +24,16 @@ slint_testing::send_keyboard_string_sequence(&instance, "Test");
 assert_eq!(instance.get_test_text(), "Test");
 assert!(!instance.get_has_selection());
 
-slint_testing::set_current_keyboard_modifiers(&instance, control_modifier);
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Control.into(), true);
 slint_testing::send_keyboard_string_sequence(&instance, "a");
-slint_testing::set_current_keyboard_modifiers(&instance, shift_modifier);
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Control.into(), false);
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), true);
 slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
 slint_testing::send_keyboard_string_sequence(&instance, &LEFT_CODE.to_string());
-slint_testing::set_current_keyboard_modifiers(&instance, control_modifier);
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Shift.into(), false);
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Control.into(), true);
 slint_testing::send_keyboard_string_sequence(&instance, "x");
-slint_testing::set_current_keyboard_modifiers(&instance, slint::private_unstable_api::re_exports::KeyboardModifiers::default());
+slint_testing::send_keyboard_char(&instance, slint::private_unstable_api::re_exports::Key::Control.into(), false);
 assert!(!instance.get_has_selection());
 assert_eq!(instance.get_test_text(), "st");
 assert_eq!(instance.get_test_cursor_pos(), 0);

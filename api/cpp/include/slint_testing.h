@@ -24,12 +24,17 @@ inline void send_mouse_click(const Component *component, float x, float y)
 }
 
 template<typename Component>
-inline void send_keyboard_string_sequence(const Component *component,
-                                          const slint::SharedString &str,
-                                          cbindgen_private::KeyboardModifiers modifiers = {})
+inline void send_keyboard_char(const Component *component, const slint::SharedString &str,
+                               bool pressed)
 {
-    cbindgen_private::send_keyboard_string_sequence(&str, modifiers,
-                                                    &component->m_window.window_handle());
+    cbindgen_private::slint_send_keyboard_char(&str, pressed, &component->m_window.window_handle());
+}
+
+template<typename Component>
+inline void send_keyboard_string_sequence(const Component *component,
+                                          const slint::SharedString &str)
+{
+    cbindgen_private::send_keyboard_string_sequence(&str, &component->m_window.window_handle());
 }
 
 #define assert_eq(A, B)                                                                            \

@@ -112,11 +112,11 @@ export TabBarImpl := Rectangle {
                  current = current-focused;
                  return accept;
             }
-            if (event.text == Keys.LeftArrow) {
+            if (event.text == Key.LeftArrow) {
                  focused-tab = Math.max(focused-tab - 1,  0);
                  return accept;
             }
-            if (event.text == Keys.RightArrow) {
+            if (event.text == Key.RightArrow) {
                  focused-tab = Math.min(focused-tab + 1, num-tabs - 1);
                  return accept;
             }

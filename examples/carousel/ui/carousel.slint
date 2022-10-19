@@ -28,17 +28,17 @@ export Carousel := FocusScope {
     
     focus-scope:= FocusScope {
         key-pressed(event) => {
-            if(event.text == Keys.UpArrow) {
+            if(event.text == Key.UpArrow) {
                 root.move-focus-up();
                 return accept;
             }
 
-            if(event.text == Keys.RightArrow) {
+            if(event.text == Key.RightArrow) {
                 root.move-right();
                 return accept;
             }
 
-            if(event.text == Keys.LeftArrow) {
+            if(event.text == Key.LeftArrow) {
                 root.move-left();
                 return accept;
             }

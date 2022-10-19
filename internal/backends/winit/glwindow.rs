@@ -14,7 +14,6 @@ use crate::renderer::{WinitCompatibleCanvas, WinitCompatibleRenderer};
 use const_field_offset::FieldOffsets;
 use corelib::component::ComponentRc;
 use corelib::graphics::euclid::num::Zero;
-use corelib::input::KeyboardModifiers;
 use corelib::items::{ItemRef, MouseCursor};
 use corelib::layout::Orientation;
 use corelib::lengths::{LogicalLength, LogicalPoint, LogicalSize};
@@ -83,7 +82,6 @@ pub(crate) struct GLWindow<Renderer: WinitCompatibleRenderer + 'static> {
     window: corelib::api::Window,
     self_weak: Weak<Self>,
     map_state: RefCell<GraphicsWindowBackendState<Renderer>>,
-    keyboard_modifiers: std::cell::Cell<KeyboardModifiers>,
     currently_pressed_key_code: std::cell::Cell<Option<winit::event::VirtualKeyCode>>,
     pending_redraw: Cell<bool>,
 
@@ -108,7 +106,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> GLWindow<Renderer> {
                 requested_position: None,
                 requested_size: None,
             }),
-            keyboard_modifiers: Default::default(),
             currently_pressed_key_code: Default::default(),
             pending_redraw: Cell::new(false),
             renderer: Renderer::new(
@@ -182,10 +179,6 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WinitWindow for GLWindow<Rende
 
     fn currently_pressed_key_code(&self) -> &Cell<Option<winit::event::VirtualKeyCode>> {
         &self.currently_pressed_key_code
-    }
-
-    fn current_keyboard_modifiers(&self) -> &Cell<KeyboardModifiers> {
-        &self.keyboard_modifiers
     }
 
     /// Draw the items of the specified `component` in the given window.

@@ -58,10 +58,10 @@ export Slider := NativeSlider {
         width: 0px;
 
         key-pressed(event) => {
-            if (root.enabled && event.text == Keys.RightArrow) {
+            if (root.enabled && event.text == Key.RightArrow) {
                 root.value = Math.min(root.value + 1, root.maximum);
                 accept
-            } else if (root.enabled && event.text == Keys.LeftArrow) {
+            } else if (root.enabled && event.text == Key.LeftArrow) {
                 root.value = Math.max(root.value - 1, root.minimum);
                 accept
             } else {
@@ -127,10 +127,10 @@ export StandardListView := ListView {
     }
     FocusScope {
         key-pressed(event) => {
-            if (event.text == Keys.UpArrow && current-item > 0) {
+            if (event.text == Key.UpArrow && current-item > 0) {
                 current-item -= 1;
                 accept
-            } else if (event.text == Keys.DownArrow && current-item + 1 < model.length) {
+            } else if (event.text == Key.DownArrow && current-item + 1 < model.length) {
                 current-item += 1;
                 accept
             } else {
@@ -180,16 +180,16 @@ export ComboBox := NativeComboBox {
 
     fs := FocusScope {
         key-pressed(event) => {
-            if (event.text == Keys.UpArrow) {
+            if (event.text == Key.UpArrow) {
                 root.current-index = Math.max(root.current-index - 1, 0);
                 root.current-value = model[root.current-index];
                 return accept;
-            } else if (event.text == Keys.DownArrow) {
+            } else if (event.text == Key.DownArrow) {
                 root.current-index = Math.min(root.current-index + 1, root.model.length - 1);
                 root.current-value = model[root.current-index];
                 return accept;
             // PopupWindow can not get hidden again at this time, so do not allow to pop that up.
-            // } else if (event.text == Keys.Return) {
+            // } else if (event.text == Key.Return) {
             //     touch.clicked()
             //     return accept;
             }
@@ -223,11 +223,11 @@ export TabBarImpl := Rectangle {
     fs := FocusScope {
         width: 0px; // Do not react on clicks
         key-pressed(event) => {
-            if (event.text == Keys.LeftArrow) {
+            if (event.text == Key.LeftArrow) {
                  root.current = Math.max(root.current - 1,  0);
                  return accept;
             }
-            if (event.text == Keys.RightArrow) {
+            if (event.text == Key.RightArrow) {
                  root.current = Math.min(root.current + 1, num-tabs - 1);
                  return accept;
             }

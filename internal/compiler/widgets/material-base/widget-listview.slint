@@ -23,10 +23,10 @@ export StandardListView := ListView {
 
     FocusScope {
         key-pressed(event) => {
-            if (event.text == Keys.UpArrow && current-item > 0) {
+            if (event.text == Key.UpArrow && current-item > 0) {
                 current-item -= 1;
                 return accept;
-            } else if (event.text == Keys.DownArrow && current-item + 1 < model.length) {
+            } else if (event.text == Key.DownArrow && current-item + 1 < model.length) {
                 current-item += 1;
                 return accept;
             }

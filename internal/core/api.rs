@@ -10,7 +10,11 @@ This module contains types that are public and re-exported in the slint-rs as we
 use alloc::boxed::Box;
 
 use crate::component::ComponentVTable;
+use crate::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use crate::window::{WindowAdapter, WindowInner};
+
+// reexport key enum to the public api
+pub use crate::input::key_codes::Key;
 
 /// A position represented in the coordinate space of logical pixels. That is the space before applying
 /// a display device specific scale factor.
@@ -421,7 +425,44 @@ impl Window {
     /// Any position fields in the event must be in the logical pixel coordinate system relative to
     /// the top left corner of the window.
     pub fn dispatch_event(&self, event: WindowEvent) {
-        self.0.process_mouse_input(event.into())
+        match event {
+            WindowEvent::PointerPressed { position, button } => {
+                self.0.process_mouse_input(MouseEvent::Pressed {
+                    position: position.to_euclid().cast(),
+                    button,
+                });
+            }
+            WindowEvent::PointerReleased { position, button } => {
+                self.0.process_mouse_input(MouseEvent::Released {
+                    position: position.to_euclid().cast(),
+                    button,
+                });
+            }
+            WindowEvent::PointerMoved { position } => {
+                self.0.process_mouse_input(MouseEvent::Moved {
+                    position: position.to_euclid().cast(),
+                });
+            }
+            WindowEvent::PointerScrolled { position, delta_x, delta_y } => {
+                self.0.process_mouse_input(MouseEvent::Wheel {
+                    position: position.to_euclid().cast(),
+                    delta_x,
+                    delta_y,
+                });
+            }
+            WindowEvent::PointerExited => self.0.process_mouse_input(MouseEvent::Exit),
+
+            WindowEvent::KeyPressed { text } => self.0.process_key_input(KeyInputEvent {
+                text: SharedString::from(text),
+                event_type: KeyEventType::KeyPressed,
+                ..Default::default()
+            }),
+            WindowEvent::KeyReleased { text } => self.0.process_key_input(KeyInputEvent {
+                text: SharedString::from(text),
+                event_type: KeyEventType::KeyReleased,
+                ..Default::default()
+            }),
+        }
     }
 
     /// Returns true if there is an animation currently active on any property in the Window; false otherwise.
@@ -438,6 +479,7 @@ impl Window {
 }
 
 pub use crate::input::PointerEventButton;
+pub use crate::SharedString;
 
 /// A event that describes user input.
 ///
@@ -449,7 +491,7 @@ pub use crate::input::PointerEventButton;
 ///
 /// All position fields are in logical window coordinates.
 #[allow(missing_docs)]
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum WindowEvent {
     /// A pointer was pressed.
@@ -476,6 +518,30 @@ pub enum WindowEvent {
     },
     /// The pointer exited the window.
     PointerExited,
+    /// A key was pressed.
+    KeyPressed {
+        // FIXME: use SharedString instead of char (breaking change)
+        /// The unicode representation of the key pressed.
+        ///
+        /// # Example
+        /// A specific key can be mapped to a unicode by using the `Key` enum
+        /// ```rust
+        /// let _ = slint::WindowEvent::KeyPressed { text: slint::Key::Shift.into() };
+        /// ```
+        text: char,
+    },
+    /// A key was pressed.
+    KeyReleased {
+        // FIXME: use SharedString instead of char (breaking change)
+        /// The unicode representation of the key released.
+        ///   ///
+        /// # Example
+        /// A specific key can be mapped to a unicode by using the `Key` enum
+        /// ```rust
+        /// let _ = slint::WindowEvent::KeyReleased { text: slint::Key::Shift.into() };
+        /// ```
+        text: char,
+    },
 }
 
 impl WindowEvent {
@@ -486,7 +552,7 @@ impl WindowEvent {
             WindowEvent::PointerReleased { position, .. } => Some(*position),
             WindowEvent::PointerMoved { position } => Some(*position),
             WindowEvent::PointerScrolled { position, .. } => Some(*position),
-            WindowEvent::PointerExited => None,
+            _ => None,
         }
     }
 }

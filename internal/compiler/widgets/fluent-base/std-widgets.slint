@@ -202,10 +202,10 @@ export SpinBox := FocusScope {
     }
 
     key-pressed(event) => {
-        if (enabled && event.text == Keys.UpArrow && value < maximum) {
+        if (enabled && event.text == Key.UpArrow && value < maximum) {
             value += 1;
             accept
-        } else if (enabled && event.text == Keys.DownArrow && value > minimum) {
+        } else if (enabled && event.text == Key.DownArrow && value > minimum) {
             value -= 1;
             accept
         } else {
@@ -291,10 +291,10 @@ export Slider := Rectangle {
         width: 0px;
 
         key-pressed(event) => {
-            if (enabled && event.text == Keys.RightArrow) {
+            if (enabled && event.text == Key.RightArrow) {
                 value = Math.min(value + 1, maximum);
                 accept
-            } else if (enabled && event.text == Keys.LeftArrow) {
+            } else if (enabled && event.text == Key.LeftArrow) {
                 value = Math.max(value - 1, minimum);
                 accept
             } else {
@@ -431,11 +431,11 @@ export TabBarImpl := Rectangle {
                  current = current-focused;
                  return accept;
             }
-            if (event.text == Keys.LeftArrow) {
+            if (event.text == Key.LeftArrow) {
                  focused-tab = Math.max(focused-tab - 1,  0);
                  return accept;
             }
-            if (event.text == Keys.RightArrow) {
+            if (event.text == Key.RightArrow) {
                  focused-tab = Math.min(focused-tab + 1, num-tabs - 1);
                  return accept;
             }
@@ -516,10 +516,10 @@ export StandardListView := ListView {
     }
     FocusScope {
         key-pressed(event) => {
-            if (event.text == Keys.UpArrow && current-item > 0) {
+            if (event.text == Key.UpArrow && current-item > 0) {
                 current-item -= 1;
                 return accept;
-            } else if (event.text == Keys.DownArrow && current-item + 1 < model.length) {
+            } else if (event.text == Key.DownArrow && current-item + 1 < model.length) {
                 current-item += 1;
                 return accept;
             }
@@ -539,16 +539,16 @@ export ComboBox := FocusScope {
     accessible-value <=> current-value;
 
     key-pressed(event) => {
-        if (event.text == Keys.UpArrow) {
+        if (event.text == Key.UpArrow) {
             current-index = Math.max(current-index - 1, 0);
             current-value = model[current-index];
             return accept;
-        } else if (event.text == Keys.DownArrow) {
+        } else if (event.text == Key.DownArrow) {
             current-index = Math.min(current-index + 1, model.length - 1);
             current-value = model[current-index];
             return accept;
         // PopupWindow can not get hidden again at this time, so do not allow to pop that up.
-        // } else if (event.text == Keys.Return) {
+        // } else if (event.text == Key.Return) {
         //     touch.clicked()
         //     return accept;
         }
