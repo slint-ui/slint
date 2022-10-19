@@ -321,7 +321,7 @@ fn gen_corelib(
             "slint_windowrc_size",
             "slint_windowrc_set_logical_size",
             "slint_windowrc_set_physical_size",
-            "slint_windowrc_dark_style",
+            "slint_windowrc_dark_color_scheme",
             "slint_new_path_elements",
             "slint_new_path_events",
             "slint_color_brighter",

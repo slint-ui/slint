@@ -2422,8 +2422,8 @@ fn compile_builtin_function_call(
                 a = a.next().unwrap(),
             )
         }
-        BuiltinFunction::DarkStyle => {
-            format!("{}.dark_style()", access_window_field(ctx))
+        BuiltinFunction::DarkColorScheme => {
+            format!("{}.dark_color_scheme()", access_window_field(ctx))
         }
         BuiltinFunction::ShowPopupWindow => {
             if let [llr::Expression::NumberLiteral(popup_index), x, y, llr::Expression::PropertyReference(parent_ref)] =

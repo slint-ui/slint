@@ -588,9 +588,9 @@ impl LookupObject for BuiltinFunctionLookup {
             })
             .or_else(|| {
                 f(
-                    "dark-style",
+                    "dark-color-scheme",
                     Expression::BuiltinFunctionReference(
-                        BuiltinFunction::DarkStyle,
+                        BuiltinFunction::DarkColorScheme,
                         ctx.current_token.as_ref().map(|t| t.to_source_location()),
                     )
                     .into(),

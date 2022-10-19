@@ -659,7 +659,7 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
         }
     }
 
-    fn dark_style(&self) -> bool {
+    fn dark_color_scheme(&self) -> bool {
         dark_light::detect() == dark_light::Mode::Dark
     }
 }
