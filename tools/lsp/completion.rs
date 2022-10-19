@@ -441,7 +441,9 @@ fn resolve_expression_scope(lookup_context: &LookupCtx) -> Option<Vec<Completion
     let mut r = Vec::new();
     let global = i_slint_compiler::lookup::global_lookup();
     global.for_each_entry(lookup_context, &mut |str, expr| -> Option<()> {
-        r.push(completion_item_from_expression(str, expr));
+        if str != "SlintInternal" {
+            r.push(completion_item_from_expression(str, expr));
+        }
         None
     });
     Some(r)

@@ -82,6 +82,7 @@ pub enum BuiltinNamespace {
     Colors,
     Math,
     Keys,
+    SlintInternal,
 }
 
 impl From<Expression> for LookupResult {
@@ -144,6 +145,9 @@ impl LookupObject for LookupResult {
             }
             LookupResult::Namespace(BuiltinNamespace::Math) => MathFunctions.for_each_entry(ctx, f),
             LookupResult::Namespace(BuiltinNamespace::Keys) => KeysLookup.for_each_entry(ctx, f),
+            LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
+                SlintInternal.for_each_entry(ctx, f)
+            }
         }
     }
 
@@ -156,6 +160,9 @@ impl LookupObject for LookupResult {
             }
             LookupResult::Namespace(BuiltinNamespace::Math) => MathFunctions.lookup(ctx, name),
             LookupResult::Namespace(BuiltinNamespace::Keys) => KeysLookup.lookup(ctx, name),
+            LookupResult::Namespace(BuiltinNamespace::SlintInternal) => {
+                SlintInternal.lookup(ctx, name)
+            }
         }
     }
 }
@@ -542,6 +549,24 @@ impl LookupObject for MathFunctions {
     }
 }
 
+struct SlintInternal;
+impl LookupObject for SlintInternal {
+    fn for_each_entry<R>(
+        &self,
+        ctx: &LookupCtx,
+        f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
+    ) -> Option<R> {
+        f(
+            "dark-color-scheme",
+            Expression::BuiltinFunctionReference(
+                BuiltinFunction::DarkColorScheme,
+                ctx.current_token.as_ref().map(|t| t.to_source_location()),
+            )
+            .into(),
+        )
+    }
+}
+
 struct ColorFunctions;
 impl LookupObject for ColorFunctions {
     fn for_each_entry<R>(
@@ -586,16 +611,6 @@ impl LookupObject for BuiltinFunctionLookup {
                     .into(),
                 )
             })
-            .or_else(|| {
-                f(
-                    "dark-color-scheme",
-                    Expression::BuiltinFunctionReference(
-                        BuiltinFunction::DarkColorScheme,
-                        ctx.current_token.as_ref().map(|t| t.to_source_location()),
-                    )
-                    .into(),
-                )
-            })
     }
 }
 
@@ -609,6 +624,9 @@ impl LookupObject for BuiltinNamespaceLookup {
         None.or_else(|| f("Colors", LookupResult::Namespace(BuiltinNamespace::Colors)))
             .or_else(|| f("Math", LookupResult::Namespace(BuiltinNamespace::Math)))
             .or_else(|| f("Keys", LookupResult::Namespace(BuiltinNamespace::Keys)))
+            .or_else(|| {
+                f("SlintInternal", LookupResult::Namespace(BuiltinNamespace::SlintInternal))
+            })
     }
 }
 
