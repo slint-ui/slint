@@ -57,12 +57,12 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
           command: build
-          args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu  # mcu backend requires nightly
+          args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel  # mcu backend requires nightly
     - name: Run tests
       uses: actions-rs/cargo@v1
       with:
           command: test
-          args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu   # mcu backend requires nightly
+          args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel   # mcu backend requires nightly
 
   cpp_test_driver:
     env:

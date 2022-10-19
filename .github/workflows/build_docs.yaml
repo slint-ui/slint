@@ -110,7 +110,7 @@ jobs:
       with:
           command: doc
           toolchain: nightly
-          args: --workspace --no-deps --all-features --exclude slint-node --exclude mcu-board-support --exclude printerdemo_mcu --exclude test-* --exclude plotter
+          args: --workspace --no-deps --all-features --exclude slint-node --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel --exclude test-* --exclude plotter
     - name: Clean cache # Don't cache docs to avoid them including removed classes being published
       run: |
           rm -rf target/doc target/cppdocs api/node/docs docs/tutorial/rust/book docs/tutorial/cpp/book
