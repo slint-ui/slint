@@ -36,32 +36,6 @@ pub struct WasmInputHelper {
 struct WasmInputState {
     /// If there was a "keydown" event received that is not part of a composition
     has_key_down: bool,
-    /// The current composing text
-    composition: String,
-}
-
-impl WasmInputState {
-    /// Update the composition text and return the number of character to rollback and the string to add
-    fn text_from_compose(&mut self, data: String, is_end: bool) -> (SharedString, usize) {
-        let mut data_iter = data.char_indices().peekable();
-        let mut composition_iter = self.composition.chars().peekable();
-        // Skip common prefix
-        while let (Some(c), Some((_, d))) = (composition_iter.peek(), data_iter.peek()) {
-            if c != d {
-                break;
-            }
-            composition_iter.next();
-            data_iter.next();
-        }
-        let to_delete = composition_iter.count();
-        let result = if let Some((idx, _)) = data_iter.next() {
-            SharedString::from(&data[idx..])
-        } else {
-            SharedString::default()
-        };
-        self.composition = if is_end { String::new() } else { data };
-        (result, to_delete)
-    }
 }
 
 impl WasmInputHelper {
@@ -143,13 +117,11 @@ impl WasmInputHelper {
                         let window_inner = WindowInner::from_pub(window_adapter.window());
                         let text = SharedString::from(data.as_str());
                         window_inner.process_key_input(&KeyEvent {
-                            modifiers: Default::default(),
                             text: text.clone(),
                             event_type: KeyEventType::KeyPressed,
                             ..Default::default()
                         });
                         window_inner.process_key_input(&KeyEvent {
-                            modifiers: Default::default(),
                             text,
                             event_type: KeyEventType::KeyReleased,
                             ..Default::default()
@@ -161,49 +133,31 @@ impl WasmInputHelper {
             }
         });
 
-        for event in ["compositionend", "compositionupdate"] {
-            let win = window_adapter.clone();
-            let shared_state2 = shared_state.clone();
-            let input = h.input.clone();
-            h.add_event_listener(event, move |e: web_sys::CompositionEvent| {
-                if let (Some(window_adapter), Some(data)) = (win.upgrade(), e.data()) {
-                    let window_inner = WindowInner::from_pub(window_adapter.window());
-                    let is_end = event == "compositionend";
-                    let (text, to_delete) =
-                        shared_state2.borrow_mut().text_from_compose(data, is_end);
-                    if to_delete > 0 {
-                        let mut buffer = [0; 6];
-                        let backspace = SharedString::from(
-                            i_slint_core::input::key_codes::Backspace.encode_utf8(&mut buffer)
-                                as &str,
-                        );
-                        for _ in 0..to_delete {
-                            window_inner.process_key_input(&KeyEvent {
-                                modifiers: Default::default(),
-                                text: backspace.clone(),
-                                event_type: KeyEventType::KeyPressed,
-                                ..Default::default()
-                            });
-                        }
-                    }
-                    window_inner.process_key_input(&KeyEvent {
-                        modifiers: Default::default(),
-                        text: text.clone(),
-                        event_type: KeyEventType::KeyPressed,
-                        ..Default::default()
-                    });
-                    window_inner.process_key_input(&KeyEvent {
-                        modifiers: Default::default(),
-                        text,
-                        event_type: KeyEventType::KeyReleased,
-                        ..Default::default()
-                    });
-                    if is_end {
-                        input.set_value("");
-                    }
-                }
-            });
-        }
+        let win = window_adapter.clone();
+        let input = h.input.clone();
+        h.add_event_listener("compositionend", move |e: web_sys::CompositionEvent| {
+            if let (Some(window_adapter), Some(data)) = (win.upgrade(), e.data()) {
+                let window_inner = WindowInner::from_pub(window_adapter.window());
+                window_inner.process_key_input(&KeyEvent {
+                    text: data.into(),
+                    event_type: KeyEventType::CommitComposition,
+                    ..Default::default()
+                });
+                input.set_value("");
+            }
+        });
+
+        let win = window_adapter.clone();
+        h.add_event_listener("compositionupdate", move |e: web_sys::CompositionEvent| {
+            if let (Some(window_adapter), Some(data)) = (win.upgrade(), e.data()) {
+                let window_inner = WindowInner::from_pub(window_adapter.window());
+                window_inner.process_key_input(&KeyEvent {
+                    text: data.into(),
+                    event_type: KeyEventType::UpdateComposition,
+                    ..Default::default()
+                });
+            }
+        });
 
         h
     }
