@@ -74,7 +74,10 @@ pub fn parse_struct_declaration(p: &mut impl Parser) -> bool {
         let mut p = p.start_node(SyntaxKind::DeclaredIdentifier);
         p.expect(SyntaxKind::Identifier);
     }
-    p.test(SyntaxKind::ColonEqual);
+    if !p.test(SyntaxKind::ColonEqual) && !super::enable_experimental() {
+        p.expect(SyntaxKind::ColonEqual);
+    }
+
     parse_type_object(&mut *p);
     true
 }

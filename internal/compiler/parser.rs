@@ -880,6 +880,11 @@ impl Spanned for Option<SyntaxToken> {
     }
 }
 
+/// return true if experimental parser feature should be activated
+fn enable_experimental() -> bool {
+    std::env::var_os("SLINT_EXPERIMENTAL_SYNTAX").map_or(false, |x| !x.is_empty())
+}
+
 /// return the normalized identifier string of the first SyntaxKind::Identifier in this node
 pub fn identifier_text(node: &SyntaxNode) -> Option<String> {
     node.child_text(SyntaxKind::Identifier).map(|x| normalize_identifier(&x))

@@ -72,6 +72,9 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 }
                 SyntaxKind::Identifier if p.nth(1).as_str() == "property" => {
                     if matches!(p.peek().as_str(), "input" | "output" | "inout" | "private") {
+                        if !super::enable_experimental() {
+                            p.error("the input/output keywords are experimental, set `SLINT_EXPERIMENTAL_SYNTAX` env variable to enable experimental syntax. See https://github.com/slint-ui/slint/issues/1750");
+                        }
                         parse_property_declaration(&mut *p);
                     } else {
                         p.consume();
