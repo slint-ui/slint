@@ -45,11 +45,6 @@ import {
 import { commands } from "vscode";
 import { StandaloneServices, ICodeEditorService } from "vscode/services";
 
-interface ModelAndViewState {
-  model: monaco.editor.ITextModel;
-  view_state: monaco.editor.ICodeEditorViewState | null;
-}
-
 const hello_world = `import { Button, VerticalBox } from "std-widgets.slint";
 export Demo := Window {
     VerticalBox {
@@ -72,7 +67,11 @@ function createModel(
   source: string,
   uri?: monaco.Uri,
 ): monaco.editor.ITextModel {
-  return monaco.editor.createModel(source, "slint", uri);
+  let model = null;
+  if (uri != null) {
+    model = monaco.editor.getModel(uri);
+  }
+  return model ?? monaco.editor.createModel(source, "slint", uri);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -105,7 +104,10 @@ type PropertyDataNotifier = (
 class EditorPaneWidget extends Widget {
   auto_compile = true;
   #style = "fluent";
-  #editor_documents: Map<string, ModelAndViewState>;
+  #editor_view_states: Map<
+    monaco.Uri,
+    monaco.editor.ICodeEditorViewState | null | undefined
+  >;
   #editor: monaco.editor.IStandaloneCodeEditor | null;
   #keystroke_timeout_handle: number | undefined;
   #base_url: string | undefined;
@@ -143,7 +145,7 @@ class EditorPaneWidget extends Widget {
     super({ node: node });
     this.#editor = null;
 
-    this.#editor_documents = new Map();
+    this.#editor_view_states = new Map();
     this.setFlag(Widget.Flag.DisallowLayout);
     this.addClass("content");
     this.addClass("editor");
@@ -154,6 +156,8 @@ class EditorPaneWidget extends Widget {
     this.#edit_era = 0;
 
     this.editor_ready = this.setup_editor(this.contentNode);
+
+    monaco.editor.onDidCreateModel((model) => this.add_model_listener(model));
   }
 
   dispose() {
@@ -199,7 +203,8 @@ class EditorPaneWidget extends Widget {
 
   public clear_models() {
     this.next_era();
-    this.#editor_documents.clear();
+    this.#editor_view_states.clear();
+    monaco.editor.getModels().forEach((model) => model.dispose());
     this.#onModelsCleared?.();
   }
 
@@ -211,36 +216,45 @@ class EditorPaneWidget extends Widget {
     }
   }
 
-  public add_model(url: string, model: monaco.editor.ITextModel) {
-    if (this.#editor_documents.get(url) != null) {
-      return; // already know that URL
-    }
+  private add_model_listener(model: monaco.editor.ITextModel) {
+    const uri = model.uri;
     model.onDidChangeContent(() => {
       this.maybe_update_preview_automatically();
     });
-    this.#editor_documents.set(url, { model, view_state: null });
-    this.#onModelAdded?.(url);
-    if (this.#editor_documents.size === 1) {
-      this.#base_url = url;
-      this.set_model(url);
+    this.#editor_view_states.set(uri, null);
+    this.#onModelAdded?.(uri.toString());
+    if (monaco.editor.getModels().length === 1) {
+      this.#base_url = uri.toString();
+      this.set_model(uri.toString());
       this.update_preview();
     }
   }
 
-  public remove_model(url: string) {
-    this.#editor_documents.delete(url);
-    this.#onModelRemoved?.(url);
+  public remove_model(uri: string) {
+    const uri_ = monaco.Uri.parse(uri);
+    this.#editor_view_states.delete(uri_);
+    const model = monaco.editor.getModel(uri_);
+    if (model != null) {
+      model.dispose();
+      this.#onModelRemoved?.(uri_.toString());
+    }
   }
 
-  public set_model(url: string): boolean {
-    const model_and_state = this.#editor_documents.get(url);
-    if (model_and_state != null && this.#editor != null) {
-      this.#editor.setModel(model_and_state.model);
-      if (model_and_state.view_state != null) {
-        this.#editor.restoreViewState(model_and_state.view_state);
+  public set_model(uri: string): boolean {
+    const uri_ = monaco.Uri.parse(uri);
+    const current_model = this.#editor?.getModel();
+    if (current_model != null) {
+      this.#editor_view_states.set(uri_, this.#editor?.saveViewState());
+    }
+
+    const state = this.#editor_view_states.get(uri_);
+    if (this.#editor != null) {
+      this.#editor.setModel(monaco.editor.getModel(uri_));
+      if (state != null) {
+        this.#editor.restoreViewState(state);
       }
       this.#editor.focus();
-      this.#onModelSelected?.(url);
+      this.#onModelSelected?.(uri_.toString());
       return true;
     }
     return false;
@@ -253,11 +267,9 @@ class EditorPaneWidget extends Widget {
   }
 
   protected update_preview() {
-    const base_url = this.#base_url ?? "";
-    const main_model_and_state = this.#editor_documents.get(base_url);
-
-    if (main_model_and_state != null) {
-      const source = main_model_and_state.model.getValue();
+    const model = this.#editor?.getModel();
+    if (model != null) {
+      const source = model.getValue();
       const era = this.#edit_era;
 
       setTimeout(() => {
@@ -265,7 +277,7 @@ class EditorPaneWidget extends Widget {
           this.#onRenderRequest(
             this.#style,
             source,
-            base_url,
+            this.#base_url ?? "",
             (url: string) => {
               return this.fetch_url_content(era, url);
             },
@@ -476,26 +488,27 @@ class EditorPaneWidget extends Widget {
     this.#onModelSelected = f;
   }
 
-  protected async fetch_url_content(era: number, url: string): Promise<string> {
-    let model_and_state = this.#editor_documents.get(url);
-    if (model_and_state != null) {
-      return model_and_state.model.getValue();
+  protected async fetch_url_content(era: number, uri: string): Promise<string> {
+    const uri_ = monaco.Uri.parse(uri);
+
+    let model = monaco.editor.getModel(uri_);
+    if (model != null) {
+      return model.getValue();
     }
 
-    const response = await fetch(url);
+    const response = await fetch(uri);
     if (!response.ok) {
       return "Failed to access URL: " + response.statusText;
     }
     const doc = await response.text();
 
-    model_and_state = this.#editor_documents.get(url);
-    if (model_and_state != null) {
-      return model_and_state.model.getValue();
+    model = monaco.editor.getModel(uri_);
+    if (model != null) {
+      return model.getValue();
     }
 
     if (era == this.#edit_era) {
-      const model = createModel(doc, monaco.Uri.parse(url));
-      this.add_model(url, model);
+      createModel(doc, uri_);
     }
     return doc;
   }
@@ -582,12 +595,12 @@ export class EditorWidget extends Widget {
 
     if (code) {
       this.#editor.clear_models();
-      this.#editor.add_model("", createModel(code));
+      createModel(code);
     } else if (load_url) {
       this.load_from_url(load_url);
     } else {
       this.#editor.clear_models();
-      this.#editor.add_model("", createModel(hello_world));
+      createModel(hello_world);
     }
   }
 
@@ -658,8 +671,7 @@ export class EditorWidget extends Widget {
       );
     } else {
       this.#editor.clear_models();
-      const model = createModel(hello_world);
-      this.#editor.add_model("", model);
+      createModel(hello_world);
     }
   }
 
