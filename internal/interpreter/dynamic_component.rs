@@ -406,7 +406,7 @@ impl<'id> ComponentDescription<'id> {
         self: Rc<Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
     ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
-        let component_ref = instantiate(self, None, Some(window_adapter), Default::default());
+        let component_ref = instantiate(self, None, window_adapter, Default::default());
         WindowInner::from_pub(component_ref.as_pin_ref().window_adapter().window())
             .set_component(&vtable::VRc::into_dyn(component_ref.clone()));
         component_ref.run_setup_code();
@@ -656,7 +656,7 @@ fn ensure_repeater_updated<'id>(
         let instance = instantiate(
             rep_in_comp.component_to_repeat.clone(),
             Some(instance_ref.borrow()),
-            Some(window_adapter),
+            window_adapter,
             Default::default(),
         );
         instance.run_setup_code();
@@ -1190,7 +1190,7 @@ fn make_binding_eval_closure(
 pub fn instantiate(
     component_type: Rc<ComponentDescription>,
     parent_ctx: Option<ComponentRefPin>,
-    window_adapter: Option<&Rc<dyn WindowAdapter>>,
+    window_adapter: &Rc<dyn WindowAdapter>,
     mut globals: crate::global_component::GlobalStorage,
 ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
     let mut instance = component_type.dynamic_type.clone().create_instance();
@@ -1200,7 +1200,7 @@ pub fn instantiate(
             Some(parent);
     } else {
         for g in &component_type.compiled_globals {
-            crate::global_component::instantiate(g, &mut globals);
+            crate::global_component::instantiate(g, &mut globals, window_adapter);
         }
         let extra_data = component_type.extra_data_offset.apply_mut(instance.as_mut());
         extra_data.globals = globals;
@@ -1213,7 +1213,8 @@ pub fn instantiate(
             .map(|(path, er)| (er.id, path.clone()))
             .collect();
     }
-    *component_type.window_adapter_offset.apply_mut(instance.as_mut()) = window_adapter.cloned();
+    *component_type.window_adapter_offset.apply_mut(instance.as_mut()) =
+        Some(window_adapter.clone());
 
     let component_box = ComponentBox { instance, component_type: component_type.clone() };
     let instance_ref = component_box.borrow_instance();
@@ -1726,8 +1727,7 @@ pub fn show_popup(
     generativity::make_guard!(guard);
     // FIXME: we should compile once and keep the cached compiled component
     let compiled = generate_component(&popup.component, guard);
-    let inst =
-        instantiate(compiled, Some(parent_comp), Some(parent_window_adapter), Default::default());
+    let inst = instantiate(compiled, Some(parent_comp), parent_window_adapter, Default::default());
     inst.run_setup_code();
     WindowInner::from_pub(parent_window_adapter.window()).show_popup(
         &vtable::VRc::into_dyn(inst),
