@@ -71,6 +71,7 @@ cfg_if::cfg_if! {
         pub fn create_backend() -> Box<dyn Platform + 'static> {
             panic!("no default backend configured, the backend must be initialized manually")
         }
+        pub mod native_widgets {}
         pub type NativeWidgets = ();
         pub type NativeGlobals = ();
         pub const HAS_NATIVE_STYLE: bool = false;
