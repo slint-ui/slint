@@ -140,7 +140,7 @@ pub trait WindowAdapterSealed {
     fn set_size(&self, _size: WindowSize) {}
 
     /// returns wether a dark theme is used
-    fn dark_style(&self) -> bool {
+    fn dark_color_scheme(&self) -> bool {
         false
     }
 
@@ -1009,10 +1009,10 @@ pub mod ffi {
 
     /// Return wether the style is using a dark theme
     #[no_mangle]
-    pub unsafe extern "C" fn slint_windowrc_dark_style(
+    pub unsafe extern "C" fn slint_windowrc_dark_color_scheme(
         handle: *const WindowAdapterRcOpaque,
     ) -> bool {
         let window_adapter = &*(handle as *const Rc<dyn WindowAdapter>);
-        window_adapter.dark_style()
+        window_adapter.dark_color_scheme()
     }
 }

@@ -207,10 +207,10 @@ cpp! {{
                     WindowInner::from_pub(&rust_window.window).set_active(active)
                 });
             } else if (event->type() == QEvent::PaletteChange || event->type() == QEvent::StyleChange) {
-                bool dark_style = qApp->palette().color(QPalette::Window).valueF() < 0.5;
-                rust!(Slint_updateWindowDarkStyle [rust_window: &QtWindow as "void*", dark_style: bool as "bool"] {
-                    if let Some(ds) = rust_window.dark_style.get() {
-                        ds.as_ref().set(dark_style);
+                bool dark_color_scheme = qApp->palette().color(QPalette::Window).valueF() < 0.5;
+                rust!(Slint_updateWindowDarkColorScheme [rust_window: &QtWindow as "void*", dark_color_scheme: bool as "bool"] {
+                    if let Some(ds) = rust_window.dark_color_scheme.get() {
+                        ds.as_ref().set(dark_color_scheme);
                     }
                 });
             }
@@ -1314,7 +1314,7 @@ pub struct QtWindow {
 
     tree_structure_changed: RefCell<bool>,
 
-    dark_style: OnceCell<Pin<Box<Property<bool>>>>,
+    dark_color_scheme: OnceCell<Pin<Box<Property<bool>>>>,
 }
 
 impl QtWindow {
@@ -1338,7 +1338,7 @@ impl QtWindow {
                 rendering_metrics_collector: Default::default(),
                 cache: Default::default(),
                 tree_structure_changed: RefCell::new(false),
-                dark_style: Default::default(),
+                dark_color_scheme: Default::default(),
             }
         });
         let widget_ptr = rc.widget_ptr();
@@ -1737,8 +1737,8 @@ impl WindowAdapterSealed for QtWindow {
         }};
     }
 
-    fn dark_style(&self) -> bool {
-        let ds = self.dark_style.get_or_init(|| {
+    fn dark_color_scheme(&self) -> bool {
+        let ds = self.dark_color_scheme.get_or_init(|| {
             Box::pin(Property::new(cpp! {unsafe [] -> bool as "bool" {
                 return qApp->palette().color(QPalette::Window).valueF() < 0.5;
             }}))

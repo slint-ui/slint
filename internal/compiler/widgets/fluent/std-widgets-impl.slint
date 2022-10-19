@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 export global Palette := {
-    property<bool> _dark-style: dark-style();
+    property<bool> _dark-color-scheme: dark-color-scheme();
 
     // The colors in light mode are default palette. In the
     // Fluent UI Theme Designer they match the colors produced
@@ -21,22 +21,22 @@ export global Palette := {
     property<color> themeLight: #c7e0f4;
     property<color> themeLighter: #deecf9;
     property<color> themeLighterAlt: #eff6fc;
-    property<color> black: !_dark-style ? #000000 : #f8f8f8;
+    property<color> black: !_dark-color-scheme ? #000000 : #f8f8f8;
     property<color> blackTranslucent40: rgba(0,0,0,0.4);
-    property<color> neutralDark: !_dark-style ? #201f1e : #f4f4f4;
-    property<color> neutralPrimary: !_dark-style ? #323130 : #ffffff;
-    property<color> neutralPrimaryAlt: !_dark-style ? #3b3a39 : #dadada;
-    property<color> neutralSecondary: !_dark-style ? #605e5c : #d0d0d0;
+    property<color> neutralDark: !_dark-color-scheme ? #201f1e : #f4f4f4;
+    property<color> neutralPrimary: !_dark-color-scheme ? #323130 : #ffffff;
+    property<color> neutralPrimaryAlt: !_dark-color-scheme ? #3b3a39 : #dadada;
+    property<color> neutralSecondary: !_dark-color-scheme ? #605e5c : #d0d0d0;
     property<color> neutralSecondaryAlt: #8a8886;
-    property<color> neutralTertiary: !_dark-style ? #a19f9d : #c8c8c8;
-    property<color> neutralTertiaryAlt: !_dark-style ? #c8c6c4 : #6d6d6d;
+    property<color> neutralTertiary: !_dark-color-scheme ? #a19f9d : #c8c8c8;
+    property<color> neutralTertiaryAlt: !_dark-color-scheme ? #c8c6c4 : #6d6d6d;
     property<color> neutralQuaternary: #d2d0ce;
-    property<color> neutralQuaternaryAlt: !_dark-style ? #e1dfdd : #484848;
-    property<color> neutralLight: !_dark-style ? #edebe9 : #3f3f3f;
-    property<color> neutralLighter: !_dark-style ? #f3f2f1 : #313131;
-    property<color> neutralLighterAlt: !_dark-style ? #faf9f8 : #282828;
+    property<color> neutralQuaternaryAlt: !_dark-color-scheme ? #e1dfdd : #484848;
+    property<color> neutralLight: !_dark-color-scheme ? #edebe9 : #3f3f3f;
+    property<color> neutralLighter: !_dark-color-scheme ? #f3f2f1 : #313131;
+    property<color> neutralLighterAlt: !_dark-color-scheme ? #faf9f8 : #282828;
     property<color> accent: #0078d4;
-    property<color> white: !_dark-style ? #ffffff : #1f1f1f;
+    property<color> white: !_dark-color-scheme ? #ffffff : #1f1f1f;
     property<color> whiteTranslucent40: rgba(255,255,255,0.4);
     property<color> yellowDark: #d29200;
     property<color> yellow: #ffb900;
@@ -75,7 +75,7 @@ export global StyleMetrics := {
     property<color> textedit-text-color: Palette.neutralPrimary;
     property<brush> textedit-background-disabled: Palette.neutralLighter;
     property<color> textedit-text-color-disabled: Palette.neutralTertiary;
-    property<bool> dark-style: Palette._dark-style;
+    property<bool> dark-color-scheme: Palette._dark-color-scheme;
 }
 
 export Button := Rectangle {

@@ -117,7 +117,7 @@ public:
     float scale_factor() const { return slint_windowrc_get_scale_factor(&inner); }
     void set_scale_factor(float value) const { slint_windowrc_set_scale_factor(&inner, value); }
 
-    bool dark_style() const { return slint_windowrc_dark_style(&inner); }
+    bool dark_color_scheme() const { return slint_windowrc_dark_color_scheme(&inner); }
 
     template<typename Component, typename ItemArray>
     void unregister_component(Component *c, ItemArray items) const
