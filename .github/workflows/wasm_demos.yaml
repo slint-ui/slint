@@ -70,6 +70,11 @@ jobs:
         sed -i "s/#wasm# //" Cargo.toml
         wasm-pack build --release --target web
       working-directory: examples/opengl_underlay
+    - name: Carousel example WASM build
+      run: |
+        sed -i "s/#wasm# //" Cargo.toml
+        wasm-pack build --release --target web
+      working-directory: examples/carousel/rust
     - name: "Upload Demo Artifacts"
       uses: actions/upload-artifact@v2
       with:
@@ -85,6 +90,7 @@ jobs:
               examples/imagefilter/
               examples/plotter/
               examples/opengl_underlay/
+              examples/carousel/
     - name: Clean cache # Otherwise the cache is much too big
       run: |
           du -hs target
