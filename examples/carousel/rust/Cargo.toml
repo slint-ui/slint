@@ -24,7 +24,7 @@ slint-build = { path = "../../../api/rs/build" }
 [features]
 default = ["slint/default"]
 mcu = ["mcu-board-support", "slint/compat-0-3-0"]
-mcu-simulator = ["mcu", "slint/renderer-winit-software", "slint/backend-winit", "slint/std"]
+simulator = ["mcu", "slint/renderer-winit-software", "slint/backend-winit", "slint/std"]
 
 
 # Remove the `#wasm#` to uncomment the wasm build.

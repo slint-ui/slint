@@ -2,13 +2,17 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 #![cfg_attr(feature = "mcu", no_std)]
-#![cfg_attr(feature = "mcu", no_main)]
+#![cfg_attr(all(feature = "mcu", not(simulator)), no_main)]
+
+#[cfg(feature = "mcu")]
+extern crate alloc;
 
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
 slint::include_modules!();
 
+#[cfg(not(feature = "mcu"))]
 #[cfg_attr(target_arch = "wasm32", wasm_bindgen(start))]
 pub fn main() {
     // This provides better error messages in debug mode.
@@ -18,9 +22,6 @@ pub fn main() {
 
     MainWindow::new().run()
 }
-
-#[cfg(feature = "mcu")]
-extern crate alloc;
 
 #[cfg(feature = "mcu")]
 #[mcu_board_support::entry]
