@@ -14,59 +14,67 @@ export Card := Rectangle {
     property <length> title-spacing: Theme.spacing-medium;
     property <length> title-area-height: Theme.size-small;
 
-    background: transparent;
+    border-radius: Theme.radius-regular;
+    background: Theme.background-regular;
     width: Theme.size-medium;
     height: Theme.size-medium;
+    clip: false;
 
-    // background
-    background := Rectangle { 
-        opacity: 0.95;
-        clip: true;
-        border-radius: Theme.radius-regular;
-        background: Theme.background-regular;
-    
-        touch-area := TouchArea {}
-  
-        image := Image {
-            x: (parent.width - width) / 2;
-            y: (parent.height - height) / 2;
-            width: 80%;
-            height: 80%;
-            colorize: Theme.foreground;
+    touch-area := TouchArea {}
 
-            animate colorize { duration: Theme.duration-fast; }
-        }
+    image := Image {
+        x: (parent.width - width) / 2;
+        y: (parent.height - height) / 2;
+        width: 80%;
+        height: 80%;
+        colorize: Theme.foreground;
 
-        states [   
-            pressed when touch-area.pressed : {
-                background: Theme.background-pressed;
-                image.colorize: Theme.foreground-hover;
-            }
-            hover when touch-area.has-hover : {
-                background: Theme.background-hover;
-                image.colorize: Theme.foreground-hover;
-            }
-         ]
-
-         animate background { duration: Theme.duration-fast; }
+        animate colorize { duration: Theme.duration-fast; }
     }
-
+    
     // Selection text
-    titleArea := TitleLabel {
-        x: root.spacing + parent.width;
-        y: parent.height - self.height;
+    title-label := TitleLabel {
+        x: (parent.width - width) / 2;
+        y: parent.height;
         text <=> title;
         visible: false;
+        color: Theme.foreground;
     }
 
     states [
-        selected when is-selected : {
+        pressed-selected when touch-area.pressed && is-selected  : {
+            background: Theme.background-selected-pressed;
+            image.colorize: Theme.foreground-selected-pressed;
             width: Theme.size-big;
             height: Theme.size-big;
-            titleArea.visible: true;
+            title-label.visible: true;
+        }
+        hover-selected when touch-area.has-hover && is-selected  : {
+            background: Theme.background-selected-hover;
+            image.colorize: Theme.foreground-selected-hover;
+            width: Theme.size-big;
+            height: Theme.size-big;
+            title-label.visible: true;
+        }
+        pressed when touch-area.pressed : {
+            background: Theme.background-pressed;
+            image.colorize: Theme.foreground-pressed;
+        }
+
+        hover when touch-area.has-hover: {
+            background: Theme.background-hover;
+            image.colorize: Theme.foreground-hover;
+        }
+        selected when is-selected : {
+            background: Theme.background-selected;
+            image.colorize: Theme.foreground-selected;
+            width: Theme.size-big;
+            height: Theme.size-big;
+            title-label.visible: true;
         }
      ]
 
      animate width { duration: Theme.duration-regular; easing: ease-in; }
      animate height { duration: Theme.duration-regular; easing: ease-in; }
+     animate background { duration: Theme.duration-fast; }
 }

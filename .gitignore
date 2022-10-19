@@ -8,3 +8,4 @@ tools/figma_import/figma_output
 /build
 /_deps
 package-lock.json
+.DS_Store

@@ -7,22 +7,23 @@ import { Theme } from "theme.slint";
 
 MainWindow := Window {
     property<[{ title: string, image: image}]> navigation-items: [
-       { title: "Home", image: @image-url("icons/home_black_24dp.svg") },
-       { title: "Settings", image: @image-url("icons/settings_black_24dp.svg") },
-       { title: "About", image: @image-url("icons/info_black_24dp.svg") },
+       { title: "Settings", image: @image-url("svg/settings_black.svg") },
+       { title: "Home", image: @image-url("svg/home_black.svg") },
+       { title: "About", image: @image-url("svg/info_black.svg") },
     ];
-    property <int> selected-index: 0;
+    property <int> selected-index: 1;
 
     title: "Carousel example";
-    preferred-width: 600px;
-    preferred-height: 400px;
+    width: 320px;
+    height: 240px;
     background: Theme.window-background;
     padding: Theme.spacing-regular;
     forward-focus: carousel;
+    default-font-family: Theme.font-family;
 
     carousel := Carousel {  
         y: (root.height - height) / 2;
-        // width of a `Card`
+        height: 100%;
         itemWidth: Theme.size-medium;
         count: navigation-items.length;
         selected-index <=> root.selected-index;
