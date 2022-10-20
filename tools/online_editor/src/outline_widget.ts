@@ -15,35 +15,36 @@ import {
   SymbolInformation,
 } from "vscode-languageserver-protocol";
 
-const SYMBOL_KIND_MAP = [
-  "kind-unknown",
-  "kind-file",
-  "kind-module",
-  "kind-namespace",
-  "kind-package",
-  "kind-class",
-  "kind-method",
-  "kind-property",
-  "kind-field",
-  "kind-constructor",
-  "kind-enum",
-  "kind-interface",
-  "kind-function",
-  "kind-variable",
-  "kind-constant",
-  "kind-string",
-  "kind-number",
-  "kind-boolean",
-  "kind-array",
-  "kind-object",
-  "kind-key",
-  "kind-null",
-  "kind-enum-member",
-  "kind-struct",
-  "kind-event",
-  "kind-operator",
-  "kind-type-parameter",
-];
+import { SymbolTag, SymbolKind } from "vscode-languageserver-types";
+
+const SYMBOL_KIND_MAP = new Map<SymbolKind, string>([
+  [SymbolKind.File, "kind-file"],
+  [SymbolKind.Module, "kind-module"],
+  [SymbolKind.Namespace, "kind-namespace"],
+  [SymbolKind.Package, "kind-package"],
+  [SymbolKind.Class, "kind-class"],
+  [SymbolKind.Method, "kind-method"],
+  [SymbolKind.Property, "kind-property"],
+  [SymbolKind.Field, "kind-field"],
+  [SymbolKind.Constructor, "kind-constructor"],
+  [SymbolKind.Enum, "kind-enum"],
+  [SymbolKind.Interface, "kind-interface"],
+  [SymbolKind.Function, "kind-function"],
+  [SymbolKind.Variable, "kind-variable"],
+  [SymbolKind.Constant, "kind-constant"],
+  [SymbolKind.String, "kind-string"],
+  [SymbolKind.Number, "kind-number"],
+  [SymbolKind.Boolean, "kind-boolean"],
+  [SymbolKind.Array, "kind-array"],
+  [SymbolKind.Object, "kind-object"],
+  [SymbolKind.Key, "kind-key"],
+  [SymbolKind.Null, "kind-null"],
+  [SymbolKind.EnumMember, "kind-enum-member"],
+  [SymbolKind.Struct, "kind-struct"],
+  [SymbolKind.Event, "kind-event"],
+  [SymbolKind.Operator, "kind-operator"],
+  [SymbolKind.TypeParameter, "kind-type-parameter"],
+]);
 
 function set_data(
   data: DocumentSymbol[],
@@ -55,20 +56,22 @@ function set_data(
     _start_line: number,
     _start_character: number,
     _end_line: number,
-    _end_column: number,
-  ) => void,
+    _end_column: number
+  ) => void
 ) {
   for (const d of data) {
     const row = document.createElement("tr");
     row.className = "outline-element";
-    if (d.deprecated || (d.tags != null && 1 in d.tags)) {
+    // the deprecated flag is deprecated, so cast to any so that the check
+    // works even if deprecated gets removed
+    if (
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (d as any).deprecated ||
+      (d.tags != null && SymbolTag.Deprecated in d.tags)
+    ) {
       row.classList.add("deprecated");
     }
-    if (d.kind >= SYMBOL_KIND_MAP.length || d.kind < 1) {
-      row.classList.add(SYMBOL_KIND_MAP[0]);
-    } else {
-      row.classList.add(SYMBOL_KIND_MAP[d.kind]);
-    }
+    row.classList.add(SYMBOL_KIND_MAP.get(d.kind) ?? "kind-unknown");
     row.classList.add("indent-" + indent);
 
     const cell = document.createElement("td");
@@ -81,8 +84,8 @@ function set_data(
         d.selectionRange.start.line + 1,
         d.selectionRange.start.character,
         d.selectionRange.end.line + 1,
-        d.selectionRange.end.character,
-      ),
+        d.selectionRange.end.character
+      )
     );
     table.appendChild(row);
 
@@ -100,7 +103,7 @@ export class OutlineWidget extends Widget {
     start_line: number,
     start_column: number,
     end_line: number,
-    end_column: number,
+    end_column: number
   ) => {
     console.log(
       "Goto Position ignored:",
@@ -108,7 +111,7 @@ export class OutlineWidget extends Widget {
       start_line,
       start_column,
       end_line,
-      end_column,
+      end_column
     );
   };
 
@@ -120,7 +123,7 @@ export class OutlineWidget extends Widget {
   }
 
   constructor(
-    callback: () => [MonacoLanguageClient | undefined, string | undefined],
+    callback: () => [MonacoLanguageClient | undefined, string | undefined]
   ) {
     super({ node: OutlineWidget.createNode() });
     this.#callback = callback;
@@ -139,7 +142,7 @@ export class OutlineWidget extends Widget {
             textDocument: { uri: uri },
           } as DocumentSymbolParams)
           .then((r: DocumentSymbol[] | SymbolInformation[] | null) =>
-            this.update_data(uri, r),
+            this.update_data(uri, r)
           );
       } else {
         if (uri == null) {
@@ -158,8 +161,8 @@ export class OutlineWidget extends Widget {
       _start_line: number,
       _start_character: number,
       _end_line: number,
-      _end_column: number,
-    ) => void,
+      _end_column: number
+    ) => void
   ) {
     this.#onGotoPosition = callback;
   }
@@ -170,7 +173,7 @@ export class OutlineWidget extends Widget {
 
   protected update_data(
     uri: string,
-    data: DocumentSymbol[] | SymbolInformation[] | null,
+    data: DocumentSymbol[] | SymbolInformation[] | null
   ) {
     if (data == null) {
       this.set_error("No data received");
