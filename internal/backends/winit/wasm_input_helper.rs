@@ -151,9 +151,13 @@ impl WasmInputHelper {
         h.add_event_listener("compositionupdate", move |e: web_sys::CompositionEvent| {
             if let (Some(window_adapter), Some(data)) = (win.upgrade(), e.data()) {
                 let window_inner = WindowInner::from_pub(window_adapter.window());
+                let text: SharedString = data.into();
+                let preedit_cursor_pos = text.len();
                 window_inner.process_key_input(&KeyEvent {
-                    text: data.into(),
+                    text,
                     event_type: KeyEventType::UpdateComposition,
+                    preedit_selection_start: preedit_cursor_pos,
+                    preedit_selection_end: preedit_cursor_pos,
                     ..Default::default()
                 });
             }
