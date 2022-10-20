@@ -155,13 +155,13 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
                 femtovg_canvas.set_size(width, height, 1.0);
 
                 // Clear with window background if it is a solid color otherwise it will drawn as gradient
-                if let Some(Brush::SolidColor(clear_color)) = window_background_brush  {
+                if let Some(Brush::SolidColor(clear_color)) = window_background_brush {
                     femtovg_canvas.clear_rect(
                         0,
                         0,
                         width,
                         height,
-                        self::itemrenderer::to_femtovg_color(&clear_color)
+                        self::itemrenderer::to_femtovg_color(&clear_color),
                     );
                 }
             }
@@ -190,15 +190,13 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
 
             // Draws the window background as gradient
             match window_background_brush {
-                Some(Brush::SolidColor(..)) | None => {},
-                Some(brush @ _) =>   if let Some(window_item) = window.window_item() {
-                    item_renderer.draw_rect(
-                        window_item.as_pin_ref().geometry(),
-                        brush,
-                    );
+                Some(Brush::SolidColor(..)) | None => {}
+                Some(brush @ _) => {
+                    if let Some(window_item) = window.window_item() {
+                        item_renderer.draw_rect(window_item.as_pin_ref().geometry(), brush);
+                    }
                 }
             }
-          
 
             for (component, origin) in components {
                 i_slint_core::item_rendering::render_component_items(
