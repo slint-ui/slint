@@ -6,8 +6,14 @@
 import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
 
+import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 import { MonacoLanguageClient } from "monaco-languageclient";
-import { GotoPositionCallback, TextPosition, TextRange } from "./text";
+import {
+  DocumentAndTextPosition,
+  GotoPositionCallback,
+  TextPosition,
+  TextRange,
+} from "./text";
 
 import {
   DocumentSymbolRequest,
@@ -47,12 +53,26 @@ const SYMBOL_KIND_MAP = new Map<SymbolKind, string>([
   [SymbolKind.TypeParameter, "kind-type-parameter"],
 ]);
 
+const ACTIVE_ELEMENT_CLASS = "active";
+
+interface PositionData {
+  range: TextRange;
+  element: HTMLElement;
+  children: PositionData[];
+}
+
+interface OutlineData {
+  uri: string;
+  data: PositionData[];
+}
+
 function set_data(
   data: DocumentSymbol[],
   parent: HTMLUListElement,
   uri: string,
   goto_position: GotoPositionCallback,
-) {
+): PositionData[] {
+  const pos_data = [];
   for (const d of data) {
     const row = document.createElement("li");
     row.className = "outline-element";
@@ -68,6 +88,18 @@ function set_data(
     row.classList.add(SYMBOL_KIND_MAP.get(d.kind) ?? "kind-unknown");
 
     const span = document.createElement("span");
+
+    const current_pos_data = {
+      range: {
+        startLineNumber: d.range.start.line + 1,
+        startColumn: d.range.start.character + 1,
+        endLineNumber: d.range.end.line + 1,
+        endColumn: d.range.end.character + 1,
+      },
+      element: span,
+      children: [],
+    } as PositionData;
+
     span.innerText = d.name;
     span.addEventListener("click", () =>
       goto_position(uri, {
@@ -82,12 +114,38 @@ function set_data(
 
     if (d.children != null) {
       const children_parent = document.createElement("ul");
-      set_data(d.children, children_parent, uri, goto_position);
+      current_pos_data.children = set_data(
+        d.children,
+        children_parent,
+        uri,
+        goto_position,
+      );
       row.appendChild(children_parent);
     }
 
+    pos_data.push(current_pos_data);
     parent.appendChild(row);
   }
+
+  return pos_data;
+}
+
+function deactivate_elements_and_find_to_activate(
+  data: PositionData[],
+  position: TextPosition,
+): HTMLElement | null {
+  let to_activate = null;
+  for (const d of data) {
+    d.element.classList.remove(ACTIVE_ELEMENT_CLASS);
+    const r = monaco.Range.lift(d.range);
+    if (r.containsPosition(position)) {
+      to_activate = d.element;
+    }
+    to_activate =
+      deactivate_elements_and_find_to_activate(d.children, position) ??
+      to_activate;
+  }
+  return to_activate;
 }
 
 export class OutlineWidget extends Widget {
@@ -97,6 +155,9 @@ export class OutlineWidget extends Widget {
     console.log("Goto Position ignored:", uri, position);
   };
 
+  #outline: OutlineData | null = null;
+  #cursor_position: DocumentAndTextPosition;
+
   static createNode(): HTMLElement {
     const node = document.createElement("div");
     const content = document.createElement("div");
@@ -105,6 +166,7 @@ export class OutlineWidget extends Widget {
   }
 
   constructor(
+    cursor_position: DocumentAndTextPosition,
     callback: () => [MonacoLanguageClient | undefined, string | undefined],
   ) {
     super({ node: OutlineWidget.createNode() });
@@ -135,10 +197,27 @@ export class OutlineWidget extends Widget {
         }
       }
     }, 5000);
+
+    this.#cursor_position = cursor_position;
   }
 
   set on_goto_position(callback: GotoPositionCallback) {
     this.#onGotoPosition = callback;
+  }
+
+  position_changed(position: DocumentAndTextPosition) {
+    if (this.#outline) {
+      if (position.uri != this.#outline.uri) {
+        // Document has changed, and we have no new data yet!
+        this.clear_data();
+      } else {
+        deactivate_elements_and_find_to_activate(
+          this.#outline.data,
+          position.position,
+        )?.classList.add(ACTIVE_ELEMENT_CLASS);
+      }
+    }
+    this.#cursor_position = position;
   }
 
   protected get contentNode(): HTMLDivElement {
@@ -161,17 +240,36 @@ export class OutlineWidget extends Widget {
     const content = document.createElement("ul");
     content.className = "outline-tree";
 
-    set_data(data as DocumentSymbol[], content, uri, this.#onGotoPosition);
+    const pos_data = set_data(
+      data as DocumentSymbol[],
+      content,
+      uri,
+      this.#onGotoPosition,
+    );
+
+    if (
+      uri == this.#outline?.uri &&
+      JSON.stringify(pos_data) == JSON.stringify(this.#outline?.data)
+    ) {
+      return;
+    }
 
     this.clear_data();
+
+    this.#outline = { uri: uri, data: pos_data };
+    this.position_changed(this.#cursor_position); // re-highlight the expected element:-)
+
     this.contentNode.appendChild(content);
   }
 
   protected clear_data() {
     this.contentNode.innerText = "";
+
+    this.#outline = null;
   }
 
   protected set_error(message: string) {
+    this.clear_data();
     this.contentNode.innerHTML = '<div class="error">' + message + "</div>";
   }
 

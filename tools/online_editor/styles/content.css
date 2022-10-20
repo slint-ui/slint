@@ -75,6 +75,42 @@
   width: 100%;
 }
 
+.outline ul {
+  padding-left: 1em;
+  list-style-type: none;
+}
+
+.outline .outline-tree {
+  margin: 4px;
+}
+
+.outline .outline-tree {
+  padding-left: 4px;
+}
+
+.outline .outline-element {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: block;
+}
+
+.outline .outline-element > span {
+  display: block;
+  user-select: none;
+}
+
+.outline .kind-class.outline-element span:before {
+  font-family: "FontAwesome";
+  content: "\f1b2 ";
+  padding: 2px;
+}
+
+.outline .outline-element .active {
+  background: #3333ff;
+  color: #ffffff;
+}
+
 .properties-editor .element-header {
   background: #3333ff;
   color: #ffffff;
@@ -102,10 +138,6 @@
 
 .properties-editor .properties-table .undefined {
   background-color: #b0b0b0;
-}
-
-.help > div {
-  background: #f1c4f1;
 }
 
 #help-content {

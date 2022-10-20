@@ -10,7 +10,12 @@ import {
   DefinitionPosition,
 } from "./lsp_integration";
 import { FilterProxyReader } from "./proxy";
-import { TextPosition, TextRange } from "./text";
+import {
+  TextPosition,
+  TextRange,
+  PositionChangeCallback,
+  DocumentAndTextPosition,
+} from "./text";
 
 import { BoxLayout, TabBar, Title, Widget } from "@lumino/widgets";
 import { Message as LuminoMessage } from "@lumino/messaging";
@@ -118,6 +123,12 @@ class EditorPaneWidget extends Widget {
   #disposables: monaco.IDisposable[] = [];
   #current_properties = "";
 
+  onPositionChangeCallback: PositionChangeCallback = (
+    _uri: string,
+    _pos: TextPosition,
+  ) => {
+    return;
+  };
   onNewPropertyData: PropertyDataNotifier | null = null;
 
   readonly editor_ready: Promise<void>;
@@ -247,6 +258,16 @@ class EditorPaneWidget extends Widget {
       const height = this.contentNode.offsetHeight;
       this.#editor.layout({ width, height });
     }
+  }
+
+  get position(): DocumentAndTextPosition {
+    const uri = this.#editor?.getModel()?.uri.toString() ?? "";
+    const position = this.#editor?.getPosition() ?? {
+      lineNumber: 1,
+      column: 1,
+    };
+
+    return { uri: uri, position: position };
   }
 
   private add_model_listener(model: monaco.editor.ITextModel) {
@@ -392,6 +413,12 @@ class EditorPaneWidget extends Widget {
         (pos: monaco.editor.ICursorPositionChangedEvent) => {
           const model = editor.getModel();
           if (model != null) {
+            this.onPositionChangeCallback({
+              uri: model.uri.toString(),
+              position: pos.position,
+            });
+
+            // TODO: Move this into an onPositionChangeCallback?
             const offset =
               model.getOffsetAt(pos.position) -
               model.getOffsetAt({
@@ -741,6 +768,14 @@ export class EditorWidget extends Widget {
 
   textAt(handle: unknown, start: number, end: number): string {
     return this.#editor.textAt(handle, start, end);
+  }
+
+  set onPositionChange(cb: PositionChangeCallback) {
+    this.#editor.onPositionChangeCallback = cb;
+  }
+
+  get position(): DocumentAndTextPosition {
+    return this.#editor.position;
   }
 }
 

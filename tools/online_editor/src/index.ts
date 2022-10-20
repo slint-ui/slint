@@ -20,7 +20,7 @@ import { OutlineWidget } from "./outline_widget";
 import { PropertiesWidget } from "./properties_widget";
 import { WelcomeWidget } from "./welcome_widget";
 
-import { TextPosition, TextRange } from "./text";
+import { DocumentAndTextPosition, TextPosition, TextRange } from "./text";
 
 const commands = new CommandRegistry();
 
@@ -312,9 +312,13 @@ function main() {
     ],
     [
       () => {
-        const outline = new OutlineWidget(() => {
+        const outline = new OutlineWidget(editor.position, () => {
           return [editor.language_client, editor.current_text_document_uri];
         });
+
+        editor.onPositionChange = (position: DocumentAndTextPosition) => {
+          outline.position_changed(position);
+        };
 
         outline.on_goto_position = (
           uri: string,
