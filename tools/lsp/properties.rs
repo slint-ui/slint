@@ -146,7 +146,7 @@ fn find_expression_range(
             },
             expression_range: lsp_types::Range {
                 start: offset_to_position(expression_start),
-                end: offset_to_position(expression_end + 1), // The end points to the first excluded character
+                end: offset_to_position(expression_end + 1),
             },
         });
     } else {
