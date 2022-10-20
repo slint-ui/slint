@@ -188,8 +188,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
                 height,
             );
 
-            // Draws the
-            
+            // Draws the window background as gradient
             match window_background_brush {
                 Some(Brush::SolidColor(..)) | None => {},
                 Some(brush @ _) =>   if let Some(window_item) = window.window_item() {
