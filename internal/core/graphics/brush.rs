@@ -53,6 +53,19 @@ impl Brush {
         }
     }
 
+    /// Returns true if this brush is a solid color
+    ///
+    /// ```
+    /// # use i_slint_core::graphics::*;
+    /// assert!(Brush::SolidColor(Color::from_argb_u8(0, 255, 128, 140)).is_solid_color());
+    /// ```
+    pub fn is_solid_color(&self) -> bool {
+        match self {
+            Brush::SolidColor(_) => true,
+            _ => false,
+        }
+    }
+
     /// Returns true if this brush contains a fully transparent color (alpha value is zero)
     ///
     /// ```
