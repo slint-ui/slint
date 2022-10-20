@@ -1532,7 +1532,18 @@ impl WindowAdapterSealed for QtWindow {
                 size.height = existing_size.height;
             }
         }
-        let background: u32 = window_item.background().as_argb_encoded();
+
+        let window_background_brush =
+            window_inner.window_item().map(|w| w.as_pin_ref().background());
+
+        let background: u32 = if let Some(Brush::SolidColor(clear_color)) = window_background_brush
+        {
+            clear_color.as_argb_encoded();
+        } else {
+            0
+        };
+
+        // todo: gradient
 
         match (&window_item.icon()).into() {
             &ImageInner::None => (),
