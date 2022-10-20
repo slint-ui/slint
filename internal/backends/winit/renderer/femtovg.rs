@@ -15,6 +15,7 @@ use i_slint_core::lengths::{
 };
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::{WindowAdapter, WindowInner};
+use i_slint_core::Brush;
 
 use crate::WindowSystemName;
 
@@ -144,9 +145,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         let window = WindowInner::from_pub(window_adapter.window());
 
         window.draw_contents(|components| {
-            let is_solid_background = window
-                .window_item()
-                .map_or_else(|| false, |w| w.as_pin_ref().background().is_solid_color());
+            let window_background_brush = window.window_item().map(|w| w.as_pin_ref().background());
 
             {
                 let mut femtovg_canvas = canvas.canvas.as_ref().borrow_mut();
@@ -156,7 +155,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
                 femtovg_canvas.set_size(width, height, 1.0);
 
                 // Clear with window background if it is a solid color otherwise it will drawn as gradient
-                if is_solid_background {
+                if let Some(Brush::SolidColor(clear_color)) = window_background_brush  {
                     if let Some(window_item) = window.window_item() {
                         femtovg_canvas.clear_rect(
                             0,
@@ -194,14 +193,17 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
             );
 
             // Draws the
-            if !is_solid_background {
-                if let Some(window_item) = window.window_item() {
+            
+            match window_background_brush {
+                Some(Brush::SolidColor(..)) | None => {},
+                Some(brush @ _) =>   if let Some(window_item) = window.window_item() {
                     item_renderer.draw_rect(
                         window_item.as_pin_ref().geometry(),
-                        window_item.as_pin_ref().background(),
+                        brush,
                     );
                 }
             }
+          
 
             for (component, origin) in components {
                 i_slint_core::item_rendering::render_component_items(
