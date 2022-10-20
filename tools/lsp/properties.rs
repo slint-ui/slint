@@ -104,10 +104,8 @@ fn find_expression_range(
     offset: u32,
     offset_to_position: &mut dyn FnMut(u32) -> lsp_types::Position,
 ) -> Option<DefinitionInformation> {
-    let mut start_offset: u32 = 0;
-    let mut end_offset: u32 = 0;
-    let mut expression_start: u32 = 0;
-    let mut expression_end: u32 = 0;
+    let mut property_definition_range = rowan::TextRange::default();
+    let mut expression = rowan::TextRange::default();
 
     if let Some(token) = element.token_at_offset(offset.into()).right_biased() {
         for ancestor in token.parent_ancestors() {
@@ -117,14 +115,11 @@ fn find_expression_range(
                     .first_child()
                     .expect("A BindingExpression needs to have a child!")
                     .text_range();
-                expression_start = expr_range.start().into();
-                expression_end = expr_range.end().into();
+                expression = expr_range;
                 continue;
             }
             if ancestor.kind() == SyntaxKind::Binding {
-                let total_range = ancestor.text_range();
-                start_offset = total_range.start().into();
-                end_offset = total_range.end().into();
+                property_definition_range = ancestor.text_range();
                 break;
             }
             if ancestor.kind() == SyntaxKind::Element {
@@ -133,21 +128,18 @@ fn find_expression_range(
             }
         }
     }
-    if start_offset < expression_start
-        && expression_start <= expression_end
-        && expression_end < end_offset
+    if property_definition_range.start() < expression.start()
+        && expression.start() <= expression.end()
+        && expression.end() < property_definition_range.end()
     {
         return Some(DefinitionInformation {
             // In the CST, the range end includes the last character, while in the lsp protocol the end of the
             // range is exclusive, i.e. it refers to the first excluded character. Hence the +1 below:
-            property_definition_range: lsp_types::Range {
-                start: offset_to_position(start_offset),
-                end: offset_to_position(end_offset + 1),
-            },
-            expression_range: lsp_types::Range {
-                start: offset_to_position(expression_start),
-                end: offset_to_position(expression_end + 1),
-            },
+            property_definition_range: crate::util::text_range_to_lsp_range(
+                property_definition_range,
+                offset_to_position,
+            ),
+            expression_range: crate::util::text_range_to_lsp_range(expression, offset_to_position),
         });
     } else {
         None

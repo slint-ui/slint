@@ -145,6 +145,19 @@ fn to_range(span: (usize, usize)) -> lsp_types::Range {
     lsp_types::Range::new(pos, pos)
 }
 
+pub fn text_range_to_lsp_range(
+    range: rowan::TextRange,
+    offset_to_position: &mut dyn FnMut(u32) -> lsp_types::Position,
+) -> lsp_types::Range {
+    // In the CST, the range end includes the last character, while in the lsp protocol the end of the
+    // range is exclusive, i.e. it refers to the first excluded character. Hence the +1 below:
+    let range_end_offset: u32 = range.end().into();
+    lsp_types::Range {
+        start: offset_to_position(range.start().into()),
+        end: offset_to_position(range_end_offset + 1),
+    }
+}
+
 fn to_lsp_diag_level(level: DiagnosticLevel) -> lsp_types::DiagnosticSeverity {
     match level {
         DiagnosticLevel::Error => lsp_types::DiagnosticSeverity::ERROR,
