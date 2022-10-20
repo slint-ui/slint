@@ -10,16 +10,14 @@ use crate::wasm_prelude::*;
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub(crate) struct DefinitionInformation {
-    start_offset: u32,
-    end_offset: u32,
-    expression_start: u32,
-    expression_end: u32,
+    property_definition_range: lsp_types::Range,
+    expression_range: lsp_types::Range,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub(crate) struct DeclarationInformation {
     uri: String,
-    start_offset: u32,
+    start_position: lsp_types::Position,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -63,20 +61,21 @@ fn source_file(element: &Element) -> Option<String> {
     element.source_file().map(|sf| sf.path().to_string_lossy().to_string())
 }
 
-fn get_element_properties(element: &Element) -> impl Iterator<Item = PropertyInformation> + '_ {
+fn get_element_properties<'a>(
+    element: &'a Element,
+    offset_to_position: &'a mut dyn FnMut(u32) -> lsp_types::Position,
+) -> impl Iterator<Item = PropertyInformation> + 'a {
     let file = source_file(element);
 
     element.property_declarations.iter().map(move |(name, value)| {
         let declared_at = file.as_ref().and_then(|file| {
             value.type_node().map(|n| n.text_range().start().into()).map(|p| {
+                let uri = lsp_types::Url::from_file_path(file).unwrap_or_else(|_| {
+                    lsp_types::Url::parse("file:///)").expect("That should have been valid as URL!")
+                });
                 DeclarationInformation {
-                    uri: lsp_types::Url::from_file_path(file)
-                        .unwrap_or_else(|_| {
-                            lsp_types::Url::parse("file:///)")
-                                .expect("That should have been valid as URL!")
-                        })
-                        .to_string(),
-                    start_offset: p,
+                    uri: uri.to_string(),
+                    start_position: offset_to_position(p),
                 }
             })
         });
@@ -103,13 +102,11 @@ fn insert_property_definition_range(
 fn find_expression_range(
     element: &syntax_nodes::Element,
     offset: u32,
+    offset_to_position: &mut dyn FnMut(u32) -> lsp_types::Position,
 ) -> Option<DefinitionInformation> {
-    let mut result = DefinitionInformation {
-        start_offset: 0,
-        end_offset: 0,
-        expression_start: 0,
-        expression_end: 0,
-    };
+    let mut property_definition_range = rowan::TextRange::default();
+    let mut expression = rowan::TextRange::default();
+
     if let Some(token) = element.token_at_offset(offset.into()).right_biased() {
         for ancestor in token.parent_ancestors() {
             if ancestor.kind() == SyntaxKind::BindingExpression {
@@ -118,14 +115,11 @@ fn find_expression_range(
                     .first_child()
                     .expect("A BindingExpression needs to have a child!")
                     .text_range();
-                result.expression_start = expr_range.start().into();
-                result.expression_end = expr_range.end().into();
+                expression = expr_range;
                 continue;
             }
             if ancestor.kind() == SyntaxKind::Binding {
-                let total_range = ancestor.text_range();
-                result.start_offset = total_range.start().into();
-                result.end_offset = total_range.end().into();
+                property_definition_range = ancestor.text_range();
                 break;
             }
             if ancestor.kind() == SyntaxKind::Element {
@@ -134,17 +128,29 @@ fn find_expression_range(
             }
         }
     }
-    if result.start_offset < result.expression_start
-        && result.expression_start <= result.expression_end
-        && result.expression_end < result.end_offset
+    if property_definition_range.start() < expression.start()
+        && expression.start() <= expression.end()
+        && expression.end() < property_definition_range.end()
     {
-        return Some(result);
+        return Some(DefinitionInformation {
+            // In the CST, the range end includes the last character, while in the lsp protocol the end of the
+            // range is exclusive, i.e. it refers to the first excluded character. Hence the +1 below:
+            property_definition_range: crate::util::text_range_to_lsp_range(
+                property_definition_range,
+                offset_to_position,
+            ),
+            expression_range: crate::util::text_range_to_lsp_range(expression, offset_to_position),
+        });
     } else {
         None
     }
 }
 
-fn insert_property_definitions(element: &Element, properties: &mut Vec<PropertyInformation>) {
+fn insert_property_definitions(
+    element: &Element,
+    properties: &mut Vec<PropertyInformation>,
+    offset_to_position: &mut dyn FnMut(u32) -> lsp_types::Position,
+) {
     let element_node = element.node.as_ref().expect("Element has to have a node here!");
     let element_range = element_node.text_range();
 
@@ -155,7 +161,9 @@ fn insert_property_definitions(element: &Element, properties: &mut Vec<PropertyI
                 == span.source_file.as_ref().map(|sf| sf.path())
                 && element_range.contains(offset.into())
             {
-                if let Some(definition) = find_expression_range(element_node, offset) {
+                if let Some(definition) =
+                    find_expression_range(element_node, offset, offset_to_position)
+                {
                     insert_property_definition_range(k, properties, definition);
                 }
             }
@@ -163,14 +171,17 @@ fn insert_property_definitions(element: &Element, properties: &mut Vec<PropertyI
     }
 }
 
-fn get_properties(element: &ElementRc) -> Vec<PropertyInformation> {
+fn get_properties(
+    element: &ElementRc,
+    offset_to_position: &mut dyn FnMut(u32) -> lsp_types::Position,
+) -> Vec<PropertyInformation> {
     let mut result = vec![];
 
     let mut current_element = Some(element.clone());
     while let Some(e) = current_element {
         use i_slint_compiler::langtype::Type;
 
-        result.extend(get_element_properties(&e.borrow()));
+        result.extend(get_element_properties(&e.borrow(), offset_to_position));
 
         // Go into base_type!
         match &e.borrow().base_type {
@@ -206,7 +217,7 @@ fn get_properties(element: &ElementRc) -> Vec<PropertyInformation> {
     result.dedup_by(|a, b| a.name == b.name); // LEave the property definition in place, remove
                                               // re-definitions
 
-    insert_property_definitions(&element.borrow(), &mut result);
+    insert_property_definitions(&element.borrow(), &mut result, offset_to_position);
 
     result
 }
@@ -216,9 +227,12 @@ fn get_element_information(element: &ElementRc) -> Option<ElementInformation> {
     Some(ElementInformation { id: e.id.clone(), type_name: format!("{}", e.base_type) })
 }
 
-pub(crate) fn query_properties(element: &ElementRc) -> Result<QueryPropertyResponse, crate::Error> {
+pub(crate) fn query_properties(
+    element: &ElementRc,
+    offset_to_position: &mut dyn FnMut(u32) -> lsp_types::Position,
+) -> Result<QueryPropertyResponse, crate::Error> {
     Ok(QueryPropertyResponse {
-        properties: get_properties(&element),
+        properties: get_properties(&element, offset_to_position),
         element: get_element_information(&element),
         source_uri: source_file(&element.borrow()),
     })
@@ -245,11 +259,13 @@ mod tests {
     ) -> Option<Vec<PropertyInformation>> {
         let element = crate::server_loop::element_at_position(
             &mut dc,
-            lsp_types::TextDocumentIdentifier { uri: url },
+            lsp_types::TextDocumentIdentifier { uri: url.clone() },
             lsp_types::Position { line, character },
         )
         .ok()?;
-        Some(get_properties(&element))
+        Some(get_properties(&element, &mut |offset| {
+            dc.byte_offset_to_position(offset, &url).expect("invalid node offset")
+        }))
     }
 
     fn properties_at_position(line: u32, character: u32) -> Option<Vec<PropertyInformation>> {
@@ -276,7 +292,13 @@ mod tests {
         let property = find_property(&result, "background").unwrap();
 
         let def_at = property.defined_at.as_ref().unwrap();
-        assert_eq!((def_at.expression_end - def_at.expression_start) as usize, "lightblue".len());
+        assert_eq!(def_at.expression_range.end.line, def_at.expression_range.start.line);
+        // -1 because the lsp range end location is exclusive.
+        assert_eq!(
+            (def_at.expression_range.end.character - 1 - def_at.expression_range.start.character)
+                as usize,
+            "lightblue".len()
+        );
     }
 
     #[test]
@@ -354,7 +376,8 @@ MainWindow := Window {
 
         let declaration = foo_property.declared_at.as_ref().unwrap();
         assert_eq!(declaration.uri, file_url.to_string());
-        assert_eq!(declaration.start_offset, 125); // This should probably point to the start of
-                                                   // `property<int> foo = 42`, not to the `<`
+        assert_eq!(declaration.start_position.line, 3);
+        assert_eq!(declaration.start_position.character, 13); // This should probably point to the start of
+                                                              // `property<int> foo = 42`, not to the `<`
     }
 }

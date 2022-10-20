@@ -1,16 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+import { Position, Range } from 'vscode-languageserver-types'
+
 export interface DeclarationPosition {
   uri: string;
-  start_offset: number;
+  start_position: Position;
 }
 
 export interface DefinitionPosition {
-  start_offset: number;
-  end_offset: number;
-  expression_start: number;
-  expression_end: number;
+  property_definition_range: Range;
+  expression_range: Range;
 }
 
 export interface Property {

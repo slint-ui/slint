@@ -314,8 +314,12 @@ pub fn query_properties_command(
         TextDocumentIdentifier { uri: text_document.clone() },
         Position { line, character },
     ) {
-        properties::query_properties(&element)
-            .map(|r| serde_json::to_value(r).expect("Failed to serialize property query result!"))
+        properties::query_properties(&element, &mut |offset| {
+            document_cache
+                .byte_offset_to_position(offset, &text_document)
+                .expect("invalid node offset")
+        })
+        .map(|r| serde_json::to_value(r).expect("Failed to serialize property query result!"))
     } else {
         Ok(serde_json::to_value(properties::QueryPropertyResponse::no_element_response(
             text_document.to_string(),

@@ -60,6 +60,7 @@ euclid = "0.22"
 lsp-types = { version = "0.93.0", features = ["proposed"] }
 serde = "1.0.118"
 serde_json = "1.0.60"
+rowan = "0.15.5"
 
 
 # for the preview
