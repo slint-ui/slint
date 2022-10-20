@@ -486,8 +486,8 @@ class EditorPaneWidget extends Widget {
             this.#client.start();
 
             reader.onClose(() => {
-              this.#client.stop();
-              this.#client = null;
+              this.#client?.stop();
+              this.#client = undefined;
             });
 
             resolve_lsp_worker_promise();
