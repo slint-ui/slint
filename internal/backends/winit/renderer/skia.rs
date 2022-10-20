@@ -10,10 +10,12 @@ use i_slint_core::api::{
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::rendering_metrics_collector::RenderingMetricsCollector;
 use i_slint_core::item_rendering::ItemCache;
+use i_slint_core::items::Item;
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
 use i_slint_core::window::{WindowAdapter, WindowInner};
+use i_slint_core::Brush;
 
 use crate::WindowSystemName;
 
@@ -93,9 +95,12 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
 
         canvas.surface.render(|skia_canvas, gr_context| {
             window_inner.draw_contents(|components| {
-                if let Some(window_item) = window_inner.window_item() {
-                    skia_canvas
-                        .clear(itemrenderer::to_skia_color(&window_item.as_pin_ref().background()));
+                let window_background_brush =
+                    window_inner.window_item().map(|w| w.as_pin_ref().background());
+
+                // Clear with window background if it is a solid color otherwise it will drawn as gradient
+                if let Some(Brush::SolidColor(clear_color)) = window_background_brush {
+                    skia_canvas.clear(itemrenderer::to_skia_color(&clear_color));
                 }
 
                 if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
@@ -117,6 +122,16 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
                     &canvas.image_cache,
                     &mut box_shadow_cache,
                 );
+
+                // Draws the window background as gradient
+                match window_background_brush {
+                    Some(Brush::SolidColor(..)) | None => {}
+                    Some(brush @ _) => {
+                        if let Some(window_item) = window_inner.window_item() {
+                            item_renderer.draw_rect(window_item.as_pin_ref().geometry(), brush);
+                        }
+                    }
+                }
 
                 for (component, origin) in components {
                     i_slint_core::item_rendering::render_component_items(

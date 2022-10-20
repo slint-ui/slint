@@ -178,7 +178,7 @@ impl<'a> GLItemRenderer<'a> {
         // Since we're filling a straight rectangle with either color or gradient, save
         // the extra stroke triangle strip around the edges
         .with_anti_alias(false);
-        self.canvas.borrow_mut().fill_path(&mut path, paint)
+        self.canvas.borrow_mut().fill_path(&mut path, paint);
     }
 }
 
