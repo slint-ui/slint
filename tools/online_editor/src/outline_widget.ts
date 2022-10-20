@@ -48,19 +48,18 @@ const SYMBOL_KIND_MAP = new Map<SymbolKind, string>([
 
 function set_data(
   data: DocumentSymbol[],
-  indent: number,
-  table: HTMLTableElement,
+  parent: HTMLUListElement,
   uri: string,
   goto_position: (
     _uri: string,
     _start_line: number,
     _start_character: number,
     _end_line: number,
-    _end_column: number
-  ) => void
+    _end_column: number,
+  ) => void,
 ) {
   for (const d of data) {
-    const row = document.createElement("tr");
+    const row = document.createElement("li");
     row.className = "outline-element";
     // the deprecated flag is deprecated, so cast to any so that the check
     // works even if deprecated gets removed
@@ -72,26 +71,26 @@ function set_data(
       row.classList.add("deprecated");
     }
     row.classList.add(SYMBOL_KIND_MAP.get(d.kind) ?? "kind-unknown");
-    row.classList.add("indent-" + indent);
 
-    const cell = document.createElement("td");
-    cell.innerText = d.name;
+    row.innerText = d.name;
 
-    row.appendChild(cell);
     row.addEventListener("click", () =>
       goto_position(
         uri,
         d.selectionRange.start.line + 1,
         d.selectionRange.start.character,
         d.selectionRange.end.line + 1,
-        d.selectionRange.end.character
-      )
+        d.selectionRange.end.character,
+      ),
     );
-    table.appendChild(row);
 
     if (d.children != null) {
-      set_data(d.children, indent + 1, table, uri, goto_position);
+      const children_parent = document.createElement("ul");
+      set_data(d.children, children_parent, uri, goto_position);
+      row.appendChild(children_parent);
     }
+
+    parent.appendChild(row);
   }
 }
 
@@ -103,7 +102,7 @@ export class OutlineWidget extends Widget {
     start_line: number,
     start_column: number,
     end_line: number,
-    end_column: number
+    end_column: number,
   ) => {
     console.log(
       "Goto Position ignored:",
@@ -111,7 +110,7 @@ export class OutlineWidget extends Widget {
       start_line,
       start_column,
       end_line,
-      end_column
+      end_column,
     );
   };
 
@@ -123,7 +122,7 @@ export class OutlineWidget extends Widget {
   }
 
   constructor(
-    callback: () => [MonacoLanguageClient | undefined, string | undefined]
+    callback: () => [MonacoLanguageClient | undefined, string | undefined],
   ) {
     super({ node: OutlineWidget.createNode() });
     this.#callback = callback;
@@ -142,7 +141,7 @@ export class OutlineWidget extends Widget {
             textDocument: { uri: uri },
           } as DocumentSymbolParams)
           .then((r: DocumentSymbol[] | SymbolInformation[] | null) =>
-            this.update_data(uri, r)
+            this.update_data(uri, r),
           );
       } else {
         if (uri == null) {
@@ -161,8 +160,8 @@ export class OutlineWidget extends Widget {
       _start_line: number,
       _start_character: number,
       _end_line: number,
-      _end_column: number
-    ) => void
+      _end_column: number,
+    ) => void,
   ) {
     this.#onGotoPosition = callback;
   }
@@ -173,7 +172,7 @@ export class OutlineWidget extends Widget {
 
   protected update_data(
     uri: string,
-    data: DocumentSymbol[] | SymbolInformation[] | null
+    data: DocumentSymbol[] | SymbolInformation[] | null,
   ) {
     if (data == null) {
       this.set_error("No data received");
@@ -184,13 +183,13 @@ export class OutlineWidget extends Widget {
       this.set_error("Invalid data format received");
       return;
     }
-    const table = document.createElement("table");
-    table.className = "outline-table";
+    const content = document.createElement("ul");
+    content.className = "outline-tree";
 
-    set_data(data as DocumentSymbol[], 0, table, uri, this.#onGotoPosition);
+    set_data(data as DocumentSymbol[], content, uri, this.#onGotoPosition);
 
     this.clear_data();
-    this.contentNode.appendChild(table);
+    this.contentNode.appendChild(content);
   }
 
   protected clear_data() {
