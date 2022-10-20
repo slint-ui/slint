@@ -157,7 +157,7 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
                         width,
                         height,
                         self::itemrenderer::to_femtovg_color(
-                            &window_item.as_pin_ref().background(),
+                            &window_item.as_pin_ref().background().color(),
                         ),
                     );
                 };

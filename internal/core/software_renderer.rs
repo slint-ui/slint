@@ -19,7 +19,7 @@ use crate::lengths::{
 use crate::renderer::Renderer;
 use crate::textlayout::{FontMetrics as _, TextParagraphLayout};
 use crate::window::{WindowAdapter, WindowInner};
-use crate::{Color, Coord, ImageInner, StaticTextures};
+use crate::{Brush, Color, Coord, ImageInner, StaticTextures};
 use alloc::rc::{Rc, Weak};
 use alloc::{vec, vec::Vec};
 use core::cell::{Cell, RefCell};
@@ -160,7 +160,7 @@ impl<const MAX_BUFFER_AGE: usize> SoftwareRenderer<MAX_BUFFER_AGE> {
         } else {
             (
                 euclid::size2(buffer_stride as _, (buffer.len() / buffer_stride) as _),
-                Color::default(),
+                Brush::default(),
             )
         };
         let buffer_renderer = SceneBuilder::new(
@@ -190,8 +190,9 @@ impl<const MAX_BUFFER_AGE: usize> SoftwareRenderer<MAX_BUFFER_AGE> {
                 LogicalLength::zero(),
             );
 
-            if background.alpha() != 0 {
-                renderer.actual_renderer.processor.process_rectangle(to_draw, background);
+            if background.is_transparent() {
+                // FIXME: gradient
+                renderer.actual_renderer.processor.process_rectangle(to_draw, background.color());
             }
             for (component, origin) in components {
                 crate::item_rendering::render_component_items(component, &mut renderer, *origin);
@@ -302,7 +303,7 @@ impl<const MAX_BUFFER_AGE: usize> Renderer for SoftwareRenderer<MAX_BUFFER_AGE> 
 
 fn render_window_frame_by_line<const MAX_BUFFER_AGE: usize>(
     window: &WindowInner,
-    background: Color,
+    background: Brush,
     size: PhysicalSize,
     renderer: &SoftwareRenderer<MAX_BUFFER_AGE>,
     mut line_buffer: impl LineBufferProvider,
@@ -318,7 +319,8 @@ fn render_window_frame_by_line<const MAX_BUFFER_AGE: usize>(
             dirty_region.min_x() as usize..dirty_region.max_x() as usize,
             |line_buffer| {
                 let offset = dirty_region.min_x() as usize;
-                TargetPixel::blend_slice(line_buffer, background.into());
+                // FIXME gradient
+                TargetPixel::blend_slice(line_buffer, background.color().into());
                 for span in scene.items[0..scene.current_items_index].iter().rev() {
                     debug_assert!(scene.current_line >= span.pos.y_length());
                     debug_assert!(

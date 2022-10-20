@@ -1087,7 +1087,7 @@ impl Default for PropertyAnimation {
 pub struct WindowItem {
     pub width: Property<Coord>,
     pub height: Property<Coord>,
-    pub background: Property<Color>,
+    pub background: Property<Brush>,
     pub title: Property<SharedString>,
     pub no_frame: Property<bool>,
     pub icon: Property<crate::graphics::Image>,
