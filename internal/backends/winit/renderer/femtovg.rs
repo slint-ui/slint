@@ -156,17 +156,13 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
 
                 // Clear with window background if it is a solid color otherwise it will drawn as gradient
                 if let Some(Brush::SolidColor(clear_color)) = window_background_brush  {
-                    if let Some(window_item) = window.window_item() {
-                        femtovg_canvas.clear_rect(
-                            0,
-                            0,
-                            width,
-                            height,
-                            self::itemrenderer::to_femtovg_color(
-                                &window_item.as_pin_ref().background().color(),
-                            ),
-                        );
-                    };
+                    femtovg_canvas.clear_rect(
+                        0,
+                        0,
+                        width,
+                        height,
+                        self::itemrenderer::to_femtovg_color(&clear_color)
+                    );
                 }
             }
 
