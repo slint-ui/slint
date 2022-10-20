@@ -293,8 +293,9 @@ mod tests {
 
         let def_at = property.defined_at.as_ref().unwrap();
         assert_eq!(def_at.expression_range.end.line, def_at.expression_range.start.line);
+        // -1 because the lsp range end location is exclusive.
         assert_eq!(
-            (def_at.expression_range.end.character - def_at.expression_range.start.character)
+            (def_at.expression_range.end.character - 1 - def_at.expression_range.start.character)
                 as usize,
             "lightblue".len()
         );
