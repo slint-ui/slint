@@ -7,6 +7,7 @@ import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
 
 import { MonacoLanguageClient } from "monaco-languageclient";
+import { GotoPositionCallback, TextPosition, TextRange } from "./text";
 
 import {
   DocumentSymbolRequest,
@@ -50,13 +51,7 @@ function set_data(
   data: DocumentSymbol[],
   parent: HTMLUListElement,
   uri: string,
-  goto_position: (
-    _uri: string,
-    _start_line: number,
-    _start_character: number,
-    _end_line: number,
-    _end_column: number,
-  ) => void,
+  goto_position: GotoPositionCallback,
 ) {
   for (const d of data) {
     const row = document.createElement("li");
@@ -66,23 +61,24 @@ function set_data(
     if (
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (d as any).deprecated ||
-      (d.tags != null && SymbolTag.Deprecated in d.tags)
+      SymbolTag.Deprecated in (d.tags ?? [])
     ) {
       row.classList.add("deprecated");
     }
     row.classList.add(SYMBOL_KIND_MAP.get(d.kind) ?? "kind-unknown");
 
-    row.innerText = d.name;
-
-    row.addEventListener("click", () =>
-      goto_position(
-        uri,
-        d.selectionRange.start.line + 1,
-        d.selectionRange.start.character,
-        d.selectionRange.end.line + 1,
-        d.selectionRange.end.character,
-      ),
+    const span = document.createElement("span");
+    span.innerText = d.name;
+    span.addEventListener("click", () =>
+      goto_position(uri, {
+        startLineNumber: d.selectionRange.start.line + 1,
+        startColumn: d.selectionRange.start.character + 1,
+        endLineNumber: d.selectionRange.end.line + 1,
+        endColumn: d.selectionRange.end.character + 1,
+      } as TextRange),
     );
+
+    row.appendChild(span);
 
     if (d.children != null) {
       const children_parent = document.createElement("ul");
@@ -97,21 +93,8 @@ function set_data(
 export class OutlineWidget extends Widget {
   #callback: () => [MonacoLanguageClient | undefined, string | undefined];
   #intervalId = -1;
-  #onGotoPosition = (
-    uri: string,
-    start_line: number,
-    start_column: number,
-    end_line: number,
-    end_column: number,
-  ) => {
-    console.log(
-      "Goto Position ignored:",
-      uri,
-      start_line,
-      start_column,
-      end_line,
-      end_column,
-    );
+  #onGotoPosition = (uri: string, position: TextPosition | TextRange) => {
+    console.log("Goto Position ignored:", uri, position);
   };
 
   static createNode(): HTMLElement {
@@ -154,15 +137,7 @@ export class OutlineWidget extends Widget {
     }, 5000);
   }
 
-  set on_goto_position(
-    callback: (
-      _uri: string,
-      _start_line: number,
-      _start_character: number,
-      _end_line: number,
-      _end_column: number,
-    ) => void,
-  ) {
+  set on_goto_position(callback: GotoPositionCallback) {
     this.#onGotoPosition = callback;
   }
 

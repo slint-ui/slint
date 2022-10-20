@@ -20,6 +20,8 @@ import { OutlineWidget } from "./outline_widget";
 import { PropertiesWidget } from "./properties_widget";
 import { WelcomeWidget } from "./welcome_widget";
 
+import { TextPosition, TextRange } from "./text";
+
 const commands = new CommandRegistry();
 
 const local_storage_key_layout = "layout_v1";
@@ -316,13 +318,9 @@ function main() {
 
         outline.on_goto_position = (
           uri: string,
-          sl: number,
-          sc: number,
-          el: number,
-          ec: number,
+          pos: TextPosition | TextRange,
         ) => {
-          console.log("Index: goto_position called", uri, sl, sc, el, ec);
-          editor.goto_position(uri, sl, sc, el, ec);
+          editor.goto_position(uri, pos);
         };
 
         return outline;
