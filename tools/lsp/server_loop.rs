@@ -309,7 +309,7 @@ pub fn query_properties_command(
             .as_u64()
             .ok_or_else(|| -> Error { "Failed to convert third parameter to int".into() })?,
     )?;
-    if let Ok(element) = element_at_position(
+    if let Some(element) = element_at_position(
         document_cache,
         TextDocumentIdentifier { uri: text_document.clone() },
         Position { line, character },
@@ -442,25 +442,22 @@ pub fn element_at_position(
     document_cache: &mut DocumentCache,
     text_document: lsp_types::TextDocumentIdentifier,
     pos: Position,
-) -> Result<i_slint_compiler::object_tree::ElementRc, String> {
-    let (doc, offset) = get_document_and_offset(document_cache, text_document, pos)
-        .ok_or_else(|| "Document not found.".to_string())?;
+) -> Option<i_slint_compiler::object_tree::ElementRc> {
+    let (doc, offset) = get_document_and_offset(document_cache, text_document, pos)?;
 
-    let root_component = &doc.root_component;
-    let mut element = root_component.root_element.clone();
-    let mut result = None;
-
-    while element_contains(&element, offset) {
-        result = Some(element.clone());
-        if let Some(c) =
-            element.clone().borrow().children.iter().find(|c| element_contains(c, offset))
-        {
-            element = c.clone();
-        } else {
-            return Ok(result.expect("Result was set in this iteration"));
+    for component in &doc.inner_components {
+        let mut element = component.root_element.clone();
+        while element_contains(&element, offset) {
+            if let Some(c) =
+                element.clone().borrow().children.iter().find(|c| element_contains(c, offset))
+            {
+                element = c.clone();
+            } else {
+                return Some(element);
+            }
         }
     }
-    result.ok_or_else(|| format!("No element found at offset {}.", offset))
+    None
 }
 
 /// return the token, and the offset within the file
@@ -787,8 +784,7 @@ mod tests {
             dc,
             TextDocumentIdentifier { uri: url.clone() },
             Position { line, character },
-        )
-        .ok()?;
+        )?;
         let element = result.borrow();
         Some(element.id.clone())
     }
@@ -803,8 +799,7 @@ mod tests {
             dc,
             TextDocumentIdentifier { uri: url.clone() },
             Position { line, character },
-        )
-        .ok()?;
+        )?;
         let element = result.borrow();
         Some(format!("{}", &element.base_type))
     }

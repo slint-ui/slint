@@ -1167,28 +1167,26 @@ impl Element {
             let unresolved_name = crate::parser::normalize_identifier(name_token.text());
             let lookup_result = self.lookup_property(&unresolved_name);
             if !lookup_result.property_type.is_property_type() {
-                diag.push_error(
-                    match lookup_result.property_type {
+                match lookup_result.property_type {
                         Type::Invalid => {
                             if self.base_type != Type::Invalid {
-                                format!(
+                                diag.push_error(format!(
                                     "Unknown property {} in {}",
                                     unresolved_name, self.base_type
-                                )
-                            } else {
-                                continue;
+                                ),
+                                &name_token);
                             }
                         }
                         Type::Callback { .. } => {
-                            format!("'{}' is a callback. Use `=>` to connect", unresolved_name)
+                            diag.push_error(format!("'{}' is a callback. Use `=>` to connect", unresolved_name),
+                            &name_token)
                         }
-                        _ => format!(
+                        _ => diag.push_error(format!(
                             "Cannot assign to {} in {} because it does not have a valid property type",
                             unresolved_name, self.base_type,
                         ),
-                    },
-                    &name_token,
-                );
+                        &name_token),
+                    }
             } else if !lookup_result.is_local_to_component
                 && (lookup_result.property_visibility == PropertyVisibility::Private
                     || lookup_result.property_visibility == PropertyVisibility::Output)
