@@ -11,7 +11,7 @@ use crate::expression_tree::{BuiltinFunction, Expression};
 use crate::langtype::{BuiltinPropertyInfo, Enumeration, PropertyLookupResult, Type};
 use crate::object_tree::Component;
 
-pub(crate) const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
+pub const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
     ("x", Type::LogicalLength),
     ("y", Type::LogicalLength),
     ("width", Type::LogicalLength),
@@ -19,7 +19,7 @@ pub(crate) const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
     ("z", Type::Float32),
 ];
 
-const RESERVED_LAYOUT_PROPERTIES: &[(&str, Type)] = &[
+pub const RESERVED_LAYOUT_PROPERTIES: &[(&str, Type)] = &[
     ("min-width", Type::LogicalLength),
     ("min-height", Type::LogicalLength),
     ("max-width", Type::LogicalLength),
@@ -79,20 +79,20 @@ const RESERVED_OTHER_PROPERTIES: &[(&str, Type)] = &[
     ("visible", Type::Bool), // ("enabled", Type::Bool),
 ];
 
-pub(crate) const RESERVED_DROP_SHADOW_PROPERTIES: &[(&str, Type)] = &[
+pub const RESERVED_DROP_SHADOW_PROPERTIES: &[(&str, Type)] = &[
     ("drop-shadow-offset-x", Type::LogicalLength),
     ("drop-shadow-offset-y", Type::LogicalLength),
     ("drop-shadow-blur", Type::LogicalLength),
     ("drop-shadow-color", Type::Color),
 ];
 
-pub(crate) const RESERVED_ROTATION_PROPERTIES: &[(&str, Type)] = &[
+pub const RESERVED_ROTATION_PROPERTIES: &[(&str, Type)] = &[
     ("rotation-angle", Type::Angle),
     ("rotation-origin-x", Type::LogicalLength),
     ("rotation-origin-y", Type::LogicalLength),
 ];
 
-pub(crate) const RESERVED_ACCESSIBILITY_PROPERTIES: &[(&str, Type)] = &[
+pub const RESERVED_ACCESSIBILITY_PROPERTIES: &[(&str, Type)] = &[
     //("accessible-role", ...)
     ("accessible-checkable", Type::Bool),
     ("accessible-checked", Type::Bool),
