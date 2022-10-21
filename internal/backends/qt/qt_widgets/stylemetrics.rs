@@ -4,7 +4,6 @@
 // cSpell: ignore deinit
 
 use i_slint_core::items::LayoutAlignment;
-use i_slint_core::Brush;
 
 use super::*;
 
@@ -34,7 +33,7 @@ pub struct NativeStyleMetrics {
     pub layout_spacing: Property<f32>,
     pub layout_padding: Property<f32>,
     pub text_cursor_width: Property<f32>,
-    pub window_background: Property<Brush>,
+    pub window_background: Property<Color>,
     pub default_text_color: Property<Color>,
     pub textedit_background: Property<Color>,
     pub textedit_text_color: Property<Color>,
