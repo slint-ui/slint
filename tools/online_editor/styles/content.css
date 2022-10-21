@@ -140,6 +140,11 @@
   background-color: #b0b0b0;
 }
 
+.properties-editor .value-column.type-unknown:before {
+  content: "??? ";
+  padding: 2px;
+}
+
 .welcome > div {
   padding: 1ex
 }
