@@ -124,10 +124,6 @@
   white-space: nowrap;
 }
 
-.properties-editor .type-column {
-  white-space: nowrap;
-}
-
 .properties-editor .value-column {
   width: 90%;
 }
