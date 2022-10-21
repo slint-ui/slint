@@ -120,9 +120,23 @@ export class PropertiesWidget extends Widget {
   ) {
     const table = this.tableNode;
 
+    let current_group = "";
+
     table.innerHTML = "";
 
     for (const p of properties) {
+      if (p.group !== current_group) {
+        const group_header = document.createElement("tr");
+        group_header.className = "group-header";
+
+        const group_cell = document.createElement("td");
+        group_cell.innerText = p.group;
+        group_cell.setAttribute("colspan", "2");
+        current_group = p.group;
+
+        group_header.appendChild(group_cell);
+        table.appendChild(group_header);
+      }
       const row = document.createElement("tr");
       row.className = "property";
       if (p.declared_at == null) {
