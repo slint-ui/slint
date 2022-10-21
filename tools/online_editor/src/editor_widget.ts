@@ -20,7 +20,7 @@ import {
 import { BoxLayout, TabBar, Title, Widget } from "@lumino/widgets";
 import { Message as LuminoMessage } from "@lumino/messaging";
 
-import { Position } from 'vscode-languageserver-types';
+import { Position } from "vscode-languageserver-types";
 
 import "monaco-editor/esm/vs/editor/editor.all.js";
 import "monaco-editor/esm/vs/editor/standalone/browser/accessibilityHelp/accessibilityHelp.js";
@@ -124,8 +124,7 @@ class EditorPaneWidget extends Widget {
   #current_properties = "";
 
   onPositionChangeCallback: PositionChangeCallback = (
-    _uri: string,
-    _pos: TextPosition,
+    _pos: DocumentAndTextPosition,
   ) => {
     return;
   };
@@ -785,7 +784,6 @@ class ModelBindingTextProvider implements BindingTextProvider {
     this.#model = model;
   }
   binding_text(location: DefinitionPosition): string {
-
     const convertPosition = (protocolPosition: Position): monaco.Position => {
       // LSP line numbers are zero based (https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocuments)
       // and Monaco's line numbers start at 1 (https://microsoft.github.io/monaco-editor/api/classes/monaco.Position.html#lineNumber)
@@ -793,20 +791,24 @@ class ModelBindingTextProvider implements BindingTextProvider {
       // Convert lsp utf-8 character index to JavaScript utf-16 string index
       const line = this.#model.getLineContent(monacoLineNumber);
       const line_utf8 = new TextEncoder().encode(line);
-      const line_utf8_until_character = line_utf8.slice(0, protocolPosition.character);
-      const line_until_character = new TextDecoder().decode(line_utf8_until_character);
+      const line_utf8_until_character = line_utf8.slice(
+        0,
+        protocolPosition.character,
+      );
+      const line_until_character = new TextDecoder().decode(
+        line_utf8_until_character,
+      );
       return new monaco.Position(monacoLineNumber, line_until_character.length);
     };
 
     const startPos = convertPosition(location.expression_range.start);
     const endPos = convertPosition(location.expression_range.end);
 
-    return this.#model
-      .getValueInRange({
-        startLineNumber: startPos.lineNumber,
-        startColumn: startPos.column,
-        endLineNumber: endPos.lineNumber,
-        endColumn: endPos.column,
-      });
+    return this.#model.getValueInRange({
+      startLineNumber: startPos.lineNumber,
+      startColumn: startPos.column,
+      endLineNumber: endPos.lineNumber,
+      endColumn: endPos.column,
+    });
   }
 }
