@@ -10,19 +10,19 @@ use std::collections::HashSet;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq)]
 pub(crate) struct DefinitionInformation {
     property_definition_range: lsp_types::Range,
     expression_range: lsp_types::Range,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq)]
 pub(crate) struct DeclarationInformation {
     uri: lsp_types::Url,
     start_position: lsp_types::Position,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq)]
 pub(crate) struct PropertyInformation {
     name: String,
     type_name: String,
@@ -254,43 +254,41 @@ fn get_properties(
                         i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES,
                     ));
                 }
-
-                result.extend(get_reserved_properties(
-                    "geometry",
-                    i_slint_compiler::typeregister::RESERVED_GEOMETRY_PROPERTIES,
-                ));
-                result.extend(
-                    get_reserved_properties(
-                        "layout",
-                        i_slint_compiler::typeregister::RESERVED_LAYOUT_PROPERTIES,
-                    )
-                    // padding arbitrary items is not yet implemented
-                    .filter(|x| !x.name.starts_with("padding")),
-                );
-                result.push(PropertyInformation {
-                    name: "accessible-role".into(),
-                    type_name: Type::Enumeration(
-                        i_slint_compiler::typeregister::BUILTIN_ENUMS
-                            .with(|e| e.AccessibleRole.clone()),
-                    )
-                    .to_string(),
-                    declared_at: None,
-                    defined_at: None,
-                    group: "accessibility".into(),
-                });
-                if element.borrow().is_binding_set("accessible-role", true) {
-                    result.extend(get_reserved_properties(
-                        "accessibility",
-                        i_slint_compiler::typeregister::RESERVED_ACCESSIBILITY_PROPERTIES,
-                    ));
-                }
             }
             Type::Void => {
                 // a global
+                break;
             }
-            _ => {
-                panic!("invalid base type")
-            }
+            _ => {}
+        }
+
+        result.extend(get_reserved_properties(
+            "geometry",
+            i_slint_compiler::typeregister::RESERVED_GEOMETRY_PROPERTIES,
+        ));
+        result.extend(
+            get_reserved_properties(
+                "layout",
+                i_slint_compiler::typeregister::RESERVED_LAYOUT_PROPERTIES,
+            )
+            // padding arbitrary items is not yet implemented
+            .filter(|x| !x.name.starts_with("padding")),
+        );
+        result.push(PropertyInformation {
+            name: "accessible-role".into(),
+            type_name: Type::Enumeration(
+                i_slint_compiler::typeregister::BUILTIN_ENUMS.with(|e| e.AccessibleRole.clone()),
+            )
+            .to_string(),
+            declared_at: None,
+            defined_at: None,
+            group: "accessibility".into(),
+        });
+        if element.borrow().is_binding_set("accessible-role", true) {
+            result.extend(get_reserved_properties(
+                "accessibility",
+                i_slint_compiler::typeregister::RESERVED_ACCESSIBILITY_PROPERTIES,
+            ));
         }
         break;
     }
@@ -332,23 +330,22 @@ mod tests {
     fn properties_at_position_in_cache(
         line: u32,
         character: u32,
-        mut dc: crate::server_loop::DocumentCache,
-        url: lsp_types::Url,
+        dc: &mut crate::server_loop::DocumentCache,
+        url: &lsp_types::Url,
     ) -> Option<Vec<PropertyInformation>> {
         let element = crate::server_loop::element_at_position(
-            &mut dc,
+            dc,
             lsp_types::TextDocumentIdentifier { uri: url.clone() },
             lsp_types::Position { line, character },
-        )
-        .ok()?;
+        )?;
         Some(get_properties(&element, &mut |offset| {
-            dc.byte_offset_to_position(offset, &url).expect("invalid node offset")
+            dc.byte_offset_to_position(offset, url).expect("invalid node offset")
         }))
     }
 
     fn properties_at_position(line: u32, character: u32) -> Option<Vec<PropertyInformation>> {
-        let (dc, url, _) = complex_document_cache("fluent");
-        properties_at_position_in_cache(line, character, dc, url)
+        let (mut dc, url, _) = complex_document_cache("fluent");
+        properties_at_position_in_cache(line, character, &mut dc, &url)
     }
 
     #[test]
@@ -381,7 +378,7 @@ mod tests {
 
     #[test]
     fn test_get_property_definition() {
-        let (dc, url, _) = loaded_document_cache("fluent",
+        let (mut dc, url, _) = loaded_document_cache("fluent",
             r#"import { LineEdit, Button, Slider, HorizontalBox, VerticalBox } from "std-widgets.slint";
 
 Base1 := Rectangle {
@@ -446,7 +443,7 @@ MainWindow := Window {
 }
             "#.to_string());
         let file_url = url.clone();
-        let result = properties_at_position_in_cache(28, 15, dc, url).unwrap();
+        let result = properties_at_position_in_cache(28, 15, &mut dc, &url).unwrap();
 
         let foo_property = find_property(&result, "foo").unwrap();
 
@@ -458,5 +455,54 @@ MainWindow := Window {
         assert_eq!(declaration.start_position.character, 13); // This should probably point to the start of
                                                               // `property<int> foo = 42`, not to the `<`
         assert_eq!(foo_property.group, "Base1");
+    }
+
+    #[test]
+    fn test_invalid_properties() {
+        let (mut dc, url, _) = loaded_document_cache(
+            "fluent",
+            r#"
+global SomeGlobal := {
+    property <int> glob: 77;
+}
+
+SomeRect := Rectangle {
+    foo := InvalidType {
+        property <int> abcd: 41;
+        width: 45px;
+    }
+}
+            "#
+            .to_string(),
+        );
+
+        let result = properties_at_position_in_cache(1, 25, &mut dc, &url).unwrap();
+
+        let glob_property = find_property(&result, "glob").unwrap();
+        assert_eq!(glob_property.type_name, "int");
+        let declaration = glob_property.declared_at.as_ref().unwrap();
+        assert_eq!(declaration.uri, url);
+        assert_eq!(declaration.start_position.line, 2);
+        assert_eq!(glob_property.group, "");
+        assert_eq!(find_property(&result, "width"), None);
+
+        let result = properties_at_position_in_cache(8, 4, &mut dc, &url).unwrap();
+        let abcd_property = find_property(&result, "abcd").unwrap();
+        assert_eq!(abcd_property.type_name, "int");
+        let declaration = abcd_property.declared_at.as_ref().unwrap();
+        assert_eq!(declaration.uri, url);
+        assert_eq!(declaration.start_position.line, 7);
+        assert_eq!(abcd_property.group, "");
+
+        let x_property = find_property(&result, "x").unwrap();
+        assert_eq!(x_property.type_name, "length");
+        assert_eq!(x_property.defined_at, None);
+        assert_eq!(x_property.group, "geometry");
+
+        let width_property = find_property(&result, "width").unwrap();
+        assert_eq!(width_property.type_name, "length");
+        let definition = width_property.defined_at.as_ref().unwrap();
+        assert_eq!(definition.expression_range.start.line, 8);
+        assert_eq!(width_property.group, "geometry");
     }
 }
