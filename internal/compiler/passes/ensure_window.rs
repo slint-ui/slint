@@ -4,6 +4,7 @@
 //! Make sure that the top level element of the component is always a Window
 
 use crate::expression_tree::{BindingExpression, Expression};
+use crate::langtype::Type;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Element};
 use crate::typeregister::TypeRegister;
@@ -93,14 +94,14 @@ pub fn ensure_window(
         }
     });
 
-    component.root_element.borrow_mut().bindings.insert(
-        "background".to_string(),
-        RefCell::new(
-            Expression::PropertyReference(NamedReference::new(
+    component.root_element.borrow_mut().set_binding_if_not_set("background".into(), || {
+        Expression::Cast {
+            from: Expression::PropertyReference(NamedReference::new(
                 &style_metrics.root_element,
                 "window-background",
             ))
             .into(),
-        ),
-    );
+            to: Type::Brush,
+        }
+    });
 }

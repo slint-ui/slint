@@ -7,6 +7,7 @@ use super::{PhysicalLength, PhysicalPoint, PhysicalRect, PhysicalSize};
 use i_slint_core::graphics::euclid;
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
+use i_slint_core::items::Item;
 use i_slint_core::items::{ImageFit, ImageRendering, ItemRc, Layer, Opacity, RenderingResult};
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, RectLengths, ScaleFactor,
@@ -251,26 +252,30 @@ impl<'a> SkiaRenderer<'a> {
     }
 }
 
+impl<'a> SkiaRenderer<'a> {
+    /// Draws a `Rectangle` using the `GLItemRenderer`.
+    pub fn draw_rect(&mut self, rect: LogicalRect, brush: Brush) {
+        let geometry = PhysicalRect::new(PhysicalPoint::default(), rect.size * self.scale_factor);
+        if geometry.is_empty() {
+            return;
+        }
+
+        let paint =
+            match self.brush_to_paint(brush, geometry.width_length(), geometry.height_length()) {
+                Some(paint) => paint,
+                None => return,
+            };
+        self.canvas.draw_rect(to_skia_rect(&geometry), &paint);
+    }
+}
+
 impl<'a> ItemRenderer for SkiaRenderer<'a> {
     fn draw_rectangle(
         &mut self,
         rect: std::pin::Pin<&i_slint_core::items::Rectangle>,
         _self_rc: &i_slint_core::items::ItemRc,
     ) {
-        let geometry = item_rect(rect, self.scale_factor);
-        if geometry.is_empty() {
-            return;
-        }
-
-        let paint = match self.brush_to_paint(
-            rect.background(),
-            geometry.width_length(),
-            geometry.height_length(),
-        ) {
-            Some(paint) => paint,
-            None => return,
-        };
-        self.canvas.draw_rect(to_skia_rect(&geometry), &paint);
+        self.draw_rect(rect.geometry(), rect.background());
     }
 
     fn draw_border_rectangle(

@@ -162,22 +162,29 @@ fn clip_path_for_rect_alike_item(
     rect_with_radius_to_path(clip_rect, radius)
 }
 
-impl<'a> ItemRenderer for GLItemRenderer<'a> {
-    fn draw_rectangle(&mut self, rect: Pin<&items::Rectangle>, _: &ItemRc) {
-        let geometry = item_rect(rect, self.scale_factor);
+impl<'a> GLItemRenderer<'a> {
+    /// Draws a `Rectangle` using the `GLItemRenderer`.
+    pub fn draw_rect(&mut self, rect: LogicalRect, brush: Brush) {
+        let geometry = PhysicalRect::new(PhysicalPoint::default(), rect.size * self.scale_factor);
         if geometry.is_empty() {
             return;
         }
         // TODO: cache path in item to avoid re-tesselation
         let mut path = rect_to_path(geometry);
-        let paint = match self.brush_to_paint(rect.background(), &mut path) {
+        let paint = match self.brush_to_paint(brush, &mut path) {
             Some(paint) => paint,
             None => return,
         }
         // Since we're filling a straight rectangle with either color or gradient, save
         // the extra stroke triangle strip around the edges
         .with_anti_alias(false);
-        self.canvas.borrow_mut().fill_path(&mut path, paint)
+        self.canvas.borrow_mut().fill_path(&mut path, paint);
+    }
+}
+
+impl<'a> ItemRenderer for GLItemRenderer<'a> {
+    fn draw_rectangle(&mut self, rect: Pin<&items::Rectangle>, _: &ItemRc) {
+        self.draw_rect(rect.geometry(), rect.background());
     }
 
     fn draw_border_rectangle(&mut self, rect: Pin<&items::BorderRectangle>, _: &ItemRc) {

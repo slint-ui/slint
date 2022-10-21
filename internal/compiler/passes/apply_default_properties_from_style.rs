@@ -50,11 +50,13 @@ pub fn apply_default_properties_from_style(
                     });
                 }
                 "Dialog" | "Window" | "WindowItem" => {
-                    elem.set_binding_if_not_set("background".into(), || {
-                        Expression::PropertyReference(NamedReference::new(
+                    elem.set_binding_if_not_set("background".into(), || Expression::Cast {
+                        from: Expression::PropertyReference(NamedReference::new(
                             &style_metrics.root_element,
                             "window-background",
                         ))
+                        .into(),
+                        to: Type::Brush,
                     });
                 }
 

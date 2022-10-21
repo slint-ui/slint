@@ -164,8 +164,8 @@ export Flickable := _ {
 WindowItem := _ {
     property <length> width: native_output;
     property <length> height: native_output;
-    property <color> background; // StyleMetrics.window_background  set in apply_default_properties_from_style
-    property <color> color <=> background;
+    property <brush> background; // StyleMetrics.window_background  set in apply_default_properties_from_style
+    property <brush> color <=> background;
     property <string> title: "Slint Window";
     property <bool> no-frame;
     property <string> default-font-family;

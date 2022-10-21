@@ -9,11 +9,13 @@ use i_slint_core::api::{
     GraphicsAPI, RenderingNotifier, RenderingState, SetRenderingNotifierError,
 };
 use i_slint_core::graphics::{euclid, rendering_metrics_collector::RenderingMetricsCollector};
+use i_slint_core::items::Item;
 use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, PhysicalPx, ScaleFactor,
 };
 use i_slint_core::renderer::Renderer;
 use i_slint_core::window::{WindowAdapter, WindowInner};
+use i_slint_core::Brush;
 
 use crate::WindowSystemName;
 
@@ -143,6 +145,8 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         let window = WindowInner::from_pub(window_adapter.window());
 
         window.draw_contents(|components| {
+            let window_background_brush = window.window_item().map(|w| w.as_pin_ref().background());
+
             {
                 let mut femtovg_canvas = canvas.canvas.as_ref().borrow_mut();
                 // We pass 1.0 as dpi / device pixel ratio as femtovg only uses this factor to scale
@@ -150,17 +154,16 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
                 // pixels on our end, we don't need femtovg to scale a second time.
                 femtovg_canvas.set_size(width, height, 1.0);
 
-                if let Some(window_item) = window.window_item() {
+                // Clear with window background if it is a solid color otherwise it will drawn as gradient
+                if let Some(Brush::SolidColor(clear_color)) = window_background_brush {
                     femtovg_canvas.clear_rect(
                         0,
                         0,
                         width,
                         height,
-                        self::itemrenderer::to_femtovg_color(
-                            &window_item.as_pin_ref().background(),
-                        ),
+                        self::itemrenderer::to_femtovg_color(&clear_color),
                     );
-                };
+                }
             }
 
             if let Some(callback) = self.rendering_notifier.borrow_mut().as_mut() {
@@ -168,7 +171,9 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
                 // For the BeforeRendering rendering notifier callback it's important that this happens *after* clearing
                 // the back buffer, in order to allow the callback to provide its own rendering of the background.
                 // femtovg's clear_rect() will merely schedule a clear call, so flush right away to make it immediate.
+
                 femtovg_canvas.flush();
+
                 femtovg_canvas.set_size(width, height, 1.0);
                 drop(femtovg_canvas);
 
@@ -182,6 +187,16 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
                 width,
                 height,
             );
+
+            // Draws the window background as gradient
+            match window_background_brush {
+                Some(Brush::SolidColor(..)) | None => {}
+                Some(brush @ _) => {
+                    if let Some(window_item) = window.window_item() {
+                        item_renderer.draw_rect(window_item.as_pin_ref().geometry(), brush);
+                    }
+                }
+            }
 
             for (component, origin) in components {
                 i_slint_core::item_rendering::render_component_items(
