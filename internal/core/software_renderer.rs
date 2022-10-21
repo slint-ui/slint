@@ -313,14 +313,18 @@ fn render_window_frame_by_line<const MAX_BUFFER_AGE: usize>(
     let dirty_region = scene.dirty_region;
 
     debug_assert!(scene.current_line >= dirty_region.origin.y_length());
+
+    // FIXME gradient
+    let background_color = background.color().into();
+
     while scene.current_line < dirty_region.origin.y_length() + dirty_region.size.height_length() {
         line_buffer.process_line(
             scene.current_line.get() as usize,
             dirty_region.min_x() as usize..dirty_region.max_x() as usize,
             |line_buffer| {
                 let offset = dirty_region.min_x() as usize;
-                // FIXME gradient
-                TargetPixel::blend_slice(line_buffer, background.color().into());
+
+                TargetPixel::blend_slice(line_buffer, background_color);
                 for span in scene.items[0..scene.current_items_index].iter().rev() {
                     debug_assert!(scene.current_line >= span.pos.y_length());
                     debug_assert!(

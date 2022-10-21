@@ -1533,17 +1533,8 @@ impl WindowAdapterSealed for QtWindow {
             }
         }
 
-        let window_background_brush =
-            window_inner.window_item().map(|w| w.as_pin_ref().background());
-
-        let background: u32 = if let Some(Brush::SolidColor(clear_color)) = window_background_brush
-        {
-            clear_color.as_argb_encoded();
-        } else {
-            0
-        };
-
-        // todo: gradient
+        let background =
+            into_qbrush(window_item.background(), size.width.into(), size.height.into());
 
         match (&window_item.icon()).into() {
             &ImageInner::None => (),
@@ -1556,7 +1547,7 @@ impl WindowAdapterSealed for QtWindow {
             }
         };
 
-        cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QRgb", no_frame as "bool"] {
+        cpp! {unsafe [widget_ptr as "QWidget*",  title as "QString", size as "QSize", background as "QBrush", no_frame as "bool"] {
             if (size != widget_ptr->size()) {
                 widget_ptr->resize(size.expandedTo({1, 1}));
             }
@@ -1575,7 +1566,7 @@ impl WindowAdapterSealed for QtWindow {
                 pal.setResolveMask(~pal.resolveMask());
             }
             #endif
-            pal.setColor(QPalette::Window, QColor::fromRgba(background));
+            pal.setBrush(QPalette::Window, background);
             widget_ptr->setPalette(pal);
         }};
     }
