@@ -132,6 +132,12 @@
   width: 100%;
 }
 
+.properties-editor .properties-table .group-header td {
+  background-color: #000000;
+  color: #ffffff;
+  font-weight: bold;
+}
+
 .properties-editor .properties-table .undefined {
   background-color: #b0b0b0;
 }
