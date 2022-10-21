@@ -3,6 +3,8 @@
 
 // cSpell: ignore lumino
 
+import { GotoPositionCallback, TextRange } from "./text";
+
 import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
 
@@ -35,6 +37,10 @@ function type_class_for_typename(name: string): string {
 }
 
 export class PropertiesWidget extends Widget {
+  #onGotoPosition: GotoPositionCallback = (_u, _p) => {
+    return;
+  };
+
   static createNode(): HTMLElement {
     const node = document.createElement("div");
     const content = document.createElement("div");
@@ -75,6 +81,10 @@ export class PropertiesWidget extends Widget {
     this.dispose();
   }
 
+  set on_goto_position(callback: GotoPositionCallback) {
+    this.#onGotoPosition = callback;
+  }
+
   protected get contentNode(): HTMLDivElement {
     return this.node.getElementsByTagName("div")[0] as HTMLDivElement;
   }
@@ -106,6 +116,7 @@ export class PropertiesWidget extends Widget {
   private populate_table(
     binding_text_provider: BindingTextProvider,
     properties: Property[],
+    uri: string,
   ) {
     const table = this.tableNode;
 
@@ -138,6 +149,17 @@ export class PropertiesWidget extends Widget {
         value_field.innerText = "";
       }
       row.appendChild(value_field);
+      if (p.defined_at != null) {
+        const r = p.defined_at.expression_range;
+        row.addEventListener("click", () =>
+          this.#onGotoPosition(uri, {
+            startLineNumber: r.start.line + 1,
+            startColumn: r.start.character + 1,
+            endLineNumber: r.end.line + 1,
+            endColumn: r.end.character + 1,
+          } as TextRange),
+        );
+      }
 
       table.appendChild(row);
     }
@@ -148,6 +170,10 @@ export class PropertiesWidget extends Widget {
     properties: PropertyQuery,
   ) {
     this.set_header(properties.element);
-    this.populate_table(binding_text_provider, properties.properties);
+    this.populate_table(
+      binding_text_provider,
+      properties.properties,
+      properties.source_uri,
+    );
   }
 }

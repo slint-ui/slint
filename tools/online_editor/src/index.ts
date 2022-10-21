@@ -337,6 +337,14 @@ function main() {
         editor.onNewPropertyData = (binding_text_provider, p) => {
           properties.set_properties(binding_text_provider, p);
         };
+
+        properties.on_goto_position = (
+          uri: string,
+          pos: TextPosition | TextRange,
+        ) => {
+          editor.goto_position(uri, pos);
+        };
+
         return properties;
       },
       { mode: "tab-after", ref: "Welcome" },
