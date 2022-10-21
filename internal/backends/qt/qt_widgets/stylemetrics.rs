@@ -4,6 +4,7 @@
 // cSpell: ignore deinit
 
 use i_slint_core::items::LayoutAlignment;
+use i_slint_core::Brush;
 
 use super::*;
 
@@ -33,7 +34,7 @@ pub struct NativeStyleMetrics {
     pub layout_spacing: Property<f32>,
     pub layout_padding: Property<f32>,
     pub text_cursor_width: Property<f32>,
-    pub window_background: Property<Color>,
+    pub window_background: Property<Brush>,
     pub default_text_color: Property<Color>,
     pub textedit_background: Property<Color>,
     pub textedit_text_color: Property<Color>,
@@ -117,7 +118,7 @@ impl NativeStyleMetrics {
             return qApp->palette().color(QPalette::Window).rgba();
         });
         let window_background = Color::from_argb_encoded(window_background);
-        self.window_background.set(window_background);
+        self.window_background.set(window_background.into());
         let default_text_color = cpp!(unsafe[] -> u32 as "QRgb" {
             return qApp->palette().color(QPalette::WindowText).rgba();
         });
