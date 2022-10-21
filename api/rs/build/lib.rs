@@ -109,7 +109,9 @@ impl CompilerConfiguration {
         Self { config }
     }
 
-    /// Create a new configuration that selects the style to be used for widgets.
+    /// Selects how the resources such as images and font are processed.
+    ///
+    /// See [`EmbedResourcesKind`]
     #[must_use]
     pub fn embed_resources(self, kind: EmbedResourcesKind) -> Self {
         let mut config = self.config;
