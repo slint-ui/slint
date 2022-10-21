@@ -46,7 +46,10 @@ impl HTMLImage {
     pub fn size(&self) -> Option<IntSize> {
         match self.image_load_pending.as_ref().get() {
             true => None,
-            false => Some(IntSize::new(self.dom_element.width(), self.dom_element.height())),
+            false => Some(IntSize::new(
+                self.dom_element.natural_width(),
+                self.dom_element.natural_height(),
+            )),
         }
     }
 
