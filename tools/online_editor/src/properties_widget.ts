@@ -13,6 +13,27 @@ import {
   PropertyQuery,
 } from "./lsp_integration";
 
+const TYPE_PATTERN = /^[a-z-]+$/i;
+
+function type_class_for_typename(name: string): string {
+  if (name === "callback" || name.slice(0, 9) === "callback(") {
+    return "type-callback";
+  }
+  if (name.slice(0, 5) === "enum ") {
+    return "type-enum";
+  }
+  if (name.slice(0, 9) === "function(") {
+    return "type-function";
+  }
+  if (name === "element ref") {
+    return "type-element-ref";
+  }
+  if (TYPE_PATTERN.test(name)) {
+    return "type-" + name;
+  }
+  return "type-unknown";
+}
+
 export class PropertiesWidget extends Widget {
   static createNode(): HTMLElement {
     const node = document.createElement("div");
@@ -105,13 +126,10 @@ export class PropertiesWidget extends Widget {
       name_field.innerText = p.name;
       row.appendChild(name_field);
 
-      const type_field = document.createElement("td");
-      type_field.className = "type-column";
-      type_field.innerText = p.type_name;
-      row.appendChild(type_field);
-
       const value_field = document.createElement("td");
       value_field.className = "value-column";
+      value_field.classList.add(type_class_for_typename(p.type_name));
+      value_field.setAttribute("title", p.type_name);
       if (p.defined_at != null) {
         value_field.innerText = binding_text_provider.binding_text(
           p.defined_at,
