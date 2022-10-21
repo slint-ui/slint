@@ -134,7 +134,7 @@ pub(crate) fn completion_at(
                     } else {
                         match lsp_types::Url::make_relative(
                             &current_uri,
-                            &lsp_types::Url::from_file_path(dbg!(file)).unwrap(),
+                            &lsp_types::Url::from_file_path(file).unwrap(),
                         ) {
                             Some(file) => file,
                             None => continue,

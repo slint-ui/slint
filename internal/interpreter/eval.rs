@@ -653,7 +653,6 @@ fn call_builtin_function(
         }
         BuiltinFunction::DarkColorScheme => match local_context.component_instance {
             ComponentInstance::InstanceRef(component) => {
-                dbg!(&component.component_type.original);
                 Value::Bool(window_adapter_ref(component).unwrap().dark_color_scheme())
             }
             ComponentInstance::GlobalComponent(_) => {
