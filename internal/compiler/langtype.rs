@@ -626,7 +626,7 @@ impl Default for DefaultSizeBinding {
 pub struct BuiltinElement {
     pub name: String,
     pub native_class: Rc<NativeClass>,
-    pub properties: HashMap<String, BuiltinPropertyInfo>,
+    pub properties: BTreeMap<String, BuiltinPropertyInfo>,
     pub additional_accepted_child_types: HashMap<String, Type>,
     pub disallow_global_types_as_child_elements: bool,
     /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)

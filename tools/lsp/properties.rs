@@ -2,8 +2,10 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use i_slint_compiler::diagnostics::Spanned;
+use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::{Element, ElementRc};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind};
+use std::collections::HashSet;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -16,7 +18,7 @@ pub(crate) struct DefinitionInformation {
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub(crate) struct DeclarationInformation {
-    uri: String,
+    uri: lsp_types::Url,
     start_position: lsp_types::Position,
 }
 
@@ -26,6 +28,7 @@ pub(crate) struct PropertyInformation {
     type_name: String,
     declared_at: Option<DeclarationInformation>,
     defined_at: Option<DefinitionInformation>, // Range in the elements source file!
+    group: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
@@ -48,12 +51,16 @@ impl QueryPropertyResponse {
 }
 
 // This gets defined accessibility properties...
-fn get_reserved_properties() -> impl Iterator<Item = PropertyInformation> {
-    i_slint_compiler::typeregister::reserved_properties().map(|p| PropertyInformation {
+fn get_reserved_properties<'a>(
+    group: &'a str,
+    properties: &'a [(&'a str, Type)],
+) -> impl Iterator<Item = PropertyInformation> + 'a {
+    properties.iter().map(|p| PropertyInformation {
         name: p.0.to_string(),
         type_name: format!("{}", p.1),
         declared_at: None,
         defined_at: None,
+        group: group.to_string(),
     })
 }
 
@@ -64,39 +71,32 @@ fn source_file(element: &Element) -> Option<String> {
 fn get_element_properties<'a>(
     element: &'a Element,
     offset_to_position: &'a mut dyn FnMut(u32) -> lsp_types::Position,
+    group: &'a str,
 ) -> impl Iterator<Item = PropertyInformation> + 'a {
     let file = source_file(element);
 
-    element.property_declarations.iter().map(move |(name, value)| {
-        let declared_at = file.as_ref().and_then(|file| {
-            value.type_node().map(|n| n.text_range().start().into()).map(|p| {
-                let uri = lsp_types::Url::from_file_path(file).unwrap_or_else(|_| {
-                    lsp_types::Url::parse("file:///)").expect("That should have been valid as URL!")
-                });
-                DeclarationInformation {
-                    uri: uri.to_string(),
-                    start_position: offset_to_position(p),
-                }
-            })
+    element.property_declarations.iter().filter_map(move |(name, value)| {
+        if !value.property_type.is_property_type() {
+            // Filter away the callbacks
+            return None;
+        }
+        let type_node = value.type_node()?; // skip fake and materialized properties
+        let declared_at = file.as_ref().map(|file| {
+            let start_position = offset_to_position(type_node.text_range().start().into());
+            let uri = lsp_types::Url::from_file_path(file).unwrap_or_else(|_| {
+                lsp_types::Url::parse("file:///)").expect("That should have been valid as URL!")
+            });
+
+            DeclarationInformation { uri, start_position }
         });
-        PropertyInformation {
+        Some(PropertyInformation {
             name: name.clone(),
             type_name: format!("{}", value.property_type),
             declared_at,
             defined_at: None,
-        }
+            group: group.to_string(),
+        })
     })
-}
-
-fn insert_property_definition_range(
-    property: &str,
-    properties: &mut [PropertyInformation],
-    range: DefinitionInformation,
-) {
-    let index = properties
-        .binary_search_by(|p| (p.name[..]).cmp(property))
-        .expect("property must be known");
-    properties[index].defined_at = Some(range);
 }
 
 fn find_expression_range(
@@ -154,17 +154,19 @@ fn insert_property_definitions(
     let element_node = element.node.as_ref().expect("Element has to have a node here!");
     let element_range = element_node.text_range();
 
-    for (k, v) in &element.bindings {
-        if let Some(span) = &v.borrow().span {
-            let offset = span.span().offset as u32;
-            if element.source_file().map(|sf| sf.path())
-                == span.source_file.as_ref().map(|sf| sf.path())
-                && element_range.contains(offset.into())
-            {
-                if let Some(definition) =
-                    find_expression_range(element_node, offset, offset_to_position)
+    for prop_info in properties {
+        if let Some(v) = element.bindings.get(prop_info.name.as_str()) {
+            if let Some(span) = &v.borrow().span {
+                let offset = span.span().offset as u32;
+                if element.source_file().map(|sf| sf.path())
+                    == span.source_file.as_ref().map(|sf| sf.path())
+                    && element_range.contains(offset.into())
                 {
-                    insert_property_definition_range(k, properties, definition);
+                    if let Some(definition) =
+                        find_expression_range(element_node, offset, offset_to_position)
+                    {
+                        prop_info.defined_at = Some(definition);
+                    }
                 }
             }
         }
@@ -177,45 +179,121 @@ fn get_properties(
 ) -> Vec<PropertyInformation> {
     let mut result = vec![];
 
-    let mut current_element = Some(element.clone());
-    while let Some(e) = current_element {
-        use i_slint_compiler::langtype::Type;
+    result.extend(get_element_properties(&element.borrow(), offset_to_position, ""));
+    let mut current_element = element.clone();
 
-        result.extend(get_element_properties(&e.borrow(), offset_to_position));
+    let geometry_prop = HashSet::from(["x", "y", "width", "height"]);
 
-        // Go into base_type!
-        match &e.borrow().base_type {
-            Type::Component(c) => current_element = Some(c.root_element.clone()),
+    loop {
+        let base_type = current_element.borrow().base_type.clone();
+        match base_type {
+            Type::Component(c) => {
+                current_element = c.root_element.clone();
+                result.extend(get_element_properties(
+                    &current_element.borrow(),
+                    offset_to_position,
+                    &c.id,
+                ));
+                continue;
+            }
             Type::Builtin(b) => {
-                result.extend(b.properties.iter().map(|(k, t)| PropertyInformation {
-                    name: k.clone(),
-                    type_name: format!("{}", t.ty),
+                result.extend(b.properties.iter().filter_map(|(k, t)| {
+                    if geometry_prop.contains(k.as_str()) {
+                        // skip geometry property because they are part of the reserved ones
+                        return None;
+                    }
+                    if !t.ty.is_property_type() {
+                        // skip callbacks and other functions
+                        return None;
+                    }
+
+                    Some(PropertyInformation {
+                        name: k.clone(),
+                        type_name: t.ty.to_string(),
+                        declared_at: None,
+                        defined_at: None,
+                        group: b.name.clone(),
+                    })
+                }));
+
+                if b.name == "Rectangle" {
+                    result.push(PropertyInformation {
+                        name: "clip".into(),
+                        type_name: Type::Bool.to_string(),
+                        declared_at: None,
+                        defined_at: None,
+                        group: String::new(),
+                    });
+                }
+
+                result.push(PropertyInformation {
+                    name: "opacity".into(),
+                    type_name: Type::Float32.to_string(),
                     declared_at: None,
                     defined_at: None,
-                }));
-                current_element = None;
-            }
-            Type::Native(n) => {
-                result.extend(n.properties.iter().map(|(k, t)| PropertyInformation {
-                    name: k.clone(),
-                    type_name: format!("{}", t.ty),
+                    group: String::new(),
+                });
+                result.push(PropertyInformation {
+                    name: "visible".into(),
+                    type_name: Type::Bool.to_string(),
                     declared_at: None,
                     defined_at: None,
-                }));
-                current_element = None;
+                    group: String::new(),
+                });
+
+                if b.name == "Image" {
+                    result.extend(get_reserved_properties(
+                        "rotation",
+                        i_slint_compiler::typeregister::RESERVED_ROTATION_PROPERTIES,
+                    ));
+                }
+
+                if b.name == "Rectangle" {
+                    result.extend(get_reserved_properties(
+                        "drop-shadow",
+                        i_slint_compiler::typeregister::RESERVED_DROP_SHADOW_PROPERTIES,
+                    ));
+                }
+
+                result.extend(get_reserved_properties(
+                    "geometry",
+                    i_slint_compiler::typeregister::RESERVED_GEOMETRY_PROPERTIES,
+                ));
+                result.extend(
+                    get_reserved_properties(
+                        "layout",
+                        i_slint_compiler::typeregister::RESERVED_LAYOUT_PROPERTIES,
+                    )
+                    // padding arbitrary items is not yet implemented
+                    .filter(|x| !x.name.starts_with("padding")),
+                );
+                result.push(PropertyInformation {
+                    name: "accessible-role".into(),
+                    type_name: Type::Enumeration(
+                        i_slint_compiler::typeregister::BUILTIN_ENUMS
+                            .with(|e| e.AccessibleRole.clone()),
+                    )
+                    .to_string(),
+                    declared_at: None,
+                    defined_at: None,
+                    group: "accessibility".into(),
+                });
+                if element.borrow().is_binding_set("accessible-role", true) {
+                    result.extend(get_reserved_properties(
+                        "accessibility",
+                        i_slint_compiler::typeregister::RESERVED_ACCESSIBILITY_PROPERTIES,
+                    ));
+                }
             }
-            _ => current_element = None,
+            Type::Void => {
+                // a global
+            }
+            _ => {
+                panic!("invalid base type")
+            }
         }
+        break;
     }
-
-    result.extend(get_reserved_properties()); // Add reserved properties last!
-
-    // We can have duplicate properties that were defined and then changed further up the
-    // Element tree. So we need to remove duplicates.
-    result.sort_by(|a, b| b.name.cmp(&a.name)); // Sort is stable, sort `z` before `a`!
-    result.reverse(); // Now the property definition is first and `a` is before `z`
-    result.dedup_by(|a, b| a.name == b.name); // LEave the property definition in place, remove
-                                              // re-definitions
 
     insert_property_definitions(&element.borrow(), &mut result, offset_to_position);
 
@@ -375,9 +453,10 @@ MainWindow := Window {
         assert_eq!(foo_property.type_name, "int");
 
         let declaration = foo_property.declared_at.as_ref().unwrap();
-        assert_eq!(declaration.uri, file_url.to_string());
+        assert_eq!(declaration.uri, file_url);
         assert_eq!(declaration.start_position.line, 3);
         assert_eq!(declaration.start_position.character, 13); // This should probably point to the start of
                                                               // `property<int> foo = 42`, not to the `<`
+        assert_eq!(foo_property.group, "Base1");
     }
 }
