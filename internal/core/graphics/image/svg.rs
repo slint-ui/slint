@@ -45,9 +45,7 @@ impl ParsedSVG {
         size: euclid::Size2D<u32, PhysicalPx>,
     ) -> Result<SharedImageBuffer, usvg::Error> {
         let tree = &self.svg_tree;
-        // resvg doesn't support scaling to width/height, just fit to width.
-        // FIXME: the fit should actually depends on the image-fit property
-        let fit = usvg::FitTo::Width(size.width);
+        let fit = usvg::FitTo::Size(size.width, size.height);
         let size =
             fit.fit_to(tree.svg_node().size.to_screen_size()).ok_or(usvg::Error::InvalidSize)?;
         let mut buffer = SharedPixelBuffer::new(size.width(), size.height());

@@ -933,13 +933,9 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                 }
             }
             _ => {
-                let img_src_size = source.size().cast::<f32>();
+                let img_src_size = source.size();
                 if let Some(buffer) = image_inner.render_to_buffer(Some(
-                    euclid::size2(
-                        phys_size.width * img_src_size.width / size.width as f32,
-                        phys_size.height * img_src_size.height / size.height as f32,
-                    )
-                    .cast(),
+                    crate::graphics::fit_size(image_fit, phys_size, img_src_size).cast(),
                 )) {
                     if let Some(clipped_relative_source_rect) = renderer_clip_in_source_rect_space
                         .intersection(&euclid::rect(
@@ -965,8 +961,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                             .to_vector(),
                                     )
                                     .scale(
-                                        buf_size.width / img_src_size.width,
-                                        buf_size.height / img_src_size.height,
+                                        buf_size.width / img_src_size.width as f32,
+                                        buf_size.height / img_src_size.height as f32,
                                     )
                                     .cast(),
                                 colorize,

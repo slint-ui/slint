@@ -152,6 +152,7 @@ impl<'a> SkiaRenderer<'a> {
                 image,
                 target_width,
                 target_height,
+                image_fit,
                 self.scale_factor,
             )
             .and_then(|skia_image| {

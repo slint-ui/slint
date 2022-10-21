@@ -5,6 +5,7 @@ use i_slint_core::graphics::{
     cache as core_cache, Image, ImageCacheKey, ImageInner, IntSize, OpaqueImage, OpaqueImageVTable,
     SharedImageBuffer,
 };
+use i_slint_core::items::ImageFit;
 use i_slint_core::lengths::{LogicalSize, ScaleFactor};
 
 struct SkiaCachedImage {
@@ -30,6 +31,7 @@ pub(crate) fn as_skia_image(
     image: Image,
     target_width: std::pin::Pin<&i_slint_core::Property<f32>>,
     target_height: std::pin::Pin<&i_slint_core::Property<f32>>,
+    image_fit: ImageFit,
     scale_factor: ScaleFactor,
 ) -> Option<skia_safe::Image> {
     let image_inner: &ImageInner = (&image).into();
@@ -51,6 +53,7 @@ pub(crate) fn as_skia_image(
             // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
             let target_size =
                 LogicalSize::new(target_width.get(), target_height.get()) * scale_factor;
+            let target_size = i_slint_core::graphics::fit_size(image_fit, target_size, svg.size());
             let pixels = match svg.render(target_size.cast()).ok()? {
                 SharedImageBuffer::RGB8(_) => unreachable!(),
                 SharedImageBuffer::RGBA8(_) => unreachable!(),

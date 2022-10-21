@@ -10,6 +10,7 @@ use crate::slice::Slice;
 use crate::{SharedString, SharedVector};
 
 use super::{IntRect, IntSize};
+use crate::items::ImageFit;
 
 #[cfg(feature = "image-decoders")]
 pub mod cache;
@@ -662,6 +663,21 @@ fn test_image_size_from_buffer_without_backend() {
         let image = Image::from_rgb8(buffer);
         assert_eq!(image.size(), [320, 200].into())
     }
+}
+
+/// Return an size that can be used to render an image in a buffer that matches a given ImageFit
+pub fn fit_size(
+    image_fit: ImageFit,
+    target: euclid::Size2D<f32, PhysicalPx>,
+    origin: IntSize,
+) -> euclid::Size2D<f32, PhysicalPx> {
+    let o = origin.cast::<f32>();
+    let ratio = match image_fit {
+        ImageFit::Fill => return target,
+        ImageFit::Contain => f32::min(target.width / o.width, target.height / o.height),
+        ImageFit::Cover => f32::max(target.width / o.width, target.height / o.height),
+    };
+    euclid::Size2D::from_untyped(o * ratio)
 }
 
 #[cfg(feature = "ffi")]

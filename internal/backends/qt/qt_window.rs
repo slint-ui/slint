@@ -1150,25 +1150,32 @@ impl QtItemRenderer<'_> {
         debug_assert!(target_height.get() > 0.);
 
         let pixmap: qttypes::QPixmap = self.cache.get_or_update_cache_entry(item_rc, || {
-            // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
-            let target_width = target_width.get() as f64;
-            let target_height = target_height.get() as f64;
+            let source = source_property.get();
+            let origin = source.size();
+            let source: &ImageInner = (&source).into();
 
-            let has_source_clipping = source_rect.map_or(false, |rect| {
-                rect.is_valid()
-                    && (rect.x != 0.
-                        || rect.y != 0.
-                        || !rect.width.approx_eq(&target_width)
-                        || !rect.height.approx_eq(&target_height))
-            });
-            let source_size = if !has_source_clipping {
-                Some(euclid::size2(target_width as u32, target_height as u32))
+            // Query target_width/height here again to ensure that changes will invalidate the item rendering cache.
+            let t = euclid::size2(target_width.get(), target_height.get()).cast::<f64>();
+
+            let source_size = if source.is_svg() {
+                let has_source_clipping = source_rect.map_or(false, |rect| {
+                    rect.is_valid()
+                        && (rect.x != 0.
+                            || rect.y != 0.
+                            || !rect.width.approx_eq(&t.width)
+                            || !rect.height.approx_eq(&t.height))
+                });
+                if has_source_clipping {
+                    // Source size & clipping is not implemented yet
+                    None
+                } else {
+                    Some(i_slint_core::graphics::fit_size(image_fit, t.cast(), origin).cast())
+                }
             } else {
-                // Source size & clipping is not implemented yet
                 None
             };
 
-            image_to_pixmap((&source_property.get()).into(), source_size).map_or_else(
+            image_to_pixmap(source, source_size).map_or_else(
                 Default::default,
                 |mut pixmap: qttypes::QPixmap| {
                     let colorize = colorize_property.map_or(Brush::default(), |c| c.get());
