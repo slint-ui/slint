@@ -10,18 +10,26 @@ export class WelcomeWidget extends Widget {
   static createNode(): HTMLElement {
     const node = document.createElement("div");
     const content = document.createElement("div");
-    const welcome_div = document.createElement("div");
-    welcome_div.innerHTML = `
+    content.innerHTML = `
+      <div>
       <center>
       <h1>Welcome to the Slint Online Editor</h1>
 
-      <p>We hope you enjoy working with the Slint UI description language!</p>
-
-
-      <p>Feel free to visit <a href="https://slint-ui.com/">our Homepage</a> for more information.</p>
+      <a href="https://slint-ui.com/"><img src="https://slint-ui.com/logo/slint-logo-simple-light.svg"></a>
       </center>
+
+      <p>Slint is a GUI toolkit to develop native graphical user interface for embedded and desktop platform.
+      It does that using a domain specific language to describe the interface.
+      More information on <a href="https://slint-ui.com/">our Homepage</a></p>
+
+      <p>This Online Editor is allowing to quickly try out Slint code snippets and see the preview.
+      It also enables feature like auto-completion, smart navigation, and such.</p>
+      <p>Similar features are also available in <a href="https://marketplace.visualstudio.com/items?itemName=Slint.slint">our Visual Studio Code extension</a>
+      (also available as a web extension for the <a href="https://vscode.dev/">web version of vscode</a>)</p>
+
+      <p>This Online Editor is licensed under the GNU GPLv3. <a href="https://github.com/slint-ui/slint/tree/master/tools/online_editor">Sources</a>.
+      </div>
       `;
-    content.appendChild(welcome_div);
     node.appendChild(content);
     return node;
   }

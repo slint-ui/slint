@@ -140,7 +140,7 @@
   background-color: #b0b0b0;
 }
 
-#help-content {
-  height: 100%;
-  width: 100%;
+.welcome > div {
+  padding: 1ex
 }
+
