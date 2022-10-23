@@ -88,7 +88,7 @@ usvg = { version= "0.23", optional = true, default-features = false, features = 
 [dev-dependencies]
 slint = { path = "../../api/rs/slint", default-features = false, features = ["std", "compat-0-3-0"] }
 i-slint-backend-testing = { path="../backends/testing" }
-rustybuzz = "0.5.0"
+rustybuzz = "0.5.2"
 ttf-parser = "0.15.0"
 fontdb = { version = "0.8.0" }
 

@@ -289,11 +289,9 @@ impl<'a> TextShaper for &rustybuzz::Face<'a> {
                     out_glyph.offset_y = position.y_offset as _;
                     out_glyph.advance = position.x_advance as _;
 
-                    if let Some(bounding_box) = out_glyph
-                        .platform_glyph
-                        .glyph_id
-                        .and_then(|id| self.glyph_bounding_box(ttf_parser::GlyphId(id.get())))
-                    {
+                    if let Some(bounding_box) = out_glyph.platform_glyph.glyph_id.and_then(|id| {
+                        self.glyph_bounding_box(rustybuzz::ttf_parser::GlyphId(id.get()))
+                    }) {
                         out_glyph.platform_glyph.width = bounding_box.width() as _;
                         out_glyph.platform_glyph.height = bounding_box.height() as _;
                         out_glyph.platform_glyph.bearing_x = bounding_box.x_min as _;
