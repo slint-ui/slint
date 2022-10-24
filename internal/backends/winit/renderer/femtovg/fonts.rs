@@ -578,7 +578,7 @@ impl FontCache {
 
         if !scripts_that_need_checking.is_empty() || !chars_that_need_checking.is_empty() {
             self.available_fonts.with_face_data(face_id, |face_data, face_index| {
-                let face = ttf_parser::Face::from_slice(face_data, face_index).unwrap();
+                let face = ttf_parser::Face::parse(face_data, face_index).unwrap();
 
                 for (unchecked_script, sample_char) in scripts_that_need_checking {
                     let glyph_coverage = face.glyph_index(sample_char).is_some();
