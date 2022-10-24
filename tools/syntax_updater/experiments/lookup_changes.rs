@@ -202,7 +202,7 @@ fn move_properties_to_root(
     file: &mut impl Write,
     args: &Cli,
 ) -> std::io::Result<bool> {
-    if state.lookup_change.property_mappings.is_empty() && !args.new_component_declaration {
+    if state.lookup_change.property_mappings.is_empty() {
         return Ok(false);
     }
     let mut seen_brace = false;

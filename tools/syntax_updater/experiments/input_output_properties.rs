@@ -9,9 +9,8 @@ pub(crate) fn fold_node(
     node: &SyntaxNode,
     file: &mut impl Write,
     _state: &mut crate::State,
-    args: &Cli,
+    _args: &Cli,
 ) -> std::io::Result<bool> {
-    debug_assert!(args.input_output_properties);
     if node.kind() == SyntaxKind::PropertyDeclaration
         && node
             .parent()
