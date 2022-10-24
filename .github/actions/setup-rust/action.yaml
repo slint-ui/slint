@@ -41,6 +41,6 @@ runs:
         override: true
         components: ${{ inputs.components }}
         target: ${{ inputs.target }}
-    - uses: Swatinem/rust-cache@v1
+    - uses: Swatinem/rust-cache@v2
       with:
         key: ${{ inputs.key }}
