@@ -30,7 +30,7 @@ jobs:
           - "https://github.com/gsuyemoto/rust-bombfield"
           - "https://github.com/Decodetalkers/launchre"
           - "https://github.com/kizeevov/l5"
-        sub_path: "."
+        sub_path: ["."]
 
         include:
           - git_url: "https://github.com/griccardos/rusl"
