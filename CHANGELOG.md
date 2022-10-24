@@ -5,16 +5,24 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+ - switch to yeslogic-fontconfig-sys from servo-fontconfig dependency
+
 ### Added
 
-  - Added `slint::FilterModel`, `slint::MapModel`, and `slint::SortModel` to the C++ API.
-  - Added `VecModel::extend` and `VecModel::extend_from_slice`
+ - Added `slint::FilterModel`, `slint::MapModel` to the C++ API.
+ - Added `slint::SortModel` to Rust and C++ API
+ - Added `VecModel::extend` and `VecModel::extend_from_slice`
+ - Online editor: Added "Properties" and "Outline" tabs
+ - Skia renderer: improvements to the TextInput
+ - Support for input method with pre-edit
+ - Dark theme for the Fluent style
 
 ### Fixed
 
  - TextInput now show the Text mouse cursor
  - In Flickable, added a small delay before passing the Press pointer event to the children
-
+ - Online editor: fixed "go to definition" across files.
+ - Fixed a panic in the slint compiler when visiting layout properties for loop analysis (#1659)
 
 ## [0.3.0] - 2022-09-14
 
