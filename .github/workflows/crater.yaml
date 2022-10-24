@@ -20,24 +20,25 @@ jobs:
       matrix:
         git_url:
           - "https://github.com/slint-ui/cargo-ui"
-          - "https://github.com/Futsch1/image-sieve"
+          # - "https://github.com/Futsch1/image-sieve" (not poted to 0.3)
           - "https://github.com/jturcotte/chiptrack"
-          - "https://codeberg.org/Be.ing/moire"
-          - "https://github.com/Project-Trains/launcher"
-          - "https://github.com/jmdaemon/timesync"
-          - "https://github.com/Kroisse/sudoku"
-          - "https://github.com/jannes/han-cihui"
-          - "https://github.com/leofidus/ntfs-explorer"
-          - "https://github.com/ElevenJune/mastermind_Rust"
-          - "https://github.com/xentec/camview"
-          - "https://github.com/Yuhanawa/Mirror-source-assistant"
-          - "https://github.com/b1tg/copy-net-info"
-          - "https://github.com/planet0104/wxcode-client"
-          - "https://github.com/SeriousBug/kiraz"
-          - "https://github.com/jamesblacklock/budget"
-          - "https://github.com/LuXts/toy-parse"
+          #- "https://codeberg.org/Be.ing/moire" (not ported to 0.3)
+          #- "https://github.com/Project-Trains/launcher"
+          #- "https://github.com/jannes/han-cihui"
+          #- "https://github.com/leofidus/ntfs-explorer"
           - "https://codeberg.org/flovan/phoenix-wing-rust"
-          - "https://github.com/Sekky61/raycaster_lib"
+          - "https://github.com/gsuyemoto/rust-bombfield"
+          - "https://github.com/Decodetalkers/launchre"
+          - "https://github.com/kizeevov/l5"
+        sub_path: "."
+
+        include:
+          - git_url: "https://github.com/griccardos/rusl"
+            sub_path: "slint"
+          - git_url: "https://github.com/erlangen-dev/coffee-caller"
+            sub_path: "frontend-desktop"
+
+
     runs-on: ubuntu-20.04
     steps:
     - uses: actions/checkout@v2
@@ -60,5 +61,6 @@ jobs:
     - name: build
       run: |
         cd $HOME/the_repo
+        cd ${{ matrix.sub_path }}
         cargo update
         cargo build
