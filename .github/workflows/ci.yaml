@@ -233,6 +233,7 @@ jobs:
       SLINT_NO_QT: 1
       CARGO_INCREMENTAL: false
       RUST_BACKTRACE: 1
+      SLINT_EXPERIMENTAL_SYNTAX: true
     strategy:
       matrix:
         from_version: ['0.3.0']
@@ -250,19 +251,19 @@ jobs:
           git checkout v${{ matrix.from_version }} --no-overlay -- tests/helper_components
           # Remove examples from the workspace because they may no longer exist or their Cargo.toml might prevent the build of the updater
           sed -i "/examples/d" Cargo.toml
-    # - name: "Commit old checkout"
-    #   run: |
-    #       git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-    #       git config --global user.name "${GITHUB_ACTOR}"
-    #       git commit -a -m "REVERT TESTS TO v${{ matrix.from_version }}"
-    # - name: run the updater
-    #   run: |
-    #     cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i examples/*/*.slint
-    #     cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i examples/*/*/*.slint
-    #     cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i tests/cases/*.slint
-    #     cargo run --bin syntax_updater -- --from ${{ matrix.from_version }} -i tests/cases/*/*.slint
-    # - name: Show the diff
-    #   run: git diff
+    - name: "Commit old checkout"
+      run: |
+        git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+        git config --global user.name "${GITHUB_ACTOR}"
+        git commit -a -m "REVERT TESTS TO v${{ matrix.from_version }}"
+    - name: run the updater
+      run: |
+        cargo run --bin syntax_updater -- -i examples/*/*.slint
+        cargo run --bin syntax_updater -- -i examples/*/*/*.slint
+        cargo run --bin syntax_updater -- -i tests/cases/*.slint
+        cargo run --bin syntax_updater -- -i tests/cases/*/*.slint
+    - name: Show the diff
+      run: git diff
     - name: test
       uses: actions-rs/cargo@v1
       with:
