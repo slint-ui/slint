@@ -47,9 +47,9 @@ dark-light = "0.2.2"
 instant = "0.1"
 
 # For the FemtoVG renderer
-femtovg = { version = "0.3.5", optional = true, default-features = false, features = ["image-loading"] }
+femtovg = { version = "0.3.7", optional = true, default-features = false, features = ["image-loading"] }
 fontdb = { version = "0.9.0", optional = true, default-features = false }
-ttf-parser = { version = "0.15.0", optional = true } # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
+ttf-parser = { version = "0.17.0", optional = true } # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
 unicode-script = { version = "0.5.4", optional = true } # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
 imgref = { version = "1.6.1", optional = true }
 rgb = { version = "0.8.27", optional = true }
