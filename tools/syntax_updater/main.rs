@@ -42,21 +42,9 @@ pub struct Cli {
     #[clap(short, long, action)]
     inline: bool,
 
-    /// Do the lookup changes from issue #273
-    #[clap(long, action)]
-    fully_qualify: bool,
-
-    /// Move all properties declaration to root (implies fully_qualify)
+    /// Move all properties declaration to root
     #[clap(long, action)]
     move_declaration: bool,
-
-    /// Mark top level property as `inout` #191
-    #[clap(long, action)]
-    input_output_properties: bool,
-
-    /// New component declaration #1682 (implies fully_qualify)
-    #[clap(long, action)]
-    new_component_declaration: bool,
 }
 
 fn main() -> std::io::Result<()> {
@@ -174,31 +162,31 @@ fn process_file(
     let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(path), &mut diag);
     let len = syntax_node.node.text_range().end().into();
     let mut state = State::default();
-    if args.fully_qualify || args.move_declaration {
-        let doc = syntax_node.clone().into();
-        let mut type_loader = TypeLoader::new(
-            i_slint_compiler::typeregister::TypeRegister::builtin(),
-            i_slint_compiler::CompilerConfiguration::new(
-                i_slint_compiler::generator::OutputFormat::Llr,
-            ),
-            &mut BuildDiagnostics::default(),
-        );
-        let dependency_registry = Rc::new(RefCell::new(
-            i_slint_compiler::typeregister::TypeRegister::new(&type_loader.global_type_registry),
-        ));
-        let foreign_imports = spin_on::spin_on(type_loader.load_dependencies_recursively(
-            &doc,
-            &mut diag,
-            &dependency_registry,
-        ));
-        let current_doc = crate::object_tree::Document::from_node(
-            doc,
-            foreign_imports,
-            &mut diag,
-            &dependency_registry,
-        );
-        state.current_doc = Rc::new(current_doc).into()
-    }
+
+    let doc = syntax_node.clone().into();
+    let mut type_loader = TypeLoader::new(
+        i_slint_compiler::typeregister::TypeRegister::builtin(),
+        i_slint_compiler::CompilerConfiguration::new(
+            i_slint_compiler::generator::OutputFormat::Llr,
+        ),
+        &mut BuildDiagnostics::default(),
+    );
+    let dependency_registry = Rc::new(RefCell::new(
+        i_slint_compiler::typeregister::TypeRegister::new(&type_loader.global_type_registry),
+    ));
+    let foreign_imports = spin_on::spin_on(type_loader.load_dependencies_recursively(
+        &doc,
+        &mut diag,
+        &dependency_registry,
+    ));
+    let current_doc = crate::object_tree::Document::from_node(
+        doc,
+        foreign_imports,
+        &mut diag,
+        &dependency_registry,
+    );
+    state.current_doc = Rc::new(current_doc).into();
+
     visit_node(syntax_node, &mut file, &mut state, args)?;
     if diag.has_error() {
         file.write_all(&source.as_bytes()[len..])?;
@@ -301,19 +289,13 @@ fn fold_node(
     state: &mut State,
     args: &Cli,
 ) -> std::io::Result<bool> {
-    if args.input_output_properties
-        && experiments::input_output_properties::fold_node(node, file, state, args)?
-    {
+    if experiments::input_output_properties::fold_node(node, file, state, args)? {
         return Ok(true);
     }
-    if args.new_component_declaration
-        && experiments::new_component_declaration::fold_node(node, file, state, args)?
-    {
+    if experiments::new_component_declaration::fold_node(node, file, state, args)? {
         return Ok(true);
     }
-    if (args.fully_qualify || args.move_declaration)
-        && experiments::lookup_changes::fold_node(node, file, state, args)?
-    {
+    if experiments::lookup_changes::fold_node(node, file, state, args)? {
         return Ok(true);
     }
     Ok(false)

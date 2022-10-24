@@ -11,7 +11,6 @@ pub(crate) fn fold_node(
     state: &mut crate::State,
     args: &Cli,
 ) -> std::io::Result<bool> {
-    debug_assert!(args.new_component_declaration);
     let kind = node.kind();
     if kind == SyntaxKind::Component && node.child_token(SyntaxKind::ColonEqual).is_some() {
         let is_global =
