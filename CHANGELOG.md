@@ -6,6 +6,7 @@ All notable changes to this project are documented in this file.
 ### Changed
 
  - switch to yeslogic-fontconfig-sys from servo-fontconfig dependency
+ - The property `Window::background` is now a brush instead of a color (allowing gradients)
 
 ### Added
 
@@ -23,6 +24,7 @@ All notable changes to this project are documented in this file.
  - In Flickable, added a small delay before passing the Press pointer event to the children
  - Online editor: fixed "go to definition" across files.
  - Fixed a panic in the slint compiler when visiting layout properties for loop analysis (#1659)
+ - Compilation error in the generated code (#1733, #1735)
 
 ## [0.3.0] - 2022-09-14
 
