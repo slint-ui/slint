@@ -80,7 +80,7 @@ pub fn main() {
         main_window.on_prefixEdited(move || {
             let main_window = main_window_weak.unwrap();
             *prefix.borrow_mut() = main_window.get_prefix();
-            filtered_model.apply_filter();
+            filtered_model.reset();
         });
     }
 
