@@ -509,13 +509,13 @@ impl CargoToml {
 
 #[derive(Debug, clap::Parser)]
 pub struct LicenseHeaderCheck {
-    #[clap(long, action)]
+    #[arg(long, action)]
     fix_it: bool,
 
-    #[clap(long, action)]
+    #[arg(long, action)]
     show_all: bool,
 
-    #[clap(long, action)]
+    #[arg(long, action)]
     verbose: bool,
 }
 

@@ -27,9 +27,9 @@ use clap::Parser;
 use lsp_server::{Connection, Message, Request, Response};
 
 #[derive(Clone, clap::Parser)]
-#[clap(author, version, about, long_about = None)]
+#[command(author, version, about, long_about = None)]
 struct Cli {
-    #[clap(
+    #[arg(
         short = 'I',
         name = "Add include paths for the import statements",
         number_of_values = 1,
@@ -38,11 +38,11 @@ struct Cli {
     include_paths: Vec<std::path::PathBuf>,
 
     /// The style name for the preview ('native' or 'fluent')
-    #[clap(long, name = "style name", default_value_t, action)]
+    #[arg(long, name = "style name", default_value_t, action)]
     style: String,
 
     /// The backend used for the preview ('GL' or 'Qt')
-    #[clap(long, name = "backend", default_value_t, action)]
+    #[arg(long, name = "backend", default_value_t, action)]
     backend: String,
 }
 

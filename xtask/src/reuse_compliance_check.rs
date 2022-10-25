@@ -135,9 +135,9 @@ fn is_symlink(path: &Path) -> bool {
 
 fn validate_license_directory(dir: &Path, licenses: &[String], fix_it: bool) -> Result<()> {
     let top_dir =
-        PathBuf::from(".").canonicalize().context("Failed to cannonicalize the top directory")?;
+        PathBuf::from(".").canonicalize().context("Failed to canonicalize the top directory")?;
     let lic_dir = dir.join("LICENSES").canonicalize().with_context(|| {
-        format!("Failed to cannonicalize \"{}\"", dir.join("LICENSES").to_string_lossy())
+        format!("Failed to canonicalize \"{}\"", dir.join("LICENSES").to_string_lossy())
     })?;
 
     if !lic_dir.is_dir() {
@@ -353,9 +353,9 @@ pub fn scan_symlinks(sh: &Shell, reuse: &Path, fix_it: bool) -> Result<()> {
 
 #[derive(Debug, clap::Parser)]
 pub struct ReuseComplianceCheck {
-    #[clap(long, action)]
+    #[arg(long, action)]
     fix_symlinks: bool,
-    #[clap(long, action)]
+    #[arg(long, action)]
     download_missing_licenses: bool,
 }
 

@@ -40,7 +40,7 @@ i-slint-backend-selector = { version = "=0.3.1", path="../../internal/backends/s
 
 vtable = { version = "0.1.6", path="../../helper_crates/vtable" }
 
-clap = { version = "3.2", features = ["derive", "wrap_help"] }
+clap = { version = "4.0", features = ["derive", "wrap_help"] }
 codemap = "0.1"
 codemap-diagnostic = "0.1.1"
 notify = { version = "5.0.0", default-features = false, features = ["macos_kqueue"] }

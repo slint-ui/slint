@@ -13,30 +13,30 @@ mod nodepackage;
 mod reuse_compliance_check;
 
 #[derive(Debug, clap::Parser)]
-#[clap(author, version, about, long_about = None)]
+#[command(author, version, about, long_about = None)]
 pub enum TaskCommand {
-    #[clap(name = "check_license_headers")]
+    #[command(name = "check_license_headers")]
     CheckLicenseHeaders(license_headers_check::LicenseHeaderCheck),
-    #[clap(name = "cppdocs")]
+    #[command(name = "cppdocs")]
     CppDocs(CppDocsCommand),
-    #[clap(name = "node_package")]
+    #[command(name = "node_package")]
     NodePackage,
-    #[clap(name = "check_reuse_compliance")]
+    #[command(name = "check_reuse_compliance")]
     ReuseComplianceCheck(reuse_compliance_check::ReuseComplianceCheck),
-    #[clap(name = "enumdocs")]
+    #[command(name = "enumdocs")]
     EnumDocs,
 }
 
 #[derive(Debug, clap::Parser)]
-#[clap(name = "xtask")]
+#[command(name = "xtask")]
 pub struct ApplicationArguments {
-    #[clap(subcommand)]
+    #[command(subcommand)]
     pub command: TaskCommand,
 }
 
 #[derive(Debug, clap::Parser)]
 pub struct CppDocsCommand {
-    #[clap(long, action)]
+    #[arg(long, action)]
     show_warnings: bool,
 }
 
