@@ -11,19 +11,19 @@ use std::fmt::Display;
 use tokio::io::AsyncWriteExt;
 
 #[derive(Debug, Parser)]
-#[clap(author, version, about, long_about = None)]
+#[command(author, version, about, long_about = None)]
 struct Opt {
-    /// Figma asscess token
-    #[clap(short = 't', long = "token")]
+    /// Figma access token
+    #[arg(short = 't', long = "token")]
     token: String,
     /// If present, load the specific node id
-    #[clap(short = 'n', long = "node")]
+    #[arg(short = 'n', long = "node")]
     node_id: Option<String>,
     /// If present, load the specific child node at the specified index
-    #[clap(long = "child")]
+    #[arg(long = "child")]
     child_index: Option<usize>,
     /// If set, don't connect to the network, but use the `figma_output/cache.json`
-    #[clap(long)]
+    #[arg(long)]
     read_from_cache: bool,
     /// Figma file
     file: String,

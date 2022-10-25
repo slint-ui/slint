@@ -17,45 +17,40 @@ use clap::Parser;
 type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
 
 #[derive(Clone, clap::Parser)]
-#[clap(author, version, about, long_about = None)]
+#[command(author, version, about, long_about = None)]
 struct Cli {
-    #[clap(
-        short = 'I',
-        name = "include path for other .slint files",
-        number_of_values = 1,
-        action
-    )]
+    #[arg(short = 'I', name = "include path for other .slint files", number_of_values = 1, action)]
     include_paths: Vec<std::path::PathBuf>,
 
     /// The .slint file to load ('-' for stdin)
-    #[clap(name = "path to .slint file", action)]
+    #[arg(name = "path to .slint file", action)]
     path: std::path::PathBuf,
 
     /// The style name ('native' or 'fluent')
-    #[clap(long, name = "style name", action)]
+    #[arg(long, name = "style name", action)]
     style: Option<String>,
 
     /// The rendering backend
-    #[clap(long, name = "backend", action)]
+    #[arg(long, name = "backend", action)]
     backend: Option<String>,
 
     /// Automatically watch the file system, and reload when it changes
-    #[clap(long, action)]
+    #[arg(long, action)]
     auto_reload: bool,
 
     /// Load properties from a json file ('-' for stdin)
-    #[clap(long, name = "load data file", action)]
+    #[arg(long, name = "load data file", action)]
     load_data: Option<std::path::PathBuf>,
 
     /// Store properties values in a json file at exit ('-' for stdout)
-    #[clap(long, name = "save data file", action)]
+    #[arg(long, name = "save data file", action)]
     save_data: Option<std::path::PathBuf>,
 
     /// Specify callbacks handler.
     /// The first argument is the callback name, and the second argument is a string that is going
-    /// to be passed to the shell to be executed. Occurences of `$1` will be replaced by the first argument,
+    /// to be passed to the shell to be executed. Occurrences of `$1` will be replaced by the first argument,
     /// and so on.
-    #[clap(long, value_names(&["callback", "handler"]), number_of_values = 2, action)]
+    #[arg(long, value_names(&["callback", "handler"]), number_of_values = 2, action)]
     on: Vec<String>,
 }
 

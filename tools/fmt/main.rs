@@ -26,13 +26,13 @@ mod fmt;
 mod writer;
 
 #[derive(clap::Parser)]
-#[clap(author, version, about, long_about = None)]
+#[command(author, version, about, long_about = None)]
 struct Cli {
-    #[clap(name = "path to .slint file(s)", action)]
+    #[arg(name = "path to .slint file(s)", action)]
     paths: Vec<std::path::PathBuf>,
 
     /// modify the file inline instead of printing to stdout
-    #[clap(short, long, action)]
+    #[arg(short, long, action)]
     inline: bool,
 }
 
