@@ -53,6 +53,30 @@ function create_demo_menu(editor: EditorWidget): Menu {
   return menu;
 }
 
+function create_style_menu(editor: EditorWidget): Menu {
+  const menu = new Menu({ commands });
+  menu.title.label = "Style";
+
+  for (const style of [
+    { label: "Fluent", name: "fluent" },
+    { label: "Fluent Light", name: "fluent-light" },
+    { label: "Fluent Dark", name: "fluent-dark" }]) {
+    const command_name = "slint:set_style_" + style.name;
+    commands.addCommand(command_name, {
+      label: style.label,
+      isToggled: () => {
+        return editor.style === style.name;
+      },
+      execute: () => {
+        return editor.style = style.name;
+      },
+    });
+    menu.addItem({ command: command_name });
+  }
+
+  return menu;
+}
+
 function create_share_menu(editor: EditorWidget): Menu {
   const menu = new Menu({ commands });
   menu.title.label = "Share";
@@ -356,6 +380,7 @@ function main() {
   menu_bar.addMenu(create_share_menu(editor));
   menu_bar.addMenu(create_build_menu());
   menu_bar.addMenu(create_demo_menu(editor));
+  menu_bar.addMenu(create_style_menu(editor));
   menu_bar.addMenu(create_view_menu(dock_widgets));
 
   const main = new SplitPanel({ orientation: "horizontal" });
