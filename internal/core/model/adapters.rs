@@ -9,6 +9,10 @@ use super::*;
 ///
 /// When the other Model is updated, the `MapModel` is updated accordingly.
 ///
+/// Generic parameters:
+/// * `M` the type of the wrapped `Model`.
+/// * `F` the map function.
+///
 /// ## Example
 ///
 /// Here we have a [`VecModel`] holding rows of a custom type `Name`.
@@ -260,6 +264,10 @@ where
 ///
 /// When the other Model is updated, the `FilterModel` is updated accordingly.
 ///
+/// Generic parameters:
+/// * `M` the type of the wrapped `Model`.
+/// * `F` the filter function.
+///
 /// ## Example
 ///
 /// Here we have a [`VecModel`] holding [`SharedString`]s.
@@ -341,11 +349,19 @@ where
         Self(container)
     }
 
-    /// Manually reapply the filter. You need to run this e.g. if the filtering function compares
-    /// against mutable state and it has changed.
+    /// Manually reapply the filter. You need to run this e.g. if the filtering function depends on
+    /// mutable state and it has changed. This method is deprecated use `reset` instead.
+    #[deprecated(note = "Use reset() instead")]
     pub fn apply_filter(&self) {
+        self.reset()
+    }
+
+    /// Manually reapply the filter. You need to run this e.g. if the filtering function depends on
+    /// mutable state and it has changed.
+    pub fn reset(&self) {
         self.0.reset();
     }
+
     /// Gets the row index of the underlying unfiltered model for a given filtered row index.
     pub fn unfiltered_row(&self, filtered_row: usize) -> usize {
         self.0.mapping.borrow()[filtered_row]
@@ -596,6 +612,10 @@ where
 ///
 /// When the other Model is updated, the `Sorted` is updated accordingly.
 ///
+/// Generic parameters:
+/// * `M` the type of the wrapped `Model`.
+/// * `F` a type that provides an order to model rows. It is constrained by the internal trait `SortHelper`, which is used to sort the model in ascending order if the model data supports it, or by a given sort function.
+///
 /// ## Example
 ///
 /// Here we have a [`VecModel`] holding [`SharedString`]s.
@@ -681,10 +701,10 @@ where
 /// assert_eq!(sorted_model.row_data(1).unwrap(), SharedString::from("Lorem"));
 /// assert_eq!(sorted_model.row_data(2).unwrap(), SharedString::from("opsom"));
 /// ```
-pub struct SortModel<M, S>(Pin<Box<ModelChangeListenerContainer<SortModelInner<M, S>>>>)
+pub struct SortModel<M, F>(Pin<Box<ModelChangeListenerContainer<SortModelInner<M, F>>>>)
 where
     M: Model + 'static,
-    S: SortHelper<M::Data>;
+    F: SortHelper<M::Data>;
 
 impl<M, F> SortModel<M, F>
 where
@@ -739,9 +759,9 @@ where
         Self(container)
     }
 
-    /// Manually reapply the sorting. You need to run this e.g. if the sort function compares
-    /// against mutable state and it has changed.
-    pub fn apply_sorting(&self) {
+    /// Manually reapply the sorting. You need to run this e.g. if the sort function depends
+    /// on mutable state and it has changed.
+    pub fn reset(&self) {
         self.0.reset();
     }
 

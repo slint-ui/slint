@@ -975,7 +975,7 @@ public:
 
     /// Re-applies the model's filter function on each row of the source model. Use this if state
     /// external to the filter function has changed.
-    void apply_filter() { inner->reset(); }
+    void reset() { inner->reset(); }
 
     /// Given the \a filtered_row index, this function returns the corresponding row index in the
     /// source model.
@@ -1063,9 +1063,9 @@ template<typename ModelData>
 struct SortModelInner : private_api::ModelChangeListener
 {
     SortModelInner(std::shared_ptr<slint::Model<ModelData>> source_model,
-                   std::function<bool(const ModelData &, const ModelData &)> sort_fn,
+                   std::function<bool(const ModelData &, const ModelData &)> comp,
                    slint::SortModel<ModelData> &target_model)
-        : source_model(source_model), sort_fn(sort_fn), target_model(target_model)
+        : source_model(source_model), comp(comp), target_model(target_model)
     {
     }
 
@@ -1089,7 +1089,7 @@ struct SortModelInner : private_api::ModelChangeListener
                     std::lower_bound(sorted_rows.begin(), sorted_rows.end(), inserted_value,
                                      [this](int sorted_row, const ModelData &inserted_value) {
                                          auto sorted_elem = source_model->row_data(sorted_row);
-                                         return sort_fn(*sorted_elem, inserted_value);
+                                         return comp(*sorted_elem, inserted_value);
                                      });
 
             insertion_point = sorted_rows.insert(insertion_point, row);
@@ -1112,7 +1112,7 @@ struct SortModelInner : private_api::ModelChangeListener
                 std::lower_bound(sorted_rows.begin(), sorted_rows.end(), changed_value,
                                  [this](int sorted_row, const ModelData &changed_value) {
                                      auto sorted_elem = source_model->row_data(sorted_row);
-                                     return sort_fn(*sorted_elem, changed_value);
+                                     return comp(*sorted_elem, changed_value);
                                  });
 
         insertion_point = sorted_rows.insert(insertion_point, changed_row);
@@ -1171,14 +1171,14 @@ struct SortModelInner : private_api::ModelChangeListener
         std::sort(sorted_rows.begin(), sorted_rows.end(), [this](int lhs_index, int rhs_index) {
             auto lhs_elem = source_model->row_data(lhs_index);
             auto rhs_elem = source_model->row_data(rhs_index);
-            return sort_fn(*lhs_elem, *rhs_elem);
+            return comp(*lhs_elem, *rhs_elem);
         });
 
         sorted_rows_dirty = false;
     }
 
     std::shared_ptr<slint::Model<ModelData>> source_model;
-    std::function<bool(const ModelData &, const ModelData &)> sort_fn;
+    std::function<bool(const ModelData &, const ModelData &)> comp;
     slint::SortModel<ModelData> &target_model;
     std::vector<int> sorted_rows;
     bool sorted_rows_dirty = true;
@@ -1195,11 +1195,11 @@ class SortModel : public Model<ModelData>
 
 public:
     /// Constructs a new SortModel that provides a sorted view on the \a source_model by applying
-    /// the order given by the specified \a sort_fn.
+    /// the order given by the specified \a comp.
     SortModel(std::shared_ptr<Model<ModelData>> source_model,
-              std::function<bool(const ModelData &, const ModelData &)> sort_fn)
+              std::function<bool(const ModelData &, const ModelData &)> comp)
         : inner(std::make_shared<private_api::SortModelInner<ModelData>>(std::move(source_model),
-                                                                         std::move(sort_fn), *this))
+                                                                         std::move(comp), *this))
     {
         inner->source_model->attach_peer(inner);
     }
@@ -1216,10 +1216,9 @@ public:
     {
         inner->source_model->set_row_data(inner->sorted_rows[i], value);
     }
-
     /// Re-applies the model's sort function on each row of the source model. Use this if state
     /// external to the sort function has changed.
-    void sort() { inner->reset(); }
+    void reset() { inner->reset(); }
 
     /// Given the \a sorted_row_index, this function returns the corresponding row index in the
     /// source model.
