@@ -7,7 +7,9 @@ import { LineEditInner, TextEdit, AboutSlint } from "../common/common.slint";
 import { StandardButton } from "../common/standardbutton.slint";
 import { StyleMetrics, ScrollView, Button, CheckBox, Palette  } from "std-widgets-impl.slint";
 import { LineEdit } from "widget-lineedit.slint";
-export { StyleMetrics, ScrollView, Button, CheckBox, StandardButton, TextEdit, LineEdit, AboutSlint, AboutSlint as AboutSixtyFPS }
+import { TabWidgetImpl, TabImpl, TabBarImpl, TabWidget } from "widget-tabwidget.slint";
+export { StyleMetrics, ScrollView, Button, CheckBox, StandardButton, TextEdit, TabWidgetImpl, TabImpl, TabBarImpl, TabWidget,
+    LineEdit, AboutSlint, AboutSlint as AboutSixtyFPS }
 
 SpinBoxButton := Rectangle {
     callback clicked <=> touch.clicked;
@@ -235,130 +237,6 @@ export GroupBox := VerticalLayout {
     }
 }
 
-export TabWidgetImpl := Rectangle {
-    property <length> content-x: 0;
-    property <length> content-y: tabbar-preferred-height;
-    property <length> content-height: height - tabbar-preferred-height;
-    property <length> content-width: width;
-    property <length> tabbar-x: 0;
-    property <length> tabbar-y: 0;
-    property <length> tabbar-height: tabbar-preferred-height;
-    property <length> tabbar-width: width;
-
-    property <length> tabbar-preferred-height;
-    property <length> tabbar-preferred-width;
-    property <length> content-min-height;
-    property <length> content-min-width;
-    property <int> current-index;
-    property <int> current-focused;
-
-    preferred-width: content-min-width;
-    min-width: max(content-min-width, tabbar-preferred-width);
-    preferred-height: content-min-height + tabbar-preferred-height;
-    min-height: content-min-height + tabbar-preferred-height;
-}
-
-export TabImpl := Rectangle {
-    property<string> title <=> t.text;
-    //property<image> icon;
-    property<bool> enabled: true;
-    property<bool> has-focus: current-focused == tab-index;
-    property<bool> pressed;
-    property<int> current; // The currently selected tab
-    property<int> current-focused; // The currently focused tab
-    property<int> tab-index; // The index of this tab
-    property<int> num-tabs; // The total number of tabs
-
-    min-height: t.preferred-height + 16px;
-    preferred-width: t.preferred-width + 16px;
-
-    background: !enabled ? Palette.neutralLighter
-        : touch.pressed ? Palette.neutralLight
-        : touch.has-hover ? Palette.neutralLighter
-        : Palette.white;
-    horizontal-stretch: 0;
-    vertical-stretch: 0;
-
-    accessible-role: tab;
-    accessible-label <=> title;
-
-    touch := TouchArea {
-        enabled <=> root.enabled;
-        clicked => {
-            current = tab-index;
-        }
-    }
-    t := Text {
-        width: parent.width;
-        height: parent.height;
-        vertical-alignment: center;
-        horizontal-alignment: center;
-        color: !enabled ? Palette.neutralTertiary : Palette.neutralPrimary;
-        font-weight: root.current == root.tab-index ? 600 : 500;
-    }
-
-    Rectangle {
-        height: 3px;
-        width: touch.has-hover && root.current == root.tab-index ? parent.width : parent.width - 16px;
-        animate width { duration: 250ms; easing: ease-out; }
-        background: root.current == root.tab-index ? Palette.themeSecondary : transparent;
-        y: parent.height - height;
-        x: (parent.width - width) / 2;
-    }
-
-    Rectangle { // Focus Rectangle
-        border-width: enabled && has-focus ? 1px : 0px;
-        border-color: Palette.black;
-    }
-}
-
-export TabBarImpl := Rectangle {
-    // injected properties:
-    property<int> current; // The currently selected tab
-    property<int> current-focused: fs.has-focus ? fs.focused-tab : -1; // The currently focused tab
-    property<int> num-tabs; // The total number of tabs
-
-    HorizontalLayout {
-        spacing: 8px;
-        alignment: start;
-        @children
-    }
-
-    accessible-role: tab;
-    accessible-delegate-focus: current-focused >= 0 ? current-focused : current;
-
-    fs := FocusScope {
-        width: 0px; // Do not react on clicks
-        property<int> focused-tab: 0;
-
-        key-pressed(event) => {
-            if (event.text == "\n") {
-                 current = current-focused;
-                 return accept;
-            }
-            if (event.text == Keys.LeftArrow) {
-                 focused-tab = Math.max(focused-tab - 1,  0);
-                 return accept;
-            }
-            if (event.text == Keys.RightArrow) {
-                 focused-tab = Math.min(focused-tab + 1, num-tabs - 1);
-                 return accept;
-            }
-            return reject;
-        }
-
-        key-released(event) => {
-            if (event.text == " ") {
-                 current = current-focused;
-                 return accept;
-            }
-            return reject;
-        }
-    }
-}
-
-export TabWidget := TabWidget {}
-
 export ListView := ScrollView {
     @children
 }
@@ -525,3 +403,4 @@ export GridBox := GridLayout {
     spacing: StyleMetrics.layout-spacing;
     padding: StyleMetrics.layout-padding;
 }
+
