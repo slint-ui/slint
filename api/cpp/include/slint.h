@@ -1216,11 +1216,6 @@ public:
     {
         inner->source_model->set_row_data(inner->sorted_rows[i], value);
     }
-
-    /// Re-applies the model's sort function on each row of the source model. Use this if state
-    /// external to the sort function has changed.
-    void sort() { reset(); }
-
     /// Re-applies the model's sort function on each row of the source model. Use this if state
     /// external to the sort function has changed.
     void reset() { inner->reset(); }

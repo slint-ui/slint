@@ -349,8 +349,8 @@ where
         Self(container)
     }
 
-    /// Manually reapply the filter. You need to run this e.g. if the filtering function compares
-    /// against mutable state and it has changed.
+    /// Manually reapply the filter. You need to run this e.g. if the filtering function uses
+    /// mutable state and it has changed.
     #[deprecated(note = "Use reset() instead")]
     pub fn apply_filter(&self) {
         self.reset()
