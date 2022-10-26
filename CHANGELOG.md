@@ -17,6 +17,8 @@ All notable changes to this project are documented in this file.
  - Skia renderer: improvements to the TextInput
  - Support for input method with pre-edit
  - Dark theme for the Fluent style
+ - Added `fluent-light` and `fluent-dark` as explicit styles to select a light/dark variant,
+   regardless of the system color scheme setting.
 
 ### Fixed
 
