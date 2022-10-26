@@ -209,6 +209,8 @@ pub fn load_builtins(register: &mut TypeRegister) {
     register.property_animation_type =
         ElementType::Builtin(natives.remove("PropertyAnimation").unwrap());
 
+    register.empty_type = ElementType::Builtin(natives.remove("Empty").unwrap());
+
     if !diag.is_empty() {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]

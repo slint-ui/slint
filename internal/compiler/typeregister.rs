@@ -191,6 +191,7 @@ pub struct TypeRegister {
     elements: HashMap<String, ElementType>,
     supported_property_animation_types: HashSet<String>,
     pub(crate) property_animation_type: ElementType,
+    pub(crate) empty_type: ElementType,
     /// Map from a context restricted type to the list of contexts (parent type) it is allowed in. This is
     /// used to construct helpful error messages, such as "Row can only be within a GridLayout element".
     context_restricted_types: HashMap<String, HashSet<String>>,
@@ -367,5 +368,12 @@ impl TypeRegister {
             all.insert(k.clone(), v.clone());
         }
         all
+    }
+
+    pub fn empty_type(&self) -> ElementType {
+        match self.parent_registry.as_ref() {
+            Some(parent) => parent.borrow().empty_type(),
+            None => self.empty_type.clone(),
+        }
     }
 }

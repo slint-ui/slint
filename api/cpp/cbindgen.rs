@@ -114,6 +114,7 @@ fn gen_corelib(
     let mut config = default_config();
 
     let items = [
+        "Empty",
         "Rectangle",
         "BorderRectangle",
         "ImageItem",

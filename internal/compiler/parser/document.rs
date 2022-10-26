@@ -81,12 +81,17 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
             return false;
         }
     } else {
-        if p.peek().as_str() != "inherits" {
-            p.error("Expected keyword 'inherits'");
+        if p.peek().as_str() == "inherits" {
+            p.consume();
+        } else if p.peek().kind() == SyntaxKind::LBrace {
+            let mut p = p.start_node(SyntaxKind::Element);
+            p.consume();
+            parse_element_content(&mut *p);
+            return p.expect(SyntaxKind::RBrace);
+        } else {
+            p.error("Expected '{' or keyword 'inherits'");
             drop(p.start_node(SyntaxKind::Element));
             return false;
-        } else {
-            p.consume();
         }
     }
 
