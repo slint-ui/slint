@@ -9,7 +9,7 @@ use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{
     BuiltinFunction, BuiltinMacroFunction, EasingCurve, Expression, Unit,
 };
-use crate::langtype::{Enumeration, EnumerationValue, Type};
+use crate::langtype::{ElementType, Enumeration, EnumerationValue, Type};
 use crate::namedreference::NamedReference;
 use crate::object_tree::{ElementRc, PropertyVisibility};
 use crate::parser::NodeOrToken;
@@ -422,7 +422,12 @@ impl LookupObject for LookupType {
         f: &mut impl FnMut(&str, LookupResult) -> Option<R>,
     ) -> Option<R> {
         for (name, ty) in ctx.type_register.all_types() {
-            if let Some(r) = Self::as_result(ty).and_then(|e| f(&name, e)) {
+            if let Some(r) = Self::from_type(ty).and_then(|e| f(&name, e)) {
+                return Some(r);
+            }
+        }
+        for (name, ty) in ctx.type_register.all_elements() {
+            if let Some(r) = Self::from_element(ty).and_then(|e| f(&name, e)) {
                 return Some(r);
             }
         }
@@ -430,16 +435,23 @@ impl LookupObject for LookupType {
     }
 
     fn lookup(&self, ctx: &LookupCtx, name: &str) -> Option<LookupResult> {
-        Self::as_result(ctx.type_register.lookup(name)).map(LookupResult::from)
+        Self::from_type(ctx.type_register.lookup(name))
+            .or_else(|| Self::from_element(ctx.type_register.lookup_element(name).ok()?))
     }
 }
 impl LookupType {
-    fn as_result(ty: Type) -> Option<LookupResult> {
+    fn from_type(ty: Type) -> Option<LookupResult> {
         match ty {
-            Type::Component(c) if c.is_global() => {
+            Type::Enumeration(e) => Some(LookupResult::Enumeration(e)),
+            _ => None,
+        }
+    }
+
+    fn from_element(el: ElementType) -> Option<LookupResult> {
+        match el {
+            ElementType::Component(c) if c.is_global() => {
                 Some(Expression::ElementReference(Rc::downgrade(&c.root_element)).into())
             }
-            Type::Enumeration(e) => Some(LookupResult::Enumeration(e)),
             _ => None,
         }
     }
@@ -730,7 +742,6 @@ impl LookupObject for Expression {
                     }
                     None
                 }
-                Type::Component(c) => c.root_element.for_each_entry(ctx, f),
                 Type::String => StringExpression(self).for_each_entry(ctx, f),
                 Type::Brush | Type::Color => ColorExpression(self).for_each_entry(ctx, f),
                 Type::Image => ImageExpression(self).for_each_entry(ctx, f),
@@ -750,7 +761,6 @@ impl LookupObject for Expression {
                         name: name.to_string(),
                     })
                 }),
-                Type::Component(c) => c.root_element.lookup(ctx, name),
                 Type::String => StringExpression(self).lookup(ctx, name),
                 Type::Brush | Type::Color => ColorExpression(self).lookup(ctx, name),
                 Type::Image => ImageExpression(self).lookup(ctx, name),

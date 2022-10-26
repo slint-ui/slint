@@ -8,6 +8,7 @@ use lyon_path::geom::euclid::approxeq::ApproxEq;
 use crate::diagnostics::BuildDiagnostics;
 use crate::diagnostics::Spanned;
 use crate::expression_tree::*;
+use crate::langtype::ElementType;
 use crate::langtype::Type;
 use crate::layout::*;
 use crate::object_tree::*;
@@ -25,10 +26,8 @@ pub async fn lower_layouts(
     // Ignore import errors
     let mut build_diags_to_ignore = crate::diagnostics::BuildDiagnostics::default();
     let style_metrics = type_loader
-        .import_type("std-widgets.slint", "StyleMetrics", &mut build_diags_to_ignore)
+        .import_component("std-widgets.slint", "StyleMetrics", &mut build_diags_to_ignore)
         .await;
-    let style_metrics =
-        style_metrics.and_then(|sm| if let Type::Component(c) = sm { Some(c) } else { None });
 
     *component.root_constraints.borrow_mut() =
         LayoutConstraints::new(&component.root_element, diag);
@@ -53,7 +52,7 @@ fn lower_element_layout(
     style_metrics: &Option<Rc<Component>>,
     diag: &mut BuildDiagnostics,
 ) {
-    let base_type = if let Type::Builtin(base_type) = &elem.borrow().base_type {
+    let base_type = if let ElementType::Builtin(base_type) = &elem.borrow().base_type {
         base_type.clone()
     } else {
         return;
@@ -74,7 +73,10 @@ fn lower_element_layout(
     {
         let mut elem = elem.borrow_mut();
         let elem = &mut *elem;
-        let prev_base = std::mem::replace(&mut elem.base_type, type_register.lookup("Rectangle"));
+        let prev_base = std::mem::replace(
+            &mut elem.base_type,
+            type_register.lookup_element("Rectangle").unwrap(),
+        );
         // Create fake properties for the layout properties
         for p in elem.bindings.keys() {
             if !elem.base_type.lookup_property(p).is_valid()
@@ -90,7 +92,7 @@ fn lower_element_layout(
 }
 
 pub fn is_layout_element(element: &ElementRc) -> bool {
-    matches!(&element.borrow().base_type, Type::Builtin(n) if n.name == "GridLayout" || n.name == "HorizontalLayout" || n.name == "VerticalLayout" || n.name == "PathLayout")
+    matches!(&element.borrow().base_type, ElementType::Builtin(n) if n.name == "GridLayout" || n.name == "HorizontalLayout" || n.name == "VerticalLayout" || n.name == "PathLayout")
 }
 
 fn lower_grid_layout(
@@ -119,7 +121,7 @@ fn lower_grid_layout(
     let layout_children = std::mem::take(&mut grid_layout_element.borrow_mut().children);
     let mut collected_children = Vec::new();
     for layout_child in layout_children {
-        let is_row = if let Type::Builtin(be) = &layout_child.borrow().base_type {
+        let is_row = if let ElementType::Builtin(be) = &layout_child.borrow().base_type {
             be.name == "Row"
         } else {
             false

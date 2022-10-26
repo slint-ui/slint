@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression};
-use crate::langtype::Type;
+use crate::langtype::ElementType;
 use crate::object_tree::*;
 
 enum FocusCheckResult {
@@ -41,7 +41,7 @@ fn element_focus_check(element: &ElementRc) -> FocusCheckResult {
         }
     }
 
-    if matches!(&element.borrow().base_type.clone(), Type::Builtin(b) if b.accepts_focus) {
+    if matches!(&element.borrow().base_type.clone(), ElementType::Builtin(b) if b.accepts_focus) {
         return FocusCheckResult::ElementIsFocusable;
     }
 

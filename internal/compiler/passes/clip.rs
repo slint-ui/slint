@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
-use crate::langtype::{NativeClass, Type};
+use crate::langtype::NativeClass;
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 
@@ -17,7 +17,8 @@ pub fn handle_clip(
     type_register: &TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
-    let native_clip = type_register.lookup("Clip").as_builtin().native_class.clone();
+    let native_clip =
+        type_register.lookup_element("Clip").unwrap().as_builtin().native_class.clone();
 
     crate::object_tree::recurse_elem_including_sub_components(
         component,
@@ -55,7 +56,7 @@ fn create_clip_element(parent_elem: &ElementRc, native_clip: &Rc<NativeClass>) {
     let mut parent = parent_elem.borrow_mut();
     let clip = Rc::new(RefCell::new(Element {
         id: format!("{}-clip", parent.id),
-        base_type: Type::Native(native_clip.clone()),
+        base_type: crate::langtype::ElementType::Native(native_clip.clone()),
         children: std::mem::take(&mut parent.children),
         enclosing_component: parent.enclosing_component.clone(),
         ..Element::default()

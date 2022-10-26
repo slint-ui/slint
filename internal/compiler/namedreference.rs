@@ -10,7 +10,7 @@ use std::collections::HashMap;
 use std::hash::Hash;
 use std::rc::{Rc, Weak};
 
-use crate::langtype::Type;
+use crate::langtype::{ElementType, Type};
 use crate::object_tree::{Element, ElementRc, PropertyAnalysis};
 
 /// Reference to a property or callback of a given name within an element.
@@ -98,19 +98,21 @@ impl NamedReference {
                 return true;
             }
             match &e.base_type {
-                Type::Component(c) => {
+                ElementType::Component(c) => {
                     let next = c.root_element.clone();
                     drop(e);
                     elem = next;
                     continue;
                 }
-                Type::Builtin(b) => {
+                ElementType::Builtin(b) => {
                     return b.properties.get(self.name()).map_or(true, |pi| !pi.is_native_output)
                 }
-                Type::Native(n) => {
+                ElementType::Native(n) => {
                     return n.properties.get(self.name()).map_or(true, |pi| !pi.is_native_output)
                 }
-                _ => return true,
+                crate::langtype::ElementType::Error | crate::langtype::ElementType::Global => {
+                    return true
+                }
             }
         }
     }
@@ -195,7 +197,7 @@ impl NamedReferenceContainer {
 /// Mark that a given property is `is_set_externally` in all bases
 pub(crate) fn mark_property_set_derived_in_base(mut element: ElementRc, name: &str) {
     loop {
-        let next = if let Type::Component(c) = &element.borrow().base_type {
+        let next = if let ElementType::Component(c) = &element.borrow().base_type {
             if element.borrow().property_declarations.contains_key(name) {
                 return;
             };

@@ -7,12 +7,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::{NativeClass, Type};
+use crate::langtype::{ElementType, NativeClass, Type};
 use crate::object_tree::{self, Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 
 pub fn handle_visible(component: &Rc<Component>, type_register: &TypeRegister) {
-    let native_clip = type_register.lookup("Clip").as_builtin().native_class.clone();
+    let native_clip =
+        type_register.lookup_element("Clip").unwrap().as_builtin().native_class.clone();
 
     crate::object_tree::recurse_elem_including_sub_components(
         component,
@@ -67,7 +68,7 @@ pub fn handle_visible(component: &Rc<Component>, type_register: &TypeRegister) {
 fn create_visibility_element(child: &ElementRc, native_clip: &Rc<NativeClass>) -> ElementRc {
     let element = Element {
         id: format!("{}-visibility", child.borrow().id),
-        base_type: Type::Native(native_clip.clone()),
+        base_type: ElementType::Native(native_clip.clone()),
         enclosing_component: child.borrow().enclosing_component.clone(),
         bindings: std::iter::once((
             "clip".to_owned(),

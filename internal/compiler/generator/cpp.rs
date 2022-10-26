@@ -332,7 +332,6 @@ impl CppType for Type {
 
             Type::Array(i) => Some(format!("std::shared_ptr<slint::Model<{}>>", i.cpp_type()?)),
             Type::Image => Some("slint::Image".to_owned()),
-            Type::Builtin(elem) => elem.native_class.cpp_type.clone(),
             Type::Enumeration(enumeration) => {
                 Some(format!("slint::cbindgen_private::{}", ident(&enumeration.name)))
             }

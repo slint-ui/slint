@@ -8,7 +8,7 @@ use super::DocumentCache;
 use crate::wasm_prelude::*;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::Expression;
-use i_slint_compiler::langtype::Type;
+use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::{LookupObject, LookupResult};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode, SyntaxToken};
 use lsp_types::{GotoDefinitionResponse, LocationLink, Range, Url};
@@ -22,15 +22,22 @@ pub fn goto_definition(
         if let Some(n) = syntax_nodes::QualifiedName::new(node.clone()) {
             let parent = n.parent()?;
             return match parent.kind() {
-                SyntaxKind::Element | SyntaxKind::Type => {
+                SyntaxKind::Type => {
                     let qual = i_slint_compiler::object_tree::QualifiedTypeName::from_node(n);
                     let doc = document_cache.documents.get_document(node.source_file.path())?;
                     match doc.local_registry.lookup_qualified(&qual.members) {
-                        i_slint_compiler::langtype::Type::Component(c) => {
-                            goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
-                        }
-                        i_slint_compiler::langtype::Type::Struct { node: Some(node), .. } => {
+                        Type::Struct { node: Some(node), .. } => {
                             goto_node(document_cache, node.parent().as_ref()?)
+                        }
+                        _ => None,
+                    }
+                }
+                SyntaxKind::Element => {
+                    let qual = i_slint_compiler::object_tree::QualifiedTypeName::from_node(n);
+                    let doc = document_cache.documents.get_document(node.source_file.path())?;
+                    match doc.local_registry.lookup_element(&qual.to_string()) {
+                        Ok(ElementType::Component(c)) => {
+                            goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
                         }
                         _ => None,
                     }
@@ -73,7 +80,7 @@ pub fn goto_definition(
                                     break (**x.node.as_ref()?).clone();
                                 }
                                 let base = el.borrow().base_type.clone();
-                                if let Type::Component(c) = base {
+                                if let ElementType::Component(c) = base {
                                     el = c.root_element.clone();
                                 } else {
                                     return None;
@@ -89,8 +96,8 @@ pub fn goto_definition(
         } else if let Some(n) = syntax_nodes::ImportIdentifier::new(node.clone()) {
             let doc = document_cache.documents.get_document(node.source_file.path())?;
             let imp_name = i_slint_compiler::typeloader::ImportedName::from_node(n);
-            return match doc.local_registry.lookup(&imp_name.internal_name) {
-                i_slint_compiler::langtype::Type::Component(c) => {
+            return match doc.local_registry.lookup_element(&imp_name.internal_name) {
+                Ok(ElementType::Component(c)) => {
                     goto_node(document_cache, &*c.root_element.borrow().node.as_ref()?)
                 }
                 _ => None,
@@ -176,7 +183,7 @@ fn find_property_declaration_in_base(
         .unwrap_or(&global_tr);
 
     let mut element_type = crate::util::lookup_current_element_type((*element).clone(), tr)?;
-    while let Type::Component(com) = element_type {
+    while let ElementType::Component(com) = element_type {
         if let Some(p) = com.root_element.borrow().property_declarations.get(prop_name) {
             return p.node.as_ref().map(|x| (**x).clone());
         }

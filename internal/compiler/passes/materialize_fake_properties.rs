@@ -7,7 +7,7 @@
 
 use crate::diagnostics::Spanned;
 use crate::expression_tree::{BindingExpression, Expression, Unit};
-use crate::langtype::Type;
+use crate::langtype::{ElementType, Type};
 use crate::layout::Orientation;
 use crate::namedreference::NamedReference;
 use crate::object_tree::*;
@@ -84,19 +84,19 @@ fn must_initialize(elem: &Element, prop: &str) -> bool {
 /// Returns a type if the property needs to be materialized.
 fn should_materialize(
     property_declarations: &BTreeMap<String, PropertyDeclaration>,
-    base_type: &Type,
+    base_type: &ElementType,
     prop: &str,
 ) -> Option<Type> {
     if property_declarations.contains_key(prop) {
         return None;
     }
     let has_declared_property = match &base_type {
-        Type::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
-        Type::Builtin(b) => b.properties.contains_key(prop),
-        Type::Native(n) => {
+        ElementType::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
+        ElementType::Builtin(b) => b.properties.contains_key(prop),
+        ElementType::Native(n) => {
             n.lookup_property(prop).map_or(false, |prop_type| prop_type.is_property_type())
         }
-        _ => false,
+        ElementType::Global | ElementType::Error => false,
     };
 
     if !has_declared_property {
@@ -115,10 +115,10 @@ fn has_declared_property(elem: &Element, prop: &str) -> bool {
         return true;
     }
     match &elem.base_type {
-        Type::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
-        Type::Builtin(b) => b.properties.contains_key(prop),
-        Type::Native(n) => n.lookup_property(prop).is_some(),
-        _ => false,
+        ElementType::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
+        ElementType::Builtin(b) => b.properties.contains_key(prop),
+        ElementType::Native(n) => n.lookup_property(prop).is_some(),
+        ElementType::Global | ElementType::Error => false,
     }
 }
 

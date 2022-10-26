@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use i_slint_compiler::diagnostics::{DiagnosticLevel, Spanned};
-use i_slint_compiler::langtype::Type;
+use i_slint_compiler::langtype::ElementType;
 use i_slint_compiler::lookup::LookupCtx;
 use i_slint_compiler::object_tree;
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxNode};
@@ -23,7 +23,7 @@ use crate::DocumentCache;
 ///   }
 /// }
 /// ```
-pub fn lookup_current_element_type(mut node: SyntaxNode, tr: &TypeRegister) -> Option<Type> {
+pub fn lookup_current_element_type(mut node: SyntaxNode, tr: &TypeRegister) -> Option<ElementType> {
     while node.kind() != SyntaxKind::Element {
         if let Some(parent) = node.parent() {
             node = parent
@@ -80,9 +80,12 @@ pub fn with_lookup_ctx<R>(
     };
 
     let component = i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())
-        .map(|component_name| tr.lookup(&component_name))?;
-    let scope =
-        if let Type::Component(c) = component { vec![c.root_element.clone()] } else { Vec::new() };
+        .and_then(|component_name| tr.lookup_element(&component_name).ok())?;
+    let scope = if let ElementType::Component(c) = component {
+        vec![c.root_element.clone()]
+    } else {
+        Vec::new()
+    };
 
     let mut build_diagnostics = Default::default();
     let mut lookup_context = LookupCtx::empty_context(tr, &mut build_diagnostics);

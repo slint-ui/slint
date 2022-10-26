@@ -10,7 +10,7 @@
 
 use crate::diagnostics::{BuildDiagnostics, Spanned};
 use crate::expression_tree::*;
-use crate::langtype::Type;
+use crate::langtype::{ElementType, Type};
 use crate::lookup::{LookupCtx, LookupObject, LookupResult};
 use crate::object_tree::*;
 use crate::parser::{identifier_text, syntax_nodes, NodeOrToken, SyntaxKind, SyntaxNode};
@@ -1070,14 +1070,15 @@ fn continue_lookup_within_element(
     } else {
         let mut err = |extra: &str| {
             let what = match &elem.borrow().base_type {
-                Type::Void => {
+                ElementType::Global => {
                     let global = elem.borrow().enclosing_component.upgrade().unwrap();
                     assert!(global.is_global());
                     format!("'{}'", global.id)
                 }
-                Type::Component(c) => format!("Element '{}'", c.id),
-                Type::Builtin(b) => format!("Element '{}'", b.name),
-                _ => {
+                ElementType::Component(c) => format!("Element '{}'", c.id),
+                ElementType::Builtin(b) => format!("Element '{}'", b.name),
+                ElementType::Native(_) => unreachable!("the native pass comes later"),
+                ElementType::Error => {
                     assert!(ctx.diag.has_error());
                     return;
                 }

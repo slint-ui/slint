@@ -541,7 +541,6 @@ impl Expression {
                 Type::Struct { fields, .. } => {
                     fields.get(name.as_str()).unwrap_or(&Type::Invalid).clone()
                 }
-                Type::Component(c) => c.root_element.borrow().lookup_property(name).property_type,
                 _ => Type::Invalid,
             },
             Expression::ArrayIndex { array, .. } => match array.ty() {
@@ -975,22 +974,6 @@ impl Expression {
                         Expression::Struct { values: new_values, ty: target_type },
                     ]);
                 }
-                (Type::Struct { .. }, Type::Component(component)) => {
-                    let struct_type_for_component = Type::Struct {
-                        fields: component
-                            .root_element
-                            .borrow()
-                            .property_declarations
-                            .iter()
-                            .map(|(name, prop_decl)| {
-                                (name.clone(), prop_decl.property_type.clone())
-                            })
-                            .collect(),
-                        name: None,
-                        node: None,
-                    };
-                    self.maybe_convert_to(struct_type_for_component, node, diag)
-                }
                 (left, right) => match (left.as_unit_product(), right.as_unit_product()) {
                     (Some(left), Some(right)) => {
                         if let Some(power) =
@@ -1086,9 +1069,6 @@ impl Expression {
     pub fn default_value_for_type(ty: &Type) -> Expression {
         match ty {
             Type::Invalid
-            | Type::Component(_)
-            | Type::Builtin(_)
-            | Type::Native(_)
             | Type::Callback { .. }
             | Type::Function { .. }
             | Type::Void

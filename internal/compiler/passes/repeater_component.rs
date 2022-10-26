@@ -6,7 +6,7 @@ Make sure that the Repeated expression are just components without any children
  */
 
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::Type;
+use crate::langtype::ElementType;
 use crate::object_tree::*;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -78,7 +78,7 @@ fn create_repeater_components(component: &Rc<Component>) {
             e.borrow_mut().enclosing_component = weak.clone()
         });
         create_repeater_components(&comp);
-        elem.base_type = Type::Component(comp);
+        elem.base_type = ElementType::Component(comp);
     });
 
     for p in component.popup_windows.borrow().iter() {
@@ -95,7 +95,7 @@ fn adjust_references(comp: &Rc<Component>) {
         }
         let e = nr.element();
         if e.borrow().repeated.is_some() {
-            if let Type::Component(c) = e.borrow().base_type.clone() {
+            if let ElementType::Component(c) = e.borrow().base_type.clone() {
                 *nr = NamedReference::new(&c.root_element, nr.name())
             };
         }

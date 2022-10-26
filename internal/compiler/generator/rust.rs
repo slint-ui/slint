@@ -13,7 +13,7 @@ Some convention used in the generated code:
 */
 
 use crate::expression_tree::{BuiltinFunction, EasingCurve, OperatorClass};
-use crate::langtype::Type;
+use crate::langtype::{ElementType, Type};
 use crate::layout::Orientation;
 use crate::llr::{
     self, EvaluationContext as llr_EvaluationContext, Expression, ParentCtx as llr_ParentCtx,
@@ -130,7 +130,7 @@ fn set_primitive_property_value(ty: &Type, value_expression: TokenStream) -> Tok
 
 /// Generate the rust code for the given component.
 pub fn generate(doc: &Document) -> TokenStream {
-    if matches!(doc.root_component.root_element.borrow().base_type, Type::Invalid | Type::Void) {
+    if matches!(doc.root_component.root_element.borrow().base_type, ElementType::Error) {
         // empty document, nothing to generate
         return TokenStream::default();
     }
@@ -1652,15 +1652,6 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                 }
                 (Type::Brush, Type::Color) => {
                     quote!(#f.color())
-                }
-                (Type::Struct { ref fields, .. }, Type::Component(c)) => {
-                    let fields = fields.iter().enumerate().map(|(index, (name, _))| {
-                        let index = proc_macro2::Literal::usize_unsuffixed(index);
-                        let name = ident(name);
-                        quote!(#name: obj.#index as _)
-                    });
-                    let id: TokenStream = c.id.parse().unwrap();
-                    quote!({ let obj = #f; #id { #(#fields),*} })
                 }
                 (Type::Struct { ref fields, .. }, Type::Struct { name: Some(n), .. }) => {
                     let fields = fields.iter().enumerate().map(|(index, (name, _))| {

@@ -14,7 +14,8 @@ use crate::diagnostics::Spanned;
 use crate::expression_tree::BindingExpression;
 use crate::expression_tree::BuiltinFunction;
 use crate::expression_tree::Expression;
-use crate::langtype::Type;
+use crate::langtype::ElementType;
+
 use crate::layout::LayoutItem;
 use crate::layout::Orientation;
 use crate::namedreference::NamedReference;
@@ -309,7 +310,7 @@ fn process_property(
         if element.borrow().bindings.contains_key(prop.prop.name()) {
             analyse_binding(&prop, context, reverse_aliases, diag);
         }
-        let next = if let Type::Component(base) = &element.borrow().base_type {
+        let next = if let ElementType::Component(base) = &element.borrow().base_type {
             if element.borrow().property_declarations.contains_key(prop.prop.name()) {
                 break;
             }
@@ -397,7 +398,7 @@ fn visit_layout_items_dependencies<'a>(
         if let Some(nr) = element.borrow().layout_info_prop(orientation) {
             vis(&nr.clone().into());
         } else {
-            if let Type::Component(base) = &element.borrow().base_type {
+            if let ElementType::Component(base) = &element.borrow().base_type {
                 if let Some(nr) = base.root_element.borrow().layout_info_prop(orientation) {
                     vis(&PropertyPath {
                         elements: vec![ByAddress(element.clone())],
@@ -543,7 +544,7 @@ fn mark_used_base_properties(component: &Rc<Component>) {
         component,
         &(),
         &mut |element, _| {
-            if !matches!(element.borrow().base_type, Type::Component(_)) {
+            if !matches!(element.borrow().base_type, ElementType::Component(_)) {
                 return;
             }
             for (name, binding) in &element.borrow().bindings {

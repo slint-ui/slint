@@ -228,13 +228,10 @@ fn to_eval_value<'cx>(
         | Type::Void
         | Type::InferredProperty
         | Type::InferredCallback
-        | Type::Builtin(_)
-        | Type::Native(_)
         | Type::Function { .. }
         | Type::Model
         | Type::Callback { .. }
         | Type::Easing
-        | Type::Component(_)
         | Type::PathData
         | Type::LayoutCache
         | Type::ElementReference => cx.throw_error("Cannot convert to a Slint property value"),

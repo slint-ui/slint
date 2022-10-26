@@ -4,7 +4,7 @@
 use by_address::ByAddress;
 
 use crate::expression_tree::Expression as tree_Expression;
-use crate::langtype::Type;
+use crate::langtype::{ElementType, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, ElementRc};
@@ -93,7 +93,7 @@ impl LoweredSubComponentMapping {
         }
         match self.element_mapping.get(&element.clone().into()).unwrap() {
             LoweredElement::SubComponent { sub_component_index } => {
-                if let Type::Component(base) = &element.borrow().base_type {
+                if let ElementType::Component(base) = &element.borrow().base_type {
                     return property_reference_within_sub_component(
                         state.map_property_reference(&NamedReference::new(
                             &base.root_element,
@@ -245,7 +245,7 @@ fn lower_sub_component(
             return None;
         }
         match &elem.base_type {
-            Type::Component(comp) => {
+            ElementType::Component(comp) => {
                 let lc = state.sub_component(comp);
                 let ty = lc.sub_component.clone();
                 let sub_component_index = sub_component.sub_components.len();
@@ -263,7 +263,7 @@ fn lower_sub_component(
                 repeater_offset += ty.repeater_count();
             }
 
-            Type::Native(n) => {
+            ElementType::Native(n) => {
                 let item_index = sub_component.items.len();
                 mapping
                     .element_mapping
@@ -422,12 +422,12 @@ fn get_property_analysis(elem: &ElementRc, p: &str) -> crate::object_tree::Prope
     loop {
         let base = elem.borrow().base_type.clone();
         match base {
-            Type::Native(n) => {
+            ElementType::Native(n) => {
                 if n.properties.get(p).map_or(false, |p| p.is_native_output) {
                     a.is_set = true;
                 }
             }
-            Type::Component(c) => {
+            ElementType::Component(c) => {
                 elem = c.root_element.clone();
                 if let Some(a2) = elem.borrow().property_analysis.borrow().get(p) {
                     a.merge_with_base(a2);

@@ -11,7 +11,7 @@ use std::collections::{BTreeSet, HashSet, VecDeque};
 use std::rc::{Rc, Weak};
 
 use crate::expression_tree::{BindingExpression, Expression};
-use crate::langtype::Type;
+use crate::langtype::ElementType;
 use crate::namedreference::NamedReference;
 use crate::object_tree::{Component, Document, ElementRc};
 
@@ -65,7 +65,7 @@ pub fn generate(
     #![allow(unused_variables)]
     #![allow(unreachable_code)]
 
-    if matches!(doc.root_component.root_element.borrow().base_type, Type::Invalid | Type::Void) {
+    if matches!(doc.root_component.root_element.borrow().base_type, ElementType::Error) {
         // empty document, nothing to generate
         return Ok(());
     }
@@ -415,10 +415,10 @@ pub fn for_each_const_properties(component: &Rc<Component>, mut f: impl FnMut(&E
                     .map(|(k, _)| k.clone()),
             );
             match &e.clone().borrow().base_type {
-                Type::Component(c) => {
+                ElementType::Component(c) => {
                     e = c.root_element.clone();
                 }
-                Type::Native(n) => {
+                ElementType::Native(n) => {
                     let mut n = n;
                     loop {
                         all_prop.extend(
@@ -438,7 +438,10 @@ pub fn for_each_const_properties(component: &Rc<Component>, mut f: impl FnMut(&E
                     }
                     break;
                 }
-                _ => break,
+                ElementType::Builtin(_) => {
+                    unreachable!("builtin element should have been resolved")
+                }
+                ElementType::Global | ElementType::Error => break,
             }
         }
         for c in all_prop {

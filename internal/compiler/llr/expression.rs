@@ -182,9 +182,6 @@ impl Expression {
     pub fn default_value_for_type(ty: &Type) -> Option<Self> {
         Some(match ty {
             Type::Invalid
-            | Type::Component(_)
-            | Type::Builtin(_)
-            | Type::Native(_)
             | Type::Callback { .. }
             | Type::Function { .. }
             | Type::Void

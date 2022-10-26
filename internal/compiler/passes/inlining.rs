@@ -4,7 +4,7 @@
 //! Inline each object_tree::Component within the main Component
 
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
-use crate::langtype::Type;
+use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use by_address::ByAddress;
 use std::cell::RefCell;
@@ -22,7 +22,7 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection) {
     fn inline_components_recursively(component: &Rc<Component>, inline_selection: InlineSelection) {
         recurse_elem(&component.root_element, &(), &mut |elem, _| {
             let base = elem.borrow().base_type.clone();
-            if let Type::Component(c) = base {
+            if let ElementType::Component(c) = base {
                 // First, make sure that the component itself is properly inlined
                 inline_components_recursively(&c, inline_selection);
 
@@ -65,10 +65,7 @@ fn inline_element(
     root_component: &Rc<Component>,
 ) {
     // inlined_component must be the base type of this element
-    debug_assert_eq!(
-        format!("{:?}", elem.borrow().base_type),
-        format!("{:?}", Type::Component(inlined_component.clone()))
-    );
+    debug_assert_eq!(elem.borrow().base_type, ElementType::Component(inlined_component.clone()));
     debug_assert!(
         inlined_component.root_element.borrow().repeated.is_none(),
         "root element of a component cannot be repeated"
@@ -124,7 +121,7 @@ fn inline_element(
 
     elem_mut.children = new_children;
 
-    if let Type::Component(c) = &mut elem_mut.base_type {
+    if let ElementType::Component(c) = &mut elem_mut.base_type {
         if c.parent_element.upgrade().is_some() {
             debug_assert!(Rc::ptr_eq(elem, &c.parent_element.upgrade().unwrap()));
             *c = duplicate_sub_component(c, elem, &mut mapping, priority_delta);
@@ -223,7 +220,7 @@ fn duplicate_element_with_mapping(
         inline_depth: elem.inline_depth + 1,
     }));
     mapping.insert(element_key(element.clone()), new.clone());
-    if let Type::Component(c) = &mut new.borrow_mut().base_type {
+    if let ElementType::Component(c) = &mut new.borrow_mut().base_type {
         if c.parent_element.upgrade().is_some() {
             debug_assert!(Rc::ptr_eq(element, &c.parent_element.upgrade().unwrap()));
             *c = duplicate_sub_component(c, &new, mapping, priority_delta);

@@ -7,7 +7,7 @@ use super::DocumentCache;
 use crate::wasm_prelude::*;
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::expression_tree::Expression;
-use i_slint_compiler::langtype::Type;
+use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::lookup::{LookupCtx, LookupObject, LookupResult};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind, SyntaxToken};
 use lsp_types::{
@@ -145,7 +145,7 @@ pub(crate) fn completion_at(
                         if available_types.contains(&exported_name.name) {
                             continue;
                         }
-                        if let Type::Component(c) = ty {
+                        if let Some(c) = ty.as_ref().left() {
                             if c.is_global() {
                                 continue;
                             }
@@ -290,14 +290,12 @@ pub(crate) fn completion_at(
                     .map(|doc| &doc.local_registry)
                     .unwrap_or(&global_tr);
                 return Some(
-                    tr.all_types()
+                    tr.all_elements()
                         .into_iter()
-                        // manually filter deprecated or undocumented cases
-                        .filter(|(k, _)| k != "Clip")
                         .filter_map(|(k, t)| {
                             match t {
-                                Type::Component(c) if !c.is_global() => (),
-                                Type::Builtin(b) if !b.is_internal && !b.is_global => (),
+                                ElementType::Component(c) if !c.is_global() => (),
+                                ElementType::Builtin(b) if !b.is_internal && !b.is_global => (),
                                 _ => return None,
                             };
                             let mut c = CompletionItem::new_simple(k, "element".into());
@@ -423,10 +421,10 @@ fn resolve_element_scope(
                 });
                 Some(c)
             }))
-            .chain(tr.all_types().into_iter().filter_map(|(k, t)| {
+            .chain(tr.all_elements().into_iter().filter_map(|(k, t)| {
                 match t {
-                    Type::Component(c) if !c.is_global() => (),
-                    Type::Builtin(b) if !b.is_internal && !b.is_global => (),
+                    ElementType::Component(c) if !c.is_global() => (),
+                    ElementType::Builtin(b) if !b.is_internal && !b.is_global => (),
                     _ => return None,
                 };
                 let mut c = CompletionItem::new_simple(k, "element".into());

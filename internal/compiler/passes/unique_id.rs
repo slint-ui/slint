@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::langtype::Type;
+use crate::langtype::ElementType;
 use crate::object_tree::*;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -38,7 +38,7 @@ fn rename_globals(component: &Rc<Component>, mut count: u32) {
     for g in &component.used_types.borrow().globals {
         count += 1;
         let mut root = g.root_element.borrow_mut();
-        if matches!(&root.base_type, Type::Builtin(_)) {
+        if matches!(&root.base_type, ElementType::Builtin(_)) {
             // builtin global keeps its name
             root.id = g.id.clone();
         } else if let Some(s) = g.exported_global_names.borrow().first() {

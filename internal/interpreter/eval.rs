@@ -954,9 +954,6 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
         Type::Invalid
         | Type::InferredProperty
         | Type::InferredCallback
-        | Type::Component(_)
-        | Type::Builtin(_)
-        | Type::Native(_)
         | Type::Callback { .. }
         | Type::Function { .. }
         | Type::ElementReference => panic!("not valid property type"),
@@ -1260,9 +1257,6 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::InferredProperty
         | Type::InferredCallback
         | Type::ElementReference
-        | Type::Builtin(_)
-        | Type::Component(_)
-        | Type::Native(_)
         | Type::Function { .. } => {
             panic!("There can't be such property")
         }
