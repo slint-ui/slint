@@ -30,11 +30,14 @@ export CheckBox := Rectangle {
             }
 
             state-layer := Rectangle {
-                width: 100%;
-                height: 100%;
+                width: 40pt;
+                height: 40pt;
+                x: (parent.width - width) / 2;
+                y: (parent.height - height) / 2;
                 opacity: 0;
                 background: md.sys.color.primary;
-                animate opacity { duration: 250ms; easing: ease; }
+                border-radius: 20pt;
+                animate opacity { duration: 300ms; easing: ease; }
             }
 
             if (checked) : Path {
@@ -54,6 +57,16 @@ export CheckBox := Rectangle {
                     }
                 ]
             }
+
+            touch := TouchArea {
+                enabled <=> root.enabled;
+                clicked => {
+                    if (root.enabled) {
+                        root.checked = !root.checked;
+                        root.toggled();
+                    }
+                }
+            }
         }
 
         label := Text {
@@ -63,16 +76,6 @@ export CheckBox := Rectangle {
             vertical-stretch: 1;
             font-size: md.sys.label-medium.size;
             font-weight: md.sys.label-medium.weight;
-        }
-    }
-
-    touch := TouchArea {
-        enabled <=> root.enabled;
-        clicked => {
-            if (root.enabled) {
-                root.checked = !root.checked;
-                root.toggled();
-            }
         }
     }
 

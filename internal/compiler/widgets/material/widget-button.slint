@@ -26,7 +26,9 @@ export Button := Rectangle {
         background: md.sys.color.surface;
         drop-shadow-color: md.sys.color.shadow;
         drop-shadow-blur: md.sys.elevation.level1;
-        drop-shadow-offset-y: md.sys.elevation.level1;
+        drop-shadow-offset-y: 1pt;
+
+        animate drop-shadow-blur { duration: 250ms; easing: ease; }
     }
 
     state-layer := Rectangle {  
