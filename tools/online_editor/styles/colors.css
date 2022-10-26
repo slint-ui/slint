@@ -1,0 +1,24 @@
+:root {
+  /* Slint colors */
+  --slint-blue: #0025ff;
+  --slint-black: #000000;
+  --slint-dark-grey: #191c20;
+  --slint-grey: #2c2f36;
+  --slint-white: #ffffff;
+  --slint-green: #dbff00;
+
+  /* style properties */
+  --error-bg: #ff0000;
+  --error-fg: var(--slint-black);
+
+  --highlight-bg: var(--slint-blue);
+  --highlight-fg: var(--slint-white);
+
+  --highlight2-bg: var(--slint-green);
+  --highlight2-fg: var(--slint-black);
+
+  --undefined-bg: #c0c0c0;
+  --undefined-fg: var(--slint-black);
+
+  --default-font: 12px Helvetica, Arial, sans-serif;
+}

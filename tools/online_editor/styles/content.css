@@ -8,6 +8,7 @@
   border-top: none;
   background: white;
   box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+  font: var(--default-font);
 }
 
 .content > div {
@@ -41,10 +42,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background-image: linear-gradient(45deg, #c0c0c0 25%, transparent 25%),
-    linear-gradient(-45deg, #c0c0c0 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #c0c0c0 75%),
-    linear-gradient(-45deg, transparent 75%, #c0c0c0 75%);
+  background-image: linear-gradient(
+      45deg,
+      var(--undefined-bg) 25%,
+      transparent 25%
+    ),
+    linear-gradient(-45deg, var(--undefined-bg) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--undefined-bg) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--undefined-bg) 75%);
   background-size: 20px 20px;
   background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
   width: 100%;
@@ -70,7 +75,8 @@
 }
 
 .preview .error-message {
-  background-color: #f00;
+  background-color: var(--error-bg);
+  color: var(--error-fg);
 
   width: 100%;
 }
@@ -107,14 +113,15 @@
 }
 
 .outline .outline-element .active {
-  background: #3333ff;
-  color: #ffffff;
+  background: var(--highlight-bg);
+  color: var(--highlight-fg);
 }
 
 .properties-editor .element-header {
-  background: #3333ff;
-  color: #ffffff;
-  font-size: 120%;
+  background: var(--highlight-bg);
+  color: var(--highlight-fg);
+  font-size: 140%;
+  font-weight: bold;
 
   width: 100%;
   height: 50px;
@@ -133,13 +140,14 @@
 }
 
 .properties-editor .properties-table .group-header td {
-  background-color: #000000;
-  color: #ffffff;
+  background-color: var(--highlight2-bg);
+  color: var(--highlight2-fg);
   font-weight: bold;
 }
 
 .properties-editor .properties-table .undefined {
-  background-color: #b0b0b0;
+  background-color: var(--undefined-bg);
+  color: var(--undefined-fg);
 }
 
 .properties-editor .value-column.type-unknown:before {
@@ -150,4 +158,3 @@
 .welcome > div {
   padding: 1ex
 }
-
