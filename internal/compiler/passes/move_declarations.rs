@@ -4,9 +4,9 @@
 //! This pass moves all declaration of properties or callback to the root
 
 use crate::expression_tree::NamedReference;
-use crate::langtype::Type;
 use crate::object_tree::*;
 
+use crate::langtype::ElementType;
 use std::collections::BTreeMap;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -36,7 +36,7 @@ fn do_move_declarations(component: &Rc<Component>) {
         visit_all_named_references_in_element(elem, fixup_reference);
 
         if elem.borrow().repeated.is_some() {
-            if let Type::Component(base) = &elem.borrow().base_type {
+            if let ElementType::Component(base) = &elem.borrow().base_type {
                 do_move_declarations(base);
             } else {
                 panic!("Repeated element should have a component as base because of the repeater_component.rs pass")
@@ -134,7 +134,7 @@ fn simplify_optimized_items_recursive(component: &Rc<Component>) {
         .for_each(|f| simplify_optimized_items_recursive(&f.component));
     recurse_elem(&component.root_element, &(), &mut |elem, _| {
         if elem.borrow().repeated.is_some() {
-            if let Type::Component(base) = &elem.borrow().base_type {
+            if let ElementType::Component(base) = &elem.borrow().base_type {
                 simplify_optimized_items_recursive(base);
             }
         }
@@ -147,41 +147,22 @@ fn simplify_optimized_items_recursive(component: &Rc<Component>) {
 fn simplify_optimized_items(items: &[ElementRc]) {
     for elem in items {
         recurse_elem(elem, &(), &mut |elem, _| {
-            let mut base_type_it = core::mem::take(&mut elem.borrow_mut().base_type);
-            loop {
-                base_type_it = match base_type_it {
-                    Type::Component(c) => {
-                        elem.borrow_mut().property_declarations.extend(
-                            c.root_element
-                                .borrow()
-                                .property_declarations
-                                .iter()
-                                .map(|(k, v)| (k.clone(), v.clone())),
-                        );
-                        todo!(
-                            "Move the bindings from the component as well.
-                        But this actually should not happen because of inlining"
-                        );
-                        #[allow(unreachable_code)]
-                        c.root_element.borrow().base_type.clone()
-                    }
-                    Type::Builtin(c) => {
-                        // This assume that all properties of builtin items are fine with the default value
-                        elem.borrow_mut().property_declarations.extend(c.properties.iter().map(
-                            |(k, v)| {
-                                (
-                                    k.clone(),
-                                    PropertyDeclaration {
-                                        property_type: v.ty.clone(),
-                                        ..Default::default()
-                                    },
-                                )
+            let base = core::mem::take(&mut elem.borrow_mut().base_type);
+            if let ElementType::Builtin(c) = base {
+                // This assume that all properties of builtin items are fine with the default value
+                elem.borrow_mut().property_declarations.extend(c.properties.iter().map(
+                    |(k, v)| {
+                        (
+                            k.clone(),
+                            PropertyDeclaration {
+                                property_type: v.ty.clone(),
+                                ..Default::default()
                             },
-                        ));
-                        Type::Invalid
-                    }
-                    _ => break,
-                }
+                        )
+                    },
+                ));
+            } else {
+                unreachable!("Only builtin items should be optimized")
             }
         })
     }

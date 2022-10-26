@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, Unit};
-use crate::langtype::Type;
+use crate::langtype::ElementType;
 use crate::object_tree::{Component, ElementRc};
 
 pub fn reorder_by_z_order(root_component: &Rc<Component>, diag: &mut BuildDiagnostics) {
@@ -36,7 +36,7 @@ fn reorder_children_by_zorder(
         let z =
             z.or_else(|| {
                 child_elm.borrow().repeated.as_ref()?;
-                if let Type::Component(c) = &child_elm.borrow().base_type {
+                if let ElementType::Component(c) = &child_elm.borrow().base_type {
                     c.root_element.borrow_mut().bindings.remove("z").and_then(|e| {
                         eval_const_expr(&e.borrow().expression, "z", &*e.borrow(), diag)
                     })

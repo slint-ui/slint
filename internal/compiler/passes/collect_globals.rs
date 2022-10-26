@@ -7,7 +7,6 @@ use by_address::ByAddress;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::NamedReference;
-use crate::langtype::Type;
 use crate::object_tree::*;
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -17,8 +16,8 @@ pub fn collect_globals(doc: &Document, _diag: &mut BuildDiagnostics) {
     doc.root_component.used_types.borrow_mut().globals.clear();
     let mut set = HashSet::new();
     let mut sorted_globals = vec![];
-    for (_, ty) in doc.exports() {
-        if let Type::Component(c) = ty {
+    for (_, ty) in &doc.exports.0 {
+        if let Some(c) = ty.as_ref().left() {
             if c.is_global() {
                 if set.insert(ByAddress(c.clone())) {
                     collect_in_component(c, &mut set, &mut sorted_globals);

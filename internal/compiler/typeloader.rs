@@ -159,12 +159,12 @@ impl TypeLoader {
         foreign_imports
     }
 
-    pub async fn import_type(
+    pub async fn import_component(
         &mut self,
         file_to_import: &str,
         type_name: &str,
         diagnostics: &mut BuildDiagnostics,
-    ) -> Option<crate::langtype::Type> {
+    ) -> Option<Rc<object_tree::Component>> {
         let doc_path = match self.ensure_document_loaded(file_to_import, None, diagnostics).await {
             Some(doc_path) => doc_path,
             None => return None,
@@ -172,9 +172,9 @@ impl TypeLoader {
 
         let doc = self.all_documents.docs.get(&doc_path).unwrap();
 
-        doc.exports().iter().find_map(|(export_name, ty)| {
+        doc.exports.0.iter().find_map(|(export_name, ty)| {
             if type_name == export_name.as_str() {
-                Some(ty.clone())
+                ty.clone().left()
             } else {
                 None
             }
@@ -358,10 +358,9 @@ impl TypeLoader {
             };
 
             let doc = self.all_documents.docs.get(&doc_path).unwrap();
-            let exports = doc.exports();
 
             for import_name in imported_types {
-                let imported_type = exports.iter().find_map(|(export_name, ty)| {
+                let imported_type = doc.exports.0.iter().find_map(|(export_name, ty)| {
                     if import_name.external_name == export_name.as_str() {
                         Some(ty.clone())
                     } else {
@@ -383,9 +382,14 @@ impl TypeLoader {
                     }
                 };
 
-                registry_to_populate
-                    .borrow_mut()
-                    .insert_type_with_name(imported_type, import_name.internal_name);
+                match imported_type {
+                    itertools::Either::Left(c) => registry_to_populate
+                        .borrow_mut()
+                        .add_with_name(import_name.internal_name, c),
+                    itertools::Either::Right(ty) => registry_to_populate
+                        .borrow_mut()
+                        .insert_type_with_name(ty, import_name.internal_name),
+                }
             }
         })
     }
@@ -565,8 +569,11 @@ fn test_manual_import() {
     let mut build_diagnostics = BuildDiagnostics::default();
     let mut loader = TypeLoader::new(global_registry, compiler_config, &mut build_diagnostics);
 
-    let maybe_button_type =
-        spin_on::spin_on(loader.import_type("std-widgets.slint", "Button", &mut build_diagnostics));
+    let maybe_button_type = spin_on::spin_on(loader.import_component(
+        "std-widgets.slint",
+        "Button",
+        &mut build_diagnostics,
+    ));
 
     assert!(!build_diagnostics.has_error());
     assert!(maybe_button_type.is_some());

@@ -9,7 +9,7 @@ use core::convert::TryInto;
 use core::ptr::NonNull;
 use dynamic_type::{Instance, InstanceBox};
 use i_slint_compiler::expression_tree::{Expression, NamedReference};
-use i_slint_compiler::langtype::Type;
+use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::ElementRc;
 use i_slint_compiler::*;
 use i_slint_compiler::{diagnostics::BuildDiagnostics, object_tree::PropertyDeclaration};
@@ -754,7 +754,10 @@ pub async fn load(
     if diag.has_error() {
         return (Err(()), diag);
     }
-    if matches!(doc.root_component.root_element.borrow().base_type, Type::Invalid | Type::Void) {
+    if matches!(
+        doc.root_component.root_element.borrow().base_type,
+        ElementType::Global | ElementType::Error
+    ) {
         diag.push_error_with_span("No component found".into(), Default::default());
         return (Err(()), diag);
     }

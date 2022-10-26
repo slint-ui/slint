@@ -8,9 +8,10 @@ use std::rc::Rc;
 use crate::api::Value;
 use crate::dynamic_component::{ErasedComponentBox, ErasedComponentDescription};
 use crate::SetPropertyError;
+use i_slint_compiler::langtype::ElementType;
 use i_slint_compiler::namedreference::NamedReference;
+use i_slint_compiler::object_tree::Component;
 use i_slint_compiler::object_tree::PropertyDeclaration;
-use i_slint_compiler::{langtype::Type, object_tree::Component};
 use i_slint_core::component::ComponentVTable;
 use i_slint_core::rtti;
 use i_slint_core::window::WindowAdapter;
@@ -228,18 +229,18 @@ impl<T: rtti::BuiltinItem + 'static> GlobalComponent for T {
 pub(crate) fn generate(component: &Rc<Component>) -> CompiledGlobal {
     debug_assert!(component.is_global());
     match &component.root_element.borrow().base_type {
-        Type::Void => {
+        ElementType::Global => {
             generativity::make_guard!(guard);
             CompiledGlobal::Component {
                 component: crate::dynamic_component::generate_component(component, guard).into(),
                 public_properties: Default::default(),
             }
         }
-        Type::Builtin(b) => CompiledGlobal::Builtin {
+        ElementType::Builtin(b) => CompiledGlobal::Builtin {
             name: component.id.clone(),
             element: b.clone(),
             public_properties: Default::default(),
         },
-        _ => unreachable!(),
+        ElementType::Error | ElementType::Native(_) | ElementType::Component(_) => unreachable!(),
     }
 }

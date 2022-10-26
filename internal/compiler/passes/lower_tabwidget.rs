@@ -10,7 +10,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{BindingExpression, Expression, NamedReference, Unit};
-use crate::langtype::Type;
+use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -23,15 +23,15 @@ pub async fn lower_tabwidget(
     // Ignore import errors
     let mut build_diags_to_ignore = BuildDiagnostics::default();
     let tabwidget_impl = type_loader
-        .import_type("std-widgets.slint", "TabWidgetImpl", &mut build_diags_to_ignore)
+        .import_component("std-widgets.slint", "TabWidgetImpl", &mut build_diags_to_ignore)
         .await
         .expect("can't load TabWidgetImpl from std-widgets.slint");
     let tab_impl = type_loader
-        .import_type("std-widgets.slint", "TabImpl", &mut build_diags_to_ignore)
+        .import_component("std-widgets.slint", "TabImpl", &mut build_diags_to_ignore)
         .await
         .expect("can't load TabImpl from std-widgets.slint");
     let tabbar_impl = type_loader
-        .import_type("std-widgets.slint", "TabBarImpl", &mut build_diags_to_ignore)
+        .import_component("std-widgets.slint", "TabBarImpl", &mut build_diags_to_ignore)
         .await
         .expect("can't load TabBarImpl from std-widgets.slint");
     let rectangle_type =
@@ -41,9 +41,9 @@ pub async fn lower_tabwidget(
         if elem.borrow().base_type.to_string() == "TabWidget" {
             process_tabwidget(
                 elem,
-                &tabwidget_impl,
-                &tab_impl,
-                &tabbar_impl,
+                ElementType::Component(tabwidget_impl.clone()),
+                ElementType::Component(tab_impl.clone()),
+                ElementType::Component(tabbar_impl.clone()),
                 &rectangle_type,
                 diag,
             );
@@ -53,13 +53,13 @@ pub async fn lower_tabwidget(
 
 fn process_tabwidget(
     elem: &ElementRc,
-    tabwidget_impl: &Type,
-    tab_impl: &Type,
-    tabbar_impl: &Type,
-    rectangle_type: &Type,
+    tabwidget_impl: ElementType,
+    tab_impl: ElementType,
+    tabbar_impl: ElementType,
+    rectangle_type: &ElementType,
     diag: &mut BuildDiagnostics,
 ) {
-    elem.borrow_mut().base_type = tabwidget_impl.clone();
+    elem.borrow_mut().base_type = tabwidget_impl;
     let mut children = std::mem::take(&mut elem.borrow_mut().children);
     let num_tabs = children.len();
     let mut tabs = Vec::new();

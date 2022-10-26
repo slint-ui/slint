@@ -4,6 +4,7 @@
 //! Try to simplify property bindings by propagating constant expressions
 
 use crate::expression_tree::*;
+use crate::langtype::ElementType;
 use crate::langtype::Type;
 use crate::object_tree::*;
 
@@ -152,7 +153,7 @@ fn extract_constant_property_reference(nr: &NamedReference) -> Option<Expression
             if let Some(alias) = &decl.is_alias {
                 return extract_constant_property_reference(alias);
             }
-        } else if let Type::Component(c) = &element.clone().borrow().base_type {
+        } else if let ElementType::Component(c) = &element.clone().borrow().base_type {
             element = c.root_element.clone();
             continue;
         }

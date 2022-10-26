@@ -7,7 +7,7 @@
 use std::collections::HashSet;
 use std::rc::Rc;
 
-use crate::langtype::{NativeClass, Type};
+use crate::langtype::{ElementType, NativeClass};
 use crate::object_tree::{recurse_elem_including_sub_components, Component};
 
 pub fn resolve_native_classes(component: &Component) {
@@ -16,16 +16,16 @@ pub fn resolve_native_classes(component: &Component) {
             let elem = elem.borrow();
 
             let base_type = match &elem.base_type {
-                Type::Component(_) => {
+                ElementType::Component(_) => {
                     // recurse_elem_including_sub_components will recurse into it
                     return;
                 }
-                Type::Builtin(b) => b,
-                Type::Native(_) => {
+                ElementType::Builtin(b) => b,
+                ElementType::Native(_) => {
                     // already native
                     return;
                 }
-                _ => panic!("This should not happen"),
+                ElementType::Global | ElementType::Error => panic!("This should not happen"),
             };
 
             let analysis = elem.property_analysis.borrow();
@@ -45,7 +45,7 @@ pub fn resolve_native_classes(component: &Component) {
             )
         };
 
-        elem.borrow_mut().base_type = Type::Native(new_native_class);
+        elem.borrow_mut().base_type = ElementType::Native(new_native_class);
     })
 }
 
@@ -85,7 +85,7 @@ fn select_minimal_class_based_on_property_usage<'a>(
 
 #[test]
 fn test_select_minimal_class_based_on_property_usage() {
-    use crate::langtype::BuiltinPropertyInfo;
+    use crate::langtype::{BuiltinPropertyInfo, Type};
     let first = Rc::new(NativeClass::new_with_properties(
         "first_class",
         [("first_prop".to_owned(), BuiltinPropertyInfo::new(Type::Int32))].iter().cloned(),
@@ -120,7 +120,7 @@ fn test_select_minimal_class_based_on_property_usage() {
 fn select_minimal_class() {
     let tr = crate::typeregister::TypeRegister::builtin();
     let tr = tr.borrow();
-    let rect = tr.lookup("Rectangle");
+    let rect = tr.lookup_element("Rectangle").unwrap();
     let rect = rect.as_builtin();
     assert_eq!(
         select_minimal_class_based_on_property_usage(

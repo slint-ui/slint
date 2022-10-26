@@ -8,7 +8,9 @@ use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
 
 use crate::expression_tree::{BuiltinFunction, Expression};
-use crate::langtype::{BuiltinPropertyInfo, Enumeration, PropertyLookupResult, Type};
+use crate::langtype::{
+    BuiltinElement, BuiltinPropertyInfo, ElementType, Enumeration, PropertyLookupResult, Type,
+};
 use crate::object_tree::Component;
 
 pub const RESERVED_GEOMETRY_PROPERTIES: &[(&str, Type)] = &[
@@ -183,10 +185,12 @@ pub fn reserved_member_function(name: &str) -> Expression {
 
 #[derive(Debug, Default)]
 pub struct TypeRegister {
-    /// The set of types.
+    /// The set of property types.
     types: HashMap<String, Type>,
+    /// The set of element types
+    elements: HashMap<String, ElementType>,
     supported_property_animation_types: HashSet<String>,
-    pub(crate) property_animation_type: Type,
+    pub(crate) property_animation_type: ElementType,
     /// Map from a context restricted type to the list of contexts (parent type) it is allowed in. This is
     /// used to construct helpful error messages, such as "Row can only be within a GridLayout element".
     context_restricted_types: HashMap<String, HashSet<String>>,
@@ -236,13 +240,13 @@ impl TypeRegister {
 
         let mut context_restricted_types = HashMap::new();
         register
-            .types
+            .elements
             .values()
             .for_each(|ty| ty.collect_contextual_types(&mut context_restricted_types));
         register.context_restricted_types = context_restricted_types;
 
-        match &mut register.types.get_mut("PopupWindow").unwrap() {
-            Type::Builtin(ref mut b) => {
+        match &mut register.elements.get_mut("PopupWindow").unwrap() {
+            ElementType::Builtin(ref mut b) => {
                 Rc::get_mut(b).unwrap().properties.insert(
                     "show".into(),
                     BuiltinPropertyInfo::new(BuiltinFunction::ShowPopupWindow.ty()),
@@ -277,8 +281,8 @@ impl TypeRegister {
     fn lookup_element_as_result(
         &self,
         name: &str,
-    ) -> Result<Type, HashMap<String, HashSet<String>>> {
-        match self.types.get(name).cloned() {
+    ) -> Result<ElementType, HashMap<String, HashSet<String>>> {
+        match self.elements.get(name).cloned() {
             Some(ty) => Ok(ty),
             None => match &self.parent_registry {
                 Some(r) => r.borrow().lookup_element_as_result(name),
@@ -287,7 +291,7 @@ impl TypeRegister {
         }
     }
 
-    pub fn lookup_element(&self, name: &str) -> Result<Type, String> {
+    pub fn lookup_element(&self, name: &str) -> Result<ElementType, String> {
         self.lookup_element_as_result(name).map_err(|context_restricted_types| {
             if let Some(permitted_parent_types) = context_restricted_types.get(name) {
                 if permitted_parent_types.len() == 1 {
@@ -305,6 +309,8 @@ impl TypeRegister {
                         elements.join(", ")
                     )
                 }
+            } else if let Some(ty) = self.types.get(name) {
+                format!("'{}' cannot be used as an element", ty)
             } else {
                 format!("Unknown type {}", name)
             }
@@ -323,10 +329,14 @@ impl TypeRegister {
     }
 
     pub fn add_with_name(&mut self, name: String, comp: Rc<Component>) {
-        self.types.insert(name, Type::Component(comp));
+        self.elements.insert(name, ElementType::Component(comp));
     }
 
-    pub fn property_animation_type_for_property(&self, property_type: Type) -> Type {
+    pub fn add_builtin(&mut self, builtin: Rc<BuiltinElement>) {
+        self.elements.insert(builtin.name.clone(), ElementType::Builtin(builtin));
+    }
+
+    pub fn property_animation_type_for_property(&self, property_type: Type) -> ElementType {
         if self.supported_property_animation_types.contains(&property_type.to_string()) {
             self.property_animation_type.clone()
         } else {
@@ -344,6 +354,16 @@ impl TypeRegister {
         let mut all =
             self.parent_registry.as_ref().map(|r| r.borrow().all_types()).unwrap_or_default();
         for (k, v) in &self.types {
+            all.insert(k.clone(), v.clone());
+        }
+        all
+    }
+
+    /// Return a hashmap with all the registered element type
+    pub fn all_elements(&self) -> HashMap<String, ElementType> {
+        let mut all =
+            self.parent_registry.as_ref().map(|r| r.borrow().all_elements()).unwrap_or_default();
+        for (k, v) in &self.elements {
             all.insert(k.clone(), v.clone());
         }
         all

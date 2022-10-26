@@ -14,16 +14,16 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use crate::expression_tree::{BindingExpression, Expression, NamedReference};
-use crate::langtype::{NativeClass, Type};
+use crate::langtype::{ElementType, NativeClass};
 use crate::object_tree::{Component, Element, ElementRc};
 use crate::typeregister::TypeRegister;
 
 pub fn is_flickable_element(element: &ElementRc) -> bool {
-    matches!(&element.borrow().base_type, Type::Builtin(n) if n.name == "Flickable")
+    matches!(&element.borrow().base_type, ElementType::Builtin(n) if n.name == "Flickable")
 }
 
 pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) {
-    let mut native_rect = tr.lookup("Rectangle").as_builtin().native_class.clone();
+    let mut native_rect = tr.lookup_element("Rectangle").unwrap().as_builtin().native_class.clone();
     while let Some(p) = native_rect.parent.clone() {
         native_rect = p;
     }
@@ -47,7 +47,7 @@ fn create_viewport_element(flickable_elem: &ElementRc, native_rect: &Rc<NativeCl
     let flickable = &mut *flickable;
     let viewport = Rc::new(RefCell::new(Element {
         id: format!("{}-viewport", flickable.id),
-        base_type: Type::Native(native_rect.clone()),
+        base_type: ElementType::Native(native_rect.clone()),
         children: std::mem::take(&mut flickable.children),
         enclosing_component: flickable.enclosing_component.clone(),
         is_flickable_viewport: true,
@@ -142,8 +142,8 @@ fn fixup_geometry(flickable_elem: &ElementRc) {
 }
 
 /// Return true if this type is a layout that has constraints
-fn is_layout(base_type: &Type) -> bool {
-    if let Type::Builtin(be) = base_type {
+fn is_layout(base_type: &ElementType) -> bool {
+    if let ElementType::Builtin(be) = base_type {
         match be.name.as_str() {
             "GridLayout" | "HorizontalLayout" | "VerticalLayout" => true,
             "PathLayout" => false,

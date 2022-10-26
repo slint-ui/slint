@@ -23,9 +23,6 @@ pub enum Type {
     InferredProperty,
     /// The type of a callback alias whose type was not yet inferred
     InferredCallback,
-    Component(Rc<Component>),
-    Builtin(Rc<BuiltinElement>),
-    Native(Rc<NativeClass>),
 
     Callback {
         return_type: Option<Box<Type>>,
@@ -82,9 +79,6 @@ impl core::cmp::PartialEq for Type {
             Type::Void => matches!(other, Type::Void),
             Type::InferredProperty => matches!(other, Type::InferredProperty),
             Type::InferredCallback => matches!(other, Type::InferredCallback),
-            Type::Component(a) => matches!(other, Type::Component(b) if Rc::ptr_eq(a, b)),
-            Type::Builtin(a) => matches!(other, Type::Builtin(b) if Rc::ptr_eq(a, b)),
-            Type::Native(a) => matches!(other, Type::Native(b) if Rc::ptr_eq(a, b)),
             Type::Callback { args: a, return_type: ra } => {
                 matches!(other, Type::Callback { args: b, return_type: rb } if a == b && ra == rb)
             }
@@ -125,9 +119,6 @@ impl Display for Type {
             Type::Void => write!(f, "void"),
             Type::InferredProperty => write!(f, "?"),
             Type::InferredCallback => write!(f, "callback"),
-            Type::Component(c) => c.id.fmt(f),
-            Type::Builtin(b) => b.name.fmt(f),
-            Type::Native(b) => b.class_name.fmt(f),
             Type::Callback { args, return_type } => {
                 write!(f, "callback")?;
                 if !args.is_empty() {
@@ -234,168 +225,6 @@ impl Type {
         !matches!(self, Self::Easing)
     }
 
-    pub fn lookup_property<'a>(&self, name: &'a str) -> PropertyLookupResult<'a> {
-        match self {
-            Type::Component(c) => c.root_element.borrow().lookup_property(name),
-            Type::Builtin(b) => {
-                let resolved_name =
-                    if let Some(alias_name) = b.native_class.lookup_alias(name.as_ref()) {
-                        Cow::Owned(alias_name.to_string())
-                    } else {
-                        Cow::Borrowed(name)
-                    };
-                match b.properties.get(resolved_name.as_ref()) {
-                    None => {
-                        if b.is_non_item_type {
-                            PropertyLookupResult {
-                                resolved_name,
-                                property_type: Type::Invalid,
-                                property_visibility: PropertyVisibility::Private,
-                                is_local_to_component: false,
-                            }
-                        } else {
-                            crate::typeregister::reserved_property(name)
-                        }
-                    }
-                    Some(p) => PropertyLookupResult {
-                        resolved_name,
-                        property_type: p.ty.clone(),
-                        property_visibility: PropertyVisibility::InOut,
-                        is_local_to_component: false,
-                    },
-                }
-            }
-            Type::Native(n) => {
-                let resolved_name = if let Some(alias_name) = n.lookup_alias(name.as_ref()) {
-                    Cow::Owned(alias_name.to_string())
-                } else {
-                    Cow::Borrowed(name)
-                };
-                let property_type =
-                    n.lookup_property(resolved_name.as_ref()).cloned().unwrap_or_default();
-                PropertyLookupResult {
-                    resolved_name,
-                    property_type,
-                    property_visibility: PropertyVisibility::InOut,
-                    is_local_to_component: false,
-                }
-            }
-            _ => PropertyLookupResult {
-                resolved_name: Cow::Borrowed(name),
-                property_type: Type::Invalid,
-                property_visibility: PropertyVisibility::Private,
-                is_local_to_component: false,
-            },
-        }
-    }
-
-    /// List of sub properties valid for the auto completion
-    pub fn property_list(&self) -> Vec<(String, Type)> {
-        match self {
-            Type::Component(c) => {
-                let mut r = c.root_element.borrow().base_type.property_list();
-                r.extend(
-                    c.root_element
-                        .borrow()
-                        .property_declarations
-                        .iter()
-                        .map(|(k, d)| (k.clone(), d.property_type.clone())),
-                );
-                r
-            }
-            Type::Builtin(b) => {
-                b.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
-            }
-            Type::Native(n) => {
-                n.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
-            }
-            _ => Vec::new(),
-        }
-    }
-
-    pub fn lookup_type_for_child_element(
-        &self,
-        name: &str,
-        tr: &TypeRegister,
-    ) -> Result<Type, String> {
-        match self {
-            Type::Component(component) => {
-                return component
-                    .root_element
-                    .borrow()
-                    .base_type
-                    .lookup_type_for_child_element(name, tr)
-            }
-            Type::Builtin(builtin) => {
-                if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
-                    return Ok(child_type.clone());
-                }
-                if builtin.disallow_global_types_as_child_elements {
-                    let mut valid_children: Vec<_> =
-                        builtin.additional_accepted_child_types.keys().cloned().collect();
-                    valid_children.sort();
-
-                    return Err(format!(
-                        "{} is not allowed within {}. Only {} are valid children",
-                        name,
-                        builtin.native_class.class_name,
-                        valid_children.join(" ")
-                    ));
-                }
-            }
-            _ => {}
-        };
-        tr.lookup_element(name).and_then(|t| {
-            if !tr.expose_internal_types && matches!(&t, Type::Builtin(e) if e.is_internal) {
-                Err(format!("Unknown type {}. (The type exist as an internal type, but cannot be accessed in this scope)", name))
-            } else {
-                Ok(t)
-            }
-        })
-    }
-
-    pub fn lookup_member_function(&self, name: &str) -> Expression {
-        match self {
-            Type::Builtin(builtin) => builtin
-                .member_functions
-                .get(name)
-                .cloned()
-                .unwrap_or_else(|| crate::typeregister::reserved_member_function(name)),
-            Type::Component(component) => {
-                component.root_element.borrow().base_type.lookup_member_function(name)
-            }
-            _ => Expression::Invalid,
-        }
-    }
-
-    /// Assume this is a builtin type, panic if it isn't
-    pub fn as_builtin(&self) -> &BuiltinElement {
-        match self {
-            Type::Builtin(b) => b,
-            Type::Component(_) => panic!("This should not happen because of inlining"),
-            _ => panic!("invalid type"),
-        }
-    }
-
-    /// Assume this is a builtin type, panic if it isn't
-    pub fn as_native(&self) -> &NativeClass {
-        match self {
-            Type::Native(b) => b,
-            Type::Component(_) => {
-                panic!("This should not happen because of native class resolution")
-            }
-            _ => panic!("invalid type"),
-        }
-    }
-
-    /// Assume it is a Component, panic if it isn't
-    pub fn as_component(&self) -> &Rc<Component> {
-        match self {
-            Type::Component(c) => c,
-            _ => panic!("should be a component because of the repeater_component pass"),
-        }
-    }
-
     /// Assume it is an enumeration, panic if it isn't
     pub fn as_enum(&self) -> &Rc<Enumeration> {
         match self {
@@ -455,26 +284,6 @@ impl Type {
         }
     }
 
-    pub fn collect_contextual_types(
-        &self,
-        context_restricted_types: &mut HashMap<String, HashSet<String>>,
-    ) {
-        let builtin = match self {
-            Type::Builtin(ty) => ty,
-            _ => return,
-        };
-        for (accepted_child_type_name, accepted_child_type) in
-            builtin.additional_accepted_child_types.iter()
-        {
-            context_restricted_types
-                .entry(accepted_child_type_name.clone())
-                .or_default()
-                .insert(builtin.native_class.class_name.clone());
-
-            accepted_child_type.collect_contextual_types(context_restricted_types);
-        }
-    }
-
     /// If this is a number type which should be used with an unit, this returns the default unit
     /// otherwise, returns None
     pub fn default_unit(&self) -> Option<Unit> {
@@ -488,9 +297,6 @@ impl Type {
             Type::Invalid => None,
             Type::Void => None,
             Type::InferredProperty | Type::InferredCallback => None,
-            Type::Component(_) => None,
-            Type::Builtin(_) => None,
-            Type::Native(_) => None,
             Type::Callback { .. } => None,
             Type::Function { .. } => None,
             Type::Float32 => None,
@@ -545,6 +351,240 @@ pub struct BuiltinPropertyInfo {
 impl BuiltinPropertyInfo {
     pub fn new(ty: Type) -> Self {
         Self { ty, default_value: None, is_native_output: false }
+    }
+}
+
+/// The base of an element
+#[derive(Clone, Debug)]
+pub enum ElementType {
+    /// The element is based of a component
+    Component(Rc<Component>),
+    /// The element is a builtin element
+    Builtin(Rc<BuiltinElement>),
+    /// The native type was resolved by the resolve_native_class pass.
+    Native(Rc<NativeClass>),
+    /// The base element couldn't be looked up
+    Error,
+    /// This should be the base type of the root element of a global component
+    Global,
+}
+
+impl PartialEq for ElementType {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Component(a), Self::Component(b)) => Rc::ptr_eq(a, b),
+            (Self::Builtin(a), Self::Builtin(b)) => Rc::ptr_eq(a, b),
+            (Self::Native(a), Self::Native(b)) => Rc::ptr_eq(a, b),
+            (Self::Error, Self::Error) | (Self::Global, Self::Global) => true,
+            _ => false,
+        }
+    }
+}
+
+impl ElementType {
+    pub fn lookup_property<'a>(&self, name: &'a str) -> PropertyLookupResult<'a> {
+        match self {
+            Self::Component(c) => c.root_element.borrow().lookup_property(name),
+            Self::Builtin(b) => {
+                let resolved_name =
+                    if let Some(alias_name) = b.native_class.lookup_alias(name.as_ref()) {
+                        Cow::Owned(alias_name.to_string())
+                    } else {
+                        Cow::Borrowed(name)
+                    };
+                match b.properties.get(resolved_name.as_ref()) {
+                    None => {
+                        if b.is_non_item_type {
+                            PropertyLookupResult {
+                                resolved_name,
+                                property_type: Type::Invalid,
+                                property_visibility: PropertyVisibility::Private,
+                                is_local_to_component: false,
+                            }
+                        } else {
+                            crate::typeregister::reserved_property(name)
+                        }
+                    }
+                    Some(p) => PropertyLookupResult {
+                        resolved_name,
+                        property_type: p.ty.clone(),
+                        property_visibility: PropertyVisibility::InOut,
+                        is_local_to_component: false,
+                    },
+                }
+            }
+            Self::Native(n) => {
+                let resolved_name = if let Some(alias_name) = n.lookup_alias(name.as_ref()) {
+                    Cow::Owned(alias_name.to_string())
+                } else {
+                    Cow::Borrowed(name)
+                };
+                let property_type =
+                    n.lookup_property(resolved_name.as_ref()).cloned().unwrap_or_default();
+                PropertyLookupResult {
+                    resolved_name,
+                    property_type,
+                    property_visibility: PropertyVisibility::InOut,
+                    is_local_to_component: false,
+                }
+            }
+            _ => PropertyLookupResult {
+                resolved_name: Cow::Borrowed(name),
+                property_type: Type::Invalid,
+                property_visibility: PropertyVisibility::Private,
+                is_local_to_component: false,
+            },
+        }
+    }
+
+    /// List of sub properties valid for the auto completion
+    pub fn property_list(&self) -> Vec<(String, Type)> {
+        match self {
+            Self::Component(c) => {
+                let mut r = c.root_element.borrow().base_type.property_list();
+                r.extend(
+                    c.root_element
+                        .borrow()
+                        .property_declarations
+                        .iter()
+                        .map(|(k, d)| (k.clone(), d.property_type.clone())),
+                );
+                r
+            }
+            Self::Builtin(b) => {
+                b.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
+            }
+            Self::Native(n) => {
+                n.properties.iter().map(|(k, t)| (k.clone(), t.ty.clone())).collect()
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    pub fn lookup_type_for_child_element(
+        &self,
+        name: &str,
+        tr: &TypeRegister,
+    ) -> Result<ElementType, String> {
+        match self {
+            Self::Component(component) => {
+                return component
+                    .root_element
+                    .borrow()
+                    .base_type
+                    .lookup_type_for_child_element(name, tr)
+            }
+            Self::Builtin(builtin) => {
+                if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
+                    return Ok(child_type.clone());
+                }
+                if builtin.disallow_global_types_as_child_elements {
+                    let mut valid_children: Vec<_> =
+                        builtin.additional_accepted_child_types.keys().cloned().collect();
+                    valid_children.sort();
+
+                    return Err(format!(
+                        "{} is not allowed within {}. Only {} are valid children",
+                        name,
+                        builtin.native_class.class_name,
+                        valid_children.join(" ")
+                    ));
+                }
+            }
+            _ => {}
+        };
+        tr.lookup_element(name).and_then(|t| {
+            if !tr.expose_internal_types && matches!(&t, Self::Builtin(e) if e.is_internal) {
+                Err(format!("Unknown type {}. (The type exist as an internal type, but cannot be accessed in this scope)", name))
+            } else {
+                Ok(t)
+            }
+        }).map_err(|s| {
+            match tr.lookup(name)  {
+                Type::Invalid => s,
+                ty => format!("'{ty}' cannot be used as an element")
+            }
+        })
+    }
+
+    pub fn lookup_member_function(&self, name: &str) -> Expression {
+        match self {
+            Self::Builtin(builtin) => builtin
+                .member_functions
+                .get(name)
+                .cloned()
+                .unwrap_or_else(|| crate::typeregister::reserved_member_function(name)),
+            Self::Component(component) => {
+                component.root_element.borrow().base_type.lookup_member_function(name)
+            }
+            _ => Expression::Invalid,
+        }
+    }
+
+    pub fn collect_contextual_types(
+        &self,
+        context_restricted_types: &mut HashMap<String, HashSet<String>>,
+    ) {
+        let builtin = match self {
+            Self::Builtin(ty) => ty,
+            _ => return,
+        };
+        for (accepted_child_type_name, accepted_child_type) in
+            builtin.additional_accepted_child_types.iter()
+        {
+            context_restricted_types
+                .entry(accepted_child_type_name.clone())
+                .or_default()
+                .insert(builtin.native_class.class_name.clone());
+
+            accepted_child_type.collect_contextual_types(context_restricted_types);
+        }
+    }
+
+    /// Assume this is a builtin type, panic if it isn't
+    pub fn as_builtin(&self) -> &BuiltinElement {
+        match self {
+            Self::Builtin(b) => b,
+            Self::Component(_) => panic!("This should not happen because of inlining"),
+            _ => panic!("invalid type"),
+        }
+    }
+
+    /// Assume this is a builtin type, panic if it isn't
+    pub fn as_native(&self) -> &NativeClass {
+        match self {
+            Self::Native(b) => b,
+            Self::Component(_) => {
+                panic!("This should not happen because of native class resolution")
+            }
+            _ => panic!("invalid type"),
+        }
+    }
+
+    /// Assume it is a Component, panic if it isn't
+    pub fn as_component(&self) -> &Rc<Component> {
+        match self {
+            Self::Component(c) => c,
+            _ => panic!("should be a component because of the repeater_component pass"),
+        }
+    }
+}
+
+impl Display for ElementType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Component(c) => c.id.fmt(f),
+            Self::Builtin(b) => b.name.fmt(f),
+            Self::Native(b) => b.class_name.fmt(f),
+            Self::Error => write!(f, "<error>"),
+            Self::Global => Ok(()),
+        }
+    }
+}
+
+impl Default for ElementType {
+    fn default() -> Self {
+        Self::Error
     }
 }
 
@@ -627,7 +667,7 @@ pub struct BuiltinElement {
     pub name: String,
     pub native_class: Rc<NativeClass>,
     pub properties: BTreeMap<String, BuiltinPropertyInfo>,
-    pub additional_accepted_child_types: HashMap<String, Type>,
+    pub additional_accepted_child_types: HashMap<String, ElementType>,
     pub disallow_global_types_as_child_elements: bool,
     /// Non-item type do not have reserved properties (x/width/rowspan/...) added to them  (eg: PropertyAnimation)
     pub is_non_item_type: bool,

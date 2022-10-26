@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use i_slint_compiler::diagnostics::Spanned;
-use i_slint_compiler::langtype::Type;
+use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, ElementRc};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind};
 use std::collections::HashSet;
@@ -187,7 +187,7 @@ fn get_properties(
     loop {
         let base_type = current_element.borrow().base_type.clone();
         match base_type {
-            Type::Component(c) => {
+            ElementType::Component(c) => {
                 current_element = c.root_element.clone();
                 result.extend(get_element_properties(
                     &current_element.borrow(),
@@ -196,7 +196,7 @@ fn get_properties(
                 ));
                 continue;
             }
-            Type::Builtin(b) => {
+            ElementType::Builtin(b) => {
                 result.extend(b.properties.iter().filter_map(|(k, t)| {
                     if geometry_prop.contains(k.as_str()) {
                         // skip geometry property because they are part of the reserved ones
@@ -255,10 +255,10 @@ fn get_properties(
                     ));
                 }
             }
-            Type::Void => {
-                // a global
+            ElementType::Global => {
                 break;
             }
+
             _ => {}
         }
 

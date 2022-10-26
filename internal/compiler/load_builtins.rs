@@ -10,7 +10,9 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use crate::expression_tree::Expression;
-use crate::langtype::{BuiltinElement, BuiltinPropertyInfo, DefaultSizeBinding, NativeClass, Type};
+use crate::langtype::{
+    BuiltinElement, BuiltinPropertyInfo, DefaultSizeBinding, ElementType, NativeClass, Type,
+};
 use crate::object_tree::{self, *};
 use crate::parser::{identifier_text, syntax_nodes, SyntaxKind, SyntaxNode};
 use crate::typeregister::TypeRegister;
@@ -178,25 +180,24 @@ pub fn load_builtins(register: &mut TypeRegister) {
             .map(|s| {
                 let a = identifier_text(&s.Element().QualifiedName().unwrap()).unwrap();
                 let t = natives[&a].clone();
-                (a, Type::Builtin(t))
+                (a, ElementType::Builtin(t))
             })
             .collect();
         if let Some(builtin_name) = exports.get(&id) {
             if !matches!(&base, Base::Global) {
                 builtin.name = builtin_name.clone();
-                register
-                    .insert_type_with_name(Type::Builtin(Rc::new(builtin)), builtin_name.clone());
+                register.add_builtin(Rc::new(builtin));
             } else {
                 let glob = Rc::new(Component {
                     id: builtin_name.clone(),
                     root_element: Rc::new(RefCell::new(Element {
-                        base_type: Type::Builtin(Rc::new(builtin)),
+                        base_type: ElementType::Builtin(Rc::new(builtin)),
                         ..Default::default()
                     })),
                     ..Default::default()
                 });
                 glob.root_element.borrow_mut().enclosing_component = Rc::downgrade(&glob);
-                register.insert_type(Type::Component(glob));
+                register.add(glob);
             }
         } else {
             // because they are not taken from if we inherit from it
@@ -205,7 +206,8 @@ pub fn load_builtins(register: &mut TypeRegister) {
         }
     }
 
-    register.property_animation_type = Type::Builtin(natives.remove("PropertyAnimation").unwrap());
+    register.property_animation_type =
+        ElementType::Builtin(natives.remove("PropertyAnimation").unwrap());
 
     if !diag.is_empty() {
         let vec = diag.to_string_vec();

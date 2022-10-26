@@ -5,7 +5,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::{Expression, NamedReference};
-use crate::langtype::Type;
+use crate::langtype::{ElementType, Type};
 use crate::object_tree::*;
 use crate::typeregister::TypeRegister;
 use std::cell::RefCell;
@@ -34,7 +34,7 @@ pub fn lower_popups(
 fn lower_popup_window(
     popup_window_element: &ElementRc,
     parent_element: Option<&ElementRc>,
-    window_type: &Type,
+    window_type: &ElementType,
     diag: &mut BuildDiagnostics,
 ) {
     let parent_element = match parent_element {

@@ -5,13 +5,13 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::Expression;
-use crate::langtype::Type;
+use crate::langtype::ElementType;
 use crate::object_tree::{Component, ElementRc};
 use std::rc::Rc;
 
 pub fn check_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     crate::object_tree::recurse_elem_including_sub_components(&component, &(), &mut |elem, _| {
-        let base = if let Type::Component(base) = &elem.borrow().base_type {
+        let base = if let ElementType::Component(base) = &elem.borrow().base_type {
             base.clone()
         } else {
             return;
@@ -54,7 +54,7 @@ fn explicit_binding_priority(elem: &ElementRc, name: &str) -> Option<i32> {
             }
             None
         }
-    } else if let Type::Component(base) = &elem.borrow().base_type {
+    } else if let ElementType::Component(base) = &elem.borrow().base_type {
         explicit_binding_priority(&base.root_element, name).map(|p| p.saturating_add(1))
     } else {
         None

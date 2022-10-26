@@ -6,6 +6,7 @@
 use crate::diagnostics::BuildDiagnostics;
 use crate::diagnostics::SourceLocation;
 use crate::expression_tree::*;
+use crate::langtype::ElementType;
 use crate::langtype::Type;
 use crate::object_tree::*;
 use std::cell::RefCell;
@@ -229,7 +230,7 @@ fn expression_for_property(element: &ElementRc, name: &str) -> ExpressionForProp
                 return ExpressionForProperty::Expression(e.expression.clone());
             }
         }
-        element_it = if let Type::Component(base) = &element.borrow().base_type {
+        element_it = if let ElementType::Component(base) = &element.borrow().base_type {
             in_base = true;
             Some(base.root_element.clone())
         } else {

@@ -6,13 +6,12 @@
 use std::rc::Rc;
 
 use crate::diagnostics::{BuildDiagnostics, DiagnosticLevel};
-use crate::langtype::Type;
 use crate::object_tree::{Component, Document};
 
 pub fn check_public_api(doc: &Document, diag: &mut BuildDiagnostics) {
     check_public_api_component(&doc.root_component, diag);
-    for (export_name, ty) in doc.exports() {
-        if let Type::Component(c) = ty {
+    for (export_name, e) in &doc.exports.0 {
+        if let Some(c) = e.as_ref().left() {
             if c.is_global() {
                 // This global will become part of the public API.
                 c.exported_global_names.borrow_mut().push(export_name.clone());

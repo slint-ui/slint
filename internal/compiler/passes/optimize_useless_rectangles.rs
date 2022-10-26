@@ -6,7 +6,8 @@
 //! Rectangles which do not draw anything and have no x or y don't need to be in
 //! the item tree, we can just remove them.
 
-use crate::{langtype::Type, object_tree::*};
+use crate::langtype::ElementType;
+use crate::object_tree::*;
 use std::rc::Rc;
 
 pub fn optimize_useless_rectangles(root_component: &Rc<Component>) {
@@ -46,7 +47,7 @@ fn can_optimize(elem: &ElementRc) -> bool {
     }
 
     let base_type = match &e.base_type {
-        Type::Builtin(base_type) if base_type.name == "Rectangle" => base_type,
+        ElementType::Builtin(base_type) if base_type.name == "Rectangle" => base_type,
         _ => return false,
     };
 

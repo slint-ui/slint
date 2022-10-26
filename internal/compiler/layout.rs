@@ -5,7 +5,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
-use crate::langtype::{PropertyLookupResult, Type};
+use crate::langtype::{ElementType, PropertyLookupResult, Type};
 use crate::object_tree::{Component, ElementRc};
 
 use std::cell::RefCell;
@@ -377,7 +377,7 @@ fn find_binding<R>(
             return Some(f(&b.borrow(), &element.borrow().enclosing_component, depth));
         }
         let e = match &element.borrow().base_type {
-            Type::Component(base) => base.root_element.clone(),
+            ElementType::Component(base) => base.root_element.clone(),
             _ => return None,
         };
         element = e;
@@ -489,7 +489,7 @@ pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> 
     let mut elem_it = elem.clone();
     loop {
         return match &elem_it.clone().borrow().base_type {
-            Type::Component(base_comp) => {
+            ElementType::Component(base_comp) => {
                 match base_comp.root_element.borrow().layout_info_prop(orientation) {
                     Some(nr) => {
                         // We cannot take nr as is because it is relative to the elem's component. We therefore need to
@@ -503,7 +503,7 @@ pub fn implicit_layout_info_call(elem: &ElementRc, orientation: Orientation) -> 
                     }
                 }
             }
-            Type::Builtin(base_type) if base_type.name == "Rectangle" => {
+            ElementType::Builtin(base_type) if base_type.name == "Rectangle" => {
                 // hard-code the value for rectangle because many rectangle end up optimized away and we
                 // don't want to depend on the element.
                 Expression::Struct {

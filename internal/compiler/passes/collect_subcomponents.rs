@@ -5,7 +5,7 @@
 
 use by_address::ByAddress;
 
-use crate::langtype::Type;
+use crate::langtype::ElementType;
 use crate::object_tree::*;
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -28,7 +28,7 @@ fn collect_subcomponents_recursive(
     hash.insert(ByAddress(component.clone()));
     recurse_elem(&component.root_element, &(), &mut |elem: &ElementRc, &()| {
         let base_comp = match &elem.borrow().base_type {
-            Type::Component(base_comp) => {
+            ElementType::Component(base_comp) => {
                 if hash.contains(&ByAddress(base_comp.clone())) {
                     return;
                 }

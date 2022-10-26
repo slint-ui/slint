@@ -11,6 +11,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::expression_tree::*;
+use crate::langtype::ElementType;
 use crate::langtype::Type;
 use crate::object_tree::*;
 use std::cell::RefCell;
@@ -21,19 +22,19 @@ pub fn compile_paths(
     tr: &crate::typeregister::TypeRegister,
     diag: &mut BuildDiagnostics,
 ) {
-    let path_type = tr.lookup("Path");
+    let path_type = tr.lookup_element("Path").unwrap();
     let path_type = path_type.as_builtin();
-    let pathlayout_type = tr.lookup("PathLayout");
+    let pathlayout_type = tr.lookup_element("PathLayout").unwrap();
     let pathlayout_type = pathlayout_type.as_builtin();
 
     recurse_elem(&component.root_element, &(), &mut |elem_, _| {
         let accepted_type = match &elem_.borrow().base_type {
-            Type::Builtin(be)
+            ElementType::Builtin(be)
                 if be.native_class.class_name == path_type.native_class.class_name =>
             {
                 path_type
             }
-            Type::Builtin(be)
+            ElementType::Builtin(be)
                 if be.native_class.class_name == pathlayout_type.native_class.class_name =>
             {
                 pathlayout_type
@@ -94,7 +95,7 @@ pub fn compile_paths(
 
                 if let Some(path_element) = element_types.get(element_name) {
                     let element_type = match path_element {
-                        Type::Builtin(b) => b.clone(),
+                        ElementType::Builtin(b) => b.clone(),
                         _ => panic!(
                             "Incorrect type registry -- expected built-in type for path element {}",
                             element_name

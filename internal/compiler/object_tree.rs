@@ -11,8 +11,8 @@ use itertools::Either;
 
 use crate::diagnostics::{BuildDiagnostics, SourceLocation, Spanned};
 use crate::expression_tree::{self, BindingExpression, Expression, Unit};
-use crate::langtype::PropertyLookupResult;
 use crate::langtype::{BuiltinElement, NativeClass, Type};
+use crate::langtype::{ElementType, PropertyLookupResult};
 use crate::layout::{LayoutConstraints, Orientation};
 use crate::namedreference::NamedReference;
 use crate::parser;
@@ -22,6 +22,7 @@ use crate::typeregister::TypeRegister;
 use std::cell::{Cell, RefCell};
 use std::collections::btree_map::Entry;
 use std::collections::{BTreeMap, HashMap};
+use std::fmt::Display;
 use std::rc::{Rc, Weak};
 
 macro_rules! unwrap_or_continue {
@@ -120,8 +121,9 @@ impl Document {
                         crate::typeloader::ImportedName::extract_imported_names(&import)
                             .and_then(|it| it.last())
                     })
-                    .and_then(|import| match local_registry.lookup(&import.internal_name) {
-                        Type::Component(c) => Some(c),
+                    .and_then(|import| local_registry.lookup_element(&import.internal_name).ok())
+                    .and_then(|c| match c {
+                        ElementType::Component(c) => Some(c),
                         _ => None,
                     })
             })
@@ -168,10 +170,6 @@ impl Document {
             custom_fonts,
             exports,
         }
-    }
-
-    pub fn exports(&self) -> &Vec<(ExportedName, Type)> {
-        &self.exports.0
     }
 }
 
@@ -256,7 +254,7 @@ impl Component {
             root_element: Element::from_node(
                 node.Element(),
                 "root".into(),
-                Type::Invalid,
+                ElementType::Error,
                 &mut child_insertion_point,
                 diag,
                 tr,
@@ -276,16 +274,10 @@ impl Component {
     /// This component is a global component introduced with the "global" keyword
     pub fn is_global(&self) -> bool {
         match &self.root_element.borrow().base_type {
-            Type::Void => true,
-            Type::Builtin(c) => c.is_global,
+            ElementType::Global => true,
+            ElementType::Builtin(c) => c.is_global,
             _ => false,
         }
-    }
-
-    /// Returns true if use/instantiation of this component requires generating
-    /// code in Rust/C++/etc..
-    pub fn requires_code_generation(&self) -> bool {
-        !matches!(self.root_element.borrow().base_type, Type::Builtin(_))
     }
 
     pub fn visible_in_public_api(&self) -> bool {
@@ -342,7 +334,7 @@ impl Default for PropertyVisibility {
     }
 }
 
-impl std::fmt::Display for PropertyVisibility {
+impl Display for PropertyVisibility {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             PropertyVisibility::Private => f.write_str("private"),
@@ -466,7 +458,7 @@ pub struct Element {
     /// The id are then re-assigned unique id in the assign_id pass
     pub id: String,
     //pub base: QualifiedTypeName,
-    pub base_type: crate::langtype::Type,
+    pub base_type: ElementType,
     /// Currently contains also the callbacks. FIXME: should that be changed?
     pub bindings: BindingsMap,
     pub property_analysis: RefCell<HashMap<String, PropertyAnalysis>>,
@@ -667,7 +659,7 @@ impl Element {
     pub fn from_node(
         node: syntax_nodes::Element,
         id: String,
-        parent_type: Type,
+        parent_type: ElementType,
         component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
@@ -676,25 +668,21 @@ impl Element {
             let base = QualifiedTypeName::from_node(base_node.clone());
             let base_string = base.to_string();
             match parent_type.lookup_type_for_child_element(&base_string, tr) {
-                Ok(Type::Component(c)) if c.is_global() => {
+                Ok(ElementType::Component(c)) if c.is_global() => {
                     diag.push_error(
                         "Cannot create an instance of a global component".into(),
                         &base_node,
                     );
-                    Type::Invalid
+                    ElementType::Error
                 }
-                Ok(ty @ Type::Component(_)) | Ok(ty @ Type::Builtin(_)) => ty,
-                Ok(ty) => {
-                    diag.push_error(format!("'{}' cannot be used as an element", ty), &base_node);
-                    Type::Invalid
-                }
+                Ok(ty) => ty,
                 Err(err) => {
                     diag.push_error(err, &base_node);
-                    Type::Invalid
+                    ElementType::Error
                 }
             }
         } else {
-            if parent_type != Type::Invalid {
+            if parent_type != ElementType::Error {
                 // This should normally never happen because the parser does not allow for this
                 assert!(diag.has_error());
                 return ElementRc::default();
@@ -712,7 +700,7 @@ impl Element {
             node.PropertyAnimation().for_each(|n| error_on(&n, "animations"));
             node.States().for_each(|n| error_on(&n, "states"));
             node.Transitions().for_each(|n| error_on(&n, "transitions"));
-            Type::Void
+            ElementType::Global
         };
         let mut r = Element { id, base_type, node: Some(node.clone()), ..Default::default() };
 
@@ -1045,7 +1033,7 @@ impl Element {
 
     fn from_sub_element_node(
         node: syntax_nodes::SubElement,
-        parent_type: Type,
+        parent_type: ElementType,
         component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
@@ -1111,7 +1099,7 @@ impl Element {
 
     fn from_conditional_node(
         node: syntax_nodes::ConditionalElement,
-        parent_type: Type,
+        parent_type: ElementType,
         component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
@@ -1169,7 +1157,7 @@ impl Element {
             if !lookup_result.property_type.is_property_type() {
                 match lookup_result.property_type {
                         Type::Invalid => {
-                            if self.base_type != Type::Invalid {
+                            if self.base_type != ElementType::Error {
                                 diag.push_error(format!(
                                     "Unknown property {} in {}",
                                     unresolved_name, self.base_type
@@ -1225,11 +1213,11 @@ impl Element {
         let mut base_type = self.base_type.clone();
         loop {
             match &base_type {
-                Type::Component(component) => {
+                ElementType::Component(component) => {
                     base_type = component.root_element.clone().borrow().base_type.clone();
                 }
-                Type::Builtin(builtin) => break Some(builtin.native_class.clone()),
-                Type::Native(native) => break Some(native.clone()),
+                ElementType::Builtin(builtin) => break Some(builtin.native_class.clone()),
+                ElementType::Native(native) => break Some(native.clone()),
                 _ => break None,
             }
         }
@@ -1239,10 +1227,10 @@ impl Element {
         let mut base_type = self.base_type.clone();
         loop {
             match &base_type {
-                Type::Component(component) => {
+                ElementType::Component(component) => {
                     base_type = component.root_element.clone().borrow().base_type.clone();
                 }
-                Type::Builtin(builtin) => break Some(builtin.clone()),
+                ElementType::Builtin(builtin) => break Some(builtin.clone()),
                 _ => break None,
             }
         }
@@ -1273,7 +1261,7 @@ impl Element {
             b.borrow().has_binding() && (!need_explicit || b.borrow().priority > 0)
         }) {
             true
-        } else if let Type::Component(base) = &self.base_type {
+        } else if let ElementType::Component(base) = &self.base_type {
             base.root_element.borrow().is_binding_set(property_name, need_explicit)
         } else {
             false
@@ -1308,7 +1296,7 @@ impl Element {
     pub fn sub_component(&self) -> Option<&Rc<Component>> {
         if self.repeated.is_some() {
             None
-        } else if let Type::Component(sub_component) = &self.base_type {
+        } else if let ElementType::Component(sub_component) = &self.base_type {
             Some(sub_component)
         } else {
             None
@@ -1319,7 +1307,7 @@ impl Element {
 /// Apply default property values defined in `builtins.slint` to the element.
 fn apply_default_type_properties(element: &mut Element) {
     // Apply default property values on top:
-    if let Type::Builtin(builtin_base) = &element.base_type {
+    if let ElementType::Builtin(builtin_base) = &element.base_type {
         for (prop, info) in &builtin_base.properties {
             if let Some(expr) = &info.default_value {
                 element.bindings.entry(prop.clone()).or_insert_with(|| {
@@ -1343,10 +1331,13 @@ pub fn type_from_node(
 
         let prop_type = tr.lookup_qualified(&qualified_type.members);
 
-        if prop_type == Type::Invalid {
+        if prop_type == Type::Invalid && tr.lookup_element(&qualified_type.to_string()).is_err() {
             diag.push_error(format!("Unknown type '{}'", qualified_type), &qualified_type_node);
         } else if !prop_type.is_property_type() {
-            diag.push_error(format!("'{}' is not a valid type", prop_type), &qualified_type_node);
+            diag.push_error(
+                format!("'{}' is not a valid type", qualified_type),
+                &qualified_type_node,
+            );
         }
         prop_type
     } else if let Some(object_node) = node.ObjectType() {
@@ -1385,7 +1376,7 @@ fn animation_element_from_node(
     tr: &TypeRegister,
 ) -> Option<ElementRc> {
     let anim_type = tr.property_animation_type_for_property(prop_type);
-    if !matches!(anim_type, Type::Builtin(..)) {
+    if !matches!(anim_type, ElementType::Builtin(..)) {
         diag.push_error(
             format!(
                 "'{}' is not a property that can be animated",
@@ -1427,7 +1418,7 @@ impl QualifiedTypeName {
     }
 }
 
-impl std::fmt::Display for QualifiedTypeName {
+impl Display for QualifiedTypeName {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.members.join("."))
     }
@@ -1558,7 +1549,7 @@ pub fn recurse_elem_including_sub_components<State>(
             (&*elem.borrow().enclosing_component.upgrade().unwrap()) as *const Component
         ));
         if elem.borrow().repeated.is_some() {
-            if let Type::Component(base) = &elem.borrow().base_type {
+            if let ElementType::Component(base) = &elem.borrow().base_type {
                 if base.parent_element.upgrade().is_some() {
                     recurse_elem_including_sub_components(base, state, vis);
                 }
@@ -1594,7 +1585,7 @@ pub fn recurse_elem_including_sub_components_no_borrow<State>(
 ) {
     recurse_elem_no_borrow(&component.root_element, state, &mut |elem, state| {
         let base = if elem.borrow().repeated.is_some() {
-            if let Type::Component(base) = &elem.borrow().base_type {
+            if let ElementType::Component(base) = &elem.borrow().base_type {
                 Some(base.clone())
             } else {
                 None
@@ -1824,7 +1815,7 @@ impl ExportedName {
 }
 
 #[derive(Default, Debug, derive_more::Deref)]
-pub struct Exports(pub Vec<(ExportedName, Type)>);
+pub struct Exports(pub Vec<(ExportedName, Either<Rc<Component>, Type>)>);
 
 impl Exports {
     pub fn from_node(
@@ -1945,27 +1936,34 @@ impl Exports {
             }
         }
 
-        let mut resolve_export_to_inner_component_or_import =
-            |export: &NamedExport| match type_registry.lookup(export.internal_name.as_str()) {
-                ty @ Type::Component(_) | ty @ Type::Struct { .. } => Some(ty),
-                Type::Invalid => {
-                    diag.push_error(
-                        format!("'{}' not found", export.internal_name),
-                        &export.internal_name_ident,
-                    );
-                    None
-                }
-                _ => {
-                    diag.push_error(
-                        format!(
-                            "Cannot export '{}' because it is not a component",
-                            export.internal_name,
-                        ),
-                        &export.internal_name_ident,
-                    );
-                    None
-                }
-            };
+        let mut resolve_export_to_inner_component_or_import = |export: &NamedExport| {
+            if let Ok(ElementType::Component(c)) =
+                type_registry.lookup_element(export.internal_name.as_str())
+            {
+                Some(Either::Left(c))
+            } else if let ty @ Type::Struct { .. } =
+                type_registry.lookup(export.internal_name.as_str())
+            {
+                Some(Either::Right(ty))
+            } else if type_registry.lookup_element(export.internal_name.as_str()).is_ok()
+                || type_registry.lookup(export.internal_name.as_str()) != Type::Invalid
+            {
+                diag.push_error(
+                    format!(
+                        "Cannot export '{}' because it is not a component",
+                        export.internal_name,
+                    ),
+                    &export.internal_name_ident,
+                );
+                None
+            } else {
+                diag.push_error(
+                    format!("'{}' not found", export.internal_name,),
+                    &export.internal_name_ident,
+                );
+                None
+            }
+        };
 
         Self(
             exports
@@ -2026,7 +2024,7 @@ pub fn inject_element_as_repeated_element(repeated_element: &ElementRc, new_root
     new_root.borrow_mut().children.push(old_root);
 
     let component = Rc::new(component);
-    repeated_element.borrow_mut().base_type = Type::Component(component.clone());
+    repeated_element.borrow_mut().base_type = ElementType::Component(component.clone());
 
     for elem in elements_with_enclosing_component_reference {
         elem.borrow_mut().enclosing_component = Rc::downgrade(&component);

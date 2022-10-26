@@ -220,9 +220,6 @@ fn to_debug_string(
         Type::Void
         | Type::InferredCallback
         | Type::InferredProperty
-        | Type::Component(_)
-        | Type::Builtin(_)
-        | Type::Native(_)
         | Type::Callback { .. }
         | Type::Function { .. }
         | Type::ElementReference

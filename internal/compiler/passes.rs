@@ -44,7 +44,7 @@ mod visible;
 mod z_order;
 
 use crate::expression_tree::Expression;
-use crate::langtype::Type;
+use crate::langtype::ElementType;
 use crate::namedreference::NamedReference;
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -55,7 +55,10 @@ pub async fn run_passes(
     type_loader: &mut crate::typeloader::TypeLoader,
     compiler_config: &crate::CompilerConfiguration,
 ) {
-    if matches!(doc.root_component.root_element.borrow().base_type, Type::Invalid | Type::Void) {
+    if matches!(
+        doc.root_component.root_element.borrow().base_type,
+        ElementType::Error | ElementType::Global
+    ) {
         // If there isn't a root component, we shouldn't do any of these passes
         return;
     }
@@ -63,14 +66,10 @@ pub async fn run_passes(
     let style_metrics = {
         // Ignore import errors
         let mut build_diags_to_ignore = crate::diagnostics::BuildDiagnostics::default();
-        let style_metrics = type_loader
-            .import_type("std-widgets.slint", "StyleMetrics", &mut build_diags_to_ignore)
-            .await;
-        if let Some(Type::Component(c)) = style_metrics {
-            c
-        } else {
-            panic!("can't load style metrics")
-        }
+        type_loader
+            .import_component("std-widgets.slint", "StyleMetrics", &mut build_diags_to_ignore)
+            .await
+            .unwrap_or_else(|| panic!("can't load style metrics"))
     };
 
     let global_type_registry = type_loader.global_type_registry.clone();

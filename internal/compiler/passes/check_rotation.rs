@@ -3,7 +3,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::diagnostics::Spanned;
-use crate::langtype::Type;
+use crate::langtype::ElementType;
 use crate::object_tree::Element;
 
 /// Check that the rotation is only on Image
@@ -40,12 +40,12 @@ pub fn check_rotation(doc: &crate::object_tree::Document, diag: &mut BuildDiagno
 /// Returns true if this element or its base have any children.
 fn has_any_children(e: &Element) -> bool {
     !e.children.is_empty()
-        || matches!(&e.base_type, Type::Component(base) if has_any_children(&base.root_element.borrow()))
+        || matches!(&e.base_type, ElementType::Component(base) if has_any_children(&base.root_element.borrow()))
 }
 
 /// Returns true if the property is set.
 fn is_property_set(e: &Element, property_name: &str) -> bool {
     e.bindings.contains_key(property_name)
         || e.property_analysis.borrow().get(property_name).map_or(false, |a| a.is_set)
-        || matches!(&e.base_type, Type::Component(base) if is_property_set(&base.root_element.borrow(), property_name))
+        || matches!(&e.base_type, ElementType::Component(base) if is_property_set(&base.root_element.borrow(), property_name))
 }
