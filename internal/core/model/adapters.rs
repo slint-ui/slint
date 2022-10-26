@@ -614,7 +614,7 @@ where
 ///
 /// Generic parameters:
 /// * `M` the type of the wrapped `Model`.
-/// * `F` an internal trait `SortHelper` used to sort the model ascending or by a given sort function.
+/// * `F` a type that provides an order to model rows. It is constrained by the internal trait `SortHelper`, which is used to sort the model in ascending order if the model data supports it, or by a given sort function.
 ///
 /// ## Example
 ///
