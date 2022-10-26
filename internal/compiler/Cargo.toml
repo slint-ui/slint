@@ -49,7 +49,7 @@ once_cell = "1"
 url = "2.2.1"
 dunce = "1.0.1"
 linked_hash_set = "0.1.4"
-fontdb = { version = "0.9.0", features = ["fontconfig"] }
+fontdb = { version = "0.9.3", features = ["fontconfig"] }
 fontdue = { version = "0.7.1" }
 
 # for processing and embedding the rendered image (texture)
