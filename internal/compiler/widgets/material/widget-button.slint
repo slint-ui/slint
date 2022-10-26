@@ -1,10 +1,13 @@
 import { md } from "md.slint";
 
 // Default button widget with Material Design Elevated Button look and feel.
-export Button := TouchArea {
+export Button := Rectangle {
     callback clicked;
+
     property<string> text <=> label.text;
     property<bool> has-focus <=> fs.has-focus;
+    property<bool> pressed: self.enabled && touch.pressed;
+    property<bool> enabled <=> touch.enabled;
     property<bool> checkable;
     property<bool> checked;
     property<image> icon;
@@ -15,7 +18,7 @@ export Button := TouchArea {
 
     height: 40pt;
    
-    surface := Rectangle {  
+    container := Rectangle {  
         width: 100%;
         height: 100%;
 
@@ -30,8 +33,9 @@ export Button := TouchArea {
         opacity: 0;
         width: 100%;
         height: 100%;
-        border-radius: surface.border-radius;
+        border-radius: container.border-radius;
         background: md.sys.color.primary;
+        animate opacity { duration: 250ms; easing: ease; }
      }
 
     HorizontalLayout {  
@@ -77,17 +81,17 @@ export Button := TouchArea {
 
     states [
         disabled when !root.enabled : {
-            surface.drop-shadow-blur: md.sys.elevation.level0;
-            surface.opacity: 0.12;
-            surface.background: md.sys.color.on-surface;
+            container.drop-shadow-blur: md.sys.elevation.level0;
+            container.opacity: 0.12;
+            container.background: md.sys.color.on-surface;
             label.opacity: 0.38;
             label.color: md.sys.color.on-surface;
         }
         pressed when touch.pressed : {
-            state-layer.opacity: 0.08;
+            state-layer.opacity: 0.12;
         }
         hover when touch.has-hover : {
-            surface.drop-shadow-blur: md.sys.elevation.level2;
+            container.drop-shadow-blur: md.sys.elevation.level2;
             state-layer.opacity: 0.08;    
         }
         focused when fs.has-focus : {

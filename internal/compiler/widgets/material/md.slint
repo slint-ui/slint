@@ -4,6 +4,7 @@ struct Color := {
     surface: color,
     on-surface: color,
     primary: color,
+    on-primary: color,
     shadow: color
 }
 
@@ -25,36 +26,41 @@ struct Elevation := {
 struct Sys := {
     color: Color,
     elevation: Elevation,
-    label-large: Label
+    label-large: Label,
+    label-medium: Label,
 }
 
 // Material Desigin v3 style defintions.
 export global md := {
     property<bool> dark-color-scheme: SlintInternal.dark-color-scheme();
 
-    property<Sys> sys : {
-        // colors
+    property<Sys> sys: {
         color: {
             background: !dark-color-scheme ? #FFFBFE : #1C1B1F,
             surface: !dark-color-scheme ? #FFFBFE : #1C1B1F,
             on-surface: !dark-color-scheme ? #1C1B1F : #E6E1E5,
             surface-tint: !dark-color-scheme ? #6750A4 : #D0BCFF,
             primary: !dark-color-scheme ? #6750A4 : #D0BCFF,
+            on-primary: !dark-color-scheme ? #FFFFFF : #371E73,
             shadow: #000000,
         },
 
-        // elevation
         elevation: {
             level0: 0pt,
             level1: 1pt,
             level2: 2pt
         },
 
-        // label large
         label-large: {
             font: "Roboto Medium",
             size: 14pt,
             weight: 500
-        }
+        },
+
+        label-medium: {
+            font: "Roboto Medium",
+            size: 12pt,
+            weight: 500
+        },
     };
 }
