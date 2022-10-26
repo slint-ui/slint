@@ -349,15 +349,15 @@ where
         Self(container)
     }
 
-    /// Manually reapply the filter. You need to run this e.g. if the filtering function uses
-    /// mutable state and it has changed.
+    /// Manually reapply the filter. You need to run this e.g. if the filtering function depends on
+    /// mutable state and it has changed. This method is deprecated use `reset` instead.
     #[deprecated(note = "Use reset() instead")]
     pub fn apply_filter(&self) {
         self.reset()
     }
 
-    /// Manually reapply the filter. You need to run this e.g. if the filtering function compares
-    /// against mutable state and it has changed.
+    /// Manually reapply the filter. You need to run this e.g. if the filtering function depends on
+    /// mutable state and it has changed.
     pub fn reset(&self) {
         self.0.reset();
     }
@@ -759,8 +759,8 @@ where
         Self(container)
     }
 
-    /// Manually reapply the sorting. You need to run this e.g. if the sort function compares
-    /// against mutable state and it has changed.
+    /// Manually reapply the sorting. You need to run this e.g. if the sort function depends
+    /// on mutable state and it has changed.
     pub fn reset(&self) {
         self.0.reset();
     }
