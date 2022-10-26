@@ -6,7 +6,8 @@
 import { LineEditInner, TextEdit, AboutSlint } from "../common/common.slint";
 import { StandardButton } from "../common/standardbutton.slint";
 import { StyleMetrics, ScrollView, Button, CheckBox, Palette  } from "std-widgets-impl.slint";
-export { StyleMetrics, ScrollView, Button, CheckBox, StandardButton, TextEdit, AboutSlint, AboutSlint as AboutSixtyFPS }
+import { LineEdit } from "widget-lineedit.slint";
+export { StyleMetrics, ScrollView, Button, CheckBox, StandardButton, TextEdit, LineEdit, AboutSlint, AboutSlint as AboutSixtyFPS }
 
 SpinBoxButton := Rectangle {
     callback clicked <=> touch.clicked;
@@ -357,42 +358,6 @@ export TabBarImpl := Rectangle {
 }
 
 export TabWidget := TabWidget {}
-
-export LineEdit := Rectangle {
-    property <length> font-size <=> inner.font-size;
-    property <string> text <=> inner.text;
-    property <string> placeholder-text <=> inner.placeholder-text;
-    property <bool> has-focus: inner.has-focus;
-    property <bool> enabled <=> inner.enabled;
-    property input-type <=> inner.input-type;
-    property horizontal-alignment <=> inner.horizontal-alignment;
-    property read-only <=> inner.read-only;
-    callback accepted <=> inner.accepted;
-    callback edited <=> inner.edited;
-    forward-focus: inner;
-  //  border-color: root.has-focus ? Palette.highlight-background : #ffffff;
-
-    horizontal-stretch: 1;
-    vertical-stretch: 0;
-    min-height: max(32px, l.min-height);
-
-    background: !enabled ? Palette.neutralLighter : Palette.white;
-    border-radius: 2px;
-    border-width: !enabled ? 0px : has-focus ? 2px : 1px;
-    border-color: !enabled ? Palette.neutralLighter
-        : has-focus ? Palette.themeSecondary
-        : Palette.neutralPrimary;
-
-    l := HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 8px;
-        padding-top: 3px;
-        padding-bottom: 3px;
-        inner := LineEditInner {
-            placeholder-color: !enabled ? Palette.neutralTertiary : Palette.neutralSecondary;
-        }
-    }
-}
 
 export ListView := ScrollView {
     @children

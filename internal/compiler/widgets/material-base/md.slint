@@ -7,7 +7,9 @@ struct Color := {
     on-surface: color,
     primary: color,
     on-primary: color,
-    shadow: color
+    shadow: color,
+    outline: color,
+    outline-variant: color,
 }
 
 // typo settings
@@ -24,12 +26,18 @@ struct Elevation := {
     level2: length
 }
 
+// helper to create material design token like path md.sys.typescale.
+struct Typescale := {
+    label-large: Label,
+    label-medium: Label,
+    body-large: Label,
+}
+
 // helper to create material design token like path md.sys.
 struct Sys := {
     color: Color,
     elevation: Elevation,
-    label-large: Label,
-    label-medium: Label,
+    typescale: Typescale
 }
 
 // Material Desigin v3 style defintions.
@@ -45,6 +53,8 @@ export global md := {
             primary: !dark-color-scheme ? #6750A4 : #D0BCFF,
             on-primary: !dark-color-scheme ? #FFFFFF : #371E73,
             shadow: #000000,
+            outline: !dark-color-scheme ? #79747E : #938F99,
+            outline-variant: !dark-color-scheme ? #C4C7C5 : #444746,
         },
 
         elevation: {
@@ -53,16 +63,22 @@ export global md := {
             level2: 2pt
         },
 
-        label-large: {
-            font: "Roboto Medium",
-            size: 14pt,
-            weight: 500
-        },
-
-        label-medium: {
-            font: "Roboto Medium",
-            size: 12pt,
-            weight: 500
-        },
+        typescale: {
+            label-large: {
+                font: "Roboto Medium",
+                size: 14pt,
+                weight: 500
+            },
+            label-medium: {
+                font: "Roboto Medium",
+                size: 12pt,
+                weight: 500
+            },
+            body-large: {
+                font: "Roboto Medium",
+                size: 16pt,
+                weight: 400
+            },
+        }
     };
 }

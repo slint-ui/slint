@@ -1,5 +1,6 @@
 import { md } from "md.slint";
 
+// Selection control that can be toggled between checked und unchecked by click.
 export CheckBox := Rectangle {
     callback toggled;
 
@@ -74,8 +75,8 @@ export CheckBox := Rectangle {
             horizontal-alignment: left;
             vertical-alignment: center;
             vertical-stretch: 1;
-            font-size: md.sys.label-medium.size;
-            font-weight: md.sys.label-medium.weight;
+            font-size: md.sys.typescale.label-medium.size;
+            font-weight: md.sys.typescale.label-medium.weight;
         }
     }
 
@@ -94,7 +95,7 @@ export CheckBox := Rectangle {
     }
 
     states [
-        disabled-selected when !root.enabled && root.checked  : {
+        disabled-selected when !enabled && checked  : {
             container.border-width: 0pt;
             container.border-color: transparent;
             container.background: md.sys.color.primary;
@@ -102,7 +103,7 @@ export CheckBox := Rectangle {
             label.opacity: 0.38;
             label.color: md.sys.color.primary;
         }
-        disabled when !root.enabled : {
+        disabled when !enabled : {
             container.opacity: 0.38;
             label.opacity: 0.38;
             label.color: md.sys.color.primary;
@@ -110,32 +111,32 @@ export CheckBox := Rectangle {
         pressed when touch.pressed && !root.checked : {
             state-layer.opacity: 0.12;
         }
-        pressed-selected when touch.pressed && root.checked : {
+        pressed-selected when touch.pressed && checked : {
             state-layer.opacity: 0.12;    
             state-layer.background: md.sys.color.on-surface;    
             container.border-width: 0pt;
             container.border-color: transparent;
             container.background: md.sys.color.primary;
         }
-        hover-selected when touch.has-hover && root.checked : {
+        hover-selected when touch.has-hover && checked : {
             state-layer.opacity: 0.08;    
             container.border-width: 0pt;
             container.border-color: transparent;
             container.background: md.sys.color.primary;
         }
-        hover when touch.has-hover && !root.checked : {
+        hover when touch.has-hover && !checked : {
             state-layer.background: md.sys.color.on-surface;
             state-layer.opacity: 0.08;    
         }
-        selected when !touch.has-hover && root.checked : {
+        selected when !touch.has-hover && checked : {
             container.border-width: 0pt;
             container.border-color: transparent;
             container.background: md.sys.color.primary;
         }
-        focused-selected when fs.has-focus && root.checked : {
+        focused-selected when fs.has-focus && checked : {
             state-layer.opacity: 0.12;
         }
-        focused when fs.has-focus && !root.checked : {
+        focused when fs.has-focus && !checked : {
             state-layer.background: md.sys.color.on-surface;
             state-layer.opacity: 0.12;
         }
