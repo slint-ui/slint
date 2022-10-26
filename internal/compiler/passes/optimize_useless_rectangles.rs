@@ -48,6 +48,9 @@ fn can_optimize(elem: &ElementRc) -> bool {
 
     let base_type = match &e.base_type {
         ElementType::Builtin(base_type) if base_type.name == "Rectangle" => base_type,
+        ElementType::Builtin(base_type) if base_type.native_class.class_name == "Empty" => {
+            base_type
+        }
         _ => return false,
     };
 

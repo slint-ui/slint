@@ -176,6 +176,92 @@ pub type ItemRef<'a> = vtable::VRef<'a, ItemVTable>;
 #[repr(C)]
 #[derive(FieldOffsets, Default, SlintElement)]
 #[pin]
+/// The implementation of an empty items that does nothing
+pub struct Empty {
+    pub x: Property<LogicalLength>,
+    pub y: Property<LogicalLength>,
+    pub width: Property<LogicalLength>,
+    pub height: Property<LogicalLength>,
+    pub cached_rendering_data: CachedRenderingData,
+}
+
+impl Item for Empty {
+    fn init(self: Pin<&Self>, _window_adapter: &Rc<dyn WindowAdapter>) {}
+
+    fn geometry(self: Pin<&Self>) -> LogicalRect {
+        LogicalRect::new(
+            LogicalPoint::from_lengths(self.x(), self.y()),
+            LogicalSize::from_lengths(self.width(), self.height()),
+        )
+    }
+
+    fn layout_info(
+        self: Pin<&Self>,
+        _orientation: Orientation,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+    ) -> LayoutInfo {
+        LayoutInfo { stretch: 1., ..LayoutInfo::default() }
+    }
+
+    fn input_event_filter_before_children(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> InputEventFilterResult {
+        InputEventFilterResult::ForwardAndIgnore
+    }
+
+    fn input_event(
+        self: Pin<&Self>,
+        _: MouseEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> InputEventResult {
+        InputEventResult::EventIgnored
+    }
+
+    fn key_event(
+        self: Pin<&Self>,
+        _: &KeyEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> KeyEventResult {
+        KeyEventResult::EventIgnored
+    }
+
+    fn focus_event(
+        self: Pin<&Self>,
+        _: &FocusEvent,
+        _window_adapter: &Rc<dyn WindowAdapter>,
+        _self_rc: &ItemRc,
+    ) -> FocusEventResult {
+        FocusEventResult::FocusIgnored
+    }
+
+    fn render(
+        self: Pin<&Self>,
+        _backend: &mut ItemRendererRef,
+        _self_rc: &ItemRc,
+    ) -> RenderingResult {
+        RenderingResult::ContinueRenderingChildren
+    }
+}
+
+impl ItemConsts for Empty {
+    const cached_rendering_data_offset: const_field_offset::FieldOffset<
+        Empty,
+        CachedRenderingData,
+    > = Empty::FIELD_OFFSETS.cached_rendering_data.as_unpinned_projection();
+}
+
+declare_item_vtable! {
+    fn slint_get_EmptyVTable() -> EmptyVTable for Empty
+}
+
+#[repr(C)]
+#[derive(FieldOffsets, Default, SlintElement)]
+#[pin]
 /// The implementation of the `Rectangle` element
 pub struct Rectangle {
     pub background: Property<Brush>,

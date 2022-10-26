@@ -1,0 +1,18 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+component Foo {
+    background: 0;
+//  ^error{Unknown property background$}
+    width: 12px;
+}
+
+component Bar {
+    Foo { }
+    Foo {
+        background: 0;
+//      ^error{Unknown property background in Foo}
+        height: self.width;
+    }
+}

@@ -90,7 +90,7 @@ fn should_materialize(
     if property_declarations.contains_key(prop) {
         return None;
     }
-    let has_declared_property = match &base_type {
+    let has_declared_property = match base_type {
         ElementType::Component(c) => has_declared_property(&c.root_element.borrow(), prop),
         ElementType::Builtin(b) => b.properties.contains_key(prop),
         ElementType::Native(n) => {

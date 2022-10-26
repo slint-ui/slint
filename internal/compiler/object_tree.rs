@@ -254,7 +254,11 @@ impl Component {
             root_element: Element::from_node(
                 node.Element(),
                 "root".into(),
-                ElementType::Error,
+                if node.child_text(SyntaxKind::Identifier).map_or(false, |t| t == "global") {
+                    ElementType::Global
+                } else {
+                    ElementType::Error
+                },
                 &mut child_insertion_point,
                 diag,
                 tr,
@@ -681,13 +685,7 @@ impl Element {
                     ElementType::Error
                 }
             }
-        } else {
-            if parent_type != ElementType::Error {
-                // This should normally never happen because the parser does not allow for this
-                assert!(diag.has_error());
-                return ElementRc::default();
-            }
-
+        } else if parent_type == ElementType::Global {
             // This must be a global component it can only have properties and callback
             let mut error_on = |node: &dyn Spanned, what: &str| {
                 diag.push_error(format!("A global component cannot have {}", what), node);
@@ -700,7 +698,14 @@ impl Element {
             node.PropertyAnimation().for_each(|n| error_on(&n, "animations"));
             node.States().for_each(|n| error_on(&n, "states"));
             node.Transitions().for_each(|n| error_on(&n, "transitions"));
+
             ElementType::Global
+        } else if parent_type != ElementType::Error {
+            // This should normally never happen because the parser does not allow for this
+            assert!(diag.has_error());
+            return ElementRc::default();
+        } else {
+            tr.empty_type()
         };
         let mut r = Element { id, base_type, node: Some(node.clone()), ..Default::default() };
 
@@ -1158,10 +1163,11 @@ impl Element {
                 match lookup_result.property_type {
                         Type::Invalid => {
                             if self.base_type != ElementType::Error {
-                                diag.push_error(format!(
-                                    "Unknown property {} in {}",
-                                    unresolved_name, self.base_type
-                                ),
+                                diag.push_error(if self.base_type.to_string() == "Empty" {
+                                    format!( "Unknown property {unresolved_name}")
+                                } else {
+                                    format!( "Unknown property {unresolved_name} in {}", self.base_type)
+                                },
                                 &name_token);
                             }
                         }

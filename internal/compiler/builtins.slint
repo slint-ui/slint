@@ -23,13 +23,19 @@
 
 import { _ } from ""; // just to silence many errors in the LSP
 
-Rectangle := _ {
-    property <brush> background;
-    property <brush> color <=> background;
+Empty := _ {
     property <length> x;
     property <length> y;
     property <length> width;
     property <length> height;
+    //-default_size_binding:expands_to_parent_geometry
+    //-is_internal
+
+}
+
+Rectangle := Empty {
+    property <brush> background;
+    property <brush> color <=> background;
 }
 
 BorderRectangle := Rectangle {
@@ -41,12 +47,8 @@ BorderRectangle := Rectangle {
 
 export { BorderRectangle as Rectangle }
 
-ImageItem := _ {
+ImageItem := Empty {
     property <image> source;
-    property <length> x;
-    property <length> y;
-    property <length> width;
-    property <length> height;
     property <ImageFit> image-fit;
     property <ImageRendering> image-rendering;
 }
@@ -57,25 +59,20 @@ export ClippedImage := ImageItem {
     property <int> source-clip-width;
     property <int> source-clip-height;
     property <brush> colorize;
-    property <ImageRendering> image-rendering;
     //-default_size_binding:implicit_size
 }
 
 export { ClippedImage as Image }
 
-export Rotate := _ {
-    property <length> x;
-    property <length> y;
+export Rotate := Empty {
     property <angle> rotation-angle;
     property <length> rotation-origin-x;
     property <length> rotation-origin-y;
-    property <length> width;
-    property <length> height;
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal
 }
 
-export Text := _ {
+export Text := Empty {
     property <string> text;
     property <string> font-family;
     property <length> font-size;
@@ -86,10 +83,6 @@ export Text := _ {
     property <TextOverflow> overflow;
     property <TextWrap> wrap;
     property <length> letter-spacing;
-    property <length> x;
-    property <length> y;
-    property <length> width;
-    property <length> height;
     //-default_size_binding:implicit_size
 }
 
@@ -146,11 +139,7 @@ export FocusScope := _ {
     //-accepts_focus
 }
 
-export Flickable := _ {
-    property <length> x;
-    property <length> y;
-    property <length> width;
-    property <length> height;
+export Flickable := Empty {
                 // These properties are actually going to be forwarded to the viewport by the
                 // code generator
     property <length> viewport-height;
@@ -176,11 +165,7 @@ WindowItem := _ {
 
 export Window := WindowItem {}
 
-export BoxShadow := _ {
-    property <length> x;
-    property <length> y;
-    property <length> width;
-    property <length> height;
+export BoxShadow := Empty {
     property <length> border_radius;
     property <length> offset_x;
     property <length> offset_y;
@@ -250,11 +235,7 @@ export Opacity := _ {
     //-is_internal
 }
 
-export Layer := _ {
-    property <length> x;
-    property <length> y;
-    property <length> width;
-    property <length> height;
+export Layer := Empty {
     property <bool> cache-rendering-hint;
     //-default_size_binding:expands_to_parent_geometry
     //-is_internal

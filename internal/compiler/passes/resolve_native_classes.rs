@@ -128,11 +128,11 @@ fn select_minimal_class() {
             ["x".to_owned(), "width".to_owned()].iter()
         )
         .class_name,
-        "Rectangle",
+        "Empty",
     );
     assert_eq!(
         select_minimal_class_based_on_property_usage(&rect.native_class, [].iter()).class_name,
-        "Rectangle",
+        "Empty",
     );
     assert_eq!(
         select_minimal_class_based_on_property_usage(

@@ -23,9 +23,9 @@ pub fn is_flickable_element(element: &ElementRc) -> bool {
 }
 
 pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) {
-    let mut native_rect = tr.lookup_element("Rectangle").unwrap().as_builtin().native_class.clone();
-    while let Some(p) = native_rect.parent.clone() {
-        native_rect = p;
+    let mut native_empty = tr.empty_type().as_builtin().native_class.clone();
+    while let Some(p) = native_empty.parent.clone() {
+        native_empty = p;
     }
 
     crate::object_tree::recurse_elem_including_sub_components(
@@ -37,17 +37,17 @@ pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) {
             }
 
             fixup_geometry(elem);
-            create_viewport_element(elem, &native_rect);
+            create_viewport_element(elem, &native_empty);
         },
     )
 }
 
-fn create_viewport_element(flickable_elem: &ElementRc, native_rect: &Rc<NativeClass>) {
+fn create_viewport_element(flickable_elem: &ElementRc, native_empty: &Rc<NativeClass>) {
     let mut flickable = flickable_elem.borrow_mut();
     let flickable = &mut *flickable;
     let viewport = Rc::new(RefCell::new(Element {
         id: format!("{}-viewport", flickable.id),
-        base_type: ElementType::Native(native_rect.clone()),
+        base_type: ElementType::Native(native_empty.clone()),
         children: std::mem::take(&mut flickable.children),
         enclosing_component: flickable.enclosing_component.clone(),
         is_flickable_viewport: true,
