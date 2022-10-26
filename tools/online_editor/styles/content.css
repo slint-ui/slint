@@ -27,12 +27,6 @@
   align-items: stretch;
 }
 
-.editor .container .tab-bar {
-  flex-shrink: 1;
-  flex-grow: 1;
-  background-color: pink;
-}
-
 .editor .container .edit-area {
   flex-shrink: 1000;
   flex-grow: 1000;
@@ -62,9 +56,6 @@
 
 .preview .error-area {
   display: none;
-
-  color: black;
-  background-color: #ff000020;
 
   position: absolute;
   top: 50%;
