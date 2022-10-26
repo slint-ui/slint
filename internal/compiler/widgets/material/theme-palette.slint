@@ -1,0 +1,75 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+export global Palette := {
+    property<bool> dark-color-scheme: SlintInternal.dark-color-scheme();
+
+    // todo remove after material design is finished
+    // The colors in light mode are default palette. In the
+    // Fluent UI Theme Designer they match the colors produced
+    // with Primary Color = #0078d4, Text Color = #201f1e and Background Color = #ffffff
+    // The dark mode colors are produced in the Fluent UI Theme Designer by swapping
+    // Text Color and Background Color from light mode, applying the variations below
+    // and darkening the "white" and brightening the "neutralLight" variants for improved
+    // contrast (esp. on buttons).
+
+    property<color> themeDarker: #004578;
+    property<color> themeDark: #005a9e;
+    property<color> themeDarkAlt: #106ebe;
+    property<color> themePrimary: #0078d4;
+    property<color> themeSecondary: #2b88d8;
+    property<color> themeTertiary: #71afe5;
+    property<color> themeLight: #c7e0f4;
+    property<color> themeLighter: #deecf9;
+    property<color> themeLighterAlt: #eff6fc;
+    property<color> black: !dark-color-scheme ? #000000 : #f8f8f8;
+    property<color> blackTranslucent40: rgba(0,0,0,0.4);
+    property<color> neutralDark: !dark-color-scheme ? #201f1e : #f4f4f4;
+    property<color> neutralPrimary: !dark-color-scheme ? #323130 : #ffffff;
+    property<color> neutralPrimaryAlt: !dark-color-scheme ? #3b3a39 : #dadada;
+    property<color> neutralSecondary: !dark-color-scheme ? #605e5c : #d0d0d0;
+    property<color> neutralSecondaryAlt: #8a8886;
+    property<color> neutralTertiary: !dark-color-scheme ? #a19f9d : #c8c8c8;
+    property<color> neutralTertiaryAlt: !dark-color-scheme ? #c8c6c4 : #6d6d6d;
+    property<color> neutralQuaternary: #d2d0ce;
+    property<color> neutralQuaternaryAlt: !dark-color-scheme ? #e1dfdd : #484848;
+    property<color> neutralLight: !dark-color-scheme ? #edebe9 : #3f3f3f;
+    property<color> neutralLighter: !dark-color-scheme ? #f3f2f1 : #313131;
+    property<color> neutralLighterAlt: !dark-color-scheme ? #faf9f8 : #282828;
+    property<color> accent: #0078d4;
+    property<color> white: !dark-color-scheme ? #ffffff : #ffffff;
+    property<color> whiteTranslucent40: rgba(255,255,255,0.4);
+    property<color> yellowDark: #d29200;
+    property<color> yellow: #ffb900;
+    property<color> yellowLight: #fff100;
+    property<color> orange: #d83b01;
+    property<color> orangeLight: #ea4300;
+    property<color> orangeLighter: #ff8c00;
+    property<color> redDark: #a4262c;
+    property<color> red: #e81123;
+    property<color> magentaDark: #5c005c;
+    property<color> magenta: #b4009e;
+    property<color> magentaLight: #e3008c;
+    property<color> purpleDark: #32145a;
+    property<color> purple: #5c2d91;
+    property<color> purpleLight: #b4a0ff;
+    property<color> blueDark: #002050;
+    property<color> blueMid: #00188f;
+    property<color> blue: #0078d4;
+    property<color> blueLight: #00bcf2;
+    property<color> tealDark: #004b50;
+    property<color> teal: #008272;
+    property<color> tealLight: #00b294;
+    property<color> greenDark: #004b1c;
+    property<color> green: #107c10;
+    property<color> greenLight: #bad80a;
+
+    // The colors in light mode are default palette. The colors are taken from the
+    // Material Design specifification verion 3.
+    property<color> md-background: !dark-color-scheme ? #FFFBFE : #1C1B1F;
+    property<color> md-surface: !dark-color-scheme ? #FFFBFE : #1C1B1F;
+    property<color> md-surface-tint: !dark-color-scheme ? #6750A4 : #D0BCFF;
+    property<color> md-primary: !dark-color-scheme ? #6750A4 : #D0BCFF;
+    property<color> md-shadow: #000000;
+}

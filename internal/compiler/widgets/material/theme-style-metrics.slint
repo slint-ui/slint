@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+import { Palette } from "theme-palette.slint";
+
+
+export global StyleMetrics := {
+    // todo remove after theme is finished
+    property<length> layout-spacing: 8px;
+    property<length> layout-padding: 8px;
+    property<length> text-cursor-width: 2px;
+  
+    property<color> default-text-color: Palette.neutralDark;
+    property<brush> textedit-background: Palette.white;
+    property<color> textedit-text-color: Palette.neutralPrimary;
+    property<brush> textedit-background-disabled: Palette.neutralLighter;
+    property<color> textedit-text-color-disabled: Palette.neutralTertiary;
+    property<bool> dark-color-scheme: Palette.dark-color-scheme;
+
+    property<brush> window-background: Palette.md-background;
+}
