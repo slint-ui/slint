@@ -1,3 +1,5 @@
+import { ColorSchemeSelector } from "color-scheme.slint";
+
 // helper to create material design token like path md.sys.colors.
 struct Color := {
     background: color,
@@ -32,7 +34,7 @@ struct Sys := {
 
 // Material Desigin v3 style defintions.
 export global md := {
-    property<bool> dark-color-scheme: SlintInternal.dark-color-scheme();
+    property<bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
 
     property<Sys> sys: {
         color: {

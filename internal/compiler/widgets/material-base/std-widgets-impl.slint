@@ -1,0 +1,182 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+// widget imports
+import { Button } from "widget-button.slint";
+import { CheckBox } from "widget-checkbox.slint";
+import { md } from "md.slint";
+
+export { Button, CheckBox }
+
+
+export global Palette := {
+    property<bool> dark-color-scheme: SlintInternal.dark-color-scheme();
+
+    // todo remove after material design is finished
+    // The colors in light mode are default palette. In the
+    // Fluent UI Theme Designer they match the colors produced
+    // with Primary Color = #0078d4, Text Color = #201f1e and Background Color = #ffffff
+    // The dark mode colors are produced in the Fluent UI Theme Designer by swapping
+    // Text Color and Background Color from light mode, applying the variations below
+    // and darkening the "white" and brightening the "neutralLight" variants for improved
+    // contrast (esp. on buttons).
+
+    property<color> themeDarker: #004578;
+    property<color> themeDark: #005a9e;
+    property<color> themeDarkAlt: #106ebe;
+    property<color> themePrimary: #0078d4;
+    property<color> themeSecondary: #2b88d8;
+    property<color> themeTertiary: #71afe5;
+    property<color> themeLight: #c7e0f4;
+    property<color> themeLighter: #deecf9;
+    property<color> themeLighterAlt: #eff6fc;
+    property<color> black: !dark-color-scheme ? #000000 : #f8f8f8;
+    property<color> blackTranslucent40: rgba(0,0,0,0.4);
+    property<color> neutralDark: !dark-color-scheme ? #201f1e : #f4f4f4;
+    property<color> neutralPrimary: !dark-color-scheme ? #323130 : #ffffff;
+    property<color> neutralPrimaryAlt: !dark-color-scheme ? #3b3a39 : #dadada;
+    property<color> neutralSecondary: !dark-color-scheme ? #605e5c : #d0d0d0;
+    property<color> neutralSecondaryAlt: #8a8886;
+    property<color> neutralTertiary: !dark-color-scheme ? #a19f9d : #c8c8c8;
+    property<color> neutralTertiaryAlt: !dark-color-scheme ? #c8c6c4 : #6d6d6d;
+    property<color> neutralQuaternary: #d2d0ce;
+    property<color> neutralQuaternaryAlt: !dark-color-scheme ? #e1dfdd : #484848;
+    property<color> neutralLight: !dark-color-scheme ? #edebe9 : #3f3f3f;
+    property<color> neutralLighter: !dark-color-scheme ? #f3f2f1 : #313131;
+    property<color> neutralLighterAlt: !dark-color-scheme ? #faf9f8 : #282828;
+    property<color> accent: #0078d4;
+    property<color> white: !dark-color-scheme ? #ffffff : #ffffff;
+    property<color> whiteTranslucent40: rgba(255,255,255,0.4);
+    property<color> yellowDark: #d29200;
+    property<color> yellow: #ffb900;
+    property<color> yellowLight: #fff100;
+    property<color> orange: #d83b01;
+    property<color> orangeLight: #ea4300;
+    property<color> orangeLighter: #ff8c00;
+    property<color> redDark: #a4262c;
+    property<color> red: #e81123;
+    property<color> magentaDark: #5c005c;
+    property<color> magenta: #b4009e;
+    property<color> magentaLight: #e3008c;
+    property<color> purpleDark: #32145a;
+    property<color> purple: #5c2d91;
+    property<color> purpleLight: #b4a0ff;
+    property<color> blueDark: #002050;
+    property<color> blueMid: #00188f;
+    property<color> blue: #0078d4;
+    property<color> blueLight: #00bcf2;
+    property<color> tealDark: #004b50;
+    property<color> teal: #008272;
+    property<color> tealLight: #00b294;
+    property<color> greenDark: #004b1c;
+    property<color> green: #107c10;
+    property<color> greenLight: #bad80a;
+}
+
+export global StyleMetrics := {
+    // todo remove after theme is finished
+    property<length> layout-spacing: 8px;
+    property<length> layout-padding: 8px;
+    property<length> text-cursor-width: 2px;
+  
+    property<color> default-text-color: Palette.neutralDark;
+    property<brush> textedit-background: Palette.white;
+    property<color> textedit-text-color: Palette.neutralPrimary;
+    property<brush> textedit-background-disabled: Palette.neutralLighter;
+    property<color> textedit-text-color-disabled: Palette.neutralTertiary;
+    property<bool> dark-color-scheme: Palette.dark-color-scheme;
+
+    property<brush> window-background: md.sys.color.background;
+}
+
+
+
+ScrollBar := Rectangle {
+    background: Palette.white;
+   // border-color: Palette.button-background;
+    border-width: 1px;
+    property <bool> horizontal;
+    property<length> maximum;
+    property<length> page-size;
+    // this is always negative and bigger than  -maximum
+    property<length> value;
+
+    handle := Rectangle {
+        width: !horizontal ? parent.width : maximum <= 0phx ? 0phx : parent.width * (page-size / (maximum + page-size));
+        height: horizontal ? parent.height : maximum <= 0phx ? 0phx : parent.height * (page-size / (maximum + page-size));
+
+        border-radius: (horizontal ? self.height : self.width) / 2;
+        background: touch-area.pressed ? Palette.themePrimary :
+            touch-area.has-hover ? Palette.themeSecondary : Palette.neutralTertiary;
+        x: !horizontal ? 0phx : (root.width - handle.width) * (-value / maximum);
+        y: horizontal ? 0phx : (root.height - handle.height) * (-value / maximum);
+    }
+    touch-area := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        property <length> pressed-value;
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                pressed-value = -root.value;
+            }
+        }
+        moved => {
+            if (enabled && pressed) {
+                value = -max(0px, min(root.maximum, pressed-value + (
+                    horizontal ? (touch-area.mouse-x - touch-area.pressed-x) * (maximum / (root.width - handle.width))
+                               : (touch-area.mouse-y - touch-area.pressed-y) * (maximum / (root.height - handle.height))
+                )));
+            }
+        }
+    }
+}
+
+export ScrollView := Rectangle {
+    property <length> viewport-width <=> fli.viewport-width;
+    property <length> viewport-height <=> fli.viewport-height;
+    property <length> viewport-x <=> fli.viewport-x;
+    property <length> viewport-y <=> fli.viewport-y;
+    property <length> visible-width <=> fli.width;
+    property <length> visible-height <=> fli.height;
+    property <bool> enabled: true;
+    property <bool> has-focus;
+    min-height: 50px;
+    min-width: 50px;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    border-radius: 2px;
+    border-width: !enabled ? 0px : has-focus ? 2px : 1px;
+    border-color: !enabled ? Palette.neutralLighter
+        : has-focus ? Palette.themeSecondary
+        : Palette.neutralPrimary;
+
+    fli := Flickable {
+        @children
+        x: 2px;
+        y: 2px;
+        interactive: false;
+        viewport-y <=> vbar.value;
+        viewport-x <=> hbar.value;
+        width: parent.width - vbar.width - 4px;
+        height: parent.height - hbar.height - 4px;
+    }
+    vbar := ScrollBar {
+        width: 16px;
+        x: fli.width + fli.x;
+        y: fli.y;
+        height: fli.height;
+        horizontal: false;
+        maximum: fli.viewport-height - fli.height;
+        page-size: fli.height;
+    }
+    hbar := ScrollBar {
+        height: 16px;
+        y: fli.height + fli.y;
+        x: fli.x;
+        width: fli.width;
+        horizontal: true;
+        maximum: fli.viewport-width - fli.width;
+        page-size: fli.width;
+    }
+}
