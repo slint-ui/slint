@@ -1,0 +1,657 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+// cSpell: ignore combobox spinbox standardbutton
+
+import { LineEditInner, TextEdit, AboutSlint } from "../common/common.slint";
+import { StandardButton } from "../common/standardbutton.slint";
+import { StyleMetrics, ScrollView, Button, Palette  } from "std-widgets-impl.slint";
+export { StyleMetrics, ScrollView, Button, StandardButton, TextEdit, AboutSlint, AboutSlint as AboutSixtyFPS }
+
+export CheckBox := Rectangle {
+    callback toggled;
+    property <string> text <=> text.text;
+    property <bool> checked;
+    property <bool> has-focus;
+    property<bool> enabled: true;
+    min-height: 20px;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+
+    accessible-label <=> text.text;
+    accessible-checkable: true;
+    accessible-checked <=> checked;
+    accessible-role: checkbox;
+
+    HorizontalLayout {
+        spacing: 8px;
+
+        VerticalLayout {
+            alignment: center;
+            Rectangle {
+                border-width: 1px;
+                border-radius: 2px;
+                /* border-color: !enabled ? Palette.neutralLighter : Palette.neutralSecondaryAlt;
+                background: !enabled ? Palette.white
+                    : touch.pressed ? Palette.neutralLight
+                    : touch.has-hover ? Palette.neutralLighter
+                    : Palette.themePrimary;*/
+
+                border-color: checked ? background : !enabled ? Palette.neutralTertiaryAlt : Palette.neutralSecondaryAlt;
+                background: !checked ? Palette.white
+                            : !enabled ? Palette.neutralTertiaryAlt
+                            : touch.has-hover || touch.pressed ? Palette.themeDark
+                            : Palette.themePrimary;
+                animate background { duration: 250ms; easing: ease; }
+
+                //width: height;
+                vertical-stretch: 0;
+                width: 20px;
+                height: 20px;
+
+                if (checked || touch.has-hover || touch.pressed) : Path {
+                    width: 66%;
+                    height: 66%;
+                    x: (parent.width - width) / 2;
+                    y: (parent.height - height) / 2;
+                    commands: "M.22.5.42.7.78.34.74.3.42.62.26.54z";
+                    fill: checked ? Palette.white : Palette.neutralSecondaryAlt;
+                }
+            }
+        }
+
+        text := Text {
+            color: !enabled ? Palette.neutralTertiary : Palette.neutralDark;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            vertical-stretch: 1;
+        }
+
+    }
+
+    touch := TouchArea {
+        enabled <=> root.enabled;
+        clicked => {
+            if (root.enabled) {
+                root.checked = !root.checked;
+                root.toggled();
+            }
+        }
+    }
+
+    fs := FocusScope {
+        width: 0px; // Do not react on clicks
+        enabled <=> root.enabled;
+        has_focus <=> root.has-focus;
+
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                 touch.clicked();
+                 return accept;
+            }
+            return reject;
+        }
+    }
+
+    Rectangle { // Focus rectangle
+        x: -3px;
+        y: x;
+        width: parent.width - 2*x;
+        height: parent.height - 2*y;
+        border-width: enabled && has-focus ? 1px : 0px;
+        border-color: Palette.black;
+    }
+}
+
+SpinBoxButton := Rectangle {
+    callback clicked <=> touch.clicked;
+    property<string> text; // text and font-size are not used, but present in the other styles
+    property <length> font-size;
+    property<bool> enabled <=> touch.enabled;
+    background: !enabled ? transparent
+        : touch.pressed ? Palette.neutralLight
+        : touch.has-hover ? Palette.neutralLighter
+        : Palette.white;
+
+    property <color> symbol-color: !enabled ? Palette.neutralTertiary
+        : touch.pressed || touch.has-hover ? Palette.neutralPrimary
+        : Palette.neutralSecondary;
+    touch := TouchArea { }
+}
+
+export SpinBox := FocusScope {
+    property <bool> checked;
+    property <int> value;
+    property <int> minimum;
+    property <int> maximum: 100;
+    property <image> icon;
+    property <length> font-size <=> button.font-size;
+
+    min-height: max(32px, l.min-height);
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+
+    accessible-role: spinbox;
+    accessible-value: value;
+    accessible-value-minimum: minimum;
+    accessible-value-maximum: maximum;
+    accessible-value-step: (maximum - minimum) / 100;
+
+    Rectangle {
+        background: !enabled ? Palette.neutralLighter : Palette.white;
+    }
+
+    l := GridLayout {
+        padding-left: 8px;
+        padding-top: 3px;
+        padding-bottom: 3px;
+        text := Text {
+            rowspan: 2;
+            text: value;
+            color: !enabled ? Palette.neutralTertiary : Palette.neutralDark;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+        }
+        Rectangle { width: 8px; }
+        button := SpinBoxButton {
+            width: 25px;
+            enabled: root.enabled;
+            Path {
+                commands: "M978.2,688.9l-84.2,82.1c-15.7,15.3-41.1,15.3-56.7,0l-341-304.2L162.6,764.5c-15.5,15.1-41,15.1-56.6,0l-84.3-82.1c-15.6-15.2-15.6-39.9,0-55.2l446.6-398.2c15.7-15.3,41-15.3,56.7,0l6.9,6.7l446.3,398.1C993.9,649,993.9,673.7,978.2,688.9z";
+                fill: parent.symbol-color;
+                height: 33%;
+                x: (parent.width - width) / 2;
+                y: (parent.height - height) / 2;
+            }
+            clicked => {
+                if (root.value < root.maximum) {
+                    root.value += 1;
+                }
+            }
+        }
+        SpinBoxButton {
+            row: 1; col: 2;
+            enabled: root.enabled;
+            Path {
+                commands: "M21.8,311.1l84.2-82.1c15.7-15.2,41-15.2,56.7,0l341.1,304.1l333.7-297.5c15.5-15.2,41-15.2,56.6,0l84.3,82.1c15.6,15.2,15.6,40,0,55.2L531.7,771c-15.7,15.3-41,15.3-56.7,0l-6.9-6.7L21.8,366.3C6.1,351,6.1,326.3,21.8,311.1z";
+                fill: parent.symbol-color;
+                height: 33%;
+                x: (parent.width - width) / 2;
+                y: (parent.height - height) / 2;
+            }
+            clicked => {
+                if (root.value > root.minimum) {
+                    root.value -= 1;
+                }
+            }
+        }
+
+    }
+
+    Rectangle {
+        x: enabled && has-focus ? -2px : 0px;
+        y: x;
+        width: parent.width - 2*x;
+        height: parent.height - 2*y;
+        border-radius: 2px;
+        border-width: !enabled ? 0px : has-focus ? 3px : 1px;
+        border-color: !enabled ? Palette.neutralLighter
+            : has-focus ? Palette.themeSecondary
+            : Palette.neutralDark;
+    }
+
+    key-pressed(event) => {
+        if (enabled && event.text == Keys.UpArrow && value < maximum) {
+            value += 1;
+            accept
+        } else if (enabled && event.text == Keys.DownArrow && value > minimum) {
+            value -= 1;
+            accept
+        } else {
+            reject
+        }
+    }
+}
+
+export Slider := Rectangle {
+    property<float> maximum: 100;
+    property<float> minimum: 0;
+    property<float> value;
+    property<bool> has-focus <=> fs.has-focus;
+    property<bool> enabled <=> touch.enabled;
+    callback changed(float);
+
+    min-height: 24px;
+    min-width: 100px;
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+
+    accessible-role: slider;
+    accessible-value: value;
+    accessible-value-minimum: minimum;
+    accessible-value-maximum: maximum;
+    accessible-value-step: (maximum - minimum) / 100;
+
+
+    Rectangle {
+        width: parent.width - parent.min-height;
+        x: parent.height / 2;
+        height: parent.min-height / 4;
+        y: (parent.height - height) / 2;
+        border-radius: height/2;
+        background: !root.enabled ? Palette.neutralLighter
+            : touch.has-hover ? Palette.themeLight
+            : Palette.neutralTertiaryAlt;
+    }
+
+    Rectangle {
+        width: (parent.width - parent.min-height) * ((value - minimum) / (maximum - minimum));
+        x: parent.height / 2;
+        height: parent.min-height / 4;
+        y: (parent.height - height) / 2;
+        border-radius: height/2;
+        background: !root.enabled ? Palette.neutralTertiary
+            : touch.has-hover ? Palette.themeSecondary
+            : Palette.neutralSecondary;
+    }
+
+    handle := Rectangle {
+        property<length> border: 3px;
+        width: height;
+        height: parent.height - 2 * border;
+        border-width: 3px;
+        border-radius: height / 2;
+        border-color: !root.enabled ? Palette.neutralTertiaryAlt
+            : touch.has-hover ? Palette.themePrimary
+            : Palette.neutralSecondary;
+        background: Palette.white;
+        x: (root.width - handle.width) * (value - minimum)/(maximum - minimum);
+        y: border;
+    }
+    touch := TouchArea {
+        width: parent.width;
+        height: parent.height;
+        property <float> pressed-value;
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                pressed-value = root.value;
+            }
+        }
+        moved => {
+            if (enabled && pressed) {
+                value = max(root.minimum, min(root.maximum,
+                    pressed-value + (touch.mouse-x - touch.pressed-x) * (maximum - minimum) / (root.width - handle.width)));
+                root.changed(value);
+            }
+        }
+    }
+
+    fs := FocusScope {
+        width: 0px;
+
+        key-pressed(event) => {
+            if (enabled && event.text == Keys.RightArrow) {
+                value = Math.min(value + 1, maximum);
+                accept
+            } else if (enabled && event.text == Keys.LeftArrow) {
+                value = Math.max(value - 1, minimum);
+                accept
+            } else {
+                reject
+            }
+        }
+    }
+
+    Rectangle { // Focus rectangle
+        border-width: enabled && has-focus ? 1px : 0px;
+        border-color: Palette.black;
+    }
+}
+
+
+
+export GroupBox := VerticalLayout {
+    property <string> title <=> label.text;
+    property<bool> enabled: true;
+    spacing: 8px;
+    padding-top: 16px;
+    padding-bottom: 8px;
+    label := Text {
+        vertical-stretch: 0;
+        color: !enabled ? Palette.neutralTertiary : Palette.neutralDark;
+        font-weight: 600;
+    }
+    Rectangle {
+        vertical-stretch: 1;
+        GridLayout {
+            @children
+        }
+    }
+}
+
+export TabWidgetImpl := Rectangle {
+    property <length> content-x: 0;
+    property <length> content-y: tabbar-preferred-height;
+    property <length> content-height: height - tabbar-preferred-height;
+    property <length> content-width: width;
+    property <length> tabbar-x: 0;
+    property <length> tabbar-y: 0;
+    property <length> tabbar-height: tabbar-preferred-height;
+    property <length> tabbar-width: width;
+
+    property <length> tabbar-preferred-height;
+    property <length> tabbar-preferred-width;
+    property <length> content-min-height;
+    property <length> content-min-width;
+    property <int> current-index;
+    property <int> current-focused;
+
+    preferred-width: content-min-width;
+    min-width: max(content-min-width, tabbar-preferred-width);
+    preferred-height: content-min-height + tabbar-preferred-height;
+    min-height: content-min-height + tabbar-preferred-height;
+}
+
+export TabImpl := Rectangle {
+    property<string> title <=> t.text;
+    //property<image> icon;
+    property<bool> enabled: true;
+    property<bool> has-focus: current-focused == tab-index;
+    property<bool> pressed;
+    property<int> current; // The currently selected tab
+    property<int> current-focused; // The currently focused tab
+    property<int> tab-index; // The index of this tab
+    property<int> num-tabs; // The total number of tabs
+
+    min-height: t.preferred-height + 16px;
+    preferred-width: t.preferred-width + 16px;
+
+    background: !enabled ? Palette.neutralLighter
+        : touch.pressed ? Palette.neutralLight
+        : touch.has-hover ? Palette.neutralLighter
+        : Palette.white;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+
+    accessible-role: tab;
+    accessible-label <=> title;
+
+    touch := TouchArea {
+        enabled <=> root.enabled;
+        clicked => {
+            current = tab-index;
+        }
+    }
+    t := Text {
+        width: parent.width;
+        height: parent.height;
+        vertical-alignment: center;
+        horizontal-alignment: center;
+        color: !enabled ? Palette.neutralTertiary : Palette.neutralPrimary;
+        font-weight: root.current == root.tab-index ? 600 : 500;
+    }
+
+    Rectangle {
+        height: 3px;
+        width: touch.has-hover && root.current == root.tab-index ? parent.width : parent.width - 16px;
+        animate width { duration: 250ms; easing: ease-out; }
+        background: root.current == root.tab-index ? Palette.themeSecondary : transparent;
+        y: parent.height - height;
+        x: (parent.width - width) / 2;
+    }
+
+    Rectangle { // Focus Rectangle
+        border-width: enabled && has-focus ? 1px : 0px;
+        border-color: Palette.black;
+    }
+}
+
+export TabBarImpl := Rectangle {
+    // injected properties:
+    property<int> current; // The currently selected tab
+    property<int> current-focused: fs.has-focus ? fs.focused-tab : -1; // The currently focused tab
+    property<int> num-tabs; // The total number of tabs
+
+    HorizontalLayout {
+        spacing: 8px;
+        alignment: start;
+        @children
+    }
+
+    accessible-role: tab;
+    accessible-delegate-focus: current-focused >= 0 ? current-focused : current;
+
+    fs := FocusScope {
+        width: 0px; // Do not react on clicks
+        property<int> focused-tab: 0;
+
+        key-pressed(event) => {
+            if (event.text == "\n") {
+                 current = current-focused;
+                 return accept;
+            }
+            if (event.text == Keys.LeftArrow) {
+                 focused-tab = Math.max(focused-tab - 1,  0);
+                 return accept;
+            }
+            if (event.text == Keys.RightArrow) {
+                 focused-tab = Math.min(focused-tab + 1, num-tabs - 1);
+                 return accept;
+            }
+            return reject;
+        }
+
+        key-released(event) => {
+            if (event.text == " ") {
+                 current = current-focused;
+                 return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+export TabWidget := TabWidget {}
+
+export LineEdit := Rectangle {
+    property <length> font-size <=> inner.font-size;
+    property <string> text <=> inner.text;
+    property <string> placeholder-text <=> inner.placeholder-text;
+    property <bool> has-focus: inner.has-focus;
+    property <bool> enabled <=> inner.enabled;
+    property input-type <=> inner.input-type;
+    property horizontal-alignment <=> inner.horizontal-alignment;
+    property read-only <=> inner.read-only;
+    callback accepted <=> inner.accepted;
+    callback edited <=> inner.edited;
+    forward-focus: inner;
+  //  border-color: root.has-focus ? Palette.highlight-background : #ffffff;
+
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    min-height: max(32px, l.min-height);
+
+    background: !enabled ? Palette.neutralLighter : Palette.white;
+    border-radius: 2px;
+    border-width: !enabled ? 0px : has-focus ? 2px : 1px;
+    border-color: !enabled ? Palette.neutralLighter
+        : has-focus ? Palette.themeSecondary
+        : Palette.neutralPrimary;
+
+    l := HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        padding-top: 3px;
+        padding-bottom: 3px;
+        inner := LineEditInner {
+            placeholder-color: !enabled ? Palette.neutralTertiary : Palette.neutralSecondary;
+        }
+    }
+}
+
+export ListView := ScrollView {
+    @children
+}
+
+export StandardListView := ListView {
+    property<[StandardListViewItem]> model;
+    property<int> current-item: -1;
+    for item[idx] in model : Rectangle {
+        l := HorizontalLayout {
+            padding: 8px;
+            spacing: 0px;
+            t := Text {
+                text: item.text;
+                color: Palette.neutralPrimary;
+            }
+        }
+        background: idx == root.current-item ? Palette.neutralLighter
+                    : touch.has-hover ? Palette.neutralLighterAlt : transparent;
+        touch := TouchArea {
+            width: parent.width;
+            height: parent.height;
+            clicked => { current-item = idx; }
+        }
+    }
+    FocusScope {
+        key-pressed(event) => {
+            if (event.text == Keys.UpArrow && current-item > 0) {
+                current-item -= 1;
+                return accept;
+            } else if (event.text == Keys.DownArrow && current-item + 1 < model.length) {
+                current-item += 1;
+                return accept;
+            }
+            reject
+        }
+    }
+}
+
+export ComboBox := FocusScope {
+    property <[string]> model;
+    property <int> current-index : 0;
+    property <string> current-value: model[current-index];
+    //property <bool> is-open: false;
+    callback selected(string);
+
+    accessible-role: combobox;
+    accessible-value <=> current-value;
+
+    key-pressed(event) => {
+        if (event.text == Keys.UpArrow) {
+            current-index = Math.max(current-index - 1, 0);
+            current-value = model[current-index];
+            return accept;
+        } else if (event.text == Keys.DownArrow) {
+            current-index = Math.min(current-index + 1, model.length - 1);
+            current-value = model[current-index];
+            return accept;
+        // PopupWindow can not get hidden again at this time, so do not allow to pop that up.
+        // } else if (event.text == Keys.Return) {
+        //     touch.clicked()
+        //     return accept;
+        }
+        return reject;
+    }
+
+    Rectangle {
+        background: !enabled ? Palette.neutralLighter : Palette.white;
+        border-radius: 2px;
+        border-width: !enabled ? 0px : has-focus ? 3px : 1px;
+        border-color: !enabled ? Palette.neutralLighter
+            : has-focus ? Palette.themeSecondary
+            : Palette.neutralPrimary;
+    }
+
+
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    min-width: 170px;
+    min-height: max(32px, l.min-height);
+
+    l := HorizontalLayout {
+        padding-left: 8px;
+        padding-right: 8px;
+        padding-bottom: 3px;
+        padding-top: 3px;
+        spacing: 8px;
+        t := Text {
+            text <=> root.current-value;
+            horizontal-alignment: left;
+            vertical-alignment: center;
+            horizontal-stretch: 1;
+            color: !enabled ? Palette.neutralTertiary
+                : root.has-focus || touch.has-hover ? Palette.neutralPrimary
+                : Palette.neutralSecondary;
+            min-width: 0;
+        }
+        Rectangle {
+            width: 25px;
+            Path {
+                x: (parent.width - width) / 2;
+                y: (parent.height - height) / 2;
+                height: 8px;
+                width: 25px;
+                commands: "M.22.4.5.64.78.4.74.36.5.6.26.36z";
+                fill: t.color;
+            }
+        }
+
+    }
+
+    touch := TouchArea {
+        enabled <=> root.enabled;
+        clicked => {
+            root.focus();
+            popup.show();
+        }
+    }
+
+    popup := PopupWindow {
+        y: root.height;
+        width: root.width;
+        Rectangle {
+            border-color: Palette.neutralLighter;
+            border-width: 1px;
+            /*drop-shadow-color: Palette.neutralTertiary;
+            drop-shadow-blur: 5px;*/
+            background: Palette.white;
+        }
+        VerticalLayout {
+            for value[idx] in root.model: Rectangle {
+                background: idx == root.current-index ? Palette.neutralLighter
+                    : item-area.has-hover ? Palette.neutralLighterAlt : transparent;
+                VerticalLayout {
+                    padding: 10px;
+                    Text {
+                        text: value;
+                    }
+                }
+                item-area := TouchArea {
+                    width: 100%;
+                    height: 100%;
+                    clicked => {
+                        if (root.enabled) {
+                            root.current-index = idx;
+                            root.current-value = value;
+                            root.selected(root.current-value);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export VerticalBox := VerticalLayout {
+    spacing: StyleMetrics.layout-spacing;
+    padding: StyleMetrics.layout-padding;
+}
+export HorizontalBox := HorizontalLayout {
+    spacing: StyleMetrics.layout-spacing;
+    padding: StyleMetrics.layout-padding;
+}
+export GridBox := GridLayout {
+    spacing: StyleMetrics.layout-spacing;
+    padding: StyleMetrics.layout-padding;
+}
