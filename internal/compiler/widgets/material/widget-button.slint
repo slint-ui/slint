@@ -1,51 +1,58 @@
-import { Palette } from "theme-palette.slint";
+import { md } from "md.slint";
 
 // Default button widget with Material Design Elevated Button look and feel.
 export Button := TouchArea {
     callback clicked;
-    property<string> text <=> text.text;
+    property<string> text <=> label.text;
     property<bool> has-focus <=> fs.has-focus;
     property<bool> checkable;
     property<bool> checked;
     property<image> icon;
-    property<length> font-size: 14pt;
+    property<length> font-size <=> label.font-size;
 
-    accessible-label <=> text.text;
+    accessible-label <=> label.text;
     accessible-role: button;
 
     height: 40pt;
-    min-width: 40pt;
    
-    rect := Rectangle {  
+    surface := Rectangle {  
         width: 100%;
         height: 100%;
 
         border-radius: 20pt;
-        background: Palette.md-surface;
-        drop-shadow-color: Palette.md-shadow;
-        drop-shadow-blur: 1pt;
-        drop-shadow-offset-y: 1pt;
-    }
-
-    HorizontalLayout {  
-        padding-left: 24pt;
-        padding-right: 24pt;
-        spacing: 8pt;
-        text := Text {
-            color: Palette.md-primary;
-            vertical-alignment: center;
-           
-            font-size <=> root.font-size;
-        }
+        background: md.sys.color.surface;
+        drop-shadow-color: md.sys.color.shadow;
+        drop-shadow-blur: md.sys.elevation.level1;
+        drop-shadow-offset-y: md.sys.elevation.level1;
     }
 
     state-layer := Rectangle {  
         opacity: 0;
         width: 100%;
         height: 100%;
-        border-radius: rect.border-radius;
-        background: Palette.md-primary;
+        border-radius: surface.border-radius;
+        background: md.sys.color.primary;
      }
+
+    HorizontalLayout {  
+        padding-left: 24pt;
+        padding-right: 24pt;
+        spacing: 8pt;
+
+        if (icon.width > 0 && icon.height > 0): Image {
+            source <=> icon;
+            width: 24px;
+            opacity: label.opacity;
+        }
+
+        label := Text {
+            color: md.sys.color.primary;
+            vertical-alignment: center;
+            horizontal-alignment: center;
+            font-size: md.sys.label-large.size;
+            font-weight: md.sys.label-large.weight;
+        }
+    }
 
     touch := TouchArea {
         clicked => {
@@ -70,16 +77,18 @@ export Button := TouchArea {
 
     states [
         disabled when !root.enabled : {
-            rect.drop-shadow-blur: 0pt;
-            rect.opacity: 0.12;
-            text.opacity: 0.38;
+            surface.drop-shadow-blur: md.sys.elevation.level0;
+            surface.opacity: 0.12;
+            surface.background: md.sys.color.on-surface;
+            label.opacity: 0.38;
+            label.color: md.sys.color.on-surface;
         }
         pressed when touch.pressed : {
             state-layer.opacity: 0.08;
         }
         hover when touch.has-hover : {
-            state-layer.opacity: 0.08;
-            rect.drop-shadow-blur: 2pt;
+            surface.drop-shadow-blur: md.sys.elevation.level2;
+            state-layer.opacity: 0.08;    
         }
         focused when fs.has-focus : {
             state-layer.opacity: 0.12;

@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 
+import { md } from "md.slint";
 import { Palette } from "theme-palette.slint";
 
 
@@ -18,5 +19,5 @@ export global StyleMetrics := {
     property<color> textedit-text-color-disabled: Palette.neutralTertiary;
     property<bool> dark-color-scheme: Palette.dark-color-scheme;
 
-    property<brush> window-background: Palette.md-background;
+    property<brush> window-background: md.sys.color.background;
 }
