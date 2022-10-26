@@ -1,157 +1,16 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-export global Palette := {
-    property<bool> dark-color-scheme: SlintInternal.dark-color-scheme();
 
-    // The colors in light mode are default palette. In the
-    // Fluent UI Theme Designer they match the colors produced
-    // with Primary Color = #0078d4, Text Color = #201f1e and Background Color = #ffffff
-    // The dark mode colors are produced in the Fluent UI Theme Designer by swapping
-    // Text Color and Background Color from light mode, applying the variations below
-    // and darkening the "white" and brightening the "neutralLight" variants for improved
-    // contrast (esp. on buttons).
+// theme imports
+import { Palette } from "theme-palette.slint";
+import { StyleMetrics } from "theme-style-metrics.slint";
 
-    property<color> themeDarker: #004578;
-    property<color> themeDark: #005a9e;
-    property<color> themeDarkAlt: #106ebe;
-    property<color> themePrimary: #0078d4;
-    property<color> themeSecondary: #2b88d8;
-    property<color> themeTertiary: #71afe5;
-    property<color> themeLight: #c7e0f4;
-    property<color> themeLighter: #deecf9;
-    property<color> themeLighterAlt: #eff6fc;
-    property<color> black: !dark-color-scheme ? #000000 : #f8f8f8;
-    property<color> blackTranslucent40: rgba(0,0,0,0.4);
-    property<color> neutralDark: !dark-color-scheme ? #201f1e : #f4f4f4;
-    property<color> neutralPrimary: !dark-color-scheme ? #323130 : #ffffff;
-    property<color> neutralPrimaryAlt: !dark-color-scheme ? #3b3a39 : #dadada;
-    property<color> neutralSecondary: !dark-color-scheme ? #605e5c : #d0d0d0;
-    property<color> neutralSecondaryAlt: #8a8886;
-    property<color> neutralTertiary: !dark-color-scheme ? #a19f9d : #c8c8c8;
-    property<color> neutralTertiaryAlt: !dark-color-scheme ? #c8c6c4 : #6d6d6d;
-    property<color> neutralQuaternary: #d2d0ce;
-    property<color> neutralQuaternaryAlt: !dark-color-scheme ? #e1dfdd : #484848;
-    property<color> neutralLight: !dark-color-scheme ? #edebe9 : #3f3f3f;
-    property<color> neutralLighter: !dark-color-scheme ? #f3f2f1 : #313131;
-    property<color> neutralLighterAlt: !dark-color-scheme ? #faf9f8 : #282828;
-    property<color> accent: #0078d4;
-    property<color> white: !dark-color-scheme ? #ffffff : green;
-    property<color> whiteTranslucent40: rgba(255,255,255,0.4);
-    property<color> yellowDark: #d29200;
-    property<color> yellow: #ffb900;
-    property<color> yellowLight: #fff100;
-    property<color> orange: #d83b01;
-    property<color> orangeLight: #ea4300;
-    property<color> orangeLighter: #ff8c00;
-    property<color> redDark: #a4262c;
-    property<color> red: #e81123;
-    property<color> magentaDark: #5c005c;
-    property<color> magenta: #b4009e;
-    property<color> magentaLight: #e3008c;
-    property<color> purpleDark: #32145a;
-    property<color> purple: #5c2d91;
-    property<color> purpleLight: #b4a0ff;
-    property<color> blueDark: #002050;
-    property<color> blueMid: #00188f;
-    property<color> blue: #0078d4;
-    property<color> blueLight: #00bcf2;
-    property<color> tealDark: #004b50;
-    property<color> teal: #008272;
-    property<color> tealLight: #00b294;
-    property<color> greenDark: #004b1c;
-    property<color> green: #107c10;
-    property<color> greenLight: #bad80a;
-}
+// widget imports
+import { Button } from "widget-button.slint";
 
+export { Button, Palette, StyleMetrics }
 
-export global StyleMetrics := {
-    property<length> layout-spacing: 8px;
-    property<length> layout-padding: 8px;
-    property<length> text-cursor-width: 2px;
-    property<brush> window-background: Palette.white;
-    property<color> default-text-color: Palette.neutralDark;
-    property<brush> textedit-background: Palette.white;
-    property<color> textedit-text-color: Palette.neutralPrimary;
-    property<brush> textedit-background-disabled: Palette.neutralLighter;
-    property<color> textedit-text-color-disabled: Palette.neutralTertiary;
-    property<bool> dark-color-scheme: Palette.dark-color-scheme;
-}
-
-export Button := Rectangle {
-    callback clicked;
-    property<string> text <=> text.text;
-    property<bool> has-focus <=> fs.has-focus;
-    property<bool> pressed: self.enabled && touch.pressed;
-    property<bool> enabled <=> touch.enabled;
-    property<bool> checkable;
-    property<bool> checked;
-    property<image> icon;
-    property<length> font-size <=> text.font-size;
-
-    accessible-role: button;
-    accessible-label <=> text.text;
-
-    border-width: 1px;
-    border-radius: 2px;
-    border-color: !enabled ? Palette.neutralLighter : Palette.neutralSecondaryAlt;
-    background: !enabled ? Palette.neutralLighter
-        : (touch.pressed || checked) ? Palette.neutralLight
-        : touch.has-hover ? Palette.neutralLighter
-        : Palette.white;
-    horizontal-stretch: 0;
-    vertical-stretch: 0;
-    min-height: max(32px, l.min-height);
-    l := HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 16px;
-        spacing: 8px;
-        padding-top: 3px;
-        padding-bottom: 3px;
-
-        if (icon.width > 0 && icon.height > 0): Image {
-            source <=> icon;
-            width: 24px;
-        }
-
-        text := Text {
-            color: !enabled ? Palette.neutralTertiary : Palette.neutralDark;
-            horizontal-alignment: center;
-            vertical-alignment: center;
-            font-weight: 600;
-        }
-    }
-
-    touch := TouchArea {
-        clicked => {
-            if (root.checkable) {
-                root.checked = !root.checked;
-            }
-            root.clicked();
-        }
-    }
-
-    fs := FocusScope {
-        width: 0px; // Do not react on clicks
-        enabled <=> root.enabled;
-        key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
-                 touch.clicked();
-                 return accept;
-            }
-            return reject;
-        }
-    }
-
-    Rectangle { // Focus rectangle
-        x: 3px;
-        y: x;
-        width: parent.width - 2*x;
-        height: parent.height - 2*y;
-        border-width: enabled && has-focus? 1px : 0px;
-        border-color: Palette.black;
-    }
-}
 
 ScrollBar := Rectangle {
     background: Palette.white;
