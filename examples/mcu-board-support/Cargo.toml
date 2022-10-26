@@ -38,7 +38,8 @@ cortex-m = { version = "0.7.2", optional = true }
 display-interface = { version = "0.4.1", optional = true }
 embedded-hal = { version = "0.2.5", optional = true }
 embedded-dma = { version = "0.1.2", optional = true }
-rp-pico = { version = "0.5.0", optional = true }
+# Use a git branch that has DMA support
+rp-pico = { version = "0.5.0", optional = true, git="https://github.com/slint-ui/rp-hal/", branch = "dma-0.6" }
 fugit = { version = "0.3.6", optional = true }
 shared-bus = { version = "0.2", optional = true }
 st7789 = { version = "0.7.0", optional = true }

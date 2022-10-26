@@ -84,6 +84,3 @@ panic = "abort"
 
 [profile.dev]
 panic = "abort"
-
-[patch.crates-io]
-rp2040-hal = { git="https://github.com/slint-ui/rp-hal/", branch = "dma-0.6" }
