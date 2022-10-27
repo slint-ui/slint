@@ -214,7 +214,6 @@ pub fn handle_notification(
             show_preview_command(
                 req.params.as_array().map_or(&[], |x| x.as_slice()),
                 &ServerNotifier(connection.sender.clone()),
-                document_cache,
             )?;
         }
         _ => (),

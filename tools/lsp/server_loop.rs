@@ -205,7 +205,8 @@ pub fn handle_request(
     })? {
     } else if req.handle_request::<ExecuteCommand, _>(|params| {
         if params.command.as_str() == SHOW_PREVIEW_COMMAND {
-            show_preview_command(&params.arguments, &req.server_notifier(), document_cache)?;
+            #[cfg(feature = "preview")]
+            show_preview_command(&params.arguments, &req.server_notifier())?;
             return Ok(None::<serde_json::Value>);
         } else if params.command.as_str() == QUERY_PROPERTIES_COMMAND {
             return Ok(Some(query_properties_command(
@@ -256,28 +257,25 @@ pub fn handle_request(
     Ok(())
 }
 
+#[cfg(feature = "preview")]
 pub fn show_preview_command(
     params: &[serde_json::Value],
     connection: &crate::ServerNotifier,
-    _document_cache: &DocumentCache,
 ) -> Result<(), Error> {
-    #[cfg(feature = "preview")]
-    {
-        use crate::preview;
-        let e = || -> Error { "InvalidParameter".into() };
-        let path = if let serde_json::Value::String(s) = params.get(0).ok_or_else(e)? {
-            std::path::PathBuf::from(s)
-        } else {
-            return Err(e());
-        };
-        let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
-        let component = params.get(1).and_then(|v| v.as_str()).map(|v| v.to_string());
-        preview::load_preview(
-            connection.clone(),
-            preview::PreviewComponent { path: path_canon, component },
-            preview::PostLoadBehavior::ShowAfterLoad,
-        );
-    }
+    use crate::preview;
+    let e = || -> Error { "InvalidParameter".into() };
+    let path = if let serde_json::Value::String(s) = params.get(0).ok_or_else(e)? {
+        std::path::PathBuf::from(s)
+    } else {
+        return Err(e());
+    };
+    let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
+    let component = params.get(1).and_then(|v| v.as_str()).map(|v| v.to_string());
+    preview::load_preview(
+        connection.clone(),
+        preview::PreviewComponent { path: path_canon, component },
+        preview::PostLoadBehavior::ShowAfterLoad,
+    );
     Ok(())
 }
 
