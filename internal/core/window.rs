@@ -146,6 +146,11 @@ pub trait WindowAdapterSealed {
 
     /// Return the renderer
     fn renderer(&self) -> &dyn Renderer;
+
+    /// Get the visibility of the window
+    fn is_visible(&self) -> bool {
+        false
+    }
 }
 
 struct WindowPropertiesTracker {

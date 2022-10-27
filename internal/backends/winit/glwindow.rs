@@ -662,6 +662,17 @@ impl<Renderer: WinitCompatibleRenderer + 'static> WindowAdapterSealed for GLWind
     fn dark_color_scheme(&self) -> bool {
         dark_light::detect() == dark_light::Mode::Dark
     }
+
+    fn is_visible(&self) -> bool {
+        if let Some(mapped_window) = self.borrow_mapped_window() {
+            mapped_window
+                .canvas
+                .with_window_handle(&mut |win: &winit::window::Window| win.is_visible())
+                .unwrap_or(true)
+        } else {
+            false
+        }
+    }
 }
 
 impl<Renderer: WinitCompatibleRenderer + 'static> Drop for GLWindow<Renderer> {

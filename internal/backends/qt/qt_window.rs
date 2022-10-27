@@ -1755,6 +1755,13 @@ impl WindowAdapterSealed for QtWindow {
         });
         ds.as_ref().get()
     }
+
+    fn is_visible(&self) -> bool {
+        let widget_ptr = self.widget_ptr();
+        cpp! {unsafe [widget_ptr as "QWidget*"] -> bool as "bool" {
+            return widget_ptr->isVisible();
+        }}
+    }
 }
 
 impl Renderer for QtWindow {
