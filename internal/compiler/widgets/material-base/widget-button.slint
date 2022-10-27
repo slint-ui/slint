@@ -1,6 +1,6 @@
 import { md } from "md.slint";
 
-// Default button widget with Material Design Elevated Button look and feel.
+// Default button widget with Material Design Outline Button look and feel.
 export Button := Rectangle {
     callback clicked;
 
@@ -22,13 +22,11 @@ export Button := Rectangle {
         width: 100%;
         height: 100%;
         border-radius: 20pt;
-        background: md.sys.color.surface;
-        drop-shadow-color: md.sys.color.shadow;
-        drop-shadow-blur: md.sys.elevation.level1;
-        drop-shadow-offset-y: 1pt;
-
-        animate drop-shadow-blur { duration: 250ms; easing: ease; }
+        border-color: md.sys.color.outline;
+        border-width: 1pt;
+    
         animate background { duration: 250ms; easing: ease; }
+        animate border-color { duration: 250ms; easing: ease; }
     }
 
     state-layer := Rectangle {  
@@ -83,20 +81,21 @@ export Button := Rectangle {
 
     states [
         disabled when !root.enabled : {
-            container.drop-shadow-blur: md.sys.elevation.level0;
+            container.border-color: md.sys.color.on-surface;
             container.opacity: 0.12;
-            container.background: md.sys.color.on-surface;
             label.opacity: 0.38;
             label.color: md.sys.color.on-surface;
         }
         pressed when touch.pressed : {
             state-layer.opacity: 0.12;
+            label.color: md.sys.color.primary;
         }
         hover when touch.has-hover : {
-            container.drop-shadow-blur: md.sys.elevation.level2;
             state-layer.opacity: 0.08;    
         }
         focused when fs.has-focus : {
+            container.border-color: md.sys.color.primary;
+            label.color: md.sys.color.primary;
             state-layer.opacity: 0.12;
         }
     ]

@@ -12,9 +12,10 @@ import { GroupBox } from "widget-groupbox.slint";
 import { VerticalBox, HorizontalBox, GridBox } from "layouts.slint";
 import { Slider } from "widget-slider.slint";
 import { ComboBox } from "widget-combobox.slint";
+import { ListView, StandardListView } from "widget-listview.slint";
 
 export { StyleMetrics, ScrollView, Button, ComboBox, CheckBox, GroupBox, StandardButton, TextEdit, TabWidgetImpl, TabImpl, TabBarImpl, TabWidget,
-    LineEdit, AboutSlint, AboutSlint as AboutSixtyFPS, VerticalBox, HorizontalBox, GridBox, Slider }
+    LineEdit, AboutSlint, AboutSlint as AboutSixtyFPS, VerticalBox, HorizontalBox, GridBox, Slider, ListView, StandardListView }
 
 SpinBoxButton := Rectangle {
     callback clicked <=> touch.clicked;
@@ -121,45 +122,6 @@ export SpinBox := FocusScope {
             value -= 1;
             accept
         } else {
-            reject
-        }
-    }
-}
-
-
-export ListView := ScrollView {
-    @children
-}
-
-export StandardListView := ListView {
-    property<[StandardListViewItem]> model;
-    property<int> current-item: -1;
-    for item[idx] in model : Rectangle {
-        l := HorizontalLayout {
-            padding: 8px;
-            spacing: 0px;
-            t := Text {
-                text: item.text;
-                color: Palette.neutralPrimary;
-            }
-        }
-        background: idx == root.current-item ? Palette.neutralLighter
-                    : touch.has-hover ? Palette.neutralLighterAlt : transparent;
-        touch := TouchArea {
-            width: parent.width;
-            height: parent.height;
-            clicked => { current-item = idx; }
-        }
-    }
-    FocusScope {
-        key-pressed(event) => {
-            if (event.text == Keys.UpArrow && current-item > 0) {
-                current-item -= 1;
-                return accept;
-            } else if (event.text == Keys.DownArrow && current-item + 1 < model.length) {
-                current-item += 1;
-                return accept;
-            }
             reject
         }
     }
