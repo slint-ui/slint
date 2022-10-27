@@ -9,9 +9,11 @@ import { StyleMetrics, ScrollView, Button, CheckBox, Palette  } from "std-widget
 import { LineEdit } from "widget-lineedit.slint";
 import { TabWidgetImpl, TabImpl, TabBarImpl, TabWidget } from "widget-tabwidget.slint";
 import { GroupBox } from "widget-groupbox.slint";
+import { VerticalBox, HorizontalBox, GridBox } from "layouts.slint";
+import { Slider } from "widget-slider.slint";
 
 export { StyleMetrics, ScrollView, Button, CheckBox, GroupBox, StandardButton, TextEdit, TabWidgetImpl, TabImpl, TabBarImpl, TabWidget,
-    LineEdit, AboutSlint, AboutSlint as AboutSixtyFPS }
+    LineEdit, AboutSlint, AboutSlint as AboutSixtyFPS, VerticalBox, HorizontalBox, GridBox, Slider }
 
 SpinBoxButton := Rectangle {
     callback clicked <=> touch.clicked;
@@ -123,100 +125,6 @@ export SpinBox := FocusScope {
     }
 }
 
-export Slider := Rectangle {
-    property<float> maximum: 100;
-    property<float> minimum: 0;
-    property<float> value;
-    property<bool> has-focus <=> fs.has-focus;
-    property<bool> enabled <=> touch.enabled;
-    callback changed(float);
-
-    min-height: 24px;
-    min-width: 100px;
-    horizontal-stretch: 1;
-    vertical-stretch: 0;
-
-    accessible-role: slider;
-    accessible-value: value;
-    accessible-value-minimum: minimum;
-    accessible-value-maximum: maximum;
-    accessible-value-step: (maximum - minimum) / 100;
-
-
-    Rectangle {
-        width: parent.width - parent.min-height;
-        x: parent.height / 2;
-        height: parent.min-height / 4;
-        y: (parent.height - height) / 2;
-        border-radius: height/2;
-        background: !root.enabled ? Palette.neutralLighter
-            : touch.has-hover ? Palette.themeLight
-            : Palette.neutralTertiaryAlt;
-    }
-
-    Rectangle {
-        width: (parent.width - parent.min-height) * ((value - minimum) / (maximum - minimum));
-        x: parent.height / 2;
-        height: parent.min-height / 4;
-        y: (parent.height - height) / 2;
-        border-radius: height/2;
-        background: !root.enabled ? Palette.neutralTertiary
-            : touch.has-hover ? Palette.themeSecondary
-            : Palette.neutralSecondary;
-    }
-
-    handle := Rectangle {
-        property<length> border: 3px;
-        width: height;
-        height: parent.height - 2 * border;
-        border-width: 3px;
-        border-radius: height / 2;
-        border-color: !root.enabled ? Palette.neutralTertiaryAlt
-            : touch.has-hover ? Palette.themePrimary
-            : Palette.neutralSecondary;
-        background: Palette.white;
-        x: (root.width - handle.width) * (value - minimum)/(maximum - minimum);
-        y: border;
-    }
-    touch := TouchArea {
-        width: parent.width;
-        height: parent.height;
-        property <float> pressed-value;
-        pointer-event(event) => {
-            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
-                pressed-value = root.value;
-            }
-        }
-        moved => {
-            if (enabled && pressed) {
-                value = max(root.minimum, min(root.maximum,
-                    pressed-value + (touch.mouse-x - touch.pressed-x) * (maximum - minimum) / (root.width - handle.width)));
-                root.changed(value);
-            }
-        }
-    }
-
-    fs := FocusScope {
-        width: 0px;
-
-        key-pressed(event) => {
-            if (enabled && event.text == Keys.RightArrow) {
-                value = Math.min(value + 1, maximum);
-                accept
-            } else if (enabled && event.text == Keys.LeftArrow) {
-                value = Math.max(value - 1, minimum);
-                accept
-            } else {
-                reject
-            }
-        }
-    }
-
-    Rectangle { // Focus rectangle
-        border-width: enabled && has-focus ? 1px : 0px;
-        border-color: Palette.black;
-    }
-}
 
 export ListView := ScrollView {
     @children
@@ -372,16 +280,4 @@ export ComboBox := FocusScope {
     }
 }
 
-export VerticalBox := VerticalLayout {
-    spacing: StyleMetrics.layout-spacing;
-    padding: StyleMetrics.layout-padding;
-}
-export HorizontalBox := HorizontalLayout {
-    spacing: StyleMetrics.layout-spacing;
-    padding: StyleMetrics.layout-padding;
-}
-export GridBox := GridLayout {
-    spacing: StyleMetrics.layout-spacing;
-    padding: StyleMetrics.layout-padding;
-}
 

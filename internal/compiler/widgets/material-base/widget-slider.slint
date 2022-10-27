@@ -1,0 +1,114 @@
+import { md } from "md.slint";
+
+// Allows to select a value from a range of values.
+export Slider := Rectangle {
+    property<float> maximum: 100;
+    property<float> minimum: 0;
+    property<float> value;
+    property<bool> has-focus <=> fs.has-focus;
+    property<bool> enabled <=> touch.enabled;
+    callback changed(float);
+
+    height: 20pt;
+    
+    accessible-role: slider;
+    accessible-value: value;
+    accessible-value-minimum: minimum;
+    accessible-value-maximum: maximum;
+    accessible-value-step: (maximum - minimum) / 100;
+
+    container := Rectangle {
+        background: md.sys.color.on-primary;
+        opacity: 0.38;
+        y: (parent.height - height) / 2;
+        width: 100%;
+        height: 4pt;
+        border-radius: 2pt;
+    }
+
+    track := Rectangle {
+        background: md.sys.color.primary;
+        x: container.x;
+        y: (parent.height - height) / 2;
+        width: handle.x + (handle.width / 2);
+        height: container.height;
+        border-radius: container.border-radius;
+    }
+
+    state-layer := Rectangle {
+        opacity: 0;
+        background: md.sys.color.primary;
+        x: handle.x - (width - handle.width) / 2;
+        y: (parent.height - height) / 2;
+        width: 40pt;
+        height: 40pt;
+        border-radius: max(width, height) / 2;
+        animate opacity { duration: 250ms; easing: ease; }
+    }
+
+    handle := Rectangle {
+        background: md.sys.color.primary;
+        x: (parent.width - handle.width) * (value - minimum) / (maximum - minimum);
+        y: (parent.height - height) / 2;
+        width: root.height;
+        height: root.height;
+        border-radius: max(width, height) / 2;
+        drop-shadow-color: md.sys.color.shadow;
+        drop-shadow-blur: md.sys.elevation.level1;
+        drop-shadow-offset-y: 1pt;
+
+        animate drop-shadow-blur { duration: 250ms; easing: ease; }
+    }
+
+    touch := TouchArea {
+        property <float> pressed-value;
+        property <bool> handle-hover: has-hover && mouse-x >= handle.x && mouse-x <= handle.x + handle.width 
+            && mouse-y >= handle.y && mouse-y <= handle.y + handle.height;
+        pointer-event(event) => {
+            if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
+                pressed-value = root.value;
+            }
+        }
+        moved => {
+            if (enabled && pressed) {
+                value = max(root.minimum, min(root.maximum,
+                    pressed-value + (touch.mouse-x - touch.pressed-x) * (maximum - minimum) / (root.width - handle.width)));
+                root.changed(value);
+            }
+        }
+    }
+
+    fs := FocusScope {
+        width: 0px;
+
+        key-pressed(event) => {
+            if (enabled && event.text == Keys.RightArrow) {
+                value = Math.min(value + 1, maximum);
+                accept
+            } else if (enabled && event.text == Keys.LeftArrow) {
+                value = Math.max(value - 1, minimum);
+                accept
+            } else {
+                reject
+            }
+        }
+    }
+
+    states [
+        disabled when !enabled : {
+            handle.background: md.sys.color.on-surface;
+            handle.drop-shadow-blur: md.sys.elevation.level0;
+            track.background: md.sys.color.on-surface;
+            container.background: md.sys.color.on-surface;
+            root.opacity: 0.38;
+        }
+        pressed when (touch.pressed && touch.handle-hover) || fs.has-focus : {
+            state-layer.opacity: 0.12;
+            handle.drop-shadow-blur: md.sys.elevation.level0;
+        }
+        hover when touch.handle-hover : {
+            state-layer.background: md.sys.color.on-surface;
+            state-layer.opacity: 0.08;    
+        }
+    ]
+}
