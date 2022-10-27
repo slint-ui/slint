@@ -881,7 +881,7 @@ impl Spanned for Option<SyntaxToken> {
 }
 
 /// return true if experimental parser feature should be activated
-fn enable_experimental() -> bool {
+pub fn enable_experimental() -> bool {
     std::env::var_os("SLINT_EXPERIMENTAL_SYNTAX").map_or(false, |x| !x.is_empty())
 }
 

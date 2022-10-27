@@ -135,6 +135,11 @@ fn process_diagnostics(
             }
         }
     }
+
+    if !i_slint_compiler::parser::enable_experimental() {
+        diags.retain(|e| !e.message().contains("SLINT_EXPERIMENTAL_SYNTAX"));
+    }
+
     if !diags.is_empty() {
         println!("{:?}: Unexpected errors/warnings: {:#?}", path, diags);
 
@@ -164,6 +169,14 @@ fn process_file_source(
     let mut parse_diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
     let syntax_node =
         i_slint_compiler::parser::parse(source.clone(), Some(path), &mut parse_diagnostics);
+
+    if parse_diagnostics.has_error() && !i_slint_compiler::parser::enable_experimental() {
+        if parse_diagnostics.iter().all(|e| e.message().contains("SLINT_EXPERIMENTAL_SYNTAX")) {
+            // All the diagnostics are about experimental syntax, just clear them so we continue with the next step
+            parse_diagnostics = i_slint_compiler::diagnostics::BuildDiagnostics::default();
+        };
+    }
+
     let has_parse_error = parse_diagnostics.has_error();
     let mut compiler_config = i_slint_compiler::CompilerConfiguration::new(
         i_slint_compiler::generator::OutputFormat::Interpreter,
