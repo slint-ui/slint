@@ -13,7 +13,7 @@ TestCase := Window {
 
     property <string> text <=> ti.text;
     property <bool> input_focused: ti.has_focus;
-    property<int> test_cursor_pos: ti.cursor_position;
+    property<int> test_cursor_pos: ti.cursor_position_byte_offset;
 }
 
 /*

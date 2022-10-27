@@ -705,8 +705,8 @@ impl ItemRenderer for QtItemRenderer<'_> {
             )
         } else {
             (
-                text_input.cursor_position().max(0) as usize,
-                text_input.anchor_position().max(0) as usize,
+                text_input.cursor_position(&text),
+                text_input.anchor_position(&text),
                 text_input.selection_foreground_color().as_argb_encoded(),
                 text_input.selection_background_color().as_argb_encoded(),
                 false,

@@ -227,8 +227,8 @@ pub struct TextInput {
     pub y: Property<LogicalLength>,
     pub width: Property<LogicalLength>,
     pub height: Property<LogicalLength>,
-    pub cursor_position: Property<i32>, // byte offset,
-    pub anchor_position: Property<i32>, // byte offset
+    pub cursor_position_byte_offset: Property<i32>,
+    pub anchor_position_byte_offset: Property<i32>,
     pub text_cursor_width: Property<LogicalLength>,
     pub cursor_visible: Property<bool>,
     pub has_focus: Property<bool>,
@@ -331,7 +331,7 @@ impl Item for TextInput {
                     window_adapter.renderer().text_input_byte_offset_for_position(self, position)
                         as i32;
                 self.as_ref().pressed.set(true);
-                self.as_ref().anchor_position.set(clicked_offset);
+                self.as_ref().anchor_position_byte_offset.set(clicked_offset);
                 self.set_cursor_position(clicked_offset, true, window_adapter, self_rc);
                 if !self.has_focus() {
                     WindowInner::from_pub(window_adapter.window()).set_focus_item(self_rc);
@@ -482,7 +482,7 @@ impl Item for TextInput {
 
                 self.as_ref().text.set(text.into());
                 let new_cursor_pos = (insert_pos + event.text.len()) as i32;
-                self.as_ref().anchor_position.set(new_cursor_pos);
+                self.as_ref().anchor_position_byte_offset.set(new_cursor_pos);
                 self.set_cursor_position(new_cursor_pos, true, window_adapter, self_rc);
 
                 // Keep the cursor visible when inserting text. Blinking should only occur when
@@ -603,6 +603,16 @@ impl From<KeyboardModifiers> for AnchorMode {
     }
 }
 
+fn safe_byte_offset(unsafe_byte_offset: i32, text: &str) -> usize {
+    if unsafe_byte_offset <= 0 {
+        return 0;
+    }
+    let byte_offset_candidate = unsafe_byte_offset as usize;
+    text.char_indices()
+        .find_map(|(offset, _)| if offset >= byte_offset_candidate { Some(offset) } else { None })
+        .unwrap_or_else(|| text.len())
+}
+
 /// This struct holds the fields needed for rendering a TextInput item after applying any
 /// on-going composition. This way the renderer's don't have to duplicate the code for extracting
 /// and applying the pre-edit text, cursor placement within, etc.
@@ -644,7 +654,7 @@ impl TextInput {
 
         let renderer = window_adapter.renderer();
 
-        let last_cursor_pos = (self.cursor_position() as usize).max(0).min(text.len());
+        let last_cursor_pos = self.cursor_position(&text);
 
         let mut grapheme_cursor =
             unicode_segmentation::GraphemeCursor::new(last_cursor_pos, text.len(), true);
@@ -757,7 +767,7 @@ impl TextInput {
         match anchor_mode {
             AnchorMode::KeepAnchor => {}
             AnchorMode::MoveAnchor => {
-                self.as_ref().anchor_position.set(new_cursor_pos as i32);
+                self.as_ref().anchor_position_byte_offset.set(new_cursor_pos as i32);
             }
         }
         self.set_cursor_position(
@@ -781,7 +791,7 @@ impl TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) {
-        self.cursor_position.set(new_position);
+        self.cursor_position_byte_offset.set(new_position);
         if new_position >= 0 {
             let pos = window_adapter
                 .renderer()
@@ -801,10 +811,10 @@ impl TextInput {
         window_adapter: &Rc<dyn WindowAdapter>,
         self_rc: &ItemRc,
     ) {
-        let cursor_position = self.cursor_position();
+        let cursor_position = self.cursor_position(&self.text());
         let cursor_point_relative = window_adapter
             .renderer()
-            .text_input_cursor_rect_for_byte_offset(self, cursor_position as usize)
+            .text_input_cursor_rect_for_byte_offset(self, cursor_position)
             .to_box2d()
             .max;
         let cursor_point_absolute = self_rc.map_to_window(cursor_point_relative);
@@ -840,17 +850,25 @@ impl TextInput {
 
         let text = [text.split_at(anchor).0, text.split_at(cursor).1].concat();
         self.text.set(text.into());
-        self.anchor_position.set(anchor as i32);
+        self.anchor_position_byte_offset.set(anchor as i32);
         self.set_cursor_position(anchor as i32, true, window_adapter, self_rc);
         Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
+    }
+
+    pub fn anchor_position(self: Pin<&Self>, text: &str) -> usize {
+        safe_byte_offset(self.anchor_position_byte_offset(), text)
+    }
+
+    pub fn cursor_position(self: Pin<&Self>, text: &str) -> usize {
+        safe_byte_offset(self.cursor_position_byte_offset(), text)
     }
 
     // Avoid accessing self.cursor_position()/self.anchor_position() directly, always
     // use this bounds-checking function.
     pub fn selection_anchor_and_cursor(self: Pin<&Self>) -> (usize, usize) {
-        let max_pos = self.text().len() as i32;
-        let cursor_pos = self.cursor_position().max(0).min(max_pos);
-        let anchor_pos = self.anchor_position().max(0).min(max_pos);
+        let text = self.text();
+        let cursor_pos = self.cursor_position(&text);
+        let anchor_pos = self.anchor_position(&text);
 
         if anchor_pos > cursor_pos {
             (cursor_pos as _, anchor_pos as _)
@@ -880,7 +898,7 @@ impl TextInput {
         }
         let cursor_pos = cursor_pos + text_to_insert.len();
         self.text.set(text.into());
-        self.anchor_position.set(cursor_pos as i32);
+        self.anchor_position_byte_offset.set(cursor_pos as i32);
         self.set_cursor_position(cursor_pos as i32, true, window_adapter, self_rc);
         Self::FIELD_OFFSETS.edited.apply_pin(self).call(&());
     }
@@ -959,7 +977,7 @@ impl TextInput {
         let preedit_text = self.preedit_text();
 
         let (preedit_range, selection_range, cursor_position) = if !preedit_text.is_empty() {
-            let cursor_position = self.cursor_position() as usize;
+            let cursor_position = self.cursor_position(&text);
 
             text.insert_str(cursor_position, &preedit_text);
 
@@ -980,13 +998,9 @@ impl TextInput {
             let (selection_anchor_pos, selection_cursor_pos) = self.selection_anchor_and_cursor();
             let selection_range = selection_anchor_pos..selection_cursor_pos;
 
-            let cursor_position = self.cursor_position();
-            let cursor_visible = cursor_position >= 0
-                && self.cursor_visible()
-                && self.enabled()
-                && !self.read_only();
-            let cursor_position =
-                if cursor_visible { Some(cursor_position as usize) } else { None };
+            let cursor_position = self.cursor_position(&text);
+            let cursor_visible = self.cursor_visible() && self.enabled() && !self.read_only();
+            let cursor_position = if cursor_visible { Some(cursor_position) } else { None };
 
             (preedit_range, selection_range, cursor_position)
         };
