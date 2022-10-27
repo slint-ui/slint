@@ -76,8 +76,9 @@ once_cell = "1.9.0"
 spin_on = "0.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-wasm-bindgen = { version = "0.2.80", features = ["serde-serialize"] }
+wasm-bindgen = "0.2.80"
 wasm-bindgen-futures = "0.4.30"
+serde-wasm-bindgen = "0.4.5"
 js-sys = { version = "0.3.57" }
 console_error_panic_hook = "0.1.5"
 

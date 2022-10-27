@@ -44,7 +44,7 @@ pub struct ServerNotifier(Function);
 impl ServerNotifier {
     pub fn send_notification(&self, method: String, params: impl Serialize) -> Result<(), Error> {
         self.0
-            .call2(&JsValue::UNDEFINED, &method.into(), &JsValue::from_serde(&params)?)
+            .call2(&JsValue::UNDEFINED, &method.into(), &serde_wasm_bindgen::to_value(&params)?)
             .map_err(|x| format!("Error calling send_notification: {x:?}"))?;
         Ok(())
     }
@@ -74,7 +74,7 @@ impl RequestHolder {
             return Ok(false);
         }
         let result = f(serde_json::from_value(self.req.params.clone())?)?;
-        *self.reply.borrow_mut() = Some(JsValue::from_serde(&result)?);
+        *self.reply.borrow_mut() = Some(serde_wasm_bindgen::to_value(&result)?);
         Ok(true)
     }
 
@@ -154,7 +154,7 @@ pub fn create(
 ) -> Result<SlintServer, JsError> {
     console_error_panic_hook::set_once();
 
-    let init_param = init_param.into_serde()?;
+    let init_param = serde_wasm_bindgen::from_value(init_param)?;
 
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
@@ -177,7 +177,7 @@ pub fn create(
 impl SlintServer {
     #[wasm_bindgen]
     pub fn capabilities(&self) -> Result<JsValue, JsError> {
-        Ok(JsValue::from_serde(&server_loop::server_capabilities())?)
+        Ok(serde_wasm_bindgen::to_value(&server_loop::server_capabilities())?)
     }
 
     #[wasm_bindgen]
@@ -187,7 +187,7 @@ impl SlintServer {
         let guard = self.reentry_guard.clone();
         wasm_bindgen_futures::future_to_promise(async move {
             let _lock = ReentryGuard::lock(guard).await;
-            let uri: lsp_types::Url = uri.into_serde().map_err(|e| JsError::new(&e.to_string()))?;
+            let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
             server_loop::reload_document(&notifier, content, uri, &mut document_cache.borrow_mut())
                 .await
                 .map_err(|e| JsError::new(&e.to_string()))?;
@@ -198,7 +198,7 @@ impl SlintServer {
     /*  #[wasm_bindgen]
     pub fn show_preview(&self, params: JsValue) -> Result<(), JsError> {
         server_loop::show_preview_command(
-            &params.into_serde()?,
+            &serde_wasm_bindgen::from_value(params)?,
             &ServerNotifier,
             &mut self.0.borrow_mut(),
         )
@@ -215,8 +215,7 @@ impl SlintServer {
             let _lock = ReentryGuard::lock(guard).await;
             let req = Request {
                 method,
-                params: params
-                    .into_serde()
+                params: serde_wasm_bindgen::from_value(params)
                     .map_err(|x| format!("invalid param to handle_request: {x:?}"))?,
             };
             let result = Rc::new(RefCell::new(None));
