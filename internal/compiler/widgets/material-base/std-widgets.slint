@@ -5,7 +5,7 @@
 
 import { LineEditInner, TextEdit, AboutSlint } from "../common/common.slint";
 import { StandardButton } from "../common/standardbutton.slint";
-import { StyleMetrics, ScrollView, Button, CheckBox, Palette  } from "std-widgets-impl.slint";
+import { StyleMetrics, ScrollView, Button, CheckBox  } from "std-widgets-impl.slint";
 import { LineEdit } from "widget-lineedit.slint";
 import { TabWidgetImpl, TabImpl, TabBarImpl, TabWidget } from "widget-tabwidget.slint";
 import { GroupBox } from "widget-groupbox.slint";
@@ -13,116 +13,8 @@ import { VerticalBox, HorizontalBox, GridBox } from "layouts.slint";
 import { Slider } from "widget-slider.slint";
 import { ComboBox } from "widget-combobox.slint";
 import { ListView, StandardListView } from "widget-listview.slint";
+import { SpinBox } from "widget-spinbox.slint";
 
-export { StyleMetrics, ScrollView, Button, ComboBox, CheckBox, GroupBox, StandardButton, TextEdit, TabWidgetImpl, TabImpl, TabBarImpl, TabWidget,
-    LineEdit, AboutSlint, AboutSlint as AboutSixtyFPS, VerticalBox, HorizontalBox, GridBox, Slider, ListView, StandardListView }
-
-SpinBoxButton := Rectangle {
-    callback clicked <=> touch.clicked;
-    property<string> text; // text and font-size are not used, but present in the other styles
-    property <length> font-size;
-    property<bool> enabled <=> touch.enabled;
-    background: !enabled ? transparent
-        : touch.pressed ? Palette.neutralLight
-        : touch.has-hover ? Palette.neutralLighter
-        : Palette.white;
-
-    property <color> symbol-color: !enabled ? Palette.neutralTertiary
-        : touch.pressed || touch.has-hover ? Palette.neutralPrimary
-        : Palette.neutralSecondary;
-    touch := TouchArea { }
-}
-
-export SpinBox := FocusScope {
-    property <bool> checked;
-    property <int> value;
-    property <int> minimum;
-    property <int> maximum: 100;
-    property <image> icon;
-    property <length> font-size <=> button.font-size;
-
-    min-height: max(32px, l.min-height);
-    horizontal-stretch: 1;
-    vertical-stretch: 0;
-
-    accessible-role: spinbox;
-    accessible-value: value;
-    accessible-value-minimum: minimum;
-    accessible-value-maximum: maximum;
-    accessible-value-step: (maximum - minimum) / 100;
-
-    Rectangle {
-        background: !enabled ? Palette.neutralLighter : Palette.white;
-    }
-
-    l := GridLayout {
-        padding-left: 8px;
-        padding-top: 3px;
-        padding-bottom: 3px;
-        text := Text {
-            rowspan: 2;
-            text: value;
-            color: !enabled ? Palette.neutralTertiary : Palette.neutralDark;
-            horizontal-alignment: left;
-            vertical-alignment: center;
-        }
-        Rectangle { width: 8px; }
-        button := SpinBoxButton {
-            width: 25px;
-            enabled: root.enabled;
-            Path {
-                commands: "M978.2,688.9l-84.2,82.1c-15.7,15.3-41.1,15.3-56.7,0l-341-304.2L162.6,764.5c-15.5,15.1-41,15.1-56.6,0l-84.3-82.1c-15.6-15.2-15.6-39.9,0-55.2l446.6-398.2c15.7-15.3,41-15.3,56.7,0l6.9,6.7l446.3,398.1C993.9,649,993.9,673.7,978.2,688.9z";
-                fill: parent.symbol-color;
-                height: 33%;
-                x: (parent.width - width) / 2;
-                y: (parent.height - height) / 2;
-            }
-            clicked => {
-                if (root.value < root.maximum) {
-                    root.value += 1;
-                }
-            }
-        }
-        SpinBoxButton {
-            row: 1; col: 2;
-            enabled: root.enabled;
-            Path {
-                commands: "M21.8,311.1l84.2-82.1c15.7-15.2,41-15.2,56.7,0l341.1,304.1l333.7-297.5c15.5-15.2,41-15.2,56.6,0l84.3,82.1c15.6,15.2,15.6,40,0,55.2L531.7,771c-15.7,15.3-41,15.3-56.7,0l-6.9-6.7L21.8,366.3C6.1,351,6.1,326.3,21.8,311.1z";
-                fill: parent.symbol-color;
-                height: 33%;
-                x: (parent.width - width) / 2;
-                y: (parent.height - height) / 2;
-            }
-            clicked => {
-                if (root.value > root.minimum) {
-                    root.value -= 1;
-                }
-            }
-        }
-
-    }
-
-    Rectangle {
-        x: enabled && has-focus ? -2px : 0px;
-        y: x;
-        width: parent.width - 2*x;
-        height: parent.height - 2*y;
-        border-radius: 2px;
-        border-width: !enabled ? 0px : has-focus ? 3px : 1px;
-        border-color: !enabled ? Palette.neutralLighter
-            : has-focus ? Palette.themeSecondary
-            : Palette.neutralDark;
-    }
-
-    key-pressed(event) => {
-        if (enabled && event.text == Keys.UpArrow && value < maximum) {
-            value += 1;
-            accept
-        } else if (enabled && event.text == Keys.DownArrow && value > minimum) {
-            value -= 1;
-            accept
-        } else {
-            reject
-        }
-    }
-}
+export { StyleMetrics, ScrollView, Button, ComboBox, CheckBox, GroupBox, StandardButton, TextEdit, TabWidgetImpl, 
+    TabImpl, TabBarImpl, TabWidget, LineEdit, AboutSlint, AboutSlint as AboutSixtyFPS, VerticalBox, HorizontalBox, 
+    GridBox, Slider, ListView, StandardListView, SpinBox }
