@@ -297,18 +297,25 @@ impl FlickableData {
             }
             MouseEvent::Moved { position } => {
                 if inner.pressed_time.is_some() {
-                    inner.capture_events = true;
                     let new_pos = ensure_in_bound(
                         flick,
                         inner.pressed_viewport_pos + (position - inner.pressed_pos),
                     );
-                    (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.x)
-                        .apply_pin(flick)
-                        .set(new_pos.x_length());
-                    (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.y)
-                        .apply_pin(flick)
-                        .set(new_pos.y_length());
-                    InputEventResult::GrabMouse
+                    let x = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.x)
+                        .apply_pin(flick);
+                    let y = (Flickable::FIELD_OFFSETS.viewport + Empty::FIELD_OFFSETS.y)
+                        .apply_pin(flick);
+                    if inner.capture_events
+                        || (new_pos - LogicalPoint::from_lengths(x.get(), y.get())).square_length()
+                            >= (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _
+                    {
+                        x.set(new_pos.x_length());
+                        y.set(new_pos.y_length());
+                        inner.capture_events = true;
+                        InputEventResult::GrabMouse
+                    } else {
+                        InputEventResult::EventIgnored
+                    }
                 } else {
                     inner.capture_events = false;
                     InputEventResult::EventIgnored
@@ -343,7 +350,8 @@ impl FlickableData {
             let dist = (pos - inner.pressed_pos).cast::<f32>();
 
             let millis = (crate::animations::current_tick() - pressed_time).as_millis();
-            if dist.square_length() > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as f32
+            if inner.capture_events
+                && dist.square_length() > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as _
                 && millis > 1
             {
                 let speed = dist / (millis as f32);
