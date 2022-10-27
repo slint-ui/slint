@@ -199,8 +199,10 @@ export TextInput := _ {
     property <length> height;
     property <length> text-cursor-width; // StyleMetrics.text-cursor-width  set in apply_default_properties_from_style
     property <InputType> input-type;
-    property <int> cursor-position: native_output;
-    property <int> anchor-position: native_output;
+    // Internal, undocumented property, only exposed for tests.
+    property <int> cursor-position_byte-offset: native_output;
+    // Internal, undocumented property, only exposed for tests.
+    property <int> anchor-position-byte-offset: native_output;
     property <bool> has-focus: native_output;
     callback accepted;
     callback edited;

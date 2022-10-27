@@ -268,4 +268,12 @@ jobs:
       uses: actions-rs/cargo@v1
       with:
           command: test
-          args: --bin test-driver-interpreter
+          # Skip a few tests that rely on private renamed properties.
+          args: | 
+              --bin test-driver-interpreter -- \
+                  --skip test_interpreter_text_cursor_move \
+                  --skip test_interpreter_text_cursor_move_grapheme \
+                  --skip test_interpreter_text_cut \
+                  --skip test_interpreter_text_select_all \
+                  --skip test_interpreter_text_surrogate_cursor \
+                  --skip test_interpreter_text_text_change
