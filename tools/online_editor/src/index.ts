@@ -61,7 +61,9 @@ function create_style_menu(editor: EditorWidget): Menu {
     { label: "Fluent", name: "fluent" },
     { label: "Fluent Light", name: "fluent-light" },
     { label: "Fluent Dark", name: "fluent-dark" },
-  ]) {
+    { label: "Material", name: "material" },
+    { label: "Material Light", name: "material-light" },
+    { label: "Material Dark", name: "material-dark" }]) {
     const command_name = "slint:set_style_" + style.name;
     commands.addCommand(command_name, {
       label: style.label,
