@@ -28,15 +28,19 @@ mod cached_image;
 mod itemrenderer;
 mod textlayout;
 
+#[cfg(target_os = "macos")]
+mod metal_surface;
+
+#[cfg(target_family = "windows")]
+mod d3d_surface;
+
 cfg_if::cfg_if! {
     if #[cfg(skia_backend_opengl)] {
         mod opengl_surface;
         type DefaultSurface = opengl_surface::OpenGLSurface;
     } else if #[cfg(skia_backend_metal)] {
-        mod metal_surface;
         type DefaultSurface = metal_surface::MetalSurface;
     } else if #[cfg(skia_backend_d3d)] {
-        mod d3d_surface;
         type DefaultSurface = d3d_surface::D3DSurface;
     }
 }
