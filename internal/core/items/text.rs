@@ -608,6 +608,16 @@ fn safe_byte_offset(unsafe_byte_offset: i32, text: &str) -> usize {
         return 0;
     }
     let byte_offset_candidate = unsafe_byte_offset as usize;
+
+    if byte_offset_candidate >= text.len() {
+        return byte_offset_candidate;
+    }
+
+    if text.is_char_boundary(byte_offset_candidate) {
+        return byte_offset_candidate;
+    }
+
+    // Use std::floor_char_boundary once stabilized.
     text.char_indices()
         .find_map(|(offset, _)| if offset >= byte_offset_candidate { Some(offset) } else { None })
         .unwrap_or_else(|| text.len())
