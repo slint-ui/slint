@@ -110,7 +110,7 @@ type PropertyDataNotifier = (
 
 class EditorPaneWidget extends Widget {
   auto_compile = true;
-  #style = "fluent";
+  #style = "fluent-light";
   #editor_view_states: Map<
     monaco.Uri,
     monaco.editor.ICodeEditorViewState | null | undefined
