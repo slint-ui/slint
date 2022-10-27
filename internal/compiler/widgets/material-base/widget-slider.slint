@@ -13,7 +13,7 @@ export Slider := Rectangle {
     property<bool> enabled <=> touch.enabled;
     callback changed(float);
 
-    height: 20pt;
+    height: 20px;
     
     accessible-role: slider;
     accessible-value: value;
@@ -26,8 +26,8 @@ export Slider := Rectangle {
         opacity: 0.38;
         y: (parent.height - height) / 2;
         width: 100%;
-        height: 4pt;
-        border-radius: 2pt;
+        height: 4px;
+        border-radius: 2px;
     }
 
     track := Rectangle {
@@ -44,8 +44,8 @@ export Slider := Rectangle {
         background: md.sys.color.primary;
         x: handle.x - (width - handle.width) / 2;
         y: (parent.height - height) / 2;
-        width: 40pt;
-        height: 40pt;
+        width: 40px;
+        height: 40px;
         border-radius: max(width, height) / 2;
         animate opacity { duration: 250ms; easing: ease; }
     }
@@ -59,7 +59,7 @@ export Slider := Rectangle {
         border-radius: max(width, height) / 2;
         drop-shadow-color: md.sys.color.shadow;
         drop-shadow-blur: md.sys.elevation.level1;
-        drop-shadow-offset-y: 1pt;
+        drop-shadow-offset-y: 1px;
 
         animate drop-shadow-blur { duration: 250ms; easing: ease; }
     }

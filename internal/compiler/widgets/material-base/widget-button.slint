@@ -20,16 +20,16 @@ export Button := Rectangle {
     accessible-label <=> label.text;
     accessible-role: button;
 
-    height: 40pt;
+    height: 40px;
    
     container := Rectangle {  
         width: 100%;
         height: 100%;
-        border-radius: 20pt;
+        border-radius: 20px;
         background: md.sys.color.secondary-container;
         drop-shadow-color: transparent;
         drop-shadow-blur: md.sys.elevation.level0;
-        drop-shadow-offset-y: 1pt;
+        drop-shadow-offset-y: 1px;
     }
 
     state-layer := Rectangle {  
@@ -42,9 +42,9 @@ export Button := Rectangle {
      }
 
     HorizontalLayout {  
-        padding-left: 24pt;
-        padding-right: 24pt;
-        spacing: 8pt;
+        padding-left: 24px;
+        padding-right: 24px;
+        spacing: 8px;
 
         if (icon.width > 0 && icon.height > 0): Image {
             source <=> icon;

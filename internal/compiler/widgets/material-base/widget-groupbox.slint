@@ -10,8 +10,8 @@ export GroupBox := Rectangle {
     property<bool> enabled: true;
     
     container := Rectangle {
-        border-radius: 4pt;
-        border-width: 1pt;
+        border-radius: 4px;
+        border-width: 1px;
         border-color: md.sys.color.outline;
         y: layout.padding-top;
         width: layout.width;
@@ -19,15 +19,15 @@ export GroupBox := Rectangle {
     }
 
     label-container := Rectangle { 
-        x: 8pt;
+        x: 8px;
         y: container.y;
-        width: label.width + 8pt;
-        height: label.height + 8pt;
+        width: label.width + 8px;
+        height: label.height + 8px;
         background: md.sys.color.background;
     
         label := Text {
-            x: 4pt;
-            y: 4pt;
+            x: 4px;
+            y: 4px;
             width: min(root.width - 24pt, preferred-width);
           
             color: md.sys.color.on-surface;
@@ -43,9 +43,9 @@ export GroupBox := Rectangle {
         padding-top: label-container.height / 2;
         GridLayout {
             padding-top: 16pt + label-container.height / 2;
-            padding-left: 16pt;
-            padding-right: 16pt;
-            padding-bottom: 16pt;
+            padding-left: 16px;
+            padding-right: 16px;
+            padding-bottom: 16px;
             @children
         }
     }

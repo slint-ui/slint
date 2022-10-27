@@ -38,7 +38,7 @@ export TabImpl := Rectangle {
     property<int> tab-index; // The index of this tab
     property<int> num-tabs; // The total number of tabs
 
-    height: 48pt;
+    height: 48px;
     accessible-role: tab;
     accessible-label <=> title;
 
@@ -56,8 +56,8 @@ export TabImpl := Rectangle {
      }
 
     layout := HorizontalLayout {  
-        padding-left: 16pt;
-        padding-right: 16pt;
+        padding-left: 16px;
+        padding-right: 16px;
         
         label := Text {
             vertical-alignment: center;
@@ -74,7 +74,7 @@ export TabImpl := Rectangle {
     indicator := Rectangle {
         opacity: !active ? 0 : 1;
         width: 100%;
-        height: 3pt;
+        height: 3px;
         y: parent.height - height;
         background: md.sys.color.primary;
 

@@ -11,7 +11,7 @@ export Item := Rectangle {
     property<bool> selected: false;
     property<string> text <=> label.text;
 
-    height: 48pt;
+    height: 48px;
 
     state-layer := Rectangle {  
         opacity: 0;
@@ -22,8 +22,8 @@ export Item := Rectangle {
     }
 
     HorizontalLayout {
-        padding-left: 12pt;
-        padding-right: 12pt;
+        padding-left: 12px;
+        padding-right: 12px;
 
         label := Text {
             color: md.sys.color.on-surface;

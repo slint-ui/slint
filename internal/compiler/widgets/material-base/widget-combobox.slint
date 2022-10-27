@@ -16,21 +16,21 @@ export ComboBox := FocusScope {
 
     horizontal-stretch: 1;
     vertical-stretch: 0;
-    min-width: 160pt;
-    height: 56pt;
+    min-width: 160px;
+    height: 56px;
 
     container := Rectangle {
         width: 100%;
         height: 100%;
-        border-radius: 4pt;
-        border-width: 1pt;
+        border-radius: 4px;
+        border-width: 1px;
         border-color: md.sys.color.outline;
     }
 
     layout := HorizontalLayout {  
-        padding-left: 16pt;
-        padding-right: 12pt;
-        spacing: 16pt;
+        padding-left: 16px;
+        padding-right: 12px;
+        spacing: 16px;
 
         label := Text {
             text <=> root.current-value;
@@ -44,8 +44,8 @@ export ComboBox := FocusScope {
         }
 
         icon := Path {
-            width: 16pt;
-            height: 16pt;
+            width: 16px;
+            height: 16px;
             y: (parent.height - height) / 2;
             commands: "m24 30.75-12-12 2.15-2.15L24 26.5l9.85-9.85L36 18.8Z";
             fill: md.sys.color.on-surface;
@@ -68,8 +68,8 @@ export ComboBox := FocusScope {
             background: md.sys.color.surface;
             drop-shadow-color: md.sys.color.shadow;
             drop-shadow-blur: md.sys.elevation.level2;
-            drop-shadow-offset-y: 1pt;
-            border-radius: 4pt;
+            drop-shadow-offset-y: 1px;
+            border-radius: 4px;
         }
 
         VerticalLayout {  
@@ -108,7 +108,7 @@ export ComboBox := FocusScope {
             icon.opacity: 0.38;
         }
         focused when has-focus : {
-            container.border-width: 2pt;
+            container.border-width: 2px;
             container.border-color: md.sys.color.primary;
             label.color: md.sys.color.primary;
             icon.fill: md.sys.color.primary;

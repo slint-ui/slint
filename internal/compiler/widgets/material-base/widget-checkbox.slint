@@ -12,7 +12,7 @@ export CheckBox := Rectangle {
     property <bool> checked;
     property <bool> has-focus;
     property<bool> enabled: true;
-    height: 18pt;
+    height: 18px;
 
     accessible-label <=> label.text;
     accessible-checkable: true;
@@ -20,28 +20,28 @@ export CheckBox := Rectangle {
     accessible-role: checkbox;
 
     HorizontalLayout {  
-        spacing: 16pt;
+        spacing: 16px;
 
         Rectangle {  
-            width: 18pt;
-            height: 18pt;
+            width: 18px;
+            height: 18px;
           
             container := Rectangle {  
                 width: 100%;
                 height: 100%;
-                border-radius: 2pt;
-                border-width: 2pt;
+                border-radius: 2px;
+                border-width: 2px;
                 border-color: md.sys.color.on-surface;
             }
 
             state-layer := Rectangle {
-                width: 40pt;
-                height: 40pt;
+                width: 40px;
+                height: 40px;
                 x: (parent.width - width) / 2;
                 y: (parent.height - height) / 2;
                 opacity: 0;
                 background: md.sys.color.primary;
-                border-radius: 20pt;
+                border-radius: 20px;
                 animate opacity { duration: 300ms; easing: ease; }
             }
 
@@ -100,7 +100,7 @@ export CheckBox := Rectangle {
 
     states [
         disabled-selected when !enabled && checked  : {
-            container.border-width: 0pt;
+            container.border-width: 0px;
             container.border-color: transparent;
             container.background: md.sys.color.primary;
             container.opacity: 0.38;
@@ -118,13 +118,13 @@ export CheckBox := Rectangle {
         pressed-selected when touch.pressed && checked : {
             state-layer.opacity: 0.12;    
             state-layer.background: md.sys.color.on-surface;    
-            container.border-width: 0pt;
+            container.border-width: 0px;
             container.border-color: transparent;
             container.background: md.sys.color.primary;
         }
         hover-selected when touch.has-hover && checked : {
             state-layer.opacity: 0.08;    
-            container.border-width: 0pt;
+            container.border-width: 0px;
             container.border-color: transparent;
             container.background: md.sys.color.primary;
         }
@@ -133,7 +133,7 @@ export CheckBox := Rectangle {
             state-layer.opacity: 0.08;    
         }
         selected when !touch.has-hover && checked : {
-            container.border-width: 0pt;
+            container.border-width: 0px;
             container.border-color: transparent;
             container.background: md.sys.color.primary;
         }
