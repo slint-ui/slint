@@ -15,6 +15,10 @@ export default defineConfig(({ command, _mode }) => {
       },
     },
     base: "./",
+    build: {
+      // We need to enable support for bigint
+      target: "safari14"
+    }
   };
 
   let global_aliases = {
@@ -34,7 +38,6 @@ export default defineConfig(({ command, _mode }) => {
     // For distribution builds,
     // assume deployment on the main website where the loading file (index.js) is in the assets/ sub-directory and the
     // relative path to the interpreter is as below.
-    base_config.build = {};
     base_config.build.rollupOptions = {
       external: ["../../../../wasm-interpreter/slint_wasm_interpreter.js"],
       input: ["index.html", "preview.html"],
