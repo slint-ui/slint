@@ -1175,14 +1175,19 @@ impl<'a> GLItemRenderer<'a> {
                 let image = source_property.get();
                 let image_inner: &ImageInner = (&image).into();
 
-                let target_size_for_scalable_source = image_inner.is_svg().then(|| {
-                    // get the scale factor as a property again, to ensure the cache is invalidated when the scale factor changes
+                let target_size_for_scalable_source = if image_inner.is_svg() {
+                    let image_size = image.size();
+                    if image_size.is_empty() {
+                        return None;
+                    }
                     let scale_factor = ScaleFactor::new(self.window.scale_factor());
                     let t = LogicalSize::from_lengths(target_width.get(), target_height.get())
                         * scale_factor;
 
-                    i_slint_core::graphics::fit_size(image_fit, t, image.size()).cast()
-                });
+                    Some(i_slint_core::graphics::fit_size(image_fit, t, image_size).cast())
+                } else {
+                    None
+                };
 
                 TextureCacheKey::new(image_inner, target_size_for_scalable_source, image_rendering)
                     .and_then(|cache_key| {
