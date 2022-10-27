@@ -24,7 +24,6 @@ use crate::lengths::{
 #[cfg(feature = "rtti")]
 use crate::rtti::*;
 use crate::window::WindowAdapter;
-use crate::Coord;
 use crate::Property;
 use alloc::boxed::Box;
 use alloc::rc::Rc;
@@ -182,7 +181,7 @@ impl core::ops::Deref for FlickableDataBox {
 }
 
 /// The distance required before it starts flicking if there is another item intercepting the mouse.
-const DISTANCE_THRESHOLD: Coord = 8 as _;
+const DISTANCE_THRESHOLD: LogicalLength = LogicalLength::new(8 as _);
 /// Time required before we stop caring about child event if the mouse hasn't been moved
 const DURATION_THRESHOLD: Duration = Duration::from_millis(500);
 
@@ -241,19 +240,31 @@ impl FlickableData {
                         if crate::animations::current_tick() - pressed_time > DURATION_THRESHOLD {
                             return false;
                         }
-                        let can_move_horiz = (Flickable::FIELD_OFFSETS.viewport
-                            + Empty::FIELD_OFFSETS.width)
-                            .apply_pin(flick)
-                            .get()
-                            > flick.width();
-                        let can_move_vert = (Flickable::FIELD_OFFSETS.viewport
-                            + Empty::FIELD_OFFSETS.height)
-                            .apply_pin(flick)
-                            .get()
-                            > flick.height();
+                        // Check if the mouse was moved more than the DISTANCE_THRESHEOLD in a
+                        // direction in which the flickable can flick
                         let diff = position - inner.pressed_pos;
-                        (can_move_horiz && diff.x.abs() > DISTANCE_THRESHOLD)
-                            || (can_move_vert && diff.y.abs() > DISTANCE_THRESHOLD)
+                        let vp = Flickable::FIELD_OFFSETS.viewport;
+                        let check_horizontal = {
+                            let gap_h = (vp + Empty::FIELD_OFFSETS.width).apply_pin(flick).get()
+                                - flick.width();
+                            gap_h > LogicalLength::default() && {
+                                let x = (vp + Empty::FIELD_OFFSETS.x).apply_pin(flick).get();
+                                (x < LogicalLength::default()
+                                    && diff.x_length() > DISTANCE_THRESHOLD)
+                                    || (x > -gap_h && diff.x_length() < -DISTANCE_THRESHOLD)
+                            }
+                        };
+                        let check_vertical = {
+                            let gap_v = (vp + Empty::FIELD_OFFSETS.height).apply_pin(flick).get()
+                                - flick.height();
+                            gap_v > LogicalLength::default() && {
+                                let y = (vp + Empty::FIELD_OFFSETS.y).apply_pin(flick).get();
+                                (y < LogicalLength::default()
+                                    && diff.y_length() > DISTANCE_THRESHOLD)
+                                    || (y > -gap_v && diff.y_length() < -DISTANCE_THRESHOLD)
+                            }
+                        };
+                        check_horizontal || check_vertical
                     });
                 if do_intercept {
                     InputEventFilterResult::Intercept
@@ -332,7 +343,8 @@ impl FlickableData {
             let dist = (pos - inner.pressed_pos).cast::<f32>();
 
             let millis = (crate::animations::current_tick() - pressed_time).as_millis();
-            if dist.square_length() > (DISTANCE_THRESHOLD * DISTANCE_THRESHOLD) as f32 && millis > 1
+            if dist.square_length() > (DISTANCE_THRESHOLD.get() * DISTANCE_THRESHOLD.get()) as f32
+                && millis > 1
             {
                 let speed = dist / (millis as f32);
 
