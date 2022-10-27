@@ -21,6 +21,8 @@ import {
 
 const TYPE_PATTERN = /^[a-z-]+$/i;
 
+let FOCUSING = false;
+
 function type_class_for_typename(name: string): string {
   if (name === "callback" || name.slice(0, 9) === "callback(") {
     return "type-callback";
@@ -168,24 +170,43 @@ export class PropertiesWidget extends Widget {
         }
       };
 
-
       const name_field = document.createElement("td");
       name_field.className = "name-column";
       name_field.innerText = p.name;
+      name_field.addEventListener("click", goto_property);
       row.appendChild(name_field);
 
       const value_field = document.createElement("td");
       value_field.className = "value-column";
       value_field.classList.add(type_class_for_typename(p.type_name));
       value_field.setAttribute("title", p.type_name);
+      const input = document.createElement("input");
+      input.type = "text";
       if (p.defined_at != null) {
-        value_field.innerText = binding_text_provider.binding_text(
-          p.defined_at,
-        );
+        const code_text = binding_text_provider.binding_text(p.defined_at);
+        input.value = code_text;
+        const changed_class = "value-changed";
+        input.addEventListener("focus", (_) => {
+          if (FOCUSING) {
+            FOCUSING = false;
+          } else {
+            FOCUSING = true;
+            goto_property();
+            input.focus();
+          }
+        });
+        input.addEventListener("input", (_) => {
+          const current_text = input.value;
+          if (current_text != code_text) {
+            input.classList.add(changed_class);
+          } else {
+            input.classList.remove(changed_class);
+          }
+        });
       } else {
-        value_field.innerText = "";
+        input.disabled = true;
       }
-      row.addEventListener("click", goto_property);
+      value_field.appendChild(input);
       row.appendChild(value_field);
 
       table.appendChild(row);

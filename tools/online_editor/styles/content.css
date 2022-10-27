@@ -146,6 +146,16 @@
   padding: 2px;
 }
 
+.properties-editor .properties-table input {
+  margin: 0px;
+  border: none;
+  width: 100%;
+}
+
+.properties-editor .properties-table input.value-changed {
+  color: var(--error-bg);
+}
+
 .welcome > div {
   padding: 1ex;
 }
