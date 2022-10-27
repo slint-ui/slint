@@ -3,7 +3,7 @@
 
 // cSpell: ignore lumino
 
-import { GotoPositionCallback, TextRange } from "./text";
+import { GotoPositionCallback, ReplaceTextFunction, TextRange } from "./text";
 import {
   lsp_range_to_editor_range,
   DefinitionPosition,
@@ -56,6 +56,9 @@ export class PropertiesWidget extends Widget {
   #onGotoPosition: GotoPositionCallback = (_u, _p) => {
     return;
   };
+  #replaceText: ReplaceTextFunction = (_u, _r, _t, _v) => {
+    return;
+  };
 
   static createNode(): HTMLElement {
     const node = document.createElement("div");
@@ -99,6 +102,10 @@ export class PropertiesWidget extends Widget {
 
   set on_goto_position(callback: GotoPositionCallback) {
     this.#onGotoPosition = callback;
+  }
+
+  set replace_text_function(fn: ReplaceTextFunction) {
+    this.#replaceText = fn;
   }
 
   protected get contentNode(): HTMLDivElement {
@@ -201,6 +208,12 @@ export class PropertiesWidget extends Widget {
             input.classList.add(changed_class);
           } else {
             input.classList.remove(changed_class);
+          }
+        });
+        input.addEventListener("change", (_) => {
+          const current_text = input.value;
+          if (current_text != code_text && expression_range != null) {
+            this.#replaceText(uri, expression_range, current_text, () => true);
           }
         });
       } else {

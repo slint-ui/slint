@@ -9,6 +9,12 @@ export type Uri = monaco.Uri;
 
 export type DocumentAndTextPosition = { uri: string; position: TextPosition };
 
+export type ReplaceTextFunction = (
+  _uri: string,
+  _range: TextRange,
+  _new_text: string,
+  _validate: () => boolean,
+) => boolean;
 export type GotoPositionCallback = (
   _uri: string,
   _position: TextPosition | TextRange,

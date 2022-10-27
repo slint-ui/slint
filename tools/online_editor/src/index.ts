@@ -60,7 +60,8 @@ function create_style_menu(editor: EditorWidget): Menu {
   for (const style of [
     { label: "Fluent", name: "fluent" },
     { label: "Fluent Light", name: "fluent-light" },
-    { label: "Fluent Dark", name: "fluent-dark" }]) {
+    { label: "Fluent Dark", name: "fluent-dark" },
+  ]) {
     const command_name = "slint:set_style_" + style.name;
     commands.addCommand(command_name, {
       label: style.label,
@@ -362,11 +363,16 @@ function main() {
           properties.set_properties(binding_text_provider, p);
         };
 
-        properties.on_goto_position = (
-          uri: string,
-          pos: TextPosition | TextRange,
-        ) => {
+        properties.on_goto_position = (uri, pos) => {
           editor.goto_position(uri, pos);
+        };
+        properties.replace_text_function = (
+          uri,
+          range,
+          new_text,
+          validator,
+        ) => {
+          return editor.replace_text(uri, range, new_text, validator);
         };
 
         return properties;

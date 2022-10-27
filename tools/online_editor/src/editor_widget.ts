@@ -574,9 +574,14 @@ class EditorPaneWidget extends Widget {
     return doc;
   }
 
-  textAt(handle: unknown, start: number, end: number): string {
-    const model = handle as monaco.editor.ITextModel;
-    return model.getValue().substring(start, end);
+  replace_text(
+    uri: string,
+    range: TextRange,
+    new_text: string,
+    validate: () => boolean,
+  ): boolean {
+    console.log("Replacing ", uri, range, "with", new_text);
+    return validate();
   }
 
   async read_from_url(url: string): Promise<string> {
@@ -764,12 +769,17 @@ export class EditorWidget extends Widget {
     this.#editor.onNewPropertyData = handler;
   }
 
-  textAt(handle: unknown, start: number, end: number): string {
-    return this.#editor.textAt(handle, start, end);
-  }
-
   set onPositionChange(cb: PositionChangeCallback) {
     this.#editor.onPositionChangeCallback = cb;
+  }
+
+  replace_text(
+    uri: string,
+    range: TextRange,
+    new_text: string,
+    validator: () => boolean,
+  ): boolean {
+    return this.#editor.replace_text(uri, range, new_text, validator);
   }
 
   get position(): DocumentAndTextPosition {
