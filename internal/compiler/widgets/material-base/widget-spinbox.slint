@@ -15,11 +15,7 @@ SpinBoxButton := Rectangle {
         height: 100%;
         border-radius: 2pt;
         border-width: 1pt;
-    
         background: md.sys.color.secondary-container;
-        drop-shadow-color: md.sys.color.shadow;
-        drop-shadow-blur: md.sys.elevation.level0;
-        drop-shadow-offset-y: 1pt;
 
         animate drop-shadow-blur { duration: 250ms; easing: ease; }
     }
@@ -50,7 +46,6 @@ SpinBoxButton := Rectangle {
         }
         pressed when touch.pressed : {
             state-layer.opacity: 0.12;
-            container.drop-shadow-blur: md.sys.elevation.level1;
         }
         hover when touch.has-hover : {
             state-layer.opacity: 0.08;    

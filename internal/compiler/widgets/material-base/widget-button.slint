@@ -23,11 +23,9 @@ export Button := Rectangle {
         height: 100%;
         border-radius: 20pt;
         background: md.sys.color.secondary-container;
-        drop-shadow-color: md.sys.color.shadow;
+        drop-shadow-color: transparent;
         drop-shadow-blur: md.sys.elevation.level0;
         drop-shadow-offset-y: 1pt;
-
-        animate drop-shadow-blur { duration: 250ms; easing: ease; }
     }
 
     state-layer := Rectangle {  
@@ -93,6 +91,7 @@ export Button := Rectangle {
         hover when touch.has-hover : {
             state-layer.opacity: 0.08;    
             container.drop-shadow-blur: md.sys.elevation.level1;
+            container.drop-shadow-color: md.sys.color.shadow;
         }
         focused when fs.has-focus : {
             state-layer.opacity: 0.12;
