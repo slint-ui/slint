@@ -610,7 +610,7 @@ fn safe_byte_offset(unsafe_byte_offset: i32, text: &str) -> usize {
     let byte_offset_candidate = unsafe_byte_offset as usize;
 
     if byte_offset_candidate >= text.len() {
-        return byte_offset_candidate;
+        return text.len();
     }
 
     if text.is_char_boundary(byte_offset_candidate) {
