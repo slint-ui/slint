@@ -429,6 +429,11 @@ impl Window {
         // TODO make it really per window.
         crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.has_active_animations())
     }
+
+    /// Get the visibility of the window
+    pub fn is_visible(&self) -> bool {
+        self.0.window_adapter().is_visible()
+    }
 }
 
 pub use crate::input::PointerEventButton;
