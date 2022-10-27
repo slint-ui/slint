@@ -798,7 +798,10 @@ class ModelBindingTextProvider implements BindingTextProvider {
       const line_until_character = new TextDecoder().decode(
         line_utf8_until_character,
       );
-      return new monaco.Position(monacoLineNumber, line_until_character.length);
+      return new monaco.Position(
+        monacoLineNumber,
+        line_until_character.length + 1,
+      ); // LSP is 0-based, so add 1 as Monaco is 1 based!
     };
 
     const startPos = convertPosition(location.expression_range.start);
@@ -808,7 +811,7 @@ class ModelBindingTextProvider implements BindingTextProvider {
       startLineNumber: startPos.lineNumber,
       startColumn: startPos.column,
       endLineNumber: endPos.lineNumber,
-      endColumn: endPos.column,
+      endColumn: endPos.column - 1, // LSP reports the first letter *not* part of the range anymore, so go for the one before that!
     });
   }
 }
