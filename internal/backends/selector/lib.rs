@@ -43,21 +43,22 @@ cfg_if::cfg_if! {
             }).unwrap_or_default();
 
             let backend_config = backend_config.to_lowercase();
-            if let Some((event_loop, _renderer)) = backend_config.split_once('-').or_else(|| match backend_config.as_str() {
-                "qt" => Some(("qt", "qpainter")),
-                "gl" => Some(("winit", "femtovg")),
-                "skia" => Some(("winit", "skia")),
-                "sw" | "software" => Some(("winit", "software")),
-                _ => None,
-            }) {
-                match event_loop {
-                    #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))]
-                    "qt" => return Box::new(i_slint_backend_qt::Backend),
-                    #[cfg(feature = "i-slint-backend-winit")]
-                    "winit" => return Box::new(i_slint_backend_winit::Backend::new(Some(_renderer))),
-                    _ => {},
-                }
-            };
+            let (event_loop, _renderer) = backend_config.split_once('-').unwrap_or_else(|| match backend_config.as_str() {
+                "qt" => ("qt", ""),
+                "gl" | "winit" => ("winit", ""),
+                "femtovg" => ("winit", "femtovg"),
+                "skia" => ("winit", "skia"),
+                "sw" | "software" => ("winit", "software"),
+                x => (x, ""),
+            });
+
+            match event_loop {
+                #[cfg(all(feature = "i-slint-backend-qt", not(no_qt)))]
+                "qt" => return Box::new(i_slint_backend_qt::Backend),
+                #[cfg(feature = "i-slint-backend-winit")]
+                "winit" => return Box::new(i_slint_backend_winit::Backend::new((!_renderer.is_empty()).then(|| _renderer))),
+                _ => {},
+            }
 
             if !backend_config.is_empty() {
                 eprintln!("Could not load rendering backend {}, fallback to default", backend_config)
