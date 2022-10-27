@@ -146,6 +146,22 @@ export class PropertiesWidget extends Widget {
         row.classList.add("undefined");
       }
 
+      let goto_property = () => {
+        return;
+      };
+      if (p.defined_at != null) {
+        const r = p.defined_at.expression_range;
+        goto_property = () => {
+          this.#onGotoPosition(uri, {
+            startLineNumber: r.start.line + 1,
+            startColumn: r.start.character + 1,
+            endLineNumber: r.end.line + 1,
+            endColumn: r.end.character, // LSP reports the first character *NOT* part of the range anymore with 0 base.
+          } as TextRange);
+        };
+      }
+
+
       const name_field = document.createElement("td");
       name_field.className = "name-column";
       name_field.innerText = p.name;
@@ -162,18 +178,8 @@ export class PropertiesWidget extends Widget {
       } else {
         value_field.innerText = "";
       }
+      row.addEventListener("click", goto_property);
       row.appendChild(value_field);
-      if (p.defined_at != null) {
-        const r = p.defined_at.expression_range;
-        row.addEventListener("click", () =>
-          this.#onGotoPosition(uri, {
-            startLineNumber: r.start.line + 1,
-            startColumn: r.start.character + 1,
-            endLineNumber: r.end.line + 1,
-            endColumn: r.end.character + 1,
-          } as TextRange),
-        );
-      }
 
       table.appendChild(row);
     }
