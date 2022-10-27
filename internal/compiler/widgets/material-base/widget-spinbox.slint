@@ -14,11 +14,14 @@ SpinBoxButton := Rectangle {
         width: 100%;
         height: 100%;
         border-radius: 2pt;
-        border-color: md.sys.color.outline;
         border-width: 1pt;
     
-        animate background { duration: 250ms; easing: ease; }
-        animate border-color { duration: 250ms; easing: ease; }
+        background: md.sys.color.secondary-container;
+        drop-shadow-color: md.sys.color.shadow;
+        drop-shadow-blur: md.sys.elevation.level0;
+        drop-shadow-offset-y: 1pt;
+
+        animate drop-shadow-blur { duration: 250ms; easing: ease; }
     }
 
     state-layer := Rectangle {  
@@ -26,7 +29,7 @@ SpinBoxButton := Rectangle {
         width: 100%;
         height: 100%;
         border-radius: container.border-radius;
-        background: md.sys.color.primary;
+        background: md.sys.color.on-secondary-container;
         animate opacity { duration: 250ms; easing: ease; }
      }
 
@@ -40,14 +43,14 @@ SpinBoxButton := Rectangle {
 
     states [
         disabled when !root.enabled : {
-            container.border-color: md.sys.color.on-surface;
+            container.background: md.sys.color.on-surface;
             container.opacity: 0.12;
             icon-opacity: 0.38;
             icon-fill: md.sys.color.on-surface;
         }
         pressed when touch.pressed : {
             state-layer.opacity: 0.12;
-            icon-fill: md.sys.color.primary;
+            container.drop-shadow-blur: md.sys.elevation.level1;
         }
         hover when touch.has-hover : {
             state-layer.opacity: 0.08;    
@@ -55,6 +58,7 @@ SpinBoxButton := Rectangle {
     ]
 }
 
+// Increment and decrement a value in the given range.
 export SpinBox := FocusScope {
     property <bool> checked;
     property <int> value;
@@ -94,7 +98,8 @@ export SpinBox := FocusScope {
             height: 100%;
             color: md.sys.color.on-surface;
             vertical-alignment: center;
-            font-family: md.sys.typescale.body-large.font;
+            // FIXME after Roboto font can be loaded
+            //font-family: md.sys.typescale.body-large.font;
             font-size: md.sys.typescale.body-large.size;
             font-weight: md.sys.typescale.body-large.weight;    
         }

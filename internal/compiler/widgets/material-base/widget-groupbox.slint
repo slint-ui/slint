@@ -27,7 +27,8 @@ export GroupBox := Rectangle {
             width: min(root.width - 24pt, preferred-width);
           
             color: md.sys.color.on-surface;
-            font-family: md.sys.typescale.body-small.font;
+            // FIXME after Roboto font can be loaded
+            //font-family: md.sys.typescale.body-small.font;
             font-size: md.sys.typescale.body-small.size;
             font-weight: md.sys.typescale.body-small.weight;
             overflow: elide;

@@ -12,6 +12,7 @@ struct Color := {
     outline: color,
     outline-variant: color,
     secondary-container: color,
+    on-secondary-container: color,
 }
 
 // typo settings
@@ -61,6 +62,7 @@ export global md := {
             outline: !dark-color-scheme ? #79747E : #938F99,
             outline-variant: !dark-color-scheme ? #C4C7C5 : #444746,
             secondary-container:  !dark-color-scheme ? #E8DEF8 : #4A4458,
+            on-secondary-container:  !dark-color-scheme ? #1E192B : #E8DEF8,
         },
 
         elevation: {

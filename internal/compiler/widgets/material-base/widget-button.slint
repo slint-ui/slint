@@ -1,6 +1,6 @@
 import { md } from "md.slint";
 
-// Default button widget with Material Design Outline Button look and feel.
+// Default button widget with Material Design Filled Button look and feel.
 export Button := Rectangle {
     callback clicked;
 
@@ -22,11 +22,12 @@ export Button := Rectangle {
         width: 100%;
         height: 100%;
         border-radius: 20pt;
-        border-color: md.sys.color.outline;
-        border-width: 1pt;
-    
-        animate background { duration: 250ms; easing: ease; }
-        animate border-color { duration: 250ms; easing: ease; }
+        background: md.sys.color.secondary-container;
+        drop-shadow-color: md.sys.color.shadow;
+        drop-shadow-blur: md.sys.elevation.level0;
+        drop-shadow-offset-y: 1pt;
+
+        animate drop-shadow-blur { duration: 250ms; easing: ease; }
     }
 
     state-layer := Rectangle {  
@@ -34,7 +35,7 @@ export Button := Rectangle {
         width: 100%;
         height: 100%;
         border-radius: container.border-radius;
-        background: md.sys.color.primary;
+        background: md.sys.color.on-secondary-container;
         animate opacity { duration: 250ms; easing: ease; }
      }
 
@@ -50,7 +51,7 @@ export Button := Rectangle {
         }
 
         label := Text {
-            color: md.sys.color.primary;
+            color: md.sys.color.on-secondary-container;
             vertical-alignment: center;
             horizontal-alignment: center;
             font-size: md.sys.typescale.label-large.size;
@@ -81,21 +82,19 @@ export Button := Rectangle {
 
     states [
         disabled when !root.enabled : {
-            container.border-color: md.sys.color.on-surface;
+            container.background: md.sys.color.on-surface;
             container.opacity: 0.12;
             label.opacity: 0.38;
             label.color: md.sys.color.on-surface;
         }
         pressed when touch.pressed : {
             state-layer.opacity: 0.12;
-            label.color: md.sys.color.primary;
         }
         hover when touch.has-hover : {
             state-layer.opacity: 0.08;    
+            container.drop-shadow-blur: md.sys.elevation.level1;
         }
         focused when fs.has-focus : {
-            container.border-color: md.sys.color.primary;
-            label.color: md.sys.color.primary;
             state-layer.opacity: 0.12;
         }
     ]

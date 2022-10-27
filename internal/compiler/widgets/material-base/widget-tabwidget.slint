@@ -58,7 +58,8 @@ export TabImpl := Rectangle {
         label := Text {
             vertical-alignment: center;
             color: !active ? md.sys.color.on-surface : md.sys.color.primary;
-            font-family: md.sys.typescale.title-small.font;
+            // FIXME after Roboto font can be loaded
+            //font-family: md.sys.typescale.title-small.font;
             font-size: md.sys.typescale.title-small.size;
             font-weight: md.sys.typescale.title-small.weight;
 
