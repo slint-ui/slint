@@ -11,8 +11,9 @@ import { TabWidgetImpl, TabImpl, TabBarImpl, TabWidget } from "widget-tabwidget.
 import { GroupBox } from "widget-groupbox.slint";
 import { VerticalBox, HorizontalBox, GridBox } from "layouts.slint";
 import { Slider } from "widget-slider.slint";
+import { ComboBox } from "widget-combobox.slint";
 
-export { StyleMetrics, ScrollView, Button, CheckBox, GroupBox, StandardButton, TextEdit, TabWidgetImpl, TabImpl, TabBarImpl, TabWidget,
+export { StyleMetrics, ScrollView, Button, ComboBox, CheckBox, GroupBox, StandardButton, TextEdit, TabWidgetImpl, TabImpl, TabBarImpl, TabWidget,
     LineEdit, AboutSlint, AboutSlint as AboutSixtyFPS, VerticalBox, HorizontalBox, GridBox, Slider }
 
 SpinBoxButton := Rectangle {
@@ -163,121 +164,3 @@ export StandardListView := ListView {
         }
     }
 }
-
-export ComboBox := FocusScope {
-    property <[string]> model;
-    property <int> current-index : 0;
-    property <string> current-value: model[current-index];
-    //property <bool> is-open: false;
-    callback selected(string);
-
-    accessible-role: combobox;
-    accessible-value <=> current-value;
-
-    key-pressed(event) => {
-        if (event.text == Keys.UpArrow) {
-            current-index = Math.max(current-index - 1, 0);
-            current-value = model[current-index];
-            return accept;
-        } else if (event.text == Keys.DownArrow) {
-            current-index = Math.min(current-index + 1, model.length - 1);
-            current-value = model[current-index];
-            return accept;
-        // PopupWindow can not get hidden again at this time, so do not allow to pop that up.
-        // } else if (event.text == Keys.Return) {
-        //     touch.clicked()
-        //     return accept;
-        }
-        return reject;
-    }
-
-    Rectangle {
-        background: !enabled ? Palette.neutralLighter : Palette.white;
-        border-radius: 2px;
-        border-width: !enabled ? 0px : has-focus ? 3px : 1px;
-        border-color: !enabled ? Palette.neutralLighter
-            : has-focus ? Palette.themeSecondary
-            : Palette.neutralPrimary;
-    }
-
-
-    horizontal-stretch: 1;
-    vertical-stretch: 0;
-    min-width: 170px;
-    min-height: max(32px, l.min-height);
-
-    l := HorizontalLayout {
-        padding-left: 8px;
-        padding-right: 8px;
-        padding-bottom: 3px;
-        padding-top: 3px;
-        spacing: 8px;
-        t := Text {
-            text <=> root.current-value;
-            horizontal-alignment: left;
-            vertical-alignment: center;
-            horizontal-stretch: 1;
-            color: !enabled ? Palette.neutralTertiary
-                : root.has-focus || touch.has-hover ? Palette.neutralPrimary
-                : Palette.neutralSecondary;
-            min-width: 0;
-        }
-        Rectangle {
-            width: 25px;
-            Path {
-                x: (parent.width - width) / 2;
-                y: (parent.height - height) / 2;
-                height: 8px;
-                width: 25px;
-                commands: "M.22.4.5.64.78.4.74.36.5.6.26.36z";
-                fill: t.color;
-            }
-        }
-
-    }
-
-    touch := TouchArea {
-        enabled <=> root.enabled;
-        clicked => {
-            root.focus();
-            popup.show();
-        }
-    }
-
-    popup := PopupWindow {
-        y: root.height;
-        width: root.width;
-        Rectangle {
-            border-color: Palette.neutralLighter;
-            border-width: 1px;
-            /*drop-shadow-color: Palette.neutralTertiary;
-            drop-shadow-blur: 5px;*/
-            background: Palette.white;
-        }
-        VerticalLayout {
-            for value[idx] in root.model: Rectangle {
-                background: idx == root.current-index ? Palette.neutralLighter
-                    : item-area.has-hover ? Palette.neutralLighterAlt : transparent;
-                VerticalLayout {
-                    padding: 10px;
-                    Text {
-                        text: value;
-                    }
-                }
-                item-area := TouchArea {
-                    width: 100%;
-                    height: 100%;
-                    clicked => {
-                        if (root.enabled) {
-                            root.current-index = idx;
-                            root.current-value = value;
-                            root.selected(root.current-value);
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-

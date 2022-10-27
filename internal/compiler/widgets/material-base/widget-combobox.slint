@@ -1,0 +1,112 @@
+import { md } from "md.slint";
+import { Item } from "widget-item.slint";
+
+export ComboBox := FocusScope {
+    property <[string]> model;
+    property <int> current-index : 0;
+    property <string> current-value: model[current-index];
+    callback selected(string);
+
+    accessible-role: combobox;
+    accessible-value <=> current-value;
+
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    min-width: 160pt;
+    height: 56pt;
+
+    container := Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: 4pt;
+        border-width: 1pt;
+        border-color: md.sys.color.outline;
+    }
+
+    layout := HorizontalLayout {  
+        padding-left: 16pt;
+        padding-right: 12pt;
+        spacing: 16pt;
+
+        label := Text {
+            text <=> root.current-value;
+            height: 100%;
+            color: md.sys.color.on-surface;
+            vertical-alignment: center;
+            font-family: md.sys.typescale.body-large.font;
+            font-size: md.sys.typescale.body-large.size;
+            font-weight: md.sys.typescale.body-large.weight;    
+        }
+
+        icon := Path {
+            width: 16pt;
+            height: 16pt;
+            y: (parent.height - height) / 2;
+            commands: "m24 30.75-12-12 2.15-2.15L24 26.5l9.85-9.85L36 18.8Z";
+            fill: md.sys.color.on-surface;
+        }
+    }
+
+    touch := TouchArea {
+        enabled <=> root.enabled;
+        clicked => {
+            root.focus();
+            popup.show();
+        }
+    }
+
+    popup := PopupWindow {
+        y: root.height;
+        width: root.width;
+
+        popup-container := Rectangle {
+            background: md.sys.color.surface;
+            drop-shadow-color: md.sys.color.shadow;
+            drop-shadow-blur: md.sys.elevation.level2;
+            drop-shadow-offset-y: 1pt;
+            border-radius: 4pt;
+        }
+
+        VerticalLayout {  
+            for value[idx] in root.model: Item { 
+                text: value;
+                selected: idx == root.current-index;
+                clicked => {
+                    if (root.enabled) {
+                        root.current-index = idx;
+                        root.current-value = value;
+                        root.selected(root.current-value);
+                    }
+                }
+            }
+        }
+    }
+
+    key-pressed(event) => {
+        if (event.text == Keys.UpArrow) {
+            current-index = Math.max(current-index - 1, 0);
+            current-value = model[current-index];
+            return accept;
+        } else if (event.text == Keys.DownArrow) {
+            current-index = Math.min(current-index + 1, model.length - 1);
+            current-value = model[current-index];
+            return accept;
+        }
+        return reject;
+    }
+
+    states [
+        disabled when !enabled : {
+            container.border-color: md.sys.color.on-surface;
+            container.opacity: 0.38;
+            label.opacity: 0.38;
+            icon.opacity: 0.38;
+        }
+        focused when has-focus : {
+            container.border-width: 2pt;
+            container.border-color: md.sys.color.primary;
+            label.color: md.sys.color.primary;
+            icon.fill: md.sys.color.primary;
+        }
+    ]
+}
