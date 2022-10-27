@@ -86,10 +86,11 @@ core-foundation = { version = "0.9.1" }
 core-text = { version = "19.1.0" }
 # For Metal rendering with Skia
 metal = { version = "0.24.0", optional = true }
+# Use the same version of foreign-types as the metal crate uses.
+foreign-types = { version = "0.3.2", optional = true }
 objc = { version = "0.2.7", optional = true }
 core-graphics-types = { version = "0.1.1", optional = true }
 skia-safe = { version = "0.55.0", optional = true, features = ["metal"] }
-foreign-types = { version = "0.5.0", optional = true }
 
 [target.'cfg(not(any(target_os = "macos", target_family = "windows")))'.dependencies]
 skia-safe = { version = "0.55.0", optional = true, features = ["gl"] }
