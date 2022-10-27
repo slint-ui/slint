@@ -1,0 +1,56 @@
+import { md } from "md.slint";
+
+// A container widget with a title.s
+export GroupBox := Rectangle {
+    property <string> title <=> label.text;
+    property<bool> enabled: true;
+    
+    container := Rectangle {
+        border-radius: 4pt;
+        border-width: 1pt;
+        border-color: md.sys.color.outline;
+        y: layout.padding-top;
+        width: layout.width;
+        height: layout.height - layout.padding-top;
+    }
+
+    label-container := Rectangle { 
+        x: 8pt;
+        y: container.y;
+        width: label.width + 8pt;
+        height: label.height + 8pt;
+        background: md.sys.color.background;
+    
+        label := Text {
+            x: 4pt;
+            y: 4pt;
+            width: min(root.width - 24pt, preferred-width);
+          
+            color: md.sys.color.on-surface;
+            font-family: md.sys.typescale.body-small.font;
+            font-size: md.sys.typescale.body-small.size;
+            font-weight: md.sys.typescale.body-small.weight;
+            overflow: elide;
+        }
+    }
+
+    layout := HorizontalLayout {  
+        padding-top: label-container.height / 2;
+        GridLayout {
+            padding-top: 16pt + label-container.height / 2;
+            padding-left: 16pt;
+            padding-right: 16pt;
+            padding-bottom: 16pt;
+            @children
+        }
+    }
+
+    states [
+        disabled when !enabled : {
+            container.border-color: md.sys.color.on-surface;
+            container.opacity: 0.38;
+            label.color: md.sys.color.on-surface;
+            label.opacity: 0.38;
+        }
+    ]
+}

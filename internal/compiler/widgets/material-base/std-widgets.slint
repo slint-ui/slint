@@ -8,7 +8,9 @@ import { StandardButton } from "../common/standardbutton.slint";
 import { StyleMetrics, ScrollView, Button, CheckBox, Palette  } from "std-widgets-impl.slint";
 import { LineEdit } from "widget-lineedit.slint";
 import { TabWidgetImpl, TabImpl, TabBarImpl, TabWidget } from "widget-tabwidget.slint";
-export { StyleMetrics, ScrollView, Button, CheckBox, StandardButton, TextEdit, TabWidgetImpl, TabImpl, TabBarImpl, TabWidget,
+import { GroupBox } from "widget-groupbox.slint";
+
+export { StyleMetrics, ScrollView, Button, CheckBox, GroupBox, StandardButton, TextEdit, TabWidgetImpl, TabImpl, TabBarImpl, TabWidget,
     LineEdit, AboutSlint, AboutSlint as AboutSixtyFPS }
 
 SpinBoxButton := Rectangle {
@@ -213,27 +215,6 @@ export Slider := Rectangle {
     Rectangle { // Focus rectangle
         border-width: enabled && has-focus ? 1px : 0px;
         border-color: Palette.black;
-    }
-}
-
-
-
-export GroupBox := VerticalLayout {
-    property <string> title <=> label.text;
-    property<bool> enabled: true;
-    spacing: 8px;
-    padding-top: 16px;
-    padding-bottom: 8px;
-    label := Text {
-        vertical-stretch: 0;
-        color: !enabled ? Palette.neutralTertiary : Palette.neutralDark;
-        font-weight: 600;
-    }
-    Rectangle {
-        vertical-stretch: 1;
-        GridLayout {
-            @children
-        }
     }
 }
 

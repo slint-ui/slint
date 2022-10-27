@@ -32,6 +32,7 @@ struct Typescale := {
     label-large: Label,
     label-medium: Label,
     body-large: Label,
+    body-small: Label,
     title-small: Label,
 }
 
@@ -80,6 +81,11 @@ export global md := {
             body-large: {
                 font: "Roboto Medium",
                 size: 16pt,
+                weight: 400
+            },
+            body-small: {
+                font: "Roboto Regular",
+                size: 12pt,
                 weight: 400
             },
             title-small: {
