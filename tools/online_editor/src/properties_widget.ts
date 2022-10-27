@@ -4,6 +4,10 @@
 // cSpell: ignore lumino
 
 import { GotoPositionCallback, TextRange } from "./text";
+import {
+  lsp_range_to_editor_range,
+  DefinitionPosition,
+} from "./lsp_integration";
 
 import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
@@ -34,6 +38,16 @@ function type_class_for_typename(name: string): string {
     return "type-" + name;
   }
   return "type-unknown";
+}
+
+function editor_definition_range(
+  uri: string,
+  def_pos: DefinitionPosition | null,
+): TextRange | null {
+  if (def_pos == null) {
+    return null;
+  }
+  return lsp_range_to_editor_range(uri, def_pos.expression_range);
 }
 
 export class PropertiesWidget extends Widget {
@@ -146,20 +160,13 @@ export class PropertiesWidget extends Widget {
         row.classList.add("undefined");
       }
 
-      let goto_property = () => {
-        return;
+      const expression_range = editor_definition_range(uri, p.defined_at);
+
+      const goto_property = () => {
+        if (expression_range != null) {
+          this.#onGotoPosition(uri, expression_range);
+        }
       };
-      if (p.defined_at != null) {
-        const r = p.defined_at.expression_range;
-        goto_property = () => {
-          this.#onGotoPosition(uri, {
-            startLineNumber: r.start.line + 1,
-            startColumn: r.start.character + 1,
-            endLineNumber: r.end.line + 1,
-            endColumn: r.end.character, // LSP reports the first character *NOT* part of the range anymore with 0 base.
-          } as TextRange);
-        };
-      }
 
 
       const name_field = document.createElement("td");
