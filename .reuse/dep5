@@ -7,7 +7,7 @@ Files: */slint-logo-*.svg */slint-logo-*.png
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: CC-BY-ND-4.0
 
-Files: .clang-format .gitattributes .gitignore */.gitignore .pre-commit-config.yaml .vscode/* cspell.json rustfmt.toml .mailmap */.eslintrc.yml
+Files: .clang-format .gitattributes .gitignore */.gitignore .pre-commit-config.yaml .vscode/* cspell.json rustfmt.toml .mailmap */.eslintrc.yml Cargo.lock
 Copyright: Copyright © SixtyFPS GmbH <info@slint-ui.com>
 License: GPL-3.0-only OR LicenseRef-Slint-commercial
 

@@ -286,6 +286,7 @@ lazy_static! {
         // Filename/directory based matches
         ("[/^]CMakeLists.txt$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("[/^]Cargo.toml$", LicenseLocation::Crate),
+        ("[/^]Cargo.lock$", LicenseLocation::NoLicense),
         ("[/^]Dockerfile", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("[/^]LICENSES/", LicenseLocation::NoLicense),
         ("[/^]LICENSE", LicenseLocation::NoLicense),
