@@ -79,7 +79,6 @@ The Node.js tests are contained in the `test-driver-nodejs` crate. It requires t
 which is not done by default. Build it explicitly before running the tests:
 
 ```sh
-```sh
 cargo build -p slint-node
 cargo build -p test-driver-nodejs
 ```
