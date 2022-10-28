@@ -28,7 +28,7 @@ vtable = { version = "0.1.6", path="../../../helper_crates/vtable" }
 
 css-color-parser2 = "1.0.1"
 generativity = "1"
-neon = "0.8.0"
+neon = "0.10.1"
 once_cell = "1.5"
 rand = "0.8"
 scoped-tls-hkt = "0.1"
