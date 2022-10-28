@@ -274,6 +274,7 @@ lazy_static! {
         ("^api/cpp/docs/Pipfile$", LicenseLocation::NoLicense),
         ("^api/cpp/docs/conf.py$", LicenseLocation::NoLicense),
         ("^editors/tree-sitter-slint/binding.gyp$", LicenseLocation::NoLicense), // liberal license
+        ("^Cargo.lock$", LicenseLocation::NoLicense),
 
         // Path prefix matches:
         ("^api/cpp/docs/_static/", LicenseLocation::NoLicense),
@@ -286,7 +287,6 @@ lazy_static! {
         // Filename/directory based matches
         ("[/^]CMakeLists.txt$", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("[/^]Cargo.toml$", LicenseLocation::Crate),
-        ("[/^]Cargo.lock$", LicenseLocation::NoLicense),
         ("[/^]Dockerfile", LicenseLocation::Tag(LicenseTagStyle::shell_comment_style())),
         ("[/^]LICENSES/", LicenseLocation::NoLicense),
         ("[/^]LICENSE", LicenseLocation::NoLicense),
