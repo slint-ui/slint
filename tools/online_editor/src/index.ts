@@ -68,7 +68,7 @@ function create_style_menu(editor: EditorWidget): Menu {
         return editor.style === style.name;
       },
       execute: () => {
-        return editor.style = style.name;
+        editor.style = style.name;
       },
     });
     menu.addItem({ command: command_name });
