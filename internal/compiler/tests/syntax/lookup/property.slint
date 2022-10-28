@@ -41,5 +41,10 @@ X := Rectangle {
 //              ^error{Element 'Comp' does not have a property 'not_exist'}
     }
 
+    callback dummy;
+    dummy => {
+        SlintInternal.dark-color-scheme = false;
+//      ^error{Assignment needs to be done on a property}
+    }
 
 }
