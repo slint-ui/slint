@@ -627,10 +627,15 @@ impl LookupObject for SlintInternal {
     ) -> Option<R> {
         f(
             "dark-color-scheme",
-            Expression::BuiltinFunctionReference(
-                BuiltinFunction::DarkColorScheme,
-                ctx.current_token.as_ref().map(|t| t.to_source_location()),
-            )
+            Expression::FunctionCall {
+                function: Expression::BuiltinFunctionReference(
+                    BuiltinFunction::DarkColorScheme,
+                    None,
+                )
+                .into(),
+                arguments: vec![],
+                source_location: ctx.current_token.as_ref().map(|t| t.to_source_location()),
+            }
             .into(),
         )
     }
