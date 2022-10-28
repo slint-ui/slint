@@ -167,6 +167,7 @@ export SpinBox := FocusScope {
                 if (root.value < root.maximum) {
                     root.value += 1;
                 }
+		root.focus();
             }
         }
         SpinBoxButton {
@@ -183,6 +184,7 @@ export SpinBox := FocusScope {
                 if (root.value > root.minimum) {
                     root.value -= 1;
                 }
+		root.focus();
             }
         }
 
