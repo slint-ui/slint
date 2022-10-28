@@ -38,7 +38,7 @@ contexts:
       scope: constant.other.color.slint
 
   types:
-    - match: '\b(int|float|duration|string|image|brush|color|length|logical_length)\b'
+    - match: '\b(int|bool|float|duration|angle|string|image|brush|color|length|physical-length)\b'
       scope: storage.type.slint
 
   constants:
@@ -50,9 +50,9 @@ contexts:
     # strings in YAML. When using single quoted strings, only single quotes
     # need to be escaped: this is done by using two single quotes next to each
     # other.
-    - match: '\b(import|from)\b'
+    - match: '\b(import|from|export|global|struct|component|inherits)\b'
       scope: keyword.slint
-    - match: '\b(property|callback|animate|states|transitions)\b'
+    - match: '\b(property|callback|animate|states|transitions|inout|input|output)\b'
       scope: keyword.other.slint
     - match: '\b(if|for|return)\b'
       scope: keyword.control.slint

@@ -7,21 +7,29 @@
 <highlighting>
     <list name="types">
       <item>int</item>
+      <item>bool</item>
       <item>float</item>
       <item>duration</item>
+      <item>angle</item>
       <item>string</item>
       <item>image</item>
       <item>brush</item>
       <item>color</item>
       <item>length</item>
-      <item>logical_length</item>
+      <item>physical-length</item>
     </list>
     <list name="keywords">
       <item>import</item>
       <item>from</item>
       <item>export</item>
       <item>global</item>
+      <item>struct</item>
+      <item>component</item>
+      <item>inherits</item>
       <item>property</item>
+      <item>inout</item>
+      <item>input</item>
+      <item>output</item>
       <item>callback</item>
       <item>animate</item>
       <item>states</item>

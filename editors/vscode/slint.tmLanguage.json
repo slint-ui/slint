@@ -13,11 +13,11 @@
                     "include": "#general"
                 },
                 {
-                    "match": "\\b(import|from)\\b",
+                    "match": "\\b(import|from|export|struct|global|component|inherits)\\b",
                     "name": "keyword"
                 },
                 {
-                    "match": "\\b(property|callback|animate|states|transitions)\\b",
+                    "match": "\\b(property|callback|animate|states|transitions|inout|input|output)\\b",
                     "name": "keyword.other"
                 },
                 {
