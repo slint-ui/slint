@@ -578,10 +578,31 @@ class EditorPaneWidget extends Widget {
     uri: string,
     range: TextRange,
     new_text: string,
-    validate: () => boolean,
+    validate: (_old: string) => boolean,
   ): boolean {
-    console.log("Replacing ", uri, range, "with", new_text);
-    return validate();
+    const model = monaco.editor.getModel(monaco.Uri.parse(uri));
+
+    if (model !== null) {
+      const old_text = model.getValueInRange(range);
+      if (validate(old_text)) {
+        model.pushEditOperations(
+          [],
+          [
+            {
+              forceMoveMarkers: true,
+              range: range,
+              text: new_text,
+            },
+          ],
+          (_) => {
+            return [];
+          },
+        );
+        return true;
+      }
+    }
+
+    return false;
   }
 
   async read_from_url(url: string): Promise<string> {
@@ -777,7 +798,7 @@ export class EditorWidget extends Widget {
     uri: string,
     range: TextRange,
     new_text: string,
-    validator: () => boolean,
+    validator: (_old: string) => boolean,
   ): boolean {
     return this.#editor.replace_text(uri, range, new_text, validator);
   }

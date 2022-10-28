@@ -57,7 +57,7 @@ export class PropertiesWidget extends Widget {
     return;
   };
   #replaceText: ReplaceTextFunction = (_u, _r, _t, _v) => {
-    return;
+    return true;
   };
 
   static createNode(): HTMLElement {
@@ -134,6 +134,15 @@ export class PropertiesWidget extends Widget {
       this.elementTypeNode.innerText = element.type_name;
       this.elementIdNode.innerText = element.id;
     }
+  }
+
+  private replace_property_value(
+    uri: string,
+    range: TextRange,
+    new_value: string,
+    validator: (_old: string) => boolean,
+  ): boolean {
+    return this.#replaceText(uri, range, new_value, validator);
   }
 
   private populate_table(
@@ -213,7 +222,12 @@ export class PropertiesWidget extends Widget {
         input.addEventListener("change", (_) => {
           const current_text = input.value;
           if (current_text != code_text && expression_range != null) {
-            this.#replaceText(uri, expression_range, current_text, () => true);
+            this.replace_property_value(
+              uri,
+              expression_range,
+              current_text,
+              (old_text) => old_text == code_text,
+            );
           }
         });
       } else {

@@ -13,7 +13,7 @@ export type ReplaceTextFunction = (
   _uri: string,
   _range: TextRange,
   _new_text: string,
-  _validate: () => boolean,
+  _validate: (_old: string) => boolean,
 ) => boolean;
 export type GotoPositionCallback = (
   _uri: string,
