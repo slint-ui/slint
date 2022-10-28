@@ -9,10 +9,21 @@ component Foo {
 }
 
 component Bar {
-    Foo { }
+    Foo {
+        Rectangle { }
+//      ^error{'Foo' cannot have children. Only components with @children can have children}
+    }
     Foo {
         background: 0;
 //      ^error{Unknown property background in Foo}
         height: self.width;
+    }
+
+    @children
+}
+
+component Baz {
+    Bar {
+        Foo {}
     }
 }

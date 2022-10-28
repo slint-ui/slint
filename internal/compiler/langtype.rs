@@ -467,12 +467,13 @@ impl ElementType {
         tr: &TypeRegister,
     ) -> Result<ElementType, String> {
         match self {
-            Self::Component(component) => {
-                return component
-                    .root_element
-                    .borrow()
-                    .base_type
-                    .lookup_type_for_child_element(name, tr)
+            Self::Component(component) if component.child_insertion_point.borrow().is_none() => {
+                let base_type = component.root_element.borrow().base_type.clone();
+                if base_type == tr.empty_type() {
+                    return Err(format!("'{}' cannot have children. Only components with @children can have children", component.id));
+                } else {
+                    return base_type.lookup_type_for_child_element(name, tr);
+                }
             }
             Self::Builtin(builtin) => {
                 if let Some(child_type) = builtin.additional_accepted_child_types.get(name) {
