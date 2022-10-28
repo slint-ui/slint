@@ -3,30 +3,34 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+## [0.3.1] - 2022-10-28
+
 ### Changed
 
- - switch to yeslogic-fontconfig-sys from servo-fontconfig dependency
- - The property `Window::background` is now a brush instead of a color (allowing gradients)
+ - The property `Window::background` is now a brush instead of a color (allowing gradients).
+ - Switch to yeslogic-fontconfig-sys from servo-fontconfig dependency. This allows for fontconfig
+   to be a run-time dependency via dlopen.
+ - Skia renderer: Improvements to text input.
 
 ### Added
 
  - Added `slint::FilterModel`, `slint::MapModel` to the C++ API.
- - Added `slint::SortModel` to Rust and C++ API
- - Added `VecModel::extend` and `VecModel::extend_from_slice`
- - Online editor: Added "Properties" and "Outline" tabs
- - Skia renderer: improvements to the TextInput
- - Support for input method with pre-edit
- - Dark theme for the Fluent style
+ - Added `slint::SortModel` to Rust and C++ API.
+ - Added `VecModel::extend` and `VecModel::extend_from_slice`.
+ - Online editor: Added "Properties" and "Outline" tabs.
+ - Added initial support for input methods with pre-edit text.
+ - Added a dark theme for the Fluent style, which is automatically selected if the system
+   color scheme is dark.
  - Added `fluent-light` and `fluent-dark` as explicit styles to select a light/dark variant,
    regardless of the system color scheme setting.
 
 ### Fixed
 
- - TextInput now show the Text mouse cursor
- - In Flickable, added a small delay before passing the Press pointer event to the children
- - Online editor: fixed "go to definition" across files.
- - Fixed a panic in the slint compiler when visiting layout properties for loop analysis (#1659)
- - Compilation error in the generated code (#1733, #1735)
+ - TextInput now shows the text mouse cursor.
+ - In Flickable, added a small delay before passing the Press pointer event to the children.
+ - Online editor: Fixed "go to definition" across files.
+ - Fixed a panic in the slint compiler when visiting layout properties for loop analysis (#1659).
+ - Fixed compilation error in the generated code (#1733, #1735).
 
 ## [0.3.0] - 2022-09-14
 
@@ -541,3 +545,4 @@ as well as the [Rust migration guide for the `sixtyfps` crate](api/rs/slint/migr
 [0.2.4]: https://github.com/slint-ui/slint/releases/tag/v0.2.4
 [0.2.5]: https://github.com/slint-ui/slint/releases/tag/v0.2.5
 [0.3.0]: https://github.com/slint-ui/slint/releases/tag/v0.3.0
+[0.3.1]: https://github.com/slint-ui/slint/releases/tag/v0.3.1
