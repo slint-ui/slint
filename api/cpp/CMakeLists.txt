@@ -284,7 +284,7 @@ configure_package_config_file("cmake/SlintConfig.cmake.in" "${CMAKE_CURRENT_BINA
 
 write_basic_package_version_file(
     ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfigVersion.cmake
-    VERSION 0.3.1
+    VERSION 0.3.2
     COMPATIBILITY SameMinorVersion
 )
 
@@ -337,7 +337,7 @@ set(CPACK_PACKAGE_VENDOR "Slint")
 set(CPACK_VERBATIM_VARIABLES true)
 set(CPACK_PACKAGE_VERSION_MAJOR 0)
 set(CPACK_PACKAGE_VERSION_MINOR 3)
-set(CPACK_PACKAGE_VERSION_PATCH 1)
+set(CPACK_PACKAGE_VERSION_PATCH 2)
 set(CPACK_PACKAGE_HOMEPAGE_URL "https://slint-ui.com")
 set(CPACK_RESOURCE_FILE_LICENSE "${CMAKE_CURRENT_LIST_DIR}/../../LICENSE.md")
 set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_LIST_DIR}/README.md")

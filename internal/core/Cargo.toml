@@ -3,7 +3,7 @@
 
 [package]
 name = "i-slint-core"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -37,8 +37,8 @@ svg = ["resvg", "usvg", "tiny-skia"]
 default = ["std", "unicode"]
 
 [dependencies]
-i-slint-common = { version = "=0.3.1", path = "../common" }
-i-slint-core-macros = { version = "=0.3.1", path = "../core-macros" }
+i-slint-common = { version = "=0.3.2", path = "../common" }
+i-slint-core-macros = { version = "=0.3.2", path = "../core-macros" }
 
 const-field-offset = { version = "0.1", path = "../../helper_crates/const-field-offset" }
 vtable = { version="0.1.9", path = "../../helper_crates/vtable" }

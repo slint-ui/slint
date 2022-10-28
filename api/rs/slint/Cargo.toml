@@ -3,7 +3,7 @@
 
 [package]
 name = "slint"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -113,9 +113,9 @@ renderer-winit-skia-opengl = ["i-slint-backend-selector/renderer-winit-skia-open
 renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]
 
 [dependencies]
-i-slint-core = { version = "=0.3.1", path = "../../../internal/core", default-features = false }
-slint-macros = { version = "=0.3.1", path = "../macros" }
-i-slint-backend-selector = { version = "=0.3.1", path = "../../../internal/backends/selector" }
+i-slint-core = { version = "=0.3.2", path = "../../../internal/core", default-features = false }
+slint-macros = { version = "=0.3.2", path = "../macros" }
+i-slint-backend-selector = { version = "=0.3.2", path = "../../../internal/backends/selector" }
 
 const-field-offset = { version = "0.1.2", path = "../../../helper_crates/const-field-offset" }
 document-features = { version = "0.2.0", optional = true }

@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-cpp"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 build = "build.rs"
@@ -37,13 +37,13 @@ renderer-winit-skia-opengl = ["i-slint-backend-selector/renderer-winit-skia-open
 default = ["backend-winit", "renderer-winit-femtovg", "backend-qt"]
 
 [dependencies]
-i-slint-backend-selector = { version = "=0.3.1", path="../../internal/backends/selector" }
-i-slint-backend-testing = { version = "=0.3.1", path="../../internal/backends/testing", optional = true }
-i-slint-core = { version = "=0.3.1", path="../../internal/core", features = ["ffi"] }
-slint-interpreter = { version = "=0.3.1", path="../../internal/interpreter", default-features = false, features = ["ffi", "compat-0-3-0"], optional = true }
+i-slint-backend-selector = { version = "=0.3.2", path="../../internal/backends/selector" }
+i-slint-backend-testing = { version = "=0.3.2", path="../../internal/backends/testing", optional = true }
+i-slint-core = { version = "=0.3.2", path="../../internal/core", features = ["ffi"] }
+slint-interpreter = { version = "=0.3.2", path="../../internal/interpreter", default-features = false, features = ["ffi", "compat-0-3-0"], optional = true }
 
 [build-dependencies]
 anyhow = "1.0"
 cbindgen = "0.24"
 proc-macro2 = "1.0.11"
-i-slint-common = { version = "=0.3.1", path="../../internal/common" }
+i-slint-common = { version = "=0.3.2", path="../../internal/common" }

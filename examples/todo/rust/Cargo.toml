@@ -3,7 +3,7 @@
 
 [package]
 name = "todo"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 build = "build.rs"

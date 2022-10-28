@@ -3,7 +3,7 @@
 
 [package]
 name = "mcu-board-support"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -22,8 +22,8 @@ stm32h735g = ["slint/unsafe-single-threaded", "embedded-hal", "cortex-m/critical
 esp32-s2-kaluga-1 = ["slint/unsafe-single-threaded", "esp32s2-hal", "embedded-hal", "xtensa-lx-rt", "esp-alloc", "esp-println", "display-interface", "display-interface-spi", "st7789", "slint/libm"]
 
 [dependencies]
-slint = { version = "=0.3.1", path = "../../api/rs/slint", default-features = false, features = ["compat-0-3-0"] }
-i-slint-core-macros = { version = "=0.3.1", path = "../../internal/core-macros" }
+slint = { version = "=0.3.2", path = "../../api/rs/slint", default-features = false, features = ["compat-0-3-0"] }
+i-slint-core-macros = { version = "=0.3.2", path = "../../internal/core-macros" }
 
 derive_more = "0.99.5"
 embedded-graphics = { version = "0.7.1", optional = true }

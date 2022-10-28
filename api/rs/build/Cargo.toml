@@ -3,7 +3,7 @@
 
 [package]
 name = "slint-build"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 license = "GPL-3.0-only OR LicenseRef-Slint-commercial"
@@ -19,7 +19,7 @@ path = "lib.rs"
 default = []
 
 [dependencies]
-i-slint-compiler = { version = "=0.3.1", path = "../../../internal/compiler", features = ["rust", "display-diagnostics"] }
+i-slint-compiler = { version = "=0.3.2", path = "../../../internal/compiler", features = ["rust", "display-diagnostics"] }
 
 spin_on = "0.1"
 thiserror = "1"

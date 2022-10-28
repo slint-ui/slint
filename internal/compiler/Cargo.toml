@@ -3,7 +3,7 @@
 
 [package]
 name = "i-slint-compiler"
-version = "0.3.1"
+version = "0.3.2"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2021"
 build = "build.rs"
@@ -29,7 +29,7 @@ display-diagnostics = ["codemap", "codemap-diagnostic"]
 
 
 [dependencies]
-i-slint-common = { version = "=0.3.1", path = "../common" }
+i-slint-common = { version = "=0.3.2", path = "../common" }
 
 num_enum = "0.5.1"
 rowan = "0.15.5"
