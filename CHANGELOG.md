@@ -3,6 +3,14 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+### Changed
+
+### Added
+
+ - Added `Window::is_visible` 
+
+### Fixed
+
 ## [0.3.1] - 2022-10-28
 
 ### Changed
@@ -23,7 +31,6 @@ All notable changes to this project are documented in this file.
    color scheme is dark.
  - Added `fluent-light` and `fluent-dark` as explicit styles to select a light/dark variant,
    regardless of the system color scheme setting.
- - Added `Window::is_visible` 
 
 ### Fixed
 
