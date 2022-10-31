@@ -16,6 +16,10 @@ component Compo inherits Rectangle {
             input1 = 75;
             inout1 = 75;
         }
+
+        pressed: true;
+//      ^error{Cannot assign to output property 'pressed'}
+
     }
 
     states [

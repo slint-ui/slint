@@ -16,6 +16,9 @@ component Compo inherits Rectangle {
             input1 = 75;
 //          ^error{Assignment on a input property}
             inout1 = 75;
+
+            self.pressed-x = 42px;
+//          ^error{Assignment on a output property}
         }
     }
 
@@ -36,7 +39,13 @@ OldCompo := Rectangle {
             input1 = 75;
 //          ^error{Assignment on a input property}
             inout1 = 75;
+            pressed-x = 45px;
+//          ^warning{Assignment on an output property is deprecated}
+            pressed-y -= 45px;
+//          ^warning{Self assignment on an output property is deprecated}
         }
+        has-hover: true;
+//      ^warning{Assigning to output property 'has-hover' is deprecated}
     }
 }
 

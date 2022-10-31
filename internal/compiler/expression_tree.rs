@@ -1118,21 +1118,43 @@ impl Expression {
     /// Try to mark this expression to a lvalue that can be assigned to.
     ///
     /// Return true if the expression is a "lvalue" that can be used as the left hand side of a `=` or `+=` or similar
-    pub fn try_set_rw(&mut self) -> Result<(), String> {
+    pub fn try_set_rw(
+        &mut self,
+        is_legacy_component: bool,
+        diag: &mut BuildDiagnostics,
+        what: &'static str,
+        node: &dyn Spanned,
+    ) -> bool {
         match self {
             Expression::PropertyReference(nr) => {
                 nr.mark_as_set();
                 let lookup = nr.element().borrow().lookup_property(nr.name());
                 if lookup.is_valid_for_assignment() {
-                    Ok(())
+                    true
+                } else if is_legacy_component
+                    && lookup.property_visibility == PropertyVisibility::Output
+                {
+                    diag.push_warning(format!("{what} on an output property is deprecated"), node);
+                    true
                 } else {
-                    Err(format!("on a {} property", lookup.property_visibility))
+                    diag.push_error(
+                        format!("{what} on a {} property", lookup.property_visibility),
+                        node,
+                    );
+                    false
                 }
             }
-            Expression::StructFieldAccess { base, .. } => base.try_set_rw(),
-            Expression::RepeaterModelReference { .. } => Ok(()),
-            Expression::ArrayIndex { array, .. } => array.try_set_rw(),
-            _ => Err("needs to be done on a property".into()),
+            Expression::StructFieldAccess { base, .. } => {
+                base.try_set_rw(is_legacy_component, diag, what, node)
+            }
+            Expression::RepeaterModelReference { .. } => true,
+            Expression::ArrayIndex { array, .. } => {
+                array.try_set_rw(is_legacy_component, diag, what, node)
+            }
+            _ => {
+                diag.push_error(format!("{what} needs to be done on a property"), node);
+                false
+            }
         }
     }
 }

@@ -408,7 +408,7 @@ impl ElementType {
                     Some(p) => PropertyLookupResult {
                         resolved_name,
                         property_type: p.ty.clone(),
-                        property_visibility: PropertyVisibility::InOut,
+                        property_visibility: p.property_visibility,
                         is_local_to_component: false,
                     },
                 }

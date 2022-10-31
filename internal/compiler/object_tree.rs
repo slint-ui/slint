@@ -249,6 +249,7 @@ impl Component {
         tr: &TypeRegister,
     ) -> Rc<Self> {
         let mut child_insertion_point = None;
+        let is_legacy_syntax = node.child_token(SyntaxKind::ColonEqual).is_some();
         let c = Component {
             id: parser::identifier_text(&node.DeclaredIdentifier()).unwrap_or_default(),
             root_element: Element::from_node(
@@ -260,11 +261,12 @@ impl Component {
                     ElementType::Error
                 },
                 &mut child_insertion_point,
+                is_legacy_syntax,
                 diag,
                 tr,
             ),
             child_insertion_point: RefCell::new(child_insertion_point),
-            is_legacy_syntax: node.child_token(SyntaxKind::ColonEqual).is_some(),
+            is_legacy_syntax,
             ..Default::default()
         };
         let c = Rc::new(c);
@@ -665,6 +667,7 @@ impl Element {
         id: String,
         parent_type: ElementType,
         component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
+        is_in_legacy_component: bool,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
@@ -754,12 +757,7 @@ impl Element {
                 }
             }
             let visibility = visibility.unwrap_or_else(|| {
-                if node
-                    .parent()
-                    .and_then(|n| syntax_nodes::Component::new(n))
-                    .and_then(|c| c.child_token(SyntaxKind::ColonEqual))
-                    .is_some()
-                {
+                if is_in_legacy_component {
                     PropertyVisibility::InOut
                 } else {
                     PropertyVisibility::Private
@@ -807,11 +805,13 @@ impl Element {
             node.Binding().filter_map(|b| {
                 Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
             }),
+            is_in_legacy_component,
             diag,
         );
         r.parse_bindings(
             node.TwoWayBinding()
                 .filter_map(|b| Some((b.child_token(SyntaxKind::Identifier)?, b.into()))),
+            is_in_legacy_component,
             diag,
         );
 
@@ -963,6 +963,7 @@ impl Element {
                     se.into(),
                     parent_type,
                     component_child_insertion_point,
+                    is_in_legacy_component,
                     diag,
                     tr,
                 ));
@@ -972,6 +973,7 @@ impl Element {
                     se.into(),
                     &r,
                     &mut sub_child_insertion_point,
+                    is_in_legacy_component,
                     diag,
                     tr,
                 );
@@ -988,6 +990,7 @@ impl Element {
                     se.into(),
                     r.borrow().base_type.clone(),
                     &mut sub_child_insertion_point,
+                    is_in_legacy_component,
                     diag,
                     tr,
                 );
@@ -1068,6 +1071,7 @@ impl Element {
         node: syntax_nodes::SubElement,
         parent_type: ElementType,
         component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
+        is_in_legacy_component: bool,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
@@ -1083,6 +1087,7 @@ impl Element {
             id,
             parent_type,
             component_child_insertion_point,
+            is_in_legacy_component,
             diag,
             tr,
         )
@@ -1092,6 +1097,7 @@ impl Element {
         node: syntax_nodes::RepeatedElement,
         parent: &ElementRc,
         component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
+        is_in_legacy_component: bool,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
@@ -1123,6 +1129,7 @@ impl Element {
             node.SubElement(),
             parent.borrow().base_type.clone(),
             component_child_insertion_point,
+            is_in_legacy_component,
             diag,
             tr,
         );
@@ -1134,6 +1141,7 @@ impl Element {
         node: syntax_nodes::ConditionalElement,
         parent_type: ElementType,
         component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
+        is_in_legacy_component: bool,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
@@ -1148,6 +1156,7 @@ impl Element {
             node.SubElement(),
             parent_type,
             component_child_insertion_point,
+            is_in_legacy_component,
             diag,
             tr,
         );
@@ -1182,6 +1191,7 @@ impl Element {
     fn parse_bindings(
         &mut self,
         bindings: impl Iterator<Item = (crate::parser::SyntaxToken, SyntaxNode)>,
+        is_in_legacy_component: bool,
         diag: &mut BuildDiagnostics,
     ) {
         for (name_token, b) in bindings {
@@ -1213,13 +1223,22 @@ impl Element {
                 && (lookup_result.property_visibility == PropertyVisibility::Private
                     || lookup_result.property_visibility == PropertyVisibility::Output)
             {
-                diag.push_error(
-                    format!(
-                        "Cannot assign to {} property '{}'",
-                        lookup_result.property_visibility, unresolved_name
-                    ),
-                    &name_token,
-                );
+                if is_in_legacy_component
+                    && lookup_result.property_visibility == PropertyVisibility::Output
+                {
+                    diag.push_warning(
+                        format!("Assigning to output property '{unresolved_name}' is deprecated"),
+                        &name_token,
+                    );
+                } else {
+                    diag.push_error(
+                        format!(
+                            "Cannot assign to {} property '{}'",
+                            lookup_result.property_visibility, unresolved_name
+                        ),
+                        &name_token,
+                    );
+                }
             }
 
             if lookup_result.resolved_name != unresolved_name {
@@ -1426,6 +1445,7 @@ fn animation_element_from_node(
             anim.Binding().filter_map(|b| {
                 Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
             }),
+            false,
             diag,
         );
 

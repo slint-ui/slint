@@ -714,12 +714,12 @@ impl Expression {
             .or_else(|| node.child_token(SyntaxKind::Equal).and(Some('=')))
             .unwrap_or('_');
         if lhs.ty() != Type::Invalid {
-            if let Err(msg) = lhs.try_set_rw() {
-                ctx.diag.push_error(
-                    format!("{} {}", if op == '=' { "Assignment" } else { "Self assignment" }, msg),
-                    &node,
-                );
-            }
+            lhs.try_set_rw(
+                ctx.is_legacy_component(),
+                ctx.diag,
+                if op == '=' { "Assignment" } else { "Self assignment" },
+                &node,
+            );
         }
         let ty = lhs.ty();
         let expected_ty = match op {

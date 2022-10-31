@@ -10,7 +10,7 @@ export CheckBox := Rectangle {
 
     property <string> text <=> label.text;
     property <bool> checked;
-    property <bool> has-focus;
+    property <bool> has-focus: fs.has-focus;
     property<bool> enabled: true;
     height: 18px;
 
@@ -87,7 +87,6 @@ export CheckBox := Rectangle {
     fs := FocusScope {
         width: 0px; // Do not react on clicks
         enabled <=> root.enabled;
-        has_focus <=> root.has-focus;
 
         key-pressed(event) => {
             if (event.text == " " || event.text == "\n") {
