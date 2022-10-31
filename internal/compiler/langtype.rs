@@ -341,16 +341,16 @@ pub struct BuiltinPropertyInfo {
     pub ty: Type,
     /// When set, this is the initial value that we will have to set if no other binding were specified
     pub default_value: Option<Expression>,
-    /// Most properties are just set from the .slint code and never modified by the native code.
-    /// But some properties, such as `TouchArea::pressed` are being set by the native code, these
-    /// are output properties which are meant to be read by the .slint.
-    /// `is_native_output` is true if the native item can modify the property.
-    pub is_native_output: bool,
+    pub property_visibility: PropertyVisibility,
 }
 
 impl BuiltinPropertyInfo {
     pub fn new(ty: Type) -> Self {
-        Self { ty, default_value: None, is_native_output: false }
+        Self { ty, default_value: None, property_visibility: PropertyVisibility::Private }
+    }
+
+    pub fn is_native_output(&self) -> bool {
+        matches!(self.property_visibility, PropertyVisibility::InOut | PropertyVisibility::Output)
     }
 }
 
