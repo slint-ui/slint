@@ -35,7 +35,7 @@ const QUERY_PROPERTIES_COMMAND: &str = "queryProperties";
 fn command_list() -> Vec<String> {
     let mut result = vec![];
 
-    #[cfg(any(feature = "preview", target_arch = "wasm32"))]
+    #[cfg(all(feature = "preview", not(target_arch = "wasm32")))]
     result.push(SHOW_PREVIEW_COMMAND.into());
 
     result.push(QUERY_PROPERTIES_COMMAND.into());
@@ -125,7 +125,6 @@ pub fn server_capabilities() -> ServerCapabilities {
             lsp_types::TextDocumentSyncKind::FULL,
         )),
         code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
-        #[cfg(any(feature = "preview", target_arch = "wasm32"))]
         execute_command_provider: Some(lsp_types::ExecuteCommandOptions {
             commands: command_list(),
             ..Default::default()
@@ -160,7 +159,7 @@ pub fn handle_request(
             params.text_document_position_params.position,
         )
         .and_then(|token| {
-            #[cfg(feature = "preview")]
+            #[cfg(all(feature = "preview", not(target_arch = "wasm32")))]
             if token.0.kind() == SyntaxKind::Comment {
                 maybe_goto_preview(token.0, token.1, req.server_notifier());
                 return None;
@@ -205,7 +204,7 @@ pub fn handle_request(
     })? {
     } else if req.handle_request::<ExecuteCommand, _>(|params| {
         if params.command.as_str() == SHOW_PREVIEW_COMMAND {
-            #[cfg(feature = "preview")]
+            #[cfg(all(feature = "preview", not(target_arch = "wasm32")))]
             show_preview_command(&params.arguments, &req.server_notifier())?;
             return Ok(None::<serde_json::Value>);
         } else if params.command.as_str() == QUERY_PROPERTIES_COMMAND {
@@ -257,7 +256,7 @@ pub fn handle_request(
     Ok(())
 }
 
-#[cfg(feature = "preview")]
+#[cfg(all(feature = "preview", not(target_arch = "wasm32")))]
 pub fn show_preview_command(
     params: &[serde_json::Value],
     connection: &crate::ServerNotifier,
@@ -326,9 +325,9 @@ pub fn query_properties_command(
     }
 }
 
-#[cfg(feature = "preview")]
 /// Workaround for editor that do not support code action: using the goto definition on a comment
 /// that says "preview" will show the preview.
+#[cfg(all(feature = "preview", not(target_arch = "wasm32")))]
 fn maybe_goto_preview(
     token: SyntaxToken,
     offset: u32,
@@ -377,7 +376,7 @@ pub async fn reload_document_impl(
 
     let path = uri.to_file_path().unwrap();
     let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
-    #[cfg(feature = "preview")]
+    #[cfg(all(feature = "preview", not(target_arch = "wasm32")))]
     crate::preview::set_contents(&path_canon, content.clone());
     let mut diag = BuildDiagnostics::default();
     document_cache.documents.load_file(&path_canon, &path, content, false, &mut diag).await;
