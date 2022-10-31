@@ -65,13 +65,13 @@ backend-winit-wayland = ["i-slint-backend-selector/backend-winit-wayland", "std"
 ## [femtovg](https://crates.io/crates/femtovg) crate.
 renderer-winit-femtovg = ["i-slint-backend-selector/renderer-winit-femtovg", "std"]
 
-## (Experimental) Enable the `winit` backend and make it capable of rendering using [Skia](https://skia.org/)
+## Enable the `winit` backend and make it capable of rendering using [Skia](https://skia.org/)
 renderer-winit-skia = ["i-slint-backend-selector/renderer-winit-skia", "std"]
 
-## (Experimental) Same as `renderer-winit-skia`, but Skia will always use OpenGL.
+## Same as `renderer-winit-skia`, but Skia will always use OpenGL.
 renderer-winit-skia-opengl = ["i-slint-backend-selector/renderer-winit-skia-opengl", "std"]
 
-## (Experimental) Enable the `winit` backend and make it capable of rendering using the software renderer
+## Enable the `winit` backend and make it capable of rendering using the software renderer
 renderer-winit-software = ["i-slint-backend-selector/renderer-winit-software"]
 
 
