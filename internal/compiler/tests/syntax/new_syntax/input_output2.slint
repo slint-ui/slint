@@ -6,7 +6,7 @@ component Compo inherits Rectangle {
     private property <int> priv2: priv1;
     output property <int> output1: priv2;
     input property <int> input1: output1;
-    inout property <int> inout1: input1;
+    output input property <int> inout1: input1;
 
     TouchArea {
         clicked => {
@@ -26,7 +26,7 @@ OldCompo := Rectangle {
     private property <int> priv2: inout2;
     output property <int> output1: priv2;
     input property <int> input1: output1;
-    inout property <int> inout1: input1;
+    input output property <int> inout1: input1;
 
     TouchArea {
         clicked => {

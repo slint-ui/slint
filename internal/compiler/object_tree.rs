@@ -344,7 +344,7 @@ impl Display for PropertyVisibility {
             PropertyVisibility::Private => f.write_str("private"),
             PropertyVisibility::Input => f.write_str("input"),
             PropertyVisibility::Output => f.write_str("output"),
-            PropertyVisibility::InOut => f.write_str("inout"),
+            PropertyVisibility::InOut => f.write_str("input output"),
         }
     }
 }
@@ -730,27 +730,41 @@ impl Element {
                 )
             }
 
-            let visibility = prop_decl
-                .child_token(SyntaxKind::Identifier)
-                .and_then(|t| match t.text() {
-                    "input" => Some(PropertyVisibility::Input),
-                    "output" => Some(PropertyVisibility::Output),
-                    "inout" => Some(PropertyVisibility::InOut),
-                    "private" => Some(PropertyVisibility::Private),
-                    _ => None,
-                })
-                .unwrap_or_else(|| {
-                    if node
-                        .parent()
-                        .and_then(|n| syntax_nodes::Component::new(n))
-                        .and_then(|c| c.child_token(SyntaxKind::ColonEqual))
-                        .is_some()
-                    {
-                        PropertyVisibility::InOut
-                    } else {
-                        PropertyVisibility::Private
+            let mut visibility = None;
+            for token in prop_decl.children_with_tokens() {
+                if token.kind() != SyntaxKind::Identifier {
+                    continue;
+                }
+                match (token.as_token().unwrap().text(), visibility) {
+                    ("input", None) => visibility = Some(PropertyVisibility::Input),
+                    ("input", Some(PropertyVisibility::Output)) => {
+                        visibility = Some(PropertyVisibility::InOut)
                     }
-                });
+                    ("input", Some(_)) => diag.push_error("Extra 'input' keyword".into(), &token),
+                    ("output", None) => visibility = Some(PropertyVisibility::Output),
+                    ("output", Some(PropertyVisibility::Input)) => {
+                        visibility = Some(PropertyVisibility::InOut)
+                    }
+                    ("output", Some(_)) => diag.push_error("Extra 'output' keyword".into(), &token),
+                    ("private", None) => visibility = Some(PropertyVisibility::Private),
+                    ("private", Some(_)) => {
+                        diag.push_error("Extra 'private' keyword".into(), &token)
+                    }
+                    _ => (),
+                }
+            }
+            let visibility = visibility.unwrap_or_else(|| {
+                if node
+                    .parent()
+                    .and_then(|n| syntax_nodes::Component::new(n))
+                    .and_then(|c| c.child_token(SyntaxKind::ColonEqual))
+                    .is_some()
+                {
+                    PropertyVisibility::InOut
+                } else {
+                    PropertyVisibility::Private
+                }
+            });
 
             r.property_declarations.insert(
                 prop_name.to_string(),

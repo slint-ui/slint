@@ -17,7 +17,7 @@
                     "name": "keyword"
                 },
                 {
-                    "match": "\\b(property|callback|animate|states|transitions|inout|input|output)\\b",
+                    "match": "\\b(property|callback|animate|states|transitions|input|output)\\b",
                     "name": "keyword.other"
                 },
                 {
