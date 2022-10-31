@@ -67,6 +67,12 @@ impl<'a> LookupCtx<'a> {
             &self.property_type
         }
     }
+
+    pub fn is_legacy_component(&self) -> bool {
+        self.component_scope
+            .first()
+            .map_or(false, |e| e.borrow().enclosing_component.upgrade().unwrap().is_legacy_syntax)
+    }
 }
 
 pub enum LookupResult {
@@ -270,10 +276,7 @@ impl InScopeLookup {
         mut visit_legacy_scope: impl FnMut(&ElementRc) -> Option<R>,
         mut visit_scope: impl FnMut(&ElementRc) -> Option<R>,
     ) -> Option<R> {
-        let is_legacy = ctx
-            .component_scope
-            .first()
-            .map_or(false, |e| e.borrow().enclosing_component.upgrade().unwrap().is_legacy_syntax);
+        let is_legacy = ctx.is_legacy_component();
         for (idx, elem) in ctx.component_scope.iter().rev().enumerate() {
             if let Some(repeated) = &elem.borrow().repeated {
                 if !repeated.index_id.is_empty() {

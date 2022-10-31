@@ -52,7 +52,7 @@ export Slider := NativeSlider {
     accessible-value-maximum: maximum;
     accessible-value-step: (maximum - minimum) / 100;
 
-    property <bool> has-focus <=> fs.has-focus;
+    property <bool> has-focus: fs.has-focus;
 
     fs := FocusScope {
         width: 0px;
@@ -90,7 +90,7 @@ export LineEdit := NativeLineEdit {
     property horizontal-alignment <=> inner.horizontal-alignment;
     property read-only <=> inner.read-only;
     enabled: true;
-    has-focus <=> inner.has-focus;
+    has-focus: inner.has-focus;
     forward-focus: inner;
     callback accepted <=> inner.accepted;
     callback edited <=> inner.edited;
@@ -120,9 +120,9 @@ export StandardListView := ListView {
         item: item;
         index: i;
         is-selected: current-item == i;
-        TouchArea {
+        has-hover: ta.has-hover;
+        ta := TouchArea {
             clicked => { current-item = i; }
-            has-hover <=> parent.has-hover;
         }
     }
     FocusScope {
@@ -163,8 +163,8 @@ export ComboBox := NativeComboBox {
             for value[i] in root.model: NativeStandardListViewItem {
                 item: { text: value };
                 is-selected: current-index == i;
-                TouchArea {
-                    has-hover <=> parent.has-hover;
+                has-hover: ta.has-hover;
+                ta := TouchArea {
                     clicked => {
                         if (root.enabled) {
                             current-index = i;
