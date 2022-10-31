@@ -44,7 +44,7 @@ pub struct ServerNotifier(Function);
 impl ServerNotifier {
     pub fn send_notification(&self, method: String, params: impl Serialize) -> Result<(), Error> {
         self.0
-            .call2(&JsValue::UNDEFINED, &method.into(), &serde_wasm_bindgen::to_value(&params)?)
+            .call2(&JsValue::UNDEFINED, &method.into(), &to_value(&params)?)
             .map_err(|x| format!("Error calling send_notification: {x:?}"))?;
         Ok(())
     }
@@ -74,7 +74,7 @@ impl RequestHolder {
             return Ok(false);
         }
         let result = f(serde_json::from_value(self.req.params.clone())?)?;
-        *self.reply.borrow_mut() = Some(serde_wasm_bindgen::to_value(&result)?);
+        *self.reply.borrow_mut() = Some(to_value(&result)?);
         Ok(true)
     }
 
@@ -177,7 +177,7 @@ pub fn create(
 impl SlintServer {
     #[wasm_bindgen]
     pub fn capabilities(&self) -> Result<JsValue, JsError> {
-        Ok(serde_wasm_bindgen::to_value(&server_loop::server_capabilities())?)
+        Ok(to_value(&server_loop::server_capabilities())?)
     }
 
     #[wasm_bindgen]
@@ -240,4 +240,11 @@ async fn load_file(path: String, load_file: &Function) -> std::io::Result<String
     let js_value =
         string_future.await.map_err(|e| std::io::Error::new(ErrorKind::Other, format!("{e:?}")))?;
     return Ok(js_value.as_string().unwrap_or_default());
+}
+
+// Use a JSON friendly representation to avoid using ES maps instead of JS objects.
+fn to_value<T: serde::Serialize + ?Sized>(
+    value: &T,
+) -> Result<wasm_bindgen::JsValue, serde_wasm_bindgen::Error> {
+    value.serialize(&serde_wasm_bindgen::Serializer::json_compatible())
 }
