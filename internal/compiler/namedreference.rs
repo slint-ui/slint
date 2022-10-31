@@ -105,10 +105,10 @@ impl NamedReference {
                     continue;
                 }
                 ElementType::Builtin(b) => {
-                    return b.properties.get(self.name()).map_or(true, |pi| !pi.is_native_output)
+                    return b.properties.get(self.name()).map_or(true, |pi| !pi.is_native_output())
                 }
                 ElementType::Native(n) => {
-                    return n.properties.get(self.name()).map_or(true, |pi| !pi.is_native_output)
+                    return n.properties.get(self.name()).map_or(true, |pi| !pi.is_native_output())
                 }
                 crate::langtype::ElementType::Error | crate::langtype::ElementType::Global => {
                     return true

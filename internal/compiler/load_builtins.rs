@@ -23,7 +23,7 @@ use crate::typeregister::TypeRegister;
 pub fn load_builtins(register: &mut TypeRegister) {
     let mut diag = crate::diagnostics::BuildDiagnostics::default();
     let node = crate::parser::parse(include_str!("builtins.slint").into(), None, &mut diag);
-    if !diag.is_empty() {
+    if !diag.is_empty() && crate::parser::enable_experimental() {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]
         diag.print();
@@ -78,26 +78,40 @@ pub fn load_builtins(register: &mut TypeRegister) {
             e.PropertyDeclaration()
                 .filter(|p| p.TwoWayBinding().is_none()) // aliases are handled further down
                 .map(|p| {
+                    let prop_name = identifier_text(&p.DeclaredIdentifier()).unwrap();
+
                     let mut info = BuiltinPropertyInfo::new(object_tree::type_from_node(
                         p.Type().unwrap(),
                         *diag.borrow_mut(),
                         register,
                     ));
 
-                    if let Some(e) = p.BindingExpression() {
-                        if e.Expression()
-                            .and_then(|e| e.QualifiedName())
-                            .and_then(|q| q.child_text(SyntaxKind::Identifier))
-                            .map(|s| s == "native_output")
-                            == Some(true)
-                        {
-                            info.is_native_output = true;
-                        } else {
-                            let ty = info.ty.clone();
-                            info.default_value = Some(compiled(e, register, ty));
+                    for token in p.children_with_tokens() {
+                        if token.kind() != SyntaxKind::Identifier {
+                            continue;
+                        }
+                        match (token.as_token().unwrap().text(), info.property_visibility) {
+                            ("input", PropertyVisibility::Private) => {
+                                info.property_visibility = PropertyVisibility::Input
+                            }
+                            ("output", PropertyVisibility::Private) => {
+                                info.property_visibility = PropertyVisibility::Output
+                            }
+                            ("input", PropertyVisibility::Output)
+                            | ("output", PropertyVisibility::Input) => {
+                                info.property_visibility = PropertyVisibility::InOut
+                            }
+                            ("property", _) => (),
+                            _ => unreachable!("invalid property keyword when parsing builtin file for property {id}::{prop_name}"),
                         }
                     }
-                    (identifier_text(&p.DeclaredIdentifier()).unwrap(), info)
+
+                    if let Some(e) = p.BindingExpression() {
+                        let ty = info.ty.clone();
+                        info.default_value = Some(compiled(e, register, ty));
+                    }
+
+                    (prop_name, info)
                 })
                 .chain(e.CallbackDeclaration().map(|s| {
                     (
@@ -211,7 +225,7 @@ pub fn load_builtins(register: &mut TypeRegister) {
 
     register.empty_type = ElementType::Builtin(natives.remove("Empty").unwrap());
 
-    if !diag.is_empty() {
+    if !diag.is_empty() && crate::parser::enable_experimental() {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]
         diag.print();
