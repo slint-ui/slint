@@ -1,0 +1,137 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+import { md } from "md.slint";
+
+export TabWidgetImpl := Rectangle {
+    property <length> content-x: 0;
+    property <length> content-y: tabbar-preferred-height;
+    property <length> content-height: height - tabbar-preferred-height;
+    property <length> content-width: width;
+    property <length> tabbar-x: 0;
+    property <length> tabbar-y: 0;
+    property <length> tabbar-height: tabbar-preferred-height;
+    property <length> tabbar-width: width;
+
+    property <length> tabbar-preferred-height;
+    property <length> tabbar-preferred-width;
+    property <length> content-min-height;
+    property <length> content-min-width;
+    property <int> current-index;
+    property <int> current-focused;
+
+    preferred-width: content-min-width;
+    min-width: max(content-min-width, tabbar-preferred-width);
+    preferred-height: content-min-height + tabbar-preferred-height;
+    min-height: content-min-height + tabbar-preferred-height;
+}
+
+export TabImpl := Rectangle {
+    property<string> title <=> label.text;
+    property<bool> enabled: true;
+    property<bool> has-focus: current-focused == tab-index;
+    property<bool> active: tab-index == current;
+    property<bool> pressed;
+    property<int> current; // The currently selected tab
+    property<int> current-focused; // The currently focused tab
+    property<int> tab-index; // The index of this tab
+    property<int> num-tabs; // The total number of tabs
+
+    height: 48px;
+    accessible-role: tab;
+    accessible-label <=> title;
+
+    container := Rectangle {  
+        background: md.sys.color.surface;
+    }
+
+    state-layer := Rectangle {  
+        opacity: !touch.pressed ? !touch.has-hover ? 0 : 0.08 : 0.12;
+        width: 100%;
+        height: 100%;
+        border-radius: container.border-radius;
+        background: md.sys.color.primary;
+        animate opacity { duration: 250ms; easing: ease; }
+     }
+
+    layout := HorizontalLayout {  
+        padding-left: 16px;
+        padding-right: 16px;
+        
+        label := Text {
+            vertical-alignment: center;
+            color: !active ? md.sys.color.on-surface : md.sys.color.primary;
+            // FIXME after Roboto font can be loaded
+            //font-family: md.sys.typescale.title-small.font;
+            font-size: md.sys.typescale.title-small.size;
+            font-weight: md.sys.typescale.title-small.weight;
+
+            animate color { duration: 250ms; easing: ease; }
+        }
+    }
+
+    indicator := Rectangle {
+        opacity: !active ? 0 : 1;
+        width: 100%;
+        height: 3px;
+        y: parent.height - height;
+        background: md.sys.color.primary;
+
+        animate opacity { duration: 250ms; easing: ease; }
+    }
+
+    touch := TouchArea {
+        enabled <=> root.enabled;
+        clicked => {
+            current = tab-index;
+        }
+    }
+}
+
+export TabBarImpl := Rectangle {
+    // injected properties:
+    property<int> current; // The currently selected tab
+    property<int> current-focused: fs.has-focus ? fs.focused-tab : -1; // The currently focused tab
+    property<int> num-tabs; // The total number of tabs
+
+    HorizontalLayout {
+        alignment: start;
+        @children
+    }
+
+    accessible-role: tab;
+    accessible-delegate-focus: current-focused >= 0 ? current-focused : current;
+
+    fs := FocusScope {
+        width: 0px; // Do not react on clicks
+        property<int> focused-tab: 0;
+
+        key-pressed(event) => {
+            if (event.text == "\n") {
+                 current = current-focused;
+                 return accept;
+            }
+            if (event.text == Keys.LeftArrow) {
+                 focused-tab = Math.max(focused-tab - 1,  0);
+                 return accept;
+            }
+            if (event.text == Keys.RightArrow) {
+                 focused-tab = Math.min(focused-tab + 1, num-tabs - 1);
+                 return accept;
+            }
+            return reject;
+        }
+
+        key-released(event) => {
+            if (event.text == " ") {
+                 current = current-focused;
+                 return accept;
+            }
+            return reject;
+        }
+    }
+}
+
+
+export TabWidget := TabWidget {}

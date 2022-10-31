@@ -1,0 +1,52 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+import { md } from "md.slint";
+
+// A selectable item that is used by `StandardListView` and  `ComboBox`.
+export Item := Rectangle { 
+    callback clicked <=> touch.clicked;
+
+    property<bool> selected: false;
+    property<string> text <=> label.text;
+
+    height: 48px;
+
+    state-layer := Rectangle {  
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        background: md.sys.color.primary;
+        animate opacity { duration: 250ms; easing: ease; }
+    }
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+
+        label := Text {
+            color: md.sys.color.on-surface;
+            vertical-alignment: center;
+            // FIXME after Roboto font can be loaded
+            //font-family: md.sys.typescale.label-large.font;
+            font-size: md.sys.typescale.label-large.size;
+            font-weight: md.sys.typescale.label-large.weight;
+        }
+    }
+
+    touch := TouchArea {}
+
+    states [  
+        selected when selected : {
+            state-layer.opacity: 1;
+            state-layer.background: md.sys.color.secondary-container; 
+        }
+        pressed when touch.pressed : {
+            state-layer.opacity: 0.12;
+        }
+        hover when touch.has-hover : {
+            state-layer.opacity: 0.08;    
+        }       
+    ]
+}

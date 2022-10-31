@@ -1,0 +1,36 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+import { ScrollView } from "widget-scrollview.slint";
+import { Item } from "widget-item.slint";
+
+// `ListView` is like a `Scrollview` but it should have a for element, and the content are automatically layed out in a list.
+export ListView := ScrollView {
+    @children
+}
+
+// Like `ListView`, but with a default delegate, and a `model` property which is a model of type `StandardListViewItem`.
+export StandardListView := ListView {
+    property<[StandardListViewItem]> model;
+    property<int> current-item: -1;
+
+    for item[idx] in model : Item {
+        selected: idx == root.current-item;
+        text: item.text;
+        clicked => { current-item = idx; }
+    }
+
+    FocusScope {
+        key-pressed(event) => {
+            if (event.text == Keys.UpArrow && current-item > 0) {
+                current-item -= 1;
+                return accept;
+            } else if (event.text == Keys.DownArrow && current-item + 1 < model.length) {
+                current-item += 1;
+                return accept;
+            }
+            reject
+        }
+    }
+}

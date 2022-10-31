@@ -1,0 +1,25 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+// widget imports
+import { Button } from "widget-button.slint";
+import { CheckBox } from "widget-checkbox.slint";
+import { ScrollView } from "widget-scrollview.slint";
+import { md } from "md.slint";
+
+export { Button, CheckBox, ScrollView }
+
+export global StyleMetrics := {
+    property<length> layout-spacing: 8px;
+    property<length> layout-padding: 8px;
+    property<length> text-cursor-width: 2px;
+  
+    property<color> default-text-color: md.sys.color.primary;
+    property<brush> textedit-background: transparent;
+    property<color> textedit-text-color: md.sys.color.on-surface;
+    property<brush> textedit-background-disabled: transparent;
+    property<color> textedit-text-color-disabled: md.sys.color.on-surface;
+    property<bool> dark-color-scheme: md.dark-color-scheme;
+
+    property<brush> window-background: md.sys.color.background;
+}

@@ -1,0 +1,106 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+import { ColorSchemeSelector } from "color-scheme.slint";
+
+// helper to create material design token like path md.sys.colors.
+struct Color := {
+    background: color,
+    surface: color,
+    on-surface: color,
+    on-surface-variant: color,
+    primary: color,
+    on-primary: color,
+    shadow: color,
+    outline: color,
+    outline-variant: color,
+    secondary-container: color,
+    on-secondary-container: color,
+}
+
+// typo settings
+struct Label := {
+    font: string,
+    size: length,
+    weight: int
+}
+
+// helper to create material design token like path md.sys.elevation.
+struct Elevation := {
+    level0: length,
+    level1: length,
+    level2: length
+}
+
+// helper to create material design token like path md.sys.typescale.
+struct Typescale := {
+    label-large: Label,
+    label-medium: Label,
+    body-large: Label,
+    body-small: Label,
+    title-small: Label,
+}
+
+// helper to create material design token like path md.sys.
+struct Sys := {
+    color: Color,
+    elevation: Elevation,
+    typescale: Typescale
+}
+
+// Material Desigin v3 style defintions.
+export global md := {
+    property<bool> dark-color-scheme: ColorSchemeSelector.dark-color-scheme;
+
+    property<Sys> sys: {
+        color: {
+            background: !dark-color-scheme ? #FFFBFE : #1C1B1F,
+            surface: !dark-color-scheme ? #FFFBFE : #1C1B1F,
+            on-surface: !dark-color-scheme ? #1C1B1F : #E6E1E5,
+            on-surface-variant: !dark-color-scheme ? #49454E : #CAC4D0,
+            surface-tint: !dark-color-scheme ? #6750A4 : #D0BCFF,
+            primary: !dark-color-scheme ? #6750A4 : #D0BCFF,
+            on-primary: !dark-color-scheme ? #FFFFFF : #371E73,
+            shadow: #000000,
+            outline: !dark-color-scheme ? #79747E : #938F99,
+            outline-variant: !dark-color-scheme ? #C4C7C5 : #444746,
+            secondary-container:  !dark-color-scheme ? #E8DEF8 : #4A4458,
+            on-secondary-container:  !dark-color-scheme ? #1E192B : #E8DEF8,
+        },
+
+        elevation: {
+            level0: 0pt,
+            level1: 1pt,
+            level2: 2pt
+        },
+
+        typescale: {
+            label-large: {
+                font: "Roboto Medium",
+                size: 14pt,
+                weight: 500
+            },
+            label-medium: {
+                font: "Roboto Medium",
+                size: 12pt,
+                weight: 500
+            },
+            body-large: {
+                font: "Roboto Medium",
+                size: 14pt,
+                weight: 400
+            },
+            body-small: {
+                font: "Roboto Regular",
+                size: 12pt,
+                weight: 400
+            },
+            title-small: {
+                font: "Roboto Medium",
+                size: 14pt,
+                weight: 500
+            },
+        }
+    };
+}

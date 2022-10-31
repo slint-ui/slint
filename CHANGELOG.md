@@ -3,6 +3,8 @@ All notable changes to this project are documented in this file.
 
 ## Unreleased
 
+ - Added `material` style with `material-light` and `fluent-dark` as explicit styles
+
 ### Changed
 
 ### Added

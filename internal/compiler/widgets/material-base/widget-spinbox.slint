@@ -1,0 +1,173 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { md } from "md.slint";
+
+SpinBoxButton := Rectangle {
+    callback clicked <=> touch.clicked;
+
+    property<bool> pressed: self.enabled && touch.pressed;
+    property<bool> enabled <=> touch.enabled;
+    property<float> icon-opacity: 1;
+    property<brush> icon-fill: md.sys.color.primary;
+
+    width: height;
+
+    container := Rectangle {  
+        width: 100%;
+        height: 100%;
+        border-radius: 2px;
+        border-width: 1px;
+        background: md.sys.color.secondary-container;
+
+        animate drop-shadow-blur { duration: 250ms; easing: ease; }
+    }
+
+    state-layer := Rectangle {  
+        opacity: 0;
+        width: 100%;
+        height: 100%;
+        border-radius: container.border-radius;
+        background: md.sys.color.on-secondary-container;
+        animate opacity { duration: 250ms; easing: ease; }
+     }
+
+    Rectangle {  
+        width: 100%;
+        height: 100%;
+        @children
+    }
+
+    touch := TouchArea { }
+
+    states [
+        disabled when !root.enabled : {
+            container.background: md.sys.color.on-surface;
+            container.opacity: 0.12;
+            icon-opacity: 0.38;
+            icon-fill: md.sys.color.on-surface;
+        }
+        pressed when touch.pressed : {
+            state-layer.opacity: 0.12;
+        }
+        hover when touch.has-hover : {
+            state-layer.opacity: 0.08;    
+        }
+    ]
+}
+
+// Increment and decrement a value in the given range.
+export SpinBox := FocusScope {
+    property <bool> checked;
+    property <int> value;
+    property <int> minimum;
+    property <int> maximum: 100;
+    property <image> icon;
+    property <length> font-size <=> label.font-size;
+
+    horizontal-stretch: 1;
+    vertical-stretch: 0;
+    min-width: 60px;
+    height: 56px;
+
+    accessible-role: spinbox;
+    accessible-value: value;
+    accessible-value-minimum: minimum;
+    accessible-value-maximum: maximum;
+    accessible-value-step: (maximum - minimum) / 100;
+
+    container := Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: 4px;
+        border-width: 1px;
+        border-color: md.sys.color.outline;
+    }
+
+    layout := HorizontalLayout {  
+        padding-top: 8px;
+        padding-bottom: 8px;
+        padding-left: 16px;
+        padding-right: 12px;
+        spacing: 16px;
+
+        label := Text {
+            text: value;
+            height: 100%;
+            color: md.sys.color.on-surface;
+            vertical-alignment: center;
+            // FIXME after Roboto font can be loaded
+            //font-family: md.sys.typescale.body-large.font;
+            font-size: md.sys.typescale.body-large.size;
+            font-weight: md.sys.typescale.body-large.weight;    
+        }
+
+        VerticalLayout {  
+            spacing: 4px;
+            SpinBoxButton {
+                enabled: root.enabled;
+        
+                Path {
+                    x: (parent.width - width) / 2;
+                    y: (parent.height - height) / 2;
+                    width: 44%;
+                    height: 44%;
+                    commands: "M14.15 30.75 12 28.6l12-12 12 11.95-2.15 2.15L24 20.85Z";
+                    opacity: parent.icon-opacity;
+                    fill: parent.icon-fill;
+                }
+
+                clicked => {
+                    if (root.value < root.maximum) {
+                        root.value += 1;
+                    }
+                }
+            }
+    
+            SpinBoxButton {
+                enabled: root.enabled;
+
+                Path {
+                    x: (parent.width - width) / 2;
+                    y: (parent.height - height) / 2;
+                    width: 44%;
+                    height: 44%;
+                    commands: "m24 30.75-12-12 2.15-2.15L24 26.5l9.85-9.85L36 18.8Z";
+                    opacity: parent.icon-opacity;
+                    fill: parent.icon-fill;
+                }
+
+                clicked => {
+                    if (root.value > root.minimum) {
+                        root.value -= 1;
+                    }
+                }
+            }
+        } 
+    }
+
+    key-pressed(event) => {
+        if (enabled && event.text == Keys.UpArrow && value < maximum) {
+            value += 1;
+            accept
+        } else if (enabled && event.text == Keys.DownArrow && value > minimum) {
+            value -= 1;
+            accept
+        } else {
+            reject
+        }
+    }
+
+    states [
+        disabled when !enabled : {
+            container.border-color: md.sys.color.on-surface;
+            container.opacity: 0.38;
+            label.opacity: 0.38;
+        }
+        focused when has-focus : {
+            container.border-width: 2px;
+            container.border-color: md.sys.color.primary;
+            label.color: md.sys.color.primary;
+        }
+    ]
+}
