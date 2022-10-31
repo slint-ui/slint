@@ -64,25 +64,13 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::LAngle if p.peek().as_str() == "property" => {
                     parse_property_declaration(&mut *p);
                 }
-                SyntaxKind::Identifier if p.peek().as_str() == "property" => {
+                SyntaxKind::Identifier
+                    if matches!(p.peek().as_str(), "property" | "input" | "output" | "private") =>
+                {
                     parse_property_declaration(&mut *p);
                 }
                 _ if p.peek().as_str() == "if" => {
                     parse_if_element(&mut *p);
-                }
-                SyntaxKind::Identifier if p.nth(1).as_str() == "property" => {
-                    if matches!(p.peek().as_str(), "input" | "output" | "inout" | "private") {
-                        if !super::enable_experimental() {
-                            p.error("the input/output keywords are experimental, set `SLINT_EXPERIMENTAL_SYNTAX` env variable to enable experimental syntax. See https://github.com/slint-ui/slint/issues/1750");
-                        }
-                        parse_property_declaration(&mut *p);
-                    } else {
-                        p.consume();
-                        if !had_parse_error {
-                            p.error("Parse error");
-                            had_parse_error = true;
-                        }
-                    }
                 }
                 SyntaxKind::LBracket if p.peek().as_str() == "states" => {
                     parse_states(&mut *p);
@@ -343,11 +331,20 @@ fn parse_callback_declaration(p: &mut impl Parser) {
 /// property alias <=> two.way;
 /// ```
 fn parse_property_declaration(p: &mut impl Parser) {
-    let mut p = p.start_node(SyntaxKind::PropertyDeclaration);
-    if p.peek().as_str() != "property" {
-        p.consume(); // input/output/inout
+    let checkpoint = p.checkpoint();
+    let mut reported_experimental = false;
+    while matches!(p.peek().as_str(), "input" | "output" | "private") {
+        if !reported_experimental && !super::enable_experimental() {
+            p.error("the input/output keywords are experimental, set `SLINT_EXPERIMENTAL_SYNTAX` env variable to enable experimental syntax. See https://github.com/slint-ui/slint/issues/1750");
+        }
+        reported_experimental = true;
+        p.consume();
     }
-    debug_assert_eq!(p.peek().as_str(), "property");
+    if p.peek().as_str() != "property" {
+        p.error("Expected 'property' keyword");
+        return;
+    }
+    let mut p = p.start_node_at(checkpoint, SyntaxKind::PropertyDeclaration);
     p.consume(); // property
 
     if p.test(SyntaxKind::LAngle) {

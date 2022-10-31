@@ -52,7 +52,7 @@ contexts:
     # other.
     - match: '\b(import|from|export|global|struct|component|inherits)\b'
       scope: keyword.slint
-    - match: '\b(property|callback|animate|states|transitions|inout|input|output)\b'
+    - match: '\b(property|callback|animate|states|transitions|input|output)\b'
       scope: keyword.other.slint
     - match: '\b(if|for|return)\b'
       scope: keyword.control.slint
