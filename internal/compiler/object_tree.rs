@@ -953,22 +953,36 @@ impl Element {
                     tr,
                 ));
             } else if se.kind() == SyntaxKind::RepeatedElement {
+                let mut sub_child_insertion_point = None;
                 let rep = Element::from_repeated_node(
                     se.into(),
                     &r,
-                    component_child_insertion_point,
+                    &mut sub_child_insertion_point,
                     diag,
                     tr,
                 );
+                if let Some((_, se)) = sub_child_insertion_point {
+                    diag.push_error(
+                        "The @children placeholder cannot appear in a repeated element".into(),
+                        &se,
+                    )
+                }
                 r.borrow_mut().children.push(rep);
             } else if se.kind() == SyntaxKind::ConditionalElement {
+                let mut sub_child_insertion_point = None;
                 let rep = Element::from_conditional_node(
                     se.into(),
                     r.borrow().base_type.clone(),
-                    component_child_insertion_point,
+                    &mut sub_child_insertion_point,
                     diag,
                     tr,
                 );
+                if let Some((_, se)) = sub_child_insertion_point {
+                    diag.push_error(
+                        "The @children placeholder cannot appear in a conditional element".into(),
+                        &se,
+                    )
+                }
                 r.borrow_mut().children.push(rep);
             } else if se.kind() == SyntaxKind::ChildrenPlaceholder {
                 if children_placeholder.is_some() {

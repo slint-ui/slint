@@ -1,6 +1,24 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+NotInIf := Rectangle {
+    if true: Rectangle {
+        @children
+//      ^error{The @children placeholder cannot appear in a conditional element}
+    }
+}
+
+NotInFor := Rectangle {
+    HorizontalLayout {
+        for xxx in 12: Rectangle {
+            VerticalLayout {
+                @children
+//              ^error{The @children placeholder cannot appear in a repeated element}
+            }
+        }
+    }
+}
+
 TestBox := Rectangle {
     @children
     @children
