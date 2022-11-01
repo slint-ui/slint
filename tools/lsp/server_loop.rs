@@ -35,7 +35,7 @@ const QUERY_PROPERTIES_COMMAND: &str = "queryProperties";
 fn command_list() -> Vec<String> {
     let mut result = vec![];
 
-    #[cfg(any(feature = "preview", target_arch = "wasm32"))]
+    #[cfg(any(feature = "preview", feature = "preview-lense"))]
     result.push(SHOW_PREVIEW_COMMAND.into());
 
     result.push(QUERY_PROPERTIES_COMMAND.into());
@@ -43,17 +43,9 @@ fn command_list() -> Vec<String> {
     result
 }
 
-fn create_show_preview_command(pretty: bool, file: &str, component_name: &str) -> Option<Command> {
-    if !cfg!(feature = "preview") && !cfg!(target_arch = "wasm32") {
-        return None;
-    }
-
+fn create_show_preview_command(pretty: bool, file: &str, component_name: &str) -> Command {
     let title = format!("{}Show Preview", if pretty { &"▶ " } else { &"" });
-    Some(Command::new(
-        title,
-        SHOW_PREVIEW_COMMAND.into(),
-        Some(vec![file.into(), component_name.into()]),
-    ))
+    Command::new(title, SHOW_PREVIEW_COMMAND.into(), Some(vec![file.into(), component_name.into()]))
 }
 
 pub struct DocumentCache {
@@ -125,7 +117,6 @@ pub fn server_capabilities() -> ServerCapabilities {
             lsp_types::TextDocumentSyncKind::FULL,
         )),
         code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
-        #[cfg(any(feature = "preview", target_arch = "wasm32"))]
         execute_command_provider: Some(lsp_types::ExecuteCommandOptions {
             commands: command_list(),
             ..Default::default()
@@ -204,11 +195,13 @@ pub fn handle_request(
         Ok(result)
     })? {
     } else if req.handle_request::<ExecuteCommand, _>(|params| {
+        #[cfg(any(feature = "preview", feature = "preview-lense"))]
         if params.command.as_str() == SHOW_PREVIEW_COMMAND {
             #[cfg(feature = "preview")]
             show_preview_command(&params.arguments, &req.server_notifier())?;
             return Ok(None::<serde_json::Value>);
-        } else if params.command.as_str() == QUERY_PROPERTIES_COMMAND {
+        }
+        if params.command.as_str() == QUERY_PROPERTIES_COMMAND {
             return Ok(Some(query_properties_command(
                 &params.arguments,
                 &req.server_notifier(),
@@ -493,28 +486,37 @@ fn get_code_actions(
     _document_cache: &mut DocumentCache,
     node: SyntaxNode,
 ) -> Option<Vec<CodeActionOrCommand>> {
-    let component = syntax_nodes::Component::new(node.clone())
-        .or_else(|| {
-            syntax_nodes::DeclaredIdentifier::new(node.clone())
-                .and_then(|n| n.parent())
-                .and_then(syntax_nodes::Component::new)
-        })
-        .or_else(|| {
-            syntax_nodes::QualifiedName::new(node.clone())
-                .and_then(|n| n.parent())
-                .and_then(syntax_nodes::Element::new)
-                .and_then(|n| n.parent())
-                .and_then(syntax_nodes::Component::new)
-        })?;
+    if cfg!(feature = "preview-lense") {
+        let component = syntax_nodes::Component::new(node.clone())
+            .or_else(|| {
+                syntax_nodes::DeclaredIdentifier::new(node.clone())
+                    .and_then(|n| n.parent())
+                    .and_then(syntax_nodes::Component::new)
+            })
+            .or_else(|| {
+                syntax_nodes::QualifiedName::new(node.clone())
+                    .and_then(|n| n.parent())
+                    .and_then(syntax_nodes::Element::new)
+                    .and_then(|n| n.parent())
+                    .and_then(syntax_nodes::Component::new)
+            })?;
 
-    let component_name =
-        i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())?;
+        let component_name =
+            i_slint_compiler::parser::identifier_text(&component.DeclaredIdentifier())?;
 
-    Some(vec![CodeActionOrCommand::Command(create_show_preview_command(
-        false,
-        &component.source_file.path().to_string_lossy(),
-        &component_name,
-    )?)])
+        let mut r = vec![];
+
+        // handle preview lense:
+        r.push(CodeActionOrCommand::Command(create_show_preview_command(
+            false,
+            &component.source_file.path().to_string_lossy(),
+            &component_name,
+        )));
+
+        Some(r)
+    } else {
+        Some(vec![])
+    }
 }
 
 fn get_document_color(
@@ -640,35 +642,35 @@ fn get_code_lenses(
     document_cache: &mut DocumentCache,
     text_document: &lsp_types::TextDocumentIdentifier,
 ) -> Option<Vec<CodeLens>> {
-    let uri = &text_document.uri;
-    let filepath = uri.to_file_path().ok()?;
-    let doc = document_cache.documents.get_document(&filepath)?;
+    if cfg!(feature = "preview-lense") {
+        let uri = &text_document.uri;
+        let filepath = uri.to_file_path().ok()?;
+        let doc = document_cache.documents.get_document(&filepath)?;
 
-    let inner_components = doc.inner_components.clone();
-    let mut make_range = |node: &SyntaxNode| {
-        let r = node.text_range();
-        Some(Range::new(
-            document_cache.byte_offset_to_position(r.start().into(), uri)?,
-            document_cache.byte_offset_to_position(r.end().into(), uri)?,
-        ))
-    };
+        let inner_components = doc.inner_components.clone();
+        let mut make_range = |node: &SyntaxNode| {
+            let r = node.text_range();
+            Some(Range::new(
+                document_cache.byte_offset_to_position(r.start().into(), uri)?,
+                document_cache.byte_offset_to_position(r.end().into(), uri)?,
+            ))
+        };
 
-    let r = inner_components
-        .iter()
-        .filter(|c| !c.is_global())
-        .filter_map(|c| {
+        let mut r = vec![];
+
+        // Handle preview lense
+        r.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
             Some(CodeLens {
                 range: make_range(c.root_element.borrow().node.as_ref()?)?,
-                command: Some(create_show_preview_command(
-                    true,
-                    filepath.to_str()?,
-                    c.id.as_str(),
-                )?),
+                command: Some(create_show_preview_command(true, filepath.to_str()?, c.id.as_str())),
                 data: None,
             })
-        })
-        .collect::<Vec<_>>();
-    Some(r)
+        }));
+
+        Some(r)
+    } else {
+        Some(vec![])
+    }
 }
 
 #[cfg(test)]
