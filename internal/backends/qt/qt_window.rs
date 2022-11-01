@@ -10,9 +10,7 @@ use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::rendering_metrics_collector::{
     RenderingMetrics, RenderingMetricsCollector,
 };
-use i_slint_core::graphics::{
-    euclid, Brush, Color, FontRequest, Image, Point, Rect, SharedImageBuffer,
-};
+use i_slint_core::graphics::{euclid, Brush, Color, FontRequest, Image, Point, SharedImageBuffer};
 use i_slint_core::input::{KeyEvent, KeyEventType, MouseEvent};
 use i_slint_core::item_rendering::{ItemCache, ItemRenderer};
 use i_slint_core::items::{
@@ -1614,7 +1612,7 @@ impl WindowAdapterSealed for QtWindow {
         self.tree_structure_changed.replace(true);
     }
 
-    fn create_popup(&self, geometry: Rect) -> Option<Rc<dyn WindowAdapter>> {
+    fn create_popup(&self, geometry: LogicalRect) -> Option<Rc<dyn WindowAdapter>> {
         let popup_window = QtWindow::new();
 
         let size = qttypes::QSize { width: geometry.width() as _, height: geometry.height() as _ };

@@ -10,13 +10,13 @@ use crate::api::{
     CloseRequestResponse, PhysicalPosition, PhysicalSize, Window, WindowPosition, WindowSize,
 };
 use crate::component::{ComponentRc, ComponentRef, ComponentVTable, ComponentWeak};
-use crate::graphics::{Point, Rect};
+use crate::graphics::Point;
 use crate::input::{
     key_codes, KeyEvent, KeyEventType, MouseEvent, MouseInputState, TextCursorBlinker,
 };
 use crate::item_tree::ItemRc;
 use crate::items::{ItemRef, MouseCursor};
-use crate::lengths::{LogicalLength, LogicalPoint, LogicalSize, SizeLengths};
+use crate::lengths::{LogicalLength, LogicalPoint, LogicalRect, LogicalSize, SizeLengths};
 use crate::properties::{Property, PropertyTracker};
 use crate::renderer::Renderer;
 use crate::Callback;
@@ -81,7 +81,7 @@ pub trait WindowAdapterSealed {
     ///
     /// If this function return None (the default implementation), then the
     /// popup will be rendered within the window itself.
-    fn create_popup(&self, _geometry: Rect) -> Option<Rc<dyn WindowAdapter>> {
+    fn create_popup(&self, _geometry: LogicalRect) -> Option<Rc<dyn WindowAdapter>> {
         None
     }
 
@@ -630,10 +630,7 @@ impl WindowInner {
             height_property.set(size.height_length());
         };
 
-        let location = match self
-            .window_adapter()
-            .create_popup(Rect::new(position.to_untyped(), size.to_untyped()))
-        {
+        let location = match self.window_adapter().create_popup(LogicalRect::new(position, size)) {
             None => {
                 self.window_adapter().request_redraw();
                 PopupWindowLocation::ChildWindow(position.to_untyped())
