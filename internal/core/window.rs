@@ -182,7 +182,7 @@ enum PopupWindowLocation {
     /// The popup is rendered in its own top-level window that is know to the windowing system.
     TopLevel(Rc<dyn WindowAdapter>),
     /// The popup is rendered as an embedded child window at the given position.
-    ChildWindow(Point), // TODO: change to LogicalPoint
+    ChildWindow(LogicalPoint),
 }
 
 /// This structure defines a graphical element that is designed to pop up from the surrounding
@@ -308,7 +308,6 @@ impl WindowInner {
         let component = embedded_popup_component
             .as_ref()
             .and_then(|(popup_component, coordinates)| {
-                let coordinates = LogicalPoint::from_untyped(*coordinates);
                 event.translate(-coordinates.to_vector());
 
                 if let MouseEvent::Pressed { position, .. } = &event {
@@ -548,7 +547,7 @@ impl WindowInner {
                 self.active_popup.borrow().as_ref().and_then(|popup| match popup.location {
                     PopupWindowLocation::TopLevel(_) => None,
                     PopupWindowLocation::ChildWindow(coordinates) => {
-                        Some((popup.component.clone(), LogicalPoint::from_untyped(coordinates)))
+                        Some((popup.component.clone(), coordinates))
                     }
                 });
 
@@ -633,7 +632,7 @@ impl WindowInner {
         let location = match self.window_adapter().create_popup(LogicalRect::new(position, size)) {
             None => {
                 self.window_adapter().request_redraw();
-                PopupWindowLocation::ChildWindow(position.to_untyped())
+                PopupWindowLocation::ChildWindow(position)
             }
 
             Some(window_adapter) => {
@@ -650,7 +649,6 @@ impl WindowInner {
     pub fn close_popup(&self) {
         if let Some(current_popup) = self.active_popup.replace(None) {
             if let PopupWindowLocation::ChildWindow(offset) = current_popup.location {
-                let offset = LogicalPoint::from_untyped(offset);
                 // Refresh the area that was previously covered by the popup.
                 let popup_region = crate::properties::evaluate_no_tracking(|| {
                     let popup_component = ComponentRc::borrow_pin(&current_popup.component);
