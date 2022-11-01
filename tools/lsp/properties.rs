@@ -3,7 +3,7 @@
 
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::langtype::{ElementType, Type};
-use i_slint_compiler::object_tree::{Element, ElementRc};
+use i_slint_compiler::object_tree::{Element, ElementRc, PropertyVisibility};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind};
 use std::collections::HashSet;
 
@@ -72,12 +72,19 @@ fn get_element_properties<'a>(
     element: &'a Element,
     offset_to_position: &'a mut dyn FnMut(u32) -> lsp_types::Position,
     group: &'a str,
+    is_local_element: bool,
 ) -> impl Iterator<Item = PropertyInformation> + 'a {
     let file = source_file(element);
 
     element.property_declarations.iter().filter_map(move |(name, value)| {
         if !value.property_type.is_property_type() {
             // Filter away the callbacks
+            return None;
+        }
+        if matches!(value.visibility, PropertyVisibility::Output | PropertyVisibility::Private)
+            && !is_local_element
+        {
+            // Skip properties that cannot be set because of visibility rules
             return None;
         }
         let type_node = value.type_node()?; // skip fake and materialized properties
@@ -179,7 +186,7 @@ fn get_properties(
 ) -> Vec<PropertyInformation> {
     let mut result = vec![];
 
-    result.extend(get_element_properties(&element.borrow(), offset_to_position, ""));
+    result.extend(get_element_properties(&element.borrow(), offset_to_position, "", true));
     let mut current_element = element.clone();
 
     let geometry_prop = HashSet::from(["x", "y", "width", "height"]);
@@ -193,6 +200,7 @@ fn get_properties(
                     &current_element.borrow(),
                     offset_to_position,
                     &c.id,
+                    false,
                 ));
                 continue;
             }
@@ -204,6 +212,10 @@ fn get_properties(
                     }
                     if !t.ty.is_property_type() {
                         // skip callbacks and other functions
+                        return None;
+                    }
+                    if t.property_visibility == PropertyVisibility::Output {
+                        // Skip output-only properties
                         return None;
                     }
 
@@ -504,5 +516,46 @@ SomeRect := Rectangle {
         let definition = width_property.defined_at.as_ref().unwrap();
         assert_eq!(definition.expression_range.start.line, 8);
         assert_eq!(width_property.group, "geometry");
+    }
+
+    #[test]
+    fn test_output_properties() {
+        let (mut dc, url, _) = loaded_document_cache(
+            "fluent",
+            r#"
+component Base {
+    property <int> a: 1;
+    input property <int> b: 2;
+    output property <int> c: 3;
+    input output property <int> d: 4;
+}
+
+component MyComp {
+    Base {
+
+    }
+    TouchArea {
+
+    }
+}
+            "#
+            .to_string(),
+        );
+
+        let result = properties_at_position_in_cache(3, 0, &mut dc, &url).unwrap();
+        assert_eq!(find_property(&result, "a").unwrap().type_name, "int");
+        assert_eq!(find_property(&result, "b").unwrap().type_name, "int");
+        assert_eq!(find_property(&result, "c").unwrap().type_name, "int");
+        assert_eq!(find_property(&result, "d").unwrap().type_name, "int");
+
+        let result = properties_at_position_in_cache(10, 0, &mut dc, &url).unwrap();
+        assert_eq!(find_property(&result, "a"), None);
+        assert_eq!(find_property(&result, "b").unwrap().type_name, "int");
+        assert_eq!(find_property(&result, "c"), None);
+        assert_eq!(find_property(&result, "d").unwrap().type_name, "int");
+
+        let result = properties_at_position_in_cache(13, 0, &mut dc, &url).unwrap();
+        assert_eq!(find_property(&result, "enabled").unwrap().type_name, "bool");
+        assert_eq!(find_property(&result, "pressed"), None);
     }
 }
