@@ -49,7 +49,8 @@ backend-gl-all = ["backend-winit", "renderer-winit-femtovg"]
 backend-gl-wayland = ["backend-winit-wayland", "renderer-winit-femtovg"]
 backend-gl-x11 = ["backend-winit-x11", "renderer-winit-femtovg"]
 
-preview = ["slint-interpreter", "i-slint-core", "i-slint-backend-selector"]
+preview = ["slint-interpreter", "i-slint-core", "i-slint-backend-selector", "preview-lense"]
+preview-lense = []
 
 default = ["backend-qt", "backend-winit", "renderer-winit-femtovg", "preview"]
 
