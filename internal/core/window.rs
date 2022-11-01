@@ -178,7 +178,7 @@ impl crate::properties::PropertyDirtyHandler for WindowRedrawTracker {
 }
 
 /// This enum describes the different ways a popup can be rendered by the back-end.
-pub enum PopupWindowLocation {
+enum PopupWindowLocation {
     /// The popup is rendered in its own top-level window that is know to the windowing system.
     TopLevel(Rc<dyn WindowAdapter>),
     /// The popup is rendered as an embedded child window at the given position.
@@ -187,11 +187,11 @@ pub enum PopupWindowLocation {
 
 /// This structure defines a graphical element that is designed to pop up from the surrounding
 /// UI content, for example to show a context menu.
-pub struct PopupWindow {
+struct PopupWindow {
     /// The location defines where the pop up is rendered.
-    pub location: PopupWindowLocation,
+    location: PopupWindowLocation,
     /// The component that is responsible for providing the popup content.
-    pub component: ComponentRc,
+    component: ComponentRc,
 }
 
 /// Inner datastructure for the [`crate::api::Window`]
