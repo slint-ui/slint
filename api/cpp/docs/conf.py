@@ -60,7 +60,7 @@ exhale_args = {
     "createTreeView": True,
     "exhaleExecutesDoxygen": True,
     "exhaleDoxygenStdin": """INPUT = ../../api/cpp/include generated_include
-EXCLUDE_SYMBOLS = slint::cbindgen_private* slint::private_api* vtable* SLINT_DECL_ITEM
+EXCLUDE_SYMBOLS = slint::cbindgen_private* slint::private_api* vtable* slint::testing* SLINT_DECL_ITEM
 EXCLUDE = ../../api/cpp/include/vtable.h ../../api/cpp/include/slint_testing.h
 ENABLE_PREPROCESSING = YES
 PREDEFINED += DOXYGEN
