@@ -55,9 +55,9 @@ fontdue = { version = "0.7.1" }
 # for processing and embedding the rendered image (texture)
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 image = "0.24"
-tiny-skia = "0.6.1"
-resvg = "0.23"
-usvg = "0.23"
+tiny-skia = "0.8.2"
+resvg = "0.25"
+usvg = "0.25"
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
 libc = { version = "0.2" }

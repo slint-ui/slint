@@ -31,7 +31,7 @@ impl core::fmt::Debug for ParsedSVG {
 
 impl ParsedSVG {
     pub fn size(&self) -> crate::graphics::IntSize {
-        let size = self.svg_tree.svg_node().size.to_screen_size();
+        let size = self.svg_tree.size.to_screen_size();
         [size.width(), size.height()].into()
     }
 
@@ -46,8 +46,7 @@ impl ParsedSVG {
     ) -> Result<SharedImageBuffer, usvg::Error> {
         let tree = &self.svg_tree;
         let fit = usvg::FitTo::Size(size.width, size.height);
-        let size =
-            fit.fit_to(tree.svg_node().size.to_screen_size()).ok_or(usvg::Error::InvalidSize)?;
+        let size = fit.fit_to(tree.size.to_screen_size()).ok_or(usvg::Error::InvalidSize)?;
         let mut buffer = SharedPixelBuffer::new(size.width(), size.height());
         let skia_buffer =
             tiny_skia::PixmapMut::from_bytes(buffer.make_mut_bytes(), size.width(), size.height())
