@@ -39,7 +39,7 @@ esbuild.build({
 
 
 esbuild.build({
-    entryPoints: ['browser-language-server/browserServerMain.ts'],
+    entryPoints: ['src/browser-lsp-worker.ts'],
     bundle: true,
     outfile: 'out/browserServerMain.js',
     format: 'iife',
