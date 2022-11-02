@@ -64,36 +64,3 @@ export function lsp_range_to_editor_range(
         endColumn: endPos.column - 1, // LSP reports the first letter *not* part of the range anymore, so go for the one before that!
     };
 }
-
-export interface DeclarationPosition {
-    uri: string;
-    start_position: LspPosition;
-}
-
-export interface DefinitionPosition {
-    property_definition_range: LspRange;
-    expression_range: LspRange;
-}
-
-export interface Property {
-    name: string;
-    group: string;
-    type_name: string;
-    declared_at: DeclarationPosition | null;
-    defined_at: DefinitionPosition | null;
-}
-
-export interface Element {
-    id: string;
-    type_name: string;
-}
-
-export interface PropertyQuery {
-    source_uri: string;
-    element: Element | null;
-    properties: Property[];
-}
-
-export interface BindingTextProvider {
-    binding_text(_location: DefinitionPosition): string;
-}
