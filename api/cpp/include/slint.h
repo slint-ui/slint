@@ -500,7 +500,7 @@ struct Timer
                 new F(std::move(callback)), [](void *data) { delete reinterpret_cast<F *>(data); });
     }
     /// Stops the previously started timer. Does nothing if the timer has never been started. A
-    /// stopped timer cannot be restarted with restart() -- instead you need to call start().
+    /// stopped timer cannot be restarted with restart(). Use start() instead.
     void stop() { cbindgen_private::slint_timer_stop(id); }
     /// Restarts the timer. If the timer was previously started by calling [`Self::start()`]
     /// with a duration and callback, then the time when the callback will be next invoked
