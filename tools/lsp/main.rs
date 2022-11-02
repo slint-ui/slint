@@ -17,10 +17,7 @@ mod util;
 
 use i_slint_compiler::CompilerConfiguration;
 use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification};
-use lsp_types::{
-    DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams, InitializeResult,
-    ServerInfo,
-};
+use lsp_types::{DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams};
 use server_loop::*;
 
 use clap::Parser;
@@ -135,17 +132,8 @@ pub fn run_lsp_server() -> Result<(), Error> {
     let (connection, io_threads) = Connection::stdio();
     let (id, params) = connection.initialize_start()?;
 
-    let initialization_reply = InitializeResult {
-        capabilities: server_loop::server_capabilities(),
-
-        server_info: Some(ServerInfo {
-            name: env!("CARGO_PKG_NAME").to_string(),
-            version: Some(env!("CARGO_PKG_VERSION").to_string()),
-        }),
-        offset_encoding: Some("utf-8".to_string()),
-    };
-
-    connection.initialize_finish(id, serde_json::to_value(initialization_reply)?)?;
+    let initialize_result = serde_json::to_value(server_loop::server_initialize_result())?;
+    connection.initialize_finish(id, initialize_result)?;
 
     main_loop(&connection, params)?;
     io_threads.join()?;

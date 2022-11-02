@@ -28,7 +28,7 @@ slint_init(slint_wasm_data).then((_) => {
 
     connection.onInitialize((params: InitializeParams): InitializeResult => {
         the_lsp = slint_lsp.create(params, send_notification, load_file);
-        return { capabilities: the_lsp.capabilities() };
+        return the_lsp.server_initialize_result();
     });
 
     connection.onRequest(async (method, params, token) => {
@@ -53,8 +53,3 @@ slint_init(slint_wasm_data).then((_) => {
     // Now that we listen, the client is ready to send the init message
     self.postMessage("OK");
 });
-
-
-
-
-
