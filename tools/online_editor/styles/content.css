@@ -1,161 +1,161 @@
 .content {
-  min-width: 50px;
-  min-height: 50px;
-  display: flex;
-  flex-direction: column;
-  padding: 8px;
-  border: 1px solid #c0c0c0;
-  border-top: none;
-  background: white;
-  box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
-  font: var(--default-font);
+    min-width: 50px;
+    min-height: 50px;
+    display: flex;
+    flex-direction: column;
+    padding: 8px;
+    border: 1px solid #c0c0c0;
+    border-top: none;
+    background: white;
+    box-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+    font: var(--default-font);
 }
 
 .content > div {
-  flex: 1 1 auto;
-  border: 1px solid #505050;
-  overflow: auto;
+    flex: 1 1 auto;
+    border: 1px solid #505050;
+    overflow: auto;
 }
 
 .content input {
-  margin: 8px;
+    margin: 8px;
 }
 
 .editor .container {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
 }
 
 .editor .container .edit-area {
-  flex-shrink: 1000;
-  flex-grow: 1000;
+    flex-shrink: 1000;
+    flex-grow: 1000;
 }
 
 .preview .preview-container {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background-image: linear-gradient(
-      45deg,
-      var(--undefined-bg) 25%,
-      transparent 25%
-    ),
-    linear-gradient(-45deg, var(--undefined-bg) 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, var(--undefined-bg) 75%),
-    linear-gradient(-45deg, transparent 75%, var(--undefined-bg) 75%);
-  background-size: 20px 20px;
-  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
-  width: 100%;
-  height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-image: linear-gradient(
+            45deg,
+            var(--undefined-bg) 25%,
+            transparent 25%
+        ),
+        linear-gradient(-45deg, var(--undefined-bg) 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, var(--undefined-bg) 75%),
+        linear-gradient(-45deg, transparent 75%, var(--undefined-bg) 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    width: 100%;
+    height: 100%;
 }
 
 .preview .preview-container > canvas {
-  margin: 0;
+    margin: 0;
 }
 
 .preview .error-area {
-  display: none;
+    display: none;
 
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translateX(-50%) translateY(-50%);
-  width: 100%;
-  height: 100%;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translateX(-50%) translateY(-50%);
+    width: 100%;
+    height: 100%;
 }
 
 .preview .error-message {
-  background-color: var(--error-bg);
-  color: var(--error-fg);
+    background-color: var(--error-bg);
+    color: var(--error-fg);
 
-  width: 100%;
+    width: 100%;
 }
 
 .outline ul {
-  padding-left: 1em;
-  list-style-type: none;
+    padding-left: 1em;
+    list-style-type: none;
 }
 
 .outline .outline-tree {
-  margin: 4px;
+    margin: 4px;
 }
 
 .outline .outline-tree {
-  padding-left: 4px;
+    padding-left: 4px;
 }
 
 .outline .outline-element {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  display: block;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    display: block;
 }
 
 .outline .outline-element > span {
-  display: block;
-  user-select: none;
+    display: block;
+    user-select: none;
 }
 
 .outline .kind-class.outline-element span:before {
-  font-family: "FontAwesome";
-  content: "\f1b2 ";
-  padding: 2px;
+    font-family: "FontAwesome";
+    content: "\f1b2 ";
+    padding: 2px;
 }
 
 .outline .outline-element .active {
-  background: var(--highlight-bg);
-  color: var(--highlight-fg);
+    background: var(--highlight-bg);
+    color: var(--highlight-fg);
 }
 
 .properties-editor .element-header {
-  background: var(--highlight-bg);
-  color: var(--highlight-fg);
-  font-size: 140%;
-  font-weight: bold;
+    background: var(--highlight-bg);
+    color: var(--highlight-fg);
+    font-size: 140%;
+    font-weight: bold;
 
-  width: 100%;
-  height: 50px;
+    width: 100%;
+    height: 50px;
 }
 
 .properties-editor .name-column {
-  white-space: nowrap;
+    white-space: nowrap;
 }
 
 .properties-editor .value-column {
-  width: 90%;
+    width: 90%;
 }
 
 .properties-editor .properties-table {
-  width: 100%;
+    width: 100%;
 }
 
 .properties-editor .properties-table .group-header td {
-  background-color: var(--highlight2-bg);
-  color: var(--highlight2-fg);
-  font-weight: bold;
+    background-color: var(--highlight2-bg);
+    color: var(--highlight2-fg);
+    font-weight: bold;
 }
 
 .properties-editor .properties-table .undefined {
-  background-color: var(--undefined-bg);
-  color: var(--undefined-fg);
+    background-color: var(--undefined-bg);
+    color: var(--undefined-fg);
 }
 
 .properties-editor .value-column.type-unknown:before {
-  content: "??? ";
-  padding: 2px;
+    content: "??? ";
+    padding: 2px;
 }
 
 .properties-editor .properties-table input {
-  margin: 0px;
-  border: none;
-  width: 100%;
+    margin: 0px;
+    border: none;
+    width: 100%;
 }
 
 .properties-editor .properties-table input.value-changed {
-  color: var(--error-bg);
+    color: var(--error-bg);
 }
 
 .welcome > div {
-  padding: 1ex;
+    padding: 1ex;
 }

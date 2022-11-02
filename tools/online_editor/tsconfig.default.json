@@ -1,20 +1,20 @@
 {
-  "compilerOptions": {
-    "baseUrl": "./node_modules",
-    "composite": true,
-    "declaration": true,
-    "declarationMap": true,
-    "lib": ["es2020"],
-    "module": "esnext",
-    "moduleResolution": "node",
-    "outDir": "./dist",
-    "paths": {
-      "@preview/*": ["../../../api/wasm-interpreter/pkg/*"],
-      "@lsp/*": ["../../lsp/pkg/*"]
-    },
-    "rootDir": ".",
-    "strict": true,
-    "target": "es6",
-    "typeRoots": ["./node_modules/@types"]
-  }
+    "compilerOptions": {
+        "baseUrl": "./node_modules",
+        "composite": true,
+        "declaration": true,
+        "declarationMap": true,
+        "lib": ["es2020"],
+        "module": "esnext",
+        "moduleResolution": "node",
+        "outDir": "./dist",
+        "paths": {
+            "@preview/*": ["../../../api/wasm-interpreter/pkg/*"],
+            "@lsp/*": ["../../lsp/pkg/*"]
+        },
+        "rootDir": ".",
+        "strict": true,
+        "target": "es6",
+        "typeRoots": ["./node_modules/@types"]
+    }
 }

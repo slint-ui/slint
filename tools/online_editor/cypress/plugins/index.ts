@@ -6,11 +6,11 @@
 import "@frsource/cypress-plugin-visual-regression-diff/dist/support";
 
 module.exports = (on, _config) => {
-  on("before:browser:launch", (browser = {}, args: string[]) => {
-    if (browser.name === "chromium" || browser.name == "chrome") {
-      const newArgs = args.filter((arg) => arg !== "--disable-gpu");
-      newArgs.push("--ignore-gpu-blacklist");
-      return newArgs;
-    }
-  });
+    on("before:browser:launch", (browser = {}, args: string[]) => {
+        if (browser.name === "chromium" || browser.name == "chrome") {
+            const newArgs = args.filter((arg) => arg !== "--disable-gpu");
+            newArgs.push("--ignore-gpu-blacklist");
+            return newArgs;
+        }
+    });
 };
