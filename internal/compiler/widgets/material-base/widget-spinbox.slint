@@ -9,26 +9,23 @@ SpinBoxButton := Rectangle {
     property<bool> pressed: self.enabled && touch.pressed;
     property<bool> enabled <=> touch.enabled;
     property<float> icon-opacity: 1;
-    property<brush> icon-fill: md.sys.color.primary;
+    property<brush> icon-fill: md.sys.color.on-primary;
 
     width: height;
 
     container := Rectangle {  
         width: 100%;
         height: 100%;
-        border-radius: 2px;
-        border-width: 1px;
-        background: md.sys.color.secondary-container;
-
-        animate drop-shadow-blur { duration: 250ms; easing: ease; }
+        border-radius: max(width, height) / 2;
+        background: md.sys.color.primary;
     }
 
     state-layer := Rectangle {  
         opacity: 0;
-        width: 100%;
-        height: 100%;
+        width: container.width;
+        height: container.height;
         border-radius: container.border-radius;
-        background: md.sys.color.on-secondary-container;
+        background: md.sys.color.on-primary;
         animate opacity { duration: 250ms; easing: ease; }
      }
 
@@ -121,6 +118,8 @@ export SpinBox := FocusScope {
                     if (root.value < root.maximum) {
                         root.value += 1;
                     }
+
+                    root.focus();
                 }
             }
     
@@ -141,6 +140,9 @@ export SpinBox := FocusScope {
                     if (root.value > root.minimum) {
                         root.value -= 1;
                     }
+
+
+                    root.focus();
                 }
             }
         } 

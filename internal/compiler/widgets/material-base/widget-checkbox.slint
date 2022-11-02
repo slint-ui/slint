@@ -19,7 +19,7 @@ export CheckBox := Rectangle {
     accessible-checked <=> checked;
     accessible-role: checkbox;
 
-    HorizontalLayout {  
+    layout := HorizontalLayout {  
         spacing: 16px;
 
         Rectangle {  
@@ -62,16 +62,6 @@ export CheckBox := Rectangle {
                     }
                 ]
             }
-
-            touch := TouchArea {
-                enabled <=> root.enabled;
-                clicked => {
-                    if (root.enabled) {
-                        root.checked = !root.checked;
-                        root.toggled();
-                    }
-                }
-            }
         }
 
         label := Text {
@@ -81,6 +71,19 @@ export CheckBox := Rectangle {
             vertical-stretch: 1;
             font-size: md.sys.typescale.label-medium.size;
             font-weight: md.sys.typescale.label-medium.weight;
+        }
+    }
+
+    touch := TouchArea {
+        x: layout.padding-left;
+        width: layout.width - layout.padding-left - layout.padding-right;
+        height: 100%;
+        enabled <=> root.enabled;
+        clicked => {
+            if (root.enabled) {
+                root.checked = !root.checked;
+                root.toggled();
+            }
         }
     }
 

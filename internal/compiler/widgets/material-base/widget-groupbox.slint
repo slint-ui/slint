@@ -1,13 +1,14 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-
 import { md } from "md.slint";
 
-// A container widget with a title.s
+// A container widget with a title.
 export GroupBox := Rectangle {
     property <string> title <=> label.text;
     property<bool> enabled: true;
+
+    min-width: max(label-container.width + 16px, layout.min-width);
     
     container := Rectangle {
         border-radius: 4px;
@@ -28,8 +29,6 @@ export GroupBox := Rectangle {
         label := Text {
             x: 4px;
             y: 4px;
-            width: min(root.width - 24px, preferred-width);
-          
             color: md.sys.color.on-surface;
             // FIXME after Roboto font can be loaded
             //font-family: md.sys.typescale.body-small.font;
