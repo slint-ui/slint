@@ -11,7 +11,7 @@ include(FetchContent)
 FetchContent_Declare(
     Corrosion
     GIT_REPOSITORY https://github.com/corrosion-rs/corrosion.git
-    GIT_TAG v0.2.2
+    GIT_TAG v0.3.0
 )
 FetchContent_MakeAvailable(Corrosion)
 
@@ -31,7 +31,7 @@ set_property(
     TARGET slint-cpp
     APPEND
     PROPERTY CORROSION_ENVIRONMENT_VARIABLES
-    SLINT_GENERATED_INCLUDE_DIR="${CMAKE_CURRENT_BINARY_DIR}/generated_include/"
+    "SLINT_GENERATED_INCLUDE_DIR=${CMAKE_CURRENT_BINARY_DIR}/generated_include/"
 )
 
 if(SLINT_FEATURE_COMPILER)
@@ -266,21 +266,29 @@ endif()
 
 set(SLINT_LIB_PROPERTIES "IMPORTED_NO_SONAME;1")
 
-foreach(prop
-    IMPORTED_LOCATION IMPORTED_LOCATION_DEBUG IMPORTED_LOCATION_RELEASE
-    IMPORTED_LOCATION_RELWITHDEBINFO IMPORTED_LOCATION_MINSIZEREL
-    IMPORTED_IMPLIB IMPORTED_IMPLIB_DEBUG IMPORTED_IMPLIB_RELEASE
-    IMPORTED_IMPLIB_RELWITHDEBINFO IMPORTED_IMPLIB_MINSIZEREL)
-    get_target_property(value slint-cpp-shared ${prop})
+# Corrosion sets the `IMPORTED` locations late to allow us to set OUTPUT_DIRECTORY
+# target properties. This function must be deferred until after Corrosion set the
+# locations. Since we are writing to a config file Generator expressions are not
+# an option.
+function(_slint_write_configure_file)
+    foreach(prop
+        IMPORTED_LOCATION IMPORTED_LOCATION_DEBUG IMPORTED_LOCATION_RELEASE
+        IMPORTED_LOCATION_RELWITHDEBINFO IMPORTED_LOCATION_MINSIZEREL
+        IMPORTED_IMPLIB IMPORTED_IMPLIB_DEBUG IMPORTED_IMPLIB_RELEASE
+        IMPORTED_IMPLIB_RELWITHDEBINFO IMPORTED_IMPLIB_MINSIZEREL)
+        get_target_property(value slint-cpp-shared ${prop})
 
-    if(value)
-        get_filename_component(value ${value} NAME)
-        list(APPEND SLINT_LIB_PROPERTIES ${prop} "\${_IMPORT_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${value}")
-    endif()
-endforeach()
+        if(value)
+            get_filename_component(value ${value} NAME)
+            list(APPEND SLINT_LIB_PROPERTIES ${prop} "\${_IMPORT_PREFIX}/${CMAKE_INSTALL_LIBDIR}/${value}")
+        endif()
+    endforeach()
 
-get_property(_SLINT_STYLE GLOBAL PROPERTY SLINT_STYLE)
-configure_package_config_file("cmake/SlintConfig.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake" INSTALL_DESTINATION lib/cmake/Slint)
+    get_property(_SLINT_STYLE GLOBAL PROPERTY SLINT_STYLE)
+    configure_package_config_file("cmake/SlintConfig.cmake.in" "${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfig.cmake" INSTALL_DESTINATION lib/cmake/Slint)
+endfunction()
+
+cmake_language(DEFER CALL _slint_write_configure_file)
 
 write_basic_package_version_file(
     ${CMAKE_CURRENT_BINARY_DIR}/lib/cmake/Slint/SlintConfigVersion.cmake

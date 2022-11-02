@@ -13,12 +13,6 @@ endif()
 
 add_library(slint-cpp-shared SHARED IMPORTED)
 set_target_properties(slint-cpp-shared PROPERTIES @SLINT_LIB_PROPERTIES@)
-foreach(build_type Release RelWithDebInfo MinSizeRel Debug)
-  string(TOUPPER "${build_type}" config_name)
-  if(NOT("@CMAKE_BUILD_TYPE@" STREQUAL build_type))
-    set_target_properties(slint-cpp-shared PROPERTIES MAP_IMPORTED_CONFIG_${config_name} "@CMAKE_BUILD_TYPE@")
-  endif()
-endforeach()
 
 if (@SLINT_FEATURE_COMPILER@)
     add_executable(Slint::slint-compiler IMPORTED GLOBAL)
