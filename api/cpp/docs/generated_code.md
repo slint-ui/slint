@@ -35,7 +35,7 @@ the {cpp:class}`slint::VectorModel` provides an implementation that is backed by
 
 Let's assume we have this code in our `.slint` file
 
-```slint
+```slint,no-preview
 SampleComponent := Window {
     property<int> counter;
     property<string> user_name;
