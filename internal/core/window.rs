@@ -270,7 +270,6 @@ impl WindowInner {
         self.mouse_input_state.replace(Default::default());
         self.component.replace(ComponentRc::downgrade(component));
         self.window_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
-        self.window_adapter().request_window_properties_update();
         let window_adapter = self.window_adapter();
         window_adapter.request_window_properties_update();
         window_adapter.request_redraw();
