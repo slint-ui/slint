@@ -69,7 +69,7 @@ impl FontMetrics for BitmapGlyphs {
     }
 }
 
-const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12 as Coord);
+pub(super) const DEFAULT_FONT_SIZE: LogicalLength = LogicalLength::new(12 as Coord);
 
 // A font that is resolved to a specific pixel size.
 pub struct PixelFont {

@@ -22,7 +22,7 @@ use i_slint_core::lengths::{
     LogicalLength, LogicalPoint, LogicalRect, LogicalSize, LogicalVector, PhysicalPx, ScaleFactor,
 };
 use i_slint_core::window::{WindowAdapter, WindowAdapterSealed, WindowInner};
-use i_slint_core::{ImageInner, PathData, Property, SharedString};
+use i_slint_core::{Coord, ImageInner, PathData, Property, SharedString};
 use items::{ImageFit, TextHorizontalAlignment, TextVerticalAlignment};
 
 use std::cell::RefCell;
@@ -1610,6 +1610,19 @@ impl WindowAdapterSealed for QtWindow {
         self.free_graphics_resources(component);
 
         self.tree_structure_changed.replace(true);
+    }
+
+    fn register_root_component(&self, window_item: Pin<&i_slint_core::items::WindowItem>) {
+        let default_font_size_prop =
+            i_slint_core::items::WindowItem::FIELD_OFFSETS.default_font_size.apply_pin(window_item);
+        if default_font_size_prop.get().get() <= 0 as Coord {
+            let default_font_size = cpp!(unsafe[] -> i32 as "int" {
+                return QFontInfo(qApp->font()).pixelSize();
+            });
+            // Ideally this would be a binding that's updated as a FontChange event is received. This is relevant
+            // for the case of using the Qt backend with a non-native style.
+            default_font_size_prop.set(LogicalLength::new(default_font_size as f32));
+        }
     }
 
     fn create_popup(&self, geometry: LogicalRect) -> Option<Rc<dyn WindowAdapter>> {

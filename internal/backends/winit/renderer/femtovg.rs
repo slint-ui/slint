@@ -225,6 +225,10 @@ impl super::WinitCompatibleRenderer for FemtoVGRenderer {
         canvas.opengl_context.swap_buffers();
         canvas.opengl_context.make_not_current();
     }
+
+    fn default_font_size() -> LogicalLength {
+        self::fonts::DEFAULT_FONT_SIZE
+    }
 }
 
 impl Renderer for FemtoVGRenderer {

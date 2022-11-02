@@ -58,6 +58,25 @@ pub fn apply_default_properties_from_style(
                         .into(),
                         to: Type::Brush,
                     });
+                    if !matches!(
+                        style_metrics
+                            .root_element
+                            .borrow()
+                            .lookup_property("default-font-size")
+                            .property_type,
+                        Type::Invalid,
+                    ) {
+                        elem.set_binding_if_not_set("default-font-size".into(), || {
+                            Expression::Cast {
+                                from: Expression::PropertyReference(NamedReference::new(
+                                    &style_metrics.root_element,
+                                    "default-font-size",
+                                ))
+                                .into(),
+                                to: Type::LogicalLength,
+                            }
+                        });
+                    }
                 }
 
                 _ => {}

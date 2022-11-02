@@ -159,6 +159,10 @@ impl super::WinitCompatibleRenderer for SkiaRenderer {
             }
         });
     }
+
+    fn default_font_size() -> LogicalLength {
+        self::textlayout::DEFAULT_FONT_SIZE
+    }
 }
 
 impl i_slint_core::renderer::Renderer for SkiaRenderer {
