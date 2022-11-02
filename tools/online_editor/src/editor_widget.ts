@@ -5,11 +5,13 @@
 
 import { slint_language } from "./highlighting";
 import {
+    lsp_range_to_editor_range,
+} from "./lsp_integration";
+import {
     PropertyQuery,
     BindingTextProvider,
     DefinitionPosition,
-    lsp_range_to_editor_range,
-} from "./lsp_integration";
+} from "./shared/properties";
 import { FilterProxyReader } from "./proxy";
 import {
     TextPosition,
