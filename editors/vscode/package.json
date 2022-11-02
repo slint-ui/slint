@@ -18,6 +18,8 @@
 	],
 	"preview": true,
 	"activationEvents": [
+		"onCommand:slint.showPreview",
+		"onCommand:slint.reload",
 		"onLanguage:slint",
 		"onWebviewPanel:slint-preview"
 	],
