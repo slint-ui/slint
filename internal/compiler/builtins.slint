@@ -157,7 +157,7 @@ WindowItem := _ {
     input property <string> title: "Slint Window";
     input property <bool> no-frame;
     input property <string> default-font-family;
-    input property <length> default-font-size;
+    input output property <length> default-font-size; // <=> StyleMetrics.default-font-size  set in apply_default_properties_from_style
     input property <int> default-font-weight;
     input property <image> icon;
 }
@@ -613,6 +613,7 @@ export global NativeStyleMetrics := {
     output property <length> text-cursor-width;
     output property <color> window-background;
     output property <color> default-text-color;
+    output property <length> default-font-size;
     output property <color> textedit-background;
     output property <color> textedit-text-color;
     output property <color> textedit-background-disabled;

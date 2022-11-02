@@ -5,6 +5,7 @@
 
 use super::WinitCompatibleCanvas;
 use i_slint_core::graphics::Rgb8Pixel;
+use i_slint_core::lengths::LogicalLength;
 pub use i_slint_core::software_renderer::SoftwareRenderer;
 use i_slint_core::window::WindowAdapter;
 use std::cell::RefCell;
@@ -98,6 +99,10 @@ impl<const BUFFER_COUNT: usize> super::WinitCompatibleRenderer for SoftwareRende
 
         canvas.opengl_context.swap_buffers();
         canvas.opengl_context.make_not_current();
+    }
+
+    fn default_font_size() -> LogicalLength {
+        i_slint_core::software_renderer::SoftwareRenderer::<BUFFER_COUNT>::default_font_size()
     }
 }
 

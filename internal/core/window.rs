@@ -65,6 +65,9 @@ pub trait WindowAdapterSealed {
     /// This function is called by the generated code when a component and therefore its tree of items are created.
     fn register_component(&self) {}
 
+    /// This function is called when the root component is set/changed.
+    fn register_root_component(&self, _window_item: Pin<&crate::items::WindowItem>) {}
+
     /// This function is called by the generated code when a component and therefore its tree of items are destroyed. The
     /// implementation typically uses this to free the underlying graphics resources cached via [`crate::graphics::RenderingCache`].
     fn unregister_component<'a>(
@@ -271,6 +274,12 @@ impl WindowInner {
         self.component.replace(ComponentRc::downgrade(component));
         self.window_properties_tracker.set_dirty(); // component changed, layout constraints for sure must be re-calculated
         let window_adapter = self.window_adapter();
+        {
+            let component = ComponentRc::borrow_pin(&component);
+            let root_item = component.as_ref().get_item_ref(0);
+            let window_item = ItemRef::downcast_pin::<crate::items::WindowItem>(root_item).unwrap();
+            window_adapter.register_root_component(window_item);
+        }
         window_adapter.request_window_properties_update();
         window_adapter.request_redraw();
     }

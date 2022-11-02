@@ -21,6 +21,7 @@ pub(crate) mod event_loop;
 mod renderer {
     use std::rc::Weak;
 
+    use i_slint_core::lengths::LogicalLength;
     use i_slint_core::window::WindowAdapter;
 
     #[cfg(any(feature = "renderer-winit-femtovg", enable_skia_renderer))]
@@ -39,6 +40,8 @@ mod renderer {
         fn release_canvas(&self, canvas: Self::Canvas);
 
         fn render(&self, canvas: &Self::Canvas, window: &dyn WindowAdapter);
+
+        fn default_font_size() -> LogicalLength;
     }
 
     pub(crate) trait WinitCompatibleCanvas {
