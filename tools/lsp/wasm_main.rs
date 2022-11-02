@@ -176,8 +176,8 @@ pub fn create(
 #[wasm_bindgen]
 impl SlintServer {
     #[wasm_bindgen]
-    pub fn capabilities(&self) -> Result<JsValue, JsError> {
-        Ok(to_value(&server_loop::server_capabilities())?)
+    pub fn server_initialize_result(&self) -> Result<JsValue, JsError> {
+        Ok(to_value(&server_loop::server_initialize_result())?)
     }
 
     #[wasm_bindgen]

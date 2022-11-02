@@ -20,10 +20,10 @@ use lsp_types::request::{
 use lsp_types::{
     CodeActionOrCommand, CodeActionProviderCapability, CodeLens, CodeLensOptions, Color,
     ColorInformation, ColorPresentation, Command, CompletionOptions, DocumentSymbol,
-    DocumentSymbolResponse, Hover, InitializeParams, OneOf, Position, PublishDiagnosticsParams,
-    Range, SemanticTokensFullOptions, SemanticTokensLegend, SemanticTokensOptions,
-    ServerCapabilities, TextDocumentIdentifier, TextDocumentSyncCapability, Url,
-    WorkDoneProgressOptions,
+    DocumentSymbolResponse, Hover, InitializeParams, InitializeResult, OneOf, Position,
+    PublishDiagnosticsParams, Range, SemanticTokensFullOptions, SemanticTokensLegend,
+    SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentIdentifier,
+    TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
 };
 use std::collections::HashMap;
 
@@ -103,39 +103,46 @@ impl DocumentCache {
     }
 }
 
-pub fn server_capabilities() -> ServerCapabilities {
-    ServerCapabilities {
-        completion_provider: Some(CompletionOptions {
-            resolve_provider: None,
-            trigger_characters: Some(vec![".".to_owned()]),
-            work_done_progress_options: WorkDoneProgressOptions::default(),
-            all_commit_characters: None,
-            completion_item: None,
-        }),
-        definition_provider: Some(OneOf::Left(true)),
-        text_document_sync: Some(TextDocumentSyncCapability::Kind(
-            lsp_types::TextDocumentSyncKind::FULL,
-        )),
-        code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
-        execute_command_provider: Some(lsp_types::ExecuteCommandOptions {
-            commands: command_list(),
-            ..Default::default()
-        }),
-        document_symbol_provider: Some(OneOf::Left(true)),
-        color_provider: Some(true.into()),
-        code_lens_provider: Some(CodeLensOptions { resolve_provider: Some(true) }),
-        semantic_tokens_provider: Some(
-            SemanticTokensOptions {
-                legend: SemanticTokensLegend {
-                    token_types: semantic_tokens::LEGEND_TYPES.to_vec(),
-                    token_modifiers: semantic_tokens::LEGEND_MODS.to_vec(),
-                },
-                full: Some(SemanticTokensFullOptions::Bool(true)),
+pub fn server_initialize_result() -> InitializeResult {
+    InitializeResult {
+        capabilities: ServerCapabilities {
+            completion_provider: Some(CompletionOptions {
+                resolve_provider: None,
+                trigger_characters: Some(vec![".".to_owned()]),
+                work_done_progress_options: WorkDoneProgressOptions::default(),
+                all_commit_characters: None,
+                completion_item: None,
+            }),
+            definition_provider: Some(OneOf::Left(true)),
+            text_document_sync: Some(TextDocumentSyncCapability::Kind(
+                lsp_types::TextDocumentSyncKind::FULL,
+            )),
+            code_action_provider: Some(CodeActionProviderCapability::Simple(true)),
+            execute_command_provider: Some(lsp_types::ExecuteCommandOptions {
+                commands: command_list(),
                 ..Default::default()
-            }
-            .into(),
-        ),
-        ..ServerCapabilities::default()
+            }),
+            document_symbol_provider: Some(OneOf::Left(true)),
+            color_provider: Some(true.into()),
+            code_lens_provider: Some(CodeLensOptions { resolve_provider: Some(true) }),
+            semantic_tokens_provider: Some(
+                SemanticTokensOptions {
+                    legend: SemanticTokensLegend {
+                        token_types: semantic_tokens::LEGEND_TYPES.to_vec(),
+                        token_modifiers: semantic_tokens::LEGEND_MODS.to_vec(),
+                    },
+                    full: Some(SemanticTokensFullOptions::Bool(true)),
+                    ..Default::default()
+                }
+                .into(),
+            ),
+            ..ServerCapabilities::default()
+        },
+        server_info: Some(ServerInfo {
+            name: env!("CARGO_PKG_NAME").to_string(),
+            version: Some(env!("CARGO_PKG_VERSION").to_string()),
+        }),
+        offset_encoding: Some("utf-8".to_string()),
     }
 }
 

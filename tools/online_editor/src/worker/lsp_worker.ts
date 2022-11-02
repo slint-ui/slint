@@ -29,9 +29,9 @@ slint_init().then((_) => {
 
     connection.onInitialize((params: InitializeParams): InitializeResult => {
         the_lsp = slint_lsp.create(params, send_notification, load_file);
-        const capabilities = the_lsp.capabilities();
-        capabilities.codeLensProvider = null; // CodeLenses are not relevant for the online editor
-        return { capabilities: capabilities };
+        const response = the_lsp.server_initialize_result();
+        response.capabilities.codeLensProvider = null; // CodeLenses are not relevant for the online editor
+        return response;
     });
 
     connection.onRequest(async (method, params, token) => {
@@ -41,14 +41,14 @@ slint_init().then((_) => {
     connection.onDidChangeTextDocument(async (param) => {
         await the_lsp.reload_document(
             param.contentChanges[param.contentChanges.length - 1].text,
-            param.textDocument.uri,
+            param.textDocument.uri
         );
     });
 
     connection.onDidOpenTextDocument(async (param) => {
         await the_lsp.reload_document(
             param.textDocument.text,
-            param.textDocument.uri,
+            param.textDocument.uri
         );
     });
 
