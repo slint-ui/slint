@@ -7,10 +7,10 @@ import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
 
 export class WelcomeWidget extends Widget {
-  static createNode(): HTMLElement {
-    const node = document.createElement("div");
-    const content = document.createElement("div");
-    content.innerHTML = `
+    static createNode(): HTMLElement {
+        const node = document.createElement("div");
+        const content = document.createElement("div");
+        content.innerHTML = `
       <div>
       <center>
       <h1>Welcome to the Slint Online Editor</h1>
@@ -30,22 +30,22 @@ export class WelcomeWidget extends Widget {
       <p>This Online Editor is licensed under the GNU GPLv3. <a href="https://github.com/slint-ui/slint/tree/master/tools/online_editor">Sources</a>.
       </div>
       `;
-    node.appendChild(content);
-    return node;
-  }
+        node.appendChild(content);
+        return node;
+    }
 
-  constructor() {
-    super({ node: WelcomeWidget.createNode() });
-    this.setFlag(Widget.Flag.DisallowLayout);
-    this.addClass("content");
-    this.addClass("welcome".toLowerCase());
-    this.title.label = "Welcome";
-    this.title.closable = true;
-    this.title.caption = `Welcome to Slint`;
-  }
+    constructor() {
+        super({ node: WelcomeWidget.createNode() });
+        this.setFlag(Widget.Flag.DisallowLayout);
+        this.addClass("content");
+        this.addClass("welcome".toLowerCase());
+        this.title.label = "Welcome";
+        this.title.closable = true;
+        this.title.caption = `Welcome to Slint`;
+    }
 
-  protected onCloseRequest(msg: Message): void {
-    super.onCloseRequest(msg);
-    this.dispose();
-  }
+    protected onCloseRequest(msg: Message): void {
+        super.onCloseRequest(msg);
+        this.dispose();
+    }
 }

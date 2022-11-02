@@ -7,10 +7,10 @@ import { defineConfig } from "cypress";
 import { initPlugin } from "@frsource/cypress-plugin-visual-regression-diff/dist/plugins";
 
 export default defineConfig({
-  e2e: {
-    baseUrl: "http://localhost:3001",
-    setupNodeEvents(on, config) {
-      initPlugin(on, config);
+    e2e: {
+        baseUrl: "http://localhost:3001",
+        setupNodeEvents(on, config) {
+            initPlugin(on, config);
+        },
     },
-  },
 });

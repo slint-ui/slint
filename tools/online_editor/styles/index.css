@@ -3,52 +3,52 @@
 @import "./content.css";
 
 body {
-  display: flex;
-  flex-direction: column;
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  margin: 0;
-  padding: 0;
-  overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
 }
 
 #menuBar {
-  flex: 0 0 auto;
+    flex: 0 0 auto;
 }
 
 #main {
-  flex: 1 1 auto;
+    flex: 1 1 auto;
 }
 
 #dock {
-  padding: 4px;
+    padding: 4px;
 }
 
 .loader {
-  display: flex;
-  width: 100%;
-  height: 100%;
-  justify-content: center;
-  align-items: center;
-  background: var(--slint-blue);
+    display: flex;
+    width: 100%;
+    height: 100%;
+    justify-content: center;
+    align-items: center;
+    background: var(--slint-blue);
 }
 
 .loader-image {
-  width: 100px;
-  animation: pulse 1s linear infinite;
+    width: 100px;
+    animation: pulse 1s linear infinite;
 }
 
 @keyframes pulse {
-  0% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(0.8);
-  }
-  100% {
-    transform: scale(1);
-  }
+    0% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(0.8);
+    }
+    100% {
+        transform: scale(1);
+    }
 }

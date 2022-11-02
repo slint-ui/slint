@@ -1,43 +1,43 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Slint File WASM Preview</title>
-    <style>
-      /* beautify ignore:start */
-      .spinner:before {
-        content: "";
-        box-sizing: border-box;
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        width: 100px;
-        height: 100px;
-        margin-top: -10px;
-        margin-left: -10px;
-        border-radius: 50%;
-        border: 2px solid transparent;
-        border-top-color: #07d;
-        border-bottom-color: #07d;
-        animation: spinner 1s ease infinite;
-      }
-      @keyframes spinner {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-      /* beautify ignore:end */
-      canvas {
-        touch-action: none;
-      }
-    </style>
-    <script type="module" src="./src/preview.ts"></script>
-  </head>
+    <head>
+        <meta charset="utf-8" />
+        <title>Slint File WASM Preview</title>
+        <style>
+            /* beautify ignore:start */
+            .spinner:before {
+                content: "";
+                box-sizing: border-box;
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                width: 100px;
+                height: 100px;
+                margin-top: -10px;
+                margin-left: -10px;
+                border-radius: 50%;
+                border: 2px solid transparent;
+                border-top-color: #07d;
+                border-bottom-color: #07d;
+                animation: spinner 1s ease infinite;
+            }
+            @keyframes spinner {
+                to {
+                    transform: rotate(360deg);
+                }
+            }
+            /* beautify ignore:end */
+            canvas {
+                touch-action: none;
+            }
+        </style>
+        <script type="module" src="./src/preview.ts"></script>
+    </head>
 
-  <body>
-    <div id="spinner" style="position: relative">
-      <div class="spinner">Loading...</div>
-    </div>
-    <div id="preview"></div>
-  </body>
+    <body>
+        <div id="spinner" style="position: relative">
+            <div class="spinner">Loading...</div>
+        </div>
+        <div id="preview"></div>
+    </body>
 </html>
