@@ -35,11 +35,16 @@ jobs:
     steps:
     - uses: actions/checkout@v2
     - uses: ./.github/actions/install-linux-dependencies
+    # Python 3.11 breaks the neon-sys build
+    - uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
     - name: Install Qt
       if: runner.os != 'Windows'
       uses: jurplel/install-qt-action@v3
       with:
         version: '5.15.2'
+        setup-python: false
     - name: Set default style
       if: matrix.os != 'windows-2022'
       run: |
