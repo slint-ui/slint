@@ -67,6 +67,7 @@ interface Size {
 interface SlintWindow {
     show(): void;
     hide(): void;
+    is_visible: boolean;
     logical_position: Point;
     physical_position: Point;
     logical_size: Size;
@@ -88,6 +89,9 @@ class WindowAPI implements SlintWindow {
     }
     hide(): void {
         this.impl.hide();
+    }
+    get is_visible(): boolean {
+        return this.impl.get_is_visible();
     }
     get logical_position(): Point {
         return this.impl.get_logical_position();

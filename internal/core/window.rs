@@ -790,6 +790,16 @@ pub mod ffi {
         window.hide();
     }
 
+    /// Returns the visibility state of the window. This function can return false even if you previously called show()
+    /// on it, for example if the user minimized the window.
+    #[no_mangle]
+    pub unsafe extern "C" fn slint_windowrc_is_visible(
+        handle: *const WindowAdapterRcOpaque,
+    ) -> bool {
+        let window = &*(handle as *const Rc<dyn WindowAdapter>);
+        window.is_visible()
+    }
+
     /// Returns the window scale factor.
     #[no_mangle]
     pub unsafe extern "C" fn slint_windowrc_get_scale_factor(
