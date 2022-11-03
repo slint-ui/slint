@@ -5,7 +5,8 @@
 		"outDir": "out",
 		"lib": [
 			"es2020",
-			"WebWorker"
+			"WebWorker",
+			"dom",
 		],
 		"sourceMap": true,
 		"rootDir": ".",
