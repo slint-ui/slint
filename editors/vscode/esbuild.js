@@ -49,7 +49,8 @@ esbuild.build({
 
 esbuild.build({
     entryPoints: ['src/extension.ts'],
-    bundle: false,
+    bundle: true,
+    external: ['vscode', 'vscode-languageclient', 'vscode-languageclient/node', 'path', 'fs'],
     outfile: 'out/extension.js',
     format: 'cjs',
 }).catch(() => process.exit(1))
