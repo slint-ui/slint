@@ -38,7 +38,7 @@ contexts:
       scope: constant.other.color.slint
 
   types:
-    - match: '\b(int|bool|float|duration|angle|string|image|brush|color|length|physical-length)\b'
+    - match: '\b(int|bool|float|duration|angle|string|image|brush|color|length|physical-length|relative-font-size)\b'
       scope: storage.type.slint
 
   constants:

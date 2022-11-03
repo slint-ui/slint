@@ -1,0 +1,59 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+global SomeGlobal := {
+    property<relative-font-size> global_rem: 4rem;
+}
+
+TestCase := Window {
+    default-font-size: 10px;
+    property<length> normal: 1rem;
+    property<length> double: 2rem;
+    property<length> half: 0.5rem;
+    property <relative-font-size> four_rem: 4rem;
+    property<length> four: four_rem;
+
+    property<physical-length> phys-pixel-size: 1rem;
+
+    property <relative-font-size> px_to_rem: 20px;
+    property <relative-font-size> phx_to_rem: 20phx;
+
+    property <bool> cmp_test: normal < 1rem && double > 1rem;
+
+    property<bool> test:(normal == 10px && double == 20px && half == 5px && four_rem == 40px && SomeGlobal.global_rem == 40px && phys-pixel-size == 10phx && px_to_rem == 2rem);
+}
+
+/*
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+
+assert_eq(instance.get_phx_to_rem(), 2.);
+assert_eq(instance.get_px_to_rem(), 2.);
+instance.m_window.window_handle().set_scale_factor(2.0);
+assert_eq(instance.get_phys_pixel_size(), 20.);
+assert_eq(instance.get_phx_to_rem(), 1.);
+assert_eq(instance.get_px_to_rem(), 2.);
+```
+
+
+```rust
+let instance = TestCase::new();
+assert!(instance.get_test());
+
+assert_eq!(instance.get_phx_to_rem(), 2.);
+assert_eq!(instance.get_px_to_rem(), 2.);
+slint_testing::set_window_scale_factor(&instance, 2.0);
+assert_eq!(instance.get_phys_pixel_size(), 20.);
+assert_eq!(instance.get_phx_to_rem(), 1.);
+assert_eq!(instance.get_px_to_rem(), 2.);
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+
+*/

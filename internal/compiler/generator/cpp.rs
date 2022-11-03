@@ -314,6 +314,7 @@ impl CppType for Type {
             Type::Angle => Some("float".to_owned()),
             Type::PhysicalLength => Some("float".to_owned()),
             Type::LogicalLength => Some("float".to_owned()),
+            Type::Rem => Some("float".to_owned()),
             Type::Percent => Some("float".to_owned()),
             Type::Bool => Some("bool".to_owned()),
             Type::Struct { name: Some(name), node: Some(_), .. } => Some(ident(name)),
@@ -2394,6 +2395,10 @@ fn compile_builtin_function_call(
         BuiltinFunction::GetWindowScaleFactor => {
             let window = access_window_field(ctx);
             format!("{}.scale_factor()", window)
+        }
+        BuiltinFunction::GetWindowDefaultFontSize => {
+            let window_item_name = ident(&ctx.public_component.item_tree.root.items[0].name);
+            format!("{}->{}.default_font_size.get()", ctx.generator_state, window_item_name)
         }
         BuiltinFunction::AnimationTick => "slint::cbindgen_private::slint_animation_tick()".into(),
         BuiltinFunction::Debug => {

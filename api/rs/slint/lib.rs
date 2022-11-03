@@ -184,6 +184,7 @@ The follow table summarizes the entire mapping:
 | `length` | `f32` | At run-time, logical lengths are automatically translated to physical pixels using the device pixel ratio. |
 | `duration` | `i64` | At run-time, durations are always represented as signed 64-bit integers with millisecond precision. |
 | `angle` | `f32` | The value in degrees |
+| `relative-font-size` | `f32` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
 | structure | `struct` of the same name | |
 | array | [`ModelRc`] |  |
 

@@ -985,6 +985,7 @@ pub(crate) fn generate_component<'id>(
             Type::Angle => animated_property_info::<f32>(),
             Type::PhysicalLength => animated_property_info::<f32>(),
             Type::LogicalLength => animated_property_info::<f32>(),
+            Type::Rem => animated_property_info::<f32>(),
             Type::Image => property_info::<i_slint_core::graphics::Image>(),
             Type::Bool => property_info::<bool>(),
             Type::Callback { .. } => {

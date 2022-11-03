@@ -166,6 +166,7 @@ fn to_eval_value<'cx>(
         | Type::Angle
         | Type::PhysicalLength
         | Type::LogicalLength
+        | Type::Rem
         | Type::Percent
         | Type::UnitProduct(_) => {
             Ok(Value::Number(val.downcast_or_throw::<JsNumber, _>(cx)?.value()))

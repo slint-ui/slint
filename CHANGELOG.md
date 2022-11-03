@@ -31,6 +31,8 @@ All notable changes to this project are documented in this file.
  - LSP preview: highlight the selected element in the preview
  - LSP: Added a setting to change the style and the include paths
  - VSCode extension: added the property view.
+ - Added `rem` as unit that represents a relative font size and is multiplied with the `Window.default-font-size` when used.
+ - Added `relative-font-size` as type that holds values of `rem`.
 
 ### Fixed
 

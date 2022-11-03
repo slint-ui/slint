@@ -68,6 +68,7 @@ fn callback_cost(_callback: &crate::llr::PropertyReference, _ctx: &EvaluationCon
 fn builtin_function_cost(function: BuiltinFunction) -> isize {
     match function {
         BuiltinFunction::GetWindowScaleFactor => PROPERTY_ACCESS_COST,
+        BuiltinFunction::GetWindowDefaultFontSize => PROPERTY_ACCESS_COST,
         BuiltinFunction::AnimationTick => PROPERTY_ACCESS_COST,
         BuiltinFunction::Debug => isize::MAX,
         BuiltinFunction::Mod => 10,

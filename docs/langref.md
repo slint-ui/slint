@@ -251,6 +251,7 @@ All properties in elements have a type. The following types are supported:
 | `easing` | Property animation allow specifying an easing curve. Valid values are `linear` (values are interpolated linearly) and the [four common cubiz-bezier functions known from CSS](https://developer.mozilla.org/en-US/docs/Web/CSS/easing-function#Keywords_for_common_cubic-bezier_easing_functions):  `ease`, `ease_in`, `ease_in_out`, `ease_out`. |
 | `percent` | Signed, 32-bit floating point number that is interpreted as percentage. Literal number assigned to properties of this type must have a `%` suffix. |
 | `image` | A reference to an image, can be initialized with the `@image-url("...")` construct |
+| `relative-font-size` | Relative font size factor that is multiplied with the `Window.default-font-size` and can be converted to a `length`. |
 
 Please see the language specific API references how these types are mapped to the APIs of the different programming languages.
 

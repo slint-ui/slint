@@ -41,6 +41,7 @@ pub enum Type {
     Duration,
     PhysicalLength,
     LogicalLength,
+    Rem,
     Angle,
     Percent,
     Image,
@@ -93,6 +94,7 @@ impl core::cmp::PartialEq for Type {
             Type::Angle => matches!(other, Type::Angle),
             Type::PhysicalLength => matches!(other, Type::PhysicalLength),
             Type::LogicalLength => matches!(other, Type::LogicalLength),
+            Type::Rem => matches!(other, Type::Rem),
             Type::Percent => matches!(other, Type::Percent),
             Type::Image => matches!(other, Type::Image),
             Type::Bool => matches!(other, Type::Bool),
@@ -153,6 +155,7 @@ impl Display for Type {
             Type::Angle => write!(f, "angle"),
             Type::PhysicalLength => write!(f, "physical-length"),
             Type::LogicalLength => write!(f, "length"),
+            Type::Rem => write!(f, "relative-font-size"),
             Type::Percent => write!(f, "percent"),
             Type::Color => write!(f, "color"),
             Type::Image => write!(f, "image"),
@@ -207,6 +210,7 @@ impl Type {
                 | Self::Angle
                 | Self::PhysicalLength
                 | Self::LogicalLength
+                | Self::Rem
                 | Self::Percent
                 | Self::Image
                 | Self::Bool
@@ -266,6 +270,10 @@ impl Type {
             | (Type::Int32, Type::Model)
             | (Type::PhysicalLength, Type::LogicalLength)
             | (Type::LogicalLength, Type::PhysicalLength)
+            | (Type::Rem, Type::LogicalLength)
+            | (Type::Rem, Type::PhysicalLength)
+            | (Type::LogicalLength, Type::Rem)
+            | (Type::PhysicalLength, Type::Rem)
             | (Type::Percent, Type::Float32)
             | (Type::Brush, Type::Color)
             | (Type::Color, Type::Brush) => true,
@@ -291,6 +299,7 @@ impl Type {
             Type::Duration => Some(Unit::Ms),
             Type::PhysicalLength => Some(Unit::Phx),
             Type::LogicalLength => Some(Unit::Px),
+            Type::Rem => Some(Unit::Rem),
             // Unit::Percent is special that it does not combine with other units like
             Type::Percent => None,
             Type::Angle => Some(Unit::Deg),
@@ -764,62 +773,86 @@ impl EnumerationValue {
     }
 }
 
+#[derive(Debug, PartialEq)]
+pub struct LengthConversionPowers {
+    pub rem_to_px_power: i8,
+    pub px_to_phx_power: i8,
+}
+
 /// If the `Type::UnitProduct(a)` can be converted to `Type::UnitProduct(a)` by multiplying
 /// by the scale factor, return that scale factor, otherwise, return None
-pub fn unit_product_length_conversion(a: &[(Unit, i8)], b: &[(Unit, i8)]) -> Option<i8> {
-    let mut it1 = a.iter();
-    let mut it2 = b.iter();
-    let (mut v1, mut v2) = (it1.next(), it2.next());
-    let mut ppx = 0;
-    let mut lpx = 0;
-    loop {
-        match (v1, v2) {
-            (None, None) => return (ppx == -lpx && ppx != 0).then(|| ppx),
-            (Some(a), Some(b)) if a == b => (),
-            (Some((Unit::Phx, a)), Some((Unit::Phx, b))) => ppx += a - b,
-            (Some((Unit::Px, a)), Some((Unit::Px, b))) => lpx += a - b,
-            (Some((Unit::Phx, a)), _) => {
-                ppx += *a;
-                v1 = it1.next();
-                continue;
-            }
-            (_, Some((Unit::Phx, b))) => {
-                ppx += -b;
-                v2 = it2.next();
-                continue;
-            }
-            (Some((Unit::Px, a)), _) => {
-                lpx += *a;
-                v1 = it1.next();
-                continue;
-            }
-            (_, Some((Unit::Px, b))) => {
-                lpx += -b;
-                v2 = it2.next();
-                continue;
-            }
-            _ => return None,
-        };
-        v1 = it1.next();
-        v2 = it2.next();
+pub fn unit_product_length_conversion(
+    a: &[(Unit, i8)],
+    b: &[(Unit, i8)],
+) -> Option<LengthConversionPowers> {
+    let mut units = [0i8; 16];
+    for (u, count) in a {
+        units[*u as usize] += count;
     }
+    for (u, count) in b {
+        units[*u as usize] -= count;
+    }
+
+    if units[Unit::Px as usize] + units[Unit::Phx as usize] + units[Unit::Rem as usize] != 0 {
+        return None;
+    }
+
+    if units[Unit::Rem as usize] != 0
+        && units[Unit::Phx as usize] == -units[Unit::Rem as usize]
+        && units[Unit::Px as usize] == 0
+    {
+        units[Unit::Px as usize] = -units[Unit::Rem as usize];
+        units[Unit::Phx as usize] = -units[Unit::Rem as usize];
+    }
+
+    let result = LengthConversionPowers {
+        rem_to_px_power: if units[Unit::Rem as usize] != 0 { units[Unit::Px as usize] } else { 0 },
+        px_to_phx_power: if units[Unit::Px as usize] != 0 { units[Unit::Phx as usize] } else { 0 },
+    };
+
+    units[Unit::Px as usize] = 0;
+    units[Unit::Phx as usize] = 0;
+    units[Unit::Rem as usize] = 0;
+    units.into_iter().all(|x| x == 0).then(|| result)
 }
 
 #[test]
 fn unit_product_length_conversion_test() {
     use Option::None;
     use Unit::*;
-    assert_eq!(unit_product_length_conversion(&[(Px, 1)], &[(Phx, 1)]), Some(-1));
-    assert_eq!(unit_product_length_conversion(&[(Phx, -2)], &[(Px, -2)]), Some(-2));
-    assert_eq!(unit_product_length_conversion(&[(Px, 1), (Phx, -2)], &[(Phx, -1)]), Some(-1));
+    assert_eq!(
+        unit_product_length_conversion(&[(Px, 1)], &[(Phx, 1)]),
+        Some(LengthConversionPowers { rem_to_px_power: 0, px_to_phx_power: -1 })
+    );
+    assert_eq!(
+        unit_product_length_conversion(&[(Phx, -2)], &[(Px, -2)]),
+        Some(LengthConversionPowers { rem_to_px_power: 0, px_to_phx_power: -2 })
+    );
+    assert_eq!(
+        unit_product_length_conversion(&[(Px, 1), (Phx, -2)], &[(Phx, -1)]),
+        Some(LengthConversionPowers { rem_to_px_power: 0, px_to_phx_power: -1 })
+    );
     assert_eq!(
         unit_product_length_conversion(
             &[(Deg, 3), (Phx, 2), (Ms, -1)],
             &[(Phx, 4), (Deg, 3), (Ms, -1), (Px, -2)]
         ),
-        Some(-2)
+        Some(LengthConversionPowers { rem_to_px_power: 0, px_to_phx_power: -2 })
     );
     assert_eq!(unit_product_length_conversion(&[(Px, 1)], &[(Phx, -1)]), None);
     assert_eq!(unit_product_length_conversion(&[(Deg, 1), (Phx, -2)], &[(Px, -2)]), None);
     assert_eq!(unit_product_length_conversion(&[(Px, 1)], &[(Phx, -1)]), None);
+
+    assert_eq!(
+        unit_product_length_conversion(&[(Rem, 1)], &[(Px, 1)]),
+        Some(LengthConversionPowers { rem_to_px_power: -1, px_to_phx_power: 0 })
+    );
+    assert_eq!(
+        unit_product_length_conversion(&[(Rem, 1)], &[(Phx, 1)]),
+        Some(LengthConversionPowers { rem_to_px_power: -1, px_to_phx_power: -1 })
+    );
+    assert_eq!(
+        unit_product_length_conversion(&[(Rem, 2)], &[(Phx, 2)]),
+        Some(LengthConversionPowers { rem_to_px_power: -2, px_to_phx_power: -2 })
+    );
 }

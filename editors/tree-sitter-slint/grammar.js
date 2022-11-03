@@ -582,6 +582,7 @@ module.exports = grammar({
         "px",
         "%",
         "ms",
+        "rem",
       ),
 
     language_constant: ($) =>
@@ -623,6 +624,7 @@ module.exports = grammar({
           "percent",
           "physical-length",
           "physical_length",
+          "relative-font-size",
           "string",
         ),
       ),

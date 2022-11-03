@@ -399,6 +399,20 @@ fn call_builtin_function(
                 panic!("Cannot get the window from a global component")
             }
         },
+        BuiltinFunction::GetWindowDefaultFontSize => match local_context.component_instance {
+            ComponentInstance::InstanceRef(component) => Value::Number(
+                window_ref(component)
+                    .unwrap()
+                    .window_item()
+                    .unwrap()
+                    .as_pin_ref()
+                    .default_font_size()
+                    .get() as _,
+            ),
+            ComponentInstance::GlobalComponent(_) => {
+                panic!("Cannot get the window from a global component")
+            }
+        },
         BuiltinFunction::AnimationTick => {
             Value::Number(i_slint_core::animations::animation_tick() as f64)
         }
@@ -965,6 +979,7 @@ fn check_value_type(value: &Value, ty: &Type) -> bool {
         | Type::Duration
         | Type::PhysicalLength
         | Type::LogicalLength
+        | Type::Rem
         | Type::Angle
         | Type::Percent => matches!(value, Value::Number(_)),
         Type::Image => matches!(value, Value::Image(_)),
@@ -1235,7 +1250,7 @@ pub fn default_value_for_type(ty: &Type) -> Value {
         Type::Float32 | Type::Int32 => Value::Number(0.),
         Type::String => Value::String(Default::default()),
         Type::Color | Type::Brush => Value::Brush(Default::default()),
-        Type::Duration | Type::Angle | Type::PhysicalLength | Type::LogicalLength => {
+        Type::Duration | Type::Angle | Type::PhysicalLength | Type::LogicalLength | Type::Rem => {
             Value::Number(0.)
         }
         Type::Image => Value::Image(Default::default()),

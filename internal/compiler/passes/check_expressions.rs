@@ -30,6 +30,11 @@ fn check_expression(component: &Rc<Component>, e: &Expression, diag: &mut BuildD
                 diag.push_error("Cannot convert between logical and physical length in a global component, because the scale factor is not known".into(), loc);
             }
         }
+        Expression::BuiltinFunctionReference(BuiltinFunction::GetWindowDefaultFontSize, loc) => {
+            if component.is_global() {
+                diag.push_error("Cannot convert between rem and logical length in a global component, because the default font size is not known".into(), loc);
+            }
+        }
         _ => e.visit(|e| check_expression(component, e, diag)),
     }
 }

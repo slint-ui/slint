@@ -112,6 +112,7 @@
 "percent"
 "physical-length"
 "physical_length"
+"relative-font-size"
 "string"
 ] @type.builtin
 
