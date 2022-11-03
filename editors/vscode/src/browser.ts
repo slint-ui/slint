@@ -1,11 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// This file is the entry point for the vscode web extension
 
 import { ExtensionContext, Uri } from 'vscode';
 import * as vscode from 'vscode';
 import { LanguageClientOptions } from 'vscode-languageclient';
 import { LanguageClient } from 'vscode-languageclient/browser';
+import { set_client, PropertiesViewProvider } from "./common";
 
 let client: LanguageClient;
 let statusBar: vscode.StatusBarItem;
@@ -31,6 +33,7 @@ function startClient(context: vscode.ExtensionContext) {
         if (m.data === "OK") {
 
             client = new LanguageClient('slint-lsp', 'Slint LSP', clientOptions, worker);
+            set_client(client);
             const disposable = client.start();
             context.subscriptions.push(disposable);
 
@@ -111,6 +114,10 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     vscode.window.registerWebviewPanelSerializer('slint-preview', new PreviewSerializer(context));
+
+    const properties_provider = new PropertiesViewProvider(context.extensionUri);
+    context.subscriptions.push(
+        vscode.window.registerWebviewViewProvider(PropertiesViewProvider.viewType, properties_provider));
 }
 
 async function showPreview(context: vscode.ExtensionContext, path: string, component: string) {
