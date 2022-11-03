@@ -19,7 +19,8 @@
 	"preview": true,
 	"activationEvents": [
 		"onLanguage:slint",
-		"onWebviewPanel:slint-preview"
+		"onWebviewPanel:slint-preview",
+		"onView:slint.propertiesView"
 	],
 	"main": "./out/extension.js",
 	"browser": "./out/browser.js",
@@ -79,6 +80,16 @@
 					"description": "The command line arguments passed to the Slint LSP server"
 				}
 			}
+		},
+		"views": {
+			"explorer": [
+				{
+					"type": "webview",
+					"id": "slint.propertiesView",
+					"name": "Properties",
+					"contextualTitle": "Slint Properties"
+				}
+			]
 		}
 	},
 	"dependencies": {

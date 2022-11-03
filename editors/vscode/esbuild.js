@@ -54,3 +54,10 @@ esbuild.build({
     format: 'cjs',
 }).catch(() => process.exit(1))
 
+esbuild.build({
+    entryPoints: ['src/propertiesView.ts'],
+    bundle: true,
+    outfile: 'out/propertiesView.js',
+    format: 'iife',
+}).catch(() => process.exit(1))
+
