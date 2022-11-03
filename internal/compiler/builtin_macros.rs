@@ -238,6 +238,7 @@ fn to_debug_string(
         Type::Duration
         | Type::PhysicalLength
         | Type::LogicalLength
+        | Type::Rem
         | Type::Angle
         | Type::Percent
         | Type::UnitProduct(_) => Expression::BinaryExpression {

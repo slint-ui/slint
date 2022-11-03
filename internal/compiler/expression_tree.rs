@@ -19,6 +19,7 @@ pub use crate::passes::resolving;
 /// A function built into the run-time
 pub enum BuiltinFunction {
     GetWindowScaleFactor,
+    GetWindowDefaultFontSize,
     AnimationTick,
     Debug,
     Mod,
@@ -81,6 +82,9 @@ impl BuiltinFunction {
                 return_type: Box::new(Type::UnitProduct(vec![(Unit::Phx, 1), (Unit::Px, -1)])),
                 args: vec![],
             },
+            BuiltinFunction::GetWindowDefaultFontSize => {
+                Type::Function { return_type: Box::new(Type::LogicalLength), args: vec![] }
+            }
             BuiltinFunction::AnimationTick => {
                 Type::Function { return_type: Type::Duration.into(), args: vec![] }
             }
@@ -171,6 +175,7 @@ impl BuiltinFunction {
     fn is_pure(&self) -> bool {
         match self {
             BuiltinFunction::GetWindowScaleFactor => false,
+            BuiltinFunction::GetWindowDefaultFontSize => false,
             BuiltinFunction::AnimationTick => false,
             BuiltinFunction::DarkColorScheme => false,
             // Even if it is not pure, we optimize it away anyway
@@ -291,6 +296,8 @@ declare_units! {
     In = "in" -> LogicalLength * 96,
     /// Points
     Pt = "pt" -> LogicalLength * 96./72.,
+    /// Logical pixels multiplied with the window's default-font-size
+    Rem = "rem" -> Rem,
 
     // durations
 
@@ -977,25 +984,47 @@ impl Expression {
                 }
                 (left, right) => match (left.as_unit_product(), right.as_unit_product()) {
                     (Some(left), Some(right)) => {
-                        if let Some(power) =
+                        if let Some(conversion_powers) =
                             crate::langtype::unit_product_length_conversion(&left, &right)
                         {
-                            let op = if power < 0 { '*' } else { '/' };
-                            let mut result = self;
-                            for _ in 0..power.abs() {
-                                result = Expression::BinaryExpression {
-                                    lhs: Box::new(result),
-                                    rhs: Box::new(Expression::FunctionCall {
-                                        function: Box::new(Expression::BuiltinFunctionReference(
-                                            BuiltinFunction::GetWindowScaleFactor,
-                                            Some(node.to_source_location()),
-                                        )),
-                                        arguments: vec![],
-                                        source_location: Some(node.to_source_location()),
-                                    }),
-                                    op,
+                            let apply_power = |mut result, power: i8, builtin_fn| {
+                                let op = if power < 0 { '*' } else { '/' };
+                                for _ in 0..power.abs() {
+                                    result = Expression::BinaryExpression {
+                                        lhs: Box::new(result),
+                                        rhs: Box::new(Expression::FunctionCall {
+                                            function: Box::new(
+                                                Expression::BuiltinFunctionReference(
+                                                    builtin_fn,
+                                                    Some(node.to_source_location()),
+                                                ),
+                                            ),
+                                            arguments: vec![],
+                                            source_location: Some(node.to_source_location()),
+                                        }),
+                                        op,
+                                    }
                                 }
+                                result
+                            };
+
+                            let mut result = self;
+
+                            if conversion_powers.rem_to_px_power != 0 {
+                                result = apply_power(
+                                    result,
+                                    conversion_powers.rem_to_px_power,
+                                    BuiltinFunction::GetWindowDefaultFontSize,
+                                )
                             }
+                            if conversion_powers.px_to_phx_power != 0 {
+                                result = apply_power(
+                                    result,
+                                    conversion_powers.px_to_phx_power,
+                                    BuiltinFunction::GetWindowScaleFactor,
+                                )
+                            }
+
                             result
                         } else {
                             self
@@ -1087,6 +1116,7 @@ impl Expression {
             Type::Angle => Expression::NumberLiteral(0., Unit::Deg),
             Type::PhysicalLength => Expression::NumberLiteral(0., Unit::Phx),
             Type::LogicalLength => Expression::NumberLiteral(0., Unit::Px),
+            Type::Rem => Expression::NumberLiteral(0., Unit::Rem),
             Type::Percent => Expression::NumberLiteral(100., Unit::Percent),
             Type::Image => Expression::ImageReference {
                 resource_ref: ImageReference::None,

@@ -227,6 +227,7 @@ impl TypeRegister {
         register.insert_type(Type::Easing);
         register.insert_type(Type::Angle);
         register.insert_type(Type::Brush);
+        register.insert_type(Type::Rem);
 
         BUILTIN_ENUMS.with(|e| e.fill_register(&mut register));
 

@@ -76,6 +76,7 @@ fn rust_primitive_type(ty: &Type) -> Option<proc_macro2::TokenStream> {
         Type::Angle => Some(quote!(f32)),
         Type::PhysicalLength => Some(quote!(slint::private_unstable_api::re_exports::Coord)),
         Type::LogicalLength => Some(quote!(slint::private_unstable_api::re_exports::Coord)),
+        Type::Rem => Some(quote!(f32)),
         Type::Percent => Some(quote!(f32)),
         Type::Bool => Some(quote!(bool)),
         Type::Image => Some(quote!(slint::private_unstable_api::re_exports::Image)),
@@ -1863,6 +1864,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                             | Type::LogicalLength
                             | Type::Angle
                             | Type::Percent
+                            | Type::Rem
                     ) =>
                 {
                     (Some(quote!(as f64)), Some(quote!(as f64)))
@@ -2151,6 +2153,13 @@ fn compile_builtin_function_call(
         BuiltinFunction::GetWindowScaleFactor => {
             let window_adapter_tokens = access_window_adapter_field(ctx);
             quote!(slint::private_unstable_api::re_exports::WindowInner::from_pub(#window_adapter_tokens.window()).scale_factor())
+        }
+        BuiltinFunction::GetWindowDefaultFontSize => {
+            let window_item_name = ident(&ctx.public_component.item_tree.root.items[0].name);
+            let root_access = &ctx.generator_state;
+            let root_component_id = inner_component_id(&ctx.public_component.item_tree.root);
+            let item_field = access_component_field_offset(&root_component_id, &window_item_name);
+            quote!((#item_field + slint::private_unstable_api::re_exports::WindowItem::FIELD_OFFSETS.default_font_size).apply_pin(#root_access.as_pin_ref()).get().get())
         }
         BuiltinFunction::AnimationTick => {
             quote!(slint::private_unstable_api::re_exports::animation_tick())
