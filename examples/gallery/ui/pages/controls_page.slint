@@ -1,0 +1,183 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { Button, GroupBox, SpinBox, ComboBox, CheckBox, LineEdit, TabWidget, VerticalBox, HorizontalBox,
+    Slider, SpinBox } from "std-widgets.slint";
+import { GallerySettings } from "../gallery_settings.slint";
+import { Page } from "page.slint";
+
+export ControlsPage := Page {
+    title: "Controls";
+    description: "This page gives an overview of the default widget set provides by Slint. The widgets are available in different styles native, fluent-(dark/light) and material-(dark/light). The widgets can be imported from \"std-widgets.slint\".";
+
+    HorizontalBox {   
+        alignment: start;
+      
+        VerticalBox { 
+            alignment: start;
+
+            GroupBox { 
+                title: "Buttons";
+
+                VerticalLayout {  
+                    spacing: 8px;
+                    alignment: start;
+
+                    Button {
+                        text: "Regular Button";
+                        enabled: !GallerySettings.widgets-disabled;
+                    }   
+
+                    Button {
+                        text: "Regular Button";
+                        icon: @image-url("../../thumbsup.png");
+                        enabled: !GallerySettings.widgets-disabled;
+                    }
+
+                    Button {
+                        checkable: true;
+                        text: checked ? "ON" : "OFF";
+                        enabled: !GallerySettings.widgets-disabled;
+                    }
+                }
+             }
+
+             GroupBox { 
+                title: "SpinBox";
+
+                VerticalLayout {  
+                    spacing: 8px;
+                    alignment: start;
+                   
+                    SpinBox {
+                        value: 42;
+                        enabled: !GallerySettings.widgets-disabled;
+                    }
+                }
+             }
+
+             GroupBox { 
+                title: "ComboBox";
+
+                VerticalLayout {  
+                    spacing: 8px;
+                    alignment: start;
+                   
+                    ComboBox {
+                        model: ["Select Something", "From this", "Combobox"];
+                        enabled: !GallerySettings.widgets-disabled;
+                    }
+                }
+             }
+
+            GroupBox {
+                title: "CheckBox";
+                          
+                checkbox := CheckBox {
+                    text: checkbox.checked ? "(checked)" : "(unchecked)";
+                    checked: true;
+                    enabled: !GallerySettings.widgets-disabled;
+                }
+            }
+        }
+
+        VerticalBox {  
+            alignment: start;
+
+            GroupBox {  
+                title: "LineEdit";
+                min-width: 160px;
+    
+                VerticalLayout {  
+                    spacing: 8px;
+                    alignment: start;
+                   
+                    LineEdit {
+                        placeholder-text: "Enter some text";
+                        enabled: !GallerySettings.widgets-disabled;
+                    }
+                }
+            }
+
+            GroupBox {  
+                title: "Slider";
+
+                Slider {
+                    min-width: 160px;
+                    minimum: -100;
+                    maximum: 100;
+                    value: 42;
+                    enabled: !GallerySettings.widgets-disabled;
+                }
+            }
+
+            GroupBox {  
+                title: "TabWidget";
+               
+                TabWidget {  
+                    Tab {
+                        title: "Tab 1";
+    
+                        VerticalBox {  
+                            alignment: start;
+
+                            GroupBox {  
+                                title: "Content of tab 1";
+        
+                                VerticalBox {  
+                                    alignment: start;
+                                
+                                    Button {  
+                                        text: "Click me";
+                                        enabled: !GallerySettings.widgets-disabled;
+                                    }
+        
+                                    LineEdit {
+                                        placeholder-text: "Enter some text";
+                                        enabled: !GallerySettings.widgets-disabled;
+                                    }
+                                }
+                            }
+                        }
+                    }
+    
+                    Tab {
+                        title: "Tab 2";
+
+                        VerticalBox {  
+                            alignment: start;
+
+                            GroupBox {  
+                                title: "Content of tab 2";
+        
+                                VerticalBox {  
+                                    alignment: start;
+                                
+                                    CheckBox {  
+                                        text: "Check me";
+                                        enabled: !GallerySettings.widgets-disabled;
+                                    }
+        
+                                    LineEdit {
+                                        placeholder-text: "Enter some text";
+                                        enabled: !GallerySettings.widgets-disabled;
+                                    }
+                                }
+                            }
+                        }   
+                    }
+    
+                    Tab {
+                        title: "Tab 3";
+    
+                        VerticalBox {  
+                            Text {
+                                text: "Content of tab 3";
+                            }
+                        }
+                    }
+                }  
+            }
+        }
+    }      
+}

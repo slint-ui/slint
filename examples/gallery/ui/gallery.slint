@@ -1,0 +1,47 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { CheckBox, StandardListView, StyleMetrics } from "std-widgets.slint";
+import { AboutPage, ControlsPage, ListViewPage, TextEditPage } from "pages/pages.slint";
+import { GallerySettings } from "gallery_settings.slint";
+import { Navigator } from "navigator.slint";
+import { SideBar } from "side_bar.slint";
+
+App := Window {
+  min-width: 800px;
+    min-height: 800px;
+    title: "Slint Gallery";
+    icon: @image-url("../../../logo/slint-logo-small-light-128x128.png");
+
+    HorizontalLayout {  
+        side-bar := SideBar {  
+            title: "Slint gallery";
+            model: ["Controls", "ListView", "TextEdit", "About"];
+
+            CheckBox { 
+                text: "Disable widgets";
+                checked <=> GallerySettings.widgets-disabled;
+            }
+        }
+        
+        navigator := Navigator {  
+            current-item <=> side-bar.current-item;
+
+            ControlsPage {  
+                height: navigator.height;
+            }
+
+            ListViewPage {  
+                height: navigator.height;
+            }
+
+            TextEditPage {  
+                height: navigator.height;
+            }
+
+            AboutPage {  
+                height: navigator.height;
+            }
+        }
+    }
+}

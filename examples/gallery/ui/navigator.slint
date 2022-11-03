@@ -1,0 +1,15 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+export Navigator := Rectangle {
+    property<int> current-item: 0;
+
+    height: 100%;
+
+    text := VerticalLayout {  
+        y: current-item * -root.height;
+        @children
+
+        animate y { duration: 200ms; easing: ease;  }
+    }
+} 

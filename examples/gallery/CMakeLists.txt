@@ -10,4 +10,4 @@ endif()
 
 add_executable(gallery main.cpp)
 target_link_libraries(gallery PRIVATE Slint::Slint)
-slint_target_sources(gallery gallery.slint)
+slint_target_sources(gallery ui/gallery.slint)
