@@ -515,7 +515,7 @@ fn get_code_actions(
 
         Some(r)
     } else {
-        Some(vec![])
+        None
     }
 }
 
@@ -669,7 +669,7 @@ fn get_code_lenses(
 
         Some(r)
     } else {
-        Some(vec![])
+        None
     }
 }
 
