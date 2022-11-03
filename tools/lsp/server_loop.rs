@@ -22,8 +22,8 @@ use lsp_types::{
     ColorInformation, ColorPresentation, Command, CompletionOptions, DocumentSymbol,
     DocumentSymbolResponse, Hover, InitializeParams, InitializeResult, OneOf, Position,
     PublishDiagnosticsParams, Range, SemanticTokensFullOptions, SemanticTokensLegend,
-    SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentIdentifier,
-    TextDocumentSyncCapability, Url, WorkDoneProgressOptions,
+    SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, Url,
+    WorkDoneProgressOptions,
 };
 use std::collections::HashMap;
 
@@ -154,8 +154,8 @@ pub fn handle_request(
     if req.handle_request::<GotoDefinition, _>(|params| {
         let result = token_descr(
             document_cache,
-            params.text_document_position_params.text_document,
-            params.text_document_position_params.position,
+            &params.text_document_position_params.text_document.uri,
+            &params.text_document_position_params.position,
         )
         .and_then(|token| {
             #[cfg(feature = "preview")]
@@ -170,8 +170,8 @@ pub fn handle_request(
     } else if req.handle_request::<Completion, _>(|params| {
         let result = token_descr(
             document_cache,
-            params.text_document_position.text_document,
-            params.text_document_position.position,
+            &params.text_document_position.text_document.uri,
+            &params.text_document_position.position,
         )
         .and_then(|token| {
             completion::completion_at(
@@ -197,7 +197,7 @@ pub fn handle_request(
         Ok(None::<Hover>)
     })? {
     } else if req.handle_request::<CodeActionRequest, _>(|params| {
-        let result = token_descr(document_cache, params.text_document, params.range.start)
+        let result = token_descr(document_cache, &params.text_document.uri, &params.range.start)
             .and_then(|token| get_code_actions(document_cache, token.0.parent()));
         Ok(result)
     })? {
@@ -286,7 +286,7 @@ pub fn query_properties_command(
 ) -> Result<serde_json::Value, Error> {
     use crate::properties;
 
-    let text_document = Url::parse(
+    let text_document_uri = Url::parse(
         params
             .get(0)
             .ok_or_else(|| -> Error { "No first parameter".into() })?
@@ -307,20 +307,18 @@ pub fn query_properties_command(
             .as_u64()
             .ok_or_else(|| -> Error { "Failed to convert third parameter to int".into() })?,
     )?;
-    if let Some(element) = element_at_position(
-        document_cache,
-        TextDocumentIdentifier { uri: text_document.clone() },
-        Position { line, character },
-    ) {
+    if let Some(element) =
+        element_at_position(document_cache, &text_document_uri, &Position { line, character })
+    {
         properties::query_properties(&element, &mut |offset| {
             document_cache
-                .byte_offset_to_position(offset, &text_document)
+                .byte_offset_to_position(offset, &text_document_uri)
                 .expect("invalid node offset")
         })
         .map(|r| serde_json::to_value(r).expect("Failed to serialize property query result!"))
     } else {
         Ok(serde_json::to_value(properties::QueryPropertyResponse::no_element_response(
-            text_document.to_string(),
+            text_document_uri.to_string(),
         ))
         .expect("Failed to serialize none-element property query result!"))
     }
@@ -420,15 +418,15 @@ pub async fn reload_document(
     Ok(())
 }
 
-fn get_document_and_offset(
-    document_cache: &mut DocumentCache,
-    text_document: lsp_types::TextDocumentIdentifier,
-    pos: Position,
-) -> Option<(&i_slint_compiler::object_tree::Document, u32)> {
-    let o = document_cache.newline_offsets.get(&text_document.uri)?.get(pos.line as usize)?
+fn get_document_and_offset<'a>(
+    document_cache: &'a mut DocumentCache,
+    text_document_uri: &'a Url,
+    pos: &'a Position,
+) -> Option<(&'a i_slint_compiler::object_tree::Document, u32)> {
+    let o = document_cache.newline_offsets.get(&text_document_uri)?.get(pos.line as usize)?
         + pos.character as u32;
 
-    let doc = document_cache.documents.get_document(&text_document.uri.to_file_path().ok()?)?;
+    let doc = document_cache.documents.get_document(&text_document_uri.to_file_path().ok()?)?;
     doc.node.as_ref()?.text_range().contains(o.into()).then(|| (doc, o))
 }
 
@@ -438,10 +436,10 @@ fn element_contains(element: &i_slint_compiler::object_tree::ElementRc, offset: 
 
 pub fn element_at_position(
     document_cache: &mut DocumentCache,
-    text_document: lsp_types::TextDocumentIdentifier,
-    pos: Position,
+    text_document_uri: &Url,
+    pos: &Position,
 ) -> Option<i_slint_compiler::object_tree::ElementRc> {
-    let (doc, offset) = get_document_and_offset(document_cache, text_document, pos)?;
+    let (doc, offset) = get_document_and_offset(document_cache, text_document_uri, pos)?;
 
     for component in &doc.inner_components {
         let mut element = component.root_element.clone();
@@ -461,10 +459,10 @@ pub fn element_at_position(
 /// return the token, and the offset within the file
 fn token_descr(
     document_cache: &mut DocumentCache,
-    text_document: lsp_types::TextDocumentIdentifier,
-    pos: Position,
+    text_document_uri: &Url,
+    pos: &Position,
 ) -> Option<(SyntaxToken, u32)> {
-    let (doc, o) = get_document_and_offset(document_cache, text_document, pos)?;
+    let (doc, o) = get_document_and_offset(document_cache, text_document_uri, pos)?;
     let node = doc.node.as_ref()?;
 
     let mut taf = node.token_at_offset(o.into());
@@ -787,11 +785,7 @@ mod tests {
         line: u32,
         character: u32,
     ) -> Option<String> {
-        let result = element_at_position(
-            dc,
-            TextDocumentIdentifier { uri: url.clone() },
-            Position { line, character },
-        )?;
+        let result = element_at_position(dc, &url, &Position { line, character })?;
         let element = result.borrow();
         Some(element.id.clone())
     }
@@ -802,11 +796,7 @@ mod tests {
         line: u32,
         character: u32,
     ) -> Option<String> {
-        let result = element_at_position(
-            dc,
-            TextDocumentIdentifier { uri: url.clone() },
-            Position { line, character },
-        )?;
+        let result = element_at_position(dc, &url, &Position { line, character })?;
         let element = result.borrow();
         Some(format!("{}", &element.base_type))
     }

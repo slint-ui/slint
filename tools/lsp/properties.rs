@@ -347,8 +347,8 @@ mod tests {
     ) -> Option<Vec<PropertyInformation>> {
         let element = crate::server_loop::element_at_position(
             dc,
-            lsp_types::TextDocumentIdentifier { uri: url.clone() },
-            lsp_types::Position { line, character },
+            &url,
+            &lsp_types::Position { line, character },
         )?;
         Some(get_properties(&element, &mut |offset| {
             dc.byte_offset_to_position(offset, url).expect("invalid node offset")
