@@ -95,9 +95,9 @@ export class PropertiesView {
 
     node: HTMLElement;
     /// Callback called when the property is clicked
-    property_clicked: (uri: LspURI, p: Property) => void = (_) => { };
+    property_clicked: (_uri: LspURI, _p: Property) => void = (_) => { /**/ };
     /// Callback called when the property is modified. The old value is given so it can be checked
-    change_property: (uri: LspURI, p: Property, new_value: string, old_value: string) => void = (_) => { };
+    change_property: (_uri: LspURI, _p: Property, _new_value: string, _old_value: string) => void = (_) => { /**/ };
 
     protected get contentNode(): HTMLDivElement {
         return this.node.getElementsByTagName("div")[0] as HTMLDivElement;

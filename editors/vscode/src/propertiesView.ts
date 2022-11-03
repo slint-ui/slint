@@ -1,3 +1,6 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
 import { BindingTextProvider, DefinitionPosition, PropertiesView } from "../../../tools/online_editor/src/shared/properties";
 
 let node = PropertiesView.createNode();
@@ -21,15 +24,15 @@ class TextProvider implements BindingTextProvider {
     binding_text(location: DefinitionPosition): string {
         let l = location.expression_range.start.line;
         const line_utf8 = new TextEncoder().encode(this.#code[l]);
-        let l2 = location.expression_range.end.line;
-        if (l == l2) {
+        const l_end = location.expression_range.end.line;
+        if (l == l_end) {
             return new TextDecoder().decode(
                 line_utf8.slice(location.expression_range.start.character, location.expression_range.end.character));
         }
         let result = new TextDecoder().decode(
             line_utf8.slice(location.expression_range.start.character));
         l++;
-        while (l < l2) {
+        while (l < l_end) {
             result += "\n" + this.#code[l];
             l++;
         }

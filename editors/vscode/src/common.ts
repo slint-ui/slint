@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import { BaseLanguageClient } from 'vscode-languageclient';
-import { Property, PropertyQuery } from '../../../tools/online_editor/src/shared/properties';
+import { Property } from '../../../tools/online_editor/src/shared/properties';
 
 let client: BaseLanguageClient;
 export function set_client(c: BaseLanguageClient) {
@@ -56,7 +56,6 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                         if (p.defined_at && p.defined_at.expression_range) {
                             let range = client.protocol2CodeConverter.asRange(p.defined_at.expression_range);
                             let old = vscode.window.activeTextEditor.document.getText(range);
-                            console.log("maybe", old, data.old_value)
                             if (old === data.old_value) {
                                 vscode.window.activeTextEditor.edit(b => b.replace(range, data.new_value));
                             }
@@ -81,8 +80,6 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                 selection.active.line,
                 selection.active.character,
             );
-            const result = r as PropertyQuery;
-            const result_str = JSON.stringify(result);
             const msg = {
                 command: "set_properties",
                 properties: r,
@@ -96,7 +93,6 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'out/propertiesView.js'));
         const nonce = getNonce();
-
 
         // FIXME: share with the online editor?
         const css = `

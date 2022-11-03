@@ -41,7 +41,7 @@ export class PropertiesWidget extends Widget {
     #propertiesView: PropertiesView;
 
     constructor() {
-        let node = PropertiesView.createNode();
+        const node = PropertiesView.createNode();
         super({ node: node });
         this.setFlag(Widget.Flag.DisallowLayout);
         this.addClass("content");
