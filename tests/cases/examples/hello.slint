@@ -177,16 +177,28 @@ Hello := Rectangle {
 auto handle = Hello::create();
 const Hello &instance = *handle;
 assert(!instance.window().is_visible());
+instance.window().show();
+assert(instance.window().is_visible());
+instance.window().hide();
+assert(!instance.window().is_visible());
 ```
 
 
 ```rust
 let instance = Hello::new();
 assert!(!instance.window().is_visible());
+instance.window().show();
+assert!(instance.window().is_visible());
+instance.window().hide();
+assert!(!instance.window().is_visible());
 ```
 
 ```js
 var instance = new slint.Hello();
+assert(!instance.window.is_visible);
+instance.window.show();
+assert(instance.window.is_visible);
+instance.window.hide();
 assert(!instance.window.is_visible);
 ```
 
