@@ -2,5 +2,5 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 fn main() {
-    slint_build::compile("ui/gallery.slint").unwrap();
+    slint_build::compile("gallery.slint").unwrap();
 }
