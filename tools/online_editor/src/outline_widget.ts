@@ -174,7 +174,7 @@ export class OutlineWidget extends Widget {
         this.setFlag(Widget.Flag.DisallowLayout);
         this.addClass("content");
         this.addClass("outline");
-        this.title.label = "Document Outline";
+        this.title.label = "Outline";
         this.title.closable = true;
         this.title.caption = `Document Outline`;
 
