@@ -22,6 +22,7 @@ TestCase := Rectangle {
     }
 
     property <string> sub_text <=> sub_alias.indirection;
+    property <bool> test: sub_text == "ABC";
 }
 
 

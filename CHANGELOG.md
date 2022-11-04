@@ -5,6 +5,9 @@ All notable changes to this project are documented in this file.
 
 ### Changed
 
+ - When using a two way binding `foo <=> bar`, the default value will always be the one of `bar`.
+   There was a warning about this change in previous versions (#1394)
+
 ### Added
 
  - Added `material` style with `material-light` and `fluent-dark` as explicit styles
