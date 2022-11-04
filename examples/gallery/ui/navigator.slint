@@ -2,9 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 export Navigator := Rectangle {
-    property<int> current-item: 0;
-
-    height: 100%;
+    property<int> current-item;
 
     VerticalLayout {  
         y: current-item * -root.height;
