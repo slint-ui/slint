@@ -122,7 +122,7 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
             // and if that was not set, we must still kee the default then
             let mut b = BindingExpression::from(Expression::default_value_for_type(&to.ty()));
             b.priority =
-                to_elem.borrow_mut().bindings.get(to.name()).map_or(0, |x| x.borrow().priority);
+                to_elem.borrow_mut().bindings.get(to.name()).map_or(0, |x| x.borrow().priority) + 1;
             b
         });
 
@@ -131,7 +131,7 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
             Entry::Occupied(mut e) => {
                 let b = e.get_mut().get_mut();
                 remove_from_binding_expression(b, &to);
-                if b.priority <= old_binding.priority || !b.has_binding() {
+                if b.priority < old_binding.priority || !b.has_binding() {
                     b.merge_with(&old_binding);
                 } else {
                     old_binding.merge_with(b);
