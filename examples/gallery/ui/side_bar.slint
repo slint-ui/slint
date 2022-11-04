@@ -49,7 +49,7 @@ export SideBar := Rectangle {
     property<[string]> model: [];
     property<int> current-item: 0;
     property<string> title <=> label.text;
-    width: 240px;
+    width: 260px;
 
     Rectangle {  
         background: StyleMetrics.window-background.darker(0.2);
@@ -62,7 +62,7 @@ export SideBar := Rectangle {
         alignment: start;
 
         label := Text {
-            font-size: 24px;
+            font-size: 20px;
             horizontal-alignment: center;
         }
 
