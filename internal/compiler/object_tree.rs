@@ -536,6 +536,12 @@ pub fn pretty_print(
         write!(f, "for {}[{}] in ", repeated.model_data_id, repeated.index_id)?;
         expression_tree::pretty_print(f, &repeated.model)?;
         write!(f, ":")?;
+        if let ElementType::Component(base) = &e.base_type {
+            if base.parent_element.upgrade().is_some() {
+                pretty_print(f, &base.root_element.borrow(), indentation)?;
+                return Ok(());
+            }
+        }
     }
     writeln!(f, "{} := {} {{", e.id, e.base_type)?;
     let mut indentation = indentation + 1;
