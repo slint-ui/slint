@@ -10,28 +10,23 @@ export Page := Rectangle {
     width: 100%;
     clip: true;
    
-    Flickable {  
-        width: 100%;
-        height: 100%;
-
-        layout := VerticalLayout {  
-            padding: 16px;
-            spacing: 16px;
-            alignment: start;
-        
-            Text {
-                font-size: 32px;
-                text <=> root.title;
-                horizontal-alignment: left;
-            }
-
-            Text {
-                wrap: word-wrap;
-              
-                text <=> root.description;
-            }
-        
-            @children
+    layout := VerticalLayout {  
+        padding: 16px;
+        spacing: 16px;
+        alignment: start;
+    
+        Text {
+            font-size: 32px;
+            text <=> root.title;
+            horizontal-alignment: left;
         }
+
+        Text {
+            wrap: word-wrap;
+            
+            text <=> root.description;
+        }
+    
+        @children
     }
 }
