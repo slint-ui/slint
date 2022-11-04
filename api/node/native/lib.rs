@@ -501,6 +501,13 @@ declare_types! {
             Ok(JsUndefined::new().as_value(&mut cx))
         }
 
+        method get_is_visible(mut cx) {
+            let this = cx.this();
+            let window = cx.borrow(&this, |x| x.0.as_ref().cloned());
+            let window_adapter = window.ok_or(()).or_else(|()| cx.throw_error("Invalid type"))?;
+            Ok(JsBoolean::new(&mut cx, window_adapter.window().is_visible()).as_value(&mut cx))
+        }
+
         method get_logical_position(mut cx) {
             let this = cx.this();
             let window = cx.borrow(&this, |x| x.0.as_ref().cloned());

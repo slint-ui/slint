@@ -21,6 +21,7 @@ impl i_slint_core::platform::Platform for TestingBackend {
     fn create_window_adapter(&self) -> Rc<dyn WindowAdapter> {
         Rc::new_cyclic(|self_weak| TestingWindow {
             window: i_slint_core::api::Window::new(self_weak.clone() as _),
+            shown: false.into(),
         })
     }
 
@@ -40,11 +41,16 @@ impl i_slint_core::platform::Platform for TestingBackend {
 
 pub struct TestingWindow {
     window: i_slint_core::api::Window,
+    shown: core::cell::Cell<bool>,
 }
 
 impl WindowAdapterSealed for TestingWindow {
     fn show(&self) {
-        unimplemented!("showing a testing window")
+        self.shown.set(true);
+    }
+
+    fn hide(&self) {
+        self.shown.set(false);
     }
 
     fn renderer(&self) -> &dyn Renderer {
@@ -61,6 +67,10 @@ impl WindowAdapterSealed for TestingWindow {
 
     fn set_position(&self, _position: i_slint_core::api::WindowPosition) {
         unimplemented!()
+    }
+
+    fn is_visible(&self) -> bool {
+        self.shown.get()
     }
 }
 

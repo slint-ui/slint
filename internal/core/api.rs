@@ -430,7 +430,8 @@ impl Window {
         crate::animations::CURRENT_ANIMATION_DRIVER.with(|driver| driver.has_active_animations())
     }
 
-    /// Get the visibility of the window
+    /// Returns the visibility state of the window. This function can return false even if you previously called show()
+    /// on it, for example if the user minimized the window.
     pub fn is_visible(&self) -> bool {
         self.0.window_adapter().is_visible()
     }

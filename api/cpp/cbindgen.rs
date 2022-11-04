@@ -309,6 +309,7 @@ fn gen_corelib(
             "slint_windowrc_clone",
             "slint_windowrc_show",
             "slint_windowrc_hide",
+            "slint_windowrc_is_visible",
             "slint_windowrc_get_scale_factor",
             "slint_windowrc_set_scale_factor",
             "slint_windowrc_set_focus_item",

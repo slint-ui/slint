@@ -113,6 +113,7 @@ public:
 
     void show() const { slint_windowrc_show(&inner); }
     void hide() const { slint_windowrc_hide(&inner); }
+    bool is_visible() const { return slint_windowrc_is_visible(&inner); }
 
     float scale_factor() const { return slint_windowrc_get_scale_factor(&inner); }
     void set_scale_factor(float value) const { slint_windowrc_set_scale_factor(&inner, value); }
@@ -405,6 +406,10 @@ public:
     void show() { inner.show(); }
     /// De-registers the window from the windowing system, therefore hiding it.
     void hide() { inner.hide(); }
+
+    /// Returns the visibility state of the window. This function can return false even if you
+    /// previously called show() on it, for example if the user minimized the window.
+    bool is_visible() const { return inner.is_visible(); }
 
     /// This function allows registering a callback that's invoked during the different phases of
     /// rendering. This allows custom rendering on top or below of the scene.
