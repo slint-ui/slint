@@ -6,7 +6,8 @@ import { StyleMetrics } from "std-widgets.slint";
 SideBarItem := Rectangle {
     callback clicked <=> touch.clicked;
     property<string> text <=> label.text;
-    property<bool> selected: false;
+    property<bool> selected;
+    property<bool> has-focus;
 
     min-height: 36px;
 
@@ -33,17 +34,6 @@ SideBarItem := Rectangle {
         height: 100%;
     }
 
-    fs := FocusScope {
-        width: 0px; // Do not react on clicks
-        key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
-                 touch.clicked();
-                 return accept;
-            }
-            return reject;
-        }
-    }
-
     states [  
         pressed when touch.pressed : {
             state.opacity: 0.8;
@@ -54,7 +44,7 @@ SideBarItem := Rectangle {
         selected when root.selected : {
             state.opacity: 1;
         }
-        focused when fs.has-focus : {
+        focused when root.has-focus : {
             state.opacity: 0.8;
         }
     ]
@@ -64,10 +54,45 @@ export SideBar := Rectangle {
     property<[string]> model: [];
     property<int> current-item: 0;
     property<string> title <=> label.text;
+    property<int> current-focused: fs.has-focus ? fs.focused-tab : -1; // The currently focused tab
     width: 260px;
+
+    forward-focus: fs;
+
+    accessible-role: tab;
+    accessible-delegate-focus: current-focused >= 0 ? current-focused : current-item;
 
     Rectangle {  
         background: StyleMetrics.window-background.darker(0.2);
+
+        fs := FocusScope {
+            width: 0px; // Do not react on clicks
+            property<int> focused-tab: 0;
+    
+            key-pressed(event) => {
+                if (event.text == "\n") {
+                     current-item = current-focused;
+                     return accept;
+                }
+                if (event.text == Keys.UpArrow) {
+                     focused-tab = Math.max(focused-tab - 1,  0);
+                     return accept;
+                }
+                if (event.text == Keys.DownArrow) {
+                     focused-tab = Math.min(focused-tab + 1, model.length - 1);
+                     return accept;
+                }
+                return reject;
+            }
+    
+            key-released(event) => {
+                if (event.text == " ") {
+                     current-item = current-focused;
+                     return accept;
+                }
+                return reject;
+            }
+        }
     }
    
     VerticalLayout {      
@@ -85,6 +110,7 @@ export SideBar := Rectangle {
             alignment: start;
             vertical-stretch: 0; 
             for item[index] in model : SideBarItem {
+                has-focus: index == root.current-focused;
                 text: item;
                 selected: index == current-item;
                 clicked => { current-item = index; }
