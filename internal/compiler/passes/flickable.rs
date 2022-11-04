@@ -42,29 +42,29 @@ pub fn handle_flickable(root_component: &Rc<Component>, tr: &TypeRegister) {
     )
 }
 
-fn create_viewport_element(flickable_elem: &ElementRc, native_empty: &Rc<NativeClass>) {
-    let mut flickable = flickable_elem.borrow_mut();
-    let flickable = &mut *flickable;
+fn create_viewport_element(flickable: &ElementRc, native_empty: &Rc<NativeClass>) {
+    let children = std::mem::take(&mut flickable.borrow_mut().children);
     let viewport = Rc::new(RefCell::new(Element {
-        id: format!("{}-viewport", flickable.id),
+        id: format!("{}-viewport", flickable.borrow().id),
         base_type: ElementType::Native(native_empty.clone()),
-        children: std::mem::take(&mut flickable.children),
-        enclosing_component: flickable.enclosing_component.clone(),
+        children,
+        enclosing_component: flickable.borrow().enclosing_component.clone(),
         is_flickable_viewport: true,
         ..Element::default()
     }));
-    for (prop, info) in &flickable.base_type.as_builtin().properties {
+    let element_type = flickable.borrow().base_type.clone();
+    for (prop, info) in &element_type.as_builtin().properties {
         if let Some(vp_prop) = prop.strip_prefix("viewport-") {
-            let nr = NamedReference::new(&viewport, vp_prop);
-            flickable.property_declarations.insert(prop.to_owned(), info.ty.clone().into());
-            match flickable.bindings.entry(prop.to_owned()) {
-                std::collections::btree_map::Entry::Occupied(entry) => {
-                    entry.into_mut().get_mut().two_way_bindings.push(nr);
-                }
-                std::collections::btree_map::Entry::Vacant(entry) => {
-                    entry.insert(BindingExpression::new_two_way(nr).into());
-                }
-            }
+            // materialize the viewport properties
+            flickable
+                .borrow_mut()
+                .property_declarations
+                .insert(prop.to_owned(), info.ty.clone().into());
+            // bind the viewport's property to the flickable property, such as:  `width <=> parent.viewport-width`
+            viewport.borrow_mut().bindings.insert(
+                vp_prop.to_owned(),
+                BindingExpression::new_two_way(NamedReference::new(flickable, prop)).into(),
+            );
         }
     }
     viewport
@@ -81,7 +81,7 @@ fn create_viewport_element(flickable_elem: &ElementRc, native_empty: &Rc<NativeC
         .entry("x".into())
         .or_default()
         .is_set_externally = true;
-    flickable.children.push(viewport);
+    flickable.borrow_mut().children.push(viewport);
 }
 
 fn fixup_geometry(flickable_elem: &ElementRc) {

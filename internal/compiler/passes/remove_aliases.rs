@@ -4,12 +4,13 @@
 //! This pass removes the property used in a two ways bindings
 
 use crate::diagnostics::BuildDiagnostics;
-use crate::expression_tree::{BindingExpression, NamedReference};
+use crate::expression_tree::{BindingExpression, Expression, NamedReference};
 use crate::object_tree::*;
 use std::cell::RefCell;
 use std::collections::{btree_map::Entry, HashMap, HashSet};
 use std::rc::Rc;
 
+// The property in the key is to be removed, and replaced by the property in the value
 type Mapping = HashMap<NamedReference, NamedReference>;
 
 #[derive(Default, Debug)]
@@ -112,46 +113,37 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
     // Remove the properties
     for (remove, to) in aliases_to_remove {
         let elem = remove.element();
+        let to_elem = to.element();
 
         // adjust the bindings
         let old_binding = elem.borrow_mut().bindings.remove(remove.name());
-        let must_simplify = if let Some(mut binding) = old_binding.map(RefCell::into_inner) {
-            remove_from_binding_expression(&mut binding, &to);
-            if binding.has_binding() {
-                let to_elem = to.element();
-                match to_elem.borrow_mut().bindings.entry(to.name().to_owned()) {
-                    Entry::Occupied(mut e) => {
-                        let b = e.get_mut().get_mut();
-                        remove_from_binding_expression(b, &to);
-                        if b.priority < binding.priority || !b.has_binding() {
-                            b.merge_with(&binding);
-                        } else {
-                            binding.merge_with(b);
-                            *b = binding;
-                        }
-                    }
-                    Entry::Vacant(e) => {
-                        e.insert(binding.into());
-                    }
-                };
-                false
-            } else {
-                true
-            }
-        } else {
-            true
-        };
+        let mut old_binding = old_binding.map(RefCell::into_inner).unwrap_or_else(|| {
+            // ensure that we set an expression, because the right hand side of a binding always wins,
+            // and if that was not set, we must still kee the default then
+            let mut b = BindingExpression::from(Expression::default_value_for_type(&to.ty()));
+            b.priority =
+                to_elem.borrow_mut().bindings.get(to.name()).map_or(0, |x| x.borrow().priority);
+            b
+        });
 
-        if must_simplify {
-            let to_elem = to.element();
-            let mut to_elem = to_elem.borrow_mut();
-            if let Some(b) = to_elem.bindings.get_mut(to.name()) {
-                remove_from_binding_expression(b.get_mut(), &to);
-                if !b.get_mut().has_binding() {
-                    to_elem.bindings.remove(to.name());
+        remove_from_binding_expression(&mut old_binding, &to);
+        match to_elem.borrow_mut().bindings.entry(to.name().to_owned()) {
+            Entry::Occupied(mut e) => {
+                let b = e.get_mut().get_mut();
+                remove_from_binding_expression(b, &to);
+                if b.priority <= old_binding.priority || !b.has_binding() {
+                    b.merge_with(&old_binding);
+                } else {
+                    old_binding.merge_with(b);
+                    *b = old_binding;
                 }
             }
-        }
+            Entry::Vacant(e) => {
+                if old_binding.has_binding() {
+                    e.insert(old_binding.into());
+                }
+            }
+        };
 
         // Remove the declaration
         {

@@ -1240,8 +1240,9 @@ impl BindingExpression {
         if self.animation.is_none() {
             self.animation = other.animation.clone();
         }
+        let has_binding = self.has_binding();
         self.two_way_bindings.extend_from_slice(&other.two_way_bindings);
-        if matches!(self.expression, Expression::Invalid) {
+        if !has_binding {
             self.priority = other.priority;
             self.expression = other.expression.clone();
             true
