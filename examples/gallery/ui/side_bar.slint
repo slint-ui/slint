@@ -33,6 +33,17 @@ SideBarItem := Rectangle {
         height: 100%;
     }
 
+    fs := FocusScope {
+        width: 0px; // Do not react on clicks
+        key-pressed(event) => {
+            if (event.text == " " || event.text == "\n") {
+                 touch.clicked();
+                 return accept;
+            }
+            return reject;
+        }
+    }
+
     states [  
         pressed when touch.pressed : {
             state.opacity: 0.8;
@@ -42,6 +53,9 @@ SideBarItem := Rectangle {
         }
         selected when root.selected : {
             state.opacity: 1;
+        }
+        focused when fs.has-focus : {
+            state.opacity: 0.8;
         }
     ]
 }
