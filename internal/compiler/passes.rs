@@ -3,7 +3,6 @@
 
 mod apply_default_properties_from_style;
 mod binding_analysis;
-mod check_aliases;
 mod check_expressions;
 mod check_public_api;
 mod check_rotation;
@@ -93,7 +92,6 @@ pub async fn run_passes(
             diag,
         );
         lower_states::lower_states(component, &doc.local_registry, diag);
-        check_aliases::check_aliases(component, diag)
     }
 
     inlining::inline(doc, inlining::InlineSelection::InlineOnlyRequiredComponents);
