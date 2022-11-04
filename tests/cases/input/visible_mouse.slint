@@ -23,7 +23,7 @@ TestCase := Rectangle {
     width: 100phx;
     property <int> touch1 <=> el1.touch;
     property <int> touch2 <=> el2.touch;
-    property <bool> el1visible;
+    property <bool> el1visible : true;
 
     el1 := MaybeVisible {
         visible <=> el1visible;

@@ -85,9 +85,9 @@ assert_eq!(instance.get_ti1_text(), slint::SharedString::from("Hallo"));
 assert_eq!(instance.get_ti2_text(), slint::SharedString::from("Bonjour"));
 assert_eq!(instance.get_text_item_text(), slint::SharedString::from("Bonjour"));
 
-assert_eq!(instance.get_othercomp_some_value(), 42);
-assert_eq!(instance.get_othercomp_some_value_alias(), 42);
-assert_eq!(instance.get_othercomp_some_value_alias2(), 42);
+assert_eq!(instance.get_othercomp_some_value(), 0);
+assert_eq!(instance.get_othercomp_some_value_alias(), 0);
+assert_eq!(instance.get_othercomp_some_value_alias2(), 0);
 instance.set_othercomp_some_value(88);
 assert_eq!(instance.get_othercomp_some_value(), 88);
 assert_eq!(instance.get_othercomp_some_value_alias(), 88);
@@ -134,9 +134,9 @@ assert_eq(instance.get_ti1_text(), slint::SharedString("Hallo"));
 assert_eq(instance.get_ti2_text(), slint::SharedString("Bonjour"));
 assert_eq(instance.get_text_item_text(), slint::SharedString("Bonjour"));
 
-assert_eq(instance.get_othercomp_some_value(), 42);
-assert_eq(instance.get_othercomp_some_value_alias(), 42);
-assert_eq(instance.get_othercomp_some_value_alias2(), 42);
+assert_eq(instance.get_othercomp_some_value(), 0);
+assert_eq(instance.get_othercomp_some_value_alias(), 0);
+assert_eq(instance.get_othercomp_some_value_alias2(), 0);
 instance.set_othercomp_some_value(88);
 assert_eq(instance.get_othercomp_some_value(), 88);
 assert_eq(instance.get_othercomp_some_value_alias(), 88);
@@ -179,9 +179,9 @@ assert.equal(instance.ti1_text, "Hallo");
 assert.equal(instance.ti2_text, "Bonjour");
 assert.equal(instance.text_item_text, "Bonjour");
 
-assert.equal(instance.othercomp_some_value, 42);
-assert.equal(instance.othercomp_some_value_alias, 42);
-assert.equal(instance.othercomp_some_value_alias2, 42);
+assert.equal(instance.othercomp_some_value, 0);
+assert.equal(instance.othercomp_some_value_alias, 0);
+assert.equal(instance.othercomp_some_value_alias2, 0);
 instance.othercomp_some_value = 88;
 assert.equal(instance.othercomp_some_value, 88);
 assert.equal(instance.othercomp_some_value_alias, 88);
