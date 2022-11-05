@@ -43,4 +43,4 @@ runs:
         target: ${{ inputs.target }}
     - uses: Swatinem/rust-cache@v2
       with:
-        key: ${{ inputs.key }}
+        key: ${{ inputs.key }}-1
