@@ -11,12 +11,13 @@ export TextEditPage := Page {
   
     HorizontalBox {   
         alignment: start;
+        vertical-stretch: 0;
      
         GroupBox {
+            vertical-stretch: 0;
             title: "Word-Wrap";
             te1 := TextEdit {
-                width: 200px;
-                height: 400px;
+                min-width: 200px;
                 text: "This is our TextEdit widget, which allows for editing text that spans over multiple paragraphs.\nFor example this line starts in a new paragraph.\n\nWhen the amount of lines - due to wrapping and number of paragraphs - exceeds the available vertical height, a vertical scrollbar is shown that allows scrolling.\nYou may want to enter a bit of text here then in order to make them visible.";
                 wrap: word-wrap;
                 enabled: !GallerySettings.widgets-disabled;
@@ -25,10 +26,10 @@ export TextEditPage := Page {
 
         GroupBox {
             title: "No-Wrap";
+            vertical-stretch: 0;
             te2 := TextEdit {
+                min-width: 200px;
                 text <=> te1.text;
-                width: 200px;
-                height: 400px;
                 wrap: no-wrap;
                 enabled: !GallerySettings.widgets-disabled;
             }

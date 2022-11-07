@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-import { HorizontalBox, ListView, StandardListView, GroupBox } from "std-widgets.slint";
+import { HorizontalBox, VerticalBox, ListView, StandardListView, GroupBox } from "std-widgets.slint";
 import { GallerySettings } from "../gallery_settings.slint";
 import { Page } from "page.slint";
 
@@ -10,14 +10,13 @@ export ListViewPage := Page {
     description: "ListViews can be used to display a list of elements. The StandardListBox is like the default ListView just with a default text based definition of the visual items. Both can be imported from \"std-widgets.slint\"";
 
     HorizontalBox {   
-        alignment: start;
-       
+        vertical-stretch: 0;
         GroupBox {  
             title: "ListView";
+            vertical-stretch: 0;
 
             ListView {  
-                width: 120px;
-                height: 300px;
+                vertical-stretch: 0;
                 for i in [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11] : HorizontalBox {
                    Image {
                         width: 24px;
@@ -32,10 +31,11 @@ export ListViewPage := Page {
 
         GroupBox {  
             title: "StandardListView";
+            vertical-stretch: 0;
 
             StandardListView {
-                width: 120px;
-                height: 300px;
+                vertical-stretch: 0;
+                
                 model: [
                     {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
                     {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},

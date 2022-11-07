@@ -10,175 +10,157 @@ export ControlsPage := Page {
     title: "Controls";
     description: "This page gives an overview of the default widget set provided by Slint. The widgets are available in different styles native, fluent-(dark/light) and material-(dark/light). The widgets can be imported from \"std-widgets.slint\".";
 
-  
-    HorizontalBox {   
-    // alignment: start;
-      
-        VerticalBox { 
-            alignment: start;
+    VerticalBox {
+        GroupBox { 
+            vertical-stretch: 0;
+            title: "Buttons";
 
-            GroupBox { 
-                title: "Buttons";
+            HorizontalLayout {  
+                spacing: 8px;
+                alignment: start;
 
-                VerticalLayout {  
-                    spacing: 8px;
-                    alignment: start;
+                Button {
+                    text: "Regular Button";
+                    enabled: !GallerySettings.widgets-disabled;
+                }   
 
-                    Button {
-                        text: "Regular Button";
-                        enabled: !GallerySettings.widgets-disabled;
-                    }   
-
-                    Button {
-                        text: "Regular Button";
-                        icon: @image-url("../../thumbsup.png");
-                        enabled: !GallerySettings.widgets-disabled;
-                    }
-
-                    Button {
-                        checkable: true;
-                        text: checked ? "ON" : "OFF";
-                        enabled: !GallerySettings.widgets-disabled;
-                    }
+                Button {
+                    text: "Regular Button";
+                    icon: @image-url("../../thumbsup.png");
+                    enabled: !GallerySettings.widgets-disabled;
                 }
-             }
 
-             GroupBox { 
-                title: "SpinBox";
-
-                VerticalLayout {  
-                    spacing: 8px;
-                    alignment: start;
-                   
-                    SpinBox {
-                        value: 42;
-                        enabled: !GallerySettings.widgets-disabled;
-                    }
-                }
-             }
-
-             GroupBox { 
-                title: "ComboBox";
-
-                VerticalLayout {  
-                    spacing: 8px;
-                    alignment: start;
-                   
-                    ComboBox {
-                        model: ["Select Something", "From this", "Combobox"];
-                        enabled: !GallerySettings.widgets-disabled;
-                    }
-                }
-             }
-
-            GroupBox {
-                title: "CheckBox";
-                          
-                checkbox := CheckBox {
-                    text: checkbox.checked ? "(checked)" : "(unchecked)";
-                    checked: true;
+                Button {
+                    checkable: true;
+                    text: checked ? "ON" : "OFF";
                     enabled: !GallerySettings.widgets-disabled;
                 }
             }
         }
 
-        VerticalBox {  
-            alignment: start;
+        GroupBox {
+            title: "CheckBox";
+            vertical-stretch: 0;
+                        
+            checkbox := CheckBox {
+                text: checkbox.checked ? "(checked)" : "(unchecked)";
+                checked: true;
+                enabled: !GallerySettings.widgets-disabled;
+            }
+        }
 
-            GroupBox {  
-                title: "LineEdit";
+        GroupBox { 
+            title: "SpinBox";
+            vertical-stretch: 0;
+
+            SpinBox {
+                vertical-stretch: 0;
+                value: 42;
+                enabled: !GallerySettings.widgets-disabled;
+            }
+        }
+
+        GroupBox { 
+            title: "ComboBox";
+            vertical-stretch: 0;
+
+            ComboBox {
+                model: ["Select Something", "From this", "Combobox"];
+                enabled: !GallerySettings.widgets-disabled;
+            }
+        }
+
+       
+
+        GroupBox {  
+            title: "LineEdit";
+            vertical-stretch: 0;
+
+            LineEdit {
+                placeholder-text: "Enter some text";
+                enabled: !GallerySettings.widgets-disabled;
+            }
+        }
+
+        GroupBox {  
+            title: "Slider";
+            vertical-stretch: 0;
+
+            Slider {
                 min-width: 160px;
-    
-                VerticalLayout {  
-                    spacing: 8px;
-                    alignment: start;
-                   
-                    LineEdit {
-                        placeholder-text: "Enter some text";
-                        enabled: !GallerySettings.widgets-disabled;
-                    }
-                }
-            }
-
-            GroupBox {  
-                title: "Slider";
-
-                Slider {
-                    min-width: 160px;
-                    minimum: -100;
-                    maximum: 100;
-                    value: 42;
-                    enabled: !GallerySettings.widgets-disabled;
-                }
-            }
-
-            GroupBox {  
-                title: "TabWidget";
-               
-                TabWidget {  
-                    Tab {
-                        title: "Tab 1";
-    
-                        VerticalBox {  
-                            alignment: start;
-
-                            GroupBox {  
-                                title: "Content of tab 1";
-        
-                                VerticalBox {  
-                                    alignment: start;
-                                
-                                    Button {  
-                                        text: "Click me";
-                                        enabled: !GallerySettings.widgets-disabled;
-                                    }
-        
-                                    LineEdit {
-                                        placeholder-text: "Enter some text";
-                                        enabled: !GallerySettings.widgets-disabled;
-                                    }
-                                }
-                            }
-                        }
-                    }
-    
-                    Tab {
-                        title: "Tab 2";
-
-                        VerticalBox {  
-                            alignment: start;
-
-                            GroupBox {  
-                                title: "Content of tab 2";
-        
-                                VerticalBox {  
-                                    alignment: start;
-                                
-                                    CheckBox {  
-                                        text: "Check me";
-                                        enabled: !GallerySettings.widgets-disabled;
-                                    }
-        
-                                    LineEdit {
-                                        placeholder-text: "Enter some text";
-                                        enabled: !GallerySettings.widgets-disabled;
-                                    }
-                                }
-                            }
-                        }   
-                    }
-    
-                    Tab {
-                        title: "Tab 3";
-    
-                        VerticalBox {  
-                            Text {
-                                text: "Content of tab 3";
-                            }
-                        }
-                    }
-                }  
+                minimum: -100;
+                maximum: 100;
+                value: 42;
+                enabled: !GallerySettings.widgets-disabled;
             }
         }
-    }      
+
+        GroupBox {  
+            title: "TabWidget";
+            
+            TabWidget {  
+                Tab {
+                    title: "Tab 1";
+
+                    VerticalBox {  
+                        alignment: start;
+
+                        GroupBox {  
+                            title: "Content of tab 1";
+    
+                            VerticalBox {  
+                                alignment: start;
+                            
+                                Button {  
+                                    text: "Click me";
+                                    enabled: !GallerySettings.widgets-disabled;
+                                }
+    
+                                LineEdit {
+                                    placeholder-text: "Enter some text";
+                                    enabled: !GallerySettings.widgets-disabled;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Tab {
+                    title: "Tab 2";
+
+                    VerticalBox {  
+                        alignment: start;
+
+                        GroupBox {  
+                            title: "Content of tab 2";
+    
+                            VerticalBox {  
+                                alignment: start;
+                            
+                                CheckBox {  
+                                    text: "Check me";
+                                    enabled: !GallerySettings.widgets-disabled;
+                                }
+    
+                                LineEdit {
+                                    placeholder-text: "Enter some text";
+                                    enabled: !GallerySettings.widgets-disabled;
+                                }
+                            }
+                        }
+                    }   
+                }
+
+                Tab {
+                    title: "Tab 3";
+
+                    VerticalBox {  
+                        Text {
+                            text: "Content of tab 3";
+                        }
+                    }
+                }
+            }  
+        }
+    } 
 }

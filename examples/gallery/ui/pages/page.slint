@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-import { CheckBox, GridBox, ListView, StyleMetrics } from "std-widgets.slint";
+import { CheckBox, GridBox, ListView, ScrollView, StyleMetrics } from "std-widgets.slint";
 
 import { GallerySettings } from "../gallery_settings.slint";
 
@@ -30,16 +30,15 @@ export Page := GridLayout {
     }
     
     Row {
-        GridLayout {  
+        ScrollView {  
             colspan: 3;
-           
-
+    
             @children
         }
     }
 
-    // vertical spacer
-    Row {
-        Rectangle {}
-    }
+    // // vertical spacer
+    // Row {
+    //     Rectangle {}
+    // }
 }
