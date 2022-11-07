@@ -70,43 +70,7 @@ pub fn embed_glyphs<'a>(
         fontdb.set_sans_serif_family(default_sans_serif_family);
     }
 
-    let fallback_families = if cfg!(target_os = "macos") {
-        ["Menlo", "Apple Symbols", "Apple Color Emoji"].iter()
-    } else if cfg!(not(any(
-        target_family = "windows",
-        target_os = "macos",
-        target_os = "ios",
-        target_arch = "wasm32"
-    ))) {
-        ["Noto Sans Symbols", "Noto Sans Symbols2", "DejaVu Sans"].iter()
-    } else {
-        [].iter()
-    };
-
-    let fallback_fonts = fallback_families
-        .filter_map(|fallback_family| {
-            fontdb
-                .query(&fontdb::Query {
-                    families: &[fontdb::Family::Name(*fallback_family)],
-                    ..Default::default()
-                })
-                .and_then(|face_id| {
-                    fontdb
-                        .with_face_data(face_id, |face_data, face_index| {
-                            fontdue::Font::from_bytes(
-                                face_data,
-                                fontdue::FontSettings { collection_index: face_index, scale: 40. },
-                            )
-                            .ok()
-                        })
-                        .flatten()
-                })
-        })
-        .collect::<Vec<_>>();
-
-    let fallback_font = fontdb
-        .query(&fontdb::Query { families: &[fontdb::Family::SansSerif], ..Default::default() })
-        .expect("internal error: Failed to locate default system font");
+    let (fallback_fonts, fallback_font) = get_fallback_fonts(&fontdb);
 
     let mut custom_fonts = Vec::new();
 
@@ -225,6 +189,46 @@ pub fn embed_glyphs<'a>(
     for (path, face_id) in fonts {
         embed_font_by_path_and_face_id(path, face_id);
     }
+}
+
+#[inline(never)] // workaround https://github.com/rust-lang/rust/issues/104099
+fn get_fallback_fonts(fontdb: &fontdb::Database) -> (Vec<fontdue::Font>, fontdb::ID) {
+    let fallback_families = if cfg!(target_os = "macos") {
+        ["Menlo", "Apple Symbols", "Apple Color Emoji"].iter()
+    } else if cfg!(not(any(
+        target_family = "windows",
+        target_os = "macos",
+        target_os = "ios",
+        target_arch = "wasm32"
+    ))) {
+        ["Noto Sans Symbols", "Noto Sans Symbols2", "DejaVu Sans"].iter()
+    } else {
+        [].iter()
+    };
+    let fallback_fonts = fallback_families
+        .filter_map(|fallback_family| {
+            fontdb
+                .query(&fontdb::Query {
+                    families: &[fontdb::Family::Name(*fallback_family)],
+                    ..Default::default()
+                })
+                .and_then(|face_id| {
+                    fontdb
+                        .with_face_data(face_id, |face_data, face_index| {
+                            fontdue::Font::from_bytes(
+                                face_data,
+                                fontdue::FontSettings { collection_index: face_index, scale: 40. },
+                            )
+                            .ok()
+                        })
+                        .flatten()
+                })
+        })
+        .collect::<Vec<_>>();
+    let fallback_font = fontdb
+        .query(&fontdb::Query { families: &[fontdb::Family::SansSerif], ..Default::default() })
+        .expect("internal error: Failed to locate default system font");
+    (fallback_fonts, fallback_font)
 }
 
 #[cfg(not(target_arch = "wasm32"))]
