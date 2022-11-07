@@ -1,32 +1,45 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-import { GridBox, ListView } from "std-widgets.slint";
+import { CheckBox, GridBox, ListView, StyleMetrics } from "std-widgets.slint";
 
-export Page := Rectangle {
+import { GallerySettings } from "../gallery_settings.slint";
+
+export Page := GridLayout {
     property<string> title: "title";
     property<string> description: "description";
 
+    padding: StyleMetrics.layout-padding;
+    spacing: StyleMetrics.layout-spacing;
    
-    clip: true;
-   
-    layout := VerticalLayout {  
-        padding: 16px;
-        spacing: 16px;
-        alignment: start;
-    
-        Text {
-            font-size: 32px;
+    // header
+    Row {
+        Text {  
+            font-size: 28px;
             text <=> root.title;
-            horizontal-alignment: left;
         }
 
-        Text {
-            wrap: word-wrap;
-            
-            text <=> root.description;
+        // Spacer
+        Rectangle {}
+
+        CheckBox { 
+            horizontal-stretch: 0;
+            text: "Disable widgets";
+            checked <=> GallerySettings.widgets-disabled;
         }
+    }
     
-        @children
+    Row {
+        GridLayout {  
+            colspan: 3;
+           
+
+            @children
+        }
+    }
+
+    // vertical spacer
+    Row {
+        Rectangle {}
     }
 }

@@ -17,11 +17,6 @@ App := Window {
         side-bar := SideBar {  
             title: "Slint Widgets Gallery";
             model: ["Controls", "ListView", "TextEdit", "About"];
-
-            CheckBox { 
-                text: "Disable widgets";
-                checked <=> GallerySettings.widgets-disabled;
-            }
         }
         
         navigator := Navigator {  
