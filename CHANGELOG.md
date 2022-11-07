@@ -7,6 +7,8 @@ All notable changes to this project are documented in this file.
 
  - When using a two way binding `foo <=> bar`, the default value will always be the one of `bar`.
    There was a warning about this change in previous versions (#1394)
+ - `Window`'s `default-font-size` property is now always set to a non-zero value, provided by 
+   either the style or the backend.
 
 ### Added
 
