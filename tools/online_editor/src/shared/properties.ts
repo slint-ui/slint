@@ -28,6 +28,7 @@ export interface Property {
 export interface Element {
     id: string;
     type_name: string;
+    range: LspRange | null;
 }
 
 export interface BindingTextProvider {
