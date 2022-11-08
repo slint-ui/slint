@@ -61,11 +61,15 @@ pub fn parse_element_content(p: &mut impl Parser) {
                 SyntaxKind::Identifier | SyntaxKind::Star if p.peek().as_str() == "animate" => {
                     parse_property_animation(&mut *p);
                 }
-                SyntaxKind::LAngle if p.peek().as_str() == "property" => {
+                SyntaxKind::LAngle | SyntaxKind::Identifier if p.peek().as_str() == "property" => {
                     parse_property_declaration(&mut *p);
                 }
                 SyntaxKind::Identifier
-                    if matches!(p.peek().as_str(), "property" | "input" | "output" | "private") =>
+                    if p.nth(1).as_str() == "property"
+                        && matches!(
+                            p.peek().as_str(),
+                            "in" | "out" | "in_out" | "in-out" | "private"
+                        ) =>
                 {
                     parse_property_declaration(&mut *p);
                 }
@@ -324,7 +328,7 @@ fn parse_callback_declaration(p: &mut impl Parser) {
 
 #[cfg_attr(test, parser_test)]
 /// ```test,PropertyDeclaration
-/// input property <int> xxx;
+/// in property <int> xxx;
 /// property<int> foobar;
 /// property<string> text: "Something";
 /// property<string> text <=> two.way;
@@ -333,7 +337,7 @@ fn parse_callback_declaration(p: &mut impl Parser) {
 fn parse_property_declaration(p: &mut impl Parser) {
     let checkpoint = p.checkpoint();
     let mut reported_experimental = false;
-    while matches!(p.peek().as_str(), "input" | "output" | "private") {
+    while matches!(p.peek().as_str(), "in" | "out" | "in-out" | "in_out" | "private") {
         if !reported_experimental && !super::enable_experimental() {
             p.error("the input/output keywords are experimental, set `SLINT_EXPERIMENTAL_SYNTAX` env variable to enable experimental syntax. See https://github.com/slint-ui/slint/issues/1750");
         }

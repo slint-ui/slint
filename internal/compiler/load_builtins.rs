@@ -91,14 +91,13 @@ pub fn load_builtins(register: &mut TypeRegister) {
                             continue;
                         }
                         match (token.as_token().unwrap().text(), info.property_visibility) {
-                            ("input", PropertyVisibility::Private) => {
+                            ("in", PropertyVisibility::Private) => {
                                 info.property_visibility = PropertyVisibility::Input
                             }
-                            ("output", PropertyVisibility::Private) => {
+                            ("out", PropertyVisibility::Private) => {
                                 info.property_visibility = PropertyVisibility::Output
                             }
-                            ("input", PropertyVisibility::Output)
-                            | ("output", PropertyVisibility::Input) => {
+                            ("in-out", PropertyVisibility::Private) => {
                                 info.property_visibility = PropertyVisibility::InOut
                             }
                             ("property", _) => (),

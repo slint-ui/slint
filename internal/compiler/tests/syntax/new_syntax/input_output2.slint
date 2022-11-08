@@ -4,9 +4,9 @@
 component Compo inherits Rectangle {
     property <int> priv1: 42;
     private property <int> priv2: priv1;
-    output property <int> output1: priv2;
-    input property <int> input1: output1;
-    output input property <int> inout1: input1;
+    out property <int> output1: priv2;
+    in property <int> input1: output1;
+    in-out property <int> inout1: input1;
 
     TouchArea {
         clicked => {
@@ -27,9 +27,9 @@ component Compo inherits Rectangle {
 OldCompo := Rectangle {
     property <int> inout2: 42;
     private property <int> priv2: inout2;
-    output property <int> output1: priv2;
-    input property <int> input1: output1;
-    input output property <int> inout1: input1;
+    out property <int> output1: priv2;
+    in property <int> input1: output1;
+    in-out property <int> inout1: input1;
 
     TouchArea {
         clicked => {
@@ -45,7 +45,7 @@ OldCompo := Rectangle {
 //          ^warning{Self assignment on an output property is deprecated}
         }
         has-hover: true;
-//      ^warning{Assigning to output property 'has-hover' is deprecated}
+//      ^warning{Assigning to out property 'has-hover' is deprecated}
     }
 }
 
@@ -56,7 +56,7 @@ component A inherits Compo {
 
 component Foo inherits Rectangle {
 
-    input property <[int]> input_model;
+    in property <[int]> input_model;
 
     c1 := OldCompo {
 
