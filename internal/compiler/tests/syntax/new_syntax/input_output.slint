@@ -4,9 +4,9 @@
 component Compo inherits Rectangle {
     property <int> priv1: 42;
     private property <int> priv2: priv1;
-    output property <int> output1: priv2;
-    input property <int> input1: output1;
-    input output property <int> inout1: input1;
+    out property <int> output1: priv2;
+    in property <int> input1: output1;
+    in-out property <int> inout1: input1;
 
     TouchArea {
         clicked => {
@@ -40,9 +40,9 @@ component Compo inherits Rectangle {
 OldCompo := Rectangle {
     property <int> inout2: 42;
     private property <int> priv2: inout2;
-    output property <int> output1: priv2;
-    input property <int> input1: output1;
-    input output property <int> inout1: input1;
+    out property <int> output1: priv2;
+    in property <int> input1: output1;
+    in-out property <int> inout1: input1;
 
     TouchArea {
         clicked => {
@@ -97,11 +97,6 @@ component Foo inherits Rectangle {
 //          ^error{'c2.output1' cannot be set in a state because it is output}
         }
     ]
-
-    output input output property <int> extra1;
-//               ^error{Extra 'output' keyword}
-    input input property <int> extra2;
-//        ^error{Extra 'input' keyword}
 
 }
 

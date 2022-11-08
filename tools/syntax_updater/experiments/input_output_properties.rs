@@ -17,11 +17,11 @@ pub(crate) fn fold_node(
             .and_then(|n| n.parent())
             .map_or(false, |n| n.kind() == SyntaxKind::Component)
     {
-        // check that the first identifier is "property" as opposed to an already converted "input output" token
+        // check that the first identifier is "property" as opposed to an already converted "in-out" token
         if node.child_token(SyntaxKind::Identifier).map_or(false, |t| t.text() == "property") {
-            // Consider that all property are input output, because we don't do enough analysis in the syntax_updater to know
+            // Consider that all property are in-out, because we don't do enough analysis in the syntax_updater to know
             // if they should be private
-            write!(file, "input output ")?;
+            write!(file, "in-out ")?;
         }
     }
     Ok(false)

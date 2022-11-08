@@ -525,9 +525,9 @@ SomeRect := Rectangle {
             r#"
 component Base {
     property <int> a: 1;
-    input property <int> b: 2;
-    output property <int> c: 3;
-    input output property <int> d: 4;
+    in property <int> b: 2;
+    out property <int> c: 3;
+    in-out property <int> d: 4;
 }
 
 component MyComp {

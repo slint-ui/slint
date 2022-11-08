@@ -745,16 +745,14 @@ impl Element {
                     continue;
                 }
                 match (token.as_token().unwrap().text(), visibility) {
-                    ("input", None) => visibility = Some(PropertyVisibility::Input),
-                    ("input", Some(PropertyVisibility::Output)) => {
-                        visibility = Some(PropertyVisibility::InOut)
+                    ("in", None) => visibility = Some(PropertyVisibility::Input),
+                    ("in", Some(_)) => diag.push_error("Extra 'in' keyword".into(), &token),
+                    ("out", None) => visibility = Some(PropertyVisibility::Output),
+                    ("out", Some(_)) => diag.push_error("Extra 'out' keyword".into(), &token),
+                    ("in-out" | "in_out", None) => visibility = Some(PropertyVisibility::InOut),
+                    ("in-out" | "in_out", Some(_)) => {
+                        diag.push_error("Extra 'in-out' keyword".into(), &token)
                     }
-                    ("input", Some(_)) => diag.push_error("Extra 'input' keyword".into(), &token),
-                    ("output", None) => visibility = Some(PropertyVisibility::Output),
-                    ("output", Some(PropertyVisibility::Input)) => {
-                        visibility = Some(PropertyVisibility::InOut)
-                    }
-                    ("output", Some(_)) => diag.push_error("Extra 'output' keyword".into(), &token),
                     ("private", None) => visibility = Some(PropertyVisibility::Private),
                     ("private", Some(_)) => {
                         diag.push_error("Extra 'private' keyword".into(), &token)
@@ -1233,7 +1231,7 @@ impl Element {
                     && lookup_result.property_visibility == PropertyVisibility::Output
                 {
                     diag.push_warning(
-                        format!("Assigning to output property '{unresolved_name}' is deprecated"),
+                        format!("Assigning to out property '{unresolved_name}' is deprecated"),
                         &name_token,
                     );
                 } else {
