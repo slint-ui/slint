@@ -55,7 +55,7 @@ export SideBar := Rectangle {
     property<int> current-item: 0;
     property<string> title <=> label.text;
     property<int> current-focused: fs.has-focus ? fs.focused-tab : -1; // The currently focused tab
-    width: 260px;
+    width: 180px;
 
     forward-focus: fs;
 

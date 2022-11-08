@@ -4,12 +4,11 @@
 import { CheckBox, StandardListView, StyleMetrics } from "std-widgets.slint";
 import { AboutPage, ControlsPage, ListViewPage, TextEditPage } from "ui/pages/pages.slint";
 import { GallerySettings } from "ui/gallery_settings.slint";
-import { Navigator } from "ui/navigator.slint";
 import { SideBar } from "ui/side_bar.slint";
 
 App := Window {
-    preferred-width: 760px;
-    preferred-height: 680px;
+    preferred-width: 700px;
+    min-height: 500px;
     title: "Slint Widgets Gallery";
     icon: @image-url("../../logo/slint-logo-small-light-128x128.png");
 
@@ -18,25 +17,10 @@ App := Window {
             title: "Slint Widgets Gallery";
             model: ["Controls", "ListView", "TextEdit", "About"];
         }
-        
-        navigator := Navigator {  
-            current-item <=> side-bar.current-item;
 
-            ControlsPage {  
-                height: navigator.height;
-            }
-
-            ListViewPage {  
-                height: navigator.height;
-            }
-
-            TextEditPage {  
-                height: navigator.height;
-            }
-
-            AboutPage {  
-                height: navigator.height;
-            }
-        }
+        if(side-bar.current-item == 0) : ControlsPage {}
+        if(side-bar.current-item == 1) : ListViewPage {}
+        if(side-bar.current-item == 2) : TextEditPage {}
+        if(side-bar.current-item == 3) : AboutPage {}
     }
 }

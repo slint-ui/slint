@@ -10,10 +10,9 @@ export ListViewPage := Page {
     description: "ListViews can be used to display a list of elements. The StandardListBox is like the default ListView just with a default text based definition of the visual items. Both can be imported from \"std-widgets.slint\"";
 
     HorizontalBox {   
-        vertical-stretch: 0;
+        vertical-stretch: 1;
         GroupBox {  
             title: "ListView";
-            vertical-stretch: 0;
 
             ListView {  
                 vertical-stretch: 0;
@@ -34,8 +33,6 @@ export ListViewPage := Page {
             vertical-stretch: 0;
 
             StandardListView {
-                vertical-stretch: 0;
-                
                 model: [
                     {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
                     {text: "Lorem"}, {text: "ipsum"},{text: "dolor"},{text: "sit"},{text: "amet"},{text: "consetetur"},
