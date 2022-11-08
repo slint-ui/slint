@@ -181,16 +181,22 @@ impl SlintServer {
     }
 
     #[wasm_bindgen]
-    pub fn reload_document(&self, content: String, uri: JsValue) -> js_sys::Promise {
+    pub fn reload_document(&self, content: String, uri: JsValue, version: i32) -> js_sys::Promise {
         let document_cache = self.document_cache.clone();
         let notifier = self.notifier.clone();
         let guard = self.reentry_guard.clone();
         wasm_bindgen_futures::future_to_promise(async move {
             let _lock = ReentryGuard::lock(guard).await;
             let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
-            server_loop::reload_document(&notifier, content, uri, &mut document_cache.borrow_mut())
-                .await
-                .map_err(|e| JsError::new(&e.to_string()))?;
+            server_loop::reload_document(
+                &notifier,
+                content,
+                uri,
+                version,
+                &mut document_cache.borrow_mut(),
+            )
+            .await
+            .map_err(|e| JsError::new(&e.to_string()))?;
             Ok(JsValue::UNDEFINED)
         })
     }

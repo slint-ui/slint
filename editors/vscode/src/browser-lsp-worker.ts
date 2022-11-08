@@ -40,11 +40,11 @@ slint_init(slint_wasm_data).then((_) => {
     });
 
     connection.onDidChangeTextDocument(async (param) => {
-        await the_lsp.reload_document(param.contentChanges[param.contentChanges.length - 1].text, param.textDocument.uri);
+        await the_lsp.reload_document(param.contentChanges[param.contentChanges.length - 1].text, param.textDocument.uri, param.textDocument.version);
     });
 
     connection.onDidOpenTextDocument(async (param) => {
-        await the_lsp.reload_document(param.textDocument.text, param.textDocument.uri);
+        await the_lsp.reload_document(param.textDocument.text, param.textDocument.uri, param.textDocument.version);
     });
 
     // Listen on the connection
