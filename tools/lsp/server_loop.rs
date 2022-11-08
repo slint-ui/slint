@@ -51,13 +51,14 @@ fn create_show_preview_command(pretty: bool, file: &str, component_name: &str) -
 pub struct DocumentCache {
     pub(crate) documents: TypeLoader,
     newline_offsets: HashMap<Url, Vec<u32>>,
+    versions: HashMap<Url, i32>,
 }
 
 impl DocumentCache {
     pub fn new(config: CompilerConfiguration) -> Self {
         let documents =
             TypeLoader::new(TypeRegister::builtin(), config, &mut BuildDiagnostics::default());
-        Self { documents, newline_offsets: Default::default() }
+        Self { documents, newline_offsets: Default::default(), versions: Default::default() }
     }
 
     fn newline_offsets_from_content(content: &str) -> Vec<u32> {
@@ -70,6 +71,10 @@ impl DocumentCache {
                 r
             })
             .collect()
+    }
+
+    pub fn document_version(&self, target_uri: &lsp_types::Url) -> Option<i32> {
+        self.versions.get(target_uri).cloned()
     }
 
     pub fn byte_offset_to_position(
@@ -86,6 +91,7 @@ impl DocumentCache {
                 e.insert(Self::newline_offsets_from_content(content))
             }
         };
+
         let pos = newline_offsets.binary_search(&offset).map_or_else(
             |line| {
                 if line == 0 {
@@ -368,10 +374,12 @@ fn maybe_goto_preview(
 pub async fn reload_document_impl(
     content: String,
     uri: lsp_types::Url,
+    version: i32,
     document_cache: &mut DocumentCache,
 ) -> Result<HashMap<Url, Vec<lsp_types::Diagnostic>>, Error> {
     let newline_offsets = DocumentCache::newline_offsets_from_content(&content);
     document_cache.newline_offsets.insert(uri.clone(), newline_offsets);
+    document_cache.versions.insert(uri.clone(), version);
 
     let path = uri.to_file_path().unwrap();
     let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
@@ -405,9 +413,10 @@ pub async fn reload_document(
     connection: &crate::ServerNotifier,
     content: String,
     uri: lsp_types::Url,
+    version: i32,
     document_cache: &mut DocumentCache,
 ) -> Result<(), Error> {
-    let lsp_diags = reload_document_impl(content, uri, document_cache).await?;
+    let lsp_diags = reload_document_impl(content, uri, version, document_cache).await?;
 
     for (uri, diagnostics) in lsp_diags {
         connection.send_notification(

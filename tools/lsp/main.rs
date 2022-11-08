@@ -184,6 +184,7 @@ pub fn handle_notification(
                 &ServerNotifier(connection.sender.clone()),
                 params.text_document.text,
                 params.text_document.uri,
+                params.text_document.version,
                 document_cache,
             ))?;
         }
@@ -193,6 +194,7 @@ pub fn handle_notification(
                 &ServerNotifier(connection.sender.clone()),
                 params.content_changes.pop().unwrap().text,
                 params.text_document.uri,
+                params.text_document.version,
                 document_cache,
             ))?;
         }
