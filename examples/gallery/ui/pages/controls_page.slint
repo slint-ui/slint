@@ -39,36 +39,44 @@ export ControlsPage := Page {
         }
 
         GroupBox {
-            title: "CheckBox";
+            title: "CheckBox - SpinBox - ComboBox";
             vertical-stretch: 0;
-                        
-            checkbox := CheckBox {
-                text: checkbox.checked ? "(checked)" : "(unchecked)";
-                checked: true;
-                enabled: !GallerySettings.widgets-disabled;
-            }
-        }
 
-        GroupBox { 
-            title: "SpinBox";
-            vertical-stretch: 0;
+            HorizontalBox {  
+                checkbox := CheckBox {
+                    text: checkbox.checked ? "(checked)" : "(unchecked)";
+                    checked: true;
+                    enabled: !GallerySettings.widgets-disabled;
+                }
+
 
             SpinBox {
                 vertical-stretch: 0;
                 value: 42;
                 enabled: !GallerySettings.widgets-disabled;
             }
-        }
 
-        GroupBox { 
-            title: "ComboBox";
-            vertical-stretch: 0;
-
-            ComboBox {
-                model: ["Select Something", "From this", "Combobox"];
-                enabled: !GallerySettings.widgets-disabled;
+                ComboBox {
+                    model: ["Select Something", "From this", "Combobox"];
+                    enabled: !GallerySettings.widgets-disabled;
+                }
             }
+                        
+           
         }
+
+        // GroupBox { 
+        //     title: "SpinBox";
+        //     vertical-stretch: 0;
+
+        // }
+
+        // GroupBox { 
+        //     title: "ComboBox";
+        //     vertical-stretch: 0;
+
+         
+        // }
 
        
 
