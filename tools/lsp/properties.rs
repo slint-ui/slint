@@ -37,6 +37,7 @@ pub(crate) struct PropertyInformation {
 pub(crate) struct ElementInformation {
     id: String,
     type_name: String,
+    range: Option<lsp_types::Range>,
 }
 
 #[derive(serde::Deserialize, serde::Serialize)]
@@ -316,9 +317,16 @@ fn get_properties(
     result
 }
 
-fn get_element_information(element: &ElementRc) -> Option<ElementInformation> {
+fn get_element_information(
+    element: &ElementRc,
+    offset_to_position: &mut OffsetToPositionMapper,
+) -> Option<ElementInformation> {
     let e = element.borrow();
-    Some(ElementInformation { id: e.id.clone(), type_name: format!("{}", e.base_type) })
+    let range = e.node.as_ref().map(|n| n.text_range()).map(|r| lsp_types::Range {
+        start: offset_to_position.map(r.start().into()),
+        end: offset_to_position.map(r.end().into()),
+    });
+    Some(ElementInformation { id: e.id.clone(), type_name: format!("{}", e.base_type), range })
 }
 
 pub(crate) fn query_properties(
@@ -327,7 +335,7 @@ pub(crate) fn query_properties(
 ) -> Result<QueryPropertyResponse, crate::Error> {
     Ok(QueryPropertyResponse {
         properties: get_properties(&element, offset_to_position),
-        element: get_element_information(&element),
+        element: get_element_information(&element, offset_to_position),
         source_uri: source_file(&element.borrow()),
     })
 }
