@@ -23,9 +23,16 @@
     demonstrates
     different re-usable graphical
     elements.</p>
+
   <div id="spinner" style="position: relative;">
     <div class="spinner">Loading...</div>
   </div>
+  <p>Select style
+    <select id="style-selection">
+      <option value="">fluent</option>
+      <option value="">material</option>
+    </select>
+  </p>
   <canvas id="canvas" width="640" height="480"></canvas>
   <p class="links">
     <a href="https://github.com/slint-ui/slint/blob/master/examples/gallery/gallery.slint">
@@ -36,11 +43,38 @@
     </a>
   </p>
   <script type="module">
-    import init from './pkg/gallery.js';
-    init().finally(() => {
-      document.getElementById("spinner").remove();
-    });
+    const fluent = "./pkg/fluent/gallery.js";
+    const material = "./pkg/material/gallery.js";
+
+    function initGallery(gallery) {
+      document.getElementById("spinner").hidden = false;
+      document.getElementById("canvas").hidden = true;
+
+      import(gallery).then(module => {
+        module.default().finally(() => {
+          document.getElementById("canvas").hidden = false;
+          document.getElementById("spinner").hidden = true;
+        });
+      })
+    }
+
+    initGallery(fluent);
+
+    var styleSelection = document.getElementById("style-selection");
+    styleSelection.onchange = function (ev) {
+      var selectedStyle = styleSelection[styleSelection.selectedIndex].innerText;
+
+      switch (selectedStyle) {
+        case "fluent":
+          initGallery(fluent);
+          break;
+        case "material":
+          initGallery(material);
+          break;
+        default:
+          break;
+      }
+    };
   </script>
 </body>
-
 </html>
