@@ -1,0 +1,30 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+import { CheckBox, GridBox, ListView, ScrollView, VerticalBox } from "std-widgets.slint";
+
+import { GallerySettings } from "../gallery_settings.slint";
+
+export Page := VerticalBox {
+    property<string> title: "title";
+    property<string> description: "description";
+
+    HorizontalLayout {  
+        height: 24px;
+        Text {  
+            font-size: 20px;
+            text <=> root.title;
+        }
+
+        // Spacer
+        Rectangle {}
+
+        CheckBox { 
+            horizontal-stretch: 0;
+            text: "Disable widgets";
+            checked <=> GallerySettings.widgets-disabled;
+        }
+    }
+
+    @children
+}

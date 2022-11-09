@@ -8,20 +8,31 @@ export GroupBox := Rectangle {
     property <string> title <=> label.text;
     property<bool> enabled: true;
 
-    min-width: max(label-container.width + 16px, layout.min-width);
-    
+    VerticalLayout {  
+        padding-top: label-container.height + 16px;
+        padding-left: 16px;
+        padding-right: 16px;
+        padding-bottom: 16px;
+
+        Rectangle {
+            vertical-stretch: 1;
+            GridLayout {
+                @children
+            }
+        }
+    }
+
     container := Rectangle {
         border-radius: 4px;
         border-width: 1px;
         border-color: md.sys.color.outline;
-        y: layout.padding-top;
-        width: layout.width;
-        height: layout.height - layout.padding-top;
+        y: label-container.y + label-container.height / 2;
+        width: 100%;
+        height: parent.height - label-container.height / 2;
     }
 
     label-container := Rectangle { 
         x: 8px;
-        y: container.y;
         width: label.width + 8px;
         height: label.height + 8px;
         background: md.sys.color.background;
@@ -35,17 +46,6 @@ export GroupBox := Rectangle {
             font-size: md.sys.typescale.body-small.size;
             font-weight: md.sys.typescale.body-small.weight;
             overflow: elide;
-        }
-    }
-
-    layout := HorizontalLayout {  
-        padding-top: label-container.height / 2;
-        GridLayout {
-            padding-top: 16pt + label-container.height / 2;
-            padding-left: 16px;
-            padding-right: 16px;
-            padding-bottom: 16px;
-            @children
         }
     }
 
