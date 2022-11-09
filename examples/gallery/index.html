@@ -23,9 +23,20 @@
     demonstrates
     different re-usable graphical
     elements.</p>
+
   <div id="spinner" style="position: relative;">
     <div class="spinner">Loading...</div>
   </div>
+  <p>Select style
+    <select id="style-selection">
+      <option value="">fluent</option>
+      <option value="">fluent-light</option>
+      <option value="">fluent-dark</option>
+      <option value="">material</option>
+      <option value="">material-light</option>
+      <option value="">material-dark</option>
+    </select>
+  </p>
   <canvas id="canvas" width="640" height="480"></canvas>
   <p class="links">
     <a href="https://github.com/slint-ui/slint/blob/master/examples/gallery/gallery.slint">
@@ -36,10 +47,47 @@
     </a>
   </p>
   <script type="module">
-    import init from './pkg/gallery.js';
-    init().finally(() => {
-      document.getElementById("spinner").remove();
-    });
+    import initFluent from './pkg/fluent/gallery.js';
+    import initFluentLight from './pkg/fluent-light/gallery.js';
+    import initFluentDark from './pkg/fluent-dark/gallery.js';
+    import initMaterial from './pkg/material/gallery.js';
+    import initMaterialLight from './pkg/material-light/gallery.js';
+    import initMaterialDark from './pkg/material-dark/gallery.js';
+
+    function initGallery(init) {
+      document.getElementById("spinner").hidden = false;
+      init().finally(() => {
+        document.getElementById("spinner").hidden = true;
+      });
+    }
+
+    initGallery(initFluent);
+
+    var styleSelection = document.getElementById("style-selection");
+    styleSelection.onchange = function (ev) {
+      var selectedStyle = styleSelection[styleSelection.selectedIndex].innerHTML;
+
+      switch (selectedStyle) {
+        case "fluent":
+          initGallery(initFluent);
+          break;
+        case "fluent-light":
+          initGallery(initFluentLight);
+          break;
+        case "fluent-dark":
+          initGallery(initFluentDark);
+          break;
+        case "material":
+          initGallery(initMaterial);
+          break;
+        case "material-light":
+          initGallery(initMaterialLight);
+          break;
+        case "material-dark":
+          initGallery(initMaterialDark);
+          break;
+      }
+    };
   </script>
 </body>
 
