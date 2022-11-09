@@ -9,7 +9,7 @@ SideBarItem := Rectangle {
     property<bool> selected;
     property<bool> has-focus;
 
-    min-height: 36px;
+    min-height: l.preferred-height;
 
     state := Rectangle {  
         opacity: 0;
@@ -18,7 +18,7 @@ SideBarItem := Rectangle {
         animate opacity { duration: 150ms; }
     }
     
-    HorizontalLayout {  
+    l := HorizontalLayout {  
         y: (parent.height - height) / 2;
         padding: StyleMetrics.layout-padding;
         spacing: 0px;
