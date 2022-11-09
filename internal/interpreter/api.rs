@@ -1063,6 +1063,7 @@ pub fn run_event_loop() {
 }
 
 /// This module contains a few function use by tests
+#[doc(hidden)]
 pub mod testing {
     use super::ComponentHandle;
     use i_slint_core::window::WindowInner;
