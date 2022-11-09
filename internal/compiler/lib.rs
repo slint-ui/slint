@@ -42,6 +42,7 @@ pub enum EmbedResourcesKind {
     OnlyBuiltinResources,
     /// Embed all images resources (the content of their files)
     EmbedAllResources,
+    #[cfg(feature = "software-renderer")]
     /// Embed raw texture (process images and fonts)
     EmbedTextures,
 }
@@ -83,6 +84,9 @@ impl CompilerConfiguration {
         let embed_resources = if std::env::var_os("SLINT_EMBED_TEXTURES").is_some()
             || std::env::var_os("DEP_MCU_BOARD_SUPPORT_MCU_EMBED_TEXTURES").is_some()
         {
+            #[cfg(not(feature = "software-renderer"))]
+            panic!("the software-renderer feature must be enabled in i-slint-compiler when embedding textures");
+            #[cfg(feature = "software-renderer")]
             EmbedResourcesKind::EmbedTextures
         } else if let Ok(var) = std::env::var("SLINT_EMBED_RESOURCES") {
             let var = var.parse::<bool>().unwrap_or_else(|_|{
@@ -131,8 +135,9 @@ impl CompilerConfiguration {
 pub async fn compile_syntax_node(
     doc_node: parser::SyntaxNode,
     mut diagnostics: diagnostics::BuildDiagnostics,
-    mut compiler_config: CompilerConfiguration,
+    #[allow(unused_mut)] mut compiler_config: CompilerConfiguration,
 ) -> (object_tree::Document, diagnostics::BuildDiagnostics) {
+    #[cfg(feature = "software-renderer")]
     if compiler_config.embed_resources == EmbedResourcesKind::EmbedTextures {
         // HACK: disable accessibility when compiling for the software renderer
         // accessibility is not supported with backend that support sofware renderer anyway

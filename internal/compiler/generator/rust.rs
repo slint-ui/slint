@@ -188,6 +188,7 @@ pub fn generate(doc: &Document) -> TokenStream {
                     let data = embedded_file_tokens(path);
                     quote!(static #symbol: &'static [u8] = #data;)
                 }
+                #[cfg(feature = "software-renderer")]
                 crate::embedded_resources::EmbeddedResourcesKind::TextureData(crate::embedded_resources::Texture {
                     data, format, rect,
                     total_size: crate::embedded_resources::Size{width, height},
@@ -220,6 +221,7 @@ pub fn generate(doc: &Document) -> TokenStream {
                         };
                     )
                 },
+                #[cfg(feature = "software-renderer")]
                 crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(crate::embedded_resources::BitmapFont { family_name, character_map, units_per_em, ascent, descent, glyphs }) => {
 
                     let character_map_size = character_map.len();

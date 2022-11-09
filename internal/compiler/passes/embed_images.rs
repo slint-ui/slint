@@ -1,18 +1,15 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-#![cfg_attr(target_arch = "wasm32", allow(unused))]
-
 use crate::diagnostics::BuildDiagnostics;
 use crate::embedded_resources::*;
 use crate::expression_tree::{Expression, ImageReference};
 use crate::object_tree::*;
 use crate::EmbedResourcesKind;
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "software-renderer")]
 use image::GenericImageView;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::convert::TryInto;
 use std::rc::Rc;
 
 pub fn embed_images(
@@ -71,7 +68,7 @@ fn embed_images_from_expression(
 
 fn embed_image(
     global_embedded_resources: &RefCell<HashMap<String, EmbeddedResources>>,
-    embed_files: EmbedResourcesKind,
+    _embed_files: EmbedResourcesKind,
     path: &str,
     _scale_factor: f64,
     diag: &mut BuildDiagnostics,
@@ -83,11 +80,12 @@ fn embed_image(
         std::collections::hash_map::Entry::Occupied(e) => e.into_mut(),
         std::collections::hash_map::Entry::Vacant(e) => {
             // Check that the file exists, so that later we can unwrap safely in the generators, etc.
-            if let Some(file) = crate::fileaccess::load_file(std::path::Path::new(path)) {
+            if let Some(_file) = crate::fileaccess::load_file(std::path::Path::new(path)) {
+                #[allow(unused_mut)]
                 let mut kind = EmbeddedResourcesKind::RawData;
-                #[cfg(not(target_arch = "wasm32"))]
-                if embed_files == EmbedResourcesKind::EmbedTextures {
-                    match load_image(file, _scale_factor) {
+                #[cfg(feature = "software-renderer")]
+                if _embed_files == EmbedResourcesKind::EmbedTextures {
+                    match load_image(_file, _scale_factor) {
                         Ok((img, original_size)) => {
                             kind = EmbeddedResourcesKind::TextureData(generate_texture(
                                 img,
@@ -110,27 +108,30 @@ fn embed_image(
             }
         }
     };
-    let is_texture = matches!(e.kind, EmbeddedResourcesKind::TextureData { .. });
-    if is_texture {
-        ImageReference::EmbeddedTexture { resource_id: e.id }
-    } else {
-        ImageReference::EmbeddedData {
+    match e.kind {
+        #[cfg(feature = "software-renderer")]
+        EmbeddedResourcesKind::TextureData { .. } => {
+            ImageReference::EmbeddedTexture { resource_id: e.id }
+        }
+        _ => ImageReference::EmbeddedData {
             resource_id: e.id,
             extension: std::path::Path::new(path)
                 .extension()
                 .and_then(|e| e.to_str())
                 .map(|x| x.to_string())
                 .unwrap_or_default(),
-        }
+        },
     }
 }
+
+#[cfg(feature = "software-renderer")]
 
 trait Pixel {
     //fn alpha(&self) -> f32;
     //fn rgb(&self) -> (u8, u8, u8);
     fn is_transparent(&self) -> bool;
 }
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "software-renderer")]
 impl Pixel for image::Rgba<u8> {
     /*fn alpha(&self) -> f32 { self[3] as f32 / 255. }
     fn rgb(&self) -> (u8, u8, u8) { (self[0], self[1], self[2]) }*/
@@ -139,7 +140,7 @@ impl Pixel for image::Rgba<u8> {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "software-renderer")]
 pub fn generate_texture(image: image::RgbaImage, original_size: Size) -> Texture {
     // Analyze each pixels
     let mut top = 0;
@@ -237,7 +238,7 @@ pub fn generate_texture(image: image::RgbaImage, original_size: Size) -> Texture
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "software-renderer")]
 fn convert_image(image: image::RgbaImage, format: PixelFormat, rect: Rect) -> Vec<u8> {
     let i = image::SubImage::new(&image, rect.x() as _, rect.y() as _, rect.width(), rect.height());
     match format {
@@ -261,7 +262,7 @@ fn convert_image(image: image::RgbaImage, format: PixelFormat, rect: Rect) -> Ve
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "software-renderer")]
 fn load_image(
     file: crate::fileaccess::VirtualFile,
     scale_factor: f64,

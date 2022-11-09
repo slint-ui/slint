@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "software-renderer")]
 pub use tiny_skia::IntRect as Rect;
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -22,7 +22,7 @@ pub enum PixelFormat {
     AlphaMap([u8; 3]),
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "software-renderer")]
 #[derive(Debug, Clone)]
 pub struct Texture {
     pub total_size: Size,
@@ -32,7 +32,7 @@ pub struct Texture {
     pub format: PixelFormat,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "software-renderer")]
 impl Texture {
     pub fn new_empty() -> Self {
         Self {
@@ -45,7 +45,7 @@ impl Texture {
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "software-renderer")]
 #[derive(Debug, Clone, Default)]
 pub struct BitmapGlyph {
     pub x: i16,
@@ -56,20 +56,21 @@ pub struct BitmapGlyph {
     pub data: Vec<u8>, // 8bit alpha map
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "software-renderer")]
 #[derive(Debug, Clone)]
 pub struct BitmapGlyphs {
     pub pixel_size: i16,
     pub glyph_data: Vec<BitmapGlyph>,
 }
 
+#[cfg(feature = "software-renderer")]
 #[derive(Debug, Clone)]
 pub struct CharacterMapEntry {
     pub code_point: char,
     pub glyph_index: u16,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
+#[cfg(feature = "software-renderer")]
 #[derive(Debug, Clone)]
 pub struct BitmapFont {
     pub family_name: String,
@@ -85,9 +86,11 @@ pub enum EmbeddedResourcesKind {
     /// Just put the file content as a resource
     RawData,
     /// The data has been processed in a texture
-    TextureData(#[cfg(not(target_arch = "wasm32"))] Texture),
+    #[cfg(feature = "software-renderer")]
+    TextureData(Texture),
     /// A set of pre-rendered glyphs of a TrueType font
-    BitmapFontData(#[cfg(not(target_arch = "wasm32"))] BitmapFont),
+    #[cfg(feature = "software-renderer")]
+    BitmapFontData(BitmapFont),
 }
 
 #[derive(Debug, Clone)]
