@@ -174,6 +174,7 @@ pub fn generate(doc: &Document) -> TokenStream {
         std::iter::once(ident(&glob.name)).chain(glob.aliases.iter().map(|x| ident(x)))
     });
 
+    #[cfg(feature = "software-renderer")]
     let link_section =
         std::env::var("SLINT_ASSET_SECTION").ok().map(|section| quote!(#[link_section = #section]));
 
