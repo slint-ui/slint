@@ -190,7 +190,7 @@ impl<const MAX_BUFFER_AGE: usize> SoftwareRenderer<MAX_BUFFER_AGE> {
                 LogicalLength::zero(),
             );
 
-            if background.is_transparent() {
+            if !background.is_transparent() {
                 // FIXME: gradient
                 renderer.actual_renderer.processor.process_rectangle(to_draw, background.color());
             }
