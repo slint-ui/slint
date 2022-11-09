@@ -23,18 +23,8 @@ jobs:
     - name: Gallery WASM build
       run: |
         sed -i "s/#wasm# //" Cargo.toml
-        export SLINT_STYLE=fluent
-        wasm-pack build --release  --outdir pkg/fluent --target -- web
-        export SLINT_STYLE=fluent-light
-        wasm-pack build --release --outdir pkg/fluent-light --target  -- web
-        export SLINT_STYLE=fluent-dark
-        wasm-pack build --release --outdir pkg/fluent-dark --target -- web
-        export SLINT_STYLE=material
-        wasm-pack build --release --outdir pkg/material --target -- web
-        export SLINT_STYLE=material-light
-        wasm-pack build --release --outdir pkg/material-light --target -- web
-        export SLINT_STYLE=material-dark
-        wasm-pack build --release --outdir pkg/material-dark --target -- web
+        export SLINT_STYLE=fluent && wasm-pack build --release  --out-dir pkg/fluent --target web
+        export SLINT_STYLE=material && wasm-pack build --release --out-dir pkg/material --target web
       working-directory: examples/gallery
     - name: Printer demo WASM build
       run: |
