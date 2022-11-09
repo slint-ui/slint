@@ -1779,12 +1779,12 @@ fn generate_public_api_for_properties(
     ctx: &EvaluationContext,
 ) -> Vec<Declaration> {
     let mut declarations = Vec::new();
-    for (p, (ty, r)) in public_properties.iter() {
-        let prop_ident = ident(p);
+    for p in public_properties.iter() {
+        let prop_ident = ident(&p.name);
 
-        let access = access_member(r, ctx);
+        let access = access_member(&p.prop, ctx);
 
-        if let Type::Callback { args, return_type } = ty {
+        if let Type::Callback { args, return_type } = &p.ty {
             let param_types = args.iter().map(|t| t.cpp_type().unwrap()).collect::<Vec<_>>();
             let return_type = return_type.as_ref().map_or("void".into(), |t| t.cpp_type().unwrap());
             let callback_emitter = vec![
@@ -1796,7 +1796,7 @@ fn generate_public_api_for_properties(
                 ),
             ];
             declarations.push(Declaration::Function(Function {
-                name: format!("invoke_{}", ident(p)),
+                name: format!("invoke_{}", ident(&p.name)),
                 signature: format!(
                     "({}) const -> {}",
                     param_types
@@ -1810,7 +1810,7 @@ fn generate_public_api_for_properties(
                 ..Default::default()
             }));
             declarations.push(Declaration::Function(Function {
-                name: format!("on_{}", ident(p)),
+                name: format!("on_{}", ident(&p.name)),
                 template_parameters: Some("typename Functor".into()),
                 signature: "(Functor && callback_handler) const".into(),
                 statements: Some(vec![
@@ -1820,7 +1820,7 @@ fn generate_public_api_for_properties(
                 ..Default::default()
             }));
         } else {
-            let cpp_property_type = ty.cpp_type().expect("Invalid type in public properties");
+            let cpp_property_type = p.ty.cpp_type().expect("Invalid type in public properties");
             let prop_getter: Vec<String> = vec![
                 "[[maybe_unused]] auto self = this;".into(),
                 format!("return {}.get();", access),
@@ -1832,16 +1832,18 @@ fn generate_public_api_for_properties(
                 ..Default::default()
             }));
 
-            let prop_setter: Vec<String> = vec![
-                "[[maybe_unused]] auto self = this;".into(),
-                property_set_value_code(r, "value", ctx) + ";",
-            ];
-            declarations.push(Declaration::Function(Function {
-                name: format!("set_{}", &prop_ident),
-                signature: format!("(const {} &value) const", &cpp_property_type),
-                statements: Some(prop_setter),
-                ..Default::default()
-            }));
+            if !p.read_only {
+                let prop_setter: Vec<String> = vec![
+                    "[[maybe_unused]] auto self = this;".into(),
+                    property_set_value_code(&p.prop, "value", ctx) + ";",
+                ];
+                declarations.push(Declaration::Function(Function {
+                    name: format!("set_{}", &prop_ident),
+                    signature: format!("(const {} &value) const", &cpp_property_type),
+                    statements: Some(prop_setter),
+                    ..Default::default()
+                }));
+            }
         }
     }
     declarations

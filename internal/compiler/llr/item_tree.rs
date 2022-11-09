@@ -352,4 +352,11 @@ impl PublicComponent {
     }
 }
 
-pub type PublicProperties = BTreeMap<String, (Type, PropertyReference)>;
+#[derive(Debug, Clone)]
+pub struct PublicProperty {
+    pub name: String,
+    pub ty: Type,
+    pub prop: PropertyReference,
+    pub read_only: bool,
+}
+pub type PublicProperties = Vec<PublicProperty>;
