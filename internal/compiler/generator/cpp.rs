@@ -506,7 +506,9 @@ pub fn generate(doc: &Document) -> impl std::fmt::Display {
                         init: Some(init),
                     })
                 }
+                #[cfg(feature = "software-renderer")]
                 crate::embedded_resources::EmbeddedResourcesKind::TextureData(_) => todo!(),
+                #[cfg(feature = "software-renderer")]
                 crate::embedded_resources::EmbeddedResourcesKind::BitmapFontData(_) => todo!(),
             }
         },

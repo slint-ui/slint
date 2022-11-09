@@ -15,6 +15,7 @@ mod compile_paths;
 mod const_propagation;
 mod deduplicate_property_read;
 mod default_geometry;
+#[cfg(feature = "software-renderer")]
 mod embed_glyphs;
 mod embed_images;
 mod ensure_window;
@@ -45,7 +46,6 @@ mod z_order;
 use crate::expression_tree::Expression;
 use crate::langtype::ElementType;
 use crate::namedreference::NamedReference;
-use std::collections::HashSet;
 use std::rc::Rc;
 
 pub async fn run_passes(
@@ -216,37 +216,41 @@ pub async fn run_passes(
     // collect globals once more: After optimizations we might have less globals
     collect_globals::collect_globals(doc, diag);
 
-    if compiler_config.embed_resources == crate::EmbedResourcesKind::EmbedTextures {
-        let mut characters_seen = HashSet::new();
+    match compiler_config.embed_resources {
+        #[cfg(feature = "software-renderer")]
+        crate::EmbedResourcesKind::EmbedTextures => {
+            let mut characters_seen = std::collections::HashSet::new();
 
-        // Include at least the default font sizes used in the MCU backend
-        let mut font_pixel_sizes = vec![(12. * compiler_config.scale_factor) as i16];
-        for component in (root_component.used_types.borrow().sub_components.iter())
-            .chain(std::iter::once(root_component))
-        {
-            embed_glyphs::collect_font_sizes_used(
-                component,
+            // Include at least the default font sizes used in the MCU backend
+            let mut font_pixel_sizes = vec![(12. * compiler_config.scale_factor) as i16];
+            for component in (root_component.used_types.borrow().sub_components.iter())
+                .chain(std::iter::once(root_component))
+            {
+                embed_glyphs::collect_font_sizes_used(
+                    component,
+                    compiler_config.scale_factor,
+                    &mut font_pixel_sizes,
+                );
+                embed_glyphs::scan_string_literals(component, &mut characters_seen);
+            }
+
+            embed_glyphs::embed_glyphs(
+                root_component,
                 compiler_config.scale_factor,
-                &mut font_pixel_sizes,
+                font_pixel_sizes,
+                characters_seen,
+                std::iter::once(&*doc).chain(type_loader.all_documents()),
+                diag,
             );
-            embed_glyphs::scan_string_literals(component, &mut characters_seen);
         }
-
-        embed_glyphs::embed_glyphs(
-            root_component,
-            compiler_config.scale_factor,
-            font_pixel_sizes,
-            characters_seen,
-            std::iter::once(&*doc).chain(type_loader.all_documents()),
-            diag,
-        );
-    } else {
-        // Create font registration calls for custom fonts, unless we're embedding pre-rendered glyphs
-        collect_custom_fonts::collect_custom_fonts(
-            root_component,
-            std::iter::once(&*doc).chain(type_loader.all_documents()),
-            compiler_config.embed_resources == crate::EmbedResourcesKind::EmbedAllResources,
-        );
+        _ => {
+            // Create font registration calls for custom fonts, unless we're embedding pre-rendered glyphs
+            collect_custom_fonts::collect_custom_fonts(
+                root_component,
+                std::iter::once(&*doc).chain(type_loader.all_documents()),
+                compiler_config.embed_resources == crate::EmbedResourcesKind::EmbedAllResources,
+            );
+        }
     }
 
     root_component.is_root_component.set(true);
