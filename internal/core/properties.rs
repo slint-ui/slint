@@ -970,7 +970,7 @@ impl<T: PartialEq + Clone + 'static> Property<T> {
         #[cfg(slint_debug_property)]
         let debug_name = format!("<{}<=>{}>", prop1.debug_name.borrow(), prop2.debug_name.borrow());
 
-        let value = prop2.get();
+        let value = prop2.get_untracked();
 
         let prop1_handle_val = prop1.handle.handle.get();
         if prop1_handle_val & 0b10 == 0b10 {
@@ -1089,6 +1089,40 @@ fn property_two_ways_test_binding() {
     assert_eq!(p1.as_ref().get(), 55 + 9);
     assert_eq!(p2.as_ref().get(), 55 + 9);
     assert_eq!(depends.as_ref().get(), 55 + 9 + 8);
+}
+
+#[test]
+fn property_two_ways_recurse_from_binding() {
+    let xx = Rc::pin(Property::new(0));
+
+    let p1 = Rc::pin(Property::new(42));
+    let p2 = Rc::pin(Property::new(88));
+    let global = Rc::pin(Property::new(23));
+
+    let done = Rc::new(Cell::new(false));
+    xx.set_binding({
+        let p1 = p1.clone();
+        let p2 = p2.clone();
+        let global = global.clone();
+        let xx_weak = pin_weak::rc::PinWeak::downgrade(xx.clone());
+        move || {
+            if !done.get() {
+                done.set(true);
+                Property::link_two_way(p1.as_ref(), p2.as_ref());
+                let xx = xx_weak.upgrade().unwrap();
+                p1.as_ref().set_binding(move || xx.as_ref().get() + 9);
+            }
+            global.as_ref().get() + 2
+        }
+    });
+    assert_eq!(xx.as_ref().get(), 23 + 2);
+    assert_eq!(p1.as_ref().get(), 23 + 2 + 9);
+    assert_eq!(p2.as_ref().get(), 23 + 2 + 9);
+
+    global.as_ref().set(55);
+    assert_eq!(p1.as_ref().get(), 55 + 2 + 9);
+    assert_eq!(p2.as_ref().get(), 55 + 2 + 9);
+    assert_eq!(xx.as_ref().get(), 55 + 2);
 }
 
 mod properties_animations;
