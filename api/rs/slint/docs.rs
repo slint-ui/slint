@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+// cSpell: ignore langref,rustdoc
+
 #![cfg(doc)]
 /*!
     This is a pseudo module which only exist for documentation purposes as a way to show
@@ -15,7 +17,7 @@
 */
 
 pub mod recipes {
-    #![doc = include_str!("docs/recipes/recipes.md")]
+    #![doc = include_str!("../../../docs/recipes/recipes.md")]
     //!
     //! #
     //! Next: [The `.slint` language reference](super::langref)
@@ -25,35 +27,35 @@ pub mod recipes {
 }
 
 pub mod langref {
-    #![doc = include_str!("docs/langref.md")]
+    #![doc = include_str!("../../../docs/langref.md")]
     //!
     //! #
     //! Next: [Builtin Elements](super::builtin_elements)
 }
 
 pub mod builtin_elements {
-    #![doc = include_str!("docs/builtin_elements.md")]
+    #![doc = include_str!("../../../docs/builtin_elements.md")]
     //!
     //! #
     //! Next: [Builtin Enums](super::builtin_enums)
 }
 
 pub mod builtin_enums {
-    #![doc = include_str!("docs/builtin_enums.md")]
+    #![doc = include_str!("../../../docs/builtin_enums.md")]
     //!
     //! #
     //! Next: [Widgets](super::widgets)
 }
 
 pub mod widgets {
-    #![doc = include_str!("docs/widgets.md")]
+    #![doc = include_str!("../../../docs/widgets.md")]
     //!
     //! #
     //! Next: [Layouting](super::layouting)
 }
 
 pub mod layouting {
-    #![doc = include_str!("docs/layouting.md")]
+    #![doc = include_str!("../../../docs/layouting.md")]
     #![doc = ""]
 }
 
@@ -179,7 +181,7 @@ pub mod generated_code {
 }
 
 pub mod debugging_techniques {
-    #![doc = include_str!("docs/debugging_techniques.md")]
+    #![doc = include_str!("../../../docs/debugging_techniques.md")]
     #![doc = ""]
 }
 
