@@ -524,11 +524,11 @@ fn public_api(
     ctx: &EvaluationContext,
 ) -> TokenStream {
     let mut property_and_callback_accessors: Vec<TokenStream> = vec![];
-    for (p, (ty, r)) in public_properties {
-        let prop_ident = ident(p);
-        let prop = access_member(r, ctx);
+    for p in public_properties {
+        let prop_ident = ident(&p.name);
+        let prop = access_member(&p.prop, ctx);
 
-        if let Type::Callback { args, return_type } = ty {
+        if let Type::Callback { args, return_type } = &p.ty {
             let callback_args =
                 args.iter().map(|a| rust_primitive_type(a).unwrap()).collect::<Vec<_>>();
             let return_type =
@@ -556,12 +556,11 @@ fn public_api(
                 }
             ));
         } else {
-            let rust_property_type = rust_primitive_type(ty).unwrap();
+            let rust_property_type = rust_primitive_type(&p.ty).unwrap();
 
             let getter_ident = format_ident!("get_{}", prop_ident);
-            let setter_ident = format_ident!("set_{}", prop_ident);
 
-            let prop_expression = primitive_property_value(ty, prop);
+            let prop_expression = primitive_property_value(&p.ty, prop);
 
             property_and_callback_accessors.push(quote!(
                 #[allow(dead_code)]
@@ -573,16 +572,19 @@ fn public_api(
                 }
             ));
 
-            let set_value = property_set_value_tokens(r, quote!(value), ctx);
-            property_and_callback_accessors.push(quote!(
-                #[allow(dead_code)]
-                pub fn #setter_ident(&self, value: #rust_property_type) {
-                    #[allow(unused_imports)]
-                    use slint::private_unstable_api::re_exports::*;
-                    let _self = #self_init;
-                    #set_value
-                }
-            ));
+            if !p.read_only {
+                let setter_ident = format_ident!("set_{}", prop_ident);
+                let set_value = property_set_value_tokens(&p.prop, quote!(value), ctx);
+                property_and_callback_accessors.push(quote!(
+                    #[allow(dead_code)]
+                    pub fn #setter_ident(&self, value: #rust_property_type) {
+                        #[allow(unused_imports)]
+                        use slint::private_unstable_api::re_exports::*;
+                        let _self = #self_init;
+                        #set_value
+                    }
+                ));
+            }
         }
     }
 

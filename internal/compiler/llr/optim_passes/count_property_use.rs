@@ -11,13 +11,13 @@ pub fn count_property_use(root: &PublicComponent) {
     // Visit the root properties that are used.
     // 1. the public properties
     let root_ctx = EvaluationContext::new_sub_component(root, &root.item_tree.root, (), None);
-    for (_, pr) in root.public_properties.values() {
-        visit_property(pr, &root_ctx);
+    for p in root.public_properties.iter() {
+        visit_property(&p.prop, &root_ctx);
     }
     for g in root.globals.iter().filter(|g| g.exported) {
         let ctx = EvaluationContext::new_global(root, g, ());
-        for (_, pr) in g.public_properties.values() {
-            visit_property(pr, &ctx);
+        for p in g.public_properties.iter() {
+            visit_property(&p.prop, &ctx);
         }
     }
 
