@@ -62,7 +62,7 @@
 
     var styleSelection = document.getElementById("style-selection");
     styleSelection.onchange = function (ev) {
-      var selectedStyle = styleSelection[styleSelection.selectedIndex].innerHTML;
+      var selectedStyle = styleSelection[styleSelection.selectedIndex].innerText;
 
       switch (selectedStyle) {
         case "fluent":
