@@ -833,6 +833,7 @@ impl Element {
                     PropertyDeclaration {
                         property_type: Type::InferredCallback,
                         node: Some(Either::Right(sig_decl)),
+                        visibility: PropertyVisibility::InOut,
                         ..Default::default()
                     },
                 );
@@ -848,6 +849,7 @@ impl Element {
                 PropertyDeclaration {
                     property_type: Type::Callback { return_type, args },
                     node: Some(Either::Right(sig_decl)),
+                    visibility: PropertyVisibility::InOut,
                     ..Default::default()
                 },
             );

@@ -9,6 +9,7 @@ All notable changes to this project are documented in this file.
    There was a warning about this change in previous versions (#1394)
  - `Window`'s `default-font-size` property is now always set to a non-zero value, provided by 
    either the style or the backend.
+ - In the interpreter, calling `set_property` or `get_property` on properties of the base no longer works.
 
 ### Added
 

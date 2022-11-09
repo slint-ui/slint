@@ -7,7 +7,7 @@ use crate::expression_tree::Expression as tree_Expression;
 use crate::langtype::{ElementType, Type};
 use crate::llr::item_tree::*;
 use crate::namedreference::NamedReference;
-use crate::object_tree::{Component, ElementRc};
+use crate::object_tree::{Component, ElementRc, PropertyVisibility};
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -661,7 +661,12 @@ fn public_properties(
         .map(|(p, c)| {
             let property_reference = mapping
                 .map_property_reference(&NamedReference::new(&component.root_element, p), state);
-            (p.clone(), (c.property_type.clone(), property_reference))
+            PublicProperty {
+                name: p.clone(),
+                ty: c.property_type.clone(),
+                prop: property_reference,
+                read_only: c.visibility == PropertyVisibility::Output,
+            }
         })
         .collect()
 }
