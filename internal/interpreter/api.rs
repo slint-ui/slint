@@ -760,16 +760,44 @@ impl ComponentInstance {
     pub fn get_property(&self, name: &str) -> Result<Value, GetPropertyError> {
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
+        let name = normalize_identifier(name);
+
+        if comp
+            .description()
+            .original
+            .root_element
+            .borrow()
+            .property_declarations
+            .get(name.as_ref())
+            .map_or(true, |d| !d.expose_in_public_api)
+        {
+            return Err(GetPropertyError::NoSuchProperty);
+        }
+
         comp.description()
-            .get_property(comp.borrow(), &normalize_identifier(name))
+            .get_property(comp.borrow(), &name)
             .map_err(|()| GetPropertyError::NoSuchProperty)
     }
 
     /// Set the value for a public property of this component
     pub fn set_property(&self, name: &str, value: Value) -> Result<(), SetPropertyError> {
+        let name = normalize_identifier(name);
         generativity::make_guard!(guard);
         let comp = self.inner.unerase(guard);
-        comp.description().set_property(comp.borrow(), &normalize_identifier(name), value)
+        let d = comp.description();
+        let elem = d.original.root_element.borrow();
+        let decl = elem
+            .property_declarations
+            .get(name.as_ref())
+            .ok_or(SetPropertyError::NoSuchProperty)?;
+
+        if !decl.expose_in_public_api {
+            return Err(SetPropertyError::NoSuchProperty);
+        } else if decl.visibility == i_slint_compiler::object_tree::PropertyVisibility::Output {
+            return Err(SetPropertyError::AccessDenied);
+        }
+
+        d.set_property(comp.borrow(), &name, value)
     }
 
     /// Set a handler for the callback with the given name. A callback with that
@@ -1035,6 +1063,9 @@ pub enum SetPropertyError {
     /// The property exist but does not have a type matching the dynamic value
     #[error("wrong type")]
     WrongType,
+    /// Attempt to set an output property
+    #[error("access denied")]
+    AccessDenied,
 }
 
 /// Error returned by [`ComponentInstance::set_callback`]
@@ -1149,6 +1180,8 @@ fn component_definition_properties2() {
     export Dummy := Rectangle {
         property <string> sub-text <=> sub.text;
         sub := Text { property <int> private-not-exported; }
+        out property <string> xreadonly: "the value";
+        private property <string> xx: sub.text;
         callback hello;
     }"#
             .into(),
@@ -1159,13 +1192,32 @@ fn component_definition_properties2() {
 
     let props = comp_def.properties().collect::<Vec<(_, _)>>();
 
-    assert_eq!(props.len(), 1);
+    assert_eq!(props.len(), 2);
     assert_eq!(props[0].0, "sub-text");
     assert_eq!(props[0].1, ValueType::String);
+    assert_eq!(props[1].0, "xreadonly");
 
     let callbacks = comp_def.callbacks().collect::<Vec<_>>();
     assert_eq!(callbacks.len(), 1);
     assert_eq!(callbacks[0], "hello");
+
+    let instance = comp_def.create();
+    assert_eq!(
+        instance.set_property("xreadonly", SharedString::from("XXX").into()),
+        Err(SetPropertyError::AccessDenied)
+    );
+    assert_eq!(instance.get_property("xreadonly"), Ok(Value::String("the value".into())));
+    assert_eq!(
+        instance.set_property("xx", SharedString::from("XXX").into()),
+        Err(SetPropertyError::NoSuchProperty)
+    );
+    assert_eq!(
+        instance.set_property("background", Value::default()),
+        Err(SetPropertyError::NoSuchProperty)
+    );
+
+    assert_eq!(instance.get_property("background"), Err(GetPropertyError::NoSuchProperty));
+    assert_eq!(instance.get_property("xx"), Err(GetPropertyError::NoSuchProperty));
 }
 
 #[test]
