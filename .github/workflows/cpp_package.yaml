@@ -58,7 +58,7 @@ jobs:
       working-directory: ${{ runner.workspace }}/cppbuild
       run: cmake --build . --config Release --target package
     - name: "Upload C++ packages"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: cpp_bin
           path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*

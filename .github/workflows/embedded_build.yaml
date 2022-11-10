@@ -63,7 +63,7 @@ jobs:
           command: build
           args: --release --target=${{ matrix.target }} --workspace --exclude slint-node --exclude mcu-board-support --exclude printerdemo_mcu ${{ env.EXTRA_ARGS }}
     - name: "Upload printerdemo artifact"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: printerdemo-${{ matrix.target }}
           path: |

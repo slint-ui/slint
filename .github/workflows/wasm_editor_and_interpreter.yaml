@@ -31,7 +31,7 @@ jobs:
         working-directory: tools/online_editor
 
       - name: "Upload wasm Artifacts"
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: wasm
           path: |
@@ -64,7 +64,7 @@ jobs:
         working-directory: tools/online_editor
 
       - name: "Upload online_editor Artifacts"
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: online_editor
           path: tools/online_editor/dist/

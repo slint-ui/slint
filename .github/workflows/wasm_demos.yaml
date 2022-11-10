@@ -72,7 +72,7 @@ jobs:
         wasm-pack build --release --target web
       working-directory: examples/opengl_underlay
     - name: "Upload Demo Artifacts"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: wasm_demo
           path: |
