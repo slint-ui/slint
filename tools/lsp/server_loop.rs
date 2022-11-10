@@ -325,17 +325,22 @@ pub fn query_properties_command(
             .as_u64()
             .ok_or_else(|| -> Error { "Failed to convert third parameter to int".into() })?,
     )?;
+
+    let source_version =
+        document_cache.document_version(&text_document_uri).ok_or_else(|| -> Error {
+            format!("Document with uri {} not found in cache.", text_document_uri.to_string())
+                .into()
+        })?;
+
     if let Some(element) =
         element_at_position(document_cache, &text_document_uri, &Position { line, character })
     {
-        properties::query_properties(
-            &element,
-            &mut document_cache.offset_to_position_mapper(text_document_uri.clone()),
-        )
-        .map(|r| serde_json::to_value(r).expect("Failed to serialize property query result!"))
+        properties::query_properties(document_cache, &text_document_uri, source_version, &element)
+            .map(|r| serde_json::to_value(r).expect("Failed to serialize property query result!"))
     } else {
         Ok(serde_json::to_value(properties::QueryPropertyResponse::no_element_response(
             text_document_uri.to_string(),
+            source_version,
         ))
         .expect("Failed to serialize none-element property query result!"))
     }

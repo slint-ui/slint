@@ -9,6 +9,8 @@ use i_slint_compiler::object_tree::{Element, ElementRc, PropertyVisibility};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind};
 use std::collections::HashSet;
 
+use crate::server_loop::DocumentCache;
+
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
@@ -44,12 +46,13 @@ pub(crate) struct ElementInformation {
 pub(crate) struct QueryPropertyResponse {
     properties: Vec<PropertyInformation>,
     element: Option<ElementInformation>,
-    source_uri: Option<String>,
+    source_uri: String,
+    source_version: i32,
 }
 
 impl QueryPropertyResponse {
-    pub fn no_element_response(uri: String) -> Self {
-        QueryPropertyResponse { properties: vec![], element: None, source_uri: Some(uri) }
+    pub fn no_element_response(source_uri: String, source_version: i32) -> Self {
+        QueryPropertyResponse { properties: vec![], element: None, source_uri, source_version }
     }
 }
 
@@ -329,14 +332,19 @@ fn get_element_information(
     Some(ElementInformation { id: e.id.clone(), type_name: format!("{}", e.base_type), range })
 }
 
-pub(crate) fn query_properties(
+pub(crate) fn query_properties<'a>(
+    document_cache: &mut DocumentCache,
+    uri: &lsp_types::Url,
+    source_version: i32,
     element: &ElementRc,
-    offset_to_position: &mut OffsetToPositionMapper,
 ) -> Result<QueryPropertyResponse, crate::Error> {
+    let mut mapper = document_cache.offset_to_position_mapper(uri.clone());
+
     Ok(QueryPropertyResponse {
-        properties: get_properties(&element, offset_to_position),
-        element: get_element_information(&element, offset_to_position),
-        source_uri: source_file(&element.borrow()),
+        properties: get_properties(&element, &mut mapper),
+        element: get_element_information(&element, &mut mapper),
+        source_uri: uri.to_string(),
+        source_version,
     })
 }
 
@@ -344,7 +352,8 @@ pub(crate) fn query_properties(
 mod tests {
     use super::*;
 
-    use crate::server_loop::DocumentCache;
+    use crate::server_loop;
+
     use crate::test::{complex_document_cache, loaded_document_cache};
 
     fn find_property<'a>(
@@ -360,11 +369,8 @@ mod tests {
         dc: &mut DocumentCache,
         url: &lsp_types::Url,
     ) -> Option<(ElementRc, Vec<PropertyInformation>)> {
-        let element = crate::server_loop::element_at_position(
-            dc,
-            &url,
-            &lsp_types::Position { line, character },
-        )?;
+        let element =
+            server_loop::element_at_position(dc, &url, &lsp_types::Position { line, character })?;
         Some((
             element.clone(),
             get_properties(&element, &mut dc.offset_to_position_mapper(url.clone())),
