@@ -304,26 +304,12 @@ pub fn query_properties_command(
 ) -> Result<serde_json::Value, Error> {
     use crate::properties;
 
-    let text_document_uri = Url::parse(
-        params
-            .get(0)
-            .ok_or_else(|| -> Error { "No first parameter".into() })?
-            .as_str()
-            .ok_or_else(|| -> Error { "Failed to convert first parameter to string".into() })?,
-    )?;
-    let line = u32::try_from(
-        params
-            .get(1)
-            .ok_or_else(|| -> Error { "No second parameter".into() })?
-            .as_u64()
-            .ok_or_else(|| -> Error { "Failed to convert second parameter to int".into() })?,
-    )?;
-    let character = u32::try_from(
-        params
-            .get(2)
-            .ok_or_else(|| -> Error { "No third parameter.".into() })?
-            .as_u64()
-            .ok_or_else(|| -> Error { "Failed to convert third parameter to int".into() })?,
+    let text_document_uri = serde_json::from_value::<lsp_types::TextDocumentIdentifier>(
+        params.get(0).ok_or_else(|| -> Error { "No text document provided".into() })?.clone(),
+    )?
+    .uri;
+    let position = serde_json::from_value::<lsp_types::Position>(
+        params.get(1).ok_or_else(|| -> Error { "No position provided".into() })?.clone(),
     )?;
 
     let source_version =
@@ -332,9 +318,7 @@ pub fn query_properties_command(
                 .into()
         })?;
 
-    if let Some(element) =
-        element_at_position(document_cache, &text_document_uri, &Position { line, character })
-    {
+    if let Some(element) = element_at_position(document_cache, &text_document_uri, &position) {
         properties::query_properties(document_cache, &text_document_uri, source_version, &element)
             .map(|r| serde_json::to_value(r).expect("Failed to serialize property query result!"))
     } else {
