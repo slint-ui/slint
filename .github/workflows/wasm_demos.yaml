@@ -86,6 +86,7 @@ jobs:
               examples/imagefilter/
               examples/plotter/
               examples/opengl_underlay/
+              !/**/.gitignore
     - name: Clean cache # Otherwise the cache is much too big
       run: |
           du -hs target
