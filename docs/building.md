@@ -50,6 +50,18 @@ To use Slint from Node.js, the following extra dependencies are needed.
 - **[Node.js](https://nodejs.org/en/)** (including npm) At this time you will need to use the LTS version.
 - **[Python](https://www.python.org)**
 
+### Symlinks in the repository (Windows)
+
+The Slint repository makes use of symbolic links to avoid duplication.
+On Windows, this require to set a git config before cloning, and have Windows
+switched in developer mode or do the git clone as Administrator
+
+```sh
+git clone -c core.symlinks=true https://github.com/slint-ui/slint
+```
+
+More info: <https://github.com/git-for-windows/git/wiki/Symbolic-Links>
+
 ## Building and Testing
 
 Most of the project is written in Rust, and compiling and running the test can
