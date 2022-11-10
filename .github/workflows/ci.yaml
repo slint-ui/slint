@@ -60,15 +60,12 @@ jobs:
       with:
         key: x-v2-${{ steps.node-install.outputs.node-version }} # the cache key consists of a manually bumpable version and the node version, as the cached rustc artifacts contain linking information where to find node.lib, which is in a versioned directory.
     - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-          command: build
-          args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel  # mcu backend requires nightly
+      run: cargo build --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel  # mcu backend requires nightly
     - name: Run tests
       uses: actions-rs/cargo@v1
       with:
-          command: test
-          args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel   # mcu backend requires nightly
+        command: test
+        args: --verbose --all-features --workspace ${{ matrix.extra_args }} --exclude test-driver-cpp --exclude mcu-board-support --exclude printerdemo_mcu --exclude carousel   # mcu backend requires nightly
 
   cpp_test_driver:
     env:
@@ -102,15 +99,9 @@ jobs:
           echo "SLINT_NO_QT=1" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
     - uses: ./.github/actions/setup-rust
     - name: Build
-      uses: actions-rs/cargo@v1
-      with:
-          command: build
-          args: --lib -p slint-cpp --features testing,backend-qt
+      run: cargo build --lib -p slint-cpp --features testing,backend-qt
     - name: Run tests
-      uses: actions-rs/cargo@v1
-      with:
-          command: test
-          args: --verbose -p  test-driver-cpp --features slint-cpp/backend-qt
+      run: cargo test --verbose -p  test-driver-cpp --features slint-cpp/backend-qt
 
   cpp_cmake:
     env:
@@ -217,10 +208,7 @@ jobs:
         toolchain: nightly
         target: thumbv6m-none-eabi
     - name: Check
-      uses: actions-rs/cargo@v1
-      with:
-          command: check
-          args: --target=thumbv6m-none-eabi -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789
+      run: cargo check --target=thumbv6m-none-eabi -p printerdemo_mcu --no-default-features --features=mcu-board-support/pico-st7789
 
   docs:
     uses: ./.github/workflows/build_docs.yaml
@@ -270,12 +258,9 @@ jobs:
     - name: Show the diff
       run: git diff
     - name: test
-      uses: actions-rs/cargo@v1
-      with:
-          command: test
-          # Skip a few tests that rely on private renamed properties.
-          args: | 
-              --bin test-driver-interpreter -- \
+      # Skip a few tests that rely on private renamed properties.
+      run: |
+        cargo test --bin test-driver-interpreter -- \
                   --skip test_interpreter_text_cursor_move \
                   --skip test_interpreter_text_cursor_move_grapheme \
                   --skip test_interpreter_text_cut \
