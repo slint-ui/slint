@@ -56,12 +56,11 @@ jobs:
       if: matrix.target != 'riscv64gc-unknown-linux-gnu'
       run: |
           echo "EXTRA_ARGS=--features slint/renderer-winit-skia" >> $GITHUB_ENV
-    - name: Build
-      uses: actions-rs/cargo@v1
+    - uses: baptiste0928/cargo-install@v1
       with:
-          use-cross: true
-          command: build
-          args: --release --target=${{ matrix.target }} --workspace --exclude slint-node --exclude mcu-board-support --exclude printerdemo_mcu ${{ env.EXTRA_ARGS }}
+        crate: cross
+    - name: Build
+      run: cross build --release --target=${{ matrix.target }} --workspace --exclude slint-node --exclude mcu-board-support --exclude printerdemo_mcu ${{ env.EXTRA_ARGS }}
     - name: "Upload printerdemo artifact"
       uses: actions/upload-artifact@v3
       with:

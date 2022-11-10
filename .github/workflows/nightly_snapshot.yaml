@@ -158,12 +158,11 @@ jobs:
     - uses: ./.github/actions/setup-rust
       with:
         target: ${{ matrix.target }}
-    - name: Build LSP
-      uses: actions-rs/cargo@v1
+    - uses: baptiste0928/cargo-install@v1
       with:
-          use-cross: true
-          command: build
-          args: --target ${{ matrix.target }} --release -p slint-lsp
+        crate: cross
+    - name: Build LSP
+      run: cross build --target ${{ matrix.target }} --release -p slint-lsp
     - name: Create artifact directory
       run: |
           mkdir bin
