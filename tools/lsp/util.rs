@@ -41,7 +41,7 @@ pub fn lookup_current_element_type(mut node: SyntaxNode, tr: &TypeRegister) -> O
     parent.lookup_type_for_child_element(&qualname.to_string(), tr).ok()
 }
 
-/// Run the function with the LoookupCtx associated with the token
+/// Run the function with the LookupCtx associated with the token
 pub fn with_lookup_ctx<R>(
     document_cache: &DocumentCache,
     node: SyntaxNode,
@@ -150,14 +150,14 @@ fn to_range(span: (usize, usize)) -> lsp_types::Range {
 
 pub fn text_range_to_lsp_range(
     range: rowan::TextRange,
-    offset_to_position: &mut dyn FnMut(u32) -> lsp_types::Position,
+    offset_to_position: &mut crate::server_loop::OffsetToPositionMapper,
 ) -> lsp_types::Range {
     // In the CST, the range end includes the last character, while in the lsp protocol the end of the
     // range is exclusive, i.e. it refers to the first excluded character. Hence the +1 below:
     let range_end_offset: u32 = range.end().into();
     lsp_types::Range {
-        start: offset_to_position(range.start().into()),
-        end: offset_to_position(range_end_offset + 1),
+        start: offset_to_position.map(range.start().into()),
+        end: offset_to_position.map(range_end_offset + 1),
     }
 }
 

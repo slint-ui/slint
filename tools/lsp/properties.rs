@@ -1,15 +1,13 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use crate::server_loop::OffsetToPositionMapper;
+use crate::server_loop::{DocumentCache, OffsetToPositionMapper};
 
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, ElementRc, PropertyVisibility};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind};
 use std::collections::HashSet;
-
-use crate::server_loop::DocumentCache;
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
@@ -18,6 +16,7 @@ use crate::wasm_prelude::*;
 pub(crate) struct DefinitionInformation {
     property_definition_range: lsp_types::Range,
     expression_range: lsp_types::Range,
+    expression_value: String,
 }
 
 #[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq)]
@@ -119,17 +118,17 @@ fn find_expression_range(
     offset_to_position: &mut OffsetToPositionMapper,
 ) -> Option<DefinitionInformation> {
     let mut property_definition_range = rowan::TextRange::default();
-    let mut expression = rowan::TextRange::default();
+    let mut expression_range = rowan::TextRange::default();
+    let mut expression_value = None;
 
     if let Some(token) = element.token_at_offset(offset.into()).right_biased() {
         for ancestor in token.parent_ancestors() {
             if ancestor.kind() == SyntaxKind::BindingExpression {
                 // The BindingExpression contains leading and trailing whitespace + `;`
-                let expr_range = ancestor
-                    .first_child()
-                    .expect("A BindingExpression needs to have a child!")
-                    .text_range();
-                expression = expr_range;
+                let expr =
+                    &ancestor.first_child().expect("A BindingExpression needs to have a child");
+                expression_range = expr.text_range();
+                expression_value = Some(expr.text());
                 continue;
             }
             if ancestor.kind() == SyntaxKind::Binding {
@@ -142,20 +141,26 @@ fn find_expression_range(
             }
         }
     }
-    if property_definition_range.start() < expression.start()
-        && expression.start() <= expression.end()
-        && expression.end() < property_definition_range.end()
+    if property_definition_range.start() < expression_range.start()
+        && expression_range.start() <= expression_range.end()
+        && expression_range.end() < property_definition_range.end()
     {
         return Some(DefinitionInformation {
             // In the CST, the range end includes the last character, while in the lsp protocol the end of the
             // range is exclusive, i.e. it refers to the first excluded character. Hence the +1 below:
             property_definition_range: crate::util::text_range_to_lsp_range(
                 property_definition_range,
-                &mut |ofs| offset_to_position.map(ofs),
+                offset_to_position,
             ),
-            expression_range: crate::util::text_range_to_lsp_range(expression, &mut |ofs| {
-                offset_to_position.map(ofs)
-            }),
+            expression_range: crate::util::text_range_to_lsp_range(
+                expression_range,
+                offset_to_position,
+            ),
+            expression_value: if let Some(et) = expression_value {
+                et.to_string()
+            } else {
+                String::new()
+            },
         });
     } else {
         None
