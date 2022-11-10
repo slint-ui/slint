@@ -63,11 +63,7 @@ jobs:
         target: ${{ matrix.toolchain }}
     - uses: ./.github/actions/install-linux-dependencies
     - name: Build LSP
-      uses: actions-rs/cargo@v1
-      with:
-          command: build
-          toolchain: stable
-          args: --target ${{ matrix.toolchain }} --release -p slint-lsp
+      run: cargo build --target ${{ matrix.toolchain }} --release -p slint-lsp
     - name: Create artifact directory
       run: |
           mkdir bin
@@ -114,11 +110,7 @@ jobs:
       with:
         target: aarch64-apple-darwin
     - name: Build AArch64 LSP
-      uses: actions-rs/cargo@v1
-      with:
-          command: build
-          toolchain: stable
-          args: --target aarch64-apple-darwin --release -p slint-lsp
+      run: build build --target aarch64-apple-darwin --release -p slint-lsp
     - name: Create artifact directory
       run: |
           mkdir bin
