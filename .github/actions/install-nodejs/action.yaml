@@ -20,12 +20,12 @@ runs:
     - id: node-version
       if: runner.os == 'Windows'
       run: |
-        echo "::set-output name=node-version::$(node --version)"
+        echo "node-version=$(node --version)"  >> $GITHUB_OUTPUT
       shell: powershell
     - id: node-query
       if: runner.os != 'Windows'
       run: |
-        echo "::set-output name=node-version::$(node --version)"
+        echo "node-version=$(node --version)"  >> $GITHUB_OUTPUT
       shell: bash
     - name: Cache native node libraries
       uses: actions/cache@v2
