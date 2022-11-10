@@ -15,6 +15,7 @@ export interface DeclarationPosition {
 export interface DefinitionPosition {
     property_definition_range: LspRange;
     expression_range: LspRange;
+    expression_value: string;
 }
 
 export interface Property {
