@@ -69,7 +69,7 @@ jobs:
           mkdir bin
           cp target/${{ matrix.toolchain }}/release/${{ matrix.binary_built }} bin/${{ matrix.artifact_name }}
     - name: "Upload LSP Artifact"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: vscode-lsp-binary-${{ matrix.toolchain }}
           path: |
@@ -94,7 +94,7 @@ jobs:
           mkdir bin
           cp -a target/release/bundle/osx/Slint\ Live\ Preview.app bin
     - name: "Upload LSP Artifact"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: vscode-lsp-binary-x86_64-apple-darwin
           path: |
@@ -116,7 +116,7 @@ jobs:
           mkdir bin
           cp -a target/aarch64-apple-darwin/release/slint-lsp bin/slint-lsp-aarch64-apple-darwin
     - name: "Upload LSP Artifact"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: vscode-lsp-binary-aarch64-apple-darwin
           path: |
@@ -139,7 +139,7 @@ jobs:
         mv tmp Slint\ Live\ Preview.app/Contents/MacOS/slint-lsp
         rm -rf bin
     - name: "Upload LSP macOS bundle Artifact"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: vscode-lsp-binary-darwin
           path: .
@@ -169,7 +169,7 @@ jobs:
           mkdir bin
           cp target/${{ matrix.target }}/release/slint-lsp bin/slint-lsp-${{ matrix.target }}
     - name: "Upload LSP Artifact"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: vscode-lsp-binary-${{ matrix.target }}
           path: |
@@ -233,7 +233,7 @@ jobs:
         extensionFile: ${{ steps.publishToVSCM.outputs.vsixPath }}
         packagePath: ''
     - name: "Upload extension artifact"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: slint-vscode.zip
           path: |

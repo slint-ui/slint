@@ -89,7 +89,7 @@ jobs:
           npm run docs
       working-directory: api/node
     - name: "Upload Docs Artifacts"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: docs
           path: |

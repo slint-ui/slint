@@ -153,7 +153,7 @@ jobs:
       working-directory: ${{ runner.workspace }}/cppbuild
       run: cmake --build . --config Debug --target package
     - name: "Create C++ packages artefact"
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
           name: cpp_bin-${{ matrix.os }}
           path: ${{ runner.workspace }}/cppbuild/Slint-cpp-*

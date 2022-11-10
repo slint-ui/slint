@@ -45,7 +45,7 @@ runs:
       env:
         DEBUG: "cypress:server:args"
 
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v3
       if: failure()
       with:
         name: cypress-screenshots-chrome
