@@ -4,9 +4,7 @@
 // cSpell: ignore lumino inmemory mimetypes printerdemo
 
 import { slint_language } from "./highlighting";
-import {
-    lsp_range_to_editor_range,
-} from "./lsp_integration";
+import { lsp_range_to_editor_range } from "./lsp_integration";
 import {
     PropertyQuery,
     BindingTextProvider,
@@ -439,9 +437,11 @@ class EditorPaneWidget extends Widget {
                         commands
                             .executeCommand(
                                 "queryProperties",
-                                uri.toString(),
-                                pos.position.lineNumber - 1,
-                                offset,
+                                { uri: uri.toString() },
+                                {
+                                    line: pos.position.lineNumber - 1,
+                                    character: offset,
+                                },
                             )
                             .then((r) => {
                                 const result = r as PropertyQuery;

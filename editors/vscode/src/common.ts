@@ -76,9 +76,8 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 
             let r = await vscode.commands.executeCommand(
                 "queryProperties",
-                event.textEditor.document.uri.toString(),
-                selection.active.line,
-                selection.active.character,
+                { uri: event.textEditor.document.uri.toString(), },
+                { line: selection.active.line, character: selection.active.character, },
             );
             const msg = {
                 command: "set_properties",
