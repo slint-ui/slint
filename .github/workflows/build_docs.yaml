@@ -27,7 +27,7 @@ jobs:
         echo "RUSTDOCFLAGS=$RUSTDOCFLAGS --extern-html-root-url rgb=https://docs.rs/rgb/$rgb_version/ -Z unstable-options" >> $GITHUB_ENV
     - uses: ./.github/actions/install-nodejs
     - name: Cache mdbook and mdbook-linkcheck
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: |
            ~/.cargo/bin/mdbook
@@ -48,7 +48,7 @@ jobs:
         python -m pip install --upgrade pip
         pip install --user pipenv
     - name: Cache Pipenv virtualenv
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       id: pipenv-cache
       with:
         path: ~/.local/share/virtualenvs

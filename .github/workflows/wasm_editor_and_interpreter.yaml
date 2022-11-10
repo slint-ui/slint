@@ -48,7 +48,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: wasm
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: ~/.npm
           key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('api/wasm-interpreter/pkg/package.json', 'tools/lsp/pkg/package.json', 'tools/online_editor/package.json') }}
@@ -79,7 +79,7 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: wasm
-      - uses: actions/cache@v2
+      - uses: actions/cache@v3
         with:
           path: ~/.npm
           key: ${{ runner.os }}-${{ github.job }}-node-${{ hashFiles('api/wasm-interpreter/pkg/package.json', 'tools/lsp/pkg/package.json', 'tools/online_editor/package.json') }}

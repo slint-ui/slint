@@ -28,7 +28,7 @@ runs:
         echo "node-version=$(node --version)"  >> $GITHUB_OUTPUT
       shell: bash
     - name: Cache native node libraries
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       if: runner.os == 'Windows'
       with:
         path: ~/node-gyp/cache
