@@ -33,7 +33,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
     # Python 3.11 breaks the neon-sys build
     - uses: actions/setup-python@v4
@@ -80,7 +80,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
       with:
         force-gcc-10: true
@@ -113,7 +113,7 @@ jobs:
         os: [ubuntu-20.04, macos-11, windows-2022]
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
       with:
         force-gcc-10: true
@@ -166,7 +166,7 @@ jobs:
       QT_QPA_PLATFORM: offscreen
       CARGO_INCREMENTAL: false
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
       with:
         force-gcc-10: true
@@ -202,7 +202,7 @@ jobs:
       RUSTFLAGS: --cfg slint_int_coord
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
       with:
         toolchain: nightly
@@ -232,7 +232,7 @@ jobs:
         from_version: ['0.3.0']
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
       with:
         fetch-depth: 0
     - uses: ./.github/actions/install-linux-dependencies

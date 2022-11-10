@@ -20,7 +20,7 @@ jobs:
       SLINT_NO_QT: 1
       CARGO_INCREMENTAL: false
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Set up rgb crate rustdoc link
       run: |
         rgb_version=`grep 'rgb = '  internal/core/Cargo.toml | sed 's/^.*"\(.*\)"/\1/'`

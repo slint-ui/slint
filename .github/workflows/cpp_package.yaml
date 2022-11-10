@@ -18,7 +18,7 @@ jobs:
         os: [ubuntu-20.04, macOS-11, windows-2022]
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
     - name: Install Qt (Ubuntu)
       uses: jurplel/install-qt-action@v3

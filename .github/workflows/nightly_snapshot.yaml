@@ -57,7 +57,7 @@ jobs:
             artifact_name: slint-lsp-x86_64-pc-windows-gnu.exe
     runs-on: ${{ matrix.os }}
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
       with:
         target: ${{ matrix.toolchain }}
@@ -80,7 +80,7 @@ jobs:
       SLINT_NO_QT: 1
     runs-on: macos-11
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
       with:
         target: x86_64-apple-darwin
@@ -105,7 +105,7 @@ jobs:
       SLINT_NO_QT: 1
     runs-on: macos-11
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
       with:
         target: aarch64-apple-darwin
@@ -154,7 +154,7 @@ jobs:
           - aarch64-unknown-linux-gnu
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/setup-rust
       with:
         target: ${{ matrix.target }}
@@ -179,7 +179,7 @@ jobs:
     needs: [build_vscode_lsp_linux_windows, build_vscode_lsp_macos_bundle, build_vscode_cross_linux_lsp]
     runs-on: macos-11
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: actions/download-artifact@v2
       with:
         name: vscode-lsp-binary-x86_64-unknown-linux-gnu
