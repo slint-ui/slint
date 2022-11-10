@@ -282,7 +282,7 @@ jobs:
 
                 mkdir -p snapshots/$target_branch/demos/$demo
                 cp -a ../$demo/$subdir/{pkg,index.html} snapshots/$target_branch/demos/$demo/
-                rm snapshots/$target_branch/demos/$demo/pkg/.gitignore
+                rm snapshots/$target_branch/demos/$demo/pkg/**/.gitignore
             done
 
             git add snapshots/$target_branch/demos
