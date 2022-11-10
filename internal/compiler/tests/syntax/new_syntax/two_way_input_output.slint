@@ -1,0 +1,325 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+component Button {
+    in property<bool> enabled : true;
+    out property <bool> pressed;
+    in-out property <bool> checked;
+    callback clicked();
+}
+
+component C1 {
+    out property <bool> out;
+    in property <bool> in;
+    in-out property <bool> inout;
+    property <bool> priv;
+
+    // pressed is "output" in Button
+    out <=> b.pressed;  // ok  (but then there should be no other assignment?)
+    in <=> b.pressed; // Error
+//  ^error{Cannot link to a output property}
+    inout <=> b.pressed;
+//  ^error{Cannot link to a output property}
+    priv <=> b.pressed; // makes assignment forbidden
+
+
+
+    b:= Button {
+        clicked => {
+            in = !in;
+//          ^error{Assignment on a input property}
+            out = !out;
+//          ^error{Cannot modify a property that is linked to a read-only property}
+            inout = !inout;
+            priv = !priv;
+//          ^error{Cannot modify a property that is linked to a read-only property}
+
+            self.enabled = !self.enabled;
+            self.checked = !self.checked;
+            self.pressed = !self.pressed;
+//          ^error{Assignment on a output property}
+
+        }
+    }
+
+}
+
+
+  component C2 {
+    out property <bool> out;
+    in property <bool> in;
+    in-out property <bool> inout;
+    property <bool> priv;
+
+    // enabled is "input" in Button
+    out <=> b.enabled;
+    in <=> b.enabled;
+    inout <=> b.enabled;
+    priv <=> b.enabled;
+
+    b:= Button {
+        clicked => {
+            in = !in;
+//          ^error{Assignment on a input property}
+            out = !out;
+            inout = !inout;
+            priv = !priv;
+
+
+            self.enabled = !self.enabled;
+//          ^error{Cannot modify a property that is linked to a read-only property}
+            self.checked = !self.checked;
+            self.pressed = !self.pressed;
+//          ^error{Assignment on a output property}
+
+        }
+    }
+}
+
+component C3 {
+    out property <bool> out;
+    in property <bool> in;
+    in-out property <bool> inout;
+    property <bool> priv;
+
+    // checked is "input/output" in Button
+    out <=> b.checked;
+    in <=> b.checked;
+    inout <=> b.checked;
+    priv <=> b.checked;
+
+    b:= Button {
+        clicked => {
+            in = !in;
+//          ^error{Assignment on a input property}
+            out = !out;
+            inout = !inout;
+            priv = !priv;
+
+            self.enabled = !self.enabled;
+            self.checked = !self.checked;
+//          ^error{Cannot modify a property that is linked to a read-only property}
+            self.pressed = !self.pressed;
+//          ^error{Assignment on a output property}
+        }
+    }
+}
+
+
+component C5 {
+    out property <bool> out;
+    in property <bool> in;
+    in-out property <bool> inout;
+    property <bool> priv;
+
+    Button { enabled <=> out; }
+    Button {
+        enabled <=> in;
+        clicked => { self.enabled = !self.enabled; }
+//                   ^error{Cannot modify a property that is linked to a read-only property}
+    }
+    Button { enabled <=> inout; }
+    Button { enabled <=> priv; }
+}
+
+component C6 {
+    out property <bool> out;
+    in property <bool> in;
+    in-out property <bool> inout;
+    property <bool> priv;
+
+    Button {
+        checked <=> out;
+        clicked => { out = !out; self.checked = !self.checked; }
+    }
+    Button {
+        checked <=> in;
+//      ^error{Cannot link to a input property}
+        clicked => { self.checked = !self.checked; }
+    }
+    Button {
+        checked <=> inout;
+        clicked => { inout = !inout; self.checked = !self.checked; }
+    }
+    Button {
+        checked <=> priv;
+        clicked => { priv = !priv; self.checked = !self.checked; }
+    }
+}
+
+component C7 {
+    b1 := Button {
+        clicked => {
+            self.enabled = !self.enabled;
+            self.checked = !self.checked;
+            self.pressed = !self.pressed;
+//          ^error{Assignment on a output property}
+        }
+    }
+    Button {
+        enabled <=> b1.pressed;
+        clicked => { self.enabled = !self.enabled; }
+//                   ^error{Cannot modify a property that is linked to a read-only property}
+    }
+    b2 := Button {
+        clicked => {
+            self.enabled = !self.enabled;
+            self.checked = !self.checked;
+            self.pressed = !self.pressed;
+//          ^error{Assignment on a output property}
+        }
+    }
+    Button { checked <=> b2.pressed;  }
+//           ^error{Cannot link to a output property}
+
+    b3 := Button {
+        clicked => {
+            self.enabled = !self.enabled;
+            self.checked = !self.checked;
+            self.pressed = !self.pressed;
+//          ^error{Assignment on a output property}
+        }
+    }
+    Button {
+        checked <=> b3.checked;
+        enabled <=> b3.checked;
+    }
+    Button {
+        checked <=> b3.enabled;
+        enabled <=> b3.enabled;
+    }
+}
+
+component C8 {
+    out property <bool> out1;
+    out property <bool> out2;
+    out property <bool> out3;
+    out property <bool> out4;
+
+    out property <bool> out <=> out1;
+    in property <bool> in <=> out2;
+    in-out property <bool> inout <=> out3;
+    property <bool> priv <=> out4;
+
+    Button {
+        clicked => {
+            out1 = !out1;
+            out2 = !out2;
+//          ^error{Cannot modify a property that is linked to a read-only property}
+            out3 = !out3;
+            out4 = !out4;
+        }
+    }
+}
+
+component C9 {
+    in property <bool> in1;
+    in property <bool> in2;
+    in property <bool> in3;
+    in property <bool> in4;
+
+    out property <bool> out <=> in1;
+    in property <bool> in <=> in2;
+//                        ^error{Cannot link to a input property}
+    in-out property <bool> inout <=> in3;
+//                               ^error{Cannot link to a input property}
+    property <bool> priv <=> in4;
+
+    Button {
+        clicked => {
+            out = !out;
+//          ^error{Cannot modify a property that is linked to a read-only property}
+            in = !in;
+//          ^error{Assignment on a input property}
+            inout = !inout;
+            priv = !priv;
+//          ^error{Cannot modify a property that is linked to a read-only property}
+        }
+    }
+}
+
+
+component C10 {
+    in-out property <bool> inout1;
+    in-out property <bool> inout2;
+    in-out property <bool> inout3;
+    in-out property <bool> inout4;
+
+    out property <bool> out <=> inout1;
+    in property <bool> in <=> inout2;
+//                        ^error{Cannot link input property}
+    in-out property <bool> inout <=> inout3;
+    property <bool> priv <=> inout4;
+
+    Button {
+        clicked => {
+            inout1 = !inout1;
+            inout2 = !inout2;
+            inout3 = !inout3;
+            inout4 = !inout4;
+            out = !out;
+            in = !in;
+//          ^error{Assignment on a input property}
+            inout = !inout;
+            priv = !priv;
+        }
+    }
+}
+
+component C11 {
+    property <bool> priv1;
+    property <bool> priv2;
+    property <bool> priv3;
+    property <bool> priv4;
+
+    out property <bool> out <=> priv1;
+    in property <bool> in <=> priv2;
+    in-out property <bool> inout <=> priv3;
+    property <bool> priv <=> priv4;
+
+    Button {
+        clicked => {
+            priv1 = !priv1;
+            priv2 = !priv2;
+//          ^error{Cannot modify a property that is linked to a read-only property}
+            priv3 = !priv3;
+            priv4 = !priv4;
+            out = !out;
+            in = !in;
+//          ^error{Assignment on a input property}
+            inout = !inout;
+            priv = !priv;
+        }
+    }
+}
+
+Legacy1 := Rectangle {
+    b1:= Button {}
+    in property in1 <=> b1.pressed;
+//                  ^warning{Link to a output property is deprecated}
+    out property out1 <=> b1.pressed;
+    in-out property inout1 <=> b1.pressed;
+//                         ^warning{Link to a output property is deprecated}
+
+
+    property <bool> p1;
+    Button {
+        pressed <=> p1;
+//      ^warning{Assigning to output property 'pressed' is deprecated}
+        clicked => {
+            p1 = !p1;
+            out1 = !out1;
+//          ^warning{Modifying a property that is linked to a read-only property is deprecated}
+        }
+    }
+    Button {
+        enabled <=> self.pressed;
+        clicked => {
+            self.enabled = !self.enabled;
+//          ^warning{Modifying a property that is linked to a read-only property is deprecated}
+        }
+    }
+
+
+}
+

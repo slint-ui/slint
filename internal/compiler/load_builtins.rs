@@ -86,6 +86,8 @@ pub fn load_builtins(register: &mut TypeRegister) {
                         register,
                     ));
 
+                    info.property_visibility = PropertyVisibility::Private;
+
                     for token in p.children_with_tokens() {
                         if token.kind() != SyntaxKind::Identifier {
                             continue;

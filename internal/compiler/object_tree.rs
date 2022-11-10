@@ -614,6 +614,9 @@ pub struct PropertyAnalysis {
 
     /// true if this property is read from another component
     pub is_read_externally: bool,
+
+    /// True if the property is linked to another property that is read only. That property becomes read-only
+    pub is_linked_to_read_only: bool,
 }
 
 impl PropertyAnalysis {
@@ -1233,7 +1236,7 @@ impl Element {
                     && lookup_result.property_visibility == PropertyVisibility::Output
                 {
                     diag.push_warning(
-                        format!("Assigning to out property '{unresolved_name}' is deprecated"),
+                        format!("Assigning to output property '{unresolved_name}' is deprecated"),
                         &name_token,
                     );
                 } else {

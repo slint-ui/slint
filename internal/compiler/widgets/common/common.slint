@@ -11,7 +11,7 @@ export LineEditInner := Rectangle {
     property text <=> input.text;
     property placeholder-color <=> placeholder.color;
     property enabled <=> input.enabled;
-    property has-focus <=> input.has-focus;
+    property <bool> has-focus: input.has-focus;
     property input-type <=> input.input-type;
     property horizontal-alignment <=> input.horizontal-alignment;
     property read-only <=> input.read-only;
@@ -47,7 +47,7 @@ export LineEditInner := Rectangle {
 export TextEdit := ScrollView {
     property <length> font-size <=> input.font-size;
     property <string> text <=> input.text;
-    has-focus <=> input.has-focus;
+    has-focus: input.has-focus;
     enabled <=> input.enabled;
     property <TextWrap> wrap <=> input.wrap;
     property horizontal-alignment <=> input.horizontal-alignment;
