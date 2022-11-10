@@ -37,6 +37,7 @@ export interface BindingTextProvider {
 
 export interface PropertyQuery {
     source_uri: string;
+    source_version: number;
     element: Element | null;
     properties: Property[];
 }
