@@ -41,7 +41,7 @@ jobs:
 
     runs-on: ubuntu-20.04
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - uses: ./.github/actions/install-linux-dependencies
       with:
         extra-packages: libpango1.0-dev libatk1.0-dev libgtk-3-dev alsa-utils libasound2-dev libavcodec-dev libavformat-dev libavutil-dev libswscale-dev libjack-jackd2-dev autoconf libxcb-xrm0 libxcb-xrm-dev automake  libxcb-keysyms1-dev libxcb-util0-dev libxcb-icccm4-dev libyajl-dev libstartup-notification0-dev libxcb-randr0-dev libev-dev libxcb-cursor-dev libxcb-xinerama0-dev libxcb-xkb-dev libxkbcommon-dev libxkbcommon-x11-dev libudev-dev
