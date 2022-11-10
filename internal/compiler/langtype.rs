@@ -346,7 +346,7 @@ pub struct BuiltinPropertyInfo {
 
 impl BuiltinPropertyInfo {
     pub fn new(ty: Type) -> Self {
-        Self { ty, default_value: None, property_visibility: PropertyVisibility::Private }
+        Self { ty, default_value: None, property_visibility: PropertyVisibility::InOut }
     }
 
     pub fn is_native_output(&self) -> bool {

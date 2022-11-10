@@ -30,7 +30,6 @@ fn resolve_expression(
     scope: &ComponentScope,
     type_register: &TypeRegister,
     type_loader: &crate::typeloader::TypeLoader,
-    two_ways: &mut Vec<(String, NamedReference)>,
     diag: &mut BuildDiagnostics,
 ) {
     if let Expression::Uncompiled(node) = expr {
@@ -59,14 +58,7 @@ fn resolve_expression(
                 Expression::from_binding_expression_node(node.clone(), &mut lookup_ctx)
             }
             SyntaxKind::TwoWayBinding => {
-                if lookup_ctx.property_type == Type::Invalid {
-                    // An attempt to resolve this already failed when trying to resolve the property type
-                    assert!(diag.has_error());
-                    return;
-                }
-                if let Some(nr) = resolve_two_way_binding(node.clone().into(), &mut lookup_ctx) {
-                    two_ways.push((property_name.unwrap().into(), nr));
-                }
+                assert!(diag.has_error(), "Two way binding should have been resolved already  (property: {property_name:?})");
                 Expression::Invalid
             }
             _ => {
@@ -83,6 +75,8 @@ pub fn resolve_expressions(
     type_loader: &crate::typeloader::TypeLoader,
     diag: &mut BuildDiagnostics,
 ) {
+    resolve_two_way_bindings(doc, &doc.local_registry, diag);
+
     for component in doc.inner_components.iter() {
         let scope = ComponentScope(vec![]);
 
@@ -90,7 +84,6 @@ pub fn resolve_expressions(
             let mut new_scope = scope.clone();
             let mut is_repeated = elem.borrow().repeated.is_some();
             new_scope.0.push(elem.clone());
-            let mut two_ways = vec![];
             visit_element_expressions(elem, |expr, property_name, property_type| {
                 if is_repeated {
                     // The first expression is always the model and it needs to be resolved with the parent scope
@@ -102,7 +95,6 @@ pub fn resolve_expressions(
                         &scope,
                         &doc.local_registry,
                         type_loader,
-                        &mut two_ways,
                         diag,
                     );
                     is_repeated = false;
@@ -114,14 +106,10 @@ pub fn resolve_expressions(
                         &new_scope,
                         &doc.local_registry,
                         type_loader,
-                        &mut two_ways,
                         diag,
                     )
                 }
             });
-            for (prop, nr) in two_ways {
-                elem.borrow().bindings.get(&prop).unwrap().borrow_mut().two_way_bindings.push(nr);
-            }
             new_scope
         })
     }
@@ -1137,6 +1125,123 @@ fn maybe_lookup_object(
         }
     }
     base
+}
+
+/// Go through all the two way binding and resolve them first
+fn resolve_two_way_bindings(
+    doc: &Document,
+    type_register: &TypeRegister,
+    diag: &mut BuildDiagnostics,
+) {
+    for component in doc.inner_components.iter() {
+        let scope = ComponentScope(vec![]);
+
+        recurse_elem(&component.root_element, &scope, &mut |elem, scope| {
+            let mut new_scope = scope.clone();
+            new_scope.0.push(elem.clone());
+            for (prop_name, binding) in &elem.borrow().bindings {
+                let mut binding = binding.borrow_mut();
+                if let Expression::Uncompiled(node) = binding.expression.clone() {
+                    if let Some(n) = syntax_nodes::TwoWayBinding::new(node.clone()) {
+                        let lhs_lookup = elem.borrow().lookup_property(prop_name);
+                        if lhs_lookup.property_type == Type::Invalid {
+                            // An attempt to resolve this already failed when trying to resolve the property type
+                            assert!(diag.has_error());
+                            continue;
+                        }
+                        let mut lookup_ctx = LookupCtx {
+                            property_name: Some(prop_name.as_str()),
+                            property_type: lhs_lookup.property_type.clone(),
+                            component_scope: &new_scope.0,
+                            diag,
+                            arguments: vec![],
+                            type_register,
+                            type_loader: None,
+                            current_token: Some(node.clone().into()),
+                        };
+
+                        binding.expression = Expression::Invalid;
+
+                        if let Some(nr) = resolve_two_way_binding(n, &mut lookup_ctx) {
+                            binding.two_way_bindings.push(nr.clone());
+
+                            // Check the compatibility.
+                            let rhs_lookup = nr.element().borrow().lookup_property(nr.name());
+
+                            if !rhs_lookup.is_valid_for_assignment() {
+                                match (
+                                    lhs_lookup.property_visibility,
+                                    rhs_lookup.property_visibility,
+                                ) {
+                                    (PropertyVisibility::Input, PropertyVisibility::Input)
+                                        if !lhs_lookup.is_local_to_component =>
+                                    {
+                                        assert!(rhs_lookup.is_local_to_component);
+                                        marked_linked_read_only(elem, prop_name);
+                                    }
+                                    (
+                                        PropertyVisibility::Output | PropertyVisibility::Private,
+                                        PropertyVisibility::Output | PropertyVisibility::Input,
+                                    ) => {
+                                        assert!(lhs_lookup.is_local_to_component);
+                                        marked_linked_read_only(elem, prop_name);
+                                    }
+                                    (PropertyVisibility::Input, PropertyVisibility::Output)
+                                        if !lhs_lookup.is_local_to_component =>
+                                    {
+                                        assert!(!rhs_lookup.is_local_to_component);
+                                        marked_linked_read_only(elem, prop_name);
+                                    }
+                                    _ => {
+                                        if lookup_ctx.is_legacy_component() {
+                                            diag.push_warning(
+                                                format!(
+                                                    "Link to a {} property is deprecated",
+                                                    rhs_lookup.property_visibility
+                                                ),
+                                                &node,
+                                            );
+                                        } else {
+                                            diag.push_error(
+                                                format!(
+                                                    "Cannot link to a {} property",
+                                                    rhs_lookup.property_visibility
+                                                ),
+                                                &node,
+                                            )
+                                        }
+                                    }
+                                }
+                            } else if !lhs_lookup.is_valid_for_assignment() {
+                                if rhs_lookup.is_local_to_component
+                                    && rhs_lookup.property_visibility == PropertyVisibility::InOut
+                                {
+                                    if lookup_ctx.is_legacy_component() {
+                                        debug_assert!(!diag.is_empty()); // warning should already be reported
+                                    } else {
+                                        diag.push_error("Cannot link input property".into(), &node);
+                                    }
+                                } else {
+                                    // This is allowed, but then the rhs must also become read only.
+                                    marked_linked_read_only(&nr.element(), nr.name());
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            new_scope
+        })
+    }
+
+    fn marked_linked_read_only(elem: &ElementRc, prop_name: &str) {
+        elem.borrow()
+            .property_analysis
+            .borrow_mut()
+            .entry(prop_name.to_string())
+            .or_default()
+            .is_linked_to_read_only = true;
+    }
 }
 
 pub fn resolve_two_way_binding(

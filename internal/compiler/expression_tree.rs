@@ -1130,7 +1130,26 @@ impl Expression {
                 nr.mark_as_set();
                 let lookup = nr.element().borrow().lookup_property(nr.name());
                 if lookup.is_valid_for_assignment() {
-                    true
+                    if !nr
+                        .element()
+                        .borrow()
+                        .property_analysis
+                        .borrow()
+                        .get(nr.name())
+                        .map_or(false, |d| d.is_linked_to_read_only)
+                    {
+                        true
+                    } else if is_legacy_component {
+                        diag.push_warning("Modifying a property that is linked to a read-only property is deprecated".into(), node);
+                        true
+                    } else {
+                        diag.push_error(
+                            "Cannot modify a property that is linked to a read-only property"
+                                .into(),
+                            node,
+                        );
+                        false
+                    }
                 } else if is_legacy_component
                     && lookup.property_visibility == PropertyVisibility::Output
                 {
