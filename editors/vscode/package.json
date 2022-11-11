@@ -78,6 +78,17 @@
 						"type": "string"
 					},
 					"description": "The command line arguments passed to the Slint LSP server"
+				},
+				"slint.preview.style": {
+					"type": "string",
+					"description": "The style to be used for the preview (eg: 'fluent', 'material', or 'native')"
+				},
+				"slint.includePaths": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "List of paths in which the `import` statement and `@image-url` are looked up"
 				}
 			}
 		},

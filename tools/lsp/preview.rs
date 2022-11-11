@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use crate::lsp_ext::{Health, ServerStatusNotification, ServerStatusParams};
+use i_slint_compiler::CompilerConfiguration;
 use lsp_types::notification::Notification;
 use once_cell::sync::Lazy;
 use slint_interpreter::ComponentHandle;
@@ -152,6 +153,12 @@ pub struct PreviewComponent {
     /// The name of the component within that file.
     /// If None, then the last component is going to be shown.
     pub component: Option<String>,
+
+    /// The list of include paths
+    pub include_paths: Vec<std::path::PathBuf>,
+
+    /// The style name for the preview
+    pub style: String,
 }
 
 #[derive(Default)]
@@ -178,6 +185,23 @@ pub fn set_contents(path: &Path, content: String) {
     }
 }
 
+pub fn config_changed(config: &CompilerConfiguration) {
+    if let Some(cache) = CONTENT_CACHE.get() {
+        let mut cache = cache.lock().unwrap();
+        let style = config.style.clone().unwrap_or_default();
+        if cache.current.style != style || cache.current.include_paths != config.include_paths {
+            cache.current.style = style;
+            cache.current.include_paths = config.include_paths.clone();
+            let current = cache.current.clone();
+            let sender = cache.sender.clone();
+            drop(cache);
+            if let Some(sender) = sender {
+                load_preview(sender, current, PostLoadBehavior::DoNothing);
+            }
+        }
+    };
+}
+
 /// If the file is in the cache, returns it.
 /// In any was, register it as a dependency
 fn get_file_from_cache(path: PathBuf) -> Option<String> {
@@ -201,15 +225,11 @@ async fn reload_preview(
     }
 
     let mut builder = slint_interpreter::ComponentCompiler::default();
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        use clap::Parser;
-        let cli_args = super::Cli::parse();
-        if !cli_args.style.is_empty() {
-            builder.set_style(cli_args.style)
-        };
-        builder.set_include_paths(cli_args.include_paths);
+
+    if !preview_component.style.is_empty() {
+        builder.set_style(preview_component.style);
     }
+    builder.set_include_paths(preview_component.include_paths);
 
     builder.set_file_loader(|path| {
         let path = path.to_owned();

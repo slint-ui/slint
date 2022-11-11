@@ -40,12 +40,40 @@ pub mod wasm_prelude {
 }
 
 #[derive(Clone)]
-pub struct ServerNotifier(Function);
+pub struct ServerNotifier {
+    send_notification: Function,
+    send_request: Function,
+    document_cache: Rc<RefCell<DocumentCache>>,
+    reentry_guard: Rc<RefCell<ReentryGuard>>,
+}
 impl ServerNotifier {
     pub fn send_notification(&self, method: String, params: impl Serialize) -> Result<(), Error> {
-        self.0
+        self.send_notification
             .call2(&JsValue::UNDEFINED, &method.into(), &to_value(&params)?)
             .map_err(|x| format!("Error calling send_notification: {x:?}"))?;
+        Ok(())
+    }
+
+    pub fn send_request<T: lsp_types::request::Request>(
+        &self,
+        request: T::Params,
+        f: impl FnOnce(Result<T::Result, String>, &mut DocumentCache) + Send + 'static,
+    ) -> Result<(), Error> {
+        let promise = self
+            .send_request
+            .call2(&JsValue::UNDEFINED, &T::METHOD.into(), &to_value(&request)?)
+            .map_err(|x| format!("Error calling send_request: {x:?}"))?;
+        let future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(promise));
+        let document_cache = self.document_cache.clone();
+        let guard = self.reentry_guard.clone();
+        wasm_bindgen_futures::spawn_local(async move {
+            let r = future
+                .await
+                .map_err(|e| format!("{e:?}"))
+                .and_then(|v| serde_wasm_bindgen::from_value(v).map_err(|e| format!("{e:?}")));
+            let _lock = ReentryGuard::lock(guard).await;
+            f(r, &mut document_cache.borrow_mut());
+        });
         Ok(())
     }
 }
@@ -130,12 +158,16 @@ impl Drop for ReentryGuardLock {
 #[wasm_bindgen(typescript_custom_section)]
 const IMPORT_CALLBACK_FUNCTION_SECTION: &'static str = r#"
 type ImportCallbackFunction = (url: string) => Promise<string>;
+type SendRequestFunction = (method: string, r: any) => Promise<any>;
 "#;
 
 #[wasm_bindgen]
 extern "C" {
     #[wasm_bindgen(typescript_type = "ImportCallbackFunction")]
     pub type ImportCallbackFunction;
+
+    #[wasm_bindgen(typescript_type = "SendRequestFunction")]
+    pub type SendRequestFunction;
 }
 
 #[wasm_bindgen]
@@ -150,6 +182,7 @@ pub struct SlintServer {
 pub fn create(
     init_param: JsValue,
     send_notification: Function,
+    send_request: SendRequestFunction,
     load_file: ImportCallbackFunction,
 ) -> Result<SlintServer, JsError> {
     console_error_panic_hook::set_once();
@@ -163,13 +196,20 @@ pub fn create(
         Box::pin(async move { Some(self::load_file(path, &load_file).await) })
     }));
 
-    let document_cache = DocumentCache::new(compiler_config);
+    let document_cache = Rc::new(RefCell::new(DocumentCache::new(compiler_config)));
+    let send_request = Function::from(send_request.clone());
+    let reentry_guard = Rc::new(RefCell::new(ReentryGuard::default()));
 
     Ok(SlintServer {
-        document_cache: Rc::new(RefCell::new(document_cache)),
+        document_cache: document_cache.clone(),
         init_param,
-        notifier: ServerNotifier(send_notification),
-        reentry_guard: Default::default(),
+        notifier: ServerNotifier {
+            send_notification,
+            send_request,
+            document_cache: document_cache.clone(),
+            reentry_guard: reentry_guard.clone(),
+        },
+        reentry_guard,
     })
 }
 
@@ -235,6 +275,17 @@ impl SlintServer {
             let result = result.borrow_mut().take();
             Ok(result.ok_or(JsError::new("Empty reply".into()))?)
         })
+    }
+
+    #[wasm_bindgen]
+    pub fn reload_config(&self) -> Result<(), JsError> {
+        let guard = self.reentry_guard.clone();
+        let notifier = self.notifier.clone();
+        wasm_bindgen_futures::spawn_local(async move {
+            let _lock = ReentryGuard::lock(guard).await;
+            let _ = server_loop::load_configuration(&notifier);
+        });
+        Ok(())
     }
 }
 

@@ -165,6 +165,12 @@ export function activate(context: vscode.ExtensionContext) {
     const properties_provider = new PropertiesViewProvider(context.extensionUri);
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(PropertiesViewProvider.viewType, properties_provider));
+
+    vscode.workspace.onDidChangeConfiguration(async (ev) => {
+        if (ev.affectsConfiguration("slint")) {
+            await client?.sendNotification("workspace/didChangeConfiguration", { settings: "" });
+        }
+    });
 }
 
 export function deactivate(): Thenable<void> | undefined {

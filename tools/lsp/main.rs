@@ -16,12 +16,16 @@ mod test;
 mod util;
 
 use i_slint_compiler::CompilerConfiguration;
-use lsp_types::notification::{DidChangeTextDocument, DidOpenTextDocument, Notification};
+use lsp_types::notification::{
+    DidChangeConfiguration, DidChangeTextDocument, DidOpenTextDocument, Notification,
+};
 use lsp_types::{DidChangeTextDocumentParams, DidOpenTextDocumentParams, InitializeParams};
 use server_loop::*;
 
 use clap::Parser;
-use lsp_server::{Connection, Message, Request, Response};
+use lsp_server::{Connection, Message, RequestId, Response};
+use std::collections::HashMap;
+use std::sync::{atomic, Arc, Mutex};
 
 #[derive(Clone, clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -43,8 +47,15 @@ struct Cli {
     backend: String,
 }
 
+type OutgoingRequestQueue = Arc<
+    Mutex<HashMap<RequestId, Box<dyn FnOnce(lsp_server::Response, &mut DocumentCache) + Send>>>,
+>;
+
+/// A handle that can be used to communicate with the client
+///
+/// This type is duplicated, with the same interface, in wasm_main.rs
 #[derive(Clone)]
-pub struct ServerNotifier(crossbeam_channel::Sender<Message>);
+pub struct ServerNotifier(crossbeam_channel::Sender<Message>, OutgoingRequestQueue);
 impl ServerNotifier {
     pub fn send_notification(
         &self,
@@ -54,9 +65,35 @@ impl ServerNotifier {
         self.0.send(Message::Notification(lsp_server::Notification::new(method, params)))?;
         Ok(())
     }
+
+    pub fn send_request<T: lsp_types::request::Request>(
+        &self,
+        request: T::Params,
+        f: impl FnOnce(Result<T::Result, String>, &mut DocumentCache) + Send + 'static,
+    ) -> Result<(), Error> {
+        static REQ_ID: atomic::AtomicI32 = atomic::AtomicI32::new(0);
+        let id = RequestId::from(REQ_ID.fetch_add(1, atomic::Ordering::Relaxed));
+        let msg =
+            Message::Request(lsp_server::Request::new(id.clone(), T::METHOD.to_string(), request));
+        self.0.send(msg)?;
+        self.1.lock().unwrap().insert(
+            id,
+            Box::new(move |r, c| {
+                if let Some(r) = r.result {
+                    f(serde_json::from_value(r).map_err(|e| e.to_string()), c)
+                } else if let Some(r) = r.error {
+                    f(Err(r.message), c)
+                }
+            }),
+        );
+        Ok(())
+    }
 }
 
-pub struct RequestHolder(Request, crossbeam_channel::Sender<Message>);
+/// The interface for a request received from the client
+///
+/// This type is duplicated, with the same interface, in wasm_main.rs
+pub struct RequestHolder(lsp_server::Request, ServerNotifier);
 impl RequestHolder {
     pub fn handle_request<
         Kind: lsp_types::request::Request,
@@ -76,9 +113,9 @@ impl RequestHolder {
         };
 
         match f(param) {
-            Ok(r) => self.1.send(Message::Response(Response::new_ok(id, r)))?,
+            Ok(r) => self.1 .0.send(Message::Response(Response::new_ok(id, r)))?,
             Err(e) => {
-                self.1.send(Message::Response(Response::new_err(id, 23, format!("{}", e))))?
+                self.1 .0.send(Message::Response(Response::new_err(id, 23, format!("{}", e))))?
             }
         };
 
@@ -86,7 +123,7 @@ impl RequestHolder {
     }
 
     pub fn server_notifier(&self) -> ServerNotifier {
-        ServerNotifier(self.1.clone())
+        self.1.clone()
     }
 }
 
@@ -151,6 +188,12 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
     compiler_config.include_paths = cli_args.include_paths;
 
     let mut document_cache = DocumentCache::new(compiler_config);
+    let request_queue = OutgoingRequestQueue::default();
+
+    let server_notifier = ServerNotifier(connection.sender.clone(), request_queue.clone());
+
+    load_configuration(&server_notifier)?;
+
     for msg in &connection.receiver {
         match msg {
             Message::Request(req) => {
@@ -158,14 +201,21 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
                     return Ok(());
                 }
                 handle_request(
-                    RequestHolder(req, connection.sender.clone()),
+                    RequestHolder(req, server_notifier.clone()),
                     &params,
                     &mut document_cache,
                 )?;
             }
-            Message::Response(_resp) => {}
+            Message::Response(resp) => {
+                let f = request_queue
+                    .lock()
+                    .unwrap()
+                    .remove(&resp.id)
+                    .ok_or("Response to unknown request")?;
+                f(resp, &mut document_cache);
+            }
             Message::Notification(notification) => {
-                handle_notification(connection, notification, &mut document_cache)?
+                handle_notification(&server_notifier, notification, &mut document_cache)?
             }
         }
     }
@@ -173,7 +223,7 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
 }
 
 pub fn handle_notification(
-    connection: &Connection,
+    connection: &ServerNotifier,
     req: lsp_server::Notification,
     document_cache: &mut DocumentCache,
 ) -> Result<(), Error> {
@@ -181,7 +231,7 @@ pub fn handle_notification(
         DidOpenTextDocument::METHOD => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(req.params)?;
             spin_on::spin_on(reload_document(
-                &ServerNotifier(connection.sender.clone()),
+                connection,
                 params.text_document.text,
                 params.text_document.uri,
                 params.text_document.version,
@@ -191,19 +241,23 @@ pub fn handle_notification(
         DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;
             spin_on::spin_on(reload_document(
-                &ServerNotifier(connection.sender.clone()),
+                connection,
                 params.content_changes.pop().unwrap().text,
                 params.text_document.uri,
                 params.text_document.version,
                 document_cache,
             ))?;
         }
+        DidChangeConfiguration::METHOD => {
+            load_configuration(connection)?;
+        }
 
         #[cfg(feature = "preview")]
         "slint/showPreview" => {
             show_preview_command(
                 req.params.as_array().map_or(&[], |x| x.as_slice()),
-                &ServerNotifier(connection.sender.clone()),
+                connection,
+                &document_cache.documents.compiler_config,
             )?;
         }
         _ => (),

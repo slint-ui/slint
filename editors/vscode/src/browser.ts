@@ -46,6 +46,15 @@ function startClient(context: vscode.ExtensionContext) {
                     return;
                 });
                 //client.onNotification(serverStatus, (params) => setServerStatus(params, statusBar));
+
+                vscode.workspace.onDidChangeConfiguration(async (ev) => {
+                    if (ev.affectsConfiguration("slint")) {
+                        await client.sendNotification("workspace/didChangeConfiguration", { settings: "" });
+                        if (previewUrl) {
+                            reload_preview(previewUrl, await getDocumentSource(previewUrl), previewComponent);
+                        }
+                    }
+                });
             });
         }
     };
@@ -66,12 +75,14 @@ function reload_preview(url: string, content: string, component: string) {
     previewAccessedFiles.clear();
     let webview_uri = previewPanel.webview.asWebviewUri(Uri.parse(url)).toString();
     previewAccessedFiles.add(webview_uri);
+    const style = vscode.workspace.getConfiguration('slint').get<[string]>('preview.style');
     const msg = {
         command: "preview",
         base_url: url,
         webview_uri: webview_uri,
         component: component,
-        content: content
+        content: content,
+        style: style,
     };
     if (previewBusy) {
         queuedPreviewMsg = msg;
@@ -179,8 +190,10 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
         return from_editor || await (await fetch(url)).text();
     }
 
-    async function render(source, base_url) {
-        let { component, error_string } = await slint.compile_from_string(source, base_url, async(url) => await load_file(url));
+    async function render(source, base_url, style) {
+        let { component, error_string } =
+            style ? await slint.compile_from_string_with_style(source, base_url, style, async(url) => await load_file(url))
+                  : await slint.compile_from_string(source, base_url, async(url) => await load_file(url));
         if (error_string != "") {
             var text = document.createTextNode(error_string);
             var p = document.createElement('pre');
@@ -203,7 +216,7 @@ function getPreviewHtml(slint_wasm_interpreter_url: Uri): string {
     window.addEventListener('message', async event => {
         if (event.data.command === "preview") {
             vscode.setState({base_url: event.data.base_url, component: event.data.component});
-            await render(event.data.content, event.data.webview_uri);
+            await render(event.data.content, event.data.webview_uri, event.data.style);
         } else if (event.data.command === "file_loaded") {
             let resolve = promises[event.data.url];
             if (resolve) {

@@ -26,8 +26,13 @@ slint_init(slint_wasm_data).then((_) => {
         return new TextDecoder().decode(contents);
     }
 
+    async function send_request(method: string, params: any): Promise<any> {
+        return await connection.sendRequest(method, params);
+    }
+
+
     connection.onInitialize((params: InitializeParams): InitializeResult => {
-        the_lsp = slint_lsp.create(params, send_notification, load_file);
+        the_lsp = slint_lsp.create(params, send_notification, send_request, load_file);
         return the_lsp.server_initialize_result();
     });
 
@@ -37,6 +42,10 @@ slint_init(slint_wasm_data).then((_) => {
             return await connection.sendRequest("slint/showPreview", (params as ExecuteCommandParams).arguments);
         }
         return await the_lsp.handle_request(token, method, params);
+    });
+
+    connection.onDidChangeConfiguration(async (_) => {
+        the_lsp.reload_config();
     });
 
     connection.onDidChangeTextDocument(async (param) => {
