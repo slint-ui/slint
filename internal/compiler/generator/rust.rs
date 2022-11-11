@@ -1829,6 +1829,7 @@ fn compile_expression(expr: &Expression, ctx: &EvaluationContext) -> TokenStream
                             | Type::PhysicalLength
                             | Type::LogicalLength
                             | Type::Angle
+                            | Type::Percent
                     ) =>
                 {
                     (Some(quote!(as f64)), Some(quote!(as f64)))
