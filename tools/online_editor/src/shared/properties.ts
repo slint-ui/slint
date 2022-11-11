@@ -65,7 +65,6 @@ function type_class_for_typename(name: string): string {
 }
 
 export class PropertiesView {
-
     static createNode(): HTMLElement {
         const node = document.createElement("div");
         const content = document.createElement("div");
@@ -96,15 +95,26 @@ export class PropertiesView {
 
     node: HTMLElement;
     /// Callback called when the property is clicked
-    property_clicked: (_uri: LspURI, _p: Property) => void = (_) => { /**/ };
+    property_clicked: (_uri: LspURI, _p: Property) => void = (_) => {
+        /**/
+    };
     /// Callback called when the property is modified. The old value is given so it can be checked
-    change_property: (_uri: LspURI, _p: Property, _new_value: string, _old_value: string) => void = (_) => { /**/ };
+    change_property: (
+        _uri: LspURI,
+        _p: Property,
+        _new_value: string,
+        _old_value: string,
+    ) => void = (_) => {
+        /**/
+    };
 
     protected get contentNode(): HTMLDivElement {
         return this.node.getElementsByTagName("div")[0] as HTMLDivElement;
     }
     protected get headerNode(): HTMLDivElement {
-        return this.contentNode.getElementsByTagName("div")[0] as HTMLDivElement;
+        return this.contentNode.getElementsByTagName(
+            "div",
+        )[0] as HTMLDivElement;
     }
     protected get elementTypeNode(): HTMLDivElement {
         return this.headerNode.getElementsByTagName("div")[0] as HTMLDivElement;
@@ -162,8 +172,8 @@ export class PropertiesView {
             }
 
             const goto_property = () => {
-                this.property_clicked(uri, p)
-            }
+                this.property_clicked(uri, p);
+            };
 
             const name_field = document.createElement("td");
             name_field.className = "name-column";
@@ -178,7 +188,9 @@ export class PropertiesView {
             const input = document.createElement("input");
             input.type = "text";
             if (p.defined_at != null) {
-                const code_text = binding_text_provider.binding_text(p.defined_at);
+                const code_text = binding_text_provider.binding_text(
+                    p.defined_at,
+                );
                 input.value = code_text;
                 const changed_class = "value-changed";
                 input.addEventListener("focus", (_) => {
