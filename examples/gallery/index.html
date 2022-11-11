@@ -35,7 +35,7 @@
       <option value="">material</option>
     </select>
   </p>
-  <canvas id="canvas" width="640" height="480"></canvas>
+  <div id="canvas-parent" width="640" height="480"></div>
   <p class="links">
     <a href="https://github.com/slint-ui/slint/blob/master/examples/gallery/gallery.slint">
       View Source Code on GitHub</a> -
@@ -50,9 +50,19 @@
 
     function initGallery(gallery) {
       document.getElementById("spinner").hidden = false;
-      document.getElementById("canvas").hidden = true;
+
+      let canvas = document.getElementById("canvas");
+
+      // remove old canvas and unload window
+      if (canvas != undefined) {
+        canvas.remove();
+      }
 
       import(gallery).then(module => {
+        let canvas = document.createElement("canvas");
+        canvas.id = "canvas";
+
+        document.getElementById("canvas-parent").appendChild(canvas);
         module.default().finally(() => {
           document.getElementById("canvas").hidden = false;
           document.getElementById("spinner").hidden = true;
@@ -79,4 +89,5 @@
     };
   </script>
 </body>
+
 </html>
