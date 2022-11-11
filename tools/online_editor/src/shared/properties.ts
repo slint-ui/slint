@@ -32,10 +32,6 @@ export interface Element {
     range: LspRange | null;
 }
 
-export interface BindingTextProvider {
-    binding_text(_location: DefinitionPosition): string;
-}
-
 export interface PropertyQuery {
     source_uri: string;
     source_version: number;
@@ -140,11 +136,7 @@ export class PropertiesView {
         }
     }
 
-    private populate_table(
-        binding_text_provider: BindingTextProvider,
-        properties: Property[],
-        uri: LspURI,
-    ) {
+    private populate_table(properties: Property[], uri: LspURI) {
         const table = this.tableNode;
 
         let current_group = "";
@@ -190,9 +182,7 @@ export class PropertiesView {
             const input = document.createElement("input");
             input.type = "text";
             if (p.defined_at != null) {
-                const code_text = binding_text_provider.binding_text(
-                    p.defined_at,
-                );
+                const code_text = p.defined_at.expression_value;
                 input.value = code_text;
                 const changed_class = "value-changed";
                 input.addEventListener("focus", (_) => {
@@ -228,15 +218,8 @@ export class PropertiesView {
         }
     }
 
-    set_properties(
-        binding_text_provider: BindingTextProvider,
-        properties: PropertyQuery,
-    ) {
+    set_properties(properties: PropertyQuery) {
         this.set_header(properties.element);
-        this.populate_table(
-            binding_text_provider,
-            properties.properties,
-            properties.source_uri,
-        );
+        this.populate_table(properties.properties, properties.source_uri);
     }
 }

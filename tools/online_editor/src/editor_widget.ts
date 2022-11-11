@@ -4,12 +4,7 @@
 // cSpell: ignore lumino inmemory mimetypes printerdemo
 
 import { slint_language } from "./highlighting";
-import { lsp_range_to_editor_range } from "./lsp_integration";
-import {
-    PropertyQuery,
-    BindingTextProvider,
-    DefinitionPosition,
-} from "./shared/properties";
+import { PropertyQuery } from "./shared/properties";
 import { FilterProxyReader } from "./proxy";
 import {
     TextPosition,
@@ -105,10 +100,7 @@ function tabTitleFromURL(url: monaco.Uri): string {
     }
 }
 
-type PropertyDataNotifier = (
-    _binding_text_provider: BindingTextProvider,
-    _p: PropertyQuery,
-) => void;
+type PropertyDataNotifier = (_p: PropertyQuery) => void;
 
 class EditorPaneWidget extends Widget {
     auto_compile = true;
@@ -448,10 +440,7 @@ class EditorPaneWidget extends Widget {
                                 const result_str = JSON.stringify(result);
                                 if (this.#current_properties != result_str) {
                                     this.#current_properties = result_str;
-                                    this.onNewPropertyData?.(
-                                        new ModelBindingTextProvider(model),
-                                        result,
-                                    );
+                                    this.onNewPropertyData?.(result);
                                 }
                             });
                     }
@@ -823,25 +812,5 @@ export class EditorWidget extends Widget {
 
     get position(): DocumentAndTextPosition {
         return this.#editor.position;
-    }
-}
-
-class ModelBindingTextProvider implements BindingTextProvider {
-    #model: monaco.editor.ITextModel;
-    constructor(model: monaco.editor.ITextModel) {
-        this.#model = model;
-    }
-
-    binding_text(location: DefinitionPosition): string {
-        const monaco_range = lsp_range_to_editor_range(
-            this.#model,
-            location.expression_range,
-        );
-
-        if (monaco_range == null) {
-            return "";
-        }
-
-        return this.#model.getValueInRange(monaco_range);
     }
 }

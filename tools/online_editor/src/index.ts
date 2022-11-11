@@ -369,8 +369,8 @@ function main() {
         [
             () => {
                 const properties = new PropertiesWidget();
-                editor.onNewPropertyData = (binding_text_provider, p) => {
-                    properties.set_properties(binding_text_provider, p);
+                editor.onNewPropertyData = (p) => {
+                    properties.set_properties(p);
                 };
 
                 properties.on_goto_position = (uri, pos) => {
