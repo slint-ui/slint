@@ -1,0 +1,22 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+Inner := Rectangle {
+    property <percent> val;
+    background: val < 50% ? red : blue;
+}
+
+// It seems the indirection is required
+Outer := VerticalLayout {
+    property <percent> val;
+    Inner { val: parent.val;    } // Commenting this line does not produce a compiler error
+
+    Rectangle { background: val < 50% ? green : yellow; }
+
+}
+
+export AppWindow := Window {
+    width: 240px;
+    height: 240px;
+    Outer { val: 50%; }
+}
