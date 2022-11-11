@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-use crate::server_loop::{DocumentCache, OffsetToPositionMapper};
+use crate::server_loop::OffsetToPositionMapper;
 
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::langtype::{ElementType, Type};
@@ -336,27 +336,31 @@ pub(crate) fn query_properties(
 mod tests {
     use super::*;
 
+    use crate::server_loop::DocumentCache;
     use crate::test::{complex_document_cache, loaded_document_cache};
 
     fn find_property<'a>(
         properties: &'a [PropertyInformation],
-        name: &'a str,
+        name: &'_ str,
     ) -> Option<&'a PropertyInformation> {
         properties.iter().find(|p| p.name == name)
     }
 
-    fn properties_at_position_in_cache<'a>(
+    fn properties_at_position_in_cache(
         line: u32,
         character: u32,
-        dc: &'a mut DocumentCache,
-        url: &'a lsp_types::Url,
+        dc: &mut DocumentCache,
+        url: &lsp_types::Url,
     ) -> Option<(ElementRc, Vec<PropertyInformation>)> {
         let element = crate::server_loop::element_at_position(
             dc,
             &url,
             &lsp_types::Position { line, character },
         )?;
-        Some((element.clone(), get_properties(&element, &mut dc.mapper(url.clone()))))
+        Some((
+            element.clone(),
+            get_properties(&element, &mut dc.offset_to_position_mapper(url.clone())),
+        ))
     }
 
     fn properties_at_position(

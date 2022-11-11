@@ -108,7 +108,7 @@ impl DocumentCache {
         Some(pos)
     }
 
-    pub fn mapper(&mut self, uri: lsp_types::Url) -> OffsetToPositionMapper {
+    pub fn offset_to_position_mapper(&mut self, uri: lsp_types::Url) -> OffsetToPositionMapper {
         OffsetToPositionMapper(self, uri)
     }
 }
@@ -330,7 +330,7 @@ pub fn query_properties_command(
     {
         properties::query_properties(
             &element,
-            &mut document_cache.mapper(text_document_uri.clone()),
+            &mut document_cache.offset_to_position_mapper(text_document_uri.clone()),
         )
         .map(|r| serde_json::to_value(r).expect("Failed to serialize property query result!"))
     } else {
