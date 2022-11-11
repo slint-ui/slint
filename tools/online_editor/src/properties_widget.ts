@@ -3,22 +3,15 @@
 
 // cSpell: ignore lumino
 
-
 import { GotoPositionCallback, ReplaceTextFunction, TextRange } from "./text";
-import {
-    lsp_range_to_editor_range,
-} from "./lsp_integration";
+import { lsp_range_to_editor_range } from "./lsp_integration";
 
 import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
 
-import {
-    BindingTextProvider,
-    PropertyQuery,
-    DefinitionPosition,
-} from "./shared/properties";
+import { PropertyQuery, DefinitionPosition } from "./shared/properties";
 
-import { PropertiesView } from "./shared/properties"
+import { PropertiesView } from "./shared/properties";
 
 function editor_definition_range(
     uri: string,
@@ -57,8 +50,13 @@ export class PropertiesWidget extends Widget {
             if (expression_range != null) {
                 this.#onGotoPosition(uri, expression_range);
             }
-        }
-        this.#propertiesView.change_property = (uri, p, current_text, code_text) => {
+        };
+        this.#propertiesView.change_property = (
+            uri,
+            p,
+            current_text,
+            code_text,
+        ) => {
             const expression_range = editor_definition_range(uri, p.defined_at);
             if (expression_range != null) {
                 this.replace_property_value(
@@ -68,7 +66,7 @@ export class PropertiesWidget extends Widget {
                     (old_text) => old_text == code_text,
                 );
             }
-        }
+        };
     }
 
     private replace_property_value(
@@ -93,11 +91,7 @@ export class PropertiesWidget extends Widget {
         this.#replaceText = fn;
     }
 
-    set_properties(
-        binding_text_provider: BindingTextProvider,
-        properties: PropertyQuery,
-    ) {
-        this.#propertiesView.set_properties(binding_text_provider, properties);
+    set_properties(properties: PropertyQuery) {
+        this.#propertiesView.set_properties(properties);
     }
-
 }
