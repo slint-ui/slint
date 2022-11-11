@@ -166,7 +166,12 @@ pub fn handle_request(
         .and_then(|token| {
             #[cfg(feature = "preview")]
             if token.0.kind() == SyntaxKind::Comment {
-                maybe_goto_preview(token.0, token.1, req.server_notifier());
+                maybe_goto_preview(
+                    token.0,
+                    token.1,
+                    req.server_notifier(),
+                    &document_cache.documents.compiler_config,
+                );
                 return None;
             }
             goto::goto_definition(document_cache, token.0)
@@ -211,7 +216,11 @@ pub fn handle_request(
         #[cfg(any(feature = "preview", feature = "preview-lense"))]
         if params.command.as_str() == SHOW_PREVIEW_COMMAND {
             #[cfg(feature = "preview")]
-            show_preview_command(&params.arguments, &req.server_notifier())?;
+            show_preview_command(
+                &params.arguments,
+                &req.server_notifier(),
+                &document_cache.documents.compiler_config,
+            )?;
             return Ok(None::<serde_json::Value>);
         }
         if params.command.as_str() == QUERY_PROPERTIES_COMMAND {
@@ -267,6 +276,7 @@ pub fn handle_request(
 pub fn show_preview_command(
     params: &[serde_json::Value],
     connection: &crate::ServerNotifier,
+    config: &CompilerConfiguration,
 ) -> Result<(), Error> {
     use crate::preview;
     let e = || -> Error { "InvalidParameter".into() };
@@ -279,7 +289,12 @@ pub fn show_preview_command(
     let component = params.get(1).and_then(|v| v.as_str()).map(|v| v.to_string());
     preview::load_preview(
         connection.clone(),
-        preview::PreviewComponent { path: path_canon, component },
+        preview::PreviewComponent {
+            path: path_canon,
+            component,
+            include_paths: config.include_paths.clone(),
+            style: config.style.clone().unwrap_or_default(),
+        },
         preview::PostLoadBehavior::ShowAfterLoad,
     );
     Ok(())
@@ -337,6 +352,7 @@ fn maybe_goto_preview(
     token: SyntaxToken,
     offset: u32,
     sender: crate::ServerNotifier,
+    compiler_config: &CompilerConfiguration,
 ) -> Option<()> {
     use crate::preview;
     let text = token.text();
@@ -362,6 +378,8 @@ fn maybe_goto_preview(
                 preview::PreviewComponent {
                     path: token.source_file.path().into(),
                     component: Some(component_name),
+                    include_paths: compiler_config.include_paths.clone(),
+                    style: compiler_config.style.clone().unwrap_or_default(),
                 },
                 preview::PostLoadBehavior::ShowAfterLoad,
             );
@@ -685,6 +703,43 @@ fn get_code_lenses(
     } else {
         None
     }
+}
+
+pub fn load_configuration(server_notifier: &crate::ServerNotifier) -> Result<(), Error> {
+    server_notifier.send_request::<lsp_types::request::WorkspaceConfiguration>(
+        lsp_types::ConfigurationParams {
+            items: vec![lsp_types::ConfigurationItem {
+                scope_uri: None,
+                section: Some("slint".into()),
+            }],
+        },
+        |result, document_cache| {
+            if let Ok(r) = result {
+                for v in r {
+                    if let Some(o) = v.as_object() {
+                        if let Some(ip) = o.get("includePath").and_then(|v| v.as_array()) {
+                            if !ip.is_empty() {
+                                document_cache.documents.compiler_config.include_paths = ip
+                                    .iter()
+                                    .filter_map(|x| x.as_str())
+                                    .map(std::path::PathBuf::from)
+                                    .collect();
+                            }
+                        }
+                        if let Some(style) =
+                            o.get("preview").and_then(|v| v.as_object()?.get("style")?.as_str())
+                        {
+                            if !style.is_empty() {
+                                document_cache.documents.compiler_config.style = Some(style.into());
+                            }
+                        }
+                    }
+                }
+                #[cfg(feature = "preview")]
+                crate::preview::config_changed(&document_cache.documents.compiler_config);
+            }
+        },
+    )
 }
 
 #[cfg(test)]

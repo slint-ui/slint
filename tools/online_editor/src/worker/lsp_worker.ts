@@ -23,12 +23,16 @@ slint_init().then((_) => {
         return true;
     }
 
+    async function send_request(method: string, params: any): Promise<any> {
+        return await connection.sendRequest(method, params);
+    }
+
     async function load_file(path: string): Promise<string> {
         return await connection.sendRequest("slint/load_file", path);
     }
 
     connection.onInitialize((params: InitializeParams): InitializeResult => {
-        the_lsp = slint_lsp.create(params, send_notification, load_file);
+        the_lsp = slint_lsp.create(params, send_notification, send_request, load_file);
         const response = the_lsp.server_initialize_result();
         response.capabilities.codeLensProvider = null; // CodeLenses are not relevant for the online editor
         return response;
