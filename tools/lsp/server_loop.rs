@@ -107,6 +107,18 @@ impl DocumentCache {
         );
         Some(pos)
     }
+
+    pub fn offset_to_position_mapper(&mut self, uri: lsp_types::Url) -> OffsetToPositionMapper {
+        OffsetToPositionMapper(self, uri)
+    }
+}
+
+pub struct OffsetToPositionMapper<'a>(&'a mut DocumentCache, lsp_types::Url);
+
+impl OffsetToPositionMapper<'_> {
+    pub fn map(&mut self, offset: u32) -> lsp_types::Position {
+        self.0.byte_offset_to_position(offset, &self.1).expect("invalid offset")
+    }
 }
 
 pub fn server_initialize_result() -> InitializeResult {
@@ -316,11 +328,10 @@ pub fn query_properties_command(
     if let Some(element) =
         element_at_position(document_cache, &text_document_uri, &Position { line, character })
     {
-        properties::query_properties(&element, &mut |offset| {
-            document_cache
-                .byte_offset_to_position(offset, &text_document_uri)
-                .expect("invalid node offset")
-        })
+        properties::query_properties(
+            &element,
+            &mut document_cache.offset_to_position_mapper(text_document_uri.clone()),
+        )
         .map(|r| serde_json::to_value(r).expect("Failed to serialize property query result!"))
     } else {
         Ok(serde_json::to_value(properties::QueryPropertyResponse::no_element_response(

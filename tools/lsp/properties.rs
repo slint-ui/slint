@@ -1,6 +1,8 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+use crate::server_loop::OffsetToPositionMapper;
+
 use i_slint_compiler::diagnostics::Spanned;
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, ElementRc, PropertyVisibility};
@@ -10,7 +12,7 @@ use std::collections::HashSet;
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
 pub(crate) struct DefinitionInformation {
     property_definition_range: lsp_types::Range,
     expression_range: lsp_types::Range,
@@ -68,15 +70,16 @@ fn source_file(element: &Element) -> Option<String> {
     element.source_file().map(|sf| sf.path().to_string_lossy().to_string())
 }
 
-fn get_element_properties<'a>(
-    element: &'a Element,
-    offset_to_position: &'a mut dyn FnMut(u32) -> lsp_types::Position,
-    group: &'a str,
+fn add_element_properties(
+    element: &Element,
+    offset_to_position: &mut OffsetToPositionMapper,
+    group: &str,
     is_local_element: bool,
-) -> impl Iterator<Item = PropertyInformation> + 'a {
+    result: &mut Vec<PropertyInformation>,
+) {
     let file = source_file(element);
 
-    element.property_declarations.iter().filter_map(move |(name, value)| {
+    result.extend(element.property_declarations.iter().filter_map(move |(name, value)| {
         if !value.property_type.is_property_type() {
             // Filter away the callbacks
             return None;
@@ -89,7 +92,7 @@ fn get_element_properties<'a>(
         }
         let type_node = value.type_node()?; // skip fake and materialized properties
         let declared_at = file.as_ref().map(|file| {
-            let start_position = offset_to_position(type_node.text_range().start().into());
+            let start_position = offset_to_position.map(type_node.text_range().start().into());
             let uri = lsp_types::Url::from_file_path(file).unwrap_or_else(|_| {
                 lsp_types::Url::parse("file:///)").expect("That should have been valid as URL!")
             });
@@ -103,13 +106,13 @@ fn get_element_properties<'a>(
             defined_at: None,
             group: group.to_string(),
         })
-    })
+    }))
 }
 
 fn find_expression_range(
     element: &syntax_nodes::Element,
     offset: u32,
-    offset_to_position: &mut dyn FnMut(u32) -> lsp_types::Position,
+    offset_to_position: &mut OffsetToPositionMapper,
 ) -> Option<DefinitionInformation> {
     let mut property_definition_range = rowan::TextRange::default();
     let mut expression = rowan::TextRange::default();
@@ -144,9 +147,11 @@ fn find_expression_range(
             // range is exclusive, i.e. it refers to the first excluded character. Hence the +1 below:
             property_definition_range: crate::util::text_range_to_lsp_range(
                 property_definition_range,
-                offset_to_position,
+                &mut |ofs| offset_to_position.map(ofs),
             ),
-            expression_range: crate::util::text_range_to_lsp_range(expression, offset_to_position),
+            expression_range: crate::util::text_range_to_lsp_range(expression, &mut |ofs| {
+                offset_to_position.map(ofs)
+            }),
         });
     } else {
         None
@@ -156,7 +161,7 @@ fn find_expression_range(
 fn insert_property_definitions(
     element: &Element,
     properties: &mut Vec<PropertyInformation>,
-    offset_to_position: &mut dyn FnMut(u32) -> lsp_types::Position,
+    offset_to_position: &mut OffsetToPositionMapper,
 ) {
     let element_node = element.node.as_ref().expect("Element has to have a node here!");
     let element_range = element_node.text_range();
@@ -182,11 +187,11 @@ fn insert_property_definitions(
 
 fn get_properties(
     element: &ElementRc,
-    offset_to_position: &mut dyn FnMut(u32) -> lsp_types::Position,
+    offset_to_position: &mut OffsetToPositionMapper,
 ) -> Vec<PropertyInformation> {
-    let mut result = vec![];
+    let mut result = Vec::new();
+    add_element_properties(&element.borrow(), offset_to_position, "", true, &mut result);
 
-    result.extend(get_element_properties(&element.borrow(), offset_to_position, "", true));
     let mut current_element = element.clone();
 
     let geometry_prop = HashSet::from(["x", "y", "width", "height"]);
@@ -196,12 +201,13 @@ fn get_properties(
         match base_type {
             ElementType::Component(c) => {
                 current_element = c.root_element.clone();
-                result.extend(get_element_properties(
+                add_element_properties(
                     &current_element.borrow(),
                     offset_to_position,
                     &c.id,
                     false,
-                ));
+                    &mut result,
+                );
                 continue;
             }
             ElementType::Builtin(b) => {
@@ -317,7 +323,7 @@ fn get_element_information(element: &ElementRc) -> Option<ElementInformation> {
 
 pub(crate) fn query_properties(
     element: &ElementRc,
-    offset_to_position: &mut dyn FnMut(u32) -> lsp_types::Position,
+    offset_to_position: &mut OffsetToPositionMapper,
 ) -> Result<QueryPropertyResponse, crate::Error> {
     Ok(QueryPropertyResponse {
         properties: get_properties(&element, offset_to_position),
@@ -330,11 +336,12 @@ pub(crate) fn query_properties(
 mod tests {
     use super::*;
 
+    use crate::server_loop::DocumentCache;
     use crate::test::{complex_document_cache, loaded_document_cache};
 
     fn find_property<'a>(
         properties: &'a [PropertyInformation],
-        name: &'a str,
+        name: &'_ str,
     ) -> Option<&'a PropertyInformation> {
         properties.iter().find(|p| p.name == name)
     }
@@ -342,27 +349,35 @@ mod tests {
     fn properties_at_position_in_cache(
         line: u32,
         character: u32,
-        dc: &mut crate::server_loop::DocumentCache,
+        dc: &mut DocumentCache,
         url: &lsp_types::Url,
-    ) -> Option<Vec<PropertyInformation>> {
+    ) -> Option<(ElementRc, Vec<PropertyInformation>)> {
         let element = crate::server_loop::element_at_position(
             dc,
             &url,
             &lsp_types::Position { line, character },
         )?;
-        Some(get_properties(&element, &mut |offset| {
-            dc.byte_offset_to_position(offset, url).expect("invalid node offset")
-        }))
+        Some((
+            element.clone(),
+            get_properties(&element, &mut dc.offset_to_position_mapper(url.clone())),
+        ))
     }
 
-    fn properties_at_position(line: u32, character: u32) -> Option<Vec<PropertyInformation>> {
+    fn properties_at_position(
+        line: u32,
+        character: u32,
+    ) -> Option<(ElementRc, Vec<PropertyInformation>, DocumentCache, lsp_types::Url)> {
         let (mut dc, url, _) = complex_document_cache("fluent");
-        properties_at_position_in_cache(line, character, &mut dc, &url)
+        if let Some((e, p)) = properties_at_position_in_cache(line, character, &mut dc, &url) {
+            Some((e, p, dc, url))
+        } else {
+            None
+        }
     }
 
     #[test]
     fn test_get_properties() {
-        let result = properties_at_position(6, 4).unwrap();
+        let (_, result, _, _) = properties_at_position(6, 4).unwrap();
 
         // Property of element:
         assert_eq!(&find_property(&result, "elapsed-time").unwrap().type_name, "duration");
@@ -375,7 +390,7 @@ mod tests {
         );
 
         // Poke deeper:
-        let result = properties_at_position(21, 30).unwrap();
+        let (_, result, _, _) = properties_at_position(21, 30).unwrap();
         let property = find_property(&result, "background").unwrap();
 
         let def_at = property.defined_at.as_ref().unwrap();
@@ -455,7 +470,7 @@ MainWindow := Window {
 }
             "#.to_string());
         let file_url = url.clone();
-        let result = properties_at_position_in_cache(28, 15, &mut dc, &url).unwrap();
+        let (_, result) = properties_at_position_in_cache(28, 15, &mut dc, &url).unwrap();
 
         let foo_property = find_property(&result, "foo").unwrap();
 
@@ -488,7 +503,7 @@ SomeRect := Rectangle {
             .to_string(),
         );
 
-        let result = properties_at_position_in_cache(1, 25, &mut dc, &url).unwrap();
+        let (_, result) = properties_at_position_in_cache(1, 25, &mut dc, &url).unwrap();
 
         let glob_property = find_property(&result, "glob").unwrap();
         assert_eq!(glob_property.type_name, "int");
@@ -498,7 +513,7 @@ SomeRect := Rectangle {
         assert_eq!(glob_property.group, "");
         assert_eq!(find_property(&result, "width"), None);
 
-        let result = properties_at_position_in_cache(8, 4, &mut dc, &url).unwrap();
+        let (_, result) = properties_at_position_in_cache(8, 4, &mut dc, &url).unwrap();
         let abcd_property = find_property(&result, "abcd").unwrap();
         assert_eq!(abcd_property.type_name, "int");
         let declaration = abcd_property.declared_at.as_ref().unwrap();
@@ -542,19 +557,19 @@ component MyComp {
             .to_string(),
         );
 
-        let result = properties_at_position_in_cache(3, 0, &mut dc, &url).unwrap();
+        let (_, result) = properties_at_position_in_cache(3, 0, &mut dc, &url).unwrap();
         assert_eq!(find_property(&result, "a").unwrap().type_name, "int");
         assert_eq!(find_property(&result, "b").unwrap().type_name, "int");
         assert_eq!(find_property(&result, "c").unwrap().type_name, "int");
         assert_eq!(find_property(&result, "d").unwrap().type_name, "int");
 
-        let result = properties_at_position_in_cache(10, 0, &mut dc, &url).unwrap();
+        let (_, result) = properties_at_position_in_cache(10, 0, &mut dc, &url).unwrap();
         assert_eq!(find_property(&result, "a"), None);
         assert_eq!(find_property(&result, "b").unwrap().type_name, "int");
         assert_eq!(find_property(&result, "c"), None);
         assert_eq!(find_property(&result, "d").unwrap().type_name, "int");
 
-        let result = properties_at_position_in_cache(13, 0, &mut dc, &url).unwrap();
+        let (_, result) = properties_at_position_in_cache(13, 0, &mut dc, &url).unwrap();
         assert_eq!(find_property(&result, "enabled").unwrap().type_name, "bool");
         assert_eq!(find_property(&result, "pressed"), None);
     }
