@@ -3,17 +3,6 @@
 
 //!
 //! Tool to change the syntax or reformat a .slint file
-//!
-//! As of know, it just rewrite the exact same as the input, but it can be changed
-//!
-//! This is how it can be used:
-//!
-//! ````shell
-//! cargo run --bin syntax_updater -- --from 0.0.5 -i  **/*.60
-//! cargo run --bin syntax_updater -- --from 0.0.5 -i  **/*.slint
-//! cargo run --bin syntax_updater -- --from 0.0.5 -i  **/*.rs
-//! cargo run --bin syntax_updater -- --from 0.0.5 -i  **/*.md
-//! ````
 
 use clap::Parser;
 use experiments::lookup_changes::LookupChangeState;
@@ -27,6 +16,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 mod experiments {
+    pub(super) mod geometry_changes;
     pub(super) mod input_output_properties;
     pub(super) mod lookup_changes;
     pub(super) mod new_component_declaration;
@@ -296,6 +286,9 @@ fn fold_node(
         return Ok(true);
     }
     if experiments::lookup_changes::fold_node(node, file, state, args)? {
+        return Ok(true);
+    }
+    if experiments::geometry_changes::fold_node(node, file, state, args)? {
         return Ok(true);
     }
     Ok(false)
