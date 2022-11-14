@@ -48,8 +48,18 @@ pub fn with_lookup_ctx<R>(
     f: impl FnOnce(&mut LookupCtx) -> R,
 ) -> Option<R> {
     let (element, prop_name) = lookup_expression_context(node.clone())?;
+    with_property_lookup_ctx::<R>(document_cache, &element, &prop_name, f)
+}
+
+/// Run the function with the LookupCtx associated with the token
+pub fn with_property_lookup_ctx<R>(
+    document_cache: &DocumentCache,
+    element: &syntax_nodes::Element,
+    prop_name: &str,
+    f: impl FnOnce(&mut LookupCtx) -> R,
+) -> Option<R> {
     let global_tr = document_cache.documents.global_type_registry.borrow();
-    let tr = node
+    let tr = element
         .source_file()
         .and_then(|sf| document_cache.documents.get_document(sf.path()))
         .map(|doc| &doc.local_registry)
@@ -64,7 +74,7 @@ pub fn with_lookup_ctx<R>(
         .and_then(|p| p.Type())
         .map(|n| object_tree::type_from_node(n, &mut Default::default(), tr))
         .or_else(|| {
-            lookup_current_element_type((*element).clone(), tr)
+            lookup_current_element_type((**element).clone(), tr)
                 .map(|el_ty| el_ty.lookup_property(&prop_name).property_type)
         });
 
