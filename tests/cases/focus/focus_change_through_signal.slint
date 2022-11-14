@@ -3,7 +3,7 @@
 
 SubElement := Rectangle {
     property text <=> input.text;
-    property has-focus <=> input.has-focus;
+    property <bool> has-focus: input.has-focus;
     forward_focus: input;
     input := TextInput {
         width: 100%;

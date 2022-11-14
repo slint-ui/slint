@@ -5,7 +5,7 @@
 // children of sub-components or their roots.
 
 SubComponentWithFocusableChild := Rectangle {
-    property has-focus <=> input.has-focus;
+    property <bool> has-focus: input.has-focus;
 
     callback activate();
     activate => {
@@ -26,7 +26,7 @@ SubComponentWithRootFocusable := TextInput {
 }
 
 FocusInNestedSubComponent := Rectangle {
-    property has-focus <=> compo.has-focus;
+    property <bool> has-focus: compo.has-focus;
     callback activate();
     activate => {
         compo.activate();
