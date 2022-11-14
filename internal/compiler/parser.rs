@@ -894,6 +894,40 @@ pub fn normalize_identifier(ident: &str) -> String {
     ident.replace('_', "-")
 }
 
+// Parse an expression into a BindingExpression. This is used by the LSP to syntax
+// check the values of properties.
+pub fn parse_expression_as_bindingexpression(
+    source: &str,
+    build_diagnostics: &mut BuildDiagnostics,
+) -> SyntaxNode {
+    let node = {
+        let mut p = DefaultParser::new(&source, build_diagnostics);
+        let token = {
+            let mut p = p.start_node(SyntaxKind::BindingExpression);
+            expressions::parse_expression(&mut *p);
+            p.peek()
+        };
+        let node = rowan::SyntaxNode::new_root(p.builder.finish());
+
+        if !build_diagnostics.has_error() && token.kind() != SyntaxKind::Eof {
+            build_diagnostics.push_error_with_span(
+                format!("Expected end of string, found \"{}\"", &token.kind()),
+                crate::diagnostics::SourceLocation {
+                    source_file: Default::default(),
+                    span: crate::diagnostics::Span {
+                        offset: token.offset,
+                        #[cfg(feature = "proc_macro_span")]
+                        span: token.span,
+                    },
+                },
+            )
+        }
+        node
+    };
+
+    SyntaxNode { node, source_file: Default::default() }
+}
+
 // Actual parser
 pub fn parse(
     source: String,
