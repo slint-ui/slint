@@ -23,7 +23,7 @@ slint_init().then((_) => {
         return true;
     }
 
-    async function send_request(method: string, params: any): Promise<any> {
+    async function send_request(method: string, params: unknown): Promise<unknown> {
         return await connection.sendRequest(method, params);
     }
 
