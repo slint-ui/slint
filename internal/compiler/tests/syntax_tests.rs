@@ -19,6 +19,8 @@ use std::path::{Path, PathBuf};
 
 #[test]
 fn syntax_tests() -> std::io::Result<()> {
+    use rayon::prelude::*;
+
     if let Some(specific_test) = std::env::args()
         .skip(1)
         .skip_while(|arg| arg.starts_with("--") || arg == "syntax_tests")
@@ -30,7 +32,8 @@ fn syntax_tests() -> std::io::Result<()> {
         assert!(process_file(&path)?);
         return Ok(());
     }
-    let mut success = true;
+
+    let mut test_entries = Vec::new();
     for entry in std::fs::read_dir(format!("{}/tests/syntax", env!("CARGO_MANIFEST_DIR")))? {
         let entry = entry?;
         let path = entry.path();
@@ -40,13 +43,26 @@ fn syntax_tests() -> std::io::Result<()> {
                 let path = test_entry.path();
                 if let Some(ext) = path.extension() {
                     if ext == "60" || ext == "slint" {
-                        success &= process_file(&path)?;
+                        test_entries.push(path);
                     }
                 }
             }
         }
     }
+
+    let success = test_entries
+        .par_iter()
+        .try_fold(
+            || true,
+            |mut success, path| {
+                success &= process_file(&path)?;
+                Ok::<bool, std::io::Error>(success)
+            },
+        )
+        .try_reduce(|| true, |success, result| Ok(success & result))?;
+
     assert!(success);
+
     Ok(())
 }
 
