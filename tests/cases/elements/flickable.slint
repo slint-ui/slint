@@ -30,8 +30,8 @@ TestCase := Window {
 
     property<length> offset_x: -f.viewport_x;
     property<length> offset_y: -f.viewport_y;
-    property<bool> inner_ta_pressed <=>  inner_ta.pressed;
-    property<bool> inner_ta_has_hover <=>  inner_ta.has_hover;
+    property<bool> inner_ta_pressed: inner_ta.pressed;
+    property<bool> inner_ta_has_hover: inner_ta.has_hover;
     property<int> clicked;
 }
 
