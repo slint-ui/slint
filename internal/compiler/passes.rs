@@ -39,7 +39,7 @@ mod remove_aliases;
 mod remove_unused_properties;
 mod repeater_component;
 pub mod resolve_native_classes;
-mod resolving;
+pub mod resolving;
 mod unique_id;
 mod visible;
 mod z_order;
