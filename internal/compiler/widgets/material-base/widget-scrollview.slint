@@ -84,6 +84,10 @@ export ScrollView := Rectangle {
     property <bool> has-focus;
  
     background: md.sys.color.surface;
+    min-height: 50px;
+    min-width: 50px;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
 
     fli := Flickable {
         interactive: false;
