@@ -9,7 +9,7 @@ export Button := Rectangle {
     callback clicked;
 
     property<string> text <=> label.text;
-    property<bool> has-focus <=> fs.has-focus;
+    property<bool> has-focus: fs.has-focus;
     property<bool> pressed: self.enabled && touch.pressed;
     property<bool> enabled <=> touch.enabled;
     property<bool> checkable;

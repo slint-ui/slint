@@ -9,7 +9,7 @@ export Slider := Rectangle {
     property<float> maximum: 100;
     property<float> minimum: 0;
     property<float> value;
-    property<bool> has-focus <=> fs.has-focus;
+    property<bool> has-focus: fs.has-focus;
     property<bool> enabled <=> touch.enabled;
     callback changed(float);
 
