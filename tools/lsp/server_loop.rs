@@ -36,6 +36,7 @@ pub type Error = Box<dyn std::error::Error>;
 
 const SHOW_PREVIEW_COMMAND: &str = "showPreview";
 const QUERY_PROPERTIES_COMMAND: &str = "queryProperties";
+const SET_BINDING_COMMAND: &str = "setBinding";
 
 fn command_list() -> Vec<String> {
     let mut result = vec![];
@@ -44,6 +45,7 @@ fn command_list() -> Vec<String> {
     result.push(SHOW_PREVIEW_COMMAND.into());
 
     result.push(QUERY_PROPERTIES_COMMAND.into());
+    result.push(SET_BINDING_COMMAND.into());
 
     result
 }
@@ -306,6 +308,12 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
                 document_cache,
             )?));
         }
+        if params.command.as_str() == SET_BINDING_COMMAND {
+            return Ok(Some(
+                set_binding_command(&params.arguments, &ctx.server_notifier, document_cache)
+                    .await?,
+            ));
+        }
         Ok(None::<serde_json::Value>)
     });
     rh.register::<DocumentColor, _>(|params, ctx| async move {
@@ -432,6 +440,106 @@ pub fn query_properties_command(
             source_version,
         ))
         .expect("Failed to serialize none-element property query result!"))
+    }
+}
+
+pub async fn set_binding_command(
+    params: &[serde_json::Value],
+    notifier: &crate::ServerNotifier,
+    document_cache: &mut DocumentCache,
+) -> Result<serde_json::Value, Error> {
+    use crate::properties;
+
+    let text_document = serde_json::from_value::<lsp_types::OptionalVersionedTextDocumentIdentifier>(
+        params.get(0).ok_or_else(|| -> Error { "No text document provided".into() })?.clone(),
+    )?;
+    let uri = text_document.uri;
+    if let Some(source_version) = text_document.version {
+        if let Some(current_version) = document_cache.document_version(&uri) {
+            if current_version != source_version {
+                return Err(
+                    "Document version mismatch. Please refresh your property information".into()
+                );
+            }
+        } else {
+            return Err(format!("Document with uri {} not found in cache", uri.to_string()).into());
+        }
+    }
+
+    let element_range = serde_json::from_value::<lsp_types::Range>(
+        params.get(1).ok_or_else(|| -> Error { "No element range provided".into() })?.clone(),
+    )?;
+    let property_name = serde_json::from_value::<String>(
+        params.get(2).ok_or_else(|| -> Error { "No property name provided".into() })?.clone(),
+    )?;
+    let new_expression = serde_json::from_value::<String>(
+        params.get(3).ok_or_else(|| -> Error { "No expression provided".into() })?.clone(),
+    )?;
+    let dry_run = {
+        if let Some(p) = params.get(4) {
+            serde_json::from_value::<bool>(p.clone())
+        } else {
+            Ok(true)
+        }
+    }?;
+
+    if let Some(element) = element_at_position(document_cache, &uri, &element_range.start) {
+        if let Some(node) = &element.borrow().node {
+            let (start, end) = {
+                let mut offset_to_position = document_cache.offset_to_position_mapper(&uri);
+                let r = node.text_range();
+                (offset_to_position.map(r.start().into()), offset_to_position.map(r.end().into()))
+            };
+
+            if start != element_range.start {
+                return Err(format!(
+                    "Element found, but does not start at the expected place (){start:?} != {:?}).",
+                    element_range.start
+                )
+                .into());
+            }
+            if end != element_range.end {
+                return Err(format!(
+                    "Element found, but does not end at the expected place (){end:?} != {:?}).",
+                    element_range.end
+                )
+                .into());
+            }
+
+            let (result, edit) = properties::set_binding(
+                document_cache,
+                &uri,
+                &element,
+                &property_name,
+                new_expression,
+            )?;
+
+            if !dry_run {
+                if let Some(edit) = edit {
+                    let response = notifier
+                        .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
+                            lsp_types::ApplyWorkspaceEditParams {
+                                label: Some("set binding".into()),
+                                edit,
+                            },
+                        )?
+                        .await?;
+                    if !response.applied {
+                        return Err(response
+                            .failure_reason
+                            .unwrap_or("Operation failed, no specific reason given".into())
+                            .into());
+                    }
+                }
+            }
+
+            Ok(serde_json::to_value(result).expect("Failed to serialize set_binding result!"))
+        } else {
+            Err("The element was found, but had no range defined!".into()).into()
+        }
+    } else {
+        Err(format!("No element found at the given start position {:?}", &element_range.start)
+            .into())
     }
 }
 

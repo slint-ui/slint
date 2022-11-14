@@ -2,11 +2,14 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use crate::server_loop::{DocumentCache, OffsetToPositionMapper};
+use crate::Error;
 
-use i_slint_compiler::diagnostics::Spanned;
+use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
 use i_slint_compiler::langtype::{ElementType, Type};
 use i_slint_compiler::object_tree::{Element, ElementRc, PropertyVisibility};
 use i_slint_compiler::parser::{syntax_nodes, SyntaxKind};
+use lsp_types::WorkspaceEdit;
+
 use std::collections::HashSet;
 
 #[cfg(target_arch = "wasm32")]
@@ -19,13 +22,13 @@ pub(crate) struct DefinitionInformation {
     expression_value: String,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
 pub(crate) struct DeclarationInformation {
     uri: lsp_types::Url,
     start_position: lsp_types::Position,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, PartialEq)]
+#[derive(serde::Deserialize, serde::Serialize, Clone, Debug, PartialEq)]
 pub(crate) struct PropertyInformation {
     name: String,
     type_name: String,
@@ -53,6 +56,11 @@ impl QueryPropertyResponse {
     pub fn no_element_response(source_uri: String, source_version: i32) -> Self {
         QueryPropertyResponse { properties: vec![], element: None, source_uri, source_version }
     }
+}
+
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub(crate) struct SetBindingResponse {
+    diagnostics: Vec<lsp_types::Diagnostic>,
 }
 
 // This gets defined accessibility properties...
@@ -161,21 +169,22 @@ fn insert_property_definitions(
     properties: &mut Vec<PropertyInformation>,
     offset_to_position: &mut OffsetToPositionMapper,
 ) {
-    let element_node = element.node.as_ref().expect("Element has to have a node here!");
-    let element_range = element_node.text_range();
+    if let Some(element_node) = element.node.as_ref() {
+        let element_range = element_node.text_range();
 
-    for prop_info in properties {
-        if let Some(v) = element.bindings.get(prop_info.name.as_str()) {
-            if let Some(span) = &v.borrow().span {
-                let offset = span.span().offset as u32;
-                if element.source_file().map(|sf| sf.path())
-                    == span.source_file.as_ref().map(|sf| sf.path())
-                    && element_range.contains(offset.into())
-                {
-                    if let Some(definition) =
-                        find_expression_range(element_node, offset, offset_to_position)
+        for prop_info in properties {
+            if let Some(v) = element.bindings.get(prop_info.name.as_str()) {
+                if let Some(span) = &v.borrow().span {
+                    let offset = span.span().offset as u32;
+                    if element.source_file().map(|sf| sf.path())
+                        == span.source_file.as_ref().map(|sf| sf.path())
+                        && element_range.contains(offset.into())
                     {
-                        prop_info.defined_at = Some(definition);
+                        if let Some(definition) =
+                            find_expression_range(element_node, offset, offset_to_position)
+                        {
+                            prop_info.defined_at = Some(definition);
+                        }
                     }
                 }
             }
@@ -340,6 +349,162 @@ pub(crate) fn query_properties<'a>(
         source_uri: uri.to_string(),
         source_version,
     })
+}
+
+fn get_property_information<'a>(
+    element: &ElementRc,
+    offset_to_position: &mut OffsetToPositionMapper<'a>,
+    property_name: &str,
+) -> Result<PropertyInformation, Error> {
+    if let Some(property) = get_properties(element, offset_to_position)
+        .into_iter()
+        .find(|pi| pi.name == property_name)
+        .clone()
+    {
+        Ok(property.clone())
+    } else {
+        Err(format!("Element has no property with name {property_name}").into())
+    }
+}
+
+fn validate_property_information(
+    property: &PropertyInformation,
+    property_name: &str,
+    new_expression_type: Type,
+    diag: &mut BuildDiagnostics,
+) {
+    if property.defined_at.is_none() {
+        diag.push_error_with_span(
+            format!("Property \"{property_name}\" is declared but undefined"),
+            i_slint_compiler::diagnostics::SourceLocation {
+                source_file: None,
+                span: i_slint_compiler::diagnostics::Span::new(0),
+            },
+        );
+    }
+
+    // Check return type match:
+    if new_expression_type != i_slint_compiler::langtype::Type::Invalid
+        && new_expression_type.to_string() != property.type_name
+    {
+        diag.push_error_with_span(
+            format!(
+                "return type mismatch in \"{property_name}\" (was: {}, expected: {})",
+                new_expression_type.to_string(),
+                property.type_name
+            ),
+            i_slint_compiler::diagnostics::SourceLocation {
+                source_file: None,
+                span: i_slint_compiler::diagnostics::Span::new(0),
+            },
+        );
+    }
+}
+
+fn create_workspace_edit_for_set_binding<'a>(
+    uri: &lsp_types::Url,
+    version: i32,
+    property: &PropertyInformation,
+    new_expression: String,
+) -> Option<lsp_types::WorkspaceEdit> {
+    property.defined_at.as_ref().map(|defined_at| {
+        let edit =
+            lsp_types::TextEdit { range: defined_at.expression_range, new_text: new_expression };
+        let edits = vec![lsp_types::OneOf::Left(edit)];
+        let text_document_edits = vec![lsp_types::TextDocumentEdit {
+            text_document: lsp_types::OptionalVersionedTextDocumentIdentifier::new(
+                uri.clone(),
+                version,
+            ),
+            edits,
+        }];
+        lsp_types::WorkspaceEdit {
+            document_changes: Some(lsp_types::DocumentChanges::Edits(text_document_edits)),
+            ..Default::default()
+        }
+    })
+}
+
+pub(crate) fn set_binding<'a>(
+    document_cache: &mut DocumentCache,
+    uri: &lsp_types::Url,
+    element: &ElementRc,
+    property_name: &str,
+    new_expression: String,
+) -> Result<(SetBindingResponse, Option<WorkspaceEdit>), Error> {
+    let (mut diag, expression_node) = {
+        let mut diagnostics = BuildDiagnostics::default();
+
+        let syntax_node = i_slint_compiler::parser::parse_expression_as_bindingexpression(
+            &new_expression,
+            &mut diagnostics,
+        );
+
+        (diagnostics, syntax_node)
+    };
+
+    let new_expression_type = {
+        let element = element.borrow();
+        if let Some(node) = element.node.as_ref() {
+            crate::util::with_property_lookup_ctx(document_cache, node, property_name, |ctx| {
+                let expression =
+                    i_slint_compiler::expression_tree::Expression::from_binding_expression_node(
+                        expression_node,
+                        ctx,
+                    );
+                expression.ty()
+            })
+            .unwrap_or(Type::Invalid)
+        } else {
+            Type::Invalid
+        }
+    };
+
+    let property = match get_property_information(
+        element,
+        &mut &mut document_cache.offset_to_position_mapper(uri),
+        property_name,
+    ) {
+        Ok(p) => p,
+        Err(e) => {
+            diag.push_error_with_span(
+                e.to_string(),
+                i_slint_compiler::diagnostics::SourceLocation {
+                    source_file: None,
+                    span: i_slint_compiler::diagnostics::Span::new(0),
+                },
+            );
+            return Ok((
+                SetBindingResponse {
+                    diagnostics: diag
+                        .iter()
+                        .map(|d| crate::util::to_lsp_diag(d))
+                        .collect::<Vec<_>>(),
+                },
+                None,
+            ));
+        }
+    };
+
+    validate_property_information(&property, property_name, new_expression_type, &mut diag);
+
+    let workspace_edit = (!diag.has_error())
+        .then(|| {
+            create_workspace_edit_for_set_binding(
+                uri,
+                document_cache.document_version(uri)?,
+                &property,
+                new_expression,
+            )
+        })
+        .flatten();
+
+    Ok((
+        SetBindingResponse {
+            diagnostics: diag.iter().map(|d| crate::util::to_lsp_diag(d)).collect::<Vec<_>>(),
+        },
+        workspace_edit,
+    ))
 }
 
 #[cfg(test)]
@@ -680,5 +845,91 @@ component MyComp {
         let (_, result) = properties_at_position_in_cache(13, 0, &mut dc, &url).unwrap();
         assert_eq!(find_property(&result, "enabled").unwrap().type_name, "bool");
         assert_eq!(find_property(&result, "pressed"), None);
+    }
+
+    fn set_binding_helper(
+        property_name: &str,
+        new_value: &str,
+    ) -> (SetBindingResponse, Option<WorkspaceEdit>) {
+        let (element, _, mut dc, url) = properties_at_position(18, 15).unwrap();
+        set_binding(&mut dc, &url, &element, property_name, new_value.to_string()).unwrap()
+    }
+
+    #[test]
+    fn test_set_binding_valid_expression_unknown_property() {
+        let (result, edit) = set_binding_helper("foobar", "1 + 2");
+
+        assert_eq!(edit, None);
+        assert_eq!(result.diagnostics.len(), 1_usize);
+        assert_eq!(result.diagnostics[0].severity, Some(lsp_types::DiagnosticSeverity::ERROR));
+        assert!(result.diagnostics[0].message.contains("no property"));
+    }
+
+    #[test]
+    fn test_set_binding_valid_expression_undefined_property() {
+        let (result, edit) = set_binding_helper("x", "30px");
+
+        assert_eq!(edit, None);
+        assert_eq!(result.diagnostics.len(), 1_usize);
+        assert_eq!(result.diagnostics[0].severity, Some(lsp_types::DiagnosticSeverity::ERROR));
+        assert!(result.diagnostics[0].message.contains("undefined"));
+    }
+
+    #[test]
+    fn test_set_binding_valid_expression_wrong_return_type() {
+        let (result, edit) = set_binding_helper("min-width", "\"test\"");
+
+        assert_eq!(edit, None);
+        assert_eq!(result.diagnostics.len(), 1_usize);
+        assert_eq!(result.diagnostics[0].severity, Some(lsp_types::DiagnosticSeverity::ERROR));
+        assert!(result.diagnostics[0].message.contains("return type mismatch"));
+    }
+
+    #[test]
+    fn test_set_binding_invalid_expression() {
+        let (result, edit) = set_binding_helper("min-width", "?=///1 + 2");
+
+        assert_eq!(edit, None);
+        assert_eq!(result.diagnostics.len(), 1_usize);
+        assert_eq!(result.diagnostics[0].severity, Some(lsp_types::DiagnosticSeverity::ERROR));
+        assert!(result.diagnostics[0].message.contains("invalid expression"));
+    }
+
+    #[test]
+    fn test_set_binding_trailing_garbage() {
+        let (result, edit) = set_binding_helper("min-width", "1px;");
+
+        assert_eq!(edit, None);
+        assert_eq!(result.diagnostics.len(), 1_usize);
+        assert_eq!(result.diagnostics[0].severity, Some(lsp_types::DiagnosticSeverity::ERROR));
+        println!("{}", result.diagnostics[0].message);
+        assert!(result.diagnostics[0].message.contains("end of string"));
+    }
+
+    #[test]
+    fn test_set_binding_valid() {
+        let (result, edit) = set_binding_helper("min-width", "5px");
+
+        let edit = edit.unwrap();
+        let dcs = if let Some(lsp_types::DocumentChanges::Edits(e)) = &edit.document_changes {
+            e
+        } else {
+            unreachable!();
+        };
+        assert_eq!(dcs.len(), 1_usize);
+
+        let tcs = &dcs[0].edits;
+        assert_eq!(tcs.len(), 1_usize);
+
+        let tc = if let lsp_types::OneOf::Left(tc) = &tcs[0] {
+            tc
+        } else {
+            unreachable!();
+        };
+        assert_eq!(&tc.new_text, "5px");
+        assert_eq!(tc.range.start, lsp_types::Position { line: 17, character: 27 });
+        assert_eq!(tc.range.end, lsp_types::Position { line: 17, character: 32 });
+
+        assert_eq!(result.diagnostics.len(), 0_usize);
     }
 }
