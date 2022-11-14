@@ -71,3 +71,4 @@ i-slint-parser-test-macro = { path = "./parser-test-macro" }
 
 regex = "1.3.7"
 spin_on = "0.1"
+rayon = "1.5.3"
