@@ -1,0 +1,51 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+
+TestCase := Rectangle {
+    height: 100phx;
+    width: 100phx;
+    property <int> clicked;
+    property <bool> condition;
+
+    if true : TouchArea {
+        visible: condition;
+        clicked => { root.clicked += 1; }
+    }
+
+    HorizontalLayout {
+        for xx in [10] : TouchArea {
+            visible: false;
+            clicked => { root.clicked += xx; }
+        }
+    }
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+
+slint_testing::send_mouse_click(&instance, 37., 27.);
+assert_eq(instance.get_clicked(), 0);
+
+instance.set_condition(true);
+slint_testing::send_mouse_click(&instance, 37., 27.);
+assert_eq(instance.get_clicked(), 1);
+
+```
+
+
+```rust
+let instance = TestCase::new();
+slint_testing::send_mouse_click(&instance, 37., 27.);
+assert_eq!(instance.get_clicked(), 0);
+
+instance.set_condition(true);
+slint_testing::send_mouse_click(&instance, 37., 27.);
+assert_eq!(instance.get_clicked(), 1);
+
+
+```
+
+*/

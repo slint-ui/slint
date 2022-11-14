@@ -48,10 +48,11 @@ pub fn handle_visible(component: &Rc<Component>, type_register: &TypeRegister) {
                 if child.borrow().repeated.is_some() {
                     let root_elem = child.borrow().base_type.as_component().root_element.clone();
                     if has_visible_binding(&root_elem) {
-                        object_tree::inject_element_as_repeated_element(
-                            &child,
-                            create_visibility_element(&root_elem, &native_clip),
-                        )
+                        let clip_elem = create_visibility_element(&root_elem, &native_clip);
+                        object_tree::inject_element_as_repeated_element(&child, clip_elem.clone());
+                        // The width and the height must be null
+                        clip_elem.borrow_mut().bindings.remove("width");
+                        clip_elem.borrow_mut().bindings.remove("height");
                     }
                 } else if has_visible_binding(&child) {
                     let new_child = create_visibility_element(&child, &native_clip);
