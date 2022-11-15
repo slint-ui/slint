@@ -74,6 +74,7 @@ jobs:
       RUSTFLAGS: -D warnings
       CARGO_INCREMENTAL: false
       RUST_BACKTRACE: 1
+      SLINT_EXPERIMENTAL_SYNTAX: true
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-11, windows-2022]

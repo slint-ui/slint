@@ -237,9 +237,6 @@ pub struct Component {
     /// This is the main entry point for the code generators. Such a component
     /// should have the full API, etc.
     pub is_root_component: Cell<bool>,
-
-    /// True when this component was declared with the `:=` symbol instead of the `component` keyword
-    pub is_legacy_syntax: bool,
 }
 
 impl Component {
@@ -266,7 +263,6 @@ impl Component {
                 tr,
             ),
             child_insertion_point: RefCell::new(child_insertion_point),
-            is_legacy_syntax,
             ..Default::default()
         };
         let c = Rc::new(c);
@@ -504,6 +500,9 @@ pub struct Element {
     /// the index of the first children in the tree, set with item_index
     pub item_index_of_first_children: once_cell::unsync::OnceCell<usize>,
 
+    /// True when this element is in a component was declared with the `:=` symbol instead of the `component` keyword
+    pub is_legacy_syntax: bool,
+
     /// How many times the element was inlined
     pub inline_depth: i32,
 
@@ -676,7 +675,7 @@ impl Element {
         id: String,
         parent_type: ElementType,
         component_child_insertion_point: &mut Option<ChildrenInsertionPoint>,
-        is_in_legacy_component: bool,
+        is_legacy_syntax: bool,
         diag: &mut BuildDiagnostics,
         tr: &TypeRegister,
     ) -> ElementRc {
@@ -719,7 +718,13 @@ impl Element {
         } else {
             tr.empty_type()
         };
-        let mut r = Element { id, base_type, node: Some(node.clone()), ..Default::default() };
+        let mut r = Element {
+            id,
+            base_type,
+            node: Some(node.clone()),
+            is_legacy_syntax,
+            ..Default::default()
+        };
 
         for prop_decl in node.PropertyDeclaration() {
             let prop_type = prop_decl
@@ -764,7 +769,7 @@ impl Element {
                 }
             }
             let visibility = visibility.unwrap_or_else(|| {
-                if is_in_legacy_component {
+                if is_legacy_syntax {
                     PropertyVisibility::InOut
                 } else {
                     PropertyVisibility::Private
@@ -812,13 +817,13 @@ impl Element {
             node.Binding().filter_map(|b| {
                 Some((b.child_token(SyntaxKind::Identifier)?, b.BindingExpression().into()))
             }),
-            is_in_legacy_component,
+            is_legacy_syntax,
             diag,
         );
         r.parse_bindings(
             node.TwoWayBinding()
                 .filter_map(|b| Some((b.child_token(SyntaxKind::Identifier)?, b.into()))),
-            is_in_legacy_component,
+            is_legacy_syntax,
             diag,
         );
 
@@ -972,7 +977,7 @@ impl Element {
                     se.into(),
                     parent_type,
                     component_child_insertion_point,
-                    is_in_legacy_component,
+                    is_legacy_syntax,
                     diag,
                     tr,
                 ));
@@ -982,7 +987,7 @@ impl Element {
                     se.into(),
                     &r,
                     &mut sub_child_insertion_point,
-                    is_in_legacy_component,
+                    is_legacy_syntax,
                     diag,
                     tr,
                 );
@@ -999,7 +1004,7 @@ impl Element {
                     se.into(),
                     r.borrow().base_type.clone(),
                     &mut sub_child_insertion_point,
-                    is_in_legacy_component,
+                    is_legacy_syntax,
                     diag,
                     tr,
                 );
@@ -1332,13 +1337,15 @@ impl Element {
 
     /// Set the property `property_name` of this Element only if it was not set.
     /// the `expression_fn` will only be called if it isn't set
+    ///
+    /// returns true if the binding was changed
     pub fn set_binding_if_not_set(
         &mut self,
         property_name: String,
         expression_fn: impl FnOnce() -> Expression,
-    ) {
+    ) -> bool {
         if self.is_binding_set(&property_name, false) {
-            return;
+            return false;
         }
 
         match self.bindings.entry(property_name) {
@@ -1353,6 +1360,7 @@ impl Element {
                 existing_entry.get_mut().get_mut().merge_with(&binding);
             }
         };
+        true
     }
 
     pub fn sub_component(&self) -> Option<&Rc<Component>> {

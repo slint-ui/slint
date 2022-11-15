@@ -217,6 +217,7 @@ fn duplicate_element_with_mapping(
         item_index_of_first_children: Default::default(),
         is_flickable_viewport: elem.is_flickable_viewport,
         has_popup_child: elem.has_popup_child,
+        is_legacy_syntax: elem.is_legacy_syntax,
         inline_depth: elem.inline_depth + 1,
     }));
     mapping.insert(element_key(element.clone()), new.clone());
@@ -270,7 +271,6 @@ fn duplicate_sub_component(
         popup_windows: Default::default(),
         exported_global_names: component_to_duplicate.exported_global_names.clone(),
         is_root_component: Default::default(),
-        is_legacy_syntax: component_to_duplicate.is_legacy_syntax,
     };
 
     let new_component = Rc::new(new_component);

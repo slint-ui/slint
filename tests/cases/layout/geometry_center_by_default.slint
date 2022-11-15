@@ -1,0 +1,58 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+global G {
+    callback is-center(length, length, length) -> bool;
+    is-center(pos, size, parent) => {
+        return abs(pos / 1px - (parent - size) / 2px) < 0.001;
+    }
+}
+
+component Foo {
+    r1 := Rectangle { width: 20px; }
+    r2 := Rectangle { height: 20px; y: 20px; }
+    t1 := Text { text: "Foobar"; }
+
+
+    out property <bool> test:
+        G.is-center(r1.x, r1.width, self.width) && r1.y == 0
+        && r2.x == 0 && r2.y == 20px
+        && G.is-center(t1.x, t1.width, self.width) && G.is-center(t1.y, t1.height, self.height);
+}
+
+Old := Rectangle {
+    r1 := Rectangle { width: 20px; }
+    r2 := Rectangle { height: 20px; y: 20px; }
+    t1 := Text { text: "Foobar"; }
+
+    out property <bool> test:
+        r1.x == 0 && r1.y == 0
+        && r2.x == 0 && r2.y == 20px
+        && t1.x == 0 && t1.y == 0;
+}
+
+TestCase := Window {
+    f := Foo {}
+    o := Old {}
+
+    property <bool> test : f.test && o.test;
+}
+
+/*
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```rust
+let instance = TestCase::new();
+assert!(instance.get_test());
+```
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+```
+*/

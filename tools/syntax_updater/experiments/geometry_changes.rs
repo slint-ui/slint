@@ -20,7 +20,7 @@ pub(crate) fn fold_node(
             let elem = &state.lookup_change.scope[state.lookup_change.scope.len() - 1];
             let parent = &state.lookup_change.scope[state.lookup_change.scope.len() - 2];
 
-            if !is_layout_base(parent) && !is_path(elem) {
+            if !is_layout_base(parent) && !is_path(elem) && elem.borrow().is_legacy_syntax {
                 let extend = elem.borrow().builtin_type().map_or(false, |b| {
                     b.default_size_binding
                         != i_slint_compiler::langtype::DefaultSizeBinding::ImplicitSize

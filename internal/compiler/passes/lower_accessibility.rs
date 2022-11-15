@@ -73,6 +73,6 @@ fn apply_builtin(e: &ElementRc) {
         let text_prop = NamedReference::new(e, "text");
         e.borrow_mut().set_binding_if_not_set("accessible-label".into(), || {
             Expression::PropertyReference(text_prop)
-        })
+        });
     }
 }

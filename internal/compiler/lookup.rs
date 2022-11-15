@@ -69,9 +69,7 @@ impl<'a> LookupCtx<'a> {
     }
 
     pub fn is_legacy_component(&self) -> bool {
-        self.component_scope
-            .first()
-            .map_or(false, |e| e.borrow().enclosing_component.upgrade().unwrap().is_legacy_syntax)
+        self.component_scope.first().map_or(false, |e| e.borrow().is_legacy_syntax)
     }
 }
 
