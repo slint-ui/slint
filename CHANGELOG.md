@@ -12,6 +12,8 @@ All notable changes to this project are documented in this file.
  - In the interpreter, calling `set_property` or `get_property` on properties of the base no longer works.
  - Renamed the `Keys` namespace for use in `key-pressed`/`key-released` callbacks to `Key`. The
    old name continues to work.
+ - Disallow overrides or duplicated declarations of callbacks. Previously they were silently overwritten,
+   now an error is produced.
 
 ### Added
 
