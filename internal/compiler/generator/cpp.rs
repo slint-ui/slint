@@ -1110,8 +1110,16 @@ fn generate_item_tree(
             root_access
         ),
         format!("self->init({}, self->self_weak, 0, 1 {});", root_access, init_parent_parameters),
-        format!("return slint::ComponentHandle<{0}>{{ self_rc }};", target_struct.name),
     ]);
+
+    // Repeaters run their user_init() code from Repeater::ensure_updated() after update() initialized model_data/index.
+    // So always call user_init(), unless this component is a repeated.
+    if parent_ctx.map_or(true, |parent_ctx| parent_ctx.repeater_index.is_none()) {
+        create_code.push(format!("self->user_init();"));
+    }
+
+    create_code
+        .push(format!("return slint::ComponentHandle<{0}>{{ self_rc }};", target_struct.name));
 
     target_struct.members.push((
         Access::Public,
@@ -1259,6 +1267,8 @@ fn generate_sub_component(
         ));
     }
 
+    let mut user_init = vec!["[[maybe_unused]] auto self = this;".into()];
+
     let mut children_visitor_cases = Vec::new();
     let mut subtrees_ranges_cases = Vec::new();
     let mut subtrees_components_cases = Vec::new();
@@ -1285,6 +1295,7 @@ fn generate_sub_component(
             "this->{}.init(root, self_weak.into_dyn(), {}, {});",
             field_name, global_index, global_children
         ));
+        user_init.push(format!("this->{}.user_init();", field_name));
 
         let sub_component_repeater_count = sub.ty.repeater_count();
         if sub_component_repeater_count > 0 {
@@ -1453,7 +1464,12 @@ fn generate_sub_component(
     }
 
     init.extend(properties_init_code);
-    init.extend(component.init_code.iter().map(|e| compile_expression(&e.borrow(), &ctx)));
+
+    user_init.extend(component.init_code.iter().map(|e| {
+        let mut expr_str = compile_expression(&e.borrow(), &ctx);
+        expr_str.push(';');
+        expr_str
+    }));
 
     target_struct.members.push((
         field_access,
@@ -1461,6 +1477,16 @@ fn generate_sub_component(
             name: "init".to_owned(),
             signature: format!("({}) -> void", init_parameters.join(",")),
             statements: Some(init),
+            ..Default::default()
+        }),
+    ));
+
+    target_struct.members.push((
+        field_access,
+        Declaration::Function(Function {
+            name: "user_init".to_owned(),
+            signature: "() -> void".into(),
+            statements: Some(user_init),
             ..Default::default()
         }),
     ));
@@ -1642,6 +1668,16 @@ fn generate_repeated_component(
                 model_data_type.cpp_type().unwrap()
             ),
             statements: Some(update_statements),
+            ..Function::default()
+        }),
+    ));
+
+    repeater_struct.members.push((
+        Access::Public, // Because Repeater accesses it
+        Declaration::Function(Function {
+            name: "init".into(),
+            signature: "() -> void".into(),
+            statements: Some(vec!["user_init();".into()]),
             ..Function::default()
         }),
     ));

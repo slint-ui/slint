@@ -1,0 +1,110 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+// Verify that the init callback is invoked in the correct order
+
+export global InitOrder := {
+    property <string> observed-order: "start";
+}
+
+Sub1 := Rectangle {
+    init => {
+        InitOrder.observed-order += "|sub1";
+    }
+}
+
+Sub2 := Rectangle {
+    init => {
+        InitOrder.observed-order += "|sub2";
+    }
+}
+
+SubSub := Rectangle {
+    init => {
+        InitOrder.observed-order += "|subsub";
+    }
+}
+
+Sub3 := Rectangle {
+    property <string> some-value: "should-not-show-up";
+    init => {
+        InitOrder.observed-order += some-value;
+    }
+    SubSub {}
+}
+
+Container := Rectangle {
+    init => {
+        InitOrder.observed-order += "|container";
+    }
+    @children
+}
+
+TestCase := Rectangle {
+    width: 300phx;
+    height: 300phx;
+    init => {
+        InitOrder.observed-order += "|root";
+    }
+    Sub1 {
+        init => {
+            InitOrder.observed-order += "|sub1-use-site";
+        }
+    }
+    Sub2 {        
+    }
+    Sub3 {
+        some-value: "|sub3";
+    }
+
+    Container {
+
+    }
+
+    Rectangle {
+        init => {
+            InitOrder.observed-order += "|element";
+        }
+    }
+
+    for i in 2: Rectangle {
+        init => {
+            InitOrder.observed-order += "|repeater";
+            InitOrder.observed-order += i;
+        }
+    }
+
+    property <string> test_global_prop_value: InitOrder.observed-order;
+
+    property <string> expected_static_order: "start|sub1|sub2|subsub|sub3|root|sub1-use-site|container|element";
+
+    property <bool> test: InitOrder.observed-order == expected_static_order;
+}
+
+/*
+```rust
+let instance = TestCase::new();
+
+assert!(instance.get_test());
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq!(instance.global::<InitOrder>().get_observed_order(), instance.get_expected_static_order() + "|repeater0|repeater1");
+```
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert_eq(instance.global<InitOrder>().get_observed_order(),  instance.get_expected_static_order() + "|repeater0|repeater1");
+```
+
+
+```js
+var instance = new slint.TestCase({});
+assert(instance.test);
+instance.send_mouse_click(5., 5.);
+assert.equal(instance.test_global_prop_value,  instance.expected_static_order + "|repeater0|repeater1");
+```
+
+
+*/

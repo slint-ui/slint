@@ -368,7 +368,7 @@ fn lower_sub_component(
     });
 
     sub_component.init_code = component
-        .setup_code
+        .init_code
         .borrow()
         .iter()
         .map(|e| super::lower_expression::lower_expression(e, &ctx).into())

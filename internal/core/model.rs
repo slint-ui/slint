@@ -604,6 +604,10 @@ pub trait RepeatedComponent:
     /// Update this component at the given index and the given data
     fn update(&self, index: usize, data: Self::Data);
 
+    /// Called once after the component has been instantiated and update()
+    /// was called once.
+    fn init(&self) {}
+
     /// Layout this item in the listview
     ///
     /// offset_y is the `y` position where this item should be placed.
@@ -799,19 +803,25 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
         let mut inner = self.0.inner.borrow_mut();
         inner.components.resize_with(count, || (RepeatedComponentState::Dirty, None));
         let offset = inner.offset;
-        let mut created = false;
+        let mut any_items_created = false;
         for (i, c) in inner.components.iter_mut().enumerate() {
             if c.0 == RepeatedComponentState::Dirty {
-                if c.1.is_none() {
-                    created = true;
+                let created = if c.1.is_none() {
+                    any_items_created = true;
                     c.1 = Some(init());
-                }
+                    true
+                } else {
+                    false
+                };
                 c.1.as_ref().unwrap().update(i + offset, model.row_data(i + offset).unwrap());
+                if created {
+                    c.1.as_ref().unwrap().init();
+                }
                 c.0 = RepeatedComponentState::Clean;
             }
         }
         self.data().is_dirty.set(false);
-        created
+        any_items_created
     }
 
     /// Same as `Self::ensuer_updated` but for a ListView

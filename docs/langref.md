@@ -1079,6 +1079,26 @@ Example := Window {
 }
 ```
 
+## Builtin callbacks
+
+Every component and element implicitly declares an `init` callback. You can assign a code block to it that will be run when the
+element or component is instantiated. The recommended way is to avoid using this callback, unless you need it. For example in
+order to notify some native code.
+
+```slint,no-preview
+global SystemService := {
+    // This callback can be implemented in native code using the Slint API
+    callback ensure_service_running();
+}
+
+MySystemButton := Rectangle {
+    init => {
+        SystemService.ensure_service_running();
+    }
+    // ...
+}
+```
+
 ### `Math` namespace
 
 These functions are available both in the global scope and in the `Math` namespace.

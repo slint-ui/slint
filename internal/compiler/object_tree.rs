@@ -222,8 +222,13 @@ pub struct Component {
     /// the element pointer to by this field.
     pub child_insertion_point: RefCell<Option<ChildrenInsertionPoint>>,
 
-    /// Code to be inserted into the constructor
-    pub setup_code: RefCell<Vec<Expression>>,
+    /// Code inserted from inlined components, ordered by offset of the place where it was inlined from. This way
+    /// we can preserve the order across multiple inlining passes.
+    pub inlined_init_code: RefCell<BTreeMap<usize, Expression>>,
+
+    /// Code to be inserted into the constructor, such as font registration, focus setting or
+    /// init callback code collected from elements.
+    pub init_code: RefCell<Vec<Expression>>,
 
     /// The list of used extra types used (recursively) by this root component.
     /// (This only make sense on the root component)
@@ -709,6 +714,17 @@ impl Element {
             node.PropertyAnimation().for_each(|n| error_on(&n, "animations"));
             node.States().for_each(|n| error_on(&n, "states"));
             node.Transitions().for_each(|n| error_on(&n, "transitions"));
+            node.CallbackDeclaration().for_each(|cb| {
+                if parser::identifier_text(&cb.DeclaredIdentifier()).map_or(false, |s| s == "init")
+                {
+                    error_on(&cb, "an 'init' callback")
+                }
+            });
+            node.CallbackConnection().for_each(|cb| {
+                if parser::identifier_text(&cb).map_or(false, |s| s == "init") {
+                    error_on(&cb, "an 'init' callback")
+                }
+            });
 
             ElementType::Global
         } else if parent_type != ElementType::Error {
@@ -1783,33 +1799,39 @@ pub fn visit_element_expressions(
     elem.borrow_mut().transitions = transitions;
 }
 
+pub fn visit_named_references_in_expression(
+    expr: &mut Expression,
+    vis: &mut impl FnMut(&mut NamedReference),
+) {
+    expr.visit_mut(|sub| visit_named_references_in_expression(sub, vis));
+    match expr {
+        Expression::PropertyReference(r) | Expression::CallbackReference(r) => vis(r),
+        Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
+        Expression::SolveLayout(l, _) => l.visit_named_references(vis),
+        Expression::ComputeLayoutInfo(l, _) => l.visit_named_references(vis),
+        // This is not really a named reference, but the result is the same, it need to be updated
+        // FIXME: this should probably be lowered into a PropertyReference
+        Expression::RepeaterModelReference { element }
+        | Expression::RepeaterIndexReference { element } => {
+            // FIXME: this is questionable
+            let mut nc = NamedReference::new(&element.upgrade().unwrap(), "$model");
+            vis(&mut nc);
+            debug_assert!(nc.element().borrow().repeated.is_some());
+            *element = Rc::downgrade(&nc.element());
+        }
+        _ => {}
+    }
+}
+
 /// Visit all the named reference in an element
 /// But does not recurse in sub-elements. (unlike [`visit_all_named_references`] which recurse)
 pub fn visit_all_named_references_in_element(
     elem: &ElementRc,
     mut vis: impl FnMut(&mut NamedReference),
 ) {
-    fn recurse_expression(expr: &mut Expression, vis: &mut impl FnMut(&mut NamedReference)) {
-        expr.visit_mut(|sub| recurse_expression(sub, vis));
-        match expr {
-            Expression::PropertyReference(r) | Expression::CallbackReference(r) => vis(r),
-            Expression::LayoutCacheAccess { layout_cache_prop, .. } => vis(layout_cache_prop),
-            Expression::SolveLayout(l, _) => l.visit_named_references(vis),
-            Expression::ComputeLayoutInfo(l, _) => l.visit_named_references(vis),
-            // This is not really a named reference, but the result is the same, it need to be updated
-            // FIXME: this should probably be lowered into a PropertyReference
-            Expression::RepeaterModelReference { element }
-            | Expression::RepeaterIndexReference { element } => {
-                // FIXME: this is questionable
-                let mut nc = NamedReference::new(&element.upgrade().unwrap(), "$model");
-                vis(&mut nc);
-                debug_assert!(nc.element().borrow().repeated.is_some());
-                *element = Rc::downgrade(&nc.element());
-            }
-            _ => {}
-        }
-    }
-    visit_element_expressions(elem, |expr, _, _| recurse_expression(expr, &mut vis));
+    visit_element_expressions(elem, |expr, _, _| {
+        visit_named_references_in_expression(expr, &mut vis)
+    });
     let mut states = std::mem::take(&mut elem.borrow_mut().states);
     for s in &mut states {
         for (r, _, _) in &mut s.property_changes {
