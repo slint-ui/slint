@@ -121,8 +121,11 @@ pub fn remove_aliases(component: &Rc<Component>, diag: &mut BuildDiagnostics) {
             // ensure that we set an expression, because the right hand side of a binding always wins,
             // and if that was not set, we must still kee the default then
             let mut b = BindingExpression::from(Expression::default_value_for_type(&to.ty()));
-            b.priority =
-                to_elem.borrow_mut().bindings.get(to.name()).map_or(0, |x| x.borrow().priority) + 1;
+            b.priority = to_elem
+                .borrow_mut()
+                .bindings
+                .get(to.name())
+                .map_or(i32::MAX, |x| x.borrow().priority.saturating_add(1));
             b
         });
 
