@@ -3,6 +3,8 @@
 
 SubElements := Rectangle {
     callback foobar;
+    callback foobar;
+//          ^error{Duplicated callback declaration}    
 
     callback callback_with_arg(int, string);
 
