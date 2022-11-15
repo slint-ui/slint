@@ -467,7 +467,7 @@ pub struct Element {
     pub property_analysis: RefCell<HashMap<String, PropertyAnalysis>>,
 
     /// Code to be inserted into the constructor for root elements of components
-    pub init_code: Vec<Expression>,
+    pub init_code: RefCell<Vec<Expression>>,
 
     pub children: Vec<ElementRc>,
     /// The component which contains this element.
@@ -1733,8 +1733,8 @@ pub fn visit_element_expressions(
     }
     elem.borrow_mut().transitions = transitions;
 
-    let mut init_code = std::mem::take(&mut elem.borrow_mut().init_code);
-    for expr in &mut init_code {
+    let init_code = std::mem::take(&mut elem.borrow_mut().init_code);
+    for expr in &mut init_code.borrow_mut().iter_mut() {
         vis(expr, None, &|| Type::Void)
     }
     elem.borrow_mut().init_code = init_code;

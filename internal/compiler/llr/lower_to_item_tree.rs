@@ -371,6 +371,7 @@ fn lower_sub_component(
         .root_element
         .borrow()
         .init_code
+        .borrow()
         .iter()
         .map(|e| super::lower_expression::lower_expression(e, &ctx).into())
         .collect();

@@ -56,7 +56,7 @@ pub fn collect_custom_fonts<'a>(
         Box::new(|font_path| Expression::StringLiteral(font_path.clone()))
     };
 
-    root_component.root_element.borrow_mut().init_code.extend(all_fonts.into_iter().map(
+    root_component.root_element.borrow().init_code.borrow_mut().extend(all_fonts.into_iter().map(
         |font_path| Expression::FunctionCall {
             function: Box::new(registration_function.clone()),
             arguments: vec![prepare_font_registration_argument(font_path)],

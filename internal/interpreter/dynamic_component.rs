@@ -1455,7 +1455,8 @@ impl ErasedComponentBox {
         generativity::make_guard!(guard);
         let compo_box = self.unerase(guard);
         let instance_ref = compo_box.borrow_instance();
-        for extra_init_code in self.0.component_type.original.root_element.borrow().init_code.iter()
+        for extra_init_code in
+            self.0.component_type.original.root_element.borrow().init_code.borrow().iter()
         {
             eval::eval_expression(
                 extra_init_code,

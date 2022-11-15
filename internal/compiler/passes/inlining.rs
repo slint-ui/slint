@@ -165,6 +165,13 @@ fn inline_element(
 
     core::mem::drop(elem_mut);
 
+    root_component
+        .root_element
+        .borrow()
+        .init_code
+        .borrow_mut()
+        .extend(inlined_component.root_element.borrow().init_code.borrow().iter().cloned());
+
     // Now fixup all binding and reference
     for e in mapping.values() {
         visit_all_named_references_in_element(e, |nr| fixup_reference(nr, &mapping));
