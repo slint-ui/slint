@@ -13,9 +13,9 @@ use std::rc::Rc;
 
 mod glwindow;
 use glwindow::*;
-#[cfg(any(feature = "renderer-winit-femtovg", skia_backend_opengl))]
+#[cfg(any(feature = "femtovg", skia_backend_opengl))]
 mod glcontext;
-#[cfg(any(feature = "renderer-winit-femtovg", skia_backend_opengl))]
+#[cfg(any(feature = "femtovg", skia_backend_opengl))]
 use glcontext::*;
 pub(crate) mod event_loop;
 mod renderer {
