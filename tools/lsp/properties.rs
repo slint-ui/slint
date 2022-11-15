@@ -128,10 +128,12 @@ fn find_expression_range(
                 let expr =
                     &ancestor.first_child().expect("A BindingExpression needs to have a child");
                 expression_range = expr.text_range();
-                expression_value = Some(expr.text());
+                expression_value = Some(expr.text().to_string());
                 continue;
             }
-            if ancestor.kind() == SyntaxKind::Binding {
+            if (ancestor.kind() == SyntaxKind::Binding)
+                || (ancestor.kind() == SyntaxKind::PropertyDeclaration)
+            {
                 property_definition_range = ancestor.text_range();
                 break;
             }
@@ -141,11 +143,8 @@ fn find_expression_range(
             }
         }
     }
-    if property_definition_range.start() < expression_range.start()
-        && expression_range.start() <= expression_range.end()
-        && expression_range.end() < property_definition_range.end()
-    {
-        return Some(DefinitionInformation {
+    if let Some(expression_value) = expression_value {
+        Some(DefinitionInformation {
             // In the CST, the range end includes the last character, while in the lsp protocol the end of the
             // range is exclusive, i.e. it refers to the first excluded character. Hence the +1 below:
             property_definition_range: crate::util::text_range_to_lsp_range(
@@ -156,12 +155,8 @@ fn find_expression_range(
                 expression_range,
                 offset_to_position,
             ),
-            expression_value: if let Some(et) = expression_value {
-                et.to_string()
-            } else {
-                String::new()
-            },
-        });
+            expression_value,
+        })
     } else {
         None
     }
@@ -550,6 +545,109 @@ SomeRect := Rectangle {
         let definition = width_property.defined_at.as_ref().unwrap();
         assert_eq!(definition.expression_range.start.line, 8);
         assert_eq!(width_property.group, "geometry");
+    }
+
+    #[test]
+    fn test_codeblock_property_declaration() {
+        let (mut dc, url, _) = loaded_document_cache(
+            "fluent",
+            r#"
+component Base {
+    property <int> a1: { 1 + 1 }
+    property <int> a2: { 1 + 2; }
+    property <int> a3: { 1 + 3 };
+    property <int> a4: { 1 + 4; };
+    in property <int> b: {
+        if (something) { return 42; }
+        return 1 + 2;
+    }
+}
+            "#
+            .to_string(),
+        );
+
+        let (_, result) = properties_at_position_in_cache(3, 0, &mut dc, &url).unwrap();
+        assert_eq!(find_property(&result, "a1").unwrap().type_name, "int");
+        assert_eq!(
+            find_property(&result, "a1").unwrap().defined_at.as_ref().unwrap().expression_value,
+            "{ 1 + 1 }"
+        );
+        assert_eq!(find_property(&result, "a2").unwrap().type_name, "int");
+        assert_eq!(
+            find_property(&result, "a2").unwrap().defined_at.as_ref().unwrap().expression_value,
+            "{ 1 + 2; }"
+        );
+        assert_eq!(find_property(&result, "a3").unwrap().type_name, "int");
+        assert_eq!(
+            find_property(&result, "a3").unwrap().defined_at.as_ref().unwrap().expression_value,
+            "{ 1 + 3 }"
+        );
+        assert_eq!(find_property(&result, "a4").unwrap().type_name, "int");
+        assert_eq!(
+            find_property(&result, "a4").unwrap().defined_at.as_ref().unwrap().expression_value,
+            "{ 1 + 4; }"
+        );
+        assert_eq!(find_property(&result, "b").unwrap().type_name, "int");
+        assert_eq!(
+            find_property(&result, "b").unwrap().defined_at.as_ref().unwrap().expression_value,
+            "{\n        if (something) { return 42; }\n        return 1 + 2;\n    }"
+        );
+    }
+
+    #[test]
+    fn test_codeblock_property_definitions() {
+        let (mut dc, url, _) = loaded_document_cache(
+            "fluent",
+            r#"
+component Base {
+    in property <int> a1;
+    in property <int> a2;
+    in property <int> a3;
+    in property <int> a4;
+    in property <int> b;
+}
+component MyComp {
+    Base {
+        a1: { 1 + 1 }
+        a2: { 1 + 2; }
+        a3: { 1 + 3 };
+        a4: { 1 + 4; };
+        b: {
+            if (something) { return 42; }
+            return 1 + 2;
+        }
+    }
+}
+            "#
+            .to_string(),
+        );
+
+        let (_, result) = properties_at_position_in_cache(11, 0, &mut dc, &url).unwrap();
+        assert_eq!(find_property(&result, "a1").unwrap().type_name, "int");
+        assert_eq!(
+            find_property(&result, "a1").unwrap().defined_at.as_ref().unwrap().expression_value,
+            "{ 1 + 1 }"
+        );
+        assert_eq!(find_property(&result, "a2").unwrap().type_name, "int");
+        assert_eq!(
+            find_property(&result, "a2").unwrap().defined_at.as_ref().unwrap().expression_value,
+            "{ 1 + 2; }"
+        );
+        assert_eq!(find_property(&result, "a3").unwrap().type_name, "int");
+        assert_eq!(
+            find_property(&result, "a3").unwrap().defined_at.as_ref().unwrap().expression_value,
+            "{ 1 + 3 }"
+        );
+        assert_eq!(find_property(&result, "a4").unwrap().type_name, "int");
+        assert_eq!(
+            find_property(&result, "a4").unwrap().defined_at.as_ref().unwrap().expression_value,
+            "{ 1 + 4; }"
+        );
+        assert_eq!(find_property(&result, "b").unwrap().type_name, "int");
+        assert_eq!(
+            find_property(&result, "b").unwrap().defined_at.as_ref().unwrap().expression_value,
+            "{\n            if (something) { return 42; }\n            return 1 + 2;\n        }",
+        );
     }
 
     #[test]
