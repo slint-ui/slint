@@ -259,6 +259,7 @@ jobs:
       run: git diff
     - name: test
       # Skip a few tests that rely on private renamed properties.
+      # Skip the tests which makes two way binding to output property (these are warning in previous version)
       run: |
         cargo test --bin test-driver-interpreter -- \
                   --skip test_interpreter_text_cursor_move \
@@ -266,4 +267,7 @@ jobs:
                   --skip test_interpreter_text_cut \
                   --skip test_interpreter_text_select_all \
                   --skip test_interpreter_text_surrogate_cursor \
-                  --skip test_interpreter_text_text_change
+                  --skip test_interpreter_text_text_change \
+                  --skip test_interpreter_crashes_layout_deleted_item \
+                  --skip test_interpreter_focus_focus_change_subcompo \
+                  --skip test_interpreter_focus_focus_change_through_signal
