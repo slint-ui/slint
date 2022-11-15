@@ -14,6 +14,7 @@ use std::rc::Rc;
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::diagnostics::Spanned;
+use crate::expression_tree::Unit;
 use crate::expression_tree::{BindingExpression, BuiltinFunction, Expression, NamedReference};
 use crate::langtype::{DefaultSizeBinding, PropertyLookupResult, Type};
 use crate::layout::Orientation;
@@ -24,8 +25,15 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
         root_component,
         &None,
         &mut |elem: &ElementRc, parent: &Option<ElementRc>| {
-            fix_percent_size(elem, parent, "width", diag);
-            fix_percent_size(elem, parent, "height", diag);
+            if elem.borrow().repeated.is_some() {
+                return None;
+            }
+
+            // whether the width, or height, is filling the parent
+            let (mut w100, mut h100) = (false, false);
+
+            w100 |= fix_percent_size(elem, parent, "width", diag);
+            h100 |= fix_percent_size(elem, parent, "height", diag);
 
             gen_layout_info_prop(elem);
 
@@ -35,8 +43,8 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
                     DefaultSizeBinding::None => {}
                     DefaultSizeBinding::ExpandsToParentGeometry => {
                         if !elem.borrow().child_of_layout {
-                            make_default_100(elem, parent, "width");
-                            make_default_100(elem, parent, "height");
+                            w100 |= make_default_100(elem, parent, "width");
+                            h100 |= make_default_100(elem, parent, "height");
                         }
                     }
                     DefaultSizeBinding::ImplicitSize => {
@@ -91,7 +99,17 @@ pub fn default_geometry(root_component: &Rc<Component>, diag: &mut BuildDiagnost
                         }
                     }
                 }
+
+                if !elem.borrow().child_of_layout && !elem.borrow().is_legacy_syntax {
+                    if !w100 {
+                        maybe_center_in_parent(elem, parent, "x", "width");
+                    }
+                    if !h100 {
+                        maybe_center_in_parent(elem, parent, "y", "height");
+                    }
+                }
             }
+
             Some(elem.clone())
         },
     )
@@ -154,20 +172,22 @@ fn gen_layout_info_prop(elem: &ElementRc) {
 }
 
 /// Replace expression such as  `"width: 30%;` with `width: 0.3 * parent.width;`
+///
+/// Returns true if the expression was 100%
 fn fix_percent_size(
     elem: &ElementRc,
     parent: &Option<ElementRc>,
     property: &str,
     diag: &mut BuildDiagnostics,
-) {
+) -> bool {
     let elem = elem.borrow();
     let binding = match elem.bindings.get(property) {
         Some(b) => b,
-        None => return,
+        None => return false,
     };
 
     if binding.borrow().ty() != Type::Percent {
-        return;
+        return false;
     }
     let mut b = binding.borrow_mut();
     if let Some(parent) = parent {
@@ -175,6 +195,8 @@ fn fix_percent_size(
             parent.borrow().lookup_property(property).property_type,
             Type::LogicalLength
         );
+        let fill =
+            matches!(b.expression, Expression::NumberLiteral(x, _) if (x - 100.).abs() < 0.001);
         b.expression = Expression::BinaryExpression {
             lhs: Box::new(std::mem::take(&mut b.expression).maybe_convert_to(
                 Type::Float32,
@@ -183,21 +205,25 @@ fn fix_percent_size(
             )),
             rhs: Box::new(Expression::PropertyReference(NamedReference::new(parent, property))),
             op: '*',
-        }
+        };
+        fill
     } else {
         diag.push_error("Cannot find parent property to apply relative length".into(), &b.span);
+        false
     }
 }
 
-fn make_default_100(elem: &ElementRc, parent_element: &ElementRc, property: &str) {
+/// Generate a size property that covers the parent.
+/// Return true if it was changed
+fn make_default_100(elem: &ElementRc, parent_element: &ElementRc, property: &str) -> bool {
     let PropertyLookupResult { resolved_name, property_type, .. } =
         parent_element.borrow().lookup_property(property);
     if property_type != Type::LogicalLength {
-        return;
+        return false;
     }
     elem.borrow_mut().set_binding_if_not_set(resolved_name.to_string(), || {
         Expression::PropertyReference(NamedReference::new(parent_element, resolved_name.as_ref()))
-    });
+    })
 }
 
 fn make_default_implicit(elem: &ElementRc, property: &str, orientation: Orientation) {
@@ -267,4 +293,27 @@ fn make_default_aspect_ratio_preserving_binding(
     elem.borrow_mut()
         .bindings
         .insert(missing_size_property.to_string(), RefCell::new(binding.into()));
+}
+
+fn maybe_center_in_parent(elem: &ElementRc, parent: &ElementRc, pos_prop: &str, size_prop: &str) {
+    if elem.borrow().is_binding_set(pos_prop, false) {
+        return;
+    }
+    if elem.borrow().lookup_property(pos_prop).property_type != Type::LogicalLength
+        || elem.borrow().lookup_property(size_prop).property_type != Type::LogicalLength
+    {
+        return;
+    }
+
+    let diff = Expression::BinaryExpression {
+        lhs: Expression::PropertyReference(NamedReference::new(parent, size_prop)).into(),
+        op: '-',
+        rhs: Expression::PropertyReference(NamedReference::new(elem, size_prop)).into(),
+    };
+
+    elem.borrow_mut().set_binding_if_not_set(pos_prop.into(), || Expression::BinaryExpression {
+        lhs: diff.into(),
+        op: '/',
+        rhs: Expression::NumberLiteral(2., Unit::None).into(),
+    });
 }

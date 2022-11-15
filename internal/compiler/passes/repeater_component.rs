@@ -46,6 +46,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 has_popup_child: elem.has_popup_child,
                 item_index: Default::default(), // Not determined yet
                 item_index_of_first_children: Default::default(),
+                is_legacy_syntax: elem.is_legacy_syntax,
                 inline_depth: 0,
             })),
             parent_element,
