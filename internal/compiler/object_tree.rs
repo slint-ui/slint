@@ -852,15 +852,23 @@ impl Element {
             let return_type = sig_decl
                 .ReturnType()
                 .map(|ret_ty| Box::new(type_from_node(ret_ty.Type(), diag, tr)));
-            r.property_declarations.insert(
-                name,
-                PropertyDeclaration {
-                    property_type: Type::Callback { return_type, args },
-                    node: Some(Either::Right(sig_decl)),
-                    visibility: PropertyVisibility::InOut,
-                    ..Default::default()
-                },
-            );
+            if r.property_declarations
+                .insert(
+                    name,
+                    PropertyDeclaration {
+                        property_type: Type::Callback { return_type, args },
+                        node: Some(Either::Right(sig_decl.clone())),
+                        visibility: PropertyVisibility::InOut,
+                        ..Default::default()
+                    },
+                )
+                .is_some()
+            {
+                diag.push_error(
+                    "Duplicated callback declaration".into(),
+                    &sig_decl.DeclaredIdentifier(),
+                );
+            }
         }
 
         for con_node in node.CallbackConnection() {
