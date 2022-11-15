@@ -111,6 +111,10 @@ impl RepeatedComponent for ErasedComponentBox {
         s.component_type.set_property(s.borrow(), "model_data", data).unwrap();
     }
 
+    fn init(&self) {
+        self.run_setup_code();
+    }
+
     fn listview_layout(
         self: Pin<&Self>,
         offset_y: &mut LogicalLength,
@@ -666,7 +670,6 @@ fn ensure_repeater_updated<'id>(
             window_adapter,
             Default::default(),
         );
-        instance.run_setup_code();
         instance
     };
     if let Some(lv) = &rep_in_comp
@@ -1455,7 +1458,7 @@ impl ErasedComponentBox {
         generativity::make_guard!(guard);
         let compo_box = self.unerase(guard);
         let instance_ref = compo_box.borrow_instance();
-        for extra_init_code in self.0.component_type.original.setup_code.borrow().iter() {
+        for extra_init_code in self.0.component_type.original.init_code.borrow().iter() {
             eval::eval_expression(
                 extra_init_code,
                 &mut eval::EvalLocalContext::from_component_instance(instance_ref),

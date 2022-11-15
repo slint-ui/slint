@@ -129,6 +129,7 @@ pub fn reserved_properties() -> impl Iterator<Item = (&'static str, Type)> {
                 Type::Enumeration(BUILTIN_ENUMS.with(|e| e.AccessibleRole.clone())),
             ),
         ]))
+        .chain(std::iter::once(("init", Type::Callback { return_type: None, args: vec![] })))
 }
 
 /// lookup reserved property injected in every item

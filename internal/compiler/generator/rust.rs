@@ -342,6 +342,7 @@ fn generate_public_component(llr: &llr::PublicComponent) -> TokenStream {
             pub fn new() -> Self {
                 let inner = #inner_component_id::new();
                 #(inner.globals.#global_names.clone().init(&inner);)*
+                #inner_component_id::user_init(slint::private_unstable_api::re_exports::VRc::map(inner.clone(), |x| x));
                 Self(inner)
             }
 
@@ -761,6 +762,8 @@ fn generate_sub_component(
         }
     }
 
+    let mut user_init_code: Vec<TokenStream> = Vec::new();
+
     let mut sub_component_names: Vec<Ident> = vec![];
     let mut sub_component_types: Vec<Ident> = vec![];
 
@@ -790,6 +793,9 @@ fn generate_sub_component(
             VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
             &#root_ref_tokens,
             #global_index, #global_children
+        );));
+        user_init_code.push(quote!(#sub_component_id::user_init(
+            VRcMapped::map(self_rc.clone(), |x| #sub_compo_field.apply_pin(x)),
         );));
 
         let sub_component_repeater_count = sub.ty.repeater_count();
@@ -870,7 +876,10 @@ fn generate_sub_component(
         quote!(slint::private_unstable_api::re_exports::VWeakMapped::<slint::private_unstable_api::re_exports::ComponentVTable, #parent_component_id>)
     });
 
-    init.extend(component.init_code.iter().map(|e| compile_expression(&e.borrow(), &ctx)));
+    user_init_code.extend(component.init_code.iter().map(|e| {
+        let code = compile_expression(&e.borrow(), &ctx);
+        quote!(#code;)
+    }));
 
     let layout_info_h = compile_expression(&component.layout_info_h.borrow(), &ctx);
     let layout_info_v = compile_expression(&component.layout_info_v.borrow(), &ctx);
@@ -925,6 +934,11 @@ fn generate_sub_component(
                 _self.tree_index.set(tree_index);
                 _self.tree_index_of_first_child.set(tree_index_of_first_child);
                 #(#init)*
+            }
+
+            pub fn user_init(self_rc: slint::private_unstable_api::re_exports::VRcMapped<slint::private_unstable_api::re_exports::ComponentVTable, Self>) {
+                let _self = self_rc.as_pin_ref();
+                #(#user_init_code)*
             }
 
             fn visit_dynamic_children(
@@ -1152,7 +1166,21 @@ fn generate_item_tree(
     } else {
         quote!(&self_rc)
     };
-    let (create_window_adapter, init_window) = if parent_ctx.is_none() {
+
+    let (create_window_adapter, init_window, maybe_user_init) = if let Some(parent_ctx) = parent_ctx
+    {
+        (
+            None,
+            None,
+            if parent_ctx.repeater_index.is_some() {
+                None // Repeaters run their user_init() code from RepeatedComponent::init() after update() initialized model_data/index.
+            } else {
+                Some(quote! {
+                    Self::user_init(slint::private_unstable_api::re_exports::VRc::map(self_rc.clone(), |x| x));
+                })
+            },
+        )
+    } else {
         (
             Some(
                 quote!(let window_adapter = slint::private_unstable_api::create_window_adapter();),
@@ -1161,9 +1189,8 @@ fn generate_item_tree(
                 _self.window_adapter.set(window_adapter);
                 slint::private_unstable_api::re_exports::WindowInner::from_pub(_self.window_adapter.get().unwrap().window()).set_component(&VRc::into_dyn(self_rc.clone()));
             }),
+            None,
         )
-    } else {
-        (None, None)
     };
 
     let parent_item_expression = parent_ctx.and_then(|parent| {
@@ -1248,6 +1275,7 @@ fn generate_item_tree(
                 #init_window
                 slint::private_unstable_api::re_exports::register_component(_self, Self::item_array(), #root_token.window_adapter.get().unwrap());
                 Self::init(slint::private_unstable_api::re_exports::VRc::map(self_rc.clone(), |x| x), #root_token, 0, 1);
+                #maybe_user_init
                 self_rc
             }
 
@@ -1440,6 +1468,12 @@ fn generate_repeated_component(
                 let _self = self_rc.as_pin_ref();
                 #(#index_prop.set(_index as _);)*
                 #(#set_data_expr)*
+            }
+            fn init(&self) {
+                let self_rc = self.self_weak.get().unwrap().upgrade().unwrap();
+                #inner_component_id::user_init(
+                    VRcMapped::map(self_rc.clone(), |x| x),
+                );
             }
             #extra_fn
         }
@@ -2038,7 +2072,7 @@ fn compile_builtin_function_call(
                 let window_tokens = access_window_adapter_field(ctx);
                 let focus_item = access_item_rc(pr, ctx);
                 quote!(
-                    slint::private_unstable_api::re_exports::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item);
+                    slint::private_unstable_api::re_exports::WindowInner::from_pub(#window_tokens.window()).set_focus_item(#focus_item)
                 )
             } else {
                 panic!("internal error: invalid args to SetFocusItem {:?}", arguments)
@@ -2070,7 +2104,7 @@ fn compile_builtin_function_call(
                         &VRc::into_dyn(#popup_window_id::new(#component_access_tokens.self_weak.get().unwrap().clone()).into()),
                         Point::new(#x as slint::private_unstable_api::re_exports::Coord, #y as slint::private_unstable_api::re_exports::Coord),
                         #parent_component
-                    );
+                    )
                 )
             } else {
                 panic!("internal error: invalid args to ShowPopupWindow {:?}", arguments)
@@ -2090,7 +2124,7 @@ fn compile_builtin_function_call(
         BuiltinFunction::RegisterCustomFontByPath => {
             if let [Expression::StringLiteral(path)] = arguments {
                 let window_adapter_tokens = access_window_adapter_field(ctx);
-                quote!(#window_adapter_tokens.renderer().register_font_from_path(&std::path::PathBuf::from(#path));)
+                quote!(#window_adapter_tokens.renderer().register_font_from_path(&std::path::PathBuf::from(#path)).unwrap())
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByPath {:?}", arguments)
             }
@@ -2100,7 +2134,7 @@ fn compile_builtin_function_call(
                 let resource_id: usize = *resource_id as _;
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
-                quote!(#window_adapter_tokens.renderer().register_font_from_memory(#symbol.into());)
+                quote!(#window_adapter_tokens.renderer().register_font_from_memory(#symbol.into()).unwrap())
             } else {
                 panic!("internal error: invalid args to RegisterCustomFontByMemory {:?}", arguments)
             }
@@ -2110,7 +2144,7 @@ fn compile_builtin_function_call(
                 let resource_id: usize = *resource_id as _;
                 let symbol = format_ident!("SLINT_EMBEDDED_RESOURCE_{}", resource_id);
                 let window_adapter_tokens = access_window_adapter_field(ctx);
-                quote!(#window_adapter_tokens.renderer().register_bitmap_font(&#symbol);)
+                quote!(#window_adapter_tokens.renderer().register_bitmap_font(&#symbol))
             } else {
                 panic!("internal error: invalid args to RegisterBitmapFont must be a number")
             }

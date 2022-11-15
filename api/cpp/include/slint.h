@@ -1312,11 +1312,16 @@ public:
                 inner->data.resize(count);
                 for (int i = 0; i < count; ++i) {
                     auto &c = inner->data[i];
+                    bool created = false;
                     if (!c.ptr) {
                         c.ptr = C::create(parent);
+                        created = true;
                     }
                     if (c.state == RepeaterInner::State::Dirty) {
                         (*c.ptr)->update_data(i, *m->row_data(i));
+                    }
+                    if (created) {
+                        (*c.ptr)->init();
                     }
                 }
             } else {

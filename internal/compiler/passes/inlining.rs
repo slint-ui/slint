@@ -49,6 +49,13 @@ pub fn inline(doc: &Document, inline_selection: InlineSelection) {
             .for_each(|p| inline_components_recursively(&p.component, inline_selection))
     }
     inline_components_recursively(&doc.root_component, inline_selection);
+
+    if matches!(inline_selection, InlineSelection::InlineAllComponents) {
+        doc.root_component
+            .init_code
+            .borrow_mut()
+            .splice(0..0, doc.root_component.inlined_init_code.borrow().values().cloned());
+    }
 }
 
 fn clone_tuple<U: Clone, V: Clone>((u, v): (&U, &V)) -> (U, V) {
@@ -165,6 +172,27 @@ fn inline_element(
 
     core::mem::drop(elem_mut);
 
+    let inlined_init_code = inlined_component
+        .inlined_init_code
+        .borrow()
+        .values()
+        .cloned()
+        .chain(inlined_component.init_code.borrow().iter().map(|setup_code_expr| {
+            // Fix up any property references from within already collected init code.
+            let mut new_setup_code = setup_code_expr.clone();
+            visit_named_references_in_expression(&mut new_setup_code, &mut |nr| {
+                fixup_reference(nr, &mapping)
+            });
+            fixup_element_references(&mut new_setup_code, &mapping);
+            new_setup_code
+        }))
+        .collect();
+
+    root_component
+        .inlined_init_code
+        .borrow_mut()
+        .insert(elem.borrow().span().offset, Expression::CodeBlock(inlined_init_code));
+
     // Now fixup all binding and reference
     for e in mapping.values() {
         visit_all_named_references_in_element(e, |nr| fixup_reference(nr, &mapping));
@@ -266,7 +294,8 @@ fn duplicate_sub_component(
         embedded_file_resources: component_to_duplicate.embedded_file_resources.clone(),
         root_constraints: component_to_duplicate.root_constraints.clone(),
         child_insertion_point: component_to_duplicate.child_insertion_point.clone(),
-        setup_code: component_to_duplicate.setup_code.clone(),
+        inlined_init_code: component_to_duplicate.inlined_init_code.clone(),
+        init_code: component_to_duplicate.init_code.clone(),
         used_types: Default::default(),
         popup_windows: Default::default(),
         exported_global_names: component_to_duplicate.exported_global_names.clone(),

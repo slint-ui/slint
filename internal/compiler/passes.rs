@@ -9,6 +9,7 @@ mod check_rotation;
 mod clip;
 mod collect_custom_fonts;
 mod collect_globals;
+mod collect_init_code;
 mod collect_structs;
 mod collect_subcomponents;
 mod compile_paths;
@@ -173,6 +174,7 @@ pub async fn run_passes(
         if compiler_config.accessibility {
             lower_accessibility::lower_accessibility_properties(component, diag);
         }
+        collect_init_code::collect_init_code(component);
         materialize_fake_properties::materialize_fake_properties(component);
     }
     collect_globals::collect_globals(doc, diag);

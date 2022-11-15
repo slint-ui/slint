@@ -83,6 +83,9 @@ fn do_move_declarations(component: &Rc<Component>) {
         fixup_reference(&mut p.y);
         visit_all_named_references(&p.component, &mut fixup_reference)
     });
+    component.init_code.borrow_mut().iter_mut().for_each(|expr| {
+        visit_named_references_in_expression(expr, &mut fixup_reference);
+    });
     for pd in decl.property_declarations.values_mut() {
         pd.is_alias.as_mut().map(fixup_reference);
     }

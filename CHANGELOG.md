@@ -14,6 +14,7 @@ All notable changes to this project are documented in this file.
    old name continues to work.
  - Disallow overrides or duplicated declarations of callbacks. Previously they were silently overwritten,
    now an error is produced.
+ - The name "init" is now a reserved name in callbacks and properties.
 
 ### Added
 
@@ -22,6 +23,8 @@ All notable changes to this project are documented in this file.
  - Added `From<char>` for `SharedString` in Rust.
  - Added `KeyPressed` and `KeyReleased` variants to `slint::WindowEvent` in Rust, along
    with `slint::Key`, for use by custom platform backends.
+ - Added suppport for the implicitly declared `init` callback that can be used to run code when
+   an element or component is instantiated.
 
 ### Fixed
 

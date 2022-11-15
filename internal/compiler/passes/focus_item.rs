@@ -119,7 +119,7 @@ pub fn determine_initial_focus_item(component: &Rc<Component>, diag: &mut BuildD
             source_location: None,
         };
 
-        component.setup_code.borrow_mut().push(setup_code);
+        component.init_code.borrow_mut().push(setup_code);
     }
 }
 
