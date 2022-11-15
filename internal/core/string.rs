@@ -190,6 +190,12 @@ impl From<&String> for SharedString {
     }
 }
 
+impl From<char> for SharedString {
+    fn from(c: char) -> Self {
+        SharedString::from(c.encode_utf8(&mut [0; 6]) as &str)
+    }
+}
+
 impl From<SharedString> for String {
     fn from(s: SharedString) -> String {
         s.as_str().into()
@@ -256,6 +262,8 @@ fn simple_test() {
         (&x as &dyn AsRef<std::ffi::CStr>).as_ref(),
         &*std::ffi::CString::new("hello world!").unwrap()
     );
+    assert_eq!(SharedString::from('h'), "h");
+    assert_eq!(SharedString::from('😎'), "😎");
 }
 
 #[test]
