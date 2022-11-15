@@ -17,7 +17,7 @@ links = "mcu_board_support" # just so we can pass metadata to the slint build cr
 path = "lib.rs"
 
 [features]
-pico-st7789 = ["slint/unsafe-single-threaded", "rp-pico", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "fugit", "cortex-m", "cortex-m", "display-interface", "st7789", "defmt", "defmt-rtt",  "shared-bus", "slint/libm", "embedded-dma", "embedded-graphics", "euclid/libm"]
+pico-st7789 = ["slint/unsafe-single-threaded", "rp-pico", "embedded-hal", "cortex-m-rt", "alloc-cortex-m", "fugit", "cortex-m", "display-interface", "st7789", "defmt", "defmt-rtt",  "shared-bus", "slint/libm", "embedded-dma", "embedded-graphics", "euclid/libm"]
 stm32h735g = ["slint/unsafe-single-threaded", "embedded-hal", "cortex-m/critical-section-single-core", "cortex-m-rt","alloc-cortex-m", "embedded-time", "cortex-m", "stm32h7xx-hal/stm32h735", "defmt", "defmt-rtt", "embedded-display-controller", "ft5336", "panic-probe", "slint/libm"]
 esp32-s2-kaluga-1 = ["slint/unsafe-single-threaded", "esp32s2-hal", "embedded-hal", "xtensa-lx-rt", "esp-alloc", "esp-println", "display-interface", "display-interface-spi", "st7789", "slint/libm"]
 
