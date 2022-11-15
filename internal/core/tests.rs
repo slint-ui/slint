@@ -5,10 +5,9 @@
 #![warn(missing_docs)]
 #![allow(unsafe_code)]
 
-use crate::input::{key_codes::Key, KeyEventType, KeyInputEvent, MouseEvent};
-use crate::window::WindowInner;
+use crate::api::WindowEvent;
+use crate::input::{key_codes::Key, MouseEvent};
 use crate::Coord;
-use crate::SharedString;
 
 /// Slint animations do not use real time, but use a mocked time.
 /// Normally, the event loop update the time of the animation using
@@ -64,11 +63,13 @@ pub extern "C" fn slint_send_keyboard_char(
     pressed: bool,
     window_adapter: &crate::window::WindowAdapterRc,
 ) {
-    WindowInner::from_pub(window_adapter.window()).process_key_input(KeyInputEvent {
-        event_type: if pressed { KeyEventType::KeyPressed } else { KeyEventType::KeyReleased },
-        text: string.clone(),
-        ..Default::default()
-    });
+    for ch in string.chars() {
+        window_adapter.window().dispatch_event(if pressed {
+            WindowEvent::KeyPressed { text: ch }
+        } else {
+            WindowEvent::KeyReleased { text: ch }
+        })
+    }
 }
 
 /// Simulate a character input event.
@@ -79,31 +80,18 @@ pub extern "C" fn send_keyboard_string_sequence(
 ) {
     for ch in sequence.chars() {
         if ch.is_ascii_uppercase() {
-            WindowInner::from_pub(window_adapter.window()).process_key_input(KeyInputEvent {
-                event_type: KeyEventType::KeyPressed,
-                text: Key::Shift.into(),
-                ..Default::default()
-            });
+            window_adapter
+                .window()
+                .dispatch_event(WindowEvent::KeyPressed { text: Key::Shift.into() });
         }
-        let text = SharedString::from(ch);
 
-        WindowInner::from_pub(window_adapter.window()).process_key_input(KeyInputEvent {
-            event_type: KeyEventType::KeyPressed,
-            text: text.clone(),
-            ..Default::default()
-        });
-        WindowInner::from_pub(window_adapter.window()).process_key_input(KeyInputEvent {
-            event_type: KeyEventType::KeyReleased,
-            text,
-            ..Default::default()
-        });
+        window_adapter.window().dispatch_event(WindowEvent::KeyPressed { text: ch });
+        window_adapter.window().dispatch_event(WindowEvent::KeyReleased { text: ch });
 
         if ch.is_ascii_uppercase() {
-            WindowInner::from_pub(window_adapter.window()).process_key_input(KeyInputEvent {
-                event_type: KeyEventType::KeyReleased,
-                text: Key::Shift.into(),
-                ..Default::default()
-            });
+            window_adapter
+                .window()
+                .dispatch_event(WindowEvent::KeyReleased { text: Key::Shift.into() });
         }
     }
 }

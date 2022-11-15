@@ -17,7 +17,7 @@ use corelib::api::EventLoopError;
 use corelib::graphics::euclid;
 use corelib::input::{KeyEventType, KeyInputEvent, MouseEvent};
 use corelib::window::*;
-use corelib::{Coord, SharedString};
+use corelib::Coord;
 use std::cell::{Cell, RefCell, RefMut};
 use std::rc::{Rc, Weak};
 
@@ -217,18 +217,18 @@ impl std::fmt::Debug for CustomEvent {
 }
 
 mod key_codes {
-    macro_rules! winit_key_to_string_fn {
+    macro_rules! winit_key_to_char_fn {
         ($($char:literal # $name:ident # $($_qt:ident)|* # $($winit:ident)|* ;)*) => {
-            pub fn winit_key_to_string(virtual_keycode: winit::event::VirtualKeyCode) -> Option<i_slint_core::SharedString> {
+            pub fn winit_key_to_char(virtual_keycode: winit::event::VirtualKeyCode) -> Option<char> {
                 let char = match(virtual_keycode) {
                     $($(winit::event::VirtualKeyCode::$winit => $char,)*)*
                     _ => return None,
                 };
-                Some(char.into())
+                Some(char)
             }
         };
     }
-    i_slint_common::for_each_special_keys!(winit_key_to_string_fn);
+    i_slint_common::for_each_special_keys!(winit_key_to_char_fn);
 }
 
 fn process_window_event(
@@ -253,31 +253,23 @@ fn process_window_event(
             //
             // We do not want to change the text to the value of the key press when that was a
             // control key itself: We already sent that event when handling the KeyboardInput.
-            let text: Option<SharedString> = if ch.is_control() {
-                window
+            let text: char = if ch.is_control() {
+                if let Some(ch) = window
                     .currently_pressed_key_code()
                     .take()
                     .and_then(winit_key_code_to_string)
-                    .filter(|key_text| !key_text.starts_with(char::is_control))
+                    .filter(|ch| !ch.is_control())
+                {
+                    ch
+                } else {
+                    return;
+                }
             } else {
-                Some(SharedString::from(ch))
+                ch
             };
 
-            let text = match text {
-                Some(text) => text,
-                None => return,
-            };
-
-            runtime_window.process_key_input(KeyInputEvent {
-                event_type: KeyEventType::KeyPressed,
-                text: text.clone(),
-                ..Default::default()
-            });
-            runtime_window.process_key_input(KeyInputEvent {
-                event_type: KeyEventType::KeyReleased,
-                text: text.clone(),
-                ..Default::default()
-            });
+            window.window().dispatch_event(corelib::api::WindowEvent::KeyPressed { text });
+            window.window().dispatch_event(corelib::api::WindowEvent::KeyReleased { text });
         }
         WindowEvent::Focused(have_focus) => {
             let have_focus = have_focus || window.input_method_focused();
@@ -305,14 +297,14 @@ fn process_window_event(
                 winit::event::ElementState::Pressed => key_code,
                 _ => None,
             });
-            if let Some(text) = key_code.and_then(key_codes::winit_key_to_string) {
-                runtime_window.process_key_input(KeyInputEvent {
-                    event_type: match input.state {
-                        winit::event::ElementState::Pressed => KeyEventType::KeyPressed,
-                        winit::event::ElementState::Released => KeyEventType::KeyReleased,
-                    },
-                    text,
-                    ..Default::default()
+            if let Some(ch) = key_code.and_then(key_codes::winit_key_to_char) {
+                window.window().dispatch_event(match input.state {
+                    winit::event::ElementState::Pressed => {
+                        corelib::api::WindowEvent::KeyPressed { text: ch }
+                    }
+                    winit::event::ElementState::Released => {
+                        corelib::api::WindowEvent::KeyReleased { text: ch }
+                    }
                 });
             };
         }
@@ -609,65 +601,62 @@ pub fn run() {
 // instead want to use the last virtual key code. That happens when for example pressing Ctrl+some_key
 // on Windows/X11/Wayland. This function may be missing mappings, it's trying to cover what we may be
 // getting when we're getting control character sequences.
-fn winit_key_code_to_string(virtual_keycode: winit::event::VirtualKeyCode) -> Option<SharedString> {
+fn winit_key_code_to_string(virtual_keycode: winit::event::VirtualKeyCode) -> Option<char> {
     use winit::event::VirtualKeyCode;
-    Some(
-        match virtual_keycode {
-            VirtualKeyCode::Key1 => "1",
-            VirtualKeyCode::Key2 => "2",
-            VirtualKeyCode::Key3 => "3",
-            VirtualKeyCode::Key4 => "4",
-            VirtualKeyCode::Key5 => "5",
-            VirtualKeyCode::Key6 => "6",
-            VirtualKeyCode::Key7 => "7",
-            VirtualKeyCode::Key8 => "8",
-            VirtualKeyCode::Key9 => "9",
-            VirtualKeyCode::Key0 => "0",
-            VirtualKeyCode::A => "a",
-            VirtualKeyCode::B => "b",
-            VirtualKeyCode::C => "c",
-            VirtualKeyCode::D => "d",
-            VirtualKeyCode::E => "e",
-            VirtualKeyCode::F => "f",
-            VirtualKeyCode::G => "g",
-            VirtualKeyCode::H => "h",
-            VirtualKeyCode::I => "i",
-            VirtualKeyCode::J => "j",
-            VirtualKeyCode::K => "k",
-            VirtualKeyCode::L => "l",
-            VirtualKeyCode::M => "m",
-            VirtualKeyCode::N => "n",
-            VirtualKeyCode::O => "o",
-            VirtualKeyCode::P => "p",
-            VirtualKeyCode::Q => "q",
-            VirtualKeyCode::R => "r",
-            VirtualKeyCode::S => "s",
-            VirtualKeyCode::T => "t",
-            VirtualKeyCode::U => "u",
-            VirtualKeyCode::V => "v",
-            VirtualKeyCode::W => "w",
-            VirtualKeyCode::X => "x",
-            VirtualKeyCode::Y => "y",
-            VirtualKeyCode::Z => "z",
-            VirtualKeyCode::Space => " ",
-            VirtualKeyCode::Caret => "^",
-            VirtualKeyCode::Apostrophe => "'",
-            VirtualKeyCode::Asterisk => "*",
-            VirtualKeyCode::Backslash => "\\",
-            VirtualKeyCode::Colon => ":",
-            VirtualKeyCode::Comma => ",",
-            VirtualKeyCode::Equals => "=",
-            VirtualKeyCode::Grave => "`",
-            VirtualKeyCode::Minus => "-",
-            VirtualKeyCode::Period => ".",
-            VirtualKeyCode::Plus => "+",
-            VirtualKeyCode::Semicolon => ";",
-            VirtualKeyCode::Slash => "/",
-            VirtualKeyCode::Tab => "\t",
-            _ => return None,
-        }
-        .into(),
-    )
+    Some(match virtual_keycode {
+        VirtualKeyCode::Key1 => '1',
+        VirtualKeyCode::Key2 => '2',
+        VirtualKeyCode::Key3 => '3',
+        VirtualKeyCode::Key4 => '4',
+        VirtualKeyCode::Key5 => '5',
+        VirtualKeyCode::Key6 => '6',
+        VirtualKeyCode::Key7 => '7',
+        VirtualKeyCode::Key8 => '8',
+        VirtualKeyCode::Key9 => '9',
+        VirtualKeyCode::Key0 => '0',
+        VirtualKeyCode::A => 'a',
+        VirtualKeyCode::B => 'b',
+        VirtualKeyCode::C => 'c',
+        VirtualKeyCode::D => 'd',
+        VirtualKeyCode::E => 'e',
+        VirtualKeyCode::F => 'f',
+        VirtualKeyCode::G => 'g',
+        VirtualKeyCode::H => 'h',
+        VirtualKeyCode::I => 'i',
+        VirtualKeyCode::J => 'j',
+        VirtualKeyCode::K => 'k',
+        VirtualKeyCode::L => 'l',
+        VirtualKeyCode::M => 'm',
+        VirtualKeyCode::N => 'n',
+        VirtualKeyCode::O => 'o',
+        VirtualKeyCode::P => 'p',
+        VirtualKeyCode::Q => 'q',
+        VirtualKeyCode::R => 'r',
+        VirtualKeyCode::S => 's',
+        VirtualKeyCode::T => 't',
+        VirtualKeyCode::U => 'u',
+        VirtualKeyCode::V => 'v',
+        VirtualKeyCode::W => 'w',
+        VirtualKeyCode::X => 'x',
+        VirtualKeyCode::Y => 'y',
+        VirtualKeyCode::Z => 'z',
+        VirtualKeyCode::Space => ' ',
+        VirtualKeyCode::Caret => '^',
+        VirtualKeyCode::Apostrophe => '\'',
+        VirtualKeyCode::Asterisk => '*',
+        VirtualKeyCode::Backslash => '\\',
+        VirtualKeyCode::Colon => ':',
+        VirtualKeyCode::Comma => ',',
+        VirtualKeyCode::Equals => '=',
+        VirtualKeyCode::Grave => '`',
+        VirtualKeyCode::Minus => '-',
+        VirtualKeyCode::Period => '.',
+        VirtualKeyCode::Plus => '+',
+        VirtualKeyCode::Semicolon => ';',
+        VirtualKeyCode::Slash => '/',
+        VirtualKeyCode::Tab => '\t',
+        _ => return None,
+    })
 }
 
 fn create_clipboard<T>(

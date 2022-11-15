@@ -5,6 +5,7 @@
 
 use cpp::*;
 use euclid::approxeq::ApproxEq;
+use i_slint_core::api::WindowEvent;
 use i_slint_core::component::{ComponentRc, ComponentRef};
 use i_slint_core::graphics::euclid::num::Zero;
 use i_slint_core::graphics::rendering_metrics_collector::{
@@ -1423,12 +1424,14 @@ impl QtWindow {
 
         let text = qt_key_to_string(key as key_generated::Qt_Key, text);
 
-        let event = KeyInputEvent {
-            event_type: if released { KeyEventType::KeyReleased } else { KeyEventType::KeyPressed },
-            text,
-            ..Default::default()
-        };
-        WindowInner::from_pub(&self.window).process_key_input(event);
+        for ch in text.chars() {
+            let event = if released {
+                WindowEvent::KeyReleased { text: ch }
+            } else {
+                WindowEvent::KeyPressed { text: ch }
+            };
+            self.window.dispatch_event(event)
+        }
 
         timer_event();
     }
