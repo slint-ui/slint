@@ -1,0 +1,45 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+export LineEdit := Rectangle {
+    property <string> text <=> ti.text;
+    ti := TextInput {  }
+}
+
+LiTest := Rectangle {
+    li1 := LineEdit { text: "li1"; }
+    li2 := LineEdit { text <=> li1.text; }
+    li3 := LineEdit { text <=> li4.text; }
+    li4 := LineEdit { text: "li4"; }
+    property <bool> test_li: li1.text == "li1" && li3.text == "li4";
+}
+
+TestCase := Window {
+
+    li := LiTest {  }
+
+    property <bool> test: li.test_li;
+}
+
+/*
+
+```rust
+let instance = TestCase::new();
+assert!(instance.get_test());
+```
+
+
+
+```cpp
+auto handle = TestCase::create();
+const TestCase &instance = *handle;
+assert(instance.get_test());
+```
+
+
+```js
+let instance = new slint.TestCase({});
+assert(instance.test);
+```
+
+*/
