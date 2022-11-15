@@ -5,10 +5,16 @@ use alloc::boxed::Box;
 use alloc::rc::Rc;
 use core::{cell::RefCell, convert::Infallible};
 use display_interface_spi::SPIInterfaceNoCS;
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::digital::v2::{InputPin, OutputPin};
 use esp32s2_hal::{
-    clock::ClockControl, pac::Peripherals, prelude::*, spi, systimer::SystemTimer,
-    timer::TimerGroup, Delay, Rtc, IO,
+    clock::ClockControl,
+    gpio_types::{Event, InputPin as _, Pin},
+    pac::Peripherals,
+    prelude::*,
+    spi,
+    systimer::SystemTimer,
+    timer::TimerGroup,
+    Delay, Rtc, IO,
 };
 use esp_alloc::EspHeap;
 use esp_println::println;
@@ -73,7 +79,7 @@ impl slint::platform::Platform for EspBackend {
         wdt0.disable();
         wdt1.disable();
 
-        let io = IO::new(peripherals.GPIO, peripherals.IO_MUX);
+        let mut io = IO::new(peripherals.GPIO, peripherals.IO_MUX);
         let backlight = io.pins.gpio6;
         let mut backlight = backlight.into_push_pull_output();
         backlight.set_high().unwrap();
@@ -111,8 +117,45 @@ impl slint::platform::Platform for EspBackend {
 
         self.window.borrow().as_ref().unwrap().set_size(slint::PhysicalSize::new(320, 240));
 
+        struct Button<'a> {
+            pin: &'a dyn InputPin<Error = core::convert::Infallible>,
+            pressed: bool,
+            mapping: char,
+        }
+
+        let mut buttons = [
+            Button {
+                pin: &io.pins.gpio1.into_pull_down_input(),
+                pressed: false,
+                mapping: i_slint_core::input::key_codes::F1,
+            },
+            Button {
+                pin: &io.pins.gpio2.into_pull_up_input(),
+                pressed: false,
+                mapping: i_slint_core::input::key_codes::F2,
+            },
+            Button {
+                pin: &io.pins.gpio3.into_floating_input(),
+                pressed: false,
+                mapping: i_slint_core::input::key_codes::F3,
+            },
+        ];
+
         loop {
             slint::platform::update_timers_and_animations();
+
+            let mut string = alloc::string::String::new();
+            for (c, b) in buttons.iter_mut().enumerate() {
+                let pressed = b.pin.is_high().unwrap();
+                string += &alloc::format!(" {c}=>{pressed}  ");
+
+                if b.pressed != pressed {
+                    b.pressed = pressed;
+                    // TODO: send the event
+                    println!("EVENT {:?} : {pressed}", b.mapping);
+                }
+            }
+            println!("{string}");
 
             if let Some(window) = self.window.borrow().clone() {
                 window.draw_if_needed(|renderer| {

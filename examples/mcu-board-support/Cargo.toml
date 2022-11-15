@@ -21,9 +21,13 @@ pico-st7789 = ["slint/unsafe-single-threaded", "rp-pico", "embedded-hal", "corte
 stm32h735g = ["slint/unsafe-single-threaded", "embedded-hal", "cortex-m/critical-section-single-core", "cortex-m-rt","alloc-cortex-m", "embedded-time", "cortex-m", "stm32h7xx-hal/stm32h735", "defmt", "defmt-rtt", "embedded-display-controller", "ft5336", "panic-probe", "slint/libm"]
 esp32-s2-kaluga-1 = ["slint/unsafe-single-threaded", "esp32s2-hal", "embedded-hal", "xtensa-lx-rt", "esp-alloc", "esp-println", "display-interface", "display-interface-spi", "st7789", "slint/libm"]
 
+default = ["esp32-s2-kaluga-1"]
+
 [dependencies]
 slint = { version = "=0.3.2", path = "../../api/rs/slint", default-features = false, features = ["compat-0-3-0"] }
 i-slint-core-macros = { version = "=0.3.2", path = "../../internal/core-macros" }
+
+i-slint-core = { version = "=0.3.2", path = "../../internal/core", default-features = false }
 
 derive_more = "0.99.5"
 embedded-graphics = { version = "0.7.1", optional = true }
