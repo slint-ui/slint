@@ -15,6 +15,7 @@ All notable changes to this project are documented in this file.
 
  - Added `material` style with `material-light` and `fluent-dark` as explicit styles
  - Added `Window::is_visible` 
+ - Added `From<char>` for `SharedString` in Rust.
 
 ### Fixed
 
