@@ -1,6 +1,10 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+Base := Rectangle {
+    callback blah;
+}
+
 SubElements := Rectangle {
     callback foobar;
     callback foobar;
@@ -37,4 +41,8 @@ SubElements := Rectangle {
     callback_with_arg(a, b, c, d) => { }
 //  ^error{'callback-with-arg' only has 2 arguments, but 4 were provided}
 
+    Base {
+        callback blah;
+//              ^error{Cannot override callback 'blah'}        
+    }
 }

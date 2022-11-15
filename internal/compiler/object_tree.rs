@@ -848,27 +848,38 @@ impl Element {
                 continue;
             }
 
+            let PropertyLookupResult {
+                resolved_name: existing_name,
+                property_type: maybe_existing_prop_type,
+                ..
+            } = r.lookup_property(&name);
+            if !matches!(maybe_existing_prop_type, Type::Invalid) {
+                if r.property_declarations.contains_key(&name) {
+                    diag.push_error(
+                        "Duplicated callback declaration".into(),
+                        &sig_decl.DeclaredIdentifier(),
+                    );
+                } else {
+                    diag.push_error(
+                        format!("Cannot override callback '{}'", existing_name),
+                        &sig_decl.DeclaredIdentifier(),
+                    )
+                }
+            }
+
             let args = sig_decl.Type().map(|node_ty| type_from_node(node_ty, diag, tr)).collect();
             let return_type = sig_decl
                 .ReturnType()
                 .map(|ret_ty| Box::new(type_from_node(ret_ty.Type(), diag, tr)));
-            if r.property_declarations
-                .insert(
-                    name,
-                    PropertyDeclaration {
-                        property_type: Type::Callback { return_type, args },
-                        node: Some(Either::Right(sig_decl.clone())),
-                        visibility: PropertyVisibility::InOut,
-                        ..Default::default()
-                    },
-                )
-                .is_some()
-            {
-                diag.push_error(
-                    "Duplicated callback declaration".into(),
-                    &sig_decl.DeclaredIdentifier(),
-                );
-            }
+            r.property_declarations.insert(
+                name,
+                PropertyDeclaration {
+                    property_type: Type::Callback { return_type, args },
+                    node: Some(Either::Right(sig_decl)),
+                    visibility: PropertyVisibility::InOut,
+                    ..Default::default()
+                },
+            );
         }
 
         for con_node in node.CallbackConnection() {
