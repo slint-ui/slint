@@ -31,6 +31,7 @@ fn create_repeater_components(component: &Rc<Component>) {
                 base_type: std::mem::take(&mut elem.base_type),
                 bindings: std::mem::take(&mut elem.bindings),
                 property_analysis: std::mem::take(&mut elem.property_analysis),
+                init_code: std::mem::take(&mut elem.init_code),
                 children: std::mem::take(&mut elem.children),
                 property_declarations: std::mem::take(&mut elem.property_declarations),
                 named_references: Default::default(),

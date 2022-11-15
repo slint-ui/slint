@@ -170,7 +170,7 @@ pub fn embed_glyphs<'a>(
             },
         );
 
-        component.setup_code.borrow_mut().push(Expression::FunctionCall {
+        component.root_element.borrow_mut().init_code.push(Expression::FunctionCall {
             function: Box::new(Expression::BuiltinFunctionReference(
                 BuiltinFunction::RegisterBitmapFont,
                 None,

@@ -222,9 +222,6 @@ pub struct Component {
     /// the element pointer to by this field.
     pub child_insertion_point: RefCell<Option<ChildrenInsertionPoint>>,
 
-    /// Code to be inserted into the constructor
-    pub setup_code: RefCell<Vec<Expression>>,
-
     /// The list of used extra types used (recursively) by this root component.
     /// (This only make sense on the root component)
     pub used_types: RefCell<UsedSubTypes>,
@@ -468,6 +465,9 @@ pub struct Element {
     /// Currently contains also the callbacks. FIXME: should that be changed?
     pub bindings: BindingsMap,
     pub property_analysis: RefCell<HashMap<String, PropertyAnalysis>>,
+
+    /// Code to be inserted into the constructor for root elements of components
+    pub init_code: Vec<Expression>,
 
     pub children: Vec<ElementRc>,
     /// The component which contains this element.
@@ -1732,6 +1732,12 @@ pub fn visit_element_expressions(
         }
     }
     elem.borrow_mut().transitions = transitions;
+
+    let mut init_code = std::mem::take(&mut elem.borrow_mut().init_code);
+    for expr in &mut init_code {
+        vis(expr, None, &|| Type::Void)
+    }
+    elem.borrow_mut().init_code = init_code;
 }
 
 /// Visit all the named reference in an element

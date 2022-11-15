@@ -194,6 +194,7 @@ fn duplicate_element_with_mapping(
             .iter()
             .map(|b| duplicate_binding(b, mapping, root_component, priority_delta))
             .collect(),
+        init_code: elem.init_code.clone(),
         property_analysis: elem.property_analysis.clone(),
         children: elem
             .children
@@ -265,7 +266,6 @@ fn duplicate_sub_component(
         embedded_file_resources: component_to_duplicate.embedded_file_resources.clone(),
         root_constraints: component_to_duplicate.root_constraints.clone(),
         child_insertion_point: component_to_duplicate.child_insertion_point.clone(),
-        setup_code: component_to_duplicate.setup_code.clone(),
         used_types: Default::default(),
         popup_windows: Default::default(),
         exported_global_names: component_to_duplicate.exported_global_names.clone(),
