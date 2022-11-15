@@ -466,7 +466,10 @@ pub struct Element {
     pub bindings: BindingsMap,
     pub property_analysis: RefCell<HashMap<String, PropertyAnalysis>>,
 
-    /// Code to be inserted into the constructor for root elements of components
+    /// Code to be inserted into the constructor of components when this element is
+    /// instantiated. At the moment this is only used on the root element of components
+    /// for generated code such as font registration or initial focus setting, not for
+    /// user code.
     pub init_code: RefCell<Vec<Expression>>,
 
     pub children: Vec<ElementRc>,
