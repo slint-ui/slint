@@ -740,11 +740,25 @@ impl Element {
                 property_type: maybe_existing_prop_type,
                 ..
             } = r.lookup_property(&unresolved_prop_name);
-            if !matches!(maybe_existing_prop_type, Type::Invalid) {
-                diag.push_error(
-                    format!("Cannot override property '{}'", prop_name),
-                    &prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap(),
-                )
+            match maybe_existing_prop_type {
+                Type::Callback { .. } => {
+                    diag.push_error(
+                        format!("Cannot declare property '{}' when a callback with the same name exists", prop_name),
+                        &prop_decl.DeclaredIdentifier().child_token(SyntaxKind::Identifier).unwrap(),
+                    );
+                    continue;
+                }
+                Type::Invalid => {} // Ok to proceed with a new declaration
+                _ => {
+                    diag.push_error(
+                        format!("Cannot override property '{}'", prop_name),
+                        &prop_decl
+                            .DeclaredIdentifier()
+                            .child_token(SyntaxKind::Identifier)
+                            .unwrap(),
+                    );
+                    continue;
+                }
             }
 
             let mut visibility = None;

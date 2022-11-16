@@ -1,7 +1,11 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-Test := Rectangle {
+Comp := Rectangle {
+    callback pressed;
+}
+
+Test := Comp {
     property<int> foo;
     foo: 100;
     property<NonExistent> bar;
@@ -18,4 +22,7 @@ Test := Rectangle {
 
     property<string> colspan;
 //                   ^error{Cannot override property 'colspan'}
+
+    property<bool> pressed;
+//                 ^error{Cannot declare property 'pressed' when a callback with the same name exists}    
 }
