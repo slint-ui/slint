@@ -986,6 +986,22 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
             }
         };
     }
+
+    /// Returns the color of the brush, mixed with the current_state's alpha
+    fn alpha_color(&self, brush: &Brush) -> Color {
+        let mut color = brush.color();
+
+        if self.current_state.alpha < 1.0 {
+            color = Color::from_argb_u8(
+                (color.alpha() as f32 * self.current_state.alpha) as u8,
+                color.red(),
+                color.green(),
+                color.blue(),
+            );
+        }
+
+        color
+    }
 }
 
 #[derive(Clone, Copy)]
@@ -1005,7 +1021,8 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
             };
 
             // FIXME: gradients
-            let color = rect.background().color();
+            let color = self.alpha_color(&rect.background());
+
             if color.alpha() == 0 {
                 return;
             }
@@ -1024,7 +1041,13 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
             let border = rect.border_width();
             let radius = rect.border_radius();
             // FIXME: gradients
-            let color = rect.background().color();
+            let color = self.alpha_color(&rect.background());
+            let border_color = if border.get() as f32 > 0.01 {
+                self.alpha_color(&rect.border_color())
+            } else {
+                Color::default()
+            };
+
             if radius.get() > 0 as _ {
                 let radius = radius
                     .min(geom.width_length() / 2 as Coord)
@@ -1042,7 +1065,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                         RoundedRectangle {
                             radius: (radius.cast() * self.scale_factor).cast(),
                             width: (border.cast() * self.scale_factor).cast(),
-                            border_color: rect.border_color().color().into(),
+                            border_color: border_color.into(),
                             inner_color: color.into(),
                             top_clip: PhysicalLength::new(
                                 (clipped2.min_y() - geom2.min_y() + E) as _,
@@ -1075,11 +1098,8 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                         color,
                     );
                 }
-            }
-            if border.get() > 0.01 as Coord {
-                // FIXME: radius
+
                 // FIXME: gradients
-                let border_color = rect.border_color().color();
                 if border_color.alpha() > 0 {
                     let mut add_border = |r: LogicalRect| {
                         if let Some(r) = r.intersection(&self.current_state.clip) {
@@ -1159,7 +1179,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         let font = fonts::match_font(&font_request, self.scale_factor);
         let layout = fonts::text_layout_for_font(&font, &font_request, self.scale_factor);
 
-        let color = text.color().color();
+        let color = self.alpha_color(&text.color());
         let max_size = (geom.size.cast() * self.scale_factor).cast();
 
         let paragraph = TextParagraphLayout {
