@@ -110,7 +110,7 @@ jobs:
       with:
         target: aarch64-apple-darwin
     - name: Build AArch64 LSP
-      run: build build --target aarch64-apple-darwin --release -p slint-lsp
+      run: cargo build --target aarch64-apple-darwin --release -p slint-lsp
     - name: Create artifact directory
       run: |
           mkdir bin
