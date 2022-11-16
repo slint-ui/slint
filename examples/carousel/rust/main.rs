@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 #![cfg_attr(feature = "mcu-board-support", no_std)]
-#![cfg_attr(all(feature = "mcu-board-support", not(simulator)), no_main)]
+#![cfg_attr(all(feature = "mcu-board-support", not(feature = "simulator")), no_main)]
 
 #[cfg(feature = "mcu-board-support")]
 extern crate alloc;
@@ -23,7 +23,7 @@ pub fn main() {
     MainWindow::new().run()
 }
 
-#[cfg(all(feature = "mcu-board-support", not(feature = "simulator")))]
+#[cfg(feature = "mcu-board-support")]
 #[mcu_board_support::entry]
 fn main() -> ! {
     mcu_board_support::init();
