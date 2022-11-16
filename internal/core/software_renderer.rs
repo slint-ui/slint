@@ -987,6 +987,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         };
     }
 
+    /// Returns the color of the brush, mixed with the current_state's alpha
     fn alpha_color(&self, brush: &Brush) -> Color {
         let mut color = brush.color();
 
