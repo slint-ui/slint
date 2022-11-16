@@ -45,4 +45,8 @@ SubElements := Rectangle {
         callback blah;
 //              ^error{Cannot override callback 'blah'}        
     }
+
+    property <bool> pressed;
+    callback pressed;
+//          ^error{Cannot declare callback 'pressed' when a property with the same name exists}    
 }

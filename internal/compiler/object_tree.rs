@@ -854,17 +854,25 @@ impl Element {
                 ..
             } = r.lookup_property(&name);
             if !matches!(maybe_existing_prop_type, Type::Invalid) {
-                if r.property_declarations.contains_key(&name) {
-                    diag.push_error(
-                        "Duplicated callback declaration".into(),
-                        &sig_decl.DeclaredIdentifier(),
-                    );
+                if matches!(maybe_existing_prop_type, Type::Callback { .. }) {
+                    if r.property_declarations.contains_key(&name) {
+                        diag.push_error(
+                            "Duplicated callback declaration".into(),
+                            &sig_decl.DeclaredIdentifier(),
+                        );
+                    } else {
+                        diag.push_error(
+                            format!("Cannot override callback '{}'", existing_name),
+                            &sig_decl.DeclaredIdentifier(),
+                        )
+                    }
                 } else {
                     diag.push_error(
-                        format!("Cannot override callback '{}'", existing_name),
+                        format!("Cannot declare callback '{}' when a property with the same name exists", existing_name),
                         &sig_decl.DeclaredIdentifier(),
-                    )
+                    );
                 }
+                continue;
             }
 
             let args = sig_decl.Type().map(|node_ty| type_from_node(node_ty, diag, tr)).collect();
