@@ -15,7 +15,8 @@ use i_slint_compiler::typeregister::TypeRegister;
 use i_slint_compiler::CompilerConfiguration;
 use lsp_types::request::{
     CodeActionRequest, CodeLensRequest, ColorPresentationRequest, Completion, DocumentColor,
-    DocumentSymbolRequest, ExecuteCommand, GotoDefinition, HoverRequest, SemanticTokensFullRequest,
+    DocumentHighlightRequest, DocumentSymbolRequest, ExecuteCommand, GotoDefinition, HoverRequest,
+    SemanticTokensFullRequest,
 };
 use lsp_types::{
     CodeActionOrCommand, CodeActionProviderCapability, CodeLens, CodeLensOptions, Color,
@@ -154,6 +155,7 @@ pub fn server_initialize_result() -> InitializeResult {
                 }
                 .into(),
             ),
+            document_highlight_provider: Some(OneOf::Left(true)),
             ..ServerCapabilities::default()
         },
         server_info: Some(ServerInfo {
@@ -279,6 +281,24 @@ pub fn handle_request(
     })? {
     } else if req.handle_request::<SemanticTokensFullRequest, _>(|params| {
         Ok(semantic_tokens::get_semantic_tokens(document_cache, &params.text_document))
+    })? {
+    } else if req.handle_request::<DocumentHighlightRequest, _>(|params| {
+        #[cfg(feature = "preview")]
+        {
+            if let Some((_doc, off)) = get_document_and_offset(
+                document_cache,
+                &params.text_document_position_params.text_document.uri,
+                &params.text_document_position_params.position,
+            ) {
+                crate::preview::highlight(
+                    params.text_document_position_params.text_document.uri.to_file_path().ok(),
+                    off,
+                );
+            } else {
+                crate::preview::highlight(None, 0);
+            }
+        }
+        Ok(None)
     })? {
     };
     Ok(())

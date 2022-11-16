@@ -33,7 +33,7 @@ pub mod parser;
 pub mod typeloader;
 pub mod typeregister;
 
-mod passes;
+pub mod passes;
 
 /// Specify how the resources are embedded by the compiler
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
