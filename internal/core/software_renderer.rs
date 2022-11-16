@@ -1041,7 +1041,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
             let radius = rect.border_radius();
             // FIXME: gradients
             let color = self.alpha_color(&rect.background());
-            let border_color = self.alpha_color(&rect.border_color());
+            let border_color = if border.get() > 0.01 { self.alpha_color(&rect.border_color()) } else { Color::default() };
 
             if radius.get() > 0 as _ {
                 let radius = radius
