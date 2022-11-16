@@ -1094,8 +1094,6 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                     );
                 }
             }
-            if border.get() > 0.01 as Coord {
-                // FIXME: radius
                 // FIXME: gradients
                 if border_color.alpha() > 0 {
                     let mut add_border = |r: LogicalRect| {
