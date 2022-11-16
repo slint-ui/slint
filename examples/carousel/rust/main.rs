@@ -23,7 +23,7 @@ pub fn main() {
     MainWindow::new().run()
 }
 
-#[cfg(feature = "mcu-board-support")]
+#[cfg(all(feature = "mcu-board-support", not(feature = "simulator")))]
 #[mcu_board_support::entry]
 fn main() -> ! {
     mcu_board_support::init();

@@ -26,6 +26,7 @@ renderer-winit-skia-opengl = ["skia-safe/gl", "glow", "unicode-segmentation"]
 renderer-winit-software = ["femtovg", "imgref", "rgb"]
 rtti = ["i-slint-core/rtti"]
 default = []
+simulator = []
 
 [dependencies]
 i-slint-core = { version = "=0.3.2", path = "../../../internal/core" }
