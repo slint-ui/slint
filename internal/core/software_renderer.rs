@@ -1098,26 +1098,26 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                         color,
                     );
                 }
+            }
 
-                // FIXME: gradients
-                if border_color.alpha() > 0 {
-                    let mut add_border = |r: LogicalRect| {
-                        if let Some(r) = r.intersection(&self.current_state.clip) {
-                            self.processor.process_rectangle(
-                                (r.translate(self.current_state.offset.to_vector()).cast()
-                                    * self.scale_factor)
-                                    .round()
-                                    .cast(),
-                                border_color,
-                            );
-                        }
-                    };
-                    let b = border.get();
-                    add_border(euclid::rect(0 as _, 0 as _, geom.width(), b));
-                    add_border(euclid::rect(0 as _, geom.height() - b, geom.width(), b));
-                    add_border(euclid::rect(0 as _, b, b, geom.height() - b - b));
-                    add_border(euclid::rect(geom.width() - b, b, b, geom.height() - b - b));
-                }
+            // FIXME: gradients
+            if border_color.alpha() > 0 {
+                let mut add_border = |r: LogicalRect| {
+                    if let Some(r) = r.intersection(&self.current_state.clip) {
+                        self.processor.process_rectangle(
+                            (r.translate(self.current_state.offset.to_vector()).cast()
+                                * self.scale_factor)
+                                .round()
+                                .cast(),
+                            border_color,
+                        );
+                    }
+                };
+                let b = border.get();
+                add_border(euclid::rect(0 as _, 0 as _, geom.width(), b));
+                add_border(euclid::rect(0 as _, geom.height() - b, geom.width(), b));
+                add_border(euclid::rect(0 as _, b, b, geom.height() - b - b));
+                add_border(euclid::rect(geom.width() - b, b, b, geom.height() - b - b));
             }
         }
     }
