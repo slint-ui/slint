@@ -1042,7 +1042,11 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
             let radius = rect.border_radius();
             // FIXME: gradients
             let color = self.alpha_color(&rect.background());
-            let border_color = if border.get() > 0.01 { self.alpha_color(&rect.border_color()) } else { Color::default() };
+            let border_color = if border.get() > 0.01 {
+                self.alpha_color(&rect.border_color())
+            } else {
+                Color::default()
+            };
 
             if radius.get() > 0 as _ {
                 let radius = radius
@@ -1094,7 +1098,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                         color,
                     );
                 }
-            }
+
                 // FIXME: gradients
                 if border_color.alpha() > 0 {
                     let mut add_border = |r: LogicalRect| {
