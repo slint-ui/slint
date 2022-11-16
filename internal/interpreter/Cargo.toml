@@ -35,6 +35,10 @@ display-diagnostics = ["i-slint-compiler/display-diagnostics"]
 # (internal) export C++ FFI functions
 ffi = ["spin_on", "i-slint-core/ffi"]
 
+# (internal) Draw an highlight on a specified element
+# NOTE: this is not a semver compatible feature
+highlight = []
+
 ## Enable use of the Rust standard library.
 std = ["i-slint-core/std"]
 

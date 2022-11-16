@@ -167,6 +167,7 @@ struct ContentCache {
     dependency: HashSet<PathBuf>,
     current: PreviewComponent,
     sender: Option<crate::ServerNotifier>,
+    highlight: Option<(PathBuf, u32)>,
 }
 
 static CONTENT_CACHE: once_cell::sync::OnceCell<Mutex<ContentCache>> =
@@ -211,6 +212,12 @@ fn get_file_from_cache(path: PathBuf) -> Option<String> {
     r
 }
 
+#[derive(Default)]
+struct PreviewState {
+    handle: Option<slint_interpreter::ComponentInstance>,
+}
+thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
+
 async fn reload_preview(
     sender: crate::ServerNotifier,
     preview_component: PreviewComponent,
@@ -249,26 +256,27 @@ async fn reload_preview(
     notify_diagnostics(builder.diagnostics(), &sender);
 
     if let Some(compiled) = compiled {
-        #[derive(Default)]
-        struct PreviewState {
-            handle: Option<slint_interpreter::ComponentInstance>,
-        }
-        thread_local! {static PREVIEW_STATE: std::cell::RefCell<PreviewState> = Default::default();}
         PREVIEW_STATE.with(|preview_state| {
             let mut preview_state = preview_state.borrow_mut();
-            if let Some(handle) = preview_state.handle.take() {
+            let handle = if let Some(handle) = preview_state.handle.take() {
                 let window = handle.window();
                 let handle = compiled.create_with_existing_window(window);
                 match post_load_behavior {
                     PostLoadBehavior::ShowAfterLoad => handle.show(),
                     PostLoadBehavior::DoNothing => {}
                 }
-                preview_state.handle = Some(handle);
+                handle
             } else {
                 let handle = compiled.create();
                 handle.show();
-                preview_state.handle = Some(handle);
+                handle
+            };
+            if let Some((path, offset)) =
+                CONTENT_CACHE.get().and_then(|c| c.lock().unwrap().highlight.clone())
+            {
+                handle.highlight(path, offset);
             }
+            preview_state.handle = Some(handle);
         });
         send_notification(&sender, "Preview Loaded", Health::Ok);
     } else {
@@ -308,4 +316,31 @@ fn send_notification(sender: &crate::ServerNotifier, arg: &str, health: Health) 
             ServerStatusParams { health, quiescent: false, message: Some(arg.into()) },
         )
         .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
+}
+
+pub fn highlight(path: Option<PathBuf>, off: u32) {
+    let highlight = path.map(|x| (x, off));
+    let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
+
+    if cache.highlight == highlight {
+        return;
+    }
+    cache.highlight = highlight;
+
+    if cache.highlight.as_ref().map_or(true, |(path, _)| cache.dependency.contains(path)) {
+        run_in_ui_thread(Box::pin(async move {
+            PREVIEW_STATE.with(|preview_state| {
+                let preview_state = preview_state.borrow();
+                if let (Some(cache), Some(handle)) =
+                    (CONTENT_CACHE.get(), preview_state.handle.as_ref())
+                {
+                    if let Some((path, offset)) = cache.lock().unwrap().highlight.clone() {
+                        handle.highlight(path, offset);
+                    } else {
+                        handle.highlight(PathBuf::default(), 0);
+                    }
+                }
+            })
+        }))
+    }
 }

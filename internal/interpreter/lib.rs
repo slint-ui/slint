@@ -78,6 +78,8 @@ mod dynamic_type;
 mod eval;
 mod eval_layout;
 mod global_component;
+#[cfg(feature = "highlight")]
+mod highlight;
 mod value_model;
 
 #[doc(inline)]

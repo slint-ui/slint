@@ -984,6 +984,16 @@ impl ComponentInstance {
             .invoke_callback(&normalize_identifier(callback_name), args)
             .map_err(|()| InvokeCallbackError::NoSuchCallback)
     }
+
+    /// Highlight the elements which are pointed by a given source location.
+    ///
+    /// WARNING: this is not part of the public API
+    #[cfg(feature = "highlight")]
+    pub fn highlight(&self, path: PathBuf, offset: u32) {
+        generativity::make_guard!(guard);
+        let unerased = self.inner.unerase(guard);
+        crate::highlight::highlight(unerased.get_ref(), path, offset);
+    }
 }
 
 impl ComponentHandle for ComponentInstance {

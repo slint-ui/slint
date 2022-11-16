@@ -764,6 +764,10 @@ pub async fn load(
         diag.push_error_with_span("No component found".into(), Default::default());
         return (Err(()), diag);
     }
+
+    #[cfg(feature = "highlight")]
+    crate::highlight::add_highlight_items(&doc);
+
     (Ok(generate_component(&doc.root_component, guard)), diag)
 }
 
