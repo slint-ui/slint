@@ -61,6 +61,6 @@ export function lsp_range_to_editor_range(
         startLineNumber: startPos.lineNumber,
         startColumn: startPos.column,
         endLineNumber: endPos.lineNumber,
-        endColumn: endPos.column - 1, // LSP reports the first letter *not* part of the range anymore, so go for the one before that!
+        endColumn: endPos.column,
     };
 }
