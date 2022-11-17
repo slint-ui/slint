@@ -37,13 +37,14 @@ pub struct ImportedName {
 
 impl ImportedName {
     pub fn extract_imported_names(imports: &[syntax_nodes::ImportSpecifier]) -> Vec<ImportedName> {
-        let mut imported_names = Vec::new();
-        for import in imports {
-            if let Some(import_identifiers) = import.ImportIdentifierList() {
-                imported_names.extend(import_identifiers.ImportIdentifier().map(Self::from_node));
-            }
-        }
-        imported_names
+        imports
+            .iter()
+            .flat_map(|import| {
+                import.ImportIdentifierList().into_iter().flat_map(|import_identifiers| {
+                    import_identifiers.ImportIdentifier().map(Self::from_node)
+                })
+            })
+            .collect::<Vec<_>>()
     }
 
     pub fn from_node(importident: syntax_nodes::ImportIdentifier) -> Self {
