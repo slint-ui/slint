@@ -20,7 +20,7 @@ pub(super) fn draw_texture_line(
     texture: &super::SceneTexture,
     line_buffer: &mut [impl TargetPixel],
 ) {
-    let super::SceneTexture { data, format, stride, source_size, color } = *texture;
+    let super::SceneTexture { data, format, stride, source_size, color, alpha } = *texture;
     let source_size = source_size.cast::<usize>();
     let span_size = span.size.cast::<usize>();
     let bpp = format.bpp();
@@ -39,7 +39,7 @@ pub(super) fn draw_texture_line(
                 continue;
             }
             PixelFormat::Rgba => {
-                let alpha = data[pos + 3];
+                let alpha = data[pos + 3] / 255 * alpha;
                 PremultipliedRgbaColor::premultiply(if color.alpha() == 0 {
                     Color::from_argb_u8(alpha, data[pos + 0], data[pos + 1], data[pos + 2])
                 } else {
@@ -47,7 +47,7 @@ pub(super) fn draw_texture_line(
                 })
             }
             PixelFormat::RgbaPremultiplied => {
-                let alpha = data[pos + 3];
+                let alpha = data[pos + 3] / 255 * alpha;
                 if color.alpha() == 0 {
                     PremultipliedRgbaColor {
                         alpha,
@@ -65,7 +65,7 @@ pub(super) fn draw_texture_line(
                 }
             }
             PixelFormat::AlphaMap => PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                data[pos],
+                data[pos] / 255 * alpha,
                 color.red(),
                 color.green(),
                 color.blue(),

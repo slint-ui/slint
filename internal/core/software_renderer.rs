@@ -597,6 +597,7 @@ struct SceneTexture<'a> {
     stride: u16,
     source_size: PhysicalSize,
     color: Color,
+    alpha: u8,
 }
 
 struct SharedBufferCommand {
@@ -618,6 +619,7 @@ impl SharedBufferCommand {
                 format: PixelFormat::Rgb,
                 source_size: self.source_rect.size,
                 color: self.colorize,
+                alpha: 255,
             },
             SharedImageBuffer::RGBA8(b) => SceneTexture {
                 data: &b.as_bytes()[begin * 4..],
@@ -625,6 +627,7 @@ impl SharedBufferCommand {
                 format: PixelFormat::Rgba,
                 source_size: self.source_rect.size,
                 color: self.colorize,
+                alpha: 255,
             },
             SharedImageBuffer::RGBA8Premultiplied(b) => SceneTexture {
                 data: &b.as_bytes()[begin * 4..],
@@ -632,6 +635,7 @@ impl SharedBufferCommand {
                 format: PixelFormat::RgbaPremultiplied,
                 source_size: self.source_rect.size,
                 color: self.colorize,
+                alpha: 255,
             },
         }
     }
@@ -938,6 +942,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 source_size: clipped_relative_source_rect.size.ceil().cast(),
                                 format: t.format,
                                 color: if colorize.alpha() > 0 { colorize } else { t.color },
+                                alpha: (self.current_state.alpha * 255.0)  as u8
                             },
                         );
                     }
@@ -1235,6 +1240,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                             source_size: geometry.size,
                             format: PixelFormat::AlphaMap,
                             color,
+                            alpha: (self.current_state.alpha * 255.0) as u8
                         },
                     );
                 }
