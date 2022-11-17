@@ -147,14 +147,8 @@ fn find_expression_range(
         Some(DefinitionInformation {
             // In the CST, the range end includes the last character, while in the lsp protocol the end of the
             // range is exclusive, i.e. it refers to the first excluded character. Hence the +1 below:
-            property_definition_range: crate::util::text_range_to_lsp_range(
-                property_definition_range,
-                offset_to_position,
-            ),
-            expression_range: crate::util::text_range_to_lsp_range(
-                expression_range,
-                offset_to_position,
-            ),
+            property_definition_range: offset_to_position.map_range(property_definition_range)?,
+            expression_range: offset_to_position.map_range(expression_range)?,
             expression_value,
         })
     } else {
@@ -408,7 +402,7 @@ mod tests {
         assert_eq!(def_at.expression_range.end.line, def_at.expression_range.start.line);
         // -1 because the lsp range end location is exclusive.
         assert_eq!(
-            (def_at.expression_range.end.character - 1 - def_at.expression_range.start.character)
+            (def_at.expression_range.end.character - def_at.expression_range.start.character)
                 as usize,
             "lightblue".len()
         );
