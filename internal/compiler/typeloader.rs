@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -23,7 +23,7 @@ pub struct LoadedDocuments {
 
 pub struct ImportedTypes {
     pub import_token: SyntaxToken,
-    pub imported_types: Vec<syntax_nodes::ImportSpecifier>,
+    pub imported_types: syntax_nodes::ImportSpecifier,
     pub file: String,
 }
 
@@ -37,11 +37,11 @@ pub struct ImportedName {
 
 impl ImportedName {
     pub fn extract_imported_names(
-        imports: &[syntax_nodes::ImportSpecifier],
+        import: &syntax_nodes::ImportSpecifier,
     ) -> impl Iterator<Item = ImportedName> + '_ {
-        imports.iter().filter_map(|import| import.ImportIdentifierList()).flat_map(
-            |import_identifiers| import_identifiers.ImportIdentifier().map(Self::from_node),
-        )
+        import.ImportIdentifierList().into_iter().flat_map(|import_identifiers| {
+            import_identifiers.ImportIdentifier().map(Self::from_node)
+        })
     }
 
     pub fn from_node(importident: syntax_nodes::ImportIdentifier) -> Self {
@@ -131,7 +131,7 @@ impl TypeLoader {
         diagnostics: &mut BuildDiagnostics,
         registry_to_populate: &Rc<RefCell<TypeRegister>>,
     ) -> Vec<ImportedTypes> {
-        let dependencies = self.collect_dependencies(doc, diagnostics).await;
+        let dependencies = Self::collect_dependencies(doc, diagnostics).collect::<Vec<_>>();
         let mut foreign_imports = vec![];
         for mut import in dependencies {
             if import.file.ends_with(".60") || import.file.ends_with(".slint") {
@@ -429,41 +429,31 @@ impl TypeLoader {
             })
     }
 
-    async fn collect_dependencies(
-        &mut self,
-        doc: &syntax_nodes::Document,
-        doc_diagnostics: &mut BuildDiagnostics,
-    ) -> impl Iterator<Item = ImportedTypes> {
-        type DependenciesByFile = BTreeMap<String, ImportedTypes>;
-        let mut dependencies = DependenciesByFile::new();
-
-        for import in doc.ImportSpecifier() {
+    fn collect_dependencies<'a>(
+        doc: &'a syntax_nodes::Document,
+        doc_diagnostics: &'a mut BuildDiagnostics,
+    ) -> impl Iterator<Item = ImportedTypes> + 'a {
+        doc.ImportSpecifier().filter_map(|import| {
             let import_uri = match import.child_token(SyntaxKind::StringLiteral) {
                 Some(import_uri) => import_uri,
                 None => {
                     debug_assert!(doc_diagnostics.has_error());
-                    continue;
+                    return None;
                 }
             };
             let path_to_import = import_uri.text().to_string();
             let path_to_import = path_to_import.trim_matches('\"').to_string();
             if path_to_import.is_empty() {
                 doc_diagnostics.push_error("Unexpected empty import url".to_owned(), &import_uri);
-                continue;
+                return None;
             }
 
-            dependencies
-                .entry(path_to_import.clone())
-                .or_insert_with(|| ImportedTypes {
-                    import_token: import_uri,
-                    imported_types: vec![],
-                    file: path_to_import,
-                })
-                .imported_types
-                .push(import);
-        }
-
-        dependencies.into_iter().map(|(_, value)| value)
+            Some(ImportedTypes {
+                import_token: import_uri,
+                imported_types: import.clone(),
+                file: path_to_import,
+            })
+        })
     }
 
     /// Return a document if it was already loaded
