@@ -26,6 +26,7 @@ pub(super) fn draw_texture_line(
     let bpp = format.bpp();
     let y = (line - span.origin.y_length()).cast::<usize>();
     let y_pos = (y.get() * source_size.height / span_size.height) * stride as usize;
+    let alpha = ((alpha as u16 * color.alpha() as u16) / 255) as u8;
     for (x, pix) in line_buffer
         [span.origin.x as usize..(span.origin.x_length() + span.size.width_length()).get() as usize]
         .iter_mut()
@@ -40,24 +41,24 @@ pub(super) fn draw_texture_line(
             }
             PixelFormat::Rgba => {
                 let alpha = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
-                PremultipliedRgbaColor::premultiply(if color.alpha() == 0 {
-                    Color::from_argb_u8(alpha * color.alpha(), data[pos + 0], data[pos + 1], data[pos + 2])
+                PremultipliedRgbaColor::premultiply(if alpha == 0 {
+                    Color::from_argb_u8(alpha / 255, data[pos + 0], data[pos + 1], data[pos + 2])
                 } else {
-                    Color::from_argb_u8(alpha * color.alpha(), color.red(), color.green(), color.blue())
+                    Color::from_argb_u8(alpha / 255, color.red(), color.green(), color.blue())
                 })
             }
             PixelFormat::RgbaPremultiplied => {
                 let alpha = data[pos + 3] / 255 * alpha;
-                if color.alpha() == 0 {
+                if alpha == 0 {
                     PremultipliedRgbaColor {
-                        alpha: alpha * color.alpha(),
+                        alpha,
                         red: data[pos + 0],
                         green: data[pos + 1],
                         blue: data[pos + 2],
                     }
                 } else {
                     PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                        alpha * color.alpha(),
+                        alpha,
                         color.red(),
                         color.green(),
                         color.blue(),
@@ -65,7 +66,7 @@ pub(super) fn draw_texture_line(
                 }
             }
             PixelFormat::AlphaMap => PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                data[pos] / 255 * alpha * color.alpha(),
+                data[pos] / 255 * alpha,
                 color.red(),
                 color.green(),
                 color.blue(),

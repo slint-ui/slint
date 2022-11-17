@@ -605,6 +605,7 @@ struct SharedBufferCommand {
     /// The source rectangle that is mapped into this command span
     source_rect: PhysicalRect,
     colorize: Color,
+    alpha: u8,
 }
 
 impl SharedBufferCommand {
@@ -619,7 +620,7 @@ impl SharedBufferCommand {
                 format: PixelFormat::Rgb,
                 source_size: self.source_rect.size,
                 color: self.colorize,
-                alpha: 255,
+                alpha: self.alpha,
             },
             SharedImageBuffer::RGBA8(b) => SceneTexture {
                 data: &b.as_bytes()[begin * 4..],
@@ -627,7 +628,7 @@ impl SharedBufferCommand {
                 format: PixelFormat::Rgba,
                 source_size: self.source_rect.size,
                 color: self.colorize,
-                alpha: 255,
+                alpha: self.alpha,
             },
             SharedImageBuffer::RGBA8Premultiplied(b) => SceneTexture {
                 data: &b.as_bytes()[begin * 4..],
@@ -635,7 +636,7 @@ impl SharedBufferCommand {
                 format: PixelFormat::RgbaPremultiplied,
                 source_size: self.source_rect.size,
                 color: self.colorize,
-                alpha: 255,
+                alpha: self.alpha,
             },
         }
     }
@@ -971,6 +972,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             target_rect.cast(),
                             SharedBufferCommand {
                                 buffer,
+                                alpha: (self.current_state.alpha * 255.0) as u8,
                                 source_rect: clipped_relative_source_rect
                                     .translate(
                                         euclid::Point2D::from_untyped(source_rect.origin.cast())
