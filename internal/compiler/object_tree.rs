@@ -118,8 +118,9 @@ impl Document {
                 node.ImportSpecifier()
                     .last()
                     .and_then(|import| {
-                        crate::typeloader::ImportedName::extract_imported_names(&import)
-                            .and_then(|it| it.last())
+                        crate::typeloader::ImportedName::extract_imported_names(&[import])
+                            .last()
+                            .cloned()
                     })
                     .and_then(|import| local_registry.lookup_element(&import.internal_name).ok())
                     .and_then(|c| match c {

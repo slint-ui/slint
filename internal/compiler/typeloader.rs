@@ -23,11 +23,11 @@ pub struct LoadedDocuments {
 
 pub struct ImportedTypes {
     pub import_token: SyntaxToken,
-    pub imported_types: syntax_nodes::ImportSpecifier,
+    pub imported_types: Vec<syntax_nodes::ImportSpecifier>,
     pub file: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ImportedName {
     // name of export to match in the other file
     pub external_name: String,
@@ -36,12 +36,14 @@ pub struct ImportedName {
 }
 
 impl ImportedName {
-    pub fn extract_imported_names(
-        import: &syntax_nodes::ImportSpecifier,
-    ) -> Option<impl Iterator<Item = ImportedName>> {
-        import
-            .ImportIdentifierList()
-            .map(|import_identifiers| import_identifiers.ImportIdentifier().map(Self::from_node))
+    pub fn extract_imported_names(imports: &[syntax_nodes::ImportSpecifier]) -> Vec<ImportedName> {
+        let mut imported_names = Vec::new();
+        for import in imports {
+            if let Some(import_identifiers) = import.ImportIdentifierList() {
+                imported_names.extend(import_identifiers.ImportIdentifier().map(Self::from_node));
+            }
+        }
+        imported_names
     }
 
     pub fn from_node(importident: syntax_nodes::ImportIdentifier) -> Self {
@@ -135,11 +137,15 @@ impl TypeLoader {
         let mut foreign_imports = vec![];
         for mut import in dependencies {
             if import.file.ends_with(".60") || import.file.ends_with(".slint") {
-                if let Some(imported_types) =
-                    ImportedName::extract_imported_names(&import.imported_types)
-                {
-                    self.load_dependency(import, imported_types, registry_to_populate, diagnostics)
-                        .await;
+                let imported_types = ImportedName::extract_imported_names(&import.imported_types);
+                if !imported_types.is_empty() {
+                    self.load_dependency(
+                        import,
+                        imported_types.into_iter(),
+                        registry_to_populate,
+                        diagnostics,
+                    )
+                    .await;
                 } else {
                     diagnostics.push_error(
                     "Import names are missing. Please specify which types you would like to import"
@@ -447,11 +453,15 @@ impl TypeLoader {
                 continue;
             }
 
-            dependencies.entry(path_to_import.clone()).or_insert_with(|| ImportedTypes {
-                import_token: import_uri,
-                imported_types: import,
-                file: path_to_import,
-            });
+            dependencies
+                .entry(path_to_import.clone())
+                .or_insert_with(|| ImportedTypes {
+                    import_token: import_uri,
+                    imported_types: vec![],
+                    file: path_to_import,
+                })
+                .imported_types
+                .push(import);
         }
 
         dependencies.into_iter().map(|(_, value)| value)
