@@ -338,7 +338,7 @@ pub(crate) fn query_properties<'a>(
     source_version: i32,
     element: &ElementRc,
 ) -> Result<QueryPropertyResponse, crate::Error> {
-    let mut mapper = document_cache.offset_to_position_mapper(uri.clone());
+    let mut mapper = document_cache.offset_to_position_mapper(uri);
 
     Ok(QueryPropertyResponse {
         properties: get_properties(&element, &mut mapper),
@@ -371,10 +371,7 @@ mod tests {
     ) -> Option<(ElementRc, Vec<PropertyInformation>)> {
         let element =
             server_loop::element_at_position(dc, &url, &lsp_types::Position { line, character })?;
-        Some((
-            element.clone(),
-            get_properties(&element, &mut dc.offset_to_position_mapper(url.clone())),
-        ))
+        Some((element.clone(), get_properties(&element, &mut dc.offset_to_position_mapper(url))))
     }
 
     fn properties_at_position(
