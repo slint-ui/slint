@@ -14,8 +14,8 @@ export LineEdit := Rectangle {
     property input-type <=> input.input-type;
     property horizontal-alignment <=> input.horizontal-alignment;
     property read-only <=> input.read-only;
-    callback accepted <=> input.accepted;
-    callback edited <=> input.edited;
+    callback accepted(string);
+    callback edited(string);
    
     min-width: 120px;
     height: 56px;
@@ -49,6 +49,8 @@ export LineEdit := Rectangle {
                 font-size: md.sys.typescale.body-large.size;
                 font-weight: md.sys.typescale.body-large.weight;
     
+                accepted => { root.accepted(self.text); }
+                edited => { root.edited(self.text); }
                 cursor-position-changed(cpos) => {
                     if (cpos.x + computed_x < padding-outer) {
                         computed_x = - cpos.x + padding-outer;
