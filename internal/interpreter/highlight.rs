@@ -77,15 +77,7 @@ fn fill_model(
         let item_rc = ItemRc::new(vrc, index);
 
         let geom = item_rc.geometry();
-        let mut position = geom.origin;
-        let mut parent_item = item_rc.clone();
-        loop {
-            parent_item = match parent_item.parent_item() {
-                None => break,
-                Some(pi) => pi,
-            };
-            position += parent_item.borrow().as_ref().geometry().origin.to_vector();
-        }
+        let position = item_rc.map_to_window(geom.origin);
 
         values.push(Value::Struct(
             [
