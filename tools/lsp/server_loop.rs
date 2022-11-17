@@ -293,12 +293,12 @@ pub fn handle_request(
     } else if req.handle_request::<SemanticTokensFullRequest, _>(|params| {
         Ok(semantic_tokens::get_semantic_tokens(document_cache, &params.text_document))
     })? {
-    } else if req.handle_request::<DocumentHighlightRequest, _>(|params| {
+    } else if req.handle_request::<DocumentHighlightRequest, _>(|_params| {
         #[cfg(feature = "preview")]
         {
-            let uri = params.text_document_position_params.text_document.uri;
+            let uri = _params.text_document_position_params.text_document.uri;
             if let Some((tk, off)) =
-                token_descr(document_cache, &uri, &params.text_document_position_params.position)
+                token_descr(document_cache, &uri, &_params.text_document_position_params.position)
             {
                 let p = tk.parent();
                 if p.kind() == SyntaxKind::QualifiedName
