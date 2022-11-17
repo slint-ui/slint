@@ -26,6 +26,17 @@ pub struct IndexRange {
     pub end: usize,
 }
 
+impl From<core::ops::Range<usize>> for IndexRange {
+    fn from(r: core::ops::Range<usize>) -> Self {
+        Self { start: r.start, end: r.end }
+    }
+}
+impl From<IndexRange> for core::ops::Range<usize> {
+    fn from(r: IndexRange) -> Self {
+        Self { start: r.start, end: r.end }
+    }
+}
+
 /// A Component is representing an unit that is allocated together
 #[vtable]
 #[repr(C)]

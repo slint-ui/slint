@@ -55,7 +55,7 @@ fn step_into_node(
         crate::item_tree::ItemTreeNode::DynamicTree { index, .. } => {
             let range = comp_ref_pin.as_ref().get_subtree_range(*index);
             let component_index = subtree_child(range.start, range.end);
-            if range.start <= component_index && component_index < range.end {
+            if core::ops::Range::from(range).contains(&component_index) {
                 let mut child_component = Default::default();
                 comp_ref_pin.as_ref().get_subtree_component(
                     *index,
@@ -276,7 +276,7 @@ impl ItemRc {
                 let range = parent_ref_pin.as_ref().get_subtree_range(subtree_index);
                 let next_subtree_index = subtree_step(current_component_subtree_index);
 
-                if range.start <= next_subtree_index && next_subtree_index < range.end {
+                if core::ops::Range::from(range).contains(&next_subtree_index) {
                     // Get next subtree from repeater!
                     let mut next_subtree_component = Default::default();
                     parent_ref_pin.as_ref().get_subtree_component(
@@ -895,7 +895,7 @@ mod tests {
         }
 
         fn get_subtree_range(self: core::pin::Pin<&Self>, subtree_index: usize) -> IndexRange {
-            IndexRange { start: 0, end: self.subtrees.borrow()[subtree_index].len() }
+            (0..self.subtrees.borrow()[subtree_index].len()).into()
         }
 
         fn get_subtree_component(
