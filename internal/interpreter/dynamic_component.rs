@@ -1546,8 +1546,7 @@ extern "C" fn get_subtree_range(component: ComponentRefPin, index: usize) -> Ind
     ensure_repeater_updated(instance_ref, rep_in_comp);
 
     let repeater = rep_in_comp.offset.apply(&instance_ref.instance);
-    let (start, end) = repeater.range();
-    IndexRange { start, end }
+    repeater.range().into()
 }
 
 extern "C" fn get_subtree_component(

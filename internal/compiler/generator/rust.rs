@@ -735,8 +735,7 @@ fn generate_sub_component(
         repeated_subtree_ranges.push(quote!(
             #idx => {
                 #ensure_updated
-                let (start, end) = _self.#repeater_id.range();
-                slint::private_unstable_api::re_exports::IndexRange { start, end }
+                slint::private_unstable_api::re_exports::IndexRange::from(_self.#repeater_id.range())
             }
         ));
         repeated_subtree_components.push(quote!(

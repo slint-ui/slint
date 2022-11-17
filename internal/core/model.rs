@@ -1079,11 +1079,13 @@ impl<C: RepeatedComponent + 'static> Repeater<C> {
     ///
     /// Two values are necessary here since the Repeater can start to insert the data from its
     /// model at an offset.
-    pub fn range(&self) -> (usize, usize) {
+    pub fn range(&self) -> core::ops::Range<usize> {
         let inner = self.0.inner.borrow();
-        (inner.offset, inner.offset + inner.components.len())
+        core::ops::Range { start: inner.offset, end: inner.offset + inner.components.len() }
     }
 
+    /// Return the component instance for the given model index.
+    /// The index should be within [`Self::range()`]
     pub fn component_at(&self, index: usize) -> Option<ComponentRc<C>> {
         let inner = self.0.inner.borrow();
         inner
