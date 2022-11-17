@@ -27,7 +27,7 @@ pub struct ImportedTypes {
     pub file: String,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ImportedName {
     // name of export to match in the other file
     pub external_name: String,
