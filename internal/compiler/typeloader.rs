@@ -36,14 +36,12 @@ pub struct ImportedName {
 }
 
 impl ImportedName {
-    pub fn extract_imported_names(imports: &[syntax_nodes::ImportSpecifier]) -> Vec<ImportedName> {
-        imports
-            .iter()
-            .filter_map(|import| import.ImportIdentifierList())
-            .flat_map(|import_identifiers| {
-                import_identifiers.ImportIdentifier().map(Self::from_node)
-            })
-            .collect::<Vec<_>>()
+    pub fn extract_imported_names(
+        imports: &[syntax_nodes::ImportSpecifier],
+    ) -> impl Iterator<Item = ImportedName> + '_ {
+        imports.iter().filter_map(|import| import.ImportIdentifierList()).flat_map(
+            |import_identifiers| import_identifiers.ImportIdentifier().map(Self::from_node),
+        )
     }
 
     pub fn from_node(importident: syntax_nodes::ImportIdentifier) -> Self {
@@ -137,11 +135,12 @@ impl TypeLoader {
         let mut foreign_imports = vec![];
         for mut import in dependencies {
             if import.file.ends_with(".60") || import.file.ends_with(".slint") {
-                let imported_types = ImportedName::extract_imported_names(&import.imported_types);
-                if !imported_types.is_empty() {
+                let mut imported_types =
+                    ImportedName::extract_imported_names(&import.imported_types).peekable();
+                if !imported_types.peek().is_none() {
                     self.load_dependency(
-                        import,
-                        imported_types.into_iter(),
+                        &import,
+                        imported_types,
                         registry_to_populate,
                         diagnostics,
                     )
@@ -336,7 +335,7 @@ impl TypeLoader {
 
     fn load_dependency<'b>(
         &'b mut self,
-        import: ImportedTypes,
+        import: &'b ImportedTypes,
         imported_types: impl Iterator<Item = ImportedName> + 'b,
         registry_to_populate: &'b Rc<RefCell<TypeRegister>>,
         build_diagnostics: &'b mut BuildDiagnostics,
