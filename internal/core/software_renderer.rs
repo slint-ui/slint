@@ -942,7 +942,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 source_size: clipped_relative_source_rect.size.ceil().cast(),
                                 format: t.format,
                                 color: if colorize.alpha() > 0 { colorize } else { t.color },
-                                alpha: (self.current_state.alpha * 255.0)  as u8
+                                alpha: (self.current_state.alpha * 255.0) as u8,
                             },
                         );
                     }
@@ -1240,7 +1240,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                             source_size: geometry.size,
                             format: PixelFormat::AlphaMap,
                             color,
-                            alpha: (self.current_state.alpha * 255.0) as u8
+                            alpha: (self.current_state.alpha * 255.0) as u8,
                         },
                     );
                 }
