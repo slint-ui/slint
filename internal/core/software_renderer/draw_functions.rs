@@ -20,13 +20,13 @@ pub(super) fn draw_texture_line(
     texture: &super::SceneTexture,
     line_buffer: &mut [impl TargetPixel],
 ) {
-    let super::SceneTexture { data, format, stride, source_size, color, alpha } = *texture;
+    let super::SceneTexture { data, format, stride, source_size, color } = *texture;
     let source_size = source_size.cast::<usize>();
     let span_size = span.size.cast::<usize>();
     let bpp = format.bpp();
     let y = (line - span.origin.y_length()).cast::<usize>();
     let y_pos = (y.get() * source_size.height / span_size.height) * stride as usize;
-    let alpha = ((alpha as u16 * color.alpha() as u16) / 255) as u8;
+
     for (x, pix) in line_buffer
         [span.origin.x as usize..(span.origin.x_length() + span.size.width_length()).get() as usize]
         .iter_mut()
@@ -40,7 +40,7 @@ pub(super) fn draw_texture_line(
                 continue;
             }
             PixelFormat::Rgba => {
-                let alpha = ((data[pos + 3] as u16 * alpha as u16) / 255) as u8;
+                let alpha = ((data[pos + 3] as u16 * color.alpha() as u16) / 255) as u8;
                 PremultipliedRgbaColor::premultiply(if alpha == 0 {
                     Color::from_argb_u8(alpha / 255, data[pos + 0], data[pos + 1], data[pos + 2])
                 } else {
@@ -48,7 +48,7 @@ pub(super) fn draw_texture_line(
                 })
             }
             PixelFormat::RgbaPremultiplied => {
-                let alpha = data[pos + 3] / 255 * alpha;
+                let alpha = data[pos + 3] / 255 * color.alpha();
                 if alpha == 0 {
                     PremultipliedRgbaColor {
                         alpha,
@@ -66,7 +66,7 @@ pub(super) fn draw_texture_line(
                 }
             }
             PixelFormat::AlphaMap => PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                data[pos] / 255 * alpha,
+                data[pos] / 255 * color.alpha(),
                 color.red(),
                 color.green(),
                 color.blue(),
