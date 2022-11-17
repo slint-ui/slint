@@ -17,6 +17,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
     public static readonly viewType = 'slint.propertiesView';
 
     private _view?: vscode.WebviewView;
+    private property_shown: boolean = false;
 
     constructor(private readonly _extensionUri: vscode.Uri) { }
 
@@ -67,9 +68,14 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 
 
         vscode.window.onDidChangeTextEditorSelection(async (event: vscode.TextEditorSelectionChangeEvent) => {
-            //client.comma sendRequest("slint/showPreview", ae.document.uri.fsPath.toString());
-
             if (event.selections.length == 0) {
+                return;
+            }
+            if (event.textEditor.document.languageId != "slint") {
+                if (this.property_shown) {
+                    webviewView.webview.postMessage({ command: "clear" });
+                    this.property_shown = false;
+                }
                 return;
             }
             let selection = event.selections[0];
@@ -85,6 +91,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                 code: event.textEditor.document.getText(),
             };
             webviewView.webview.postMessage(msg);
+            this.property_shown = true;
         });
     }
 
