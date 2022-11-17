@@ -39,10 +39,9 @@ impl ImportedName {
     pub fn extract_imported_names(imports: &[syntax_nodes::ImportSpecifier]) -> Vec<ImportedName> {
         imports
             .iter()
-            .flat_map(|import| {
-                import.ImportIdentifierList().into_iter().flat_map(|import_identifiers| {
-                    import_identifiers.ImportIdentifier().map(Self::from_node)
-                })
+            .filter_map(|import| import.ImportIdentifierList())
+            .flat_map(|import_identifiers| {
+                import_identifiers.ImportIdentifier().map(Self::from_node)
             })
             .collect::<Vec<_>>()
     }
