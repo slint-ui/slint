@@ -184,6 +184,8 @@ impl ItemRc {
         self.borrow().as_ref().geometry()
     }
 
+    /// Returns an absolute position of `p` in the parent item coordinate system
+    /// (does not add this item's x and y)
     pub fn map_to_window(&self, p: LogicalPoint) -> LogicalPoint {
         let mut current = self.clone();
         let mut result = p;

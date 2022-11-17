@@ -621,16 +621,9 @@ impl WindowInner {
         position: Point,
         parent_item: &ItemRc,
     ) {
-        let mut position = LogicalPoint::from_untyped(position);
-        let mut parent_item = parent_item.clone();
-        loop {
-            position += parent_item.borrow().as_ref().geometry().origin.to_vector();
-            parent_item = match parent_item.parent_item() {
-                None => break,
-                Some(pi) => pi,
-            }
-        }
-
+        let position = parent_item.map_to_window(
+            parent_item.geometry().origin + LogicalPoint::from_untyped(position).to_vector(),
+        );
         let popup_component = ComponentRc::borrow_pin(&popup_componentrc);
         let popup_root = popup_component.as_ref().get_item_ref(0);
 
