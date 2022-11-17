@@ -3,7 +3,7 @@
 
 //! This module contains the code for the highlight of some elements
 
-use crate::dynamic_component::ComponentBox;
+use crate::dynamic_component::{ComponentBox, DynamicComponentVRc};
 use crate::Value;
 use i_slint_compiler::expression_tree::{Expression, Unit};
 use i_slint_compiler::langtype::{ElementType, Type};
@@ -20,39 +20,34 @@ use std::rc::Rc;
 
 const HIGHLIGHT_PROP: &str = "$highlights";
 
-pub fn highlight(component_instance: &ComponentBox, path: PathBuf, offset: u32) {
-    let element = if let Some(element) =
-        find_element(&component_instance.description().original, path, offset)
-    {
-        element
-    } else {
-        component_instance
-            .description()
-            .set_property(
-                component_instance.borrow(),
-                HIGHLIGHT_PROP,
-                Value::Model(ModelRc::default()),
-            )
+pub fn highlight(component_instance: &DynamicComponentVRc, path: PathBuf, offset: u32) {
+    generativity::make_guard!(guard);
+    let c = component_instance.unerase(guard);
+    let elements = find_element_at_offset(&c.description().original, path, offset);
+    if elements.is_empty() {
+        c.description()
+            .set_property(c.borrow(), HIGHLIGHT_PROP, Value::Model(ModelRc::default()))
             .unwrap();
         return;
     };
 
-    //let item_path = find_item_for_element(element.clone(), component_instance.description());
-    let mut values = Vec::<Value>::new();
-    let repeater_path = repeater_path(&element);
+    let elements = elements.into_iter().map(|e| Rc::downgrade(&e)).collect::<Vec<_>>();
 
-    eprintln!("--> {repeater_path:?},  {:?}", element.borrow().id);
+    let component_instance = vtable::VRc::downgrade(component_instance);
+    let binding = move || {
+        let component_instance = component_instance.upgrade().unwrap();
+        generativity::make_guard!(guard);
+        let c = component_instance.unerase(guard);
+        let mut values = Vec::<Value>::new();
+        for element in elements.iter().filter_map(|e| e.upgrade()) {
+            if let Some(repeater_path) = repeater_path(&element) {
+                fill_model(&repeater_path, &element, &c, &mut values);
+            }
+        }
+        Value::Model(ModelRc::new(VecModel::from(values)))
+    };
 
-    fill_model(&repeater_path, &element, component_instance, &mut values);
-
-    component_instance
-        .description()
-        .set_property(
-            component_instance.borrow(),
-            HIGHLIGHT_PROP,
-            Value::Model(ModelRc::new(VecModel::from(values))),
-        )
-        .unwrap();
+    c.description().set_binding(c.borrow(), HIGHLIGHT_PROP, Box::new(binding)).unwrap();
 }
 
 fn fill_model(
@@ -104,47 +99,10 @@ fn fill_model(
         ));
     }
 }
-/*
-fn fill_model(element: ElementRc, component_instance: &ComponentBox, values: &mut Vec<Value>) {
-    let enclosing = element.borrow().enclosing_component.upgrade().unwrap();
-    if Rc::ptr_eq(&enclosing, &component_instance.description().original) {
-        component_instance.description().items[element.borrow().id.as_str()];
-    }
-    if let Some(parent) = enclosing.parent_element.upgrade() {
-        generativity::make_guard!(guard);
-        let rep = crate::dynamic_component::get_repeater_by_name(
-            component_instance.borrow_instance(),
-            &element.borrow().id,
-            guard,
-        );
-        for idx in 0..rep.0.len() {
-            if let Some(c) = rep.0.component_at(idx) {
-                generativity::make_guard!(guard);
-                fill_model(element, component_instance, values);
-            }
-
-        }
-    }
-
-    todo!()
-}
-*/
-/*fn fill_model(repeater_idx: &[usize], component_instance: &ComponentBox, values: &mut Vec<Value>) {
-    if let [first, rest @ ..] = repeater_idx {
-        generativity::make_guard!(guard):
-        let rep = component_instance.description().repeater[*first].unerase(guard);
-        rep.offset
-        component_instance.borrow_instance().instance
-        fill_model(repeater_idx, component_instance, values)
-    }
-    let v = Value::Struct(
-        ["width", "height", "x", "y"].iter().map(|x| (x.to_string(), Value::Number(50.))).collect(),
-    );
-}*/
 
 // Go over all elements in original to find the one that is highlighted
-fn find_element(component: &Rc<Component>, path: PathBuf, offset: u32) -> Option<ElementRc> {
-    let mut result = None;
+fn find_element_at_offset(component: &Rc<Component>, path: PathBuf, offset: u32) -> Vec<ElementRc> {
+    let mut result = Vec::<ElementRc>::new();
     i_slint_compiler::object_tree::recurse_elem_including_sub_components(
         component,
         &(),
@@ -152,9 +110,9 @@ fn find_element(component: &Rc<Component>, path: PathBuf, offset: u32) -> Option
             if elem.borrow().repeated.is_some() {
                 return;
             }
-            if let Some(node) = &elem.borrow().node {
+            if let Some(node) = elem.borrow().node.as_ref().and_then(|n| n.QualifiedName()) {
                 if node.source_file.path() == path && node.text_range().contains(offset.into()) {
-                    result = Some(elem.clone());
+                    result.push(elem.clone());
                 }
             }
         },
@@ -162,54 +120,22 @@ fn find_element(component: &Rc<Component>, path: PathBuf, offset: u32) -> Option
     result
 }
 
-/*
-struct ItemPath {
-    repeater_idx: Vec<usize>,
-    item_id: String,
-}
-
-fn find_item_for_element(elem: ElementRc, des: Rc<ComponentDescription>) -> ItemPath {
-    generativity::make_guard!(guard);
-    let enclosing = elem.borrow().enclosing_component.upgrade().unwrap();
-    let repeater_idx = if let Some(parent) = enclosing.parent_element.upgrade() {
-        find_repeater_path(parent, des.clone(), guard).0
-    } else {
-        vec![]
-    };
-    ItemPath { item_id: elem.borrow().id.clone(), repeater_idx }
-}
-
-/// return the path of repeater and the parent's description
-fn find_repeater_path<'id>(
-    repeated: ElementRc,
-    des: Rc<ComponentDescription>,
-    guard: generativity::Guard<'id>,
-) -> (Vec<usize>, Rc<ComponentDescription<'id>>) {
-    let enclosing = repeated.borrow().enclosing_component.upgrade().unwrap();
-    if let Some(parent) = enclosing.parent_element.upgrade() {
-        generativity::make_guard!(guard_2);
-        let (mut path, des) = find_repeater_path(parent, des, guard_2);
-        let idx = des.repeater_names[repeated.borrow().id.as_str()];
-        path.push(idx);
-        (path, des.repeater[idx].unerase(guard).component_to_repeat.clone())
-    } else {
-        let idx = des.repeater_names[repeated.borrow().id.as_str()];
-        (vec![idx], des.repeater[idx].unerase(guard).component_to_repeat.clone())
-    }
-}*/
-
-fn repeater_path(elem: &ElementRc) -> Vec<String> {
+fn repeater_path(elem: &ElementRc) -> Option<Vec<String>> {
     let enclosing = elem.borrow().enclosing_component.upgrade().unwrap();
     if let Some(parent) = enclosing.parent_element.upgrade() {
-        let mut r = repeater_path(&parent);
+        if parent.borrow().repeated.is_none() {
+            // This is not a repeater, it is possibily a popup menu which is not supported ATM
+            return None;
+        }
+        let mut r = repeater_path(&parent)?;
         r.push(parent.borrow().id.clone());
-        r
+        Some(r)
     } else {
-        vec![]
+        Some(vec![])
     }
 }
 
-/// Add the `for rect in $highlights: $highlights := Rectangle { }`
+/// Add the `for rect in $highlights: $Highlight := Rectangle { ... }`
 pub(crate) fn add_highlight_items(doc: &Document) {
     let geom_props = ["width", "height", "x", "y"];
     doc.root_component.root_element.borrow_mut().property_declarations.insert(
@@ -284,7 +210,7 @@ pub(crate) fn add_highlight_items(doc: &Document) {
             parent_element: repeated.clone(),
             root_element: Rc::new(RefCell::new(Element {
                 enclosing_component: comp.clone(),
-                id: "$Highlight_root".into(),
+                id: "$Highlight".into(),
                 base_type: doc.local_registry.lookup_element("Rectangle").unwrap(),
                 bindings,
                 ..Default::default()

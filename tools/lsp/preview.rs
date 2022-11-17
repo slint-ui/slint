@@ -318,8 +318,10 @@ fn send_notification(sender: &crate::ServerNotifier, arg: &str, health: Health) 
         .unwrap_or_else(|e| eprintln!("Error sending notification: {:?}", e));
 }
 
-pub fn highlight(path: Option<PathBuf>, off: u32) {
-    let highlight = path.map(|x| (x, off));
+/// Highlight the element pointed at the offset in the path.
+/// When path is None, remove the highlight.
+pub fn highlight(path: Option<PathBuf>, offset: u32) {
+    let highlight = path.map(|x| (x, offset));
     let mut cache = CONTENT_CACHE.get_or_init(Default::default).lock().unwrap();
 
     if cache.highlight == highlight {

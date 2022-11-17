@@ -230,6 +230,8 @@ impl<'id> Drop for ErasedComponentBox {
     }
 }
 
+pub type DynamicComponentVRc = vtable::VRc<ComponentVTable, ErasedComponentBox>;
+
 #[derive(Default)]
 pub(crate) struct ComponentExtraData {
     pub(crate) globals: crate::global_component::GlobalStorage,
@@ -401,7 +403,7 @@ impl<'id> ComponentDescription<'id> {
     pub fn create(
         self: Rc<Self>,
         #[cfg(target_arch = "wasm32")] canvas_id: String,
-    ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
+    ) -> DynamicComponentVRc {
         let window_adapter = i_slint_backend_selector::with_platform(|_b| {
             #[cfg(not(target_arch = "wasm32"))]
             return _b.create_window_adapter();
@@ -416,7 +418,7 @@ impl<'id> ComponentDescription<'id> {
     pub fn create_with_existing_window(
         self: Rc<Self>,
         window_adapter: &Rc<dyn WindowAdapter>,
-    ) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
+    ) -> DynamicComponentVRc {
         let component_ref = instantiate(self, None, window_adapter, Default::default());
         WindowInner::from_pub(component_ref.as_pin_ref().window_adapter().window())
             .set_component(&vtable::VRc::into_dyn(component_ref.clone()));
@@ -461,7 +463,7 @@ impl<'id> ComponentDescription<'id> {
     #[allow(unused)]
     pub fn set_binding(
         &self,
-        component: ComponentRef,
+        component: ComponentRefPin,
         name: &str,
         binding: Box<dyn Fn() -> Value>,
     ) -> Result<(), ()> {
@@ -1210,7 +1212,7 @@ pub fn instantiate(
     parent_ctx: Option<ComponentRefPin>,
     window_adapter: &Rc<dyn WindowAdapter>,
     mut globals: crate::global_component::GlobalStorage,
-) -> vtable::VRc<ComponentVTable, ErasedComponentBox> {
+) -> DynamicComponentVRc {
     let mut instance = component_type.dynamic_type.clone().create_instance();
 
     if let Some(parent) = parent_ctx {

@@ -726,10 +726,7 @@ pub fn print_diagnostics(diagnostics: &[Diagnostic]) {
 /// An instance can be put on screen with the [`ComponentInstance::run`] function.
 #[repr(C)]
 pub struct ComponentInstance {
-    inner: vtable::VRc<
-        i_slint_core::component::ComponentVTable,
-        crate::dynamic_component::ErasedComponentBox,
-    >,
+    inner: crate::dynamic_component::DynamicComponentVRc,
 }
 
 impl ComponentInstance {
@@ -990,9 +987,7 @@ impl ComponentInstance {
     /// WARNING: this is not part of the public API
     #[cfg(feature = "highlight")]
     pub fn highlight(&self, path: PathBuf, offset: u32) {
-        generativity::make_guard!(guard);
-        let unerased = self.inner.unerase(guard);
-        crate::highlight::highlight(unerased.get_ref(), path, offset);
+        crate::highlight::highlight(&self.inner, path, offset);
     }
 }
 

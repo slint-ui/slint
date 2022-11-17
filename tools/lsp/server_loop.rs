@@ -22,7 +22,7 @@ use lsp_types::{
     CodeActionOrCommand, CodeActionProviderCapability, CodeLens, CodeLensOptions, Color,
     ColorInformation, ColorPresentation, Command, CompletionOptions, DocumentSymbol,
     DocumentSymbolResponse, Hover, InitializeParams, InitializeResult, OneOf, Position,
-    PublishDiagnosticsParams, Range, SemanticTokensFullOptions, SemanticTokensLegend,
+    PublishDiagnosticsParams, SemanticTokensFullOptions, SemanticTokensLegend,
     SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, Url,
     WorkDoneProgressOptions,
 };
@@ -109,16 +109,27 @@ impl DocumentCache {
         Some(pos)
     }
 
-    pub fn offset_to_position_mapper(&mut self, uri: lsp_types::Url) -> OffsetToPositionMapper {
+    pub fn offset_to_position_mapper<'a>(
+        &'a mut self,
+        uri: &'a lsp_types::Url,
+    ) -> OffsetToPositionMapper {
         OffsetToPositionMapper(self, uri)
     }
 }
 
-pub struct OffsetToPositionMapper<'a>(&'a mut DocumentCache, lsp_types::Url);
+pub struct OffsetToPositionMapper<'a>(&'a mut DocumentCache, &'a lsp_types::Url);
 
 impl OffsetToPositionMapper<'_> {
     pub fn map(&mut self, offset: u32) -> lsp_types::Position {
-        self.0.byte_offset_to_position(offset, &self.1).expect("invalid offset")
+        self.0.byte_offset_to_position(offset, self.1).expect("invalid offset")
+    }
+
+    pub fn map_range(&mut self, r: rowan::TextRange) -> Option<lsp_types::Range> {
+        lsp_types::Range::new(
+            self.0.byte_offset_to_position(r.start().into(), self.1)?,
+            self.0.byte_offset_to_position(r.end().into(), self.1)?,
+        )
+        .into()
     }
 }
 
@@ -285,18 +296,23 @@ pub fn handle_request(
     } else if req.handle_request::<DocumentHighlightRequest, _>(|params| {
         #[cfg(feature = "preview")]
         {
-            if let Some((_doc, off)) = get_document_and_offset(
-                document_cache,
-                &params.text_document_position_params.text_document.uri,
-                &params.text_document_position_params.position,
-            ) {
-                crate::preview::highlight(
-                    params.text_document_position_params.text_document.uri.to_file_path().ok(),
-                    off,
-                );
-            } else {
-                crate::preview::highlight(None, 0);
+            let uri = params.text_document_position_params.text_document.uri;
+            if let Some((tk, off)) =
+                token_descr(document_cache, &uri, &params.text_document_position_params.position)
+            {
+                let p = tk.parent();
+                if p.kind() == SyntaxKind::QualifiedName
+                    && p.parent().map_or(false, |n| n.kind() == SyntaxKind::Element)
+                {
+                    crate::preview::highlight(uri.to_file_path().ok(), off);
+                    let range =
+                        document_cache.offset_to_position_mapper(&uri).map_range(p.text_range());
+                    return Ok(
+                        range.map(|range| vec![lsp_types::DocumentHighlight { range, kind: None }])
+                    );
+                }
             }
+            crate::preview::highlight(None, 0);
         }
         Ok(None)
     })? {
@@ -587,10 +603,7 @@ fn get_document_color(
                 let col = i_slint_compiler::literals::parse_color_literal(token.text())?;
                 let shift = |s: u32| -> f32 { ((col >> s) & 0xff) as f32 / 255. };
                 result.push(ColorInformation {
-                    range: Range::new(
-                        document_cache.byte_offset_to_position(range.start().into(), uri)?,
-                        document_cache.byte_offset_to_position(range.end().into(), uri)?,
-                    ),
+                    range: document_cache.offset_to_position_mapper(uri).map_range(range)?,
                     color: Color {
                         alpha: shift(24),
                         red: shift(16),
@@ -617,27 +630,21 @@ fn get_document_symbols(
 
     // DocumentSymbol doesn't implement default and some field depends on features or are deprecated
     let ds: DocumentSymbol = serde_json::from_value(
-        serde_json::json!({ "name" : "", "kind": 255, "range" : Range::default(), "selectionRange": Range::default() })
+        serde_json::json!({ "name" : "", "kind": 255, "range" : lsp_types::Range::default(), "selectionRange": lsp_types::Range::default() })
     )
     .unwrap();
 
     let inner_components = doc.inner_components.clone();
     let inner_structs = doc.inner_structs.clone();
-    let mut make_range = |node: &SyntaxNode| {
-        let r = node.text_range();
-        Some(Range::new(
-            document_cache.byte_offset_to_position(r.start().into(), uri)?,
-            document_cache.byte_offset_to_position(r.end().into(), uri)?,
-        ))
-    };
+    let mut make_range = document_cache.offset_to_position_mapper(uri);
 
     let mut r = inner_components
         .iter()
         .filter_map(|c| {
             Some(DocumentSymbol {
-                range: make_range(c.root_element.borrow().node.as_ref()?)?,
-                selection_range: make_range(
-                    c.root_element.borrow().node.as_ref()?.QualifiedName().as_ref()?,
+                range: make_range.map_range(c.root_element.borrow().node.as_ref()?.text_range())?,
+                selection_range: make_range.map_range(
+                    c.root_element.borrow().node.as_ref()?.QualifiedName().as_ref()?.text_range(),
                 )?,
                 name: c.id.clone(),
                 kind: if c.is_global() {
@@ -653,8 +660,8 @@ fn get_document_symbols(
 
     r.extend(inner_structs.iter().filter_map(|c| match c {
         Type::Struct { name: Some(name), node: Some(node), .. } => Some(DocumentSymbol {
-            range: make_range(node.parent().as_ref()?)?,
-            selection_range: make_range(node)?,
+            range: make_range.map_range(node.parent().as_ref()?.text_range())?,
+            selection_range: make_range.map_range(node.text_range())?,
             name: name.clone(),
             kind: lsp_types::SymbolKind::STRUCT,
             ..ds.clone()
@@ -665,7 +672,7 @@ fn get_document_symbols(
     fn gen_children(
         elem: &ElementRc,
         ds: &DocumentSymbol,
-        make_range: &mut dyn FnMut(&SyntaxNode) -> Option<Range>,
+        make_range: &mut OffsetToPositionMapper,
     ) -> Option<Vec<DocumentSymbol>> {
         let r = elem
             .borrow()
@@ -674,8 +681,9 @@ fn get_document_symbols(
             .filter_map(|child| {
                 let e = child.borrow();
                 Some(DocumentSymbol {
-                    range: make_range(e.node.as_ref()?)?,
-                    selection_range: make_range(e.node.as_ref()?.QualifiedName().as_ref()?)?,
+                    range: make_range.map_range(e.node.as_ref()?.text_range())?,
+                    selection_range: make_range
+                        .map_range(e.node.as_ref()?.QualifiedName().as_ref()?.text_range())?,
                     name: e.base_type.to_string(),
                     detail: (!e.id.is_empty()).then(|| e.id.clone()),
                     kind: lsp_types::SymbolKind::VARIABLE,
@@ -700,20 +708,15 @@ fn get_code_lenses(
         let doc = document_cache.documents.get_document(&filepath)?;
 
         let inner_components = doc.inner_components.clone();
-        let mut make_range = |node: &SyntaxNode| {
-            let r = node.text_range();
-            Some(Range::new(
-                document_cache.byte_offset_to_position(r.start().into(), uri)?,
-                document_cache.byte_offset_to_position(r.end().into(), uri)?,
-            ))
-        };
 
         let mut r = vec![];
 
         // Handle preview lense
         r.extend(inner_components.iter().filter(|c| !c.is_global()).filter_map(|c| {
             Some(CodeLens {
-                range: make_range(c.root_element.borrow().node.as_ref()?)?,
+                range: document_cache
+                    .offset_to_position_mapper(uri)
+                    .map_range(c.root_element.borrow().node.as_ref()?.text_range())?,
                 command: Some(create_show_preview_command(true, filepath.to_str()?, c.id.as_str())),
                 data: None,
             })
