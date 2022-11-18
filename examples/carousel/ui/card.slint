@@ -28,7 +28,6 @@ export Card := Rectangle {
         width: 80%;
         height: 80%;
         colorize: Theme.foreground;
-        opacity: 0.4;
 
         animate colorize { duration: Theme.duration-fast; }
     }
@@ -67,8 +66,8 @@ export Card := Rectangle {
             image.colorize: Theme.foreground-hover;
         }
         selected when is-selected : {
-            background: green;
-            image.colorize:white;
+            background: Theme.background-selected;
+            image.colorize: Theme.foreground-selected;
             width: Theme.size-big;
             height: Theme.size-big;
             title-label.visible: true;
