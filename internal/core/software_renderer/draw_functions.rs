@@ -42,13 +42,13 @@ pub(super) fn draw_texture_line(
             PixelFormat::Rgba => {
                 let alpha = ((data[pos + 3] as u16 * color.alpha() as u16) / 255) as u8;
                 PremultipliedRgbaColor::premultiply(if alpha == 0 {
-                    Color::from_argb_u8(alpha / 255, data[pos + 0], data[pos + 1], data[pos + 2])
+                    Color::from_argb_u8(alpha, data[pos + 0], data[pos + 1], data[pos + 2])
                 } else {
-                    Color::from_argb_u8(alpha / 255, color.red(), color.green(), color.blue())
+                    Color::from_argb_u8(alpha, color.red(), color.green(), color.blue())
                 })
             }
             PixelFormat::RgbaPremultiplied => {
-                let alpha = data[pos + 3] / 255 * color.alpha();
+                let alpha = ((data[pos + 3] as u16 * color.alpha() as u16) / 255) as u8;
                 if alpha == 0 {
                     PremultipliedRgbaColor {
                         alpha,
@@ -66,7 +66,7 @@ pub(super) fn draw_texture_line(
                 }
             }
             PixelFormat::AlphaMap => PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                data[pos] / 255 * color.alpha(),
+                ((data[pos] as u16 * color.alpha() as u16) / 255) as u8,
                 color.red(),
                 color.green(),
                 color.blue(),
