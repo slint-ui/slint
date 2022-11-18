@@ -450,7 +450,7 @@ impl TypeLoader {
 
             Some(ImportedTypes {
                 import_token: import_uri,
-                imported_types: import.clone(),
+                imported_types: import,
                 file: path_to_import,
             })
         })
