@@ -5,7 +5,7 @@
 
 #[cfg(target_arch = "wasm32")]
 use crate::wasm_prelude::*;
-use crate::{completion, goto, semantic_tokens, util, RequestHolder};
+use crate::{completion, goto, semantic_tokens, util};
 use i_slint_compiler::diagnostics::{BuildDiagnostics, Spanned};
 use i_slint_compiler::langtype::Type;
 use i_slint_compiler::object_tree::ElementRc;
@@ -26,7 +26,11 @@ use lsp_types::{
     SemanticTokensOptions, ServerCapabilities, ServerInfo, TextDocumentSyncCapability, Url,
     WorkDoneProgressOptions,
 };
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
+use std::rc::Rc;
 
 pub type Error = Box<dyn std::error::Error>;
 
@@ -133,6 +137,48 @@ impl OffsetToPositionMapper<'_> {
     }
 }
 
+pub struct Context {
+    pub document_cache: RefCell<DocumentCache>,
+    pub server_notifier: crate::ServerNotifier,
+    pub init_param: InitializeParams,
+}
+
+#[derive(Default)]
+pub struct RequestHandler(
+    pub  HashMap<
+        &'static str,
+        Box<
+            dyn Fn(
+                serde_json::Value,
+                Rc<Context>,
+            ) -> Pin<Box<dyn Future<Output = Result<serde_json::Value, Error>>>>,
+        >,
+    >,
+);
+
+impl RequestHandler {
+    pub fn register<
+        R: lsp_types::request::Request,
+        Fut: Future<Output = Result<R::Result, Error>> + 'static,
+    >(
+        &mut self,
+        handler: fn(R::Params, Rc<Context>) -> Fut,
+    ) where
+        R::Params: 'static,
+    {
+        self.0.insert(
+            R::METHOD,
+            Box::new(move |value, ctx| {
+                Box::pin(async move {
+                    let params = serde_json::from_value(value)
+                        .map_err(|e| format!("error when deserializing request: {e:?}"))?;
+                    handler(params, ctx).await.map(|x| serde_json::to_value(x).unwrap())
+                })
+            }),
+        );
+    }
+}
+
 pub fn server_initialize_result() -> InitializeResult {
     InitializeResult {
         capabilities: ServerCapabilities {
@@ -177,12 +223,9 @@ pub fn server_initialize_result() -> InitializeResult {
     }
 }
 
-pub fn handle_request(
-    req: RequestHolder,
-    init_param: &InitializeParams,
-    document_cache: &mut DocumentCache,
-) -> Result<(), Error> {
-    if req.handle_request::<GotoDefinition, _>(|params| {
+pub fn register_request_handlers(rh: &mut RequestHandler) {
+    rh.register::<GotoDefinition, _>(|params, ctx| async move {
+        let document_cache = &mut ctx.document_cache.borrow_mut();
         let result = token_descr(
             document_cache,
             &params.text_document_position_params.text_document.uri,
@@ -194,7 +237,7 @@ pub fn handle_request(
                 maybe_goto_preview(
                     token.0,
                     token.1,
-                    req.server_notifier(),
+                    ctx.server_notifier.clone(),
                     &document_cache.documents.compiler_config,
                 );
                 return None;
@@ -202,8 +245,10 @@ pub fn handle_request(
             goto::goto_definition(document_cache, token.0)
         });
         Ok(result)
-    })? {
-    } else if req.handle_request::<Completion, _>(|params| {
+    });
+    rh.register::<Completion, _>(|params, ctx| async move {
+        let document_cache = &mut ctx.document_cache.borrow_mut();
+
         let result = token_descr(
             document_cache,
             &params.text_document_position.text_document.uri,
@@ -214,12 +259,16 @@ pub fn handle_request(
                 document_cache,
                 token.0,
                 token.1,
-                init_param.capabilities.text_document.as_ref().and_then(|t| t.completion.as_ref()),
+                ctx.init_param
+                    .capabilities
+                    .text_document
+                    .as_ref()
+                    .and_then(|t| t.completion.as_ref()),
             )
         });
         Ok(result)
-    })? {
-    } else if req.handle_request::<HoverRequest, _>(|_| {
+    });
+    rh.register::<HoverRequest, _>(|_params, _ctx| async move {
         /*let result =
             token_descr(document_cache, params.text_document_position_params).map(|x| Hover {
                 contents: lsp_types::HoverContents::Scalar(MarkedString::from_language_code(
@@ -231,19 +280,21 @@ pub fn handle_request(
         let resp = Response::new_ok(id, result);
         connection.sender.send(Message::Response(resp))?;*/
         Ok(None::<Hover>)
-    })? {
-    } else if req.handle_request::<CodeActionRequest, _>(|params| {
+    });
+    rh.register::<CodeActionRequest, _>(|params, ctx| async move {
+        let document_cache = &mut ctx.document_cache.borrow_mut();
+
         let result = token_descr(document_cache, &params.text_document.uri, &params.range.start)
             .and_then(|token| get_code_actions(document_cache, token.0.parent()));
         Ok(result)
-    })? {
-    } else if req.handle_request::<ExecuteCommand, _>(|params| {
-        #[cfg(any(feature = "preview", feature = "preview-lense"))]
+    });
+    rh.register::<ExecuteCommand, _>(|params, ctx| async move {
+        let document_cache = &mut ctx.document_cache.borrow_mut();
         if params.command.as_str() == SHOW_PREVIEW_COMMAND {
             #[cfg(feature = "preview")]
             show_preview_command(
                 &params.arguments,
-                &req.server_notifier(),
+                &ctx.server_notifier,
                 &document_cache.documents.compiler_config,
             )?;
             return Ok(None::<serde_json::Value>);
@@ -251,16 +302,17 @@ pub fn handle_request(
         if params.command.as_str() == QUERY_PROPERTIES_COMMAND {
             return Ok(Some(query_properties_command(
                 &params.arguments,
-                &req.server_notifier(),
+                &ctx.server_notifier,
                 document_cache,
             )?));
         }
         Ok(None::<serde_json::Value>)
-    })? {
-    } else if req.handle_request::<DocumentColor, _>(|params| {
+    });
+    rh.register::<DocumentColor, _>(|params, ctx| async move {
+        let document_cache = &mut ctx.document_cache.borrow_mut();
         Ok(get_document_color(document_cache, &params.text_document).unwrap_or_default())
-    })? {
-    } else if req.handle_request::<ColorPresentationRequest, _>(|params| {
+    });
+    rh.register::<ColorPresentationRequest, _>(|params, _ctx| async move {
         // Convert the color from the color picker to a string representation. This could try to produce a minimal
         // representation.
         let requested_color = params.color;
@@ -283,19 +335,23 @@ pub fn handle_request(
         };
 
         Ok(vec![ColorPresentation { label: color_literal, ..Default::default() }])
-    })? {
-    } else if req.handle_request::<DocumentSymbolRequest, _>(|params| {
+    });
+    rh.register::<DocumentSymbolRequest, _>(|params, ctx| async move {
+        let document_cache = &mut ctx.document_cache.borrow_mut();
         Ok(get_document_symbols(document_cache, &params.text_document))
-    })? {
-    } else if req.handle_request::<CodeLensRequest, _>(|params| {
+    });
+    rh.register::<CodeLensRequest, _>(|params, ctx| async move {
+        let document_cache = &mut ctx.document_cache.borrow_mut();
         Ok(get_code_lenses(document_cache, &params.text_document))
-    })? {
-    } else if req.handle_request::<SemanticTokensFullRequest, _>(|params| {
+    });
+    rh.register::<SemanticTokensFullRequest, _>(|params, ctx| async move {
+        let document_cache = &mut ctx.document_cache.borrow_mut();
         Ok(semantic_tokens::get_semantic_tokens(document_cache, &params.text_document))
-    })? {
-    } else if req.handle_request::<DocumentHighlightRequest, _>(|_params| {
+    });
+    rh.register::<DocumentHighlightRequest, _>(|_params, _ctx| async move {
         #[cfg(feature = "preview")]
         {
+            let document_cache = &mut _ctx.document_cache.borrow_mut();
             let uri = _params.text_document_position_params.text_document.uri;
             if let Some((tk, off)) =
                 token_descr(document_cache, &uri, &_params.text_document_position_params.position)
@@ -315,9 +371,7 @@ pub fn handle_request(
             crate::preview::highlight(None, 0);
         }
         Ok(None)
-    })? {
-    };
-    Ok(())
+    });
 }
 
 #[cfg(feature = "preview")]
@@ -728,41 +782,44 @@ fn get_code_lenses(
     }
 }
 
-pub fn load_configuration(server_notifier: &crate::ServerNotifier) -> Result<(), Error> {
-    server_notifier.send_request::<lsp_types::request::WorkspaceConfiguration>(
-        lsp_types::ConfigurationParams {
-            items: vec![lsp_types::ConfigurationItem {
-                scope_uri: None,
-                section: Some("slint".into()),
-            }],
-        },
-        |result, document_cache| {
-            if let Ok(r) = result {
-                for v in r {
-                    if let Some(o) = v.as_object() {
-                        if let Some(ip) = o.get("includePath").and_then(|v| v.as_array()) {
-                            if !ip.is_empty() {
-                                document_cache.documents.compiler_config.include_paths = ip
-                                    .iter()
-                                    .filter_map(|x| x.as_str())
-                                    .map(std::path::PathBuf::from)
-                                    .collect();
-                            }
-                        }
-                        if let Some(style) =
-                            o.get("preview").and_then(|v| v.as_object()?.get("style")?.as_str())
-                        {
-                            if !style.is_empty() {
-                                document_cache.documents.compiler_config.style = Some(style.into());
-                            }
-                        }
-                    }
+pub async fn load_configuration(ctx: &Context) -> Result<(), Error> {
+    let r = ctx
+        .server_notifier
+        .send_request::<lsp_types::request::WorkspaceConfiguration>(
+            lsp_types::ConfigurationParams {
+                items: vec![lsp_types::ConfigurationItem {
+                    scope_uri: None,
+                    section: Some("slint".into()),
+                }],
+            },
+        )?
+        .await?;
+
+    let document_cache = &mut ctx.document_cache.borrow_mut();
+    for v in r {
+        if let Some(o) = v.as_object() {
+            if let Some(ip) = o.get("includePath").and_then(|v| v.as_array()) {
+                if !ip.is_empty() {
+                    document_cache.documents.compiler_config.include_paths = ip
+                        .iter()
+                        .filter_map(|x| x.as_str())
+                        .map(std::path::PathBuf::from)
+                        .collect();
                 }
-                #[cfg(feature = "preview")]
-                crate::preview::config_changed(&document_cache.documents.compiler_config);
             }
-        },
-    )
+            if let Some(style) =
+                o.get("preview").and_then(|v| v.as_object()?.get("style")?.as_str())
+            {
+                if !style.is_empty() {
+                    document_cache.documents.compiler_config.style = Some(style.into());
+                }
+            }
+        }
+    }
+    #[cfg(feature = "preview")]
+    crate::preview::config_changed(&document_cache.documents.compiler_config);
+
+    Ok(())
 }
 
 #[cfg(test)]

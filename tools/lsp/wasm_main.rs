@@ -13,10 +13,10 @@ mod util;
 
 use i_slint_compiler::CompilerConfiguration;
 use js_sys::Function;
-use lsp_types::InitializeParams;
 use serde::Serialize;
-pub use server_loop::{DocumentCache, Error};
+pub use server_loop::{Context, DocumentCache, Error, RequestHandler};
 use std::cell::RefCell;
+use std::future::Future;
 use std::io::ErrorKind;
 use std::rc::Rc;
 use wasm_bindgen::prelude::*;
@@ -43,8 +43,6 @@ pub mod wasm_prelude {
 pub struct ServerNotifier {
     send_notification: Function,
     send_request: Function,
-    document_cache: Rc<RefCell<DocumentCache>>,
-    reentry_guard: Rc<RefCell<ReentryGuard>>,
 }
 impl ServerNotifier {
     pub fn send_notification(&self, method: String, params: impl Serialize) -> Result<(), Error> {
@@ -57,57 +55,35 @@ impl ServerNotifier {
     pub fn send_request<T: lsp_types::request::Request>(
         &self,
         request: T::Params,
-        f: impl FnOnce(Result<T::Result, String>, &mut DocumentCache) + Send + 'static,
-    ) -> Result<(), Error> {
+    ) -> Result<impl Future<Output = Result<T::Result, Error>>, Error> {
         let promise = self
             .send_request
             .call2(&JsValue::UNDEFINED, &T::METHOD.into(), &to_value(&request)?)
             .map_err(|x| format!("Error calling send_request: {x:?}"))?;
         let future = wasm_bindgen_futures::JsFuture::from(js_sys::Promise::from(promise));
-        let document_cache = self.document_cache.clone();
-        let guard = self.reentry_guard.clone();
-        wasm_bindgen_futures::spawn_local(async move {
-            let r = future
-                .await
-                .map_err(|e| format!("{e:?}"))
-                .and_then(|v| serde_wasm_bindgen::from_value(v).map_err(|e| format!("{e:?}")));
-            let _lock = ReentryGuard::lock(guard).await;
-            f(r, &mut document_cache.borrow_mut());
-        });
-        Ok(())
+        Ok(async move {
+            future.await.map_err(|e| format!("{e:?}").into()).and_then(|v| {
+                serde_wasm_bindgen::from_value(v).map_err(|e| format!("{e:?}").into())
+            })
+        })
     }
 }
 
-#[derive(Debug, Clone)]
-pub struct Request {
-    method: String,
-    params: serde_json::Value,
-}
-pub struct RequestHolder {
-    req: Request,
-    /// The result will be assigned there
-    reply: Rc<RefCell<Option<JsValue>>>,
-
-    notifier: ServerNotifier,
-}
-impl RequestHolder {
-    pub fn handle_request<
-        Kind: lsp_types::request::Request,
-        F: FnOnce(Kind::Params) -> Result<Kind::Result, Error>,
-    >(
+impl RequestHandler {
+    async fn handle_request(
         &self,
-        f: F,
-    ) -> Result<bool, Error> {
-        if self.req.method != Kind::METHOD {
-            return Ok(false);
+        method: String,
+        params: JsValue,
+        ctx: Rc<Context>,
+    ) -> Result<JsValue, Error> {
+        if let Some(f) = self.0.get(&method.as_str()) {
+            let param = serde_wasm_bindgen::from_value(params)
+                .map_err(|x| format!("invalid param to handle_request: {x:?}"))?;
+            let r = f(param, ctx).await?;
+            to_value(&r).map_err(|e| e.to_string().into())
+        } else {
+            Err("Cannot handle request".into())
         }
-        let result = f(serde_json::from_value(self.req.params.clone())?)?;
-        *self.reply.borrow_mut() = Some(to_value(&result)?);
-        Ok(true)
-    }
-
-    pub fn server_notifier(&self) -> ServerNotifier {
-        self.notifier.clone()
     }
 }
 
@@ -172,10 +148,9 @@ extern "C" {
 
 #[wasm_bindgen]
 pub struct SlintServer {
-    document_cache: Rc<RefCell<DocumentCache>>,
-    init_param: InitializeParams,
-    notifier: ServerNotifier,
+    ctx: Rc<Context>,
     reentry_guard: Rc<RefCell<ReentryGuard>>,
+    rh: Rc<RequestHandler>,
 }
 
 #[wasm_bindgen]
@@ -196,20 +171,21 @@ pub fn create(
         Box::pin(async move { Some(self::load_file(path, &load_file).await) })
     }));
 
-    let document_cache = Rc::new(RefCell::new(DocumentCache::new(compiler_config)));
+    let document_cache = RefCell::new(DocumentCache::new(compiler_config));
     let send_request = Function::from(send_request.clone());
     let reentry_guard = Rc::new(RefCell::new(ReentryGuard::default()));
 
+    let mut rh = RequestHandler::default();
+    server_loop::register_request_handlers(&mut rh);
+
     Ok(SlintServer {
-        document_cache: document_cache.clone(),
-        init_param,
-        notifier: ServerNotifier {
-            send_notification,
-            send_request,
-            document_cache: document_cache.clone(),
-            reentry_guard: reentry_guard.clone(),
-        },
+        ctx: Rc::new(Context {
+            document_cache,
+            init_param,
+            server_notifier: ServerNotifier { send_notification, send_request },
+        }),
         reentry_guard,
+        rh: Rc::new(rh),
     })
 }
 
@@ -222,18 +198,17 @@ impl SlintServer {
 
     #[wasm_bindgen]
     pub fn reload_document(&self, content: String, uri: JsValue, version: i32) -> js_sys::Promise {
-        let document_cache = self.document_cache.clone();
-        let notifier = self.notifier.clone();
+        let ctx = self.ctx.clone();
         let guard = self.reentry_guard.clone();
         wasm_bindgen_futures::future_to_promise(async move {
             let _lock = ReentryGuard::lock(guard).await;
             let uri: lsp_types::Url = serde_wasm_bindgen::from_value(uri)?;
             server_loop::reload_document(
-                &notifier,
+                &ctx.server_notifier,
                 content,
                 uri,
                 version,
-                &mut document_cache.borrow_mut(),
+                &mut ctx.document_cache.borrow_mut(),
             )
             .await
             .map_err(|e| JsError::new(&e.to_string()))?;
@@ -253,39 +228,21 @@ impl SlintServer {
 
     #[wasm_bindgen]
     pub fn handle_request(&self, _id: JsValue, method: String, params: JsValue) -> js_sys::Promise {
-        let document_cache = self.document_cache.clone();
-        let notifier = self.notifier.clone();
         let guard = self.reentry_guard.clone();
-        let init_param = self.init_param.clone();
+        let rh = self.rh.clone();
+        let ctx = self.ctx.clone();
         wasm_bindgen_futures::future_to_promise(async move {
+            let fut = rh.handle_request(method, params, ctx);
             let _lock = ReentryGuard::lock(guard).await;
-            let req = Request {
-                method,
-                params: serde_wasm_bindgen::from_value(params)
-                    .map_err(|x| format!("invalid param to handle_request: {x:?}"))?,
-            };
-            let result = Rc::new(RefCell::new(None));
-            server_loop::handle_request(
-                RequestHolder { req, reply: result.clone(), notifier: notifier.clone() },
-                &init_param,
-                &mut document_cache.borrow_mut(),
-            )
-            .map_err(|e| JsError::new(&e.to_string()))?;
-
-            let result = result.borrow_mut().take();
-            Ok(result.ok_or(JsError::new("Empty reply".into()))?)
+            fut.await.map_err(|e| JsError::new(&e.to_string()).into())
         })
     }
 
     #[wasm_bindgen]
-    pub fn reload_config(&self) -> Result<(), JsError> {
+    pub async fn reload_config(&self) -> Result<(), JsError> {
         let guard = self.reentry_guard.clone();
-        let notifier = self.notifier.clone();
-        wasm_bindgen_futures::spawn_local(async move {
-            let _lock = ReentryGuard::lock(guard).await;
-            let _ = server_loop::load_configuration(&notifier);
-        });
-        Ok(())
+        let _lock = ReentryGuard::lock(guard).await;
+        server_loop::load_configuration(&self.ctx).await.map_err(|e| JsError::new(&e.to_string()))
     }
 }
 
