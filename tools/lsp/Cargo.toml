@@ -74,7 +74,6 @@ clap = { version = "4.0", features = ["derive", "wrap_help"] }
 crossbeam-channel = "0.5"  # must match the version used by lsp-server
 lsp-server = "0.6"
 once_cell = "1.9.0"
-spin_on = "0.1"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen = "0.2.80"
@@ -82,6 +81,9 @@ wasm-bindgen-futures = "0.4.30"
 serde-wasm-bindgen = "0.4.5"
 js-sys = { version = "0.3.57" }
 console_error_panic_hook = "0.1.5"
+
+[dev-dependencies]
+spin_on = "0.1"
 
 # [package.metadata.wasm-pack.profile.release]
 # wasm-opt = false

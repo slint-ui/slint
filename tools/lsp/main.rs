@@ -23,9 +23,14 @@ use lsp_types::{DidChangeTextDocumentParams, DidOpenTextDocumentParams, Initiali
 use server_loop::*;
 
 use clap::Parser;
-use lsp_server::{Connection, Message, RequestId, Response};
+use lsp_server::{Connection, ErrorCode, Message, RequestId, Response};
+use std::cell::RefCell;
 use std::collections::HashMap;
+use std::future::Future;
+use std::pin::Pin;
+use std::rc::Rc;
 use std::sync::{atomic, Arc, Mutex};
+use std::task::{Poll, Waker};
 
 #[derive(Clone, clap::Parser)]
 #[command(author, version, about, long_about = None)]
@@ -47,9 +52,12 @@ struct Cli {
     backend: String,
 }
 
-type OutgoingRequestQueue = Arc<
-    Mutex<HashMap<RequestId, Box<dyn FnOnce(lsp_server::Response, &mut DocumentCache) + Send>>>,
->;
+enum OutgoingRequest {
+    Pending(Waker),
+    Done(lsp_server::Response),
+}
+
+type OutgoingRequestQueue = Arc<Mutex<HashMap<RequestId, OutgoingRequest>>>;
 
 /// A handle that can be used to communicate with the client
 ///
@@ -69,61 +77,63 @@ impl ServerNotifier {
     pub fn send_request<T: lsp_types::request::Request>(
         &self,
         request: T::Params,
-        f: impl FnOnce(Result<T::Result, String>, &mut DocumentCache) + Send + 'static,
-    ) -> Result<(), Error> {
+    ) -> Result<impl Future<Output = Result<T::Result, Error>>, Error> {
         static REQ_ID: atomic::AtomicI32 = atomic::AtomicI32::new(0);
         let id = RequestId::from(REQ_ID.fetch_add(1, atomic::Ordering::Relaxed));
         let msg =
             Message::Request(lsp_server::Request::new(id.clone(), T::METHOD.to_string(), request));
         self.0.send(msg)?;
-        self.1.lock().unwrap().insert(
-            id,
-            Box::new(move |r, c| {
-                if let Some(r) = r.result {
-                    f(serde_json::from_value(r).map_err(|e| e.to_string()), c)
-                } else if let Some(r) = r.error {
-                    f(Err(r.message), c)
+        let queue = self.1.clone();
+        Ok(std::future::poll_fn(move |ctx| {
+            let mut queue = queue.lock().unwrap();
+            match queue.remove(&id) {
+                None | Some(OutgoingRequest::Pending(_)) => {
+                    queue.insert(id.clone(), OutgoingRequest::Pending(ctx.waker().clone()));
+                    Poll::Pending
                 }
-            }),
-        );
-        Ok(())
+                Some(OutgoingRequest::Done(d)) => {
+                    if let Some(err) = d.error {
+                        Poll::Ready(Err(err.message.into()))
+                    } else if let Some(d) = d.result {
+                        Poll::Ready(
+                            serde_json::from_value(d)
+                                .map_err(|e| format!("cannot deserialize response: {e:?}").into()),
+                        )
+                    } else {
+                        Poll::Ready(Err("No response".into()))
+                    }
+                }
+            }
+        }))
     }
 }
 
-/// The interface for a request received from the client
-///
-/// This type is duplicated, with the same interface, in wasm_main.rs
-pub struct RequestHolder(lsp_server::Request, ServerNotifier);
-impl RequestHolder {
-    pub fn handle_request<
-        Kind: lsp_types::request::Request,
-        F: FnOnce(Kind::Params) -> Result<Kind::Result, Error>,
-    >(
+impl RequestHandler {
+    async fn handle_request(
         &self,
-        f: F,
-    ) -> Result<bool, Error> {
-        let (id, param) = match self.0.clone().extract::<Kind::Params>(Kind::METHOD) {
-            Ok(value) => value,
-            Err(lsp_server::ExtractError::MethodMismatch(_)) => {
-                return Ok(false);
-            }
-            Err(e) => {
-                return Err(format!("error when deserializing request: {e:?}").into());
-            }
-        };
-
-        match f(param) {
-            Ok(r) => self.1 .0.send(Message::Response(Response::new_ok(id, r)))?,
-            Err(e) => {
-                self.1 .0.send(Message::Response(Response::new_err(id, 23, format!("{}", e))))?
-            }
-        };
-
-        Ok(true)
-    }
-
-    pub fn server_notifier(&self) -> ServerNotifier {
-        self.1.clone()
+        request: lsp_server::Request,
+        ctx: &Rc<Context>,
+    ) -> Result<(), Error> {
+        if let Some(x) = self.0.get(&request.method.as_str()) {
+            match x(request.params, ctx.clone()).await {
+                Ok(r) => ctx
+                    .server_notifier
+                    .0
+                    .send(Message::Response(Response::new_ok(request.id, r)))?,
+                Err(e) => ctx.server_notifier.0.send(Message::Response(Response::new_err(
+                    request.id,
+                    ErrorCode::InternalError as i32,
+                    e.to_string(),
+                )))?,
+            };
+        } else {
+            ctx.server_notifier.0.send(Message::Response(Response::new_err(
+                request.id,
+                ErrorCode::MethodNotFound as i32,
+                "Cannot handle request".into(),
+            )))?;
+        }
+        Ok(())
     }
 }
 
@@ -178,7 +188,7 @@ pub fn run_lsp_server() -> Result<(), Error> {
 }
 
 fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), Error> {
-    let params: InitializeParams = serde_json::from_value(params).unwrap();
+    let init_params: InitializeParams = serde_json::from_value(params).unwrap();
     let mut compiler_config =
         CompilerConfiguration::new(i_slint_compiler::generator::OutputFormat::Interpreter);
 
@@ -187,12 +197,34 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
         Some(if cli_args.style.is_empty() { "fluent".into() } else { cli_args.style });
     compiler_config.include_paths = cli_args.include_paths;
 
-    let mut document_cache = DocumentCache::new(compiler_config);
+    let mut rh = RequestHandler::default();
+    register_request_handlers(&mut rh);
+
     let request_queue = OutgoingRequestQueue::default();
-
     let server_notifier = ServerNotifier(connection.sender.clone(), request_queue.clone());
+    let ctx = Rc::new(Context {
+        document_cache: RefCell::new(DocumentCache::new(compiler_config)),
+        server_notifier: server_notifier.clone(),
+        init_param: init_params,
+    });
 
-    load_configuration(&server_notifier)?;
+    let mut futures = Vec::<Pin<Box<dyn Future<Output = Result<(), Error>>>>>::new();
+    let mut first_future = Box::pin(load_configuration(&ctx));
+
+    // We are waiting in this loop for two kind of futures:
+    //  - The compiler future should always be ready immediately because we do not set a callback to load files
+    //  - the future from `send_request` are blocked waiting for a response from the client.
+    //    Responses are sent on the `connection.reciever` which will wake the loop, so there
+    //    is no need to do anything in the Waker.
+    struct DummyWaker;
+    impl std::task::Wake for DummyWaker {
+        fn wake(self: Arc<Self>) {}
+    }
+    let waker = Arc::new(DummyWaker).into();
+    match first_future.as_mut().poll(&mut std::task::Context::from_waker(&waker)) {
+        Poll::Ready(x) => x?,
+        Poll::Pending => futures.push(first_future),
+    };
 
     for msg in &connection.receiver {
         match msg {
@@ -200,64 +232,78 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
                 if connection.handle_shutdown(&req)? {
                     return Ok(());
                 }
-                handle_request(
-                    RequestHolder(req, server_notifier.clone()),
-                    &params,
-                    &mut document_cache,
-                )?;
+                futures.push(Box::pin(rh.handle_request(req, &ctx)));
             }
             Message::Response(resp) => {
-                let f = request_queue
-                    .lock()
-                    .unwrap()
-                    .remove(&resp.id)
-                    .ok_or("Response to unknown request")?;
-                f(resp, &mut document_cache);
+                if let Some(q) = request_queue.lock().unwrap().get_mut(&resp.id) {
+                    match q {
+                        OutgoingRequest::Done(_) => {
+                            return Err("Response to unknown request".into())
+                        }
+                        OutgoingRequest::Pending(x) => x.wake_by_ref(),
+                    };
+                    *q = OutgoingRequest::Done(resp)
+                } else {
+                    return Err("Response to unknown request".into());
+                }
             }
             Message::Notification(notification) => {
-                handle_notification(&server_notifier, notification, &mut document_cache)?
+                futures.push(Box::pin(handle_notification(notification, &ctx)))
             }
         }
+
+        let mut result = Ok(());
+        futures.retain_mut(|f| {
+            if result.is_err() {
+                return true;
+            }
+            match f.as_mut().poll(&mut std::task::Context::from_waker(&waker)) {
+                Poll::Ready(x) => {
+                    result = x;
+                    false
+                }
+                Poll::Pending => true,
+            }
+        });
+        result?;
     }
     Ok(())
 }
 
-pub fn handle_notification(
-    connection: &ServerNotifier,
-    req: lsp_server::Notification,
-    document_cache: &mut DocumentCache,
-) -> Result<(), Error> {
+async fn handle_notification(req: lsp_server::Notification, ctx: &Context) -> Result<(), Error> {
     match &*req.method {
         DidOpenTextDocument::METHOD => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(req.params)?;
-            spin_on::spin_on(reload_document(
-                connection,
+            reload_document(
+                &ctx.server_notifier,
                 params.text_document.text,
                 params.text_document.uri,
                 params.text_document.version,
-                document_cache,
-            ))?;
+                &mut ctx.document_cache.borrow_mut(),
+            )
+            .await?;
         }
         DidChangeTextDocument::METHOD => {
             let mut params: DidChangeTextDocumentParams = serde_json::from_value(req.params)?;
-            spin_on::spin_on(reload_document(
-                connection,
+            reload_document(
+                &ctx.server_notifier,
                 params.content_changes.pop().unwrap().text,
                 params.text_document.uri,
                 params.text_document.version,
-                document_cache,
-            ))?;
+                &mut ctx.document_cache.borrow_mut(),
+            )
+            .await?;
         }
         DidChangeConfiguration::METHOD => {
-            load_configuration(connection)?;
+            load_configuration(ctx).await?;
         }
 
         #[cfg(feature = "preview")]
         "slint/showPreview" => {
             show_preview_command(
                 req.params.as_array().map_or(&[], |x| x.as_slice()),
-                connection,
-                &document_cache.documents.compiler_config,
+                &ctx.server_notifier,
+                &ctx.document_cache.borrow().documents.compiler_config,
             )?;
         }
         _ => (),
