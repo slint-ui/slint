@@ -170,7 +170,7 @@ CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-run --chip STM32H735IGKx" cargo
 ### ESP32-S2-Kaluga-1
 
 A esp toolchain is required: https://esp-rs.github.io/book/dependencies/installing-rust.html#xtensa-esp32-esp32-s2-esp32-s3
-Also `cargo instal espflash`
+Also `cargo install espflash`
 
 To compile and run the demo:
 
