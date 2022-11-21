@@ -162,12 +162,12 @@ Example := Rectangle {
 }
 ```
 
-You can annotate the properties with a qualifier that specifies how the property can be read and written.
+You can annotate the properties with a qualifier that specifies how the property can be read and written:
 
  * **`private`**: The property can only be accessed from within the component.
- * **`in`**: The property is an input, it can be set and modified by the user of this component,
+ * **`in`**: The property is an input. It can be set and modified by the user of this component,
    for example through bindings or by assignment in callbacks.
-   The component can provide a default binding, but it cannot overwrite it by a `background = #abc`
+   The component can provide a default binding, but it cannot overwrite it by
    assignment
  * **`out`**: An output property that can only be set by the component. It is read-only for the
    users of the components.
@@ -175,11 +175,11 @@ You can annotate the properties with a qualifier that specifies how the property
 
 ```slint,no-preview
 Button := Rectangle {
-    // this is meant to be set by the user of the component
+    // This is meant to be set by the user of the component.
     in property <string> text;
-    // This property is meant to be read by the user of the component
+    // This property is meant to be read by the user of the component.
     out property <bool> pressed;
-    // This property is meant to both be changed by the user and the componet itself
+    // This property is meant to both be changed by the user and the component itself.
     in-out property <bool> checked;
 
     // This property is internal to this component.
