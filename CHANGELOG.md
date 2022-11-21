@@ -7,7 +7,7 @@ All notable changes to this project are documented in this file.
 
  - When using a two way binding `foo <=> bar`, the default value will always be the one of `bar`.
    There was a warning about this change in previous versions (#1394)
- - `Window`'s `default-font-size` property is now always set to a non-zero value, provided by 
+ - `Window`'s `default-font-size` property is now always set to a non-zero value, provided by
    either the style or the backend.
  - In the interpreter, calling `set_property` or `get_property` on properties of the base no longer works.
  - Renamed the `Keys` namespace for use in `key-pressed`/`key-released` callbacks to `Key`. The
@@ -19,12 +19,13 @@ All notable changes to this project are documented in this file.
 ### Added
 
  - Added `material` style with `material-light` and `fluent-dark` as explicit styles
- - Added `Window::is_visible` 
+ - Added `Window::is_visible`
  - Added `From<char>` for `SharedString` in Rust.
  - Added `KeyPressed` and `KeyReleased` variants to `slint::WindowEvent` in Rust, along
    with `slint::Key`, for use by custom platform backends.
- - Added suppport for the implicitly declared `init` callback that can be used to run code when
+ - Added support for the implicitly declared `init` callback that can be used to run code when
    an element or component is instantiated.
+ - Properties can be annotated with `in`, `out`, `in-out`, or `private`.
 
 ### Fixed
 
