@@ -22,8 +22,9 @@ use crate::typeregister::TypeRegister;
 /// At this point, it really should already contain the basic Types (string, int, ...)
 pub fn load_builtins(register: &mut TypeRegister) {
     let mut diag = crate::diagnostics::BuildDiagnostics::default();
+    diag.enable_experimental = true;
     let node = crate::parser::parse(include_str!("builtins.slint").into(), None, &mut diag);
-    if !diag.is_empty() && crate::parser::enable_experimental() {
+    if !diag.is_empty() {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]
         diag.print();
@@ -226,7 +227,7 @@ pub fn load_builtins(register: &mut TypeRegister) {
 
     register.empty_type = ElementType::Builtin(natives.remove("Empty").unwrap());
 
-    if !diag.is_empty() && crate::parser::enable_experimental() {
+    if !diag.is_empty() {
         let vec = diag.to_string_vec();
         #[cfg(feature = "display-diagnostics")]
         diag.print();

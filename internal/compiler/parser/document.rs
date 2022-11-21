@@ -60,7 +60,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
     let simple_component = p.nth(1).kind() == SyntaxKind::ColonEqual;
     let is_global = !simple_component && p.peek().as_str() == "global";
     let is_new_component = !simple_component && p.peek().as_str() == "component";
-    if is_new_component && !super::enable_experimental() {
+    if is_new_component && !p.enable_experimental() {
         p.error("the 'component' keyword is experimental, set `SLINT_EXPERIMENTAL_SYNTAX` env variable to enable experimental syntax. See https://github.com/slint-ui/slint/issues/1750");
     }
     if is_global || is_new_component {
@@ -72,7 +72,7 @@ pub fn parse_component(p: &mut impl Parser) -> bool {
     }
     if is_global {
         // ignore the `:=` (compatibility)
-        if !p.test(SyntaxKind::ColonEqual) && !super::enable_experimental() {
+        if !p.test(SyntaxKind::ColonEqual) && !p.enable_experimental() {
             p.expect(SyntaxKind::ColonEqual);
         }
     } else if !is_new_component {
