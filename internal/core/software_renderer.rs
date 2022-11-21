@@ -597,6 +597,7 @@ struct SceneTexture<'a> {
     stride: u16,
     source_size: PhysicalSize,
     color: Color,
+    alpha: u8,
 }
 
 struct SharedBufferCommand {
@@ -604,6 +605,7 @@ struct SharedBufferCommand {
     /// The source rectangle that is mapped into this command span
     source_rect: PhysicalRect,
     colorize: Color,
+    alpha: u8,
 }
 
 impl SharedBufferCommand {
@@ -618,6 +620,7 @@ impl SharedBufferCommand {
                 format: PixelFormat::Rgb,
                 source_size: self.source_rect.size,
                 color: self.colorize,
+                alpha: self.alpha,
             },
             SharedImageBuffer::RGBA8(b) => SceneTexture {
                 data: &b.as_bytes()[begin * 4..],
@@ -625,6 +628,7 @@ impl SharedBufferCommand {
                 format: PixelFormat::Rgba,
                 source_size: self.source_rect.size,
                 color: self.colorize,
+                alpha: self.alpha,
             },
             SharedImageBuffer::RGBA8Premultiplied(b) => SceneTexture {
                 data: &b.as_bytes()[begin * 4..],
@@ -632,6 +636,7 @@ impl SharedBufferCommand {
                 format: PixelFormat::RgbaPremultiplied,
                 source_size: self.source_rect.size,
                 color: self.colorize,
+                alpha: self.alpha,
             },
         }
     }
@@ -861,6 +866,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         image_fit: ImageFit,
         colorize: Color,
     ) {
+        let alpha_u16 = self.current_state.alpha_u8() as u16;
         let image_inner: &ImageInner = source.into();
         let size: euclid::default::Size2D<u32> = source_rect.size.cast();
         let phys_size = geom.size_length().cast() * self.scale_factor;
@@ -928,6 +934,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             + source_rect.origin.y as usize
                             - t.rect.origin.y as usize;
                         let stride = t.rect.width() as u16 * t.format.bpp() as u16;
+                        let t_alpha_u16 = t.color.alpha() as u16;
+
                         self.processor.process_texture(
                             target_rect.cast(),
                             SceneTexture {
@@ -938,6 +946,13 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 source_size: clipped_relative_source_rect.size.ceil().cast(),
                                 format: t.format,
                                 color: if colorize.alpha() > 0 { colorize } else { t.color },
+                                alpha: if colorize.alpha() > 0 {
+                                    (((alpha_u16 * colorize.alpha() as u16) / 255
+                                        * t_alpha_u16 as u16)
+                                        / 255) as u8
+                                } else {
+                                    ((alpha_u16 * t_alpha_u16) / 255) as u8
+                                },
                             },
                         );
                     }
@@ -977,6 +992,9 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                     )
                                     .cast(),
                                 colorize,
+                                alpha: ((self.current_state.alpha_u8() as u16
+                                    * colorize.alpha() as u16)
+                                    / 255) as u8,
                             },
                         );
                     }
@@ -1009,6 +1027,13 @@ struct RenderState {
     alpha: f32,
     offset: LogicalPoint,
     clip: LogicalRect,
+}
+
+impl RenderState {
+    /// Converts the f32 alpha value to an u8 based representation.
+    fn alpha_u8(&self) -> u8 {
+        (self.alpha * 255.) as u8
+    }
 }
 
 impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'a, T> {
@@ -1235,6 +1260,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                             source_size: geometry.size,
                             format: PixelFormat::AlphaMap,
                             color,
+                            alpha: self.current_state.alpha_u8(),
                         },
                     );
                 }
