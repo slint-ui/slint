@@ -597,7 +597,7 @@ struct SceneTexture<'a> {
     stride: u16,
     source_size: PhysicalSize,
     color: Color,
-    alpha: f32,
+    alpha: u8,
 }
 
 struct SharedBufferCommand {
@@ -605,7 +605,7 @@ struct SharedBufferCommand {
     /// The source rectangle that is mapped into this command span
     source_rect: PhysicalRect,
     colorize: Color,
-    alpha: f32,
+    alpha: u8,
 }
 
 impl SharedBufferCommand {
@@ -944,7 +944,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 source_size: clipped_relative_source_rect.size.ceil().cast(),
                                 format: t.format,
                                 color: if colorize.alpha() > 0 { colorize } else { t.color },
-                                alpha: self.current_state.alpha,
+                                alpha:(self.current_state.alpha * 250.) as u8,
                             },
                         );
                     }
@@ -984,7 +984,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                     )
                                     .cast(),
                                 colorize,
-                                alpha: self.current_state.alpha,
+                                alpha: (self.current_state.alpha * 250.) as u8,
                             },
                         );
                     }
@@ -1182,7 +1182,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         let layout = fonts::text_layout_for_font(&font, &font_request, self.scale_factor);
 
         let color = text.color().color();
-        let alpha = self.current_state.alpha;
+        let alpha = (self.current_state.alpha * 255.) as u8;
         let max_size = (geom.size.cast() * self.scale_factor).cast();
 
         let paragraph = TextParagraphLayout {

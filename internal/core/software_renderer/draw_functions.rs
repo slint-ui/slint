@@ -16,7 +16,7 @@ use integer_sqrt::IntegerSquareRoot;
 pub(super) fn alpha_color(alpha: f32, mut color: Color) -> Color {
     if alpha < 1.0 {
         color = Color::from_argb_u8(
-            alpha_multiply(&color, alpha),
+            (color.alpha() as f32 * alpha) as u8,
             color.red(),
             color.green(),
             color.blue(),
@@ -24,10 +24,6 @@ pub(super) fn alpha_color(alpha: f32, mut color: Color) -> Color {
     }
 
     color
-}
-
-fn alpha_multiply(color: &Color, alpha: f32) -> u8 {
-    (color.alpha() as f32 * alpha) as u8
 }
 
 /// Draw one line of the texture in the line buffer
@@ -58,7 +54,7 @@ pub(super) fn draw_texture_line(
             }
             PixelFormat::Rgba => {
                 let alpha =
-                    ((data[pos + 3] as u16 * alpha_multiply(&color, alpha) as u16) / 255) as u8;
+                    ((data[pos + 3] as u16 * color.alpha() as u16 * alpha as u16) / 255) as u8;
                 PremultipliedRgbaColor::premultiply(if alpha == 0 {
                     Color::from_argb_u8(alpha, data[pos + 0], data[pos + 1], data[pos + 2])
                 } else {
@@ -67,7 +63,7 @@ pub(super) fn draw_texture_line(
             }
             PixelFormat::RgbaPremultiplied => {
                 let alpha =
-                    ((data[pos + 3] as u16 * alpha_multiply(&color, alpha) as u16) / 255) as u8;
+                    ((data[pos + 3] as u16 * color.alpha() as u16 * alpha as u16) / 255) as u8;
                 if alpha == 0 {
                     PremultipliedRgbaColor {
                         alpha,
@@ -85,7 +81,7 @@ pub(super) fn draw_texture_line(
                 }
             }
             PixelFormat::AlphaMap => PremultipliedRgbaColor::premultiply(Color::from_argb_u8(
-                ((data[pos] as u16 * alpha_multiply(&color, alpha) as u16) / 255) as u8,
+                ((data[pos] as u16 * color.alpha() as u16 * alpha as u16) / 255) as u8,
                 color.red(),
                 color.green(),
                 color.blue(),
