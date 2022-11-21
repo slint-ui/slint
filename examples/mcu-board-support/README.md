@@ -174,6 +174,9 @@ CARGO_TARGET_THUMBV7EM_NONE_EABIHF_RUNNER="probe-run --chip STM32H735IGKx" cargo
  * ESP Rust Toolchain: https://esp-rs.github.io/book/dependencies/installing-rust.html#xtensa-esp32-esp32-s2-esp32-s3
  * `espflash`: Install via `cargo install espflash`.
 
+When flashing, with `esplash`, you will be prompted to select a USB port. If this port is always the same, then you can also pass it as a parameter on the command line to avoid the prompt. For example if
+`/dev/ttyUSB1` is the device file for your port, the command line changes to `espflash --monitor /dev/ttyUSB1 path/to/binary/to/flash_and_monitor`.
+
 #### ESP32-S2-Kaluga-1
 
 
@@ -181,7 +184,7 @@ To compile and run the demo:
 
 ```sh
 cargo +esp build -p printerdemo_mcu --target xtensa-esp32s2-none-elf --no-default-features --features=mcu-board-support/esp32-s2-kaluga-1 --release --config examples/mcu-board-support/esp32_s2_kaluga_1/cargo-config.toml
-espflash --monitor /dev/ttyUSB1 target/xtensa-esp32s2-none-elf/release/printerdemo_mcu
+espflash --monitor target/xtensa-esp32s2-none-elf/release/printerdemo_mcu
 ```
 
 The device needs to be connected with the two USB cables (one for power, one for data)
