@@ -26,8 +26,17 @@ All notable changes to this project are documented in this file.
  - Added support for the implicitly declared `init` callback that can be used to run code when
    an element or component is instantiated.
  - Properties can be annotated with `in`, `out`, `in-out`, or `private`.
+ - Online editor: The property view can now edit properties
+ - LSP preview: highlight the selected element in the preview
+ - LSP: Added a setting to change the style and the include paths
+ - VSCode extension: added the property view.
 
 ### Fixed
+
+ - Fluent style: SpinBox gets focus when buttons are clicked
+ - Software renderer: Fix drawing the background color
+ - Fix rust code generation when comparing percentages (#1837)
+ - Fix `visible` property in `for` and `if` (#1846)
 
 ## [0.3.1] - 2022-10-28
 
