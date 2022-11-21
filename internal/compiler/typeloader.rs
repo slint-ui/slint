@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 use std::cell::RefCell;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
@@ -38,10 +38,10 @@ pub struct ImportedName {
 impl ImportedName {
     pub fn extract_imported_names(
         import: &syntax_nodes::ImportSpecifier,
-    ) -> Option<impl Iterator<Item = ImportedName>> {
-        import
-            .ImportIdentifierList()
-            .map(|import_identifiers| import_identifiers.ImportIdentifier().map(Self::from_node))
+    ) -> impl Iterator<Item = ImportedName> + '_ {
+        import.ImportIdentifierList().into_iter().flat_map(|import_identifiers| {
+            import_identifiers.ImportIdentifier().map(Self::from_node)
+        })
     }
 
     pub fn from_node(importident: syntax_nodes::ImportIdentifier) -> Self {
@@ -131,15 +131,20 @@ impl TypeLoader {
         diagnostics: &mut BuildDiagnostics,
         registry_to_populate: &Rc<RefCell<TypeRegister>>,
     ) -> Vec<ImportedTypes> {
-        let dependencies = self.collect_dependencies(doc, diagnostics).await;
+        let dependencies = Self::collect_dependencies(doc, diagnostics).collect::<Vec<_>>();
         let mut foreign_imports = vec![];
         for mut import in dependencies {
             if import.file.ends_with(".60") || import.file.ends_with(".slint") {
-                if let Some(imported_types) =
-                    ImportedName::extract_imported_names(&import.imported_types)
-                {
-                    self.load_dependency(import, imported_types, registry_to_populate, diagnostics)
-                        .await;
+                let mut imported_types =
+                    ImportedName::extract_imported_names(&import.imported_types).peekable();
+                if !imported_types.peek().is_none() {
+                    self.load_dependency(
+                        &import,
+                        imported_types,
+                        registry_to_populate,
+                        diagnostics,
+                    )
+                    .await;
                 } else {
                     diagnostics.push_error(
                     "Import names are missing. Please specify which types you would like to import"
@@ -330,7 +335,7 @@ impl TypeLoader {
 
     fn load_dependency<'b>(
         &'b mut self,
-        import: ImportedTypes,
+        import: &'b ImportedTypes,
         imported_types: impl Iterator<Item = ImportedName> + 'b,
         registry_to_populate: &'b Rc<RefCell<TypeRegister>>,
         build_diagnostics: &'b mut BuildDiagnostics,
@@ -424,37 +429,31 @@ impl TypeLoader {
             })
     }
 
-    async fn collect_dependencies(
-        &mut self,
-        doc: &syntax_nodes::Document,
-        doc_diagnostics: &mut BuildDiagnostics,
-    ) -> impl Iterator<Item = ImportedTypes> {
-        type DependenciesByFile = BTreeMap<String, ImportedTypes>;
-        let mut dependencies = DependenciesByFile::new();
-
-        for import in doc.ImportSpecifier() {
+    fn collect_dependencies<'a>(
+        doc: &'a syntax_nodes::Document,
+        doc_diagnostics: &'a mut BuildDiagnostics,
+    ) -> impl Iterator<Item = ImportedTypes> + 'a {
+        doc.ImportSpecifier().filter_map(|import| {
             let import_uri = match import.child_token(SyntaxKind::StringLiteral) {
                 Some(import_uri) => import_uri,
                 None => {
                     debug_assert!(doc_diagnostics.has_error());
-                    continue;
+                    return None;
                 }
             };
             let path_to_import = import_uri.text().to_string();
             let path_to_import = path_to_import.trim_matches('\"').to_string();
             if path_to_import.is_empty() {
                 doc_diagnostics.push_error("Unexpected empty import url".to_owned(), &import_uri);
-                continue;
+                return None;
             }
 
-            dependencies.entry(path_to_import.clone()).or_insert_with(|| ImportedTypes {
+            Some(ImportedTypes {
                 import_token: import_uri,
                 imported_types: import,
                 file: path_to_import,
-            });
-        }
-
-        dependencies.into_iter().map(|(_, value)| value)
+            })
+        })
     }
 
     /// Return a document if it was already loaded
