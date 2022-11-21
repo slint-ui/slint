@@ -597,6 +597,7 @@ struct SceneTexture<'a> {
     stride: u16,
     source_size: PhysicalSize,
     color: Color,
+    alpha: f32,
 }
 
 struct SharedBufferCommand {
@@ -604,6 +605,7 @@ struct SharedBufferCommand {
     /// The source rectangle that is mapped into this command span
     source_rect: PhysicalRect,
     colorize: Color,
+    alpha: f32,
 }
 
 impl SharedBufferCommand {
@@ -618,6 +620,7 @@ impl SharedBufferCommand {
                 format: PixelFormat::Rgb,
                 source_size: self.source_rect.size,
                 color: self.colorize,
+                alpha: self.alpha,
             },
             SharedImageBuffer::RGBA8(b) => SceneTexture {
                 data: &b.as_bytes()[begin * 4..],
@@ -625,6 +628,7 @@ impl SharedBufferCommand {
                 format: PixelFormat::Rgba,
                 source_size: self.source_rect.size,
                 color: self.colorize,
+                alpha: self.alpha,
             },
             SharedImageBuffer::RGBA8Premultiplied(b) => SceneTexture {
                 data: &b.as_bytes()[begin * 4..],
@@ -632,6 +636,7 @@ impl SharedBufferCommand {
                 format: PixelFormat::RgbaPremultiplied,
                 source_size: self.source_rect.size,
                 color: self.colorize,
+                alpha: self.alpha,
             },
         }
     }
@@ -929,9 +934,6 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                             - t.rect.origin.y as usize;
                         let stride = t.rect.width() as u16 * t.format.bpp() as u16;
 
-                        let color =
-                            self.alpha_color(if colorize.alpha() > 0 { colorize } else { t.color });
-
                         self.processor.process_texture(
                             target_rect.cast(),
                             SceneTexture {
@@ -941,7 +943,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 stride,
                                 source_size: clipped_relative_source_rect.size.ceil().cast(),
                                 format: t.format,
-                                color,
+                                color: if colorize.alpha() > 0 { colorize } else { t.color },
+                                alpha: self.current_state.alpha,
                             },
                         );
                     }
@@ -980,7 +983,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                         buf_size.height / img_src_size.height as f32,
                                     )
                                     .cast(),
-                                colorize: self.alpha_color(colorize),
+                                colorize,
+                                alpha: self.current_state.alpha,
                             },
                         );
                     }
@@ -992,17 +996,8 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
     }
 
     /// Returns the color mixed with the current_state's alpha
-    fn alpha_color(&self, mut color: Color) -> Color {
-        if self.current_state.alpha < 1.0 {
-            color = Color::from_argb_u8(
-                (color.alpha() as f32 * self.current_state.alpha) as u8,
-                color.red(),
-                color.green(),
-                color.blue(),
-            );
-        }
-
-        color
+    fn alpha_color(&self, color: Color) -> Color {
+        draw_functions::alpha_color(self.current_state.alpha, color)
     }
 
     /// Returns the color of the brush, mixed with the current_state's alpha
@@ -1186,7 +1181,8 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
         let font = fonts::match_font(&font_request, self.scale_factor);
         let layout = fonts::text_layout_for_font(&font, &font_request, self.scale_factor);
 
-        let color = self.alpha_color_from_brush(&text.color());
+        let color = text.color().color();
+        let alpha = self.current_state.alpha;
         let max_size = (geom.size.cast() * self.scale_factor).cast();
 
         let paragraph = TextParagraphLayout {
@@ -1242,6 +1238,7 @@ impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'
                             source_size: geometry.size,
                             format: PixelFormat::AlphaMap,
                             color,
+                            alpha,
                         },
                     );
                 }
