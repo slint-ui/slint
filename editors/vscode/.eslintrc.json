@@ -5,9 +5,7 @@
         "ecmaVersion": 6,
         "sourceType": "module"
     },
-    "plugins": [
-        "@typescript-eslint"
-    ],
+    "plugins": ["@typescript-eslint"],
     "rules": {
         "@typescript-eslint/semi": "warn",
         "curly": "warn",

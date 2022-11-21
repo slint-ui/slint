@@ -4,11 +4,11 @@ This extension for VS Code adds support for the [Slint](https://slint-ui.com) de
 
 ## Features
 
- - Syntax highlighting
- - Diagnostics from .slint files
- - Live Preview of a .slint file
- - Completion of properties
- - Jump to definition (currently, only definition of Component)
+-   Syntax highlighting
+-   Diagnostics from .slint files
+-   Live Preview of a .slint file
+-   Completion of properties
+-   Jump to definition (currently, only definition of Component)
 
 ## Installation
 
@@ -26,7 +26,6 @@ will create a new top-level window that renders the file you're editing. Any cha
 visible, it is not necessary to save the file.
 
 ## Reporting Issues
-
 
 Issues should be reported in the [Slint issue tracker](https://github.com/slint-ui/slint/labels/vscode-extension).
 
@@ -72,6 +71,7 @@ To create a `.vsix` package for local installation:
 ```sh
 npm run local-package
 ```
+
 3. Install the `.vsix` file with
 
 ```sh

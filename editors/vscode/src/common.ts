@@ -3,9 +3,9 @@
 
 // This file contains the common code for both the normal and the browser extension
 
-import * as vscode from 'vscode';
-import { BaseLanguageClient } from 'vscode-languageclient';
-import { Property } from '../../../tools/online_editor/src/shared/properties';
+import * as vscode from "vscode";
+import { BaseLanguageClient } from "vscode-languageclient";
+import { Property } from "../../../tools/online_editor/src/shared/properties";
 
 let client: BaseLanguageClient;
 export function set_client(c: BaseLanguageClient) {
@@ -13,13 +13,12 @@ export function set_client(c: BaseLanguageClient) {
 }
 
 export class PropertiesViewProvider implements vscode.WebviewViewProvider {
-
-    public static readonly viewType = 'slint.propertiesView';
+    public static readonly viewType = "slint.propertiesView";
 
     private _view?: vscode.WebviewView;
     private property_shown: boolean = false;
 
-    constructor(private readonly _extensionUri: vscode.Uri) { }
+    constructor(private readonly _extensionUri: vscode.Uri) {}
 
     public resolveWebviewView(
         webviewView: vscode.WebviewView,
@@ -32,33 +31,44 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
             // Allow scripts in the webview
             enableScripts: true,
 
-            localResourceRoots: [
-                this._extensionUri
-            ]
+            localResourceRoots: [this._extensionUri],
         };
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
 
-        webviewView.webview.onDidReceiveMessage(data => {
+        webviewView.webview.onDidReceiveMessage((data) => {
             switch (data.command) {
-                case 'property_clicked':
+                case "property_clicked":
                     if (vscode.window.activeTextEditor) {
                         const p = data.property as Property;
-                        if (p.defined_at && p.defined_at.property_definition_range) {
-                            let range = client.protocol2CodeConverter.asRange(p.defined_at.property_definition_range);
+                        if (
+                            p.defined_at &&
+                            p.defined_at.property_definition_range
+                        ) {
+                            let range = client.protocol2CodeConverter.asRange(
+                                p.defined_at.property_definition_range,
+                            );
                             vscode.window.activeTextEditor.revealRange(range);
-                            vscode.window.activeTextEditor.selection = new vscode.Selection(range.start, range.end);
+                            vscode.window.activeTextEditor.selection =
+                                new vscode.Selection(range.start, range.end);
                         }
                     }
                     break;
-                case 'change_property':
+                case "change_property":
                     if (vscode.window.activeTextEditor) {
                         const p = data.property as Property;
                         if (p.defined_at && p.defined_at.expression_range) {
-                            let range = client.protocol2CodeConverter.asRange(p.defined_at.expression_range);
-                            let old = vscode.window.activeTextEditor.document.getText(range);
+                            let range = client.protocol2CodeConverter.asRange(
+                                p.defined_at.expression_range,
+                            );
+                            let old =
+                                vscode.window.activeTextEditor.document.getText(
+                                    range,
+                                );
                             if (old === data.old_value) {
-                                vscode.window.activeTextEditor.edit(b => b.replace(range, data.new_value));
+                                vscode.window.activeTextEditor.edit((b) =>
+                                    b.replace(range, data.new_value),
+                                );
                             }
                         }
                     }
@@ -66,38 +76,43 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
             }
         });
 
-
-        vscode.window.onDidChangeTextEditorSelection(async (event: vscode.TextEditorSelectionChangeEvent) => {
-            if (event.selections.length == 0) {
-                return;
-            }
-            if (event.textEditor.document.languageId != "slint") {
-                if (this.property_shown) {
-                    webviewView.webview.postMessage({ command: "clear" });
-                    this.property_shown = false;
+        vscode.window.onDidChangeTextEditorSelection(
+            async (event: vscode.TextEditorSelectionChangeEvent) => {
+                if (event.selections.length == 0) {
+                    return;
                 }
-                return;
-            }
-            let selection = event.selections[0];
+                if (event.textEditor.document.languageId != "slint") {
+                    if (this.property_shown) {
+                        webviewView.webview.postMessage({ command: "clear" });
+                        this.property_shown = false;
+                    }
+                    return;
+                }
+                let selection = event.selections[0];
 
-            let r = await vscode.commands.executeCommand(
-                "queryProperties",
-                { uri: event.textEditor.document.uri.toString(), },
-                { line: selection.active.line, character: selection.active.character, },
-            );
-            const msg = {
-                command: "set_properties",
-                properties: r,
-                code: event.textEditor.document.getText(),
-            };
-            webviewView.webview.postMessage(msg);
-            this.property_shown = true;
-        });
+                let r = await vscode.commands.executeCommand(
+                    "queryProperties",
+                    { uri: event.textEditor.document.uri.toString() },
+                    {
+                        line: selection.active.line,
+                        character: selection.active.character,
+                    },
+                );
+                const msg = {
+                    command: "set_properties",
+                    properties: r,
+                    code: event.textEditor.document.getText(),
+                };
+                webviewView.webview.postMessage(msg);
+                this.property_shown = true;
+            },
+        );
     }
 
     private _getHtmlForWebview(webview: vscode.Webview) {
-
-        const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this._extensionUri, 'out/propertiesView.js'));
+        const scriptUri = webview.asWebviewUri(
+            vscode.Uri.joinPath(this._extensionUri, "out/propertiesView.js"),
+        );
         const nonce = getNonce();
 
         // FIXME: share with the online editor?
@@ -194,8 +209,9 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 }
 
 function getNonce() {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let text = "";
+    const possible =
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
     for (let i = 0; i < 32; i++) {
         text += possible.charAt(Math.floor(Math.random() * possible.length));
     }
