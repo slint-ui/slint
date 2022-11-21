@@ -66,6 +66,7 @@ pub fn test(testcase: &test_driver_lib::TestCase) -> Result<(), Box<dyn Error>> 
         .env("SLINT_INCLUDE_PATH", std::env::join_paths(include_paths).unwrap())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped())
+        .env("SLINT_EXPERIMENTAL_SYNTAX", "true")
         .output()
         .map_err(|err| format!("Could not launch npm start: {}", err))?;
 
