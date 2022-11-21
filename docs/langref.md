@@ -162,6 +162,31 @@ Example := Rectangle {
 }
 ```
 
+You can annotate the properties with a qualifier that specifies how the property can be read and written:
+
+ * **`private`**: The property can only be accessed from within the component.
+ * **`in`**: The property is an input. It can be set and modified by the user of this component,
+   for example through bindings or by assignment in callbacks.
+   The component can provide a default binding, but it cannot overwrite it by
+   assignment
+ * **`out`**: An output property that can only be set by the component. It is read-only for the
+   users of the components.
+ * **`in-out`** (the default): The property can be read and modified by everyone.
+
+```slint,no-preview
+Button := Rectangle {
+    // This is meant to be set by the user of the component.
+    in property <string> text;
+    // This property is meant to be read by the user of the component.
+    out property <bool> pressed;
+    // This property is meant to both be changed by the user and the component itself.
+    in-out property <bool> checked;
+
+    // This property is internal to this component.
+    private property <bool> has-mouse;
+}
+```
+
 ### Bindings
 
 The expression on the right of a binding is automatically re-evaluated when the expression changes.
