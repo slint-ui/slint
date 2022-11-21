@@ -597,6 +597,7 @@ struct SceneTexture<'a> {
     stride: u16,
     source_size: PhysicalSize,
     color: Color,
+    alpha: u8
 }
 
 struct SharedBufferCommand {
@@ -604,6 +605,7 @@ struct SharedBufferCommand {
     /// The source rectangle that is mapped into this command span
     source_rect: PhysicalRect,
     colorize: Color,
+    alpha: u8
 }
 
 impl SharedBufferCommand {
@@ -618,6 +620,7 @@ impl SharedBufferCommand {
                 format: PixelFormat::Rgb,
                 source_size: self.source_rect.size,
                 color: self.colorize,
+                alpha:self.alpha
             },
             SharedImageBuffer::RGBA8(b) => SceneTexture {
                 data: &b.as_bytes()[begin * 4..],
@@ -625,6 +628,7 @@ impl SharedBufferCommand {
                 format: PixelFormat::Rgba,
                 source_size: self.source_rect.size,
                 color: self.colorize,
+                alpha: self.alpha
             },
             SharedImageBuffer::RGBA8Premultiplied(b) => SceneTexture {
                 data: &b.as_bytes()[begin * 4..],
@@ -632,6 +636,7 @@ impl SharedBufferCommand {
                 format: PixelFormat::RgbaPremultiplied,
                 source_size: self.source_rect.size,
                 color: self.colorize,
+                alpha:self.alpha
             },
         }
     }
@@ -861,6 +866,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
         image_fit: ImageFit,
         colorize: Color,
     ) {
+        let alpha = self.current_state.alpha_u8();
         let image_inner: &ImageInner = source.into();
         let size: euclid::default::Size2D<u32> = source_rect.size.cast();
         let phys_size = geom.size_length().cast() * self.scale_factor;
@@ -938,6 +944,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 source_size: clipped_relative_source_rect.size.ceil().cast(),
                                 format: t.format,
                                 color: if colorize.alpha() > 0 { colorize } else { t.color },
+                                alpha: self.current_state.alpha_u8()
                             },
                         );
                     }
@@ -977,6 +984,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                     )
                                     .cast(),
                                 colorize,
+                                alpha
                             },
                         );
                     }
@@ -1009,6 +1017,13 @@ struct RenderState {
     alpha: f32,
     offset: LogicalPoint,
     clip: LogicalRect,
+}
+
+impl RenderState {
+    /// Converts the f32 alpha value to an u8 based representation.
+    fn alpha_u8(&self) -> u8 {
+        (self.alpha * 255.) as u8
+    }
 }
 
 impl<'a, T: ProcessScene> crate::item_rendering::ItemRenderer for SceneBuilder<'a, T> {

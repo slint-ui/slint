@@ -20,7 +20,7 @@ pub(super) fn draw_texture_line(
     texture: &super::SceneTexture,
     line_buffer: &mut [impl TargetPixel],
 ) {
-    let super::SceneTexture { data, format, stride, source_size, color } = *texture;
+    let super::SceneTexture { data, format, stride, source_size, color, alpha } = *texture;
     let source_size = source_size.cast::<usize>();
     let span_size = span.size.cast::<usize>();
     let bpp = format.bpp();
