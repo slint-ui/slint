@@ -944,7 +944,7 @@ impl<'a, T: ProcessScene> SceneBuilder<'a, T> {
                                 source_size: clipped_relative_source_rect.size.ceil().cast(),
                                 format: t.format,
                                 color: if colorize.alpha() > 0 { colorize } else { t.color },
-                                alpha:(self.current_state.alpha * 250.) as u8,
+                                alpha: (self.current_state.alpha * 250.) as u8,
                             },
                         );
                     }
