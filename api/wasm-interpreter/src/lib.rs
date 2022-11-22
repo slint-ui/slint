@@ -4,10 +4,10 @@
 //! This wasm library can be loaded from JS to load and display the content of .slint files
 #![cfg(target_arch = "wasm32")]
 
+use slint_interpreter::ComponentHandle;
+use slint_interpreter::Model;
 use std::path::Path;
 use wasm_bindgen::prelude::*;
-
-use slint_interpreter::ComponentHandle;
 
 #[wasm_bindgen]
 #[allow(dead_code)]
@@ -198,25 +198,41 @@ impl WrappedInstance {
     #[wasm_bindgen]
     pub fn get_property(&self, name: &str) -> Result<JsValue, JsValue> {
         let v = self.0.get_property(name).map_err(|e| e.to_string())?;
-        to_js_value(v)
+        to_js_value(&v)
     }
 
     #[wasm_bindgen]
     pub fn set_property(&self, name: &str, value: JsValue) -> Result<(), JsValue> {
-        self.0.set_property(name, to_eval_value(value)?).map_err(|e| e.to_string())
+        self.0
+            .set_property(name, to_eval_value(value)?)
+            .map_err(|e| JsError::new(&e.to_string()).into())
     }
 
     #[wasm_bindgen]
-    pub fn set_callback_handler(
-        &self,
-        name: &str,
-        handler: js_sys::Function,
-    ) -> Result<(), JsValue> {
+    pub fn set_callback(&self, name: &str, handler: js_sys::Function) -> Result<(), JsValue> {
         self.0
             .set_callback(name, move |args| {
-                to_js_value(handler.call(args.map(|a| to_eval_value(a).unwrap()))).unwrap()
+                handler
+                    .apply(
+                        &JsValue::UNDEFINED,
+                        &args.iter().map(|a| to_js_value(a).unwrap_or_else(|x| x)).collect(),
+                    )
+                    .and_then(to_eval_value)
+                    .unwrap_or_default()
             })
-            .map_err(|e| e.to_string())
+            .map_err(|e| JsError::new(&e.to_string()).into())
+    }
+
+    #[wasm_bindgen]
+    pub fn invoke_callback(&self, name: &str, args: js_sys::Array) -> Result<JsValue, JsValue> {
+        let args = args
+            .iter()
+            .map(to_eval_value)
+            .collect::<Result<Vec<slint_interpreter::Value>, JsValue>>()?;
+        self.0
+            .invoke_callback(name, &args)
+            .map_err(|e| JsError::new(&e.to_string()).into())
+            .and_then(|x| to_js_value(&x))
     }
 }
 
@@ -229,15 +245,27 @@ pub fn run_event_loop() -> Result<(), JsValue> {
     Ok(())
 }
 
-fn to_js_value(value: slint_interpreter::Value) -> Result<JsValue, JsValue> {
+fn to_js_value(value: &slint_interpreter::Value) -> Result<JsValue, JsValue> {
     use slint_interpreter::Value;
     Ok(match value {
         Value::Void => JsValue::UNDEFINED,
-        Value::Number(n) => n.into(),
+        Value::Number(n) => (*n).into(),
         Value::String(s) => s.as_str().into(),
-        Value::Bool(b) => b.into(),
-        // Value::Image(r) => return Err("Image type not support in Javascript".into()),
-        value => WrappedValue(value).into(),
+        Value::Bool(b) => (*b).into(),
+        Value::Struct(r) => {
+            let obj = js_sys::Object::new();
+            for (key, value) in r.iter() {
+                js_sys::Reflect::set(&obj, &key.into(), &to_js_value(value)?)?;
+            }
+            obj.into()
+        }
+        Value::Model(model) => model
+            .iter()
+            .map(|x| to_js_value(&x))
+            .collect::<Result<js_sys::Array, JsValue>>()?
+            .into(),
+        //value => WrappedValue(value).into(),
+        _ => return Err(JsError::new("Cannot convert value to JS").into()),
     })
 }
 
@@ -254,10 +282,10 @@ fn to_eval_value(value: JsValue) -> Result<slint_interpreter::Value, JsValue> {
     } else if let Some(v) = value.as_f64() {
         Ok(Value::Number(v))
     } else if let Some(v) = js_sys::Object::try_from(&value) {
-        let s = slint_interpreter::Struct::default();
+        let mut s = slint_interpreter::Struct::default();
         for k in js_sys::Reflect::own_keys(&value)?.iter() {
             s.set_field(
-                k.as_string().ok_or_else(|| "object key not a string".into())?,
+                k.as_string().ok_or_else(|| JsError::new("object key not a string"))?,
                 to_eval_value(js_sys::Reflect::get(&v, &k)?)?,
             );
         }
@@ -267,6 +295,7 @@ fn to_eval_value(value: JsValue) -> Result<slint_interpreter::Value, JsValue> {
     }
 }
 
+/*
 #[wasm_bindgen]
 #[derive(Clone)]
 pub struct WrappedValue(slint_interpreter::Value);
@@ -282,3 +311,4 @@ impl WrappedValue {
         }
     }
 }
+*/

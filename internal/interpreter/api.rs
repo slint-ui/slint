@@ -4,7 +4,7 @@
 use core::convert::TryFrom;
 use i_slint_compiler::langtype::Type as LangType;
 use i_slint_core::graphics::Image;
-use i_slint_core::model::{Model, ModelRc};
+pub use i_slint_core::model::{Model, ModelRc};
 use i_slint_core::window::WindowInner;
 use i_slint_core::{Brush, PathData, SharedString, SharedVector};
 use std::borrow::Cow;
