@@ -19,13 +19,18 @@ export LineEditInner := Rectangle {
     min-width: max(50px, placeholder.min-width);
     clip: true;
     forward-focus: input;
+    placeholder := Text {
+        height: 100%; width: 100%;
+        vertical-alignment: center;
+        text: (root.text == "" && input.preedit-text == "") ? root.placeholder-text : "";
+    }
     input := TextInput {
         property <length> computed_x;
         x: min(0px, max(parent.width - width, computed_x));
         width: max(parent.width, preferred-width);
         height: 100%;
         color: enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
-        cursor-position-changed(cpos) => {
+       cursor-position-changed(cpos) => {
             if (cpos.x + computed_x < StyleMetrics.layout-padding) {
                 computed_x = - cpos.x + StyleMetrics.layout-padding;
             } else if (cpos.x + computed_x > parent.width - StyleMetrics.layout-padding) {
@@ -36,11 +41,6 @@ export LineEditInner := Rectangle {
         edited => { root.edited(self.text); }
         vertical-alignment: center;
         single-line: true;
-    }
-    placeholder := Text {
-        height: 100%; width: 100%;
-        vertical-alignment: center;
-        text: (root.text == "" && input.preedit-text == "") ? root.placeholder-text : "";
     }
 }
 
