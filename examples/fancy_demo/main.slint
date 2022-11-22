@@ -32,18 +32,16 @@ MdiWindow := Rectangle {
         property <length> open-width: l.preferred-width;
         property <length> open-height: l.preferred-height;
         width: l.preferred-width;
-        height: l.preferred-height;
+        height: l.preferred-height - hidden.preferred-height;
 
         states [
             open when is-open : {
                 width: open-width;
                 height: open-height;
                 expand.angle: 0deg;
+                in { animate width, height, expand.angle { duration: 150ms; easing: ease; } }
+                out { animate width, height, expand.angle { duration: 150ms; easing: ease; } }
             }
-        ]
-        transitions [
-            in open : { animate width, height, expand.angle { duration: 150ms; easing: ease; } }
-            out open : { animate width, height, expand.angle { duration: 150ms; easing: ease; } }
         ]
 
         clip: true;
@@ -104,7 +102,8 @@ MdiWindow := Rectangle {
                     }
                 }
             }
-            if is-open : VerticalLayout {
+            hidden := VerticalLayout {
+                visible: is-open;
                 Rectangle {
                     height: window.border-width;
                     background: window.border-color;
