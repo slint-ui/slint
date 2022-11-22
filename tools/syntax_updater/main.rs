@@ -20,6 +20,7 @@ mod experiments {
     pub(super) mod input_output_properties;
     pub(super) mod lookup_changes;
     pub(super) mod new_component_declaration;
+    pub(super) mod transitions;
 }
 
 #[derive(clap::Parser)]
@@ -96,6 +97,7 @@ fn process_rust_file(source: String, mut file: impl Write, args: &Cli) -> std::i
         source_slice = &source_slice[idx - 1..];
 
         let mut diag = BuildDiagnostics::default();
+        diag.enable_experimental = true;
         let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.text_range().end().into();
         visit_node(syntax_node, &mut file, &mut State::default(), args)?;
@@ -125,6 +127,7 @@ fn process_markdown_file(source: String, mut file: impl Write, args: &Cli) -> st
         source_slice = &source_slice[code_end..];
 
         let mut diag = BuildDiagnostics::default();
+        diag.enable_experimental = true;
         let syntax_node = i_slint_compiler::parser::parse(code.to_owned(), None, &mut diag);
         let len = syntax_node.text_range().end().into();
         visit_node(syntax_node, &mut file, &mut State::default(), args)?;
@@ -149,6 +152,7 @@ fn process_file(
     }
 
     let mut diag = BuildDiagnostics::default();
+    diag.enable_experimental = true;
     let syntax_node = i_slint_compiler::parser::parse(source.clone(), Some(path), &mut diag);
     let len = syntax_node.node.text_range().end().into();
     let mut state = State::default();
@@ -289,6 +293,9 @@ fn fold_node(
         return Ok(true);
     }
     if experiments::geometry_changes::fold_node(node, file, state, args)? {
+        return Ok(true);
+    }
+    if experiments::transitions::fold_node(node, file, state, args)? {
         return Ok(true);
     }
     Ok(false)
