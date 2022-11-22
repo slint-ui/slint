@@ -3,6 +3,8 @@
 
 // This file is the entry point for the vscode extension (not the browser one)
 
+// cSpell: ignore aarch armv gnueabihf vsix
+
 import * as path from "path";
 import { existsSync } from "fs";
 import * as vscode from "vscode";
@@ -149,10 +151,10 @@ function startClient(context: vscode.ExtensionContext) {
         serverOptions,
         clientOptions,
     );
-    set_client(client);
 
     client.start();
     let initClient = () => {
+        set_client(client);
         client.onNotification(serverStatus, (params) =>
             setServerStatus(params, statusBar),
         );

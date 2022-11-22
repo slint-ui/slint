@@ -7,7 +7,7 @@ import * as vscode from "vscode";
 import { BaseLanguageClient } from "vscode-languageclient";
 import { Property } from "../../../tools/online_editor/src/shared/properties";
 
-let client: BaseLanguageClient;
+let client: BaseLanguageClient | null = null;
 export function set_client(c: BaseLanguageClient) {
     client = c;
 }
@@ -45,6 +45,10 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                             p.defined_at &&
                             p.defined_at.property_definition_range
                         ) {
+                            if (client === null) {
+                                return;
+                            }
+
                             let range = client.protocol2CodeConverter.asRange(
                                 p.defined_at.property_definition_range,
                             );
@@ -78,7 +82,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 
         vscode.window.onDidChangeTextEditorSelection(
             async (event: vscode.TextEditorSelectionChangeEvent) => {
-                if (event.selections.length == 0) {
+                if (event.selections.length === 0 || client === null) {
                     return;
                 }
                 if (event.textEditor.document.languageId != "slint") {
