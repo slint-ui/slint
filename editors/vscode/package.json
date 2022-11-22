@@ -110,8 +110,8 @@
         "bin/slint-lsp-*"
     ],
     "scripts": {
-        "vscode:prepublish": "npm run compile",
-        "compile": "wasm-pack build --target web --out-name index ../../tools/lsp --no-default-features --features preview-lense && node ./esbuild.js && wasm-pack build --release --target web --out-dir $PWD/out ../../api/wasm-interpreter",
+        "vscode:prepublish": "wasm-pack build --target web --out-name index ../../tools/lsp --no-default-features --features preview-lense && wasm-pack build --release --target web --out-dir $PWD/out ../../api/wasm-interpreter",
+        "compile": "node ./esbuild.js",
         "local-package": "mkdir -p bin && cp ../../target/debug/slint-lsp bin/ && npx vsce package",
         "watch": "tsc -watch -p ./",
         "pretest": "npm run compile && npm run lint",
