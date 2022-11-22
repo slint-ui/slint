@@ -7,7 +7,7 @@ import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
 
 import { MonacoLanguageClient } from "monaco-languageclient";
-import { DocumentAndPosition, GotoPositionCallback } from "./text";
+import { VersionedDocumentAndPosition, GotoPositionCallback } from "./text";
 import { LspRange, LspPosition } from "./lsp_integration";
 
 import {
@@ -149,14 +149,14 @@ function deactivate_elements_and_find_to_activate(
 }
 
 export class OutlineWidget extends Widget {
-    #callback: () => [MonacoLanguageClient | undefined, string | undefined];
+    #callback: () => [MonacoLanguageClient | null, string | undefined];
     #intervalId = -1;
     #onGotoPosition: GotoPositionCallback = (_) => {
         return;
     };
 
     #outline: OutlineData | null = null;
-    #cursor_position: DocumentAndPosition;
+    #cursor_position: VersionedDocumentAndPosition;
 
     static createNode(): HTMLElement {
         const node = document.createElement("div");
@@ -166,8 +166,8 @@ export class OutlineWidget extends Widget {
     }
 
     constructor(
-        cursor_position: DocumentAndPosition,
-        callback: () => [MonacoLanguageClient | undefined, string | undefined],
+        cursor_position: VersionedDocumentAndPosition,
+        callback: () => [MonacoLanguageClient | null, string | undefined],
     ) {
         super({ node: OutlineWidget.createNode() });
         this.#callback = callback;
@@ -205,7 +205,7 @@ export class OutlineWidget extends Widget {
         this.#onGotoPosition = callback;
     }
 
-    position_changed(position: DocumentAndPosition) {
+    position_changed(position: VersionedDocumentAndPosition) {
         if (this.#outline) {
             if (position.uri != this.#outline.uri) {
                 // Document has changed, and we have no new data yet!

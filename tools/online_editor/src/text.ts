@@ -10,6 +10,11 @@ export type Uri = monaco.Uri;
 import { LspRange, LspPosition } from "./lsp_integration";
 
 export type DocumentAndPosition = { uri: string; position: LspPosition };
+export type VersionedDocumentAndPosition = {
+    uri: string;
+    position: LspPosition;
+    version: number;
+};
 
 export type ReplaceTextFunction = (
     _uri: string,
@@ -21,4 +26,6 @@ export type GotoPositionCallback = (
     _uri: string,
     _position: LspPosition | LspRange,
 ) => void;
-export type PositionChangeCallback = (_pos: DocumentAndPosition) => void;
+export type PositionChangeCallback = (
+    _pos: VersionedDocumentAndPosition,
+) => void;
