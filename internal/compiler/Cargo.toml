@@ -56,10 +56,10 @@ linked_hash_set = "0.1.4"
 # for processing and embedding the rendered image (texture)
 image = { version = "0.24", optional = true }
 tiny-skia = { version = "0.8.2", optional = true }
-resvg = { version = "0.25", optional = true }
-usvg = { version = "0.25", optional = true }
+resvg = { version = "0.26.1", optional = true }
+usvg = { version = "0.26.1", optional = true }
 # font embedding
-fontdb = { version = "0.9.3", features = ["fontconfig"], optional = true }
+fontdb = { version = "0.10", features = ["fontconfig"], optional = true }
 fontdue = { version = "0.7.1", optional = true }
 
 [target.'cfg(not(any(target_family = "windows", target_os = "macos", target_os = "ios", target_arch = "wasm32")))'.dependencies]
