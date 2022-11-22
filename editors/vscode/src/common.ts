@@ -3,9 +3,11 @@
 
 // This file contains the common code for both the normal and the browser extension
 
+import { Property } from "../../../tools/online_editor/src/shared/properties";
+import { query_properties } from "../../../tools/online_editor/src/shared/properties_client";
+
 import * as vscode from "vscode";
 import { BaseLanguageClient } from "vscode-languageclient";
-import { Property } from "../../../tools/online_editor/src/shared/properties";
 
 let client: BaseLanguageClient | null = null;
 export function set_client(c: BaseLanguageClient) {
@@ -94,20 +96,21 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                 }
                 let selection = event.selections[0];
 
-                let r = await vscode.commands.executeCommand(
-                    "queryProperties",
-                    { uri: event.textEditor.document.uri.toString() },
+                query_properties(
+                    client,
+                    event.textEditor.document.uri,
                     {
                         line: selection.active.line,
                         character: selection.active.character,
                     },
+                    (p) => {
+                        const msg = {
+                            command: "set_properties",
+                            properties: p,
+                        };
+                        webviewView.webview.postMessage(msg);
+                    },
                 );
-                const msg = {
-                    command: "set_properties",
-                    properties: r,
-                    code: event.textEditor.document.getText(),
-                };
-                webviewView.webview.postMessage(msg);
                 this.property_shown = true;
             },
         );
