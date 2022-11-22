@@ -58,25 +58,31 @@ pub fn apply_default_properties_from_style(
                         .into(),
                         to: Type::Brush,
                     });
-                    if !matches!(
-                        style_metrics
-                            .root_element
-                            .borrow()
-                            .lookup_property("default-font-size")
-                            .property_type,
-                        Type::Invalid,
-                    ) {
-                        elem.set_binding_if_not_set("default-font-size".into(), || {
-                            Expression::Cast {
-                                from: Expression::PropertyReference(NamedReference::new(
-                                    &style_metrics.root_element,
-                                    "default-font-size",
-                                ))
-                                .into(),
-                                to: Type::LogicalLength,
-                            }
-                        });
-                    }
+
+                    let mut bind_style_property_if_exists = |property_name, property_type| {
+                        if !matches!(
+                            style_metrics
+                                .root_element
+                                .borrow()
+                                .lookup_property(property_name)
+                                .property_type,
+                            Type::Invalid,
+                        ) {
+                            elem.set_binding_if_not_set(property_name.into(), || {
+                                Expression::Cast {
+                                    from: Expression::PropertyReference(NamedReference::new(
+                                        &style_metrics.root_element,
+                                        property_name,
+                                    ))
+                                    .into(),
+                                    to: property_type,
+                                }
+                            });
+                        }
+                    };
+
+                    bind_style_property_if_exists("default-font-size", Type::LogicalLength);
+                    bind_style_property_if_exists("default-font-family", Type::String);
                 }
 
                 _ => {}
