@@ -820,18 +820,15 @@ Example := Window {
         disabled when !is-enabled : {
             background: gray; // same as root.background: gray;
             text.color: white;
+            out {
+                animate * { duration: 800ms; }
+            }
         }
         down when pressed : {
             background: blue;
-        }
-    ]
-
-    transitions [
-        in down : {
-            animate color { duration: 300ms; }
-        }
-        out disabled : {
-            animate * { duration: 800ms; }
+            in {
+                animate color { duration: 300ms; }
+            }
         }
     ]
 }

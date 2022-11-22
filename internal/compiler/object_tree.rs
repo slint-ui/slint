@@ -1108,29 +1108,16 @@ impl Element {
                     })
                     .collect(),
             };
+            for trs in state.Transition() {
+                let mut t = Transition::from_node(trs, &r, tr, diag);
+                t.state_id = s.id.clone();
+                r.borrow_mut().transitions.push(t);
+            }
             r.borrow_mut().states.push(s);
         }
 
         for trs in node.Transitions().flat_map(|s| s.Transition()) {
-            if let Some(star) = trs.child_token(SyntaxKind::Star) {
-                diag.push_error("TODO: catch-all not yet implemented".into(), &star);
-            };
-            let trans = Transition {
-                is_out: parser::identifier_text(&trs).unwrap_or_default() == "out",
-                state_id: parser::identifier_text(&trs.DeclaredIdentifier()).unwrap_or_default(),
-                property_animations: trs
-                    .PropertyAnimation()
-                    .flat_map(|pa| pa.QualifiedName().map(move |qn| (pa.clone(), qn)))
-                    .filter_map(|(pa, qn)| {
-                        lookup_property_from_qualified_name_for_state(qn.clone(), &r, diag)
-                            .and_then(|(ne, prop_type)| {
-                                animation_element_from_node(&pa, &qn, prop_type, diag, tr)
-                                    .map(|anim_element| (ne, qn.to_source_location(), anim_element))
-                            })
-                    })
-                    .collect(),
-                node: trs.DeclaredIdentifier().into(),
-            };
+            let trans = Transition::from_node(trs, &r, tr, diag);
             r.borrow_mut().transitions.push(trans);
         }
 
@@ -1555,7 +1542,7 @@ impl Display for QualifiedTypeName {
 /// if the reference is invalid, there will be a diagnostic
 fn lookup_property_from_qualified_name_for_state(
     node: syntax_nodes::QualifiedName,
-    r: &Rc<RefCell<Element>>,
+    r: &ElementRc,
     diag: &mut BuildDiagnostics,
 ) -> Option<(NamedReference, Type)> {
     let qualname = QualifiedTypeName::from_node(node.clone());
@@ -1927,8 +1914,40 @@ pub struct Transition {
     pub is_out: bool,
     pub state_id: String,
     pub property_animations: Vec<(NamedReference, SourceLocation, ElementRc)>,
-    /// Node pointing to the state name
-    pub node: SyntaxNode,
+    pub node: syntax_nodes::Transition,
+}
+
+impl Transition {
+    fn from_node(
+        trs: syntax_nodes::Transition,
+        r: &ElementRc,
+        tr: &TypeRegister,
+        diag: &mut BuildDiagnostics,
+    ) -> Transition {
+        if let Some(star) = trs.child_token(SyntaxKind::Star) {
+            diag.push_error("TODO: catch-all not yet implemented".into(), &star);
+        };
+        Transition {
+            is_out: parser::identifier_text(&trs).unwrap_or_default() == "out",
+            state_id: trs
+                .DeclaredIdentifier()
+                .and_then(|x| parser::identifier_text(&x))
+                .unwrap_or_default(),
+            property_animations: trs
+                .PropertyAnimation()
+                .flat_map(|pa| pa.QualifiedName().map(move |qn| (pa.clone(), qn)))
+                .filter_map(|(pa, qn)| {
+                    lookup_property_from_qualified_name_for_state(qn.clone(), r, diag).and_then(
+                        |(ne, prop_type)| {
+                            animation_element_from_node(&pa, &qn, prop_type, diag, tr)
+                                .map(|anim_element| (ne, qn.to_source_location(), anim_element))
+                        },
+                    )
+                })
+                .collect(),
+            node: trs.clone(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, derive_more::Deref)]

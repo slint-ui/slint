@@ -127,16 +127,15 @@ NarrowPrintQueueElement := Rectangle {
         expanded when expanded : {
             height: layout.min-height;
             expanded-opacity: 1;
-        }
-    ]
-    transitions [
-        in expanded : {
-            animate height { duration: 200ms; easing: ease; }
-            animate expanded-opacity { duration: 200ms; }
-        }
-        out expanded : {
-            animate height { duration: 200ms; easing: ease; }
-            animate expanded-opacity { duration: 200ms; }
+
+            in {
+                animate height { duration: 200ms; easing: ease; }
+                animate expanded-opacity { duration: 200ms; }
+            }
+            out {
+                animate height { duration: 200ms; easing: ease; }
+                animate expanded-opacity { duration: 200ms; }
+            }
         }
     ]
 

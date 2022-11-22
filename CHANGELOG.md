@@ -26,6 +26,7 @@ All notable changes to this project are documented in this file.
  - Added support for the implicitly declared `init` callback that can be used to run code when
    an element or component is instantiated.
  - Properties can be annotated with `in`, `out`, `in-out`, or `private`.
+ - Transitions can now be declared directly within the state
  - Online editor: The property view can now edit properties
  - LSP preview: highlight the selected element in the preview
  - LSP: Added a setting to change the style and the include paths

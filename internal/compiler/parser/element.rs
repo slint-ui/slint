@@ -438,6 +438,8 @@ fn parse_states(p: &mut impl Parser) {
 /// ```test,State
 /// foo : { x: 1px + 2px; aaa.y: {1px + 2px} }
 /// foo when bar == 1:  { color: blue; foo.color: red;   }
+/// a when b:  { color: blue; in { animate color { duration: 120s; } }   }
+/// a when b:  { out { animate foo.bar { } } foo.bar: 42;  }
 /// ```
 fn parse_state(p: &mut impl Parser) -> bool {
     if p.nth(0).kind() != SyntaxKind::Identifier {
@@ -465,6 +467,17 @@ fn parse_state(p: &mut impl Parser) -> bool {
             }
             SyntaxKind::Eof => return false,
             _ => {
+                if p.nth(1).kind() == SyntaxKind::LBrace
+                    && matches!(p.peek().as_str(), "in" | "out")
+                {
+                    let mut p = p.start_node(SyntaxKind::Transition);
+                    p.consume(); // "in" or "out"
+                    p.expect(SyntaxKind::LBrace);
+                    if !parse_transition_inner(&mut *p) {
+                        return false;
+                    }
+                    continue;
+                };
                 let checkpoint = p.checkpoint();
                 if !parse_qualified_name(&mut *p)
                     || !p.expect(SyntaxKind::Colon)
@@ -514,7 +527,15 @@ fn parse_transition(p: &mut impl Parser) -> bool {
     if !p.expect(SyntaxKind::LBrace) {
         return false;
     }
+    parse_transition_inner(&mut *p)
+}
 
+#[cfg_attr(test, parser_test)]
+/// ```test
+/// }
+/// animate x { duration: 88ms; }  animate foo.bar { } }
+/// ```
+fn parse_transition_inner(p: &mut impl Parser) -> bool {
     loop {
         match p.nth(0).kind() {
             SyntaxKind::RBrace => {

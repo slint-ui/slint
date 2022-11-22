@@ -297,19 +297,16 @@ export Recipe := Window {
         left-aligned when b1.pressed: {
             circle1.x: 0px; circle1.y: 40px;
             circle2.x: 0px; circle2.y: 0px;
+            in {
+                animate circle1.x, circle2.x { duration: 250ms; }
+            }
+            out {
+                animate circle1.x, circle2.x { duration: 500ms; }
+            }
         }
         right-aligned when !b1.pressed: {
             circle1.x: 170px; circle1.y: 70px;
             circle2.x: 170px; circle2.y: 00px;
-        }
-    ]
-
-    transitions [
-        in left-aligned: {
-            animate circle1.x, circle2.x { duration: 250ms; }
-        }
-        out left-aligned: {
-            animate circle1.x, circle2.x { duration: 500ms; }
         }
     ]
 
