@@ -6,14 +6,9 @@
 import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
 
-import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 import { MonacoLanguageClient } from "monaco-languageclient";
-import {
-    DocumentAndTextPosition,
-    GotoPositionCallback,
-    TextPosition,
-    TextRange,
-} from "./text";
+import { DocumentAndPosition, GotoPositionCallback } from "./text";
+import { LspRange, LspPosition } from "./lsp_integration";
 
 import {
     DocumentSymbolRequest,
@@ -56,7 +51,7 @@ const SYMBOL_KIND_MAP = new Map<SymbolKind, string>([
 const ACTIVE_ELEMENT_CLASS = "active";
 
 interface PositionData {
-    range: TextRange;
+    range: LspRange;
     element: HTMLElement;
     children: PositionData[];
 }
@@ -90,24 +85,14 @@ function set_data(
         const span = document.createElement("span");
 
         const current_pos_data = {
-            range: {
-                startLineNumber: d.range.start.line + 1,
-                startColumn: d.range.start.character + 1,
-                endLineNumber: d.range.end.line + 1,
-                endColumn: d.range.end.character + 1,
-            },
+            range: d.range,
             element: span,
             children: [],
         } as PositionData;
 
         span.innerText = d.name;
         span.addEventListener("click", () =>
-            goto_position(uri, {
-                startLineNumber: d.selectionRange.start.line + 1,
-                startColumn: d.selectionRange.start.character + 1,
-                endLineNumber: d.selectionRange.end.line + 1,
-                endColumn: d.selectionRange.end.character + 1,
-            } as TextRange),
+            goto_position(uri, d.selectionRange),
         );
 
         row.appendChild(span);
@@ -130,15 +115,30 @@ function set_data(
     return pos_data;
 }
 
+function containsPosition(p: LspPosition, r: LspRange): boolean {
+    if (
+        p.line < r.start.line ||
+        (p.line == r.start.line && p.character < r.start.character)
+    ) {
+        return false;
+    }
+    if (
+        p.line > r.end.line ||
+        (p.line == r.end.line && p.character >= r.end.character)
+    ) {
+        return false;
+    }
+    return true;
+}
+
 function deactivate_elements_and_find_to_activate(
     data: PositionData[],
-    position: TextPosition,
+    position: LspPosition,
 ): HTMLElement | null {
     let to_activate = null;
     for (const d of data) {
         d.element.classList.remove(ACTIVE_ELEMENT_CLASS);
-        const r = monaco.Range.lift(d.range);
-        if (r.containsPosition(position)) {
+        if (containsPosition(position, d.range)) {
             to_activate = d.element;
         }
         to_activate =
@@ -151,12 +151,12 @@ function deactivate_elements_and_find_to_activate(
 export class OutlineWidget extends Widget {
     #callback: () => [MonacoLanguageClient | undefined, string | undefined];
     #intervalId = -1;
-    #onGotoPosition = (uri: string, position: TextPosition | TextRange) => {
-        console.log("Goto Position ignored:", uri, position);
+    #onGotoPosition: GotoPositionCallback = (_) => {
+        return;
     };
 
     #outline: OutlineData | null = null;
-    #cursor_position: DocumentAndTextPosition;
+    #cursor_position: DocumentAndPosition;
 
     static createNode(): HTMLElement {
         const node = document.createElement("div");
@@ -166,7 +166,7 @@ export class OutlineWidget extends Widget {
     }
 
     constructor(
-        cursor_position: DocumentAndTextPosition,
+        cursor_position: DocumentAndPosition,
         callback: () => [MonacoLanguageClient | undefined, string | undefined],
     ) {
         super({ node: OutlineWidget.createNode() });
@@ -205,7 +205,7 @@ export class OutlineWidget extends Widget {
         this.#onGotoPosition = callback;
     }
 
-    position_changed(position: DocumentAndTextPosition) {
+    position_changed(position: DocumentAndPosition) {
         if (this.#outline) {
             if (position.uri != this.#outline.uri) {
                 // Document has changed, and we have no new data yet!

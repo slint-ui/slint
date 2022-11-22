@@ -3,6 +3,9 @@
 
 // cSpell: ignore lumino permalink
 
+import { LspRange, LspPosition } from "./lsp_integration";
+import { DocumentAndPosition } from "./text";
+
 import { CommandRegistry } from "@lumino/commands";
 import {
     DockLayout,
@@ -19,8 +22,6 @@ import { PreviewWidget } from "./preview_widget";
 import { OutlineWidget } from "./outline_widget";
 import { PropertiesWidget } from "./properties_widget";
 import { WelcomeWidget } from "./welcome_widget";
-
-import { DocumentAndTextPosition, TextPosition, TextRange } from "./text";
 
 const commands = new CommandRegistry();
 
@@ -349,15 +350,13 @@ function main() {
                     ];
                 });
 
-                editor.onPositionChange = (
-                    position: DocumentAndTextPosition,
-                ) => {
+                editor.onPositionChange = (position: DocumentAndPosition) => {
                     outline.position_changed(position);
                 };
 
                 outline.on_goto_position = (
                     uri: string,
-                    pos: TextPosition | TextRange,
+                    pos: LspPosition | LspRange,
                 ) => {
                     editor.goto_position(uri, pos);
                 };

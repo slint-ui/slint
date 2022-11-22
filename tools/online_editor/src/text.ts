@@ -7,16 +7,18 @@ export type TextRange = monaco.IRange;
 export type TextPosition = monaco.IPosition;
 export type Uri = monaco.Uri;
 
-export type DocumentAndTextPosition = { uri: string; position: TextPosition };
+import { LspRange, LspPosition } from "./lsp_integration";
+
+export type DocumentAndPosition = { uri: string; position: LspPosition };
 
 export type ReplaceTextFunction = (
     _uri: string,
-    _range: TextRange,
+    _range: LspRange,
     _new_text: string,
     _validate: (_old: string) => boolean,
 ) => boolean;
 export type GotoPositionCallback = (
     _uri: string,
-    _position: TextPosition | TextRange,
+    _position: LspPosition | LspRange,
 ) => void;
-export type PositionChangeCallback = (_pos: DocumentAndTextPosition) => void;
+export type PositionChangeCallback = (_pos: DocumentAndPosition) => void;
