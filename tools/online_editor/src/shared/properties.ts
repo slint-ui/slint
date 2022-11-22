@@ -2,6 +2,8 @@
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
 import {
+    Diagnostic,
+    OptionalVersionedTextDocumentIdentifier,
     Position as LspPosition,
     Range as LspRange,
     URI as LspURI,
@@ -39,6 +41,10 @@ export interface PropertyQuery {
     properties: Property[];
 }
 
+export interface SetBindingResponse {
+    diagnostics: Diagnostic[];
+}
+
 export type PropertyClickedCallback = (
     _uri: LspURI,
     _v: number,
@@ -68,10 +74,19 @@ function type_class_for_typename(name: string): string {
     return "type-unknown";
 }
 
+export type BindingEditor = (
+    _doc: OptionalVersionedTextDocumentIdentifier,
+    _element: LspRange,
+    _property_name: string,
+    _new_value: string,
+    _dry_run: boolean,
+) => Promise<SetBindingResponse>;
+
 export class PropertiesView {
     #current_data_uri = "";
     #current_data_version = -10000;
     #current_element_range: LspRange | null = null;
+    #binding_editor: BindingEditor;
 
     static createNode(): HTMLElement {
         const node = document.createElement("div");
@@ -96,7 +111,8 @@ export class PropertiesView {
         return node;
     }
 
-    constructor(node: HTMLElement) {
+    constructor(node: HTMLElement, binding_editor: BindingEditor) {
+        this.#binding_editor = binding_editor;
         this.node = node;
         this.set_header(null);
     }
@@ -105,15 +121,6 @@ export class PropertiesView {
     /// Callback called when the property is clicked
     property_clicked: PropertyClickedCallback = (_) => {
         return;
-    };
-    /// Callback called when the property is modified. The old value is given so it can be checked
-    change_property: (
-        _uri: LspURI,
-        _p: Property,
-        _new_value: string,
-        _old_value: string,
-    ) => void = (_) => {
-        /**/
     };
 
     protected get contentNode(): HTMLDivElement {
@@ -147,7 +154,7 @@ export class PropertiesView {
     }
 
     private populate_table(
-        _element_range: LspRange | null | undefined,
+        element_range: LspRange | null | undefined,
         properties: Property[],
         uri: LspURI,
         version: number,
@@ -200,6 +207,9 @@ export class PropertiesView {
                 const code_text = p.defined_at.expression_value;
                 input.value = code_text;
                 const changed_class = "value-changed";
+                const error_class = "value-has-error";
+                const warn_class = "value-has-warning";
+
                 input.addEventListener("focus", (_) => {
                     if (FOCUSING) {
                         FOCUSING = false;
@@ -216,11 +226,47 @@ export class PropertiesView {
                     } else {
                         input.classList.remove(changed_class);
                     }
+                    input.classList.remove(error_class);
+                    input.classList.remove(warn_class);
+                    if (current_text != code_text && element_range != null) {
+                        this.#binding_editor(
+                            { uri: uri, version: version },
+                            element_range,
+                            p.name,
+                            current_text,
+                            true,
+                        ).then((r: SetBindingResponse) => {
+                            const diagnostics = r.diagnostics;
+                            let has_error = false;
+                            let has_warning = false;
+                            for (const d of diagnostics) {
+                                if (d.severity == 1) {
+                                    has_error = true;
+                                } else if (d.severity == 2) {
+                                    has_warning = true;
+                                }
+                            }
+
+                            if (has_error) {
+                                input.classList.add(error_class);
+                            } else if (has_warning) {
+                                input.classList.add(warn_class);
+                            }
+                        });
+                    }
                 });
                 input.addEventListener("change", (_) => {
                     const current_text = input.value;
-                    if (current_text != code_text) {
-                        this.change_property(uri, p, current_text, code_text);
+                    if (current_text != code_text && element_range != null) {
+                        this.#binding_editor(
+                            { uri: uri, version: version },
+                            element_range,
+                            p.name,
+                            current_text,
+                            false,
+                        ).then((r: SetBindingResponse) => {
+                            console.log("Got change response:", r);
+                        });
                     }
                 });
             } else {

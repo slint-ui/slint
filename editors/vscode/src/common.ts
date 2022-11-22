@@ -4,7 +4,10 @@
 // This file contains the common code for both the normal and the browser extension
 
 import { Property } from "../../../tools/online_editor/src/shared/properties";
-import { query_properties } from "../../../tools/online_editor/src/shared/properties_client";
+import {
+    change_property,
+    query_properties,
+} from "../../../tools/online_editor/src/shared/properties_client";
 
 import * as vscode from "vscode";
 import { BaseLanguageClient } from "vscode-languageclient";
@@ -61,23 +64,19 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                     }
                     break;
                 case "change_property":
-                    if (vscode.window.activeTextEditor) {
-                        const p = data.property as Property;
-                        if (p.defined_at && p.defined_at.expression_range) {
-                            let range = client.protocol2CodeConverter.asRange(
-                                p.defined_at.expression_range,
-                            );
-                            let old =
-                                vscode.window.activeTextEditor.document.getText(
-                                    range,
-                                );
-                            if (old === data.old_value) {
-                                vscode.window.activeTextEditor.edit((b) =>
-                                    b.replace(range, data.new_value),
-                                );
-                            }
-                        }
-                    }
+                    change_property(
+                        client,
+                        data.document,
+                        data.element_range,
+                        data.property_name,
+                        data.new_value,
+                        data.dry_run,
+                    ).then((response) => {
+                        webviewView.webview.postMessage({
+                            command: "set_binding_response",
+                            response: response,
+                        });
+                    });
                     break;
             }
         });

@@ -569,42 +569,6 @@ class EditorPaneWidget extends Widget {
         return doc;
     }
 
-    replace_text(
-        uri: string,
-        range: LspRange,
-        new_text: string,
-        validate: (_old: string) => boolean,
-    ): boolean {
-        const model = monaco.editor.getModel(monaco.Uri.parse(uri));
-
-        if (model !== null) {
-            const editor_range = lsp_range_to_editor_range(model, range);
-            if (editor_range == null) {
-                return false;
-            }
-
-            const old_text = model.getValueInRange(editor_range);
-            if (validate(old_text)) {
-                model.pushEditOperations(
-                    [],
-                    [
-                        {
-                            forceMoveMarkers: true,
-                            range: editor_range,
-                            text: new_text,
-                        },
-                    ],
-                    (_) => {
-                        return [];
-                    },
-                );
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     async read_from_url(url: string): Promise<string> {
         const uri = monaco.Uri.parse(url);
         return this.fetch_url_content(this.#edit_era, uri);
@@ -800,15 +764,6 @@ export class EditorWidget extends Widget {
 
     set onPositionChange(cb: PositionChangeCallback) {
         this.#editor.onPositionChangeCallback = cb;
-    }
-
-    replace_text(
-        uri: string,
-        range: LspRange,
-        new_text: string,
-        validator: (_old: string) => boolean,
-    ): boolean {
-        return this.#editor.replace_text(uri, range, new_text, validator);
     }
 
     get position(): VersionedDocumentAndPosition {

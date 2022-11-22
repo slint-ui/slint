@@ -367,14 +367,6 @@ function main() {
                 properties.on_goto_position = (uri, pos) => {
                     editor.goto_position(uri, pos);
                 };
-                properties.replace_text_function = (
-                    uri,
-                    range,
-                    new_text,
-                    validator,
-                ) => {
-                    return editor.replace_text(uri, range, new_text, validator);
-                };
 
                 return properties;
             },
