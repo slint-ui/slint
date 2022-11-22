@@ -28,9 +28,10 @@ macro_rules! for_each_special_keys {
 '\u{0015}'  # ShiftR      #                         # RShift       ;
 '\u{0016}'  # ControlR    #                         # RControl     ;
 
-// meta defines the macos command key (check DOM_VK_META on https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/keyCode)
-'\u{00E0}'  # Meta        # Qt_Key_Key_Control      # LWin         ;
-'\u{00E1}'  # MetaR       #                         # RWin         ;
+// Use custom codes instead of DOM_VK_META for meta, because the Mozilla defined code is a regular character (E0; LATIN SMALL LETTER A WITH GRAVE)
+// which makes those keys appear as text.
+'\u{0017}'  # Meta        # Qt_Key_Key_Control      # LWin         ;
+'\u{0018}'  # MetaR       #                         # RWin         ;
 
 '\u{F700}'	# UpArrow     # Qt_Key_Key_Up           # Up           ;
 '\u{F701}'	# DownArrow   # Qt_Key_Key_Down         # Down         ;

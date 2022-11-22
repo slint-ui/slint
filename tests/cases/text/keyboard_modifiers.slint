@@ -30,15 +30,7 @@ TestCase := Window {
 
 /*
 ```rust
-
-const SHIFT_CODE: char = '\u{0010}';
-const SHIFTR_CODE: char = '\u{0015}';
-const ALT_CODE: char = '\u{0012}';
-const ALTGR_CODE: char = '\u{0013}';
-const CONTROL_CODE: char = '\u{0011}';
-const CONTROLR_CODE: char = '\u{0016}';
-const META_CODE: char = '\u{00E0}';
-const METAR_CODE: char = '\u{00E1}';
+use slint::Key;
 
 let instance = TestCase::new();
 slint_testing::send_mouse_click(&instance, 5., 5.);
@@ -51,7 +43,7 @@ assert_eq!(instance.get_alt_modifier(), false);
 assert_eq!(instance.get_control_modifier(), false);
 assert_eq!(instance.get_meta_modifier(), false);
 
-slint_testing::send_keyboard_char(&instance, SHIFT_CODE, true);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), true);
 slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(instance.get_shift_modifier(), true);
@@ -59,7 +51,7 @@ assert_eq!(instance.get_alt_modifier(), false);
 assert_eq!(instance.get_control_modifier(), false);
 assert_eq!(instance.get_meta_modifier(), false);
 
-slint_testing::send_keyboard_char(&instance, SHIFTR_CODE, true);
+slint_testing::send_keyboard_char(&instance, Key::ShiftR.into(), true);
 slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(instance.get_shift_modifier(), true);
@@ -67,7 +59,7 @@ assert_eq!(instance.get_alt_modifier(), false);
 assert_eq!(instance.get_control_modifier(), false);
 assert_eq!(instance.get_meta_modifier(), false);
 
-slint_testing::send_keyboard_char(&instance, SHIFT_CODE, false);
+slint_testing::send_keyboard_char(&instance, Key::Shift.into(), false);
 slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(instance.get_shift_modifier(), true);
@@ -75,7 +67,7 @@ assert_eq!(instance.get_alt_modifier(), false);
 assert_eq!(instance.get_control_modifier(), false);
 assert_eq!(instance.get_meta_modifier(), false);
 
-slint_testing::send_keyboard_char(&instance, SHIFTR_CODE, false);
+slint_testing::send_keyboard_char(&instance, Key::ShiftR.into(), false);
 slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(instance.get_shift_modifier(), false);
@@ -83,7 +75,7 @@ assert_eq!(instance.get_alt_modifier(), false);
 assert_eq!(instance.get_control_modifier(), false);
 assert_eq!(instance.get_meta_modifier(), false);
 
-slint_testing::send_keyboard_char(&instance, ALT_CODE, true);
+slint_testing::send_keyboard_char(&instance, Key::Alt.into(), true);
 slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(instance.get_shift_modifier(), false);
@@ -91,7 +83,7 @@ assert_eq!(instance.get_alt_modifier(), true);
 assert_eq!(instance.get_control_modifier(), false);
 assert_eq!(instance.get_meta_modifier(), false);
 
-slint_testing::send_keyboard_char(&instance, ALTGR_CODE, true);
+slint_testing::send_keyboard_char(&instance, Key::AltGr.into(), true);
 slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(instance.get_shift_modifier(), false);
@@ -100,7 +92,7 @@ assert_eq!(instance.get_control_modifier(), false);
 assert_eq!(instance.get_meta_modifier(), false);
 
 // AltGr does not set the alt modifier
-slint_testing::send_keyboard_char(&instance, ALT_CODE, false);
+slint_testing::send_keyboard_char(&instance, Key::Alt.into(), false);
 slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(instance.get_shift_modifier(), false);
@@ -108,7 +100,7 @@ assert_eq!(instance.get_alt_modifier(), false);
 assert_eq!(instance.get_control_modifier(), false);
 assert_eq!(instance.get_meta_modifier(), false);
 
-slint_testing::send_keyboard_char(&instance, ALTGR_CODE, false);
+slint_testing::send_keyboard_char(&instance, Key::AltGr.into(), false);
 slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(instance.get_shift_modifier(), false);
@@ -116,7 +108,7 @@ assert_eq!(instance.get_alt_modifier(), false);
 assert_eq!(instance.get_control_modifier(), false);
 assert_eq!(instance.get_meta_modifier(), false);
 
-slint_testing::send_keyboard_char(&instance, CONTROL_CODE, true);
+slint_testing::send_keyboard_char(&instance, Key::Control.into(), true);
 slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(instance.get_shift_modifier(), false);
@@ -124,7 +116,7 @@ assert_eq!(instance.get_alt_modifier(), false);
 assert_eq!(instance.get_control_modifier(), true);
 assert_eq!(instance.get_meta_modifier(), false);
 
-slint_testing::send_keyboard_char(&instance, CONTROLR_CODE, true);
+slint_testing::send_keyboard_char(&instance, Key::ControlR.into(), true);
 slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(instance.get_shift_modifier(), false);
@@ -132,7 +124,7 @@ assert_eq!(instance.get_alt_modifier(), false);
 assert_eq!(instance.get_control_modifier(), true);
 assert_eq!(instance.get_meta_modifier(), false);
 
-slint_testing::send_keyboard_char(&instance, CONTROL_CODE, false);
+slint_testing::send_keyboard_char(&instance, Key::Control.into(), false);
 slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(instance.get_shift_modifier(), false);
@@ -140,7 +132,7 @@ assert_eq!(instance.get_alt_modifier(), false);
 assert_eq!(instance.get_control_modifier(), true);
 assert_eq!(instance.get_meta_modifier(), false);
 
-slint_testing::send_keyboard_char(&instance, CONTROLR_CODE, false);
+slint_testing::send_keyboard_char(&instance, Key::ControlR.into(), false);
 slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(instance.get_shift_modifier(), false);
@@ -148,7 +140,7 @@ assert_eq!(instance.get_alt_modifier(), false);
 assert_eq!(instance.get_control_modifier(), false);
 assert_eq!(instance.get_meta_modifier(), false);
 
-slint_testing::send_keyboard_char(&instance, META_CODE, true);
+slint_testing::send_keyboard_char(&instance, Key::Meta.into(), true);
 slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(instance.get_shift_modifier(), false);
@@ -156,7 +148,7 @@ assert_eq!(instance.get_alt_modifier(), false);
 assert_eq!(instance.get_control_modifier(), false);
 assert_eq!(instance.get_meta_modifier(), true);
 
-slint_testing::send_keyboard_char(&instance, METAR_CODE, true);
+slint_testing::send_keyboard_char(&instance, Key::MetaR.into(), true);
 slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(instance.get_shift_modifier(), false);
@@ -164,7 +156,7 @@ assert_eq!(instance.get_alt_modifier(), false);
 assert_eq!(instance.get_control_modifier(), false);
 assert_eq!(instance.get_meta_modifier(), true);
 
-slint_testing::send_keyboard_char(&instance, META_CODE, false);
+slint_testing::send_keyboard_char(&instance, Key::Meta.into(), false);
 slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(instance.get_shift_modifier(), false);
@@ -172,7 +164,7 @@ assert_eq!(instance.get_alt_modifier(), false);
 assert_eq!(instance.get_control_modifier(), false);
 assert_eq!(instance.get_meta_modifier(), true);
 
-slint_testing::send_keyboard_char(&instance, METAR_CODE, false);
+slint_testing::send_keyboard_char(&instance, Key::MetaR.into(), false);
 slint_testing::send_keyboard_char(&instance, 'a', true);
 slint_testing::send_keyboard_char(&instance, 'a', false);
 assert_eq!(instance.get_shift_modifier(), false);

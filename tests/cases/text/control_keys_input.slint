@@ -1,0 +1,33 @@
+// Copyright © SixtyFPS GmbH <info@slint-ui.com>
+// SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
+
+TestCase := Window {
+    width: 100phx;
+    height: 100phx;
+    ti := TextInput { 
+    }
+
+    property <bool> input_focused: ti.has_focus;
+    property <string> text <=> ti.text;
+}
+
+/*
+```rust
+use slint::Key;
+
+let instance = TestCase::new();
+slint_testing::send_mouse_click(&instance, 5., 5.);
+assert!(instance.get_input_focused());
+assert!(instance.get_text().is_empty());
+
+for code in [Key::Shift, Key::ShiftR, Key::Alt, Key::AltGr, Key::Control, Key::ControlR, Key::Meta, Key::MetaR] {
+    slint_testing::send_keyboard_char(&instance, code.into(), true);
+    assert!(instance.get_text().is_empty());
+    slint_testing::send_keyboard_char(&instance, code.into(), false);
+    assert!(instance.get_text().is_empty());
+}
+
+slint_testing::send_keyboard_char(&instance, 'a', true);
+assert_eq!(instance.get_text(), "a");
+```
+*/
