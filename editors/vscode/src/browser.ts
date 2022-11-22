@@ -3,7 +3,7 @@
 
 // This file is the entry point for the vscode web extension
 
-import { ExtensionContext, Uri } from "vscode";
+import { Uri } from "vscode";
 import * as vscode from "vscode";
 import { LanguageClientOptions } from "vscode-languageclient";
 import { LanguageClient } from "vscode-languageclient/browser";
@@ -59,7 +59,7 @@ function startClient(context: vscode.ExtensionContext) {
 
                 vscode.workspace.onDidChangeConfiguration(async (ev) => {
                     if (ev.affectsConfiguration("slint")) {
-                        await client.sendNotification(
+                        client.sendNotification(
                             "workspace/didChangeConfiguration",
                             { settings: "" },
                         );

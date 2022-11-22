@@ -85,7 +85,7 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                 if (event.selections.length === 0 || client === null) {
                     return;
                 }
-                if (event.textEditor.document.languageId != "slint") {
+                if (event.textEditor.document.languageId !== "slint") {
                     if (this.property_shown) {
                         webviewView.webview.postMessage({ command: "clear" });
                         this.property_shown = false;

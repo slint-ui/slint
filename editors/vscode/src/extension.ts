@@ -130,8 +130,6 @@ function startClient(context: vscode.ExtensionContext) {
         options.env["RUST_BACKTRACE"] = "1";
     }
 
-    console.log(`Starting LSP server from ${serverModule}`);
-
     let args = vscode.workspace
         .getConfiguration("slint")
         .get<[string]>("lsp-args");
@@ -204,7 +202,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     vscode.workspace.onDidChangeConfiguration(async (ev) => {
         if (ev.affectsConfiguration("slint")) {
-            await client?.sendNotification("workspace/didChangeConfiguration", {
+            client?.sendNotification("workspace/didChangeConfiguration", {
                 settings: "",
             });
         }
