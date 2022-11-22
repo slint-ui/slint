@@ -347,10 +347,6 @@ function main() {
                     () => editor.language_client,
                 );
 
-                editor.onPositionChange = (position) => {
-                    outline.position_changed(position);
-                };
-
                 outline.on_goto_position = (
                     uri: string,
                     pos: LspPosition | LspRange,
@@ -364,10 +360,9 @@ function main() {
         ],
         [
             () => {
-                const properties = new PropertiesWidget();
-                editor.onNewPropertyData = (p) => {
-                    properties.set_properties(p);
-                };
+                const properties = new PropertiesWidget(
+                    () => editor.language_client,
+                );
 
                 properties.on_goto_position = (uri, pos) => {
                     editor.goto_position(uri, pos);
@@ -386,6 +381,15 @@ function main() {
             { mode: "tab-after", ref: "Welcome" },
         ],
     );
+
+    editor.onPositionChange = (pos) => {
+        (dock_widgets.widget("Outline") as OutlineWidget)?.position_changed(
+            pos,
+        );
+        (
+            dock_widgets.widget("Properties") as PropertiesWidget
+        )?.position_changed(pos.uri, pos.version, pos.position);
+    };
 
     const menu_bar = new MenuBar();
     menu_bar.id = "menuBar";
