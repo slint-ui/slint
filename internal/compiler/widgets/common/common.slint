@@ -19,6 +19,11 @@ export LineEditInner := Rectangle {
     min-width: max(50px, placeholder.min-width);
     clip: true;
     forward-focus: input;
+    placeholder := Text {
+        height: 100%; width: 100%;
+        vertical-alignment: center;
+        text: (root.text == "" && input.preedit-text == "") ? root.placeholder-text : "";
+    }
     input := TextInput {
         property <length> computed_x;
         x: min(0px, max(parent.width - width, computed_x));
@@ -36,11 +41,6 @@ export LineEditInner := Rectangle {
         edited => { root.edited(self.text); }
         vertical-alignment: center;
         single-line: true;
-    }
-    placeholder := Text {
-        height: 100%; width: 100%;
-        vertical-alignment: center;
-        text: (root.text == "" && input.preedit-text == "") ? root.placeholder-text : "";
     }
 }
 

@@ -35,6 +35,24 @@ export LineEdit := Rectangle {
 
         Rectangle {  
             clip: true;
+
+            placeholder := Text {
+                width: 100%;
+                height: 100%;
+                color: md.sys.color.outline-variant;
+                font-family: md.sys.typescale.body-large.font;
+                font-size: md.sys.typescale.body-large.size;
+                font-weight: md.sys.typescale.body-large.weight;
+                visible: false;
+                vertical-alignment: center;
+
+                states [
+                    empty when input.text == "" : {
+                        visible: true;
+                    }
+                ]
+            }
+
             input := TextInput {
                 property <length> computed_x;
                 property <length> padding-outer: layout.padding-left + layout.padding-right;
@@ -58,23 +76,6 @@ export LineEdit := Rectangle {
                         computed_x = parent.width - cpos.x - padding-outer;
                     }
                 }
-            }
-
-            placeholder := Text {
-                width: 100%;
-                height: 100%;
-                color: md.sys.color.outline-variant;
-                font-family: md.sys.typescale.body-large.font;
-                font-size: md.sys.typescale.body-large.size;
-                font-weight: md.sys.typescale.body-large.weight;
-                visible: false;
-                vertical-alignment: center;
-
-                states [
-                    empty when input.text == "" : {
-                        visible: true;
-                    }
-                ]
             }
         }    
     }
