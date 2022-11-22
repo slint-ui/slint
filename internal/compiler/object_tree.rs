@@ -1116,9 +1116,14 @@ impl Element {
             r.borrow_mut().states.push(s);
         }
 
-        for trs in node.Transitions().flat_map(|s| s.Transition()) {
-            let trans = Transition::from_node(trs, &r, tr, diag);
-            r.borrow_mut().transitions.push(trans);
+        for ts in node.Transitions() {
+            if !is_legacy_syntax {
+                diag.push_error("'transitions' block are no longer supported. Use 'in {...}' and 'out {...}' directly in the state definition".into(), &ts);
+            }
+            for trs in ts.Transition() {
+                let trans = Transition::from_node(trs, &r, tr, diag);
+                r.borrow_mut().transitions.push(trans);
+            }
         }
 
         r

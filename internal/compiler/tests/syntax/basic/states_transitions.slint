@@ -44,3 +44,90 @@ TestCase := Rectangle {
     touch := TouchArea {}
 
 }
+
+
+component NewSyntax {
+    property<bool> checked;
+    property <int> border;
+    property <color> color;
+    states [
+        checked when checked: {
+            color: blue; // same as root.color
+            text.color: red;
+            border: 42;
+        }
+        pressed when touch.pressed: {
+            color: green;
+            border: 88;
+            text.foo.bar: 0;
+///         ^error{'text.foo.bar' is not a valid property}
+            colour: yellow;
+///         ^error{'colour' is not a valid property}
+            fox.color: yellow;
+///         ^error{'fox' is not a valid element id}
+            text.fox: yellow;
+///         ^error{'fox' not found in 'text'}
+
+            in  {
+                animate * { duration: 88ms; }
+                animate color { duration: 88ms; }
+            }
+            out {
+                animate color, foo.x { duration: 300ms; }
+///                           ^error{'foo' is not a valid element id}
+                animate border { duration: 120ms; }
+                animate color, text.text { duration: 300ms; }
+///                           ^error{'text.text' is not a property that can be animated}
+            }
+        }
+    ]
+
+    text := Text {}
+    touch := TouchArea {}
+
+}
+
+component OldInNewSyntax {
+    property<bool> checked;
+    property <int> border;
+    property <color> color;
+    states [
+        checked when checked: {
+            color: blue; // same as root.color
+            text.color: red;
+            border: 42;
+        }
+        pressed when touch.pressed: {
+            color: green;
+            border: 88;
+            text.foo.bar: 0;
+///         ^error{'text.foo.bar' is not a valid property}
+            colour: yellow;
+///         ^error{'colour' is not a valid property}
+            fox.color: yellow;
+///         ^error{'fox' is not a valid element id}
+            text.fox: yellow;
+///         ^error{'fox' not found in 'text'}
+        }
+    ]
+
+    transitions [
+/// ^error{'transitions' block are no longer supported. Use 'in \{...\}' and 'out \{...\}' directly in the state definition}
+        in pressed: {
+            animate * { duration: 88ms; }
+            animate color { duration: 88ms; }
+        }
+        out pressed: {
+            animate color, foo.x { duration: 300ms; }
+///                       ^error{'foo' is not a valid element id}
+            animate border { duration: 120ms; }
+            animate color, text.text { duration: 300ms; }
+///                       ^error{'text.text' is not a property that can be animated}
+
+        }
+    ]
+
+    text := Text {}
+    touch := TouchArea {}
+
+}
