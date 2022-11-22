@@ -258,6 +258,7 @@ jobs:
     - name: test
       # Skip a few tests that rely on private renamed properties.
       # Skip the tests which makes two way binding to output property (these are warning in previous version)
+      # Skip the example that did not exist or that are broken
       run: |
         cargo test --bin test-driver-interpreter -- \
                   --skip test_interpreter_text_cursor_move \
@@ -268,4 +269,6 @@ jobs:
                   --skip test_interpreter_text_text_change \
                   --skip test_interpreter_crashes_layout_deleted_item \
                   --skip test_interpreter_focus_focus_change_subcompo \
-                  --skip test_interpreter_focus_focus_change_through_signal
+                  --skip test_interpreter_focus_focus_change_through_signal \
+                  --skip example_carousel \
+                  --skip example_fancy_demo

@@ -31,6 +31,10 @@ test_example!(example_memory, "memory/memory.slint");
 test_example!(example_slide_puzzle, "slide_puzzle/slide_puzzle.slint");
 test_example!(example_todo, "todo/ui/todo.slint");
 test_example!(example_gallery, "gallery/gallery.slint");
+test_example!(example_fancy_demo, "fancy_demo/main.slint");
+test_example!(example_bash_sysinfo, "bash/sysinfo.slint");
+test_example!(example_carousel, "carousel/ui/carousel_demo.slint");
+test_example!(example_iot_dashboard, "iot-dashboard/main.slint");
 
 fn main() {
     println!("Nothing to see here, please run me through cargo test :)");
