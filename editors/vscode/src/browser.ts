@@ -39,11 +39,12 @@ function startClient(context: vscode.ExtensionContext) {
                 clientOptions,
                 worker,
             );
-            set_client(client);
             const disposable = client.start();
             context.subscriptions.push(disposable);
 
             client.onReady().then(() => {
+                set_client(client);
+
                 client.onRequest("slint/load_file", async (param: string) => {
                     return await vscode.workspace.fs.readFile(Uri.parse(param));
                 });
