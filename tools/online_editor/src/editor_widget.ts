@@ -13,8 +13,6 @@ import {
 import { FilterProxyReader } from "./proxy";
 import { PositionChangeCallback, VersionedDocumentAndPosition } from "./text";
 
-import { PropertyQuery } from "./shared/properties";
-
 import { BoxLayout, TabBar, Title, Widget } from "@lumino/widgets";
 import { Message as LuminoMessage } from "@lumino/messaging";
 
@@ -101,8 +99,6 @@ function tabTitleFromURL(url: monaco.Uri): string {
     }
 }
 
-type PropertyDataNotifier = (_p: PropertyQuery) => void;
-
 class EditorPaneWidget extends Widget {
     auto_compile = true;
     #style = "fluent-light";
@@ -116,14 +112,12 @@ class EditorPaneWidget extends Widget {
     #base_url?: string;
     #edit_era: number;
     #disposables: monaco.IDisposable[] = [];
-    #current_properties = "";
 
     onPositionChangeCallback: PositionChangeCallback = (
         _pos: VersionedDocumentAndPosition,
     ) => {
         return;
     };
-    onNewPropertyData: PropertyDataNotifier | null = null;
 
     readonly editor_ready: Promise<void>;
 
@@ -425,51 +419,19 @@ class EditorPaneWidget extends Widget {
         this.#editor = editor;
 
         this.#disposables.push(
-            editor.onDidChangeCursorPosition(
-                (pos: monaco.editor.ICursorPositionChangedEvent) => {
-                    const model = editor.getModel();
-                    if (model != null) {
-                        this.onPositionChangeCallback(this.position);
-
-                        // TODO: Move this into an onPositionChangeCallback?
-                        const offset =
-                            model.getOffsetAt(pos.position) -
-                            model.getOffsetAt({
-                                lineNumber: pos.position.lineNumber,
-                                column: 0,
-                            });
-                        const uri = model.uri;
-
-                        commands
-                            .executeCommand(
-                                "queryProperties",
-                                { uri: uri.toString() },
-                                {
-                                    line: pos.position.lineNumber - 1,
-                                    character: offset,
-                                },
-                            )
-                            .then((r) => {
-                                const result = r as PropertyQuery;
-                                const result_str = JSON.stringify(result);
-                                if (this.#current_properties != result_str) {
-                                    this.#current_properties = result_str;
-                                    this.onNewPropertyData?.(result);
-                                }
-                            });
-                    }
-                },
+            editor.onDidChangeCursorPosition((_) =>
+                this.onPositionChangeCallback(this.position),
             ),
         );
         this.#disposables.push(
-            editor.onDidChangeModel((_) => {
-                this.onPositionChangeCallback(this.position);
-            }),
+            editor.onDidChangeModel((_) =>
+                this.onPositionChangeCallback(this.position),
+            ),
         );
         this.#disposables.push(
-            editor.onDidChangeModelContent((_) => {
-                this.onPositionChangeCallback(this.position);
-            }),
+            editor.onDidChangeModelContent((_) =>
+                this.onPositionChangeCallback(this.position),
+            ),
         );
 
         function createLanguageClient(
@@ -834,10 +796,6 @@ export class EditorWidget extends Widget {
         ) => Promise<monaco.editor.IMarkerData[]>,
     ) {
         this.#editor.onRenderRequest = request;
-    }
-
-    set onNewPropertyData(handler: PropertyDataNotifier) {
-        this.#editor.onNewPropertyData = handler;
     }
 
     set onPositionChange(cb: PositionChangeCallback) {

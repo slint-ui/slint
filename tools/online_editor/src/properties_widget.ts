@@ -4,16 +4,20 @@
 // cSpell: ignore lumino
 
 import { GotoPositionCallback, ReplaceTextFunction } from "./text";
-import { LspRange } from "./lsp_integration";
+import { LspPosition, LspRange, LspURI } from "./lsp_integration";
+
+import { PropertyQuery, PropertiesView } from "./shared/properties";
+import { query_properties } from "./shared/properties_client";
 
 import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
 
-import { PropertyQuery } from "./shared/properties";
-
-import { PropertiesView } from "./shared/properties";
+import { BaseLanguageClient } from "vscode-languageclient";
 
 export class PropertiesWidget extends Widget {
+    #language_client_getter: () => BaseLanguageClient | null;
+    #language_client: BaseLanguageClient | null = null;
+
     #onGotoPosition: GotoPositionCallback = (_u, _p) => {
         return;
     };
@@ -23,7 +27,7 @@ export class PropertiesWidget extends Widget {
 
     #propertiesView: PropertiesView;
 
-    constructor() {
+    constructor(language_client_getter: () => BaseLanguageClient | null) {
         const node = PropertiesView.createNode();
         super({ node: node });
         this.setFlag(Widget.Flag.DisallowLayout);
@@ -33,6 +37,7 @@ export class PropertiesWidget extends Widget {
         this.title.closable = true;
         this.title.caption = `Element Properties`;
 
+        this.#language_client_getter = language_client_getter;
         this.#propertiesView = new PropertiesView(node);
 
         this.#propertiesView.property_clicked = (uri, p) => {
@@ -55,6 +60,19 @@ export class PropertiesWidget extends Widget {
                 );
             }
         };
+    }
+
+    private get language_client(): BaseLanguageClient | null {
+        if (this.#language_client == null) {
+            this.#language_client = this.#language_client_getter();
+        }
+        return this.#language_client;
+    }
+
+    position_changed(uri: LspURI, _version: number, position: LspPosition) {
+        query_properties(this.language_client, uri, position, (r) => {
+            this.#propertiesView.set_properties(r);
+        });
     }
 
     private replace_property_value(

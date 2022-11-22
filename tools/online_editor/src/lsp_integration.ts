@@ -4,6 +4,7 @@
 export {
     Position as LspPosition,
     Range as LspRange,
+    URI as LspURI,
 } from "vscode-languageserver-types";
 import {
     Position as LspPosition,
