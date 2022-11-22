@@ -4,7 +4,6 @@
 // cSpell: ignore lumino permalink
 
 import { LspRange, LspPosition } from "./lsp_integration";
-import { DocumentAndPosition } from "./text";
 
 import { CommandRegistry } from "@lumino/commands";
 import {
@@ -350,7 +349,7 @@ function main() {
                     ];
                 });
 
-                editor.onPositionChange = (position: DocumentAndPosition) => {
+                editor.onPositionChange = (position) => {
                     outline.position_changed(position);
                 };
 

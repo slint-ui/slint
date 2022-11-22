@@ -5,14 +5,15 @@
 
 import { slint_language } from "./highlighting";
 import {
-    editor_position_to_lsp_position,
-    lsp_range_to_editor_range,
     LspPosition,
     LspRange,
+    editor_position_to_lsp_position,
+    lsp_range_to_editor_range,
 } from "./lsp_integration";
-import { PropertyQuery } from "./shared/properties";
 import { FilterProxyReader } from "./proxy";
-import { PositionChangeCallback, DocumentAndPosition } from "./text";
+import { PositionChangeCallback, VersionedDocumentAndPosition } from "./text";
+
+import { PropertyQuery } from "./shared/properties";
 
 import { BoxLayout, TabBar, Title, Widget } from "@lumino/widgets";
 import { Message as LuminoMessage } from "@lumino/messaging";
@@ -26,7 +27,6 @@ import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneGot
 import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneGotoSymbolQuickAccess.js";
 import "monaco-editor/esm/vs/editor/standalone/browser/quickAccess/standaloneHelpQuickAccess.js";
 import "monaco-editor/esm/vs/editor/standalone/browser/referenceSearch/standaloneReferenceSearch.js";
-
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
 import {
@@ -110,8 +110,8 @@ class EditorPaneWidget extends Widget {
         monaco.Uri,
         monaco.editor.ICodeEditorViewState | null | undefined
     >;
-    #editor: monaco.editor.IStandaloneCodeEditor | null;
-    #client?: MonacoLanguageClient;
+    #editor: monaco.editor.IStandaloneCodeEditor | null = null;
+    #client: MonacoLanguageClient | null = null;
     #keystroke_timeout_handle?: number;
     #base_url?: string;
     #edit_era: number;
@@ -119,7 +119,7 @@ class EditorPaneWidget extends Widget {
     #current_properties = "";
 
     onPositionChangeCallback: PositionChangeCallback = (
-        _pos: DocumentAndPosition,
+        _pos: VersionedDocumentAndPosition,
     ) => {
         return;
     };
@@ -151,7 +151,6 @@ class EditorPaneWidget extends Widget {
         const node = EditorPaneWidget.createNode();
 
         super({ node: node });
-        this.#editor = null;
 
         this.#editor_view_states = new Map();
         this.setFlag(Widget.Flag.DisallowLayout);
@@ -194,12 +193,16 @@ class EditorPaneWidget extends Widget {
         return commands.getCommands();
     }
 
-    get language_client(): MonacoLanguageClient | undefined {
+    get language_client(): MonacoLanguageClient | null {
         return this.#client;
     }
 
     get current_text_document_uri(): string | undefined {
         return this.#editor?.getModel()?.uri.toString();
+    }
+
+    get current_text_document_version(): number | undefined {
+        return this.#editor?.getModel()?.getVersionId();
     }
 
     goto_position(uri: string, position: LspPosition | LspRange) {
@@ -264,8 +267,9 @@ class EditorPaneWidget extends Widget {
         }
     }
 
-    get position(): DocumentAndPosition {
+    get position(): VersionedDocumentAndPosition {
         const model = this.#editor?.getModel();
+        const version = model?.getVersionId() ?? -1;
         const uri = model?.uri.toString() ?? "";
         const position = editor_position_to_lsp_position(
             model,
@@ -275,7 +279,7 @@ class EditorPaneWidget extends Widget {
             character: 0,
         };
 
-        return { uri: uri, position: position };
+        return { uri: uri, position: position, version: version };
     }
 
     private add_model_listener(model: monaco.editor.ITextModel) {
@@ -425,13 +429,7 @@ class EditorPaneWidget extends Widget {
                 (pos: monaco.editor.ICursorPositionChangedEvent) => {
                     const model = editor.getModel();
                     if (model != null) {
-                        this.onPositionChangeCallback({
-                            uri: model.uri.toString(),
-                            position: editor_position_to_lsp_position(
-                                model,
-                                pos.position,
-                            ) ?? { line: 0, character: 0 },
-                        });
+                        this.onPositionChangeCallback(this.position);
 
                         // TODO: Move this into an onPositionChangeCallback?
                         const offset =
@@ -462,6 +460,16 @@ class EditorPaneWidget extends Widget {
                     }
                 },
             ),
+        );
+        this.#disposables.push(
+            editor.onDidChangeModel((_) => {
+                this.onPositionChangeCallback(this.position);
+            }),
+        );
+        this.#disposables.push(
+            editor.onDidChangeModelContent((_) => {
+                this.onPositionChangeCallback(this.position);
+            }),
         );
 
         function createLanguageClient(
@@ -532,7 +540,7 @@ class EditorPaneWidget extends Widget {
 
                         reader.onClose(() => {
                             this.#client?.stop();
-                            this.#client = undefined;
+                            this.#client = null;
                         });
 
                         resolve_lsp_worker_promise();
@@ -567,6 +575,10 @@ class EditorPaneWidget extends Widget {
     }
     set onModelSelected(f: (_url: monaco.Uri) => void) {
         this.#onModelSelected = f;
+    }
+
+    send_position_change_event() {
+        this.onPositionChangeCallback(this.position);
     }
 
     protected async fetch_url_content(
@@ -718,16 +730,26 @@ export class EditorWidget extends Widget {
         }
     }
 
+    send_position_change_event() {
+        if (this.#editor != null) {
+            this.#editor.send_position_change_event();
+        }
+    }
+
     get current_editor_content(): string {
         return this.#editor.current_editor_content;
     }
 
-    get language_client(): MonacoLanguageClient | undefined {
+    get language_client(): MonacoLanguageClient | null {
         return this.#editor.language_client;
     }
 
     get current_text_document_uri(): string | undefined {
         return this.#editor.current_text_document_uri;
+    }
+
+    get current_text_document_version(): number | undefined {
+        return this.#editor.current_text_document_version;
     }
 
     compile() {
@@ -831,7 +853,7 @@ export class EditorWidget extends Widget {
         return this.#editor.replace_text(uri, range, new_text, validator);
     }
 
-    get position(): DocumentAndPosition {
+    get position(): VersionedDocumentAndPosition {
         return this.#editor.position;
     }
 }
