@@ -1925,7 +1925,7 @@ impl Transition {
         diag: &mut BuildDiagnostics,
     ) -> Transition {
         if let Some(star) = trs.child_token(SyntaxKind::Star) {
-            diag.push_error("TODO: catch-all not yet implemented".into(), &star);
+            diag.push_error("catch-all not yet implemented".into(), &star);
         };
         Transition {
             is_out: parser::identifier_text(&trs).unwrap_or_default() == "out",
