@@ -1,24 +1,25 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-
+import { StateLayer } from "comp-state-layer.slint";
 import { md } from "md.slint";
 
 // A selectable item that is used by `StandardListView` and  `ComboBox`.
 export Item := Rectangle { 
-    callback clicked <=> touch.clicked;
+    callback clicked <=> state-layer.clicked;
 
-    property<bool> selected: false;
-    property<string> text <=> label.text;
+    in property<bool> selected;
+    in property<string> text;
 
+    // background: md.sys.color.background;
     height: 48px;
 
-    state-layer := Rectangle {  
-        opacity: 0;
-        width: 100%;
-        height: 100%;
+    state-layer := StateLayer {
+        checked: root.selected;
         background: md.sys.color.primary;
-        animate opacity { duration: 250ms; easing: ease; }
+        selection-background: md.sys.color.secondary-container; 
+        ripple-color: md.sys.color.primary-ripple;
+        has-ripple: true;
     }
 
     HorizontalLayout {
@@ -26,6 +27,7 @@ export Item := Rectangle {
         padding-right: 12px;
 
         label := Text {
+            text: root.text;
             color: md.sys.color.on-surface;
             vertical-alignment: center;
             // FIXME after Roboto font can be loaded
@@ -35,18 +37,11 @@ export Item := Rectangle {
         }
     }
 
-    touch := TouchArea {}
-
     states [  
         selected when selected : {
-            state-layer.opacity: 1;
             state-layer.background: md.sys.color.secondary-container; 
-        }
-        pressed when touch.pressed : {
-            state-layer.opacity: 0.12;
-        }
-        hover when touch.has-hover : {
-            state-layer.opacity: 0.08;    
-        }       
+        }    
     ]
+
+   
 }
