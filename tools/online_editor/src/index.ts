@@ -342,12 +342,10 @@ function main() {
         ],
         [
             () => {
-                const outline = new OutlineWidget(editor.position, () => {
-                    return [
-                        editor.language_client,
-                        editor.current_text_document_uri,
-                    ];
-                });
+                const outline = new OutlineWidget(
+                    editor.position,
+                    () => editor.language_client,
+                );
 
                 editor.onPositionChange = (position) => {
                     outline.position_changed(position);
@@ -413,6 +411,7 @@ function main() {
     });
 
     editor.editor_ready.then(() => {
+        editor.send_position_change_event();
         document.body.getElementsByClassName("loader")[0].remove();
     });
 

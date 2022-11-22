@@ -58,6 +58,7 @@ interface PositionData {
 
 interface OutlineData {
     uri: string;
+    version: number;
     data: PositionData[];
 }
 
@@ -149,14 +150,15 @@ function deactivate_elements_and_find_to_activate(
 }
 
 export class OutlineWidget extends Widget {
-    #callback: () => [MonacoLanguageClient | null, string | undefined];
-    #intervalId = -1;
+    #language_client_getter: () => MonacoLanguageClient | null;
+    #language_client: MonacoLanguageClient | null = null;
     #onGotoPosition: GotoPositionCallback = (_) => {
         return;
     };
 
     #outline: OutlineData | null = null;
     #cursor_position: VersionedDocumentAndPosition;
+    #timer_id?: number = undefined;
 
     static createNode(): HTMLElement {
         const node = document.createElement("div");
@@ -167,10 +169,10 @@ export class OutlineWidget extends Widget {
 
     constructor(
         cursor_position: VersionedDocumentAndPosition,
-        callback: () => [MonacoLanguageClient | null, string | undefined],
+        language_client_getter: () => MonacoLanguageClient | null,
     ) {
         super({ node: OutlineWidget.createNode() });
-        this.#callback = callback;
+        this.#language_client_getter = language_client_getter;
         this.setFlag(Widget.Flag.DisallowLayout);
         this.addClass("content");
         this.addClass("outline");
@@ -178,38 +180,61 @@ export class OutlineWidget extends Widget {
         this.title.closable = true;
         this.title.caption = `Document Outline`;
 
-        this.#intervalId = window.setInterval(() => {
-            const [client, uri] = this.#callback();
-            if (client != null && uri != null) {
-                client
-                    .sendRequest(DocumentSymbolRequest.type, {
-                        textDocument: { uri: uri },
-                    } as DocumentSymbolParams)
-                    .then((r: DocumentSymbol[] | SymbolInformation[] | null) =>
-                        this.update_data(uri, r),
-                    );
-            } else {
-                if (uri == null) {
-                    // No document is open
-                    this.clear_data();
-                } else {
-                    this.set_error("Language server not available");
-                }
-            }
-        }, 5000);
-
-        this.#cursor_position = cursor_position;
+        this.position_changed(cursor_position);
+        this.#cursor_position = cursor_position; // Actually also happens in position_changed...
     }
 
     set on_goto_position(callback: GotoPositionCallback) {
         this.#onGotoPosition = callback;
     }
 
+    get language_client(): MonacoLanguageClient | null {
+        if (this.#language_client == null) {
+            const client = this.#language_client_getter();
+            if (client != null) {
+                this.#language_client = client;
+            }
+        }
+        return this.#language_client;
+    }
+
+    query_properties(uri: string, version: number) {
+        const client = this.language_client;
+        if (client == null) {
+            return;
+        }
+
+        client
+            .sendRequest(DocumentSymbolRequest.type, {
+                textDocument: { uri: uri },
+            } as DocumentSymbolParams)
+            .then((r: DocumentSymbol[] | SymbolInformation[] | null) =>
+                this.update_data(uri, version, r),
+            );
+    }
+
     position_changed(position: VersionedDocumentAndPosition) {
-        if (this.#outline) {
-            if (position.uri != this.#outline.uri) {
+        const client = this.language_client;
+        if (this.#timer_id != null) {
+            clearTimeout(this.#timer_id);
+            this.#timer_id = undefined;
+        }
+
+        if (client != null) {
+            if (
+                this.#outline == null ||
+                position.uri != this.#outline.uri ||
+                position.version != this.#outline.version
+            ) {
                 // Document has changed, and we have no new data yet!
-                this.clear_data();
+                if (position.uri == "") {
+                    this.clear_data();
+                    this.set_error("No document");
+                } else {
+                    const version = position.version;
+                    const uri = position.uri;
+                    this.query_properties(uri, version);
+                }
             } else {
                 deactivate_elements_and_find_to_activate(
                     this.#outline.data,
@@ -217,6 +242,7 @@ export class OutlineWidget extends Widget {
                 )?.classList.add(ACTIVE_ELEMENT_CLASS);
             }
         }
+
         this.#cursor_position = position;
     }
 
@@ -226,12 +252,28 @@ export class OutlineWidget extends Widget {
 
     protected update_data(
         uri: string,
+        version: number,
         data: DocumentSymbol[] | SymbolInformation[] | null,
     ) {
+        this.clear_data();
+
         if (data == null) {
-            this.set_error("No data received");
+            this.set_error("No data available yet");
+            this.#timer_id = setTimeout(
+                () => this.query_properties(uri, version),
+                1000,
+            );
             return;
         }
+        if (
+            this.#outline != null &&
+            this.#outline.uri == uri &&
+            this.#outline.version >= version
+        ) {
+            // Data is outdated, ignore!
+            return;
+        }
+
         if (data.length > 0 && "location" in data[0]) {
             // location is a required key in SymbolInformation that does not exist in DocumentSymbol
             this.set_error("Invalid data format received");
@@ -247,16 +289,7 @@ export class OutlineWidget extends Widget {
             this.#onGotoPosition,
         );
 
-        if (
-            uri == this.#outline?.uri &&
-            JSON.stringify(pos_data) == JSON.stringify(this.#outline?.data)
-        ) {
-            return;
-        }
-
-        this.clear_data();
-
-        this.#outline = { uri: uri, data: pos_data };
+        this.#outline = { uri: uri, version: version, data: pos_data };
         this.position_changed(this.#cursor_position); // re-highlight the expected element:-)
 
         this.contentNode.appendChild(content);
@@ -274,10 +307,6 @@ export class OutlineWidget extends Widget {
     }
 
     protected onCloseRequest(msg: Message): void {
-        if (this.#intervalId !== -1) {
-            clearInterval(this.#intervalId);
-            this.#intervalId = -1;
-        }
         super.onCloseRequest(msg);
         this.dispose();
     }
