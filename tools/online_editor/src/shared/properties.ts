@@ -39,6 +39,12 @@ export interface PropertyQuery {
     properties: Property[];
 }
 
+export type PropertyClickedCallback = (
+    _uri: LspURI,
+    _v: number,
+    _p: Property,
+) => void;
+
 const TYPE_PATTERN = /^[a-z-]+$/i;
 
 let FOCUSING = false;
@@ -63,6 +69,10 @@ function type_class_for_typename(name: string): string {
 }
 
 export class PropertiesView {
+    #current_data_uri = "";
+    #current_data_version = -10000;
+    #current_element_range: LspRange | null = null;
+
     static createNode(): HTMLElement {
         const node = document.createElement("div");
         const content = document.createElement("div");
@@ -93,8 +103,8 @@ export class PropertiesView {
 
     node: HTMLElement;
     /// Callback called when the property is clicked
-    property_clicked: (_uri: LspURI, _p: Property) => void = (_) => {
-        /**/
+    property_clicked: PropertyClickedCallback = (_) => {
+        return;
     };
     /// Callback called when the property is modified. The old value is given so it can be checked
     change_property: (
@@ -136,7 +146,12 @@ export class PropertiesView {
         }
     }
 
-    private populate_table(properties: Property[], uri: LspURI) {
+    private populate_table(
+        _element_range: LspRange | null | undefined,
+        properties: Property[],
+        uri: LspURI,
+        version: number,
+    ) {
         const table = this.tableNode;
 
         let current_group = "";
@@ -166,7 +181,7 @@ export class PropertiesView {
             }
 
             const goto_property = () => {
-                this.property_clicked(uri, p);
+                this.property_clicked(uri, version, p);
             };
 
             const name_field = document.createElement("td");
@@ -219,7 +234,26 @@ export class PropertiesView {
     }
 
     set_properties(properties: PropertyQuery) {
+        if (
+            JSON.stringify(properties.element?.range) ==
+                JSON.stringify(this.#current_element_range) &&
+            properties.source_uri == this.#current_data_uri &&
+            properties.source_version == this.#current_data_version
+        ) {
+            return;
+        }
+
         this.set_header(properties.element);
-        this.populate_table(properties.properties, properties.source_uri);
+        this.populate_table(
+            properties.element?.range,
+            properties.properties,
+            properties.source_uri,
+            properties.source_version,
+        );
+
+        // Update info about current data:
+        this.#current_element_range = properties.element?.range ?? null;
+        this.#current_data_uri = properties.source_uri;
+        this.#current_data_version = properties.source_version;
     }
 }

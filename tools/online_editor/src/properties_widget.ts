@@ -40,7 +40,7 @@ export class PropertiesWidget extends Widget {
         this.#language_client_getter = language_client_getter;
         this.#propertiesView = new PropertiesView(node);
 
-        this.#propertiesView.property_clicked = (uri, p) => {
+        this.#propertiesView.property_clicked = (uri, _v, p) => {
             if (p.defined_at != null) {
                 this.#onGotoPosition(uri, p.defined_at.expression_range);
             }
