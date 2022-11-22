@@ -30,7 +30,7 @@ export LineEditInner := Rectangle {
         width: max(parent.width, preferred-width);
         height: 100%;
         color: enabled ? StyleMetrics.textedit-text-color : StyleMetrics.textedit-text-color-disabled;
-       cursor-position-changed(cpos) => {
+        cursor-position-changed(cpos) => {
             if (cpos.x + computed_x < StyleMetrics.layout-padding) {
                 computed_x = - cpos.x + StyleMetrics.layout-padding;
             } else if (cpos.x + computed_x > parent.width - StyleMetrics.layout-padding) {
