@@ -23,6 +23,56 @@ function find_model(
     return model ?? null;
 }
 
+export function editor_position_to_lsp_position(
+    model_: string | monaco.editor.ITextModel | null | undefined,
+    pos: TextPosition | null | undefined,
+): LspPosition | null {
+    const model = find_model(model_);
+    if (model == null || pos == null) {
+        return null;
+    }
+
+    // LSP line numbers are zero based (https://microsoft.github.io/language-server-protocol/specifications/lsp/3.17/specification/#textDocuments)
+    // and Monaco's line numbers start at 1 (https://microsoft.github.io/monaco-editor/api/classes/monaco.Position.html#lineNumber)
+    const lspLine = pos.lineNumber - 1;
+    // Convert lsp utf-8 character index to JavaScript utf-16 string index
+    const line = model.getLineContent(pos.lineNumber);
+    const line_utf8 = new TextEncoder().encode(line.slice(0, pos.column));
+    const lspCharacter = line_utf8.length;
+
+    return {
+        line: lspLine,
+        character: lspCharacter,
+    };
+}
+
+export function editor_range_to_lsp_range(
+    model: string | monaco.editor.ITextModel | null | undefined,
+    range: TextRange | null | undefined,
+): LspRange | null {
+    if (range == null) {
+        return null;
+    }
+
+    const start = editor_position_to_lsp_position(model, {
+        lineNumber: range.startLineNumber,
+        column: range.startColumn,
+    });
+    const end = editor_position_to_lsp_position(model, {
+        lineNumber: range.endLineNumber,
+        column: range.endColumn,
+    });
+
+    if (start == null || end == null) {
+        return null;
+    }
+
+    return {
+        start: start,
+        end: end,
+    };
+}
+
 export function lsp_position_to_editor_position(
     model_: string | monaco.editor.ITextModel | null | undefined,
     pos: LspPosition | null | undefined,
@@ -49,16 +99,11 @@ export function lsp_position_to_editor_position(
 }
 
 export function lsp_range_to_editor_range(
-    model_: string | monaco.editor.ITextModel | null | undefined,
+    model: string | monaco.editor.ITextModel | null | undefined,
     range: LspRange | null | undefined,
 ): TextRange | null {
-    const model = find_model(model_);
-    if (model == null || range == null) {
-        return null;
-    }
-
-    const startPos = lsp_position_to_editor_position(model, range.start);
-    const endPos = lsp_position_to_editor_position(model, range.end);
+    const startPos = lsp_position_to_editor_position(model, range?.start);
+    const endPos = lsp_position_to_editor_position(model, range?.end);
 
     if (startPos == null || endPos == null) {
         return null;
