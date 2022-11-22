@@ -17,10 +17,7 @@ function editor_definition_range(
     uri: string,
     def_pos: DefinitionPosition | null,
 ): TextRange | null {
-    if (def_pos == null) {
-        return null;
-    }
-    return lsp_range_to_editor_range(uri, def_pos.expression_range);
+    return lsp_range_to_editor_range(uri, def_pos?.expression_range);
 }
 
 export class PropertiesWidget extends Widget {

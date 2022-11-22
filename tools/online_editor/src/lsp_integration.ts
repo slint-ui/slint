@@ -1,27 +1,34 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
+export {
+    Position as LspPosition,
+    Range as LspRange,
+} from "vscode-languageserver-types";
 import {
     Position as LspPosition,
     Range as LspRange,
 } from "vscode-languageserver-types";
+
+import { TextRange, TextPosition } from "./text";
+
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 
 function find_model(
-    model: string | monaco.editor.ITextModel,
+    model: string | monaco.editor.ITextModel | null | undefined,
 ): monaco.editor.ITextModel | null {
     if (typeof model === "string") {
         return monaco.editor.getModel(monaco.Uri.parse(model));
     }
-    return model;
+    return model ?? null;
 }
 
 export function lsp_position_to_editor_position(
-    model_: string | monaco.editor.ITextModel,
-    pos: LspPosition,
-): monaco.IPosition | null {
+    model_: string | monaco.editor.ITextModel | null | undefined,
+    pos: LspPosition | null | undefined,
+): TextPosition | null {
     const model = find_model(model_);
-    if (model == null) {
+    if (model == null || pos == null) {
         return null;
     }
 
@@ -42,11 +49,11 @@ export function lsp_position_to_editor_position(
 }
 
 export function lsp_range_to_editor_range(
-    model_: string | monaco.editor.ITextModel,
-    range: LspRange,
-): monaco.IRange | null {
+    model_: string | monaco.editor.ITextModel | null | undefined,
+    range: LspRange | null | undefined,
+): TextRange | null {
     const model = find_model(model_);
-    if (model == null) {
+    if (model == null || range == null) {
         return null;
     }
 
