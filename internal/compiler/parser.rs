@@ -386,13 +386,13 @@ declare_syntax! {
         /// `states: [...]`
         States -> [*State],
         /// The DeclaredIdentifier is the state name. The Expression, if any, is the condition.
-        State -> [DeclaredIdentifier, ?Expression, *StatePropertyChange],
+        State -> [DeclaredIdentifier, ?Expression, *StatePropertyChange, *Transition],
         /// binding within a state
         StatePropertyChange -> [ QualifiedName, BindingExpression ],
         /// `transitions: [...]`
         Transitions -> [*Transition],
         /// There is an identifier "in" or "out", the DeclaredIdentifier is the state name
-        Transition -> [DeclaredIdentifier, *PropertyAnimation],
+        Transition -> [?DeclaredIdentifier, *PropertyAnimation],
         /// Export a set of declared components by name
         ExportsList -> [ *ExportSpecifier, ?Component, *StructDeclaration ],
         /// Declare the first identifier to be exported, either under its name or instead

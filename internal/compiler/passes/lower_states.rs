@@ -5,6 +5,7 @@
 
 use crate::diagnostics::BuildDiagnostics;
 use crate::diagnostics::SourceLocation;
+use crate::diagnostics::Spanned;
 use crate::expression_tree::*;
 use crate::langtype::ElementType;
 use crate::langtype::Type;
@@ -136,7 +137,12 @@ fn lower_transitions_in_element(
         let state = states_id.get(&transition.state_id).unwrap_or_else(|| {
             diag.push_error(
                 format!("State '{}' does not exist", transition.state_id),
-                &transition.node,
+                transition
+                    .node
+                    .DeclaredIdentifier()
+                    .as_ref()
+                    .map(|x| x as &dyn Spanned)
+                    .unwrap_or(&transition.node as &dyn Spanned),
             );
             &0
         });

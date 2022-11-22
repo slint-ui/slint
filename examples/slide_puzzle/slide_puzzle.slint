@@ -91,19 +91,16 @@ Checkbox := Rectangle {
             clip.width: root.width;
             checkbox-rect.border-color: checked-color;
             checkbox-rect.border-width: root.width;
+            in {
+                animate clip.width { duration: 200ms; easing: ease-in; }
+                animate checkbox-rect.border-width { duration: 100ms; easing: ease-out; }
+            }
+            out {
+                animate clip.width { duration: 100ms; easing: ease; }
+                animate checkbox-rect.border-width { duration: 200ms; easing: ease-in-out; }
+                animate checkbox-rect.border-color { duration: 200ms; easing: cubic-bezier(1,1,1,0); }
+            }
         }
-    ]
-    transitions [
-        in checked : {
-            animate clip.width { duration: 200ms; easing: ease-in; }
-            animate checkbox-rect.border-width { duration: 100ms; easing: ease-out; }
-        }
-        out checked : {
-            animate clip.width { duration: 100ms; easing: ease; }
-            animate checkbox-rect.border-width { duration: 200ms; easing: ease-in-out; }
-            animate checkbox-rect.border-color { duration: 200ms; easing: cubic-bezier(1,1,1,0); }
-        }
-
     ]
 }
 
