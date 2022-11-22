@@ -48,7 +48,7 @@ instant = "0.1"
 
 # For the FemtoVG renderer
 femtovg = { version = "0.3.7", optional = true, default-features = false, features = ["image-loading"] }
-fontdb = { version = "0.9.3", optional = true, default-features = false }
+fontdb = { version = "0.10.0", optional = true, default-features = false }
 ttf-parser = { version = "0.17.0", optional = true } # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
 unicode-script = { version = "0.5.4", optional = true } # Use the same version was femtovg's rustybuzz, to avoid duplicate crates
 imgref = { version = "1.6.1", optional = true }
@@ -65,7 +65,7 @@ wasm-bindgen = { version = "0.2" }
 send_wrapper = "0.6.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-fontdb = { version = "0.9.3", optional = true, features = ["memmap", "fontconfig"] }
+fontdb = { version = "0.10", optional = true, features = ["memmap", "fontconfig"] }
 glutin = { version = "0.29", default-features = false }
 
 # For the FemtoVG renderer
