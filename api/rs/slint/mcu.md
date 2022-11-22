@@ -326,7 +326,7 @@ use embedded_graphics_core::{prelude::*, primitives::Rectangle, pixelcolor::raw:
 struct DisplayWrapper<'a, T>{
     display: &'a mut T,
     line_buffer: &'a mut [slint::platform::software_renderer::Rgb565Pixel],
-};
+}
 impl<T: DrawTarget<Color = embedded_graphics_core::pixelcolor::Rgb565>>
     slint::platform::software_renderer::LineBufferProvider for DisplayWrapper<'_, T>
 {
