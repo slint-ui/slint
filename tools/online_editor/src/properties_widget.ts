@@ -3,22 +3,15 @@
 
 // cSpell: ignore lumino
 
-import { GotoPositionCallback, ReplaceTextFunction, TextRange } from "./text";
-import { lsp_range_to_editor_range } from "./lsp_integration";
+import { GotoPositionCallback, ReplaceTextFunction } from "./text";
+import { LspRange } from "./lsp_integration";
 
 import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
 
-import { PropertyQuery, DefinitionPosition } from "./shared/properties";
+import { PropertyQuery } from "./shared/properties";
 
 import { PropertiesView } from "./shared/properties";
-
-function editor_definition_range(
-    uri: string,
-    def_pos: DefinitionPosition | null,
-): TextRange | null {
-    return lsp_range_to_editor_range(uri, def_pos?.expression_range);
-}
 
 export class PropertiesWidget extends Widget {
     #onGotoPosition: GotoPositionCallback = (_u, _p) => {
@@ -43,9 +36,8 @@ export class PropertiesWidget extends Widget {
         this.#propertiesView = new PropertiesView(node);
 
         this.#propertiesView.property_clicked = (uri, p) => {
-            const expression_range = editor_definition_range(uri, p.defined_at);
-            if (expression_range != null) {
-                this.#onGotoPosition(uri, expression_range);
+            if (p.defined_at != null) {
+                this.#onGotoPosition(uri, p.defined_at.expression_range);
             }
         };
         this.#propertiesView.change_property = (
@@ -54,11 +46,10 @@ export class PropertiesWidget extends Widget {
             current_text,
             code_text,
         ) => {
-            const expression_range = editor_definition_range(uri, p.defined_at);
-            if (expression_range != null) {
+            if (p.defined_at != null) {
                 this.replace_property_value(
                     uri,
-                    expression_range,
+                    p.defined_at.expression_range,
                     current_text,
                     (old_text) => old_text == code_text,
                 );
@@ -68,7 +59,7 @@ export class PropertiesWidget extends Widget {
 
     private replace_property_value(
         uri: string,
-        range: TextRange,
+        range: LspRange,
         new_value: string,
         validator: (_old: string) => boolean,
     ): boolean {

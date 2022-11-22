@@ -4,14 +4,15 @@
 // cSpell: ignore lumino inmemory mimetypes printerdemo
 
 import { slint_language } from "./highlighting";
+import {
+    editor_position_to_lsp_position,
+    lsp_range_to_editor_range,
+    LspPosition,
+    LspRange,
+} from "./lsp_integration";
 import { PropertyQuery } from "./shared/properties";
 import { FilterProxyReader } from "./proxy";
-import {
-    TextPosition,
-    TextRange,
-    PositionChangeCallback,
-    DocumentAndTextPosition,
-} from "./text";
+import { PositionChangeCallback, DocumentAndPosition } from "./text";
 
 import { BoxLayout, TabBar, Title, Widget } from "@lumino/widgets";
 import { Message as LuminoMessage } from "@lumino/messaging";
@@ -118,7 +119,7 @@ class EditorPaneWidget extends Widget {
     #current_properties = "";
 
     onPositionChangeCallback: PositionChangeCallback = (
-        _pos: DocumentAndTextPosition,
+        _pos: DocumentAndPosition,
     ) => {
         return;
     };
@@ -201,26 +202,34 @@ class EditorPaneWidget extends Widget {
         return this.#editor?.getModel()?.uri.toString();
     }
 
-    goto_position(uri: string, position: TextPosition | TextRange) {
+    goto_position(uri: string, position: LspPosition | LspRange) {
         const uri_ = monaco.Uri.parse(uri);
-        let selection: monaco.Range;
-        if (monaco.Range.isIRange(position)) {
-            selection = monaco.Range.lift(position as TextRange);
-        } else {
-            selection = new monaco.Range(
-                position.lineNumber,
-                position.column,
-                position.lineNumber,
-                position.column,
-            );
-        }
-
         if (!this.set_model(uri_)) {
             return;
         }
 
-        this.#editor?.setSelection(selection);
-        this.#editor?.revealLine(selection.startLineNumber);
+        const model = this.#editor?.getModel();
+
+        let start: LspPosition;
+        let end: LspPosition;
+
+        if ("start" in position) {
+            start = position.start;
+            end = position.end;
+        } else {
+            start = position;
+            end = position;
+        }
+
+        const selection = lsp_range_to_editor_range(model, {
+            start: start,
+            end: end,
+        });
+
+        if (selection != null) {
+            this.#editor?.setSelection(selection);
+            this.#editor?.revealLine(selection.startLineNumber);
+        }
     }
 
     compile() {
@@ -255,11 +264,15 @@ class EditorPaneWidget extends Widget {
         }
     }
 
-    get position(): DocumentAndTextPosition {
-        const uri = this.#editor?.getModel()?.uri.toString() ?? "";
-        const position = this.#editor?.getPosition() ?? {
-            lineNumber: 1,
-            column: 1,
+    get position(): DocumentAndPosition {
+        const model = this.#editor?.getModel();
+        const uri = model?.uri.toString() ?? "";
+        const position = editor_position_to_lsp_position(
+            model,
+            this.#editor?.getPosition(),
+        ) ?? {
+            line: 0,
+            character: 0,
         };
 
         return { uri: uri, position: position };
@@ -414,7 +427,10 @@ class EditorPaneWidget extends Widget {
                     if (model != null) {
                         this.onPositionChangeCallback({
                             uri: model.uri.toString(),
-                            position: pos.position,
+                            position: editor_position_to_lsp_position(
+                                model,
+                                pos.position,
+                            ) ?? { line: 0, character: 0 },
                         });
 
                         // TODO: Move this into an onPositionChangeCallback?
@@ -581,21 +597,26 @@ class EditorPaneWidget extends Widget {
 
     replace_text(
         uri: string,
-        range: TextRange,
+        range: LspRange,
         new_text: string,
         validate: (_old: string) => boolean,
     ): boolean {
         const model = monaco.editor.getModel(monaco.Uri.parse(uri));
 
         if (model !== null) {
-            const old_text = model.getValueInRange(range);
+            const editor_range = lsp_range_to_editor_range(model, range);
+            if (editor_range == null) {
+                return false;
+            }
+
+            const old_text = model.getValueInRange(editor_range);
             if (validate(old_text)) {
                 model.pushEditOperations(
                     [],
                     [
                         {
                             forceMoveMarkers: true,
-                            range: range,
+                            range: editor_range,
                             text: new_text,
                         },
                     ],
@@ -756,7 +777,7 @@ export class EditorWidget extends Widget {
         ];
     }
 
-    goto_position(uri: string, position: TextPosition | TextRange) {
+    goto_position(uri: string, position: LspPosition | LspRange) {
         this.#editor?.goto_position(uri, position);
     }
 
@@ -803,14 +824,14 @@ export class EditorWidget extends Widget {
 
     replace_text(
         uri: string,
-        range: TextRange,
+        range: LspRange,
         new_text: string,
         validator: (_old: string) => boolean,
     ): boolean {
         return this.#editor.replace_text(uri, range, new_text, validator);
     }
 
-    get position(): DocumentAndTextPosition {
+    get position(): DocumentAndPosition {
         return this.#editor.position;
     }
 }
