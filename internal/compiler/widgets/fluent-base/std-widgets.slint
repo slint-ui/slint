@@ -10,10 +10,10 @@ export { StyleMetrics, ScrollView, Button, StandardButton, TextEdit, AboutSlint,
 
 export CheckBox := Rectangle {
     callback toggled;
-    property <string> text <=> text.text;
-    property <bool> checked;
-    property <bool> has-focus: fs.has-focus;
-    property<bool> enabled: true;
+    in property <string> text <=> text.text;
+    in-out property <bool> checked;
+    out property <bool> has-focus: fs.has-focus;
+    in property<bool> enabled: true;
     min-height: 20px;
     horizontal-stretch: 0;
     vertical-stretch: 0;
@@ -119,12 +119,14 @@ SpinBoxButton := Rectangle {
 }
 
 export SpinBox := FocusScope {
+    // FIXME: remove?
     property <bool> checked;
-    property <int> value;
-    property <int> minimum;
-    property <int> maximum: 100;
-    property <image> icon;
-    property <length> font-size <=> button.font-size;
+    in-out property <int> value;
+    in property <int> minimum;
+    in property <int> maximum: 100;
+    in property <image> icon;
+    // FIXME: remove?
+    in property <length> font-size <=> button.font-size;
 
     min-height: max(32px, l.min-height);
     horizontal-stretch: 1;
@@ -215,11 +217,11 @@ export SpinBox := FocusScope {
 }
 
 export Slider := Rectangle {
-    property<float> maximum: 100;
-    property<float> minimum: 0;
-    property<float> value;
-    property<bool> has-focus: fs.has-focus;
-    property<bool> enabled <=> touch.enabled;
+    in property<float> maximum: 100;
+    in property<float> minimum: 0;
+    in-out property<float> value;
+    out property<bool> has-focus: fs.has-focus;
+    in property<bool> enabled <=> touch.enabled;
     callback changed(float);
 
     min-height: 24px;
@@ -312,8 +314,8 @@ export Slider := Rectangle {
 
 
 export GroupBox := VerticalLayout {
-    property <string> title <=> label.text;
-    property<bool> enabled: true;
+    in property <string> title <=> label.text;
+    in property<bool> enabled: true;
     spacing: 8px;
     padding-top: 16px;
     padding-bottom: 8px;
@@ -455,14 +457,14 @@ export TabBarImpl := Rectangle {
 export TabWidget := TabWidget {}
 
 export LineEdit := Rectangle {
-    property <length> font-size <=> inner.font-size;
-    property <string> text <=> inner.text;
-    property <string> placeholder-text <=> inner.placeholder-text;
-    property <bool> has-focus: inner.has-focus;
-    property <bool> enabled <=> inner.enabled;
-    property input-type <=> inner.input-type;
-    property horizontal-alignment <=> inner.horizontal-alignment;
-    property read-only <=> inner.read-only;
+    in property <length> font-size <=> inner.font-size;
+    in-out property <string> text <=> inner.text;
+    in property <string> placeholder-text <=> inner.placeholder-text;
+    out property <bool> has-focus: inner.has-focus;
+    in property <bool> enabled <=> inner.enabled;
+    in property input-type <=> inner.input-type;
+    in property horizontal-alignment <=> inner.horizontal-alignment;
+    in property read-only <=> inner.read-only;
     callback accepted <=> inner.accepted;
     callback edited <=> inner.edited;
     forward-focus: inner;
@@ -529,9 +531,9 @@ export StandardListView := ListView {
 }
 
 export ComboBox := FocusScope {
-    property <[string]> model;
-    property <int> current-index : 0;
-    property <string> current-value: model[current-index];
+    in property <[string]> model;
+    in-out property <int> current-index : 0;
+    in-out property <string> current-value: model[current-index];
     //property <bool> is-open: false;
     callback selected(string);
 

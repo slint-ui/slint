@@ -82,14 +82,15 @@ export global StyleMetrics := {
 
 export Button := Rectangle {
     callback clicked;
-    property<string> text <=> text.text;
-    property<bool> has-focus: fs.has-focus;
-    property<bool> pressed: self.enabled && touch.pressed;
-    property<bool> enabled <=> touch.enabled;
-    property<bool> checkable;
-    property<bool> checked;
-    property<image> icon;
-    property<length> font-size <=> text.font-size;
+    in property<string> text <=> text.text;
+    out property<bool> has-focus: fs.has-focus;
+    out property<bool> pressed: self.enabled && touch.pressed;
+    in property<bool> enabled <=> touch.enabled;
+    in property<bool> checkable;
+    in-out property<bool> checked;
+    in property<image> icon;
+    // FIXME: remove
+    in property<length> font-size <=> text.font-size;
 
     accessible-role: button;
     accessible-label <=> text.text;
@@ -196,13 +197,14 @@ ScrollBar := Rectangle {
 }
 
 export ScrollView := Rectangle {
-    property <length> viewport-width <=> fli.viewport-width;
-    property <length> viewport-height <=> fli.viewport-height;
-    property <length> viewport-x <=> fli.viewport-x;
-    property <length> viewport-y <=> fli.viewport-y;
-    property <length> visible-width <=> fli.width;
-    property <length> visible-height <=> fli.height;
-    property <bool> enabled: true;
+    in-out property <length> viewport-width <=> fli.viewport-width;
+    in-out property <length> viewport-height <=> fli.viewport-height;
+    in-out property <length> viewport-x <=> fli.viewport-x;
+    in-out property <length> viewport-y <=> fli.viewport-y;
+    out property <length> visible-width <=> fli.width;
+    out property <length> visible-height <=> fli.height;
+    in property <bool> enabled: true;
+    // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
     property <bool> has-focus;
     min-height: 50px;
     min-width: 50px;

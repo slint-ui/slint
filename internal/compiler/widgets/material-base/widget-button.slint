@@ -8,21 +8,21 @@ import { md } from "md.slint";
 export Button := Rectangle {
     callback clicked;
 
-    property<string> text <=> label.text;
-    property<bool> has-focus: fs.has-focus;
-    property<bool> pressed: self.enabled && touch.pressed;
-    property<bool> enabled <=> touch.enabled;
-    property<bool> checkable;
-    property<bool> checked;
-    property<image> icon;
-    property<length> font-size <=> label.font-size;
+    in-out property<string> text <=> label.text;
+    out property<bool> has-focus: fs.has-focus;
+    out property<bool> pressed: self.enabled && touch.pressed;
+    in property<bool> enabled <=> touch.enabled;
+    in property<bool> checkable;
+    in-out property<bool> checked;
+    in property<image> icon;
+    in property<length> font-size <=> label.font-size;
 
     accessible-label <=> label.text;
     accessible-role: button;
 
     height: 40px;
-   
-    container := Rectangle {  
+
+    container := Rectangle {
         width: 100%;
         height: 100%;
         border-radius: 20px;
@@ -32,7 +32,7 @@ export Button := Rectangle {
         drop-shadow-offset-y: 1px;
     }
 
-    state-layer := Rectangle {  
+    state-layer := Rectangle {
         opacity: 0;
         width: 100%;
         height: 100%;
@@ -41,7 +41,7 @@ export Button := Rectangle {
         animate opacity { duration: 250ms; easing: ease; }
      }
 
-    HorizontalLayout {  
+    HorizontalLayout {
         padding-left: 24px;
         padding-right: 24px;
         spacing: 8px;
@@ -93,7 +93,7 @@ export Button := Rectangle {
             state-layer.opacity: 0.12;
         }
         hover when touch.has-hover : {
-            state-layer.opacity: 0.08;    
+            state-layer.opacity: 0.08;
             container.drop-shadow-blur: md.sys.elevation.level1;
             container.drop-shadow-color: md.sys.color.shadow;
         }

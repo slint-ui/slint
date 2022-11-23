@@ -4,7 +4,7 @@
 import { StyleMetrics, Button } from "std-widgets-impl.slint";
 
 export StandardButton := Button {
-    property <StandardButtonKind> kind;
+    in property <StandardButtonKind> kind;
     text:
         kind == StandardButtonKind.ok ? "OK" :
         kind == StandardButtonKind.cancel ? "Cancel" :

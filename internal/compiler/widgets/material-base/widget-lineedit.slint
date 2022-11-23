@@ -6,17 +6,17 @@ import { md } from "md.slint";
 
 // Single line text input field with Material Design Outline TextField look and feel.
 export LineEdit := Rectangle {
-    property <length> font-size <=> input.font-size;
-    property <string> text <=> input.text;
-    property <string> placeholder-text <=> placeholder.text;
-    property <bool> has-focus: input.has-focus;
-    property <bool> enabled <=> input.enabled;
-    property input-type <=> input.input-type;
-    property horizontal-alignment <=> input.horizontal-alignment;
-    property read-only <=> input.read-only;
+    in property <length> font-size <=> input.font-size;
+    in-out property <string> text <=> input.text;
+    in property <string> placeholder-text <=> placeholder.text;
+    out property <bool> has-focus: input.has-focus;
+    in property <bool> enabled <=> input.enabled;
+    in property input-type <=> input.input-type;
+    in property horizontal-alignment <=> input.horizontal-alignment;
+    in property read-only <=> input.read-only;
     callback accepted(string);
     callback edited(string);
-   
+
     min-width: 120px;
     height: 56px;
     forward-focus: input;
@@ -29,11 +29,11 @@ export LineEdit := Rectangle {
         border-color: md.sys.color.outline;
     }
 
-    layout := HorizontalLayout {  
+    layout := HorizontalLayout {
         padding-left: 16px;
         padding-right: 16px;
 
-        Rectangle {  
+        Rectangle {
             clip: true;
 
             placeholder := Text {
@@ -55,7 +55,7 @@ export LineEdit := Rectangle {
             input := TextInput {
                 property <length> computed_x;
                 property <length> padding-outer: layout.padding-left + layout.padding-right;
-    
+
                 x: min(0px, max(parent.width - width, computed_x));
                 width: max(parent.width, preferred-width);
                 height: 100%;
@@ -63,7 +63,7 @@ export LineEdit := Rectangle {
                 vertical-alignment: center;
                 font-size: md.sys.typescale.body-large.size;
                 font-weight: md.sys.typescale.body-large.weight;
-    
+
                 accepted => { root.accepted(self.text); }
                 edited => { root.edited(self.text); }
                 cursor-position-changed(cpos) => {
@@ -74,7 +74,7 @@ export LineEdit := Rectangle {
                     }
                 }
             }
-        }    
+        }
     }
 
     states [

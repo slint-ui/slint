@@ -4,12 +4,12 @@
 export { NativeStyleMetrics as StyleMetrics }
 
 export ScrollView := NativeScrollView {
-    property <length> viewport-width <=> fli.viewport-width;
-    property <length> viewport-height <=> fli.viewport-height;
-    property <length> viewport-x <=> fli.viewport-x;
-    property <length> viewport-y <=> fli.viewport-y;
-    property <length> visible-width <=> fli.width;
-    property <length> visible-height <=> fli.height;
+    in-out property <length> viewport-width <=> fli.viewport-width;
+    in-out property <length> viewport-height <=> fli.viewport-height;
+    in-out property <length> viewport-x <=> fli.viewport-x;
+    in-out property <length> viewport-y <=> fli.viewport-y;
+    out property <length> visible-width <=> fli.width;
+    out property <length> visible-height <=> fli.height;
 
     vertical-max: fli.viewport-height > fli.height ? fli.viewport-height - fli.height : 0phx;
     vertical-page-size: fli.height;

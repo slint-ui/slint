@@ -27,7 +27,7 @@ ScrollBar := Rectangle {
         y: horizontal ? 0phx : (root.height - handle.height) * (-value / maximum);
         width: !horizontal ? parent.width : maximum <= 0phx ? 0phx : parent.width * (page-size / (maximum + page-size));
         height: horizontal ? parent.height : maximum <= 0phx ? 0phx : parent.height * (page-size / (maximum + page-size));
-     
+
         container := Rectangle {
             width: 100%;
             height: 100%;
@@ -42,7 +42,7 @@ ScrollBar := Rectangle {
 
         width: parent.width;
         height: parent.height;
-      
+
         pointer-event(event) => {
             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
                 pressed-value = -root.value;
@@ -64,25 +64,25 @@ ScrollBar := Rectangle {
             handle.opacity: 0.12;
         }
         hover when touch.has-hover : {
-            state-layer.opacity: 0.08;    
+            state-layer.opacity: 0.08;
         }
         pressed when touch.has-hover : {
-            state-layer.opacity: 0.12;    
+            state-layer.opacity: 0.12;
         }
     ]
 }
 
 // Scrollview contains a viewport that is bigger than the view and can be scrolled.
 export ScrollView := Rectangle {
-    property <length> viewport-width <=> fli.viewport-width;
-    property <length> viewport-height <=> fli.viewport-height;
-    property <length> viewport-x <=> fli.viewport-x;
-    property <length> viewport-y <=> fli.viewport-y;
-    property <length> visible-width <=> fli.width;
-    property <length> visible-height <=> fli.height;
-    property <bool> enabled: true;
+    in-out property <length> viewport-width <=> fli.viewport-width;
+    in-out property <length> viewport-height <=> fli.viewport-height;
+    in-out property <length> viewport-x <=> fli.viewport-x;
+    in-out property <length> viewport-y <=> fli.viewport-y;
+    out property <length> visible-width <=> fli.width;
+    out property <length> visible-height <=> fli.height;
+    in property <bool> enabled: true;
     property <bool> has-focus;
- 
+
     background: md.sys.color.surface;
     min-height: 50px;
     min-width: 50px;
