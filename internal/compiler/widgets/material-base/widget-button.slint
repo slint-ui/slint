@@ -9,9 +9,9 @@ export Button := Rectangle {
     callback clicked;
 
     in-out property<string> text <=> label.text;
-    out property<bool> has-focus: fs.has-focus;
-    out property<bool> pressed: self.enabled && touch.pressed;
-    in property<bool> enabled <=> touch.enabled;
+    out property<bool> has-focus:  state-layer.has-focus;
+    out property<bool> pressed: self.enabled &&  state-layer.pressed;
+    in property<bool> enabled <=> state-layer.enabled;
     in property<bool> checkable;
     in-out property<bool> checked;
     in property<image> icon;

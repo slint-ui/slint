@@ -54,6 +54,9 @@ export StateLayer := TouchArea {
         background: root.background;
         ripple-color: root.ripple-color;
         has-effect: root.has-ripple;
+
+        animate opacity { duration: 250ms; easing: ease; }
+        animate background { duration: 250ms; }
     }
     
     fs := FocusScope {
@@ -82,34 +85,6 @@ export StateLayer := TouchArea {
         }
         focused when root.has-focus: {
             ripple.opacity: 0.12;
-        }
-    ]
-
-    transitions [  
-        in checked: {
-            animate ripple.opacity { duration: 250ms; easing: ease; }
-            animate ripple.background { duration: 250ms; }
-        }
-        out checked: {
-            animate ripple.opacity { duration: 250ms; easing: ease; }
-        }
-        in pressed: {
-            animate ripple.opacity { duration: 250ms; easing: ease; }
-        }
-        out pressed: {
-            animate ripple.opacity { duration: 250ms; easing: ease; }
-        }
-        in hover: {
-            animate ripple.opacity { duration: 250ms; easing: ease; }
-        }
-        out hover: {
-            animate ripple.opacity { duration: 250ms; easing: ease; }
-        }
-        in focused: {
-            animate ripple.opacity { duration: 250ms; easing: ease; }
-        }
-        out focused: {
-            animate ripple.opacity { duration: 250ms; easing: ease; }
         }
     ]
 }
