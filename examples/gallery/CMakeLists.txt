@@ -9,5 +9,8 @@ if (NOT TARGET Slint::Slint)
 endif()
 
 add_executable(gallery main.cpp)
+if (MSVC)
+    target_compile_options(gallery PRIVATE /bigobj)
+endif()
 target_link_libraries(gallery PRIVATE Slint::Slint)
 slint_target_sources(gallery gallery.slint)
