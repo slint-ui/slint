@@ -6,8 +6,11 @@
 import { GotoPositionCallback } from "./text";
 import { LspPosition, LspURI } from "./lsp_integration";
 
-import { PropertiesView } from "./shared/properties";
-import { change_property, query_properties } from "./shared/properties_client";
+import { PropertiesView } from "slint-editor-shared/properties";
+import {
+    change_property,
+    query_properties,
+} from "slint-editor-shared/properties_client";
 
 import { Message } from "@lumino/messaging";
 import { Widget } from "@lumino/widgets";
