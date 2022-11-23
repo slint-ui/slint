@@ -1,7 +1,7 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-
+import { StateLayer } from "comp-state-layer.slint";
 import { md } from "md.slint";
 
 // Default button widget with Material Design Filled Button look and feel.
@@ -9,9 +9,9 @@ export Button := Rectangle {
     callback clicked;
 
     in-out property<string> text <=> label.text;
-    out property<bool> has-focus: fs.has-focus;
-    out property<bool> pressed: self.enabled && touch.pressed;
-    in property<bool> enabled <=> touch.enabled;
+    out property<bool> has-focus:  state-layer.has-focus;
+    out property<bool> pressed: self.enabled &&  state-layer.pressed;
+    in property<bool> enabled <=> state-layer.enabled;
     in property<bool> checkable;
     in-out property<bool> checked;
     in property<image> icon;
@@ -19,6 +19,7 @@ export Button := Rectangle {
 
     accessible-label <=> label.text;
     accessible-role: button;
+    forward-focus: state-layer;
 
     height: 40px;
 
@@ -32,14 +33,21 @@ export Button := Rectangle {
         drop-shadow-offset-y: 1px;
     }
 
-    state-layer := Rectangle {
-        opacity: 0;
-        width: 100%;
-        height: 100%;
+    state-layer := StateLayer {  
+        has-ripple: true;
         border-radius: container.border-radius;
         background: md.sys.color.on-secondary-container;
-        animate opacity { duration: 250ms; easing: ease; }
-     }
+        ripple-color: md.sys.color.secondary-ripple;
+        selection-background: md.sys.color.primary; 
+        focusable: true;
+
+        clicked => {
+            if (root.checkable) {
+                root.checked = !root.checked;
+            }
+            root.clicked();
+        }
+    }
 
     HorizontalLayout {
         padding-left: 24px;
@@ -56,29 +64,9 @@ export Button := Rectangle {
             color: md.sys.color.on-secondary-container;
             vertical-alignment: center;
             horizontal-alignment: center;
-            font-size: md.sys.typescale.label-large.size;
             font-weight: md.sys.typescale.label-large.weight;
-        }
-    }
 
-    touch := TouchArea {
-        clicked => {
-            if (root.checkable) {
-                root.checked = !root.checked;
-            }
-            root.clicked();
-        }
-    }
-
-    fs := FocusScope {
-        width: 0px; // Do not react on clicks
-        enabled <=> root.enabled;
-        key-pressed(event) => {
-            if (event.text == " " || event.text == "\n") {
-                 touch.clicked();
-                 return accept;
-            }
-            return reject;
+            animate color { duration: 250ms; easing: ease; }
         }
     }
 
@@ -89,16 +77,8 @@ export Button := Rectangle {
             label.opacity: 0.38;
             label.color: md.sys.color.on-surface;
         }
-        pressed when touch.pressed : {
-            state-layer.opacity: 0.12;
-        }
-        hover when touch.has-hover : {
-            state-layer.opacity: 0.08;
-            container.drop-shadow-blur: md.sys.elevation.level1;
-            container.drop-shadow-color: md.sys.color.shadow;
-        }
-        focused when fs.has-focus : {
-            state-layer.opacity: 0.12;
+        checked when root.checked: {      
+            label.color: md.sys.color.on-primary;
         }
     ]
 }
