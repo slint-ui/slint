@@ -291,28 +291,16 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
         Ok(result)
     });
     rh.register::<ExecuteCommand, _>(|params, ctx| async move {
-        let document_cache = &mut ctx.document_cache.borrow_mut();
         if params.command.as_str() == SHOW_PREVIEW_COMMAND {
             #[cfg(feature = "preview")]
-            show_preview_command(
-                &params.arguments,
-                &ctx.server_notifier,
-                &document_cache.documents.compiler_config,
-            )?;
+            show_preview_command(&params.arguments, &ctx)?;
             return Ok(None::<serde_json::Value>);
         }
         if params.command.as_str() == QUERY_PROPERTIES_COMMAND {
-            return Ok(Some(query_properties_command(
-                &params.arguments,
-                &ctx.server_notifier,
-                document_cache,
-            )?));
+            return Ok(Some(query_properties_command(&params.arguments, &ctx)?));
         }
         if params.command.as_str() == SET_BINDING_COMMAND {
-            return Ok(Some(
-                set_binding_command(&params.arguments, &ctx.server_notifier, document_cache)
-                    .await?,
-            ));
+            return Ok(Some(set_binding_command(&params.arguments, &ctx).await?));
         }
         Ok(None::<serde_json::Value>)
     });
@@ -383,11 +371,11 @@ pub fn register_request_handlers(rh: &mut RequestHandler) {
 }
 
 #[cfg(feature = "preview")]
-pub fn show_preview_command(
-    params: &[serde_json::Value],
-    connection: &crate::ServerNotifier,
-    config: &CompilerConfiguration,
-) -> Result<(), Error> {
+pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> Result<(), Error> {
+    let document_cache = &mut ctx.document_cache.borrow_mut();
+    let config = &document_cache.documents.compiler_config;
+    let connection = &ctx.server_notifier;
+
     use crate::preview;
     let e = || -> Error { "InvalidParameter".into() };
     let path = if let serde_json::Value::String(s) = params.get(0).ok_or_else(e)? {
@@ -412,9 +400,10 @@ pub fn show_preview_command(
 
 pub fn query_properties_command(
     params: &[serde_json::Value],
-    _connection: &crate::ServerNotifier,
-    document_cache: &mut DocumentCache,
+    ctx: &Rc<Context>,
 ) -> Result<serde_json::Value, Error> {
+    let document_cache = &mut ctx.document_cache.borrow_mut();
+
     use crate::properties;
 
     let text_document_uri = serde_json::from_value::<lsp_types::TextDocumentIdentifier>(
@@ -445,27 +434,13 @@ pub fn query_properties_command(
 
 pub async fn set_binding_command(
     params: &[serde_json::Value],
-    notifier: &crate::ServerNotifier,
-    document_cache: &mut DocumentCache,
+    ctx: &Rc<Context>,
 ) -> Result<serde_json::Value, Error> {
     use crate::properties;
 
     let text_document = serde_json::from_value::<lsp_types::OptionalVersionedTextDocumentIdentifier>(
         params.get(0).ok_or_else(|| -> Error { "No text document provided".into() })?.clone(),
     )?;
-    let uri = text_document.uri;
-    if let Some(source_version) = text_document.version {
-        if let Some(current_version) = document_cache.document_version(&uri) {
-            if current_version != source_version {
-                return Err(
-                    "Document version mismatch. Please refresh your property information".into()
-                );
-            }
-        } else {
-            return Err(format!("Document with uri {} not found in cache", uri.to_string()).into());
-        }
-    }
-
     let element_range = serde_json::from_value::<lsp_types::Range>(
         params.get(1).ok_or_else(|| -> Error { "No element range provided".into() })?.clone(),
     )?;
@@ -483,64 +458,81 @@ pub async fn set_binding_command(
         }
     }?;
 
-    if let Some(element) = element_at_position(document_cache, &uri, &element_range.start) {
-        if let Some(node) = &element.borrow().node {
-            let (start, end) = {
-                let mut offset_to_position = document_cache.offset_to_position_mapper(&uri);
-                let r = node.text_range();
-                (offset_to_position.map(r.start().into()), offset_to_position.map(r.end().into()))
-            };
-
-            if start != element_range.start {
-                return Err(format!(
-                    "Element found, but does not start at the expected place (){start:?} != {:?}).",
-                    element_range.start
-                )
-                .into());
-            }
-            if end != element_range.end {
-                return Err(format!(
-                    "Element found, but does not end at the expected place (){end:?} != {:?}).",
-                    element_range.end
-                )
-                .into());
-            }
-
-            let (result, edit) = properties::set_binding(
-                document_cache,
-                &uri,
-                &element,
-                &property_name,
-                new_expression,
-            )?;
-
-            if !dry_run {
-                if let Some(edit) = edit {
-                    let response = notifier
-                        .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
-                            lsp_types::ApplyWorkspaceEditParams {
-                                label: Some("set binding".into()),
-                                edit,
-                            },
-                        )?
-                        .await?;
-                    if !response.applied {
-                        return Err(response
-                            .failure_reason
-                            .unwrap_or("Operation failed, no specific reason given".into())
-                            .into());
-                    }
+    let (result, edit) = {
+        let document_cache = &mut ctx.document_cache.borrow_mut();
+        let uri = text_document.uri;
+        if let Some(source_version) = text_document.version {
+            if let Some(current_version) = document_cache.document_version(&uri) {
+                if current_version != source_version {
+                    return Err(
+                        "Document version mismatch. Please refresh your property information"
+                            .into(),
+                    );
                 }
+            } else {
+                return Err(
+                    format!("Document with uri {} not found in cache", uri.to_string()).into()
+                );
             }
-
-            Ok(serde_json::to_value(result).expect("Failed to serialize set_binding result!"))
-        } else {
-            Err("The element was found, but had no range defined!".into()).into()
         }
-    } else {
-        Err(format!("No element found at the given start position {:?}", &element_range.start)
-            .into())
+
+        let element = element_at_position(document_cache, &uri, &element_range.start).ok_or_else(
+            || -> Error {
+                format!("No element found at the given start position {:?}", &element_range.start)
+                    .into()
+            },
+        )?;
+        let node_range = element
+            .borrow()
+            .node
+            .as_ref()
+            .ok_or_else(|| -> Error { "The element was found, but had no range defined!".into() })?
+            .text_range();
+
+        let (start, end) = {
+            let mut offset_to_position = document_cache.offset_to_position_mapper(&uri);
+            (
+                offset_to_position.map(node_range.start().into()),
+                offset_to_position.map(node_range.end().into()),
+            )
+        };
+
+        if start != element_range.start {
+            return Err(format!(
+                "Element found, but does not start at the expected place (){start:?} != {:?}).",
+                element_range.start
+            )
+            .into());
+        }
+        if end != element_range.end {
+            return Err(format!(
+                "Element found, but does not end at the expected place (){end:?} != {:?}).",
+                element_range.end
+            )
+            .into());
+        }
+
+        properties::set_binding(document_cache, &uri, &element, &property_name, new_expression)?
+    };
+
+    if !dry_run {
+        if let Some(edit) = edit {
+            let response = ctx
+                .server_notifier
+                .send_request::<lsp_types::request::ApplyWorkspaceEdit>(
+                    lsp_types::ApplyWorkspaceEditParams { label: Some("set binding".into()), edit },
+                )?
+                .await?;
+            if !response.applied {
+                return Err(response
+                    .failure_reason
+                    .unwrap_or("Operation failed, no specific reason given".into())
+                    .into());
+            }
+        }
     }
+
+    Ok(serde_json::to_value(result).expect("Failed to serialize set_binding result!"))
 }
 
 #[cfg(feature = "preview")]
