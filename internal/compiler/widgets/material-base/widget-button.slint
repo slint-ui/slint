@@ -67,6 +67,8 @@ export Button := Rectangle {
             vertical-alignment: center;
             horizontal-alignment: center;
             font-weight: md.sys.typescale.label-large.weight;
+
+            animate color { duration: 250ms; easing: ease; }
         }
     }
 
@@ -79,15 +81,6 @@ export Button := Rectangle {
         }
         checked when root.checked: {      
             label.color: md.sys.color.on-primary;
-        }
-    ]
-
-    transitions [  
-        in checked: {
-            animate label.color { duration: 250ms; easing: ease; }
-        }
-        out checked: {
-            animate label.color { duration: 250ms; easing: ease; }
         }
     ]
 }
