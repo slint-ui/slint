@@ -214,7 +214,7 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
     // We are waiting in this loop for two kind of futures:
     //  - The compiler future should always be ready immediately because we do not set a callback to load files
     //  - the future from `send_request` are blocked waiting for a response from the client.
-    //    Responses are sent on the `connection.reciever` which will wake the loop, so there
+    //    Responses are sent on the `connection.receiver` which will wake the loop, so there
     //    is no need to do anything in the Waker.
     struct DummyWaker;
     impl std::task::Wake for DummyWaker {
@@ -270,7 +270,10 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
     Ok(())
 }
 
-async fn handle_notification(req: lsp_server::Notification, ctx: &Context) -> Result<(), Error> {
+async fn handle_notification(
+    req: lsp_server::Notification,
+    ctx: &Rc<Context>,
+) -> Result<(), Error> {
     match &*req.method {
         DidOpenTextDocument::METHOD => {
             let params: DidOpenTextDocumentParams = serde_json::from_value(req.params)?;
@@ -300,11 +303,7 @@ async fn handle_notification(req: lsp_server::Notification, ctx: &Context) -> Re
 
         #[cfg(feature = "preview")]
         "slint/showPreview" => {
-            show_preview_command(
-                req.params.as_array().map_or(&[], |x| x.as_slice()),
-                &ctx.server_notifier,
-                &ctx.document_cache.borrow().documents.compiler_config,
-            )?;
+            show_preview_command(req.params.as_array().map_or(&[], |x| x.as_slice()), ctx)?;
         }
         _ => (),
     }
