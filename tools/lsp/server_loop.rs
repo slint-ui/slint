@@ -377,11 +377,11 @@ pub fn show_preview_command(params: &[serde_json::Value], ctx: &Rc<Context>) -> 
     let connection = &ctx.server_notifier;
 
     use crate::preview;
-    let e = || -> Error { "InvalidParameter".into() };
+    let e = || "InvalidParameter";
     let path = if let serde_json::Value::String(s) = params.get(0).ok_or_else(e)? {
         std::path::PathBuf::from(s)
     } else {
-        return Err(e());
+        return Err(e().into());
     };
     let path_canon = dunce::canonicalize(&path).unwrap_or_else(|_| path.to_owned());
     let component = params.get(1).and_then(|v| v.as_str()).map(|v| v.to_string());
@@ -407,18 +407,16 @@ pub fn query_properties_command(
     use crate::properties;
 
     let text_document_uri = serde_json::from_value::<lsp_types::TextDocumentIdentifier>(
-        params.get(0).ok_or_else(|| -> Error { "No text document provided".into() })?.clone(),
+        params.get(0).ok_or_else(|| "No text document provided")?.clone(),
     )?
     .uri;
     let position = serde_json::from_value::<lsp_types::Position>(
-        params.get(1).ok_or_else(|| -> Error { "No position provided".into() })?.clone(),
+        params.get(1).ok_or_else(|| "No position provided")?.clone(),
     )?;
 
-    let source_version =
-        document_cache.document_version(&text_document_uri).ok_or_else(|| -> Error {
-            format!("Document with uri {} not found in cache.", text_document_uri.to_string())
-                .into()
-        })?;
+    let source_version = document_cache.document_version(&text_document_uri).ok_or_else(|| {
+        format!("Document with uri {} not found in cache.", text_document_uri.to_string())
+    })?;
 
     if let Some(element) = element_at_position(document_cache, &text_document_uri, &position) {
         properties::query_properties(document_cache, &text_document_uri, source_version, &element)
@@ -439,16 +437,16 @@ pub async fn set_binding_command(
     use crate::properties;
 
     let text_document = serde_json::from_value::<lsp_types::OptionalVersionedTextDocumentIdentifier>(
-        params.get(0).ok_or_else(|| -> Error { "No text document provided".into() })?.clone(),
+        params.get(0).ok_or_else(|| "No text document provided")?.clone(),
     )?;
     let element_range = serde_json::from_value::<lsp_types::Range>(
-        params.get(1).ok_or_else(|| -> Error { "No element range provided".into() })?.clone(),
+        params.get(1).ok_or_else(|| "No element range provided")?.clone(),
     )?;
     let property_name = serde_json::from_value::<String>(
-        params.get(2).ok_or_else(|| -> Error { "No property name provided".into() })?.clone(),
+        params.get(2).ok_or_else(|| "No property name provided")?.clone(),
     )?;
     let new_expression = serde_json::from_value::<String>(
-        params.get(3).ok_or_else(|| -> Error { "No expression provided".into() })?.clone(),
+        params.get(3).ok_or_else(|| "No expression provided")?.clone(),
     )?;
     let dry_run = {
         if let Some(p) = params.get(4) {
@@ -476,17 +474,15 @@ pub async fn set_binding_command(
             }
         }
 
-        let element = element_at_position(document_cache, &uri, &element_range.start).ok_or_else(
-            || -> Error {
+        let element =
+            element_at_position(document_cache, &uri, &element_range.start).ok_or_else(|| {
                 format!("No element found at the given start position {:?}", &element_range.start)
-                    .into()
-            },
-        )?;
+            })?;
         let node_range = element
             .borrow()
             .node
             .as_ref()
-            .ok_or_else(|| -> Error { "The element was found, but had no range defined!".into() })?
+            .ok_or_else(|| "The element was found, but had no range defined!")?
             .text_range();
 
         let (start, end) = {
