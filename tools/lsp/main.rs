@@ -1,8 +1,6 @@
 // Copyright © SixtyFPS GmbH <info@slint-ui.com>
 // SPDX-License-Identifier: GPL-3.0-only OR LicenseRef-Slint-commercial
 
-// cSpell: ignore reciever
-
 #![cfg(not(target_arch = "wasm32"))]
 
 mod completion;
@@ -216,7 +214,7 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
     // We are waiting in this loop for two kind of futures:
     //  - The compiler future should always be ready immediately because we do not set a callback to load files
     //  - the future from `send_request` are blocked waiting for a response from the client.
-    //    Responses are sent on the `connection.reciever` (sp!) which will wake the loop, so there
+    //    Responses are sent on the `connection.receiver` which will wake the loop, so there
     //    is no need to do anything in the Waker.
     struct DummyWaker;
     impl std::task::Wake for DummyWaker {
@@ -228,8 +226,7 @@ fn main_loop(connection: &Connection, params: serde_json::Value) -> Result<(), E
         Poll::Pending => futures.push(first_future),
     };
 
-    for msg in &connection.reciever {
-        // Spelling!
+    for msg in &connection.receiver {
         match msg {
             Message::Request(req) => {
                 if connection.handle_shutdown(&req)? {
