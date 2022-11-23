@@ -204,7 +204,7 @@ export ScrollView := Rectangle {
     out property <length> visible-width <=> fli.width;
     out property <length> visible-height <=> fli.height;
     in property <bool> enabled: true;
-    // FIXME: internal
+    // FIXME: remove. This property is currently set by the ListView and is used by the native style to draw the scrollbar differently when it has focus
     property <bool> has-focus;
     min-height: 50px;
     min-width: 50px;
