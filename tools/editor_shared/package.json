@@ -5,8 +5,9 @@
     "main": "dist/properties.js",
     "types": "dist/properties.d.ts",
     "scripts": {
-        "build": "npm run clean ; tsc --build",
+        "build": "npm run clean ; npm run compile",
         "clean": "rimraf dist",
+        "compile": "tsc --build",
         "lint": "eslint .",
         "syntax_check": "tsc --force --noEmit",
         "test": "echo \"Error: no test specified\" && exit 1"

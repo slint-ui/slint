@@ -18,10 +18,15 @@ export function set_client(c: BaseLanguageClient) {
 }
 
 export class PropertiesViewProvider implements vscode.WebviewViewProvider {
+    #current_uri = "";
+    #current_version = -1;
+    #current_cursor_line = -1;
+    #current_cursor_character = -1;
+    #current_language = "";
+
     public static readonly viewType = "slint.propertiesView";
 
     private _view?: vscode.WebviewView;
-    private property_shown: boolean = false;
 
     constructor(private readonly _extensionUri: vscode.Uri) {}
 
@@ -40,6 +45,11 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
         };
 
         webviewView.webview.html = this._getHtmlForWebview(webviewView.webview);
+
+        webviewView.webview.postMessage({
+            command: "show_welcome",
+            message: "Waiting for Slint LSP",
+        });
 
         webviewView.webview.onDidReceiveMessage((data) => {
             switch (data.command) {
@@ -83,34 +93,114 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
 
         vscode.window.onDidChangeTextEditorSelection(
             async (event: vscode.TextEditorSelectionChangeEvent) => {
-                if (event.selections.length === 0 || client === null) {
+                if (event.selections.length === 0) {
                     return;
                 }
-                if (event.textEditor.document.languageId !== "slint") {
-                    if (this.property_shown) {
-                        webviewView.webview.postMessage({ command: "clear" });
-                        this.property_shown = false;
-                    }
-                    return;
-                }
-                let selection = event.selections[0];
+                const selection = event.selections[0];
+                const doc = event.textEditor.document;
+                const uri = doc.uri.toString();
+                const version = doc.version;
 
-                query_properties(
-                    client,
-                    event.textEditor.document.uri,
-                    {
-                        line: selection.active.line,
-                        character: selection.active.character,
-                    },
-                    (p) => {
-                        const msg = {
-                            command: "set_properties",
-                            properties: p,
-                        };
-                        webviewView.webview.postMessage(msg);
-                    },
+                if (
+                    this.#current_uri === uri &&
+                    this.#current_version === version &&
+                    this.#current_cursor_line === selection.active.line &&
+                    this.#current_cursor_character ===
+                        selection.active.character
+                ) {
+                    return;
+                }
+                this.update_view(
+                    doc.languageId,
+                    uri,
+                    version,
+                    selection.active.line,
+                    selection.active.character,
                 );
-                this.property_shown = true;
+            },
+        );
+        vscode.window.onDidChangeActiveTextEditor(
+            async (editor: vscode.TextEditor | undefined) => {
+                if (editor === undefined) {
+                    this.update_view("No buffer!", "", -1, -1, -1);
+                    return;
+                }
+
+                const doc = editor.document;
+                const selection = editor?.selection;
+                const uri = doc.uri.toString();
+                const version = doc.version;
+                if (
+                    this.#current_uri === uri &&
+                    this.#current_version === version &&
+                    this.#current_cursor_line === selection.active.line &&
+                    this.#current_cursor_character ===
+                        selection.active.character
+                ) {
+                    return;
+                }
+                this.update_view(
+                    doc.languageId,
+                    uri,
+                    version,
+                    selection.active.line,
+                    selection.active.character,
+                );
+            },
+        );
+    }
+
+    refresh_view() {
+        this.update_view(
+            this.#current_language,
+            this.#current_uri,
+            this.#current_version,
+            this.#current_cursor_line,
+            this.#current_cursor_character,
+        );
+    }
+
+    private update_view(
+        language: string,
+        uri: string,
+        version: number,
+        line: number,
+        character: number,
+    ) {
+        this.#current_uri = uri;
+        this.#current_version = version;
+        this.#current_cursor_line = line;
+        this.#current_cursor_character = character;
+        this.#current_language = language;
+
+        if (this._view === null) {
+            return;
+        }
+        if (language !== "slint") {
+            this._view?.webview.postMessage({
+                command: "show_welcome",
+                message: "The active editor does not contain a Slint file.",
+            });
+            return;
+        }
+        if (client === null) {
+            this._view?.webview.postMessage({
+                command: "show_welcome",
+                message: "Waiting for Slint LSP",
+            });
+            return;
+        }
+
+        query_properties(
+            client,
+            uri,
+            { line: line, character: character },
+            (p) => {
+                const msg = {
+                    command: "set_properties",
+                    properties: p,
+                };
+                this._view?.webview.postMessage(msg);
             },
         );
     }
@@ -148,6 +238,13 @@ export class PropertiesViewProvider implements vscode.WebviewViewProvider {
                 --default-font: 12px Helvetica, Arial, sans-serif;
             }
 
+            .properties-editor {
+                padding-top: 10px;
+            }
+
+            .properties-editor .welcome-page {
+                color: var(--vscode-disabledForeground);
+            }
 
             .properties-editor .element-header {
                 background: var(--highlight-bg);

@@ -29,6 +29,7 @@ export const serverStatus = new NotificationType<ServerStatusParams>(
 
 let client: LanguageClient;
 let statusBar: vscode.StatusBarItem;
+let properties_provider: PropertiesViewProvider;
 
 const program_extension = process.platform === "win32" ? ".exe" : "";
 
@@ -153,6 +154,7 @@ function startClient(context: vscode.ExtensionContext) {
     client.start();
     let initClient = () => {
         set_client(client);
+        properties_provider.refresh_view();
         client.onNotification(serverStatus, (params) =>
             setServerStatus(params, statusBar),
         );
@@ -190,9 +192,7 @@ export function activate(context: vscode.ExtensionContext) {
         }),
     );
 
-    const properties_provider = new PropertiesViewProvider(
-        context.extensionUri,
-    );
+    properties_provider = new PropertiesViewProvider(context.extensionUri);
     context.subscriptions.push(
         vscode.window.registerWebviewViewProvider(
             PropertiesViewProvider.viewType,

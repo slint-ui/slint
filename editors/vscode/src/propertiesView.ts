@@ -57,13 +57,8 @@ document.body.appendChild(node);
 window.addEventListener("message", async (event) => {
     if (event.data.command === "set_properties") {
         view.set_properties(event.data.properties);
-    } else if (event.data.command === "clear") {
-        view.set_properties({
-            element: null,
-            properties: [],
-            source_uri: "",
-            source_version: 0,
-        });
+    } else if (event.data.command === "show_welcome") {
+        view.show_welcome(event.data.message ?? "Something went wrong");
     } else if (event.data.command === "set_binding_response") {
         set_binding_response = event.data.response;
     }
