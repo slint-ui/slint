@@ -291,9 +291,8 @@ impl<const MAX_BUFFER_AGE: usize> Renderer for SoftwareRenderer<MAX_BUFFER_AGE> 
         items: &mut dyn Iterator<Item = Pin<crate::items::ItemRef<'_>>>,
     ) {
         for item in items {
-            let cache_entry =
+            let _ =
                 item.cached_rendering_data_offset().release(&mut self.partial_cache.borrow_mut());
-            drop(cache_entry);
         }
     }
 
