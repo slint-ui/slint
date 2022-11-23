@@ -6,11 +6,12 @@
 
 use slint_interpreter::ComponentHandle;
 use slint_interpreter::Model;
+use slint_interpreter::ModelRc;
+use slint_interpreter::VecModel;
 use std::path::Path;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
-#[allow(dead_code)]
 pub struct CompilationResult {
     component: Option<WrappedCompiledComp>,
     diagnostics: js_sys::Array,
@@ -171,6 +172,22 @@ impl WrappedCompiledComp {
     ) -> Result<WrappedInstance, JsValue> {
         Ok(WrappedInstance(self.0.create_with_existing_window(instance.0.window())))
     }
+    #[wasm_bindgen]
+    pub fn properties(&self) -> js_sys::Array {
+        self.0
+            .properties_and_callbacks()
+            .filter(|(_, prop_type)| prop_type.is_property_type())
+            .map(|(p, _)| JsValue::from(p))
+            .collect()
+    }
+    #[wasm_bindgen]
+    pub fn callbacks(&self) -> js_sys::Array {
+        self.0
+            .properties_and_callbacks()
+            .filter(|(_, prop_type)| !prop_type.is_property_type())
+            .map(|(p, _)| JsValue::from(p))
+            .collect()
+    }
 }
 
 #[wasm_bindgen]
@@ -281,6 +298,13 @@ fn to_eval_value(value: JsValue) -> Result<slint_interpreter::Value, JsValue> {
         Ok(Value::String(v.into()))
     } else if let Some(v) = value.as_f64() {
         Ok(Value::Number(v))
+    } else if js_sys::Array::is_array(&value) {
+        Ok(Value::Model(ModelRc::new(VecModel::from(
+            js_sys::Array::from(&value)
+                .iter()
+                .map(|v| to_eval_value(v))
+                .collect::<Result<Vec<slint_interpreter::Value>, _>>()?,
+        ))))
     } else if let Some(v) = js_sys::Object::try_from(&value) {
         let mut s = slint_interpreter::Struct::default();
         for k in js_sys::Reflect::own_keys(&value)?.iter() {
