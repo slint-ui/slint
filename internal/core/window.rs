@@ -447,7 +447,7 @@ impl WindowInner {
     /// currently focused item.
     pub fn set_focus_item(&self, focus_item: &ItemRc) {
         let old = self.take_focus_item();
-        let new = self.clone().move_focus(focus_item.clone(), next_focus_item);
+        let new = self.move_focus(focus_item.clone(), next_focus_item);
         self.window_adapter().handle_focus_change(old, new);
     }
 
