@@ -45,13 +45,13 @@ export LineEditInner := Rectangle {
 }
 
 export TextEdit := ScrollView {
-    property <length> font-size <=> input.font-size;
-    property <string> text <=> input.text;
+    in property <length> font-size <=> input.font-size;
+    in-out property <string> text <=> input.text;
     has-focus: input.has-focus;
     enabled <=> input.enabled;
-    property <TextWrap> wrap <=> input.wrap;
-    property horizontal-alignment <=> input.horizontal-alignment;
-    property read-only <=> input.read-only;
+    in property <TextWrap> wrap <=> input.wrap;
+    in property horizontal-alignment <=> input.horizontal-alignment;
+    in property read-only <=> input.read-only;
     callback edited(string);
     forward-focus: input;
 

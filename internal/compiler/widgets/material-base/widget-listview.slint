@@ -12,8 +12,8 @@ export ListView := ScrollView {
 
 // Like `ListView`, but with a default delegate, and a `model` property which is a model of type `StandardListViewItem`.
 export StandardListView := ListView {
-    property<[StandardListViewItem]> model;
-    property<int> current-item: -1;
+    in property<[StandardListViewItem]> model;
+    in-out property<int> current-item: -1;
 
     for item[idx] in model : Item {
         selected: idx == root.current-item;

@@ -13,14 +13,14 @@ SpinBoxButton := Rectangle {
 
     width: height;
 
-    container := Rectangle {  
+    container := Rectangle {
         width: 100%;
         height: 100%;
         border-radius: max(width, height) / 2;
         background: md.sys.color.primary;
     }
 
-    state-layer := Rectangle {  
+    state-layer := Rectangle {
         opacity: 0;
         width: container.width;
         height: container.height;
@@ -29,7 +29,7 @@ SpinBoxButton := Rectangle {
         animate opacity { duration: 250ms; easing: ease; }
      }
 
-    Rectangle {  
+    Rectangle {
         width: 100%;
         height: 100%;
         @children
@@ -48,7 +48,7 @@ SpinBoxButton := Rectangle {
             state-layer.opacity: 0.12;
         }
         hover when touch.has-hover : {
-            state-layer.opacity: 0.08;    
+            state-layer.opacity: 0.08;
         }
     ]
 }
@@ -56,11 +56,11 @@ SpinBoxButton := Rectangle {
 // Increment and decrement a value in the given range.
 export SpinBox := FocusScope {
     property <bool> checked;
-    property <int> value;
-    property <int> minimum;
-    property <int> maximum: 100;
-    property <image> icon;
-    property <length> font-size <=> label.font-size;
+    in-out property <int> value;
+    in property <int> minimum;
+    in property <int> maximum: 100;
+    in property <image> icon;
+    in property <length> font-size <=> label.font-size;
 
     horizontal-stretch: 1;
     vertical-stretch: 0;
@@ -81,7 +81,7 @@ export SpinBox := FocusScope {
         border-color: md.sys.color.outline;
     }
 
-    layout := HorizontalLayout {  
+    layout := HorizontalLayout {
         padding-top: 8px;
         padding-bottom: 8px;
         padding-left: 16px;
@@ -96,14 +96,14 @@ export SpinBox := FocusScope {
             // FIXME after Roboto font can be loaded
             //font-family: md.sys.typescale.body-large.font;
             font-size: md.sys.typescale.body-large.size;
-            font-weight: md.sys.typescale.body-large.weight;    
+            font-weight: md.sys.typescale.body-large.weight;
         }
 
-        VerticalLayout {  
+        VerticalLayout {
             spacing: 4px;
             SpinBoxButton {
                 enabled: root.enabled;
-        
+
                 Path {
                     x: (parent.width - width) / 2;
                     y: (parent.height - height) / 2;
@@ -122,7 +122,7 @@ export SpinBox := FocusScope {
                     root.focus();
                 }
             }
-    
+
             SpinBoxButton {
                 enabled: root.enabled;
 
@@ -145,7 +145,7 @@ export SpinBox := FocusScope {
                     root.focus();
                 }
             }
-        } 
+        }
     }
 
     key-pressed(event) => {

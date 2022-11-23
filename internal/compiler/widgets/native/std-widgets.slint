@@ -9,6 +9,7 @@ export { StyleMetrics, ScrollView, TextEdit, AboutSlint, AboutSlint as AboutSixt
 
 // FIXME: the font-size should be removed but is required right now to compile the printer-demo
 export Button := NativeButton {
+    // FIXME: remove
     property<length> font-size;
     accessible-checkable <=> checkable;
     accessible-checked <=> checked;
@@ -19,7 +20,7 @@ export Button := NativeButton {
 }
 
 export StandardButton := NativeButton {
-    property<StandardButtonKind> kind <=> self.standard-button-kind;
+    in property<StandardButtonKind> kind <=> self.standard-button-kind;
     accessible-checkable <=> checkable;
     accessible-checked <=> checked;
     accessible-label <=> text;
@@ -35,6 +36,7 @@ export CheckBox := NativeCheckBox {
     accessible-role: checkbox;
 }
 export SpinBox := NativeSpinBox {
+    // FIXME: remove
     property<length> font-size;
 
     accessible-role: spinbox;
@@ -52,7 +54,7 @@ export Slider := NativeSlider {
     accessible-value-maximum: maximum;
     accessible-value-step: (maximum - minimum) / 100;
 
-    property <bool> has-focus: fs.has-focus;
+    out property <bool> has-focus: fs.has-focus;
 
     fs := FocusScope {
         width: 0px;
@@ -83,12 +85,12 @@ export GroupBox := NativeGroupBox {
 }
 
 export LineEdit := NativeLineEdit {
-    property <length> font-size <=> inner.font-size;
-    property <string> text <=> inner.text;
-    property <string> placeholder-text <=> inner.placeholder-text;
-    property input-type <=> inner.input-type;
-    property horizontal-alignment <=> inner.horizontal-alignment;
-    property read-only <=> inner.read-only;
+    in property <length> font-size <=> inner.font-size;
+    in-out property <string> text <=> inner.text;
+    in property <string> placeholder-text <=> inner.placeholder-text;
+    in property input-type <=> inner.input-type;
+    in property horizontal-alignment <=> inner.horizontal-alignment;
+    in property read-only <=> inner.read-only;
     enabled: true;
     has-focus: inner.has-focus;
     forward-focus: inner;
@@ -114,8 +116,8 @@ export ListView := ScrollView {
 }
 
 export StandardListView := ListView {
-    property<[StandardListViewItem]> model;
-    property<int> current-item: -1;
+    in property<[StandardListViewItem]> model;
+    in-out property<int> current-item: -1;
     for item[i] in model : NativeStandardListViewItem {
         item: item;
         index: i;
@@ -141,8 +143,8 @@ export StandardListView := ListView {
 }
 
 export ComboBox := NativeComboBox {
-    property <[string]> model;
-    property <int> current-index : -1;
+    in property <[string]> model;
+    in-out property <int> current-index : -1;
     enabled: true;
     open-popup => { popup.show(); }
     callback selected(string);

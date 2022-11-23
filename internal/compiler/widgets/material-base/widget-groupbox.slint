@@ -5,10 +5,10 @@ import { md } from "md.slint";
 
 // A container widget with a title.
 export GroupBox := Rectangle {
-    property <string> title <=> label.text;
-    property<bool> enabled: true;
+    in property <string> title <=> label.text;
+    in property<bool> enabled: true;
 
-    VerticalLayout {  
+    VerticalLayout {
         padding-top: label-container.height + 16px;
         padding-left: 16px;
         padding-right: 16px;
@@ -31,12 +31,12 @@ export GroupBox := Rectangle {
         height: parent.height - label-container.height / 2;
     }
 
-    label-container := Rectangle { 
+    label-container := Rectangle {
         x: 8px;
         width: label.width + 8px;
         height: label.height + 8px;
         background: md.sys.color.background;
-    
+
         label := Text {
             x: 4px;
             y: 4px;

@@ -6,9 +6,9 @@ import { md } from "md.slint";
 import { Item } from "widget-item.slint";
 
 export ComboBox := FocusScope {
-    property <[string]> model;
-    property <int> current-index : 0;
-    property <string> current-value: model[current-index];
+    in property <[string]> model;
+    in-out property <int> current-index : 0;
+    in-out property <string> current-value: model[current-index];
     callback selected(string);
 
     accessible-role: combobox;
@@ -27,7 +27,7 @@ export ComboBox := FocusScope {
         border-color: md.sys.color.outline;
     }
 
-    layout := HorizontalLayout {  
+    layout := HorizontalLayout {
         padding-left: 16px;
         padding-right: 12px;
         spacing: 16px;
@@ -40,7 +40,7 @@ export ComboBox := FocusScope {
             // FIXME after Roboto font can be loaded
             // font-family: md.sys.typescale.body-large.font;
             font-size: md.sys.typescale.body-large.size;
-            font-weight: md.sys.typescale.body-large.weight;    
+            font-weight: md.sys.typescale.body-large.weight;
         }
 
         icon := Path {
@@ -72,8 +72,8 @@ export ComboBox := FocusScope {
             border-radius: 4px;
         }
 
-        VerticalLayout {  
-            for value[idx] in root.model: Item { 
+        VerticalLayout {
+            for value[idx] in root.model: Item {
                 text: value;
                 selected: idx == root.current-index;
                 clicked => {

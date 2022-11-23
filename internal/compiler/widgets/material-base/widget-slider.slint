@@ -6,15 +6,15 @@ import { md } from "md.slint";
 
 // Allows to select a value from a range of values.
 export Slider := Rectangle {
-    property<float> maximum: 100;
-    property<float> minimum: 0;
-    property<float> value;
-    property<bool> has-focus: fs.has-focus;
-    property<bool> enabled <=> touch.enabled;
+    in property<float> maximum: 100;
+    in property<float> minimum: 0;
+    in-out property<float> value;
+    out property<bool> has-focus: fs.has-focus;
+    in property<bool> enabled <=> touch.enabled;
     callback changed(float);
 
     height: 20px;
-    
+
     accessible-role: slider;
     accessible-value: value;
     accessible-value-minimum: minimum;
@@ -66,7 +66,7 @@ export Slider := Rectangle {
 
     touch := TouchArea {
         property <float> pressed-value;
-        property <bool> handle-hover: has-hover && mouse-x >= handle.x && mouse-x <= handle.x + handle.width 
+        property <bool> handle-hover: has-hover && mouse-x >= handle.x && mouse-x <= handle.x + handle.width
             && mouse-y >= handle.y && mouse-y <= handle.y + handle.height;
         pointer-event(event) => {
             if (event.button == PointerEventButton.left && event.kind == PointerEventKind.down) {
@@ -112,7 +112,7 @@ export Slider := Rectangle {
         }
         hover when touch.handle-hover : {
             state-layer.background: md.sys.color.on-surface;
-            state-layer.opacity: 0.08;    
+            state-layer.opacity: 0.08;
         }
     ]
 }
