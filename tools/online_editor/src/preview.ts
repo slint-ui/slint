@@ -80,7 +80,17 @@ export Demo := Window {
         }
 
         if (component !== undefined) {
-            component.run(canvas_id);
+            let instance = component.create(canvas_id);
+            instance.show();
+
+            if (script) {
+                let api_instance = create_instance(component, instance);
+
+                let f = eval(cleanup_script(script));
+                f(api_instance);
+            }
+
+            slint.run_event_loop();
         }
     }
 
@@ -89,12 +99,83 @@ export Demo := Window {
     const load_url = params.get("load_url");
     const style = params.get("style") || "";
 
+    let script = params.get("script");
+
     if (code) {
         main_source = code;
     } else if (load_url) {
         base_url = load_url;
-        const response = await fetch(load_url);
-        main_source = await response.text();
+        const response = fetch(load_url).then(r => r.text());
+        const script_url = params.get("script_url");
+        if (script_url) {
+            script = await fetch(script_url).then(r => r.text());
+        }
+        main_source = await response;
     }
     update_preview();
 })();
+
+
+function cleanup_script(script: string): string {
+    let match = script.match(/let\s+(\w+)\s*=\s*require\(\s*["'][^"'\n]*\.slint["']/);
+    script = script.replace(/^#![^\n]*\n/, "");
+    if (match && match[1]) {
+        let re = new RegExp("let\\s+(\\w+)\\s*=\\s*new\\s*" + match[1] + "\\s*\\.\\s*\\w+\\(\\);?");
+        let m = script.match(re);
+        if (m && m[1]) {
+            script = script.replace(re, "");
+            script = "let " + m[1] + " = slint;\n" + script;
+        }
+    }
+    script = script.replace(/let\s+(\w+)\s*=\s*require\([^)\n]*\)[;\n]/g, "");
+    return "(function(slint) { " + script + " })";
+}
+
+
+// FIXME: this should be in slint itself
+function create_instance(c: slint.WrappedCompiledComp, comp: slint.WrappedInstance): any {
+    class Component {
+        protected comp: any;
+
+        constructor(comp: any) {
+            this.comp = comp;
+        }
+
+        run() {
+            this.show();
+        }
+
+        show() {
+            this.comp.show();
+        }
+
+        hide() {
+            this.comp.hide()
+        }
+    }
+
+    interface Callback {
+        (): any;
+        setHandler(cb: any): void;
+    }
+
+    let ret = new Component(comp);
+    c.properties().forEach((x: string) => {
+        Object.defineProperty(ret, x.replace(/-/g, '_'), {
+            get() { return comp.get_property(x); },
+            set(newValue) { comp.set_property(x, newValue); },
+            enumerable: true,
+        })
+    });
+    c.callbacks().forEach((x: string) => {
+        Object.defineProperty(ret, x.replace(/-/g, '_'), {
+            get() {
+                let callback = function () { return comp.invoke_callback(x, [...arguments]); } as Callback;
+                callback.setHandler = function (callback) { comp.set_callback(x, callback) };
+                return callback;
+            },
+            enumerable: true,
+        })
+    });
+    return ret;
+}
