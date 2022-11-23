@@ -1,0 +1,37 @@
+{
+    "name": "slint-editor-shared",
+    "version": "0.3.2",
+    "description": "Code to support Slint editor plugins (typescript)",
+    "main": "dist/properties.js",
+    "types": "dist/properties.d.ts",
+    "scripts": {
+        "build": "npm run clean ; tsc --build",
+        "clean": "rimraf dist",
+        "lint": "eslint .",
+        "syntax_check": "tsc --force --noEmit",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/slint-ui/slint.git"
+    },
+    "author": "",
+    "license": "GPL-3.0-only OR LicenseRef-Slint-commercial",
+    "bugs": {
+        "url": "https://github.com/slint-ui/slint/issues"
+    },
+    "homepage": "https://slint-ui.com/",
+    "dependencies": {
+        "vscode-languageclient": "^8.0.2",
+        "vscode-languageserver-protocol": "^3.17.2",
+        "vscode-languageserver-types": "^3.17.2"
+    },
+    "devDependencies": {
+        "@types/vscode": "^1.70.0",
+        "@typescript-eslint/eslint-plugin": "^5.44.0",
+        "@typescript-eslint/parser": "^5.44.0",
+        "eslint": "^8.28.0",
+        "rimraf": "^3.0.2",
+        "typescript": "^4.9.3"
+    }
+}

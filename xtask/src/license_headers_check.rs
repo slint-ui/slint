@@ -312,6 +312,7 @@ lazy_static! {
         ("\\.license$", LicenseLocation::NoLicense),
         ("\\.md$", LicenseLocation::NoLicense),
         ("\\.mjs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
+        ("\\.npmignore$", LicenseLocation::NoLicense),
         ("\\.png$", LicenseLocation::NoLicense),
         ("\\.rs$", LicenseLocation::Tag(LicenseTagStyle::c_style_comment_style())),
         ("\\.rst$", LicenseLocation::Tag(LicenseTagStyle::rst_comment_style())),

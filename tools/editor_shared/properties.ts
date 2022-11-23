@@ -119,7 +119,7 @@ export class PropertiesView {
 
     node: HTMLElement;
     /// Callback called when the property is clicked
-    property_clicked: PropertyClickedCallback = (_) => {
+    property_clicked: PropertyClickedCallback = () => {
         return;
     };
 
@@ -210,7 +210,7 @@ export class PropertiesView {
                 const error_class = "value-has-error";
                 const warn_class = "value-has-warning";
 
-                input.addEventListener("focus", (_) => {
+                input.addEventListener("focus", () => {
                     if (FOCUSING) {
                         FOCUSING = false;
                     } else {
@@ -219,7 +219,7 @@ export class PropertiesView {
                         input.focus();
                     }
                 });
-                input.addEventListener("input", (_) => {
+                input.addEventListener("input", () => {
                     const current_text = input.value;
                     if (current_text != code_text) {
                         input.classList.add(changed_class);
@@ -255,7 +255,7 @@ export class PropertiesView {
                         });
                     }
                 });
-                input.addEventListener("change", (_) => {
+                input.addEventListener("change", () => {
                     const current_text = input.value;
                     if (current_text != code_text && element_range != null) {
                         this.#binding_editor(

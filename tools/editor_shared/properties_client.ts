@@ -44,7 +44,7 @@ export async function change_property(
         console.log("Returning from LSP:", result.diagnostics);
         return result;
     }
-    return new Promise((accept, _) => accept({ diagnostics: [] }));
+    return new Promise((accept) => accept({ diagnostics: [] }));
 }
 
 export function query_properties(

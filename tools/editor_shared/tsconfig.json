@@ -1,0 +1,18 @@
+{
+    "compilerOptions": {
+        "baseUrl": "./node_modules",
+        "declaration": true,
+        "declarationMap": true,
+        "esModuleInterop": true,
+        "lib": ["dom", "es2020"],
+        "module": "esnext",
+        "moduleResolution": "node",
+        "outDir": "./dist",
+        "rootDir": ".",
+        "strict": true,
+        "target": "es6",
+        "typeRoots": ["./node_modules/@types"],
+        "types": ["vscode"]
+    },
+    "include": ["./*.ts"]
+}
