@@ -534,7 +534,7 @@ pub enum WindowEvent {
     KeyReleased {
         // FIXME: use SharedString instead of char (breaking change)
         /// The unicode representation of the key released.
-        ///   ///
+        ///
         /// # Example
         /// A specific key can be mapped to a unicode by using the `Key` enum
         /// ```rust
