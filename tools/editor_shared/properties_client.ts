@@ -56,5 +56,5 @@ export async function query_properties(
             arguments: [{ uri: uri.toString() }, position],
         } as ExecuteCommandParams);
     }
-    return new Promise((_, reject) => reject("No client set"));
+    return Promise.reject("No client set");
 }
